@@ -114,9 +114,15 @@ function rbAccentFor(index) {
    accordion row and a tab panel are visibly the same object. */
 const RB_CARD = "overflow-hidden rounded-rb-card border-2 border-rb-swan bg-rb-snow"
 
-/* The numbered tile that opens a middle-category row. */
+/* The numbered tile that opens an accordion item or a tab panel.
+
+   36px, not the curriculum row's 44px. The row it borrows from is a whole
+   topic's entry point with two lines of text beside it; here the same tile sat
+   against a single line of title inside a lesson, where it was the largest
+   thing in the block and read as the point of it. Same shape and colour, one
+   step down, so the two still rhyme without this one shouting. */
 const RB_INDEX_CHIP =
-  "grid size-11 shrink-0 place-items-center rounded-2xl font-rb-display text-base font-extrabold"
+  "grid size-9 shrink-0 place-items-center rounded-xl font-rb-display text-sm font-extrabold"
 
 /**
  * Whether a stored media reference is already a URL a browser can load.
@@ -499,7 +505,12 @@ function SectionIntro({ smallHeader, description, accent = ACCENTS[0] }) {
               {smallHeader}
             </p>
         ) : null}
-        {renderText(description, "mt-2 text-base leading-8 text-muted-foreground")}
+        {/* The lesson's own body size and colour. This was 16px in
+            muted-foreground while the description block beside it was 17px in
+            foreground/85 -- the same prose, set two ways, so a section's
+            opening paragraph read as a caption for the section rather than as
+            the start of it. */}
+        {renderText(description, "mt-2 text-[17px] leading-8 text-foreground/85")}
       </div>
   )
 }
@@ -680,7 +691,10 @@ function FlipCard({ frontTitle, backTitle, description, accent = ACCENTS[0] }) {
             <p className={`font-heading font-semibold ${accent.text}`}>
               {frontTitle ?? backTitle}
             </p>
-            <p className="mt-2 text-[15px] leading-6 text-muted-foreground">{description}</p>
+            {/* Not muted-foreground: on the tinted back face that is grey on
+                a wash, the weakest contrast in the lesson, and it is the only
+                text the card exists to show. */}
+            <p className="mt-2 text-[15px] leading-6 text-foreground/85">{description}</p>
           </Card>
         </motion.div>
       </button>
@@ -929,8 +943,12 @@ function ImageHotspotBlock({ data, accent }) {
                     {openHotspot.title}
                   </h3>
 
+                  {/* The panel itself stays a panel -- it is the one region on
+                      the page that changes with what you clicked, and the tint
+                      is what ties it to the pin. Only the copy inside it comes
+                      back to the lesson's own reading colour. */}
                   {openHotspot.description ? (
-                      <p className="mt-2 leading-7 text-muted-foreground">
+                      <p className="mt-2 leading-7 text-foreground/85">
                         {openHotspot.description}
                       </p>
                   ) : null}
@@ -1152,8 +1170,11 @@ function LessonTool({ tool, index = 0 }) {
   }
 
   if (tool.type === "intro-image-card") {
+    /* No card. An intro and a figure are the opening of a section, not an
+       aside about one -- boxing them in a tinted panel with an accent edge
+       made the lesson's own introduction look like a callout inside itself. */
     return (
-        <Card className={`!border-t-4 p-6 ${accent.border} ${accent.bgSoft}`}>
+        <div className="space-y-4">
           <SectionIntro smallHeader={data.smallHeader} description={data.description} accent={accent} />
           {data.imageKey ? (
               <div>
@@ -1169,7 +1190,7 @@ function LessonTool({ tool, index = 0 }) {
                 />
               </div>
           ) : null}
-        </Card>
+        </div>
     )
   }
 
@@ -1179,28 +1200,37 @@ function LessonTool({ tool, index = 0 }) {
           <SectionIntro smallHeader={data.smallHeader} description={data.description} accent={accent} />
           {tool.type === "image-feature-grid" && data.imageKey ? (
               <div>
+                {/* The same 16:9 box as every other figure in a lesson. A
+                    `max-h` let this one size itself to whatever it happened to
+                    be, which is what made two images in a row look mismatched. */}
                 <LessonImage
                     imageKey={data.imageKey}
-                    className="max-h-[420px] w-full rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-muted object-contain"
+                    className="aspect-video w-full rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-muted object-contain"
                     sourceUrl={data.imageSourceUrl}
                     sourceName={data.imageSourceName}
                 />
               </div>
           ) : null}
-          <div className="grid auto-rows-fr gap-4 sm:grid-cols-2">
+
+          {/* A set of parallel points, set as prose in two columns.
+
+              Each was a tinted card with a 4px accent edge, and `auto-rows-fr`
+              held every one of them at the tallest one's height -- so a grid of
+              six, where one item ran long, was six boxes of mostly empty tinted
+              space. The title is the structure here; it does not need a frame
+              to be found, and letting each item take its own height is what
+              removes the dead space. The accent survives on the title, which is
+              the one place it distinguishes anything. */}
+          <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
             {(data.gridItems ?? []).map((item, itemIndex) => {
               const itemAccent = accentFor(itemIndex)
               return (
-                  <Card
-                      key={item.id ?? itemIndex}
-                      size="sm"
-                      className={`!border-t-4 p-4 transition ${itemAccent.border} ${itemAccent.bgSoft}`}
-                  >
-                    <h4 className="font-heading font-semibold text-foreground">{item.title}</h4>
-                    <p className="mt-2 text-[15px] leading-6 text-muted-foreground">
+                  <div key={item.id ?? itemIndex} className="min-w-0">
+                    <h4 className={`font-semibold ${itemAccent.text}`}>{item.title}</h4>
+                    <p className="mt-1.5 text-[15px] leading-6 text-foreground/85">
                       {item.description}
                     </p>
-                  </Card>
+                  </div>
               )
             })}
           </div>
@@ -1263,35 +1293,38 @@ function LessonTool({ tool, index = 0 }) {
             <LessonImage
                 imageKey={data.imageKey}
                 alt={data.supportingTitle ?? ""}
-                className="h-full min-h-72 w-full rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-muted object-contain"
+                className="aspect-video w-full rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-muted object-contain"
                 sourceUrl={data.imageSourceUrl}
                 sourceName={data.imageSourceName}
             />
         ) : (
-            <div className="flex h-full min-h-72 items-center justify-center rounded-[var(--radius-rb-tile)] border-2 border-dashed border-border bg-muted text-muted-foreground">
+            <div className="flex aspect-video w-full items-center justify-center rounded-[var(--radius-rb-tile)] border-2 border-dashed border-border bg-muted text-muted-foreground">
               No media
             </div>
         )
 
+    /* Prose beside the media, for the same reason the image-left/right blocks
+       carry theirs that way: a caption does not need a frame to be read as
+       belonging to the thing next to it. */
     const text = (
-        <Card className={`!border-t-4 p-6 ${accent.border} ${accent.bgSoft}`}>
+        <div className="min-w-0">
           {data.supportingTitle ? (
-              <h3 className="font-heading text-xl font-semibold text-foreground">
+              <h3 className="text-lg font-semibold text-foreground sm:text-xl">
                 {data.supportingTitle}
               </h3>
           ) : null}
           {data.supportingDescription ? (
-              <p className="mt-3 leading-7 text-muted-foreground">
+              <p className="mt-3 text-[17px] leading-8 text-foreground/85">
                 {data.supportingDescription}
               </p>
           ) : null}
-        </Card>
+        </div>
     )
 
     return (
         <div className="space-y-4">
           <SectionIntro smallHeader={data.smallHeader} description={data.description} accent={accent} />
-          <div className="grid gap-6 md:grid-cols-2 md:items-stretch">
+          <div className="grid gap-6 md:grid-cols-2 md:items-center md:gap-8">
             {mediaOnRight ? text : media}
             {mediaOnRight ? media : text}
           </div>
