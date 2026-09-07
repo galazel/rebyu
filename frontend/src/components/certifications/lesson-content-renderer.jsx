@@ -979,8 +979,25 @@ function ImageHotspotBlock({ data, accent }) {
                           openHotspot.x > 50 ? "calc(-100% + 1.25rem)" : "-1.25rem"
                       }, ${openHotspot.y > 50 ? "calc(-100% + 1.25rem)" : "-1.25rem"})`,
                     }}
-                    className={`absolute z-20 w-64 max-w-[calc(100%-1rem)] rounded-[var(--radius-rb-tile)] border-2 p-4 shadow-lg sm:w-72 ${accent.border} ${accent.bgSoft}`}
+                    /* `bg-popover` under the accent wash, not the wash alone.
+                       `bgSoft` is a 10% tint -- opaque enough on the page's own
+                       background, where every other accented card sits, and
+                       nowhere near it here: this card is the only one that
+                       floats ON the picture, so at 90% transparent the diagram
+                       read straight through its own description and the text
+                       was unreadable. The tint moves to a layer above the
+                       opaque surface, which keeps the colour and gets the
+                       contrast back. */
+                    className={`absolute z-20 w-64 max-w-[calc(100%-1rem)] overflow-hidden rounded-[var(--radius-rb-tile)] border-2 bg-popover p-4 shadow-lg sm:w-72 ${accent.border}`}
                 >
+                  {/* The wash, as a layer rather than the card's own fill.
+                      `-z-1` keeps it behind the content; the padding above is
+                      on the card, so this spans the full tile. */}
+                  <span
+                      aria-hidden="true"
+                      className={`pointer-events-none absolute inset-0 -z-1 ${accent.bgSoft}`}
+                  />
+
                   <div className="flex items-start gap-2.5">
                     <span
                         className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold text-white ${accent.bgSolid}`}
