@@ -737,6 +737,39 @@ function LessonView({
     }
   }, [sections, onReadSection, onReadLesson])
 
+  /* Nothing left outstanding, so do not ask for another lap.
+     Sitting the quick check leaves the lesson and comes back to the top of it,
+     with every section restored as read from the server. The only thing that
+     had been outstanding was the quiz, and it is now done -- but completion
+     hung on the end sentinel crossing the line again, so finishing the quiz
+     meant scrolling the whole lesson a second time to be told something you
+     had already finished.
+
+     None of the guarantees move. Every section still had to cross the line on
+     its own to be recorded (a jump to the end still back-fills nothing), and
+     the quiz still has to have been sat -- `onReadLesson` is gated on
+     `quizPending` at its own end too. This only drops the requirement to prove
+     it twice. */
+  /* Fired at most once per lesson. `onReadLesson` already declines while the
+     request is in flight, but a request that *fails* clears that flag without
+     setting the lesson done -- and since the flag is a dependency here, the
+     effect would re-run and retry forever. The scroll check never had this
+     problem: it needs a fresh scroll event to fire again. */
+  const autoCompletedRef = useRef(false)
+
+  useEffect(() => {
+    autoCompletedRef.current = false
+  }, [sections])
+
+  useEffect(() => {
+    if (autoCompletedRef.current) return
+    if (sections.length === 0 || quizPending) return
+    if (!sections.every((section) => readSections.has(section.key))) return
+
+    autoCompletedRef.current = true
+    onReadLesson()
+  }, [sections, readSections, quizPending, onReadLesson])
+
 
   return (
     <article
