@@ -110,7 +110,7 @@ function highlight(text, term) {
   )
 }
 
-export function DocumentReader({ file, onReplace, onRemove }) {
+export function DocumentReader({ file, onReplace, onRemove, back }) {
   const extension = fileExtension(file.name)
   const isPdf = extension === ".pdf"
   const isText = extension === ".txt"
@@ -208,6 +208,13 @@ export function DocumentReader({ file, onReplace, onRemove }) {
       {/* Title bar: what this document is, and what you can do with it. */}
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
+          {/* The way out, where a page's back control always is: at the head of
+              the title bar, beside the thing it leaves. A reader opened as a
+              page of its own had it in a second bar stacked above this one --
+              two headers for one document, the top one carrying a single
+              button. A reader embedded in a workspace passes no `back` and
+              keeps the bar it always had. */}
+          {back ?? null}
           <span className="grid size-10 shrink-0 place-items-center rounded-rb-tile bg-rb-macaw-wash text-rb-macaw-lip">
             <FileText className="size-5" aria-hidden="true" />
           </span>

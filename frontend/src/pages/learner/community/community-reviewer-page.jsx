@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 
-import { ArrowLeft, Loader2 } from "@/components/icons"
-import { Button } from "@/components/ui/button"
+import { Loader2 } from "@/components/icons"
+import { BackButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { DocumentReader } from "@/pages/learner/workspace/document-reader.jsx"
 import { apiMessage } from "@/services/base"
 import { fetchFileBlob, getFileViewLink } from "@/services/fileService"
@@ -117,38 +117,42 @@ export default function CommunityReviewerPage() {
         navigate(postId ? `/learner/community?post=${postId}` : "/learner/community")
     }
 
+    const backControl = (
+        <BackButton label="Back to community" onClick={back} className="shrink-0" />
+    )
+
     return (
         <div className="flex h-dvh min-h-0 flex-col bg-rb-snow">
-            <div className="flex shrink-0 items-center gap-2 border-b-2 border-border bg-card px-3 py-2">
-                <Button type="button" variant="ghost" size="sm" onClick={back}>
-                    <ArrowLeft className="mr-2 size-4" />
-                    Back to community
-                </Button>
-            </div>
-
             <div className="min-h-0 flex-1">
                 {state.status === "loading" ? (
-                    <div className="flex h-full items-center justify-center gap-2 text-sm font-bold text-rb-hare">
-                        <Loader2 className="size-4 animate-spin" />
-                        Opening {name}…
+                    <div className="flex h-full flex-col">
+                        <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-3">
+                            {backControl}
+                            <p className="min-w-0 truncate text-sm font-extrabold text-rb-eel">{name}</p>
+                        </div>
+                        <div className="flex flex-1 items-center justify-center gap-2 text-sm font-bold text-rb-hare">
+                            <Loader2 className="size-4 animate-spin" />
+                            Opening this file…
+                        </div>
                     </div>
                 ) : null}
 
                 {state.status === "error" ? (
-                    <div className="grid h-full place-items-center p-6 text-center">
-                        <div>
+                    <div className="flex h-full flex-col">
+                        <div className="flex shrink-0 items-center gap-3 border-b border-border bg-card px-4 py-3">
+                            {backControl}
+                            <p className="min-w-0 truncate text-sm font-extrabold text-rb-eel">{name}</p>
+                        </div>
+                        <div className="grid flex-1 place-items-center p-6 text-center">
                             <p className="font-rb-display text-lg font-extrabold text-rb-eel">
                                 {state.message}
                             </p>
-                            <Button type="button" variant="outline" className="mt-4" onClick={back}>
-                                Back to community
-                            </Button>
                         </div>
                     </div>
                 ) : null}
 
                 {state.status === "ready" && document ? (
-                    <DocumentReader file={document} />
+                    <DocumentReader file={document} back={backControl} />
                 ) : null}
             </div>
         </div>
