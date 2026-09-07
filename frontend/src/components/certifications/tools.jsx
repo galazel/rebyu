@@ -22,23 +22,10 @@ import {
     AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { API } from "@/services/base"
-import { fetchFileBlob } from "@/services/fileService.js"
-
-const FILE_API_URL = `${API}/files/download`
+import { fetchFileBlob, getFileViewLink } from "@/services/fileService.js"
 
 function createId(prefix) {
     return `${prefix}-${crypto.randomUUID()}`
-}
-
-function getDownloadUrl(key) {
-    if (!key) return ""
-
-    if (key.startsWith("http://") || key.startsWith("https://")) {
-        return key
-    }
-
-    return `${FILE_API_URL}?key=${encodeURIComponent(key)}`
 }
 
 function useObjectUrl(file) {
@@ -97,6 +84,47 @@ function useStoredFileUrl(key) {
         return () => {
             cancelled = true
             if (objectUrl) URL.revokeObjectURL(objectUrl)
+        }
+    }, [key, isAbsolute])
+
+    return isAbsolute ? key : url
+}
+
+/**
+ * An already-uploaded video as a URL a `<video>` can play.
+ *
+ * Same problem {@link useStoredFileUrl} solves, and a different answer. The
+ * preview was pointed straight at `/files/download`, which needs an
+ * Authorization header a `<video src>` never sends, so an admin reopening a
+ * lesson they had already saved a video into got the player's dark backing and
+ * no frames -- a picture of a video. Fetching it whole like an image is no fix
+ * either: playback would wait for the last byte, seeking would not work at all,
+ * and the endpoint refuses anything over 12 MB.
+ *
+ * A presigned URL carries its own signature and is served with range support,
+ * so the preview behaves like a video player rather than a download.
+ */
+function useStoredVideoUrl(key) {
+    const isAbsolute = Boolean(key) && /^https?:\/\//.test(key)
+    const [url, setUrl] = useState("")
+
+    useEffect(() => {
+        if (!key || isAbsolute) {
+            setUrl("")
+            return undefined
+        }
+
+        let cancelled = false
+        getFileViewLink(key)
+            .then(({ url: signed }) => {
+                if (!cancelled) setUrl(signed)
+            })
+            .catch(() => {
+                if (!cancelled) setUrl("")
+            })
+
+        return () => {
+            cancelled = true
         }
     }, [key, isAbsolute])
 
@@ -214,8 +242,13 @@ function TextAreaField({ value, onChange, placeholder, rows = 4, className = "" 
 
 function ImageUploadArea({ data, onDataChange, title = "Upload an image" }) {
     const selectedImage = data?.file ?? null
+    // Same split as the video area: a freshly dropped file plays from its own
+    // object URL, a saved key has to come through the token. This was calling
+    // getDownloadUrl, which `useStoredFileUrl` exists precisely to replace --
+    // so an admin reopening a lesson saw a broken image where their upload was.
     const uploadedImagePreview = useObjectUrl(selectedImage)
-    const previewUrl = uploadedImagePreview || getDownloadUrl(data?.imageKey)
+    const storedImageUrl = useStoredFileUrl(selectedImage ? "" : data?.imageKey)
+    const previewUrl = uploadedImagePreview || storedImageUrl
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         accept: {
@@ -272,8 +305,11 @@ function ImageUploadArea({ data, onDataChange, title = "Upload an image" }) {
 
 function VideoUploadArea({ data, onDataChange, title = "Upload a video" }) {
     const selectedVideo = data?.file ?? null
+    // A file just dropped is already in the browser and plays from its own
+    // object URL; one that was saved earlier has to be signed first.
     const uploadedVideoPreview = useObjectUrl(selectedVideo)
-    const previewUrl = uploadedVideoPreview || getDownloadUrl(data?.videoKey)
+    const storedVideoUrl = useStoredVideoUrl(selectedVideo ? "" : data?.videoKey)
+    const previewUrl = uploadedVideoPreview || storedVideoUrl
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
         accept: {
