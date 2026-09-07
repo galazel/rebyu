@@ -285,6 +285,30 @@ function LightboxClose() {
  */
 function LessonImage({ imageKey, alt = "", className, sourceUrl, sourceName }) {
   const [open, setOpen] = useState(false)
+
+  /* A YouTube video that arrived filed as an image.
+   *
+   * The lesson generator searches for a picture and sometimes the best match
+   * it finds is the thumbnail off the front of a video -- so the block was
+   * stored with `imageKey` pointing at `i.ytimg.com` and `imageSourceUrl` at
+   * the watch page, and the lesson rendered a still frame, play button burned
+   * into it, that did nothing when clicked. It looked exactly like a broken
+   * video player because it is a picture of one.
+   *
+   * Either field identifies the video, so either is enough to play it. The
+   * attribution stays: it is still someone else's video, and the credit is the
+   * same credit the still was carrying.
+   */
+  const youTubeEmbed = getYouTubeEmbedUrl(sourceUrl) ?? getYouTubeEmbedUrl(imageKey)
+  if (youTubeEmbed) {
+    return (
+        <div>
+          <VideoBlock videoKey={sourceUrl || imageKey} className={className} />
+          <ImageAttribution sourceUrl={sourceUrl} sourceName={sourceName} />
+        </div>
+    )
+  }
+
   // Not `resolveMediaSrc`: an admin-uploaded key points at the authenticated
   // `/files/view`, which an <img> cannot load on its own. See
   // {@link useAuthedMediaSrc}.
@@ -349,6 +373,14 @@ function getYouTubeEmbedUrl(url) {
     if (parsed.hostname.includes("youtube.com")) {
       const videoId = parsed.searchParams.get("v")
       if (videoId) return `https://www.youtube.com/embed/${videoId}`
+    }
+    /* A thumbnail, which is what the lesson generator actually stored.
+       `i.ytimg.com/vi/<id>/hqdefault.jpg` is the picture off the front of a
+       video, and the id in that path is the video's own -- so a block holding
+       one is a block about a video, however it was filed. */
+    if (parsed.hostname.endsWith("ytimg.com")) {
+      const [, vi, videoId] = parsed.pathname.split("/")
+      if (vi === "vi" && videoId) return `https://www.youtube.com/embed/${videoId}`
     }
   } catch {
     return null
