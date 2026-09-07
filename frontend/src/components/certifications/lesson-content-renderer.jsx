@@ -1212,25 +1212,33 @@ function LessonTool({ tool, index = 0 }) {
               </div>
           ) : null}
 
-          {/* A set of parallel points, set as prose in two columns.
+          {/* A grid keeps its cards.
 
-              Each was a tinted card with a 4px accent edge, and `auto-rows-fr`
-              held every one of them at the tallest one's height -- so a grid of
-              six, where one item ran long, was six boxes of mostly empty tinted
-              space. The title is the structure here; it does not need a frame
-              to be found, and letting each item take its own height is what
-              removes the dead space. The accent survives on the title, which is
-              the one place it distinguishes anything. */}
-          <div className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+              This is the one block where the box is the point: these are
+              parallel items in a set, read by comparison with each other rather
+              than in sequence, and the card is what makes them countable at a
+              glance and holds each one's text to its own item. `auto-rows-fr`
+              stays with it -- boxes in a grid want a common baseline, and
+              ragged bottoms on a row of cards read as a mistake rather than as
+              economy. It is the prose blocks beside a figure that had no
+              business in a frame, not this. */}
+          <div className="grid auto-rows-fr gap-4 sm:grid-cols-2">
             {(data.gridItems ?? []).map((item, itemIndex) => {
               const itemAccent = accentFor(itemIndex)
               return (
-                  <div key={item.id ?? itemIndex} className="min-w-0">
-                    <h4 className={`font-semibold ${itemAccent.text}`}>{item.title}</h4>
-                    <p className="mt-1.5 text-[15px] leading-6 text-foreground/85">
+                  <Card
+                      key={item.id ?? itemIndex}
+                      size="sm"
+                      className={`!border-t-4 p-4 transition ${itemAccent.border} ${itemAccent.bgSoft}`}
+                  >
+                    <h4 className="font-heading font-semibold text-foreground">{item.title}</h4>
+                    {/* Not muted-foreground: this sits on the card's own tint,
+                        where grey on a wash is the weakest contrast in the
+                        block, and it is the item's actual content. */}
+                    <p className="mt-2 text-[15px] leading-6 text-foreground/85">
                       {item.description}
                     </p>
-                  </div>
+                  </Card>
               )
             })}
           </div>
