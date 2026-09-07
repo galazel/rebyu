@@ -993,17 +993,29 @@ function LessonTool({ tool, index = 0 }) {
 
        `data-marker` is the hook the topic page's dark section tone uses to
        re-ink these; the accent shades are tuned for a light card. */
+    /* Sized so a list reads as part of the prose around it.
+
+       It was 17px on `leading-7` with 12px between items and a 28px filled
+       chip per number: a list of four short objectives ran 160px down the page
+       and the markers, not the words, were the first thing the eye landed on.
+       The type stays at the body's own size -- these ARE body copy -- and
+       everything around it tightens: 6px between items, a 22px numeral, a 6px
+       dot. A marker's job is to say where an item starts, which needs to be
+       legible, not loud. */
     return (
-        <Tag className="space-y-3">
+        <Tag className="space-y-1.5">
           {(data.items ?? []).map((item, itemIndex) => (
               <li
                   key={item.id ?? item.text}
-                  className="flex gap-3 text-[17px] leading-7 text-foreground"
+                  className="flex gap-2.5 text-[17px] leading-7 text-foreground"
               >
                 {ordered ? (
+                    /* `mt-[0.15em]` rather than a fixed offset, for the same
+                       reason the dot below uses an em: the numeral sits on the
+                       first line's cap height, which moves with the type. */
                     <span
                         data-marker
-                        className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg text-sm font-bold tabular-nums ${accent.bgSoft} ${accent.text}`}
+                        className={`mt-[0.15em] grid size-[1.375rem] shrink-0 place-items-center rounded-md text-xs font-bold tabular-nums ${accent.bgSoft} ${accent.text}`}
                     >
                       {itemIndex + 1}
                     </span>
@@ -1014,7 +1026,7 @@ function LessonTool({ tool, index = 0 }) {
                     <span
                         data-marker
                         aria-hidden="true"
-                        className={`mt-[0.6em] size-2 shrink-0 rounded-full ${accent.bgSolid}`}
+                        className={`mt-[0.6em] size-1.5 shrink-0 rounded-full ${accent.bgSolid}`}
                     />
                 )}
 
@@ -1064,34 +1076,51 @@ function LessonTool({ tool, index = 0 }) {
   }
 
   if (tool.type === "image-left-text" || tool.type === "image-right-text") {
+    /* The same box every other picture in a lesson gets, so a run of media
+       down a page is one width and one height rather than each block sizing
+       itself to its own contents. */
     const image = data.imageKey ? (
         <LessonImage
             imageKey={data.imageKey}
             alt={data.title ?? ""}
-            className="h-full min-h-72 w-full rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-muted object-contain"
+            className="aspect-video w-full rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-muted object-contain"
             sourceUrl={data.imageSourceUrl}
             sourceName={data.imageSourceName}
         />
     ) : (
-        <div className="flex h-full min-h-72 items-center justify-center rounded-[var(--radius-rb-tile)] border-2 border-dashed border-border bg-muted text-muted-foreground">
+        <div className="flex aspect-video w-full items-center justify-center rounded-[var(--radius-rb-tile)] border-2 border-dashed border-border bg-muted text-muted-foreground">
           No image
         </div>
     )
 
-    const text = (
-        <Card className={`!border-t-4 p-6 ${accent.border} ${accent.bgSoft}`}>
-          <h3 className="font-heading text-xl font-semibold text-foreground">
-            {data.title}
-          </h3>
+    /* Prose, not a panel.
 
-          <p className="mt-3 leading-7 text-muted-foreground">
+       The explanation beside a figure was wrapped in a tinted card with a 4px
+       accent edge, which made the two halves of one thought look like a
+       picture and a separate announcement about it -- and it was the only body
+       copy in a lesson that did not look like body copy. A caption does not
+       need a frame to be understood as belonging to the image next to it;
+       being next to it is the whole device. Set at the lesson's own body size
+       and colour so it reads continuously with the sections above and below. */
+    const text = (
+        <div className="min-w-0">
+          {data.title ? (
+              <h3 className="text-lg font-semibold text-foreground sm:text-xl">
+                {data.title}
+              </h3>
+          ) : null}
+
+          <p className="mt-3 text-[17px] leading-8 text-foreground/85">
             {data.description}
           </p>
-        </Card>
+        </div>
     )
 
+    /* Centred, not stretched. With the card gone there is no panel to match
+       heights with, and a short paragraph pinned to the top of a 16:9 figure
+       leaves a hole under it. */
     return (
-        <div className="grid gap-6 md:grid-cols-2 md:items-stretch">
+        <div className="grid gap-6 md:grid-cols-2 md:items-center md:gap-8">
           {tool.type === "image-left-text" ? image : text}
           {tool.type === "image-left-text" ? text : image}
         </div>
