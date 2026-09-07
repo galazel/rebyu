@@ -1711,26 +1711,53 @@ body.netacad-overlay-theme {
 }
 
 /* ---------------------------------------------------------------------------
-   MODAL SCROLLING — no visible bar.
+   SCROLLING INSIDE A BOUNDED SURFACE — no visible bar.
    ---------------------------------------------------------------------------
-   A dialog is already a bounded surface with its own edges, and a scrollbar
-   track running down the inside of one reads as a second border. Scrolling
-   itself is untouched: wheel, trackpad, touch, keyboard and the `overflow`
-   rules that make an area scrollable all behave exactly as before -- only the
-   bar is hidden.
+   A card, a dialog, a menu or a tab panel already has its own edges, and a
+   scrollbar track running down the inside of one reads as a second border a few
+   pixels in from the first. On a page made of these -- a lesson, a feed, a
+   board -- every surface that happened to overflow grew a grey rail, and the
+   page filled up with vertical and horizontal lines that mark nothing.
 
-   Applied to the panel AND its descendants because the scroll container varies
-   by dialog: some scroll the panel, some an inner column, some a list inside
-   that column.
+   Scrolling itself is untouched. Wheel, trackpad, touch, keyboard, and the
+   `overflow` rules that make an area scrollable all behave exactly as before;
+   only the bar is hidden.
+
+   Two things are deliberately NOT in this list.
+
+   The document's own scrollbar stays. It is the one bar that reports where the
+   reader is in the whole page rather than decorating a box, and browsers give
+   it behaviour -- click-to-page, drag-to-seek -- that nothing else replaces.
+
+   `[data-slot="table-container"]` stays too. A table wider than its column is
+   the one case where the bar is load-bearing: it is the only thing telling a
+   reader there are columns off the right edge, and unlike a paragraph there is
+   no partial word at the boundary to hint at it.
+
+   Applied to each surface AND its descendants because the element that
+   actually scrolls varies: sometimes the surface, sometimes an inner column,
+   sometimes a list inside that column.
    --------------------------------------------------------------------------- */
 [data-slot="dialog-content"],
 [data-slot="alert-dialog-content"],
 [data-slot="sheet-content"],
 [data-slot="drawer-content"],
+[data-slot="card"],
+[data-slot="popover-content"],
+[data-slot="dropdown-menu-content"],
+[data-slot="select-content"],
+[data-slot="tabs-content"],
+[data-slot="accordion-content"],
 [data-slot="dialog-content"] *,
 [data-slot="alert-dialog-content"] *,
 [data-slot="sheet-content"] *,
-[data-slot="drawer-content"] * {
+[data-slot="drawer-content"] *,
+[data-slot="card"] *,
+[data-slot="popover-content"] *,
+[data-slot="dropdown-menu-content"] *,
+[data-slot="select-content"] *,
+[data-slot="tabs-content"] *,
+[data-slot="accordion-content"] * {
     -ms-overflow-style: none;
     scrollbar-width: none;
 }
@@ -1739,12 +1766,37 @@ body.netacad-overlay-theme {
 [data-slot="alert-dialog-content"]::-webkit-scrollbar,
 [data-slot="sheet-content"]::-webkit-scrollbar,
 [data-slot="drawer-content"]::-webkit-scrollbar,
+[data-slot="card"]::-webkit-scrollbar,
+[data-slot="popover-content"]::-webkit-scrollbar,
+[data-slot="dropdown-menu-content"]::-webkit-scrollbar,
+[data-slot="select-content"]::-webkit-scrollbar,
+[data-slot="tabs-content"]::-webkit-scrollbar,
+[data-slot="accordion-content"]::-webkit-scrollbar,
 [data-slot="dialog-content"] *::-webkit-scrollbar,
 [data-slot="alert-dialog-content"] *::-webkit-scrollbar,
 [data-slot="sheet-content"] *::-webkit-scrollbar,
-[data-slot="drawer-content"] *::-webkit-scrollbar {
+[data-slot="drawer-content"] *::-webkit-scrollbar,
+[data-slot="card"] *::-webkit-scrollbar,
+[data-slot="popover-content"] *::-webkit-scrollbar,
+[data-slot="dropdown-menu-content"] *::-webkit-scrollbar,
+[data-slot="select-content"] *::-webkit-scrollbar,
+[data-slot="tabs-content"] *::-webkit-scrollbar,
+[data-slot="accordion-content"] *::-webkit-scrollbar {
     display: none;
     -webkit-appearance: none;
+}
+
+/* The table container keeps its bar, even nested inside a card -- see above.
+   Restated rather than left to the cascade: the `[data-slot="card"] *` rule
+   above would otherwise reach it. */
+[data-slot="card"] [data-slot="table-container"] {
+    -ms-overflow-style: auto;
+    scrollbar-width: thin;
+}
+
+[data-slot="card"] [data-slot="table-container"]::-webkit-scrollbar {
+    display: block;
+    -webkit-appearance: auto;
 }
 
 /* ---------------------------------------------------------------------------
