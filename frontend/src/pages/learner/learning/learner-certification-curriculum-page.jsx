@@ -735,11 +735,92 @@ function PathNode({ node, index, onSelect, onLocked }) {
  * The unit's colour survives as the rule and the eyebrow. That is enough to
  * tell two stretches apart without giving either one a poster.
  */
-function UnitMarker({ major, locked, complete, exam, examTaken }) {
+/**
+ * The ground the road is drawn on.
+ *
+ * The page was one flat sheet of `rb-polar` with a dotted trail down the
+ * middle of it, which reads as a diagram rather than as somewhere you are
+ * going. This gives the road a sky: a faint dot grid for texture, and three
+ * soft washes of the palette's own colours placed away from the trail so they
+ * never sit behind a node's label.
+ *
+ * Fixed rather than scrolled, so the road travels through it instead of
+ * dragging it along -- the stops move, the ground stays, which is what makes a
+ * long scroll feel like distance covered.
+ *
+ * Every colour is a `--color-rb-*` token, so the dark theme's overrides apply
+ * to this for free. Opacities are deliberately far below the nodes': this has
+ * to survive being looked past, and a backdrop that competes with the stop a
+ * learner is trying to read is worse than no backdrop.
+ */
+function PathBackdrop() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+      <svg className="size-full" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <pattern id="rb-dots" width="28" height="28" patternUnits="userSpaceOnUse">
+            <circle cx="2" cy="2" r="1.5" fill="var(--color-rb-eel)" opacity="0.06" />
+          </pattern>
+
+          <radialGradient id="rb-wash-a">
+            <stop offset="0%" stopColor="var(--color-rb-macaw)" stopOpacity="0.10" />
+            <stop offset="100%" stopColor="var(--color-rb-macaw)" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="rb-wash-b">
+            <stop offset="0%" stopColor="var(--color-rb-bee)" stopOpacity="0.09" />
+            <stop offset="100%" stopColor="var(--color-rb-bee)" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="rb-wash-c">
+            <stop offset="0%" stopColor="var(--color-rb-beetle)" stopOpacity="0.08" />
+            <stop offset="100%" stopColor="var(--color-rb-beetle)" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+
+        <rect width="100%" height="100%" fill="url(#rb-dots)" />
+
+        {/* Kept to the margins: the trail runs down the middle of an 820px
+            column, and a wash centred there would sit behind the labels. */}
+        <circle cx="8%" cy="18%" r="320" fill="url(#rb-wash-a)" />
+        <circle cx="94%" cy="52%" r="380" fill="url(#rb-wash-b)" />
+        <circle cx="14%" cy="88%" r="300" fill="url(#rb-wash-c)" />
+      </svg>
+    </div>
+  )
+}
+
+function UnitMarker({ major, locked, complete, exam, examTaken, wipes }) {
   const tone = TONE[major.tone]
 
   return (
+    /* The band above it is what stops two captions being on screen at once.
+       Each caption is sticky inside its own <section>, so unit one stays
+       pinned until unit one's stretch ends -- and unit two's caption arrives
+       *underneath* it rather than pushing it off, leaving both units named at
+       the top of the page through the whole handover. The `before` band is an
+       opaque strip the height of the caption, sitting directly above it, so
+       the arriving caption wipes the outgoing one as it comes up. The stretch
+       above carries matching bottom padding (`pb-24`) so the band never has a
+       node to cover. */
     <div className="sticky top-[4.25rem] z-20 bg-rb-polar pb-2 pt-4">
+      {/* The wiper. Without it two captions sit on screen through every
+          handover: each caption is sticky inside its own <section>, so unit
+          one stays pinned until unit one's stretch ends, and unit two's
+          caption rides up *underneath* it rather than pushing it off. This is
+          an opaque strip of the page's own ground, exactly as tall as the
+          caption and sitting directly above it, so the arriving caption wipes
+          the outgoing one on its way up. The stretch above carries matching
+          bottom padding, so the strip never has a node to cover.
+
+          A real element rather than a `before:` utility -- that variant is not
+          generated in this build, so the pseudo-element silently never
+          painted. */}
+      {wipes ? (
+        <span
+          aria-hidden="true"
+          className="absolute inset-x-0 bottom-full h-full bg-rb-polar"
+        />
+      ) : null}
+
       <div className="flex items-end gap-4">
         <div className="min-w-0 flex-1">
           <p
@@ -1346,7 +1427,12 @@ export default function LearnerCertificationCurriculumPage() {
     /* No negative margins: the layout hands this route the full window width
        (see `isCurriculumPage` in learner-layout), so the band and the unit
        stack set their own gutters rather than clawing back the page's. */
-    <div className="rebyu-ds min-h-dvh w-full bg-rb-polar pb-20">
+    /* `isolate` is what makes the backdrop visible at all: without a stacking
+       context here, a `-z-10` child paints *behind* this element's own
+       `bg-rb-polar` and is simply never seen. */
+    <div className="rebyu-ds relative isolate min-h-dvh w-full bg-rb-polar pb-20">
+      <PathBackdrop />
+
       {/* ------------------------------------------------------------ header
           A bar, not a billboard. This was a full-bleed ink slab carrying a
           5xl title, a description, a chip row and a 112px progress ring --
@@ -1483,6 +1569,10 @@ export default function LearnerCertificationCurriculumPage() {
                       className="scroll-mt-24"
                     >
                       <UnitMarker
+                        /* Not the first: above that caption is the page
+                           header, and a strip of ground there would blank the
+                           back key and the progress bar. */
+                        wipes={sectionIndex > 0}
                         major={section.major}
                         exam={section.major.assessment}
                         locked={section.locked}
@@ -1499,7 +1589,7 @@ export default function LearnerCertificationCurriculumPage() {
                           positioned against this element, so padding would move
                           the stops off the line the road is drawn along. */}
                       <div
-                        className="relative mx-auto mt-6"
+                        className="relative mx-auto mt-6 pb-24"
                         style={{ width: PATH_WIDTH, height: stretchHeight(stops) }}
                       >
                         <PathTrail items={stops} start={section.start} />
