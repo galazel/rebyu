@@ -230,6 +230,11 @@ const LIGHTBOX_PANEL =
 //: the answer, so there is no cycle to avoid here.
 const LIGHTBOX_MEDIA = "max-h-[92dvh] max-w-[94vw] object-contain"
 
+//: Nothing in this view is rounded. A radius is a card's edge treatment, and
+//: opened media is not on a card -- a rounded corner over a square diagram
+//: reads as a clipping mistake rather than as styling, so the close key is
+//: square too and the picture keeps its own edges.
+//:
 //: A scrim, not a blackout. Dark enough to lift a diagram off the lesson and
 //: to make plain that the page is out of reach, sheer enough that the page is
 //: still visibly behind it -- which is what tells a learner they are looking at
@@ -253,7 +258,7 @@ function LightboxClose() {
         <button
             type="button"
             aria-label="Close"
-            className="fixed right-4 top-4 z-51 grid size-11 place-items-center rounded-full bg-slate-950/40 text-white backdrop-blur-sm transition-colors hover:bg-slate-950/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="fixed right-4 top-4 z-51 grid size-11 place-items-center bg-slate-950/40 text-white backdrop-blur-sm transition-colors hover:bg-slate-950/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         >
           <X className="size-5" aria-hidden="true" />
         </button>
@@ -433,7 +438,7 @@ function VideoBlock({ videoKey, className }) {
                 `max-h-`: a <video> with no loaded frame has no intrinsic size,
                 so a max-height alone collapses the player to nothing until the
                 first frame arrives. */}
-            {player(`${LIGHTBOX_MEDIA} h-[92dvh] w-[94vw] rounded-[var(--radius-rb-tile)]`)}
+            {player(`${LIGHTBOX_MEDIA} h-[92dvh] w-[94vw]`)}
             <LightboxClose />
           </DialogContent>
         </Dialog>
