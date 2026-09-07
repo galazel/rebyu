@@ -1,5 +1,12 @@
 package com.capstone.rebyu.learningtools.service;
 
+import com.capstone.rebyu.assessment.entity.Choice;
+import com.capstone.rebyu.assessment.entity.Exam;
+import com.capstone.rebyu.assessment.entity.ExamQuestion;
+import com.capstone.rebyu.assessment.entity.Question;
+import com.capstone.rebyu.assessment.entity.TextQuestionConfig;
+import com.capstone.rebyu.assessment.repository.ExamQuestionRepository;
+import com.capstone.rebyu.assessment.repository.ExamRepository;
 import com.capstone.rebyu.certification.entity.Certification;
 import com.capstone.rebyu.certification.entity.Lesson;
 import com.capstone.rebyu.certification.repository.LessonRepository;
@@ -16,6 +23,7 @@ import com.capstone.rebyu.learningtools.repository.LearnerPracticeAnswerReposito
 import com.capstone.rebyu.learningtools.repository.LearnerPracticeAttemptRepository;
 import com.capstone.rebyu.user.entity.Learner;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +44,8 @@ public class StudyPracticeService {
     private final LearnerPracticeAnswerRepository answers;
     private final LessonRepository lessons;
     private final LearnerCertificationRepository enrollments;
+    private final ExamRepository exams;
+    private final ExamQuestionRepository examQuestions;
     private final ObjectMapper objectMapper;
     private final RewardService rewards;
     private final PracticeMasteryEvidenceService masteryEvidence;
@@ -112,19 +122,35 @@ public class StudyPracticeService {
         return toStudySet(studySets.save(set));
     }
 
-    /** Gives a community learner an independent copy, preserving the author's original study set. */
+    /**
+     * Gives a community learner their own copy of a shared study set and starts
+     * an attempt on it, leaving the author's original untouched.
+     */
     @Transactional
     public Attempt startCommunityAttempt(Long learnerId, Long originalStudySetId) {
+        return startAttempt(learnerId, communityCopyOfStudySet(learnerId, originalStudySetId).getStudySetId());
+    }
+
+    /**
+     * The same thing for a shared quiz, whose items live in the exam tables.
+     *
+     * <p>{@code /learner-tools/library/generate} persists a generated quiz as a
+     * real published {@link Exam} (see {@code GeneratedAssessmentService}) and
+     * generated flashcards as a {@link GeneratedStudySet} -- two different
+     * stores behind one "generated study aid" idea. The practice engine only
+     * answers study sets, and a shared exam belongs to its author besides, so
+     * the quiz's questions are copied into a study set of the viewer's own.
+     */
+    @Transactional
+    public Attempt startCommunityExamAttempt(Long learnerId, Long examId) {
+        return startAttempt(learnerId, communityCopyOfExam(learnerId, examId).getStudySetId());
+    }
+
+    private GeneratedStudySet communityCopyOfStudySet(Long learnerId, Long originalStudySetId) {
         String copyKey = "community:" + originalStudySetId;
         var existingCopy = studySets.findFirstByLearner_LearnerIdAndSourceAndGenerationVersion(learnerId, "COMMUNITY", copyKey);
-        if (existingCopy.isPresent()) {
-            GeneratedStudySet copy = existingCopy.get();
-            String sourceType = "QUIZ".equals(copy.getStudyType()) ? "COMMUNITY_QUIZ" : "FLASHCARD_RECALL";
-            var active = attempts.findFirstByLearner_LearnerIdAndSourceTypeAndSourceIdAndStatusOrderByStartedAtDesc(
-                    learnerId, sourceType, copy.getStudySetId(), "IN_PROGRESS");
-            if (active.isPresent()) return toAttempt(active.get());
-            return startCommunityCopyAttempt(learnerId, copy.getStudySetId(), "QUIZ".equals(copy.getStudyType()));
-        }
+        if (existingCopy.isPresent()) return existingCopy.get();
+
         GeneratedStudySet original = studySets.findById(originalStudySetId)
                 .orElseThrow(() -> new EntityNotFoundException("Shared study set not found"));
         GeneratedStudySet copy = GeneratedStudySet.builder()
@@ -149,27 +175,119 @@ public class StudyPracticeService {
                     .displayOrder(item.getDisplayOrder())
                     .build());
         }
-        GeneratedStudySet savedCopy = studySets.save(copy);
-        return startCommunityCopyAttempt(learnerId, savedCopy.getStudySetId(), "QUIZ".equals(original.getStudyType()));
+        return studySets.save(copy);
     }
 
-    private Attempt startCommunityCopyAttempt(Long learnerId, Long copyId, boolean quiz) {
-        Attempt attempt = startAttempt(learnerId, copyId);
-        if (quiz) {
-            LearnerPracticeAttempt entity = attempts.findByAttemptIdAndLearner_LearnerId(attempt.id(), learnerId).orElseThrow();
-            entity.setSourceType("COMMUNITY_QUIZ");
-            attempts.save(entity);
+    private GeneratedStudySet communityCopyOfExam(Long learnerId, Long examId) {
+        String copyKey = "community-exam:" + examId;
+        var existingCopy = studySets.findFirstByLearner_LearnerIdAndSourceAndGenerationVersion(learnerId, "COMMUNITY", copyKey);
+        if (existingCopy.isPresent()) return existingCopy.get();
+
+        Exam exam = exams.findById(examId)
+                .orElseThrow(() -> new EntityNotFoundException("Shared quiz not found"));
+        if (exam.getLesson() == null || exam.getCertification() == null) {
+            throw new IllegalArgumentException("This shared quiz is not attached to a lesson");
         }
-        return attempt;
+        List<ExamQuestion> examQuestionRows = examQuestions.findByExam_ExamIdOrderByDisplayOrderAsc(examId);
+        if (examQuestionRows.isEmpty()) throw new IllegalArgumentException("This shared quiz has no questions");
+
+        GeneratedStudySet copy = GeneratedStudySet.builder()
+                .learner(Learner.builder().learnerId(learnerId).build())
+                .certification(exam.getCertification())
+                .lesson(exam.getLesson())
+                .studyType("QUIZ")
+                .title(exam.getTitle())
+                .source("COMMUNITY")
+                .generationVersion(copyKey)
+                .build();
+
+        int displayOrder = 1;
+        for (ExamQuestion examQuestion : examQuestionRows) {
+            GeneratedStudyItem item = toStudyItem(examQuestion.getQuestion(), displayOrder);
+            if (item == null) continue; // a question type this engine cannot mark
+            item.setStudySet(copy);
+            copy.getItems().add(item);
+            displayOrder++;
+        }
+        if (copy.getItems().isEmpty()) {
+            throw new IllegalArgumentException("This shared quiz has no questions that can be practised");
+        }
+        return studySets.save(copy);
+    }
+
+    /**
+     * One exam question as a practice item, or null when this engine has no way
+     * to mark it -- programming and diagram questions are marked by their own
+     * runners, which practice attempts never call.
+     */
+    private GeneratedStudyItem toStudyItem(Question question, int displayOrder) {
+        if (question == null || question.getQuestionText() == null) return null;
+        String type = question.getQuestionType();
+
+        if ("MCQ".equals(type) || "TRUE_FALSE".equals(type)) {
+            ArrayNode choices = objectMapper.createArrayNode();
+            String correct = null;
+            for (Choice choice : question.getChoices() == null ? List.<Choice>of() : question.getChoices()) {
+                choices.add(objectMapper.createObjectNode()
+                        .put("text", choice.getChoiceText())
+                        .put("isCorrect", choice.isCorrect()));
+                if (choice.isCorrect()) correct = choice.getChoiceText();
+            }
+            if (choices.size() < 2 || correct == null) return null;
+            return GeneratedStudyItem.builder()
+                    .itemType("MCQ")
+                    .questionText(question.getQuestionText())
+                    .choicesJson(choices.toString())
+                    .correctAnswer(correct)
+                    .difficulty(question.getDifficultyLevel())
+                    .displayOrder(displayOrder)
+                    .build();
+        }
+
+        if ("SHORT_ANSWER".equals(type) && question.getTextQuestionConfig() != null) {
+            TextQuestionConfig config = question.getTextQuestionConfig();
+            if (config.getCorrectAnswer() == null || config.getCorrectAnswer().isBlank()) return null;
+            return GeneratedStudyItem.builder()
+                    .itemType("FLASHCARD")
+                    .questionText(question.getQuestionText())
+                    .correctAnswer(config.getCorrectAnswer())
+                    .acceptedAnswersJson(config.getAcceptedVariations())
+                    .difficulty(question.getDifficultyLevel())
+                    .displayOrder(displayOrder)
+                    .build();
+        }
+
+        return null;
     }
 
     @Transactional
     public Attempt startAttempt(Long learnerId, Long studySetId) {
-        StudySet set = studySet(learnerId, studySetId);
-        boolean enrolled = enrollments.existsByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
-                learnerId, set.certificationId(), LearnerCertification.Status.active);
-        if (!enrolled) throw new IllegalArgumentException("Active certification enrollment is required");
-        String sourceType = "FLASHCARD".equals(set.type()) ? "FLASHCARD_RECALL" : "TUTOR_QUIZ";
+        GeneratedStudySet setEntity = studySets.findByStudySetIdAndLearnerIdWithItems(studySetId, learnerId)
+                .orElseThrow(() -> new EntityNotFoundException("Study set not found"));
+        StudySet set = toStudySet(setEntity);
+        boolean community = "COMMUNITY".equals(setEntity.getSource());
+
+        /* A community copy is already the learner's own set, handed to them by
+           the feed. Requiring an enrollment in the *sharer's* certification
+           would make every shared study set unopenable for exactly the learners
+           a share is for -- the ones studying alongside the course, not the
+           ones already enrolled in it. A set the learner generated themselves
+           still needs the enrollment that produced it. */
+        if (!community) {
+            boolean enrolled = enrollments.existsByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
+                    learnerId, set.certificationId(), LearnerCertification.Status.active);
+            if (!enrolled) throw new IllegalArgumentException("Active certification enrollment is required");
+        }
+
+        /* Decided here rather than by the caller so the attempt the community
+           "attempt" button starts and the attempt the practice page starts on
+           arrival are the same row. They used to disagree -- COMMUNITY_QUIZ
+           against TUTOR_QUIZ -- which left a second, orphaned in-progress
+           attempt behind on every shared quiz. COMMUNITY_QUIZ also carries its
+           own XP/coin rate and feeds the community leaderboard. */
+        String sourceType = "FLASHCARD".equals(set.type())
+                ? "FLASHCARD_RECALL"
+                : community ? "COMMUNITY_QUIZ" : "TUTOR_QUIZ";
         var existing = attempts.findFirstByLearner_LearnerIdAndSourceTypeAndSourceIdAndStatusOrderByStartedAtDesc(
                 learnerId, sourceType, studySetId, "IN_PROGRESS");
         if (existing.isPresent()) return toAttempt(existing.get());

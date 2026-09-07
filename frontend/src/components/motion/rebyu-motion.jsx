@@ -350,7 +350,7 @@ export function Typewriter({
   return (
     <Component ref={ref} className={className}>
       <span className="sr-only">{text}</span>
-      <span aria-hidden="true" className="relative inline-block whitespace-pre">
+      <span aria-hidden="true" className="relative inline-block max-w-full whitespace-pre-wrap">
         <span className="invisible">{text}</span>
         <span className="absolute inset-0">
           {text.slice(0, typed)}

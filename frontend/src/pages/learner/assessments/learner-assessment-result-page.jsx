@@ -684,6 +684,95 @@ export default function LearnerAssessmentResultPage() {
                       </div>
                     ) : null}
 
+                    {/* Which cases the program actually failed.
+
+                        A code item used to be reviewed as a score and a copy of
+                        the learner's own code -- the two things that tell them
+                        least. This is the part that makes a wrong program
+                        fixable: the case it broke on, and on a sample case what
+                        it printed against what was wanted. Hidden cases show
+                        pass or fail and nothing else; their inputs are the part
+                        of a coding item that has to stay hidden. */}
+                    {answer.programmingTests?.length > 0 ? (
+                      <div className="space-y-2 text-sm">
+                        <p className="text-rb-wolf">
+                          Test cases —{" "}
+                          {answer.programmingTests.filter((test) => test.passed).length} of{" "}
+                          {answer.programmingTests.length} passed:
+                        </p>
+                        <ul className="space-y-1.5">
+                          {answer.programmingTests.map((test) => (
+                            <li
+                              key={test.index}
+                              className={cn(
+                                "flex items-start gap-2 rounded-rb-tile border-2 p-2.5",
+                                test.passed
+                                  ? ANSWER_TONES.correct.panel
+                                  : ANSWER_TONES.incorrect.panel
+                              )}
+                            >
+                              {test.passed ? (
+                                <CheckCircle2Icon
+                                  className="mt-0.5 size-4 shrink-0 text-rb-leaf"
+                                  aria-hidden="true"
+                                />
+                              ) : (
+                                <XCircleIcon
+                                  className="mt-0.5 size-4 shrink-0 text-rb-cardinal"
+                                  aria-hidden="true"
+                                />
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="flex flex-wrap items-center gap-1.5 font-bold text-rb-eel">
+                                  <span className="rounded-rb-control border-2 border-rb-swan bg-rb-snow px-1.5 py-0.5 text-[10px] text-rb-wolf">
+                                    {test.sample ? "Sample" : "Hidden"}
+                                  </span>
+                                  {test.label}
+                                  {test.status && test.status !== "PASSED" && test.status !== "FAILED" ? (
+                                    <span className="text-xs font-semibold text-rb-cardinal-lip">
+                                      {test.status.replaceAll("_", " ").toLowerCase()}
+                                    </span>
+                                  ) : null}
+                                </p>
+
+                                {/* Only ever populated for sample cases. */}
+                                {test.input != null ||
+                                test.expectedOutput != null ||
+                                test.actualOutput != null ? (
+                                  <dl className="mt-1.5 space-y-1 text-xs">
+                                    {test.input != null ? (
+                                      <div>
+                                        <dt className="font-bold text-rb-wolf">Input</dt>
+                                        <dd className="mt-0.5 overflow-x-auto whitespace-pre-wrap break-words rounded-rb-control bg-rb-snow p-1.5 font-mono text-rb-eel">
+                                          {test.input}
+                                        </dd>
+                                      </div>
+                                    ) : null}
+                                    {test.expectedOutput != null ? (
+                                      <div>
+                                        <dt className="font-bold text-rb-wolf">Expected output</dt>
+                                        <dd className="mt-0.5 overflow-x-auto whitespace-pre-wrap break-words rounded-rb-control bg-rb-snow p-1.5 font-mono text-rb-eel">
+                                          {test.expectedOutput}
+                                        </dd>
+                                      </div>
+                                    ) : null}
+                                    {test.actualOutput != null ? (
+                                      <div>
+                                        <dt className="font-bold text-rb-wolf">Your output</dt>
+                                        <dd className="mt-0.5 overflow-x-auto whitespace-pre-wrap break-words rounded-rb-control bg-rb-snow p-1.5 font-mono text-rb-eel">
+                                          {test.actualOutput}
+                                        </dd>
+                                      </div>
+                                    ) : null}
+                                  </dl>
+                                ) : null}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
                     {answer.diagramSubmitted && answer.diagramElements?.length > 0 ? (
                       <div className="space-y-2 text-sm">
                         <p className="text-rb-wolf">
@@ -726,6 +815,22 @@ export default function LearnerAssessmentResultPage() {
                                     ? ` · ${Number(element.earnedPoints)} / ${Number(element.maxPoints)} pts`
                                     : ""}
                                 </p>
+
+                                {/* Why it scored what it did. A partially
+                                    credited element used to show a tick and a
+                                    smaller number, with nothing to say whether
+                                    the label was off, the arrow was backwards,
+                                    the cardinality was wrong or the key marker
+                                    was missing -- four different mistakes with
+                                    four different fixes. Suppressed on a clean
+                                    match, where it would only ever restate the
+                                    tick. */}
+                                {element.reason &&
+                                !(element.matched && element.matchQuality === "STRONG") ? (
+                                  <p className="mt-1 text-xs font-semibold text-rb-eel">
+                                    {element.reason}
+                                  </p>
+                                ) : null}
                               </div>
                             </li>
                           ))}

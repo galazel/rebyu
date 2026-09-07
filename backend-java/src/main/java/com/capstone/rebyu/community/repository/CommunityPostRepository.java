@@ -43,7 +43,8 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
                  deleted_likes    AS (DELETE FROM community_post_likes   WHERE post_id = :postId),
                  deleted_saves    AS (DELETE FROM community_saved_posts  WHERE post_id = :postId),
                  deleted_shares   AS (DELETE FROM community_post_shares  WHERE post_id = :postId),
-                 deleted_reports  AS (DELETE FROM community_post_reports WHERE post_id = :postId)
+                 deleted_reports  AS (DELETE FROM community_post_reports WHERE post_id = :postId),
+                 deleted_views    AS (DELETE FROM community_post_views   WHERE post_id = :postId)
             DELETE FROM community_posts WHERE post_id = :postId
             """, nativeQuery = true)
     void deletePostWithEngagement(@Param("postId") Long postId);
@@ -62,6 +63,7 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
               (SELECT count(*) FROM community_post_likes x WHERE x.post_id=p.post_id) AS reactions,
               (SELECT count(*) FROM community_comments x WHERE x.post_id=p.post_id) AS comments,
               (SELECT count(*) FROM community_saved_posts x WHERE x.post_id=p.post_id) AS saves,
+              (SELECT count(*) FROM community_post_views x WHERE x.post_id=p.post_id) AS views,
               EXISTS(SELECT 1 FROM community_post_likes x WHERE x.post_id=p.post_id AND x.learner_id=:learnerId) AS liked,
               EXISTS(SELECT 1 FROM community_saved_posts x WHERE x.post_id=p.post_id AND x.learner_id=:learnerId) AS saved,
               (p.author_learner_id=:learnerId) AS ownedByMe
@@ -85,6 +87,7 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
               (SELECT count(*) FROM community_post_likes x WHERE x.post_id=p.post_id) AS reactions,
               (SELECT count(*) FROM community_comments x WHERE x.post_id=p.post_id) AS comments,
               (SELECT count(*) FROM community_saved_posts x WHERE x.post_id=p.post_id) AS saves,
+              (SELECT count(*) FROM community_post_views x WHERE x.post_id=p.post_id) AS views,
               EXISTS(SELECT 1 FROM community_post_likes x WHERE x.post_id=p.post_id AND x.learner_id=:learnerId) AS liked,
               EXISTS(SELECT 1 FROM community_saved_posts x WHERE x.post_id=p.post_id AND x.learner_id=:learnerId) AS saved,
               (p.author_learner_id=:learnerId) AS ownedByMe

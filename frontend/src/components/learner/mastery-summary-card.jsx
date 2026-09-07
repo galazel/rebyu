@@ -78,7 +78,10 @@ export function MasterySummaryCard({ className = '' }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3">
+      {/* Two up on a phone. Four 78px cells left "Learning" and "Mastered"
+          wider than the box holding them, so the labels under the numbers were
+          clipped and the row read as four unlabelled counts. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatItem
           icon={Target}
           label="Mastered"

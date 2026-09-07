@@ -30,6 +30,7 @@ public record DiagramGradingResultDto(
             boolean matched,
             String matchQuality,         // STRONG | PARTIAL | WEAK | NONE
             String learnerDescription,   // what the learner drew that matched; null when unmatched
+            String reason,               // why this element scored what it did, in the learner's terms
             BigDecimal earnedPoints,
             BigDecimal maxPoints
     ) {}

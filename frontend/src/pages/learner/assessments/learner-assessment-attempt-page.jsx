@@ -1249,8 +1249,13 @@ export default function LearnerAssessmentAttemptPage() {
               two identical primary buttons on the same screen.
 
               The slot keeps its width either way, so the footer does not
-              re-centre itself on the last question. */}
-          <div className="flex min-w-32 justify-end">
+              re-centre itself on the last question. Narrower than Previous
+              below `sm`: at a 128px reservation the three parts of the footer
+              added up to more than a 320px screen, and it was Finish Attempt
+              that went over the right edge -- the button this slot exists to
+              show. 96px still holds the balance at 320px and the full width
+              comes back as soon as there is room for it. */}
+          <div className="flex min-w-24 justify-end sm:min-w-32">
             {currentIndex === questions.length - 1 ? (
                 <Button
                     className="lg:hidden"

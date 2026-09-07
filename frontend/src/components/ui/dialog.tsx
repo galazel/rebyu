@@ -176,6 +176,11 @@ function DialogContent({
         ref={setContentEl}
         data-slot="dialog-content"
         className={cn(
+          // Height, and the scroll that goes with it, come from
+          // `[data-slot="dialog-content"]` in index.css rather than from here:
+          // that rule is written at zero specificity so any dialog passing its
+          // own `h-*` / `max-h-*` / `overflow-*` still wins outright, which a
+          // default merged into this string could not promise.
           "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-xl border border-border bg-popover p-6 text-base text-popover-foreground shadow-2xl shadow-slate-950/15 duration-200 outline-none sm:max-w-lg data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}

@@ -148,8 +148,37 @@ public final class LearnerAttemptDtos {
             boolean matched,
             String matchQuality,         // STRONG | PARTIAL | WEAK | NONE
             String learnerDescription,   // what the learner drew that matched; null when missing
+            String reason,               // why it scored what it did: wrong direction, missing key, ...
             BigDecimal earnedPoints,
             BigDecimal maxPoints
+    ) {
+    }
+
+    /**
+     * One programming test case as it went for this learner.
+     *
+     * <p>A code item was reviewed as a score and a listing of the learner's own
+     * code, which says nothing about which cases it failed or how -- the one
+     * thing that makes a wrong program fixable. This is that breakdown.
+     *
+     * <p>What each field may carry follows the rule the attempt UI already
+     * works to (see {@code ProgrammingAttemptDtos.LearnerTestCaseDto}): pass or
+     * fail and the run's status are shown for every case, because knowing that
+     * case 4 failed gives away nothing. {@code input} and {@code actualOutput}
+     * are filled for sample cases only -- a hidden case's input is the part of
+     * a coding item that has to stay hidden, and a program's output on a hidden
+     * input describes that input. {@code expectedOutput} is the answer key and
+     * is gated behind the exam's release-answers setting on top of that.
+     */
+    public record ProgrammingTestReviewDto(
+            int index,
+            String label,
+            boolean sample,
+            boolean passed,
+            String status,
+            String input,
+            String expectedOutput,
+            String actualOutput
     ) {
     }
 
@@ -172,7 +201,8 @@ public final class LearnerAttemptDtos {
             boolean diagramSubmitted,
             String feedback,
             List<SubQuestionAnswerReviewDto> subQuestionAnswers,
-            List<DiagramElementReviewDto> diagramElements
+            List<DiagramElementReviewDto> diagramElements,
+            List<ProgrammingTestReviewDto> programmingTests
     ) {
     }
 

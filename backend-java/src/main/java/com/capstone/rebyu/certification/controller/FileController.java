@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URLConnection;
 import java.util.Locale;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/files")
@@ -91,17 +92,51 @@ public class FileController {
         requireAuth(jwt);
         byte[] data = s3StorageService.downloadFile(key);
 
-        String contentType = URLConnection.guessContentTypeFromName(key);
-
-        if (contentType == null) {
-            contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
-        }
-
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
+                .contentType(MediaType.parseMediaType(contentTypeOf(key)))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
                 .body(data);
     }
+
+    /**
+     * The stored file's real media type, so a viewer can render it.
+     *
+     * <p>{@link URLConnection#guessContentTypeFromName} knows the types that
+     * predate it and nothing since: every Office format comes back null, which
+     * became {@code application/octet-stream} -- and a browser handed
+     * octet-stream downloads the file instead of showing it, whatever the
+     * {@code Content-Disposition: inline} above asks for. The formats learners
+     * actually share are named here; anything else keeps the old fallback.
+     */
+    private static String contentTypeOf(String key) {
+        String name = key == null ? "" : key.toLowerCase(Locale.ROOT);
+        int dot = name.lastIndexOf('.');
+        String extension = dot == -1 ? "" : name.substring(dot + 1);
+
+        String known = KNOWN_CONTENT_TYPES.get(extension);
+        if (known != null) return known;
+
+        String guessed = URLConnection.guessContentTypeFromName(name);
+        return guessed == null ? MediaType.APPLICATION_OCTET_STREAM_VALUE : guessed;
+    }
+
+    private static final Map<String, String> KNOWN_CONTENT_TYPES = Map.ofEntries(
+            Map.entry("pdf", MediaType.APPLICATION_PDF_VALUE),
+            Map.entry("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            Map.entry("doc", "application/msword"),
+            Map.entry("pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
+            Map.entry("ppt", "application/vnd.ms-powerpoint"),
+            Map.entry("xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            Map.entry("xls", "application/vnd.ms-excel"),
+            Map.entry("txt", "text/plain"),
+            Map.entry("md", "text/markdown"),
+            Map.entry("csv", "text/csv"),
+            Map.entry("png", MediaType.IMAGE_PNG_VALUE),
+            Map.entry("jpg", MediaType.IMAGE_JPEG_VALUE),
+            Map.entry("jpeg", MediaType.IMAGE_JPEG_VALUE),
+            Map.entry("gif", MediaType.IMAGE_GIF_VALUE),
+            Map.entry("webp", "image/webp"),
+            Map.entry("svg", "image/svg+xml"));
 
     @GetMapping("/download")
     public ResponseEntity<byte[]> download(

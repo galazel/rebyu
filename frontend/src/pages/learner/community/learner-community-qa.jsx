@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom"
 import {
     ArrowUp,
     Bookmark,
+    Eye,
     BookOpen,
     FileArchive,
     FileText,
@@ -49,8 +50,8 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import FileViewerDialog from "@/components/files/file-viewer-dialog.jsx"
 import { apiMessage } from "@/services/base"
-import { fetchFileBlob } from "@/services/fileService"
 import { getAllCertifications } from "@/services/certificationService"
 import { getLibraryItems } from "@/services/learnerToolsService"
 import {
@@ -69,6 +70,7 @@ import {
     uploadCommunityAttachment,
     shareCommunityStudyItem,
     startSharedCommunityPractice,
+    recordCommunityPostView,
     reportCommunityPost,
     readCommunityFeedSnapshot,
     writeCommunityFeedSnapshot,
@@ -159,8 +161,15 @@ function attachmentTone(type) {
  * The payload tile: the thing the post is actually about — a set you can attempt
  * or a file you can open — sitting in its own bordered slab under the text, with
  * a single pill action on the right.
+ *
+ * `views` is how many learners have opened this particular payload, and it sits
+ * on the tile rather than in the footer row of counts below: those are all
+ * buttons that change the number beside them, and this one is changed by
+ * pressing the tile's own action, not by pressing the number.
  */
-function PayloadTile({ icon: Icon, tone, name, meta, actionLabel, onAction }) {
+function PayloadTile({ icon: Icon, tone, name, meta, views, actionLabel, onAction }) {
+    const openedBy = Number(views ?? 0)
+
     return (
         <div className="mt-4 flex items-center gap-3 rounded-rb-tile border-2 border-border bg-muted/40 p-3">
             <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${tone}`}>
@@ -169,7 +178,21 @@ function PayloadTile({ icon: Icon, tone, name, meta, actionLabel, onAction }) {
 
             <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-bold text-foreground">{name}</p>
-                <p className="mt-0.5 truncate text-xs font-semibold text-muted-foreground">{meta}</p>
+                <p className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-xs font-semibold text-muted-foreground">
+                    <span className="truncate">{meta}</span>
+                    {/* Nothing rather than "0 opened": on a post nobody has opened
+                        yet, a zero is the loudest thing on the card and says only
+                        that you are first. */}
+                    {openedBy > 0 ? (
+                        <span className="flex shrink-0 items-center gap-1">
+                            ·
+                            <Eye className="size-3.5" aria-hidden="true" />
+                            {openedBy.toLocaleString()}
+                            <span className="sr-only"> learners opened this</span>
+                            <span aria-hidden="true">opened</span>
+                        </span>
+                    ) : null}
+                </p>
             </div>
 
             {onAction ? (
@@ -453,7 +476,8 @@ function CommunityPost({
                         meta={post.attachment.key
                             ? [post.attachment.type, fileSize, "shared reviewer"].filter(Boolean).join(" · ")
                             : "No file attached"}
-                        actionLabel="open"
+                        views={post.views}
+                        actionLabel="read"
                         onAction={post.attachment.key ? () => onOpenAttachment(post) : null}
                     />
                 ) : null}
@@ -464,6 +488,7 @@ function CommunityPost({
                         tone={post.postType === "quiz" ? "bg-rb-feather-wash text-rb-feather-lip" : "bg-rb-beetle-wash text-rb-beetle-lip"}
                         name={post.title}
                         meta={`${POST_TYPE_LABELS[post.postType]} · generated in REBYU`}
+                        views={post.views}
                         actionLabel="attempt"
                         onAction={() => onStartPractice(post.postId)}
                     />
@@ -668,10 +693,8 @@ export default function Community() {
     const [reportPostId, setReportPostId] = useState(null)
     const [reportReason, setReportReason] = useState("SPAM")
     const [reportDetails, setReportDetails] = useState("")
-    /* Blob URLs stay alive for as long as the tab that opened them needs, so
-       they are revoked when this page unmounts rather than after the open. */
-    const objectUrlsRef = useRef([])
-    useEffect(() => () => objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url)), [])
+    /* The reviewer currently open in the viewer dialog, or null. */
+    const [viewedAttachment, setViewedAttachment] = useState(null)
 
     /* Cached across visits, which is the whole reason this is a query rather
        than the `useEffect` + `Promise.all` it used to be.
@@ -815,34 +838,64 @@ export default function Community() {
     }
 
     /**
-     * Opens a shared reviewer in its own tab. The file is fetched with the
-     * learner's token and handed over as a blob URL -- /api/files/view requires
-     * auth, so pointing a tab straight at it would load nothing.
+     * Reads a shared reviewer inside the page.
+     *
+     * It used to fetch the file and point a new tab at the resulting blob URL,
+     * which for a PDF was a coin flip and for a Word file was never a preview
+     * at all -- a browser has no .docx viewer, so the tab downloaded the file
+     * and closed. The dialog renders both (see FileViewerDialog) and keeps
+     * downloading as the deliberate second choice rather than the only outcome.
      */
-    async function openAttachment(post) {
-        const key = post?.attachment?.key
-        if (!key) return
-        // Opened before the await on purpose: a tab opened in an async
-        // continuation is treated as an unrequested popup and blocked.
-        const tab = window.open("", "_blank")
-        try {
-            const blob = await fetchFileBlob(key)
-            const url = URL.createObjectURL(blob)
-            objectUrlsRef.current.push(url)
-            if (tab) tab.location.href = url
-            else window.open(url, "_blank")
-        } catch (error) {
-            tab?.close()
-            toast.error(apiMessage(error, "This file could not be opened."))
-        }
+    function openAttachment(post) {
+        const attachment = post?.attachment
+        if (!attachment?.key) return
+        countView(post.postId)
+        setViewedAttachment({
+            key: attachment.key,
+            name: attachment.name,
+            meta: [attachment.type, formatBytes(post.attachmentSize), `shared by ${post.authorName}`]
+                .filter(Boolean)
+                .join(" · "),
+        })
+    }
+
+    /**
+     * Opens the viewer's own copy of a shared quiz or flashcard set.
+     *
+     * The two are played on different pages, and only the server knows which
+     * kind the copy came out as -- a "quiz" post's items live in the exam
+     * tables, a "flashcard" post's in a study set -- so the route is chosen
+     * from the studyType it returns rather than assumed here.
+     */
+    /**
+     * Counts this learner as having opened what a post shares.
+     *
+     * Deliberately not awaited: the count is the last thing anyone is waiting
+     * for, and a failure here must not stand between a learner and the file or
+     * quiz they asked for -- so the tile updates from the server's answer when
+     * it arrives, and stays as it was if it never does.
+     */
+    function countView(postId) {
+        recordCommunityPostView(postId)
+            .then(({ views }) => {
+                setPosts((current) =>
+                    current.map((post) => (post.postId === postId ? { ...post, views } : post))
+                )
+            })
+            .catch(() => {})
     }
 
     async function startPractice(postId) {
+        countView(postId)
         try {
             const attempt = await startSharedCommunityPractice(postId)
-            navigate(`/learner/practice/${attempt.studySetId}`)
+            navigate(
+                attempt.studyType === "FLASHCARD"
+                    ? `/learner/flashcards/${attempt.studySetId}`
+                    : `/learner/practice/${attempt.studySetId}`
+            )
         } catch (error) {
-            toast.error(apiMessage(error, "This shared study item is not ready for practice yet."))
+            toast.error(apiMessage(error, "This shared study item could not be opened."))
         }
     }
 
@@ -1575,6 +1628,14 @@ export default function Community() {
                     <DialogFooter><Button variant="outline" onClick={() => setReportPostId(null)}>Cancel</Button><Button variant="destructive" onClick={submitReport}>Submit report</Button></DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <FileViewerDialog
+                open={viewedAttachment != null}
+                onOpenChange={(open) => { if (!open) setViewedAttachment(null) }}
+                fileKey={viewedAttachment?.key}
+                name={viewedAttachment?.name}
+                meta={viewedAttachment?.meta}
+            />
         </div>
     )
 }

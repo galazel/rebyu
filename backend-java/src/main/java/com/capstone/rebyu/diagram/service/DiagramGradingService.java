@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -50,9 +51,11 @@ public class DiagramGradingService {
     private final DiagramGraphExtractor extractor;
 
     private record NodeScore(
-            boolean matched, String quality, double factor, DiagramGraphDto.Node matchedNode) {}
+            boolean matched, String quality, double factor, DiagramGraphDto.Node matchedNode,
+            String reason) {}
     private record EdgeScore(
-            boolean matched, String quality, double factor, DiagramGraphDto.Edge matchedEdge) {}
+            boolean matched, String quality, double factor, DiagramGraphDto.Edge matchedEdge,
+            String reason) {}
 
     public DiagramGradingResultDto grade(DiagramGradingRequestDto request) {
         DiagramGraphDto reference;
@@ -80,36 +83,71 @@ public class DiagramGradingService {
                     "No diagram content was submitted.", List.of());
         }
 
-        // Greedy node matching: each learner node is consumed by at most one
-        // reference node, so duplicates in the learner's diagram can't be
-        // counted twice.
-        Map<String, String> refToLearnerNodeId = new LinkedHashMap<>();
-        Set<String> usedLearnerNodeIds = new HashSet<>();
-        List<NodeScore> nodeScores = new ArrayList<>();
-        for (DiagramGraphDto.Node refNode : reference.nodes()) {
-            DiagramGraphDto.Node best = null;
-            double bestSimilarity = 0;
+        /* Node matching, best pair first -- not reference order first.
+         *
+         * The old loop walked the reference in document order and let each
+         * node take the best learner node still unclaimed. On a diagram where
+         * two required entities have overlapping names that hands the wrong
+         * one out: reference "Order" is considered first, takes the learner's
+         * "Order Item" on a 0.7 substring similarity, and reference "Order
+         * Item" -- which the learner drew exactly right -- is then left with
+         * whatever remains, usually nothing. The learner loses a mark on an
+         * element they got perfectly right, and which one they lose depends on
+         * the order the admin happened to draw the reference in.
+         *
+         * Sorting every (reference, learner) pair by similarity and assigning
+         * the strongest first makes an exact match always win the node it
+         * belongs to. It also makes assignment order-independent, and it keeps
+         * the one-to-one rule that stops a learner's duplicate boxes from
+         * being counted twice. A pair below the credit threshold can still be
+         * assigned, but only after every stronger pair has been -- so it never
+         * takes a node some other reference element could have scored on. */
+        record Pairing(int refIndex, DiagramGraphDto.Node learnerNode, double similarity) {}
+
+        List<Pairing> pairings = new ArrayList<>();
+        for (int i = 0; i < reference.nodes().size(); i++) {
+            DiagramGraphDto.Node refNode = reference.nodes().get(i);
             for (DiagramGraphDto.Node candidate : learner.nodes()) {
-                if (usedLearnerNodeIds.contains(candidate.id())) {
-                    continue;
-                }
                 double similarity = labelSimilarity(refNode.labelKey(), candidate.labelKey());
-                if (similarity > bestSimilarity) {
-                    bestSimilarity = similarity;
-                    best = candidate;
+                if (similarity > 0) {
+                    pairings.add(new Pairing(i, candidate, similarity));
                 }
             }
-            NodeScore score = scoreNodeMatch(refNode, best, bestSimilarity);
+        }
+        pairings.sort(Comparator.comparingDouble(Pairing::similarity).reversed());
+
+        DiagramGraphDto.Node[] matchedNode = new DiagramGraphDto.Node[reference.nodes().size()];
+        double[] matchedSimilarity = new double[reference.nodes().size()];
+        Set<String> usedLearnerNodeIds = new HashSet<>();
+        Set<Integer> assignedReferenceNodes = new HashSet<>();
+        for (Pairing pairing : pairings) {
+            if (assignedReferenceNodes.contains(pairing.refIndex())
+                    || usedLearnerNodeIds.contains(pairing.learnerNode().id())) {
+                continue;
+            }
+            matchedNode[pairing.refIndex()] = pairing.learnerNode();
+            matchedSimilarity[pairing.refIndex()] = pairing.similarity();
+            assignedReferenceNodes.add(pairing.refIndex());
+            usedLearnerNodeIds.add(pairing.learnerNode().id());
+        }
+
+        Map<String, String> refToLearnerNodeId = new LinkedHashMap<>();
+        List<NodeScore> nodeScores = new ArrayList<>();
+        for (int i = 0; i < reference.nodes().size(); i++) {
+            DiagramGraphDto.Node refNode = reference.nodes().get(i);
+            NodeScore score = scoreNodeMatch(refNode, matchedNode[i], matchedSimilarity[i]);
             nodeScores.add(score);
-            if (best != null && score.matched()) {
-                refToLearnerNodeId.put(refNode.id(), best.id());
-                usedLearnerNodeIds.add(best.id());
+            if (score.matched()) {
+                refToLearnerNodeId.put(refNode.id(), matchedNode[i].id());
             }
         }
 
+        // One learner edge answers at most one required relationship, the same
+        // way one learner node answers at most one required element.
+        Set<String> usedLearnerEdgeIds = new HashSet<>();
         List<EdgeScore> edgeScores = new ArrayList<>();
         for (DiagramGraphDto.Edge refEdge : reference.edges()) {
-            edgeScores.add(scoreEdgeMatch(refEdge, refToLearnerNodeId, learner.edges()));
+            edgeScores.add(scoreEdgeMatch(refEdge, refToLearnerNodeId, learner.edges(), usedLearnerEdgeIds));
         }
 
         int totalElements = nodeScores.size() + edgeScores.size();
@@ -144,6 +182,7 @@ public class DiagramGradingService {
                     score.matched(),
                     score.quality(),
                     score.matchedNode() == null ? null : describeNode(score.matchedNode()),
+                    score.reason(),
                     raw.setScale(2, RoundingMode.HALF_UP),
                     perElement.setScale(2, RoundingMode.HALF_UP)));
         }
@@ -160,6 +199,7 @@ public class DiagramGradingService {
                     score.matched(),
                     score.quality(),
                     score.matchedEdge() == null ? null : describeEdge(score.matchedEdge(), learnerNodesById),
+                    score.reason(),
                     raw.setScale(2, RoundingMode.HALF_UP),
                     perElement.setScale(2, RoundingMode.HALF_UP)));
         }
@@ -170,10 +210,24 @@ public class DiagramGradingService {
         return new DiagramGradingResultDto("GRADED", earned, maxPoints, feedback, elementResults);
     }
 
+    /**
+     * Scores one required node, and says in the learner's own terms what it
+     * lost marks for.
+     *
+     * <p>The reason matters as much as the number here. A learner looking at a
+     * partially credited element used to see a tick, a smaller number of
+     * points, and nothing about which of the three separate things this method
+     * docks for -- an inexact label, a missing key marker, the wrong kind of
+     * shape -- actually happened. Those are different mistakes with different
+     * fixes, and the score alone cannot tell them apart.
+     */
     private NodeScore scoreNodeMatch(DiagramGraphDto.Node refNode, DiagramGraphDto.Node matched, double similarity) {
         if (matched == null || similarity < SIM_WEAK) {
-            return new NodeScore(false, "NONE", 0.0, null);
+            return new NodeScore(false, "NONE", 0.0, null,
+                    "Nothing in your diagram matches this required element.");
         }
+
+        List<String> reasons = new ArrayList<>();
 
         double base;
         String quality;
@@ -183,15 +237,18 @@ public class DiagramGradingService {
         } else if (similarity >= SIM_MODERATE) {
             base = 0.7;
             quality = "PARTIAL";
+            reasons.add("The label is close to the expected one but not the same.");
         } else {
             base = 0.4;
             quality = "WEAK";
+            reasons.add("The label only loosely resembles the expected one.");
         }
 
         // A required primary/foreign key element whose match doesn't itself
         // carry a key marker got the label right but missed the key semantic.
         if (hasKeyMarker(refNode.labelKey()) && !hasKeyMarker(matched.labelKey())) {
             base *= 0.6;
+            reasons.add("This element should be marked as a key (PK or FK); yours is not.");
         }
 
         String refType = refNode.nodeType();
@@ -200,33 +257,62 @@ public class DiagramGradingService {
                 && !"shape".equals(refType) && !"shape".equals(matchedType)
                 && !refType.equals(matchedType)) {
             base *= 0.85;
+            reasons.add("It is drawn as a " + matchedType + " where a " + refType + " was expected.");
         }
 
-        return new NodeScore(true, quality, base, matched);
+        return new NodeScore(true, quality, base, matched,
+                reasons.isEmpty() ? "Matched what was expected." : String.join(" ", reasons));
     }
 
     private EdgeScore scoreEdgeMatch(
             DiagramGraphDto.Edge refEdge,
             Map<String, String> refToLearnerNodeId,
-            List<DiagramGraphDto.Edge> learnerEdges) {
+            List<DiagramGraphDto.Edge> learnerEdges,
+            Set<String> usedLearnerEdgeIds) {
         String matchedSource = refToLearnerNodeId.get(refEdge.sourceId());
         String matchedTarget = refToLearnerNodeId.get(refEdge.targetId());
         // A relationship can't exist if either endpoint's required node was
         // never matched in the learner's diagram.
         if (matchedSource == null || matchedTarget == null) {
-            return new EdgeScore(false, "NONE", 0.0, null);
+            return new EdgeScore(false, "NONE", 0.0, null,
+                    "This relationship could not be checked: one of the elements it connects "
+                            + "is missing from your diagram.");
         }
 
-        DiagramGraphDto.Edge forward = findEdge(learnerEdges, matchedSource, matchedTarget);
+        DiagramGraphDto.Edge forward =
+                bestEdge(learnerEdges, matchedSource, matchedTarget, refEdge, usedLearnerEdgeIds);
         DiagramGraphDto.Edge reversed = forward == null
-                ? findEdge(learnerEdges, matchedTarget, matchedSource) : null;
+                ? bestEdge(learnerEdges, matchedTarget, matchedSource, refEdge, usedLearnerEdgeIds) : null;
         DiagramGraphDto.Edge found = forward != null ? forward : reversed;
         if (found == null) {
-            return new EdgeScore(false, "NONE", 0.0, null);
+            return new EdgeScore(false, "NONE", 0.0, null,
+                    "You drew both elements but no connection between them.");
         }
+        usedLearnerEdgeIds.add(found.id());
 
         boolean correctDirection = forward != null;
         boolean labelGood = labelMatchesWithCardinality(refEdge.labelKey(), found.labelKey());
+
+        List<String> reasons = new ArrayList<>();
+        if (!correctDirection) {
+            reasons.add("It points the opposite way to the expected relationship.");
+        }
+        if (!labelGood) {
+            // Cardinality is the half of an ERD label learners most often get
+            // wrong, and "the label does not match" is not a useful thing to
+            // read when the words are right and only the multiplicity is off.
+            Optional<String> expectedCardinality = cardinalityToken(refEdge.labelKey());
+            Optional<String> drawnCardinality = cardinalityToken(found.labelKey());
+            if (expectedCardinality.isPresent() && !expectedCardinality.equals(drawnCardinality)) {
+                reasons.add(drawnCardinality
+                        .map(drawn -> "The cardinality reads " + drawn + " where "
+                                + expectedCardinality.get() + " was expected.")
+                        .orElse("It is missing the expected cardinality ("
+                                + expectedCardinality.get() + ")."));
+            } else {
+                reasons.add("Its label does not match the expected one.");
+            }
+        }
 
         double factor;
         String quality;
@@ -244,7 +330,8 @@ public class DiagramGradingService {
             quality = "WEAK";
         }
 
-        return new EdgeScore(true, quality, factor, found);
+        return new EdgeScore(true, quality, factor, found,
+                reasons.isEmpty() ? "Matched what was expected." : String.join(" ", reasons));
     }
 
     private String describeNode(DiagramGraphDto.Node node) {
@@ -260,11 +347,40 @@ public class DiagramGradingService {
         return edge.label() == null || edge.label().isBlank() ? base : base + " (" + edge.label() + ")";
     }
 
-    private DiagramGraphDto.Edge findEdge(List<DiagramGraphDto.Edge> edges, String sourceId, String targetId) {
-        return edges.stream()
-                .filter(edge -> edge.sourceId().equals(sourceId) && edge.targetId().equals(targetId))
-                .findFirst()
-                .orElse(null);
+    /**
+     * The best still-unclaimed learner edge running between two nodes.
+     *
+     * <p>Two things this settles that taking the first match did not. A learner
+     * edge already credited to another required relationship is skipped, so one
+     * drawn line cannot satisfy two of them -- between a pair of entities that
+     * the reference connects twice ("places" and "cancels" between Customer and
+     * Order), a learner who drew one arrow used to be paid for both. And where
+     * the learner did draw both, the one whose label actually matches is
+     * preferred over whichever came first in the file, so parallel
+     * relationships are told apart by what they say rather than by document
+     * order.
+     */
+    private DiagramGraphDto.Edge bestEdge(
+            List<DiagramGraphDto.Edge> edges,
+            String sourceId,
+            String targetId,
+            DiagramGraphDto.Edge refEdge,
+            Set<String> usedLearnerEdgeIds) {
+        DiagramGraphDto.Edge fallback = null;
+        for (DiagramGraphDto.Edge edge : edges) {
+            if (usedLearnerEdgeIds.contains(edge.id())
+                    || !edge.sourceId().equals(sourceId)
+                    || !edge.targetId().equals(targetId)) {
+                continue;
+            }
+            if (labelMatchesWithCardinality(refEdge.labelKey(), edge.labelKey())) {
+                return edge;
+            }
+            if (fallback == null) {
+                fallback = edge;
+            }
+        }
+        return fallback;
     }
 
     private boolean labelMatchesWithCardinality(String refLabelKey, String learnerLabelKey) {

@@ -828,4 +828,300 @@ class AssessmentAttemptServiceTest {
                 () -> service.submitAttempt(77L,
                         new SubmitAssessmentAttemptRequestDto(999L, List.of())));
     }
+
+    // ---- what "already checked" is allowed to mean at submit ----
+
+    /** The review returned by the most recent {@link #submitProgrammingWithStoredVerdict}. */
+    private AssessmentAttemptResultDto lastProgrammingResult;
+
+    /** The same SHA-256 hex the service stamps a stored verdict with. */
+    private static String codeHash(String code) throws Exception {
+        byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(code.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        StringBuilder hex = new StringBuilder();
+        for (byte b : digest) {
+            hex.append(String.format("%02x", b));
+        }
+        return hex.toString();
+    }
+
+    /**
+     * Wires up a one-question programming paper whose answer already carries a
+     * full-marks Check verdict stamped with {@code gradedCodeHash}, and submits
+     * {@code submittedCode} against it. Returns the answer as it was left.
+     */
+    private AssessmentAttemptAnswer submitProgrammingWithStoredVerdict(
+            String gradedCodeHash, String submittedCode, CodeExecutionResultDto rerun) {
+
+        Question programmingParent = new Question();
+        programmingParent.setQuestionId(500L);
+        programmingParent.setQuestionType("PROGRAMMING");
+
+        ProgrammingTestCase test1 = ProgrammingTestCase.builder()
+                .programmingTestCaseId(1L).inputData("2 3").expectedOutput("5").isSample(true).build();
+        ProgrammingTestCase test2 = ProgrammingTestCase.builder()
+                .programmingTestCaseId(2L).inputData("10 20").expectedOutput("30").isSample(false).build();
+        ProgrammingQuestionConfig config = ProgrammingQuestionConfig.builder()
+                .programmingQuestionConfigId(9L)
+                .testCases(new ArrayList<>(List.of(test1, test2)))
+                .build();
+        programmingParent.setProgrammingQuestionConfig(config);
+        lenient().when(programmingQuestionConfigRepository.findByQuestion_QuestionId(500L))
+                .thenReturn(Optional.of(config));
+        lenient().when(questionRepository.findById(500L)).thenReturn(Optional.of(programmingParent));
+        lenient().when(questionRepository.findForAttemptByIdIn(List.of(500L)))
+                .thenReturn(List.of(programmingParent));
+
+        AssessmentAttempt attempt = AssessmentAttempt.builder()
+                .assessmentAttemptId(91L)
+                .exam(exam)
+                .learnerId(2L)
+                .attemptNumber(1)
+                .status(AssessmentAttempt.Status.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusMinutes(5))
+                .build();
+        when(attemptRepository.findById(91L)).thenReturn(Optional.of(attempt));
+
+        AssessmentAttemptQuestion snapshot = AssessmentAttemptQuestion.builder()
+                .attemptQuestionId(7L)
+                .attempt(attempt)
+                .sourceQuestionId(500L)
+                .questionType("PROGRAMMING")
+                .questionTextSnapshot("Sum two integers read from stdin.")
+                .displayOrder(1)
+                .points(new BigDecimal("10.00"))
+                .build();
+        lenient().when(attemptQuestionRepository.findById(7L)).thenReturn(Optional.of(snapshot));
+        when(attemptQuestionRepository.findByAttempt_AssessmentAttemptIdOrderByDisplayOrderAsc(91L))
+                .thenReturn(List.of(snapshot));
+
+        // The verdict a Check left behind, stamped with the code it came from.
+        AssessmentAttemptAnswer existing = AssessmentAttemptAnswer.builder()
+                .attemptAnswerId(900L)
+                .attempt(attempt)
+                .attemptQuestion(snapshot)
+                // The same code the submit carries, so upsertAnswers treats the
+                // item as untouched and leaves the stored verdict alone. What is
+                // under test is what the scorer does with a verdict it has kept:
+                // whether it checks that the verdict belongs to this code.
+                .submittedCode(submittedCode)
+                .programmingLanguage("Python")
+                .isCorrect(true)
+                .earnedPoints(new BigDecimal("10.00"))
+                .pendingManualEvaluation(false)
+                .executionResult("{\"codeHash\":\"" + gradedCodeHash + "\",\"mode\":\"CHECK\","
+                        + "\"status\":\"COMPLETED\",\"passedTests\":2,\"totalTests\":2,"
+                        + "\"testResults\":[]}")
+                .build();
+
+        List<AssessmentAttemptAnswer> answers = new ArrayList<>(List.of(existing));
+        lenient().when(attemptAnswerRepository
+                .findByAttempt_AssessmentAttemptIdAndAttemptQuestion_AttemptQuestionId(91L, 7L))
+                .thenAnswer(inv -> answers.stream().findFirst());
+        when(attemptAnswerRepository.findByAttempt_AssessmentAttemptId(91L)).thenAnswer(inv -> answers);
+        when(attemptAnswerRepository.save(any())).thenAnswer(inv -> {
+            AssessmentAttemptAnswer answer = inv.getArgument(0);
+            if (answer.getAttemptAnswerId() == null) answer.setAttemptAnswerId(900L);
+            answers.removeIf(other -> answer.getAttemptAnswerId().equals(other.getAttemptAnswerId()));
+            answers.add(answer);
+            return answer;
+        });
+        when(attemptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(examResultRepository.existsById(any())).thenReturn(false);
+
+        if (rerun != null) {
+            when(codeExecutionService.execute(any())).thenReturn(rerun);
+        }
+
+        lastProgrammingResult = service.submitAttempt(91L,
+                new SubmitAssessmentAttemptRequestDto(2L, List.of(
+                        new AttemptAnswerDraftDto(7L, null, null, submittedCode, "Python", null))));
+
+        return answers.get(0);
+    }
+
+    /**
+     * Check is a button pressed mid-solution. A verdict from the code as it was
+     * then must not be the mark for the code as it is at submit -- here the
+     * learner checked a working version, then replaced it, and the replacement
+     * fails half the tests.
+     */
+    @Test
+    void submitRegradesProgrammingWhenTheCodeChangedSinceCheck() {
+        stubActiveEnrollment();
+
+        CodeExecutionResultDto rerun = new CodeExecutionResultDto(
+                "COMPLETED", "5", null, 11L, 2048L, 1, 2,
+                List.of(
+                        new CodeExecutionResultDto.TestCaseResultDto(1, true, true, "PASSED", "5"),
+                        new CodeExecutionResultDto.TestCaseResultDto(2, false, false, "FAILED", "31")));
+
+        AssessmentAttemptAnswer answer = submitProgrammingWithStoredVerdict(
+                "hash-of-code-the-learner-has-since-replaced", "print('new and broken')", rerun);
+
+        verify(codeExecutionService, atLeastOnce()).execute(any());
+        // Half the tests on a 10-point item -- the re-run's verdict, not the
+        // stored 10.00 from the version that passed everything.
+        assertEquals(0, new BigDecimal("5.00").compareTo(answer.getEarnedPoints()));
+        assertFalse(answer.getIsCorrect());
+        assertFalse(answer.isPendingManualEvaluation());
+    }
+
+    /** Unchanged code keeps its verdict: no second trip to Judge0 for an answer already decided. */
+    @Test
+    void submitKeepsTheCheckVerdictWhenTheCodeIsUnchanged() throws Exception {
+        stubActiveEnrollment();
+        String code = "print(sum(map(int, input().split())))";
+
+        AssessmentAttemptAnswer answer =
+                submitProgrammingWithStoredVerdict(codeHash(code), code, null);
+
+        verify(codeExecutionService, never()).execute(any());
+        assertEquals(0, new BigDecimal("10.00").compareTo(answer.getEarnedPoints()));
+        assertTrue(answer.getIsCorrect());
+    }
+
+    /**
+     * A question that says it is a diagram is graded as a diagram, even when a
+     * programming config is still hanging off it from before it was converted.
+     * Resolution used to read the configs only, and the programming check came
+     * first -- so the learner's draw.io XML was posted to Judge0 as source code.
+     */
+    @Test
+    void diagramTypedQuestionIsGradedStructurallyDespiteALeftoverProgrammingConfig() {
+        stubActiveEnrollment();
+
+        Question diagramParent = new Question();
+        diagramParent.setQuestionId(600L);
+        diagramParent.setQuestionType("DIAGRAM");
+
+        DiagramQuestionConfig diagramConfig = DiagramQuestionConfig.builder()
+                .diagramQuestionConfigId(12L)
+                .diagramType("ERD")
+                .referenceDiagramXml(diagramXml("Student", "Course", "enrolls in 1..*"))
+                .referenceDiagramJson("{}")
+                .build();
+        diagramParent.setDiagramQuestionConfig(diagramConfig);
+        // The leftover: authored when this was still a coding item.
+        diagramParent.setProgrammingQuestionConfig(ProgrammingQuestionConfig.builder()
+                .programmingQuestionConfigId(13L)
+                .testCases(new ArrayList<>())
+                .build());
+        lenient().when(diagramQuestionConfigRepository.findByQuestion_QuestionId(600L))
+                .thenReturn(Optional.of(diagramConfig));
+        lenient().when(questionRepository.findById(600L)).thenReturn(Optional.of(diagramParent));
+        lenient().when(questionRepository.findForAttemptByIdIn(List.of(600L)))
+                .thenReturn(List.of(diagramParent));
+
+        AssessmentAttempt attempt = AssessmentAttempt.builder()
+                .assessmentAttemptId(92L)
+                .exam(exam)
+                .learnerId(2L)
+                .attemptNumber(1)
+                .status(AssessmentAttempt.Status.IN_PROGRESS)
+                .startedAt(LocalDateTime.now().minusMinutes(4))
+                .build();
+        when(attemptRepository.findById(92L)).thenReturn(Optional.of(attempt));
+
+        AssessmentAttemptQuestion snapshot = AssessmentAttemptQuestion.builder()
+                .attemptQuestionId(8L)
+                .attempt(attempt)
+                .sourceQuestionId(600L)
+                .questionType("DIAGRAM")
+                .questionTextSnapshot("Model the Student/Course enrollment relationship as an ERD.")
+                .displayOrder(1)
+                .points(new BigDecimal("10.00"))
+                .build();
+        lenient().when(attemptQuestionRepository.findById(8L)).thenReturn(Optional.of(snapshot));
+        when(attemptQuestionRepository.findByAttempt_AssessmentAttemptIdOrderByDisplayOrderAsc(92L))
+                .thenReturn(List.of(snapshot));
+
+        List<AssessmentAttemptAnswer> answers = new ArrayList<>();
+        lenient().when(attemptAnswerRepository
+                .findByAttempt_AssessmentAttemptIdAndAttemptQuestion_AttemptQuestionId(92L, 8L))
+                .thenAnswer(inv -> answers.stream().findFirst());
+        when(attemptAnswerRepository.findByAttempt_AssessmentAttemptId(92L)).thenAnswer(inv -> answers);
+        when(attemptAnswerRepository.save(any())).thenAnswer(inv -> {
+            AssessmentAttemptAnswer answer = inv.getArgument(0);
+            if (answer.getAttemptAnswerId() == null) answer.setAttemptAnswerId(910L);
+            answers.removeIf(other -> answer.getAttemptAnswerId().equals(other.getAttemptAnswerId()));
+            answers.add(answer);
+            return answer;
+        });
+        when(attemptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(examResultRepository.existsById(any())).thenReturn(false);
+
+        AssessmentAttemptResultDto result = service.submitAttempt(92L,
+                new SubmitAssessmentAttemptRequestDto(2L, List.of(
+                        new AttemptAnswerDraftDto(8L, null, null, null, null,
+                                diagramXml("Student", "Course", "enrolls in 1..*")))));
+
+        verify(codeExecutionService, never()).execute(any());
+        assertEquals(0, new BigDecimal("10.00").compareTo(result.earnedPoints()));
+        assertEquals(0, result.pendingCount());
+        assertEquals(3, result.answers().get(0).diagramElements().size());
+    }
+
+
+    /**
+     * A wrong program has to say which case it broke on. Sample cases show what
+     * went in and what came out; a hidden case's input stays hidden, because
+     * that is the part of a coding item that has to.
+     */
+    @Test
+    void programmingReviewNamesTheFailingTestsAndWithholdsHiddenInputs() {
+        stubActiveEnrollment();
+        exam.setReleaseAnswersAfterSubmit(true);
+
+        CodeExecutionResultDto rerun = new CodeExecutionResultDto(
+                "COMPLETED", "5", null, 11L, 2048L, 1, 2,
+                List.of(
+                        new CodeExecutionResultDto.TestCaseResultDto(1, true, true, "PASSED", "5"),
+                        new CodeExecutionResultDto.TestCaseResultDto(2, false, false, "FAILED", "31")));
+
+        submitProgrammingWithStoredVerdict(
+                "hash-of-code-the-learner-has-since-replaced", "print('new and broken')", rerun);
+
+        List<ProgrammingTestReviewDto> tests =
+                lastProgrammingResult.answers().get(0).programmingTests();
+        assertEquals(2, tests.size());
+
+        ProgrammingTestReviewDto sample = tests.get(0);
+        assertTrue(sample.sample());
+        assertTrue(sample.passed());
+        assertEquals("2 3", sample.input());
+        assertEquals("5", sample.expectedOutput());
+        assertEquals("5", sample.actualOutput());
+
+        ProgrammingTestReviewDto hidden = tests.get(1);
+        assertFalse(hidden.sample());
+        assertFalse(hidden.passed());
+        // Pass/fail is safe to show. Everything that would describe the hidden
+        // case is not.
+        assertNull(hidden.input());
+        assertNull(hidden.expectedOutput());
+        assertNull(hidden.actualOutput());
+    }
+
+    /** The expected output is answer-key material, gated like the MCQ key. */
+    @Test
+    void programmingReviewWithholdsExpectedOutputWhenAnswersAreNotReleased() {
+        stubActiveEnrollment();
+        exam.setReleaseAnswersAfterSubmit(false);
+
+        CodeExecutionResultDto rerun = new CodeExecutionResultDto(
+                "COMPLETED", "5", null, 11L, 2048L, 1, 2,
+                List.of(
+                        new CodeExecutionResultDto.TestCaseResultDto(1, true, true, "PASSED", "5"),
+                        new CodeExecutionResultDto.TestCaseResultDto(2, false, false, "FAILED", "31")));
+
+        submitProgrammingWithStoredVerdict("stale-hash", "print('new and broken')", rerun);
+
+        ProgrammingTestReviewDto sample =
+                lastProgrammingResult.answers().get(0).programmingTests().get(0);
+        assertEquals("2 3", sample.input());
+        assertNull(sample.expectedOutput());
+        // Their own program's output on a case they can already see is theirs.
+        assertEquals("5", sample.actualOutput());
+    }
 }

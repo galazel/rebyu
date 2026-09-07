@@ -134,9 +134,16 @@ function RequestPartnershipDialog({ open, onOpenChange, institution, data }) {
             {items.map((item, index) => (
               <div
                 key={index}
-                className="grid grid-cols-[1fr_84px_84px_auto] items-end gap-2 rounded-lg border p-3"
+                /* Four fixed tracks only once there is room for them. Inside a
+                   dialog on a 375px phone this row has about 270px to spend;
+                   Slots and Months take 168 of it and the remove button another
+                   40, which left the certification select roughly 40px wide --
+                   a control whose value is a certification title, rendered
+                   narrower than the word "Select". Below `sm` the select takes
+                   a row of its own and the two numbers sit beside each other. */
+                className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-2 rounded-lg border p-3 sm:grid-cols-[1fr_84px_84px_auto]"
               >
-                <div className="space-y-1.5">
+                <div className="col-span-3 space-y-1.5 sm:col-span-1">
                   <Label htmlFor={`pr-cert-${index}`}>Certification</Label>
                   <Select
                     value={item.certificationId}

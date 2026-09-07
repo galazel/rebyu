@@ -8,6 +8,7 @@ import com.capstone.rebyu.community.repository.CommunityCommentRepository;
 import com.capstone.rebyu.community.repository.CommunityPostLikeRepository;
 import com.capstone.rebyu.community.repository.CommunityPostReportRepository;
 import com.capstone.rebyu.community.repository.CommunityPostRepository;
+import com.capstone.rebyu.community.repository.CommunityPostViewRepository;
 import com.capstone.rebyu.community.repository.CommunitySavedPostRepository;
 import com.capstone.rebyu.community.repository.LearnerCommunityNotificationRepository;
 import com.capstone.rebyu.learningtools.entity.LearnerLibraryItem;
@@ -35,6 +36,7 @@ import static org.mockito.Mockito.when;
 class CommunityServiceTest {
 
     private static final Long LEARNER_ID = 1L;
+    private static final Long OTHER_LEARNER_ID = 99L;
     private static final Long POST_ID = 20L;
 
     private CommunityPostRepository postRepository;
@@ -43,6 +45,7 @@ class CommunityServiceTest {
     private CommunityCommentRepository commentRepository;
     private CommunityPostLikeRepository postLikeRepository;
     private CommunitySavedPostRepository savedPostRepository;
+    private CommunityPostViewRepository postViewRepository;
     private CommunityPostReportRepository reportRepository;
     private LearnerCommunityNotificationRepository notificationRepository;
     private LearnerLibraryItemRepository libraryItemRepository;
@@ -58,29 +61,34 @@ class CommunityServiceTest {
         commentRepository = mock(CommunityCommentRepository.class);
         postLikeRepository = mock(CommunityPostLikeRepository.class);
         savedPostRepository = mock(CommunitySavedPostRepository.class);
+        postViewRepository = mock(CommunityPostViewRepository.class);
         reportRepository = mock(CommunityPostReportRepository.class);
         notificationRepository = mock(LearnerCommunityNotificationRepository.class);
         libraryItemRepository = mock(LearnerLibraryItemRepository.class);
         learnerRepository = mock(LearnerRepository.class);
         s3StorageService = mock(S3StorageService.class);
         service = new CommunityService(postRepository, circleRepository, circleMemberRepository, commentRepository,
-                postLikeRepository, savedPostRepository, reportRepository, notificationRepository,
+                postLikeRepository, savedPostRepository, postViewRepository, reportRepository, notificationRepository,
                 libraryItemRepository, learnerRepository, s3StorageService);
 
         when(postRepository.save(any(CommunityPost.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
     private CommunityPost sharedQuizPost(String moderationStatus) {
+        return sharedStudyPost(moderationStatus, "quiz", "/learner/practice/77");
+    }
+
+    private CommunityPost sharedStudyPost(String moderationStatus, String postType, String resourceUrl) {
         LearnerLibraryItem item = LearnerLibraryItem.builder()
                 .libraryItemId(5L)
-                .itemType("quiz")
+                .itemType(postType)
                 .title("Algebra basics")
-                .resourceUrl("/learner/practice/77")
+                .resourceUrl(resourceUrl)
                 .build();
         CommunityPost post = CommunityPost.builder()
                 .postId(POST_ID)
                 .author(Learner.builder().learnerId(LEARNER_ID).firstName("Ana").lastName("Cruz").build())
-                .postType("quiz")
+                .postType(postType)
                 .title("Algebra basics")
                 .body("Shared quiz")
                 .sharedLibraryItem(item)
@@ -116,32 +124,62 @@ class CommunityServiceTest {
         assertThrows(EntityNotFoundException.class, () -> service.hidePost(POST_ID));
     }
 
-    // ---- sharedStudySetId: the moderation bypass this session fixed ----
+    // ---- sharedStudyTarget: the moderation bypass, and the route shapes
+    //      the two generation paths actually write ----
 
     @Test
-    void sharedStudySetId_hiddenPost_throwsInsteadOfReturningStudySet() {
+    void sharedStudyTarget_hiddenPost_throwsInsteadOfReturningStudySet() {
         when(postRepository.findById(POST_ID)).thenReturn(Optional.of(sharedQuizPost("HIDDEN")));
 
-        assertThrows(IllegalArgumentException.class, () -> service.sharedStudySetId(POST_ID));
+        assertThrows(IllegalArgumentException.class, () -> service.sharedStudyTarget(POST_ID));
     }
 
     @Test
-    void sharedStudySetId_visiblePost_returnsParsedStudySetId() {
+    void sharedStudyTarget_legacyPracticeRoute_resolvesToStudySet() {
         when(postRepository.findById(POST_ID)).thenReturn(Optional.of(sharedQuizPost("VISIBLE")));
 
-        Long studySetId = service.sharedStudySetId(POST_ID);
+        CommunityService.SharedStudyTarget target = service.sharedStudyTarget(POST_ID);
 
-        assertEquals(77L, studySetId);
+        assertEquals("STUDY_SET", target.store());
+        assertEquals(77L, target.id());
+        assertEquals("QUIZ", target.studyType());
+    }
+
+    /* A generated quiz is persisted as an exam, not a study set -- the reason
+       every shared quiz used to answer "this older study post cannot be
+       practised yet" however new it was. */
+    @Test
+    void sharedStudyTarget_generatedQuiz_resolvesToExam() {
+        when(postRepository.findById(POST_ID)).thenReturn(
+                Optional.of(sharedStudyPost("VISIBLE", "quiz", "/learner/assessments/91")));
+
+        CommunityService.SharedStudyTarget target = service.sharedStudyTarget(POST_ID);
+
+        assertEquals("EXAM", target.store());
+        assertEquals(91L, target.id());
+        assertEquals("QUIZ", target.studyType());
     }
 
     @Test
-    void sharedStudySetId_discussionPost_throws() {
+    void sharedStudyTarget_generatedFlashcards_resolveToStudySet() {
+        when(postRepository.findById(POST_ID)).thenReturn(
+                Optional.of(sharedStudyPost("VISIBLE", "flashcard", "/learner/flashcards/42")));
+
+        CommunityService.SharedStudyTarget target = service.sharedStudyTarget(POST_ID);
+
+        assertEquals("STUDY_SET", target.store());
+        assertEquals(42L, target.id());
+        assertEquals("FLASHCARD", target.studyType());
+    }
+
+    @Test
+    void sharedStudyTarget_discussionPost_throws() {
         CommunityPost post = sharedQuizPost("VISIBLE");
         post.setPostType("discussion");
         post.setSharedLibraryItem(null);
         when(postRepository.findById(POST_ID)).thenReturn(Optional.of(post));
 
-        assertThrows(IllegalArgumentException.class, () -> service.sharedStudySetId(POST_ID));
+        assertThrows(IllegalArgumentException.class, () -> service.sharedStudyTarget(POST_ID));
     }
 
     // ---- like/save toggle ----
@@ -222,5 +260,48 @@ class CommunityServiceTest {
 
         assertThrows(EntityNotFoundException.class,
                 () -> service.reportPost(LEARNER_ID, POST_ID, new CommunityService.ReportRequest("SPAM", null)));
+    }
+
+    // ---- recordView: how many learners opened what a post shares ----
+
+    @Test
+    void recordView_otherLearner_recordsTheViewAndReturnsTheCount() {
+        when(postRepository.findById(POST_ID)).thenReturn(Optional.of(sharedQuizPost("VISIBLE")));
+        when(postViewRepository.countByPost_PostId(POST_ID)).thenReturn(12L);
+
+        long views = service.recordView(OTHER_LEARNER_ID, POST_ID);
+
+        assertEquals(12L, views);
+        verify(postViewRepository).recordView(POST_ID, OTHER_LEARNER_ID);
+    }
+
+    /* Otherwise every post reads "1 view" the moment its author looks at it,
+       and the number stops meaning what it says it means. */
+    @Test
+    void recordView_author_returnsTheCountWithoutCountingThemselves() {
+        when(postRepository.findById(POST_ID)).thenReturn(Optional.of(sharedQuizPost("VISIBLE")));
+        when(postViewRepository.countByPost_PostId(POST_ID)).thenReturn(3L);
+
+        long views = service.recordView(LEARNER_ID, POST_ID);
+
+        assertEquals(3L, views);
+        verify(postViewRepository, never()).recordView(any(), any());
+    }
+
+    @Test
+    void recordView_discussionPost_throwsBecauseThereIsNothingToOpen() {
+        CommunityPost post = sharedQuizPost("VISIBLE");
+        post.setPostType("discussion");
+        when(postRepository.findById(POST_ID)).thenReturn(Optional.of(post));
+
+        assertThrows(IllegalArgumentException.class, () -> service.recordView(OTHER_LEARNER_ID, POST_ID));
+        verify(postViewRepository, never()).recordView(any(), any());
+    }
+
+    @Test
+    void recordView_hiddenPost_throws() {
+        when(postRepository.findById(POST_ID)).thenReturn(Optional.of(sharedQuizPost("HIDDEN")));
+
+        assertThrows(EntityNotFoundException.class, () -> service.recordView(OTHER_LEARNER_ID, POST_ID));
     }
 }

@@ -6,6 +6,7 @@ import com.capstone.rebyu.community.entity.CommunityCircleMemberId;
 import com.capstone.rebyu.community.entity.CommunityComment;
 import com.capstone.rebyu.community.entity.CommunityPost;
 import com.capstone.rebyu.community.entity.CommunityPostReport;
+import com.capstone.rebyu.community.entity.CommunityPostView;
 import com.capstone.rebyu.community.entity.LearnerCommunityNotification;
 import com.capstone.rebyu.community.repository.CommunityCircleMemberRepository;
 import com.capstone.rebyu.community.repository.CommunityCircleRepository;
@@ -15,6 +16,7 @@ import com.capstone.rebyu.community.repository.CommunityPostLikeRepository;
 import com.capstone.rebyu.community.repository.CommunityPostReportRepository;
 import com.capstone.rebyu.community.repository.CommunityPostRepository;
 import com.capstone.rebyu.community.repository.CommunityPostRow;
+import com.capstone.rebyu.community.repository.CommunityPostViewRepository;
 import com.capstone.rebyu.community.repository.CommunitySavedPostRepository;
 import com.capstone.rebyu.community.repository.LearnerCommunityNotificationRepository;
 import com.capstone.rebyu.learningtools.entity.LearnerLibraryItem;
@@ -31,6 +33,7 @@ import java.io.IOException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Learner community: discussion/resource posts, study circles, likes, saves,
@@ -44,12 +47,17 @@ public class CommunityService {
     private static final List<String> ALLOWED_POST_TYPES =
             List.of("discussion", "quiz", "flashcard", "quizzes", "notes", "docx");
 
+    /** Post types with something to open, and so something to count opens of. */
+    private static final List<String> VIEWABLE_POST_TYPES =
+            List.of("quiz", "flashcard", "quizzes", "notes", "docx");
+
     private final CommunityPostRepository postRepository;
     private final CommunityCircleRepository circleRepository;
     private final CommunityCircleMemberRepository circleMemberRepository;
     private final CommunityCommentRepository commentRepository;
     private final CommunityPostLikeRepository postLikeRepository;
     private final CommunitySavedPostRepository savedPostRepository;
+    private final CommunityPostViewRepository postViewRepository;
     private final CommunityPostReportRepository reportRepository;
     private final LearnerCommunityNotificationRepository notificationRepository;
     private final LearnerLibraryItemRepository libraryItemRepository;
@@ -73,7 +81,7 @@ public class CommunityService {
             Long postId, String authorName, String initials, String community, OffsetDateTime createdAt,
             String title, String description, String postType, Long circleId,
             String attachmentName, String attachmentType, String attachmentKey, Long attachmentSize,
-            long reactions, long comments, long saves,
+            long reactions, long comments, long saves, long views,
             boolean liked, boolean saved, boolean ownedByMe) {}
 
     public record Circle(
@@ -168,12 +176,56 @@ public class CommunityService {
     }
 
     /**
-     * Resolves a post's structured study set without disclosing it directly to the client.
+     * What a shared post actually points at.
+     *
+     * <p>{@code store} is EXAM for a shared quiz and STUDY_SET for shared
+     * flashcards, because the two generation paths persist into different
+     * tables (see {@code LearnerToolsController#generate}); {@code studyType}
+     * is what the client needs to know which player to open.
+     */
+    public record SharedStudyTarget(String store, Long id, String studyType) {}
+
+    /** Where a generated library item's own "open it" route points. */
+    private static final Map<String, String> STUDY_ROUTE_PREFIXES = Map.of(
+            "/learner/assessments/", "EXAM",
+            "/learner/flashcards/", "STUDY_SET",
+            // Written by no current generation path; kept so the first shares,
+            // made when quizzes were still persisted as study sets, still open.
+            "/learner/practice/", "STUDY_SET");
+
+    /**
+     * Records that this learner opened what a post shares, and returns how many
+     * learners now have.
+     *
+     * <p>Counted per learner, not per click (see {@link CommunityPostView}), and
+     * only for the post types that carry something to open -- a discussion has
+     * no "open" to speak of, so a view count on one would only ever be a count
+     * of scrolls past it.
+     *
+     * <p>An author opening their own post is not a view of it. Otherwise every
+     * post starts at 1 the moment its author checks how it looks, and the
+     * number a learner is being shown -- how many other people found this
+     * useful -- quietly includes the one person it cannot mean.
+     */
+    @Transactional
+    public long recordView(Long learnerId, Long postId) {
+        CommunityPost post = requirePostVisible(postId);
+        if (!VIEWABLE_POST_TYPES.contains(post.getPostType())) {
+            throw new IllegalArgumentException("This post has nothing to open");
+        }
+        if (!post.getAuthor().getLearnerId().equals(learnerId)) {
+            postViewRepository.recordView(postId, learnerId);
+        }
+        return postViewRepository.countByPost_PostId(postId);
+    }
+
+    /**
+     * Resolves what a post shares without disclosing it directly to the client.
      * Transactional because it walks the lazy sharedLibraryItem association -- outside a
-     * session that walk throws instead of returning the set.
+     * session that walk throws instead of returning the item.
      */
     @Transactional(readOnly = true)
-    public Long sharedStudySetId(Long postId) {
+    public SharedStudyTarget sharedStudyTarget(Long postId) {
         CommunityPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("This post does not contain an answerable study set"));
         // Must match the moderation_status='VISIBLE' guard in posts() -- a hidden post (e.g.
@@ -185,10 +237,18 @@ public class CommunityService {
             throw new IllegalArgumentException("This post does not contain an answerable study set");
         }
         String route = post.getSharedLibraryItem().getResourceUrl();
-        String prefix = "/learner/practice/";
-        if (route == null || !route.startsWith(prefix)) throw new IllegalArgumentException("This older study post cannot be practised yet");
-        try { return Long.valueOf(route.substring(prefix.length())); }
-        catch (NumberFormatException ex) { throw new IllegalArgumentException("Shared study set is invalid"); }
+        if (route == null) throw new IllegalArgumentException("This shared study post has nothing to open");
+        String studyType = "quiz".equals(post.getPostType()) ? "QUIZ" : "FLASHCARD";
+        for (Map.Entry<String, String> prefix : STUDY_ROUTE_PREFIXES.entrySet()) {
+            if (!route.startsWith(prefix.getKey())) continue;
+            try {
+                return new SharedStudyTarget(prefix.getValue(),
+                        Long.valueOf(route.substring(prefix.getKey().length())), studyType);
+            } catch (NumberFormatException ex) {
+                throw new IllegalArgumentException("Shared study set is invalid");
+            }
+        }
+        throw new IllegalArgumentException("This older study post cannot be practised yet");
     }
 
     @Transactional
@@ -515,7 +575,7 @@ public class CommunityService {
                 row.getTitle(), row.getBody(), row.getPostType(), row.getCircleId(),
                 row.getAttachmentName(), row.getAttachmentType(), row.getAttachmentKey(), row.getAttachmentSize(),
                 row.getReactions(),
-                row.getComments(), row.getSaves(),
+                row.getComments(), row.getSaves(), row.getViews(),
                 row.getLiked(), row.getSaved(), row.getOwnedByMe());
     }
 

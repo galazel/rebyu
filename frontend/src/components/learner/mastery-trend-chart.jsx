@@ -104,7 +104,9 @@ export function MasteryTrendChart({ certificationId, className = '' }) {
 
       <div className="mt-6 pt-4 border-t border-border space-y-2">
         <p className="text-sm font-medium text-foreground">Quick Stats</p>
-        <div className="grid grid-cols-3 gap-4">
+        {/* "Total Assessments" and "Current Mastery" do not fit a third of a
+            phone. Stacked below `sm`, side by side from there. */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <p className="text-xs text-muted-foreground">Total Assessments</p>
             <p className="text-lg font-semibold text-foreground">{history.length}</p>

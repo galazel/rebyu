@@ -24,6 +24,8 @@ public interface CommunityPostRow {
     long getReactions();
     long getComments();
     long getSaves();
+    /** Distinct learners who have opened this post's quiz, flashcards or file. */
+    long getViews();
     boolean getLiked();
     boolean getSaved();
     boolean getOwnedByMe();

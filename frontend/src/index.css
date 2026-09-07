@@ -128,11 +128,79 @@
         min-width: 0;
     }
 
-    /* For a page that paints its own full-width header. `.rebyu-page`'s gutter
-       exists so cards do not touch the window edge, but a coloured banner that
-       stops 24px short of it reads as a mistake rather than as restraint -- the
-       page looks inset inside the portal instead of being the portal. The page
-       takes over its own padding from here. */
+    /* ------------------------------------------------------------------
+       Mobile overflow guard.
+
+       A grid item is born with `min-width: auto`, which floors it at its own
+       min-content width -- and because a Tailwind track is `minmax(0, 1fr)`,
+       that floor is the only thing that can push a column wider than the space
+       there is for it. One unbreakable token does it: a filename like
+       `subnetting-cheatsheet.pdf` inside a card widened the card, the card
+       widened the column, and the column grew past the width of the phone
+       holding it. The portal shells clip rather than scroll
+       (`overflow-x-clip` on the landing shell, `overflow-hidden` on the
+       section wrappers), so the excess was not something you could scroll to
+       -- it was cut off, and the right-hand end of every sentence in that
+       column simply did not exist on a phone.
+
+       Grid children only. The same declaration on flex children looks like it
+       should be harmless and is not: it lets a short, unbreakable label shrink
+       under a sibling instead of holding its ground, which is how the attempt
+       navigator's item numbers ended up printed on top of their own status
+       ticks. A flex row that needs to shrink says so with `min-w-0` on the
+       child that should give way -- which is a choice about which of two
+       things wins, and so belongs in the markup rather than here.
+
+       Zero specificity on purpose: `:where()` contributes none, so every
+       explicit `min-w-*` utility still wins -- the wide tables that carry
+       `min-w-[880px]` inside a horizontal scroller keep their width, and
+       anything that genuinely wants a content-based floor asks for it with
+       `min-w-fit`.
+       ------------------------------------------------------------------ */
+    :where(.grid) > :where(*) {
+        min-width: 0;
+    }
+
+    /* The other half of the same problem: once a column *can* be narrow, a
+       long unbroken token inside it has to be allowed to break, or it simply
+       overflows its own box instead of its parent's. Applied to text holders
+       rather than universally, so it cannot reach a control's label. */
+    :where(p, li, dd, dt, blockquote, figcaption) {
+        overflow-wrap: anywhere;
+    }
+
+    /* ------------------------------------------------------------------
+       A dialog must fit the window it opens in.
+
+       `DialogContent` is centred with `-translate-y-1/2`, so a panel taller
+       than the viewport hangs off BOTH edges of it -- and while a modal is
+       open the page behind it is locked, so neither end can be scrolled to.
+       Two thirds of the dialogs in this app never set a height of their own.
+       On a desktop that mostly went unnoticed; on a 375x812 phone it meant the
+       title and the confirm button of a form dialog were simply not on the
+       screen and could not be brought onto it.
+
+       Here rather than merged into the primitive's class string: `overflow`
+       and `overflow-y` are separate groups to tailwind-merge, so a default
+       `overflow-y-auto` and a dialog's own `overflow-hidden` would both
+       survive the merge and the winner would come down to the order Tailwind
+       happened to emit them in. Written as `:where()` in the components layer
+       it has zero specificity and sits below every utility, so the dialogs
+       that size themselves (`h-[85vh]`, `max-h-[calc(100dvh-4rem)]`) and the
+       ones that run their own internal scroller (`overflow-hidden`) override
+       all three declarations outright, and only the dialogs that asked for
+       nothing get this.
+
+       `dvh`, not `vh`: on a phone `vh` is measured against the viewport with
+       the address bar collapsed, which is taller than what you can actually
+       see when it is not.
+       ------------------------------------------------------------------ */
+    :where([data-slot="dialog-content"]) {
+        max-height: calc(100dvh - 2rem);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
     .rebyu-page-bleed {
         @apply max-w-none gap-0 px-0 py-0 sm:px-0 sm:py-0 lg:px-0;
     }
@@ -1725,3 +1793,62 @@ body.rb-attempt-lock {
     overflow: hidden;
     overscroll-behavior: none;
 }
+
+/* ---------------------------------------------------------------------------
+   Converted Word documents (.rb-docx)
+
+   A shared .docx has no native viewer in any browser, so the file-viewer dialog
+   converts it to HTML with mammoth and drops the result in here. That output is
+   plain semantic tags -- h1-h3, p, ul/ol, table, strong/em -- and Tailwind's
+   preflight has already stripped every one of them back to unstyled inline
+   text, which reads as one undifferentiated wall. These rules give the document
+   back its structure without pulling in a whole prose plugin for the one place
+   in the app that renders foreign HTML.
+   --------------------------------------------------------------------------- */
+.rb-docx > :first-child { margin-top: 0; }
+.rb-docx p { margin: 0 0 0.85em; }
+.rb-docx h1,
+.rb-docx h2,
+.rb-docx h3,
+.rb-docx h4 {
+    font-family: var(--font-rb-display, inherit);
+    font-weight: 800;
+    line-height: 1.25;
+    margin: 1.6em 0 0.5em;
+}
+.rb-docx h1 { font-size: 1.5rem; }
+.rb-docx h2 { font-size: 1.25rem; }
+.rb-docx h3 { font-size: 1.0625rem; }
+.rb-docx h4 { font-size: 1rem; }
+.rb-docx ul,
+.rb-docx ol { margin: 0 0 0.85em; padding-left: 1.5rem; }
+.rb-docx ul { list-style: disc; }
+.rb-docx ol { list-style: decimal; }
+.rb-docx li { margin: 0.25em 0; }
+.rb-docx strong { font-weight: 700; }
+.rb-docx em { font-style: italic; }
+.rb-docx a { color: var(--color-rb-macaw-lip, currentColor); text-decoration: underline; }
+.rb-docx blockquote {
+    margin: 0 0 0.85em;
+    padding-left: 1rem;
+    border-left: 3px solid var(--border);
+    color: var(--muted-foreground);
+}
+/* Word tables run wide; the document column must not be pushed out by one. */
+.rb-docx table {
+    display: block;
+    overflow-x: auto;
+    width: 100%;
+    margin: 0 0 1em;
+    border-collapse: collapse;
+}
+.rb-docx th,
+.rb-docx td {
+    border: 1px solid var(--border);
+    padding: 0.5rem 0.65rem;
+    text-align: left;
+    vertical-align: top;
+}
+.rb-docx th { font-weight: 700; background: var(--muted); }
+.rb-docx img { max-width: 100%; height: auto; }
+.rb-docx hr { margin: 1.5em 0; border: 0; border-top: 2px solid var(--border); }

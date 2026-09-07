@@ -840,7 +840,12 @@ export default function LearnerLessonPage() {
                 type="button"
                 onClick={() => setCoachOpen(true)}
                 aria-label="Open AI Tutor"
-                className="fixed bottom-6 right-6 z-50 size-14 rounded-full p-0 shadow-lg transition hover:scale-105 hover:shadow-xl"
+                /* Cleared above the learner portal's bottom bar, which is fixed at
+                   the foot of the screen below `lg` and is 4rem tall plus the
+                   home-indicator inset. At `bottom-6` the tutor button sat on
+                   top of the Community and Mistakes tabs, so on a phone one of
+                   the two was always unreachable. */
+                className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-50 size-14 rounded-full p-0 shadow-lg transition hover:scale-105 hover:shadow-xl sm:right-6 lg:bottom-6"
             >
               <BotIcon className="size-6" aria-hidden="true" />
               <span className="sr-only">Open AI Tutor</span>

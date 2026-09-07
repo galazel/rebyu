@@ -813,7 +813,8 @@ public class AssessmentAttemptService {
                     answer != null && answer.getDiagramSubmissionData() != null,
                     answer == null ? null : answer.getFeedback(),
                     buildSubQuestionAnswerReviews(source, answer, subQuestionsByParentId),
-                    buildDiagramElementReviews(answer, releaseAnswers)
+                    buildDiagramElementReviews(answer, releaseAnswers),
+                    buildProgrammingTestReviews(attemptQuestion, answer, source, releaseAnswers)
             ));
         }
 
@@ -1266,7 +1267,7 @@ public class AssessmentAttemptService {
         // programming nor a diagram config are plain analytical sub-question
         // sets — grade every sub-question in one holistic call.
         if (isWorkspaceType(type) && source != null) {
-            String criticalThinkingType = resolveCriticalThinkingType(source);
+            String criticalThinkingType = resolveCriticalThinkingType(type, source);
 
             if (criticalThinkingType == null
                     && gradeCriticalThinkingAnswer(
@@ -1282,7 +1283,7 @@ public class AssessmentAttemptService {
             // a manual review that nothing schedules -- so submit now grades
             // it against the full test set.
             if ("PROGRAMMING".equals(criticalThinkingType)) {
-                if (hasDefinitiveVerdict(answer)) {
+                if (hasFreshVerdict(answer)) {
                     return;
                 }
                 gradeProgrammingOnSubmit(attemptQuestion, source, answer, points, batch);
@@ -1397,7 +1398,7 @@ public class AssessmentAttemptService {
             }
 
             if (isWorkspaceType(type)) {
-                String criticalThinkingType = resolveCriticalThinkingType(source);
+                String criticalThinkingType = resolveCriticalThinkingType(type, source);
 
                 if (criticalThinkingType == null) {
                     AnswerGradingRequestDto request =
@@ -1409,7 +1410,11 @@ public class AssessmentAttemptService {
                     continue;
                 }
 
-                if ("PROGRAMMING".equals(criticalThinkingType) && !hasDefinitiveVerdict(answer)) {
+                // Not hasDefinitiveVerdict: a verdict from code the learner has
+                // since edited is re-run, and it belongs in this concurrent
+                // batch rather than in a lone synchronous call inside the
+                // scoring loop.
+                if ("PROGRAMMING".equals(criticalThinkingType) && !hasFreshVerdict(answer)) {
                     List<TestCaseInputDto> inputs = programmingInputsFor(source);
                     String code = answer.getSubmittedCode();
                     String language = answer.getProgrammingLanguage();
@@ -1487,6 +1492,48 @@ public class AssessmentAttemptService {
     }
 
     /**
+     * A Check verdict produced from the code the learner actually submitted.
+     *
+     * <p>Submit keeps a Check verdict rather than paying Judge0 to reach the
+     * same one twice -- but it was keeping it whatever happened to the code
+     * afterwards, and Check is a button a learner presses while still working.
+     * Press Check on a half-finished attempt, fix the bug, submit: the paper
+     * was marked on the broken draft. Press Check on a working solution, paste
+     * something else over it, submit: the paper was marked on code that is not
+     * in it. The verdict was stale in both directions and neither showed
+     * anywhere -- the learner saw a score for a program they were not looking
+     * at.
+     *
+     * <p>The guard the fix needs was already being written and never read:
+     * {@link #serializeExecutionResult} stamps every stored verdict with a hash
+     * of the code it came from. Comparing it against the submitted code is what
+     * makes "already checked" mean "already checked, and unchanged since".
+     * Anything else -- edited code, a verdict from before the hash was stored,
+     * no verdict at all -- is re-graded at submit against the full test set.
+     */
+    private boolean hasFreshVerdict(AssessmentAttemptAnswer answer) {
+        if (!hasDefinitiveVerdict(answer)) {
+            return false;
+        }
+        String gradedHash = verdictCodeHash(answer);
+        return gradedHash != null && gradedHash.equals(hashCode(answer.getSubmittedCode()));
+    }
+
+    /** The code hash stored alongside an answer's execution verdict, if any. */
+    private String verdictCodeHash(AssessmentAttemptAnswer answer) {
+        String payload = answer.getExecutionResult();
+        if (payload == null || payload.isBlank()) {
+            return null;
+        }
+        try {
+            String hash = objectMapper.readTree(payload).path("codeHash").asText(null);
+            return hash == null || hash.isBlank() ? null : hash;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
      * Grades a programming item at submit time for a learner who never ran
      * Check, using the same deterministic Judge0 path and the same
      * passed/total scoring that Check applies.
@@ -1523,6 +1570,7 @@ public class AssessmentAttemptService {
 
         List<IndexedTestCase> testCases = loadIndexedProgrammingTestCases(source);
         if (testCases.isEmpty()) {
+            noteVerdictFromEarlierCode(answer);
             return;
         }
 
@@ -1542,13 +1590,18 @@ public class AssessmentAttemptService {
             } catch (RuntimeException ex) {
                 log.warn("Submit-time programming grading failed for attemptQuestion {}: {}",
                         attemptQuestion.getAttemptQuestionId(), ex.toString());
+                noteVerdictFromEarlierCode(answer);
                 return;
             }
         }
 
-        boolean definitive = "COMPLETED".equals(result.status())
-                || "COMPILE_ERROR".equals(result.status());
+        // The batch hands back an Optional for a reason -- a code result can be
+        // absent. Dereferencing it blind would throw out of the scoring loop and
+        // take the grading of every other item on the paper down with it.
+        boolean definitive = result != null
+                && ("COMPLETED".equals(result.status()) || "COMPILE_ERROR".equals(result.status()));
         if (!definitive) {
+            noteVerdictFromEarlierCode(answer);
             return;
         }
 
@@ -1568,6 +1621,27 @@ public class AssessmentAttemptService {
             answer.setIsCorrect(false);
         }
         answer.setPendingManualEvaluation(false);
+    }
+
+    /**
+     * Says so on the answer when a mark is being kept from a Check the learner
+     * ran on different code.
+     *
+     * <p>Reached only when the re-grade could not run at all -- no test cases
+     * authored, or Judge0 unreachable. Keeping their earlier verdict beats
+     * zeroing working code over an outage, but a score that silently belongs to
+     * another version of the program is not something to leave unsaid, and this
+     * is the one line that lets a learner recognise it and raise it.
+     */
+    private void noteVerdictFromEarlierCode(AssessmentAttemptAnswer answer) {
+        if (hasFreshVerdict(answer) || !hasDefinitiveVerdict(answer)) {
+            return;
+        }
+        String note = "This mark comes from the last time you ran Check, on an earlier version "
+                + "of your code -- the submitted version could not be run again. If that looks "
+                + "wrong, raise it with your instructor.";
+        String existing = answer.getFeedback();
+        answer.setFeedback(existing == null || existing.isBlank() ? note : existing + "\n\n" + note);
     }
 
     /**
@@ -1679,7 +1753,28 @@ public class AssessmentAttemptService {
      * so they were loaded whether or not this method existed, and asking their
      * repositories for them was two more round trips for rows already in hand.
      */
-    private String resolveCriticalThinkingType(Question source) {
+    private String resolveCriticalThinkingType(String questionType, Question source) {
+        /* The declared type first, the configs only as the fallback.
+         *
+         * Reading the configs alone repeats, one layer down, the bug the
+         * javadoc on isWorkspaceType describes: a question the bank types
+         * PROGRAMMING or DIAGRAM outright, but whose sub-config row is missing
+         * -- never authored, or lost -- resolved to null here and was handed to
+         * the analytical grader, which marked submitted source code or draw.io
+         * XML as though it were an essay. An item that says what it is should
+         * be graded as what it says, and reach its own grader's honest "no test
+         * cases" / "no reference diagram" branch instead of a rubric score for
+         * prose it isn't.
+         *
+         * It also settles the case of a question carrying both configs: a
+         * DIAGRAM item with a leftover programming config used to be sent to
+         * Judge0 because that check came first. */
+        if (TYPE_PROGRAMMING_ITEM.equals(questionType)) {
+            return "PROGRAMMING";
+        }
+        if (TYPE_DIAGRAM_ITEM.equals(questionType)) {
+            return "DIAGRAM";
+        }
         if (source.getProgrammingQuestionConfig() != null) {
             return "PROGRAMMING";
         }
@@ -2132,6 +2227,7 @@ public class AssessmentAttemptService {
                         node.path("matched").asBoolean(false),
                         node.path("matchQuality").asText(null),
                         node.hasNonNull("learnerDescription") ? node.get("learnerDescription").asText() : null,
+                        node.hasNonNull("reason") ? node.get("reason").asText() : null,
                         node.hasNonNull("earnedPoints") ? node.get("earnedPoints").decimalValue() : null,
                         node.hasNonNull("maxPoints") ? node.get("maxPoints").decimalValue() : null
                 ));
@@ -2139,6 +2235,69 @@ public class AssessmentAttemptService {
             return reviews;
         } catch (Exception e) {
             log.warn("Could not parse persisted diagram grading result");
+            return List.of();
+        }
+    }
+
+    /**
+     * The per-test-case breakdown of a programming answer, read back from the
+     * verdict stored on it.
+     *
+     * <p>Labels come from the item's own snapshot, so a case is named on the
+     * result screen the same way it was named in the editor the learner sat in.
+     * Inputs and expected outputs come from the question's test cases and are
+     * filtered by {@link ProgrammingTestReviewDto}'s disclosure rule, not by
+     * whatever happens to be in the stored payload.
+     */
+    private List<ProgrammingTestReviewDto> buildProgrammingTestReviews(
+            AssessmentAttemptQuestion attemptQuestion,
+            AssessmentAttemptAnswer answer,
+            Question source,
+            boolean releaseAnswers) {
+
+        if (answer == null || answer.getExecutionResult() == null
+                || answer.getSubmittedCode() == null || answer.getSubmittedCode().isBlank()) {
+            return List.of();
+        }
+
+        Map<Integer, String> labels = new LinkedHashMap<>();
+        for (LearnerTestCaseDto snapshotCase : readSnapshotTestCases(attemptQuestion)) {
+            labels.put(snapshotCase.index(), snapshotCase.label());
+        }
+
+        Map<Integer, ProgrammingTestCase> authored = new LinkedHashMap<>();
+        if (source != null) {
+            for (IndexedTestCase indexed : loadIndexedProgrammingTestCases(source)) {
+                authored.put(indexed.index(), indexed.testCase());
+            }
+        }
+
+        try {
+            JsonNode tests = objectMapper.readTree(answer.getExecutionResult()).path("testResults");
+            if (!tests.isArray()) {
+                return List.of();
+            }
+            List<ProgrammingTestReviewDto> reviews = new ArrayList<>();
+            for (JsonNode test : tests) {
+                int index = test.path("index").asInt();
+                boolean sample = test.path("sample").asBoolean(false);
+                ProgrammingTestCase authoredCase = authored.get(index);
+                reviews.add(new ProgrammingTestReviewDto(
+                        index,
+                        labels.getOrDefault(index, (sample ? "Sample " : "Hidden ") + index),
+                        sample,
+                        test.path("passed").asBoolean(false),
+                        test.path("status").asText(null),
+                        sample && authoredCase != null ? authoredCase.getInputData() : null,
+                        sample && releaseAnswers && authoredCase != null
+                                ? authoredCase.getExpectedOutput() : null,
+                        sample && test.hasNonNull("actualOutput")
+                                ? test.get("actualOutput").asText() : null));
+            }
+            return reviews;
+        } catch (Exception e) {
+            log.warn("Could not parse persisted execution result for attempt question {}",
+                    attemptQuestion.getAttemptQuestionId());
             return List.of();
         }
     }
@@ -2686,6 +2845,14 @@ public class AssessmentAttemptService {
             row.put("sample", testResult.sample());
             row.put("passed", testResult.passed());
             row.put("status", testResult.status());
+            // What the learner's program actually printed, kept for the result
+            // screen -- the difference between "case 2 failed" and being able
+            // to see why. Sample cases only: on a hidden case the input is the
+            // thing being withheld, and the output produced from it describes
+            // it.
+            if (testResult.sample()) {
+                row.put("actualOutput", testResult.actualOutput());
+            }
             tests.add(row);
         }
         payload.put("testResults", tests);

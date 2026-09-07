@@ -130,17 +130,25 @@ export default function CodeMirrorProgrammingWorkspace({
             </span>
           ) : null}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex min-w-0 items-center gap-1">
           {actions}
           {!readOnly && starterCode ? (
             <Button
               type="button"
               variant="ghost"
               size="sm"
+              /* The label collapses to its icon on a narrow screen, the same
+                 way Skip and Flag do in the attempt footer. Run Code, Reset
+                 Code and the fullscreen key are 307px of controls; on a 320px
+                 screen the toolbar row is 288px wide, and what went over the
+                 edge was the fullscreen key. The name stays on the button for
+                 assistive tech and as a tooltip either way. */
+              aria-label="Reset Code"
+              title="Reset Code"
               onClick={() => setResetOpen(true)}
             >
               <RotateCcwIcon aria-hidden="true" />
-              Reset Code
+              <span className="hidden sm:inline">Reset Code</span>
             </Button>
           ) : null}
           <Button

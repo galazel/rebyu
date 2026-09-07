@@ -65,6 +65,22 @@ const learnerMobileNavigation = [
   { label: "Mistakes", href: "/learner/mistakes", icon: Target },
 ]
 
+/* What the bar says under each icon, where the top nav's wording does not fit.
+ *
+ * Six cells share the width of a phone -- about 54px of usable label at 375px,
+ * against the ~74px "Certifications" needs -- so the full labels were being cut
+ * to "Certifi...", "My Learn..." and "Communi...". Three truncated words that
+ * all start differently are still readable; three that trail off mid-syllable
+ * are not, and they made the bar look broken rather than dense. Shortened by
+ * hand rather than by ellipsis, and only here: the top nav has the room for the
+ * real names and keeps them. Anything absent falls back to `label`. */
+const LEARNER_TAB_LABELS = {
+  "/learner/analytics": "Progress",
+  "/learner/certifications": "Certs",
+  "/learner/learning": "Learn",
+  "/learner/community": "Circle",
+}
+
 const adminGroups = [
   {
     label: "Overview",
@@ -302,7 +318,14 @@ export function PortalTopNavigation({ role, actions, organizationName, instituti
   // that predate INSTITUTION_MEMBER and have not been migrated yet.
   const isInstitutionMember =
     role === "INSTITUTION_MEMBER" || (role === "INSTITUTION" && !isInstitutionOwner)
-  const allGroups = role === "ADMIN" ? adminGroups : institutionGroups
+  /* A learner has no groups at all. The ternary used to be ADMIN-or-else,
+     which handed `institutionGroups` to the learner portal as well -- harmless
+     only because every read of `groups` was guarded by a `role === "LEARNER"`
+     branch that used the learner list instead. Naming the empty case here
+     means those guards are no longer load-bearing: the mobile menu below is
+     driven by `groups.length` alone, and with the old fallback it would have
+     offered a learner the organization's own navigation. */
+  const allGroups = role === "ADMIN" ? adminGroups : role === "LEARNER" ? [] : institutionGroups
   const groups = isInstitutionMember ? [] : allGroups
   /* The palette searches every learner destination, so it uses the longer of
      the two lists -- a search box that cannot find a page the app has is worse
@@ -360,11 +383,19 @@ export function PortalTopNavigation({ role, actions, organizationName, instituti
                 header to search a nav tree of at most a dozen destinations that
                 are already on screen. The Ctrl-K palette below still opens on
                 the shortcut for anyone who reaches for it. */}
-            {groups.length > 0 || role === "LEARNER" ? (
+            {/* Not for a learner. Below `lg` the learner portal already paints
+                `LearnerMobileNavigation` across the bottom of the screen, with
+                the same destinations in the same order -- a hamburger here put
+                a second copy of that list one tap away in the corner, so a
+                phone showed the navigation twice and neither copy explained
+                the other. The bottom bar wins: it is always visible, it is
+                inside thumb reach, and it carries the mistake bank the top nav
+                does not. The other portals have no bar, so they keep theirs. */}
+            {groups.length > 0 ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="lg:hidden" aria-label="Open navigation"><Menu /></Button></DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-72 p-2">
-                  {(role === "LEARNER" ? [{ label: "Navigation", items: learnerNavigation }] : groups).map((group, index) => <div key={group.label}><DropdownMenuLabel>{group.label}</DropdownMenuLabel>{group.items.map((item) => <NavigationMenuItem key={item.href} item={item} />)}{index < (role === "LEARNER" ? 0 : groups.length - 1) ? <DropdownMenuSeparator /> : null}</div>)}
+                  {groups.map((group, index) => <div key={group.label}><DropdownMenuLabel>{group.label}</DropdownMenuLabel>{group.items.map((item) => <NavigationMenuItem key={item.href} item={item} />)}{index < groups.length - 1 ? <DropdownMenuSeparator /> : null}</div>)}
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
@@ -382,7 +413,29 @@ export function LearnerMobileNavigation() {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label="Mobile learner navigation">
       <div className="grid h-16" style={{ gridTemplateColumns: `repeat(${learnerMobileNavigation.length}, minmax(0, 1fr))` }}>
-        {learnerMobileNavigation.map((item) => { const Icon = item.icon; const active = pathMatches(location.pathname, item); return <NavLink key={`${item.label}-${item.href}`} to={item.href} className={cn("flex min-w-0 flex-col items-center justify-center gap-1 text-[11px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", active ? "text-primary" : "text-muted-foreground")}><Icon className="size-5" /><span className="max-w-full truncate px-1">{item.label}</span></NavLink> })}
+        {learnerMobileNavigation.map((item) => {
+          const Icon = item.icon
+          const active = pathMatches(location.pathname, item)
+          return (
+            <NavLink
+              key={`${item.label}-${item.href}`}
+              to={item.href}
+              /* `aria-label` carries the full name even though the visible
+                 text is abbreviated -- a screen reader should hear
+                 "Certifications", not "Certs". */
+              aria-label={item.label}
+              className={cn(
+                "flex min-w-0 flex-col items-center justify-center gap-1 px-0.5 text-[10px] font-medium leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                active ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              <Icon className="size-5 shrink-0" />
+              <span className="max-w-full truncate">
+                {LEARNER_TAB_LABELS[item.href] ?? item.label}
+              </span>
+            </NavLink>
+          )
+        })}
       </div>
     </nav>
   )
