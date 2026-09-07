@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react"
+﻿import { useEffect, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { fetchFileBlob, getFileViewLink } from "@/services/fileService.js"
 import { parseLessonStructure } from "@/services/learnerService.js"
@@ -828,6 +828,7 @@ function ImageHotspotBlock({ data, accent }) {
   const [visitedIds, setVisitedIds] = useState(() => new Set())
 
   const src = useAuthedMediaSrc(data.imageKey)
+  const popoverRef = useRef(null)
 
   function toggleHotspot(hotspotId, isOpen) {
     setOpenId(isOpen ? null : hotspotId)
@@ -838,6 +839,31 @@ function ImageHotspotBlock({ data, accent }) {
       )
     }
   }
+
+  /* An open point closes the way anything that opens over a picture closes:
+     Escape, or a press anywhere that is not the card itself. Pins are excluded
+     from the outside test so pressing a second point moves straight to it
+     rather than needing one press to dismiss and another to open. */
+  useEffect(() => {
+    if (openId == null) return undefined
+
+    function handlePointerDown(event) {
+      if (popoverRef.current?.contains(event.target)) return
+      if (event.target.closest?.("[data-hotspot-pin]")) return
+      setOpenId(null)
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") setOpenId(null)
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown)
+    document.addEventListener("keydown", handleKeyDown)
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown)
+      document.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [openId])
   const openIndex = hotspots.findIndex((hotspot) => hotspot.id === openId)
   const openHotspot = openIndex === -1 ? null : hotspots[openIndex]
 
@@ -878,6 +904,7 @@ function ImageHotspotBlock({ data, accent }) {
                       key={hotspot.id ?? hotspotIndex}
                       type="button"
                       onClick={() => toggleHotspot(hotspot.id, isOpen)}
+                      data-hotspot-pin=""
                       style={{ left: `${hotspot.x}%`, top: `${hotspot.y}%` }}
                       aria-label={`Point ${hotspotIndex + 1}: ${hotspot.title}`}
                       aria-pressed={isOpen}
@@ -925,37 +952,71 @@ function ImageHotspotBlock({ data, accent }) {
                   </button>
               )
             })}
-          </div>
-          )}
-        </div>
 
-        {openHotspot ? (
-            <Card className={`!border-l-4 p-5 ${accent.border} ${accent.bgSoft}`}>
-              <div className="flex items-start gap-3">
-                <span
-                    className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold text-white ${accent.bgSolid}`}
+            {/* The point's text, over the point.
+
+                It used to render in a panel under the picture, which is the
+                one place a reader is not looking when they press something on
+                the picture: the diagram stayed where it was, a card appeared
+                somewhere below it, and the two had to be connected by eye. The
+                card now opens at the pin and covers it, so the answer arrives
+                where the question was asked.
+
+                Anchored by a corner rather than centred, and which corner
+                depends on where the pin sits: a point on the right half opens
+                leftwards, one on the bottom half opens upwards. That is what
+                keeps a card belonging to a pin near an edge inside the
+                picture instead of hanging off it. */}
+            {openHotspot ? (
+                <div
+                    ref={popoverRef}
+                    role="group"
+                    aria-label={`Point ${openIndex + 1}: ${openHotspot.title}`}
+                    style={{
+                      left: `${openHotspot.x}%`,
+                      top: `${openHotspot.y}%`,
+                      transform: `translate(${
+                          openHotspot.x > 50 ? "calc(-100% + 1.25rem)" : "-1.25rem"
+                      }, ${openHotspot.y > 50 ? "calc(-100% + 1.25rem)" : "-1.25rem"})`,
+                    }}
+                    className={`absolute z-20 w-64 max-w-[calc(100%-1rem)] rounded-[var(--radius-rb-tile)] border-2 p-4 shadow-lg sm:w-72 ${accent.border} ${accent.bgSoft}`}
                 >
-                  {openIndex + 1}
-                </span>
+                  <div className="flex items-start gap-2.5">
+                    <span
+                        className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold text-white ${accent.bgSolid}`}
+                    >
+                      {openIndex + 1}
+                    </span>
 
-                <div className="min-w-0">
-                  <h3 className="font-heading text-lg font-semibold text-foreground">
-                    {openHotspot.title}
-                  </h3>
+                    <h3 className="min-w-0 flex-1 font-heading text-base font-semibold text-foreground">
+                      {openHotspot.title}
+                    </h3>
 
-                  {/* The panel itself stays a panel -- it is the one region on
-                      the page that changes with what you clicked, and the tint
-                      is what ties it to the pin. Only the copy inside it comes
-                      back to the lesson's own reading colour. */}
+                    <button
+                        type="button"
+                        onClick={() => setOpenId(null)}
+                        aria-label="Close this point"
+                        className="-mr-1 -mt-1 grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                    >
+                      <X className="size-3.5" aria-hidden="true" />
+                    </button>
+                  </div>
+
                   {openHotspot.description ? (
-                      <p className="mt-2 leading-7 text-foreground/85">
+                      /* Scrolls rather than grows. A long point on a short
+                         diagram would otherwise make a card taller than the
+                         picture it is drawn on. */
+                      <p className="mt-2 max-h-44 overflow-y-auto text-[15px] leading-6 text-foreground/85">
                         {openHotspot.description}
                       </p>
                   ) : null}
                 </div>
-              </div>
-            </Card>
-        ) : (
+            ) : null}
+          </div>
+          )}
+        </div>
+
+        {openHotspot ? null : (
             <p className="text-center text-sm text-muted-foreground">
               Select a numbered point on the image to read about it.
             </p>
