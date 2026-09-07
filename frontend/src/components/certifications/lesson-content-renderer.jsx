@@ -1,8 +1,8 @@
 ﻿import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { fetchFileBlob, getFileViewUrl } from "@/services/fileService.js"
+import { fetchFileBlob, getFileViewLink } from "@/services/fileService.js"
 import { parseLessonStructure } from "@/services/learnerService.js"
-import { Maximize, RotateCcw } from "@/components/icons"
+import { Maximize, RotateCcw, X } from "@/components/icons"
 import { Card } from "@/components/ui/card"
 import {
   Accordion,
@@ -11,7 +11,12 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 // Shared, presentational lesson-body renderer -- extracted verbatim from
 // the learner lesson page so the institution content viewer renders lessons
@@ -114,27 +119,16 @@ const RB_INDEX_CHIP =
   "grid size-11 shrink-0 place-items-center rounded-2xl font-rb-display text-base font-extrabold"
 
 /**
- * AI-generated lessons store either a plain search-result URL (image or
- * YouTube link) or an admin-uploaded internal storage key in the same
- * `imageKey`/`videoKey` field. Routing an absolute URL through
- * `getFileViewUrl` mangles it into `/files/view?key=https://...`, which the
- * file endpoint rejects -- that's what rendered as a broken image / blank
- * video. Absolute URLs are used as-is; anything else is treated as a key.
+ * Whether a stored media reference is already a URL a browser can load.
  *
- * A root-relative path is the third case: diagrams we draw ourselves and ship
- * in `public/`. They are not storage keys and must not be signed -- and unlike
- * the hotlinked search results, they cannot rot or 403 when the host that owns
- * them decides it dislikes being embedded.
+ * AI-generated lessons store three different things in the same
+ * `imageKey`/`videoKey` field: an absolute URL (a search result, or a YouTube
+ * link), a root-relative path (the diagrams we draw ourselves and ship in
+ * `public/`), or an internal storage key. Only the third needs resolving; the
+ * first two are already loadable and must not be signed or fetched.
  */
-function resolveMediaSrc(key) {
-  if (!key) return ""
-  if (key.startsWith("http://") || key.startsWith("https://")) {
-    return key
-  }
-  if (key.startsWith("/")) {
-    return key
-  }
-  return getFileViewUrl(key)
+function isDirectMediaSrc(key) {
+  return Boolean(key) && (/^https?:\/\//.test(key) || key.startsWith("/"))
 }
 
 /**
@@ -205,8 +199,15 @@ function ImageAttribution({ sourceUrl, sourceName }) {
 //: `!max-w-none` is important-flagged to beat the base `sm:max-w-lg` -- that is
 //: a different variant group, so tailwind-merge does not treat it as a conflict
 //: and would otherwise leave it applied above 640px.
+//:
+//: Every one of the panel's own decorations is turned off. A diagram opened to
+//: be read does not want a card around it: the border, the popover fill, the
+//: padding, the rounding and the drop shadow all drew a second frame inside the
+//: viewport and shrank the picture to make room for it. What is left is the
+//: media, centred on the scrim.
 const LIGHTBOX_PANEL =
-    "!max-w-none w-[min(92vw,1000px)] h-[min(78vh,660px)] grid place-items-center overflow-hidden p-6"
+    "!max-w-none fixed inset-0 top-0 left-0 h-dvh w-screen translate-x-0 translate-y-0 " +
+    "grid place-items-center gap-0 overflow-hidden rounded-none border-0 bg-transparent p-0 shadow-none"
 
 //: The media is capped in the SAME units as the panel, minus its `p-6` on both
 //: sides (1.5rem x 2 = 3rem) -- not in percentages of it.
@@ -223,8 +224,42 @@ const LIGHTBOX_PANEL =
 //: terms of a box whose size depends on the answer. `overflow-hidden` on the
 //: panel above is the backstop -- if any future image escapes its cap, it is
 //: clipped to the frame instead of covering the lesson.
-const LIGHTBOX_MEDIA =
-    "max-h-[calc(min(78vh,660px)-3rem)] max-w-[calc(min(92vw,1000px)-3rem)] object-contain"
+//: The media fills the viewport short of a margin, rather than a fixed box.
+//: The absolute caps the previous panel needed are gone with it: `dvh`/`vw` are
+//: resolved against the viewport, never against a parent whose size depends on
+//: the answer, so there is no cycle to avoid here.
+const LIGHTBOX_MEDIA = "max-h-[92dvh] max-w-[94vw] object-contain"
+
+//: A scrim, not a blackout. Dark enough to lift a diagram off the lesson and
+//: to make plain that the page is out of reach, sheer enough that the page is
+//: still visibly behind it -- which is what tells a learner they are looking at
+//: an overlay rather than having navigated somewhere.
+const LIGHTBOX_SCRIM =
+    "bg-slate-950/45 supports-backdrop-filter:backdrop-blur-sm"
+
+/**
+ * The one way out of a full-screen media view.
+ *
+ * The shared dialog's own close key is an arrow anchored to the corner of a
+ * panel, and here there is no panel for it to hold on to -- so this replaces
+ * it: a plain X, pinned to the top right of the viewport, which is what a
+ * picture opened full-screen is expected to have and the only control the view
+ * needs. Unlike the shared key this one is inside the content, so it sits in
+ * the focus trap and can be tabbed to; Esc still dismisses.
+ */
+function LightboxClose() {
+  return (
+      <DialogClose asChild>
+        <button
+            type="button"
+            aria-label="Close"
+            className="fixed right-4 top-4 z-51 grid size-11 place-items-center rounded-full bg-slate-950/40 text-white backdrop-blur-sm transition-colors hover:bg-slate-950/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        >
+          <X className="size-5" aria-hidden="true" />
+        </button>
+      </DialogClose>
+  )
+}
 
 /**
  * A lesson image, openable full-screen.
@@ -286,9 +321,14 @@ function LessonImage({ imageKey, alt = "", className, sourceUrl, sourceName }) {
         <ImageAttribution sourceUrl={sourceUrl} sourceName={sourceName} />
 
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className={LIGHTBOX_PANEL}>
+          <DialogContent
+              className={LIGHTBOX_PANEL}
+              overlayClassName={LIGHTBOX_SCRIM}
+              showCloseButton={false}
+          >
             <DialogTitle className="sr-only">{alt || "Lesson image"}</DialogTitle>
             <img src={src} alt={alt} className={LIGHTBOX_MEDIA} />
+            <LightboxClose />
           </DialogContent>
         </Dialog>
       </div>
@@ -330,8 +370,21 @@ function getYouTubeEmbedUrl(url) {
  */
 function VideoBlock({ videoKey, className }) {
   const [expanded, setExpanded] = useState(false)
-  const src = resolveMediaSrc(videoKey)
-  if (!src) return null
+  const src = useStreamedMediaSrc(videoKey)
+
+  if (!videoKey) return null
+
+  // The box is held at its final size while the URL is signed, so the copy
+  // around it does not reflow when the player lands -- the same placeholder
+  // treatment an image block gets.
+  if (!src) {
+    return (
+        <div
+            className={`${className} !border-dashed motion-safe:animate-pulse`}
+            aria-label="Loading video"
+        />
+    )
+  }
 
   const embedUrl = getYouTubeEmbedUrl(src)
   const player = (playerClassName) =>
@@ -370,9 +423,18 @@ function VideoBlock({ videoKey, className }) {
         </button>
 
         <Dialog open={expanded} onOpenChange={setExpanded}>
-          <DialogContent className={LIGHTBOX_PANEL}>
+          <DialogContent
+              className={LIGHTBOX_PANEL}
+              overlayClassName={LIGHTBOX_SCRIM}
+              showCloseButton={false}
+          >
             <DialogTitle className="sr-only">Lesson video</DialogTitle>
-            {player(`${LIGHTBOX_MEDIA} rounded-[var(--radius-rb-tile)] bg-foreground`)}
+            {/* Sized in viewport units like the image, but `h-` as well as
+                `max-h-`: a <video> with no loaded frame has no intrinsic size,
+                so a max-height alone collapses the player to nothing until the
+                first frame arrives. */}
+            {player(`${LIGHTBOX_MEDIA} h-[92dvh] w-[94vw] rounded-[var(--radius-rb-tile)]`)}
+            <LightboxClose />
           </DialogContent>
         </Dialog>
       </div>
@@ -619,11 +681,16 @@ function FlipCard({ frontTitle, backTitle, description, accent = ACCENTS[0] }) {
  * those are public, so they skip the fetch and are used as-is.
  */
 function useAuthedMediaSrc(key) {
-  const isAbsolute = Boolean(key) && /^https?:\/\//.test(key)
+  /* Root-relative paths were being treated as storage keys and fetched, which
+     is a request for the object `/diagrams/whatever.svg` in the bucket -- so
+     every figure we draw ourselves and ship in `public/` came back empty. The
+     absolute-URL test alone was too narrow; the question is whether the browser
+     can already load it, and it can load both. */
+  const isDirect = isDirectMediaSrc(key)
   const [blobSrc, setBlobSrc] = useState("")
 
   useEffect(() => {
-    if (!key || isAbsolute) {
+    if (!key || isDirect) {
       setBlobSrc("")
       return
     }
@@ -647,9 +714,55 @@ function useAuthedMediaSrc(key) {
       // the life of the tab is a leaked copy of the whole file.
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [key, isAbsolute])
+  }, [key, isDirect])
 
-  return isAbsolute ? key : blobSrc
+  return isDirect ? key : blobSrc
+}
+
+/**
+ * A media key as something a `<video>` can actually play.
+ *
+ * <p>Video cannot use {@link useAuthedMediaSrc}. That fetches the whole file
+ * and hands it over as one blob, which for video means nothing plays until the
+ * last byte lands, nothing can be seeked, and a lecture recording is held in
+ * memory in its entirety -- and `/files/view` now refuses anything over 12 MB
+ * outright, which is most videos.
+ *
+ * <p>It cannot use the plain endpoint URL either, which is what it was doing:
+ * `/files/view` calls `requireAuth`, a browser attaches no Authorization header
+ * to a `<video src>`, and the request came back 400. The player had a valid
+ * source that never returned a frame, so the block rendered as its own dark
+ * backing with a control bar over it -- a picture of a video.
+ *
+ * <p>A presigned URL is both fixes at once: the signature travels in the URL,
+ * so no header is needed, and it is served by storage directly with range
+ * support, so playback starts on the first chunk and the learner can scrub.
+ */
+function useStreamedMediaSrc(key) {
+  const isDirect = isDirectMediaSrc(key)
+  const [signedSrc, setSignedSrc] = useState("")
+
+  useEffect(() => {
+    if (!key || isDirect) {
+      setSignedSrc("")
+      return undefined
+    }
+
+    let cancelled = false
+    getFileViewLink(key)
+        .then(({ url }) => {
+          if (!cancelled) setSignedSrc(url)
+        })
+        .catch(() => {
+          if (!cancelled) setSignedSrc("")
+        })
+
+    return () => {
+      cancelled = true
+    }
+  }, [key, isDirect])
+
+  return isDirect ? key : signedSrc
 }
 
 function ImageHotspotBlock({ data, accent }) {

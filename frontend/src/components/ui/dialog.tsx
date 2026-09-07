@@ -125,16 +125,23 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  overlayClassName,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  /**
+   * Overrides the scrim behind the panel. Only a dialog whose panel is not a
+   * panel needs this — a full-bleed media viewer has no card of its own, so
+   * the scrim is the entire treatment and it has to be tuned there.
+   */
+  overlayClassName?: string
 }) {
   const [contentEl, setContentEl] = React.useState<HTMLDivElement | null>(null)
   const closeCorner = useCornerAnchor(contentEl, showCloseButton)
 
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       {showCloseButton && (
         // Deliberately a SIBLING of the content, not a child. 14 of the app's
         // dialogs set their own `overflow-y-auto` for long bodies, and a child
