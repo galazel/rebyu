@@ -1199,18 +1199,16 @@ function CreateLessons() {
     return null
   }
 
-  function validateSmallHeaderAndDescription(data, toolLabel) {
-    if (isBlank(data.smallHeader)) {
-      return `${toolLabel}: small heading is required.`
-    }
+  /* A combined block's `smallHeader` and `description` used to be required, and
+     that check blocked 9 of the 76 lessons in the database from being saved at
+     all -- every Review Card Grid the generator has ever produced (it writes no
+     small header) plus three Accordion Content Blocks. An admin met it while
+     trying to save an edit somewhere else entirely, named only by section and
+     tool number.
 
-    if (isBlank(data.description)) {
-      return `${toolLabel}: description is required.`
-    }
-
-    return null
-  }
-
+     They were never required to render: `SectionIntro` returns null when both
+     are blank, so the block simply opens straight into its content. A field the
+     page treats as optional has no business blocking a save. */
   function validateTool(tool, sectionNumber, toolNumber) {
     const data = tool.data ?? {}
     const toolLabel = `Section ${sectionNumber}, tool ${toolNumber}`
@@ -1312,30 +1310,22 @@ function CreateLessons() {
     }
 
     if (tool.type === "intro-image-card") {
-      const error = validateSmallHeaderAndDescription(data, toolLabel)
-
-      if (error) {
-        return error
-      }
-
       if (!hasMediaFileOrKey(data, "imageKey")) {
         return `${toolLabel}: upload an image first.`
       }
     }
 
     if (tool.type === "header-description-grid") {
-      const headerError = validateSmallHeaderAndDescription(data, toolLabel)
       const gridError = validateGridItems(data, toolLabel)
 
-      return headerError || gridError
+      return gridError
     }
 
     if (tool.type === "image-feature-grid") {
-      const headerError = validateSmallHeaderAndDescription(data, toolLabel)
       const gridError = validateGridItems(data, toolLabel)
 
-      if (headerError || gridError) {
-        return headerError || gridError
+      if (gridError) {
+        return gridError
       }
 
       if (!hasMediaFileOrKey(data, "imageKey")) {
@@ -1344,32 +1334,24 @@ function CreateLessons() {
     }
 
     if (tool.type === "review-card-grid") {
-      const headerError = validateSmallHeaderAndDescription(data, toolLabel)
       const cardError = validateCards(data, toolLabel)
 
-      return headerError || cardError
+      return cardError
     }
 
     if (tool.type === "content-accordion-block") {
-      const headerError = validateSmallHeaderAndDescription(data, toolLabel)
       const accordionError = validateAccordionItems(data, toolLabel)
 
-      return headerError || accordionError
+      return accordionError
     }
 
     if (tool.type === "content-tabs-block") {
-      const headerError = validateSmallHeaderAndDescription(data, toolLabel)
       const tabError = validateTabItems(data, toolLabel)
 
-      return headerError || tabError
+      return tabError
     }
 
     if (tool.type === "media-text-block") {
-      const headerError = validateSmallHeaderAndDescription(data, toolLabel)
-
-      if (headerError) {
-        return headerError
-      }
 
       if (data.mediaType !== "image" && data.mediaType !== "video") {
         return `${toolLabel}: media type is required.`
