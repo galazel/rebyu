@@ -12,6 +12,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -55,6 +56,48 @@ public class S3StorageService {
                 .getObjectRequest(getRequest.build())
                 .build();
         return s3Presigner.presignGetObject(presignRequest).url().toString();
+    }
+
+    /**
+     * A short-lived presigned GET URL that a browser can *display* rather than
+     * save: inline disposition, and the object's real media type so the PDF
+     * viewer or image decoder is the thing that opens it.
+     *
+     * <p>This is how a large file has to be read. {@code /api/files/view} pulls
+     * the whole object into the application's heap as a byte[] and writes it
+     * back out, which is fine for a lesson image and fatal for an 81 MB
+     * reviewer -- one request allocates the file twice over and the container
+     * runs out of memory, which is what a learner saw as a 500. A presigned URL
+     * takes the application out of the data path entirely: the browser fetches
+     * from S3, over a connection that supports range requests, so a big PDF
+     * pages in as it is read instead of arriving all at once or not at all.
+     *
+     * <p>The signature is in the URL, so it needs no Authorization header -- it
+     * works as an {@code <iframe src>} where the authenticated endpoint cannot
+     * -- and it expires, so it is not a durable public link to a private file.
+     */
+    public String presignViewUrl(String key, String filename, String contentType, Duration ttl) {
+        GetObjectRequest.Builder getRequest = GetObjectRequest.builder().bucket(bucketName).key(key);
+        if (filename != null && !filename.isBlank()) {
+            getRequest.responseContentDisposition(
+                    "inline; filename=\"" + filename.replace("\"", "") + "\"");
+        }
+        if (contentType != null && !contentType.isBlank()) {
+            getRequest.responseContentType(contentType);
+        }
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(ttl)
+                .getObjectRequest(getRequest.build())
+                .build();
+        return s3Presigner.presignGetObject(presignRequest).url().toString();
+    }
+
+    /** The stored object's size in bytes, without fetching the object itself. */
+    public long contentLength(String key) {
+        return s3Client.headObject(HeadObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .build()).contentLength();
     }
 
     public String uploadFile(FileDto fileDto) throws Exception {

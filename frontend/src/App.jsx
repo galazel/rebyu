@@ -50,6 +50,7 @@ const LearnerAssessmentAttemptPage = lazyRoute(() => import("./pages/learner/ass
 const AttemptPreviewPage = lazyRoute(() => import("./pages/dev/attempt-preview-page.jsx"))
 const LearnerAssessmentResultPage = lazyRoute(() => import("./pages/learner/assessments/learner-assessment-result-page.jsx"))
 const LearnerAssessmentHistoryPage = lazyRoute(() => import("./pages/learner/assessments/learner-assessment-history-page.jsx"))
+const CommunityReviewerPage = lazyRoute(() => import("./pages/learner/community/community-reviewer-page.jsx"))
 const LearnerPracticeAttemptPage = lazyRoute(() => import("./pages/learner/practice/learner-practice-attempt-page.jsx"))
 const LearnerFlashcardAttemptPage = lazyRoute(() => import("./pages/learner/practice/learner-flashcard-attempt-page.jsx"))
 const LearnerPracticeHistoryPage = lazyRoute(() => import("./pages/learner/practice/learner-practice-history-page.jsx"))
@@ -403,6 +404,9 @@ export function App() {
                     path="/learner/assessments/:examId/history"
                     element={<LearnerAssessmentHistoryPage />}
                 />
+                {/* A shared reviewer, read full-page in the study
+                    workspace's own reader rather than in a dialog. */}
+                <Route path="/learner/community/reviewer/:postId" element={<CommunityReviewerPage />} />
                 <Route path="/learner/practice/:studySetId" element={<LearnerPracticeAttemptPage />} />
                 <Route path="/learner/flashcards/:studySetId" element={<LearnerFlashcardAttemptPage />} />
                 <Route path="/learner/practice-history" element={<LearnerPracticeHistoryPage />} />

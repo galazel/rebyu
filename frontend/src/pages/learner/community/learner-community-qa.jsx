@@ -50,7 +50,6 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import FileViewerDialog from "@/components/files/file-viewer-dialog.jsx"
 import { apiMessage } from "@/services/base"
 import { getAllCertifications } from "@/services/certificationService"
 import { getLibraryItems } from "@/services/learnerToolsService"
@@ -693,8 +692,6 @@ export default function Community() {
     const [reportPostId, setReportPostId] = useState(null)
     const [reportReason, setReportReason] = useState("SPAM")
     const [reportDetails, setReportDetails] = useState("")
-    /* The reviewer currently open in the viewer dialog, or null. */
-    const [viewedAttachment, setViewedAttachment] = useState(null)
 
     /* Cached across visits, which is the whole reason this is a query rather
        than the `useEffect` + `Promise.all` it used to be.
@@ -838,25 +835,23 @@ export default function Community() {
     }
 
     /**
-     * Reads a shared reviewer inside the page.
+     * Opens a shared reviewer in the full-page reader.
      *
-     * It used to fetch the file and point a new tab at the resulting blob URL,
-     * which for a PDF was a coin flip and for a Word file was never a preview
-     * at all -- a browser has no .docx viewer, so the tab downloaded the file
-     * and closed. The dialog renders both (see FileViewerDialog) and keeps
-     * downloading as the deliberate second choice rather than the only outcome.
+     * A reviewer is a document someone sits and reads, so it gets the reader
+     * the study workspace uses -- a page of its own, with a title bar, a
+     * control rail and the pages in a scroller -- rather than a dialog boxed
+     * into the middle of the feed. The file itself is identified by its key;
+     * the name and size ride along so the reader's title bar is filled in
+     * before the first byte arrives.
      */
     function openAttachment(post) {
         const attachment = post?.attachment
         if (!attachment?.key) return
         countView(post.postId)
-        setViewedAttachment({
-            key: attachment.key,
-            name: attachment.name,
-            meta: [attachment.type, formatBytes(post.attachmentSize), `shared by ${post.authorName}`]
-                .filter(Boolean)
-                .join(" · "),
-        })
+        const params = new URLSearchParams({ key: attachment.key })
+        if (attachment.name) params.set("name", attachment.name)
+        if (post.attachmentSize) params.set("size", String(post.attachmentSize))
+        navigate(`/learner/community/reviewer/${post.postId}?${params.toString()}`)
     }
 
     /**
@@ -1628,14 +1623,6 @@ export default function Community() {
                     <DialogFooter><Button variant="outline" onClick={() => setReportPostId(null)}>Cancel</Button><Button variant="destructive" onClick={submitReport}>Submit report</Button></DialogFooter>
                 </DialogContent>
             </Dialog>
-
-            <FileViewerDialog
-                open={viewedAttachment != null}
-                onOpenChange={(open) => { if (!open) setViewedAttachment(null) }}
-                fileKey={viewedAttachment?.key}
-                name={viewedAttachment?.name}
-                meta={viewedAttachment?.meta}
-            />
         </div>
     )
 }

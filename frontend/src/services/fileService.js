@@ -43,6 +43,24 @@ export function fetchFileBlob(key) {
   return base(`files/view?key=${encodeURIComponent(key)}`, { responseType: "blob" })
 }
 
+/**
+ * A short-lived URL that a viewer element can load directly.
+ *
+ * Use this instead of {@link fetchFileBlob} for anything the browser renders
+ * itself -- a PDF, an image. The bytes come from storage to the browser without
+ * passing through the API, so a large document streams (and pages in) rather
+ * than being buffered whole at both ends; `/files/view` refuses anything over
+ * 12 MB for exactly that reason. The signature is in the URL, so an <iframe> or
+ * <img> can load it with no Authorization header.
+ *
+ * Returns { url, contentType, expiresInSeconds }.
+ */
+export function getFileViewLink(key, filename) {
+  const params = new URLSearchParams({ key })
+  if (filename) params.set("filename", filename)
+  return base(`files/view-url?${params.toString()}`)
+}
+
 export function getFileDownloadUrl(key) {
   return `${API}/files/download?key=${encodeURIComponent(key)}`
 }

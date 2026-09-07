@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URLConnection;
+import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
 
@@ -84,12 +85,35 @@ public class FileController {
                 .body(key);
     }
 
+    /**
+     * Largest object {@link #viewFile} will buffer through the application.
+     *
+     * <p>It reads the whole object into a byte[] and hands that to the response,
+     * so the container holds the file twice over for the length of the request.
+     * At a few megabytes -- a lesson image, a diagram, a short reviewer -- that
+     * is unremarkable. At 81 MB it exhausted the heap and the learner got a 500
+     * with nothing to act on. Past this line the answer is a presigned URL
+     * (see {@link #viewFileUrl}), which keeps the bytes out of the application
+     * altogether; this limit exists so the refusal is an explanation rather
+     * than an out-of-memory error.
+     */
+    private static final long MAX_BUFFERED_VIEW_BYTES = 12L * 1024 * 1024;
+
     @GetMapping("/view")
     public ResponseEntity<byte[]> viewFile(
             @RequestParam("key") String key,
             @AuthenticationPrincipal Jwt jwt
     ) {
         requireAuth(jwt);
+
+        long size = s3StorageService.contentLength(key);
+        if (size > MAX_BUFFERED_VIEW_BYTES) {
+            throw new ResponseStatusException(
+                    HttpStatus.PAYLOAD_TOO_LARGE,
+                    "This file is too large to load this way. Open it with /api/files/view-url, "
+                            + "which streams it directly from storage.");
+        }
+
         byte[] data = s3StorageService.downloadFile(key);
 
         return ResponseEntity.ok()
@@ -97,6 +121,44 @@ public class FileController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
                 .body(data);
     }
+
+    /**
+     * A short-lived URL the browser can point a viewer straight at.
+     *
+     * <p>Returned instead of the bytes so that displaying a file costs the
+     * application one signature rather than the whole file: the browser streams
+     * it from storage itself, with range requests, which is what makes a large
+     * PDF open at the first page instead of after the last byte.
+     */
+    @GetMapping("/view-url")
+    public Map<String, Object> viewFileUrl(
+            @RequestParam("key") String key,
+            @RequestParam(value = "filename", required = false) String filename,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        requireAuth(jwt);
+        String contentType = contentTypeOf(key);
+        String url = s3StorageService.presignViewUrl(
+                key,
+                filename == null || filename.isBlank() ? getFileName(key) : filename,
+                contentType,
+                VIEW_URL_TTL);
+        return Map.of(
+                "url", url,
+                "contentType", contentType,
+                "expiresInSeconds", VIEW_URL_TTL.toSeconds());
+    }
+
+    /**
+     * How long a view URL stays good for.
+     *
+     * <p>Long enough to read a long document without the link dying mid-scroll
+     * -- a browser re-requests ranges of a large PDF as the reader pages
+     * through it, and every one of those is signed by this same URL. Short
+     * enough that a copied link is not a lasting way around the auth on the
+     * endpoint that issued it.
+     */
+    private static final Duration VIEW_URL_TTL = Duration.ofMinutes(30);
 
     /**
      * The stored file's real media type, so a viewer can render it.

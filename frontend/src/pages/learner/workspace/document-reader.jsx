@@ -41,8 +41,13 @@ import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
  *       the rail's page and search controls step aside and say why. Driving
  *       them ourselves needs a PDF renderer (pdf.js) the project does not
  *       currently depend on.</li>
- *   <li><b>Word</b> — no browser-native viewer exists, so the pane describes
- *       the file rather than showing an empty frame.</li>
+ *   <li><b>Word</b> — no browser-native viewer exists, so the .docx is
+ *       converted to HTML with mammoth and laid out on the same paper sheet
+ *       the text branch uses. That reads paragraphs, headings, lists, tables
+ *       and bold/italic runs and drops the page furniture that only means
+ *       something inside Word, so it is a faithful read of the content and not
+ *       a facsimile of the file. Zoom applies; paging does not, because the
+ *       converted document has no page breaks to honour.</li>
  * </ul>
  */
 
@@ -109,8 +114,11 @@ export function DocumentReader({ file, onReplace, onRemove }) {
   const extension = fileExtension(file.name)
   const isPdf = extension === ".pdf"
   const isText = extension === ".txt"
+  const isWord = extension === ".docx" || extension === ".doc"
 
   const [text, setText] = useState(null)
+  const [wordHtml, setWordHtml] = useState(null)
+  const [wordError, setWordError] = useState(null)
   const [page, setPage] = useState(1)
   const [zoomIndex, setZoomIndex] = useState(ZOOM_STEPS.indexOf(1))
   const [searchOpen, setSearchOpen] = useState(false)
@@ -130,6 +138,29 @@ export function DocumentReader({ file, onReplace, onRemove }) {
       cancelled = true
     }
   }, [file, isText])
+
+  /* Word, converted on demand. mammoth is a good deal larger than this
+     component and only this branch needs it, so it is imported when a .docx is
+     actually opened rather than bundled into every page that can read a file. */
+  useEffect(() => {
+    if (!isWord) return undefined
+    let cancelled = false
+    setWordHtml(null)
+    setWordError(null)
+
+    Promise.all([import("mammoth/mammoth.browser"), file.arrayBuffer()])
+      .then(([mammoth, buffer]) => mammoth.convertToHtml({ arrayBuffer: buffer }))
+      .then(({ value }) => {
+        if (!cancelled) setWordHtml(value)
+      })
+      .catch(() => {
+        if (!cancelled) setWordError("This Word document could not be read.")
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [file, isWord])
 
   const pages = useMemo(() => (isText ? paginateText(text) : []), [isText, text])
   const pageCount = isText ? pages.length : null
@@ -223,19 +254,26 @@ export function DocumentReader({ file, onReplace, onRemove }) {
               <Maximize className="size-4" aria-hidden="true" />
             )}
           </TactileButton>
-          <TactileButton variant="ghost" size="sm" onClick={onReplace}>
-            <RefreshCw className="size-4" aria-hidden="true" />
-            Replace
-          </TactileButton>
-          <TactileButton
-            variant="ghost"
-            size="sm"
-            className="rb-btn-icon"
-            onClick={onRemove}
-            aria-label="Remove this file"
-          >
-            <Trash2 className="size-4" aria-hidden="true" />
-          </TactileButton>
+          {/* The uploader's own controls. A reader opened on someone else's
+              shared document has neither, and a Replace button over a file you
+              did not upload is an offer the page cannot keep. */}
+          {onReplace ? (
+            <TactileButton variant="ghost" size="sm" onClick={onReplace}>
+              <RefreshCw className="size-4" aria-hidden="true" />
+              Replace
+            </TactileButton>
+          ) : null}
+          {onRemove ? (
+            <TactileButton
+              variant="ghost"
+              size="sm"
+              className="rb-btn-icon"
+              onClick={onRemove}
+              aria-label="Remove this file"
+            >
+              <Trash2 className="size-4" aria-hidden="true" />
+            </TactileButton>
+          ) : null}
         </div>
       </header>
 
@@ -406,12 +444,32 @@ export function DocumentReader({ file, onReplace, onRemove }) {
                 </pre>
               </article>
             </div>
-          ) : isText ? (
+          ) : isWord && wordHtml !== null ? (
+            /* The converted document, on the same sheet the text branch uses --
+               a Word file and a text file are the same kind of thing to read,
+               so they are read the same way. */
+            <div className="flex justify-center">
+              <article
+                style={{
+                  transform: `scale(${zoom})`,
+                  transformOrigin: "top center",
+                  width: "min(46rem, 100%)",
+                }}
+                className="rounded-rb-card border-2 border-border bg-white p-8 shadow-[0_2px_0_var(--color-border)]"
+              >
+                <div
+                  className="rb-docx text-sm leading-7 text-rb-eel"
+                  // mammoth's own output, built from the .docx's structure: a
+                  // fixed set of semantic tags, carrying no scripts across.
+                  dangerouslySetInnerHTML={{ __html: wordHtml }}
+                />
+              </article>
+            </div>
+          ) : isText || (isWord && !wordError) ? (
             <p className="p-8 text-center text-sm font-bold text-rb-hare">
               Reading your file…
             </p>
           ) : (
-            /* Word: no browser-native viewer exists. */
             <div className="grid h-full min-h-[24rem] place-items-center rounded-rb-card border-2 border-border bg-white p-8 text-center">
               <div>
                 <span className="mx-auto grid size-14 place-items-center rounded-3xl bg-rb-macaw-wash text-rb-macaw-lip">
@@ -421,8 +479,7 @@ export function DocumentReader({ file, onReplace, onRemove }) {
                   {file.name}
                 </p>
                 <p className="mx-auto mt-2 max-w-xs text-sm font-medium leading-6 text-rb-wolf">
-                  Word documents have no preview in the browser. The tutor can
-                  still work from this file once generation is connected.
+                  {wordError ?? "This file type has no preview in the browser."}
                 </p>
               </div>
             </div>
