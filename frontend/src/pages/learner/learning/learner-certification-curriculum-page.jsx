@@ -1589,7 +1589,15 @@ export default function LearnerCertificationCurriculumPage() {
                           positioned against this element, so padding would move
                           the stops off the line the road is drawn along. */}
                       <div
-                        className="relative mx-auto mt-6 pb-24"
+                        /* `mb`, not `pb`. This box is given an explicit
+                           `height` and the stops inside it are absolutely
+                           positioned, so under border-box sizing padding is
+                           taken out of the height rather than added below it
+                           -- it bought no clearance at all, and the next
+                           caption's wiper ate the last stop of the stretch.
+                           Margin is outside the box, so it actually separates
+                           this stretch from the caption under it. */
+                        className="relative mx-auto mt-6 mb-32"
                         style={{ width: PATH_WIDTH, height: stretchHeight(stops) }}
                       >
                         <PathTrail items={stops} start={section.start} />
