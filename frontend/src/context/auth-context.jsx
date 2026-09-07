@@ -20,20 +20,61 @@ import { getLearnerPortalData } from "@/services/learnerService.js"
 const AuthContext = createContext(null)
 const AUTH_USER_SNAPSHOT_KEY = "rebyu:auth-user-snapshot"
 
-function readAuthUserSnapshot() {
+/**
+ * The signed-in subject, read straight off the access token.
+ *
+ * Only ever used as a cache key. The token is validated by the backend on
+ * every call; nothing here trusts this value for authorization.
+ */
+function subjectOf(token) {
   try {
-    const raw = sessionStorage.getItem(AUTH_USER_SNAPSHOT_KEY)
-    return raw ? JSON.parse(raw) : null
+    const payload = token.split(".")[1]
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
+    return JSON.parse(json)?.sub ?? null
   } catch {
     return null
   }
 }
 
-function writeAuthUserSnapshot(user) {
+/**
+ * The last identity `/api/auth/me` returned, for THIS subject.
+ *
+ * Keyed by subject, the same rule `CognitoAuthService` states for its own
+ * request-scoped cache: "so a cached identity can never answer for another
+ * one". The frontend copy had no such key, and the consequence was not a stale
+ * name -- it was the wrong role. `refresh()` applies this snapshot and sets
+ * `status = "authenticated"` synchronously, before the network call resolves,
+ * so the router got a full render at whatever role the last account had. Sign
+ * out of an admin account and into a learner one in the same tab and the
+ * learner's first render was ADMIN: every /learner route bounced to /403, and
+ * because /403 is reachable by every role, the corrected identity arriving a
+ * moment later left them parked there.
+ */
+function readAuthUserSnapshot(subject) {
   try {
-    sessionStorage.setItem(AUTH_USER_SNAPSHOT_KEY, JSON.stringify(user))
+    const raw = sessionStorage.getItem(AUTH_USER_SNAPSHOT_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed?.subject || parsed.subject !== subject) return null
+    return parsed.user ?? null
+  } catch {
+    return null
+  }
+}
+
+function writeAuthUserSnapshot(subject, user) {
+  try {
+    sessionStorage.setItem(AUTH_USER_SNAPSHOT_KEY, JSON.stringify({ subject, user }))
   } catch {
     // Authentication validation must not depend on browser storage.
+  }
+}
+
+function clearAuthUserSnapshot() {
+  try {
+    sessionStorage.removeItem(AUTH_USER_SNAPSHOT_KEY)
+  } catch {
+    // Nothing to do -- the snapshot is an optimisation, not an authority.
   }
 }
 
@@ -52,8 +93,9 @@ export function AuthProvider({ children }) {
       setStatus("anonymous")
       return null
     }
+    const subject = subjectOf(token)
     try {
-      const cachedUser = readAuthUserSnapshot()
+      const cachedUser = readAuthUserSnapshot(subject)
       if (cachedUser) {
         setUser(cachedUser)
         setStatus("authenticated")
@@ -62,7 +104,7 @@ export function AuthProvider({ children }) {
       const currentUser = await syncCurrentUser()
       setUser(currentUser)
       setStatus("authenticated")
-      writeAuthUserSnapshot(currentUser)
+      writeAuthUserSnapshot(subject, currentUser)
       // Start the learner shell's larger snapshot while the router is loading
       // the destination chunk. The layout uses this exact key, so it joins the
       // in-flight request instead of waiting until after navigation.
@@ -100,7 +142,7 @@ export function AuthProvider({ children }) {
       }
       setUser(null)
       setStatus("anonymous")
-      sessionStorage.removeItem(AUTH_USER_SNAPSHOT_KEY)
+      clearAuthUserSnapshot()
       return null
     }
   }, [queryClient])
@@ -165,9 +207,18 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("name")
     localStorage.removeItem("role")
     localStorage.removeItem("rebyu_demo_role")
+    // The identity snapshot and the query cache both outlived the session they
+    // belonged to. Signing out cleared five localStorage keys and left behind
+    // the two things that actually decide what the next person sees: the
+    // cached user (which is what `refresh()` renders the router from before
+    // the network answers) and every query keyed without an account in it --
+    // "learner-portal-data" among them, which the next sign-in would be served
+    // from the previous account's copy of.
+    clearAuthUserSnapshot()
+    queryClient.clear()
     setUser(null)
     setStatus("anonymous")
-  }, [])
+  }, [queryClient])
 
   const value = useMemo(
     () => ({ user, status, login, logout, refresh ,   setNewPassword,}),
