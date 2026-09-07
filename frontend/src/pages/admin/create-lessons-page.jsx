@@ -1139,12 +1139,16 @@ function CreateLessons() {
     // the card's own front title, so whatever is typed here never reaches the
     // page -- blocking a save on it made admins fill a field with no effect.
     // The key is still read and stored, so existing content keeps its value.
-    const hasInvalidCard = data.cards.some(
-        (card) => isBlank(card.frontTitle) || isBlank(card.description)
-    )
+    // `description` is no longer required either, for the same reason as a
+    // tab's body: generation writes some cards' text into `backTitle` and
+    // leaves `description` empty, so those lessons cannot be saved at all
+    // today -- lesson 3 is one. The card still renders; it just has a blank
+    // back. Only the front is genuinely load-bearing, because a card with no
+    // front text is a blank tile a learner cannot even identify.
+    const hasInvalidCard = data.cards.some((card) => isBlank(card.frontTitle))
 
     if (hasInvalidCard) {
-      return `${toolLabel}: every review card needs front text and a description.`
+      return `${toolLabel}: every review card needs front text.`
     }
 
     return null
@@ -1171,13 +1175,25 @@ function CreateLessons() {
       return `${toolLabel}: add at least one tab.`
     }
 
+    // Only the tab's handle is required, and either field can be it: the
+    // renderer falls back `label -> title -> "Tab N"` for the trigger and
+    // `title -> label` for the panel heading, so a tab with just one of them
+    // is a complete tab as far as a learner is concerned.
+    //
+    // `description` used to be required too, and that was the wrong place to
+    // enforce it. Generation does not reliably fill a tab's body, so a lesson
+    // could arrive from the generator already failing this check -- and the
+    // admin would meet it while trying to save something else entirely, in a
+    // section they had not touched, named only by number. Nothing is protected
+    // by refusing that save: the field is already blank in the database, so
+    // writing it back blank loses nothing. An empty body is a lesson worth
+    // improving, not a save worth blocking.
     const hasInvalidTab = data.items.some(
-        (item) =>
-            isBlank(item.label) || isBlank(item.title) || isBlank(item.description)
+        (item) => isBlank(item.label) && isBlank(item.title)
     )
 
     if (hasInvalidTab) {
-      return `${toolLabel}: every tab needs a label, title, and description.`
+      return `${toolLabel}: every tab needs a label or a title.`
     }
 
     return null
