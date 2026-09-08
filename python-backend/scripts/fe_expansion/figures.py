@@ -2314,3 +2314,251 @@ register("investment-appraisal", dk.compare(
            "five years is worth less than money arriving now. Payback and "
            "ROI both ignore timing, which is why they favour the wrong "
            "projects in predictable ways."))
+
+
+# ====================================================================
+# Business Strategy
+# ====================================================================
+
+register("swot-grid", dk.compare(
+    "Analysing a position",
+    [("Internal", "strengths and weaknesses",
+      ["What the organisation is good and bad at",
+       "Within its own control to change",
+       "Assessed relative to competitors, not absolutely"]),
+     ("External", "opportunities and threats",
+      ["What the environment offers or presents",
+       "Outside the organisation's control",
+       "The same fact can be either, depending on capability"]),
+     ("The point", "matching them",
+      ["Strengths applied to opportunities",
+       "Weaknesses shielded from threats",
+       "A list without that matching has analysed nothing"])],
+    caption="Internal against external, and why the pairing matters.",
+    footer="A SWOT that lists four columns and stops has produced a "
+           "description. The value is in the matching -- which strength "
+           "addresses which opportunity, and which weakness is exposed to "
+           "which threat."))
+
+register("competitive-forces", dk.hub_spoke(
+    "What determines an industry's profitability",
+    "Rivalry among existing firms",
+    ["Threat of new entrants", "Threat of substitutes",
+     "Bargaining power of buyers", "Bargaining power of suppliers"],
+    caption="Five forces shaping how much profit an industry can sustain.",
+    hub_note="the intensity of competition"))
+
+register("product-portfolio", dk.compare(
+    "Products by growth and share",
+    [("High growth", "invest or exit",
+      ["High share -- fund it, it is the future",
+       "Low share -- decide: invest heavily, or leave",
+       "Both consume cash"]),
+     ("Low growth", "harvest or divest",
+      ["High share -- the cash generator funding the rest",
+       "Low share -- little prospect, releasing resources",
+       "Both are decisions, not descriptions"]),
+     ("The purpose", "allocate between them",
+      ["Cash from mature products funds growing ones",
+       "A portfolio of only one kind is unbalanced",
+       "The grid is a prompt to decide, not an answer"])],
+    caption="Growth against share, and what each combination argues for.",
+    footer="The grid's value is forcing a DECISION about each product. Its "
+           "weakness is treating market share as the only measure of "
+           "position, which is why it prompts analysis rather than "
+           "concluding it."))
+
+register("marketing-mix", dk.tiers(
+    "The marketing mix",
+    [("Product", ["What is offered, and what it does for the buyer"]),
+     ("Price", ["What is charged, and how that positions it"]),
+     ("Place", ["How it reaches the buyer"]),
+     ("Promotion", ["How the buyer learns it exists"])],
+    caption="Four decisions that must be consistent with one another.",
+    footer="Consistency is what the mix is for. A premium product sold "
+           "cheaply through discount channels contradicts itself, and buyers "
+           "read the contradiction as a signal about quality."))
+
+register("value-chain", dk.flow(
+    "Where value is added",
+    [("Inbound logistics", "getting materials in"),
+     ("Operations", "making the thing"),
+     ("Outbound logistics", "getting it out"),
+     ("Marketing and sales", "selling it"),
+     ("Service", "supporting it afterwards")],
+    caption="Primary activities, supported by procurement, technology, human "
+            "resources and infrastructure.",
+    note="The purpose is finding where the organisation adds value that "
+         "competitors do not -- which is where investment belongs, and which "
+         "is rarely where costs are highest."))
+
+register("business-systems", dk.compare(
+    "Four enterprise system families",
+    [("ERP", "one set of records",
+      ["Finance, manufacturing, HR and more, integrated",
+       "One version of each fact across the organisation",
+       "Implementation means changing processes to fit"]),
+     ("SCM and CRM", "outward-facing",
+      ["SCM coordinates suppliers, inventory and distribution",
+       "CRM records every interaction with a customer",
+       "Both connect the organisation to somebody outside it"]),
+     ("BI", "understanding what happened",
+      ["Draws on the others' data",
+       "Reporting and analysis rather than transactions",
+       "Depends entirely on the quality of what feeds it"])],
+    caption="Four families, distinguished by what they are for.",
+    footer="ERP's defining property is INTEGRATION: one record, used by "
+           "every function. That is its value and its difficulty, since it "
+           "requires the whole organisation to agree how things are "
+           "recorded."))
+
+register("ec-models", dk.compare(
+    "Electronic commerce by who trades with whom",
+    [("B2C", "business to consumer",
+      ["Many small transactions",
+       "Consumer protection law applies",
+       "Marketing and payment convenience dominate"]),
+     ("B2B", "business to business",
+      ["Fewer, larger transactions",
+       "Negotiated terms and credit arrangements",
+       "Integration between systems matters more"]),
+     ("C2C and others", "consumers and government",
+      ["C2C -- a platform enabling consumers to trade",
+       "The platform's role is trust rather than supply",
+       "G2C and G2B describe government services"])],
+    caption="Four models, distinguished by the parties.",
+    footer="The party determines the law. Consumer protection rules apply to "
+           "B2C and generally not to B2B, which is why the same transaction "
+           "carries different obligations depending on who is buying."))
+
+register("production-systems", dk.compare(
+    "Approaches to production",
+    [("Make to stock", "produce, then sell",
+      ["Products available immediately",
+       "Inventory carried, and it may not sell",
+       "Suits predictable demand"]),
+     ("Make to order", "sell, then produce",
+      ["No finished inventory risk",
+       "The customer waits",
+       "Suits variety and unpredictable demand"]),
+     ("Just in time", "produce as needed",
+      ["Inventory minimised throughout",
+       "Requires reliable supply and stable processes",
+       "A disruption propagates immediately"])],
+    caption="Three approaches trading inventory against responsiveness.",
+    footer="JUST IN TIME removes the inventory that was absorbing "
+           "variability, so it requires the variability to have been removed "
+           "first. Applied to an unstable process, it converts a hidden "
+           "problem into a visible stoppage."))
+
+register("or-techniques", dk.compare(
+    "Techniques for deciding under constraint",
+    [("Linear programming", "optimise within limits",
+      ["Maximise or minimise something",
+       "Subject to stated constraints",
+       "Suits allocation with measurable trade-offs"]),
+     ("Queueing and simulation", "understand waiting",
+      ["Arrival and service rates determine queues",
+       "Simulation where the mathematics is intractable",
+       "Suits capacity and staffing decisions"]),
+     ("Decision analysis", "choose under uncertainty",
+      ["Decision trees and expected values",
+       "Requires probabilities somebody must estimate",
+       "Makes the reasoning visible even when the numbers are soft"])],
+    caption="Three families of technique.",
+    footer="Every one of these produces an answer conditional on its inputs. "
+           "The technique is sound and the probabilities and constraints were "
+           "chosen by somebody, which is where the judgement actually sits."))
+
+register("financial-statements", dk.compare(
+    "Three statements, three questions",
+    [("Balance sheet", "what is owned and owed",
+      ["Assets, liabilities and equity",
+       "At one moment in time",
+       "Assets equal liabilities plus equity, always"]),
+     ("Income statement", "did it make money",
+      ["Revenue less costs over a period",
+       "Profit is an accounting result",
+       "Not the same as cash received"]),
+     ("Cash flow statement", "did money move",
+      ["Cash in and out over a period",
+       "A profitable business can run out of cash",
+       "Which is what this statement exists to reveal"])],
+    caption="Three statements answering three different questions.",
+    footer="PROFIT and CASH are different. A sale made on credit is profit "
+           "now and cash later, and a business growing quickly can be "
+           "profitable and unable to pay its bills -- which is why the third "
+           "statement exists."))
+
+register("break-even", dk.split_planes(
+    "Break-even analysis",
+    ("Below break-even", "Revenue does not cover total cost", [
+        ("Fixed costs", "incurred regardless of volume"),
+        ("Variable costs", "rise with each unit"),
+        ("Result", "a loss on the period")]),
+    ("Above break-even", "Contribution exceeds fixed cost", [
+        ("Each unit", "contributes price minus variable cost"),
+        ("Fixed cost", "already covered"),
+        ("Result", "profit on every further unit")]),
+    caption="Break-even volume is fixed cost divided by contribution per "
+            "unit.",
+    footer="CONTRIBUTION is price minus VARIABLE cost, not price minus total "
+           "cost. Fixed costs are covered by the accumulated contribution "
+           "rather than allocated to each unit, which is the step people get "
+           "wrong."))
+
+register("ip-rights-it", dk.tiers(
+    "Intellectual property in information technology",
+    [("Copyright", ["Programs, documentation, databases as compilations"]),
+     ("Patent", ["Technical inventions, where the regime permits"]),
+     ("Trademark", ["Product and service names, and logos"]),
+     ("Trade secret", ["Algorithms and methods kept confidential"]),
+     ("Database rights", ["Investment in compiling a database, in some "
+                          "regimes"])],
+    caption="Five rights, protecting five different things.",
+    footer="Software is normally protected by COPYRIGHT, which arises "
+           "automatically and covers the expression rather than the idea. "
+           "Everything else in this list applies to specific circumstances "
+           "rather than generally."))
+
+register("engineer-ethics", dk.stack(
+    "What a professional owes, in order of precedence",
+    [("The public", "safety, health and welfare come first"),
+     ("The client or employer", "faithful service within that"),
+     ("The profession", "its standing and its standards"),
+     ("Oneself", "competence, honesty and continued learning")],
+    caption="A hierarchy, and the order is what makes it usable.",
+    numbered=False,
+    right_note="The ORDER decides the hard cases. Where an employer's "
+               "instruction endangers the public, the hierarchy says which "
+               "obligation gives way -- which is the whole purpose of "
+               "ranking them."))
+
+
+register("adoption-timing", dk.split_planes(
+    "When to adopt a technology",
+    ("Early", "Advantage, bought with instability", [
+        ("Gains", "capability competitors lack"),
+        ("Pays", "immature tools, scarce skills"),
+        ("Suits", "what the product competes on")]),
+    ("Late", "Certainty, bought with parity", [
+        ("Gains", "proven, supported, staffed"),
+        ("Pays", "no advantage -- everybody has it"),
+        ("Suits", "everything that merely supports")]),
+    caption="A trade rather than a preference.",
+    footer="The CHASM sits between them: a technology early users valued can "
+           "fail to reach a mainstream that wants reliability and support "
+           "rather than possibility."))
+
+register("invention-innovation", dk.flow(
+    "From idea to something people use",
+    [("Idea", "somebody thinks of it"),
+     ("Invention", "it is made to work"),
+     ("Development", "made producible and supportable"),
+     ("Launch", "priced, distributed, explained"),
+     ("Innovation", "somebody actually adopts it")],
+    caption="Invention is the second step; innovation is the last.",
+    note="Everything between them -- production, distribution, support, "
+         "pricing, persuasion -- is non-technical, which is why "
+         "organisations strong at invention are so frequently weak at "
+         "innovation."))
