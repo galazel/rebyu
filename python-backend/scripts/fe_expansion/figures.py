@@ -1890,3 +1890,204 @@ register("dev-environments", dk.flow(
     note="Staging exists because differences between environments are "
          "themselves a defect source. 'It worked in test' usually means test "
          "differed from production in a way nobody had written down."))
+
+
+# ====================================================================
+# Project Management
+# ====================================================================
+
+register("project-constraints", dk.split_planes(
+    "The constraints, and what happens when one moves",
+    ("The three that are traded", "Fix any two; the third follows", [
+        ("Scope", "how much is delivered"),
+        ("Time", "by when"),
+        ("Cost", "for how much")]),
+    ("What absorbs the pressure", "When none is allowed to move", [
+        ("Quality", "silently reduced"),
+        ("Risk", "silently accepted"),
+        ("People", "silently exhausted")]),
+    caption="Something always gives.",
+    footer="The right-hand column is what happens when a project refuses to "
+           "move any of the left-hand three. None of those three is a "
+           "decision anybody made, and all of them are discovered late."))
+
+register("process-groups", dk.cycle(
+    "The project process groups",
+    [("Initiating", "authorise it"),
+     ("Planning", "work out how"),
+     ("Executing", "do the work"),
+     ("Monitoring and controlling", "compare and correct"),
+     ("Closing", "finish it properly")],
+    caption="Groups, not stages -- they repeat and overlap.",
+    centre="the project"))
+
+register("stakeholder-grid", dk.compare(
+    "Stakeholders, by influence and interest",
+    [("High influence, high interest", "manage closely",
+      ["Involve in decisions",
+       "Consult before acting",
+       "The people whose objection stops the project"]),
+     ("High influence, low interest", "keep satisfied",
+      ["Not interested until something affects them",
+       "Then extremely interested",
+       "Brief enough that they are never surprised"]),
+     ("Low influence, high interest", "keep informed",
+      ["Care a great deal and cannot compel",
+       "Often the actual users",
+       "A valuable source of information"])],
+    caption="Effort matched to influence and interest.",
+    footer="The second group is the one projects mishandle. Somebody with "
+           "authority who has not been kept informed becomes an obstacle at "
+           "the worst moment, purely because the first thing they heard was "
+           "a problem."))
+
+register("wbs-tree", dk.tiers(
+    "Decomposing the work",
+    [("Project", ["The whole deliverable"]),
+     ("Major deliverables", ["Subsystem A", "Subsystem B", "Training"]),
+     ("Components", ["Design", "Build", "Test"]),
+     ("Work packages", ["Estimable, assignable, trackable"])],
+    caption="Down to the level where a package can be estimated and owned.",
+    footer="A WORK PACKAGE is the bottom: small enough to estimate with "
+           "confidence and to assign to one owner. Decomposing further "
+           "produces tracking overhead without improving control."))
+
+register("critical-path", dk.flow(
+    "Finding the critical path",
+    [("List activities", "and their durations"),
+     ("Establish dependencies", "what must precede what"),
+     ("Forward pass", "earliest each can start and finish"),
+     ("Backward pass", "latest each can start without delaying the end"),
+     ("Float = latest - earliest", "the slack in each activity"),
+     ("Critical path", "the activities with zero float")],
+    caption="Six steps, and the last one names the activities that matter.",
+    note="An activity on the critical path delays the whole project if it "
+         "slips by a day. An activity with five days of float can slip four "
+         "days and change nothing -- which is why the two are managed "
+         "completely differently."))
+
+register("pert-estimate", dk.fields(
+    "A three-point estimate",
+    [("Optimistic", "everything goes well", 14, dk.BLUE),
+     ("Most likely", "the realistic case", 22, dk.DEEP),
+     ("Pessimistic", "things go wrong", 18, dk.ORANGE)],
+    caption="PERT weights the most likely case four times.",
+    footer="(O + 4M + P) / 6 gives an expected duration that accounts for "
+           "the pessimistic tail without letting it dominate -- which a "
+           "simple average would not do."))
+
+register("gantt-view", dk.timeline(
+    "A schedule, seen two ways",
+    "Network diagram -- what depends on what",
+    "Gantt chart -- what happens when",
+    caption="The same schedule, answering different questions.",
+    footer="A network diagram shows DEPENDENCIES and reveals the critical "
+           "path. A Gantt chart shows CALENDAR TIME and reveals overlaps and "
+           "resource clashes. Neither replaces the other."))
+
+register("earned-value", dk.compare(
+    "Three numbers, and what each pair tells you",
+    [("Planned value", "what should have been done",
+      ["The budgeted cost of the work scheduled",
+       "Where the plan said you would be",
+       "The baseline everything is measured against"]),
+     ("Earned value", "what has been done",
+      ["The budgeted cost of the work actually completed",
+       "Progress measured in money, not in opinion",
+       "The number that makes the others meaningful"]),
+     ("Actual cost", "what it cost",
+      ["What was really spent to get there",
+       "Compared with earned value, gives efficiency",
+       "Alone, it says nothing about progress"])],
+    caption="Progress and spending, separated.",
+    footer="SCHEDULE variance is earned value minus planned value; COST "
+           "variance is earned value minus actual cost. Negative is behind, "
+           "or over. Both need EARNED value, which is why 'percent complete' "
+           "by opinion cannot substitute."))
+
+register("risk-matrix", dk.compare(
+    "Ranking risks",
+    [("High probability, high impact", "act now",
+      ["Mitigate, or avoid the activity",
+       "Where the effort goes first",
+       "Escalate if it cannot be reduced"]),
+     ("Low probability, high impact", "prepare",
+      ["A contingency plan, and a trigger",
+       "Transfer where that is possible",
+       "The category most often ignored"]),
+     ("High probability, low impact", "absorb",
+      ["Expect it and plan around it",
+       "Frequently accepted deliberately",
+       "Watch for accumulation"])],
+    caption="Probability times impact, and the response each combination "
+            "argues for.",
+    footer="The second column is where projects are actually damaged. A "
+           "rare, severe event ignored because it is unlikely is what "
+           "contingency planning exists for -- and unlikely is not never."))
+
+register("risk-process-pm", dk.flow(
+    "Managing a project risk",
+    [("Identify", "what could go wrong"),
+     ("Analyse", "how likely, how bad"),
+     ("Plan a response", "avoid, mitigate, transfer, accept"),
+     ("Assign an owner", "somebody watching it"),
+     ("Monitor", "has it changed, has it happened"),
+     ("Act", "when the trigger occurs")],
+    caption="A cycle repeated throughout the project, not an opening "
+            "exercise.",
+    note="A risk register written once and never revisited describes the "
+         "project as it was imagined. New risks appear and old ones change "
+         "as the work proceeds, which is why review is scheduled."))
+
+register("quality-cost", dk.split_planes(
+    "What quality costs",
+    ("Cost of conformance", "Spent to prevent defects", [
+        ("Prevention", "training, reviews, good process"),
+        ("Appraisal", "testing, inspection, audit"),
+        ("Both", "chosen, and predictable")]),
+    ("Cost of non-conformance", "Spent because of defects", [
+        ("Internal failure", "rework before delivery"),
+        ("External failure", "rework, and the damage done"),
+        ("Both", "unplanned, and far larger")]),
+    caption="Every project pays one or the other.",
+    footer="External failure is the most expensive box by a wide margin, "
+           "because it includes the harm caused before anybody noticed. "
+           "Prevention is cheap in comparison, and it is what gets cut."))
+
+register("procurement-contracts", dk.compare(
+    "Contract types, by who carries the risk",
+    [("Fixed price", "the supplier carries it",
+      ["One price for a defined scope",
+       "Needs the scope to be genuinely defined",
+       "Change is expensive, by design"]),
+     ("Time and materials", "the buyer carries it",
+      ["Paid for effort actually expended",
+       "Suits uncertain or evolving work",
+       "Needs active management, or it drifts"]),
+     ("Cost reimbursable", "shared, with a fee",
+      ["Costs repaid, plus an agreed fee",
+       "Used where the work cannot be scoped",
+       "The buyer must control the costs"])],
+    caption="Risk does not disappear; it is allocated.",
+    footer="A fixed price with an undefined scope is the worst of both: the "
+           "supplier prices the uncertainty, and every clarification becomes "
+           "a change request."))
+
+register("communication-channels", dk.hub_spoke(
+    "Why communication cost grows",
+    "n(n-1)/2",
+    ["5 people = 10 channels", "10 people = 45", "20 people = 190",
+     "50 people = 1,225"],
+    caption="Channels grow with the SQUARE of the team size.",
+    hub_note="which is why large teams need structure"))
+
+register("team-development", dk.flow(
+    "How a team comes together",
+    [("Forming", "polite, and unsure"),
+     ("Storming", "disagreement surfaces"),
+     ("Norming", "ways of working settle"),
+     ("Performing", "productive, and self-managing")],
+    caption="Four stages every new team passes through.",
+    note="STORMING is a stage rather than a failure. A team that never "
+         "disagrees has not settled how it works; it is deferring the "
+         "conversation, usually until something is at stake."))
