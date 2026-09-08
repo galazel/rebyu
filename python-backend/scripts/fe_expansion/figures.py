@@ -1613,3 +1613,280 @@ register("eal-scale", dk.tiers(
     footer="EAL4 is where commercial evaluation stops because higher levels "
            "require formal methods whose cost rises far faster than the "
            "confidence gained -- an economic boundary, not a technical one."))
+
+
+# ====================================================================
+# Development Technology
+# ====================================================================
+
+register("development-lifecycle", dk.flow(
+    "The development life cycle",
+    [("System requirements", "what the business needs"),
+     ("System architecture", "hardware and software allocated"),
+     ("Software requirements", "what the software must do"),
+     ("Software design", "how it will do it"),
+     ("Construction", "code, review, unit test"),
+     ("Integration and testing", "put together, and proved"),
+     ("Operation and maintenance", "most of the total cost")],
+    caption="Each stage takes the previous one as its input.",
+    note="The last stage costs more than everything before it combined over a "
+         "system's life, which is why decisions taken early are judged by "
+         "what they do to maintenance rather than to the build."))
+
+register("requirements-types", dk.compare(
+    "Two kinds of requirement",
+    [("Functional", "what it must do",
+      ["Specific behaviours and calculations",
+       "Testable by exercising the function",
+       "What users describe when asked"]),
+     ("Non-functional", "how well it must do it",
+      ["Performance, availability, security, usability",
+       "Testable only against a stated figure",
+       "What users assume without saying"]),
+     ("Constraints", "what is fixed regardless",
+      ["Platforms, standards, budgets, deadlines",
+       "Not negotiable within the project",
+       "Shapes the design before it begins"])],
+    caption="Three things a requirements document must separate.",
+    footer="Non-functional requirements are the ones omitted and the ones "
+           "that cause redesign. 'Fast' is not a requirement; 'a response "
+           "within two seconds for 95% of requests at 500 concurrent users' "
+           "is one that can be tested."))
+
+register("cost-of-defect", dk.tiers(
+    "What a defect costs, by when it is found",
+    [("Requirements", ["Change a sentence"]),
+     ("Design", ["Change a document, and the sentence"]),
+     ("Construction", ["Change code, design and requirement"]),
+     ("Testing", ["All of the above, plus retesting"]),
+     ("Production", ["All of it, plus the damage already done"])],
+    caption="The same defect, found at five different moments.",
+    footer="The cost rises by roughly an order of magnitude per stage, which "
+           "is the entire economic argument for reviews, static analysis and "
+           "early testing -- all of which look like delay and are not."))
+
+register("v-model", dk.split_planes(
+    "Each specification has a matching test",
+    ("Specifying -- going down", "Each level defines the next", [
+        ("System requirements", "what the business needs"),
+        ("Software requirements", "what the software must do"),
+        ("Design", "how it is structured")]),
+    ("Verifying -- coming up", "Each level tested against its own spec", [
+        ("Unit test", "against the design"),
+        ("Integration test", "against the software requirements"),
+        ("Acceptance test", "against the business need")]),
+    caption="The V-model, and the pairing that makes it useful.",
+    footer="The pairing is the point rather than the shape: acceptance "
+           "testing checks the BUSINESS requirement and unit testing checks "
+           "the design, so a test at the wrong level proves the wrong thing."))
+
+register("coupling-cohesion", dk.split_planes(
+    "The two measures of a good decomposition",
+    ("Coupling -- want it LOW", "Between modules", [
+        ("Tight", "a change here forces a change there"),
+        ("Loose", "modules can be changed alone"),
+        ("Test", "can you understand one without the others")]),
+    ("Cohesion -- want it HIGH", "Within a module", [
+        ("Weak", "unrelated things bundled together"),
+        ("Strong", "everything serves one purpose"),
+        ("Test", "can you name what it does in one phrase")]),
+    caption="Low coupling and high cohesion, always in that pairing.",
+    footer="They tend to move together. Splitting a module by PURPOSE raises "
+           "cohesion and usually lowers coupling; splitting it arbitrarily "
+           "does the reverse of both."))
+
+register("uml-diagram-families", dk.compare(
+    "UML diagrams, by what they show",
+    [("Structure", "what exists",
+      ["Class -- types and their relationships",
+       "Object -- one snapshot of instances",
+       "Component and deployment -- the parts, and where they run"]),
+     ("Behaviour", "what happens",
+      ["Use case -- who wants what from the system",
+       "Activity -- the flow of a process",
+       "State machine -- how one object reacts over time"]),
+     ("Interaction", "who says what to whom",
+      ["Sequence -- messages in time order",
+       "Communication -- the same, arranged by structure"])],
+    caption="Three families, and the question each answers.",
+    footer="An item usually gives a purpose and asks which diagram. Match the "
+           "QUESTION: what exists, what happens over time, or who calls "
+           "whom."))
+
+register("class-relationships", dk.compare(
+    "How classes relate",
+    [("Association", "knows about",
+      ["A plain relationship between two classes",
+       "Neither owns the other",
+       "The default, and the weakest"]),
+     ("Aggregation", "has, loosely",
+      ["A whole with parts",
+       "The parts survive the whole",
+       "A team and its members"]),
+     ("Composition", "has, and owns",
+      ["A whole with parts it controls",
+       "The parts do not outlive the whole",
+       "An order and its order lines"]),
+     ("Generalisation", "is a kind of",
+      ["Inheritance -- a subtype of a supertype",
+       "Everything true of the parent is true of the child",
+       "A saving account and an account"])],
+    caption="Four relationships in increasing order of commitment.",
+    footer="Aggregation against composition is the examined pair, and the "
+           "test is lifetime: delete the whole, and ask whether the parts "
+           "still make sense on their own."))
+
+register("test-levels", dk.stack(
+    "Testing, level by level",
+    [("Acceptance testing", "does it meet the business need"),
+     ("System testing", "does the whole system work as specified"),
+     ("Integration testing", "do the parts work together"),
+     ("Unit testing", "does each part work alone")],
+    caption="Each level assumes the one below it passed.",
+    numbered=False,
+    right_note="Levels are about SCOPE. Types -- functional, performance, "
+               "security, usability -- are about what is being checked, and "
+               "any type can be applied at any level."))
+
+register("blackbox-whitebox", dk.split_planes(
+    "Two ways of designing test cases",
+    ("Black box", "From the specification", [
+        ("Sees", "inputs and outputs only"),
+        ("Techniques", "equivalence classes, boundary values"),
+        ("Misses", "untested paths inside")]),
+    ("White box", "From the code", [
+        ("Sees", "the internal structure"),
+        ("Techniques", "statement and branch coverage"),
+        ("Misses", "requirements never implemented")]),
+    caption="Neither finds what the other finds.",
+    footer="White box testing cannot find a MISSING function, because there "
+           "is no code to cover. Black box testing cannot find an untested "
+           "path. This is why both are used rather than one."))
+
+register("boundary-values", dk.fields(
+    "Where defects actually cluster",
+    [("Below", "invalid", 20, dk.ORANGE),
+     ("At the boundary", "the risky values", 12, dk.DEEP),
+     ("Above", "valid", 20, dk.BLUE)],
+    caption="Test at the boundary, just below it, and just above.",
+    footer="Off-by-one errors and wrong comparison operators are among the "
+           "commonest defects, and both live exactly at the boundary -- so "
+           "testing the middle of a range finds almost nothing."))
+
+register("integration-strategies", dk.compare(
+    "Putting the parts together",
+    [("Big bang", "all at once",
+      ["Everything combined, then tested",
+       "No stubs or drivers needed",
+       "A failure could be anywhere"]),
+     ("Top-down", "from the top",
+      ["High levels first, with STUBS below",
+       "The overall design is proved early",
+       "Low-level defects surface late"]),
+     ("Bottom-up", "from the bottom",
+      ["Low levels first, with DRIVERS above",
+       "Foundations proved early",
+       "Design problems surface late"])],
+    caption="Three strategies, and what each defers.",
+    footer="A STUB stands in for something not yet written BELOW; a DRIVER "
+           "calls something not yet integrated ABOVE. Top-down needs stubs, "
+           "bottom-up needs drivers -- which is the pairing items ask for."))
+
+register("regression-risk", dk.flow(
+    "Why a working system breaks",
+    [("A change is made", "for a good reason"),
+     ("Something else depended on the old behaviour", "unnoticed"),
+     ("That path is not retested", "it was not what changed"),
+     ("The defect ships", "in a part nobody touched")],
+    caption="Regression: breaking what already worked.",
+    note="This is what makes an automated test suite worth its cost. Manual "
+         "regression testing of a whole system after every change is not "
+         "affordable, so in practice it is not done -- and the defects arrive "
+         "exactly here."))
+
+register("process-models", dk.compare(
+    "Three ways of arranging the work",
+    [("Waterfall", "stages, in order",
+      ["Each stage completed before the next",
+       "Predictable when requirements are stable",
+       "Change late is very expensive"]),
+     ("Iterative and incremental", "repeated cycles",
+      ["Something working, early and often",
+       "Feedback changes what comes next",
+       "Needs an engaged customer"]),
+     ("Agile", "short cycles, adaptive",
+      ["Working software over documentation",
+       "Requirements expected to change",
+       "Scope varies; time and team do not"])],
+    caption="Not a progression -- three answers to different situations.",
+    footer="The choice follows the REQUIREMENTS. Stable and well understood "
+           "favours a plan-driven approach; uncertain or contested favours "
+           "iteration, because discovering the requirement is the project's "
+           "main risk."))
+
+register("agile-cycle", dk.cycle(
+    "One agile iteration",
+    [("Plan", "select from the backlog"),
+     ("Build", "a working increment"),
+     ("Review", "with the customer"),
+     ("Reflect", "improve the process")],
+    caption="A short fixed period, repeated.",
+    centre="1-4 weeks"))
+
+register("configuration-management", dk.flow(
+    "Controlling what changes",
+    [("Identify", "which items are controlled"),
+     ("Baseline", "an approved, known state"),
+     ("Control changes", "request, assess, approve"),
+     ("Account for status", "what version is where"),
+     ("Audit", "does the record match reality")],
+    caption="Five activities, and the middle one is what people notice.",
+    note="A BASELINE is the point of the whole exercise: a known state to "
+         "return to, and the thing every change is measured against. Without "
+         "one, 'what changed' has no answer."))
+
+register("branching-merge", dk.split_planes(
+    "Working in parallel",
+    ("Branching", "Work isolated from the mainline", [
+        ("Start", "take a copy of the baseline"),
+        ("Work", "changes affect nobody else"),
+        ("Risk", "diverging further every day")]),
+    ("Merging", "Bringing it back", [
+        ("Combine", "both sets of changes"),
+        ("Conflict", "where both touched the same lines"),
+        ("Cost", "grows with how long the branch lived")]),
+    caption="Isolation has a price, and it is paid at the merge.",
+    footer="The longer a branch lives, the more expensive the merge -- which "
+           "is the whole argument for integrating frequently rather than "
+           "working alone for weeks and reconciling at the end."))
+
+register("licence-obligations", dk.compare(
+    "What a licence requires in return",
+    [("Proprietary", "use, under terms",
+      ["Source usually not provided",
+       "Redistribution normally prohibited",
+       "Obligations are contractual"]),
+     ("Permissive open source", "use freely, attribute",
+      ["Source available, few conditions",
+       "Usable in closed products",
+       "Attribution is the main obligation"]),
+     ("Copyleft open source", "use, and share alike",
+      ["Derived works must carry the same licence",
+       "Which can reach the whole product",
+       "The obligation the examination asks about"])],
+    caption="Three families, distinguished by what they demand back.",
+    footer="COPYLEFT is the one with a business consequence: including such a "
+           "component in a product can oblige the whole derived work to be "
+           "licensed the same way, which is why component licences are "
+           "reviewed before use rather than after."))
+
+register("dev-environments", dk.flow(
+    "From a developer's machine to production",
+    [("Development", "where it is written"),
+     ("Test", "where it is proved"),
+     ("Staging", "as close to production as possible"),
+     ("Production", "where it matters")],
+    caption="Four environments, each closer to reality than the last.",
+    note="Staging exists because differences between environments are "
+         "themselves a defect source. 'It worked in test' usually means test "
+         "differed from production in a way nobody had written down."))
