@@ -846,3 +846,126 @@ register("licence-spectrum", dk.compare(
     footer="Open source is a licence, not an absence of one. Ignoring its "
            "terms is copyright infringement in exactly the way ignoring a "
            "commercial licence would be."))
+
+
+# ====================================================================
+# Technology Element -> Human Interface
+# ====================================================================
+
+register("interaction-styles", dk.compare(
+    "Ways a person can drive a system",
+    [("Command language", "type an instruction",
+      ["Precise, scriptable, repeatable",
+       "Nothing is visible until you know it",
+       "Fast for experts, opaque for everyone else"]),
+     ("Direct manipulation", "act on what you see",
+      ["Objects are visible and respond immediately",
+       "Discoverable by exploration",
+       "Slow for repetitive bulk work"]),
+     ("Form and menu", "choose from what is offered",
+      ["The valid options are shown",
+       "Little to remember and little to mistype",
+       "Cumbersome once the option list grows long"])],
+    caption="Each suits a different user and a different task.",
+    footer="The recurring answer is BOTH: a discoverable interface for "
+           "learning and occasional use, plus a command or scripting path for "
+           "the expert doing the same thing a hundred times."))
+
+register("usability-model", dk.stack(
+    "What usability is made of",
+    [("Satisfaction", "does it feel acceptable to use?"),
+     ("Error tolerance", "can mistakes be avoided and undone?"),
+     ("Memorability", "is it still usable after a month away?"),
+     ("Efficiency", "how fast once learned?"),
+     ("Learnability", "how quickly can a new user start?")],
+    caption="Five measurable components, not a matter of taste.",
+    numbered=False,
+    right_note="Each can be tested with real users and stated as a target, "
+               "which is what makes usability a requirement rather than an "
+               "opinion."))
+
+register("feedback-loop-ui", dk.flow(
+    "What a user needs at every step",
+    [("Affordance", "what can I do here?"),
+     ("Action", "the user does it"),
+     ("Feedback", "what happened?"),
+     ("Next state", "where am I now?")],
+    caption="Break any link and the interface feels broken.",
+    note="Missing feedback is the commonest fault: a button that does not "
+         "acknowledge a press gets pressed again, which is how duplicate "
+         "orders and double payments are created."))
+
+# ====================================================================
+# Technology Element -> Multimedia
+# ====================================================================
+
+register("colour-models", dk.compare(
+    "Two ways to specify a colour",
+    [("RGB -- additive", "light, for screens",
+      ["Red, green and blue light combine",
+       "All three at full gives white",
+       "None gives black -- the screen is off"]),
+     ("CMY(K) -- subtractive", "ink, for print",
+      ["Cyan, magenta and yellow absorb light",
+       "All three gives a muddy near-black, so K adds true black",
+       "None gives white -- the paper shows through"]),
+     ("HSV / HSB", "how people describe colour",
+      ["Hue, saturation, value",
+       "Matches how a person picks a colour",
+       "Converted to RGB or CMYK for output"])],
+    caption="Screens emit light; paper reflects it. The models differ "
+            "accordingly.",
+    footer="This is why a colour on screen cannot always be printed: the two "
+           "gamuts do not coincide, and the vivid ones are usually the ones "
+           "that do not survive."))
+
+register("media-pipeline", dk.flow(
+    "Getting media from the world into a file",
+    [("Capture", "sample and quantise"),
+     ("Process", "correct and edit"),
+     ("Compress", "reduce the size"),
+     ("Container", "package with metadata"),
+     ("Deliver", "stream or download")],
+    caption="Each stage has its own losses and its own choices.",
+    note="The CODEC decides how the media is compressed; the CONTAINER "
+         "decides how the compressed streams and their metadata are packaged "
+         "together. One file format may hold several different codecs, which "
+         "is why a file can be recognised and still not play."))
+
+register("compression-tradeoff", dk.split_planes(
+    "The same image, two ways",
+    ("Lossless -- PNG", "Nothing discarded", [
+        ("Original restored exactly", "bit for bit"),
+        ("Modest reduction", "2-4x on typical images"),
+        ("Safe to re-save", "no accumulating damage")]),
+    ("Lossy -- JPEG", "Detail judged imperceptible removed", [
+        ("Original NOT recoverable", "approximation only"),
+        ("Large reduction", "10-20x at acceptable quality"),
+        ("Damage accumulates", "each re-save loses more")]),
+    caption="The choice follows from whether the data must survive intact.",
+    footer="Lossy for photographs and audio a person will perceive; lossless "
+           "for text, diagrams, screenshots, medical images and anything that "
+           "will be edited and re-saved."))
+
+
+register("screen-zones", dk.tiers(
+    "Where the eye goes on a screen",
+    [("Scanned first", ["Top left", "Headline"]),
+     ("Scanned next", ["Left column", "Emphasised items"]),
+     ("Scanned last", ["Lower right", "Body text", "Footers"])],
+    caption="For left-to-right scripts. The important thing belongs where the "
+            "eye already is.",
+    footer="An element nobody finds is usually present, unemphasised, and "
+           "below the fold -- three separate ways of putting it where nobody "
+           "looks."))
+
+register("error-handling-order", dk.flow(
+    "The order to attack an input error",
+    [("Prevent", "a control that cannot be wrong"),
+     ("Constrain", "reject at the point of entry"),
+     ("Explain", "what, why, what to do"),
+     ("Recover", "let the user undo")],
+    caption="Each step is cheaper than the one after it.",
+    note="A date picker prevents an impossible date; field validation catches "
+         "it as it is typed; a message explains it after submission; and undo "
+         "repairs it afterwards. Most designs start at step three."))

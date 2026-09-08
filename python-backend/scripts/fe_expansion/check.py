@@ -162,6 +162,7 @@ def check_quiz(module_name, lesson):
 
     positions = []
     longest_correct = 0
+    longest_detail = []
     for item in quiz:
         if item["type"] != "MCQ":
             fail(module_name, "%s: %r is %s; this certification is MCQ-only"
@@ -189,6 +190,9 @@ def check_quiz(module_name, lesson):
         lengths = [len(t.strip()) for t, _ in choices]
         if lengths[correct[0]] == max(lengths) and lengths.count(max(lengths)) == 1:
             longest_correct += 1
+            others = [n for i, n in enumerate(lengths) if i != correct[0]]
+            longest_detail.append((lengths[correct[0]], max(others),
+                                   item["question"].split(chr(10))[0][:52]))
 
         if len(item["explanation"]) < MIN_EXPLANATION_CHARS:
             fail(module_name, "%s: explanation too short for %r"
@@ -206,9 +210,17 @@ def check_quiz(module_name, lesson):
                  % (name, top + 1, hits, len(positions),
                     100 * MAX_POSITION_SHARE))
         if longest_correct / len(positions) > MAX_LONGEST_SHARE:
+            # Name the offending stems. The bare count says a batch has the
+            # problem and leaves you re-deriving which items caused it, which
+            # is most of the work -- and this failure recurs constantly,
+            # because writing an item means stating the correct answer
+            # carefully and the distractors briefly.
+            detail = "\n        ".join(
+                "%-4d chars vs %-4d longest distractor  %s"
+                % (c, d, q) for c, d, q in longest_detail)
             fail(module_name, "%s: correct answer is the longest option in "
-                              "%d of %d items" % (name, longest_correct,
-                                                  len(positions)))
+                              "%d of %d items\n        %s"
+                 % (name, longest_correct, len(positions), detail))
 
     first_words = collections.Counter(
         item["question"].split()[0].lower() for item in quiz)
