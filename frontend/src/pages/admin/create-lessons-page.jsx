@@ -19,6 +19,7 @@ import {
   PanelsTopLeft,
   Plus,
   Save,
+  Table as TableIcon,
   Target,
   Trash2,
   Type,
@@ -266,6 +267,27 @@ const combinedActions = [
           description: "",
         },
       ],
+    }),
+  },
+  {
+    type: "table",
+    name: "Table",
+    description: "Rows and columns of real text, for tabular material",
+    icon: TableIcon,
+    createData: () => ({
+      smallHeader: "",
+      description: "",
+      columns: [
+        { id: createId(), label: "" },
+        { id: createId(), label: "" },
+      ],
+      rows: [
+        { id: createId(), cells: ["", ""] },
+        { id: createId(), cells: ["", ""] },
+      ],
+      rowHeaders: true,
+      caption: "",
+      footer: "",
     }),
   },
   {
@@ -765,6 +787,34 @@ function normalizeToolData(type, data = {}, toolId, imageKeys = {}, videoKeys = 
     normalizedData.gridItems = normalizeGridItems(normalizedData.gridItems)
   }
 
+  if (type === "table") {
+    // `columns` is the single authority on width: every row is padded or
+    // trimmed to match it, so a row that fell out of step with the header --
+    // through a hand edit or an older saved lesson -- renders as a complete
+    // row rather than a ragged one.
+    normalizedData.columns = (
+        Array.isArray(normalizedData.columns) ? normalizedData.columns : []
+    ).map((column) => ({
+      id: column?.id ?? createId(),
+      label: column?.label ?? "",
+    }))
+
+    const width = normalizedData.columns.length
+    normalizedData.rows = (
+        Array.isArray(normalizedData.rows) ? normalizedData.rows : []
+    ).map((row) => {
+      const cells = Array.isArray(row?.cells) ? row.cells : []
+      return {
+        id: row?.id ?? createId(),
+        cells: Array.from({ length: width }, (_unused, index) => cells[index] ?? ""),
+      }
+    })
+
+    normalizedData.rowHeaders = normalizedData.rowHeaders !== false
+    normalizedData.caption = normalizedData.caption ?? ""
+    normalizedData.footer = normalizedData.footer ?? ""
+  }
+
   if (
       type === "intro-image-card" ||
       type === "header-description-grid" ||
@@ -772,7 +822,8 @@ function normalizeToolData(type, data = {}, toolId, imageKeys = {}, videoKeys = 
       type === "review-card-grid" ||
       type === "content-accordion-block" ||
       type === "content-tabs-block" ||
-      type === "media-text-block"
+      type === "media-text-block" ||
+      type === "table"
   ) {
     normalizedData.smallHeader = normalizedData.smallHeader ?? ""
     normalizedData.description = normalizedData.description ?? ""
@@ -1331,6 +1382,25 @@ function CreateLessons() {
       if (!hasMediaFileOrKey(data, "imageKey")) {
         return `${toolLabel}: upload an image first.`
       }
+    }
+
+    if (tool.type === "table") {
+      const columns = data.columns ?? []
+      const rows = data.rows ?? []
+
+      if (columns.length === 0 || rows.length === 0) {
+        return `${toolLabel}: add at least one column and one row.`
+      }
+      if (columns.some((column) => !(column.label ?? "").trim())) {
+        return `${toolLabel}: every column needs a heading.`
+      }
+      // A row of entirely blank cells is a row the author forgot to fill in,
+      // and it renders as an empty stripe rather than as data.
+      if (rows.some((row) => (row.cells ?? []).every((cell) => !(cell ?? "").trim()))) {
+        return `${toolLabel}: every row needs at least one filled cell.`
+      }
+
+      return null
     }
 
     if (tool.type === "review-card-grid") {

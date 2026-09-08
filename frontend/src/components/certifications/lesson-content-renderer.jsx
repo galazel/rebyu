@@ -495,6 +495,132 @@ function renderText(text, className) {
       ))
 }
 
+/**
+ * A real data table.
+ *
+ * Added because a large part of what a certification teaches is genuinely
+ * tabular -- character encodings against their widths, RAID levels against
+ * what each survives, normal forms against what each removes, error-detection
+ * schemes against what each catches. Before this block the only way to show
+ * one was to draw a picture of a table, and a picture is not text: it cannot
+ * be selected or copied, it does not respond to the reader's font size, it is
+ * invisible to search and to a screen reader, and on a phone it is a wide
+ * image scaled down until the type is unreadable.
+ *
+ * `<table>` with real `<th>` elements, so assistive technology announces which
+ * column a cell belongs to. `scope` is set on both axes when the caller marks
+ * a row-header column, which is what makes a grid of comparisons navigable
+ * rather than a flat run of cells.
+ *
+ * The horizontal overflow lives on a wrapper rather than on the page, per the
+ * rule the rest of this renderer follows: wide content scrolls inside its own
+ * box and the body never scrolls sideways. The wrapper is focusable and
+ * labelled so a keyboard user can actually reach that scroll region -- a
+ * scrollable div with no tab stop is unreachable without a mouse.
+ */
+function TableBlock({ data, accent = ACCENTS[0] }) {
+  const columns = Array.isArray(data.columns) ? data.columns : []
+  const rows = Array.isArray(data.rows) ? data.rows : []
+  if (columns.length === 0 || rows.length === 0) return null
+
+  // The first column holds row headers when the caller says so. It is opt-in
+  // rather than assumed: a table whose first column is ordinary data would
+  // otherwise announce every value as a heading.
+  const rowHeaders = data.rowHeaders !== false
+
+  return (
+      <div className="space-y-4">
+        <SectionIntro
+            smallHeader={data.smallHeader}
+            description={data.description}
+            accent={accent}
+        />
+
+        <div
+            className="overflow-x-auto rounded-[var(--radius-rb-tile)] border-2 border-border/70"
+            tabIndex={0}
+            role="region"
+            aria-label={data.caption ?? data.smallHeader ?? "Table"}
+        >
+          {/* `min-w-[34rem]` is what makes the wrapper's scroll worth having.
+              Without a floor, a four-column table on a phone does not scroll
+              -- it fits, by crushing every column to about sixty pixels and
+              wrapping each cell over four lines, which is unreadable in a
+              different way from being cut off. With the floor, narrow screens
+              scroll the table sideways inside its own box and each column
+              keeps a usable measure, while `w-full` still lets it fill a wide
+              container. */}
+          <table className="w-full min-w-[34rem] border-collapse text-left text-[15px]">
+            {/* A caption, not a paragraph above the table: it is the table's
+                own accessible name, and it stays attached to it when the
+                table is reached directly by a screen reader's table
+                navigation. */}
+            {data.caption ? (
+                <caption className="px-4 pt-3 pb-2 text-left text-sm text-muted-foreground">
+                  {data.caption}
+                </caption>
+            ) : null}
+
+            <thead>
+              <tr className="bg-muted/60">
+                {columns.map((column, columnIndex) => (
+                    <th
+                        key={column.id ?? column.label ?? columnIndex}
+                        scope="col"
+                        className="border-b-2 border-border/70 px-4 py-3 font-heading text-[13px] font-bold uppercase tracking-wide text-foreground"
+                    >
+                      {column.label ?? column}
+                    </th>
+                ))}
+              </tr>
+            </thead>
+
+            <tbody>
+              {rows.map((row, rowIndex) => {
+                const cells = Array.isArray(row.cells) ? row.cells : row
+                return (
+                    <tr
+                        key={row.id ?? rowIndex}
+                        /* Zebra striping on the odd rows only, in the same
+                           wash the header uses at half strength. A border on
+                           every row plus a fill on every other one is two
+                           separators doing one job. */
+                        className={rowIndex % 2 ? "bg-muted/25" : undefined}
+                    >
+                      {cells.map((cell, cellIndex) =>
+                          rowHeaders && cellIndex === 0 ? (
+                              <th
+                                  key={cellIndex}
+                                  scope="row"
+                                  className="px-4 py-3 align-top font-semibold text-foreground"
+                              >
+                                {cell}
+                              </th>
+                          ) : (
+                              <td
+                                  key={cellIndex}
+                                  className="px-4 py-3 align-top text-foreground/85"
+                              >
+                                {cell}
+                              </td>
+                          )
+                      )}
+                    </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {data.footer ? (
+            <p className="text-[15px] leading-7 text-muted-foreground">
+              {data.footer}
+            </p>
+        ) : null}
+      </div>
+  )
+}
+
 function SectionIntro({ smallHeader, description, accent = ACCENTS[0] }) {
   if (!smallHeader && !description) return null
 
@@ -1131,6 +1257,10 @@ function LessonTool({ tool, index = 0 }) {
           ))}
         </Tag>
     )
+  }
+
+  if (tool.type === "table") {
+    return <TableBlock data={data} accent={accent} />
   }
 
   if (tool.type === "image") {

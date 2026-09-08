@@ -138,6 +138,22 @@ _PROMPT_TEMPLATE = """
     {"type": "unordered-list", "data": {"items": [{"text": ""}]}}
     {"type": "ordered-list",   "data": {"items": [{"text": ""}]}}
 
+    {"type": "table",
+     "data": {"smallHeader": "", "description": "", "caption": "",
+              "columns": [{"label": ""}],
+              "rows": [{"cells": ["", ""]}],
+              "rowHeaders": true, "footer": ""}}
+
+    Use `table` whenever the material is genuinely tabular -- several items
+    compared on the SAME named attributes. Encodings against their widths,
+    RAID levels against what each survives, sorting algorithms against their
+    complexities, normal forms against what each eliminates. Every row must
+    have exactly as many entries in `cells` as there are `columns`, in the
+    same order, and the first cell of each row should name that row when
+    `rowHeaders` is true. Do not use it for a list of unrelated points, and
+    do not put a paragraph inside a cell -- a cell holds a value or a short
+    phrase.
+
     {"type": "image", "data": {"imageQuery": ""}}
     {"type": "video", "data": {"videoQuery": ""}}
 

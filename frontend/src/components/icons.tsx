@@ -114,7 +114,6 @@ import {
   faKey,
   faKeyboard,
   faKhanda,
-  faLanguage,
   faLayerGroup,
   faLink,
   faList,
@@ -351,7 +350,6 @@ export const Inbox = icon(faInbox, "Inbox")
 export const Info = icon(faCircleInfo, "Info")
 export const InfoIcon = icon(faCircleInfo, "InfoIcon")
 export const KeyRound = icon(faKey, "KeyRound")
-export const Languages = icon(faLanguage, "Languages")
 export const Layers = icon(faLayerGroup, "Layers")
 export const Layers3 = icon(faLayerGroup, "Layers3")
 export const Layers3Icon = icon(faLayerGroup, "Layers3Icon")
@@ -438,6 +436,7 @@ export const StickyNote = icon(faNoteSticky, "StickyNote")
 export const SunIcon = icon(faSun, "SunIcon")
 export const Swords = icon(faKhanda, "Swords")
 export const SwordsIcon = icon(faKhanda, "SwordsIcon")
+export const Table = icon(faTableCells, "Table")
 export const Target = icon(faBullseye, "Target")
 export const TargetIcon = icon(faBullseye, "TargetIcon")
 export const Terminal = icon(faTerminal, "Terminal")

@@ -977,6 +977,199 @@ export function IntroImageCardTool({ data, onDataChange, onDelete }) {
     )
 }
 
+/**
+ * Editor for the table block.
+ *
+ * The grid of inputs mirrors the table it produces, so what an author edits
+ * looks like what a learner reads. Rows and columns are added and removed at
+ * the ends rather than by dragging: a certification table is written once from
+ * source material, not rearranged, and a drag handle per cell would cost far
+ * more than it earns here.
+ *
+ * The two structures are kept in step by `columns` being the single authority
+ * on width -- every row's `cells` array is resized to match whenever a column
+ * is added or removed, so a malformed row can never reach the renderer.
+ */
+function TableEditor({ data, onDataChange }) {
+    const columns = data?.columns ?? []
+    const rows = data?.rows ?? []
+
+    function updateColumn(columnIndex, label) {
+        onDataChange({
+            ...data,
+            columns: columns.map((column, index) =>
+                index === columnIndex ? { ...column, label } : column
+            ),
+        })
+    }
+
+    function updateCell(rowIndex, cellIndex, value) {
+        onDataChange({
+            ...data,
+            rows: rows.map((row, index) =>
+                index === rowIndex
+                    ? {
+                        ...row,
+                        cells: (row.cells ?? []).map((cell, position) =>
+                            position === cellIndex ? value : cell
+                        ),
+                    }
+                    : row
+            ),
+        })
+    }
+
+    function addColumn() {
+        onDataChange({
+            ...data,
+            columns: [...columns, { id: createId("column"), label: "" }],
+            // Every row grows with the header, so the two never disagree.
+            rows: rows.map((row) => ({ ...row, cells: [...(row.cells ?? []), ""] })),
+        })
+    }
+
+    function removeColumn(columnIndex) {
+        if (columns.length <= 1) return
+        onDataChange({
+            ...data,
+            columns: columns.filter((_column, index) => index !== columnIndex),
+            rows: rows.map((row) => ({
+                ...row,
+                cells: (row.cells ?? []).filter((_cell, index) => index !== columnIndex),
+            })),
+        })
+    }
+
+    function addRow() {
+        onDataChange({
+            ...data,
+            rows: [...rows, { id: createId("row"), cells: columns.map(() => "") }],
+        })
+    }
+
+    function removeRow(rowIndex) {
+        if (rows.length <= 1) return
+        onDataChange({ ...data, rows: rows.filter((_row, index) => index !== rowIndex) })
+    }
+
+    const gridTemplate = {
+        gridTemplateColumns: `repeat(${Math.max(columns.length, 1)}, minmax(9rem, 1fr)) 2.5rem`,
+    }
+
+    return (
+        <div className="space-y-4">
+            <SectionHeading
+                title="Table"
+                action={
+                    <div className="flex gap-2">
+                        <AddButton onClick={addColumn}>Add column</AddButton>
+                        <AddButton onClick={addRow}>Add row</AddButton>
+                    </div>
+                }
+            />
+
+            {/* The editor scrolls sideways for the same reason the rendered
+                table does: a wide table must not push the page out. */}
+            <div className="overflow-x-auto pb-1">
+                <div className="min-w-max space-y-2">
+                    <div className="grid gap-2" style={gridTemplate}>
+                        {columns.map((column, columnIndex) => (
+                            <div key={column.id ?? columnIndex} className="space-y-1">
+                                <input
+                                    type="text"
+                                    value={column.label ?? ""}
+                                    onChange={(event) => updateColumn(columnIndex, event.target.value)}
+                                    placeholder={`Column ${columnIndex + 1}`}
+                                    aria-label={`Column ${columnIndex + 1} heading`}
+                                    className="w-full rounded-lg bg-muted/60 px-3 py-2 text-sm font-semibold text-foreground outline-none placeholder:text-muted-foreground/50"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => removeColumn(columnIndex)}
+                                    disabled={columns.length <= 1}
+                                    className="text-xs text-muted-foreground transition hover:text-destructive disabled:opacity-40"
+                                >
+                                    Remove column
+                                </button>
+                            </div>
+                        ))}
+                        <div aria-hidden="true" />
+                    </div>
+
+                    {rows.map((row, rowIndex) => (
+                        <div key={row.id ?? rowIndex} className="grid gap-2" style={gridTemplate}>
+                            {columns.map((column, cellIndex) => (
+                                <input
+                                    key={column.id ?? cellIndex}
+                                    type="text"
+                                    value={(row.cells ?? [])[cellIndex] ?? ""}
+                                    onChange={(event) => updateCell(rowIndex, cellIndex, event.target.value)}
+                                    placeholder={cellIndex === 0 ? `Row ${rowIndex + 1}` : ""}
+                                    aria-label={`Row ${rowIndex + 1}, ${column.label || `column ${cellIndex + 1}`}`}
+                                    className="w-full rounded-lg bg-muted/40 px-3 py-2 text-sm text-foreground outline-none transition hover:bg-muted/60 placeholder:text-muted-foreground/50"
+                                />
+                            ))}
+                            <button
+                                type="button"
+                                onClick={() => removeRow(rowIndex)}
+                                disabled={rows.length <= 1}
+                                aria-label={`Remove row ${rowIndex + 1}`}
+                                className="grid place-items-center rounded-lg text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+                            >
+                                &times;
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                    type="checkbox"
+                    checked={data?.rowHeaders !== false}
+                    onChange={(event) => onDataChange({ ...data, rowHeaders: event.target.checked })}
+                />
+                First column labels its row
+            </label>
+        </div>
+    )
+}
+
+export function TableTool({ data, onDataChange, onDelete }) {
+    const toolData = data ?? {}
+
+    return (
+        <ToolShell
+            title="Table"
+            description="Rows and columns of real text, for material that is genuinely tabular."
+            onDelete={onDelete}
+        >
+            <CombinedHeaderFields
+                data={toolData}
+                onDataChange={onDataChange}
+                title="Table intro"
+                description="Add a heading and a lead-in, then build the table below."
+            />
+
+            <TableEditor data={toolData} onDataChange={onDataChange} />
+
+            <TextAreaField
+                value={toolData.caption}
+                onChange={(value) => onDataChange({ ...toolData, caption: value })}
+                placeholder="Caption, shown above the table and used as its accessible name..."
+                rows={2}
+            />
+
+            <TextAreaField
+                value={toolData.footer}
+                onChange={(value) => onDataChange({ ...toolData, footer: value })}
+                placeholder="Optional note below the table..."
+                rows={2}
+            />
+        </ToolShell>
+    )
+}
+
 export function HeaderDescriptionGridTool({ data, onDataChange, onDelete }) {
     const toolData = data ?? {}
 

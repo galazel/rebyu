@@ -195,6 +195,7 @@ const MAP = {
   StickyNote: "faNoteSticky",
   Sun: "faSun",
   Swords: "faKhanda",
+  Table: "faTableCells",
   Target: "faBullseye",
   Terminal: "faTerminal",
   Ticket: "faTicket",

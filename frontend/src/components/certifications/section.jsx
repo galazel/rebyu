@@ -21,6 +21,7 @@ import {
     ContentTabsBlockTool,
     MediaTextBlockTool,
     ImageHotspotTool,
+    TableTool,
 } from "./tools.jsx"
 
 const TOOL_COMPONENTS = {
@@ -44,6 +45,7 @@ const TOOL_COMPONENTS = {
     "content-tabs-block": ContentTabsBlockTool,
     "media-text-block": MediaTextBlockTool,
     "image-hotspot": ImageHotspotTool,
+    table: TableTool,
 }
 
 function Section({
