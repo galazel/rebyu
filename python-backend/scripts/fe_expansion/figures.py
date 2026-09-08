@@ -2091,3 +2091,226 @@ register("team-development", dk.flow(
     note="STORMING is a stage rather than a failure. A team that never "
          "disagrees has not settled how it works; it is deferring the "
          "conversation, usually until something is at stake."))
+
+
+# ====================================================================
+# Service Management
+# ====================================================================
+
+register("service-lifecycle", dk.cycle(
+    "The service lifecycle",
+    [("Strategy", "which services, and why"),
+     ("Design", "how they will work"),
+     ("Transition", "into live operation"),
+     ("Operation", "day-to-day delivery"),
+     ("Continual improvement", "measured, and adjusted")],
+    caption="A cycle, since a service outlives every project that built it.",
+    centre="the service"))
+
+register("project-vs-service", dk.split_planes(
+    "Two ways of thinking about the same system",
+    ("A project", "Temporary, and finishes", [
+        ("Succeeds by", "delivering the objective"),
+        ("Measured at", "the end"),
+        ("Ends", "and the team disperses")]),
+    ("A service", "Continuing, and does not", [
+        ("Succeeds by", "meeting agreed levels, every day"),
+        ("Measured", "continuously"),
+        ("Ends", "only when it is retired")]),
+    caption="Delivery is a moment; service is a state.",
+    footer="Most of a system's life is the right-hand column, and most of "
+           "its cost. A project that hands over something unrunnable has "
+           "optimised the smaller half."))
+
+register("incident-vs-problem", dk.compare(
+    "Four processes that are constantly confused",
+    [("Incident management", "restore service NOW",
+      ["An unplanned interruption or degradation",
+       "Success is service restored, by any means",
+       "A workaround is a complete success here"]),
+     ("Problem management", "find the CAUSE",
+      ["Why did that incident happen",
+       "Success is the cause removed",
+       "Works on the incidents that already happened"]),
+     ("Change management", "control WHAT CHANGES",
+      ["Assess, authorise, schedule, review",
+       "Success is change without disruption",
+       "Most incidents follow a change"])],
+    caption="Restore, understand, control.",
+    footer="INCIDENT and PROBLEM is the pair examined most. Restoring "
+           "service with a workaround closes the incident and leaves the "
+           "problem open -- and treating them as one process means causes "
+           "are never investigated."))
+
+register("incident-flow", dk.flow(
+    "An incident, end to end",
+    [("Detect and log", "monitoring, or a user"),
+     ("Categorise and prioritise", "impact x urgency"),
+     ("Investigate and diagnose", "what is actually wrong"),
+     ("Resolve and recover", "service restored"),
+     ("Close", "with the user agreeing it is resolved"),
+     ("Feed to problem management", "if the cause is unknown")],
+    caption="Restoration is the goal; the cause is somebody else's process.",
+    note="PRIORITY comes from impact multiplied by urgency, not from who is "
+         "asking. Impact is how much of the business is affected; urgency is "
+         "how fast the damage grows."))
+
+register("sla-structure", dk.stack(
+    "Three layers of service agreement",
+    [("SLA", "with the business -- what they receive"),
+     ("OLA", "with internal teams -- what each contributes"),
+     ("Underpinning contract", "with suppliers -- what they must provide")],
+    caption="Each layer must support the one above it.",
+    numbered=False,
+    right_note="An SLA promising four-hour restoration, supported by a "
+               "supplier contract offering next-business-day, cannot be met. "
+               "The layers are checked against each other or the top one is "
+               "fiction."))
+
+register("availability-measures", dk.fields(
+    "Where the time goes",
+    [("Uptime", "service available", 40, dk.BLUE),
+     ("Planned downtime", "agreed maintenance", 6, dk.DEEP),
+     ("Unplanned downtime", "incidents", 4, dk.ORANGE)],
+    caption="Availability is uptime over the agreed service period.",
+    footer="Whether PLANNED downtime counts against availability is a "
+           "definition in the agreement rather than a fact -- and it is the "
+           "commonest source of two parties disagreeing about whether a "
+           "target was met."))
+
+register("continuity-measures", dk.timeline(
+    "Recovering from a disaster",
+    "RPO -- how much data may be lost",
+    "RTO -- how quickly service must return",
+    caption="Two objectives, measured backwards and forwards from the "
+            "incident.",
+    footer="RPO looks BACKWARD from the failure to the last usable backup; "
+           "RTO looks FORWARD to service resuming. They buy different things "
+           "-- replication frequency, and standby capacity."))
+
+register("data-centre-facilities", dk.compare(
+    "What a data centre actually provides",
+    [("Power", "and its continuity",
+      ["Dual feeds, from separate substations where possible",
+       "Uninterruptible supply for the seconds before generators start",
+       "Generators, and fuel for them"]),
+     ("Cooling", "because equipment produces heat",
+      ["Capacity matched to the load, with redundancy",
+       "Hot and cold aisle separation",
+       "The commonest cause of an unplanned shutdown"]),
+     ("Physical security", "and environmental protection",
+      ["Access control, logged and reviewed",
+       "Fire detection and suppression that spares equipment",
+       "Water detection, since leaks come from cooling"])],
+    caption="Three facilities every other control assumes.",
+    footer="COOLING failure takes a data centre down faster than power "
+           "failure does, because equipment overheats in minutes while "
+           "batteries last longer than that. It is also the failure people "
+           "plan for least."))
+
+register("audit-process", dk.flow(
+    "Conducting an audit",
+    [("Plan", "scope, objectives, criteria"),
+     ("Gather evidence", "observe, test, inspect, interview"),
+     ("Evaluate", "against the stated criteria"),
+     ("Report", "findings, with evidence"),
+     ("Follow up", "was anything actually done")],
+    caption="Five stages, and the last is what makes the others matter.",
+    note="An audit whose findings are never followed up has documented "
+         "problems rather than corrected them -- and it teaches everybody "
+         "that findings can be safely ignored, which makes the next audit "
+         "worth less than this one."))
+
+register("internal-control", dk.tiers(
+    "Layers of internal control",
+    [("Control environment", ["Tone, culture, and whether rules are "
+                              "enforced"]),
+     ("Risk assessment", ["What could go wrong, and how much it matters"]),
+     ("Control activities", ["Authorisation", "Separation of duties",
+                             "Reconciliation", "Access control"]),
+     ("Information and communication", ["Who knows what, and when"]),
+     ("Monitoring", ["Does any of it still work"])],
+    caption="Five components, of which the first determines the rest.",
+    footer="The CONTROL ENVIRONMENT is the layer that decides whether the "
+           "others are real. Controls that senior people routinely bypass "
+           "are documented rather than operating, and an auditor tests "
+           "operation rather than documentation."))
+
+# ====================================================================
+# System Strategy
+# ====================================================================
+
+register("enterprise-architecture", dk.stack(
+    "The layers of enterprise architecture",
+    [("Business architecture", "what the organisation does"),
+     ("Data architecture", "what information it needs"),
+     ("Application architecture", "what systems support that"),
+     ("Technology architecture", "what they run on")],
+    caption="Each layer exists to serve the one above it.",
+    numbered=False,
+    right_note="Reading downward is the discipline. A technology decision "
+               "taken without reference to the business it serves is the "
+               "commonest architectural failure, and it is invisible until "
+               "the business changes."))
+
+register("as-is-to-be", dk.split_planes(
+    "Planning a change",
+    ("AS-IS", "How things work now", [
+        ("Established by", "observing what actually happens"),
+        ("Reveals", "the workarounds nobody mentions"),
+        ("Risk", "documenting the official process instead")]),
+    ("TO-BE", "How they should work", [
+        ("Designed from", "the business objective"),
+        ("Reveals", "what must change to get there"),
+        ("Risk", "designing for an as-is that was wrong")]),
+    caption="The gap between them is the work.",
+    footer="Skipping the as-is analysis produces a to-be design that solves "
+           "an imagined problem. The workarounds people no longer notice are "
+           "requirements in disguise."))
+
+register("process-modelling", dk.flow(
+    "Modelling a business process",
+    [("Identify the process", "and where it starts and ends"),
+     ("Identify the actors", "who does each step"),
+     ("Map the steps", "in the order they really happen"),
+     ("Find the decisions", "and what determines each"),
+     ("Measure", "time, cost and volume at each step"),
+     ("Analyse", "delays, duplication, and steps adding nothing")],
+    caption="Six steps, and the fifth is what makes the sixth possible.",
+    note="Without measurement, process improvement is opinion. The step "
+         "everybody complains about is frequently not the one consuming the "
+         "time, and only measuring distinguishes them."))
+
+register("cloud-service-models", dk.tiers(
+    "Who manages what",
+    [("On premises", ["You manage everything"]),
+     ("Infrastructure as a service", ["You manage the OS and above",
+                                      "Provider manages the hardware"]),
+     ("Platform as a service", ["You manage the application and data",
+                                "Provider manages the platform"]),
+     ("Software as a service", ["You manage your data and users",
+                                "Provider manages everything else"])],
+    caption="A ladder of responsibility transferred to the provider.",
+    footer="Responsibility for the DATA never transfers. Whatever the model, "
+           "the organisation remains accountable for the information it "
+           "holds -- which is the row every one of these items turns on."))
+
+register("investment-appraisal", dk.compare(
+    "Comparing investments",
+    [("Payback period", "how long until it repays",
+      ["Simple, and widely understood",
+       "Ignores everything after the payback point",
+       "Favours short-term projects systematically"]),
+     ("Return on investment", "gain against cost",
+      ["A ratio, so different sizes compare",
+       "Ignores WHEN the returns arrive",
+       "Easy to compute and easy to misuse"]),
+     ("Net present value", "future money, valued today",
+      ["Accounts for the timing of returns",
+       "Requires a discount rate somebody chose",
+       "The technically correct comparison"])],
+    caption="Three measures, in increasing order of correctness and effort.",
+    footer="NET PRESENT VALUE accounts for the fact that money arriving in "
+           "five years is worth less than money arriving now. Payback and "
+           "ROI both ignore timing, which is why they favour the wrong "
+           "projects in predictable ways."))
