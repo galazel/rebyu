@@ -2562,3 +2562,111 @@ register("invention-innovation", dk.flow(
          "pricing, persuasion -- is non-technical, which is why "
          "organisations strong at invention are so frequently weak at "
          "innovation."))
+
+
+register("embedded-constraints", dk.stack(
+    "What an embedded consumer device cannot assume",
+    [("Somebody is watching it", "nobody is"),
+     ("Somebody can visit it", "nobody can"),
+     ("Resources are plentiful", "they are deliberately not"),
+     ("The owner will configure it", "they will not"),
+     ("Support will outlast the device", "it frequently does not")],
+    caption="Five assumptions ordinary systems make and these cannot.",
+    numbered=False,
+    right_note="Everything follows from the first two. Whatever the device "
+               "does when something goes wrong is what it will do, because "
+               "nobody will notice and nobody can attend."))
+
+
+register("iot-layers", dk.stack(
+    "Where an industrial IoT system does its work",
+    [("Applications", "what somebody looks at and decides on"),
+     ("Platform", "storage, analysis, management of many devices"),
+     ("Network", "the link back, frequently poor and expensive"),
+     ("Edge", "local processing and control, near the machine"),
+     ("Devices", "sensors and actuators on the equipment itself")],
+    caption="Five layers, top to bottom.",
+    numbered=False,
+    right_note="The decision that matters is which layer acts. Control that "
+               "must be immediate stays at the edge, because the network "
+               "above it is the part most likely to be unavailable."))
+
+
+register("org-structures", dk.compare(
+    "Two ways to organise the same people",
+    [("Functional", "Grouped by what they do", [
+        ("Gains", "deep skill, clear career path"),
+        ("Pays", "projects cross every boundary"),
+        ("Decides", "the function head")]),
+    ("Divisional", "Grouped by product, market or region", [
+        ("Gains", "each division owns its result"),
+        ("Pays", "the same function duplicated everywhere"),
+        ("Decides", "the division head")]),],
+    caption="A matrix attempts both, and gives people two managers.",
+    footer="The matrix's cost is exactly its design: a person accountable to "
+           "a function and to a project will meet weeks where the two want "
+           "different things, and somebody above them has to settle it."))
+
+register("ip-rights", dk.stack(
+    "Four protections, covering four different things",
+    [("Copyright", "expression -- arises automatically, lasts decades"),
+     ("Patent", "invention -- registered, examined, about twenty years"),
+     ("Trade mark", "identity -- registered, renewable indefinitely"),
+     ("Trade secret", "anything kept secret -- lasts until it leaks"),
+     ("Design right", "appearance -- registered in most jurisdictions")],
+    caption="What is protected differs in each row.",
+    numbered=False,
+    right_note="Copyright protects the CODE as written; it does not protect "
+               "the idea the code implements. Somebody writing their own "
+               "program to do the same thing has infringed nothing."))
+
+register("cyber-law-map", dk.hub_spoke(
+    "What information law regulates",
+    "Information law",
+    ["Unauthorised access",
+     "Personal data protection",
+     "Electronic signatures",
+     "Retention and disclosure",
+     "Cross-border transfer"],
+    caption="Five areas, and an engineer meets all of them.",
+    hub_note="Access without authorisation is an offence whether or not "
+             "anything was taken or damaged."))
+
+register("engineer-obligations", dk.cycle(
+    "What an engineer owes, and to whom",
+    [("The public", "safety first, above every other duty"),
+     ("The employer", "diligence, and confidentiality"),
+     ("The client", "honesty about what is possible"),
+     ("The profession", "competence, and not claiming more"),
+     ("Colleagues", "credit where it is due")],
+    caption="The first obligation outranks the rest when they conflict.",
+    centre="Public safety"))
+
+register("standards-bodies", dk.stack(
+    "Who publishes what, and at what level",
+    [("International", "ISO, IEC, ITU -- agreed across nations"),
+     ("Regional", "European and similar bodies"),
+     ("National", "each country's own standards body"),
+     ("Industry", "consortia and trade associations"),
+     ("De facto", "what everybody uses, published by nobody")],
+    caption="Authority decreases downward; adoption often does not.",
+    numbered=False,
+    right_note="A DE FACTO standard can be more binding in practice than a "
+               "published one. Nobody mandates it and everything already "
+               "works with it, which is a stronger constraint than a rule."))
+
+register("employment-contract-forms", dk.compare(
+    "Two ways of engaging people to do work",
+    [("Employment", "A person, employed", [
+        ("Directed by", "the employer, day to day"),
+        ("Carries", "employment law protections"),
+        ("Delivers", "their working time")]),
+    ("Contract for work", "A supplier, engaged", [
+        ("Directed by", "nobody -- they decide how"),
+        ("Carries", "commercial terms only"),
+        ("Delivers", "a defined result")]),],
+    caption="The direction test, not the label on the paper.",
+    footer="A worker labelled a contractor but directed daily like an "
+           "employee is treated by law as an employee, with every protection "
+           "that carries -- which is where dispatch and outsourcing "
+           "arrangements most often go wrong."))
