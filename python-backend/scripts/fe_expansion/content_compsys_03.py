@@ -179,6 +179,36 @@ _bus_sections = [
         ),
     ]),
 
+    ("Reading a Bus Specification", [
+        desc(
+            "Specifications are written in a shorthand the examination "
+            "assumes you can decode, and every term in it has appeared above."
+        ),
+        table(
+            ["Written as", "Means", "What to compute from it"],
+            [["64-bit, 800 MHz", "Data width and clock",
+              "Bandwidth: 8 bytes x 800 million = 6.4 GB/s"],
+             ["DDR-3200", "Double data rate, 3,200 million transfers/s",
+              "The clock is half that, at 1,600 MHz"],
+             ["PCIe 4.0 x8", "Generation and lane count",
+              "Bandwidth scales with lanes; x16 is twice x8"],
+             ["36-bit addressing", "Physical address width",
+              "2^36 = 64 GiB of addressable physical memory"]],
+            caption="Four specification fragments and what each licenses you "
+                    "to calculate.",
+            footer="The second row is the standard trap. A DDR figure is a "
+                   "TRANSFER rate already, so using it as a clock frequency "
+                   "and then doubling for double data rate counts the "
+                   "doubling twice."),
+        desc(
+            "One habit makes these reliable: identify which quantity each "
+            "number is before doing any arithmetic. Width, clock frequency, "
+            "transfer rate and lane count are four different things, and "
+            "every distractor on a bus item is built from treating one of "
+            "them as another."
+        ),
+    ]),
+
     ("Bus Arbitration", [
         desc(
             "If several devices may initiate a transfer, something must "
@@ -209,6 +239,164 @@ _bus_sections = [
             "low-priority participant waiting for ever; a scheme that rotates "
             "or ages priorities is more complex and guarantees eventual "
             "service."
+        ),
+    ]),
+
+    ("Synchronous and Asynchronous Buses", [
+        desc(
+            "How the two ends of a transfer agree on timing is a design "
+            "choice with the same shape as the one the Communications lesson "
+            "described for links."
+        ),
+        compare_grid(
+            "TWO WAYS TO TIME A TRANSFER",
+            "Either everything moves to a shared clock, or each step is "
+            "acknowledged explicitly.",
+            [("Synchronous bus",
+              "All transfers are timed against a common clock, and every "
+              "device must complete its part within a fixed number of cycles. "
+              "Simple and fast, and the clock must be slow enough for the "
+              "SLOWEST participant -- so one sluggish device holds everything "
+              "back."),
+             ("Asynchronous bus",
+              "Each step is confirmed by a handshake -- the sender signals "
+              "that data is ready, the receiver signals that it has taken it. "
+              "Devices of very different speeds coexist, each going as fast "
+              "as it can, at the cost of the handshake's own overhead.")]),
+        desc(
+            "The synchronous compromise is why bus hierarchies exist at all. "
+            "Rather than clocking one bus for the slowest device attached to "
+            "it, fast devices get their own fast synchronous bus and slow "
+            "ones sit behind a bridge on a slower one -- which is the same "
+            "reasoning that put a keyboard on USB and a graphics card on PCI "
+            "Express."
+        ),
+    ]),
+
+    ("What Limits a Bus Physically", [
+        desc(
+            "Bus speed is not a free parameter. Several physical effects "
+            "bound it, and they explain why the answers converged where they "
+            "did."
+        ),
+        table(
+            ["Effect", "What it does", "Consequence for the design"],
+            [["Propagation delay", "A signal takes time to travel the length "
+                                   "of the bus",
+              "Longer buses must be clocked more slowly"],
+             ["Capacitive loading", "Each attached device loads the lines",
+              "More devices means slower signalling"],
+             ["Skew", "Parallel wires of unequal length deliver bits at "
+                      "different times",
+              "Caps the clock rate of a parallel bus"],
+             ["Crosstalk", "Adjacent wires induce signals in one another",
+              "Limits how closely lines may be packed"],
+             ["Reflection", "Signals bounce back from unterminated ends",
+              "Buses need termination at their extremities"]],
+            caption="Five physical limits on how fast a bus can run.",
+            footer="Notice that three of the five get worse as the bus gets "
+                   "longer or busier. That is why a point-to-point serial "
+                   "link, with two ends and no shared medium, escaped limits "
+                   "a shared parallel bus could not."),
+        desc(
+            "This is the concrete reason behind the previous section's "
+            "reversal. A serial point-to-point link has no skew because there "
+            "is one lane, no capacitive loading from other devices because "
+            "there are none on the line, and short well-terminated runs -- so "
+            "the clock could keep rising after a parallel bus's had stopped."
+        ),
+    ]),
+
+    ("Bus Width and the 32-Bit Ceiling", [
+        desc(
+            "The most consequential bus limit in computing history is worth "
+            "one section on its own, because it explains an era of "
+            "engineering effort and is examined directly."
+        ),
+        desc(
+            "A 32-bit address reaches 2^32 bytes, which is 4 GiB, and no "
+            "amount of installed memory changes that. As machines approached "
+            "that ceiling in the 2000s, a series of workarounds appeared -- "
+            "physical address extension widening the physical address while "
+            "leaving each process at 4 GiB, segmented addressing schemes, "
+            "and windowing techniques that mapped parts of a larger memory in "
+            "and out of a 32-bit window."
+        ),
+        ul([
+            "Every workaround shared a weakness: they widened the PHYSICAL "
+            "address without widening the address a single process could "
+            "use, so one program still could not address more than 4 GiB.",
+            "They also added a translation layer to every access, which cost "
+            "performance in exchange for capacity.",
+            "The 64-bit transition removed the problem rather than managing "
+            "it: 2^64 bytes is around 18 exabytes, far beyond any foreseeable "
+            "requirement, so the ceiling stopped being a design constraint.",
+        ]),
+        desc(
+            "The general lesson is one the examination returns to in its "
+            "management papers. A limit that can be worked around usually is, "
+            "for years, at accumulating cost and complexity -- and the "
+            "eventual fix is often a change of magnitude rather than a "
+            "cleverer workaround. Recognising when you are managing a limit "
+            "rather than removing it is a genuinely useful engineering "
+            "instinct."
+        ),
+    ]),
+
+    ("Buses Beyond the Motherboard", [
+        desc(
+            "The syllabus extends the idea past a single machine, and the "
+            "same vocabulary keeps working -- which is the useful "
+            "observation, because it means the reasoning transfers."
+        ),
+        table(
+            ["Scope", "Example", "Shared or point-to-point?"],
+            [["On-chip", "Interconnect between cores and caches",
+              "Increasingly a switched network, not a bus"],
+             ["Motherboard", "Processor to memory", "Point-to-point channels"],
+             ["Expansion", "PCI Express lanes", "Point-to-point"],
+             ["Peripheral", "USB", "Shared, tiered through hubs"],
+             ["Storage", "SATA, NVMe", "Point-to-point"],
+             ["Between machines", "Ethernet", "Switched, once shared"]],
+            caption="The same problem at six scales.",
+            footer="Read the right-hand column downward. Nearly everything "
+                   "that was once a shared medium is now point-to-point and "
+                   "switched, for the same reason: sharing does not scale "
+                   "once the participants are fast enough to contend."),
+        desc(
+            "That progression is worth noticing because it is the same story "
+            "as shared Ethernet giving way to switched Ethernet in the "
+            "Network lessons. A shared medium is cheap while traffic is light "
+            "and becomes the bottleneck as soon as it is not, so as each "
+            "level got faster it was replaced by dedicated paths and a switch "
+            "to route between them."
+        ),
+    ]),
+
+    ("A Worked Bandwidth Comparison", [
+        desc(
+            "\"A system must sustain 1.5 GB/s of disk traffic. The storage "
+            "controller sits on a bus that is 32 bits wide and clocked at "
+            "250 MHz, transferring once per cycle. Is the bus adequate?\""
+        ),
+        ol([
+            "Convert the width to bytes: 32 bits is 4 bytes.",
+            "Theoretical bandwidth: 4 x 250,000,000 = 1,000,000,000 bytes per "
+            "second, so 1.0 GB/s.",
+            "Compare with the requirement: 1.5 GB/s is needed and 1.0 GB/s is "
+            "the ceiling, so the bus cannot carry it even in theory.",
+            "Note the real margin is worse still. Protocol overhead and "
+            "contention with other devices mean achievable throughput is "
+            "meaningfully below the theoretical figure, so a bus whose "
+            "ceiling merely matches the requirement is already inadequate.",
+        ]),
+        desc(
+            "Step four is the judgement the item is really testing. A "
+            "candidate who computes 1.0 GB/s and stops has done the "
+            "arithmetic; one who observes that a theoretical ceiling is not a "
+            "delivery has understood what the number means. Capacity planning "
+            "questions in the management papers turn on exactly the same "
+            "distinction."
         ),
     ]),
 
@@ -398,7 +586,7 @@ _bus_quiz = [
         "connecting add-in cards, not a group of lines within one."),
 
     mcq("HARD",
-        "A system's processor is upgraded to one twice as fast, but "
+        "After a system's processor is upgraded to one twice as fast, "
         "measurements show almost no improvement in a data-intensive "
         "workload.\n\n"
         "What does this most likely indicate?",
@@ -737,6 +925,39 @@ _io_sections = [
         ),
     ]),
 
+    ("How an Operating System Sees a Device", [
+        desc(
+            "The interface layer's real achievement is that an application "
+            "never has to know what device it is talking to. That uniformity "
+            "is built in layers, and knowing them makes the Operating System "
+            "lessons much easier."
+        ),
+        table(
+            ["Layer", "Knows about", "Example of what it does"],
+            [["Application", "Files and streams, nothing else",
+              "Asks to read 4 KB from an open file"],
+             ["System call interface", "Uniform operations on descriptors",
+              "Routes the request to the right subsystem"],
+             ["File system", "Files, directories, block numbers",
+              "Translates a file offset into block numbers"],
+             ["Device driver", "This specific controller's registers",
+              "Programs the DMA transfer for those blocks"],
+             ["Controller", "The physical device", "Moves the data"]],
+            caption="Five layers between a program's read and the platter.",
+            footer="Each layer knows only about the one below it, which is "
+                   "why a new disk needs a new driver and nothing above it "
+                   "changes -- the same low-coupling argument the Programming "
+                   "lesson made about modules."),
+        desc(
+            "This is also why a device can be presented as a FILE. If an "
+            "application only ever asks to read and write a stream of bytes, "
+            "then a keyboard, a network socket and a disk file can all be "
+            "given the same interface, and a program written for one works "
+            "with the others unchanged. That uniformity is worth more than "
+            "any individual device feature."
+        ),
+    ]),
+
     ("Interface Standards", [
         desc(
             "The syllabus names specific interfaces, and they are examined by "
@@ -768,6 +989,205 @@ _io_sections = [
             "drivers dynamically. PLUG AND PLAY means the system identifies "
             "the device and configures it without manual intervention, which "
             "requires the device to describe itself when asked."
+        ),
+    ]),
+
+    ("Input and Output Devices", [
+        desc(
+            "The syllabus lists devices separately, and the useful way to "
+            "hold them is by how data moves rather than by what they look "
+            "like -- because that is what decides how the operating system "
+            "talks to each."
+        ),
+        image(fig("io-device-classes")),
+        table(
+            ["Class", "Unit of transfer", "Addressable?", "Examples"],
+            [["Character device", "One character or byte at a time", "No",
+              "Keyboard, mouse, serial port, printer"],
+             ["Block device", "Fixed-size blocks", "Yes, by block number",
+              "Hard disk, SSD, optical drive"],
+             ["Network device", "Framed packets", "No, but addressed by "
+                                                  "protocol",
+              "Ethernet and wireless adapters"]],
+            caption="Three classes, and what distinguishes them.",
+            footer="This grouping is why a driver interface has so few "
+                   "shapes: read and write a stream, read and write a "
+                   "numbered block, or send and receive a frame."),
+        desc(
+            "The distinction has real consequences. A block device can be "
+            "asked for block 4,192 directly, which is what makes a file "
+            "system and a database index possible. A character device offers "
+            "only the next character, so anything resembling random access "
+            "must be built above it -- which is why a tape, though it stores "
+            "blocks, behaves like a stream for practical purposes."
+        ),
+    ]),
+
+    ("Why I/O Dominates Perceived Performance", [
+        desc(
+            "A user's sense that a system is fast or slow is almost never "
+            "about arithmetic. It is about I/O, and the arithmetic of the "
+            "memory hierarchy explains why."
+        ),
+        ul([
+            "An instruction takes well under a nanosecond. A disk read takes "
+            "milliseconds -- a factor of a million.",
+            "So a program that performs one unnecessary disk read has wasted "
+            "as much time as a million unnecessary instructions, and no "
+            "amount of tightening the arithmetic recovers it.",
+            "The practical rule follows: when a program is slow, count its "
+            "I/O operations before optimising its computation. It is the "
+            "first thing to look at and it is usually the answer.",
+        ]),
+        desc(
+            "This is why so much system design is really about avoiding I/O "
+            "rather than making it faster. Caching avoids repeating it, "
+            "buffering makes each one carry more, indexes reduce how many are "
+            "needed to answer a question, and asynchronous interfaces stop a "
+            "thread waiting through one. Every technique in this lesson is "
+            "some version of the same instinct."
+        ),
+        desc(
+            "It also explains a measurement that confuses people. A system "
+            "showing low processor utilisation and poor response times is not "
+            "under-loaded -- it is I/O bound, and its processors are idle "
+            "precisely BECAUSE they are waiting. Adding processor capacity to "
+            "such a system changes nothing at all, which is the diagnosis "
+            "System Evaluation asks for."
+        ),
+    ]),
+
+    ("Synchronous and Asynchronous I/O", [
+        desc(
+            "From the calling program's point of view there is a second "
+            "question, separate from how the hardware transfers data: does "
+            "the call return before the operation has finished?"
+        ),
+        compare_grid(
+            "TWO WAYS A PROGRAM WAITS",
+            "This is about the program's control flow, not about the "
+            "hardware, and the two are often confused.",
+            [("Synchronous (blocking)",
+              "The call does not return until the operation completes. Simple "
+              "to write and to reason about, because the next line runs only "
+              "when the data is there -- and the thread is suspended "
+              "meanwhile, doing nothing."),
+             ("Asynchronous (non-blocking)",
+              "The call returns immediately and completion is reported later, "
+              "by a callback, a signal, or a result the program polls for. "
+              "One thread can have many operations outstanding, at the cost "
+              "of code that no longer reads in the order it executes.")]),
+        desc(
+            "The distinction decides how a server scales. Handling a thousand "
+            "concurrent connections synchronously needs a thousand threads, "
+            "each mostly asleep and each consuming a stack -- which is why "
+            "high-concurrency servers went asynchronous, keeping thousands of "
+            "operations in flight on a handful of threads."
+        ),
+        desc(
+            "Note that asynchronous I/O and DMA answer different questions. "
+            "DMA is about whether the PROCESSOR copies the bytes; asynchronous "
+            "I/O is about whether the CALLING THREAD waits. A synchronous "
+            "read is normally served by DMA underneath -- the hardware does "
+            "not involve the processor in the copy, and the thread is "
+            "suspended until it finishes anyway."
+        ),
+    ]),
+
+    ("Buffering, Spooling and Caching in I/O", [
+        desc(
+            "Three techniques with similar names and genuinely different "
+            "purposes, which is exactly why the examination asks about them "
+            "together."
+        ),
+        table(
+            ["Technique", "What it holds", "The problem it solves"],
+            [["Buffering", "Data in transit between two parties",
+              "A speed mismatch between producer and consumer"],
+             ["Spooling", "Complete jobs queued for a device",
+              "A device that cannot be shared concurrently"],
+             ["Caching", "A copy of data likely to be wanted again",
+              "The cost of fetching it a second time"]],
+            caption="Three techniques, three distinct problems.",
+            footer="The distinction to hold: a buffer holds data that has not "
+                   "arrived yet, a cache holds a copy of data that has, and a "
+                   "spool holds whole jobs waiting their turn."),
+        desc(
+            "Printing is the classic illustration of spooling, and it "
+            "explains why the technique exists. A printer cannot interleave "
+            "two documents, so without spooling a program would hold it for "
+            "the whole print. Spooling writes each job to disk and a spooler "
+            "feeds them to the device one at a time, so every program "
+            "'finishes printing' immediately and the queue does the waiting."
+        ),
+        desc(
+            "Double buffering is the refinement worth knowing. With one "
+            "buffer, the producer must wait while the consumer empties it; "
+            "with two, the producer fills one while the consumer drains the "
+            "other and they swap. This is what keeps a display free of "
+            "tearing and a data stream free of stalls, and it is the same "
+            "idea as the pipelining in the Processor lesson."
+        ),
+    ]),
+
+    ("A Worked Interrupt Overhead Calculation", [
+        desc(
+            "\"Under interrupt-driven I/O a disk transfers 512-byte sectors, "
+            "raising one interrupt per sector at a cost of 4 microseconds. "
+            "The system reads 10 MB. How much processor time goes to "
+            "interrupt handling, and what would DMA change?\""
+        ),
+        ol([
+            "Count the sectors: 10 MB is 10,485,760 bytes, divided by 512 "
+            "gives 20,480 sectors.",
+            "Multiply by the per-interrupt cost: 20,480 x 4 microseconds = "
+            "81,920 microseconds, which is about 0.082 seconds.",
+            "So roughly 82 milliseconds of processor time is spent purely on "
+            "interrupt overhead for a single 10 MB read.",
+            "Under DMA the whole transfer raises ONE interrupt, so the "
+            "overhead falls from 20,480 interrupts to one -- about 4 "
+            "microseconds instead of 82 milliseconds, a reduction of four "
+            "orders of magnitude.",
+        ]),
+        desc(
+            "That final comparison is why DMA is not an optimisation but a "
+            "precondition. Without it, reading a modest file would consume a "
+            "measurable fraction of a processor doing nothing but "
+            "bookkeeping, and a machine with several disks and a network "
+            "adapter would spend most of its time in interrupt handlers."
+        ),
+    ]),
+
+    ("Error Handling at the Interface", [
+        desc(
+            "Devices fail in ways memory does not: media wears out, cables "
+            "are unplugged, paper runs out, a remote host stops answering. "
+            "The interface layer is where those conditions are detected and "
+            "reported."
+        ),
+        ul([
+            "STATUS REGISTERS let the driver read a device's condition -- "
+            "ready, busy, error, out of paper -- rather than inferring it "
+            "from a failed operation.",
+            "TIMEOUTS are essential because a device may simply never answer. "
+            "Without one, a driver waiting for a response from a dead device "
+            "waits for ever, and the process blocked on it never returns.",
+            "RETRIES handle transient faults, which are the common case for "
+            "media and network errors. The judgement is how many times and "
+            "how long to wait between attempts.",
+            "ERROR CODES must distinguish a transient fault worth retrying "
+            "from a permanent one that never will succeed, because retrying "
+            "the latter merely delays the report.",
+        ]),
+        desc(
+            "The recurring design mistake here is retrying indefinitely. A "
+            "driver that retries a permanent failure for ever converts a "
+            "clear error into a hang, which is far harder to diagnose -- and "
+            "under load, a storm of retries against a struggling device makes "
+            "the situation worse rather than better. Bounded retries with "
+            "backoff, and a clear failure when they are exhausted, is the "
+            "pattern that recurs from device drivers up to distributed "
+            "systems."
         ),
     ]),
 
