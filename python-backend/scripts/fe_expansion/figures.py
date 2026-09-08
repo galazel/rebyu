@@ -969,3 +969,32 @@ register("error-handling-order", dk.flow(
     note="A date picker prevents an impossible date; field validation catches "
          "it as it is typed; a message explains it after submission; and undo "
          "repairs it afterwards. Most designs start at step three."))
+
+
+register("graphics-pipeline", dk.flow(
+    "The 3D graphics pipeline",
+    [("Model", "vertices in object space"),
+     ("Transform", "position, rotate, scale"),
+     ("Project", "3D to a 2D viewpoint"),
+     ("Rasterise", "shapes to pixels"),
+     ("Shade", "colour, light, texture")],
+    caption="Every stage runs for every frame, sixty times a second.",
+    note="The workload is enormous and highly parallel -- the same operation "
+         "applied to millions of independent vertices and pixels -- which is "
+         "exactly what a GPU is built for and what a general processor is "
+         "not."))
+
+register("raster-vs-vector", dk.split_planes(
+    "Two ways to describe a picture",
+    ("Raster", "A grid of coloured pixels", [
+        ("Size follows dimensions", "not complexity"),
+        ("Can show anything", "including a photograph"),
+        ("Enlarging interpolates", "no new detail appears")]),
+    ("Vector", "A description of shapes", [
+        ("Size follows complexity", "not dimensions"),
+        ("Scales without loss", "redrawn, not stretched"),
+        ("Cannot show a photograph", "there are no shapes in one")]),
+    caption="The size behaviour runs in opposite directions.",
+    footer="A logo is tiny as a vector at any size and large as a raster at "
+           "a big one. A photograph is impossible as a vector and ordinary "
+           "as a raster."))

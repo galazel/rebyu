@@ -45,13 +45,14 @@ from sqlalchemy import text
 
 from dbsession import open_session
 from structure import (CERTIFICATION_DESCRIPTION, CERTIFICATION_INDUSTRY,
-                       CERTIFICATION_TITLE, CURRICULUM, EXAM_STRUCTURE)
+                       lesson_count,
+                       CERTIFICATION_STATUS, CERTIFICATION_STATUS_DRAFT,
+                       CERTIFICATION_STATUS_PUBLISHED, CERTIFICATION_TITLE,
+                       CURRICULUM, EXAM_STRUCTURE)
 
 LESSON_QUIZ_TYPE_ID = 5
 QUIZ_PASSING_SCORE = 70
 
-#: `certifications.status`. 0 is what both existing certifications carry.
-CERTIFICATION_STATUS = 0
 
 #: What the grader splits `accepted_variations` on. Named rather than inlined
 #: because it is a contract with Java code in another service, and a comma
@@ -82,6 +83,31 @@ def ensure_certification(db):
             "c": existing, "d": CERTIFICATION_DESCRIPTION,
             "i": CERTIFICATION_INDUSTRY, "e": json.dumps(EXAM_STRUCTURE),
         })
+
+        # Hold it unpublished until the curriculum is complete.
+        #
+        # `Certification.CertificationStatus` declares PUBLISHED before DRAFT
+        # and is persisted by ordinal, so 0 means PUBLISHED -- which reads
+        # exactly backwards and is why this certification was visible to
+        # learners from its first lesson. A half-written curriculum is worse
+        # than an absent one: progress accumulates against a syllabus that is
+        # mostly missing, and the diagnostic and mock papers sample only the
+        # majors that happen to exist, so both report a competence picture
+        # that is wrong rather than merely incomplete.
+        #
+        # Publishing is a deliberate act once the lessons are all in, done
+        # through the admin UI or with `--publish`, and this only ever forces
+        # the value DOWN to draft.
+        if CERTIFICATION_STATUS == CERTIFICATION_STATUS_DRAFT:
+            changed = db.execute(text("""
+                update public.certifications
+                   set status = :s, date_updated = now()
+                 where certification_id = :c and status is distinct from :s"""),
+                {"c": existing, "s": CERTIFICATION_STATUS}).rowcount
+            if changed:
+                print("~ certification %s  %s  -> DRAFT (unpublished)"
+                      % (existing, CERTIFICATION_TITLE))
+
         print("= certification %s  %s" % (existing, CERTIFICATION_TITLE))
         return existing
 
@@ -386,6 +412,36 @@ def main():
 
     db = open_session()
     certification_id, middles = seed_skeleton(db)
+
+    # Publishing is separate and deliberate. `seed_skeleton` only ever forces
+    # the status DOWN to draft, so making the certification visible is
+    # something someone asks for explicitly, once the curriculum is complete.
+    if "--publish" in args:
+        lessons_written = db.execute(text("""
+            select count(*) from public.lessons l
+              join public.middle_categories mi
+                on mi.middle_category_id = l.middle_category_id
+              join public.major_categories mj
+                on mj.major_category_id = mi.major_category_id
+             where mj.certification_id = :c"""),
+            {"c": certification_id}).scalar()
+        expected = lesson_count()
+
+        if lessons_written < expected and "--force" not in args:
+            print("\nrefusing to publish: %d of %d lessons written. A partial "
+                  "curriculum reports a competence picture that is wrong "
+                  "rather than incomplete.\nPass --force to publish anyway."
+                  % (lessons_written, expected))
+            db.rollback()
+            db.close()
+            return 1
+
+        db.execute(text("""
+            update public.certifications set status = :s, date_updated = now()
+             where certification_id = :c"""),
+            {"c": certification_id, "s": CERTIFICATION_STATUS_PUBLISHED})
+        print("~ certification %s  %s  -> PUBLISHED (%d lessons)"
+              % (certification_id, CERTIFICATION_TITLE, lessons_written))
 
     total_lessons = total_questions = total_quizzes = 0
     for batch in batches:

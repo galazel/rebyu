@@ -46,6 +46,22 @@ CERTIFICATION_DESCRIPTION = (
 
 CERTIFICATION_INDUSTRY = "Information and Communications Technology (ICT)"
 
+#: `certifications.status`, stored as the ordinal of
+#: `Certification.CertificationStatus` in the Java entity -- which declares
+#: PUBLISHED first, so 0 is PUBLISHED and 1 is DRAFT. That ordering is easy to
+#: read backwards, and this curriculum was created at 0 and was therefore
+#: visible to learners from its first lesson.
+#:
+#: It stays DRAFT until the curriculum is complete. A partial certification is
+#: worse than an absent one: a learner who starts it builds progress against a
+#: syllabus that is mostly missing, and the diagnostic and mock exams sample
+#: only the majors that happen to be written, so both report a competence
+#: picture that is wrong rather than incomplete.
+CERTIFICATION_STATUS_DRAFT = 1
+CERTIFICATION_STATUS_PUBLISHED = 0
+
+CERTIFICATION_STATUS = CERTIFICATION_STATUS_DRAFT
+
 #: `certifications.exam_structure`. The shape of the real paper, so the mock
 #: exam and the practice engine size themselves against something true rather
 #: than against a guess.
