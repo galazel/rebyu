@@ -1121,3 +1121,237 @@ register("warehouse-flow", dk.flow(
          "operational systems they run against. Separating them lets each be "
          "designed for its own access pattern -- normalised for writes, "
          "denormalised for reads."))
+
+
+# ====================================================================
+# Technology Element -> Network
+# ====================================================================
+
+register("network-scale", dk.compare(
+    "Networks by the ground they cover",
+    [("LAN", "one site",
+      ["A building or a floor",
+       "Owned and cabled by the organisation",
+       "Fast, and cheap per metre"]),
+     ("WAN", "between sites",
+       ["Cities, countries, continents",
+        "Carrier-provided links, rented",
+        "Slower, dearer, and outside your control"]),
+     ("The consequence", "design differently",
+      ["Chatty protocols work on a LAN",
+       "The same design over a WAN is unusable",
+       "Latency, not bandwidth, is what changed"])],
+    caption="Scale changes what a design can assume.",
+    footer="Bandwidth can be bought. Latency is bounded by distance and the "
+           "speed of light, which is why a protocol that makes many small "
+           "round trips fails on a WAN however wide the link."))
+
+register("topologies", dk.compare(
+    "Four ways to wire a network",
+    [("Star", "everything to a centre",
+      ["One central device, one link each",
+       "A failed link takes out one node",
+       "A failed centre takes out everything"]),
+     ("Bus", "one shared medium",
+      ["Every node on one cable",
+       "Cheap, and a break splits the network",
+       "Collisions rise sharply with traffic"]),
+     ("Ring", "each to the next",
+      ["Traffic circulates in one direction",
+       "One break stops it, unless doubled",
+       "Access is orderly rather than contended"])],
+    caption="Star is what almost every modern LAN actually is.",
+    footer="A MESH connects nodes to several others, so any single link can "
+           "fail without partitioning the network -- which is why the "
+           "internet's core is meshed and the office floor is not."))
+
+register("osi-layers", dk.stack(
+    "The OSI reference model",
+    [("7 Application", "what the program actually wants"),
+     ("6 Presentation", "encoding, encryption, compression"),
+     ("5 Session", "conversations and their state"),
+     ("4 Transport", "end to end, reliable or not"),
+     ("3 Network", "addressing and routing between networks"),
+     ("2 Data link", "frames on one link, and local addressing"),
+     ("1 Physical", "signals on a medium")],
+    caption="Seven layers, each using the one below and serving the one "
+            "above.",
+    numbered=False,
+    right_note="TCP/IP collapses these into four. Layers 5 to 7 become one "
+               "application layer, which is why the OSI numbers survive as "
+               "vocabulary rather than as an implemented stack."))
+
+register("encoding-schemes", dk.compare(
+    "Getting bits onto a medium",
+    [("Baseband", "the signal itself",
+      ["Digital pulses straight onto the wire",
+       "The whole medium carries one signal",
+       "Normal on a LAN"]),
+     ("Broadband", "modulated onto a carrier",
+      ["A carrier wave altered to carry data",
+       "Many channels share one medium",
+       "How cable and radio carry data"]),
+     ("Why encoding matters", "not just ones and zeroes",
+      ["A long run of one value loses timing",
+       "Encodings guarantee transitions",
+       "Which is what keeps receiver and sender in step"])],
+    caption="Two ways of using a medium, and why the encoding is not "
+            "arbitrary.",
+    footer="A receiver recovers its clock from the transitions in the signal. "
+           "An encoding with no guaranteed transitions lets a long run of "
+           "identical bits drift the receiver out of step."))
+
+register("multiplexing", dk.compare(
+    "Sharing one medium",
+    [("Frequency division", "different frequencies",
+      ["Each channel gets a frequency band",
+       "All transmit simultaneously",
+       "Radio and cable television"]),
+     ("Time division", "different moments",
+      ["Each channel gets a repeating time slot",
+       "Slots are wasted if a channel is idle",
+       "Classic telephone trunks"]),
+     ("Statistical", "slots on demand",
+      ["Capacity given to whoever has data",
+       "No waste on idle channels",
+       "How packet networks actually work"])],
+    caption="Three ways several conversations share one link.",
+    footer="Statistical multiplexing is more efficient and offers no "
+           "guarantee: when everyone transmits at once there is not enough "
+           "for all, which is congestion rather than a fault."))
+
+register("switching-methods", dk.split_planes(
+    "Circuit against packet switching",
+    ("Circuit switching", "A path reserved end to end", [
+        ("Setup", "a path is established first"),
+        ("Transfer", "capacity is yours, idle or not"),
+        ("Teardown", "the path is released")]),
+    ("Packet switching", "Each packet routed independently", [
+        ("No setup", "send whenever ready"),
+        ("Per packet", "each finds its own way"),
+        ("Reassembly", "order restored at the far end")]),
+    caption="Guaranteed capacity, against efficient sharing.",
+    footer="Circuit switching wastes a reserved channel during silence and "
+           "guarantees quality. Packet switching wastes nothing and "
+           "guarantees nothing, which is the trade the internet made."))
+
+register("tcp-ip-stack", dk.tiers(
+    "The TCP/IP model, and what runs where",
+    [("Application", ["HTTP", "DNS", "SMTP", "SSH"]),
+     ("Transport", ["TCP -- reliable, ordered", "UDP -- fast, unchecked"]),
+     ("Internet", ["IP -- addressing and routing", "ICMP", "ARP"]),
+     ("Link", ["Ethernet", "Wi-Fi", "the physical medium"])],
+    caption="Four layers, and the protocols the examination names at each.",
+    footer="Knowing the LAYER a protocol sits at answers most protocol items "
+           "without recalling anything else about it."))
+
+register("tcp-vs-udp", dk.compare(
+    "Two transports, two contracts",
+    [("TCP", "reliable and ordered",
+      ["Connection established before data",
+       "Lost segments retransmitted",
+       "Order restored, flow controlled",
+       "Costs round trips and header space"]),
+     ("UDP", "send and hope",
+      ["No connection, no state",
+       "Losses are not detected or repaired",
+       "No ordering guarantee at all",
+       "Minimal overhead, minimal delay"]),
+     ("Choosing", "what does loss mean here",
+      ["A file transfer cannot lose a byte",
+       "A live voice packet arriving late is useless",
+       "Retransmission helps one and harms the other"])],
+    caption="Reliability is not free, and it is not always wanted.",
+    footer="For real-time media a retransmitted packet arrives after the "
+           "moment it was needed, so TCP's reliability costs delay and buys "
+           "nothing -- which is why streaming and voice use UDP."))
+
+register("ip-addressing", dk.fields(
+    "An IPv4 address and its mask",
+    [("Network part", "which network", 18, dk.BLUE),
+     ("Host part", "which machine on it", 14, dk.ORANGE)],
+    caption="The subnet mask says where the boundary falls.",
+    footer="Moving the boundary right makes more hosts per network and fewer "
+           "networks; moving it left does the reverse. Two addresses in every "
+           "subnet are unusable -- the network address and the broadcast."))
+
+register("routing-decision", dk.flow(
+    "How a packet is forwarded",
+    [("Packet arrives", "with a destination address"),
+     ("Mask applied", "find the destination network"),
+     ("Table consulted", "longest matching prefix wins"),
+     ("Next hop chosen", "or the default route"),
+     ("Forwarded", "and the process repeats there")],
+    caption="Each router makes this decision independently.",
+    note="No router knows the whole path. It knows only the next hop, which "
+         "is why a routing loop is possible and why the TTL field exists to "
+         "stop one running forever."))
+
+register("tcp-handshake", dk.flow(
+    "Establishing and ending a TCP connection",
+    [("SYN", "client proposes, with its sequence number"),
+     ("SYN-ACK", "server agrees, and proposes its own"),
+     ("ACK", "client confirms -- the connection is open"),
+     ("Data", "flows in both directions"),
+     ("FIN exchange", "each side closes its direction")],
+    caption="Three messages to open, and each direction closed separately.",
+    note="The three-way handshake costs a full round trip before any data "
+         "moves, which is why connection setup dominates the cost of many "
+         "small requests and why connections are reused."))
+
+register("network-devices", dk.compare(
+    "Devices, by the layer they work at",
+    [("Hub -- layer 1", "repeats electricity",
+      ["Copies every signal to every port",
+       "One collision domain for everybody",
+       "Obsolete, and still examined"]),
+     ("Switch -- layer 2", "learns local addresses",
+      ["Forwards a frame to the right port only",
+       "Each port is its own collision domain",
+       "What an office LAN is actually built from"]),
+     ("Router -- layer 3", "connects networks",
+      ["Forwards between different IP networks",
+       "Stops broadcasts from crossing",
+       "Where a network's boundary really is"])],
+    caption="A device's layer determines what it can see and decide on.",
+    footer="A switch reads addresses on one link; a router reads addresses "
+           "that mean something between networks. That is why a router and "
+           "not a switch is what separates two networks."))
+
+register("net-troubleshooting", dk.flow(
+    "Isolating a network fault",
+    [("Check the link", "is the interface up at all"),
+     ("Check the address", "correct address, mask, gateway"),
+     ("Ping the gateway", "does the local network work"),
+     ("Ping beyond it", "does routing work"),
+     ("Resolve a name", "or is it only DNS"),
+     ("Test the port", "the path works, does the service")],
+    caption="Work up the layers -- each step assumes the ones below "
+            "passed.",
+    note="Testing an application before confirming the link inverts this and "
+         "wastes the effort, because a failure at the top has a dozen causes "
+         "below it and each lower test eliminates a whole class at once."))
+
+register("dns-resolution", dk.flow(
+    "Resolving a name",
+    [("Local cache", "answered instantly if known"),
+     ("Resolver", "asked on the cache's behalf"),
+     ("Root server", "which server knows this suffix"),
+     ("Authoritative server", "holds the actual record"),
+     ("Answer cached", "for as long as the TTL allows")],
+    caption="A hierarchy, walked once and remembered.",
+    note="The cached TTL explains why a changed record does not take effect "
+         "everywhere at once -- resolvers keep answering from cache until it "
+         "expires, which is why a TTL is lowered BEFORE a planned change."))
+
+register("web-request", dk.flow(
+    "What one page request involves",
+    [("Name resolved", "DNS returns an address"),
+     ("Connection opened", "TCP handshake, then TLS"),
+     ("Request sent", "a method, a path, headers"),
+     ("Response returned", "a status code and a body"),
+     ("Resources fetched", "each image and script in turn")],
+    caption="One click, and every layer of the stack in sequence.",
+    note="A page 'loading slowly' can fail at any of these steps, and they "
+         "have entirely different remedies -- which is why measuring WHICH "
+         "step is slow comes before changing anything."))
