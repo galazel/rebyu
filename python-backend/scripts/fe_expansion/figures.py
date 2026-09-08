@@ -998,3 +998,126 @@ register("raster-vs-vector", dk.split_planes(
     footer="A logo is tiny as a vector at any size and large as a raster at "
            "a big one. A photograph is impossible as a vector and ordinary "
            "as a raster."))
+
+
+# ====================================================================
+# Technology Element -> Database
+# ====================================================================
+
+register("three-schema", dk.stack(
+    "The three-schema architecture",
+    [("External schema", "what each application sees"),
+     ("Conceptual schema", "the whole logical design, once"),
+     ("Internal schema", "how it is physically stored")],
+    caption="Two mappings between three levels, and each buys an independence.",
+    numbered=False,
+    right_note="LOGICAL independence: change the conceptual schema without "
+               "touching applications. PHYSICAL independence: change the "
+               "storage without touching the logical design."))
+
+register("normalisation-steps", dk.flow(
+    "Normalising a table",
+    [("Unnormalised", "repeating groups"),
+     ("1NF", "atomic values only"),
+     ("2NF", "no partial dependency"),
+     ("3NF", "no transitive dependency")],
+    caption="Each form removes one specific kind of redundancy.",
+    note="2NF only differs from 1NF when the key is COMPOSITE -- a partial "
+         "dependency needs more than one key column to be partial to. With a "
+         "single-column key, any table in 1NF is already in 2NF."))
+
+register("join-types", dk.compare(
+    "What each join keeps",
+    [("Inner join", "matches only",
+      ["Rows present on BOTH sides",
+       "Unmatched rows disappear silently",
+       "The commonest join, and the commonest way to lose rows"]),
+     ("Left outer join", "everything on the left",
+      ["Every left row, matched or not",
+       "Unmatched right columns come back null",
+       "Use when the left side is the population you are reporting on"]),
+     ("Full outer join", "everything on both",
+      ["Every row from either side",
+       "Nulls wherever there was no match",
+       "Used to find what is missing from each side"])],
+    caption="The choice decides which rows vanish.",
+    footer="A count that comes out lower than expected is an inner join "
+           "discarding unmatched rows far more often than it is missing "
+           "data."))
+
+register("transaction-states", dk.flow(
+    "The life of a transaction",
+    [("Active", "executing"),
+     ("Partially committed", "final statement done"),
+     ("Committed", "durable, and visible"),
+     ("Failed / aborted", "rolled back")],
+    caption="Only a committed transaction is guaranteed to survive.",
+    note="COMMIT waits for the log to reach persistent storage before "
+         "returning, which is what makes durability real -- and is why a "
+         "commit is slower than the writes it confirms."))
+
+register("concurrency-anomalies", dk.compare(
+    "What goes wrong without isolation",
+    [("Dirty read", "reading uncommitted data",
+      ["T2 reads a value T1 has written but not committed",
+       "T1 then rolls back",
+       "T2 acted on something that never happened"]),
+     ("Non-repeatable read", "the same row changes",
+      ["T2 reads a row twice within one transaction",
+       "T1 updates and commits in between",
+       "The two reads disagree"]),
+     ("Phantom read", "new rows appear",
+      ["T2 runs the same query twice",
+       "T1 inserts a matching row in between",
+       "The second result set is larger"])],
+    caption="Three anomalies, in increasing order of what it costs to "
+            "prevent them.",
+    footer="Isolation levels are named for which of these they permit. "
+           "Higher isolation means fewer anomalies and less concurrency, "
+           "which is a throughput decision rather than a correctness one."))
+
+register("deadlock-db", dk.split_planes(
+    "Two transactions, opposite lock order",
+    ("Transaction A", "Locks in this order", [
+        ("Lock ACCOUNTS", "acquired"),
+        ("Lock ORDERS", "waiting for B"),
+        ("Blocked", "indefinitely")]),
+    ("Transaction B", "Locks in the other order", [
+        ("Lock ORDERS", "acquired"),
+        ("Lock ACCOUNTS", "waiting for A"),
+        ("Blocked", "indefinitely")]),
+    caption="Neither can proceed, and neither will give way.",
+    footer="A consistent lock ORDER across the application prevents this "
+           "entirely and costs nothing at run time. Detection and victim "
+           "rollback is the fallback, not the design."))
+
+register("db-recovery", dk.timeline(
+    "Recovering after a crash",
+    "Before the crash -- log written ahead",
+    "After restart -- redo and undo",
+    caption="Write-ahead logging: the log reaches disk before the data does.",
+    footer="REDO committed transactions whose data had not yet been written. "
+           "UNDO uncommitted ones whose data had. The log makes both possible "
+           "because it records the intention before the change."))
+
+register("distributed-db", dk.hub_spoke(
+    "A distributed database",
+    "One logical database",
+    ["Site A", "Site B", "Site C", "Site D"],
+    caption="Data is partitioned or replicated across sites and presented as "
+            "one.",
+    hub_note="transparency to the application"))
+
+register("warehouse-flow", dk.flow(
+    "From operational systems to analysis",
+    [("Source systems", "day-to-day operations"),
+     ("Extract", "pull the data out"),
+     ("Transform", "clean and conform it"),
+     ("Load", "into the warehouse"),
+     ("Analyse", "reports and mining")],
+    caption="ETL, and the reason a warehouse is separate from the systems it "
+            "draws on.",
+    note="Analytical queries scan enormous ranges and would cripple the "
+         "operational systems they run against. Separating them lets each be "
+         "designed for its own access pattern -- normalised for writes, "
+         "denormalised for reads."))
