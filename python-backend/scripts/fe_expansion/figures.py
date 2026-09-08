@@ -764,3 +764,85 @@ register("io-device-classes", dk.compare(
     footer="This grouping is why a driver interface has so few shapes: read "
            "and write a stream, read and write a numbered block, or send and "
            "receive a frame."))
+
+
+# ====================================================================
+# Computer System -> Software
+# ====================================================================
+
+register("os-layers", dk.stack(
+    "Where the operating system sits",
+    [("Applications", "what the user runs"),
+     ("System call interface", "the only way in"),
+     ("Kernel: processes, memory, files, devices", "privileged"),
+     ("Device drivers", "hardware-specific"),
+     ("Hardware", "processor, memory, devices")],
+    caption="Each layer uses only the one below it.",
+    numbered=False,
+    right_note="The system call interface is the security boundary. Above it "
+               "code runs unprivileged; below it, code can do anything."))
+
+register("context-switch", dk.flow(
+    "A context switch",
+    [("Process A running", "using the CPU"),
+     ("Save A's state", "registers, PC, flags"),
+     ("Load B's state", "from B's control block"),
+     ("Process B running", "using the CPU")],
+    caption="The processor is never doing useful work in the middle two steps.",
+    note="Context switching is pure overhead. Switching too often spends the "
+         "machine on bookkeeping; too rarely and interactive processes wait. "
+         "The time slice is the compromise between those two failures."))
+
+register("deadlock-cycle", dk.cycle(
+    "Deadlock: a cycle of waiting",
+    ["P1 holds R1", "P1 wants R2", "P2 holds R2", "P2 wants R1"],
+    caption="Nothing has crashed; everything is waiting, for ever.",
+    centre="Circular wait"))
+
+register("fragmentation", dk.split_planes(
+    "Two kinds of wasted memory",
+    ("External fragmentation", "Free space, but scattered", [
+        ("Used 40K", "allocated"),
+        ("Free 20K", "too small for the request"),
+        ("Used 60K", "allocated"),
+        ("Free 30K", "also too small")]),
+    ("Internal fragmentation", "Space inside an allocation", [
+        ("Requested 33K", "what was needed"),
+        ("Allocated 40K", "fixed block size"),
+        ("Wasted 7K", "inside the block"),
+        ("Unusable", "by anyone else")]),
+    caption="Total free memory can exceed a request that still cannot be met.",
+    footer="Paging eliminates external fragmentation by making every block "
+           "the same size, and accepts a little internal fragmentation in the "
+           "last page of each allocation as the price."))
+
+register("build-pipeline", dk.flow(
+    "From source to a running system",
+    [("Source control", "the single truth"),
+     ("Build", "compile and package"),
+     ("Test", "automated checks"),
+     ("Artifact", "one versioned output"),
+     ("Deploy", "to an environment")],
+    caption="Each stage either passes the artifact on or stops the line.",
+    note="Build ONCE and promote the same artifact through every environment. "
+         "Rebuilding per environment means what you tested is not what you "
+         "shipped, which is the defect this pipeline exists to prevent."))
+
+register("licence-spectrum", dk.compare(
+    "Open source licences, by what they require of you",
+    [("Permissive", "MIT, BSD, Apache",
+      ["Use it in anything, including closed products",
+       "Keep the copyright notice",
+       "No obligation to publish your changes"]),
+     ("Weak copyleft", "LGPL, MPL",
+      ["Changes to the LIBRARY must be published",
+       "Your own code may stay closed",
+       "The boundary is the file or the library"]),
+     ("Strong copyleft", "GPL, AGPL",
+      ["Derived works must be released under the same licence",
+       "Linking generally makes your work derived",
+       "AGPL extends this to software offered over a network"])],
+    caption="The obligation rises left to right; the freedom to combine falls.",
+    footer="Open source is a licence, not an absence of one. Ignoring its "
+           "terms is copyright infringement in exactly the way ignoring a "
+           "commercial licence would be."))
