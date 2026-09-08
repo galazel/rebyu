@@ -1355,3 +1355,261 @@ register("web-request", dk.flow(
     note="A page 'loading slowly' can fail at any of these steps, and they "
          "have entirely different remedies -- which is why measuring WHICH "
          "step is slow comes before changing anything."))
+
+
+# ====================================================================
+# Technology Element -> Security
+# ====================================================================
+
+register("cia-triad", dk.compare(
+    "The three properties security protects",
+    [("Confidentiality", "only the right people see it",
+      ["Broken by disclosure",
+       "Protected by encryption and access control",
+       "The property people think of first"]),
+     ("Integrity", "it has not been altered",
+      ["Broken by unauthorised modification",
+       "Protected by hashes and signatures",
+       "Often more damaging to lose than confidentiality"]),
+     ("Availability", "it is there when needed",
+      ["Broken by denial of service, or by a failed disk",
+       "Protected by redundancy and capacity",
+       "The one an outage breaks without any attacker"])],
+    caption="Every control serves one or more of these three.",
+    footer="Naming which property an incident broke is the first step in "
+           "nearly every security item, because it determines which controls "
+           "were the relevant ones."))
+
+register("threat-sources", dk.compare(
+    "Where threats come from",
+    [("External attackers", "no legitimate access",
+      ["Must first get in",
+       "Opportunistic, or targeted",
+       "The threat most defences are aimed at"]),
+     ("Insiders", "already trusted",
+      ["Access is legitimate; the use is not",
+       "Malicious, or simply careless",
+       "Harder to detect, and more common"]),
+     ("Accidents and failures", "nobody attacking",
+      ["Deleted files, failed hardware, floods",
+       "No intent, and the same consequences",
+       "Availability and integrity both at risk"])],
+    caption="Not every loss involves an attacker.",
+    footer="Designs aimed only at external attackers leave the two more "
+           "likely sources unaddressed, which is why controls are chosen "
+           "against a risk assessment rather than against an image of a "
+           "burglar."))
+
+register("attack-surface", dk.stack(
+    "Layers an attack can target",
+    [("People", "phishing, pretexting, coercion"),
+     ("Application", "injection, broken authentication, logic flaws"),
+     ("Host", "unpatched software, weak configuration"),
+     ("Network", "interception, spoofing, denial of service"),
+     ("Physical", "access to the machine itself")],
+    caption="Five layers, each needing its own controls.",
+    numbered=False,
+    right_note="DEFENCE IN DEPTH means every layer has controls, so a single "
+               "failure does not become a breach. The top layer is the one "
+               "technical measures address least well."))
+
+register("malware-types", dk.compare(
+    "Malicious software, by how it spreads",
+    [("Virus", "attaches to something",
+      ["Needs a host file or program",
+       "Spreads when that host is run or shared",
+       "Requires a user action somewhere"]),
+     ("Worm", "spreads by itself",
+      ["Self-propagating across a network",
+       "Needs no user action at all",
+       "Which is why it spreads so fast"]),
+     ("Trojan", "pretends to be wanted",
+      ["Installed willingly, under a false description",
+       "Does not self-replicate",
+       "Defeats technical controls via the user"])],
+    caption="Three families, distinguished by propagation.",
+    footer="Ransomware, spyware and bots describe what malware DOES; virus, "
+           "worm and trojan describe how it ARRIVES. An item usually asks "
+           "about one axis, and the two are frequently confused."))
+
+register("symmetric-asymmetric", dk.split_planes(
+    "Two kinds of encryption",
+    ("Symmetric", "One shared secret key", [
+        ("Encrypt", "with the shared key"),
+        ("Decrypt", "with the same key"),
+        ("Problem", "distributing it safely")]),
+    ("Asymmetric", "A public and a private key", [
+        ("Encrypt", "with the recipient's public key"),
+        ("Decrypt", "with their private key"),
+        ("Problem", "far slower to compute")]),
+    caption="Fast but hard to distribute, against slow but distributable.",
+    footer="Real systems use BOTH: asymmetric encryption to agree a symmetric "
+           "key, then symmetric encryption for the data. Each covers exactly "
+           "the other's weakness."))
+
+register("digital-signature", dk.flow(
+    "Signing and verifying",
+    [("Hash the message", "a fixed-size digest"),
+     ("Encrypt the hash", "with the SENDER's private key"),
+     ("Send both", "message and signature"),
+     ("Recipient hashes", "the message they received"),
+     ("Decrypt the signature", "with the sender's public key"),
+     ("Compare", "equal means genuine and unaltered")],
+    caption="Confidentiality is not what this provides.",
+    note="Signing uses the sender's PRIVATE key -- the reverse of encryption "
+         "-- because only the sender holds it, and anyone with the public key "
+         "can check. That reversal is what makes the signature proof of "
+         "origin."))
+
+register("hash-properties", dk.compare(
+    "What a cryptographic hash guarantees",
+    [("One-way", "cannot be reversed",
+      ["The input cannot be recovered from the digest",
+       "Which is why passwords are stored as hashes",
+       "Guessing and hashing is still possible"]),
+     ("Fixed length", "any input, same size out",
+      ["A file and a word both hash to the same length",
+       "So the digest is not a compression",
+       "Comparison is always cheap"]),
+     ("Collision resistant", "no two inputs match",
+      ["Finding two inputs with one digest is infeasible",
+       "Which is what makes it evidence of integrity",
+       "A broken hash is broken exactly here"])],
+    caption="Three properties, and each is relied on somewhere.",
+    footer="A hash proves INTEGRITY and not identity: anyone can hash an "
+           "altered file. Proving who produced it needs a signature, which is "
+           "a hash plus a private key."))
+
+register("authentication-factors", dk.compare(
+    "Three kinds of evidence of identity",
+    [("Something you know", "a secret",
+      ["Passwords, PINs, answers",
+       "Cheap, and guessable and reusable",
+       "The weakest factor on its own"]),
+     ("Something you have", "a token",
+      ["A phone, a card, a hardware key",
+       "Stolen rather than guessed",
+       "Lost tokens need a recovery route"]),
+     ("Something you are", "a measurement",
+      ["Fingerprint, face, iris",
+       "Cannot be forgotten, and cannot be changed",
+       "A compromised biometric is compromised forever"])],
+    caption="Multi-factor means factors from DIFFERENT rows.",
+    footer="A password and a security question are both things you know, so "
+           "requiring both is not multi-factor authentication -- one theft "
+           "of a secret gets both."))
+
+register("access-control-models", dk.compare(
+    "Who decides what is permitted",
+    [("Discretionary", "the owner decides",
+      ["Whoever owns a resource grants access to it",
+       "Flexible, and inconsistent across an estate",
+       "How ordinary file sharing works"]),
+     ("Mandatory", "the system decides",
+      ["Labels and clearances, centrally set",
+       "Owners cannot override the policy",
+       "Used where classification is legally required"]),
+     ("Role-based", "your job decides",
+      ["Permissions attach to roles, users to roles",
+       "Scales, and audits well",
+       "The usual answer in a business system"])],
+    caption="Three models, in increasing order of manageability at scale.",
+    footer="Role-based control is what makes LEAST PRIVILEGE administrable: "
+           "granting a role rather than a list of permissions is the only "
+           "version anybody maintains correctly over years."))
+
+register("risk-process", dk.cycle(
+    "Managing information risk",
+    [("Identify assets", "what matters"),
+     ("Assess risk", "likelihood x impact"),
+     ("Select controls", "treat, transfer, accept, avoid"),
+     ("Implement", "and document"),
+     ("Monitor and review", "conditions change")],
+    caption="A cycle, because the threat landscape does not hold still.",
+    centre="ISMS"))
+
+register("risk-treatment", dk.compare(
+    "Four things to do about a risk",
+    [("Mitigate", "reduce it",
+      ["Add controls that lower likelihood or impact",
+       "The default response",
+       "Costs money, and never reaches zero"]),
+     ("Transfer", "make it someone else's",
+      ["Insurance, or a contracted provider",
+       "The financial loss moves; the reputation does not",
+       "Accountability cannot be outsourced"]),
+     ("Accept", "live with it",
+      ["A deliberate, documented decision",
+       "Correct when the control costs more than the risk",
+       "Only valid if somebody with authority accepted it"])],
+    caption="Avoidance -- not doing the risky thing at all -- is the fourth.",
+    footer="ACCEPTANCE is a legitimate treatment and is not the same as "
+           "ignoring a risk. The difference is whether anybody with authority "
+           "knowingly made the decision."))
+
+register("defence-layers", dk.tiers(
+    "Controls by when they act",
+    [("Preventive", ["Access control", "Encryption", "Patching", "Training"]),
+     ("Detective", ["Monitoring", "Logging", "Intrusion detection", "Audit"]),
+     ("Corrective", ["Backups", "Incident response", "Patch after the fact"])],
+    caption="Three timings: before, during, and after.",
+    footer="A programme of only preventive controls cannot tell you when one "
+           "failed. Detection is what converts an undetected breach into an "
+           "incident somebody handles."))
+
+register("incident-response", dk.flow(
+    "Responding to an incident",
+    [("Prepare", "before anything happens"),
+     ("Detect and analyse", "is this real, and what is it"),
+     ("Contain", "stop it spreading"),
+     ("Eradicate", "remove the cause"),
+     ("Recover", "restore service, and watch"),
+     ("Review", "what should change")],
+    caption="Six phases, and the first happens long before the incident.",
+    note="CONTAINMENT precedes eradication for a reason: stopping the spread "
+         "is urgent, while identifying and removing every trace is slow. "
+         "Reversing the order lets the incident grow during analysis."))
+
+register("firewall-placement", dk.hub_spoke(
+    "Segmenting a network",
+    "Firewall",
+    ["Internet", "DMZ -- public servers", "Internal network", "Management"],
+    caption="Public services sit apart from internal systems.",
+    hub_note="policy between every pair"))
+
+register("crypto-uses", dk.tiers(
+    "What each cryptographic tool is FOR",
+    [("Confidentiality", ["Symmetric encryption", "Asymmetric encryption"]),
+     ("Integrity", ["Hash functions", "Message authentication codes"]),
+     ("Authenticity and non-repudiation", ["Digital signatures",
+                                           "Certificates"])],
+    caption="Matching the tool to the property is most of the category.",
+    footer="A hash gives integrity and not authenticity, since anyone can "
+           "hash. Encryption gives confidentiality and not integrity, since "
+           "ciphertext can be altered. Only a signature gives origin."))
+
+
+register("cc-terms", dk.stack(
+    "How the Common Criteria terms relate",
+    [("Protection profile", "requirements for a CLASS of product"),
+     ("Security target", "what THIS product claims to do"),
+     ("Target of evaluation", "the exact product, version, configuration"),
+     ("Assurance level", "how rigorously the claim was checked")],
+    caption="Four terms, and only the last is a measure of anything.",
+    numbered=False,
+    right_note="The security target is written by the DEVELOPER, so a "
+               "certificate says the product does what it claimed. That is a "
+               "different statement from saying it is secure."))
+
+register("eal-scale", dk.tiers(
+    "The assurance levels, grouped by what they mean",
+    [("EAL1-3", ["Functionally tested", "Structurally tested",
+                 "Methodically checked"]),
+     ("EAL4", ["Methodically designed, tested and reviewed",
+               "The commercial ceiling"]),
+     ("EAL5-7", ["Semi-formally designed", "Semi-formally verified",
+                 "Formally verified"])],
+    caption="Seven levels of examination depth, not of product strength.",
+    footer="EAL4 is where commercial evaluation stops because higher levels "
+           "require formal methods whose cost rises far faster than the "
+           "confidence gained -- an economic boundary, not a technical one."))
