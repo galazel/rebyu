@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import {
   Link,
+  useLocation,
   useNavigate,
   useOutletContext,
   useParams,
   useSearchParams,
 } from "react-router-dom"
+import { returnState } from "@/lib/assessment-return"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
@@ -1005,6 +1007,10 @@ function LessonView({
  * would produce a score the backend never sees.
  */
 function QuizBand({ quiz, taken }) {
+  /* Where the quiz hands the learner back. They are part-way through this
+     topic, so finishing sends them here rather than to the certification's
+     roadmap. */
+  const location = useLocation()
   return (
     <section id={`quiz-${quiz.examId}`} className="scroll-mt-8 bg-rb-bee px-5 py-12 sm:px-10 lg:px-14">
       <div className="w-full">
@@ -1051,7 +1057,10 @@ function QuizBand({ quiz, taken }) {
               there was something to see. */}
           <div className="mt-8 flex flex-col items-center gap-3">
             <TactileButton asChild variant="macaw">
-              <Link to={`/learner/assessments/${quiz.examId}`}>
+              <Link
+                to={`/learner/assessments/${quiz.examId}`}
+                state={returnState(location)}
+              >
                 {taken ? "retake quiz" : "start quiz"}
                 <ArrowRight className="size-4" />
               </Link>
@@ -1074,6 +1083,8 @@ function QuizBand({ quiz, taken }) {
 
 /** The unit assessment splash: what it takes to pass, and one key. */
 function AssessmentView({ exam, position, total, backTo, taken }) {
+  // Same reasoning as QuizBand: finishing returns to this topic.
+  const location = useLocation()
   const passMark = Math.round(Number(exam.passingScore ?? 0))
 
   return (
@@ -1150,7 +1161,10 @@ function AssessmentView({ exam, position, total, backTo, taken }) {
 
         <div className="mt-9 flex flex-wrap items-center gap-4">
           <TactileButton asChild variant="fox" className="w-fit">
-            <Link to={`/learner/assessments/${exam.examId}`}>
+            <Link
+              to={`/learner/assessments/${exam.examId}`}
+              state={returnState(location)}
+            >
               {taken ? "retake exam" : "start exam"}
               <ArrowRight className="size-4" />
             </Link>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { AlertTriangle, Brain, Loader2 } from "@/components/icons"
 import { createKnowledgeCheck } from "@/services/knowledgeCheckService.js"
+import { returnState } from "@/lib/assessment-return"
 
 /**
  * The pop-up knowledge check: five questions on lessons this learner has
@@ -34,6 +35,7 @@ import { createKnowledgeCheck } from "@/services/knowledgeCheckService.js"
  */
 export function LessonKnowledgeCheck({ open, lessonId, itemCount, lessonNames, onDismiss }) {
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [state, setState] = useState({ status: "idle" })
 
@@ -63,7 +65,10 @@ export function LessonKnowledgeCheck({ open, lessonId, itemCount, lessonNames, o
           onDismiss?.()
           return
         }
-        navigate(`/learner/assessments/${check.examId}`)
+        // Back to the lesson this check interrupted, not the roadmap.
+        navigate(`/learner/assessments/${check.examId}`, {
+          state: returnState(location),
+        })
       })
       .catch((error) => {
         mintingRef.current = false

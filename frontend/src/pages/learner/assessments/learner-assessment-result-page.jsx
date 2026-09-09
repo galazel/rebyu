@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
-import { Link, useNavigate, useParams } from "react-router-dom"
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
+
+import { returnPath } from "@/lib/assessment-return"
 import { useQuery } from "@tanstack/react-query"
 import {
   CheckCircle2Icon,
@@ -239,6 +241,11 @@ export default function LearnerAssessmentResultPage() {
   // Route param carries the server attempt id.
   const { examResultId: attemptId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  /* Where the learner was when they opened this assessment, carried through the
+     attempt. Null when they arrived from a bookmark, a notification or a
+     refresh -- the fallback below covers that. */
+  const resumePath = returnPath(location)
 
   /* Which slice of the review is on screen. A learner who missed eleven items
      out of sixty should not have to scroll the forty-nine they got right to
@@ -457,17 +464,23 @@ export default function LearnerAssessmentResultPage() {
         ) : null}
 
         <div className="flex flex-wrap gap-3">
-          {/* Back to the certification this attempt belongs to, not the list of
-              every enrolled certification. The learner arrived here from one
-              course and wants to carry on with it; dropping them on the index
-              made them pick it out again. Falls back to the list only when the
-              attempt carries no certification id. */}
+          {/* Back to exactly where the learner was, when the navigation that
+              opened this assessment said so. A learner part-way through a topic
+              took its quiz and was returned to the certification's roadmap --
+              the right course, the wrong place inside it -- leaving them to find
+              the unit they had been reading a minute earlier.
+
+              The two fallbacks are for arrivals that carry no origin: a
+              bookmark, a notification, or a refresh of this page. Those land on
+              the certification, and only on the index when the attempt does not
+              say which certification it belongs to. */}
           <TactileButton asChild>
             <Link
               to={
-                result.certificationId != null
+                resumePath ??
+                (result.certificationId != null
                   ? `/learner/learning/${result.certificationId}`
-                  : "/learner/learning"
+                  : "/learner/learning")
               }
             >
               continue learning

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import { Brain, Loader2 } from "@/components/icons"
 import { createRecallSession } from "@/services/recallService.js"
+import { returnState } from "@/lib/assessment-return"
 
 /**
  * The Active Recall session: a paper built from what this learner keeps getting
@@ -21,6 +22,7 @@ import { createRecallSession } from "@/services/recallService.js"
  */
 export function RecallSession({ task, certificationId, onStarted, onDismiss }) {
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [state, setState] = useState({ status: "building" })
 
@@ -113,7 +115,9 @@ export function RecallSession({ task, certificationId, onStarted, onDismiss }) {
         <Button
           onClick={() => {
             onStarted?.()
-            navigate(`/learner/assessments/${session.examId}`)
+            navigate(`/learner/assessments/${session.examId}`, {
+              state: returnState(location),
+            })
           }}
         >
           Start recall

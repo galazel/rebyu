@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
+import { returnState } from "@/lib/assessment-return"
 import { useQuery } from "@tanstack/react-query"
 import { ClipboardListIcon, ClockIcon, TargetIcon } from "@/components/icons"
 
@@ -56,6 +57,7 @@ export default function CertificationAssessmentsSection({
   enrolled,
 }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [startTarget, setStartTarget] = useState(null)
 
   const examsQuery = useQuery({ queryKey: ["exams"], queryFn: () => getExams() })
@@ -247,7 +249,9 @@ export default function CertificationAssessmentsSection({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() =>
-                navigate(`/learner/assessments/${startTarget.exam.examId}`)
+                navigate(`/learner/assessments/${startTarget.exam.examId}`, {
+                  state: returnState(location),
+                })
               }
             >
               {startTarget?.copy.action ?? "Start Assessment"}

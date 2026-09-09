@@ -1,5 +1,13 @@
 import { useMemo, useState } from "react"
-import { Link, Navigate, useNavigate, useOutletContext, useParams } from "react-router-dom"
+import {
+  Link,
+  Navigate,
+  useLocation,
+  useNavigate,
+  useOutletContext,
+  useParams,
+} from "react-router-dom"
+import { returnState } from "@/lib/assessment-return"
 import { useQuery } from "@tanstack/react-query"
 import {
   ArrowRight,
@@ -1029,6 +1037,7 @@ function CurriculumSkeleton() {
 
 export default function LearnerCertificationCurriculumPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { certificationId } = useParams()
   const { data } = useOutletContext()
 
@@ -1406,7 +1415,9 @@ export default function LearnerCertificationCurriculumPage() {
      repeat them -- and an exam node goes straight into the attempt. */
   function openNode(node) {
     if (node.kind === "exam") {
-      navigate(`/learner/assessments/${node.exam.examId}`)
+      navigate(`/learner/assessments/${node.exam.examId}`, {
+        state: returnState(location),
+      })
       return
     }
     if (node.empty) return
@@ -1419,7 +1430,7 @@ export default function LearnerCertificationCurriculumPage() {
       curriculum.diagnostic
         ? `/learner/assessments/${curriculum.diagnostic.examId}`
         : `/learner/learning/${certificationId}/diagnostic`,
-      { state: { certification } },
+      { state: { certification, ...returnState(location) } },
     )
   }
 

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useLocation, useNavigate, useParams } from "react-router-dom"
+
+import { returnPath } from "@/lib/assessment-return"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowLeftIcon,
@@ -487,6 +489,10 @@ function WorkspaceQuestionPanel({ question, index, answer, onAnswer }) {
 export default function LearnerAssessmentAttemptPage() {
   const { examId } = useParams()
   const navigate = useNavigate()
+  /* Where the learner opened this attempt from. Forwarded to the results page
+     below so "continue learning" can return them to the topic they were
+     reading rather than to the certification's roadmap. */
+  const location = useLocation()
   const queryClient = useQueryClient()
 
   const identity = getCurrentLearnerIdentity()
@@ -793,6 +799,7 @@ export default function LearnerAssessmentAttemptPage() {
        */
       navigate(`/learner/results/${result.assessmentAttemptId}`, {
         replace: true,
+        state: { returnTo: returnPath(location) },
       })
 
       announceRewards({
