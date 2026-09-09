@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { createContext, useContext, useEffect, useMemo, useState } from "react"
 import {
   Link,
   Navigate,
@@ -241,8 +241,10 @@ const NODE_SCALE_GRAND = 1.34
 const PATH_ROW_GRAND = 200
 
 /** Every measurement of one node, at its own size. */
-function nodeDims(node) {
-  const scale = node?.grand ? NODE_SCALE_GRAND : 1
+function nodeDims(node, narrow = false) {
+  /* The phone's stops are smaller as well as closer together: at full size two
+     plinths 44px either side of the centre very nearly touch. */
+  const scale = (node?.grand ? NODE_SCALE_GRAND : 1) * (narrow ? NARROW_NODE_SCALE : 1)
   const plinthH = Math.round(PLINTH_H * scale)
   const plinthD = Math.round(PLINTH_D * scale)
   const lift = Math.round(ICON_LIFT * scale)
@@ -257,13 +259,18 @@ function nodeDims(node) {
 }
 
 /** How much vertical room a stop takes on the road. */
-function rowHeight(node) {
-  return node?.grand ? PATH_ROW_GRAND : PATH_ROW
+function rowHeight(node, narrow = false) {
+  const base = node?.grand ? PATH_ROW_GRAND : PATH_ROW
+  if (!narrow) return base
+  /* The name sits under the stop here rather than beside it, so the row has to
+     carry it. The node itself is smaller, which gives some of that back. */
+  const dims = nodeDims(node, true)
+  return Math.round(dims.h + NARROW_LABEL_H + 34)
 }
 
 /** The height of a whole stretch of road, for the box the nodes are laid in. */
-function stretchHeight(nodes) {
-  return nodes.reduce((total, node) => total + rowHeight(node), 0)
+function stretchHeight(nodes, narrow = false) {
+  return nodes.reduce((total, node) => total + rowHeight(node, narrow), 0)
 }
 
 /* A two-position zig-zag, not the old eight-step swing.
@@ -275,13 +282,105 @@ function stretchHeight(nodes) {
    nodes on the same side with their labels overlapping. */
 const PATH_OFFSETS = [88, -88]
 
-function offsetAt(index) {
-  return PATH_OFFSETS[index % PATH_OFFSETS.length]
+/* ------------------------------------------------- the same road, on a phone */
+
+/**
+ * The road's second layout, for screens too narrow to stand a name beside a
+ * stop.
+ *
+ * The wide road is a 440px column with a 210px name hanging off one side or
+ * the other, so its real footprint is about 760px. On a 375px phone that is
+ * not something scaling fixes: shrunk to fit, the names arrive at about seven
+ * pixels and stop being readable, and a stop whose name cannot be read is not
+ * a stop.
+ *
+ * So a phone gets the arrangement this road had before the names moved out to
+ * the side -- each name centred *under* its own stop -- and pays for it in
+ * height, which is the dimension a phone has to spare. Everything else is
+ * kept: the zig-zag, the curve between stops, the plinths. Narrower, because
+ * a full-width swing on a phone puts the outer stops under the screen edge.
+ */
+const NARROW_PATH_WIDTH = 288
+const NARROW_OFFSETS = [44, -44]
+const NARROW_NODE_SCALE = 0.78
+/** Room under a stop for its name, its meta line and any pill it carries. */
+const NARROW_LABEL_H = 84
+
+/** The width the road's column occupies. */
+function pathWidthOf(narrow) {
+  return narrow ? NARROW_PATH_WIDTH : PATH_WIDTH
 }
 
-/** Which side of the node its name stands on: always the outer one. */
-function labelSideAt(index) {
+function offsetAt(index, narrow = false) {
+  const offsets = narrow ? NARROW_OFFSETS : PATH_OFFSETS
+  return offsets[index % offsets.length]
+}
+
+/**
+ * Which side of the node its name stands on, or "below" on a phone.
+ *
+ * Returned rather than inferred at each call site so there is one answer to
+ * "where does the name go", and the trail, the stops and the skeleton cannot
+ * disagree about it.
+ */
+function labelSideAt(index, narrow = false) {
+  if (narrow) return "below"
   return offsetAt(index) > 0 ? "right" : "left"
+}
+
+/**
+ * Whether the road is drawing in its narrow layout.
+ *
+ * Context rather than a prop: the stops, the trail behind them and the boxes
+ * they are laid in all have to agree, and they are not in one place to be
+ * passed a prop through. A stale `false` here is the wide road on a phone,
+ * which is the bug this exists to prevent, so the default is deliberately the
+ * layout that cannot be silently wrong -- the provider always sets it.
+ */
+const NarrowRoadContext = createContext(false)
+
+function useNarrowRoad() {
+  return useContext(NarrowRoadContext)
+}
+
+/**
+ * The narrowest viewport the wide road actually fits in.
+ *
+ * Measured from the road rather than borrowed from the type scale. From the
+ * centre outward: the swing (88), half a plinth (66), the gap to the name (16)
+ * and the name itself (210) -- 380 either side, so 760 of road, and the page's
+ * padding takes it to 800.
+ *
+ * Tailwind's `sm` (640px) was the obvious breakpoint and the wrong one: it
+ * turns the wide road back on 160px before there is room for it, which put
+ * every name half off the screen between 640 and 800. Below this the road uses
+ * its narrow layout, whatever the type around it is doing.
+ */
+const ROAD_LABEL_W = 210
+const ROAD_LABEL_GAP = 16
+/* Measured out from the centre of the screen, which the column is centred on:
+   the swing, then half a plinth, then the gap, then the name. Doubled for the
+   other side, plus the page's own padding. */
+const ROAD_WIDE_MIN_WIDTH =
+  2 * (Math.max(...PATH_OFFSETS.map(Math.abs)) + NODE_W / 2 + ROAD_LABEL_GAP + ROAD_LABEL_W) + 40
+
+/** Whether this viewport is too narrow to stand names beside the stops. */
+function useIsNarrowViewport() {
+  const query = `(max-width: ${ROAD_WIDE_MIN_WIDTH - 1}px)`
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(query).matches
+  )
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined
+    const media = window.matchMedia(query)
+    const onChange = (event) => setNarrow(event.matches)
+    setNarrow(media.matches)
+    media.addEventListener("change", onChange)
+    return () => media.removeEventListener("change", onChange)
+  }, [query])
+
+  return narrow
 }
 
 /**
@@ -299,6 +398,7 @@ function labelSideAt(index) {
  * onto it.
  */
 function PathTrail({ items, start = 0 }) {
+  const narrow = useNarrowRoad()
   if (items.length < 2) return null
 
   /* The middle of the plinth's top face, not its bottom edge.
@@ -317,12 +417,16 @@ function PathTrail({ items, start = 0 }) {
      drawn on `PATH_ROW * index` would run to where that stop used to be. */
   let top = 0
   const points = items.map((node, index) => {
-    const dims = nodeDims(node)
-    const row = rowHeight(node)
-    const y = top + (row - dims.h) / 2 + dims.lift + dims.plinthH / 2
+    const dims = nodeDims(node, narrow)
+    const row = rowHeight(node, narrow)
+    /* The stop sits at the top of its row on a phone, because the rest of the
+       row is its name -- so the road has to meet it there rather than half way
+       down a box that is mostly text. */
+    const nodeTop = narrow ? top + 16 : top + (row - dims.h) / 2
+    const y = nodeTop + dims.lift + dims.plinthH / 2
     top += row
 
-    return [PATH_WIDTH / 2 + offsetAt(start + index), y]
+    return [pathWidthOf(narrow) / 2 + offsetAt(start + index, narrow), y]
   })
 
   const d = points
@@ -337,8 +441,8 @@ function PathTrail({ items, start = 0 }) {
   return (
     <svg
       className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2"
-      width={PATH_WIDTH}
-      height={stretchHeight(items)}
+      width={pathWidthOf(narrow)}
+      height={stretchHeight(items, narrow)}
       aria-hidden="true"
     >
       {/* Swan is the border grey and disappears against the page on its own;
@@ -471,7 +575,8 @@ function PathNode({ node, index, onSelect, onLocked }) {
   const locked = state === "locked"
   const done = state === "done"
   const current = state === "current"
-  const dims = nodeDims(node)
+  const narrow = useNarrowRoad()
+  const dims = nodeDims(node, narrow)
 
   /* A finished exam is not finished the way a finished topic is. Reading a
      topic is done once; an assessment can always be sat again, and the whole
@@ -525,10 +630,10 @@ function PathNode({ node, index, onSelect, onLocked }) {
       ? "text-white"
       : tone.ink
 
-  const side = labelSideAt(index)
+  const side = labelSideAt(index, narrow)
 
   return (
-    <div className="relative" style={{ height: rowHeight(node) }}>
+    <div className="relative" style={{ height: rowHeight(node, narrow) }}>
       {/* Sized to the node and nothing else. The name hangs off it absolutely
           rather than sitting beside it in flow: in flow the *pair* is what gets
           centred on the row, so a long topic name would drag the plinth off the
@@ -539,11 +644,16 @@ function PathNode({ node, index, onSelect, onLocked }) {
           it: an inline `transform` replaces the class's outright, so a
           `-translate-y-1/2` here would simply be dropped. */}
       <div
-        className="absolute left-1/2 top-1/2"
+        className={narrow ? "absolute left-1/2 top-4" : "absolute left-1/2 top-1/2"}
         style={{
           width: dims.w,
           height: dims.h,
-          transform: `translate(calc(-50% + ${offsetAt(index)}px), -50%)`,
+          /* Horizontal only on a phone: the row's remaining height is the
+             name's, so the stop is pinned to the top of the row rather than
+             centred in a box it no longer fills. */
+          transform: narrow
+            ? `translateX(calc(-50% + ${offsetAt(index, narrow)}px))`
+            : `translate(calc(-50% + ${offsetAt(index)}px), -50%)`,
         }}
       >
         <motion.div animate={shake} className="relative h-full">
@@ -692,10 +802,21 @@ function PathNode({ node, index, onSelect, onLocked }) {
             node as a click target -- the plinth is the control, the label only
             says what it is. */}
         <div
-          className={`pointer-events-none absolute w-[210px] ${
-            side === "right" ? "left-full ml-4 text-left" : "right-full mr-4 text-right"
+          className={`pointer-events-none absolute ${
+            side === "below"
+              ? "left-1/2 w-[168px] -translate-x-1/2 text-center"
+              : side === "right"
+                ? "left-full ml-4 w-[210px] text-left"
+                : "right-full mr-4 w-[210px] text-right"
           }`}
-          style={{ top: dims.lift, height: dims.plinthH, display: "grid", alignContent: "center" }}
+          style={
+            side === "below"
+              ? /* Under the plinth's own foot, not under the box: the box
+                   includes the lift the icon floats on, so measuring from its
+                   bottom would leave the name hanging away from the stop. */
+                { top: dims.lift + dims.plinthH + dims.plinthD + 10 }
+              : { top: dims.lift, height: dims.plinthH, display: "grid", alignContent: "center" }
+          }
         >
           <p className="font-rb-display text-[15px] font-extrabold leading-tight text-rb-eel">
             {node.label}
@@ -715,7 +836,7 @@ function PathNode({ node, index, onSelect, onLocked }) {
               belongs on the lessons themselves; an exam is one sitting for one
               award, so the road can state it. */}
           {node.xp && !locked ? (
-            <span className="mt-1 inline-flex">
+            <span className={`mt-1 inline-flex ${side === "below" ? "justify-center" : ""}`}>
               <XpPill amount={node.xp} earned={done} upTo />
             </span>
           ) : null}
@@ -981,6 +1102,12 @@ function unitNodes(major, takenExamIds, attemptsByExamId) {
  * circles they will occupy.
  */
 function CurriculumSkeleton() {
+  /* The skeleton stands in for the road, so it has to be the road's shape --
+     including which of the two layouts this screen is about to get. A wide
+     placeholder on a phone would overflow the screen and then reflow the
+     moment the real stops arrived, which is the opposite of what a skeleton
+     is for. */
+  const narrow = useIsNarrowViewport()
   return (
     <div role="status" aria-label="Loading curriculum">
       {/* The header bar. */}
@@ -1005,30 +1132,51 @@ function CurriculumSkeleton() {
         {/* Four stops on the same zig-zag the road uses, each a plinth-shaped
             block and a bar where its name will be -- so nothing moves when the
             real nodes arrive. */}
-        <div className="relative mx-auto mt-6" style={{ width: PATH_WIDTH, height: PATH_ROW * 4 }}>
-          {[0, 1, 2, 3].map((index) => (
-            <div key={index} className="relative" style={{ height: PATH_ROW }}>
-              <div
-                className="absolute left-1/2 top-1/2"
-                style={{
-                  width: NODE_W,
-                  height: NODE_H,
-                  transform: `translate(calc(-50% + ${offsetAt(index)}px), -50%)`,
-                }}
-              >
+        <div
+          className="relative mx-auto mt-6"
+          style={{
+            width: pathWidthOf(narrow),
+            height: rowHeight(null, narrow) * 4,
+          }}
+        >
+          {[0, 1, 2, 3].map((index) => {
+            const dims = nodeDims(null, narrow)
+            const side = labelSideAt(index, narrow)
+            return (
+              <div key={index} className="relative" style={{ height: rowHeight(null, narrow) }}>
                 <div
-                  className="absolute left-1/2 w-full -translate-x-1/2 animate-pulse rounded-rb-tile bg-rb-swan"
-                  style={{ top: ICON_LIFT, height: PLINTH_H + PLINTH_D }}
-                />
-                <div
-                  className={`absolute h-4 w-[150px] animate-pulse rounded-rb-pill bg-rb-swan ${
-                    labelSideAt(index) === "right" ? "left-full ml-4" : "right-full mr-4"
-                  }`}
-                  style={{ top: ICON_LIFT + PLINTH_H / 2 - 8 }}
-                />
+                  className={narrow ? "absolute left-1/2 top-4" : "absolute left-1/2 top-1/2"}
+                  style={{
+                    width: dims.w,
+                    height: dims.h,
+                    transform: narrow
+                      ? `translateX(calc(-50% + ${offsetAt(index, narrow)}px))`
+                      : `translate(calc(-50% + ${offsetAt(index)}px), -50%)`,
+                  }}
+                >
+                  <div
+                    className="absolute left-1/2 w-full -translate-x-1/2 animate-pulse rounded-rb-tile bg-rb-swan"
+                    style={{ top: dims.lift, height: dims.plinthH + dims.plinthD }}
+                  />
+                  <div
+                    className={`absolute h-4 animate-pulse rounded-rb-pill bg-rb-swan ${
+                      side === "below"
+                        ? "left-1/2 w-[140px] -translate-x-1/2"
+                        : side === "right"
+                          ? "left-full ml-4 w-[150px]"
+                          : "right-full mr-4 w-[150px]"
+                    }`}
+                    style={{
+                      top:
+                        side === "below"
+                          ? dims.lift + dims.plinthH + dims.plinthD + 12
+                          : dims.lift + dims.plinthH / 2 - 8,
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>
@@ -1038,6 +1186,10 @@ function CurriculumSkeleton() {
 export default function LearnerCertificationCurriculumPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  /* Which of the road's two layouts this screen gets. Read once here and
+     handed down through context, so every part of the road turns over on the
+     same render rather than each measuring the window for itself. */
+  const narrowRoad = useIsNarrowViewport()
   const { certificationId } = useParams()
   const { data } = useOutletContext()
 
@@ -1456,7 +1608,7 @@ export default function LearnerCertificationCurriculumPage() {
           chrome than the page it introduced -- and it repeated what the unit
           card underneath already says. What is left is the two things that are
           actually actions, as icons, with the progress they qualify. */}
-      <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-5 pb-1 pt-4 lg:px-8">
+      <div className="mx-auto flex max-w-[1600px] items-center gap-2 px-4 pb-1 pt-4 sm:gap-3 sm:px-5 lg:px-8">
         <BackButton asChild label="Back to my learning">
           <Link to="/learner/learning" />
         </BackButton>
@@ -1540,7 +1692,7 @@ export default function LearnerCertificationCurriculumPage() {
       ) : null}
 
       {/* ------------------------------------------------------------- units */}
-      <main className="mx-auto max-w-[1600px] px-5 py-10 lg:px-8">
+      <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-5 sm:py-10 lg:px-8">
         {curriculum.majors.length === 0 ? (
           <LearnerEmptyState
             icon={BookOpen}
@@ -1553,6 +1705,7 @@ export default function LearnerCertificationCurriculumPage() {
              for it; with the road as the only thing here it keeps the full
              width rather than being pinned into a narrow left lane beside
              nothing. */
+          <NarrowRoadContext.Provider value={narrowRoad}>
           <StaggerList className="space-y-6" stagger={0.09}>
             {/* The road. Every unit contributes a caption and a stretch of
                 nodes, and the whole certification reads as one continuous
@@ -1608,8 +1761,11 @@ export default function LearnerCertificationCurriculumPage() {
                            caption's wiper ate the last stop of the stretch.
                            Margin is outside the box, so it actually separates
                            this stretch from the caption under it. */
-                        className="relative mx-auto mt-6 mb-32"
-                        style={{ width: PATH_WIDTH, height: stretchHeight(stops) }}
+                        className="relative mx-auto mt-6 mb-24 sm:mb-32"
+                        style={{
+                          width: pathWidthOf(narrowRoad),
+                          height: stretchHeight(stops, narrowRoad),
+                        }}
                       >
                         <PathTrail items={stops} start={section.start} />
 
@@ -1632,7 +1788,10 @@ export default function LearnerCertificationCurriculumPage() {
                 {finalNode && sections.length === 0 ? (
                   <div
                     className="relative mx-auto mt-6"
-                    style={{ width: PATH_WIDTH, height: stretchHeight([finalNode]) }}
+                    style={{
+                      width: pathWidthOf(narrowRoad),
+                      height: stretchHeight([finalNode], narrowRoad),
+                    }}
                   >
                     <PathNode
                       node={finalNode}
@@ -1646,6 +1805,7 @@ export default function LearnerCertificationCurriculumPage() {
             </StaggerItem>
 
           </StaggerList>
+          </NarrowRoadContext.Provider>
         )}
       </main>
 
