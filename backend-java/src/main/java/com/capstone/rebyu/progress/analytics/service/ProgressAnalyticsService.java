@@ -972,7 +972,22 @@ public class ProgressAnalyticsService {
                 ? lesson.getMiddleCategory().getMiddleCategoryId() : null;
         String categoryTitle = (lesson != null && lesson.getMiddleCategory() != null)
                 ? lesson.getMiddleCategory().getTitle() : null;
-        String title = priority.lessonTitle() != null ? priority.lessonTitle() : (lesson != null ? lesson.getName() : null);
+        /* The live lesson name wins over the one BKT stored.
+
+           BKT copies a lesson's title into its own row when it processes a
+           mastery event, and never revisits it. A curriculum that has since
+           been renamed or regenerated therefore leaves rows naming topics the
+           certification no longer contains -- TOPCIT's lesson 401 was still
+           being listed as "Quality Assurance and Testing" long after it became
+           "Project Quality Management and Control", so the board showed a
+           learner a topic that was not in their syllabus.
+
+           The stored title is kept as the fallback rather than dropped: a
+           lesson private to an Institution group is deliberately absent from
+           `lessonById`, and naming it from BKT is better than showing the
+           learner a numbered placeholder for a lesson they can actually
+           see. */
+        String title = lesson != null ? lesson.getName() : priority.lessonTitle();
         Double masteryPercentage = priority.masteryProbability() == null ? null : priority.masteryProbability() * 100.0;
         return new TopicRow(priority.lessonId(), title, categoryId, categoryTitle, masteryPercentage,
                 priority.priorityTag(), priority.evidenceCount(), priority.lastAssessedAt());
@@ -1120,11 +1135,14 @@ public class ProgressAnalyticsService {
                 });
     }
 
+    /** Same precedence as {@link #toTopicRow}: the live name, then BKT's copy. */
     private String resolveTitle(LessonPriorityView priority, Map<Long, Lesson> lessonById) {
-        if (priority.lessonTitle() != null) {
-            return priority.lessonTitle();
-        }
         Lesson lesson = lessonById.get(priority.lessonId());
-        return lesson != null ? lesson.getName() : ("Lesson " + priority.lessonId());
+        if (lesson != null) {
+            return lesson.getName();
+        }
+        return priority.lessonTitle() != null
+                ? priority.lessonTitle()
+                : ("Lesson " + priority.lessonId());
     }
 }

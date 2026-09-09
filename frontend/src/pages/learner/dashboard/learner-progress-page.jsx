@@ -659,9 +659,19 @@ export default function LearnerProgressPage() {
   })
   const analytics = analyticsQuery.data
 
+  /* Only the selected certification's lessons, and none at all until one is
+     selected.
+
+     Returning every lesson while the selection was still resolving put another
+     certification's lesson behind "next up" -- the one tile on this page that
+     tells a learner what to do next. It corrected itself a moment later, and
+     for a learner with no enrolled certification it never did, because nothing
+     ever set a selection to correct it with. An empty list reads as "nothing to
+     resume", which is true, rather than naming a lesson from a course the
+     board is not showing. */
   const lessons = useMemo(() => {
     if (!selectedCertificationId) {
-      return allLessons
+      return []
     }
 
     return allLessons.filter(
