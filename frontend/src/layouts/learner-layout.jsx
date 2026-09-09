@@ -345,9 +345,18 @@ export default function LearnerLayout() {
       ) : null}
 
         <main
+          /* The bottom padding is what keeps the last of a page clear of the
+             mobile bar, which is fixed over it. On the full-bleed pages `!p-0`
+             was silently taking it away again -- padding is padding, and the
+             important one wins -- so those pages need it restored explicitly
+             rather than inheriting it from the first clause. */
           className={`rebyu-page ${isTopicPage ? "" : "pb-24 lg:pb-8"} ${
             isTopicPage || isCurriculumPage || isCertificationDetailPage
               ? "!max-w-none !gap-0 !p-0"
+              : ""
+          } ${
+            !isTopicPage && (isCurriculumPage || isCertificationDetailPage)
+              ? "!pb-24 lg:!pb-8"
               : ""
           }`}
         >

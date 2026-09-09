@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
 import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import {
   Award,
@@ -410,7 +411,8 @@ export function PortalTopNavigation({ role, actions, organizationName, instituti
 
 export function LearnerMobileNavigation() {
   const location = useLocation()
-  return (
+
+  const bar = (
     <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label="Mobile learner navigation">
       <div className="grid h-16" style={{ gridTemplateColumns: `repeat(${learnerMobileNavigation.length}, minmax(0, 1fr))` }}>
         {learnerMobileNavigation.map((item) => {
@@ -438,5 +440,31 @@ export function LearnerMobileNavigation() {
         })}
       </div>
     </nav>
+  )
+
+  /* Portaled to <body> rather than rendered where it sits in the layout.
+
+     Every route is wrapped by `RouteTransition` in App.jsx, whose
+     `.rb-route-enter` class animates a `transform` with `animation-fill-mode:
+     both` -- so the wrapper keeps a transform applied for good, identity or
+     not. Any non-`none` transform on an ancestor makes that ancestor the
+     containing block for `position: fixed` descendants, so this bar was being
+     fixed to the page rather than to the window: it sat at the very bottom of
+     the document and a learner had to scroll to the end of a page to reach
+     their own navigation.
+
+     The same trick is used for the topic page's tutor button, and for the same
+     reason. Portaling is what actually fixes it -- outside `.rb-route-enter`
+     there is no transformed ancestor to be trapped by.
+
+     The portal classes travel with it. The bar is built from tokens defined
+     under `.netacad-portal` and `.rebyu-ds`; dropped straight into <body> it
+     would resolve none of them and paint as unstyled text on no background. */
+  if (typeof document === "undefined") {
+    return null
+  }
+  return createPortal(
+    <div className="rebyu-ds netacad-portal learner-portal">{bar}</div>,
+    document.body
   )
 }
