@@ -202,7 +202,25 @@ export async function getLearnerPortalData() {
   // All learner-private data comes pre-scoped from the backend (learnerId/userId
   // resolved from the JWT); only the certification/exam catalogs are public.
   const [portal, certifications, exams] = await Promise.all([
-    getLearnerPortalScoped({ includeProgress: false }),
+    /* Progress is asked for, not skipped.
+
+       Skipping it made the portal snapshot cheaper on the assumption that
+       "progress remains available through the analytics endpoints". It is --
+       for the analytics board, which fetches its own. The My Learning cards
+       read `certificationProgress` from this payload, and with it always empty
+       they fell through to a lessons-only fallback and reported a
+       certification 100% COMPLETE with every quiz and exam on it unsat. The
+       same learner's board, on the same data, said 32%.
+
+       The cards cannot work this out themselves. Which exams count is a server
+       question -- published, official curriculum, no tutor practice (IT
+       Passport carries 32 RECALL sets), no diagnostic -- and the browser has no
+       way to tell those apart from the catalog it holds.
+
+       The cost is bounded: the server memoises this payload per learner for
+       30s (LearnerPortalService.HOT_CACHE), so it is paid once per burst of
+       navigation rather than once per page. */
+    getLearnerPortalScoped({ includeProgress: true }),
     base("certifications"),
     getAllExams(),
   ])

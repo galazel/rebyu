@@ -568,6 +568,15 @@ export default function LearnerLearningPage() {
         totalAssessments: progressRow?.totalAssessments ?? 0,
       })
 
+      /* Without a server row this card does not know whether the certification
+         has assessments, so it cannot honestly call it finished. The lessons-only
+         fallback above reaches 100% as soon as the last lesson is read, and
+         `progress >= 100` is what prints the COMPLETED badge -- which is exactly
+         the claim that was wrong. Held one point short instead: the bar still
+         shows how far the reading got, and nothing says the work is done. */
+      const certainProgress =
+        progressRow == null && progress >= 100 ? 99 : progress
+
       const nextLesson =
           lessons.find((lesson) => !lesson.completed) ?? lessons[0] ?? null
 
@@ -579,7 +588,7 @@ export default function LearnerLearningPage() {
         lessons,
         completedLessons,
         totalLessons,
-        progress,
+        progress: certainProgress,
         nextLesson,
         diagnosticAssessment,
         diagnosticCompleted,
