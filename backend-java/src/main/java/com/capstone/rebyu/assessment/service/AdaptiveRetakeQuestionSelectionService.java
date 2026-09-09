@@ -394,19 +394,7 @@ public class AdaptiveRetakeQuestionSelectionService {
      * identical, which is what the bank actually contains.
      */
     private static String stemOf(QuestionSelectionView question) {
-        String text = question.getQuestionText();
-        if (text == null) {
-            return "";
-        }
-        StringBuilder cleaned = new StringBuilder(text.length());
-        for (char character : text.toLowerCase().toCharArray()) {
-            if (Character.isLetterOrDigit(character)) {
-                cleaned.append(character);
-            } else if (Character.isWhitespace(character)) {
-                cleaned.append(' ');
-            }
-        }
-        return String.join(" ", cleaned.toString().trim().split("\\s+"));
+        return QuestionStem.of(question.getQuestionText());
     }
 
     /** Preference order when drawing from a cell, best first. */

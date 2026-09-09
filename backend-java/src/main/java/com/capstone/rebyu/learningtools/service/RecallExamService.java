@@ -10,6 +10,7 @@ import com.capstone.rebyu.assessment.repository.ExamTypeRepository;
 import com.capstone.rebyu.assessment.repository.QuestionRepository;
 import com.capstone.rebyu.assessment.repository.QuestionSelectionView;
 import com.capstone.rebyu.assessment.service.EligibleQuestionService;
+import com.capstone.rebyu.assessment.service.QuestionStem;
 import com.capstone.rebyu.bkt.dto.LessonPriorityView;
 import com.capstone.rebyu.bkt.service.LearnerMasteryService;
 import com.capstone.rebyu.certification.entity.Certification;
@@ -26,6 +27,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -136,7 +138,41 @@ public class RecallExamService {
       addUpTo(chosen, scopeQuestionIds(certificationId, null), target);
     }
 
-    if (chosen.isEmpty()) {
+    /* Ids are not enough to tell two questions apart.
+
+       The bank holds genuine copies -- the same wording saved under several
+       ids, mostly from repeated generation runs -- so a LinkedHashSet of ids
+       de-duplicates none of them and the paper asked the same question twice.
+       Seven recall sessions in this database did exactly that.
+
+       Dropping the copies here rather than while filling keeps the tier order
+       above intact and costs one query: the tiers decide what belongs on the
+       paper, and this decides which of the survivors are actually distinct. */
+    List<Long> distinct = stemDistinct(chosen);
+
+    /* Removing copies leaves the paper short, so it is topped up from the
+       certification -- skipping everything already on it, by id and by stem
+       alike. Without this a learner whose weak areas happen to be the
+       duplicated ones would get a visibly shorter session for it. */
+    if (distinct.size() < target) {
+      Set<Long> used = new LinkedHashSet<>(distinct);
+      Set<String> usedStems = stemsOf(distinct);
+      for (QuestionSelectionView candidate : certificationCandidates(certificationId)) {
+        if (distinct.size() >= target) {
+          break;
+        }
+        Long candidateId = candidate.getQuestionId();
+        String stem = QuestionStem.of(candidate.getQuestionText());
+        if (candidateId == null || used.contains(candidateId)
+            || (!stem.isEmpty() && !usedStems.add(stem))) {
+          continue;
+        }
+        used.add(candidateId);
+        distinct.add(candidateId);
+      }
+    }
+
+    if (distinct.isEmpty()) {
       throw new IllegalStateException(
           "This certification has no questions to build a recall session from");
     }
@@ -152,7 +188,7 @@ public class RecallExamService {
         .title("Active recall · " + now.toLocalDate())
         .isGenerated(true)
         .learner(Learner.builder().learnerId(learnerId).build())
-        .totalQuestions(chosen.size())
+        .totalQuestions(distinct.size())
         .passingScore(new BigDecimal("70.00"))
         .status(Exam.Status.PUBLISHED)
         .targetScope(RECALL_TARGET_SCOPE)
@@ -164,7 +200,7 @@ public class RecallExamService {
         .build());
 
     int displayOrder = 1;
-    for (Long questionId : chosen) {
+    for (Long questionId : distinct) {
       Question question = questions.getReferenceById(questionId);
       examQuestions.save(ExamQuestion.builder()
           .exam(exam)
@@ -174,10 +210,10 @@ public class RecallExamService {
     }
 
     log.info("Recall exam {} built for learner {} on certification {} ({} items, basis {})",
-        exam.getExamId(), learnerId, certificationId, chosen.size(), basis);
+        exam.getExamId(), learnerId, certificationId, distinct.size(), basis);
 
     return new RecallExam(
-        exam.getExamId(), exam.getTitle(), certificationId, chosen.size(), basis);
+        exam.getExamId(), exam.getTitle(), certificationId, distinct.size(), basis);
   }
 
   private List<Long> missedQuestionIds(Long learnerId, Long certificationId, Long lessonId) {
@@ -228,6 +264,61 @@ public class RecallExamService {
         // to check them against.
         .filter(view -> view.getOwnerGroupId() == null)
         .map(QuestionSelectionView::getQuestionId)
+        .toList();
+  }
+
+  /**
+   * The given ids with text-duplicates removed, first occurrence kept.
+   *
+   * <p>Order is the tiers' order, which is the whole point of keeping the first
+   * of each copy: the earliest occurrence is the one the highest-priority tier
+   * put there.
+   *
+   * <p>One query, on the projection rather than the entity -- see
+   * {@link QuestionSelectionView} for why loading questions in bulk is not free.
+   * An id whose row cannot be read is kept rather than dropped: it may simply
+   * be outside this projection's scope, and losing it silently would shorten
+   * the paper for a reason nobody could see.
+   */
+  private List<Long> stemDistinct(Set<Long> ids) {
+    if (ids.isEmpty()) {
+      return new ArrayList<>();
+    }
+    Map<Long, String> stemById = new HashMap<>();
+    for (QuestionSelectionView view : questions.findSelectionViewsByIdIn(ids)) {
+      stemById.put(view.getQuestionId(), QuestionStem.of(view.getQuestionText()));
+    }
+
+    List<Long> distinct = new ArrayList<>(ids.size());
+    Set<String> seenStems = new LinkedHashSet<>();
+    for (Long id : ids) {
+      String stem = stemById.get(id);
+      if (stem == null || stem.isEmpty() || seenStems.add(stem)) {
+        distinct.add(id);
+      }
+    }
+    return distinct;
+  }
+
+  /** The stems already on the paper, so a top-up cannot reintroduce a copy. */
+  private Set<String> stemsOf(List<Long> ids) {
+    Set<String> stems = new LinkedHashSet<>();
+    if (ids.isEmpty()) {
+      return stems;
+    }
+    for (QuestionSelectionView view : questions.findSelectionViewsByIdIn(ids)) {
+      String stem = QuestionStem.of(view.getQuestionText());
+      if (!stem.isEmpty()) {
+        stems.add(stem);
+      }
+    }
+    return stems;
+  }
+
+  /** Whole-certification candidates as views, so a top-up can compare stems. */
+  private List<QuestionSelectionView> certificationCandidates(Long certificationId) {
+    return eligibleQuestions.resolveScopeViews(certificationId, null, null, null).stream()
+        .filter(view -> view.getOwnerGroupId() == null)
         .toList();
   }
 
