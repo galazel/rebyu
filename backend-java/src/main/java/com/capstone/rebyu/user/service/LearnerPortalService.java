@@ -93,8 +93,15 @@ public class LearnerPortalService {
      * cards render from the cheap payload and fill their bars in when this
      * lands. Reuses the portal's own path so there is one definition of which
      * certifications count as enrolled.
+     *
+     * <p>Read-write, for the reason spelled out on {@link #portal(Long, Long)}
+     * above: the snapshot this delegates to reaches RewardService.balance(),
+     * whose ensureBalance() upsert joins the caller's transaction. Calling it
+     * from here is self-invocation, so that method's own annotation never
+     * applies -- this one governs, and under `readOnly = true` the database
+     * rejects the INSERT and the endpoint 500s. It did exactly that.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public List<CertificationProgressDto> certificationProgress(Long learnerId, Long userId) {
         return portal(learnerId, userId, true).certificationProgress();
     }

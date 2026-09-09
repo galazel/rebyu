@@ -98,16 +98,20 @@ export async function getLearnerCertificationProgress() {
   try {
     return await base("learners/me/certification-progress")
   } catch (error) {
-    /* Falls back to the portal's own progress rather than failing.
+    /* Falls back to the portal's own progress on ANY failure.
 
-       The dedicated endpoint is newer than the deployed backend may be, and a
-       404 here would leave every card without a percentage. The portal has
-       always been able to return these rows -- it is the same computation --
-       so ask it directly. Costly, and it is off the shell's critical path
-       either way, which is the property that actually matters. */
-    if (error?.response?.status !== 404) {
-      throw error
-    }
+       This was written to catch a 404, on the assumption that the only way the
+       dedicated endpoint could fail was not being deployed yet. It shipped and
+       returned 500, the narrow catch rethrew, and every card sat on a loading
+       placeholder indefinitely -- a worse outcome than the wrong number it
+       replaced.
+
+       The portal has always been able to return these rows; it is the same
+       computation behind a different door. Whatever is wrong with the newer
+       endpoint, there is no reason to withhold a percentage the older one can
+       still produce. Both are off the shell's critical path, so the cost of
+       trying twice is a slower bar, not a slower page. */
+    console.warn("certification-progress failed, falling back to the portal", error)
     const portal = await getLearnerPortalScoped({ includeProgress: true })
     return asArray(portal?.certificationProgress)
   }
