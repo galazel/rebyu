@@ -351,19 +351,26 @@ public class AdaptiveRetakeQuestionSelectionService {
         private final List<QuestionSelectionView> questions = new ArrayList<>();
         private final Set<Long> ids = new LinkedHashSet<>();
         private final Set<String> stems = new HashSet<>();
+        /* Word sets for everything on the paper, so a candidate can be compared
+           against each. An exact stem is a map lookup; a near-duplicate is not,
+           and there is no key to hash it under. The scan is over one paper --
+           eighty questions at the very most -- so its cost is nothing beside
+           the query that fetched the pool. */
+        private final List<Set<String>> tokenSets = new ArrayList<>();
 
         /** @return false when this question (or its twin) is already picked. */
         boolean add(QuestionSelectionView question) {
-            Long id = question.getQuestionId();
-            String stem = stemOf(question);
-            if ((id != null && ids.contains(id)) || (!stem.isEmpty() && stems.contains(stem))) {
+            if (contains(question)) {
                 return false;
             }
+            Long id = question.getQuestionId();
+            String stem = stemOf(question);
             if (id != null) {
                 ids.add(id);
             }
             if (!stem.isEmpty()) {
                 stems.add(stem);
+                tokenSets.add(QuestionStem.tokens(question.getQuestionText()));
             }
             questions.add(question);
             return true;
@@ -371,8 +378,26 @@ public class AdaptiveRetakeQuestionSelectionService {
 
         boolean contains(QuestionSelectionView question) {
             Long id = question.getQuestionId();
+            if (id != null && ids.contains(id)) {
+                return true;
+            }
             String stem = stemOf(question);
-            return (id != null && ids.contains(id)) || (!stem.isEmpty() && stems.contains(stem));
+            if (stem.isEmpty()) {
+                return false;
+            }
+            if (stems.contains(stem)) {
+                return true;
+            }
+            /* Same question, edited. Selecting on ids and exact text alone put
+               both copies of these on one retake, which is what a learner
+               reported as the same question appearing twice. */
+            Set<String> candidate = QuestionStem.tokens(question.getQuestionText());
+            for (Set<String> existing : tokenSets) {
+                if (QuestionStem.sameQuestion(candidate, existing)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         int size() {

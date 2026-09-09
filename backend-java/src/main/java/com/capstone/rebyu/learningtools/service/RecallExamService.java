@@ -156,19 +156,24 @@ public class RecallExamService {
        duplicated ones would get a visibly shorter session for it. */
     if (distinct.size() < target) {
       Set<Long> used = new LinkedHashSet<>(distinct);
-      Set<String> usedStems = stemsOf(distinct);
+      List<Set<String>> usedTokens = tokensOf(distinct);
       for (QuestionSelectionView candidate : certificationCandidates(certificationId)) {
         if (distinct.size() >= target) {
           break;
         }
         Long candidateId = candidate.getQuestionId();
-        String stem = QuestionStem.of(candidate.getQuestionText());
-        if (candidateId == null || used.contains(candidateId)
-            || (!stem.isEmpty() && !usedStems.add(stem))) {
+        if (candidateId == null || used.contains(candidateId)) {
+          continue;
+        }
+        Set<String> tokens = QuestionStem.tokens(candidate.getQuestionText());
+        if (!tokens.isEmpty() && isCopy(tokens, usedTokens)) {
           continue;
         }
         used.add(candidateId);
         distinct.add(candidateId);
+        if (!tokens.isEmpty()) {
+          usedTokens.add(tokens);
+        }
       }
     }
 
@@ -284,35 +289,49 @@ public class RecallExamService {
     if (ids.isEmpty()) {
       return new ArrayList<>();
     }
-    Map<Long, String> stemById = new HashMap<>();
+    Map<Long, String> textById = new HashMap<>();
     for (QuestionSelectionView view : questions.findSelectionViewsByIdIn(ids)) {
-      stemById.put(view.getQuestionId(), QuestionStem.of(view.getQuestionText()));
+      textById.put(view.getQuestionId(), view.getQuestionText());
     }
 
     List<Long> distinct = new ArrayList<>(ids.size());
-    Set<String> seenStems = new LinkedHashSet<>();
+    List<Set<String>> keptTokens = new ArrayList<>();
     for (Long id : ids) {
-      String stem = stemById.get(id);
-      if (stem == null || stem.isEmpty() || seenStems.add(stem)) {
+      String questionText = textById.get(id);
+      Set<String> candidate = QuestionStem.tokens(questionText);
+      if (candidate.isEmpty() || !isCopy(candidate, keptTokens)) {
         distinct.add(id);
+        if (!candidate.isEmpty()) {
+          keptTokens.add(candidate);
+        }
       }
     }
     return distinct;
   }
 
-  /** The stems already on the paper, so a top-up cannot reintroduce a copy. */
-  private Set<String> stemsOf(List<Long> ids) {
-    Set<String> stems = new LinkedHashSet<>();
-    if (ids.isEmpty()) {
-      return stems;
-    }
-    for (QuestionSelectionView view : questions.findSelectionViewsByIdIn(ids)) {
-      String stem = QuestionStem.of(view.getQuestionText());
-      if (!stem.isEmpty()) {
-        stems.add(stem);
+  /** Whether this question is one already on the paper, exactly or edited. */
+  private static boolean isCopy(Set<String> candidate, List<Set<String>> kept) {
+    for (Set<String> existing : kept) {
+      if (candidate.equals(existing) || QuestionStem.sameQuestion(candidate, existing)) {
+        return true;
       }
     }
-    return stems;
+    return false;
+  }
+
+  /** The word sets already on the paper, so a top-up cannot reintroduce a copy. */
+  private List<Set<String>> tokensOf(List<Long> ids) {
+    List<Set<String>> tokens = new ArrayList<>();
+    if (ids.isEmpty()) {
+      return tokens;
+    }
+    for (QuestionSelectionView view : questions.findSelectionViewsByIdIn(ids)) {
+      Set<String> stem = QuestionStem.tokens(view.getQuestionText());
+      if (!stem.isEmpty()) {
+        tokens.add(stem);
+      }
+    }
+    return tokens;
   }
 
   /** Whole-certification candidates as views, so a top-up can compare stems. */
