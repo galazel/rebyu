@@ -95,7 +95,9 @@ function getAchievementDescription(achievement) {
 }
 
 function getCourseStatus(progress, completedLessons) {
-  if (progress >= 100) {
+  /* `null` is "the server has not said yet", which is not a score of zero and
+     certainly not a finished certification. */
+  if (progress != null && progress >= 100) {
     return "COMPLETED"
   }
 
@@ -273,7 +275,7 @@ function CourseCard({ course, onOpen }) {
 
   const status = getCourseStatus(progress, completedLessons)
   const needsDiagnostic = !diagnosticCompleted
-  const completed = progress >= 100
+  const completed = progress != null && progress >= 100
   const tone = toneForCertification(certification)
   // Same tone the cap uses, so the button and the bar belong to this card.
   const palette = BUBBLE_TONES[tone] ?? BUBBLE_TONES.macaw
@@ -326,18 +328,31 @@ function CourseCard({ course, onOpen }) {
             which is the one fact a learner opens this page for. */}
         <div className="mt-4 space-y-2">
           <div className="flex items-baseline justify-between gap-3">
-            <span
-                className="font-rb-display text-2xl font-extrabold leading-none tabular-nums"
-                style={{ color: palette.solid }}
-            >
-              {progress}%
-            </span>
+            {/* A placeholder, not a guess. Until the server has counted the
+                assessments this card cannot say how far through the
+                certification a learner is, and printing the lessons figure here
+                would call a certification finished the moment its last lesson
+                was read. */}
+            {progress == null ? (
+              <span
+                  className="h-6 w-16 animate-pulse rounded-rb-pill bg-rb-swan"
+                  title="Working out how far through you are"
+                  aria-label="Progress loading"
+              />
+            ) : (
+              <span
+                  className="font-rb-display text-2xl font-extrabold leading-none tabular-nums"
+                  style={{ color: palette.solid }}
+              >
+                {progress}%
+              </span>
+            )}
             <span className="text-xs font-bold text-muted-foreground">
               {completedLessons} of {totalLessons} lessons
             </span>
           </div>
 
-          <ProgressBar value={progress} color={palette.solid} />
+          <ProgressBar value={progress ?? 0} color={palette.solid} />
         </div>
 
         <p className="mt-4 truncate border-t border-border pt-3 text-xs text-muted-foreground">
@@ -378,7 +393,7 @@ function CourseRow({ course, onOpen }) {
 
   const status = getCourseStatus(progress, completedLessons)
   const needsDiagnostic = !diagnosticCompleted
-  const completed = progress >= 100
+  const completed = progress != null && progress >= 100
   const tone = toneForCertification(certification)
   const palette = BUBBLE_TONES[tone] ?? BUBBLE_TONES.macaw
   const StateIcon = needsDiagnostic ? LockKeyhole : completed ? Award : CirclePlay
@@ -440,17 +455,25 @@ function CourseRow({ course, onOpen }) {
           </p>
 
           <div className="mt-2 max-w-md">
-            <ProgressBar value={progress} color={palette.solid} />
+            <ProgressBar value={progress ?? 0} color={palette.solid} />
           </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-4 sm:flex-col sm:items-end sm:gap-2">
-          <span
-              className="font-rb-display text-2xl font-extrabold leading-none tabular-nums"
-              style={{ color: palette.solid }}
-          >
-            {progress}%
-          </span>
+          {progress == null ? (
+            <span
+                className="h-6 w-16 animate-pulse rounded-rb-pill bg-rb-swan"
+                title="Working out how far through you are"
+                aria-label="Progress loading"
+            />
+          ) : (
+            <span
+                className="font-rb-display text-2xl font-extrabold leading-none tabular-nums"
+                style={{ color: palette.solid }}
+            >
+              {progress}%
+            </span>
+          )}
 
           {/* Sized to its label, not to the page. A Continue button 1400px wide
               was the loudest thing on the screen and the least worth it. */}
@@ -587,14 +610,15 @@ export default function LearnerLearningPage() {
         totalAssessments: progressRow?.totalAssessments ?? 0,
       })
 
-      /* Without a server row this card does not know whether the certification
-         has assessments, so it cannot honestly call it finished. The lessons-only
-         fallback above reaches 100% as soon as the last lesson is read, and
-         `progress >= 100` is what prints the COMPLETED badge -- which is exactly
-         the claim that was wrong. Held one point short instead: the bar still
-         shows how far the reading got, and nothing says the work is done. */
-      const certainProgress =
-        progressRow == null && progress >= 100 ? 99 : progress
+      /* Null, not a number, when the server has not said yet.
+
+         Reading every lesson takes the lessons-only fallback to 100%, and this
+         card cannot know whether there are assessments still to pass -- so any
+         figure it prints here is a guess. It printed 99% for a while, which was
+         worse than useless: a made-up number that looks measured. Null means
+         "not known", and the card shows a placeholder until the real one
+         arrives. */
+      const knownProgress = progressRow ? progress : null
 
       const nextLesson =
           lessons.find((lesson) => !lesson.completed) ?? lessons[0] ?? null
@@ -607,12 +631,12 @@ export default function LearnerLearningPage() {
         lessons,
         completedLessons,
         totalLessons,
-        progress: certainProgress,
+        progress: knownProgress,
         nextLesson,
         diagnosticAssessment,
         diagnosticCompleted,
         status: diagnosticCompleted
-            ? getCourseStatus(progress, completedLessons)
+            ? getCourseStatus(knownProgress, completedLessons)
             : "DIAGNOSTIC REQUIRED",
       }
     })

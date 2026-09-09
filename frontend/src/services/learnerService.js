@@ -94,8 +94,23 @@ export function getLearnerPortalScoped(options = {}) {
  * blanked My Learning until it returned. Fetched separately, a slow answer
  * costs a percentage on a card rather than the page.
  */
-export function getLearnerCertificationProgress() {
-  return base("learners/me/certification-progress")
+export async function getLearnerCertificationProgress() {
+  try {
+    return await base("learners/me/certification-progress")
+  } catch (error) {
+    /* Falls back to the portal's own progress rather than failing.
+
+       The dedicated endpoint is newer than the deployed backend may be, and a
+       404 here would leave every card without a percentage. The portal has
+       always been able to return these rows -- it is the same computation --
+       so ask it directly. Costly, and it is off the shell's critical path
+       either way, which is the property that actually matters. */
+    if (error?.response?.status !== 404) {
+      throw error
+    }
+    const portal = await getLearnerPortalScoped({ includeProgress: true })
+    return asArray(portal?.certificationProgress)
+  }
 }
 
 const LEARNER_PORTAL_SNAPSHOT_KEY = "rebyu:learner-portal-snapshot"
