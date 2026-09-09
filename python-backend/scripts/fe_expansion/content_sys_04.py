@@ -488,19 +488,21 @@ _quiz = [
         "what makes combining them afterwards meaningful."),
 
     mcq("AVERAGE",
-        "Why must evaluation criteria be fixed before responses are "
-        "received?",
-        [("Criteria set afterwards tend to describe the preferred "
-          "response", True),
-         ("Suppliers must be told the criteria in the invitation", False),
-         ("Late criteria cannot be weighted consistently", False),
-         ("Procurement regulations mandate published criteria "
-          "everywhere", False)],
-        "Once responses are visible, criteria drift towards whichever one "
-        "seems best, and the evaluation then documents a decision already "
-        "made rather than making one. It is the same discipline that requires "
-        "audit criteria to precede the evidence, and for the same reason: an "
-        "assessment against a standard chosen afterwards proves nothing."),
+        "Suppliers respond to an invitation in whatever format each "
+        "prefers.\n\nWhat does this cost the buyer?",
+        [("The responses cannot be compared against each other", True),
+         ("The buyer must spend considerably longer reading each of the "
+          "responses that arrive", False),
+         ("Suppliers omit information the buyer had assumed would be "
+          "included as a matter of course", False),
+         ("The eventual contract must be drafted separately for whichever "
+          "supplier is selected", False)],
+        "An invitation specifies a response structure so that answers to the "
+        "same question sit side by side and can be scored against the same "
+        "criteria. Without it each response is a document about itself, and "
+        "the evaluation becomes an impression rather than a comparison -- "
+        "which is precisely what a structured procurement exists to "
+        "prevent."),
 
     mcq("HARD",
         "What does comparing purchase prices rather than cost of ownership "
