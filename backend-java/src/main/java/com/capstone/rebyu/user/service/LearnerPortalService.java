@@ -84,6 +84,21 @@ public class LearnerPortalService {
         return portal(learnerId, userId, true);
     }
 
+    /**
+     * Just the progress rows, for callers that want the numbers and not the
+     * snapshot.
+     *
+     * <p>Progress is the expensive part of the portal and the part the shell
+     * cannot afford to wait on, so it is fetched on its own: My Learning's
+     * cards render from the cheap payload and fill their bars in when this
+     * lands. Reuses the portal's own path so there is one definition of which
+     * certifications count as enrolled.
+     */
+    @Transactional(readOnly = true)
+    public List<CertificationProgressDto> certificationProgress(Long learnerId, Long userId) {
+        return portal(learnerId, userId, true).certificationProgress();
+    }
+
     @Transactional
     public LearnerPortalDto portal(Long learnerId, Long userId, boolean includeProgress) {
         String cacheKey = learnerId + ":" + userId + ":" + includeProgress;

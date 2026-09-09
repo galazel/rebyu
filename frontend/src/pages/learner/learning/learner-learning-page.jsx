@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { useNavigate, useOutletContext } from "react-router-dom"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import {
   Award,
@@ -20,6 +20,7 @@ import {
   certificationProgressPercent,
   findCertificationProgress,
 } from "@/lib/certification-progress.js"
+import { getLearnerCertificationProgress } from "@/services/learnerService.js"
 import { useStudyPlanGate } from "@/components/learner/use-study-plan-gate.jsx"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -499,6 +500,24 @@ export default function LearnerLearningPage() {
   const enrolledCertifications = data?.enrolledCertifications ?? []
   const allLessons = data?.lessons ?? []
 
+  /* Progress arrives on its own, after the page.
+
+     These bars count assessments passed as well as lessons read, and only the
+     server can say which assessments qualify. That computation walks every
+     lesson and exam of every enrolled certification, so it is not something
+     the shell can wait on -- asked for inside the portal snapshot it blanked
+     this page until it returned. Here it is just late: the cards render from
+     the portal payload immediately and the bars settle when this lands. */
+  const progressQuery = useQuery({
+    queryKey: ["learner-certification-progress"],
+    queryFn: getLearnerCertificationProgress,
+    staleTime: 60_000,
+    /* A failed percentage must never take the page with it. Without a row a
+       card falls back to lessons alone, held short of complete. */
+    retry: 1,
+  })
+  const progressRows = progressQuery.data ?? data?.certificationProgress ?? []
+
   // "Latest Achievements" -- earned only, newest first. The locked ones are
   // shown on the account page's badge wall, where the whole catalog belongs.
   const achievements = (Array.isArray(data?.achievements) ? data.achievements : [])
@@ -554,7 +573,7 @@ export default function LearnerLearningPage() {
          row for (not an active enrollment) falls back to lessons alone rather
          than showing a bar that says nothing. */
       const progressRow = findCertificationProgress(
-          data?.certificationProgress,
+          progressRows,
           certification.certificationId,
       )
 
@@ -597,7 +616,7 @@ export default function LearnerLearningPage() {
             : "DIAGNOSTIC REQUIRED",
       }
     })
-  }, [allLessons, enrolledCertifications, data])
+  }, [allLessons, enrolledCertifications, data, progressRows])
 
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {

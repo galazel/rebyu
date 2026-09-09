@@ -19,6 +19,7 @@ import com.capstone.rebyu.certification.entity.Lesson;
 import com.capstone.rebyu.certification.entity.MajorCategory;
 import com.capstone.rebyu.certification.entity.MiddleCategory;
 import com.capstone.rebyu.certification.repository.CertificationRepository;
+import com.capstone.rebyu.certification.repository.CurriculumLessonIdView;
 import com.capstone.rebyu.certification.repository.LessonRepository;
 import com.capstone.rebyu.challenge.entity.ChallengeSession;
 import com.capstone.rebyu.challenge.repository.ChallengeSessionRepository;
@@ -162,29 +163,34 @@ public class ProgressAnalyticsService {
      */
     @Transactional(readOnly = true)
     public CertificationProgressDto progressFor(Long learnerId, Long certificationId) {
-        List<Lesson> certLessons = lessonRepository
-                .findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerGroupIsNull(
-                        certificationId);
+        /* Ids and a count, not entities.
+         *
+         * Everything below wants either how many lessons there are or which
+         * ids belong to the certification. Reading Lesson rows to answer that
+         * meant loading each one's `lesson_component_structure` -- the whole
+         * authored lesson, tens of kilobytes each -- so a learner enrolled on
+         * three certifications pulled the better part of two hundred lessons'
+         * content into memory on every call, to take three `size()`s. The
+         * portal snapshot that waits on this went multi-second and My Learning
+         * rendered blank behind it. */
+        List<CurriculumLessonIdView> certLessons =
+                lessonRepository.findOfficialLessonIdsByCertificationId(certificationId);
         int totalLessonCount = certLessons.size();
-        int completedLessonCount = learnerCompletedLessonRepository
-                .findByLearner_LearnerIdAndLesson_MiddleCategory_MajorCategory_Certification_CertificationId(
-                        learnerId, certificationId)
-                .size();
+        int completedLessonCount = (int) learnerCompletedLessonRepository
+                .countByLearner_LearnerIdAndLesson_MiddleCategory_MajorCategory_Certification_CertificationId(
+                        learnerId, certificationId);
 
         Set<Long> officialLessonIds = certLessons.stream()
-                .map(Lesson::getLessonId)
+                .map(CurriculumLessonIdView::getLessonId)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
         Set<Long> officialMiddleIds = certLessons.stream()
-                .map(Lesson::getMiddleCategory)
+                .map(CurriculumLessonIdView::getMiddleCategoryId)
                 .filter(Objects::nonNull)
-                .map(MiddleCategory::getMiddleCategoryId)
                 .collect(Collectors.toSet());
         Set<Long> officialMajorIds = certLessons.stream()
-                .map(Lesson::getMiddleCategory)
+                .map(CurriculumLessonIdView::getMajorCategoryId)
                 .filter(Objects::nonNull)
-                .map(MiddleCategory::getMajorCategory)
-                .filter(Objects::nonNull)
-                .map(MajorCategory::getMajorCategoryId)
                 .collect(Collectors.toSet());
 
         List<Exam> certExams = examRepository.findByCertification_CertificationId(certificationId).stream()

@@ -2,6 +2,7 @@ package com.capstone.rebyu.user.controller;
 
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
+import com.capstone.rebyu.progress.analytics.dto.CertificationProgressDto;
 import com.capstone.rebyu.user.dto.LearnerDto;
 import com.capstone.rebyu.user.dto.LearnerPortalDto;
 import com.capstone.rebyu.user.service.LearnerPortalService;
@@ -12,6 +13,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * Learner-scoped portal snapshot. The learner/user ids are always resolved from the
@@ -32,6 +35,21 @@ public class LearnerPortalController {
             @RequestParam(defaultValue = "true") boolean includeProgress) {
         CurrentUserDto me = requireLearner(jwt);
         return portalService.portal(me.learnerId(), me.userId(), includeProgress);
+    }
+
+    /**
+     * The progress rows on their own.
+     *
+     * <p>Split out because progress is what makes the portal snapshot slow --
+     * it walks every lesson and exam of every enrolled certification -- and the
+     * learner shell blocks on that snapshot. My Learning renders from the cheap
+     * payload and asks for this separately, so a slow computation costs a
+     * percentage rather than the page.
+     */
+    @GetMapping("/certification-progress")
+    public List<CertificationProgressDto> certificationProgress(@AuthenticationPrincipal Jwt jwt) {
+        CurrentUserDto me = requireLearner(jwt);
+        return portalService.certificationProgress(me.learnerId(), me.userId());
     }
 
     /** The caller's own learner record (JWT-derived) -- replaces fetching the global learners list. */

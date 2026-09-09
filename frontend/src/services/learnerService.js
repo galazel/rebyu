@@ -85,6 +85,19 @@ export function getLearnerPortalScoped(options = {}) {
   return base(`learners/me/portal${query}`)
 }
 
+/**
+ * The progress rows for every certification this learner is enrolled on.
+ *
+ * Its own request on purpose. Progress is the expensive half of the portal --
+ * it walks every lesson and exam of every enrolled certification -- and the
+ * learner shell blocks on the portal snapshot, so folding it back in there
+ * blanked My Learning until it returned. Fetched separately, a slow answer
+ * costs a percentage on a card rather than the page.
+ */
+export function getLearnerCertificationProgress() {
+  return base("learners/me/certification-progress")
+}
+
 const LEARNER_PORTAL_SNAPSHOT_KEY = "rebyu:learner-portal-snapshot"
 
 export function readLearnerPortalSnapshot() {
@@ -202,25 +215,19 @@ export async function getLearnerPortalData() {
   // All learner-private data comes pre-scoped from the backend (learnerId/userId
   // resolved from the JWT); only the certification/exam catalogs are public.
   const [portal, certifications, exams] = await Promise.all([
-    /* Progress is asked for, not skipped.
+    /* Progress stays OUT of this snapshot.
 
-       Skipping it made the portal snapshot cheaper on the assumption that
-       "progress remains available through the analytics endpoints". It is --
-       for the analytics board, which fetches its own. The My Learning cards
-       read `certificationProgress` from this payload, and with it always empty
-       they fell through to a lessons-only fallback and reported a
-       certification 100% COMPLETE with every quiz and exam on it unsat. The
-       same learner's board, on the same data, said 32%.
+       The whole learner shell waits on this call, and computing progress means
+       walking every lesson and exam of every enrolled certification: measured
+       against the live database that is ~2.9s of SQL before JPA has hydrated
+       176 Lesson entities, each carrying its full `lesson_component_structure`
+       JSONB. Asking for it here once blanked My Learning outright.
 
-       The cards cannot work this out themselves. Which exams count is a server
-       question -- published, official curriculum, no tutor practice (IT
-       Passport carries 32 RECALL sets), no diagnostic -- and the browser has no
-       way to tell those apart from the catalog it holds.
-
-       The cost is bounded: the server memoises this payload per learner for
-       30s (LearnerPortalService.HOT_CACHE), so it is paid once per burst of
-       navigation rather than once per page. */
-    getLearnerPortalScoped({ includeProgress: true }),
+       The cards need those numbers, but not at the cost of the page. They
+       fetch them separately -- see `getLearnerCertificationProgress` -- so a
+       slow or failed progress computation delays a percentage rather than the
+       screen. */
+    getLearnerPortalScoped({ includeProgress: false }),
     base("certifications"),
     getAllExams(),
   ])
