@@ -44,7 +44,7 @@ import {
 import { LearnerEmptyState } from "@/components/learner/learner-ui.jsx"
 import { LessonAiTutor } from "@/components/learner/lesson-ai-tutor.jsx"
 import { LessonKnowledgeCheck } from "@/components/learner/lesson-knowledge-check.jsx"
-import { useKnowledgeCheckTrigger } from "@/hooks/useKnowledgeCheckTrigger.js"
+import { useDailyStudyChallenge } from "@/hooks/useDailyStudyChallenge.js"
 import { useReadingPaceGuard } from "@/hooks/useReadingPaceGuard.js"
 import { Button } from "@/components/ui/button"
 import {
@@ -1380,12 +1380,14 @@ export default function LearnerTopicPage() {
      back exactly the sections it raced past and nothing read before it. */
   const readAtRef = useRef(new Map())
 
-  /* The pop-up knowledge check: once per lesson, at a random depth, asking
-     about lessons already completed. It only ever lived on the old standalone
-     lesson page, so learners studying here never met it. */
-  const knowledgeCheck = useKnowledgeCheckTrigger({
+  /* The pop-up challenge: once a day, at a random moment of active study,
+     whichever lesson is open then -- not on every lesson, which learners found
+     annoying. Questions come from lessons already completed. Held while the
+     slow-down board is up so the two never stack. */
+  const knowledgeCheck = useDailyStudyChallenge({
+    learnerId: data?.learnerId,
     lessonId: activeLessonId,
-    enabled: Boolean(data?.learnerId) && sections.length > 0,
+    enabled: Boolean(data?.learnerId) && !slowDownOpen,
   })
 
   /* Racing down a lesson is not studying it. A learner who flicks through more
@@ -1849,7 +1851,7 @@ export default function LearnerTopicPage() {
         </DialogContent>
       </Dialog>
 
-      {/* The pop-up challenge on lessons already completed. */}
+      {/* The day's pop-up challenge, on lessons already completed. */}
       <LessonKnowledgeCheck
         open={Boolean(knowledgeCheck.offer)}
         lessonId={activeLessonId}
