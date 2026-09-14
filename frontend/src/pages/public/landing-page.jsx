@@ -446,32 +446,32 @@ function HeroSection() {
       {/* `animate`, not `whileInView`: the fold is on screen before any observer
           could fire. The stagger reads as one sentence being said. */}
       <motion.div
-        className="relative mx-auto w-full max-w-5xl px-4 pb-20 pt-12 sm:px-6"
+        className="relative mx-auto w-full max-w-[1360px] px-4 pb-16 pt-10 sm:px-8"
         initial="hidden"
         animate="show"
         variants={staggerParent(0.09, 0.1)}
       >
-        <div className="rb-chalkboard px-6 pb-12 pt-9 text-center sm:px-12 sm:pb-14 sm:pt-11">
+        <div className="rb-chalkboard rb-hero-board px-6 pb-16 pt-12 text-center sm:px-16 sm:pb-24 sm:pt-16">
           <motion.p variants={fadeUp} className="rb-chalk-label mx-auto">
             <Typewriter text="for TOPCIT, IT Passport & FE exam candidates" speed={34} startOnMount />
           </motion.p>
 
           <motion.h1
             variants={staggerParent(0.055)}
-            className="rb-chalk mt-6 text-[clamp(2.6rem,6.5vw,5.75rem)] leading-[1.02]"
+            className="rb-chalk mt-6 text-[clamp(3rem,8.5vw,8rem)] leading-[1.02]"
           >
             <WordReveal text="Pass it the first time." inherit />
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
-            className="rb-chalk-body mx-auto mt-5 max-w-2xl text-balance text-lg sm:text-xl"
+            className="rb-chalk-body mx-auto mt-6 max-w-4xl text-balance text-xl sm:text-2xl"
           >
             Rebyu finds the topics you are weakest at and builds your study plan around them — so
             nothing on exam day is a surprise.
           </motion.p>
 
-          <motion.div variants={fadeUp} className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
+          <motion.div variants={fadeUp} className="mt-11 flex flex-col justify-center gap-4 sm:flex-row">
             <TactileButton asChild size="lg">
               <Link to="/register">
                 start learning

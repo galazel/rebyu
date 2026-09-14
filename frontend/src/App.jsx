@@ -149,6 +149,12 @@ function RouteTransition({ children }) {
     // layout around them. Reading `offsetWidth` between the two is what forces
     // the reflow that makes the browser treat it as a new animation.
     useEffect(() => {
+        // A new page opens at its top. Without this the window kept the previous
+        // page's scroll offset, so a link near the foot of the landing page
+        // opened the next page already scrolled to its bottom. A link to an
+        // anchor (#section) is left alone so it still lands on that section.
+        if (!window.location.hash) window.scrollTo({ top: 0, left: 0, behavior: "instant" })
+
         const node = ref.current
         if (!node) return
 

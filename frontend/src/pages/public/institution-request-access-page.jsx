@@ -22,6 +22,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { getAllCertifications } from "@/services/certificationService.js"
 import { submitPublicPartnershipRequest } from "@/services/partnershipService.js"
+import { TraySupplies } from "@/components/classroom/tray-supplies.jsx"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -244,7 +245,8 @@ export default function InstitutionRequestAccessPage() {
       <main className="rebyu-ds rb-light-only flex min-h-dvh flex-col bg-rb-polar text-rb-eel">
         <PublicHeader />
         <div className="flex flex-1 items-center justify-center px-5 py-14 sm:px-8">
-          <RebyuCard className="w-full max-w-xl p-8 sm:p-10">
+          <div className="rb-sticky rb-sticky-yellow w-full max-w-xl !p-8 sm:!p-10">
+            <span className="rb-pushpin" aria-hidden="true" />
             <span className="grid size-14 place-items-center rounded-rb-tile bg-rb-leaf-wash text-rb-leaf">
               <CheckCircle2 className="size-7" aria-hidden="true" />
             </span>
@@ -255,7 +257,7 @@ export default function InstitutionRequestAccessPage() {
               gave once the request is approved or rejected.
             </p>
 
-            <div className="mt-7 rounded-rb-tile border-2 border-rb-swan bg-rb-polar p-5">
+            <div className="mt-7 rounded-[4px] bg-white/70 p-5 shadow-[inset_0_0_0_1px_rgb(0_0_0/0.06)]">
               <p className="rb-eyebrow">your reference number</p>
               <p className="rb-numeric mt-2 text-2xl">
                 {confirmation.referenceNumber}
@@ -268,7 +270,7 @@ export default function InstitutionRequestAccessPage() {
             <TactileButton asChild variant="ghost" className="mt-7 w-full">
               <Link to="/">back to home</Link>
             </TactileButton>
-          </RebyuCard>
+          </div>
         </div>
       </main>
     )
@@ -276,37 +278,38 @@ export default function InstitutionRequestAccessPage() {
 
   // --- Request form ----------------------------------------------------------
   return (
-    <main className="rebyu-ds rb-light-only min-h-dvh bg-rb-snow text-rb-eel">
+    <main className="rebyu-ds rb-light-only min-h-dvh bg-rb-polar text-rb-eel">
       <PublicHeader />
 
-      {/* Hero band. Polar rather than Snow, so the page opens on the same
-          two-surface rhythm the landing page keeps between its sections. */}
-      <section className="border-b-2 border-rb-swan bg-rb-polar px-5 py-14 sm:px-8 lg:py-20">
+      {/* The classroom, with the invitation chalked on the board and the three
+          steps pinned up underneath it as sticky notes. */}
+      <section className="rb-classroom-photo px-5 py-14 sm:px-8 lg:py-20">
         <div className="mx-auto max-w-[1120px]">
-          <p className="rb-eyebrow">institution partnerships</p>
-          <h1 className="rb-display rb-display-lg mt-3 max-w-3xl">
-            bring your school onto rebyu.
-          </h1>
-          <p className="rb-body mt-4 max-w-2xl">
-            Tell us about your organization and the certifications your learners
-            need. Nothing is charged, and no account is created by this form.
-          </p>
+          <div className="rb-chalkboard px-6 pb-16 pt-10 text-center sm:px-12">
+            <p className="rb-chalk-label mx-auto">institution partnerships</p>
+            <h1 className="rb-chalk mt-5 text-[clamp(2.2rem,5vw,4rem)] leading-tight">
+              bring your school onto rebyu.
+            </h1>
+            <p className="rb-chalk-body mx-auto mt-4 max-w-2xl text-lg">
+              Tell us about your organization and the certifications your learners
+              need. Nothing is charged, and no account is created by this form.
+            </p>
+            <TraySupplies />
+          </div>
 
-          <ol className="mt-10 grid gap-4 sm:grid-cols-3">
+          <ol className="mt-16 grid gap-8 sm:grid-cols-3">
             {PROCESS.map((step, index) => (
-              <li key={step.title}>
-                <RebyuCard className="h-full">
-                  <div className="flex items-center gap-3">
-                    <span className="grid size-10 shrink-0 place-items-center rounded-rb-tile bg-rb-macaw-wash text-rb-macaw-lip">
-                      <step.icon className="size-5" aria-hidden="true" />
-                    </span>
-                    <span className="rb-numeric text-sm text-rb-hare">
-                      0{index + 1}
-                    </span>
-                  </div>
-                  <p className="rb-display rb-display-sm mt-3">{step.title}</p>
-                  <p className="rb-caption mt-1.5">{step.body}</p>
-                </RebyuCard>
+              <li
+                key={step.title}
+                className={`rb-sticky ${["rb-sticky-yellow", "rb-sticky-mint", "rb-sticky-pink"][index]}`}
+              >
+                <span className="rb-pushpin" aria-hidden="true" />
+                <div className="flex items-center gap-3">
+                  <step.icon className="size-6 text-[#4a3a12]" aria-hidden="true" />
+                  <span className="font-rb-display text-xl text-[#6b5a2a]">step {index + 1}</span>
+                </div>
+                <p className="rb-sticky-title mt-2 !text-[1.7rem]">{step.title}</p>
+                <p className="rb-sticky-body mt-1.5 text-sm">{step.body}</p>
               </li>
             ))}
           </ol>
@@ -317,7 +320,8 @@ export default function InstitutionRequestAccessPage() {
         onSubmit={handleSubmit}
         className="mx-auto grid max-w-[1120px] gap-10 px-5 py-14 sm:px-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-12 lg:py-16"
       >
-        <div className="space-y-10">
+        {/* The application itself, written on a sheet of notebook paper. */}
+        <div className="rb-graded-sheet space-y-10 p-6 sm:p-10">
           <FormSection
             icon={Building2}
             title="organization details"
@@ -431,7 +435,8 @@ export default function InstitutionRequestAccessPage() {
             running total and the submit key are the two things you want within
             reach at every scroll position, not only at the bottom. */}
         <aside className="lg:sticky lg:top-28 lg:self-start">
-          <RebyuCard raised className="p-6">
+          <div className="rb-sticky rb-sticky-yellow !p-6 sm:!p-7">
+            <span className="rb-pushpin" aria-hidden="true" />
             <p className="rb-eyebrow">request summary</p>
 
             {selectedItems.length === 0 ? (
@@ -493,7 +498,7 @@ export default function InstitutionRequestAccessPage() {
             <p className="rb-caption mt-4">
               You get a reference number as soon as the request is in.
             </p>
-          </RebyuCard>
+          </div>
         </aside>
       </form>
     </main>
@@ -528,11 +533,7 @@ function CertificationRow({ certification, selected, slots, onToggle, onSlots, o
 
   return (
     <div
-      className={`rounded-rb-card border-2 transition-colors ${
-        selected
-          ? "border-rb-feather bg-rb-feather-wash"
-          : "border-rb-swan bg-rb-snow hover:border-rb-hare"
-      }`}
+      className={`rb-index-card ${selected ? "is-selected" : ""}`}
     >
       <button
         type="button"

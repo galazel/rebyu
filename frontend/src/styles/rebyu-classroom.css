@@ -2849,3 +2849,299 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
     height: 24px;
     margin-top: -2px;
 }
+
+/* The landing hero's board runs nearly the width of the window: a bigger slate,
+   a bigger label, longer supplies on its tray. */
+.rb-hero-board .rb-chalk-label {
+    padding: 0.4rem 1.2rem;
+    font-size: clamp(1.1rem, 1.6vw, 1.45rem);
+}
+.rb-hero-board {
+    min-height: min(62vh, 620px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* ===========================================================================
+   DARK MODE: THE CLASSROOM AT NIGHT
+   ---------------------------------------------------------------------------
+   One dark palette for every themed page (portals, marked papers, dialogs'
+   surroundings). It replaces the older charcoal/blue dark blocks in index.css
+   and rebyu-ds.css, which were mixing with the light classroom tokens.
+
+   Dark wall, dim notebook paper, chalk-coloured ink; the accents are the same
+   classroom colours raised enough to read on the dark ground. Things that are
+   physical objects -- sticky notes, bookmarks, the chalkboard dialogs, yellow
+   margin notes -- keep their daylight colours, the way real paper does.
+   `.rb-light-only` pages (landing, auth, 404/403) stay light entirely.
+   =========================================================================== */
+:root.dark,
+.dark .netacad-portal,
+.dark body.netacad-overlay-theme,
+.dark .rebyu-ds:not(.rb-light-only) {
+    color-scheme: dark;
+
+    --rb-paper: #232a26;
+    --rb-wall: #171c19;
+    --rb-line: #343d38;
+    --rb-page-surface: #171c19;
+    --rb-rule-color: #313a35;
+    --rb-margin-color: rgb(214 108 94 / 0.45);
+    --rb-hole: #141816;
+    --rb-shadow-soft: 0 1px 2px rgb(0 0 0 / 0.35), 0 6px 18px rgb(0 0 0 / 0.28);
+    --rb-shadow-lift: 0 2px 4px rgb(0 0 0 / 0.4), 0 14px 32px rgb(0 0 0 / 0.38);
+    --rb-elev-popover: 0 10px 28px rgb(0 0 0 / 0.45);
+    --rb-elev-overlay: 0 24px 56px rgb(0 0 0 / 0.55);
+    --rb-focus: #7cc19c;
+
+    --color-rb-feather: #5fa37f;
+    --color-rb-feather-lip: #4a8a68;
+    --color-rb-feather-ink: #8fcca9;
+    --color-rb-feather-wash: #1f3329;
+    --color-rb-mask: #7cc19c;
+    --color-rb-mask-lip: #5fa37f;
+    --color-rb-macaw: #6fb09c;
+    --color-rb-macaw-lip: #8cc6b3;
+    --color-rb-macaw-wash: #1d312c;
+    --color-rb-bee: #e6c25a;
+    --color-rb-bee-lip: #c9a43f;
+    --color-rb-bee-ink: #f0d27a;
+    --color-rb-bee-wash: #35301c;
+    --color-rb-fox: #e39a4f;
+    --color-rb-fox-lip: #efb378;
+    --color-rb-fox-wash: #37291b;
+    --color-rb-leaf: #6fb27d;
+    --color-rb-leaf-lip: #92c99d;
+    --color-rb-leaf-wash: #1e3223;
+    --color-rb-cardinal: #e27a63;
+    --color-rb-cardinal-lip: #efa08e;
+    --color-rb-cardinal-wash: #3a221d;
+    --color-rb-beetle: #b58aa8;
+    --color-rb-beetle-lip: #cfa9c3;
+    --color-rb-beetle-wash: #33242f;
+    --color-rb-humpback: #a3b46d;
+    --color-rb-humpback-lip: #bdcb8e;
+    --color-rb-ink: #101512;
+    --color-rb-sun: #2c2a1f;
+    --color-rb-cyan: #1f2b25;
+    --color-rb-magenta: #2d261f;
+    --color-rb-purple: #232a25;
+    --color-rb-lime: #242b20;
+
+    --color-rb-eel: #ece6d8;
+    --color-rb-wolf: #b9b3a5;
+    --color-rb-hare: #7f877f;
+    --color-rb-swan: #343d38;
+    --color-rb-polar: #1e2521;
+    --color-rb-snow: #232a26;
+
+    --background: #171c19;
+    --foreground: #ece6d8;
+    --card: #232a26;
+    --card-foreground: #ece6d8;
+    --popover: #232a26;
+    --popover-foreground: #ece6d8;
+    --primary: #5fa37f;
+    --primary-foreground: #0f1a14;
+    --secondary: #2a322d;
+    --secondary-foreground: #ece6d8;
+    --muted: #2a322d;
+    --muted-foreground: #b0ab9d;
+    --accent: #253a2f;
+    --accent-foreground: #cfe6d6;
+    --destructive: #e27a63;
+    --destructive-foreground: #1a0f0c;
+    --border: #343d38;
+    --input: #3e4842;
+    --ring: #7cc19c;
+    --chart-1: #6fb27d;
+    --chart-2: #e6c25a;
+    --chart-3: #e27a63;
+    --chart-4: #b58aa8;
+    --chart-5: #c79a6b;
+    --brand-navy: #ece6d8;
+    --brand-navy-soft: #cfc9bb;
+    --brand-blue: #5fa37f;
+    --brand-blue-dark: #4a8a68;
+    --brand-blue-soft: #1f3329;
+    --brand-sky: #6fb09c;
+    --brand-sky-soft: #1d312c;
+    --brand-yellow: #e6c25a;
+    --brand-yellow-foreground: #1b1a12;
+    --brand-yellow-soft: #35301c;
+    --brand-lilac: #33242f;
+    --brand-lilac-foreground: #cfa9c3;
+    --sidebar: #1b211e;
+    --sidebar-foreground: #ece6d8;
+    --sidebar-primary: #5fa37f;
+    --sidebar-primary-foreground: #0f1a14;
+    --sidebar-accent: #253a2f;
+    --sidebar-accent-foreground: #cfe6d6;
+    --sidebar-border: #343d38;
+    --sidebar-ring: #7cc19c;
+}
+
+/* Grounds and surfaces that were written as literal whites. */
+:root.dark body,
+.dark .netacad-portal,
+.dark .netacad-portal [data-slot="sidebar-inset"] {
+    background-color: var(--background);
+}
+.dark .netacad-portal > header,
+.dark .netacad-portal > [data-slot="sidebar-inset"] > header {
+    background: rgb(23 28 25 / 0.96);
+    border-bottom-color: var(--rb-line);
+}
+.dark .rebyu-ds:not(.rb-light-only) .rb-card,
+.dark .rebyu-ds:not(.rb-light-only) .rb-answer,
+.dark .netacad-portal [data-slot="card"],
+.dark :is(.admin-portal, .institution-portal) :is(.rounded-xl, .rounded-2xl, .rounded-3xl).border:is(.bg-card, .bg-background, .bg-white),
+.dark :is(.admin-portal, .institution-portal) :is(section, article).rounded-xl.border {
+    background-color: var(--card);
+}
+.dark .netacad-portal .bg-white {
+    background-color: var(--card);
+}
+.dark .rebyu-ds:not(.rb-light-only) .rb-node,
+.dark .rebyu-ds:not(.rb-light-only) .rb-node:active {
+    box-shadow: 0 0 0 4px var(--background), 0 6px 14px rgb(0 0 0 / 0.35);
+}
+.dark .rebyu-ds:not(.rb-light-only) :is(.rb-node-locked, .rb-node-locked:hover, .rb-node-locked:active) {
+    box-shadow: 0 0 0 4px var(--background);
+}
+.dark .netacad-portal :is(.text-zinc-950, .text-zinc-900, .text-neutral-900, .text-slate-900, .text-gray-900) {
+    color: var(--foreground);
+}
+.dark .netacad-portal :is(.text-zinc-500, .text-zinc-600, .text-neutral-500, .text-neutral-600, .text-slate-500, .text-gray-500) {
+    color: var(--muted-foreground);
+}
+
+/* Notebook ruling on dark paper: faint light lines instead of blue-grey ones. */
+.dark .netacad-portal :is([data-slot="card"], .rb-card:not([class*="!p-0"])) {
+    background-image:
+        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(0 0 0 / 0.4) 5px 6px, transparent 6.5px),
+        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(0 0 0 / 0.4) 5px 6px, transparent 6.5px),
+        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(0 0 0 / 0.4) 5px 6px, transparent 6.5px),
+        linear-gradient(90deg, transparent 38px, var(--rb-margin-color) 38px 39px, transparent 39px 42px, var(--rb-margin-color) 42px 43px, transparent 43px),
+        linear-gradient(to bottom, transparent calc(var(--rb-rule) - 1px), rgb(236 230 216 / 0.06) 0);
+}
+.dark .netacad-portal
+    :is([data-slot="card"], .rb-card, [class*="rounded-rb-card"], .rounded-2xl, .rounded-3xl)
+    :is([data-slot="card"], .rb-card),
+.dark .netacad-portal :is([class*="rounded-rb-card"], .rounded-2xl, .rounded-3xl):is(.border, .border-2):not([data-slot], .border-dashed, .rb-sticky) {
+    background-image: linear-gradient(to bottom, transparent calc(var(--rb-rule) - 1px), rgb(236 230 216 / 0.05) 0);
+}
+
+/* Marked papers on dark paper: brighter pens, ink that reads, visible stamps. */
+.dark .rebyu-ds:not(.rb-light-only) :is(.rb-graded-sheet, .rb-graded-item, .rb-graded-row) {
+    background-image:
+        linear-gradient(90deg, transparent 40px, var(--rb-margin-color) 40px 41px, transparent 41px 44px, var(--rb-margin-color) 44px 45px, transparent 45px),
+        linear-gradient(to bottom, transparent calc(var(--rb-rule) - 1px), rgb(236 230 216 / 0.06) 0);
+}
+.dark .rebyu-ds:not(.rb-light-only) .rb-graded-sheet {
+    background-image:
+        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(0 0 0 / 0.4) 5px 6px, transparent 6.5px),
+        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(0 0 0 / 0.4) 5px 6px, transparent 6.5px),
+        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(0 0 0 / 0.4) 5px 6px, transparent 6.5px),
+        linear-gradient(90deg, transparent 40px, var(--rb-margin-color) 40px 41px, transparent 41px 44px, var(--rb-margin-color) 44px 45px, transparent 45px),
+        linear-gradient(to bottom, transparent calc(var(--rb-rule) - 1px), rgb(236 230 216 / 0.06) 0);
+}
+.dark .rebyu-ds:not(.rb-light-only) :is(.rb-graded-heading, .rb-spread-list li) {
+    color: var(--color-rb-eel);
+}
+.dark .rebyu-ds:not(.rb-light-only) :is(.rb-grade-score-mark, .rb-grade-tally dt, .rb-grade-tally-caption) {
+    color: var(--color-rb-wolf);
+}
+.dark .rebyu-ds:not(.rb-light-only) .rb-graded-answer {
+    color: #cfc9bb;
+}
+.dark .rebyu-ds:not(.rb-light-only) :is(.rb-grade-score, .rb-grade-mini, .rb-graded-item.is-incorrect, .rb-page-answer.is-incorrect) {
+    --rb-pen: #f08a76;
+}
+.dark .rebyu-ds:not(.rb-light-only) :is(.rb-grade-score.is-pass, .rb-grade-mini.is-pass, .rb-graded-item.is-correct, .rb-page-answer.is-correct) {
+    --rb-pen: #86d09f;
+}
+.dark .rebyu-ds:not(.rb-light-only) :is(.rb-graded-item.is-pending, .rb-page-answer.is-pending) {
+    --rb-pen: #efb378;
+}
+.dark .rebyu-ds:not(.rb-light-only) .rb-grade-tally.is-leaf { --tally: #86d09f; }
+.dark .rebyu-ds:not(.rb-light-only) .rb-grade-tally.is-cardinal { --tally: #f08a76; }
+.dark .rebyu-ds:not(.rb-light-only) .rb-grade-tally.is-fox { --tally: #efb378; }
+.dark .rebyu-ds:not(.rb-light-only) .rb-graded-correction {
+    color: #f08a76;
+}
+.dark .rebyu-ds:not(.rb-light-only) .rb-nb-stamp {
+    mix-blend-mode: normal;
+    border-color: rgb(240 138 118 / 0.9);
+    box-shadow: inset 0 0 0 4px transparent, inset 0 0 0 6px rgb(240 138 118 / 0.75);
+    color: rgb(240 138 118 / 0.95);
+}
+.dark .rebyu-ds:not(.rb-light-only) .rb-teacher-stamp[data-tone="pass"] {
+    border-color: rgb(134 208 159 / 0.9);
+    box-shadow: inset 0 0 0 4px transparent, inset 0 0 0 6px rgb(134 208 159 / 0.75);
+    color: rgb(134 208 159 / 0.95);
+}
+
+/* The attempt notebook at night: dim squared paper under a desk lamp. */
+.dark .rebyu-ds:not(.rb-light-only) .rb-flip-page {
+    background-color: #262d29;
+    background-image:
+        linear-gradient(rgb(236 230 216 / 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(236 230 216 / 0.07) 1px, transparent 1px);
+    color: var(--color-rb-eel);
+}
+.dark .rebyu-ds:not(.rb-light-only) .rb-flipbook-book {
+    background: linear-gradient(160deg, #6f5f45, #58492f);
+}
+
+/* Physical objects keep their daylight colours, so their ink goes back to
+   daylight too. */
+.dark :is(.rb-sticky, .rb-graded-note, .rb-chalk-label, .rb-book-tag, [data-slot="dialog-content"], [data-slot="alert-dialog-content"], .netacad-portal [data-slot="alert"]) {
+    --color-rb-eel: #2c3a33;
+    --color-rb-wolf: #5b6b62;
+    --color-rb-hare: #a3aca5;
+    --color-rb-swan: #e3dccd;
+    --color-rb-polar: #f6f1e6;
+    --color-rb-snow: #ffffff;
+    --background: #ffffff;
+    --foreground: #2c3a33;
+    --card: #fffdf8;
+    --card-foreground: #2c3a33;
+    --muted: #f6f1e6;
+    --muted-foreground: #5b6b62;
+    --border: #e3dccd;
+    --input: #d8d0bf;
+    --rb-paper: #fffdf8;
+    color-scheme: light;
+}
+/* Dialog text is chalk, not the paper ink the reset above gives children. */
+.dark :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) {
+    color: var(--rb-chalk);
+}
+
+/* --- Index cards (certifications on the partnership request form) --------------- */
+.rb-index-card {
+    border-radius: 4px;
+    background-color: #fffdf8;
+    background-image:
+        linear-gradient(to bottom, transparent 30px, rgb(214 108 94 / 0.5) 30px 31.5px, transparent 31.5px),
+        linear-gradient(to bottom, transparent 27px, #e3e9ee 27px 28px);
+    background-size: 100% 100%, 100% 28px;
+    background-position: 0 0, 0 34px;
+    background-repeat: no-repeat, repeat-y;
+    box-shadow: 0 1px 2px rgb(40 30 20 / 0.15), 0 8px 16px -10px rgb(40 30 20 / 0.35);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+.rb-index-card:hover {
+    transform: translateY(-2px) rotate(-0.3deg);
+}
+.rb-index-card.is-selected {
+    background-color: #f3f8ef;
+    box-shadow: 0 0 0 3px var(--color-rb-feather), 0 10px 18px -10px rgb(40 30 20 / 0.4);
+}
+@media (prefers-reduced-motion: reduce) {
+    .rb-index-card:hover {
+        transform: none;
+    }
+}
