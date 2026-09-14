@@ -43,6 +43,18 @@ import {
 } from "@/components/motion/rebyu-motion.jsx"
 import { LearnerEmptyState } from "@/components/learner/learner-ui.jsx"
 import { LessonAiTutor } from "@/components/learner/lesson-ai-tutor.jsx"
+import { LessonKnowledgeCheck } from "@/components/learner/lesson-knowledge-check.jsx"
+import { useKnowledgeCheckTrigger } from "@/hooks/useKnowledgeCheckTrigger.js"
+import { useReadingPaceGuard } from "@/hooks/useReadingPaceGuard.js"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { PriorityBookmark } from "@/components/learner/priority-tag.jsx"
 import { ASSESSMENT_MAX_XP, LESSON_COMPLETION_XP } from "@/lib/xp.js"
 import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
@@ -1203,6 +1215,7 @@ export default function LearnerTopicPage() {
   const [railOpen, setRailOpen] = useState(false)
   const [readSections, setReadSections] = useState(() => new Set())
   const [locallyDone, setLocallyDone] = useState(() => new Set())
+  const [slowDownOpen, setSlowDownOpen] = useState(false)
 
   const certification = (data?.enrolledCertifications ?? []).find(
     (item) => String(item.certificationId) === String(certificationId),
@@ -1363,6 +1376,57 @@ export default function LearnerTopicPage() {
     [locallyDone, lessonById],
   )
 
+  /* When each section was recorded as read in this sitting, so a rush can take
+     back exactly the sections it raced past and nothing read before it. */
+  const readAtRef = useRef(new Map())
+
+  /* The pop-up knowledge check: once per lesson, at a random depth, asking
+     about lessons already completed. It only ever lived on the old standalone
+     lesson page, so learners studying here never met it. */
+  const knowledgeCheck = useKnowledgeCheckTrigger({
+    lessonId: activeLessonId,
+    enabled: Boolean(data?.learnerId) && sections.length > 0,
+  })
+
+  /* Racing down a lesson is not studying it. A learner who flicks through more
+     than a couple of screens in a moment is stopped, the sections they raced
+     past are taken back, and they are sent to the start of the lesson. Off for a
+     lesson already completed -- re-reading a finished lesson quickly is fine --
+     and while either prompt is already on screen. */
+  const lessonFinished = activeLessonId ? isDone(activeLessonId) : false
+  const paceGuard = useReadingPaceGuard({
+    enabled:
+      Boolean(activeLessonId) &&
+      sections.length > 0 &&
+      !lessonFinished &&
+      !slowDownOpen &&
+      !knowledgeCheck.offer,
+    onRush: (since) => {
+      const rushed = [...readAtRef.current]
+        .filter(([, at]) => at >= since)
+        .map(([key]) => key)
+      if (rushed.length > 0) {
+        setReadSections((current) => {
+          const nextSet = new Set(current)
+          rushed.forEach((key) => nextSet.delete(key))
+          return nextSet
+        })
+        rushed.forEach((key) => {
+          persistedReadRef.current.delete(key)
+          readAtRef.current.delete(key)
+          if (activeLessonId) markSectionUnread(activeLessonId, key).catch(() => {})
+        })
+      }
+      setSlowDownOpen(true)
+    },
+  })
+
+  const restartLesson = () => {
+    setSlowDownOpen(false)
+    paceGuard.pause(2500)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
   const completeMutation = useMutation({
     mutationFn: (lessonId) =>
       markLessonComplete({
@@ -1397,15 +1461,19 @@ export default function LearnerTopicPage() {
   // change, and a fresh closure each render would tear it down on every tick.
   const readSection = useCallback(
     (key) => {
+      // Passed while racing down the page: seen, not read.
+      if (paceGuard.isRushing()) return
+
       setReadSections((current) => (current.has(key) ? current : new Set(current).add(key)))
 
       if (!activeLessonId || persistedReadRef.current.has(key)) return
+      readAtRef.current.set(key, performance.now())
       persistedReadRef.current.add(key)
       markSectionRead(activeLessonId, key).catch(() => {
         persistedReadRef.current.delete(key)
       })
     },
-    [activeLessonId],
+    [activeLessonId, paceGuard.isRushing],
   )
 
   const toggleSection = useCallback(
@@ -1486,6 +1554,7 @@ export default function LearnerTopicPage() {
   // lesson's ticks don't flash under the new one while the fetch is in flight.
   useEffect(() => {
     const saved = new Set(readSectionsQuery.data ?? [])
+    readAtRef.current = new Map()
     persistedReadRef.current = saved
     setReadSections(saved)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1760,6 +1829,34 @@ export default function LearnerTopicPage() {
           />
         </SheetContent>
       </Sheet>
+
+      {/* Raced through the lesson: stop, and start it again from the top.
+          Closing the board any other way does the same -- the point is that
+          the lesson gets studied. */}
+      <Dialog open={slowDownOpen} onOpenChange={(open) => !open && restartLesson()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Oooops! Slow down.</DialogTitle>
+            <DialogDescription>
+              You scrolled through this lesson faster than anyone can read it. Study it
+              properly -- we&apos;ll take you back to the start so you go through the whole
+              lesson.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={restartLesson}>Start the lesson again</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* The pop-up challenge on lessons already completed. */}
+      <LessonKnowledgeCheck
+        open={Boolean(knowledgeCheck.offer)}
+        lessonId={activeLessonId}
+        itemCount={knowledgeCheck.offer?.itemCount}
+        lessonNames={knowledgeCheck.offer?.lessonNames}
+        onDismiss={knowledgeCheck.dismiss}
+      />
     </div>
   )
 }

@@ -7,12 +7,36 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { PenCircle, PenMark } from "@/components/classroom/pen-marks.jsx"
 import { TeacherStamp } from "@/components/classroom/teacher-stamp.jsx"
 import { AttemptFlipbook } from "@/components/classroom/attempt-flipbook.jsx"
+import { useState } from "react"
+import { useReadingPaceGuard } from "@/hooks/useReadingPaceGuard.js"
 
 /**
  * Dev-only: the portal's loading skeletons, held on screen so they can be
  * reviewed. They normally show for a few hundred milliseconds behind a login,
  * which is not long enough to look at. Routed only when `import.meta.env.DEV`.
  */
+/** Dev-only: the lesson pace guard on a tall page, so it can be tried without a login. */
+function PaceGuardDemo() {
+  const [open, setOpen] = useState(false)
+  const guard = useReadingPaceGuard({ enabled: !open, onRush: () => setOpen(true) })
+  return (
+    <section>
+      <p className="rb-chalk-label mb-5">Lesson pace guard (flick down the page)</p>
+      <div id="pace-guard-demo" style={{ height: "600vh" }} className="rb-graded-sheet p-6">
+        <p className="rb-graded-heading">A very long lesson</p>
+      </div>
+      <Dialog open={open} onOpenChange={(value) => { if (!value) { setOpen(false); guard.pause(2500) } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Oooops! Slow down.</DialogTitle>
+            <DialogDescription>Study the lesson properly.</DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+    </section>
+  )
+}
+
 export default function SkeletonPreviewPage() {
   return (
     <div className="rebyu-ds netacad-portal learner-portal min-h-dvh">
@@ -160,6 +184,7 @@ export default function SkeletonPreviewPage() {
           />
         </section>
 
+        <PaceGuardDemo />
       </main>
     </div>
   )
