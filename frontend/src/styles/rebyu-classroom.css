@@ -2208,3 +2208,644 @@ body {
     background: radial-gradient(circle at 34% 30%, #ff9b90 0 3px, #e3281c 8px, #a3140d 100%);
     box-shadow: 2px 5px 6px rgb(0 0 0 / 0.3);
 }
+
+/* ===========================================================================
+   DIALOGS AS CHALKBOARDS
+   ---------------------------------------------------------------------------
+   Every dialog and alert dialog is a green board in a wood frame, written in
+   chalk. Anything that has to stay readable as a control -- fields, selects,
+   tables, cards -- is pinned-up paper on the board with ordinary ink.
+   =========================================================================== */
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) {
+    border: 12px solid var(--rb-wood);
+    border-bottom-width: 18px;
+    border-radius: 12px;
+    background:
+        radial-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1.6px) 0 0 / 5px 5px,
+        radial-gradient(ellipse at 20% 15%, rgb(255 255 255 / 0.08), transparent 55%),
+        linear-gradient(160deg, var(--rb-board), var(--rb-board-deep));
+    box-shadow:
+        inset 0 0 0 2px rgb(0 0 0 / 0.22),
+        inset 0 0 44px rgb(0 0 0 / 0.3),
+        0 26px 50px -14px rgb(20 14 8 / 0.6);
+    color: var(--rb-chalk);
+    font-family: var(--font-rb-display);
+}
+:root :is([data-slot="dialog-title"], [data-slot="alert-dialog-title"]) {
+    color: var(--rb-chalk);
+    font-family: var(--rb-chalk-font);
+    font-size: 1.65rem;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+}
+:root :is([data-slot="dialog-description"], [data-slot="alert-dialog-description"]) {
+    color: rgb(244 241 232 / 0.82);
+    font-family: var(--font-rb-display);
+    font-size: 1.1rem;
+}
+/* Chalk colour for the utility text classes used inside dialog bodies. */
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"])
+    :is(.text-foreground, .text-card-foreground, .text-rb-eel, .text-zinc-950, .text-zinc-900, .text-slate-900, .text-gray-900) {
+    color: var(--rb-chalk);
+}
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"])
+    :is(.text-muted-foreground, .text-rb-wolf, .text-rb-hare, .text-zinc-500, .text-zinc-600, .text-slate-500, .text-gray-500) {
+    color: rgb(244 241 232 / 0.72);
+}
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) :is(hr, [data-slot="separator"], .border, .border-t, .border-b) {
+    border-color: rgb(244 241 232 / 0.2);
+}
+:root :is([data-slot="dialog-close"]) {
+    color: var(--rb-chalk);
+    opacity: 0.85;
+}
+
+/* Paper pinned on the board: fields and content surfaces keep normal ink. */
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"])
+    :is(input:not([type="checkbox"], [type="radio"], [type="range"]), textarea, [data-slot="select-trigger"], [data-slot="input"], [data-slot="textarea"]) {
+    background: #fffdf8;
+    border-color: #d9cfbb;
+    color: #2c3a33;
+    font-family: var(--font-rb-body);
+}
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"])
+    :is([data-slot="card"], [data-slot="table-container"], table, .bg-white, .bg-card, .bg-background, .bg-rb-snow, .bg-rb-polar, .bg-muted) {
+    color: #2c3a33;
+    font-family: var(--font-rb-body);
+}
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"])
+    :is([data-slot="card"], [data-slot="table-container"], table, .bg-white, .bg-card, .bg-background, .bg-rb-snow, .bg-rb-polar, .bg-muted)
+    :is(.text-foreground, .text-card-foreground, .text-rb-eel, .text-zinc-950, .text-zinc-900) {
+    color: #2c3a33;
+}
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"])
+    :is([data-slot="card"], [data-slot="table-container"], table, .bg-white, .bg-card, .bg-background, .bg-rb-snow, .bg-rb-polar, .bg-muted)
+    :is(.text-muted-foreground, .text-rb-wolf, .text-rb-hare, .text-zinc-500, .text-zinc-600) {
+    color: #6b706c;
+}
+
+/* Buttons written for the board: the main action is yellow chalk, the quiet
+   ones are chalk outlines. */
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) [data-slot="button"]:is([data-variant="default"]),
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) .rb-btn:not(.rb-btn-ghost, .rb-btn-snow, .rb-btn-cardinal) {
+    background: var(--rb-chalk-yellow);
+    color: #2a2118;
+    box-shadow: 0 3px 0 rgb(0 0 0 / 0.25);
+}
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) [data-slot="button"]:is([data-variant="outline"], [data-variant="secondary"]),
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) .rb-btn:is(.rb-btn-ghost, .rb-btn-snow) {
+    background: transparent;
+    border: 2px dashed rgb(244 241 232 / 0.6);
+    color: var(--rb-chalk);
+    box-shadow: none;
+}
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) [data-slot="button"]:is([data-variant="ghost"], [data-variant="link"]) {
+    color: var(--rb-chalk);
+}
+
+/* ===========================================================================
+   TOASTS AS BOOKMARKS
+   ---------------------------------------------------------------------------
+   A cream bookmark strip with the red tassel threaded through its hole.
+   =========================================================================== */
+:root [data-sonner-toast].netacad-toast {
+    padding-left: 58px !important;
+    border: 0 !important;
+    border-radius: 3px !important;
+    background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 72'%3E%3Cpath d='M41 34 C44 12 26 1 16 10 C10 15 11 22 12 30' fill='none' stroke='%238e2a2a' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='33' r='4.5' fill='%237a2020'/%3E%3Cpath d='M8 36 L16 36 L23 68 L1 68 Z' fill='%238e2a2a'/%3E%3Cpath d='M9 40 L5 67 M12 40 L11 67 M15 40 L17 67 M13 40 L21 67' stroke='%236d1a1a' stroke-width='1'/%3E%3C/svg%3E") no-repeat 2px center / 34px 56px,
+        radial-gradient(circle 6px at 34px 50%, rgb(110 88 55 / 0.45) 0 5px, rgb(110 88 55 / 0.2) 5px 6px, transparent 6.5px),
+        linear-gradient(175deg, #f1e5c3, #e3cf9d) !important;
+    box-shadow: 0 1px 1px rgb(60 40 10 / 0.15), 6px 12px 18px -8px rgb(60 40 10 / 0.45) !important;
+    color: #1f4f36 !important;
+}
+:root [data-sonner-toast][data-styled="true"] .netacad-toast-title {
+    color: #1f4f36;
+    font-family: var(--font-rb-display);
+    font-size: 1.15rem;
+    font-weight: 400;
+}
+:root [data-sonner-toast][data-styled="true"] .netacad-toast-description {
+    color: #4d4a3a;
+}
+
+/* ===========================================================================
+   MARKED PAPERS: RESULT AND ATTEMPT HISTORY
+   ---------------------------------------------------------------------------
+   Sheets of notebook paper, the score circled in the teacher's pen (green for a
+   pass, red otherwise), ticks and crosses beside every answer, corrections in
+   red, explanations as yellow margin notes, and a stamp in the corner.
+   =========================================================================== */
+.rb-graded-sheet,
+.rb-graded-item,
+.rb-graded-row {
+    position: relative;
+    border-radius: 4px;
+    background-color: var(--rb-paper);
+    background-image:
+        linear-gradient(90deg, transparent 40px, var(--rb-margin-color) 40px 41px, transparent 41px 44px, var(--rb-margin-color) 44px 45px, transparent 45px),
+        linear-gradient(to bottom, transparent calc(var(--rb-rule) - 1px), var(--rb-rule-color) 0);
+    background-size: 100% 100%, 100% var(--rb-rule);
+    background-position: 0 0, 0 12px;
+    background-repeat: no-repeat, repeat-y;
+    box-shadow: 0 1px 2px rgb(40 30 20 / 0.12), 0 8px 18px -10px rgb(40 30 20 / 0.3);
+}
+.rb-graded-sheet {
+    padding-left: 3.75rem !important;
+    background-image:
+        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(60 45 25 / 0.18) 5px 6px, transparent 6.5px),
+        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(60 45 25 / 0.18) 5px 6px, transparent 6.5px),
+        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(60 45 25 / 0.18) 5px 6px, transparent 6.5px),
+        linear-gradient(90deg, transparent 40px, var(--rb-margin-color) 40px 41px, transparent 41px 44px, var(--rb-margin-color) 44px 45px, transparent 45px),
+        linear-gradient(to bottom, transparent calc(var(--rb-rule) - 1px), var(--rb-rule-color) 0);
+    background-size: 22px 22px, 22px 22px, 22px 22px, 100% 100%, 100% var(--rb-rule);
+    background-position: 9px 14%, 9px 50%, 9px 86%, 0 0, 0 12px;
+    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat-y;
+}
+.rb-graded-item,
+.rb-graded-row {
+    padding: 1rem 1.25rem 1.1rem 3.75rem;
+}
+.rb-graded-row.is-highest {
+    box-shadow: 0 0 0 2px rgb(201 122 30 / 0.55), 0 8px 18px -10px rgb(40 30 20 / 0.3);
+}
+.rb-graded-heading {
+    font-family: var(--font-rb-display);
+    font-size: 1.6rem;
+    line-height: 1.2;
+    color: #2c3a33;
+}
+
+.rb-grade-score {
+    --rb-pen: #c8342b;
+    position: relative;
+    display: grid;
+    flex: none;
+    width: 176px;
+    height: 132px;
+    place-content: center;
+    justify-items: center;
+    color: var(--rb-pen);
+    font-family: var(--font-rb-display);
+    rotate: -4deg;
+}
+.rb-grade-score.is-pass,
+.rb-grade-mini.is-pass,
+.rb-graded-item.is-correct {
+    --rb-pen: #2f7d55;
+}
+.rb-graded-item.is-incorrect {
+    --rb-pen: #c8342b;
+}
+.rb-graded-item.is-pending {
+    --rb-pen: #c97a1e;
+}
+.rb-graded-item.is-neutral {
+    --rb-pen: #7a7f7b;
+}
+.rb-grade-score .rb-pen-circle,
+.rb-grade-mini .rb-pen-circle {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+}
+.rb-grade-score-value {
+    font-size: 3.4rem;
+    line-height: 1;
+}
+.rb-grade-score-note {
+    margin-top: -2px;
+    font-size: 1.15rem;
+}
+.rb-grade-score-mark {
+    position: absolute;
+    bottom: -26px;
+    left: 50%;
+    translate: -50% 0;
+    color: #6b706c;
+    font-size: 1rem;
+    white-space: nowrap;
+}
+.rb-grade-mini {
+    --rb-pen: #c8342b;
+    position: relative;
+    display: grid;
+    width: 88px;
+    height: 56px;
+    place-items: center;
+    margin-left: auto;
+    color: var(--rb-pen);
+    font-family: var(--font-rb-display);
+    font-size: 1.7rem;
+    line-height: 1;
+    rotate: -4deg;
+}
+
+.rb-grade-tally {
+    --tally: #5b605c;
+    padding: 0.2rem 0.6rem 0.3rem;
+    border-left: 3px solid var(--tally);
+}
+.rb-grade-tally dt {
+    color: #7a7f7b;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.rb-grade-tally dd {
+    color: var(--tally);
+    font-family: var(--font-rb-display);
+    font-size: 2rem;
+    line-height: 1.1;
+}
+.rb-grade-tally-caption {
+    color: #7a7f7b;
+    font-family: var(--font-rb-display);
+    font-size: 1rem;
+}
+.rb-grade-tally.is-leaf { --tally: #2f7d55; }
+.rb-grade-tally.is-cardinal { --tally: #c8342b; }
+.rb-grade-tally.is-fox { --tally: #c97a1e; }
+
+.rb-graded-verdict {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 1.15rem;
+}
+.rb-graded-verdict .rb-pen-mark {
+    width: 28px;
+    height: 28px;
+}
+.rb-graded-points {
+    font-size: 1rem;
+}
+.rb-graded-answer {
+    padding: 0 0.25rem;
+    color: #55595e;
+    font-family: var(--font-rb-display);
+    font-size: 1.2rem;
+    line-height: 1.6;
+}
+.rb-graded-correction {
+    padding: 0.1rem 0.25rem;
+    color: #c8342b;
+    font-family: var(--font-rb-display);
+    font-size: 1.2rem;
+    rotate: -0.6deg;
+}
+.rb-graded-correction-label {
+    margin-right: 0.25rem;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+}
+.rb-graded-note {
+    padding: 0.65rem 0.9rem;
+    border-radius: 2px 2px 16px 2px / 2px 2px 6px 2px;
+    background: linear-gradient(172deg, #fcf2b0, #f6e58a);
+    box-shadow: 3px 7px 10px -7px rgb(40 25 5 / 0.45);
+    color: #3a2d0c;
+    rotate: -0.4deg;
+}
+.rb-highlight-pass {
+    background: rgb(96 184 116 / 0.65);
+    border-radius: 3px 8px 4px 9px;
+}
+.rb-highlight-fail {
+    background: rgb(232 84 70 / 0.6);
+    border-radius: 3px 8px 4px 9px;
+}
+
+.rb-nb-stamp.rb-teacher-stamp {
+    top: 1rem;
+    right: 1rem;
+    bottom: auto;
+    width: 118px;
+    height: 118px;
+    transform: rotate(-10deg);
+}
+.rb-teacher-stamp[data-tone="pass"] {
+    border-color: rgb(47 125 85 / 0.85);
+    box-shadow: inset 0 0 0 4px transparent, inset 0 0 0 6px rgb(47 125 85 / 0.7);
+    color: rgb(47 125 85 / 0.9);
+}
+.rb-teacher-stamp .rb-nb-stamp-main {
+    font-size: 0.95rem;
+}
+@media (min-width: 640px) {
+    .rb-nb-stamp.rb-teacher-stamp {
+        top: 1.25rem;
+        right: 1.5rem;
+        width: 136px;
+        height: 136px;
+    }
+    .rb-teacher-stamp .rb-nb-stamp-main {
+        font-size: 1.05rem;
+    }
+}
+
+/* The score arrives the way a stamp does: large and faint above the paper, then
+   pressed down hard with a small bounce, a beat after the page opens. Rows in
+   the attempt history land one after another. */
+@keyframes rb-stamp-press {
+    0% { opacity: 0; transform: scale(2.4) rotate(-14deg); }
+    60% { opacity: 1; transform: scale(0.92) rotate(-3deg); }
+    78% { transform: scale(1.06) rotate(-5deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+.rb-grade-score,
+.rb-grade-mini {
+    animation: rb-stamp-press 0.5s cubic-bezier(0.55, 0, 0.8, 0.45) 0.35s both;
+}
+.rb-graded-row .rb-grade-mini {
+    animation-delay: calc(0.3s + var(--rb-stamp-order, 0) * 0.12s);
+}
+li:nth-child(2) > .rb-graded-row { --rb-stamp-order: 1; }
+li:nth-child(3) > .rb-graded-row { --rb-stamp-order: 2; }
+li:nth-child(4) > .rb-graded-row { --rb-stamp-order: 3; }
+li:nth-child(5) > .rb-graded-row { --rb-stamp-order: 4; }
+li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
+@media (prefers-reduced-motion: reduce) {
+    .rb-grade-score,
+    .rb-grade-mini {
+        animation: none;
+    }
+}
+
+/* The dialog's close key sits on the wood frame, so it is wood with chalk ink. */
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) [data-slot="dialog-close"],
+:root [data-slot="dialog-content"] ~ [data-slot="dialog-close"] {
+    background: var(--rb-wood-light);
+    border-color: var(--rb-wood);
+    color: var(--rb-chalk);
+    opacity: 1;
+}
+
+/* ===========================================================================
+   ATTEMPT FLIPBOOK
+   ---------------------------------------------------------------------------
+   An open spiral notebook of squared paper on a wooden desk (`AttemptFlipbook`):
+   previous attempt on the left page, current on the right, the binding in the
+   middle, divider tabs on the right edge, and a hand turning the sheet over
+   the spiral (GSAP). One page below `md`.
+   =========================================================================== */
+.rb-flipbook {
+    position: relative;
+    padding: 22px 18px 18px;
+    border-radius: 14px;
+    background:
+        repeating-linear-gradient(96deg, rgb(255 255 255 / 0.035) 0 3px, transparent 3px 13px),
+        repeating-linear-gradient(92deg, rgb(0 0 0 / 0.05) 0 1px, transparent 1px 29px),
+        linear-gradient(135deg, #7c5433, #5b3b21);
+    box-shadow: inset 0 2px 10px rgb(0 0 0 / 0.3);
+}
+.rb-flipbook-book {
+    position: relative;
+    padding: 9px;
+    border-radius: 8px;
+    background: linear-gradient(160deg, #e2cfa8, #cdb58a);
+    box-shadow: 0 20px 32px -14px rgb(0 0 0 / 0.6);
+    perspective: 2600px;
+}
+.rb-flipbook-book:focus-visible {
+    outline: 3px solid var(--rb-chalk-yellow);
+    outline-offset: 5px;
+}
+.rb-flipbook-spread {
+    position: relative;
+    display: grid;
+    overflow: hidden;
+}
+.rb-flip-page {
+    position: relative;
+    height: 100%;
+    min-height: 340px;
+    padding: 1.6rem 1.75rem 1.75rem;
+    background-color: #fdfcf7;
+    background-image:
+        linear-gradient(rgb(170 160 140 / 0.28) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(170 160 140 / 0.28) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: -1px -1px;
+    color: #2c3a33;
+}
+.rb-flip-page-left {
+    display: none;
+    border-radius: 4px 0 0 4px;
+    box-shadow: inset -28px 0 26px -22px rgb(40 30 20 / 0.28);
+}
+.rb-flip-page-right {
+    border-radius: 0 4px 4px 0;
+    box-shadow: inset 28px 0 26px -22px rgb(40 30 20 / 0.24);
+}
+.rb-flip-cover {
+    display: grid;
+    height: 100%;
+    align-content: center;
+}
+
+.rb-flip-leaf {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 4;
+    width: 100%;
+    transform-origin: left center;
+    transform-style: preserve-3d;
+}
+.rb-flip-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+.rb-flip-face-back {
+    transform: rotateY(180deg);
+}
+.rb-flip-face .rb-flip-page-left {
+    display: block;
+}
+.rb-flip-shade {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgb(40 30 20 / 0.3), rgb(40 30 20 / 0.06) 40%, rgb(255 255 255 / 0.25) 78%, rgb(40 30 20 / 0.18));
+}
+.rb-flip-hand {
+    position: absolute;
+    right: -34px;
+    bottom: -64px;
+    z-index: 5;
+    width: 120px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    filter: drop-shadow(6px 10px 8px rgb(0 0 0 / 0.3));
+}
+.rb-flip-hand svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+.rb-flip-face-back .rb-flip-hand {
+    right: auto;
+    left: -34px;
+    transform: scaleX(-1);
+}
+
+.rb-flipbook-spiral {
+    position: absolute;
+    top: 12px;
+    bottom: 12px;
+    left: -6px;
+    z-index: 6;
+    width: 26px;
+    background: linear-gradient(90deg, transparent 2px, #3b3f44 2px, #9aa0a6 40%, #cfd3d7 55%, #50555b calc(100% - 2px), transparent calc(100% - 2px));
+    -webkit-mask: repeating-linear-gradient(to bottom, transparent 0 12px, #000 12px 19px);
+    mask: repeating-linear-gradient(to bottom, transparent 0 12px, #000 12px 19px);
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.4));
+    pointer-events: none;
+}
+
+@media (min-width: 768px) {
+    .rb-flipbook-spread {
+        grid-template-columns: 1fr 1fr;
+        overflow: visible;
+    }
+    .rb-flip-page-left {
+        display: block;
+    }
+    .rb-flip-leaf {
+        width: 50%;
+    }
+    .rb-flipbook-spiral {
+        left: 50%;
+        width: 34px;
+        translate: -50% 0;
+    }
+}
+
+.rb-flipbook-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 10px;
+}
+.rb-flipbook-tab {
+    --tab: #f1e5c3;
+    min-width: 40px;
+    height: 34px;
+    padding: 0 0.6rem;
+    border-radius: 8px 8px 0 0;
+    background: var(--tab);
+    box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.08);
+    color: #2c3a33;
+    font-family: var(--font-rb-display);
+    font-size: 1.1rem;
+    transition: transform 0.2s ease, filter 0.2s ease;
+}
+.rb-flipbook-tab[data-tone="pass"] { --tab: #cfe6c7; }
+.rb-flipbook-tab[data-tone="fail"] { --tab: #f6cdc6; }
+.rb-flipbook-tab[data-tone="open"] { --tab: #f8e7a0; }
+.rb-flipbook-tab[aria-selected="true"] {
+    transform: translateY(-5px);
+    box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.08), 0 0 0 2px var(--rb-chalk-yellow);
+}
+.rb-flipbook-tab:hover {
+    filter: brightness(0.97);
+}
+.rb-flipbook-tab:focus-visible {
+    outline: 3px solid var(--rb-chalk-yellow);
+    outline-offset: 2px;
+}
+@media (min-width: 900px) {
+    .rb-flipbook {
+        padding-right: 64px;
+    }
+    .rb-flipbook-tabs {
+        position: absolute;
+        top: 40px;
+        right: 12px;
+        z-index: 2;
+        flex-direction: column;
+        margin: 0;
+    }
+    .rb-flipbook-tab {
+        width: 46px;
+        min-width: 0;
+        height: 42px;
+        padding: 0;
+        border-radius: 0 10px 10px 0;
+        box-shadow: inset 3px 0 0 rgb(0 0 0 / 0.08);
+    }
+    .rb-flipbook-tab[aria-selected="true"] {
+        transform: translateX(6px);
+    }
+}
+
+.rb-flipbook-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+.rb-flipbook-turn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    background: #fffdf8;
+    box-shadow: 0 2px 4px rgb(0 0 0 / 0.25);
+    color: #2c3a33;
+    font-family: var(--font-rb-display);
+    font-size: 1.1rem;
+}
+.rb-flipbook-turn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.rb-flipbook-turn:focus-visible {
+    outline: 3px solid var(--rb-chalk-yellow);
+    outline-offset: 2px;
+}
+.rb-flipbook-folio {
+    color: var(--rb-chalk);
+    font-family: var(--font-rb-display);
+    font-size: 1.15rem;
+}
+
+/* Attempt notebook pages: a smaller circled score beside the heading, and the
+   attempt's marked questions as short lines with a pen mark in front. */
+.rb-grade-score.rb-grade-score-sm {
+    width: 128px;
+    height: 96px;
+}
+.rb-grade-score-sm .rb-grade-score-value {
+    font-size: 2.4rem;
+}
+.rb-grade-score-sm .rb-grade-score-note {
+    font-size: 1rem;
+}
+.rb-page-answer {
+    --rb-pen: #7a7f7b;
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr);
+    column-gap: 0.5rem;
+    align-items: start;
+}
+.rb-page-answer.is-correct { --rb-pen: #2f7d55; }
+.rb-page-answer.is-incorrect { --rb-pen: #c8342b; }
+.rb-page-answer.is-pending { --rb-pen: #c97a1e; }
+.rb-page-answer .rb-pen-mark {
+    width: 24px;
+    height: 24px;
+    margin-top: -2px;
+}

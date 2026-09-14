@@ -48,6 +48,7 @@ import {
   CurriculumPageSkeleton,
   TopicPageSkeleton,
 } from "@/components/learner/learning-skeletons.jsx"
+import { LoadingSignal } from "@/components/loading-overlay.jsx"
 
 function getInitials(name = "", email = "") {
   const source = name || email || "Learner"
@@ -245,10 +246,10 @@ export default function LearnerLayout() {
      query is in flight and as the Suspense fallback for the page's own chunk,
      because from the learner's side those are the same wait. */
   function RouteSkeleton() {
-    if (isTopicPage) return <TopicPageSkeleton />
-    if (isCurriculumPage) return <CurriculumPageSkeleton />
-    return <LearnerLoadingSkeleton />
-  }
+  /* Navigation waits show the one shared loading screen (LoadingSignal),
+     not a page-shaped skeleton, so every wait in the app looks the same. */
+  return <LoadingSignal />
+}
 
   /* `rebyu-ds` sits on the shell rather than on each page. The pages that had
      it were opting in one at a time, which is why a learner moving from the

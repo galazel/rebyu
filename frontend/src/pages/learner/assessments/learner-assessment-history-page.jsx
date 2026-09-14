@@ -19,7 +19,11 @@ import {
   getCurrentLearner,
   getCurrentLearnerIdentity,
 } from "@/services/learnerService.js"
-import { getAssessmentAttempts } from "@/services/assessmentService.js"
+import { getAssessmentAttempts, getAttemptResult } from "@/services/assessmentService.js"
+import { LoadingSignal } from "@/components/loading-overlay.jsx"
+import { PenCircle, PenMark } from "@/components/classroom/pen-marks.jsx"
+import { TeacherStamp } from "@/components/classroom/teacher-stamp.jsx"
+import { AttemptFlipbook } from "@/components/classroom/attempt-flipbook.jsx"
 
 function formatDuration(totalSeconds) {
   if (totalSeconds == null) return "—"
@@ -55,8 +59,8 @@ function AttemptTrend({ attempts }) {
   if (attempts.length < 2) return null
 
   return (
-    <RebyuCard className="p-5">
-      <p className="rb-eyebrow">score by attempt</p>
+    <section className="rb-graded-sheet p-5">
+      <p className="rb-graded-heading">score by attempt</p>
       <div className="mt-4 flex items-end gap-2 sm:gap-3">
         {attempts.map((attempt) => {
           const percentage = Math.min(100, Math.max(0, Number(attempt.percentage ?? 0)))
@@ -70,11 +74,11 @@ function AttemptTrend({ attempts }) {
               </span>
               {/* Fixed-height well so every bar is measured against the same
                   100%, not against the tallest score in the run. */}
-              <div className="flex h-24 w-full items-end rounded-rb-tile bg-rb-polar p-1">
+              <div className="flex h-24 w-full items-end border-b-2 border-dashed border-[#cfc6b3] px-2">
                 <div
                   className={cn(
                     "w-full rounded-[6px]",
-                    attempt.passed ? "bg-rb-leaf" : "bg-rb-cardinal"
+                    attempt.passed ? "rb-highlight-pass" : "rb-highlight-fail"
                   )}
                   /* A floor of 4px so a zero-scoring attempt is still a mark on
                      the page rather than a gap in the run. */
@@ -88,23 +92,174 @@ function AttemptTrend({ attempts }) {
           )
         })}
       </div>
-    </RebyuCard>
+    </section>
   )
 }
 
 /** One figure in the summary strip. */
 function SummaryTile({ label, value, caption, tone = "neutral" }) {
-  const TONES = {
-    leaf: "border-rb-leaf/45 bg-rb-leaf-wash text-rb-leaf",
-    cardinal: "border-rb-cardinal/45 bg-rb-cardinal-wash text-rb-cardinal-lip",
-    neutral: "border-rb-swan bg-rb-polar text-rb-eel",
-  }
+  /* A tally in the margin, in the teacher's pen colour for that figure. */
+  return (
+    <div className={cn("rb-grade-tally", `is-${tone}`)}>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+      {caption ? <p className="rb-grade-tally-caption">{caption}</p> : null}
+    </div>
+  )
+}
+
+/* How many marked questions a page shows before pointing to the full result. */
+const PAGE_ANSWER_LIMIT = 6
+
+function answerMark(answer) {
+  if (answer.pendingManualEvaluation) return { kind: "tilde", state: "pending" }
+  if (answer.isCorrect == null) return { kind: "question", state: "neutral" }
+  return answer.isCorrect ? { kind: "check", state: "correct" } : { kind: "cross", state: "incorrect" }
+}
+
+/**
+ * One page of the attempt notebook: that attempt's own marked paper.
+ *
+ * The summary (number, status, date, points, circled score) comes from the
+ * attempts list; the tallies and the marked questions are that attempt's
+ * result, fetched when its page is opened. The query key is the result page's,
+ * so turning to a page you have already looked at -- or opening "view details"
+ * from it -- reads from cache instead of fetching again.
+ */
+function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
+  const inProgress = attempt.submittedAt == null
+  const percentage = Number(attempt.percentage ?? 0)
+
+  const resultQuery = useQuery({
+    queryKey: ["attempt-result", String(attempt.assessmentAttemptId), learnerId],
+    queryFn: () => getAttemptResult(attempt.assessmentAttemptId, learnerId),
+    enabled: !inProgress && learnerId != null,
+    retry: 1,
+    staleTime: 5 * 60_000,
+  })
+  const result = resultQuery.data
+  const answers = result?.answers ?? []
 
   return (
-    <div className={cn("rounded-rb-tile border-2 px-3 py-2.5", TONES[tone])}>
-      <p className="text-xs font-bold opacity-80">{label}</p>
-      <p className="rb-numeric mt-0.5 text-xl leading-none">{value}</p>
-      {caption ? <p className="mt-1 text-xs opacity-70">{caption}</p> : null}
+    <div className="flex flex-col gap-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 space-y-2">
+          <p className="rb-graded-heading">Attempt {attempt.attemptNumber}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {inProgress ? (
+              <Chip tone="macaw">
+                <ClockIcon className="size-3" aria-hidden="true" />
+                In progress
+              </Chip>
+            ) : attempt.passed ? (
+              <Chip tone="leaf">
+                <CheckCircle2Icon className="size-3" aria-hidden="true" />
+                Passed
+              </Chip>
+            ) : (
+              <Chip tone="cardinal">
+                <XCircleIcon className="size-3" aria-hidden="true" />
+                Not passed
+              </Chip>
+            )}
+            {isHighest ? (
+              <Chip tone="fox">
+                <StarIcon className="size-3" aria-hidden="true" />
+                Highest score
+              </Chip>
+            ) : null}
+            {isLatest ? <Chip>Most recent</Chip> : null}
+          </div>
+          <p className="rb-caption">
+            {formatDate(attempt.startedAt)}
+            {!inProgress ? ` · took ${formatDuration(attempt.durationSeconds)}` : null}
+          </p>
+          {attempt.earnedPoints != null && attempt.totalPoints != null ? (
+            <p className="rb-pen text-lg text-[#6b706c]">
+              {Number(attempt.earnedPoints)} / {Number(attempt.totalPoints)} points
+            </p>
+          ) : null}
+        </div>
+
+        {inProgress ? null : (
+          /* Remounted with every page, so the score stamps down again each
+             time a page is turned to. */
+          <div className={cn("rb-grade-score rb-grade-score-sm", attempt.passed ? "is-pass" : "is-fail")}>
+            <PenCircle />
+            <span className="rb-grade-score-value">{percentage.toFixed(0)}%</span>
+            <span className="rb-grade-score-note">{attempt.passed ? "passed" : "not passed"}</span>
+          </div>
+        )}
+      </div>
+
+      {inProgress ? (
+        <p className="rb-pen text-2xl text-[#c97a1e]">still being written… resume it to finish.</p>
+      ) : resultQuery.isLoading ? (
+        <p className="rb-pen text-lg text-[#6b706c]">fetching the marked paper…</p>
+      ) : resultQuery.isError || !result ? (
+        <p className="rb-pen text-lg text-[#c8342b]">Couldn&apos;t load this attempt&apos;s answers.</p>
+      ) : (
+        <>
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div className="rb-grade-tally is-leaf">
+              <dt>Correct</dt>
+              <dd>{result.correctCount ?? 0}</dd>
+            </div>
+            <div className="rb-grade-tally is-cardinal">
+              <dt>Incorrect</dt>
+              <dd>{result.incorrectCount ?? 0}</dd>
+            </div>
+            {result.pendingCount > 0 ? (
+              <div className="rb-grade-tally is-fox">
+                <dt>Pending</dt>
+                <dd>{result.pendingCount}</dd>
+              </div>
+            ) : null}
+          </dl>
+
+          {answers.length > 0 ? (
+            <ol className="space-y-2.5">
+              {answers.slice(0, PAGE_ANSWER_LIMIT).map((answer) => {
+                const mark = answerMark(answer)
+                const given = answer.selectedChoiceText || answer.learnerAnswer
+                return (
+                  <li key={answer.attemptQuestionId} className={cn("rb-page-answer", `is-${mark.state}`)}>
+                    <PenMark kind={mark.kind} />
+                    <div className="min-w-0">
+                      <p className="line-clamp-2 text-sm font-medium leading-5 text-rb-eel">
+                        <span className="mr-1 text-rb-wolf">{answer.displayOrder}.</span>
+                        {answer.question}
+                      </p>
+                      {given ? (
+                        <p className="rb-graded-answer truncate !px-0 !text-base !leading-6">{given}</p>
+                      ) : null}
+                      {answer.isCorrect === false && answer.correctChoiceText ? (
+                        <p className="rb-pen truncate text-base text-[#c8342b]">
+                          correct: {answer.correctChoiceText}
+                        </p>
+                      ) : null}
+                    </div>
+                  </li>
+                )
+              })}
+            </ol>
+          ) : null}
+
+          {answers.length > PAGE_ANSWER_LIMIT ? (
+            <p className="rb-pen text-lg text-[#6b706c]">
+              + {answers.length - PAGE_ANSWER_LIMIT} more questions on the full paper
+            </p>
+          ) : null}
+        </>
+      )}
+
+      <TactileButton asChild variant="ghost" size="sm" className="w-fit">
+        {inProgress ? (
+          <Link to={`/learner/assessments/${examId}`}>resume</Link>
+        ) : (
+          <Link to={`/learner/results/${attempt.assessmentAttemptId}`}>view full details</Link>
+        )}
+      </TactileButton>
     </div>
   )
 }
@@ -134,15 +289,7 @@ export default function LearnerAssessmentHistoryPage() {
   })
 
   if (attemptsQuery.isLoading || (learnerId == null && currentLearnerQuery.isLoading)) {
-    return (
-      <div className="rebyu-ds min-h-dvh bg-rb-polar">
-        <div className="mx-auto max-w-4xl space-y-4 p-6">
-          <Skeleton className="h-10 w-2/3 rounded-rb-tile" />
-          <Skeleton className="h-32 w-full rounded-rb-card" />
-          <Skeleton className="h-64 w-full rounded-rb-card" />
-        </div>
-      </div>
-    )
+    return <LoadingSignal />
   }
 
   const attempts = Array.isArray(attemptsQuery.data) ? attemptsQuery.data : []
@@ -180,8 +327,11 @@ export default function LearnerAssessmentHistoryPage() {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-6 px-4 py-6">
-        <RebyuCard raised className="p-6 sm:p-8">
-          <h1 className="rb-display rb-display-md">{assessmentTitle}</h1>
+        {/* The front sheet of the file: every attempt marked, a stamp once
+            there is something to stamp. */}
+        <section className="rb-graded-sheet p-6 sm:p-8">
+          {submitted.length > 0 ? <TeacherStamp passed={everPassed} /> : null}
+          <h1 className="rb-display rb-display-md pr-28 sm:pr-36">{assessmentTitle}</h1>
           <p className="rb-body mt-2 text-sm">
             {submitted.length} submitted attempt{submitted.length === 1 ? "" : "s"}
             {inProgressCount > 0 ? ` · ${inProgressCount} in progress` : ""}
@@ -222,117 +372,50 @@ export default function LearnerAssessmentHistoryPage() {
                   : "start assessment"}
             </Link>
           </TactileButton>
-        </RebyuCard>
+        </section>
 
         <AttemptTrend attempts={chronological} />
 
         <section className="space-y-4">
-          <h2 className="rb-display rb-display-sm">Every attempt</h2>
+          <h2 className="rb-graded-heading">Every attempt</h2>
 
           {attempts.length === 0 ? (
-            <div className="rounded-rb-card border-2 border-dashed border-rb-swan p-10 text-center">
+            <div className="rb-sticky rb-sticky-yellow mx-auto max-w-md text-center">
+              <span className="rb-pushpin" aria-hidden="true" />
               <p className="rb-display rb-display-sm">No attempts yet</p>
               <p className="rb-body mt-2 text-sm">
                 Start the assessment to begin your attempt history.
               </p>
             </div>
           ) : (
-            <ol className="space-y-3">
-              {attempts.map((attempt) => {
-                const percentage = Number(attempt.percentage ?? 0)
+            /* One notebook page per attempt, oldest first, opened on the most
+               recent. Turning a page is how you compare attempts. */
+            <AttemptFlipbook
+              initialIndex={attempts.length - 1}
+              pages={[...attempts].reverse().map((attempt) => {
                 const inProgress = attempt.submittedAt == null
                 const isHighest =
                   attempt.assessmentAttemptId === highestAttemptId && submitted.length > 1
                 const isLatest =
                   attempt.assessmentAttemptId === latestAttemptId && submitted.length > 1
 
-                return (
-                  <li key={attempt.assessmentAttemptId}>
-                    <div
-                      className={cn(
-                        "flex flex-wrap items-center justify-between gap-4 rounded-rb-card border-2 bg-rb-snow p-5",
-                        /* The row you are most likely to want is the one you
-                           can see first. Only the best attempt is lifted, and
-                           only when there is more than one to be best of. */
-                        isHighest ? "border-rb-fox" : "border-rb-swan"
-                      )}
-                    >
-                      <div className="min-w-0 space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-bold text-rb-eel">
-                            Attempt {attempt.attemptNumber}
-                          </span>
-                          {inProgress ? (
-                            <Chip tone="macaw">
-                              <ClockIcon className="size-3" aria-hidden="true" />
-                              In progress
-                            </Chip>
-                          ) : attempt.passed ? (
-                            <Chip tone="leaf">
-                              <CheckCircle2Icon className="size-3" aria-hidden="true" />
-                              Passed
-                            </Chip>
-                          ) : (
-                            <Chip tone="cardinal">
-                              <XCircleIcon className="size-3" aria-hidden="true" />
-                              Not passed
-                            </Chip>
-                          )}
-                          {isHighest ? (
-                            <Chip tone="fox">
-                              <StarIcon className="size-3" aria-hidden="true" />
-                              Highest score
-                            </Chip>
-                          ) : null}
-                          {isLatest ? <Chip>Most recent</Chip> : null}
-                        </div>
-
-                        <p className="rb-caption">
-                          {formatDate(attempt.startedAt)}
-                          {!inProgress
-                            ? ` · took ${formatDuration(attempt.durationSeconds)}`
-                            : null}
-                        </p>
-                      </div>
-
-                      <div className="flex shrink-0 items-center gap-4">
-                        {!inProgress ? (
-                          <div className="text-right">
-                            <p
-                              className={cn(
-                                "rb-numeric text-2xl leading-none",
-                                attempt.passed ? "text-rb-leaf" : "text-rb-cardinal-lip"
-                              )}
-                            >
-                              {percentage.toFixed(0)}%
-                            </p>
-                            {attempt.earnedPoints != null && attempt.totalPoints != null ? (
-                              <p className="rb-numeric mt-1 text-xs text-rb-wolf">
-                                {Number(attempt.earnedPoints)} / {Number(attempt.totalPoints)} pts
-                              </p>
-                            ) : null}
-                          </div>
-                        ) : null}
-
-                        <TactileButton asChild variant="ghost" size="sm">
-                          {inProgress ? (
-                            /* An unfinished attempt had no control at all --
-                               only a clock glyph -- so the one row on the page
-                               with something left to do was the one row you
-                               could not act on. */
-                            <Link to={`/learner/assessments/${examId}`}>resume</Link>
-                          ) : (
-                            <Link to={`/learner/results/${attempt.assessmentAttemptId}`}>
-                              view details
-                            </Link>
-                          )}
-                        </TactileButton>
-                      </div>
-                    </div>
-                  </li>
-                )
+                return {
+                  key: attempt.assessmentAttemptId,
+                  tab: attempt.attemptNumber,
+                  tone: inProgress ? "open" : attempt.passed ? "pass" : "fail",
+                  label: `Attempt ${attempt.attemptNumber}`,
+                  content: (
+                    <AttemptPage
+                      attempt={attempt}
+                      learnerId={learnerId}
+                      examId={examId}
+                      isHighest={isHighest}
+                      isLatest={isLatest}
+                    />
+                  ),
+                }
               })}
-            </ol>
+            />
           )}
         </section>
       </main>

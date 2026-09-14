@@ -39,6 +39,7 @@ import {
   TrendLineChart,
 } from "@/components/charts/rebyu-charts.jsx"
 import { BUBBLE_TONES, BubbleCard } from "@/components/commons/bubble-card.jsx"
+import { LoadingSignal } from "@/components/loading-overlay.jsx"
 
 const mainItems = [
   { label: "Progress", href: "/learner/progress", icon: BarChart3 },
@@ -317,21 +318,9 @@ export function LearnerErrorState({ title = "Could not load data", error, onRetr
 }
 
 export function LearnerLoadingSkeleton() {
-  return (
-    <div className="space-y-6">
-      <LoadingNote />
-      <div className="grid gap-4 md:grid-cols-4">
-        {[1, 2, 3, 4].map((item) => (
-          <Skeleton key={item} className="h-32 rounded-rb-card" />
-        ))}
-      </div>
-      <Skeleton className="h-80 rounded-rb-card" />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Skeleton className="h-72 rounded-rb-card" />
-        <Skeleton className="h-72 rounded-rb-card" />
-      </div>
-    </div>
-  )
+  /* Navigation waits show the one shared loading screen (LoadingSignal),
+     not a page-shaped skeleton, so every wait in the app looks the same. */
+  return <LoadingSignal />
 }
 
 /** Tone keys the icon chip to the metric so a row of tiles is scannable. */

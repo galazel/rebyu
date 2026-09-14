@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import { LoadingNote } from "@/components/classroom/loading-note.jsx"
+import { LoadingSignal } from "@/components/loading-overlay.jsx"
 
 /**
  * What a portal shows while the next page's code is still arriving.
@@ -22,23 +23,7 @@ import { LoadingNote } from "@/components/classroom/loading-note.jsx"
  * up to look right would only ever be seen half-built.
  */
 export function PortalPageSkeleton() {
-  return (
-    <div className="space-y-6" aria-busy="true" aria-label="Loading page">
-      <LoadingNote />
-      {/* The page header: a title, and the line of context that sits under it. */}
-      <div className="space-y-3">
-        <Skeleton className="h-8 w-64 max-w-full rounded-rb-control" />
-        <Skeleton className="h-4 w-96 max-w-full rounded-rb-control" />
-      </div>
-
-      {/* Content. Three blocks of unequal height rather than a neat grid --
-          an even grid reads as a specific layout, which is the thing this
-          must not claim to know. */}
-      <Skeleton className="h-40 rounded-rb-card" />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Skeleton className="h-56 rounded-rb-card" />
-        <Skeleton className="h-56 rounded-rb-card" />
-      </div>
-    </div>
-  )
+  /* Navigation waits show the one shared loading screen (LoadingSignal),
+     not a page-shaped skeleton, so every wait in the app looks the same. */
+  return <LoadingSignal />
 }

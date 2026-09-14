@@ -31,6 +31,9 @@ import {
 import LearnerPremiumGuard from "@/components/learner/learner-premium-guard.jsx"
 import { StudyPlanPrompt } from "@/components/learner/study-plan-prompt.jsx"
 import { FEATURES } from "@/services/subscriptionService.js"
+import { LoadingSignal } from "@/components/loading-overlay.jsx"
+import { PenCircle, PenMark } from "@/components/classroom/pen-marks.jsx"
+import { TeacherStamp } from "@/components/classroom/teacher-stamp.jsx"
 
 /**
  * Per-state colours for the answer review.
@@ -111,103 +114,16 @@ function toNumber(value) {
  * `prefers-reduced-motion` stills it with every other transition in the system.
  */
 function ScoreDial({ percentage, passingScore, passed }) {
-  /* The first paint must land on 0 for the transition to have anywhere to
-     travel from, so the real value is set just after mount.
-
-     A timer rather than requestAnimationFrame: rAF does not run while the tab
-     is hidden, and a result opened in a background tab would then sit at a
-     hard zero -- an empty dial reporting a score of nothing -- until the
-     learner looked at it. A timer still fires, throttled, so the dial is always
-     showing the real number by the time it is seen. */
-  const [grown, setGrown] = useState(false)
-  useEffect(() => {
-    const timer = setTimeout(() => setGrown(true), 30)
-    return () => clearTimeout(timer)
-  }, [])
-
-  const size = 168
-  const stroke = 16
-  const radius = (size - stroke) / 2
-  const circumference = 2 * Math.PI * radius
-  const clamped = Math.min(100, Math.max(0, percentage))
-  const arc = (grown ? clamped : 0) / 100
-
-  const notchAngle =
-    passingScore != null ? (Math.min(100, Math.max(0, passingScore)) / 100) * 360 - 90 : null
-
+  /* The score as the teacher writes it: the number circled in pen, green for a
+     pass and red otherwise, with the pass mark noted underneath. */
   return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
-        aria-hidden="true"
-        className="-rotate-90"
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="var(--color-rb-swan)"
-          strokeWidth={stroke}
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={passed ? "var(--color-rb-leaf)" : "var(--color-rb-cardinal)"}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference * (1 - arc)}
-          className="transition-[stroke-dashoffset] duration-1000 ease-out"
-        />
-        {notchAngle != null ? (
-          <line
-            x1={size / 2 + (radius - stroke / 2 - 1) * Math.cos((notchAngle * Math.PI) / 180)}
-            y1={size / 2 + (radius - stroke / 2 - 1) * Math.sin((notchAngle * Math.PI) / 180)}
-            x2={size / 2 + (radius + stroke / 2 + 1) * Math.cos((notchAngle * Math.PI) / 180)}
-            y2={size / 2 + (radius + stroke / 2 + 1) * Math.sin((notchAngle * Math.PI) / 180)}
-            stroke="var(--color-rb-eel)"
-            strokeWidth="3"
-            strokeLinecap="round"
-            /* Un-rotated with the group, so the notch is drawn at the angle the
-               maths puts it at rather than 90 degrees off. */
-            transform={`rotate(90 ${size / 2} ${size / 2})`}
-          />
-        ) : null}
-      </svg>
-
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span
-          className={cn(
-            "rb-numeric text-4xl leading-none",
-            passed ? "text-rb-leaf" : "text-rb-cardinal-lip"
-          )}
-        >
-          {percentage.toFixed(0)}%
-        </span>
-        <span
-          className={cn(
-            "mt-1.5 flex items-center gap-1 text-xs font-bold",
-            passed ? "text-rb-leaf" : "text-rb-cardinal-lip"
-          )}
-        >
-          {passed ? (
-            <>
-              <CheckCircle2Icon className="size-3.5" aria-hidden="true" />
-              Passed
-            </>
-          ) : (
-            <>
-              <XCircleIcon className="size-3.5" aria-hidden="true" />
-              Not passed
-            </>
-          )}
-        </span>
-      </div>
+    <div className={cn("rb-grade-score", passed ? "is-pass" : "is-fail")}>
+      <PenCircle />
+      <span className="rb-grade-score-value">{percentage.toFixed(0)}%</span>
+      <span className="rb-grade-score-note">{passed ? "passed" : "not passed"}</span>
+      {passingScore != null ? (
+        <span className="rb-grade-score-mark">pass mark {passingScore.toFixed(0)}%</span>
+      ) : null}
     </div>
   )
 }
@@ -220,19 +136,12 @@ const STAT_COLUMNS = {
   4: "sm:grid-cols-4",
 }
 
-/** One count in the result header. Zero-valued optional tiles are not rendered. */
+/** One count in the result header, written as a tally in the margin. */
 function StatTile({ label, value, tone }) {
-  const TONES = {
-    leaf: "border-rb-leaf/45 bg-rb-leaf-wash text-rb-leaf",
-    cardinal: "border-rb-cardinal/45 bg-rb-cardinal-wash text-rb-cardinal-lip",
-    fox: "border-rb-fox/45 bg-rb-fox-wash text-rb-fox-lip",
-    neutral: "border-rb-swan bg-rb-polar text-rb-wolf",
-  }
-
   return (
-    <div className={cn("rounded-rb-tile border-2 px-3 py-2.5", TONES[tone])}>
-      <dt className="text-xs font-bold opacity-80">{label}</dt>
-      <dd className="rb-numeric mt-0.5 text-xl leading-none">{value ?? 0}</dd>
+    <div className={cn("rb-grade-tally", `is-${tone}`)}>
+      <dt>{label}</dt>
+      <dd>{value ?? 0}</dd>
     </div>
   )
 }
@@ -290,15 +199,7 @@ export default function LearnerAssessmentResultPage() {
   )
 
   if (resultQuery.isLoading || (learnerId == null && currentLearnerQuery.isLoading)) {
-    return (
-      <div className="rebyu-ds min-h-dvh bg-rb-polar">
-        <div className="mx-auto max-w-4xl space-y-4 p-6">
-          <Skeleton className="h-10 w-2/3 rounded-rb-tile" />
-          <Skeleton className="h-56 w-full rounded-rb-card" />
-          <Skeleton className="h-64 w-full rounded-rb-card" />
-        </div>
-      </div>
-    )
+    return <LoadingSignal />
   }
 
   if (resultQuery.isError || !result) {
@@ -366,7 +267,10 @@ export default function LearnerAssessmentResultPage() {
 
       <main className="mx-auto max-w-4xl space-y-6 px-4 py-6">
         {/* --- Score ------------------------------------------------------- */}
-        <RebyuCard raised className="p-6 sm:p-8">
+        {/* The paper as the teacher hands it back: a notebook sheet with the
+            score circled in pen and a stamp in the corner. */}
+        <section className="rb-graded-sheet p-6 sm:p-8">
+          <TeacherStamp passed={Boolean(result.passed)} />
           <div className="flex flex-wrap items-center gap-2">
             <Chip tone="macaw">{getAssessmentTypeLabel(result.assessmentType)}</Chip>
             <Chip>Attempt {result.attemptNumber}</Chip>
@@ -376,7 +280,7 @@ export default function LearnerAssessmentResultPage() {
             </Chip>
           </div>
 
-          <h1 className="rb-display rb-display-md mt-4">{result.assessmentTitle}</h1>
+          <h1 className="rb-display rb-display-md mt-4 pr-28 sm:pr-36">{result.assessmentTitle}</h1>
 
           <div className="mt-7 flex flex-col items-center gap-7 sm:flex-row sm:items-start">
             <ScoreDial
@@ -401,7 +305,7 @@ export default function LearnerAssessmentResultPage() {
                     <p className="rb-caption mt-1">
                       {result.passed
                         ? `You scored ${percentage.toFixed(0)}%, ${(percentage - passingScore).toFixed(0)} percentage points above the passing score.`
-                        : `You scored ${percentage.toFixed(0)}%. The notch on the dial marks the passing score.`}
+                        : `You scored ${percentage.toFixed(0)}%. The pass mark is written under the score.`}
                     </p>
                   </>
                 ) : (
@@ -440,7 +344,7 @@ export default function LearnerAssessmentResultPage() {
               manual evaluation and are not included in the automatic score yet.
             </p>
           ) : null}
-        </RebyuCard>
+        </section>
 
         {/* Offered here, and nowhere along the way to the curriculum: the
             diagnostic is what a plan is built from, so this is the first moment
@@ -515,7 +419,7 @@ export default function LearnerAssessmentResultPage() {
         {/* --- Answer review ------------------------------------------------ */}
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="rb-display rb-display-sm">Answer review</h2>
+            <h2 className="rb-graded-heading">Answer review</h2>
             {REVIEW_FILTERS.length > 1 ? (
               <div className="flex flex-wrap gap-2">
                 {REVIEW_FILTERS.map((option) => {
@@ -561,7 +465,7 @@ export default function LearnerAssessmentResultPage() {
               const tone = ANSWER_TONES[state]
               return (
               <li key={answer.attemptQuestionId}>
-                <div className={cn("rounded-rb-card border-2 p-5", tone.card)}>
+                <div className={cn("rb-graded-item", `is-${state}`)}>
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <p className="flex min-w-0 gap-3 text-sm font-medium leading-6 text-rb-eel">
@@ -574,16 +478,24 @@ export default function LearnerAssessmentResultPage() {
                         <span className="min-w-0">{answer.question}</span>
                       </p>
                       <div className="flex shrink-0 flex-col items-end gap-1">
-                        <span
-                          className={cn(
-                            "rounded-rb-control px-2.5 py-1 text-xs font-bold",
-                            tone.badge
-                          )}
-                        >
-                          {STATE_LABEL[state]}
+                        {/* The teacher's mark: a tick, a cross, a squiggle for
+                            "still being marked", a question mark for blank. */}
+                        <span className="rb-graded-verdict">
+                          <PenMark
+                            kind={
+                              state === "correct"
+                                ? "check"
+                                : state === "incorrect"
+                                  ? "cross"
+                                  : state === "pending"
+                                    ? "tilde"
+                                    : "question"
+                            }
+                          />
+                          <span className="rb-pen">{STATE_LABEL[state]}</span>
                         </span>
                         {answer.points != null && answer.earnedPoints != null ? (
-                          <span className="rb-numeric text-xs text-rb-wolf">
+                          <span className="rb-pen rb-graded-points">
                             {Number(answer.earnedPoints)} / {Number(answer.points)} pts
                           </span>
                         ) : null}
@@ -597,15 +509,15 @@ export default function LearnerAssessmentResultPage() {
                           {answer.selectedChoiceText}
                         </p>
                         {answer.isCorrect === false && answer.correctChoiceText ? (
-                          <p className="rounded-rb-tile border-2 border-rb-leaf/45 bg-rb-leaf-wash p-2.5 text-rb-eel">
-                            <span className="font-bold text-rb-leaf">
+                          <p className="rb-graded-correction">
+                            <span className="rb-graded-correction-label">
                               Correct answer:{" "}
                             </span>
                             {answer.correctChoiceText}
                           </p>
                         ) : null}
                         {answer.explanation ? (
-                          <div className="rounded-rb-tile border-2 border-rb-swan bg-rb-snow p-3">
+                          <div className="rb-graded-note">
                             <p className={cn("text-xs font-bold", tone.text)}>
                               Explanation
                             </p>
@@ -647,7 +559,7 @@ export default function LearnerAssessmentResultPage() {
                     ) : answer.learnerAnswer && !answer.selectedChoiceText ? (
                       <div className="space-y-2 text-sm">
                         <p className="text-rb-wolf">Your answer:</p>
-                        <p className="whitespace-pre-wrap rounded-rb-tile border-2 border-rb-swan bg-rb-snow p-3 text-rb-eel">
+                        <p className="rb-graded-answer whitespace-pre-wrap">
                           {answer.learnerAnswer}
                         </p>
 
@@ -656,8 +568,8 @@ export default function LearnerAssessmentResultPage() {
                             so a wrong short answer showed the learner their own
                             wrong words and stopped there. */}
                         {answer.isCorrect === false && answer.correctChoiceText ? (
-                          <p className="rounded-rb-tile border-2 border-rb-leaf/45 bg-rb-leaf-wash p-2.5 text-rb-eel">
-                            <span className="font-bold text-rb-leaf">
+                          <p className="rb-graded-correction">
+                            <span className="rb-graded-correction-label">
                               Correct answer:{" "}
                             </span>
                             {answer.correctChoiceText}
@@ -665,7 +577,7 @@ export default function LearnerAssessmentResultPage() {
                         ) : null}
 
                         {answer.explanation ? (
-                          <div className="rounded-rb-tile border-2 border-rb-swan bg-rb-snow p-3">
+                          <div className="rb-graded-note">
                             <p className={cn("text-xs font-bold", tone.text)}>
                               Explanation
                             </p>
@@ -676,7 +588,7 @@ export default function LearnerAssessmentResultPage() {
                     ) : null}
 
                     {answer.feedback ? (
-                      <div className="rounded-rb-tile border-2 border-rb-swan bg-rb-snow p-3 text-sm">
+                      <div className="rb-graded-note text-sm">
                         <p className={cn("text-xs font-bold", tone.text)}>Feedback</p>
                         <p className="mt-1 text-rb-wolf">{answer.feedback}</p>
                       </div>

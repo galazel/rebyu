@@ -55,6 +55,7 @@ import {
 import { getExams, getExamTypes } from "@/services/assessmentService.js"
 import { getProgressAnalytics } from "@/services/learnerAnalyticsService.js"
 import { buildCurriculum, hasSatDiagnostic } from "./curriculum-model.js"
+import { LoadingSignal } from "@/components/loading-overlay.jsx"
 
 /**
  * The curriculum a learner lands on after opening an enrolled certification.
@@ -1216,85 +1217,9 @@ function unitNodes(major, takenExamIds, attemptsByExamId) {
  * circles they will occupy.
  */
 function CurriculumSkeleton() {
-  /* The skeleton stands in for the road, so it has to be the road's shape --
-     including which of the two layouts this screen is about to get. A wide
-     placeholder on a phone would overflow the screen and then reflow the
-     moment the real stops arrived, which is the opposite of what a skeleton
-     is for. */
-  const narrow = useIsNarrowViewport()
-  return (
-    <div role="status" aria-label="Loading curriculum">
-      {/* The header bar. */}
-      <div className="flex items-center gap-4 border-b-2 border-rb-swan bg-rb-snow px-5 py-3 lg:px-8">
-        <div className="size-10 shrink-0 animate-pulse rounded-full bg-rb-swan" />
-        <div className="h-5 w-52 animate-pulse rounded bg-rb-swan" />
-        <div className="ml-auto h-2.5 w-40 animate-pulse rounded-full bg-rb-swan" />
-      </div>
-
-      <div className="mx-auto max-w-[720px] px-5 py-10">
-        {/* The unit caption: a name, a status, and the rule under them. Not a
-            slab -- the page it is standing in for has no slab. */}
-        <div className="flex items-end gap-4">
-          <div className="min-w-0 flex-1">
-            <div className="h-2.5 w-14 animate-pulse rounded-full bg-rb-swan" />
-            <div className="mt-2 h-6 w-56 animate-pulse rounded bg-rb-swan" />
-          </div>
-          <div className="h-3 w-24 shrink-0 animate-pulse rounded-full bg-rb-swan" />
-        </div>
-        <div className="mt-2 h-[3px] animate-pulse rounded-rb-pill bg-rb-swan" />
-
-        {/* Four stops on the same zig-zag the road uses, each a plinth-shaped
-            block and a bar where its name will be -- so nothing moves when the
-            real nodes arrive. */}
-        <div
-          className="relative mx-auto mt-6"
-          style={{
-            width: pathWidthOf(narrow),
-            height: rowHeight(null, narrow) * 4,
-          }}
-        >
-          {[0, 1, 2, 3].map((index) => {
-            const dims = nodeDims(null, narrow)
-            const side = labelSideAt(index, narrow)
-            return (
-              <div key={index} className="relative" style={{ height: rowHeight(null, narrow) }}>
-                <div
-                  className={narrow ? "absolute left-1/2 top-4" : "absolute left-1/2 top-1/2"}
-                  style={{
-                    width: dims.w,
-                    height: dims.h,
-                    transform: narrow
-                      ? `translateX(calc(-50% + ${offsetAt(index, narrow)}px))`
-                      : `translate(calc(-50% + ${offsetAt(index)}px), -50%)`,
-                  }}
-                >
-                  <div
-                    className="absolute left-1/2 w-full -translate-x-1/2 animate-pulse rounded-rb-tile bg-rb-swan"
-                    style={{ top: dims.lift, height: dims.plinthH + dims.plinthD }}
-                  />
-                  <div
-                    className={`absolute h-4 animate-pulse rounded-rb-pill bg-rb-swan ${
-                      side === "below"
-                        ? "left-1/2 w-[140px] -translate-x-1/2"
-                        : side === "right"
-                          ? "left-full ml-4 w-[150px]"
-                          : "right-full mr-4 w-[150px]"
-                    }`}
-                    style={{
-                      top:
-                        side === "below"
-                          ? dims.lift + dims.plinthH + dims.plinthD + 12
-                          : dims.lift + dims.plinthH / 2 - 8,
-                    }}
-                  />
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  )
+  /* Navigation waits show the one shared loading screen (LoadingSignal),
+     not a page-shaped skeleton, so every wait in the app looks the same. */
+  return <LoadingSignal />
 }
 
 export default function LearnerCertificationCurriculumPage() {

@@ -65,6 +65,7 @@ import {
   getDashboardLayout,
   saveDashboardLayout,
 } from "@/services/studyDeskService.js"
+import { LoadingSignal } from "@/components/loading-overlay.jsx"
 
 /* The page draws every chart from the shared portal kit rather than its own
    chart.js instance. That kit reads the active theme, so the grid lines and
@@ -423,54 +424,9 @@ function ReadinessTile({ readiness }) {
  * the page doesn't jump around once real content swaps in.
  */
 function AnalyticsLoadingSkeleton() {
-  return (
-    <div className="space-y-4">
-    <LoadingNote text="drawing your progress board…" />
-    <BentoGrid>
-      <BentoTile col={4} row={2} className="gap-3">
-        <Skeleton className="h-3 w-32" />
-        <Skeleton className="h-7 w-2/3" />
-        <Skeleton className="mt-auto h-2 w-full" />
-        <Skeleton className="h-10 w-36" />
-      </BentoTile>
-      <BentoTile col={2} row={2} className="gap-3">
-        <Skeleton className="h-4 w-28" />
-        <Skeleton className="mx-auto h-[130px] w-[130px] rounded-full" />
-      </BentoTile>
-
-      <BentoTile col={2} row={1} className="justify-center gap-2">
-        <Skeleton className="h-3 w-24" />
-        <Skeleton className="h-8 w-16" />
-      </BentoTile>
-      <BentoTile col={2} row={1} className="justify-center gap-2">
-        <Skeleton className="h-3 w-20" />
-        <Skeleton className="h-8 w-16" />
-      </BentoTile>
-      <BentoTile col={2} row={1} className="justify-center gap-2">
-        <Skeleton className="h-3 w-20" />
-        <Skeleton className="h-8 w-16" />
-      </BentoTile>
-
-      <BentoTile col={4} row={2} className="gap-3">
-        <Skeleton className="h-4 w-40" />
-        <Skeleton className="h-[200px] w-full" />
-      </BentoTile>
-      <BentoTile col={2} row={2} className="gap-3">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-5/6" />
-      </BentoTile>
-
-      {[0, 1, 2, 3, 4, 5].map((index) => (
-        <BentoTile key={index} col={3} row={2} className="gap-3">
-          <Skeleton className="h-4 w-36" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-5/6" />
-        </BentoTile>
-      ))}
-    </BentoGrid>
-    </div>
-  )
+  /* Navigation waits show the one shared loading screen (LoadingSignal),
+     not a page-shaped skeleton, so every wait in the app looks the same. */
+  return <LoadingSignal />
 }
 
 /* -------------------------------------------------------------------- page */

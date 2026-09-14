@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+import { LoadingSignal } from "@/components/loading-overlay.jsx"
 
 // Files moved into the account dropdown (with Profile/Settings/Log out) --
 // see institution-layout.jsx -- so it isn't listed here anymore.
@@ -104,20 +105,9 @@ export function InstitutionStatCard({ icon: Icon, label, value, hint, tone = "ma
 }
 
 export function InstitutionLoadingSkeleton({ rows = 4 }) {
-  return (
-    <div className="space-y-4" aria-busy="true" aria-label="Loading">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <Skeleton key={index} className="h-28 rounded-rb-card" />
-        ))}
-      </div>
-      <div className="space-y-2">
-        {Array.from({ length: rows }).map((_, index) => (
-          <Skeleton key={index} className="h-11 rounded-rb-tile" />
-        ))}
-      </div>
-    </div>
-  )
+  /* Navigation waits show the one shared loading screen (LoadingSignal),
+     not a page-shaped skeleton, so every wait in the app looks the same. */
+  return <LoadingSignal />
 }
 
 export function InstitutionErrorState({ title, description, onRetry }) {
