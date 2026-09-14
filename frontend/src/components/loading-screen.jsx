@@ -246,7 +246,7 @@ export function ComicHero({ pose, active, still, className = "" }) {
           <Head mouth="open" />
           {/* The certificate, held overhead. */}
           <rect x={50} y={34} width={100} height={28} rx={4} fill="#fff" stroke={INK} strokeWidth={3} />
-          <text x={96} y={55} textAnchor="middle" fontFamily="Bangers, Impact, sans-serif" fontSize={20} fill={INK}>
+          <text x={96} y={55} textAnchor="middle" fontFamily="Feather Bold, Nunito, sans-serif" fontWeight={900} fontSize={17} fill={INK}>
             PASS!
           </text>
           <circle cx={134} cy={55} r={7} fill={BAND} stroke={INK} strokeWidth={2} />
@@ -401,7 +401,7 @@ export function LoadingScreen({ messages = MESSAGES }) {
   }, [reduced, list.length])
 
   return (
-    <div className="rebyu-ds rb-light-only rb-comic-scene flex h-svh w-full flex-col bg-white p-2 sm:p-3">
+    <div className="rebyu-ds rb-light-only flex h-svh w-full flex-col bg-white p-2 sm:p-3">
       {/* The live region is a stable, visually hidden node: the visible bubble
           moves from panel to panel and remounts, which a screen reader would
           not reliably announce. */}

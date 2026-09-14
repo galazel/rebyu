@@ -84,11 +84,11 @@
        @font-face block below) it wins. Nunito / Nunito Sans ship as the
        fallbacks: same rounded terminals and geometric skeleton, so the
        metrics and voice hold up when the licensed files are absent. */
-    --font-rb-display: "Halo Dek", "Lexend", ui-rounded, system-ui, sans-serif;
-    --font-rb-body: "Lexend", ui-sans-serif, system-ui, sans-serif;
+    --font-rb-display: "Feather Bold", "Nunito", ui-rounded, system-ui, sans-serif;
+    --font-rb-body: "DIN Next Rounded", "DIN Next Rounded LT Pro", "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
     /* Comic lettering (SFX, captions). Declared here so `font-rb-sfx` exists as
        a utility; the face itself is loaded from Google Fonts in index.css. */
-    --font-rb-sfx: "Bangers", "Halo Dek", Impact, sans-serif;
+    --font-rb-sfx: "Feather Bold", "Nunito", ui-rounded, system-ui, sans-serif;
 
     /* Shape.
        The reference sets every button, link, tag and nav item at 12px and
