@@ -1,3 +1,4 @@
+import { ComicLoadingNote } from "@/components/comic/comic-loading-note.jsx"
 import React from "react"
 import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import {
@@ -314,6 +315,7 @@ export function LearnerErrorState({ title = "Could not load data", error, onRetr
 export function LearnerLoadingSkeleton() {
   return (
     <div className="space-y-6">
+      <ComicLoadingNote />
       <div className="grid gap-4 md:grid-cols-4">
         {[1, 2, 3, 4].map((item) => (
           <Skeleton key={item} className="h-32 rounded-rb-card" />

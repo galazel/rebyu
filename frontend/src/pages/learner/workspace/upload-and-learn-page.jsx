@@ -106,7 +106,7 @@ function TutorPanel({ fileName, onClose }) {
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center px-2 text-center">
             <motion.span
-              className="grid size-14 place-items-center rounded-3xl bg-rb-beetle text-white shadow-[0_4px_0_var(--color-rb-beetle-lip)] ring-2 ring-white"
+              className="grid size-14 place-items-center rounded-3xl bg-rb-beetle text-white shadow-[var(--comic-shadow-sm)] ring-2 ring-white"
               animate={{ scale: [1, 1.06, 1] }}
               transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
             >

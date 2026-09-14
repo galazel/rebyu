@@ -75,6 +75,7 @@ const CompilerArea = lazyRoute(() => import("./pages/challenges/compiler-area-pa
 const CodeStrikePage = lazyRoute(() => import("./pages/learner/challenges/codestrike-page.jsx"))
 const BlueprintArenaPage = lazyRoute(() => import("./pages/learner/challenges/blueprint-arena-page.jsx"))
 const WorldCupPage = lazyRoute(() => import("./pages/learner/challenges/world-cup-page.jsx"))
+const SkeletonPreviewPage = lazyRoute(() => import("./pages/dev/skeleton-preview-page.jsx"))
 const LearnerCertificationCurriculumPage = lazyRoute(() =>
     import("./pages/learner/learning/learner-certification-curriculum-page.jsx")
 )
@@ -256,6 +257,11 @@ export function App() {
                 enough to review it. Stripped from production builds. */}
             {import.meta.env.DEV ? (
                 <Route path="/__preview/loading" element={<LoadingScreen />} />
+            ) : null}
+
+            {/* Dev-only: the portal loading skeletons, held on screen for review. */}
+            {import.meta.env.DEV ? (
+                <Route path="/__preview/skeletons" element={<SkeletonPreviewPage />} />
             ) : null}
 
             <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>

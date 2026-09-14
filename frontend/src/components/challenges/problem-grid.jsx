@@ -124,9 +124,9 @@ const DIFFICULTY_STROKE = {
  *  as `DIFFICULTY_CHIP` below -- green, orange, red -- so the chip on a
  *  problem matches the node you clicked to reach it. */
 const DIFFICULTY_NODE = {
-  easy: "border-rb-feather bg-rb-feather text-white shadow-[0_4px_0_var(--color-rb-feather-lip)]",
-  medium: "border-rb-fox bg-rb-fox text-white shadow-[0_4px_0_var(--color-rb-fox-lip)]",
-  hard: "border-rb-cardinal bg-rb-cardinal text-white shadow-[0_4px_0_var(--color-rb-cardinal-lip)]",
+  easy: "border-rb-feather bg-rb-feather text-white shadow-[var(--comic-shadow-sm)]",
+  medium: "border-rb-fox bg-rb-fox text-white shadow-[var(--comic-shadow-sm)]",
+  hard: "border-rb-cardinal bg-rb-cardinal text-white shadow-[var(--comic-shadow-sm)]",
 }
 
 /** The same ramp, washed out, for problems not yet reached.
@@ -137,9 +137,9 @@ const DIFFICULTY_NODE = {
  *  the road get harder -- while staying clearly unreached: pale fill, muted
  *  ink, no lip, so a locked node is never mistaken for a solved one. */
 const DIFFICULTY_NODE_LOCKED = {
-  easy: "border-rb-feather/40 bg-rb-feather-wash text-rb-feather-lip shadow-[0_4px_0_var(--color-rb-swan)]",
-  medium: "border-rb-fox/40 bg-rb-fox-wash text-rb-fox-lip shadow-[0_4px_0_var(--color-rb-swan)]",
-  hard: "border-rb-cardinal/40 bg-rb-cardinal-wash text-rb-cardinal-lip shadow-[0_4px_0_var(--color-rb-swan)]",
+  easy: "border-rb-feather/40 bg-rb-feather-wash text-rb-feather-lip shadow-[var(--comic-shadow-sm)]",
+  medium: "border-rb-fox/40 bg-rb-fox-wash text-rb-fox-lip shadow-[var(--comic-shadow-sm)]",
+  hard: "border-rb-cardinal/40 bg-rb-cardinal-wash text-rb-cardinal-lip shadow-[var(--comic-shadow-sm)]",
 }
 
 /** Tag worn by each node. Solid rather than washed so it stays legible on
@@ -273,7 +273,7 @@ function Cell({ problem, onOpen, tone, nodeRef }) {
         solved
           ? DIFFICULTY_NODE[problem.difficulty] ?? DIFFICULTY_NODE.easy
           : current
-            ? `${tone.border} ${tone.face} text-white shadow-[0_4px_0_rgb(0_0_0/0.18)]`
+            ? `${tone.border} ${tone.face} text-white shadow-[var(--comic-shadow-sm)]`
             : DIFFICULTY_NODE_LOCKED[problem.difficulty] ?? DIFFICULTY_NODE_LOCKED.easy
       }`}
       style={{ width: NODE_R * 2, height: NODE_R * 2 }}

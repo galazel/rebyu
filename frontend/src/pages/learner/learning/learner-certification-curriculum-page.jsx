@@ -1482,7 +1482,7 @@ export default function LearnerCertificationCurriculumPage() {
   if (diagnosticDone && !masteryReady) {
     return (
       <div className="rebyu-ds flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-rb-polar px-5">
-        <div className="w-full max-w-md rounded-rb-card border-2 border-rb-swan bg-rb-snow p-8 text-center shadow-[0_5px_0_var(--color-rb-swan)]">
+        <div className="w-full max-w-md rounded-rb-card border-2 border-rb-swan bg-rb-snow p-8 text-center shadow-[var(--comic-shadow-sm)]">
           <span className="mx-auto grid size-16 place-items-center rounded-2xl bg-rb-macaw-wash text-rb-macaw-lip">
             <Brain className="size-7" aria-hidden="true" />
           </span>

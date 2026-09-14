@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowLeft,
   ArrowRight,
   BarChart3,
   BookOpen,
@@ -220,15 +219,6 @@ const OLYMPICS_MODES = [
     to: "/learner/challenges/world-cup",
   },
 ];
-
-/** Wraps the index so the carousel is a ring, not a strip with two dead ends. */
-function olympicsOffset(index, activeIndex) {
-  let difference = index - activeIndex;
-  const midpoint = Math.floor(OLYMPICS_MODES.length / 2);
-  if (difference > midpoint) difference -= OLYMPICS_MODES.length;
-  if (difference < -midpoint) difference += OLYMPICS_MODES.length;
-  return difference;
-}
 
 /* Priority is derived, not chosen: it ranks how weak the learner is against how
    heavily the exam weights that domain. Shared by the roadmap path and the
@@ -458,218 +448,71 @@ function LandingNavbar() {
 }
 
 function HeroSection() {
-  const sectionRef = useRef(null);
-  /* The wash blob drifts up against the scroll. It is the one element in the
-     fold that carries no information, which is the whole test for whether
-     something may be parallaxed. */
-  const blobY = useParallax(sectionRef, 90);
-
   return (
-    <section ref={sectionRef} className="relative overflow-hidden bg-rb-snow">
-      {/* --- decoration -----------------------------------------------------
-          Everything in this block is ornament: geometry and two product
-          fragments that frame the claim without competing with it. All of it is
-          `aria-hidden` and `pointer-events-none`.
+    <section className="relative isolate flex items-center overflow-hidden lg:h-[calc(100svh-84px)] lg:min-h-[600px]">
+      {/* --- the fold: one full-screen sky panel ------------------------------
+          The anime sky fills the window edge to edge, and the claim stands
+          alone in the middle of it: caption, speech bubble, action. No
+          character, no side ornaments, no ticker -- the sky and the words are
+          the whole scene. */}
+      <div aria-hidden="true" className="rb-hero-sky-art absolute inset-0 -z-10" />
+      <div
+        aria-hidden="true"
+        className="rb-halftone absolute inset-x-0 bottom-0 -z-10 h-1/3 opacity-70 [mask-image:linear-gradient(to_top,black,transparent)]"
+      />
 
-          It carries more weight now than it did. With the screenshot gallery
-          gone the fold is copy and nothing else, and a centred column of text on
-          an empty white page reads as a page that failed to load its image.
-          These are what give the fold its width.
+      {/* `animate`, not `whileInView`: the fold is on screen before any
+          observer could fire. The stagger reads as one sentence being said --
+          caption, claim, action. */}
+      <motion.div
+        className="relative mx-auto flex w-full max-w-4xl flex-col items-center px-5 py-16 text-center lg:py-4"
+        initial="hidden"
+        animate="show"
+        variants={staggerParent(0.09, 0.1)}
+      >
+        <motion.p variants={fadeUp} className="rb-caption-box">
+          <Typewriter text="for topcit, it passport & fe exam candidates" speed={34} startOnMount />
+        </motion.p>
 
-          `xl:` and not `lg:`: measured at 1024px the headline's own glyphs run
-          170px–855px and the lead sits at 224–800, leaving each shoulder too
-          narrow for a 224px card — they landed on the words. Below 1280px the
-          fold is not wide enough to carry decoration, so it does not try, and
-          the centred copy stands on its own. */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 hidden xl:block">
-        {/* The parallax survives, moved onto the ring. It is still the only
-            thing in the fold carrying no information, which is the whole test
-            for whether something may drift against the scroll. */}
-        <motion.div
-          style={{ y: blobY }}
-          className="absolute -bottom-20 left-[6%] size-64 rounded-full border-[34px] border-rb-feather/15"
-        />
-        <div className="absolute right-[-110px] top-32 size-72 rounded-full bg-rb-macaw-wash/70" />
-        <div className="absolute left-[-40px] top-20 size-28 rounded-br-[999px] bg-rb-feather/10" />
-        <div className="absolute bottom-16 right-[12%] size-16 rounded-tl-[999px] bg-rb-fox/15" />
-
-        {/* Two product fragments, not whole cards: a corner of the learner's
-            readiness tile and a corner of the institution cohort panel, cropped
-            the way a screenshot pinned to a moodboard would be. Whole cards here
-            invite reading, and anything readable beside a headline steals from
-            it.
-
-            Both are lifted from real dashboards rather than invented for the
-            fold — readiness is the learner analytics gauge (`ReadinessTile`, and
-            "nearly ready" is a real band from `readinessMeta`), the cohort tile
-            is the institution analytics stat row. The fold should promise the two
-            screens the product is actually built around. */}
-        {/* Sat beside the headline until measurement showed it overlapping the
-            glyphs by 71px. Dropped below it instead: at this height the copy
-            beside them is the lead and the buttons, both of which are far
-            narrower than the heading, so the shoulders are genuinely clear. */}
-        {/* Anchored to the section's midline rather than to a fixed offset from
-            its top. The copy is vertically centred, so as the fold's min-height
-            changes the copy moves but a `top-[21rem]` card would not — the two
-            would drift apart at every viewport height. Offsetting from `top-1/2`
-            keeps the card beside the same words at any height.
-
-            Which words matters: the heading's leftmost glyph sits at x=240 and
-            this card's box reaches x=263 once the -6° rotation is applied —
-            rotation widens the bounding box, which is the easy thing to miss.
-            The offset drops it past the heading so the lead and the buttons are
-            what sit beside it, both far narrower. */}
-        <div className="absolute left-8 top-1/2 mt-24 w-56 -translate-y-1/2 rotate-[-6deg] rounded-rb-card border-2 border-rb-swan bg-rb-snow p-4 shadow-[0_6px_0_var(--color-rb-swan)] 2xl:left-20">
-          <span className="inline-flex items-center gap-1.5 rounded-rb-pill bg-rb-feather px-2.5 py-1 text-[0.6875rem] font-extrabold lowercase text-white">
-            <Gauge className="size-3" />
-            exam readiness
-          </span>
-          <div className="mt-3 flex items-baseline gap-1">
-            <span className="font-rb-display text-2xl font-extrabold leading-none text-rb-eel">
-              68
-            </span>
-            <span className="text-sm font-extrabold text-rb-wolf">%</span>
-            <span className="ml-auto text-[0.6875rem] font-bold text-rb-feather">nearly ready</span>
-          </div>
-          <div className="mt-2 h-1.5 w-full rounded-full bg-rb-swan">
-            <div className="h-full w-[68%] rounded-full bg-rb-feather" />
-          </div>
-          <div className="mt-3 space-y-2.5">
-            {[["Normalization", 31, "bg-rb-cardinal"], ["Subnetting", 38, "bg-rb-fox"]].map(
-              ([name, value, bar]) => (
-                <div key={name}>
-                  <div className="flex items-center justify-between text-[0.6875rem] font-bold text-rb-eel">
-                    <span>{name}</span>
-                    <span>{value}%</span>
-                  </div>
-                  <div className="mt-1 h-1.5 w-full rounded-full bg-rb-swan">
-                    <div className={`h-full rounded-full ${bar}`} style={{ width: `${value}%` }} />
-                  </div>
-                </div>
-              ),
-            )}
-          </div>
-        </div>
-
-        <div className="absolute right-10 top-1/2 mt-10 w-44 -translate-y-1/2 rotate-[5deg] rounded-rb-card border-2 border-rb-swan bg-rb-snow p-4 shadow-[0_6px_0_var(--color-rb-swan)] 2xl:right-24">
-          <div className="flex items-center gap-2.5">
-            <span className="grid size-9 place-items-center rounded-xl bg-rb-macaw-wash text-rb-macaw-lip">
-              <Users className="size-5" />
-            </span>
-            <div>
-              <div className="font-rb-display text-lg font-extrabold leading-none text-rb-eel">
-                128
-              </div>
-              <div className="text-[0.625rem] font-bold text-rb-wolf">learners tracked</div>
-            </div>
-          </div>
-          {/* The completion-distribution buckets from the cohort analytics
-              panel, read as a shape rather than as numbers: bars, no axis. */}
-          <div className="mt-3 flex h-8 items-end gap-1">
-            {[38, 62, 100, 74].map((height, i) => (
-              <span
-                key={i}
-                className="flex-1 rounded-sm bg-rb-macaw/70"
-                style={{ height: `${height}%` }}
-              />
-            ))}
-          </div>
-          <div className="mt-1.5 text-[0.625rem] font-bold text-rb-wolf">completion spread</div>
-        </div>
-      </div>
-
-      {/* The fold is now copy alone, so its height has to be stated rather than
-          inherited from a screenshot. `min-h` with the copy centred in it gives
-          the hero the presence the gallery used to supply, and `70svh` — small
-          viewport height — because `vh` on mobile measures the viewport with the
-          browser chrome retracted, which pushes the buttons under the address
-          bar on first paint. */}
-      <div className="relative mx-auto flex w-full max-w-[1280px] flex-col justify-center px-5 pb-24 pt-20 min-h-[76svh] lg:min-h-[88svh] lg:px-8 lg:pb-32 lg:pt-28">
-        {/* Centred: the hero is the one block on the site with nothing beside
-            it. `!text-center` because `.rb-display` sets left alignment as a
-            system rule, and an unlayered rule outranks a Tailwind utility. */}
-        {/* `animate`, not `whileInView`: the fold is on screen before any
-            observer could fire, and a hero that waits to be scrolled into view
-            is a hero that opens blank. The stagger is what makes the sequence
-            read as one sentence being said — chip, claim, explanation, action —
-            rather than four things appearing at once. */}
-        <motion.div
-          className="mx-auto max-w-4xl text-center"
-          initial="hidden"
-          animate="show"
-          variants={staggerParent(0.09, 0.1)}
-        >
-          {/* The audience, named before the claim — a fold earns its size by
-              telling you inside one line whether it is addressed to you, and
-              "which three exams" is that line here. Set as plain tracked-out
-              capitals rather than the pill this used to be: a filled chip and a
-              headline this large are two loud things stacked, and the chip is
-              the one that loses. */}
-          <motion.p
-            variants={fadeUp}
-            className="text-[0.6875rem] font-extrabold uppercase tracking-[0.2em] text-rb-wolf sm:text-xs"
-          >
-            {/* Typed rather than faded in. It is the first line of the page and
-                the shortest, which is the only place on the site where a reader
-                will sit through a line being written out — anything longer and
-                they are waiting on copy they could already have read. */}
-            <Typewriter text="for topcit, it passport & fe exam candidates" speed={34} startOnMount />
-          </motion.p>
-
-          {/* The heading names the outcome, the lead names the method. Said the
-              other way round — mechanism first — the fold spends its largest
-              type explaining how a study tool works to someone who has not yet
-              been told what it gets them.
-
-              Sized here rather than by `rb-display-xl`: this is the one heading
-              on the site that has nothing above it and no neighbour, and the
-              system's largest step is tuned for headings that do. Tracking is
-              pulled to -0.04em because letterforms this big carry visibly more
-              air between them than the same face at 3rem. */}
+        {/* No bubble: the claim is lettered straight onto the sky. A thick
+            white stroke under the ink (paint-order puts it behind the fill)
+            keeps it readable over any cloud, the way comic lettering sits on
+            top of the art. */}
+        <motion.div variants={fadeUp} className="mt-6 w-full max-w-4xl">
+          {/* `!text-center`: `.rb-display` sets left alignment as a system rule,
+              and an unlayered rule outranks a Tailwind utility. */}
           <motion.h1
             variants={staggerParent(0.055)}
-            /* `!` on tracking and leading for the same reason as `!text-center`:
-               `.rebyu-ds .rb-display` is unlayered, and an unlayered rule
-               outranks every Tailwind layer no matter how specific the utility
-               looks. Without the important modifier this silently kept the
-               system's -0.02em. */
-            className="rb-display mt-5 !text-center text-[clamp(2.75rem,7.5vw,5.5rem)] !leading-[0.95] !tracking-[-0.04em]"
+            className="rb-display !text-center text-[clamp(3rem,8vw,7.5rem)] !leading-[0.95] [-webkit-text-stroke:3px_#ffffff] [paint-order:stroke_fill] drop-shadow-[3px_3px_0_rgba(23,24,43,0.9)] sm:[-webkit-text-stroke:10px_#ffffff] sm:drop-shadow-[6px_6px_0_rgba(23,24,43,0.9)]"
           >
-            {/* `inherit`: the words join the fold's existing chip → claim →
-                lead → buttons sequence rather than running a second one beside
-                it. Word-level, not character-level — see `WordReveal`. */}
             <WordReveal text="pass it the first time." inherit />
           </motion.h1>
-
-          <motion.p variants={fadeUp} className="rb-body-lg mx-auto mt-6 max-w-xl text-balance">
-            Rebyu finds the topics you are weakest at and builds your study plan around them — so
-            nothing on exam day is a surprise.
-          </motion.p>
-
-          <motion.div
-            variants={fadeUp}
-            className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"
-          >
-            <TactileButton asChild size="lg">
-              <Link to="/register">
-                start learning
-                <ArrowRight className="size-5" />
-              </Link>
-            </TactileButton>
-            <TactileButton asChild size="lg" variant="ghost">
-              <a href="#certifications">see what's covered</a>
-            </TactileButton>
-          </motion.div>
-
-          <motion.p
-            variants={fadeUp}
-            className="mt-6 flex items-center justify-center gap-2 text-sm font-semibold text-rb-wolf"
-          >
-            <span className="size-2 rounded-full bg-rb-mask" aria-hidden="true" />
-            Every lesson is free. Pay only for mock exams and analytics.
-          </motion.p>
+          <p className="rb-body-lg mx-auto mt-6 max-w-3xl text-balance !font-semibold !text-rb-eel [text-shadow:0_0_14px_#ffffff,0_0_4px_#ffffff]">
+            Rebyu finds the topics you are weakest at and builds your study plan around them —
+            so nothing on exam day is a surprise.
+          </p>
         </motion.div>
-      </div>
+
+        <motion.div
+          variants={fadeUp}
+          className="mt-9 flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row"
+        >
+          <TactileButton asChild size="lg">
+            <Link to="/register">
+              start learning
+              <ArrowRight className="size-5" />
+            </Link>
+          </TactileButton>
+          <TactileButton asChild size="lg" variant="ghost">
+            <a href="#certifications">see what&apos;s covered</a>
+          </TactileButton>
+        </motion.div>
+
+        <motion.p variants={fadeUp} className="rb-comic-tag mt-5">
+          <span className="size-2 rounded-full bg-rb-leaf" aria-hidden="true" />
+          Every lesson is free. Pay only for mock exams and analytics.
+        </motion.p>
+      </motion.div>
     </section>
   );
 }
@@ -678,7 +521,7 @@ function HeroSection() {
 
 function AboutSection() {
   return (
-    <section id="about" className="scroll-mt-24 bg-rb-snow px-5 py-20 lg:px-8 lg:py-28">
+    <section id="about" className="scroll-mt-24 bg-rb-sun rb-halftone rb-band px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal className="max-w-3xl">
           <p className="rb-eyebrow">what rebyu is</p>
@@ -726,7 +569,8 @@ function AboutSection() {
 
 function ProblemSection() {
   return (
-    <section id="problem" className="scroll-mt-24 bg-rb-polar px-5 py-20 lg:px-8 lg:py-28">
+    <section id="problem" className="relative scroll-mt-24 overflow-hidden bg-rb-polar rb-halftone px-5 py-20 lg:px-8 lg:py-28">
+      <img src="/brand/comic/no.webp" alt="" aria-hidden="true" className="pointer-events-none absolute hidden select-none drop-shadow-[4px_4px_0_rgba(23,24,43,0.35)] lg:block right-[3%] top-4 w-44 -rotate-6" />
       <div className="mx-auto grid max-w-[1280px] items-center gap-12 lg:grid-cols-2 lg:gap-16">
         <div data-landing-reveal>
           <p className="rb-eyebrow">the problem</p>
@@ -783,7 +627,8 @@ function ProblemSection() {
 
 function SolutionSection() {
   return (
-    <section id="solution" className="scroll-mt-24 bg-rb-snow px-5 py-20 lg:px-8 lg:py-28">
+    <section id="solution" className="relative scroll-mt-24 overflow-hidden bg-rb-cyan rb-halftone rb-band px-5 py-20 lg:px-8 lg:py-28">
+      <img src="/brand/comic/pow.webp" alt="" aria-hidden="true" className="pointer-events-none absolute hidden select-none drop-shadow-[4px_4px_0_rgba(23,24,43,0.35)] lg:block right-[3%] top-4 w-48 rotate-6" />
       <div className="mx-auto grid max-w-[1280px] items-center gap-12 lg:grid-cols-2 lg:gap-16">
         {/* Chart left, copy right. The card already leads in source order, so
             the columns fall this way on their own -- the order utilities that
@@ -871,7 +716,7 @@ function HowItWorksSection() {
   const { active } = useScrollSteps(trackRef, HOW_IT_WORKS.length);
 
   return (
-    <section id="how-it-works" className="scroll-mt-24 bg-rb-polar px-5 py-20 lg:px-8 lg:py-28">
+    <section id="how-it-works" className="scroll-mt-24 bg-rb-polar rb-halftone px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal>
           <p className="rb-eyebrow">how it works</p>
@@ -978,7 +823,8 @@ function CertificationSection() {
   };
 
   return (
-    <section id="certifications" className="scroll-mt-24 bg-rb-snow px-5 py-20 lg:px-8 lg:py-28">
+    <section id="certifications" className="relative scroll-mt-24 overflow-hidden bg-rb-purple rb-halftone-light rb-band-dark px-5 py-20 lg:px-8 lg:py-28">
+      <img src="/brand/comic/bang.webp" alt="" aria-hidden="true" className="pointer-events-none absolute hidden select-none drop-shadow-[4px_4px_0_rgba(23,24,43,0.35)] lg:block right-[4%] top-6 w-52 -rotate-3" />
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal>
           {/* The eyebrow names the section, the tag beside it cycles the three
@@ -1011,7 +857,7 @@ function CertificationSection() {
             <HoverLift key={c.title} lift={-4} scale={1.004}>
               <article
                 data-landing-reveal
-                className="grid overflow-hidden rounded-rb-card border-2 border-rb-swan bg-rb-snow shadow-[0_5px_0_var(--color-rb-swan)] lg:grid-cols-[300px_1fr]"
+                className="grid overflow-hidden rounded-rb-card border-2 border-rb-swan bg-rb-snow shadow-[var(--comic-shadow-sm)] lg:grid-cols-[300px_1fr]"
               >
                 {/* colour panel carries identity; the wordmark bleeds off it */}
                 <div className={`relative overflow-hidden p-7 ${TONE[c.tone].face}`}>
@@ -1084,21 +930,13 @@ function CertificationSection() {
 /* ----------------------------------------------------------------- olympics */
 
 function OlympicsSection() {
-  /* The same mode-select carousel the signed-in challenge hub uses: one arena
-     at full size with the other two racked behind it, rather than three equal
-     boxes. Picking a competitive format is a choice, and the carousel puts the
-     choice itself on screen — a visitor sees the arena exactly as it will look
-     once they are inside the product. */
-  const [activeIndex, setActiveIndex] = useState(0);
-  const activeMode = OLYMPICS_MODES[activeIndex];
-
-  const move = (direction) =>
-    setActiveIndex(
-      (current) => (current + direction + OLYMPICS_MODES.length) % OLYMPICS_MODES.length
-    );
-
+  /* Three arenas, three cards, side by side. They replaced a drag-to-browse
+     carousel that hid two of the three arenas behind the first at any moment;
+     a visitor comparing formats should see all of them at once. */
   return (
-    <section id="roadmap" className="scroll-mt-24 overflow-hidden bg-rb-polar px-5 py-20 lg:px-8 lg:py-28">
+    <section id="roadmap" className="relative scroll-mt-24 overflow-hidden bg-rb-sun rb-halftone rb-band px-5 py-20 lg:px-8 lg:py-28">
+      {/* Versus frame: the arenas are head-to-head, so this section wears the VS. */}
+      <img src="/brand/comic/versus.webp" alt="" aria-hidden="true" className="pointer-events-none absolute right-[5%] top-12 hidden w-80 rotate-2 select-none rounded-md border-4 border-[#17182b] shadow-[6px_6px_0_#17182b] lg:block" />
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal className="max-w-2xl">
           <p className="rb-eyebrow">it olympics</p>
@@ -1112,203 +950,55 @@ function OlympicsSection() {
             time; the World Cup needs seven other people.
           </p>
         </div>
-      </div>
 
-      <div
-        data-landing-reveal
-        className="mx-auto mt-12 max-w-[1280px]"
-        onKeyDown={(event) => {
-          if (event.key === "ArrowLeft") move(-1);
-          if (event.key === "ArrowRight") move(1);
-        }}
-        tabIndex={0}
-        aria-label="Arena carousel"
-      >
-        {/* Drag anywhere on the deck to change arenas. `dragConstraints` are
-            pinned to zero on both sides with `dragElastic` supplying the give,
-            so the deck rubber-bands back to centre and the offset is only ever
-            read as an intent — the cards themselves are positioned by state,
-            never by where the pointer stopped. Velocity is folded in so a
-            decisive flick counts even if it travelled less than 60px. */}
-        <motion.div
-          className="relative h-[470px] cursor-grab active:cursor-grabbing sm:h-[490px]"
-          drag="x"
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.16}
-          onDragEnd={(_event, info) => {
-            const intent = info.offset.x + info.velocity.x * 0.12;
-            if (intent < -60) move(1);
-            else if (intent > 60) move(-1);
-          }}
-        >
-          {OLYMPICS_MODES.map((mode, index) => {
-            const position = olympicsOffset(index, activeIndex);
-            const isActive = position === 0;
-
-            return (
-              <motion.button
-                key={mode.id}
-                type="button"
-                onClick={() => (isActive ? undefined : setActiveIndex(index))}
-                /* Centred with `inset-0 m-auto` rather than the usual
-                   `left-1/2 -translate-x-1/2`. `x` and `translateX` are the
-                   same transform key to motion, so a centring half-offset in
-                   `style` and a springing `x` in `animate` would be one
-                   property written twice — auto margins centre the card
-                   without spending the transform at all, leaving the whole of
-                   it to the spring. */
-                className={`absolute inset-0 isolate m-auto h-[430px] w-[280px] overflow-hidden rounded-rb-card border-2 text-left [backface-visibility:hidden] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw sm:w-[320px] ${mode.surfaceClass} ${
-                  isActive
-                    ? "border-rb-macaw shadow-[0_26px_65px_-18px_rgba(27,110,243,0.45)]"
-                    : "border-rb-swan shadow-[0_22px_55px_-18px_rgba(15,23,42,0.35)]"
-                }`}
-                style={{ zIndex: 10 - Math.abs(position) }}
-                /* `initial={false}` because these values are the deck's layout,
-                   not an entrance. Left to animate in from the transform
-                   defaults, all three cards paint stacked dead centre at full
-                   size until the first frame lands, and on a slow first frame
-                   that stack is what a visitor sees. Off-centre is the resting
-                   state; only *changing* arenas is an animation.
-
-                   A spring rather than the duration this used to carry: it is a
-                   deck of cards being thumbed through, and a fixed duration
-                   cannot move the card with furthest to go any differently
-                   from the one already nearly in place. */
-                initial={false}
-                animate={{
-                  x: position * 230,
-                  scale: isActive ? 1 : Math.abs(position) === 1 ? 0.82 : 0.66,
-                }}
-                transition={{ type: "spring", stiffness: 260, damping: 30, mass: 0.9 }}
-                whileHover={isActive ? undefined : { scale: 0.87 }}
-                aria-current={isActive ? "true" : undefined}
-                aria-label={`${mode.name}${isActive ? ", selected" : ", select"}`}
+        <div className="mt-14 grid gap-7 md:grid-cols-3">
+          {OLYMPICS_MODES.map((mode) => (
+            <HoverLift key={mode.id} className="h-full">
+              <article
+                data-landing-reveal
+                className={`flex h-full flex-col overflow-hidden rounded-rb-card border-[3px] border-[#17182b] shadow-[6px_6px_0_#17182b] ${mode.surfaceClass}`}
               >
                 <div
-                  className="relative flex h-40 items-center justify-center overflow-hidden"
+                  className="relative flex h-36 items-center justify-center overflow-hidden border-b-[3px] border-[#17182b]"
                   style={{ background: mode.accent }}
                 >
                   <div className="absolute left-3 right-3 top-3 z-10 flex items-center justify-between gap-2">
-                    <span className="rounded-rb-pill bg-white/90 px-2.5 py-1 font-rb-display text-[10px] font-extrabold uppercase tracking-wide text-rb-eel backdrop-blur-sm">
+                    <span className="rounded-rb-pill border-2 border-[#17182b] bg-white px-2.5 py-0.5 font-rb-sfx text-xs uppercase tracking-wide text-[#17182b]">
                       {mode.tag}
                     </span>
-                    <span className="rounded-rb-pill bg-black/35 px-2.5 py-1 font-rb-display text-[10px] font-extrabold uppercase tracking-wide text-white backdrop-blur-sm">
+                    <span className="rounded-rb-pill bg-black/40 px-2.5 py-0.5 font-rb-sfx text-xs uppercase tracking-wide text-white">
                       {mode.format}
                     </span>
                   </div>
-
-                  <div className="absolute -right-8 -top-8 size-28 rounded-full bg-white/10" />
-                  <div className="absolute -bottom-10 -left-7 size-32 rounded-full bg-white/10" />
-
-                  <span
-                    className={`grid size-24 place-items-center rounded-full bg-white/20 text-white transition-transform duration-500 ${
-                      isActive ? "scale-100" : "scale-90"
-                    }`}
-                  >
-                    <mode.icon className="size-12" strokeWidth={1.7} aria-hidden="true" />
+                  <span className="grid size-20 place-items-center rounded-full border-[3px] border-[#17182b] bg-white/25 text-white">
+                    <mode.icon className="size-10" strokeWidth={1.7} aria-hidden="true" />
                   </span>
                 </div>
 
-                <div className={`h-[286px] p-5 text-center ${mode.surfaceClass}`}>
-                  <p className="font-rb-display text-[10px] font-extrabold uppercase tracking-[0.16em] text-rb-macaw-lip">
-                    {mode.role}
-                  </p>
-                  <span className="rb-display rb-display-md mt-1 block">{mode.name}</span>
-                  <p className="mt-2 text-xs leading-5 text-rb-wolf">{mode.blurb}</p>
+                <div className="flex flex-1 flex-col p-6">
+                  <p className="font-rb-sfx text-sm uppercase tracking-[0.12em] text-rb-macaw-lip">{mode.role}</p>
+                  <h3 className="rb-display rb-display-md mt-1">{mode.name}</h3>
+                  <p className="rb-body mt-3 text-[0.9375rem]">{mode.blurb}</p>
 
-                  <span className="mt-3 flex flex-col items-start gap-1.5">
+                  <ul className="mt-4 space-y-2">
                     {mode.points.map((point) => (
-                      <span
-                        key={point}
-                        className="flex items-start gap-2 text-left text-[11px] font-semibold text-rb-eel"
-                      >
-                        <Check className="mt-0.5 size-3.5 shrink-0 text-rb-macaw-lip" aria-hidden="true" />
+                      <li key={point} className="flex items-start gap-2 text-sm font-semibold text-rb-eel">
+                        <Check className="mt-0.5 size-4 shrink-0 text-rb-macaw-lip" aria-hidden="true" />
                         {point}
-                      </span>
+                      </li>
                     ))}
-                  </span>
+                  </ul>
 
-                  <span
-                    className={`mx-auto mt-4 block h-1 rounded-full transition-all ${
-                      isActive ? "w-14 bg-rb-macaw" : "w-6 bg-rb-swan"
-                    }`}
-                    aria-hidden="true"
-                  />
+                  <TactileButton asChild variant="macaw" size="sm" className="mt-6 w-fit">
+                    <Link to="/register">
+                      enter {mode.name}
+                      <ArrowRight className="size-4" />
+                    </Link>
+                  </TactileButton>
                 </div>
-              </motion.button>
-            );
-          })}
-        </motion.div>
-
-        <div className="flex items-center justify-center gap-4">
-          <motion.button
-            type="button"
-            onClick={() => move(-1)}
-            aria-label="Previous arena"
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.92 }}
-            transition={{ type: "spring", stiffness: 500, damping: 24 }}
-            className="grid size-11 place-items-center rounded-rb-pill border-2 border-rb-swan bg-rb-snow text-rb-eel transition-colors hover:border-rb-macaw focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw"
-          >
-            <ArrowLeft className="size-5" aria-hidden="true" />
-          </motion.button>
-
-          <div className="flex items-center gap-1.5" aria-hidden="true">
-            {OLYMPICS_MODES.map((mode, index) => (
-              <motion.span
-                key={mode.id}
-                className={`h-1.5 rounded-full ${
-                  index === activeIndex ? "bg-rb-macaw" : "bg-rb-swan"
-                }`}
-                initial={false}
-                animate={{ width: index === activeIndex ? 28 : 6 }}
-                transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.7 }}
-              />
-            ))}
-          </div>
-
-          <motion.button
-            type="button"
-            onClick={() => move(1)}
-            aria-label="Next arena"
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.92 }}
-            transition={{ type: "spring", stiffness: 500, damping: 24 }}
-            className="grid size-11 place-items-center rounded-rb-pill border-2 border-rb-swan bg-rb-snow text-rb-eel transition-colors hover:border-rb-macaw focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw"
-          >
-            <ArrowRight className="size-5" aria-hidden="true" />
-          </motion.button>
-        </div>
-
-        {/* The hub's footer row: what is selected, and the one way in. Here the
-            way in is registration — the arenas are behind a learner account. */}
-        <div className="mx-auto mt-8 flex max-w-3xl flex-col items-center justify-between gap-3 text-center sm:flex-row sm:text-left">
-          {/* `mode="wait"` so the outgoing arena name is gone before the next
-              one arrives — overlapping them cross-fades two different words
-              through each other, which at display size is unreadable. The
-              wrapper is min-height'd because the row is empty for the ~220ms
-              between them, and the CTA beside it must not step sideways. */}
-          <div className="min-h-[3.75rem]">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={activeMode.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.22, ease: EASE }}
-              >
-                <p className="rb-display rb-display-md">{activeMode.name}</p>
-                <p className="mt-1 text-sm text-rb-wolf">{activeMode.format}</p>
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          <TactileButton asChild variant="macaw">
-            <Link to="/register">
-              enter arena
-              <ArrowRight className="size-5" />
-            </Link>
-          </TactileButton>
+              </article>
+            </HoverLift>
+          ))}
         </div>
       </div>
     </section>
@@ -1455,7 +1145,7 @@ function ChatBubble({ message, revealed, showChips }) {
       {/* What the tutor actually returns once it has generated something: a way
           into the quiz or the deck, not the questions themselves. */}
       {message.action && showChips ? (
-        <span className="rb-pop-in mt-3 inline-flex items-center gap-2 rounded-rb-pill bg-rb-beetle px-4 py-2.5 font-rb-display text-sm font-extrabold lowercase text-rb-snow shadow-[0_3px_0_var(--color-rb-beetle-lip)]">
+        <span className="rb-pop-in mt-3 inline-flex items-center gap-2 rounded-rb-pill bg-rb-beetle px-4 py-2.5 font-rb-display text-sm font-extrabold lowercase text-rb-snow shadow-[var(--comic-shadow-sm)]">
           <message.action.icon className="size-4" aria-hidden="true" />
           {message.action.label}
           <ArrowRight className="size-4" aria-hidden="true" />
@@ -1617,7 +1307,7 @@ function FeaturesBand({ children }) {
      "features" link still lands at the top of the run with nothing between the
      bar and the first section. */
   return (
-    <div id="features" className="scroll-mt-24 bg-rb-beetle-wash">
+    <div id="features" className="scroll-mt-24 bg-rb-lime rb-halftone rb-band">
       {children}
     </div>
   );
@@ -1702,7 +1392,7 @@ function masteryTone(value) {
 function WeaknessSection() {
 
   return (
-    <section className="bg-rb-snow px-5 py-20 lg:px-8 lg:py-28">
+    <section className="bg-rb-polar rb-halftone px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal className="max-w-2xl">
           <p className="rb-eyebrow">mastery &amp; weak topics</p>
@@ -1991,7 +1681,7 @@ function AccessCard({ icon: Icon, title, description, points, cta, to, tone }) {
 
 function AccessSection() {
   return (
-    <section id="get-access" className="scroll-mt-24 bg-rb-polar px-5 py-20 lg:px-8 lg:py-28">
+    <section id="get-access" className="scroll-mt-24 bg-rb-cyan rb-halftone rb-band px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal className="max-w-2xl">
           <p className="rb-eyebrow">get access</p>
@@ -2199,7 +1889,7 @@ export default function LandingPage() {
        the navbar scrolled away. `clip` does the same horizontal trimming (the
        hero's rotated cards and offscreen blobs need it) without creating a
        scroll container. */
-    <div ref={rootRef} className="rebyu-ds rb-light-only min-h-screen overflow-x-clip">
+    <div ref={rootRef} className="rebyu-ds rb-light-only rb-landing-comic min-h-screen overflow-x-clip">
       <LandingNavbar />
       <main>
         <HeroSection />

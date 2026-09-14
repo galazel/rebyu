@@ -277,8 +277,8 @@ function NormalQuestionPanel({ question, index, answer, onAnswer }) {
                           "flex min-h-16 cursor-pointer items-start gap-3 rounded-2xl border-2 p-4 transition",
                           "active:translate-y-[3px] active:shadow-none",
                           answer?.selectedChoiceId === choice.choiceId
-                              ? "border-rb-macaw bg-rb-macaw-wash shadow-[0_3px_0_var(--color-rb-macaw)]"
-                              : "border-rb-swan bg-rb-snow shadow-[0_3px_0_var(--color-rb-swan)] hover:bg-rb-polar"
+                              ? "border-rb-macaw bg-rb-macaw-wash shadow-[var(--comic-shadow-sm)]"
+                              : "border-rb-swan bg-rb-snow shadow-[var(--comic-shadow-sm)] hover:bg-rb-polar"
                       )}
                   >
                     <RadioGroupItem

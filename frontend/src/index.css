@@ -3,7 +3,7 @@
 /* REBYU design system faces. The licensed pair is Feather Bold (display) and
    DIN Next Rounded (body); these two are the shipping fallbacks that match
    their rounded-terminal geometry until the licensed files are self-hosted. */
-@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:opsz,wght@6..12,400..700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Lexend:wght@300..800&family=Bangers&display=swap");
 @import "tailwindcss";
 @import "flowbite-react/plugin/tailwindcss";
 @source "../.flowbite-react/class-list.json";
@@ -982,12 +982,10 @@ body.netacad-overlay-theme {
 }
 
 @theme inline {
-    /* Body copy takes DIN Next Rounded (Nunito Sans fallback); headings take
-       Feather Bold (Nunito fallback). See styles/rebyu-ds.css for self-hosting. */
-    --font-sans:
-        "DIN Next Rounded", "DIN Next Rounded LT Pro", "Nunito Sans", ui-sans-serif, system-ui,
-        sans-serif;
-    --font-heading: "Feather Bold", "Nunito", ui-rounded, system-ui, sans-serif;
+    /* Body copy is Lexend; headings are Halo Dek (self-hosted, declared in
+       styles/rebyu-comic.css). */
+    --font-sans: "Lexend", ui-sans-serif, system-ui, sans-serif;
+    --font-heading: "Halo Dek", "Lexend", ui-rounded, system-ui, sans-serif;
     --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
     --color-background: var(--background);

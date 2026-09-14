@@ -222,7 +222,7 @@ const navItemClass = (active) =>
   cn(
     "relative inline-flex h-10 items-center gap-1.5 px-3 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
     active
-      ? "text-primary after:absolute after:inset-x-3 after:-bottom-[13px] after:h-0.5 after:bg-primary"
+      ? "rb-nav-active"
       : "text-muted-foreground",
   )
 
@@ -366,7 +366,7 @@ export function PortalTopNavigation({ role, actions, organizationName, instituti
                       className={cn(
                         "relative inline-flex items-center gap-1.5 px-2.5 py-2 text-sm font-medium transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                         active
-                          ? "text-primary after:absolute after:inset-x-2.5 after:-bottom-[13px] after:h-0.5 after:bg-primary"
+                          ? "rb-nav-active"
                           : "text-muted-foreground",
                       )}
                     >
@@ -428,7 +428,7 @@ export function LearnerMobileNavigation() {
               aria-label={item.label}
               className={cn(
                 "flex min-w-0 flex-col items-center justify-center gap-1 px-0.5 text-[10px] font-medium leading-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                active ? "text-primary" : "text-muted-foreground",
+                active ? "rb-mobile-active" : "text-muted-foreground",
               )}
             >
               <Icon className="size-5 shrink-0" />

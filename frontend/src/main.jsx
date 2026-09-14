@@ -1,6 +1,8 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import "./index.css"
+// Loaded after index.css on purpose: the comic identity wins on source order.
+import "./styles/rebyu-comic.css"
 import App from "./App.jsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
 import { BrowserRouter } from "react-router-dom"

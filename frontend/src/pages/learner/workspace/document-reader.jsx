@@ -441,7 +441,7 @@ export function DocumentReader({ file, onReplace, onRemove, back }) {
                   transformOrigin: "top center",
                   width: "min(46rem, 100%)",
                 }}
-                className="rounded-rb-card border-2 border-border bg-white p-8 shadow-[0_2px_0_var(--color-border)]"
+                className="rounded-rb-card border-2 border-border bg-white p-8 shadow-[var(--comic-shadow-sm)]"
               >
                 <p className="rb-nav-label mb-4 text-rb-hare">
                   Page {page} of {pageCount}
@@ -462,7 +462,7 @@ export function DocumentReader({ file, onReplace, onRemove, back }) {
                   transformOrigin: "top center",
                   width: "min(46rem, 100%)",
                 }}
-                className="rounded-rb-card border-2 border-border bg-white p-8 shadow-[0_2px_0_var(--color-border)]"
+                className="rounded-rb-card border-2 border-border bg-white p-8 shadow-[var(--comic-shadow-sm)]"
               >
                 <div
                   className="rb-docx text-sm leading-7 text-rb-eel"

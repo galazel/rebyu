@@ -1,8 +1,10 @@
 /* ===========================================================================
    REBYU DESIGN SYSTEM
    ---------------------------------------------------------------------------
-   Tactile, motivating certification learning. Duolingo-derived colour and
-   typographic hierarchy, original visual identity.
+   Structure, spacing and component classes. The visual identity (palette,
+   faces, ink, depth, comic panels) lives in `rebyu-comic.css`, which loads
+   after this file and overrides the values below — read it before changing
+   a colour or a shadow here.
 
    Scoping note: the palette lives under `.rebyu-ds` rather than `:root` so the
    existing portal themes (netacad blue) keep rendering unchanged while this
@@ -50,6 +52,15 @@
        sits under the blue brand instead of fighting it. */
     --color-rb-ink: #000437;
 
+    /* Comic panel inks -- the pop-art page colours. Values live in
+       rebyu-comic.css; declared here so Tailwind generates `bg-rb-magenta` etc. */
+    --color-rb-magenta: #ee4d9b;
+    --color-rb-cyan: #22bfee;
+    --color-rb-lime: #b6d334;
+    --color-rb-purple: #7a4aa0;
+    --color-rb-sun: #f8e05a;
+    --color-rb-tomato: #f25a3c;
+
     /* Neutrals */
     --color-rb-eel: #4b4b4b;
     --color-rb-wolf: #777777;
@@ -73,10 +84,11 @@
        @font-face block below) it wins. Nunito / Nunito Sans ship as the
        fallbacks: same rounded terminals and geometric skeleton, so the
        metrics and voice hold up when the licensed files are absent. */
-    --font-rb-display: "Feather Bold", "Nunito", ui-rounded, system-ui, sans-serif;
-    --font-rb-body:
-        "DIN Next Rounded", "DIN Next Rounded LT Pro", "Nunito Sans", ui-sans-serif, system-ui,
-        sans-serif;
+    --font-rb-display: "Halo Dek", "Lexend", ui-rounded, system-ui, sans-serif;
+    --font-rb-body: "Lexend", ui-sans-serif, system-ui, sans-serif;
+    /* Comic lettering (SFX, captions). Declared here so `font-rb-sfx` exists as
+       a utility; the face itself is loaded from Google Fonts in index.css. */
+    --font-rb-sfx: "Bangers", "Halo Dek", Impact, sans-serif;
 
     /* Shape.
        The reference sets every button, link, tag and nav item at 12px and

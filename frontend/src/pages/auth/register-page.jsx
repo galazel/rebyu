@@ -89,8 +89,9 @@ export default function RegisterPage() {
       // Mirrored against sign-in: the form crosses the page when you switch
       // between the two, so the change of screen is unmissable.
       side="right"
+      story="register"
       title="Create your account"
-      description="Create a learner account and begin preparing with REBYU."
+      description="Start preparing for your certification with REBYU."
       footer={
         <>
           Already have an account?{" "}
@@ -100,8 +101,11 @@ export default function RegisterPage() {
         </>
       }
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <FieldGroup className="gap-4">
+      {/* Sized to fit a 1366x768 laptop without scrolling: the two passwords share
+          a row and one requirements line, and the helper lines that repeated
+          what the labels already say are gone. */}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+        <FieldGroup className="gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field>
               <FieldLabel htmlFor="register-first">First name</FieldLabel>
@@ -138,10 +142,8 @@ export default function RegisterPage() {
             placeholder="you@example.com"
             className="h-10"
           />
-          <FieldDescription>
-            We use your email for sign-in, verification, and account updates.
-          </FieldDescription>
         </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
         <Field>
           <FieldLabel htmlFor="register-password">Password</FieldLabel>
           <PasswordInput
@@ -155,10 +157,6 @@ export default function RegisterPage() {
             onChange={setField("password")}
             className="h-10"
           />
-          <FieldDescription>
-            At least 8 characters, with upper and lower case letters, a number,
-            and a special character (such as !, @, or #).
-          </FieldDescription>
         </Field>
         <Field>
           <FieldLabel htmlFor="register-confirm">Confirm password</FieldLabel>
@@ -170,8 +168,11 @@ export default function RegisterPage() {
             onChange={setField("confirmPassword")}
             className="h-10"
           />
-          <FieldDescription>Enter the same password again.</FieldDescription>
         </Field>
+        </div>
+        <FieldDescription className="-mt-1 text-xs">
+          8+ characters with upper and lower case letters, a number, and a symbol (!, @, #).
+        </FieldDescription>
 
         {error ? (
           <Alert variant="destructive">

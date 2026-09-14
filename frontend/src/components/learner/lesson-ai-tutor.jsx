@@ -109,7 +109,7 @@ function TutorAvatar({ size = "size-7", iconSize = "size-4", onViolet = false })
           className={`grid ${size} shrink-0 place-items-center rounded-full ring-2 ${
               onViolet
                 ? "bg-white text-rb-beetle-lip ring-white/40"
-                : "bg-rb-beetle text-white shadow-[0_2px_0_var(--color-rb-beetle-lip)] ring-white"
+                : "bg-rb-beetle text-white shadow-[var(--comic-shadow-sm)] ring-white"
           }`}
       >
         <Sparkles className={iconSize} aria-hidden="true" />
@@ -121,7 +121,7 @@ function LearnerAvatar({ size = "size-7", learnerName }) {
   const initial = (learnerName ?? "?").trim().charAt(0).toUpperCase() || "?"
   return (
       <span
-          className={`grid ${size} shrink-0 place-items-center rounded-full bg-rb-eel text-xs font-extrabold text-white shadow-[0_2px_0_#2d2d31] ring-2 ring-white`}
+          className={`grid ${size} shrink-0 place-items-center rounded-full bg-rb-eel text-xs font-extrabold text-white shadow-[var(--comic-shadow-sm)] ring-2 ring-white`}
       >
         {initial}
       </span>
@@ -152,7 +152,7 @@ function StudyAidActionCard({ action }) {
   return (
       <div className="mt-3 rounded-xl border-2 border-rb-beetle/25 bg-rb-beetle-wash p-3">
         <div className="flex items-start gap-2.5">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-rb-beetle text-white shadow-[0_2px_0_var(--color-rb-beetle-lip)]">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-rb-beetle text-white shadow-[var(--comic-shadow-sm)]">
             <Icon className="size-4" aria-hidden="true" />
           </span>
 
@@ -539,7 +539,7 @@ export function LessonAiTutor({
                     transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
                     aria-hidden="true"
                 />
-                <span className="relative grid size-16 shrink-0 place-items-center rounded-3xl bg-rb-beetle text-white shadow-[0_4px_0_var(--color-rb-beetle-lip)] ring-2 ring-white">
+                <span className="relative grid size-16 shrink-0 place-items-center rounded-3xl bg-rb-beetle text-white shadow-[var(--comic-shadow-sm)] ring-2 ring-white">
                   <Sparkles className="size-8" aria-hidden="true" />
                 </span>
               </div>
@@ -664,7 +664,7 @@ export function LessonAiTutor({
             onSubmit={handleSubmit}
             className="shrink-0 border-t-2 border-rb-swan bg-rb-polar/60 p-3"
         >
-          <div className="flex items-end gap-1.5 rounded-full border-2 border-rb-swan bg-rb-snow py-1.5 pl-1.5 pr-2 shadow-[0_2px_0_var(--color-rb-swan)] transition-colors focus-within:border-rb-beetle/60">
+          <div className="flex items-end gap-1.5 rounded-full border-2 border-rb-swan bg-rb-snow py-1.5 pl-1.5 pr-2 shadow-[var(--comic-shadow-sm)] transition-colors focus-within:border-rb-beetle/60">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <TactileButton

@@ -111,7 +111,7 @@ export function BentoTile({
 }) {
   return (
     <section
-      className={`flex min-w-0 flex-col overflow-hidden rounded-rb-card border-2 p-5 transition-shadow hover:shadow-[0_2px_0_0_rgba(0,0,0,0.06)] sm:p-6 ${
+      className={`flex min-w-0 flex-col overflow-hidden rb-bento-tile rounded-rb-card border-2 p-5 sm:p-6 ${
         TILE_TONES[tone] ?? TILE_TONES.plain
       } ${COL_SPAN[col]} ${ROW_SPAN[row]} ${className}`}
       {...props}

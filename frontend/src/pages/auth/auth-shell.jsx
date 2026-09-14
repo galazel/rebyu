@@ -6,17 +6,68 @@ import { BackButton } from "@/components/rebyu/rebyu-ui.jsx"
 /**
  * Two-column frame shared by every auth route.
  *
- * On the system's terms rather than its own: the shell used to run a private
- * hex palette (#273452, #2F7DD3, #E0E7EF) and a stock photograph, which meant
- * the first screen a learner ever saw looked like a different product from the
- * one behind it. It now sits inside `.rebyu-ds` and takes its type, colour and
- * controls from the same tokens as the rest of the app.
+ * One column is the form, printed on an inked comic card over halftone
+ * newsprint. The other is a single full-height sky panel whose caption and
+ * speech bubble depend on the screen:
+ *
+ *   login     "previously on rebyu…"  -- the recap page: you are returning.
+ *   register  "chapter 1: origin story" -- you vs. the exam, and the four
+ *             real steps the product walks a new learner through.
+ *   recovery  (forgot password, verify email, set password) -- a shorter page;
+ *             these are errands, not a welcome.
  *
  * `side` alternates which column the form occupies. Sign-in and sign-up are
  * the two screens people bounce between, and moving the form across on the
- * switch makes the change of screen unmistakable — you cannot mistake register
- * for a login page that failed to submit.
+ * switch makes the change of screen unmistakable.
+ *
+ * The comic page is ornament -- every word a learner needs is in the form
+ * column -- so it is hidden from assistive tech, and below `lg` it is replaced
+ * by a one-panel banner above the form instead of being dropped silently.
  */
+
+const STORIES = {
+  login: {
+    caption: "previously on rebyu…",
+    bubble: "welcome back, hero!",
+    hand: "pick up where you left off",
+    banner: "welcome back, hero!",
+  },
+  register: {
+    caption: "chapter 1: origin story",
+    bubble: "every hero has an origin story.",
+    hand: "yours starts here",
+    banner: "every hero starts somewhere.",
+  },
+  recovery: {
+    caption: "a small detour…",
+    bubble: "lost your way? we'll get you back.",
+    hand: "one quick step",
+    banner: "we'll get you back in.",
+  },
+}
+
+function SkyPanel({ story, className = "" }) {
+  return (
+    <div className={`rb-panel relative overflow-hidden ${className}`}>
+      <div className="absolute inset-0 bg-[url('/brand/sky-2560.webp')] bg-cover bg-[center_72%]" />
+      <p className="rb-caption-box absolute left-[8%] top-[7%]">{story.caption}</p>
+      <div className="rb-bubble rb-bubble-tail-left absolute left-[8%] top-[17%] max-w-[26rem] px-7 py-6">
+        <p className="rb-display text-[clamp(2rem,3vw,3rem)] !leading-[1.05]">{story.bubble}</p>
+        <p className="rb-hand mt-3">{story.hand}</p>
+      </div>
+    </div>
+  )
+}
+
+/* One panel, the whole height of the column: the anime sky and this screen's
+   line. The multi-panel page it replaced was too busy beside a form. */
+function ComicPage({ storyKey }) {
+  return (
+    <div className="rb-comic-page h-full">
+      <SkyPanel story={STORIES[storyKey]} className="h-full" />
+    </div>
+  )
+}
 
 export default function AuthShell({
   title,
@@ -25,22 +76,20 @@ export default function AuthShell({
   footer,
   compact = false,
   side = "left",
+  story = "recovery",
 }) {
   const formFirst = side === "left"
+  const storyKey = STORIES[story] ? story : "recovery"
 
   return (
     <main
-      /* Only one half of the screen is coloured. The form side used to sit on
-         the macaw wash, which put a blue behind the form and a louder blue
-         beside it — two colours competing over a screen whose only job is to
-         get you through a form. The form side is plain now. */
-      className={`rebyu-ds rb-light-only public-auth-shell min-h-dvh bg-rb-snow text-rb-eel lg:grid lg:grid-cols-2 ${
+      className={`rebyu-ds rb-light-only public-auth-shell min-h-dvh bg-rb-polar text-rb-eel lg:grid lg:grid-cols-2 ${
         compact ? "lg:h-dvh lg:overflow-hidden" : ""
       }`}
     >
       <section
-        className={`relative flex min-h-dvh flex-col px-5 sm:px-8 lg:px-12 xl:px-16 ${
-          compact ? "py-4 sm:py-5 lg:h-dvh lg:min-h-0" : "py-5 sm:py-7"
+        className={`rb-halftone relative flex min-h-dvh flex-col px-5 sm:px-8 lg:px-12 xl:px-16 ${
+          compact ? "py-4 sm:py-5 lg:h-dvh lg:min-h-0 lg:overflow-y-auto" : "py-5 sm:py-7"
         } ${formFirst ? "lg:order-1" : "lg:order-2"}`}
       >
         <div className="flex items-center justify-between gap-4">
@@ -49,9 +98,7 @@ export default function AuthShell({
             className="flex items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw"
           >
             <BrandLogo className="size-9" />
-            <span className="font-rb-display text-xl font-extrabold lowercase tracking-tight text-rb-eel">
-              rebyu
-            </span>
+            <span className="font-rb-display text-2xl leading-none text-rb-eel">rebyu</span>
           </Link>
 
           <BackButton asChild size="sm" label="Back to home">
@@ -60,68 +107,54 @@ export default function AuthShell({
         </div>
 
         <div
-          className={`mx-auto flex w-full max-w-[480px] flex-1 flex-col justify-center ${
-            compact ? "py-5 sm:py-6" : "py-12 sm:py-16"
+          /* `safe center`: centred while it fits, top-aligned once it does not, so
+              a tall form scrolls instead of losing its heading off the top. */
+          className={`mx-auto flex w-full max-w-[500px] flex-1 flex-col [justify-content:safe_center] ${
+            compact ? "py-3" : "py-10 sm:py-12"
           }`}
         >
-          <div className={`border-b-2 border-rb-swan ${compact ? "mb-5 pb-4" : "mb-8 pb-7"}`}>
-            <p className="rb-eyebrow">Certification preparation</p>
-            <h1 className={`rb-display mt-3 ${compact ? "rb-display-md" : "rb-display-lg"}`}>
-              {title}
-            </h1>
-            {description ? <p className="rb-body mt-3 max-w-md">{description}</p> : null}
+          {/* Below lg the comic page is hidden, so the screen keeps one panel
+              of it: the sky and this screen's line. */}
+          <div aria-hidden="true" className="rb-comic-frame mb-6 !p-2 lg:hidden">
+            <div className="rb-comic-page">
+              <div className="rb-panel relative h-28 overflow-hidden sm:h-32">
+                <div className="absolute inset-0 bg-[url('/brand/sky-1280.webp')] bg-cover bg-[center_70%]" />
+                <div className="rb-bubble rb-bubble-tail-left absolute left-4 top-4 max-w-[80%] !rounded-[22px] px-4 py-2.5">
+                  <p className="rb-display text-xl !leading-[1.05]">{STORIES[storyKey].banner}</p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {children}
-
-          {footer ? (
-            <div
-              className={`rb-body border-t-2 border-rb-swan text-center text-sm ${
-                compact ? "mt-4 pt-4" : "mt-7 pt-6"
-              }`}
-            >
-              {footer}
+          <div className={`rb-auth-card ${compact ? "rb-auth-card-compact" : ""}`}>
+            <div className={compact ? "mb-3" : "mb-7"}>
+              {/* Dropped on the long form: every line it takes is a line the
+                  submit button loses on a laptop screen. */}
+              {compact ? null : <p className="rb-caption-box">certification preparation</p>}
+              <h1 className={`rb-display ${compact ? "rb-display-md" : "rb-display-lg mt-4"}`}>{title}</h1>
+              {description ? <p className={`rb-body max-w-md ${compact ? "mt-1.5" : "mt-3"}`}>{description}</p> : null}
             </div>
-          ) : null}
+
+            {children}
+
+            {footer ? (
+              <div className={`rb-auth-card-footer rb-body text-center text-sm ${compact ? "mt-3 pt-3" : "mt-7 pt-6"}`}>
+                {footer}
+              </div>
+            ) : null}
+          </div>
         </div>
 
-        <p className="text-xs font-semibold text-rb-hare">© {new Date().getFullYear()} Rebyu</p>
+        <p className={`text-xs font-semibold text-rb-wolf ${compact ? "lg:hidden" : ""}`}>© {new Date().getFullYear()} Rebyu</p>
       </section>
 
-      {/* The arena card at panel scale: the same macaw gradient cap and two
-          oversized translucent bubbles the challenge cards, the dashboard's
-          macaw tiles and the sign-in key all run on. Keeping this panel on the
-          product's blue is the whole point — it is the first screen a learner
-          sees, and it should be the same blue as everything behind it.
-
-          Nothing but the wordmark sits on it. The eyebrow, headline and benefit
-          list were three claims competing with the form for attention. */}
       <aside
-        className={`relative hidden min-h-dvh overflow-hidden lg:flex lg:items-end lg:justify-end ${
+        aria-hidden="true"
+        className={`relative hidden min-h-dvh overflow-hidden bg-white p-4 lg:block ${
           compact ? "lg:h-dvh lg:min-h-0" : ""
         } ${formFirst ? "lg:order-2" : "lg:order-1"}`}
-        style={{ background: "linear-gradient(135deg, #1B6EF3, #1CB0F6)" }}
       >
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-24 -top-24 size-[28rem] rounded-full bg-white/10"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-32 -left-24 size-[34rem] rounded-full bg-white/10"
-        />
-
-        {/* Same move as the landing footer's oversized wordmark: sized to fill
-            its container's width rather than the viewport's, so all five letters
-            land inside it. The panel is half the screen, hence ~12vw against the
-            footer's 24vw. Sat in the bottom-right corner, and like the footer
-            the tight leading lets the descender bleed off the bottom edge. */}
-        <span
-          aria-hidden="true"
-          className="pointer-events-none relative block w-full select-none whitespace-nowrap pr-6 text-right font-rb-display text-[17vw] font-black lowercase leading-[0.72] tracking-tight text-white/25"
-        >
-          rebyu
-        </span>
+        <ComicPage storyKey={storyKey} />
       </aside>
     </main>
   )

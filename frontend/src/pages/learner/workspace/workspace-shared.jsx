@@ -101,7 +101,7 @@ export function UploadDropzone({ onFile, error, icon: Icon = Upload, title, subt
             dragging ? "border-rb-beetle bg-rb-beetle-wash" : "border-border bg-card"
           }`}
         >
-          <span className="mx-auto grid size-16 place-items-center rounded-3xl bg-rb-beetle text-white shadow-[0_4px_0_var(--color-rb-beetle-lip)] ring-2 ring-white">
+          <span className="mx-auto grid size-16 place-items-center rounded-3xl bg-rb-beetle text-white shadow-[var(--comic-shadow-sm)] ring-2 ring-white">
             <Icon className="size-7" aria-hidden="true" />
           </span>
 

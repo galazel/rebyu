@@ -1,0 +1,1550 @@
+/* ===========================================================================
+   REBYU — COMIC PANEL IDENTITY
+   ---------------------------------------------------------------------------
+   The product's own look, replacing the Duolingo-derived one. Anime sky, comic
+   page: ink outlines, newsprint paper, halftone dots, sunburst and speed-line
+   panels, speech bubbles and SFX lettering.
+
+   What made REBYU read as Duolingo, and what replaced it:
+
+     • Depth. Duolingo's signature is the solid same-hue "lip" straight under a
+       key. It is retired: `--rb-lip*` are zero, so every
+       `0 var(--rb-lip) 0 <colour>` in the older layers collapses to nothing.
+       Depth is now a comic-print drop shadow — offset diagonally, always ink —
+       paired with an ink outline. Hover lifts the object off the page toward
+       the light; press pushes it down into its own shadow.
+     • Line. Soft grey 2px borders become ink lines (`--comic-line-color`).
+     • Type. Lowercase rounded display type becomes Halo Dek, set as written;
+       onomatopoeia and eyebrows are Bangers (comic lettering); body copy is
+       Lexend, chosen for reading fluency; Shortcake Strawberry Script is the
+       handwritten margin note (`.rb-hand`).
+     • Colour. Grey ink (#4B4B4B) becomes navy comic ink on warm paper, with the
+       pop-art primaries of a printed comic: blue, red, yellow, green.
+     • Composition. Hero surfaces are comic pages — panels with slanted
+       gutters (`.rb-comic-page`, `.rb-panel`), speech bubbles (`.rb-bubble`),
+       SFX (`.rb-sfx`), narration boxes (`.rb-caption-box`).
+
+   Loaded after index.css (see main.jsx), so every rule here wins on source
+   order at equal specificity. Selectors mirror the rules they replace — match
+   specificity, never raise it.
+   =========================================================================== */
+
+/* --- Faces ------------------------------------------------------------------ */
+/* Each self-hosted face ships one weight; declaring 100–900 maps every
+   `font-bold`/`font-extrabold` in the app onto the real glyphs instead of a
+   synthetic bold smeared over a face that is already heavy. */
+@font-face {
+    font-family: "Halo Dek";
+    src: url("/fonts/halo-dek.woff2") format("woff2");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Shortcake Strawberry";
+    src: url("/fonts/shortcake-strawberry.woff2") format("woff2");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Shortcake Strawberry Script";
+    src: url("/fonts/shortcake-strawberry-script.woff2") format("woff2");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* --- Tokens: light ---------------------------------------------------------- */
+:root {
+    --comic-ink: #1b1f3b;
+    --comic-paper: #fffdf6;
+    --comic-newsprint: #fbf3e0;
+    --comic-line: 3px;
+    --comic-line-color: #1b1f3b;
+    --comic-shadow-color: #1b1f3b;
+    --comic-dot: rgb(27 31 59 / 0.12);
+
+    /* Retire the lip everywhere it is referenced. */
+    --rb-lip: 0px;
+    --rb-lip-sm: 0px;
+    --rb-lip-lg: 0px;
+    --rb-primary-lip: transparent;
+    --rb-press: 0.1s ease-out;
+    --rb-focus: #3a9be8;
+
+    /* Palette. Token names are kept (referenced in ~300 places); the values are
+       a printed comic's. */
+    --color-rb-feather: #2f5fd0; /* comic blue — primary */
+    --color-rb-feather-lip: #1f45a3;
+    --color-rb-mask: #62b0f0; /* anime sky */
+    --color-rb-mask-lip: #3a8fd6;
+    --color-rb-macaw: #3a9be8;
+    --color-rb-macaw-lip: #1f7cc6;
+    --color-rb-cardinal: #ef4136; /* comic red — wrong */
+    --color-rb-cardinal-lip: #c42b22;
+    --color-rb-bee: #ffc928; /* comic yellow — highlight */
+    --color-rb-bee-lip: #e0a800;
+    --color-rb-bee-ink: #7a5a00;
+    --color-rb-feather-ink: #3b7a2a;
+    --color-rb-fox: #ff8a1f; /* streaks */
+    --color-rb-fox-lip: #d96c00;
+    --color-rb-leaf: #4f9a3a; /* comic green — correct */
+    --color-rb-leaf-lip: #3b7a2a;
+    --color-rb-beetle: #9b6bd9; /* tutor */
+    --color-rb-beetle-lip: #7a4bbd;
+    --color-rb-humpback: #2d3a63;
+    --color-rb-humpback-lip: #1f2a4d;
+    --color-rb-strawberry: #e8566f;
+    --color-rb-ink: #243264; /* night panel */
+
+    --color-rb-eel: #1b1f3b;
+    --color-rb-wolf: #555b73;
+    --color-rb-hare: #9d9888;
+    --color-rb-swan: #e8dfc8;
+    --color-rb-polar: #fbf3e0;
+    --color-rb-snow: #fffdf6;
+
+    --color-rb-feather-wash: #e6eeff;
+    --color-rb-macaw-wash: #e4f2fd;
+    --color-rb-bee-wash: #fff1bf;
+    --color-rb-fox-wash: #ffe9d4;
+    --color-rb-leaf-wash: #e6f3dc;
+    --color-rb-beetle-wash: #f1e8fb;
+    --color-rb-cardinal-wash: #fde3e1;
+
+    --font-rb-display: "Halo Dek", "Bangers", "Lexend", system-ui, sans-serif;
+    --font-rb-body: "Lexend", ui-sans-serif, system-ui, sans-serif;
+    --font-rb-sfx: "Bangers", "Halo Dek", Impact, sans-serif;
+    --font-rb-hand: "Shortcake Strawberry Script", "Segoe Print", cursive;
+
+    /* Comic panels are near-square; buttons stay friendly. */
+    --radius-rb-control: 10px;
+    --radius-rb-tile: 10px;
+    --radius-rb-card: 8px;
+    --radius: 0.75rem;
+}
+
+/* Composite tokens are restated in every scope that changes their inputs: a
+   custom property that references another is resolved where it is declared,
+   so a `.dark` override of `--comic-shadow-color` would never reach a
+   `--comic-shadow` computed once at :root. */
+:root,
+.dark .rebyu-ds:not(.rb-light-only),
+.dark .netacad-portal,
+.dark body.netacad-overlay-theme {
+    --comic-shadow-xs: 2px 2px 0 var(--comic-shadow-color);
+    --comic-shadow-sm: 3px 3px 0 var(--comic-shadow-color);
+    --comic-shadow: 4px 4px 0 var(--comic-shadow-color);
+    --comic-shadow-lg: 6px 6px 0 var(--comic-shadow-color);
+    --comic-border: var(--comic-line) solid var(--comic-line-color);
+    --comic-border-thin: 2px solid var(--comic-line-color);
+    --rb-elev-popover: var(--comic-shadow);
+    --rb-elev-overlay: var(--comic-shadow-lg);
+}
+
+:root,
+.netacad-portal,
+body.netacad-overlay-theme {
+    /* White, not paper cream: the document itself (behind any page that does
+       not paint its own ground) must never read as a yellow background. */
+    --background: #ffffff;
+    --foreground: #1b1f3b;
+    --card: #ffffff;
+    --card-foreground: #1b1f3b;
+    --popover: #ffffff;
+    --popover-foreground: #1b1f3b;
+    --primary: #2f5fd0;
+    --primary-foreground: #ffffff;
+    --secondary: #fbf3e0;
+    --secondary-foreground: #1b1f3b;
+    --muted: #f6eed8;
+    --muted-foreground: #555b73;
+    --accent: #fff1bf; /* highlighter yellow */
+    --accent-foreground: #1b1f3b;
+    --destructive: #ef4136;
+    --destructive-foreground: #ffffff;
+    --border: #d6ccb2;
+    --input: #d6ccb2;
+    --ring: #3a9be8;
+    --radius: 0.75rem;
+    --chart-1: #2f5fd0;
+    --chart-2: #ef4136;
+    --chart-3: #ffc928;
+    --chart-4: #4f9a3a;
+    --chart-5: #9b6bd9;
+
+    --brand-navy: #1b1f3b;
+    --brand-navy-soft: #3a3f5f;
+    --brand-blue: #2f5fd0;
+    --brand-blue-dark: #1f45a3;
+    --brand-blue-soft: #e6eeff;
+    --brand-sky: #62b0f0;
+    --brand-sky-soft: #e4f2fd;
+    --brand-yellow: #ffc928;
+    --brand-yellow-foreground: #1b1f3b;
+    --brand-yellow-soft: #fff1bf;
+    --brand-lilac: #f1e8fb;
+    --brand-lilac-foreground: #7a4bbd;
+
+    --sidebar: #fffdf6;
+    --sidebar-foreground: #1b1f3b;
+    --sidebar-primary: #2f5fd0;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #fff1bf;
+    --sidebar-accent-foreground: #1b1f3b;
+    --sidebar-border: #d6ccb2;
+    --sidebar-ring: #3a9be8;
+}
+
+/* White page canvas for all three portals (user request): the ink, panels and
+   colour carry the comic identity, so the ground stays clean. */
+.netacad-portal,
+body.netacad-overlay-theme {
+    --background: #ffffff;
+    --rb-page-surface: #ffffff;
+}
+
+.rebyu-ds {
+    --rb-lip: 0px;
+    --rb-lip-lg: 0px;
+}
+
+/* --- Tokens: dark — the night edition --------------------------------------- */
+.dark,
+.dark .netacad-portal,
+.dark body.netacad-overlay-theme {
+    --background: #161b38;
+    --foreground: #f3ecd8;
+    --rb-page-surface: #121631;
+    --card: #1d2448;
+    --card-foreground: #f3ecd8;
+    --popover: #1d2448;
+    --popover-foreground: #f3ecd8;
+    --primary: #7aa7ff;
+    --primary-foreground: #0b1330;
+    --secondary: #232b55;
+    --secondary-foreground: #f3ecd8;
+    --muted: #202852;
+    --muted-foreground: #b3bbd9;
+    --accent: #3b3418;
+    --accent-foreground: #ffe7a0;
+    --border: #3a4478;
+    --input: #4a5590;
+    --ring: #7aa7ff;
+    --chart-1: #7aa7ff;
+    --chart-2: #ff7a70;
+    --chart-3: #ffd95a;
+    --chart-4: #7cc464;
+    --chart-5: #b894ea;
+    --brand-navy: #f3ecd8;
+    --brand-navy-soft: #cfc8b4;
+    --brand-blue: #7aa7ff;
+    --brand-blue-dark: #5a8ae8;
+    --brand-blue-soft: #232b55;
+    --brand-sky: #8fc8f5;
+    --brand-sky-soft: #1d2a52;
+    --sidebar: #161b38;
+    --sidebar-foreground: #f3ecd8;
+    --sidebar-primary: #7aa7ff;
+    --sidebar-primary-foreground: #0b1330;
+    --sidebar-accent: #3b3418;
+    --sidebar-accent-foreground: #ffe7a0;
+    --sidebar-border: #3a4478;
+    --sidebar-ring: #7aa7ff;
+}
+
+/* In the night edition the outline turns to cream (inverse print) so it still
+   reads on a dark panel; the drop shadow goes to true black. */
+.dark .rebyu-ds:not(.rb-light-only),
+.dark .netacad-portal,
+.dark body.netacad-overlay-theme {
+    --comic-line-color: #efe6cc;
+    --comic-shadow-color: #05060f;
+    --comic-paper: #1d2448;
+    --comic-newsprint: #161b38;
+    --comic-dot: rgb(239 230 204 / 0.07);
+}
+
+.dark .rebyu-ds:not(.rb-light-only) {
+    --color-rb-snow: #1d2448;
+    --color-rb-polar: #161b38;
+    --color-rb-swan: #2c3563;
+    --color-rb-hare: #6d77a3;
+    --color-rb-wolf: #b3bbd9;
+    --color-rb-eel: #f3ecd8;
+
+    --color-rb-feather-wash: color-mix(in srgb, var(--color-rb-feather) 26%, #1d2448);
+    --color-rb-macaw-wash: color-mix(in srgb, var(--color-rb-macaw) 22%, #1d2448);
+    --color-rb-bee-wash: color-mix(in srgb, var(--color-rb-bee) 18%, #1d2448);
+    --color-rb-fox-wash: color-mix(in srgb, var(--color-rb-fox) 18%, #1d2448);
+    --color-rb-leaf-wash: color-mix(in srgb, var(--color-rb-leaf) 22%, #1d2448);
+    --color-rb-beetle-wash: color-mix(in srgb, var(--color-rb-beetle) 22%, #1d2448);
+    --color-rb-cardinal-wash: color-mix(in srgb, var(--color-rb-cardinal) 22%, #1d2448);
+
+    --color-rb-feather-ink: #7cc464;
+    --color-rb-bee-ink: #ffd95a;
+}
+
+/* ---------------------------------------------------------------------------
+   THE PAGE — plain white behind the learner portal (halftone layer removed on request)
+   A fixed layer rather than a background on the portal, so the dot screen does
+   not scroll away and the fade stays anchored to the top of the window.
+   --------------------------------------------------------------------------- */
+body:has(.learner-portal) {
+    background-color: #ffffff;
+}
+.dark body:has(.learner-portal) {
+    background-color: #121631;
+}
+
+.learner-portal.netacad-portal {
+    background: transparent;
+}
+
+.netacad-portal > header,
+.learner-portal > header {
+    background: var(--comic-paper);
+    border-bottom: var(--comic-border);
+}
+
+/* ---------------------------------------------------------------------------
+   COMIC VOCABULARY — use these to compose hero surfaces
+   --------------------------------------------------------------------------- */
+
+/* Screens. */
+.rb-halftone {
+    background-image: radial-gradient(circle, var(--comic-dot) 1.3px, transparent 1.9px);
+    background-size: 13px 13px;
+}
+.rb-halftone-light {
+    background-image: radial-gradient(circle, rgb(255 255 255 / 0.12) 1.4px, transparent 2px);
+    background-size: 14px 14px;
+}
+.rb-sunburst {
+    background-image: repeating-conic-gradient(
+        from 0deg at 50% 50%,
+        rgb(255 255 255 / 0.32) 0deg 7deg,
+        rgb(255 255 255 / 0) 7deg 18deg
+    );
+}
+.rb-speedlines {
+    background-image: repeating-conic-gradient(
+        from 0deg at 72% 38%,
+        rgb(255 255 255 / 0.13) 0deg 1.6deg,
+        rgb(255 255 255 / 0) 1.6deg 8deg
+    );
+}
+
+/* A comic page: its panels are clipped, and a clipped element loses its own
+   border, so the ink outline is drawn around the union of the panels with a
+   stack of hard drop shadows. Gutters stay transparent, showing whatever the
+   page sits on. */
+.rb-comic-page {
+    --rb-page-ink: #17182b;
+    filter: drop-shadow(3px 0 0 var(--rb-page-ink)) drop-shadow(-3px 0 0 var(--rb-page-ink))
+        drop-shadow(0 3px 0 var(--rb-page-ink)) drop-shadow(0 -3px 0 var(--rb-page-ink));
+}
+
+/* The sheet a page is printed on: white gutters inside a heavy black frame. */
+.rb-comic-frame {
+    background: #ffffff;
+    border: 4px solid #17182b;
+    border-radius: 6px;
+    padding: 12px;
+    box-shadow: 8px 8px 0 #17182b;
+}
+
+/* Spiky burst balloon — the "WOW!" shape. Clipped to a star, outlined the same
+   way as a comic page (a clipped element cannot keep a border). */
+.rb-burst {
+    display: inline-grid;
+    place-items: center;
+    filter: drop-shadow(2.5px 0 0 #17182b) drop-shadow(-2.5px 0 0 #17182b) drop-shadow(0 2.5px 0 #17182b)
+        drop-shadow(0 -2.5px 0 #17182b) drop-shadow(4px 4px 0 #17182b);
+}
+.rb-burst > span {
+    display: grid;
+    place-items: center;
+    padding: 1.9em 2.3em;
+    background: #ffffff;
+    color: #17182b;
+    font-family: var(--font-rb-sfx);
+    line-height: 0.95;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    clip-path: polygon(
+        50% 0%, 58% 18%, 75% 5%, 72% 25%, 95% 18%, 82% 38%, 100% 50%, 82% 60%,
+        95% 82%, 72% 75%, 75% 95%, 58% 82%, 50% 100%, 42% 82%, 25% 95%, 28% 75%,
+        5% 82%, 18% 60%, 0% 50%, 18% 38%, 5% 18%, 28% 25%, 25% 5%, 42% 18%
+    );
+}
+
+/* Pop-art page inks, from the reference sheet. */
+:root {
+    --color-rb-magenta: #ee4d9b;
+    --color-rb-cyan: #22bfee;
+    --color-rb-lime: #b6d334;
+    --color-rb-purple: #7a4aa0;
+    --color-rb-sun: #f8e05a;
+    --color-rb-tomato: #f25a3c;
+}
+/* No background here: this rule is unlayered and would beat the `bg-rb-*`
+   utility that gives each panel its ink. Panels without one show the frame's
+   white. */
+.rb-panel {
+    position: relative;
+    border-radius: 4px;
+}
+@media (min-width: 1024px) {
+    .rb-panel-slant-r {
+        clip-path: polygon(0 0, 100% 0, calc(100% - 3rem) 100%, 0 100%);
+    }
+    .rb-panel-slant-l-top {
+        clip-path: polygon(3rem 0, 100% 0, 100% 100%, 1.6rem 100%);
+    }
+    .rb-panel-slant-l-bottom {
+        clip-path: polygon(1.4rem 0, 100% 0, 100% 100%, 0 100%);
+    }
+}
+
+/* Speech bubble. The tail is two stacked triangles: ink behind, paper in front,
+   nudged up over the bubble's own bottom line so the outline opens into it. */
+.rb-bubble {
+    position: relative;
+    background: #fffdf6;
+    color: #1b1f3b;
+    border: 3px solid #1b1f3b;
+    border-radius: 28px;
+    box-shadow: 5px 5px 0 #1b1f3b;
+}
+.rb-bubble-tail-left::before,
+.rb-bubble-tail-left::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-color: transparent;
+}
+.rb-bubble-tail-left::before {
+    left: 2.75rem;
+    border-width: 26px 26px 0 0;
+    border-top-color: #1b1f3b;
+}
+.rb-bubble-tail-left::after {
+    left: calc(2.75rem + 3px);
+    margin-top: -4px;
+    border-width: 19px 19px 0 0;
+    border-top-color: #fffdf6;
+}
+
+/* Onomatopoeia. Decorative only — always `aria-hidden`. */
+.rb-sfx {
+    display: inline-block;
+    font-family: var(--font-rb-sfx);
+    font-weight: 400;
+    line-height: 0.9;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--color-rb-bee);
+    -webkit-text-stroke: 2.5px #1b1f3b;
+    paint-order: stroke fill;
+    text-shadow: 4px 4px 0 #1b1f3b;
+}
+.rb-sfx-red {
+    color: var(--color-rb-cardinal);
+}
+.rb-sfx-white {
+    color: #fffdf6;
+}
+
+/* Narration box — the yellow caption in the corner of a panel. */
+.rb-caption-box {
+    display: inline-block;
+    padding: 0.35rem 0.85rem;
+    background: var(--color-rb-bee);
+    color: #1b1f3b;
+    border: 3px solid #1b1f3b;
+    box-shadow: 3px 3px 0 #1b1f3b;
+    font-family: var(--font-rb-sfx);
+    font-size: 1.05rem;
+    line-height: 1.2;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transform: rotate(-1.5deg);
+}
+
+.rb-comic-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.9rem;
+    background: #fffdf6;
+    color: #1b1f3b;
+    border: 2px solid #1b1f3b;
+    border-radius: 999px;
+    box-shadow: 2px 2px 0 #1b1f3b;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.rb-comic-card {
+    background: #fffdf6;
+    color: #1b1f3b;
+    border: 3px solid #1b1f3b;
+    border-radius: 10px;
+    box-shadow: 5px 5px 0 #1b1f3b;
+}
+
+/* Handwritten margin note. One short, human line per screen at most. */
+.rb-hand {
+    font-family: var(--font-rb-hand);
+    font-weight: 400;
+    font-size: 1.35em;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--color-rb-strawberry);
+}
+
+/* ---------------------------------------------------------------------------
+   TYPOGRAPHY
+   --------------------------------------------------------------------------- */
+.rebyu-ds .rb-display {
+    font-family: var(--font-rb-display);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    line-height: 1.05;
+    color: var(--color-rb-eel);
+}
+/* Big headlines get the printed mis-registration: a yellow plate offset under
+   the ink. Reserved for the two largest steps so body-scale headings stay
+   crisp. */
+.rebyu-ds :is(.rb-display-xl, .rb-display-lg) {
+    text-shadow: 3px 3px 0 var(--color-rb-bee);
+}
+
+.rebyu-ds .rb-eyebrow,
+.rb-arena .rb-aeyebrow {
+    font-family: var(--font-rb-sfx);
+    font-size: 1rem;
+    font-weight: 400;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--color-rb-cardinal);
+}
+
+.rebyu-ds .rb-nav-label {
+    font-family: var(--font-rb-sfx);
+    font-size: 1.0625rem;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+}
+
+.rebyu-ds .rb-numeric {
+    font-weight: 400;
+}
+
+.rebyu-ds :is(.rb-body, .rb-body-lg) {
+    line-height: 1.55;
+}
+
+.rb-arena .rb-frame,
+.rebyu-ds .rb-blade-ghost {
+    text-transform: none;
+    font-weight: 400;
+}
+
+.netacad-portal :is(h1, h2, h3),
+:root :is([data-slot="dialog-title"], [data-slot="alert-dialog-title"], [data-slot="sheet-title"], [data-slot="drawer-title"], [data-slot="alert-title"]) {
+    font-weight: 400;
+    letter-spacing: 0.01em;
+}
+
+/* ---------------------------------------------------------------------------
+   BUTTONS — inked keys that lift off the page
+   --------------------------------------------------------------------------- */
+:root [data-slot="button"] {
+    font-weight: 700;
+    letter-spacing: 0;
+    transition:
+        transform 0.1s ease-out,
+        box-shadow 0.1s ease-out,
+        background-color 0.15s ease-out,
+        color 0.15s ease-out;
+}
+:root [data-slot="button"]:is([data-variant="default"], [data-variant="outline"], [data-variant="secondary"], [data-variant="destructive"]) {
+    border: var(--comic-border-thin);
+    box-shadow: var(--comic-shadow-sm);
+}
+:root [data-slot="button"][data-variant="destructive"] {
+    border-color: var(--comic-line-color);
+}
+:root [data-slot="button"][data-variant="default"]:hover:not(:disabled) {
+    filter: none;
+    transform: translate(-1px, -1px);
+    box-shadow: var(--comic-shadow);
+}
+:root [data-slot="button"]:is([data-variant="outline"], [data-variant="secondary"], [data-variant="destructive"]):hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+    box-shadow: var(--comic-shadow);
+}
+:root [data-slot="button"][data-variant="default"]:active:not(:disabled),
+:root
+    [data-slot="button"]:is([data-variant="outline"], [data-variant="secondary"], [data-variant="destructive"]):active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--comic-shadow-color);
+}
+:root [data-slot="button"]:is([data-variant="ghost"], [data-variant="link"]):active:not(:disabled) {
+    transform: translate(1px, 1px);
+}
+:root [data-slot="button"]:disabled {
+    box-shadow: none;
+    transform: none;
+}
+:root [data-slot="button"]:focus-visible {
+    outline: 3px solid var(--rb-focus);
+    outline-offset: 3px;
+}
+
+/* Design-system key (`TactileButton`). */
+.rebyu-ds .rb-btn {
+    border: 3px solid var(--comic-line-color);
+    box-shadow: var(--comic-shadow);
+    font-family: var(--font-rb-display);
+    font-weight: 400;
+    font-size: 1.0625rem;
+    letter-spacing: 0.03em;
+    text-transform: none;
+    transition:
+        transform 0.1s ease-out,
+        box-shadow 0.1s ease-out,
+        filter 0.15s ease-out;
+}
+.rebyu-ds .rb-btn:hover {
+    filter: none;
+    transform: translate(-2px, -2px);
+    box-shadow: var(--comic-shadow-lg);
+}
+.rebyu-ds .rb-btn:active {
+    filter: none;
+    transform: translate(3px, 3px);
+    box-shadow: 1px 1px 0 var(--comic-shadow-color);
+}
+.rebyu-ds .rb-btn[disabled],
+.rebyu-ds .rb-btn[aria-disabled="true"] {
+    border-color: var(--color-rb-hare);
+    box-shadow: none;
+    transform: none;
+}
+.rebyu-ds .rb-btn-mask,
+.rebyu-ds .rb-btn-fox {
+    --rb-btn-ink: #1b1f3b;
+}
+.rebyu-ds .rb-btn-ghost {
+    --rb-btn-face: var(--color-rb-snow);
+    --rb-btn-ink: var(--color-rb-eel);
+    border: 3px solid var(--comic-line-color);
+}
+.rebyu-ds .rb-btn-ghost:hover {
+    border-color: var(--comic-line-color);
+    background: var(--color-rb-bee-wash);
+}
+.rebyu-ds .rb-btn-snow {
+    --rb-btn-ink: #1b1f3b;
+}
+
+/* ---------------------------------------------------------------------------
+   SURFACES — panels
+   --------------------------------------------------------------------------- */
+.rebyu-ds .rb-card {
+    background: var(--color-rb-snow);
+    border: var(--comic-border);
+    box-shadow: var(--comic-shadow);
+}
+.rebyu-ds .rb-card-raised {
+    box-shadow: var(--comic-shadow-lg);
+}
+.rebyu-ds .rb-card-press {
+    transition:
+        transform 0.1s ease-out,
+        box-shadow 0.1s ease-out,
+        background-color 0.15s ease-out;
+}
+.rebyu-ds .rb-card-press:hover {
+    border-color: var(--comic-line-color);
+    transform: translate(-2px, -2px);
+    box-shadow: var(--comic-shadow-lg);
+}
+.rebyu-ds .rb-card-press:active {
+    transform: translate(3px, 3px);
+    box-shadow: 1px 1px 0 var(--comic-shadow-color);
+}
+
+.netacad-portal [data-slot="card"],
+:is(.admin-portal, .institution-portal)
+    :is(.rounded-xl, .rounded-2xl, .rounded-3xl).border:is(.bg-card, .bg-background, .bg-white),
+:is(.admin-portal, .institution-portal) :is(section, article).rounded-xl.border {
+    border: var(--comic-border-thin);
+    box-shadow: var(--comic-shadow);
+}
+
+.rebyu-ds .rb-hero-ink {
+    background-color: var(--color-rb-ink);
+    background-image:
+        radial-gradient(circle, rgb(255 255 255 / 0.1) 1.4px, transparent 2px),
+        repeating-conic-gradient(from 0deg at 80% 30%, rgb(255 255 255 / 0.07) 0deg 2deg, transparent 2deg 9deg);
+    background-size:
+        14px 14px,
+        auto;
+    border-bottom: 4px solid #1b1f3b;
+}
+.rebyu-ds .rb-hero-ink .rb-display {
+    color: #fffdf6;
+    text-shadow: 3px 3px 0 #1b1f3b;
+}
+
+/* ---------------------------------------------------------------------------
+   ANSWER OPTIONS
+   --------------------------------------------------------------------------- */
+.rebyu-ds .rb-answer {
+    border: 2.5px solid var(--comic-line-color);
+    background: var(--color-rb-snow);
+    box-shadow: var(--comic-shadow-sm);
+    transition:
+        transform 0.1s ease-out,
+        box-shadow 0.1s ease-out,
+        background-color 0.15s ease-out;
+}
+.rebyu-ds .rb-answer:hover {
+    background: var(--color-rb-bee-wash);
+    transform: translate(-1px, -1px);
+    box-shadow: var(--comic-shadow);
+}
+.rebyu-ds .rb-answer:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--comic-shadow-color);
+}
+.rebyu-ds .rb-answer[data-state="selected"] {
+    background: var(--color-rb-macaw-wash);
+    border-color: var(--comic-line-color);
+    box-shadow: 4px 4px 0 var(--color-rb-macaw);
+}
+.rebyu-ds .rb-answer[data-state="correct"] {
+    background: var(--color-rb-leaf-wash);
+    border-color: var(--comic-line-color);
+    box-shadow: 4px 4px 0 var(--color-rb-leaf);
+    color: var(--color-rb-eel);
+}
+.rebyu-ds .rb-answer[data-state="wrong"] {
+    background: var(--color-rb-cardinal-wash);
+    border-color: var(--comic-line-color);
+    box-shadow: 4px 4px 0 var(--color-rb-cardinal);
+    color: var(--color-rb-eel);
+}
+.rebyu-ds .rb-answer-key {
+    border-width: 2px;
+    border-radius: 999px;
+    font-family: var(--font-rb-sfx);
+    font-weight: 400;
+    font-size: 1rem;
+    opacity: 1;
+}
+.rebyu-ds .rb-answer[data-state="selected"] .rb-answer-key {
+    background: var(--color-rb-macaw);
+    color: #fff;
+}
+.rebyu-ds .rb-answer[data-state="correct"] .rb-answer-key {
+    background: var(--color-rb-leaf);
+    color: #fff;
+}
+.rebyu-ds .rb-answer[data-state="wrong"] .rb-answer-key {
+    background: var(--color-rb-cardinal);
+    color: #fff;
+}
+
+/* ---------------------------------------------------------------------------
+   PATH NODES — inked medallions
+   --------------------------------------------------------------------------- */
+.rebyu-ds .rb-node {
+    border: 3px solid var(--comic-line-color);
+    box-shadow: 5px 5px 0 var(--comic-shadow-color);
+    transition:
+        transform 0.1s ease-out,
+        box-shadow 0.1s ease-out;
+}
+.rebyu-ds .rb-node::before {
+    inset: 8px auto auto 12px;
+    width: 16px;
+    height: 9px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.7);
+    transform: rotate(-30deg);
+}
+.rebyu-ds .rb-node:hover {
+    filter: none;
+    transform: translate(-2px, -2px);
+    box-shadow: 7px 7px 0 var(--comic-shadow-color);
+}
+.rebyu-ds .rb-node:active {
+    transform: translate(4px, 4px);
+    box-shadow: 1px 1px 0 var(--comic-shadow-color);
+}
+.rebyu-ds .rb-node-locked,
+.rebyu-ds .rb-node-locked:hover,
+.rebyu-ds .rb-node-locked:active {
+    border-style: dashed;
+    border-color: var(--color-rb-hare);
+    box-shadow: none;
+    transform: none;
+}
+
+.rb-arena {
+    background-color: var(--color-rb-polar);
+    background-image:
+        radial-gradient(circle, var(--comic-dot) 1.3px, transparent 1.9px),
+        radial-gradient(ellipse 90% 55% at 50% 0%, var(--color-rb-bee-wash) 0%, transparent 70%);
+    background-size:
+        13px 13px,
+        auto;
+}
+.rb-arena .rb-apanel,
+.rb-arena .rb-standee {
+    border: var(--comic-border);
+}
+.rb-arena .rb-apanel {
+    box-shadow: var(--comic-shadow);
+}
+.rb-arena :is(.rb-seat-outer, .rb-seat-inner, .rb-seat-final) {
+    border: 2px solid #1b1f3b;
+    box-shadow: 3px 3px 0 #1b1f3b;
+}
+
+/* ---------------------------------------------------------------------------
+   PROGRESS — striped like a speed line
+   --------------------------------------------------------------------------- */
+.rebyu-ds .rb-progress {
+    background: var(--color-rb-snow);
+    border: 2px solid var(--comic-line-color);
+}
+.rebyu-ds .rb-progress-fill {
+    background-image: repeating-linear-gradient(
+        -45deg,
+        rgb(255 255 255 / 0.28) 0 6px,
+        rgb(255 255 255 / 0) 6px 12px
+    );
+    background-color: var(--color-rb-feather);
+}
+.rebyu-ds .rb-progress-fill::after {
+    display: none;
+}
+:root [data-slot="progress"] {
+    background: var(--muted);
+    box-shadow: inset 0 0 0 1.5px var(--comic-line-color);
+}
+:root [data-slot="progress-indicator"] {
+    background-color: var(--primary);
+    background-image: repeating-linear-gradient(
+        -45deg,
+        rgb(255 255 255 / 0.28) 0 5px,
+        rgb(255 255 255 / 0) 5px 10px
+    );
+    box-shadow: inset 0 0 0 1.5px var(--comic-line-color);
+}
+
+.rebyu-ds .rb-chip {
+    border: 2px solid var(--comic-line-color);
+    border-radius: 999px;
+    background: var(--color-rb-snow);
+    color: var(--color-rb-eel);
+}
+.rebyu-ds .rb-hero-ink .rb-chip {
+    border-color: rgb(255 253 246 / 0.7);
+}
+
+.rebyu-ds .rb-input {
+    border: 2px solid var(--comic-line-color);
+    background: var(--color-rb-snow);
+}
+.rebyu-ds .rb-input:focus {
+    border-color: var(--comic-line-color);
+    box-shadow: 3px 3px 0 var(--color-rb-bee);
+}
+
+/* ---------------------------------------------------------------------------
+   SHARED PRIMITIVES
+   --------------------------------------------------------------------------- */
+:root :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]) {
+    border: var(--comic-border-thin);
+    background: var(--card);
+}
+:root :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):hover:not(:disabled, [aria-invalid="true"]) {
+    border-color: var(--comic-line-color);
+}
+:root :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):focus-visible {
+    border-color: var(--comic-line-color);
+    outline: none;
+    box-shadow: 3px 3px 0 var(--color-rb-bee);
+}
+:root :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"])[aria-invalid="true"] {
+    border-color: var(--color-rb-cardinal);
+    box-shadow: 3px 3px 0 var(--color-rb-cardinal-wash);
+}
+
+:root :is([data-slot="checkbox"], [data-slot="radio-group-item"], [data-slot="switch"]) {
+    border: 2px solid var(--comic-line-color);
+}
+:root :is([data-slot="checkbox"], [data-slot="radio-group-item"], [data-slot="switch"]):active:not(:disabled) {
+    transform: translate(1px, 1px);
+}
+
+:root :is(
+    [data-slot="dropdown-menu-content"],
+    [data-slot="select-content"],
+    [data-slot="popover-content"],
+    [data-slot="command"]
+) {
+    border: var(--comic-border-thin);
+    box-shadow: var(--comic-shadow);
+}
+
+:root [data-slot="tabs-list"]:not([data-variant="line"]) {
+    border: var(--comic-border-thin);
+    background: var(--card);
+}
+:root
+    [data-slot="tabs-list"]:not([data-variant="line"])
+    [data-slot="tabs-trigger"]:is([data-active], [data-state="active"]) {
+    background: var(--color-rb-bee);
+    color: #1b1f3b;
+    box-shadow: inset 0 0 0 2px #1b1f3b;
+}
+
+:root [data-slot="table-container"] {
+    border: var(--comic-border-thin);
+}
+.netacad-portal [data-slot="table-container"] {
+    box-shadow: var(--comic-shadow-sm);
+}
+:root [data-slot="table-header"] {
+    background: var(--accent);
+}
+:root [data-slot="table-body"] [data-slot="table-row"]:hover {
+    background: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+:root [data-slot="alert"] {
+    border: var(--comic-border-thin);
+    box-shadow: var(--comic-shadow-sm);
+}
+:root [data-slot="alert"][data-variant="destructive"] {
+    border-color: var(--color-rb-cardinal);
+    box-shadow: 3px 3px 0 var(--color-rb-cardinal);
+}
+
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) {
+    border: var(--comic-border);
+    box-shadow: var(--comic-shadow-lg);
+}
+:root :is([data-slot="sheet-content"], [data-slot="drawer-content"]) {
+    border-color: var(--comic-line-color);
+    border-width: 3px;
+}
+:root :is([data-slot="dialog-overlay"], [data-slot="alert-dialog-overlay"], [data-slot="sheet-overlay"]) {
+    background-color: rgb(27 31 59 / 0.5);
+    background-image: radial-gradient(circle, rgb(0 0 0 / 0.18) 1.4px, transparent 2px);
+    background-size: 12px 12px;
+}
+
+:root [data-slot="accordion-item"] {
+    border-bottom: 2px dashed color-mix(in srgb, var(--comic-line-color) 35%, transparent);
+}
+
+:root [data-slot="tooltip-content"] {
+    border: 2px solid var(--comic-line-color);
+    box-shadow: var(--comic-shadow-xs);
+}
+
+:root [data-slot="badge"] {
+    border: 1.5px solid var(--comic-line-color);
+    border-radius: 999px;
+}
+
+:root :is([data-slot="avatar"], [data-slot="message-avatar"]) {
+    border: 2px solid var(--comic-line-color);
+}
+:root [data-slot="avatar-fallback"] {
+    background: var(--color-rb-bee);
+    color: #1b1f3b;
+}
+
+:root [data-slot="bubble-content"] {
+    border: 2px solid var(--comic-line-color);
+    box-shadow: var(--comic-shadow-xs);
+}
+
+:root [data-slot="sidebar-menu-button"][data-active="true"] {
+    background: var(--accent);
+    box-shadow: inset 3px 0 0 var(--comic-line-color);
+}
+
+:root [data-sonner-toast].netacad-toast {
+    border: var(--comic-border-thin);
+    box-shadow: var(--comic-shadow);
+}
+
+/* --- Auth shell ------------------------------------------------------------ */
+.public-auth-shell :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]) {
+    background: #fffdf6;
+    border: 2px solid #1b1f3b;
+}
+.public-auth-shell [data-slot="button"] {
+    border: 3px solid #1b1f3b;
+    box-shadow: 4px 4px 0 #1b1f3b;
+    font-weight: 400;
+    letter-spacing: 0.03em;
+    text-transform: none;
+    transition:
+        transform 0.1s ease-out,
+        box-shadow 0.1s ease-out;
+}
+.public-auth-shell [data-slot="button"]:hover:not(:disabled) {
+    filter: none;
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 #1b1f3b;
+}
+.public-auth-shell [data-slot="button"]:active:not(:disabled) {
+    transform: translate(3px, 3px);
+    box-shadow: 1px 1px 0 #1b1f3b;
+}
+.public-auth-shell [data-slot="button"]:is([data-variant="link"], [data-variant="ghost"]) {
+    border: 0;
+    box-shadow: none;
+    font-family: var(--font-rb-body);
+    font-weight: 600;
+    letter-spacing: 0;
+}
+.public-auth-shell [data-slot="button"]:is([data-variant="link"], [data-variant="ghost"]):is(:hover, :active) {
+    transform: none;
+    box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root [data-slot="button"],
+    .rebyu-ds :is(.rb-btn, .rb-card-press, .rb-answer, .rb-node) {
+        transition: none;
+    }
+}
+
+/* ===========================================================================
+   LANDING PAGE — a comic book you scroll through
+   Scoped to `.rb-landing-comic` (the landing root). Every section is a printed
+   band in one pop-art ink with a halftone screen, divided by heavy rules; its
+   eyebrow is a narration box and its heading is lettered in a speech bubble.
+   =========================================================================== */
+.rb-landing-comic main > :is(section, div) + :is(section, div),
+.rb-landing-comic footer {
+    border-top: 4px solid #17182b;
+}
+
+/* Light bands: ink text everywhere, since muted grey dies on saturated colour. */
+.rb-band {
+    --color-rb-wolf: #2a2c44;
+}
+/* Dark bands: loose copy on the band turns white; anything that is its own
+   paper surface (cards, bubbles, captions) keeps the normal ink. */
+.rb-band-dark {
+    --color-rb-wolf: rgb(255 255 255 / 0.92);
+}
+.rb-band-dark :is(.rb-card, article, .rb-comic-card, .rb-bubble, button, [role="tablist"]) {
+    --color-rb-wolf: #555b73;
+}
+
+/* Narration box eyebrows on section headings. */
+.rb-landing-comic [data-landing-reveal] > .rb-eyebrow {
+    display: inline-flex;
+    width: fit-content;
+    padding: 0.3rem 0.8rem;
+    background: var(--color-rb-sun);
+    color: #17182b;
+    border: 3px solid #17182b;
+    box-shadow: 3px 3px 0 #17182b;
+    font-size: 1.05rem;
+    transform: rotate(-1.5deg);
+}
+.rb-landing-comic .bg-rb-sun [data-landing-reveal] > .rb-eyebrow {
+    background: #ffffff;
+}
+
+/* Section headings lettered in a speech bubble, tail down-left. */
+.rb-landing-comic [data-landing-reveal] > h2.rb-display {
+    position: relative;
+    width: fit-content;
+    max-width: min(100%, 46rem);
+    margin-top: 1.1rem;
+    padding: 0.45em 0.8em 0.5em;
+    background: #ffffff;
+    color: #17182b;
+    border: 3px solid #17182b;
+    border-radius: 30px;
+    box-shadow: 6px 6px 0 #17182b;
+}
+.rb-landing-comic [data-landing-reveal] > h2.rb-display::before,
+.rb-landing-comic [data-landing-reveal] > h2.rb-display::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-color: transparent;
+}
+.rb-landing-comic [data-landing-reveal] > h2.rb-display::before {
+    left: 2.5rem;
+    border-width: 24px 24px 0 0;
+    border-top-color: #17182b;
+}
+.rb-landing-comic [data-landing-reveal] > h2.rb-display::after {
+    left: calc(2.5rem + 3px);
+    margin-top: -4px;
+    border-width: 17px 17px 0 0;
+    border-top-color: #ffffff;
+}
+.rb-landing-comic [data-landing-reveal] > h2.rb-display + p {
+    margin-top: 2rem;
+}
+
+/* Ink on the small parts. */
+.rb-landing-comic .rb-card :is(.grid.place-items-center, .rounded-full.grid) {
+    border: 2px solid #17182b;
+}
+.rb-landing-comic li[class*="rounded-rb-pill"] {
+    border: 2px solid #17182b;
+}
+.rb-landing-comic article.border-2 {
+    border: 3px solid #17182b;
+    box-shadow: 6px 6px 0 #17182b;
+}
+.rb-landing-comic article.border-2 > div:first-child {
+    background-image: radial-gradient(circle, rgb(255 255 255 / 0.16) 1.4px, transparent 2px);
+    background-size: 12px 12px;
+    border-right: 3px solid #17182b;
+}
+@media (max-width: 1023px) {
+    .rb-landing-comic article.border-2 > div:first-child {
+        border-right: 0;
+        border-bottom: 3px solid #17182b;
+    }
+}
+.rb-landing-comic #roadmap button.border-2 {
+    border: 3px solid #17182b;
+    box-shadow: 6px 6px 0 #17182b;
+}
+
+/* Navbar: a printed masthead. */
+.rb-landing-comic > header > div {
+    border-bottom: 4px solid #17182b;
+    background: #fffdf6;
+}
+.rb-landing-comic > header nav a {
+    font-family: var(--font-rb-sfx);
+    font-weight: 400;
+    font-size: 1.125rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #17182b;
+}
+.rb-landing-comic > header nav a > span.absolute {
+    background: var(--color-rb-sun);
+    border: 2px solid #17182b;
+    box-shadow: 2px 2px 0 #17182b;
+    border-radius: 8px;
+}
+
+/* ===========================================================================
+   PORTALS — every page, including the ones built from raw utilities
+   ---------------------------------------------------------------------------
+   Most portal screens draw their surfaces with utility classes rather than a
+   shared component (`rounded-rb-card border-2 bg-card`, `rounded-2xl border`,
+   an icon in a `grid place-items-center rounded-xl bg-rb-*-wash` tile). Tokens
+   alone cannot put ink on those, so these rules recognise the recurring
+   patterns and ink them. Scoped to `.netacad-portal`, which all three portals
+   (learner, institution, admin) carry.
+
+   Only OUTER surfaces cast a shadow. A surface nested inside another is
+   outlined but flat — otherwise a card of tiles of chips stacks three offsets
+   and the page turns to noise.
+   =========================================================================== */
+
+/* Navigation: the active page is highlighted, like a marker on newsprint. */
+.netacad-portal > header nav :is(a, button) {
+    font-family: var(--font-rb-sfx);
+    font-size: 1.0625rem;
+    font-weight: 400;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+.rb-nav-active {
+    color: #17182b;
+    background: var(--color-rb-sun);
+    border: 2px solid #17182b;
+    border-radius: 10px;
+    box-shadow: 2px 2px 0 #17182b;
+}
+nav[aria-label="Mobile learner navigation"] {
+    background: var(--comic-paper);
+    border-top: 3px solid var(--comic-line-color);
+}
+.rb-mobile-active {
+    color: var(--color-rb-eel);
+    font-weight: 700;
+}
+.rb-mobile-active > svg {
+    box-sizing: content-box;
+    padding: 2px 8px;
+    background: var(--color-rb-sun);
+    color: #17182b;
+    border: 2px solid #17182b;
+    border-radius: 999px;
+}
+
+/* Page titles get the yellow plate. */
+.netacad-portal main h1 {
+    text-shadow: 2px 2px 0 var(--color-rb-bee);
+}
+
+/* Surfaces drawn with utilities. */
+.netacad-portal :is([class*="rounded-rb-card"], [class*="rounded-rb-tile"], .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl):is(.border, .border-2):not([data-slot]) {
+    border-color: var(--comic-line-color);
+    border-width: 2px;
+}
+.netacad-portal :is([class*="rounded-rb-card"], .rounded-2xl, .rounded-3xl, .rb-bento-tile):is(.border, .border-2):not([data-slot], .border-dashed) {
+    box-shadow: var(--comic-shadow-sm);
+}
+.netacad-portal
+    :is([class*="rounded-rb-card"], .rounded-2xl, .rounded-3xl, [data-slot="card"], .rb-card, .rb-bento-tile)
+    :is([class*="rounded-rb-card"], [class*="rounded-rb-tile"], .rounded-xl, .rounded-2xl, .rounded-3xl, [data-slot="card"], .rb-card) {
+    box-shadow: none;
+}
+.netacad-portal .border-dashed:not([data-slot]) {
+    border-color: color-mix(in srgb, var(--comic-line-color) 55%, transparent);
+}
+
+/* Cards that are links lift like keys. */
+.netacad-portal a:is([class*="rounded-rb-card"], .rounded-xl, .rounded-2xl, .rounded-3xl):is(.border, .border-2) {
+    transition:
+        transform 0.1s ease-out,
+        box-shadow 0.1s ease-out;
+}
+.netacad-portal a:is([class*="rounded-rb-card"], .rounded-xl, .rounded-2xl, .rounded-3xl):is(.border, .border-2):hover {
+    transform: translate(-1px, -1px);
+    box-shadow: var(--comic-shadow);
+}
+.netacad-portal a:is([class*="rounded-rb-card"], .rounded-xl, .rounded-2xl, .rounded-3xl):is(.border, .border-2):active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--comic-shadow-color);
+}
+
+/* Icon badges. */
+.netacad-portal .grid.place-items-center:is(.rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-full, [class*="rounded-rb"]):is([class*="bg-rb-"], [class*="bg-white"], [class*="bg-muted"], [class*="bg-primary"], [class*="bg-accent"]) {
+    border: 2px solid var(--comic-line-color);
+}
+
+/* Tinted chips: an inset ring, so adding ink never shifts the text. */
+.netacad-portal :is(.rounded-full, [class*="rounded-rb-pill"], [class*="rounded-rb-control"], .rounded-md):is([class*="-wash"], [class*="bg-accent"]):not(.grid, [data-slot]) {
+    box-shadow: inset 0 0 0 1.5px var(--comic-line-color);
+}
+
+/* Hand-rolled progress rails. */
+.netacad-portal :is(.h-1, .h-1\.5, .h-2, .h-2\.5, .h-3).rounded-full:is(.bg-muted, .bg-rb-swan, .bg-rb-polar, .bg-border, .bg-secondary) {
+    box-shadow: inset 0 0 0 1.5px var(--comic-line-color);
+}
+
+.netacad-portal .bg-white {
+    background-color: var(--card);
+}
+
+/* Bento tiles: ink edge on every tone, and the ink tone gets the yellow plate
+   number like a splash panel. */
+.rb-bento-tile {
+    border-color: var(--comic-line-color);
+}
+
+/* ===========================================================================
+   AUTH SCREENS
+   =========================================================================== */
+/* A diagonal gutter between two side-by-side panels: the left panel's right
+   edge leans in by 1.5rem, the right panel is pulled under it by the same
+   amount (`-ml-6` at the call site) and leans the same way. */
+.rb-cut-r {
+    clip-path: polygon(0 0, 100% 0, calc(100% - 1.5rem) 100%, 0 100%);
+}
+.rb-cut-l {
+    clip-path: polygon(1.5rem 0, 100% 0, 100% 100%, 0 100%);
+}
+
+/* The form, printed on a comic card. */
+.rb-auth-card {
+    background: #fffdf6;
+    border: 3px solid #17182b;
+    border-radius: 10px;
+    box-shadow: 7px 7px 0 #17182b;
+    padding: 1.75rem 1.5rem;
+}
+@media (min-width: 640px) {
+    .rb-auth-card {
+        padding: 2.25rem 2.25rem 2rem;
+    }
+}
+.rb-auth-card-compact {
+    padding: 1.1rem 1.5rem;
+}
+@media (min-width: 640px) {
+    .rb-auth-card-compact {
+        padding: 1.25rem 2rem;
+    }
+}
+.rb-auth-card-footer {
+    border-top: 2px dashed rgb(23 24 43 / 0.35);
+}
+.rb-auth-card .rb-caption-box {
+    font-size: 0.95rem;
+}
+
+/* ===========================================================================
+   SKELETONS — panels waiting to be printed
+   ---------------------------------------------------------------------------
+   Every loading placeholder in the product: the shared `Skeleton` primitive
+   (`data-slot="skeleton"`) and the hand-rolled `animate-pulse` blocks built on
+   a muted fill. Instead of a grey block fading in and out, each is newsprint
+   with a halftone screen and a band of sky-blue ink sweeping across it, as if
+   the panel were going through the press. Sky, not yellow, by request: yellow
+   is the product's highlight colour and a loading page full of it shouted. Card-shaped placeholders also get a
+   dashed ink outline, the comic convention for a panel not yet drawn.
+
+   `animate-pulse` on a status dot or a coloured bar is left alone: only muted
+   fills are placeholders.
+   =========================================================================== */
+@keyframes rb-comic-press {
+    from {
+        background-position:
+            0 0,
+            -120% 0;
+    }
+    to {
+        background-position:
+            13px 13px,
+            220% 0;
+    }
+}
+
+:is([data-slot="skeleton"], .animate-pulse:is(.bg-muted, .bg-rb-swan, .bg-rb-polar, .bg-secondary, .bg-border)) {
+    background-color: #e3f1fc;
+    background-image:
+        radial-gradient(circle, rgb(47 95 208 / 0.16) 1.3px, transparent 1.9px),
+        linear-gradient(100deg, transparent 20%, rgb(98 176 240 / 0.6) 50%, transparent 80%);
+    background-size:
+        13px 13px,
+        55% 100%;
+    background-repeat: repeat, no-repeat;
+    animation: rb-comic-press 1.6s linear infinite;
+    opacity: 1;
+}
+
+:is([data-slot="skeleton"], .animate-pulse:is(.bg-muted, .bg-rb-swan, .bg-rb-polar)):is([class*="rounded-rb-card"], [class*="h-40"], [class*="h-56"], [class*="h-[7.5rem]"]) {
+    border: 2px dashed rgb(47 95 208 / 0.45);
+}
+
+.dark .netacad-portal :is([data-slot="skeleton"], .animate-pulse:is(.bg-muted, .bg-rb-swan, .bg-rb-polar, .bg-secondary, .bg-border)) {
+    background-color: #1d2a52;
+    background-image:
+        radial-gradient(circle, rgb(143 200 245 / 0.14) 1.3px, transparent 1.9px),
+        linear-gradient(100deg, transparent 20%, rgb(98 176 240 / 0.32) 50%, transparent 80%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :is([data-slot="skeleton"], .animate-pulse:is(.bg-muted, .bg-rb-swan, .bg-rb-polar, .bg-secondary, .bg-border)) {
+        animation: none;
+        background-position:
+            0 0,
+            50% 0;
+    }
+}
+
+/* The loading note's bubble: tail on the left, pointing at the mascot. */
+.rb-loading-bubble {
+    position: relative;
+    padding: 0.4rem 0.95rem;
+    background: #fffdf6;
+    color: #17182b;
+    border: 2.5px solid #17182b;
+    border-radius: 18px;
+    box-shadow: 3px 3px 0 #17182b;
+    font-family: var(--font-rb-sfx);
+    font-size: 1.05rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+.rb-loading-bubble::before,
+.rb-loading-bubble::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-color: transparent;
+    transform: translateY(-50%);
+}
+.rb-loading-bubble::before {
+    right: 100%;
+    border-width: 8px 12px 8px 0;
+    border-right-color: #17182b;
+}
+.rb-loading-bubble::after {
+    right: calc(100% - 3px);
+    border-width: 5px 9px 5px 0;
+    border-right-color: #fffdf6;
+}
+
+@keyframes rb-loading-bob {
+    0%,
+    100% {
+        transform: translateY(0) rotate(-4deg);
+    }
+    50% {
+        transform: translateY(-5px) rotate(4deg);
+    }
+}
+.rb-loading-bob {
+    animation: rb-loading-bob 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+    .rb-loading-bob {
+        animation: none;
+    }
+}
+
+/* ===========================================================================
+   PORTAL PALETTE — blue grounds, never yellow (user request, 2026-09-14)
+   ---------------------------------------------------------------------------
+   The landing page and the auth screens keep the full pop-art palette. Inside
+   the portals (learner, institution, admin, and the dialogs they portal to
+   <body>) every yellow or cream ground is re-inked in sky blue: cards, hovers,
+   table headers, the active nav marker, active tabs, caption boxes, heading
+   plates, focus shadows, the logo badge. Tones that are not yellow keep their
+   meaning -- orange streaks, red wrong, green correct, purple tutor.
+
+   Done at token level so every rule that reads `--color-rb-sun` / `-bee` /
+   `--accent` follows without being restated. Dark mode is untouched: its own
+   `.dark …` token blocks are more specific and still win.
+   =========================================================================== */
+.netacad-portal,
+body.netacad-overlay-theme {
+    --card: #f4f9ff;
+    --popover: #ffffff;
+    --secondary: #eaf4fd;
+    --muted: #eaf4fd;
+    --accent: #dcefff;
+    --accent-foreground: #17305f;
+    --border: #c6dbef;
+    --input: #b9d1ea;
+    --sidebar: #ffffff;
+    --sidebar-accent: #dcefff;
+    --sidebar-accent-foreground: #17305f;
+    --sidebar-border: #c6dbef;
+    --chart-3: #62b0f0;
+    --brand-yellow: #62b0f0;
+    --brand-yellow-soft: #e2f1fd;
+
+    --comic-paper: #ffffff;
+
+    --color-rb-snow: #ffffff;
+    --color-rb-polar: #eef6fe;
+    --color-rb-swan: #d3e5f5;
+    --color-rb-hare: #8ea3bb;
+    --color-rb-sun: #9fd3f7;
+    --color-rb-bee: #62b0f0;
+    --color-rb-bee-lip: #3a8fd6;
+    --color-rb-bee-ink: #1f5f9e;
+    --color-rb-bee-wash: #e2f1fd;
+}
+
+.netacad-portal .rb-loading-bubble {
+    background: #ffffff;
+}
+.netacad-portal .rb-loading-bubble::after {
+    border-right-color: #ffffff;
+}
+
+/* Bordered card surfaces painted with a white/paper utility take the pale sky
+   card colour too, so "components are blue" holds for hand-built cards and not
+   only for `data-slot="card"`. Page wrappers (no border) stay on the white
+   canvas. */
+.netacad-portal :is([class*="rounded-rb-card"], [class*="rounded-rb-tile"], .rounded-xl, .rounded-2xl, .rounded-3xl):is(.border, .border-2):is(.bg-rb-snow, .bg-white, .bg-card, .bg-background):not([data-slot]) {
+    background-color: var(--card);
+}
+
+/* `RebyuCard` / `.rb-card` paints with `--color-rb-snow`, which the portal
+   palette sets to white for the text that sits on coloured fills. As a card
+   ground it should be the pale sky card colour like every other surface. */
+.netacad-portal .rb-card {
+    background: var(--card);
+}
+
+/* ===========================================================================
+   LANDING HERO — one full-screen sky panel
+   =========================================================================== */
+.rb-hero-sky-art {
+    background:
+        linear-gradient(90deg, rgb(255 255 255 / 0.28) 0%, rgb(255 255 255 / 0) 55%),
+        url("/brand/sky-2560.webp") center 72% / cover no-repeat;
+    transform-origin: 60% 40%;
+    animation: rb-sky-drift 38s ease-in-out infinite alternate;
+}
+@media (max-width: 767px) {
+    .rb-hero-sky-art {
+        background:
+            linear-gradient(180deg, rgb(255 255 255 / 0.2), rgb(255 255 255 / 0)),
+            url("/brand/sky-1280.webp") center 72% / cover no-repeat;
+    }
+}
+@keyframes rb-sky-drift {
+    from {
+        transform: scale(1.04) translateX(0);
+    }
+    to {
+        transform: scale(1.12) translateX(-1.5%);
+    }
+}
+
+.rb-ticker {
+    animation: rb-ticker 32s linear infinite;
+}
+@keyframes rb-ticker {
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rb-hero-sky-art,
+    .rb-ticker {
+        animation: none;
+    }
+}
+
+/* Speech-bubble tail from the bottom centre, for a centred bubble. Pair with
+   `rb-bubble-tail-left`, which draws the triangles. */
+.rb-bubble-tail-center::before {
+    left: calc(50% - 13px);
+}
+.rb-bubble-tail-center::after {
+    left: calc(50% - 10px);
+}

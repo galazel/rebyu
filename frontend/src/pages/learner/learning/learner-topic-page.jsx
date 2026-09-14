@@ -1124,7 +1124,7 @@ function AssessmentView({ exam, position, total, backTo, taken }) {
       <Reveal
         variants={popIn}
         amount={0}
-        className="mx-auto w-full max-w-6xl rounded-rb-card border-2 border-rb-swan bg-rb-snow p-8 shadow-[0_5px_0_var(--color-rb-swan)] sm:p-12"
+        className="mx-auto w-full max-w-6xl rounded-rb-card border-2 border-rb-swan bg-rb-snow p-8 shadow-[var(--comic-shadow-sm)] sm:p-12"
       >
         <p className="rb-display rb-display-sm">assessment</p>
 
@@ -1730,7 +1730,7 @@ export default function LearnerTopicPage() {
               whileHover={{ scale: 1.07 }}
               whileTap={{ scale: 0.92 }}
               transition={{ type: "spring", stiffness: 480, damping: 22 }}
-              className="fixed bottom-6 right-6 z-[60] grid size-16 place-items-center rounded-full bg-rb-beetle text-white shadow-[0_6px_0_var(--color-rb-beetle-lip)]"
+              className="fixed bottom-6 right-6 z-[60] grid size-16 place-items-center rounded-full bg-rb-beetle text-white shadow-[var(--comic-shadow-sm)]"
             >
               <Sparkles className="size-7" aria-hidden="true" />
             </motion.button>
