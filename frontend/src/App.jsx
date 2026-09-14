@@ -3,6 +3,7 @@ import { RouteErrorBoundary, lazyRoute } from "@/lib/lazy-route.jsx"
 import { Navigate, Routes, Route, useLocation } from "react-router-dom"
 import ProtectedRoute from "./components/ProtectedRoute"
 import { LoadingScreen } from "./components/loading-screen.jsx"
+import { LoadingSignal } from "./components/loading-overlay.jsx"
 import { roleHomePath, useAuth } from "./context/auth-context.jsx"
 
 const DashboardLayout = lazyRoute(() => import("./layouts/DashboardLayout"))
@@ -101,7 +102,7 @@ function GuestOnlyRoute({ children }) {
     const { user, status } = useAuth()
 
     if (status === "loading") {
-        return <LoadingScreen />
+        return <LoadingSignal />
     }
 
     if (status === "authenticated") {
@@ -168,7 +169,7 @@ export function App() {
       /* Outside Suspense, so it catches the import failures Suspense re-throws
          rather than sitting inside the tree that unmounts. */
       <RouteErrorBoundary>
-      <Suspense fallback={<LoadingScreen />}>
+      <Suspense fallback={<LoadingSignal />}>
         <RouteTransition>
         <Routes>
             <Route path="/" element={<GuestOnlyRoute><LandingPage /></GuestOnlyRoute>} />

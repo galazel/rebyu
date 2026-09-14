@@ -1,4 +1,4 @@
-import { ComicLoadingNote } from "@/components/comic/comic-loading-note.jsx"
+import { LoadingNote } from "@/components/classroom/loading-note.jsx"
 import React from "react"
 import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import {
@@ -281,8 +281,11 @@ export function LearnerPageHeader({ title, subtitle, children }) {
 
 export function LearnerEmptyState({ icon: Icon = BookOpen, title, description, action }) {
   return (
-    <div className="flex min-h-64 flex-col items-center justify-center rounded-rb-card border-2 border-dashed border-border px-6 py-12 text-center">
-      <span className="grid size-12 place-items-center rounded-2xl bg-rb-macaw-wash text-rb-macaw-lip">
+    /* A sticky note pinned where the content would be -- the same object the
+       landing page uses, so an empty page still looks like the classroom. */
+    <div className="rb-sticky rb-sticky-yellow mx-auto mt-4 min-h-56 w-full max-w-md items-center justify-center text-center">
+      <span className="rb-pushpin" aria-hidden="true" />
+      <span className="grid size-12 place-items-center rounded-2xl bg-white/60 text-rb-macaw-lip">
         <Icon className="size-6" />
       </span>
       <h2 className="mt-4 font-rb-display text-base font-extrabold lowercase text-foreground">
@@ -298,7 +301,8 @@ export function LearnerEmptyState({ icon: Icon = BookOpen, title, description, a
 
 export function LearnerErrorState({ title = "Could not load data", error, onRetry }) {
   return (
-    <div className="rounded-rb-card border-2 border-rb-cardinal/40 bg-rb-cardinal-wash p-6">
+    <div className="rb-sticky rb-sticky-pink mt-4">
+      <span className="rb-pushpin" aria-hidden="true" />
       <p className="font-rb-display font-extrabold lowercase text-rb-cardinal-lip">{title}</p>
       <p className="mt-2 text-sm leading-6 text-rb-eel">
         {error?.response?.data?.message || error?.message || "Please try again."}
@@ -315,7 +319,7 @@ export function LearnerErrorState({ title = "Could not load data", error, onRetr
 export function LearnerLoadingSkeleton() {
   return (
     <div className="space-y-6">
-      <ComicLoadingNote />
+      <LoadingNote />
       <div className="grid gap-4 md:grid-cols-4">
         {[1, 2, 3, 4].map((item) => (
           <Skeleton key={item} className="h-32 rounded-rb-card" />

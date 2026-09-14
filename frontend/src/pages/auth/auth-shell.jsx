@@ -1,72 +1,45 @@
 import { Link } from "react-router-dom"
 
 import { BrandLogo } from "@/components/brand-logo"
+import { TraySupplies } from "@/components/classroom/tray-supplies.jsx"
 import { BackButton } from "@/components/rebyu/rebyu-ui.jsx"
 
 /**
  * Two-column frame shared by every auth route.
  *
- * One column is the form, printed on an inked comic card over halftone
- * newsprint. The other is a single full-height sky panel whose caption and
- * speech bubble depend on the screen:
+ * One column is the form, on a sheet of paper held by a clipboard. The other is the
+ * classroom: the painted room with a chalkboard in it, and on the board a line
+ * that depends on the screen --
  *
- *   login     "previously on rebyu…"  -- the recap page: you are returning.
- *   register  "chapter 1: origin story" -- you vs. the exam, and the four
- *             real steps the product walks a new learner through.
- *   recovery  (forgot password, verify email, set password) -- a shorter page;
- *             these are errands, not a welcome.
+ *   login     "class is in session" -- you are coming back
+ *   register  "first day of class"  -- you are joining
+ *   recovery  (forgot password, verify email, set password) -- an errand
  *
- * `side` alternates which column the form occupies. Sign-in and sign-up are
- * the two screens people bounce between, and moving the form across on the
- * switch makes the change of screen unmistakable.
- *
- * The comic page is ornament -- every word a learner needs is in the form
- * column -- so it is hidden from assistive tech, and below `lg` it is replaced
- * by a one-panel banner above the form instead of being dropped silently.
+ * `side` alternates which column the form occupies, so switching between sign
+ * in and sign up visibly changes the screen. The classroom column is ornament
+ * and hidden from assistive tech; below `lg` it is replaced by a slim board
+ * above the form rather than dropped silently.
  */
 
 const STORIES = {
   login: {
-    caption: "previously on rebyu…",
-    bubble: "welcome back, hero!",
-    hand: "pick up where you left off",
-    banner: "welcome back, hero!",
+    caption: "class is in session",
+    line: "Welcome back to class!",
+    note: "your seat is saved",
+    banner: "Welcome back to class!",
   },
   register: {
-    caption: "chapter 1: origin story",
-    bubble: "every hero has an origin story.",
-    hand: "yours starts here",
-    banner: "every hero starts somewhere.",
+    caption: "first day of class",
+    line: "Welcome to your new classroom.",
+    note: "grab a seat, let's begin",
+    banner: "Welcome to your new classroom.",
   },
   recovery: {
-    caption: "a small detour…",
-    bubble: "lost your way? we'll get you back.",
-    hand: "one quick step",
-    banner: "we'll get you back in.",
+    caption: "office hours",
+    line: "Lost your key? We'll let you back in.",
+    note: "one quick step",
+    banner: "We'll let you back in.",
   },
-}
-
-function SkyPanel({ story, className = "" }) {
-  return (
-    <div className={`rb-panel relative overflow-hidden ${className}`}>
-      <div className="absolute inset-0 bg-[url('/brand/sky-2560.webp')] bg-cover bg-[center_72%]" />
-      <p className="rb-caption-box absolute left-[8%] top-[7%]">{story.caption}</p>
-      <div className="rb-bubble rb-bubble-tail-left absolute left-[8%] top-[17%] max-w-[26rem] px-7 py-6">
-        <p className="rb-display text-[clamp(2rem,3vw,3rem)] !leading-[1.05]">{story.bubble}</p>
-        <p className="rb-hand mt-3">{story.hand}</p>
-      </div>
-    </div>
-  )
-}
-
-/* One panel, the whole height of the column: the anime sky and this screen's
-   line. The multi-panel page it replaced was too busy beside a form. */
-function ComicPage({ storyKey }) {
-  return (
-    <div className="rb-comic-page h-full">
-      <SkyPanel story={STORIES[storyKey]} className="h-full" />
-    </div>
-  )
 }
 
 export default function AuthShell({
@@ -79,7 +52,7 @@ export default function AuthShell({
   story = "recovery",
 }) {
   const formFirst = side === "left"
-  const storyKey = STORIES[story] ? story : "recovery"
+  const tale = STORIES[story] ?? STORIES.recovery
 
   return (
     <main
@@ -88,7 +61,7 @@ export default function AuthShell({
       }`}
     >
       <section
-        className={`rb-halftone relative flex min-h-dvh flex-col px-5 sm:px-8 lg:px-12 xl:px-16 ${
+        className={`relative flex min-h-dvh flex-col px-5 sm:px-8 lg:px-12 xl:px-16 ${
           compact ? "py-4 sm:py-5 lg:h-dvh lg:min-h-0 lg:overflow-y-auto" : "py-5 sm:py-7"
         } ${formFirst ? "lg:order-1" : "lg:order-2"}`}
       >
@@ -107,31 +80,21 @@ export default function AuthShell({
         </div>
 
         <div
-          /* `safe center`: centred while it fits, top-aligned once it does not, so
-              a tall form scrolls instead of losing its heading off the top. */
+          /* `safe center`: centred while it fits, top-aligned once it does not. */
           className={`mx-auto flex w-full max-w-[500px] flex-1 flex-col [justify-content:safe_center] ${
             compact ? "py-3" : "py-10 sm:py-12"
           }`}
         >
-          {/* Below lg the comic page is hidden, so the screen keeps one panel
-              of it: the sky and this screen's line. */}
-          <div aria-hidden="true" className="rb-comic-frame mb-6 !p-2 lg:hidden">
-            <div className="rb-comic-page">
-              <div className="rb-panel relative h-28 overflow-hidden sm:h-32">
-                <div className="absolute inset-0 bg-[url('/brand/sky-1280.webp')] bg-cover bg-[center_70%]" />
-                <div className="rb-bubble rb-bubble-tail-left absolute left-4 top-4 max-w-[80%] !rounded-[22px] px-4 py-2.5">
-                  <p className="rb-display text-xl !leading-[1.05]">{STORIES[storyKey].banner}</p>
-                </div>
-              </div>
-            </div>
+          {/* Below lg the classroom column is hidden; a slim board keeps the line. */}
+          <div aria-hidden="true" className="rb-chalkboard mb-10 !border-8 px-4 py-3 text-center lg:hidden">
+            <p className="rb-chalk text-xl">{tale.banner}</p>
           </div>
 
+          <div className="rb-clipboard">
           <div className={`rb-auth-card ${compact ? "rb-auth-card-compact" : ""}`}>
             <div className={compact ? "mb-3" : "mb-7"}>
-              {/* Dropped on the long form: every line it takes is a line the
-                  submit button loses on a laptop screen. */}
-              {compact ? null : <p className="rb-caption-box">certification preparation</p>}
-              <h1 className={`rb-display ${compact ? "rb-display-md" : "rb-display-lg mt-4"}`}>{title}</h1>
+              {compact ? null : <p className="rb-eyebrow">certification preparation</p>}
+              <h1 className={`rb-display ${compact ? "rb-display-md" : "rb-display-lg mt-2"}`}>{title}</h1>
               {description ? <p className={`rb-body max-w-md ${compact ? "mt-1.5" : "mt-3"}`}>{description}</p> : null}
             </div>
 
@@ -143,6 +106,7 @@ export default function AuthShell({
               </div>
             ) : null}
           </div>
+          </div>
         </div>
 
         <p className={`text-xs font-semibold text-rb-wolf ${compact ? "lg:hidden" : ""}`}>© {new Date().getFullYear()} Rebyu</p>
@@ -150,11 +114,16 @@ export default function AuthShell({
 
       <aside
         aria-hidden="true"
-        className={`relative hidden min-h-dvh overflow-hidden bg-white p-4 lg:block ${
+        className={`rb-classroom-photo relative hidden min-h-dvh items-center justify-center overflow-hidden p-10 lg:flex ${
           compact ? "lg:h-dvh lg:min-h-0" : ""
         } ${formFirst ? "lg:order-2" : "lg:order-1"}`}
       >
-        <ComicPage storyKey={storyKey} />
+        <div className="rb-chalkboard w-full max-w-lg px-10 pb-12 pt-9 text-center">
+          <p className="rb-chalk-label mx-auto">{tale.caption}</p>
+          <p className="rb-chalk mt-6 text-[clamp(2rem,3vw,3rem)] leading-tight">{tale.line}</p>
+          <p className="rb-chalk mt-4 text-xl text-[var(--rb-chalk-yellow)]">{tale.note}</p>
+          <TraySupplies />
+        </div>
       </aside>
     </main>
   )

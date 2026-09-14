@@ -1,5 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton"
-import { ComicLoadingNote } from "@/components/comic/comic-loading-note.jsx"
+import { LoadingNote } from "@/components/classroom/loading-note.jsx"
 
 /**
  * What a portal shows while the next page's code is still arriving.
@@ -24,7 +24,7 @@ import { ComicLoadingNote } from "@/components/comic/comic-loading-note.jsx"
 export function PortalPageSkeleton() {
   return (
     <div className="space-y-6" aria-busy="true" aria-label="Loading page">
-      <ComicLoadingNote />
+      <LoadingNote />
       {/* The page header: a title, and the line of context that sits under it. */}
       <div className="space-y-3">
         <Skeleton className="h-8 w-64 max-w-full rounded-rb-control" />

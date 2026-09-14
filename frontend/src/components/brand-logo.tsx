@@ -3,32 +3,32 @@ type BrandLogoProps = {
 }
 
 /**
- * Rebyu mark: a pop-art eye — the same drawn eye that looks out of the landing
- * hero's comic panel — inked into a yellow badge.
+ * Rebyu mark: a small wood-framed chalkboard with a chalk "r" and a stick of
+ * chalk on its tray -- the classroom identity in 40 units.
  *
- * It replaced a green monogram key with a solid lip underneath, which was the
- * most Duolingo-looking object left in the product. Sizing still comes from
- * the `size-*` classes at every call site, so nothing that renders the mark had
- * to change. Decorative: the wordmark beside it carries the name.
- *
- * The badge reads `--color-rb-sun`: yellow on the landing and auth screens,
- * sky blue inside the portals (see the PORTAL PALETTE block in rebyu-comic.css).
- *
- * The artwork is `public/brand/comic/eye-mark.webp` (the favicon uses the PNG
- * exports beside it).
+ * Drawn as SVG so it stays crisp at every size, needs no request, and takes its
+ * size from the `size-*` class at each call site. Decorative: the wordmark
+ * beside it carries the name. The favicon PNGs in public/brand/classroom are
+ * rendered from the same shapes.
  */
 export function BrandLogo({ className = "" }: BrandLogoProps) {
   return (
-    <span
-      aria-hidden="true"
-      className={`inline-block shrink-0 overflow-hidden rounded-[28%] border-2 border-[#17182b] bg-rb-sun shadow-[2px_2px_0_#17182b] ${className}`}
-    >
-      <img
-        src="/brand/comic/eye-mark.webp"
-        alt=""
-        draggable={false}
-        className="block size-full object-cover"
-      />
-    </span>
+    <svg viewBox="0 0 40 40" aria-hidden="true" className={`shrink-0 ${className}`}>
+      <rect x="1.5" y="3" width="37" height="30" rx="4" fill="#8a5a33" />
+      <rect x="5" y="6.5" width="30" height="23" rx="2" fill="#2f4a3c" />
+      <text
+        x="20"
+        y="18.5"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="#f4f1e8"
+        fontSize="18"
+        fontFamily='"REBYU Chalk", "Patrick Hand", ui-rounded, sans-serif'
+      >
+        r
+      </text>
+      <rect x="7" y="33" width="26" height="3.2" rx="1.6" fill="#b07a4a" />
+      <rect x="23" y="31.4" width="7" height="2" rx="1" fill="#f4f1e8" />
+    </svg>
   )
 }

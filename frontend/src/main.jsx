@@ -1,8 +1,8 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import "./index.css"
-// Loaded after index.css on purpose: the comic identity wins on source order.
-import "./styles/rebyu-comic.css"
+// Loaded after index.css on purpose: the classroom design layer wins on source order.
+import "./styles/rebyu-classroom.css"
 import App from "./App.jsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
 import { BrowserRouter } from "react-router-dom"
@@ -12,6 +12,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { XpAwardModal } from "@/components/learner/xp-award-modal.jsx"
 import { configureAmplify } from "@/lib/amplify.js"
 import { AuthProvider } from "@/context/auth-context.jsx"
+import { LoadingOverlayProvider } from "@/components/loading-overlay.jsx"
 import { MotionConfig } from "framer-motion"
 
 configureAmplify()
@@ -64,7 +65,11 @@ createRoot(rootElement).render(
           <TooltipProvider>
             <QueryClientProvider client={queryClient}>
               <AuthProvider>
-                <App />
+                {/* One loading screen above every route, so it can fill to 100%
+                    and fade out instead of vanishing the moment loading ends. */}
+                <LoadingOverlayProvider>
+                  <App />
+                </LoadingOverlayProvider>
                 <Toaster />
                 {/* Hosted here, not inside a page: submitting an assessment
                     navigates to the results page straight after awarding, and

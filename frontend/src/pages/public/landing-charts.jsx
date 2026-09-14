@@ -29,12 +29,14 @@ const INK = { primary: "#4B4B4B", secondary: "#777777", muted: "#AFAFAF" }
 const GRID = "#E5E5E5"
 const SURFACE = "#FFFFFF"
 
+// Spreadsheet-chart colours: the charts sit in a spreadsheet window
+// (`LaptopSheet`), so they wear the defaults a student would recognise from one.
 const SERIES = {
-  feather: "#58CC02",
-  macaw: "#1CB0F6",
-  fox: "#FF9600",
-  beetle: "#CE82FF",
-  humpback: "#2B70C9",
+  feather: "#2f7d55",
+  macaw: "#4472c4",
+  fox: "#ed7d31",
+  beetle: "#8e6bb8",
+  humpback: "#4472c4",
 }
 
 const axisProps = {
@@ -100,7 +102,7 @@ function ChartTooltip({ active, payload, label, suffix = "%" }) {
 
 // Ebbinghaus-shaped retention. Two series, one axis, both direct-labelled at
 // their endpoint so the gap reads without matching colours to a key.
-const RETENTION = [
+export const RETENTION = [
   { day: "Day 0", cram: 100, spaced: 100 },
   { day: "Day 3", cram: 58, spaced: 88 },
   { day: "Day 7", cram: 38, spaced: 82 },
@@ -162,7 +164,7 @@ export function RetentionChart() {
 
 /* ----------------------------------------------------------------- solution */
 
-const MASTERY = [
+export const MASTERY = [
   { week: "W1", databases: 22, networks: 30, os: 41, programming: 55 },
   { week: "W2", databases: 28, networks: 34, os: 49, programming: 63 },
   { week: "W3", databases: 31, networks: 39, os: 55, programming: 70 },
@@ -316,7 +318,7 @@ export function DomainMasteryChart() {
  * The pass mark is drawn rather than described. A score chart with no pass mark
  * makes the reader do the comparison the chart exists to make for them.
  */
-const RETAKES = [
+export const RETAKES = [
   { attempt: "1st", databases: 41, networks: 52 },
   { attempt: "2nd", databases: 58, networks: 61 },
   { attempt: "3rd", databases: 72, networks: 68 },

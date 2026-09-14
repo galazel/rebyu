@@ -13,29 +13,33 @@ import {
   Cpu,
   FileText,
   Gift,
-  Gauge,
   GraduationCap,
   Heart,
   Layers,
   Lock,
   Menu,
   MessageCircle,
+  Medal,
   Network,
   Sparkles,
   Star,
   Target,
-  Trophy,
   Users,
   X,
   Zap,
 } from "@/components/icons";
 
 import { BrandLogo } from "@/components/brand-logo";
-import { Chip, ProgressBar, RebyuCard, TactileButton } from "@/components/rebyu/rebyu-ui.jsx";
+import { FolderShelf } from "@/components/classroom/folder-shelf.jsx";
+import { BigTrophy } from "@/components/classroom/big-trophy.jsx";
+import { GradedNotebook } from "@/components/classroom/graded-notebook.jsx";
+import { PinBoard } from "@/components/classroom/pin-board.jsx";
+import { LaptopSheet } from "@/components/classroom/laptop-sheet.jsx";
+import { TraySupplies } from "@/components/classroom/tray-supplies.jsx";
+import { RebyuCard, TactileButton } from "@/components/rebyu/rebyu-ui.jsx";
 /* The board's own mark and its own band boundaries, imported rather than
    restated. A landing page that draws its own seal or picks its own red is a
    landing page that drifts away from the product it is advertising. */
-import { PrioritySeal } from "@/components/learner/priority-tag.jsx";
 import { MASTERY_BANDS } from "@/components/charts/rebyu-charts.jsx";
 import {
   AnimatePresence,
@@ -52,7 +56,9 @@ import {
   useScrollSteps,
 } from "@/components/motion/rebyu-motion.jsx";
 import {
+  MASTERY,
   MasteryChart,
+  RETENTION,
   RetakeScoreChart,
   RetentionChart,
 } from "./landing-charts.jsx";
@@ -168,54 +174,35 @@ const CERTIFICATIONS = [
 ];
 
 /* IT Olympics — two solo endurance modes plus the synchronised 8-player
-   tournament. `format` is the honest distinction between them, and it is what
-   the card leads with: solo runs can be started any time, the World Cup needs
-   seven other people.
-
-   `accent` and `surfaceClass` are the same pairings the in-product challenge
-   hub uses for each arena, so an arena is the same colour to a visitor as it is
-   to a signed-in learner. */
+   tournament, shown as icons with labels. `format` is the honest distinction
+   between them: solo runs can be started any time, the World Cup needs seven
+   other people. */
 const OLYMPICS_MODES = [
   {
     id: "codestrike",
     name: "codestrike",
     role: "Coding Skills",
-    tag: "Practice",
     format: "solo · 10 problems",
     icon: Code2,
-    accent: "linear-gradient(135deg, #1B6EF3, #1CB0F6)",
-    surfaceClass: "bg-rb-macaw-wash",
-    blurb:
-      "Ten coding problems back to back, judged against real unit tests as you type and scored on time complexity.",
-    points: ["Live judge with split-screen tests", "Scored on Big-O efficiency", "Global and tier ranking"],
+    color: "#2f6b4f",
     to: "/learner/challenges/codestrike",
   },
   {
     id: "blueprint",
     name: "blueprint arena",
     role: "Design Skills",
-    tag: "Design",
     format: "solo · 10 problems",
     icon: Network,
-    accent: "linear-gradient(135deg, #B061E6, #CE82FF)",
-    surfaceClass: "bg-rb-beetle-wash",
-    blurb:
-      "Ten UML and system design problems on a drag-and-drop canvas, checked against structural rules rather than opinion.",
-    points: ["Pre-loaded architecture components", "Structural validation, not opinion", "Accuracy score and rank tier"],
+    color: "#3f6f8c",
     to: "/learner/challenges/blueprint-arena",
   },
   {
     id: "worldcup",
     name: "world cup",
     role: "Exam Readiness",
-    tag: "Tournament",
     format: "8 players · live bracket",
-    icon: Trophy,
-    accent: "linear-gradient(135deg, #E08600, #FF9600)",
-    surfaceClass: "bg-rb-fox-wash",
-    blurb:
-      "Queue into an eight-player lobby on your track and fight through quarterfinals, semis, and a grand final.",
-    points: ["Track-locked matchmaking", "Timed 1v1 bracket rounds", "MVP and match awards"],
+    icon: Medal,
+    color: "#8a5a33",
     to: "/learner/challenges/world-cup",
   },
 ];
@@ -449,69 +436,55 @@ function LandingNavbar() {
 
 function HeroSection() {
   return (
-    <section className="relative isolate flex items-center overflow-hidden lg:h-[calc(100svh-84px)] lg:min-h-[600px]">
-      {/* --- the fold: one full-screen sky panel ------------------------------
-          The anime sky fills the window edge to edge, and the claim stands
-          alone in the middle of it: caption, speech bubble, action. No
-          character, no side ornaments, no ticker -- the sky and the words are
-          the whole scene. */}
-      <div aria-hidden="true" className="rb-hero-sky-art absolute inset-0 -z-10" />
-      <div
-        aria-hidden="true"
-        className="rb-halftone absolute inset-x-0 bottom-0 -z-10 h-1/3 opacity-70 [mask-image:linear-gradient(to_top,black,transparent)]"
-      />
+    <section className="relative isolate flex min-h-[calc(100svh-80px)] items-center overflow-hidden">
+      {/* --- the fold: a classroom ----------------------------------------------
+          The painted classroom fills the window; the claim is chalked onto a
+          wood-framed chalkboard in the middle of it, with pencils resting on the
+          chalk tray. The photo and the pencils are ornament (`aria-hidden`). */}
+      <div aria-hidden="true" className="rb-classroom-photo absolute inset-0 -z-10" />
 
-      {/* `animate`, not `whileInView`: the fold is on screen before any
-          observer could fire. The stagger reads as one sentence being said --
-          caption, claim, action. */}
+      {/* `animate`, not `whileInView`: the fold is on screen before any observer
+          could fire. The stagger reads as one sentence being said. */}
       <motion.div
-        className="relative mx-auto flex w-full max-w-4xl flex-col items-center px-5 py-16 text-center lg:py-4"
+        className="relative mx-auto w-full max-w-5xl px-4 pb-20 pt-12 sm:px-6"
         initial="hidden"
         animate="show"
         variants={staggerParent(0.09, 0.1)}
       >
-        <motion.p variants={fadeUp} className="rb-caption-box">
-          <Typewriter text="for topcit, it passport & fe exam candidates" speed={34} startOnMount />
-        </motion.p>
+        <div className="rb-chalkboard px-6 pb-12 pt-9 text-center sm:px-12 sm:pb-14 sm:pt-11">
+          <motion.p variants={fadeUp} className="rb-chalk-label mx-auto">
+            <Typewriter text="for TOPCIT, IT Passport & FE exam candidates" speed={34} startOnMount />
+          </motion.p>
 
-        {/* No bubble: the claim is lettered straight onto the sky. A thick
-            white stroke under the ink (paint-order puts it behind the fill)
-            keeps it readable over any cloud, the way comic lettering sits on
-            top of the art. */}
-        <motion.div variants={fadeUp} className="mt-6 w-full max-w-4xl">
-          {/* `!text-center`: `.rb-display` sets left alignment as a system rule,
-              and an unlayered rule outranks a Tailwind utility. */}
           <motion.h1
             variants={staggerParent(0.055)}
-            className="rb-display !text-center text-[clamp(3rem,8vw,7.5rem)] !leading-[0.95] [-webkit-text-stroke:3px_#ffffff] [paint-order:stroke_fill] drop-shadow-[3px_3px_0_rgba(23,24,43,0.9)] sm:[-webkit-text-stroke:10px_#ffffff] sm:drop-shadow-[6px_6px_0_rgba(23,24,43,0.9)]"
+            className="rb-chalk mt-6 text-[clamp(2.6rem,6.5vw,5.75rem)] leading-[1.02]"
           >
-            <WordReveal text="pass it the first time." inherit />
+            <WordReveal text="Pass it the first time." inherit />
           </motion.h1>
-          <p className="rb-body-lg mx-auto mt-6 max-w-3xl text-balance !font-semibold !text-rb-eel [text-shadow:0_0_14px_#ffffff,0_0_4px_#ffffff]">
-            Rebyu finds the topics you are weakest at and builds your study plan around them —
-            so nothing on exam day is a surprise.
-          </p>
-        </motion.div>
 
-        <motion.div
-          variants={fadeUp}
-          className="mt-9 flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row"
-        >
-          <TactileButton asChild size="lg">
-            <Link to="/register">
-              start learning
-              <ArrowRight className="size-5" />
-            </Link>
-          </TactileButton>
-          <TactileButton asChild size="lg" variant="ghost">
-            <a href="#certifications">see what&apos;s covered</a>
-          </TactileButton>
-        </motion.div>
+          <motion.p
+            variants={fadeUp}
+            className="rb-chalk-body mx-auto mt-5 max-w-2xl text-balance text-lg sm:text-xl"
+          >
+            Rebyu finds the topics you are weakest at and builds your study plan around them — so
+            nothing on exam day is a surprise.
+          </motion.p>
 
-        <motion.p variants={fadeUp} className="rb-comic-tag mt-5">
-          <span className="size-2 rounded-full bg-rb-leaf" aria-hidden="true" />
-          Every lesson is free. Pay only for mock exams and analytics.
-        </motion.p>
+          <motion.div variants={fadeUp} className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
+            <TactileButton asChild size="lg">
+              <Link to="/register">
+                start learning
+                <ArrowRight className="size-5" />
+              </Link>
+            </TactileButton>
+            <TactileButton asChild size="lg" variant="ghost">
+              <a href="#certifications">see what&apos;s covered</a>
+            </TactileButton>
+          </motion.div>
+
+          <TraySupplies className="hidden sm:block" />
+        </div>
       </motion.div>
     </section>
   );
@@ -521,7 +494,7 @@ function HeroSection() {
 
 function AboutSection() {
   return (
-    <section id="about" className="scroll-mt-24 bg-rb-sun rb-halftone rb-band px-5 py-20 lg:px-8 lg:py-28">
+    <section id="about" className="scroll-mt-24 bg-white px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal className="max-w-3xl">
           <p className="rb-eyebrow">what rebyu is</p>
@@ -569,8 +542,7 @@ function AboutSection() {
 
 function ProblemSection() {
   return (
-    <section id="problem" className="relative scroll-mt-24 overflow-hidden bg-rb-polar rb-halftone px-5 py-20 lg:px-8 lg:py-28">
-      <img src="/brand/comic/no.webp" alt="" aria-hidden="true" className="pointer-events-none absolute hidden select-none drop-shadow-[4px_4px_0_rgba(23,24,43,0.35)] lg:block right-[3%] top-4 w-44 -rotate-6" />
+    <section id="problem" className="relative scroll-mt-24 overflow-hidden bg-rb-polar px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto grid max-w-[1280px] items-center gap-12 lg:grid-cols-2 lg:gap-16">
         <div data-landing-reveal>
           <p className="rb-eyebrow">the problem</p>
@@ -605,19 +577,24 @@ function ProblemSection() {
           </ul>
         </div>
 
-        <RebyuCard raised data-landing-reveal>
-          <p className="rb-eyebrow">Retention after one study session</p>
-          <h3 className="rb-display rb-display-sm mt-2">
-            what you keep, 30 days later
-          </h3>
-          <div className="mt-5">
+        <div data-landing-reveal>
+          <LaptopSheet
+            file="retention-after-one-session.xlsx"
+            formula="=C7-B7"
+            cell="C7"
+            sheet="retention"
+            headers={["day", "cram %", "spaced %"]}
+            rows={RETENTION.map((r) => [r.day, r.cram, r.spaced])}
+          >
+            <p className="rb-sheet-chart-title">What you keep, 30 days later</p>
+            <p className="rb-sheet-chart-sub">Retention after one study session</p>
             <RetentionChart />
-          </div>
-          <p className="rb-body mt-4 text-sm">
+          </LaptopSheet>
+          <p className="rb-body mt-6 text-center text-sm">
             Crammed material decays to roughly a seventh of what you started with. Reviewed on a
             schedule, it holds.
           </p>
-        </RebyuCard>
+        </div>
       </div>
     </section>
   );
@@ -627,23 +604,29 @@ function ProblemSection() {
 
 function SolutionSection() {
   return (
-    <section id="solution" className="relative scroll-mt-24 overflow-hidden bg-rb-cyan rb-halftone rb-band px-5 py-20 lg:px-8 lg:py-28">
-      <img src="/brand/comic/pow.webp" alt="" aria-hidden="true" className="pointer-events-none absolute hidden select-none drop-shadow-[4px_4px_0_rgba(23,24,43,0.35)] lg:block right-[3%] top-4 w-48 rotate-6" />
+    <section id="solution" className="relative scroll-mt-24 overflow-hidden bg-white px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto grid max-w-[1280px] items-center gap-12 lg:grid-cols-2 lg:gap-16">
         {/* Chart left, copy right. The card already leads in source order, so
             the columns fall this way on their own -- the order utilities that
             used to flip them back were the only thing putting it on the right. */}
-        <RebyuCard raised data-landing-reveal>
-          <p className="rb-eyebrow">Mastery per domain</p>
-          <h3 className="rb-display rb-display-sm mt-2">six weeks of tracked study</h3>
-          <div className="mt-5">
+        <div data-landing-reveal>
+          <LaptopSheet
+            file="mastery-per-domain.xlsx"
+            formula="=MIN(B7:E7)"
+            cell="E7"
+            sheet="mastery"
+            headers={["week", "prog", "OS", "net", "db"]}
+            rows={MASTERY.map((r) => [r.week, r.programming, r.os, r.networks, r.databases])}
+          >
+            <p className="rb-sheet-chart-title">Six weeks of tracked study</p>
+            <p className="rb-sheet-chart-sub">Mastery per domain</p>
             <MasteryChart />
-          </div>
-          <p className="rb-body mt-4 text-sm">
+          </LaptopSheet>
+          <p className="rb-body mt-6 text-center text-sm">
             Every answer updates the estimate. Databases is still the weakest domain, so it stays at
             the top of the study plan.
           </p>
-        </RebyuCard>
+        </div>
 
         <div data-landing-reveal>
           <p className="rb-eyebrow">the solution</p>
@@ -716,7 +699,7 @@ function HowItWorksSection() {
   const { active } = useScrollSteps(trackRef, HOW_IT_WORKS.length);
 
   return (
-    <section id="how-it-works" className="scroll-mt-24 bg-rb-polar rb-halftone px-5 py-20 lg:px-8 lg:py-28">
+    <section id="how-it-works" className="scroll-mt-24 bg-rb-polar px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal>
           <p className="rb-eyebrow">how it works</p>
@@ -815,16 +798,17 @@ function HowItWorksSection() {
 function CertificationSection() {
   /* A showcase, not a comparison: full-width bands that put each certification's
      actual topic list on the page. What a reader wants here is "what is in the
-     system", and that is the topics — not a spec sheet of exam trivia. */
-  const TONE = {
-    macaw: { face: "bg-rb-macaw", chip: "bg-rb-macaw-wash text-rb-macaw-lip", btn: "macaw" },
-    bee: { face: "bg-rb-bee", chip: "bg-rb-bee-wash text-rb-bee-ink", btn: "fox" },
-    beetle: { face: "bg-rb-beetle", chip: "bg-rb-beetle-wash text-rb-beetle-lip", btn: "beetle" },
+     system", and that is the topics. Each certification is a paper folder that
+     opens like a book onto its topic list. */
+  /* One folder colour per certification: manila, sage and a dusty blue. */
+  const FOLDER = {
+    macaw: { face: "#ecd29a", edge: "#d5b06b" },
+    bee: { face: "#d3e2c4", edge: "#aec79c" },
+    beetle: { face: "#cddcea", edge: "#a2bcd2" },
   };
 
   return (
-    <section id="certifications" className="relative scroll-mt-24 overflow-hidden bg-rb-purple rb-halftone-light rb-band-dark px-5 py-20 lg:px-8 lg:py-28">
-      <img src="/brand/comic/bang.webp" alt="" aria-hidden="true" className="pointer-events-none absolute hidden select-none drop-shadow-[4px_4px_0_rgba(23,24,43,0.35)] lg:block right-[4%] top-6 w-52 -rotate-3" />
+    <section id="certifications" className="relative scroll-mt-24 overflow-hidden bg-white px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal>
           {/* The eyebrow names the section, the tag beside it cycles the three
@@ -849,77 +833,53 @@ function CertificationSection() {
           </p>
         </div>
 
-        <div className="mt-12 space-y-6">
-          {CERTIFICATIONS.map((c) => (
-            /* A gentler lift than the small cards get: these bands run the full
-               width of the page, and travel that reads as a nudge on a 280px
-               tile reads as the whole section jumping on one of these. */
-            <HoverLift key={c.title} lift={-4} scale={1.004}>
-              <article
-                data-landing-reveal
-                className="grid overflow-hidden rounded-rb-card border-2 border-rb-swan bg-rb-snow shadow-[var(--comic-shadow-sm)] lg:grid-cols-[300px_1fr]"
-              >
-                {/* colour panel carries identity; the wordmark bleeds off it */}
-                <div className={`relative overflow-hidden p-7 ${TONE[c.tone].face}`}>
-                  <span className="pointer-events-none absolute -bottom-7 -right-3 select-none font-rb-display text-[5rem] font-black lowercase leading-none text-white/20">
-                    {c.wordmark}
-                  </span>
-                  <c.icon className="relative size-9 text-white" aria-hidden="true" />
-                  <h3 className="relative mt-4 font-rb-display text-3xl font-extrabold lowercase leading-none text-white">
-                    {c.title}
-                  </h3>
-                  <div className="relative mt-5 flex gap-4 text-white">
+        <div className="mt-12">
+          <FolderShelf
+            items={CERTIFICATIONS.map((c) => ({
+              key: c.title,
+              tab: c.wordmark,
+              title: c.title,
+              meta: `${c.lessons} lessons · ${c.questions} questions`,
+              icon: c.icon,
+              color: FOLDER[c.tone],
+              left: (
+                <>
+                  <p className="rb-eyebrow">certification</p>
+                  <h3 className="rb-display rb-display-md mt-2">{c.title}</h3>
+                  <p className="rb-body mt-3 max-w-md">{c.summary}</p>
+                  <div className="mt-6 flex gap-8">
                     <span className="text-sm font-bold">
-                      <span className="rb-numeric block text-xl text-white">{c.lessons}</span>
+                      <span className="rb-numeric block text-2xl">{c.lessons}</span>
                       lessons
                     </span>
                     <span className="text-sm font-bold">
-                      <span className="rb-numeric block text-xl text-white">{c.questions}</span>
+                      <span className="rb-numeric block text-2xl">{c.questions}</span>
                       questions
                     </span>
                   </div>
-                </div>
-
-                <div className="flex flex-col p-7">
-                  <p className="rb-body max-w-2xl">{c.summary}</p>
-
-                  <div className="mt-6 flex-1">
-                    <p className="rb-eyebrow">Topics covered</p>
-                    <ul className="mt-3 flex flex-wrap gap-2">
-                      {/* The chips are the only place on the card where the
-                          pointer can land on an individual fact, so they are
-                          the only place that answers it. A small scale and
-                          nothing else — these wrap onto several rows, and
-                          anything that moves a chip off its baseline shifts the
-                          row it shares. */}
-                      {c.topics.map((topic) => (
-                        <HoverScale
-                          as="li"
-                          key={topic}
-                          scale={1.05}
-                          className={`rounded-rb-pill px-3.5 py-2 text-sm font-bold ${TONE[c.tone].chip}`}
-                        >
-                          {topic}
-                        </HoverScale>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <TactileButton
-                    asChild
-                    variant={TONE[c.tone].btn}
-                    size="sm"
-                    className="mt-7 w-fit"
-                  >
+                  <TactileButton asChild size="sm" className="mt-8 w-fit">
                     <Link to="/register">
                       start {c.title.toLowerCase()}
                       <ArrowRight className="size-4" />
                     </Link>
                   </TactileButton>
-                </div>
-              </article>
-            </HoverLift>
-          ))}
+                </>
+              ),
+              right: (
+                <>
+                  <p className="rb-spread-line rb-spread-heading">topics covered</p>
+                  <ol className="rb-spread-list">
+                    {c.topics.map((topic, i) => (
+                      <li key={topic} className="rb-spread-line">
+                        <span>{i + 1}.</span>
+                        {topic}
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              ),
+            }))}
+          />
         </div>
       </div>
     </section>
@@ -930,13 +890,9 @@ function CertificationSection() {
 /* ----------------------------------------------------------------- olympics */
 
 function OlympicsSection() {
-  /* Three arenas, three cards, side by side. They replaced a drag-to-browse
-     carousel that hid two of the three arenas behind the first at any moment;
-     a visitor comparing formats should see all of them at once. */
+  /* Three arenas side by side, all visible at once, as icons with labels. */
   return (
-    <section id="roadmap" className="relative scroll-mt-24 overflow-hidden bg-rb-sun rb-halftone rb-band px-5 py-20 lg:px-8 lg:py-28">
-      {/* Versus frame: the arenas are head-to-head, so this section wears the VS. */}
-      <img src="/brand/comic/versus.webp" alt="" aria-hidden="true" className="pointer-events-none absolute right-[5%] top-12 hidden w-80 rotate-2 select-none rounded-md border-4 border-[#17182b] shadow-[6px_6px_0_#17182b] lg:block" />
+    <section id="roadmap" className="relative scroll-mt-24 overflow-hidden bg-white px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal className="max-w-2xl">
           <p className="rb-eyebrow">it olympics</p>
@@ -951,53 +907,26 @@ function OlympicsSection() {
           </p>
         </div>
 
-        <div className="mt-14 grid gap-7 md:grid-cols-3">
-          {OLYMPICS_MODES.map((mode) => (
-            <HoverLift key={mode.id} className="h-full">
-              <article
-                data-landing-reveal
-                className={`flex h-full flex-col overflow-hidden rounded-rb-card border-[3px] border-[#17182b] shadow-[6px_6px_0_#17182b] ${mode.surfaceClass}`}
-              >
-                <div
-                  className="relative flex h-36 items-center justify-center overflow-hidden border-b-[3px] border-[#17182b]"
-                  style={{ background: mode.accent }}
-                >
-                  <div className="absolute left-3 right-3 top-3 z-10 flex items-center justify-between gap-2">
-                    <span className="rounded-rb-pill border-2 border-[#17182b] bg-white px-2.5 py-0.5 font-rb-sfx text-xs uppercase tracking-wide text-[#17182b]">
-                      {mode.tag}
-                    </span>
-                    <span className="rounded-rb-pill bg-black/40 px-2.5 py-0.5 font-rb-sfx text-xs uppercase tracking-wide text-white">
-                      {mode.format}
-                    </span>
-                  </div>
-                  <span className="grid size-20 place-items-center rounded-full border-[3px] border-[#17182b] bg-white/25 text-white">
-                    <mode.icon className="size-10" strokeWidth={1.7} aria-hidden="true" />
-                  </span>
-                </div>
-
-                <div className="flex flex-1 flex-col p-6">
-                  <p className="font-rb-sfx text-sm uppercase tracking-[0.12em] text-rb-macaw-lip">{mode.role}</p>
-                  <h3 className="rb-display rb-display-md mt-1">{mode.name}</h3>
-                  <p className="rb-body mt-3 text-[0.9375rem]">{mode.blurb}</p>
-
-                  <ul className="mt-4 space-y-2">
-                    {mode.points.map((point) => (
-                      <li key={point} className="flex items-start gap-2 text-sm font-semibold text-rb-eel">
-                        <Check className="mt-0.5 size-4 shrink-0 text-rb-macaw-lip" aria-hidden="true" />
-                        {point}
-                      </li>
-                    ))}
-                  </ul>
-
-                  <TactileButton asChild variant="macaw" size="sm" className="mt-6 w-fit">
-                    <Link to="/register">
-                      enter {mode.name}
-                      <ArrowRight className="size-4" />
-                    </Link>
-                  </TactileButton>
-                </div>
-              </article>
-            </HoverLift>
+        {/* A big trophy in the middle with the three challenges around it:
+            codestrike left, blueprint arena right, the world cup underneath.
+            Icons with labels, no cards; each item is the link in. */}
+        <div className="rb-trophy-stage mt-14">
+          <BigTrophy />
+          {OLYMPICS_MODES.map((mode, index) => (
+            <div key={mode.id} data-landing-reveal data-slot-area={["left", "right", "bottom"][index]}>
+              <Link to="/register" className="rb-olympic group">
+                <span className="rb-olympic-icon" style={{ color: mode.color }}>
+                  <mode.icon strokeWidth={1.7} aria-hidden="true" />
+                </span>
+                <span className="rb-olympic-role">{mode.role}</span>
+                <span className="rb-olympic-name">{mode.name}</span>
+                <span className="rb-olympic-format">{mode.format}</span>
+                <span className="rb-olympic-enter">
+                  enter
+                  <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
+                </span>
+              </Link>
+            </div>
           ))}
         </div>
       </div>
@@ -1091,53 +1020,57 @@ function TypedParts({ parts, revealed }) {
   )
 }
 
-/** Three dots, while the tutor is composing. */
+/** The tutor's pen: a ballpoint whose tip sits on the end of the line being written. */
+function InkPen() {
+  return (
+    <span className="rb-ink-pen" aria-hidden="true">
+      <svg viewBox="0 0 120 20">
+        <polygon points="0,10 15,5.5 15,14.5" fill="#b8bec4" />
+        <circle cx="1.6" cy="10" r="1.6" fill="#1f2f8f" />
+        <rect x="15" y="5" width="16" height="10" rx="1" fill="#6f777f" />
+        <rect x="31" y="4" width="89" height="12" rx="3" fill="#8b939b" />
+        <rect x="31" y="6" width="89" height="3" rx="1.5" fill="#dfe3e6" opacity="0.85" />
+        <rect x="44" y="4" width="2.5" height="12" fill="#eef0f2" />
+        <rect x="50" y="4" width="2.5" height="12" fill="#eef0f2" />
+        <rect x="84" y="1.5" width="32" height="3.5" rx="1.75" fill="#5c636a" />
+      </svg>
+    </span>
+  )
+}
+
+/** The tutor thinking: the pen resting on the line, dots appearing. */
 function TypingIndicator() {
   return (
-    <div className="flex w-fit items-center gap-1.5 rounded-rb-tile rounded-bl-md bg-rb-beetle-wash px-4 py-3.5">
-      {[0, 1, 2].map((dot) => (
-        <span
-          key={dot}
-          className="size-2 animate-bounce rounded-full bg-rb-beetle"
-          style={{ animationDelay: `${dot * 0.16}s` }}
-        />
-      ))}
+    <div className="rb-ink-tutor">
+      <p>
+        <span className="rb-ink-dots">...</span>
+        <InkPen />
+      </p>
     </div>
   )
 }
 
+/* One turn, handwritten: the learner's question in pencil, the tutor's answer
+   in blue ink with the pen on the line while it is still being written. */
 function ChatBubble({ message, revealed, showChips }) {
   const isLearner = message.from === "learner"
+  const writing = revealed < messageLength(message)
 
   return (
-    <div
-      className={
-        "rb-pop-in " +
-        (isLearner
-          ? "ml-auto max-w-[85%] rounded-rb-tile rounded-br-md bg-rb-polar px-4 py-3 text-[0.9375rem] text-rb-eel"
-          : "max-w-[92%] rounded-rb-tile rounded-bl-md bg-rb-beetle-wash px-4 py-3 text-[0.9375rem] text-rb-eel")
-      }
-    >
+    <div className={`rb-pop-in ${isLearner ? "rb-ink-learner" : "rb-ink-tutor"}`}>
       <p>
         <TypedParts parts={message.parts} revealed={revealed} />
-        {revealed < messageLength(message) ? (
-          <span
-            aria-hidden="true"
-            className="ml-0.5 inline-block h-4 w-[2px] translate-y-0.5 animate-pulse bg-rb-beetle"
-          />
-        ) : null}
+        {writing ? <InkPen /> : null}
       </p>
 
-      {message.footer && showChips ? (
-        <p className="mt-2 text-sm text-rb-wolf">{message.footer}</p>
-      ) : null}
+      {message.footer && showChips ? <p className="rb-ink-footer">{message.footer}</p> : null}
 
       {message.chips && showChips ? (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-1 flex flex-wrap gap-3">
           {message.chips.map((chip) => (
-            <Chip key={chip} tone="beetle">
+            <span key={chip} className="rb-ink-box">
               {chip}
-            </Chip>
+            </span>
           ))}
         </div>
       ) : null}
@@ -1145,7 +1078,7 @@ function ChatBubble({ message, revealed, showChips }) {
       {/* What the tutor actually returns once it has generated something: a way
           into the quiz or the deck, not the questions themselves. */}
       {message.action && showChips ? (
-        <span className="rb-pop-in mt-3 inline-flex items-center gap-2 rounded-rb-pill bg-rb-beetle px-4 py-2.5 font-rb-display text-sm font-extrabold lowercase text-rb-snow shadow-[var(--comic-shadow-sm)]">
+        <span className="rb-pop-in rb-ink-action">
           <message.action.icon className="size-4" aria-hidden="true" />
           {message.action.label}
           <ArrowRight className="size-4" aria-hidden="true" />
@@ -1240,30 +1173,23 @@ function TutorConversation() {
   const visible = reducedMotion ? TUTOR_CHAT : TUTOR_CHAT.slice(0, done + 1)
 
   return (
-    <RebyuCard raised data-landing-reveal className="!p-0">
-      <div className="flex items-center gap-3 border-b-2 border-rb-swan px-5 py-4">
-        <span className="grid size-10 place-items-center rounded-full bg-rb-beetle text-rb-snow">
-          <Sparkles className="size-5" aria-hidden="true" />
-        </span>
+    <div data-landing-reveal className="rb-tutor-paper">
+      <div className="rb-tutor-head">
+        <Sparkles className="size-6 shrink-0 text-[#1f2f8f]" aria-hidden="true" />
         <div className="min-w-0">
-          <div className="font-rb-display text-base font-extrabold lowercase text-rb-eel">
-            rebyu tutor
-          </div>
-          <div className="text-xs font-semibold text-rb-hare">Databases · Normalization</div>
+          <div className="rb-tutor-name">rebyu tutor</div>
+          <div className="rb-tutor-sub">Databases · Normalization</div>
         </div>
 
         {/* Scoped, and says so: the tutor answers inside the lesson you are on. */}
-        <span className="ml-auto flex shrink-0 items-center gap-1.5 rounded-rb-pill bg-rb-feather-wash px-2.5 py-1 text-[0.6875rem] font-bold text-rb-feather-ink">
-          <span className="size-1.5 animate-pulse rounded-full bg-rb-feather" aria-hidden="true" />
-          in this lesson
-        </span>
+        <span className="rb-tutor-stamp">in this lesson</span>
       </div>
 
-      {/* Bottom-anchored at a fixed height: the transcript grows upward as a
-          real one does, the card never changes size mid-conversation, and the
-          earliest turns clip off the top the way a scrolled thread would. */}
+      {/* Bottom-anchored at a fixed height: the page fills upward as a real
+          one does, it never changes size mid-conversation, and the earliest
+          turns clip off the top. */}
       <div
-        className="flex h-[392px] flex-col justify-end gap-4 overflow-hidden p-5"
+        className="rb-tutor-body flex h-[392px] flex-col justify-end gap-2 overflow-hidden"
         aria-live="polite"
         aria-atomic="false"
       >
@@ -1283,7 +1209,7 @@ function TutorConversation() {
           )
         })}
       </div>
-    </RebyuCard>
+    </div>
   )
 }
 
@@ -1307,7 +1233,7 @@ function FeaturesBand({ children }) {
      "features" link still lands at the top of the run with nothing between the
      bar and the first section. */
   return (
-    <div id="features" className="scroll-mt-24 bg-rb-lime rb-halftone rb-band">
+    <div id="features" className="scroll-mt-24 bg-rb-feather-wash">
       {children}
     </div>
   );
@@ -1392,7 +1318,7 @@ function masteryTone(value) {
 function WeaknessSection() {
 
   return (
-    <section className="bg-rb-polar rb-halftone px-5 py-20 lg:px-8 lg:py-28">
+    <section className="bg-rb-polar px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal className="max-w-2xl">
           <p className="rb-eyebrow">mastery &amp; weak topics</p>
@@ -1408,122 +1334,19 @@ function WeaknessSection() {
           </p>
         </div>
 
-        <div className="mt-12 grid gap-5 lg:grid-cols-[1.35fr_1fr]">
-          {/* the ranked module list — the core of the feature */}
-          <RebyuCard raised data-landing-reveal className="!p-0">
-            {/* The tile's own chrome, down to the hint line and the
-                not-yet-assessed count. That pill is not decoration: topics
-                with no answers behind them carry no estimate and are left out
-                of the list, and the dashboard says so rather than letting the
-                learner assume the list is everything. */}
-            <div className="flex items-start justify-between gap-3 border-b-2 border-rb-swan px-5 py-4">
-              <div>
-                <div className="font-rb-display text-lg font-extrabold lowercase text-rb-eel">
-                  mastery by topic
-                </div>
-                <p className="mt-1 max-w-sm text-xs font-semibold text-rb-wolf">
-                  Weakest first — every topic with enough answers behind it to score.
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full bg-rb-polar px-2.5 py-1 text-[11px] font-bold text-rb-wolf">
-                4 not yet assessed
-              </span>
-            </div>
-
-            <ul className="divide-y-2 divide-rb-swan">
-              {/* One row per topic, laid out the way `MasteryRow` lays it out
-                  on the dashboard: the priority seal on the left, the title and
-                  its category beside it, the estimate on the right, and the
-                  evidence count under the bar. The seal replaced a coloured
-                  text pill -- the pill was this page's own invention, and a
-                  stack of them reads as chatter rather than as an order to
-                  study in. */}
-              {TOPICS.map((topic) => (
-                <li key={topic.name} className="flex items-start gap-3 px-5 py-4">
-                  <PrioritySeal tag={topic.priorityTag} size={36} />
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-bold text-rb-eel">{topic.name}</span>
-                      <span className="rb-numeric ml-auto text-sm text-rb-eel">
-                        {topic.mastery}%
-                      </span>
-                    </div>
-
-                    <ProgressBar
-                      value={topic.mastery}
-                      tone={masteryTone(topic.mastery)}
-                      label={`${topic.name} mastery`}
-                      className="mt-2"
-                    />
-
-                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-rb-wolf">
-                      <span>{topic.domain}</span>
-                      <span className="text-rb-hare" aria-hidden="true">·</span>
-                      <span>{topic.answers} answers</span>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </RebyuCard>
-
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-1">
-            {/* The dashboard's focus tile. It names one topic rather than
-                counting several, and the copy is the board's own: the label
-                changes with the mastery band, and under it sits the topic you
-                would open next. A "3 topics currently weak" tally stood here
-                before -- a figure the board does not carry, answering a
-                question ("how bad is it overall") the board deliberately
-                refuses in favour of "start here". */}
-            <RebyuCard raised data-landing-reveal className="!bg-rb-cardinal-wash">
-              <div className="flex items-start justify-between gap-3">
-                <p className="text-sm font-bold text-rb-cardinal-lip">Study this first</p>
-                <PrioritySeal tag={TOPICS[0].priorityTag} size={36} />
-              </div>
-
-              <p className="mt-4 font-rb-display text-4xl font-extrabold leading-[0.9] tracking-tight tabular-nums text-rb-cardinal-lip sm:text-5xl">
-                {TOPICS[0].mastery}%
+        {/* An open notebook the teacher has marked: the ranked topic list on
+            the left, the teacher's notes (study-first topic, readiness, the
+            retake scores taped in) on the right. */}
+        <div data-landing-reveal className="mt-12">
+          <GradedNotebook topics={TOPICS} notAssessed={4} readiness={68} tone={masteryTone}>
+            <LaptopSheet laptop={false} file="retakes.xlsx" formula="=B5-B2" cell="B5" sheet="retakes">
+              <p className="rb-sheet-chart-title">Score across retakes</p>
+              <p className="rb-sheet-chart-sub">
+                Each assessment&apos;s attempts in order — a rising line is a score you moved.
               </p>
-              <p className="mt-2 font-bold text-rb-eel">{TOPICS[0].name}</p>
-              <p className="mt-1 text-sm font-semibold text-rb-wolf">
-                Your weakest topic — start here.
-              </p>
-            </RebyuCard>
-
-            {/* Also on the board, and the one figure a learner opens it for. */}
-            <RebyuCard raised data-landing-reveal>
-              <div className="flex items-center gap-4">
-                <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-rb-feather-wash text-rb-feather-ink">
-                  <Gauge className="size-6" aria-hidden="true" />
-                </span>
-                <div className="min-w-0">
-                  <div className="rb-numeric text-2xl leading-none">68%</div>
-                  <div className="mt-1 text-sm font-semibold text-rb-wolf">Exam readiness</div>
-                </div>
-              </div>
-              <p className="rb-body mt-4 text-sm">
-                Your estimated chance of passing, from mastery across every domain the paper
-                weights — not from how much of the course you have clicked through.
-              </p>
-            </RebyuCard>
-
-            {/* The third of the board's headline tiles. Mastery says where you
-                are, readiness says whether that is enough, and this says
-                whether it is moving -- which is the only one of the three a
-                single sitting can show you. */}
-            <RebyuCard raised data-landing-reveal className="sm:col-span-2 lg:col-span-1">
-              <div className="font-rb-display text-lg font-extrabold lowercase text-rb-eel">
-                score across retakes
-              </div>
-              <p className="mt-1 text-xs font-semibold text-rb-wolf">
-                Each assessment's attempts in order — a rising line is a score you moved.
-              </p>
-              <div className="mt-3">
-                <RetakeScoreChart />
-              </div>
-            </RebyuCard>
-          </div>
+              <RetakeScoreChart />
+            </LaptopSheet>
+          </GradedNotebook>
         </div>
       </div>
     </section>
@@ -1637,33 +1460,23 @@ function CommunitySection() {
 
 function AccessCard({ icon: Icon, title, description, points, cta, to, tone }) {
   return (
-    <RebyuCard raised data-landing-reveal className="flex flex-col">
-      <span
-        className={`grid size-14 place-items-center rounded-2xl ${
-          tone === "feather"
-            ? "bg-rb-feather-wash text-rb-feather-ink"
-            : "bg-rb-humpback/10 text-rb-humpback"
-        }`}
-      >
-        <Icon className="size-7" aria-hidden="true" />
-      </span>
+    <article className={`rb-sticky ${tone === "feather" ? "rb-sticky-yellow" : "rb-sticky-blue"}`}>
+      <span className="rb-pushpin" aria-hidden="true" />
 
-      <h3 className="rb-display rb-display-md mt-5">{title}</h3>
-      <p className="rb-body mt-3">{description}</p>
-
-      <div className="mt-6 flex-1 space-y-3 border-t-2 border-rb-swan pt-6">
-        {points.map((point) => (
-          <div key={point} className="flex items-start gap-3">
-            <Check
-              className={`mt-0.5 size-5 shrink-0 ${
-                tone === "feather" ? "text-rb-feather" : "text-rb-humpback"
-              }`}
-              aria-hidden="true"
-            />
-            <span className="text-[0.9375rem] text-rb-eel">{point}</span>
-          </div>
-        ))}
+      <div className="flex items-center gap-3">
+        <Icon className="size-8 shrink-0 text-[#4a3a12]" aria-hidden="true" />
+        <h3 className="rb-sticky-title">{title}</h3>
       </div>
+      <p className="rb-sticky-body mt-3">{description}</p>
+
+      <ul className="mt-5 flex-1 space-y-2.5">
+        {points.map((point) => (
+          <li key={point} className="flex items-start gap-3">
+            <Check className="mt-0.5 size-5 shrink-0 text-rb-feather" aria-hidden="true" />
+            <span className="text-[0.9375rem] text-[#3a2d0c]">{point}</span>
+          </li>
+        ))}
+      </ul>
 
       <TactileButton
         asChild
@@ -1675,13 +1488,13 @@ function AccessCard({ icon: Icon, title, description, points, cta, to, tone }) {
           <ArrowRight className="size-5" />
         </Link>
       </TactileButton>
-    </RebyuCard>
+    </article>
   );
 }
 
 function AccessSection() {
   return (
-    <section id="get-access" className="scroll-mt-24 bg-rb-cyan rb-halftone rb-band px-5 py-20 lg:px-8 lg:py-28">
+    <section id="get-access" className="scroll-mt-24 bg-white px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal className="max-w-2xl">
           <p className="rb-eyebrow">get access</p>
@@ -1692,7 +1505,7 @@ function AccessSection() {
           />
         </div>
 
-        <div className="mt-12 grid gap-6 lg:grid-cols-2">
+        <PinBoard className="mt-12 grid gap-12 lg:grid-cols-2">
           <AccessCard
             icon={GraduationCap}
             title="for learners"
@@ -1711,7 +1524,7 @@ function AccessSection() {
             to="/institution/request-access"
             tone="humpback"
           />
-        </div>
+        </PinBoard>
       </div>
     </section>
   );
@@ -1889,7 +1702,7 @@ export default function LandingPage() {
        the navbar scrolled away. `clip` does the same horizontal trimming (the
        hero's rotated cards and offscreen blobs need it) without creating a
        scroll container. */
-    <div ref={rootRef} className="rebyu-ds rb-light-only rb-landing-comic min-h-screen overflow-x-clip">
+    <div ref={rootRef} className="rebyu-ds rb-light-only rb-classroom-landing min-h-screen overflow-x-clip">
       <LandingNavbar />
       <main>
         <HeroSection />

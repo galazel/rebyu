@@ -1,4 +1,4 @@
-import { ComicLoadingNote } from "@/components/comic/comic-loading-note.jsx"
+import { LoadingNote } from "@/components/classroom/loading-note.jsx"
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -425,7 +425,7 @@ function ReadinessTile({ readiness }) {
 function AnalyticsLoadingSkeleton() {
   return (
     <div className="space-y-4">
-    <ComicLoadingNote text="drawing your progress board…" />
+    <LoadingNote text="drawing your progress board…" />
     <BentoGrid>
       <BentoTile col={4} row={2} className="gap-3">
         <Skeleton className="h-3 w-32" />
@@ -1644,14 +1644,14 @@ export default function LearnerProgressPage() {
             the page. `ml-auto` on the picker holds them to the right now that
             nothing occupies the left of the row. */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* The comic page header: a narration box naming the board and one
-              lettered line. It replaces the old strapline -- which described the
+          {/* The page header: a small chalk slate naming the board and one
+              written line. It replaces the old strapline -- which described the
               tiles -- with a title that sets the page in the comic identity, and
               it holds the left of the row so the controls keep `ml-auto`. */}
           <div className="mr-auto flex flex-col items-start gap-2">
-            <p className="rb-caption-box">your progress board</p>
+            <p className="rb-chalk-label">your progress board</p>
             <h1 className="font-rb-display text-3xl leading-none text-foreground sm:text-4xl">
-              how&apos;s the story going?
+              how&apos;s your studying going?
             </h1>
           </div>
 

@@ -122,8 +122,11 @@ export function InstitutionLoadingSkeleton({ rows = 4 }) {
 
 export function InstitutionErrorState({ title, description, onRetry }) {
   return (
-    <div className="rounded-rb-card border-2 border-rb-cardinal/40 bg-rb-cardinal-wash p-6 text-center">
-      <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-rb-snow text-rb-cardinal-lip">
+    /* A pink sticky note pinned in place -- the same object the learner portal
+       and the landing page use. */
+    <div className="rb-sticky rb-sticky-pink mt-4 text-center">
+      <span className="rb-pushpin" aria-hidden="true" />
+      <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-white/60 text-rb-cardinal-lip">
         <AlertCircle className="size-6" aria-hidden="true" />
       </span>
       <p className="mt-4 font-rb-display font-extrabold lowercase text-rb-cardinal-lip">
@@ -145,8 +148,9 @@ export function InstitutionErrorState({ title, description, onRetry }) {
 
 export function InstitutionEmptyState({ icon: Icon = Inbox, title, description, action }) {
   return (
-    <div className="flex min-h-64 flex-col items-center justify-center rounded-rb-card border-2 border-dashed border-border px-6 py-12 text-center">
-      <span className="grid size-12 place-items-center rounded-2xl bg-rb-macaw-wash text-rb-macaw-lip">
+    <div className="rb-sticky rb-sticky-yellow mx-auto mt-4 min-h-56 w-full max-w-md items-center justify-center text-center">
+      <span className="rb-pushpin" aria-hidden="true" />
+      <span className="grid size-12 place-items-center rounded-2xl bg-white/60 text-rb-macaw-lip">
         <Icon className="size-6" aria-hidden="true" />
       </span>
       <p className="mt-4 font-rb-display text-base font-extrabold lowercase text-foreground">

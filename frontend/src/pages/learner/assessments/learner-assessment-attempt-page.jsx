@@ -44,7 +44,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { ASSESSMENT_XP } from "@/lib/xp.js"
 import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
-import { GRADING_MESSAGES, LoadingScreen } from "@/components/loading-screen.jsx"
+import { GRADING_MESSAGES } from "@/components/loading-screen.jsx"
+import { LoadingSignal } from "@/components/loading-overlay.jsx"
 import DiagramArea from "@/components/challenges/diagram-area.jsx"
 import CodeMirrorProgrammingWorkspace from "@/components/assessments/attempt/code-mirror-programming-workspace.jsx"
 import DiagramQuestionLayout from "@/components/assessments/attempt/diagram-question-layout.jsx"
@@ -853,7 +854,7 @@ export default function LearnerAssessmentAttemptPage() {
      paper flashes back for a beat between the grading finishing and the result
      page arriving. */
   if (submitMutation.isPending || submitMutation.isSuccess) {
-    return <LoadingScreen messages={GRADING_MESSAGES} />
+    return <LoadingSignal messages={GRADING_MESSAGES} />
   }
 
   if (startError) {

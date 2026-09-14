@@ -1,13 +1,13 @@
 import { Navigate, Outlet } from "react-router-dom"
 
-import { LoadingScreen } from "@/components/loading-screen.jsx"
+import { LoadingSignal } from "@/components/loading-overlay.jsx"
 import { useAuth } from "@/context/auth-context.jsx"
 
 function ProtectedRoute({ allowedRoles }) {
   const { user, status } = useAuth()
 
   if (status === "loading") {
-    return <LoadingScreen />
+    return <LoadingSignal />
   }
 
   if (status !== "authenticated") {

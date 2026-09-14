@@ -2,7 +2,7 @@
    REBYU DESIGN SYSTEM
    ---------------------------------------------------------------------------
    Structure, spacing and component classes. The visual identity (palette,
-   faces, ink, depth, comic panels) lives in `rebyu-comic.css`, which loads
+   faces, depth, classroom surfaces) lives in `rebyu-classroom.css`, which loads
    after this file and overrides the values below — read it before changing
    a colour or a shadow here.
 
@@ -52,8 +52,8 @@
        sits under the blue brand instead of fighting it. */
     --color-rb-ink: #000437;
 
-    /* Comic panel inks -- the pop-art page colours. Values live in
-       rebyu-comic.css; declared here so Tailwind generates `bg-rb-magenta` etc. */
+    /* Accent inks, kept so existing `bg-rb-*` utilities still generate. The
+       classroom layer (rebyu-classroom.css) sets the palette in use. */
     --color-rb-magenta: #ee4d9b;
     --color-rb-cyan: #22bfee;
     --color-rb-lime: #b6d334;

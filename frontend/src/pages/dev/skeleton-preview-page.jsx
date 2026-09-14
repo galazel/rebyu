@@ -12,17 +12,17 @@ export default function SkeletonPreviewPage() {
     <div className="rebyu-ds netacad-portal learner-portal min-h-dvh">
       <main className="mx-auto max-w-6xl space-y-16 px-5 py-10">
         <section>
-          <p className="rb-caption-box mb-5">PortalPageSkeleton (route fallback)</p>
+          <p className="rb-chalk-label mb-5">PortalPageSkeleton (route fallback)</p>
           <PortalPageSkeleton />
         </section>
 
         <section>
-          <p className="rb-caption-box mb-5">LearnerLoadingSkeleton</p>
+          <p className="rb-chalk-label mb-5">LearnerLoadingSkeleton</p>
           <LearnerLoadingSkeleton />
         </section>
 
         <section>
-          <p className="rb-caption-box mb-5">Bento tiles loading (analytics board)</p>
+          <p className="rb-chalk-label mb-5">Bento tiles loading (analytics board)</p>
           <BentoGrid>
             <BentoTile col={4} row={2}>
               <BentoSkeleton rows={3} />
