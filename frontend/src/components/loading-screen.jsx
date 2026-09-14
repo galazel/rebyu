@@ -53,7 +53,7 @@ export const ATTEMPT_MESSAGES = [
 
 /* ----------------------------------------------------------------- the hero */
 
-const INK = "#17182b"
+const INK = "#4a6394"
 const SKIN = "#f6c9a0"
 const SKIN_DOT = "#e2a576"
 const HAIR = "#f7d85c"
@@ -61,7 +61,7 @@ const HAIR_SHADE = "#d49a2a"
 const IRIS = "#2f9e8f"
 const LIPS = "#d7263d"
 const SHIRT = "#2f5fd0"
-const PANTS = "#1b1f3b"
+const PANTS = "#4a6394"
 const BAND = "#ef4136"
 
 /** An inked limb: a fat ink stroke with the colour laid down its middle. */
@@ -401,7 +401,7 @@ export function LoadingScreen({ messages = MESSAGES }) {
   }, [reduced, list.length])
 
   return (
-    <div className="rebyu-ds rb-light-only flex h-svh w-full flex-col bg-white p-2 sm:p-3">
+    <div className="rebyu-ds rb-light-only rb-comic-scene flex h-svh w-full flex-col bg-white p-2 sm:p-3">
       {/* The live region is a stable, visually hidden node: the visible bubble
           moves from panel to panel and remounts, which a screen reader would
           not reliably announce. */}

@@ -985,7 +985,7 @@ body.netacad-overlay-theme {
     /* Body copy is Lexend; headings are Halo Dek (self-hosted, declared in
        styles/rebyu-comic.css). */
     --font-sans: "Lexend", ui-sans-serif, system-ui, sans-serif;
-    --font-heading: "Halo Dek", "Lexend", ui-rounded, system-ui, sans-serif;
+    --font-heading: "Lexend", ui-sans-serif, system-ui, sans-serif;
     --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
     --color-background: var(--background);

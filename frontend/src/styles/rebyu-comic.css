@@ -1548,3 +1548,429 @@ body.netacad-overlay-theme {
 .rb-bubble-tail-center::after {
     left: calc(50% - 10px);
 }
+
+/* ===========================================================================
+   STUDY SCREENS — lighter type, softer edges (user feedback, 2026-09-14)
+   ---------------------------------------------------------------------------
+   On the portals (every learner, institution and admin page, and the dialogs
+   they portal to <body>) the comic identity was too heavy to study with: display
+   faces on every heading and label, near-black ink text, thick navy outlines and
+   hard offset shadows. Here the type is Lexend at medium weights in a softer
+   slate-blue ink, every edge is a 1px light-blue hairline and every shadow a
+   soft blur. The landing page and auth screens keep the comic look.
+   =========================================================================== */
+
+/* --- Type ----------------------------------------------------------------- */
+:root {
+    --font-rb-display: "Lexend", ui-sans-serif, system-ui, sans-serif;
+}
+.rb-landing-comic,
+.public-auth-shell,
+.rb-comic-scene {
+    --font-rb-display: "Halo Dek", "Lexend", system-ui, sans-serif;
+}
+
+/* Softer ink: slate blue instead of near-black navy. The comic lettering face
+   (Bangers, used by `font-rb-sfx` on lesson and unit labels) reads as Lexend
+   here too. */
+.netacad-portal,
+body.netacad-overlay-theme {
+    --font-rb-sfx: "Lexend", ui-sans-serif, system-ui, sans-serif;
+    --foreground: #2b3654;
+    --card-foreground: #2b3654;
+    --popover-foreground: #2b3654;
+    --secondary-foreground: #2b3654;
+    --muted-foreground: #5d6883;
+    --accent-foreground: #2b3654;
+    --sidebar-foreground: #2b3654;
+    --color-rb-eel: #2b3654;
+    --color-rb-wolf: #5d6883;
+}
+
+.netacad-portal .rb-display,
+body.netacad-overlay-theme .rb-display,
+.netacad-portal :is(h1, h2, h3),
+:root :is([data-slot="dialog-title"], [data-slot="alert-dialog-title"], [data-slot="sheet-title"], [data-slot="drawer-title"], [data-slot="alert-title"]) {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+}
+.netacad-portal :is(.rb-display-xl, .rb-display-lg),
+.netacad-portal main h1 {
+    text-shadow: none;
+}
+.netacad-portal .rb-numeric {
+    font-weight: 600;
+}
+/* Nothing heavier than semibold inside the portals. */
+.netacad-portal :is(.font-bold, .font-extrabold, .font-black) {
+    font-weight: 600;
+}
+
+.netacad-portal .rb-btn,
+body.netacad-overlay-theme .rb-btn {
+    font-family: var(--font-rb-body);
+    font-weight: 600;
+    font-size: 1rem;
+    letter-spacing: 0;
+}
+:root .netacad-portal [data-slot="button"] {
+    font-weight: 600;
+}
+
+.netacad-portal :is(.rb-eyebrow, .rb-nav-label, .rb-caption-box, .rb-loading-bubble),
+.netacad-portal > header nav :is(a, button) {
+    font-family: var(--font-rb-body);
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.netacad-portal .rb-eyebrow {
+    font-size: 0.8125rem;
+    color: var(--primary);
+}
+/* Lesson and unit labels ("UNIT 1 · …", "LESSON 1 OF 3") were red, uppercase
+   comic lettering; on a reading screen they are quiet blue labels. */
+.netacad-portal .font-rb-sfx {
+    color: var(--primary);
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.netacad-portal > header nav :is(a, button),
+.netacad-portal :is(.rb-nav-label, .rb-caption-box, .rb-loading-bubble) {
+    font-size: 0.9375rem;
+}
+.netacad-portal :is(label, [data-slot="label"], [data-slot="field-label"]) {
+    font-weight: 500;
+}
+
+/* --- White cards ---------------------------------------------------------- */
+/* Every card, popover and dashboard tile sits on white; the soft hairline and
+   shadow separate it from the white page. Tinted tile tones are dropped. */
+.netacad-portal,
+body.netacad-overlay-theme {
+    --card: #ffffff;
+    --popover: #ffffff;
+}
+.netacad-portal .rb-card,
+.netacad-portal .rb-bento-tile,
+.netacad-portal :is([class*="rounded-rb-card"], [class*="rounded-rb-tile"], .rounded-xl, .rounded-2xl, .rounded-3xl):is(.border, .border-2):is(.bg-rb-snow, .bg-white, .bg-card, .bg-background):not([data-slot]) {
+    background-color: #ffffff;
+}
+
+/* --- Edges ---------------------------------------------------------------- */
+.netacad-portal,
+body.netacad-overlay-theme {
+    --comic-line-color: #d3e3f2;
+    --comic-shadow-color: rgb(23 48 95 / 0.1);
+    --comic-shadow-xs: 0 1px 2px rgb(23 48 95 / 0.06);
+    --comic-shadow-sm: 0 1px 3px rgb(23 48 95 / 0.08);
+    --comic-shadow: 0 2px 8px rgb(23 48 95 / 0.08);
+    --comic-shadow-lg: 0 8px 24px rgb(23 48 95 / 0.12);
+    --comic-border: 1px solid #d3e3f2;
+    --comic-border-thin: 1px solid #d3e3f2;
+    --rb-elev-popover: 0 8px 24px rgb(23 48 95 / 0.12);
+    --rb-elev-overlay: 0 20px 48px rgb(23 48 95 / 0.18);
+}
+.dark .netacad-portal,
+.dark body.netacad-overlay-theme {
+    --comic-line-color: #2c3a63;
+    --comic-shadow-color: rgb(0 0 0 / 0.35);
+    --comic-shadow-xs: 0 1px 2px rgb(0 0 0 / 0.3);
+    --comic-shadow-sm: 0 1px 3px rgb(0 0 0 / 0.35);
+    --comic-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
+    --comic-shadow-lg: 0 8px 24px rgb(0 0 0 / 0.45);
+    --comic-border: 1px solid #2c3a63;
+    --comic-border-thin: 1px solid #2c3a63;
+    --rb-elev-popover: 0 8px 24px rgb(0 0 0 / 0.45);
+    --rb-elev-overlay: 0 20px 48px rgb(0 0 0 / 0.55);
+}
+
+.netacad-portal :is([class*="rounded-rb-card"], [class*="rounded-rb-tile"], .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl):is(.border, .border-2):not([data-slot]) {
+    border-width: 1px;
+}
+.netacad-portal .grid.place-items-center:is(.rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-full, [class*="rounded-rb"]):is([class*="bg-rb-"], [class*="bg-white"], [class*="bg-muted"], [class*="bg-primary"], [class*="bg-accent"]) {
+    border: 0;
+}
+.netacad-portal :is(.rounded-full, [class*="rounded-rb-pill"], [class*="rounded-rb-control"], .rounded-md):is([class*="-wash"], [class*="bg-accent"]):not(.grid, [data-slot]),
+.netacad-portal :is(.h-1, .h-1\.5, .h-2, .h-2\.5, .h-3).rounded-full:is(.bg-muted, .bg-rb-swan, .bg-rb-polar, .bg-border, .bg-secondary),
+:root .netacad-portal [data-slot="progress"],
+:root .netacad-portal [data-slot="progress-indicator"] {
+    box-shadow: none;
+}
+
+:root .netacad-portal [data-slot="button"]:is([data-variant="default"], [data-variant="destructive"]),
+.netacad-portal .rb-btn:not(.rb-btn-ghost, .rb-btn-snow) {
+    border-color: transparent;
+}
+.netacad-portal .rb-btn,
+body.netacad-overlay-theme .rb-btn {
+    border-width: 1px;
+}
+:root .netacad-portal [data-slot="button"]:not(:disabled):active,
+.netacad-portal .rb-btn:active {
+    transform: translateY(1px);
+}
+
+:root .netacad-portal :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]):focus-visible,
+.netacad-portal .rb-input:focus {
+    border-color: #62b0f0;
+    box-shadow: 0 0 0 3px rgb(98 176 240 / 0.3);
+}
+
+.rb-nav-active {
+    color: #17305f;
+    background: #dcefff;
+    border: 0;
+    box-shadow: none;
+}
+.netacad-portal .rb-mobile-active > svg {
+    background: #dcefff;
+    color: #17305f;
+    border: 0;
+}
+:root
+    .netacad-portal
+    [data-slot="tabs-list"]:not([data-variant="line"])
+    [data-slot="tabs-trigger"]:is([data-active], [data-state="active"]) {
+    background: #ffffff;
+    color: var(--primary);
+    box-shadow: 0 1px 3px rgb(23 48 95 / 0.12);
+}
+
+.netacad-portal .rb-caption-box {
+    background: #dcefff;
+    color: #17305f;
+    border: 0;
+    border-radius: 999px;
+    box-shadow: none;
+    transform: none;
+    padding: 0.2rem 0.75rem;
+}
+.netacad-portal .rb-loading-bubble {
+    border: 1px solid #d3e3f2;
+    box-shadow: 0 2px 8px rgb(23 48 95 / 0.08);
+}
+.netacad-portal .rb-loading-bubble::before {
+    border-right-color: #d3e3f2;
+}
+
+.netacad-portal .rb-hero-ink {
+    border-bottom: 0;
+}
+.netacad-portal .rb-hero-ink .rb-display {
+    text-shadow: none;
+}
+
+.netacad-portal .rb-answer {
+    border-width: 1.5px;
+}
+.netacad-portal .rb-answer:hover {
+    background: #eef6fe;
+    transform: none;
+}
+.netacad-portal .rb-answer:active {
+    transform: translateY(1px);
+}
+.netacad-portal .rb-answer[data-state="selected"] {
+    border-color: var(--color-rb-macaw);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-rb-macaw) 25%, transparent);
+}
+.netacad-portal .rb-answer[data-state="correct"] {
+    border-color: var(--color-rb-leaf);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-rb-leaf) 25%, transparent);
+}
+.netacad-portal .rb-answer[data-state="wrong"] {
+    border-color: var(--color-rb-cardinal);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-rb-cardinal) 25%, transparent);
+}
+
+.netacad-portal .rb-node {
+    border: 2px solid rgb(255 255 255 / 0.7);
+    box-shadow: 0 6px 14px color-mix(in srgb, var(--rb-node-face) 35%, transparent);
+}
+.netacad-portal .rb-node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px color-mix(in srgb, var(--rb-node-face) 40%, transparent);
+}
+.netacad-portal .rb-node:active {
+    transform: translateY(1px);
+    box-shadow: 0 3px 8px color-mix(in srgb, var(--rb-node-face) 35%, transparent);
+}
+.netacad-portal .rb-node-locked,
+.netacad-portal .rb-node-locked:hover,
+.netacad-portal .rb-node-locked:active {
+    border: 2px dashed var(--color-rb-hare);
+    box-shadow: none;
+    transform: none;
+}
+
+.rb-arena :is(.rb-seat-outer, .rb-seat-inner, .rb-seat-final) {
+    border-color: transparent;
+    box-shadow: 0 2px 8px rgb(23 48 95 / 0.15);
+}
+.rb-arena :is(.rb-apanel, .rb-standee) {
+    border: 1px solid #d3e3f2;
+    box-shadow: 0 2px 8px rgb(23 48 95 / 0.08);
+}
+
+/* ===========================================================================
+   LIGHTER INK — nothing near-black (user feedback: "so dark", 2026-09-14)
+   ---------------------------------------------------------------------------
+   The comic identity drew its lines, text and offset shadows in a near-black
+   navy (#17182b / #1b1f3b). Across the landing page, the auth screens and the
+   loading scene that read as heavy and dark. The shapes stay; the ink changes:
+   text is a soft slate blue, outlines a medium blue-grey, and the hard offset
+   shadows a translucent blue instead of black. The study-screen block above
+   already softened the portals; its text is lightened one more step here.
+   =========================================================================== */
+:root {
+    --color-rb-eel: #34466e;
+    --color-rb-wolf: #5d6b86;
+    --foreground: #34466e;
+    --card-foreground: #34466e;
+    --popover-foreground: #34466e;
+    --secondary-foreground: #34466e;
+    --accent-foreground: #34466e;
+
+    --comic-ink: #5f7fb3;
+    --comic-line-color: #5f7fb3;
+    --comic-shadow-color: rgb(95 127 179 / 0.35);
+    --comic-shadow-xs: 2px 2px 0 rgb(95 127 179 / 0.35);
+    --comic-shadow-sm: 3px 3px 0 rgb(95 127 179 / 0.35);
+    --comic-shadow: 4px 4px 0 rgb(95 127 179 / 0.35);
+    --comic-shadow-lg: 6px 6px 0 rgb(95 127 179 / 0.35);
+    --comic-border: 3px solid #5f7fb3;
+    --comic-border-thin: 2px solid #5f7fb3;
+    --comic-dot: rgb(95 127 179 / 0.12);
+}
+
+.netacad-portal,
+body.netacad-overlay-theme {
+    --foreground: #3a4a6b;
+    --card-foreground: #3a4a6b;
+    --popover-foreground: #3a4a6b;
+    --secondary-foreground: #3a4a6b;
+    --accent-foreground: #3a4a6b;
+    --sidebar-foreground: #3a4a6b;
+    --color-rb-eel: #3a4a6b;
+    --muted-foreground: #66728c;
+    --color-rb-wolf: #66728c;
+}
+
+/* --- Comic pieces --------------------------------------------------------- */
+.rb-bubble {
+    color: #34466e;
+    border-color: #5f7fb3;
+    box-shadow: 5px 5px 0 rgb(95 127 179 / 0.35);
+}
+.rb-bubble-tail-left::before {
+    border-top-color: #5f7fb3;
+}
+.rb-caption-box {
+    color: #34466e;
+    border-color: #5f7fb3;
+    box-shadow: 3px 3px 0 rgb(95 127 179 / 0.35);
+}
+.rb-comic-tag {
+    color: #34466e;
+    border-color: #5f7fb3;
+    box-shadow: 2px 2px 0 rgb(95 127 179 / 0.35);
+}
+.rb-comic-card {
+    color: #34466e;
+    border-color: #5f7fb3;
+    box-shadow: 5px 5px 0 rgb(95 127 179 / 0.35);
+}
+.rb-comic-page {
+    --rb-page-ink: #5f7fb3;
+}
+.rb-comic-frame {
+    border-color: #5f7fb3;
+    box-shadow: 8px 8px 0 rgb(95 127 179 / 0.3);
+}
+.rb-sfx {
+    -webkit-text-stroke-color: #5f7fb3;
+    text-shadow: 4px 4px 0 rgb(95 127 179 / 0.35);
+}
+
+/* The logo badge. */
+span[class*="shadow-[2px_2px_0_#17182b]"] {
+    border-color: #5f7fb3;
+    box-shadow: 2px 2px 0 rgb(95 127 179 / 0.35);
+}
+
+/* --- Landing -------------------------------------------------------------- */
+.rb-landing-comic main > :is(section, div) + :is(section, div),
+.rb-landing-comic footer {
+    border-top: 2px solid #c9d8ee;
+}
+.rb-landing-comic > header > div {
+    border-bottom: 2px solid #c9d8ee;
+}
+.rb-landing-comic > header nav a {
+    color: #34466e;
+}
+.rb-landing-comic > header nav a > span.absolute {
+    border-color: #5f7fb3;
+    box-shadow: 2px 2px 0 rgb(95 127 179 / 0.35);
+}
+
+.rb-landing-comic [data-landing-reveal] > .rb-eyebrow {
+    color: #34466e;
+    border-color: #5f7fb3;
+    box-shadow: 3px 3px 0 rgb(95 127 179 / 0.35);
+}
+.rb-landing-comic [data-landing-reveal] > h2.rb-display {
+    color: #34466e;
+    border-color: #5f7fb3;
+    box-shadow: 6px 6px 0 rgb(95 127 179 / 0.35);
+}
+.rb-landing-comic [data-landing-reveal] > h2.rb-display::before {
+    border-top-color: #5f7fb3;
+}
+
+.rb-landing-comic main > section:first-child h1 {
+    filter: drop-shadow(5px 5px 0 rgb(95 127 179 / 0.45));
+}
+
+.rb-landing-comic .rb-card :is(.grid.place-items-center, .rounded-full.grid),
+.rb-landing-comic li[class*="rounded-rb-pill"] {
+    border-color: #5f7fb3;
+}
+.rb-landing-comic article.border-2,
+.rb-landing-comic #roadmap article {
+    border-color: #5f7fb3;
+    box-shadow: 6px 6px 0 rgb(95 127 179 / 0.35);
+}
+.rb-landing-comic article.border-2 > div:first-child {
+    border-color: #5f7fb3;
+}
+.rb-landing-comic #roadmap article > div:first-child,
+.rb-landing-comic #roadmap article span.grid,
+.rb-landing-comic #roadmap article span.rounded-rb-pill {
+    border-color: #5f7fb3;
+}
+.rb-landing-comic #roadmap article span.rounded-rb-pill {
+    color: #34466e;
+}
+
+/* --- Auth ----------------------------------------------------------------- */
+.rb-auth-card {
+    border-color: #5f7fb3;
+    box-shadow: 7px 7px 0 rgb(95 127 179 / 0.3);
+}
+.public-auth-shell :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]) {
+    border-color: #8fa6cc;
+}
+.public-auth-shell [data-slot="button"]:not(:is([data-variant="link"], [data-variant="ghost"])) {
+    border-color: #5f7fb3;
+    box-shadow: 4px 4px 0 rgb(95 127 179 / 0.35);
+}
+.public-auth-shell [data-slot="button"]:not(:is([data-variant="link"], [data-variant="ghost"])):hover:not(:disabled) {
+    box-shadow: 6px 6px 0 rgb(95 127 179 / 0.35);
+}
+.public-auth-shell [data-slot="button"]:not(:is([data-variant="link"], [data-variant="ghost"])):active:not(:disabled) {
+    box-shadow: 1px 1px 0 rgb(95 127 179 / 0.35);
+}
