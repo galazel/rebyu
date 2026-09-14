@@ -53,7 +53,7 @@ export const ATTEMPT_MESSAGES = [
 
 /* ----------------------------------------------------------------- the hero */
 
-const INK = "#4a6394"
+const INK = "#17182b"
 const SKIN = "#f6c9a0"
 const SKIN_DOT = "#e2a576"
 const HAIR = "#f7d85c"
@@ -61,7 +61,7 @@ const HAIR_SHADE = "#d49a2a"
 const IRIS = "#2f9e8f"
 const LIPS = "#d7263d"
 const SHIRT = "#2f5fd0"
-const PANTS = "#4a6394"
+const PANTS = "#1b1f3b"
 const BAND = "#ef4136"
 
 /** An inked limb: a fat ink stroke with the colour laid down its middle. */
