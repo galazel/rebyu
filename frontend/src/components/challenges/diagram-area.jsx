@@ -99,7 +99,7 @@ const DRAWIO_THEME_CSS = `
     box-shadow: none !important;
     outline: none !important;
   }
-  .geSidebarContainer input:focus { border-color: #1b6ef3 !important; }
+  .geSidebarContainer input:focus { border-color: #2f6b4f !important; }
   .geTitle {
     color: #777777 !important;
     font-size: 11px !important;
@@ -137,8 +137,8 @@ const DRAWIO_THEME_CSS = `
     background: #f7f7f7 !important;
   }
   button.gePrimaryBtn, .gePrimaryBtn, .geBtn.gePrimaryBtn {
-    background: #1b6ef3 !important;
-    border: 2px solid #1553c4 !important;
+    background: #2f6b4f !important;
+    border: 2px solid #245440 !important;
     color: #ffffff !important;
   }
 

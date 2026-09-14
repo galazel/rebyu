@@ -35,7 +35,7 @@ import {
  */
 
 const LIGHT = {
-  series: ["#1B6EF3", "#00B8D4", "#FF9600", "#CE82FF"],
+  series: ["#2f6b4f", "#c9962b", "#c8553d", "#8b5f7d"],
   other: "#AFAFAF",
   // Deliberately outside `series`: these are statuses, not categories, so
   // `seriesColor` must never hand them out. `danger` is the cardinal the

@@ -33,10 +33,10 @@ const SURFACE = "#FFFFFF"
 // (`LaptopSheet`), so they wear the defaults a student would recognise from one.
 const SERIES = {
   feather: "#2f7d55",
-  macaw: "#4472c4",
-  fox: "#ed7d31",
-  beetle: "#8e6bb8",
-  humpback: "#4472c4",
+  macaw: "#c9962b",
+  fox: "#c8553d",
+  beetle: "#8b5f7d",
+  humpback: "#c8553d",
 }
 
 const axisProps = {

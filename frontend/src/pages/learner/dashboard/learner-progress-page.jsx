@@ -73,7 +73,7 @@ import {
    the institution panels use — the two portals read as one product. */
 
 // Anything the page paints outside a chart still needs the series hues.
-const SERIES_INK = ["#1B6EF3", "#00B8D4", "#FF9600", "#CE82FF"]
+const SERIES_INK = ["#2f6b4f", "#c9962b", "#c8553d", "#8b5f7d"]
 
 // For values the backend already reports on a 0-100 scale. Never re-scales --
 // a real value of 0.5 (half a percent) must stay 0.5, not become 50.

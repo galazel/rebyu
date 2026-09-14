@@ -193,7 +193,7 @@ const OLYMPICS_MODES = [
     role: "Design Skills",
     format: "solo · 10 problems",
     icon: Network,
-    color: "#3f6f8c",
+    color: "#8b5f7d",
     to: "/learner/challenges/blueprint-arena",
   },
   {
@@ -804,7 +804,7 @@ function CertificationSection() {
   const FOLDER = {
     macaw: { face: "#ecd29a", edge: "#d5b06b" },
     bee: { face: "#d3e2c4", edge: "#aec79c" },
-    beetle: { face: "#cddcea", edge: "#a2bcd2" },
+    beetle: { face: "#efd2c2", edge: "#d9ab93" },
   };
 
   return (
@@ -1026,7 +1026,7 @@ function InkPen() {
     <span className="rb-ink-pen" aria-hidden="true">
       <svg viewBox="0 0 120 20">
         <polygon points="0,10 15,5.5 15,14.5" fill="#b8bec4" />
-        <circle cx="1.6" cy="10" r="1.6" fill="#1f2f8f" />
+        <circle cx="1.6" cy="10" r="1.6" fill="#2b4a3e" />
         <rect x="15" y="5" width="16" height="10" rx="1" fill="#6f777f" />
         <rect x="31" y="4" width="89" height="12" rx="3" fill="#8b939b" />
         <rect x="31" y="6" width="89" height="3" rx="1.5" fill="#dfe3e6" opacity="0.85" />
@@ -1175,7 +1175,7 @@ function TutorConversation() {
   return (
     <div data-landing-reveal className="rb-tutor-paper">
       <div className="rb-tutor-head">
-        <Sparkles className="size-6 shrink-0 text-[#1f2f8f]" aria-hidden="true" />
+        <Sparkles className="size-6 shrink-0 text-[#2b4a3e]" aria-hidden="true" />
         <div className="min-w-0">
           <div className="rb-tutor-name">rebyu tutor</div>
           <div className="rb-tutor-sub">Databases · Normalization</div>
@@ -1460,7 +1460,7 @@ function CommunitySection() {
 
 function AccessCard({ icon: Icon, title, description, points, cta, to, tone }) {
   return (
-    <article className={`rb-sticky ${tone === "feather" ? "rb-sticky-yellow" : "rb-sticky-blue"}`}>
+    <article className={`rb-sticky ${tone === "feather" ? "rb-sticky-yellow" : "rb-sticky-mint"}`}>
       <span className="rb-pushpin" aria-hidden="true" />
 
       <div className="flex items-center gap-3">

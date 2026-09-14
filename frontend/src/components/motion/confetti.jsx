@@ -24,7 +24,7 @@ import { useReducedMotion } from "@/components/motion/rebyu-motion.jsx"
  * rather than arriving from a library's default palette.
  */
 
-const COLORS = ["#1B6EF3", "#1CB0F6", "#FF9600", "#FFC800", "#CE82FF", "#00B8D4", "#58CC02"]
+const COLORS = ["#2f6b4f", "#e9b949", "#c8553d", "#8a5a33", "#8b5f7d", "#4f8a78", "#f4f1e8"]
 
 const PARTICLE_COUNT = 90
 const GRAVITY = 0.32

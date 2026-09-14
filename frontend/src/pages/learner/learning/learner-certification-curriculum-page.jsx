@@ -532,6 +532,97 @@ function Plinth({ face, lip, top, w, h, d }) {
 }
 
 /**
+ * A topic on the road is a book: closed until it is finished, open once it is.
+ *
+ *   not started / current  closed book in the unit's colour
+ *   part-way through       closed book with a ribbon bookmark sticking out
+ *   finished               open book, pages written, ribbon in the gutter
+ *   locked                 closed grey book (the node adds a lock)
+ *
+ * Drawn in one 132 x 116 box and scaled to the node, outlined like the rest of
+ * the drawn school objects. Exams and the final keep their plinths.
+ */
+const BOOK_INK = "#2c2a26"
+
+export function TopicBook({ state, face, lip, reading = false }) {
+  const open = state === "done"
+
+  return (
+    <svg
+      className="absolute inset-0 size-full transition-transform duration-200 group-hover:-translate-y-1"
+      viewBox="0 0 132 116"
+      preserveAspectRatio="xMidYMax meet"
+      aria-hidden="true"
+    >
+      <ellipse cx="66" cy="104" rx="54" ry="8" fill="rgb(0 0 0 / 0.12)" />
+
+      {open ? (
+        <g transform="rotate(-6 66 66)" strokeLinejoin="round" strokeLinecap="round">
+          {/* cover under the pages */}
+          <path
+            d="M 4 42 C 28 36 50 38 66 48 C 82 38 104 36 128 42 L 129 90 C 106 84 84 86 66 96 C 48 86 26 84 3 90 Z"
+            fill={face}
+            stroke={BOOK_INK}
+            strokeWidth="2.5"
+          />
+          {/* page edges */}
+          <path d="M 9 84 C 28 78 50 80 64 90 L 64 94 C 50 84 28 82 9 88 Z" fill="#e4ddcb" />
+          <path d="M 123 84 C 104 78 82 80 68 90 L 68 94 C 82 84 104 82 123 88 Z" fill="#e4ddcb" />
+          {/* pages */}
+          <path
+            d="M 64 44 C 50 34 28 32 9 38 L 9 84 C 28 78 50 80 64 90 Z"
+            fill="#fdfcf8"
+            stroke={BOOK_INK}
+            strokeWidth="2.5"
+          />
+          <path
+            d="M 68 44 C 82 34 104 32 123 38 L 123 84 C 104 78 82 80 68 90 Z"
+            fill="#fdfcf8"
+            stroke={BOOK_INK}
+            strokeWidth="2.5"
+          />
+          <path d="M 56 42 L 66 46 L 66 90 L 56 84 Z" fill="rgb(44 42 38 / 0.08)" />
+          {/* written lines */}
+          <g stroke="#b3a88f" strokeWidth="2.4" fill="none">
+            <path d="M 18 46 C 30 42 44 43 55 49" />
+            <path d="M 18 55 C 30 51 44 52 55 58" />
+            <path d="M 18 64 C 28 61 38 61 48 65" />
+            <path d="M 18 73 C 30 69 44 70 55 76" />
+            <path d="M 77 49 C 88 43 102 42 114 46" />
+            <path d="M 77 58 C 88 52 102 51 114 55" />
+            <path d="M 84 65 C 94 61 104 61 114 64" />
+            <path d="M 77 76 C 88 70 102 69 114 73" />
+          </g>
+          {/* ribbon */}
+          <path d="M 86 86 L 95 83 L 95 104 L 90.5 99 L 86 105 Z" fill="#e0506a" stroke={BOOK_INK} strokeWidth="2" />
+        </g>
+      ) : (
+        <g strokeLinejoin="round" strokeLinecap="round">
+          {/* back cover slab */}
+          <path d="M 6 62 L 66 92 L 126 62 L 126 76 L 66 106 L 6 76 Z" fill={lip} stroke={BOOK_INK} strokeWidth="2.5" />
+          {/* page block */}
+          <path d="M 12 58 L 66 85 L 120 58 L 120 72 L 66 99 L 12 72 Z" fill="#f4efe2" stroke={BOOK_INK} strokeWidth="2" />
+          <g stroke="#d6ccb4" strokeWidth="1.2">
+            <path d="M 16 63 L 66 88" />
+            <path d="M 16 67 L 66 92" />
+            <path d="M 116 63 L 66 88" />
+            <path d="M 116 67 L 66 92" />
+          </g>
+          {reading ? (
+            <path d="M 84 80 L 93 76 L 93 104 L 88.5 99 L 84 105 Z" fill="#e0506a" stroke={BOOK_INK} strokeWidth="2" />
+          ) : null}
+          {/* front cover: edge, then the top face */}
+          <path d="M 6 50 L 66 80 L 126 50 L 126 56 L 66 86 L 6 56 Z" fill={lip} stroke={BOOK_INK} strokeWidth="2.5" />
+          <path d="M 6 50 L 66 20 L 126 50 L 66 80 Z" fill={face} stroke={BOOK_INK} strokeWidth="2.5" />
+          {/* title label on the cover */}
+          <path d="M 44 50 L 70 37 L 88 46 L 62 59 Z" fill="rgb(255 255 255 / 0.4)" />
+        </g>
+      )}
+    </svg>
+  )
+}
+
+/**
  * How far through a topic the learner is.
  *
  * A rail under the name, not a ring around the node. The ring was drawn on the
@@ -586,6 +677,9 @@ function PathNode({ node, index, onSelect, onLocked }) {
      retakeable, and the one-shot diagnostic is a gate rather than a node, so it
      never reaches this. */
   const retakeable = done && node.kind === "exam"
+  /* Topics are books (closed until finished, open once done); exams and the
+     final keep their plinths. */
+  const bookish = node.kind === "topic" && !node.grand
 
   function press() {
     if (locked) {
@@ -689,14 +783,23 @@ function PathNode({ node, index, onSelect, onLocked }) {
             }`}
             className="group absolute inset-0 block transition-transform duration-100 active:translate-y-[5px]"
           >
-            <Plinth
-              top={faces.top}
-              face={faces.face}
-              lip={faces.lip}
-              w={dims.w}
-              h={dims.plinthH}
-              d={dims.plinthD}
-            />
+            {bookish ? (
+              <TopicBook
+                state={state}
+                face={locked ? faces.top : tone.faceVar}
+                lip={locked ? faces.lip : tone.lipVar}
+                reading={!locked && !done && node.progress > 0}
+              />
+            ) : (
+              <Plinth
+                top={faces.top}
+                face={faces.face}
+                lip={faces.lip}
+                w={dims.w}
+                h={dims.plinthH}
+                d={dims.plinthD}
+              />
+            )}
 
             {/* Standing on the plinth, not printed on it: the object is lifted
                 clear of the top face and carries its own drop shadow onto it,
@@ -710,6 +813,16 @@ function PathNode({ node, index, onSelect, onLocked }) {
                 component. Kept out of the state branches deliberately: a topic
                 that is done or locked still shows its own object, and the
                 plinth beneath it is what carries the state. */}
+            {bookish ? (
+              locked ? (
+                <span
+                  className="absolute left-1/2 grid size-9 -translate-x-1/2 place-items-center rounded-full bg-rb-snow text-rb-hare shadow-[0_2px_4px_rgb(0_0_0/0.18)]"
+                  style={{ top: dims.lift - 18 }}
+                >
+                  <Lock className="size-5" aria-hidden="true" />
+                </span>
+              ) : null
+            ) : (
             <span
               className={`absolute left-1/2 grid -translate-x-1/2 place-items-center drop-shadow-[0_6px_3px_rgb(0_0_0/0.18)] ${iconInk}`}
               style={{ top: 0, width: dims.w, height: dims.lift + dims.plinthH / 2 }}
@@ -776,6 +889,7 @@ function PathNode({ node, index, onSelect, onLocked }) {
                 />
               ) : null}
             </span>
+            )}
 
             {/* A topic the plan says is urgent -- finished or not. The same red
                 dot the old list used, kept because it is the one thing on a
