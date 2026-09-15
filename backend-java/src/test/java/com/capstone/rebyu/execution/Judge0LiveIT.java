@@ -64,6 +64,46 @@ class Judge0LiveIT {
         assertEquals("FAILED", result.testResults().get(1).status());
     }
 
+    private static final String BANK_ACCOUNT = """
+            class BankAccount:
+                def __init__(self, initial_balance=0):
+                    self.__balance = initial_balance
+                def deposit(self, amount):
+                    if amount <= 0:
+                        return False
+                    self.__balance += amount
+                    return True
+                def withdraw(self, amount):
+                    if amount <= 0 or amount > self.__balance:
+                        return False
+                    self.__balance -= amount
+                    return True
+
+            account = BankAccount(100)
+            print("demo output that the tests must ignore")
+            """;
+
+    @Test
+    void pythonTestCasesWrittenAsCodeRunAgainstTheLearnersCode() {
+        CodeExecutionResultDto result = service.execute(new CodeExecutionRequestDto("Python", BANK_ACCOUNT, List.of(
+                new TestCaseInputDto(1, true, "acct = BankAccount(100)\nacct.deposit(50)\nprint(acct.withdraw(120))", "True"),
+                new TestCaseInputDto(2, false, "acct = BankAccount(100)\nprint(acct.withdraw(150))", "False"),
+                new TestCaseInputDto(3, false,
+                        "acct = BankAccount()\nacct.deposit(200)\nacct.withdraw(50)\nprint(acct.withdraw(200))", "False"))));
+
+        assertEquals("COMPLETED", result.status(), () -> "error: " + result.error());
+        assertEquals(3, result.passedTests(), () -> "results: " + result.testResults());
+    }
+
+    @Test
+    void pythonExpressionTestCasePrintsTheReturnedValue() {
+        String code = "def label(x):\n    return {'n': x, 'ok': x > 0}\n\nprint('demo')\n";
+        CodeExecutionResultDto result = service.execute(new CodeExecutionRequestDto("Python", code, List.of(
+                new TestCaseInputDto(1, true, "label(5)", "{'n': 5, 'ok': True}"))));
+
+        assertEquals(1, result.passedTests(), () -> "results: " + result.testResults());
+    }
+
     @Test
     void javaCompileErrorIsReported() {
         CodeExecutionResultDto result = service.execute(new CodeExecutionRequestDto("Java",

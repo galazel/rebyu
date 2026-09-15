@@ -2290,10 +2290,10 @@ public class AssessmentAttemptService {
                         sample,
                         test.path("passed").asBoolean(false),
                         test.path("status").asText(null),
-                        sample && authoredCase != null ? authoredCase.getInputData() : null,
-                        sample && releaseAnswers && authoredCase != null
+                        authoredCase != null ? authoredCase.getInputData() : null,
+                        releaseAnswers && authoredCase != null
                                 ? authoredCase.getExpectedOutput() : null,
-                        sample && test.hasNonNull("actualOutput")
+                        test.hasNonNull("actualOutput")
                                 ? test.get("actualOutput").asText() : null));
             }
             return reviews;
@@ -2984,12 +2984,9 @@ public class AssessmentAttemptService {
             row.put("status", testResult.status());
             // What the learner's program actually printed, kept for the result
             // screen -- the difference between "case 2 failed" and being able
-            // to see why. Sample cases only: on a hidden case the input is the
-            // thing being withheld, and the output produced from it describes
-            // it.
-            if (testResult.sample()) {
-                row.put("actualOutput", testResult.actualOutput());
-            }
+            // to see why. Kept for hidden cases too: they are shown in full once
+            // the attempt has been submitted (see buildProgrammingTestReviews).
+            row.put("actualOutput", testResult.actualOutput());
             tests.add(row);
         }
         payload.put("testResults", tests);

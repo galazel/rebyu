@@ -1086,7 +1086,7 @@ class AssessmentAttemptServiceTest {
      * that is the part of a coding item that has to.
      */
     @Test
-    void programmingReviewNamesTheFailingTestsAndWithholdsHiddenInputs() {
+    void programmingReviewShowsEveryTestCaseInFullAfterSubmission() {
         stubActiveEnrollment();
         exam.setReleaseAnswersAfterSubmit(true);
 
@@ -1113,11 +1113,12 @@ class AssessmentAttemptServiceTest {
         ProgrammingTestReviewDto hidden = tests.get(1);
         assertFalse(hidden.sample());
         assertFalse(hidden.passed());
-        // Pass/fail is safe to show. Everything that would describe the hidden
-        // case is not.
-        assertNull(hidden.input());
-        assertNull(hidden.expectedOutput());
-        assertNull(hidden.actualOutput());
+        // After submission a hidden case is shown in full, like a sample: its
+        // input, what was expected (answers are released on this exam) and
+        // what the program printed.
+        assertEquals("10 20", hidden.input());
+        assertEquals("30", hidden.expectedOutput());
+        assertEquals("31", hidden.actualOutput());
     }
 
     /** The expected output is answer-key material, gated like the MCQ key. */

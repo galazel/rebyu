@@ -69,7 +69,7 @@ public class CodeExecutionService {
         List<Judge0SubmissionRequestDto> submissions = new ArrayList<>();
         for (TestCaseInputDto testCase : testCases) {
             submissions.add(new Judge0SubmissionRequestDto(
-                    encode(request.sourceCode()),
+                    encode(sourceFor(request.language(), request.sourceCode(), testCase)),
                     languageId,
                     encode(testCase.inputData()),
                     properties.getCpuTimeLimitSeconds(),
@@ -179,6 +179,63 @@ public class CodeExecutionService {
                 totalTests,
                 syntheticSingleRun ? List.of() : testResults);
     }
+
+    /**
+     * Python test cases are usually code, not stdin data.
+     *
+     * <p>Generated test cases are written as calls against the learner's code --
+     * {@code process_payment(100, {...})}, or a few statements ending in
+     * {@code print(acct.withdraw(120))} -- and they were being piped to the
+     * program as stdin. The program never read them, printed its own demo, and
+     * every submission failed every test however correct it was.
+     *
+     * <p>When a graded Python test's input parses as Python and contains a call,
+     * it is run as a test harness instead: the learner's code is loaded with its
+     * own prints silenced, then the test code runs in the same namespace. A test
+     * that is a single expression has its value printed (as the Python REPL
+     * would, via {@code print}); a block of statements prints for itself.
+     * Anything else -- plain data like {@code "2 3"} -- is still fed to stdin
+     * and the learner's program runs as written. Run (no expected output) is
+     * never wrapped, so it always shows what the learner's program prints.
+     */
+    private String sourceFor(String language, String sourceCode, TestCaseInputDto testCase) {
+        if (testCase.expectedOutput() == null || language == null
+                || !"PYTHON".equals(language.trim().toUpperCase(Locale.ROOT))) {
+            return sourceCode;
+        }
+        String encoded = Base64.getEncoder().encodeToString(
+                (sourceCode == null ? "" : sourceCode).getBytes(StandardCharsets.UTF_8));
+        return PYTHON_TEST_HARNESS.replace("__LEARNER_SOURCE__", encoded);
+    }
+
+    private static final String PYTHON_TEST_HARNESS = """
+            import ast, base64, contextlib, io, sys
+            _rebyu_source = base64.b64decode("__LEARNER_SOURCE__").decode("utf-8")
+            _rebyu_data = sys.stdin.read()
+
+            def _rebyu_test_tree(text):
+                try:
+                    tree = ast.parse(text.strip())
+                except SyntaxError:
+                    return None
+                return tree if any(isinstance(node, ast.Call) for node in ast.walk(tree)) else None
+
+            _rebyu_tree = _rebyu_test_tree(_rebyu_data)
+            if _rebyu_tree is None:
+                sys.stdin = io.StringIO(_rebyu_data)
+                exec(compile(_rebyu_source, "main.py", "exec"), {"__name__": "__main__"})
+            else:
+                _rebyu_ns = {"__name__": "solution"}
+                with contextlib.redirect_stdout(io.StringIO()):
+                    exec(compile(_rebyu_source, "main.py", "exec"), _rebyu_ns)
+                _rebyu_body = _rebyu_tree.body
+                if len(_rebyu_body) == 1 and isinstance(_rebyu_body[0], ast.Expr):
+                    _rebyu_value = eval(compile(ast.Expression(_rebyu_body[0].value), "test.py", "eval"), _rebyu_ns)
+                    if _rebyu_value is not None:
+                        print(_rebyu_value)
+                else:
+                    exec(compile(_rebyu_tree, "test.py", "exec"), _rebyu_ns)
+            """;
 
     private CodeExecutionResultDto unavailable(String message) {
         return new CodeExecutionResultDto(

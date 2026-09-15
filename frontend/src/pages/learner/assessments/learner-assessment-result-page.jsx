@@ -681,7 +681,9 @@ export default function LearnerAssessmentResultPage() {
                                   ) : null}
                                 </p>
 
-                                {/* Only ever populated for sample cases. */}
+                                {/* After submission every case, hidden ones too,
+                                    shows its input and what the program printed;
+                                    expected output follows the release-answers setting. */}
                                 {test.input != null ||
                                 test.expectedOutput != null ||
                                 test.actualOutput != null ? (

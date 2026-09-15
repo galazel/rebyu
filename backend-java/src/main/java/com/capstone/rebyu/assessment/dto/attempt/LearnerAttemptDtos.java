@@ -161,14 +161,11 @@ public final class LearnerAttemptDtos {
      * code, which says nothing about which cases it failed or how -- the one
      * thing that makes a wrong program fixable. This is that breakdown.
      *
-     * <p>What each field may carry follows the rule the attempt UI already
-     * works to (see {@code ProgrammingAttemptDtos.LearnerTestCaseDto}): pass or
-     * fail and the run's status are shown for every case, because knowing that
-     * case 4 failed gives away nothing. {@code input} and {@code actualOutput}
-     * are filled for sample cases only -- a hidden case's input is the part of
-     * a coding item that has to stay hidden, and a program's output on a hidden
-     * input describes that input. {@code expectedOutput} is the answer key and
-     * is gated behind the exam's release-answers setting on top of that.
+     * <p>This is the review after submission, so every case -- hidden ones
+     * included -- carries its {@code input} and the program's
+     * {@code actualOutput}: the attempt is over, and a learner told only that
+     * "Hidden 2 failed" cannot learn anything from it. {@code expectedOutput} is
+     * the answer key and stays gated behind the exam's release-answers setting.
      */
     public record ProgrammingTestReviewDto(
             int index,
