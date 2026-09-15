@@ -129,7 +129,9 @@ app:
     secret-key: ${SUPABASE_SECRET_KEY:}
     # Where invitation links send people to create their password.
     site-url: ${SITE_URL:https://rebyu.online}
-  frontend-url: http://localhost:5173
+  # Where links in REBYU's own emails (institution invitations) point. It was
+  # fixed to localhost, so every invitation sent from Railway linked nowhere.
+  frontend-url: ${SITE_URL:http://localhost:5173}
   mail:
     from: ${MAIL_FROM:REBYU <no-reply@rebyu.online>}
 

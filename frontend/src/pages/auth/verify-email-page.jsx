@@ -13,7 +13,7 @@ import {
 } from "@/services/authService.js"
 import AuthShell from "./auth-shell.jsx"
 
-/** Cognito issues six-digit confirmation codes. */
+/** Supabase's "Email OTP Length" is set to 6 digits; keep the two in step. */
 const CODE_LENGTH = 6
 
 export default function VerifyEmailPage() {
@@ -107,7 +107,7 @@ export default function VerifyEmailPage() {
       /* The inbox is no longer mentioned here: the line above the boxes now
          names the exact address, and saying it twice in three lines pushed the
          code entry itself further down the page. */
-      description="Enter the 6-digit code to finish setting up your account."
+      description="Enter the 6-digit code from the email, or click the confirmation link in it."
       footer={
         <Link to="/login" className="font-medium text-primary hover:underline">
           Back to sign in
@@ -148,9 +148,10 @@ export default function VerifyEmailPage() {
             id="verify-code"
             value={code}
             onChange={setCode}
+            length={CODE_LENGTH}
             invalid={Boolean(error)}
             disabled={pending}
-            /* Submitted on the sixth digit, with the code the field just
+            /* Submitted on the last digit, with the code the field just
                finished -- never with `code`, which has not been re-rendered
                yet at this point. The button stays for anyone who gets there
                another way. */
