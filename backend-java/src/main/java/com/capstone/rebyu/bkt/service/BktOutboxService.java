@@ -18,8 +18,10 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Writes and manages BKT outbox rows. {@link #enqueueForAttempt} runs inside the
@@ -62,10 +64,23 @@ public class BktOutboxService {
             Long attemptId = attempt.getAssessmentAttemptId();
             String batchId = "attempt-" + attemptId;
 
+            Set<String> alreadyEnqueued = new HashSet<>(outboxRepository.findEventIdsByBatchId(batchId));
+
             int created = 0;
             for (AssessmentAttemptQuestion question : questions) {
                 AssessmentAttemptAnswer answer =
                         answersByQuestionId.get(question.getAttemptQuestionId());
+
+                /* Settled before the source question is loaded: loading one pulls
+                   its three configs with it, and a question that can never be
+                   evidence, or already is, has no use for any of that. */
+                if (answer == null || answer.isPendingManualEvaluation() || question.getLessonId() == null) {
+                    continue; // unanswered / pending grading / no lesson mapping
+                }
+                if (alreadyEnqueued.contains(eventFactory.buildEventId(
+                        attemptId, question.getAttemptQuestionId(), 1))) {
+                    continue; // already enqueued (idempotent)
+                }
 
                 Question sourceQuestion = questionRepository
                         .findById(question.getSourceQuestionId())
@@ -74,11 +89,8 @@ public class BktOutboxService {
                 BktMasteryEvent event = eventFactory.buildEvent(
                         attempt, question, answer, sourceQuestion,
                         certificationId, rawAssessmentType);
-                if (event == null) {
-                    continue; // unanswered / pending grading / no lesson mapping
-                }
-                if (outboxRepository.existsByEventId(event.sourceEventId())) {
-                    continue; // already enqueued (idempotent)
+                if (event == null || !alreadyEnqueued.add(event.sourceEventId())) {
+                    continue;
                 }
 
                 outboxRepository.save(BktEventOutbox.builder()

@@ -22,6 +22,10 @@ public interface BktEventOutboxRepository extends JpaRepository<BktEventOutbox, 
 
     boolean existsByEventId(String eventId);
 
+    /** Event ids already enqueued for one batch, read in one query instead of one per question. */
+    @Query("SELECT o.eventId FROM BktEventOutbox o WHERE o.batchId = :batchId")
+    List<String> findEventIdsByBatchId(@Param("batchId") String batchId);
+
     List<BktEventOutbox> findByExamResultIdAndAttemptNo(Long examResultId, Integer attemptNo);
 
     long countByStatus(BktOutboxStatus status);

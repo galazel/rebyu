@@ -215,7 +215,7 @@ bkt:
   dispatch-interval-ms: ${BKT_DISPATCH_INTERVAL:10000}
   dispatch-initial-delay-ms: ${BKT_DISPATCH_INITIAL_DELAY:15000}
   reconciliation-batch-size: ${BKT_RECONCILIATION_BATCH_SIZE:200}
-  reconciliation-interval-ms: ${BKT_RECONCILIATION_INTERVAL:900000}
+  reconciliation-interval-ms: ${BKT_RECONCILIATION_INTERVAL:3600000}
   reconciliation-initial-delay-ms: ${BKT_RECONCILIATION_INITIAL_DELAY:60000}
   max-retries: ${BKT_MAX_RETRIES:8}
   retry-initial-delay-seconds: ${BKT_RETRY_INITIAL_DELAY:15}

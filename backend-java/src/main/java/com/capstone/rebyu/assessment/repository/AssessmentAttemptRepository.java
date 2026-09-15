@@ -3,15 +3,44 @@ package com.capstone.rebyu.assessment.repository;
 import com.capstone.rebyu.assessment.entity.AssessmentAttempt;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
 
 public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAttempt, Long> {
 
-    /** Reconciliation: page through finalized attempts newest-first. */
-    List<AssessmentAttempt> findByStatusOrderBySubmittedAtDesc(
-            AssessmentAttempt.Status status, Pageable pageable);
+    /**
+     * Reconciliation: of the {@code window} most recently submitted attempts, the
+     * ids of those with fewer outbox events than answers that should be evidence
+     * (graded, not pending manual marking, mapped to a lesson).
+     *
+     * <p>Counted in the database and returned as bare ids on purpose. The job used
+     * to load every one of those attempts whole -- question snapshots, submitted
+     * code, diagrams, run results, and each source question with its configs --
+     * every fifteen minutes, to find out that nearly all of them were already
+     * done. That re-read was the bulk of the database's outbound data transfer.
+     */
+    @Query(value = """
+            SELECT a.assessment_attempt_id
+            FROM (SELECT assessment_attempt_id, submitted_at
+                  FROM assessment_attempts
+                  WHERE status = 'SUBMITTED'
+                  ORDER BY submitted_at DESC NULLS LAST
+                  LIMIT :window) a
+            WHERE (SELECT count(*)
+                   FROM assessment_attempt_answers ans
+                   JOIN assessment_attempt_questions q ON q.attempt_question_id = ans.attempt_question_id
+                   WHERE ans.assessment_attempt_id = a.assessment_attempt_id
+                     AND ans.pending_manual_evaluation = false
+                     AND q.lesson_id IS NOT NULL)
+                > (SELECT count(*)
+                   FROM bkt_event_outbox o
+                   WHERE o.batch_id = 'attempt-' || a.assessment_attempt_id)
+            ORDER BY a.submitted_at DESC NULLS LAST
+            """, nativeQuery = true)
+    List<Long> findRecentSubmittedIdsMissingBktEvents(@Param("window") int window);
 
     Optional<AssessmentAttempt> findByIdempotencyKey(String idempotencyKey);
 

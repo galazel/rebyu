@@ -1,5 +1,5 @@
 import { LoadingNote } from "@/components/classroom/loading-note.jsx"
-import React, { useCallback, useEffect, useMemo, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { certificationProgressPercent } from "@/lib/certification-progress.js"
@@ -628,6 +628,7 @@ export default function LearnerProgressPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantsNewPlan, planLoading, hasStudyPlan, safeReturnTo])
 
+  const analyticsPoll = useRef({ key: null, startedAt: 0 })
   const analyticsQuery = useQuery({
     queryKey: progressAnalyticsQueryKey(selectedCertificationId),
     queryFn: () => getProgressAnalytics(selectedCertificationId),
@@ -659,7 +660,19 @@ export default function LearnerProgressPage() {
     // slower the longer it fails. Running those calls concurrently caps one
     // failed attempt at a single timeout rather than four, which shortens the
     // pile-up but does not remove it.
-    refetchInterval: (query) => (query.state.data?.bktAvailable === false ? 10_000 : false),
+    //
+    // Thirty seconds and three minutes at most: every poll re-reads the
+    // learner's whole assessment history from the database, and an open tab
+    // polling forever was a steady drain on its data transfer allowance.
+    refetchInterval: (query) => {
+      if (query.state.data?.bktAvailable !== false) return false
+      const poll = analyticsPoll.current
+      if (poll.key !== selectedCertificationId) {
+        poll.key = selectedCertificationId
+        poll.startedAt = Date.now()
+      }
+      return Date.now() - poll.startedAt < 3 * 60_000 ? 30_000 : false
+    },
   })
   const analytics = analyticsQuery.data
 

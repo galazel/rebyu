@@ -9,7 +9,6 @@ import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository;
 import com.capstone.rebyu.bkt.config.BktProperties;
 import com.capstone.rebyu.bkt.dto.BktReconciliationSummary;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -75,15 +74,13 @@ public class BktReconciliationService {
         }
     }
 
-    /** Scan the most recent {@code maxAttempts} submitted attempts. */
+    /**
+     * Scan the most recent {@code maxAttempts} submitted attempts, loading only
+     * the ones the database says are missing events.
+     */
     public BktReconciliationSummary reconcile(int maxAttempts) {
         List<Long> attemptIds = transactionTemplate.execute(status ->
-                attemptRepository.findByStatusOrderBySubmittedAtDesc(
-                                AssessmentAttempt.Status.SUBMITTED,
-                                PageRequest.of(0, Math.max(1, maxAttempts)))
-                        .stream()
-                        .map(AssessmentAttempt::getAssessmentAttemptId)
-                        .toList());
+                attemptRepository.findRecentSubmittedIdsMissingBktEvents(Math.max(1, maxAttempts)));
 
         int scanned = 0;
         int created = 0;

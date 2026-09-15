@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react"
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react"
 import {
   Link,
   Navigate,
@@ -209,6 +209,11 @@ function XpPill({ amount, earned, upTo = false }) {
  * centred, is also what makes the swing read as a road at all -- the eye needs
  * the same amplitude every time it comes back around.
  */
+/* How often, and for how long, the road asks whether mastery has finished
+   computing after the diagnostic. Each ask re-reads the learner's analytics. */
+const MASTERY_POLL_MS = 10_000
+const MASTERY_POLL_WINDOW_MS = 3 * 60_000
+
 const PATH_WIDTH = 480
 /* The name no longer hangs below the node -- it stands beside it -- so a row
    only has to be as tall as the node itself plus the gap the connector needs
@@ -1287,12 +1292,24 @@ export default function LearnerCertificationCurriculumPage() {
   // Polling (rather than a one-shot check) is what lets the "processing"
   // screen below flip itself over the moment mastery finishes computing,
   // instead of making the learner refresh to find out.
+  //
+  // Only after the diagnostic, and only for a few minutes. A learner who has not
+  // sat it never gets mastery, so this used to re-request the full analytics --
+  // every attempt with its questions and answers -- every four seconds for as
+  // long as the page stayed open. `masteryPoll` is a ref because diagnosticDone
+  // is computed further down, from data this query feeds.
+  const masteryPoll = useRef({ enabled: false, startedAt: 0 })
   const masteryQuery = useQuery({
     queryKey: ["learner-progress-analytics", certificationId],
     queryFn: () => getProgressAnalytics(certificationId),
     enabled: Boolean(certificationId),
     staleTime: 0,
-    refetchInterval: (query) => (query.state.data?.bktAvailable ? false : 4000),
+    refetchInterval: (query) => {
+      const poll = masteryPoll.current
+      if (query.state.data?.bktAvailable || !poll.enabled) return false
+      if (!poll.startedAt) poll.startedAt = Date.now()
+      return Date.now() - poll.startedAt < MASTERY_POLL_WINDOW_MS ? MASTERY_POLL_MS : false
+    },
   })
 
   const lessonPriorityById = useMemo(() => {
@@ -1322,6 +1339,14 @@ export default function LearnerCertificationCurriculumPage() {
       certificationId,
     })
   }, [curriculum, data?.examResults, certificationId])
+
+  /* Arms the poll once the diagnostic is known to be done. A fetch that already
+     finished with polling off scheduled nothing, so it is asked again once. */
+  useEffect(() => {
+    masteryPoll.current = { enabled: diagnosticDone, startedAt: 0 }
+    if (diagnosticDone && masteryQuery.data && !masteryQuery.data.bktAvailable) masteryQuery.refetch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [diagnosticDone, certificationId])
 
   // Assessment XP is paid once per exam, however many times it is retaken (see
   // AssessmentAttemptService, which keys the award by examId). A learner who
