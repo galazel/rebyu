@@ -264,11 +264,17 @@ const FEED_POSTS = [
   },
 ];
 
-function BrandMark() {
+function BrandMark({ light = false }) {
   return (
     <span className="flex items-center gap-2.5">
       <BrandLogo className="size-9" />
-      <span className="rb-display text-2xl leading-none">rebyu</span>
+      <span
+        className={`rb-display text-2xl leading-none transition-colors duration-200 ${
+          light ? "text-white! [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]" : ""
+        }`}
+      >
+        rebyu
+      </span>
     </span>
   );
 }
@@ -308,16 +314,25 @@ function LandingNavbar() {
 
   const close = () => setMobileMenuOpen(false);
 
+  /* Sits on the hero's classroom photo while the page is at the top, so the
+     bar is see-through with light text there. Once scrolled over the white
+     sections -- or with the mobile menu open -- it takes its solid background
+     back, since white text on white would disappear. */
+  const overHero = !isScrolled && !mobileMenuOpen;
+
   return (
+    /* Sticky, not fixed: the route wrapper animates with a transform, and a
+       transformed ancestor turns `fixed` into "scrolls with the page". The hero
+       pulls itself up under this bar instead (see HeroSection). */
     <header className="sticky top-0 z-50 w-full">
       <div
-        className={`w-full border-b-2 bg-rb-snow transition-colors duration-200 ${
-          isScrolled || mobileMenuOpen ? "border-rb-swan" : "border-transparent"
+        className={`w-full border-b-2 transition-colors duration-200 ${
+          overHero ? "border-transparent bg-transparent" : "border-rb-swan bg-rb-snow"
         }`}
       >
         <div className="mx-auto flex h-20 w-full max-w-[1280px] items-center justify-between gap-6 px-5 lg:px-8">
           <Link to="/welcome" onClick={close} className="shrink-0">
-            <BrandMark />
+            <BrandMark light={overHero} />
           </Link>
 
           {/* The hover background is one element carrying a `layoutId`, so
@@ -336,7 +351,11 @@ function LandingNavbar() {
                 onMouseEnter={() => setHoveredNav(item.href)}
                 onFocus={() => setHoveredNav(item.href)}
                 className={`relative rounded-rb-pill px-4 py-2 font-rb-display text-[0.9375rem] font-extrabold transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw ${
-                  hoveredNav === item.href ? "text-rb-eel" : "text-rb-wolf"
+                  hoveredNav === item.href
+                    ? "text-rb-eel"
+                    : overHero
+                      ? "text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]"
+                      : "text-rb-wolf"
                 }`}
               >
                 {/* Painted before the label and lifted back with a positive
@@ -367,7 +386,9 @@ function LandingNavbar() {
 
           <button
             type="button"
-            className="grid size-11 place-items-center rounded-rb-tile text-rb-eel transition-colors hover:bg-rb-polar focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw lg:hidden"
+            className={`grid size-11 place-items-center rounded-rb-tile transition-colors hover:bg-rb-polar hover:text-rb-eel focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw lg:hidden ${
+              overHero ? "text-white" : "text-rb-eel"
+            }`}
             aria-label="Toggle navigation menu"
             aria-expanded={mobileMenuOpen}
             aria-controls="landing-mobile-navigation"
@@ -436,7 +457,9 @@ function LandingNavbar() {
 
 function HeroSection() {
   return (
-    <section className="relative isolate flex min-h-[calc(100svh-80px)] items-center overflow-hidden">
+    /* -mt-[82px]: slides up under the sticky navigation bar (80px + its 2px
+       border), so the classroom photo starts at the very top of the window. */
+    <section className="relative isolate -mt-[82px] flex min-h-svh items-center overflow-hidden">
       {/* --- the fold: a classroom ----------------------------------------------
           The painted classroom fills the window; the claim is chalked onto a
           wood-framed chalkboard in the middle of it, with pencils resting on the
@@ -446,7 +469,8 @@ function HeroSection() {
       {/* `animate`, not `whileInView`: the fold is on screen before any observer
           could fire. The stagger reads as one sentence being said. */}
       <motion.div
-        className="relative mx-auto w-full max-w-[1360px] px-4 pb-16 pt-10 sm:px-8"
+        /* pt-28 clears the 80px navigation bar, which now floats over the photo. */
+        className="relative mx-auto w-full max-w-[1360px] px-4 pb-16 pt-28 sm:px-8"
         initial="hidden"
         animate="show"
         variants={staggerParent(0.09, 0.1)}
