@@ -78,17 +78,13 @@ function installPreviewAdapter() {
           localResponse(request, {
             mode: "RUN",
             status: "COMPLETED",
-            message: "1 / 2 test case(s) passed.",
+            message: null,
             language: "Python",
-            passedTests: 1,
-            totalTests: 2,
+            passedTests: null,
+            totalTests: null,
             stdout: "True\nFalse\nTrue\n",
             stderr: null,
-            tests: [
-              { index: 1, label: "Rejects n < 2", sample: true, input: "1", status: "PASSED", expectedOutput: "False", actualOutput: "False" },
-              { index: 2, label: "Detects 7, 13, 97", sample: true, input: "7\n13\n97", status: "FAILED", expectedOutput: "True\nTrue\nTrue", actualOutput: "True\nFalse\nTrue" },
-              { index: 3, label: "Rejects even numbers", sample: false, input: null, status: "NOT_RUN", expectedOutput: null, actualOutput: null },
-            ],
+            tests: [],
           })
         return config
       }

@@ -2673,11 +2673,20 @@ public class AssessmentAttemptService {
                 attemptId, attemptQuestionId, request, AssessmentAttemptExecution.Mode.RUN);
     }
 
+    /**
+     * Not offered while an attempt is being answered.
+     *
+     * <p>Check graded the code against every test case mid-attempt, which let a
+     * learner edit until the tests went green instead of answering the question.
+     * The test cases are run once, by the marker, when the attempt is submitted
+     * (see {@link #gradeProgrammingOnSubmit}); Run only shows what the program
+     * prints.
+     */
     @Transactional
     public ExecutionResultDto checkProgramming(
             Long attemptId, Long attemptQuestionId, ProgrammingRunRequestDto request) {
-        return executeProgramming(
-                attemptId, attemptQuestionId, request, AssessmentAttemptExecution.Mode.CHECK);
+        throw new BusinessRuleException.InvalidAssessmentSubmissionException(
+                "Test cases are checked when you submit the attempt. Use Run to see your program's output.");
     }
 
     private ExecutionResultDto executeProgramming(
@@ -2697,6 +2706,10 @@ public class AssessmentAttemptService {
         // stale execution result (see upsertAnswers).
         upsertAnswers(attempt, List.of(new AttemptAnswerDraftDto(
                 attemptQuestionId, null, null, request.code(), request.language(), null)));
+
+        if (mode == AssessmentAttemptExecution.Mode.RUN) {
+            return runForOutputOnly(attempt, attemptQuestion, request);
+        }
 
         List<LearnerTestCaseDto> learnerTests = readSnapshotTestCases(attemptQuestion);
         Question source = questionRepository
@@ -2766,6 +2779,65 @@ public class AssessmentAttemptService {
                 mergeTestStatuses(learnerTests, result, scopedTestCases),
                 result.output(),
                 result.error());
+    }
+
+    /**
+     * Run: execute the learner's code once and hand back what it printed.
+     *
+     * <p>No expected output is compared and nothing is stored on the answer, so
+     * a run can never become a verdict or a score. The first sample test's input
+     * is fed to stdin, so a program written to read input does not simply crash
+     * on an empty stream -- the question's own example is the natural input.
+     */
+    private ExecutionResultDto runForOutputOnly(
+            AssessmentAttempt attempt, AssessmentAttemptQuestion attemptQuestion,
+            ProgrammingRunRequestDto request) {
+        Question source = questionRepository
+                .findById(attemptQuestion.getSourceQuestionId()).orElse(null);
+        String stdin = source == null ? "" : loadIndexedProgrammingTestCases(source).stream()
+                .map(IndexedTestCase::testCase)
+                .filter(ProgrammingTestCase::isSample)
+                .map(ProgrammingTestCase::getInputData)
+                .filter(input -> input != null)
+                .findFirst()
+                .orElse("");
+
+        CodeExecutionResultDto result = codeExecutionService.execute(new CodeExecutionRequestDto(
+                request.language(), request.code(),
+                List.of(new TestCaseInputDto(1, true, stdin, null))));
+
+        boolean ran = "COMPLETED".equals(result.status()) || "COMPILE_ERROR".equals(result.status());
+        String message = ran ? null : result.error();
+        LocalDateTime now = LocalDateTime.now();
+
+        AssessmentAttemptExecution execution = executionRepository.save(
+                AssessmentAttemptExecution.builder()
+                        .attempt(attempt)
+                        .attemptQuestion(attemptQuestion)
+                        .mode(AssessmentAttemptExecution.Mode.RUN)
+                        .language(request.language())
+                        .submittedCode(request.code())
+                        .status(toExecutionEntityStatus(result.status()))
+                        .output(firstNonBlankText(result.error(), result.output()))
+                        .createdAt(now)
+                        .build());
+
+        return new ExecutionResultDto(
+                execution.getExecutionId(),
+                AssessmentAttemptExecution.Mode.RUN.name(),
+                execution.getStatus().name(),
+                message,
+                request.language(),
+                null,
+                null,
+                now,
+                List.of(),
+                result.output(),
+                ran ? result.error() : null);
+    }
+
+    private static String firstNonBlankText(String first, String second) {
+        return first != null && !first.isBlank() ? first : second;
     }
 
     private record IndexedTestCase(int index, ProgrammingTestCase testCase) {}

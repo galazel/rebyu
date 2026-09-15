@@ -458,7 +458,16 @@ class AssessmentAttemptServiceTest {
     }
 
     @Test
-    void checkProgrammingGradesWithJudge0AndAppliesPartialCreditNoAi() {
+    void checkIsNotOfferedDuringAnAttempt() {
+        ProgrammingRunRequestDto request = new ProgrammingRunRequestDto(2L, "print(1)", "Python");
+
+        org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class,
+                () -> service.checkProgramming(79L, 3L, request));
+        verify(codeExecutionService, never()).execute(any());
+    }
+
+    @Test
+    void runReturnsTheProgramOutputWithoutCheckingTestCases() {
         Question programmingParent = new Question();
         programmingParent.setQuestionId(300L);
         programmingParent.setQuestionType("CRITICAL_THINKING");
@@ -538,19 +547,27 @@ class AssessmentAttemptServiceTest {
         ProgrammingRunRequestDto request = new ProgrammingRunRequestDto(
                 2L, "print(sum(map(int, input().split())))", "Python");
 
-        ExecutionResultDto response = service.checkProgramming(79L, 3L, request);
+        ExecutionResultDto response = service.runProgramming(79L, 3L, request);
 
-        assertEquals("COMPLETED", response.status());
-        assertEquals(1, response.passedTests());
-        assertEquals(2, response.totalTests());
+        // The program's own output comes back, and nothing about the tests.
+        assertEquals("5", response.stdout());
+        assertNull(response.passedTests());
+        assertNull(response.totalTests());
+        assertTrue(response.tests().isEmpty());
 
+        // One execution, fed the first sample's input, with no expected output.
+        org.mockito.ArgumentCaptor<com.capstone.rebyu.execution.dto.CodeExecutionRequestDto> sent =
+                org.mockito.ArgumentCaptor.forClass(com.capstone.rebyu.execution.dto.CodeExecutionRequestDto.class);
+        verify(codeExecutionService).execute(sent.capture());
+        assertEquals(1, sent.getValue().testCases().size());
+        assertEquals("2 3", sent.getValue().testCases().get(0).inputData());
+        assertNull(sent.getValue().testCases().get(0).expectedOutput());
+
+        // A run is never a verdict: no score, no stored result on the answer.
         AssessmentAttemptAnswer saved = answers.get(0);
-        // Half the tests passed on a 10-point item: deterministic 5.00, no AI.
-        assertEquals(0, new BigDecimal("5.00").compareTo(saved.getEarnedPoints()));
-        assertFalse(saved.isPendingManualEvaluation());
-        assertFalse(saved.getIsCorrect());
-        assertNotNull(saved.getExecutionResult());
-        assertTrue(saved.getExecutionResult().contains("\"passedTests\":1"));
+        assertNull(saved.getEarnedPoints());
+        assertNull(saved.getIsCorrect());
+        assertNull(saved.getExecutionResult());
         verify(aiAnswerGradingService, never()).grade(any());
     }
 

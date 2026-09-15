@@ -2,11 +2,19 @@ import { HistoryIcon, Loader2Icon } from "@/components/icons"
 
 import { Badge } from "@/components/ui/badge"
 
+const STATUS_LABEL = {
+  UNAVAILABLE: "Unavailable",
+  QUEUED: "Queued",
+  RUNNING: "Running",
+  COMPLETED: "Ran",
+  ERROR: "Error",
+}
+
 const STATUS_VARIANT = {
   UNAVAILABLE: "outline",
   QUEUED: "secondary",
   RUNNING: "secondary",
-  COMPLETED: "default",
+  COMPLETED: "secondary",
   ERROR: "destructive",
 }
 
@@ -23,7 +31,8 @@ function formatWhen(value) {
   })
 }
 
-// Right-panel "Executions" tab: recent Run/Check history for this item.
+// Recent runs for this item: when, in which language, and whether it ran.
+// No test counts -- runs are not checked against the test cases mid-attempt.
 export default function ExecutionHistoryPanel({ executions, loading }) {
   const list = Array.isArray(executions) ? executions : []
 
@@ -31,7 +40,7 @@ export default function ExecutionHistoryPanel({ executions, loading }) {
     return (
       <p className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
         <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
-        Loading executions…
+        Loading runs…
       </p>
     )
   }
@@ -40,7 +49,7 @@ export default function ExecutionHistoryPanel({ executions, loading }) {
     return (
       <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
         <HistoryIcon className="size-5" aria-hidden="true" />
-        <p>No runs yet. Use Run or Check to test your code.</p>
+        <p>No runs yet. Press Run to see your output.</p>
       </div>
     )
   }
@@ -53,23 +62,11 @@ export default function ExecutionHistoryPanel({ executions, loading }) {
           className="flex items-center justify-between gap-2 rounded-[var(--radius-rb-control)] border px-3 py-2 text-sm"
         >
           <div className="min-w-0">
-            <p className="flex items-center gap-1.5 font-medium">
-              {execution.mode}
-              {execution.language ? (
-                <span className="text-xs font-normal text-muted-foreground">
-                  · {execution.language}
-                </span>
-              ) : null}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {formatWhen(execution.createdAt)}
-              {execution.totalTests != null
-                ? ` · ${execution.passedTests ?? 0}/${execution.totalTests} tests`
-                : ""}
-            </p>
+            <p className="font-medium">{execution.language ?? "Run"}</p>
+            <p className="text-xs text-muted-foreground">{formatWhen(execution.createdAt)}</p>
           </div>
           <Badge variant={STATUS_VARIANT[execution.status] ?? "secondary"}>
-            {execution.status}
+            {STATUS_LABEL[execution.status] ?? execution.status}
           </Badge>
         </li>
       ))}

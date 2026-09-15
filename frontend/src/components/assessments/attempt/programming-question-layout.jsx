@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
-import { Code2, FileText, ListChecks, Loader2Icon, PlayIcon, TerminalIcon, XIcon } from "@/components/icons"
+import { Code2, FileText, HistoryIcon, Loader2Icon, PlayIcon, TerminalIcon, XIcon } from "@/components/icons"
 import { toast } from "sonner"
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getFileViewUrl } from "@/services/fileService.js"
 import {
   getAttemptExecutions,
@@ -12,18 +11,18 @@ import { ProblemStatement, SidePanel, WorkspaceShell } from "./attempt-workspace
 import CodeMirrorProgrammingWorkspace from "./code-mirror-programming-workspace.jsx"
 import ExecutionHistoryPanel from "./execution-history-panel.jsx"
 import SubQuestionTabs from "./sub-question-tabs.jsx"
-import TestCasesPanel from "./test-cases-panel.jsx"
 
-// Programming environment: problem | editor | navigation + tests, as tabs on a
-// phone. Run hits real endpoints; the executor is stubbed server-side, so
-// results come back as "not run / unavailable" — nothing is fake-scored here.
+// Programming environment: problem | editor | navigation + runs, as tabs on a
+// phone.
 //
-// `runner` swaps where Run goes. An assessment attempt leaves it unset and
-// the attempt endpoints are used; an arena run — which has no attempt, no
-// attempt question and no learner id to send — passes its own
-// { run, check, listExecutions }. The layout is identical either way, which is
-// the point: a CodeStrike problem should not be a second, subtly different
-// coding environment from the one the learner sits an exam in.
+// Run only runs. It executes the learner's code and shows what the program
+// printed -- never whether it passes the item's test cases. Passing and failing
+// are for the marker: every test case runs once, when the attempt is submitted.
+// Showing a verdict mid-attempt let a learner tune code against the tests until
+// they went green instead of answering the question.
+//
+// `runner` swaps where Run goes. An assessment attempt leaves it unset and the
+// attempt endpoint is used; an arena run passes its own { run, listExecutions }.
 export default function ProgrammingQuestionLayout({
   question,
   index,
@@ -36,11 +35,8 @@ export default function ProgrammingQuestionLayout({
   runner = null,
   editingLocked = false,
 }) {
-  const [tests, setTests] = useState(question.testCases ?? [])
-  const [notice, setNotice] = useState(null)
   const [output, setOutput] = useState(null)
   const [running, setRunning] = useState(false)
-  const [activeTab, setActiveTab] = useState("tests")
   const [executions, setExecutions] = useState([])
   const [executionsLoading, setExecutionsLoading] = useState(false)
 
@@ -52,10 +48,8 @@ export default function ProgrammingQuestionLayout({
   const subQuestions = question.subQuestions ?? []
 
   useEffect(() => {
-    setTests(question.testCases ?? [])
-    setNotice(null)
     setOutput(null)
-  }, [question.attemptQuestionId, question.testCases])
+  }, [question.attemptQuestionId])
 
   const refreshExecutions = useCallback(() => {
     setExecutionsLoading(true)
@@ -73,26 +67,19 @@ export default function ProgrammingQuestionLayout({
     refreshExecutions()
   }, [refreshExecutions])
 
-  // Run only. Check Code was removed: it graded the code against the item's
-  // test cases mid-attempt, which is a verdict, and it is the same call the
-  // marker makes at submission.
   const execute = async () => {
     setRunning(true)
     try {
       const result = runner
         ? await runner.run(code, language)
         : await runAttemptProgramming(attemptId, attemptQuestionId, learnerId, code, language)
-      setTests(result.tests ?? [])
-      setNotice(result.message ?? null)
       setOutput({
         stdout: result.stdout ?? null,
         stderr: result.stderr ?? null,
-        passed: result.passedTests ?? null,
-        total: result.totalTests ?? null,
-        // Only when there is nothing the program itself printed to show.
+        // Only shown when the program printed nothing and raised nothing --
+        // e.g. the runner being unavailable.
         message: result.message ?? null,
       })
-      setActiveTab("tests")
       refreshExecutions()
     } catch (error) {
       toast.error(error?.response?.data?.message ?? "Unable to run your code right now.")
@@ -156,22 +143,14 @@ export default function ProgrammingQuestionLayout({
         />
       </div>
 
-      {/* Output reads off a chalkboard, like everything the classroom writes back. */}
+      {/* What the program printed, verbatim, then any compile or runtime error
+          in red -- on a chalkboard, like everything the classroom writes back. */}
       {output ? (
         <div className="shrink-0 overflow-hidden rounded-2xl bg-[#22302a] text-[#e6eee8] shadow-inner">
           <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-1.5">
             <span className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white/70">
               <TerminalIcon className="size-3.5" aria-hidden="true" />
               Output
-              {output.total != null ? (
-                <span
-                  className={`ml-1 rounded-full px-2 py-0.5 normal-case tracking-normal ${
-                    output.passed === output.total ? "bg-[#2f7d55] text-white" : "bg-white/15 text-white/85"
-                  }`}
-                >
-                  {output.passed}/{output.total} sample tests passed
-                </span>
-              ) : null}
             </span>
             <button
               type="button"
@@ -182,9 +161,6 @@ export default function ProgrammingQuestionLayout({
               <XIcon className="size-3.5" aria-hidden="true" />
             </button>
           </div>
-          {/* What the program printed, verbatim, then any compile or runtime
-              error in red. The summary line is only a fallback for runs that
-              printed nothing and failed nothing (an unavailable runner). */}
           <div className="max-h-56 overflow-auto px-3 py-2.5 font-mono text-xs leading-5">
             {output.stdout ? <pre className="whitespace-pre-wrap">{output.stdout}</pre> : null}
             {output.stderr ? (
@@ -192,7 +168,7 @@ export default function ProgrammingQuestionLayout({
             ) : null}
             {!output.stdout && !output.stderr ? (
               <pre className="whitespace-pre-wrap text-white/60">
-                {output.total != null ? "(your program printed nothing)" : output.message ?? "Finished with no output."}
+                {output.message ?? "(your program printed nothing)"}
               </pre>
             ) : null}
           </div>
@@ -206,19 +182,12 @@ export default function ProgrammingQuestionLayout({
       {/* The item grid is in the header's menu on a phone already. */}
       <SidePanel className="hidden lg:block">{navigator}</SidePanel>
 
-      <SidePanel className="min-h-0">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="tests">Tests</TabsTrigger>
-            <TabsTrigger value="executions">Runs</TabsTrigger>
-          </TabsList>
-          <TabsContent value="tests" className="mt-3">
-            <TestCasesPanel tests={tests} notice={notice} />
-          </TabsContent>
-          <TabsContent value="executions" className="mt-3">
-            <ExecutionHistoryPanel executions={executions} loading={executionsLoading} />
-          </TabsContent>
-        </Tabs>
+      <SidePanel title="Your runs" icon={HistoryIcon}>
+        <p className="mb-3 text-xs leading-5 text-rb-wolf">
+          Run shows what your program prints. It is checked against the test
+          cases when you submit.
+        </p>
+        <ExecutionHistoryPanel executions={executions} loading={executionsLoading} />
       </SidePanel>
     </>
   )
@@ -228,7 +197,7 @@ export default function ProgrammingQuestionLayout({
       tabs={[
         { id: "problem", label: "Problem", icon: FileText },
         { id: "workspace", label: "Code", icon: Code2 },
-        { id: "side", label: "Tests", icon: ListChecks },
+        { id: "side", label: "Runs", icon: HistoryIcon },
       ]}
       problem={problem}
       workspace={workspace}
