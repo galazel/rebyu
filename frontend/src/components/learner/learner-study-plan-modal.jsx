@@ -5,6 +5,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Sparkles } from "@/components/
 
 import { Button } from "@/components/ui/button"
 import { STUDY_PLAN_QUERY_KEY, getMyStudyPlans } from "@/services/studyPlanService.js"
+import { describeEvent } from "@/lib/study-plan-events.js"
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
@@ -261,7 +262,7 @@ export default function LearnerStudyPlanCalendarPage() {
                         <div
                           key={`${event.planId ?? ""}-${event.id ?? event.title}-${index}`}
                           className="border-l-2 border-primary bg-primary/[0.06] px-1.5 py-0.5 text-[10px] font-medium leading-tight text-foreground"
-                          title={`${event.title} · ${labelFor(event)}`}
+                          title={`${event.title} · ${labelFor(event)}\n${describeEvent(event)}`}
                         >
                           <p className="truncate">{event.title}</p>
 

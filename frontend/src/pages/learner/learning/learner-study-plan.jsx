@@ -40,6 +40,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { generateStudyEvents } from "@/lib/study-plan-events.js"
 
 const readinessOptions = [
     "Ready 1 week before the exam",
@@ -84,8 +85,6 @@ const STUDY_WINDOW_TIMES = {
     "Evening · 7:00 PM": "19:00",
     "Late night · 10:00 PM": "22:00",
 }
-
-const DEFAULT_STUDY_TIME = "19:00"
 
 const studyTechniques = [
     {
@@ -147,34 +146,28 @@ function formatMonthYear(date) {
     })
 }
 
-function getStudyDaysCount(value) {
-    if (value === "Every day") {
-        return 7
-    }
-
-    const match = value.match(/\d+/)
-
-    return match ? Number(match[0]) : 5
-}
-
 function getEventClassName(type) {
     if (type === "review") {
-        return "bg-sky-100 text-sky-700 ring-sky-200"
+        return "bg-rb-leaf-wash text-rb-leaf-lip ring-rb-leaf/30"
     }
 
     if (type === "quiz") {
-        return "bg-blue-100 text-blue-700 ring-blue-200"
+        return "bg-rb-bee-wash text-rb-bee-ink ring-rb-bee/40"
     }
 
     if (type === "mock") {
-        return "bg-amber-100 text-amber-700 ring-amber-200"
+        return "bg-rb-fox-wash text-rb-fox-lip ring-rb-fox/30"
+    }
+
+    if (type === "exam") {
+        return "bg-rb-cardinal-wash text-rb-cardinal-lip ring-rb-cardinal/30"
     }
 
     if (type === "catch-up") {
-        return "bg-emerald-100 text-emerald-700 ring-emerald-200"
+        return "bg-muted text-muted-foreground ring-border"
     }
 
-    return "bg-primary/10 text-primary ring-primary/20"
+    return "bg-rb-feather-wash text-rb-feather-ink ring-rb-feather/20"
 }
 
 function buildMonthDays(viewDate) {
@@ -197,117 +190,6 @@ function buildMonthDays(viewDate) {
             day: date.getDate(),
         }
     })
-}
-
-function generateStudyEvents({
-                                 calendarStart,
-                                 targetExamDate,
-                                 studyDays,
-                                 studyWindow,
-                                 selectedTechniqueInfo,
-                                 priorityTopics,
-                             }) {
-    // The clock time every session on this plan fires at, resolved once.
-    const at = STUDY_WINDOW_TIMES[studyWindow] ?? DEFAULT_STUDY_TIME
-    const technique = selectedTechniqueInfo?.id ?? null
-    const startDate = parseDate(calendarStart)
-    const examDate = parseDate(targetExamDate)
-    const studyDaysCount = getStudyDaysCount(studyDays)
-
-    /* Lessons, not just their names -- each session records which lesson it is
-       for so a recall session can ask the server for that lesson's questions.
-       The placeholder carries a null id: there is no lesson behind it, and
-       pretending otherwise would send the server looking for one. */
-    const topics =
-        Array.isArray(priorityTopics) && priorityTopics.length > 0
-            ? priorityTopics
-            : [{ lessonId: null, title: "Core certification lesson" }]
-
-    const events = []
-    const currentDate = new Date(startDate)
-
-    let sessionNumber = 1
-    let weeklyStudyCount = 0
-
-    while (currentDate <= examDate && events.length < 90) {
-        const day = currentDate.getDay()
-        const isSunday = day === 0
-        const isStudyDay =
-            studyDaysCount === 7 || (!isSunday && weeklyStudyCount < studyDaysCount)
-
-        if (isStudyDay) {
-            const focusTopic = topics[(sessionNumber - 1) % topics.length]
-
-            const eventType =
-                sessionNumber % 12 === 0
-                    ? "mock"
-                    : sessionNumber % 5 === 0
-                        ? "quiz"
-                        : sessionNumber % 3 === 0
-                            ? "review"
-                            : "lesson"
-
-            const eventTitle =
-                eventType === "mock"
-                    ? "Mock exam checkpoint"
-                    : eventType === "quiz"
-                        ? "Quiz practice"
-                        : eventType === "review"
-                            ? `${selectedTechniqueInfo?.title ?? "Review"} session`
-                            : focusTopic.title
-
-            events.push({
-                id: `event-${sessionNumber}`,
-                dateKey: toDateKey(currentDate),
-                title: eventTitle,
-                type: eventType,
-                time: studyWindow,
-                /* The lesson this session is for, whatever the event is
-                   titled: a "Quiz practice" session still has a topic behind
-                   it, and that is what the recall paper is built against. */
-                lessonId: focusTopic.lessonId ?? null,
-                lessonTitle: focusTopic.title,
-                /* What the scheduler fires on, and when. `at` is the machine
-                   time behind `time`; `technique` is which activity to run --
-                   carried per event rather than read off the plan, so a plan
-                   regenerated with a different technique does not retroactively
-                   change what already-finished sessions were. */
-                at,
-                technique,
-            })
-
-            sessionNumber += 1
-            weeklyStudyCount += 1
-        }
-
-        if (day === 6) {
-            if (studyDaysCount < 7) {
-                events.push({
-                    id: `catch-up-${toDateKey(currentDate)}`,
-                    dateKey: toDateKey(currentDate),
-                    title: "Weekly catch-up",
-                    type: "catch-up",
-                    time: studyWindow,
-                    at,
-                    technique,
-                })
-            }
-
-            weeklyStudyCount = 0
-        }
-
-        currentDate.setDate(currentDate.getDate() + 1)
-    }
-
-    events.push({
-        id: "target-exam",
-        dateKey: toDateKey(examDate),
-        title: "Target exam date",
-        type: "mock",
-        time: "Exam day",
-    })
-
-    return events
 }
 
 /**
@@ -449,7 +331,8 @@ function CalendarEvent({ event }) {
             className={`truncate rounded-md px-2 py-1 text-[11px] font-medium ring-1 ${getEventClassName(
                 event.type
             )}`}
-            title={`${event.title} · ${event.time}`}
+            title={`${event.title} · ${event.time}${event.detail ? `
+${event.detail}` : ""}`}
         >
             {event.title}
         </div>
@@ -498,7 +381,7 @@ function StudyPlanCalendar({
                             </CardTitle>
 
                             <CardDescription className="mt-1">
-                                Study sessions, reviews, quizzes, catch-up days, and mock exam checkpoints.
+                                Lessons, reviews, recall quizzes, catch-up days, mock exams, and your exam day.
                             </CardDescription>
                         </div>
 
@@ -573,37 +456,37 @@ function StudyPlanCalendar({
                         <BookOpenCheck className="size-5 text-primary" />
                         <p className="mt-3 text-sm font-semibold">Lessons</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Main learning sessions
+                            A new topic, studied with your chosen technique
                         </p>
                     </CardContent>
                 </Card>
 
                 <Card className="rounded-xl shadow-none">
                     <CardContent className="p-4">
-                        <Repeat2 className="size-5 text-sky-600" />
+                        <Repeat2 className="size-5 text-rb-leaf" />
                         <p className="mt-3 text-sm font-semibold">Reviews</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Spaced recall sessions
+                            Short look-backs at topics you already studied
                         </p>
                     </CardContent>
                 </Card>
 
                 <Card className="rounded-xl shadow-none">
                     <CardContent className="p-4">
-                        <Brain className="size-5 text-blue-600" />
-                        <p className="mt-3 text-sm font-semibold">Quizzes</p>
+                        <Brain className="size-5 text-rb-bee-ink" />
+                        <p className="mt-3 text-sm font-semibold">Recall quizzes</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Practice checkpoints
+                            Questions answered from memory, before checking
                         </p>
                     </CardContent>
                 </Card>
 
                 <Card className="rounded-xl shadow-none">
                     <CardContent className="p-4">
-                        <Target className="size-5 text-amber-600" />
+                        <Target className="size-5 text-rb-fox" />
                         <p className="mt-3 text-sm font-semibold">Mock Exams</p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                            Readiness checkpoints
+                            A full timed practice test to measure readiness
                         </p>
                     </CardContent>
                 </Card>
@@ -930,6 +813,7 @@ export function StudyPlanContent({
                       targetExamDate: entry.targetExamDate,
                       studyDays,
                       studyWindow,
+                      studyWindowTimes: STUDY_WINDOW_TIMES,
                       selectedTechniqueInfo,
                       priorityTopics:
                           overallPriorities.byCertification[String(entry.certificationId)] ?? [],
@@ -949,6 +833,7 @@ export function StudyPlanContent({
                   targetExamDate,
                   studyDays,
                   studyWindow,
+                  studyWindowTimes: STUDY_WINDOW_TIMES,
                   selectedTechniqueInfo,
                   priorityTopics,
               })
