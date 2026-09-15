@@ -99,8 +99,6 @@ export default function LoginPage() {
         return
       }
 
-      toast.success(`Welcome back, ${user.displayName || user.email}.`)
-
       // Resume a pending invitation acceptance if the learner was sent here
       // from the invitation page after a 401.
       const pendingToken = sessionStorage.getItem("rebyu_pending_invitation_token")
