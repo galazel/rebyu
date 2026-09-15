@@ -570,6 +570,11 @@ class Settings(BaseSettings):
     rabbitmq_dead_letter_exchange: str = "rebyu.dlx"
 
     # --- AWS S3 (Phase 6: read knowledge_documents uploaded by Java) ---------
+    # Any S3-compatible store. Empty endpoint = AWS S3. For Cloudflare R2 set
+    # AWS_S3_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com,
+    # AWS_S3_REGION=auto, and the R2 API token's keys below. Must match Java's
+    # S3_* settings: both services read and write the same bucket.
+    aws_s3_endpoint_url: str = ""
     aws_s3_bucket_name: str = "rebyu"
     aws_s3_region: str = "us-east-1"
     aws_access_key_id: str = ""

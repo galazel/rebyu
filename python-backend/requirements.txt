@@ -20,7 +20,7 @@ aio-pika>=9.4,<10.0
 # Reads knowledge-document files Java uploaded to S3 (Phase 6 generation
 # consumers fetch by s3_key instead of receiving file bytes in the queue
 # message itself).
-boto3>=1.34,<2.0
+boto3>=1.36,<2.0
 
 python-multipart>=0.0.20,<1.0
 

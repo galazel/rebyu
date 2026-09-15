@@ -28,13 +28,13 @@ public class CognitoClientConfig {
     }
 
     // Admin operations (AdminCreateUser to provision approved institution
-    // accounts) require real IAM credentials. Reuses the same AWS key wired
-    // for S3.
+    // accounts) require real IAM credentials. Deliberately the AWS keys, not
+    // aws.s3.*: file storage can point at Cloudflare R2, whose keys AWS rejects.
     @Bean
     public CognitoIdentityProviderClient cognitoAdminClient(
             @Value("${app.cognito.region}") String region,
-            @Value("${aws.s3.access-key}") String accessKey,
-            @Value("${aws.s3.secret-key}") String secretKey
+            @Value("${aws.access-key}") String accessKey,
+            @Value("${aws.secret-key}") String secretKey
     ) {
         return CognitoIdentityProviderClient.builder()
                 .region(Region.of(region))
