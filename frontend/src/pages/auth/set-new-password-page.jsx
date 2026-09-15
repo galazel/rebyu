@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { roleHomePath, useAuth } from "@/context/auth-context.jsx"
-import { toSafeAuthMessage } from "@/services/authService.js"
+import { currentSessionEmail, toSafeAuthMessage } from "@/services/authService.js"
 
 import AuthShell from "./auth-shell.jsx"
 
@@ -17,7 +17,7 @@ export default function SetNewPasswordPage() {
     const location = useLocation()
     const { setNewPassword } = useAuth()
 
-    const email = location.state?.email ?? ""
+    const [email, setEmail] = useState(location.state?.email ?? "")
 
     const [newPassword, setNewPasswordValue] = useState("")
     const [confirmPassword, setConfirmPassword] = useState("")
@@ -25,13 +25,26 @@ export default function SetNewPasswordPage() {
     const [pending, setPending] = useState(false)
 
     /*
-     * The Cognito temporary-password challenge must start from LoginPage.
-     * Going directly here, or refreshing this page, loses the sign-in flow.
+     * Reached from an invitation email: the link has already signed the
+     * account in, so the address comes from that session. Without one there
+     * is nothing to set a password for.
      */
     useEffect(() => {
-        if (!email) {
-            toast.info("Sign in with your temporary password first.")
-            navigate("/login", { replace: true })
+        if (email) return
+        let cancelled = false
+        currentSessionEmail()
+            .then((found) => {
+                if (cancelled) return
+                if (found) {
+                    setEmail(found)
+                } else {
+                    toast.info("Open the link in your invitation email to create your password.")
+                    navigate("/login", { replace: true })
+                }
+            })
+            .catch(() => navigate("/login", { replace: true }))
+        return () => {
+            cancelled = true
         }
     }, [email, navigate])
 

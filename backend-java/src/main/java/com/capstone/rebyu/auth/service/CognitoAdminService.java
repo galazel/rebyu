@@ -1,41 +1,51 @@
 package com.capstone.rebyu.auth.service;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
-import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminCreateUserRequest;
-import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminCreateUserResponse;
-import software.amazon.awssdk.services.cognitoidentityprovider.model.AttributeType;
-import software.amazon.awssdk.services.cognitoidentityprovider.model.DeliveryMediumType;
-import software.amazon.awssdk.services.cognitoidentityprovider.model.AdminDeleteUserRequest;
-import software.amazon.awssdk.services.cognitoidentityprovider.model.ListUsersRequest;
-import software.amazon.awssdk.services.cognitoidentityprovider.model.UserNotFoundException;
-import software.amazon.awssdk.services.cognitoidentityprovider.model.UsernameExistsException;
 
-import java.util.List;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Provisions approved institution login accounts in the Cognito user pool.
+ * Account administration against Supabase Auth: inviting the login accounts
+ * REBYU creates for people, and removing a sign-in when an account is deleted.
  *
- * AdminCreateUser generates a temporary password and Cognito emails the new
- * institution its username and temporary password (a forced reset on first
- * login). This is the "admin approves, institution receives credentials by
- * email" step. It requires the cognito-idp:AdminCreateUser IAM permission.
+ * <p>The name is kept from when sign-in ran on Amazon Cognito, so its callers
+ * did not all have to change with the provider. The subject it deals in is now
+ * the Supabase user id, stored in the same {@code users.cognito_sub} column.
+ *
+ * <p>Calls the Auth admin REST API with the project's secret key, which never
+ * leaves the backend.
  */
 @Slf4j
 @Service
 public class CognitoAdminService {
 
-    private final CognitoIdentityProviderClient adminClient;
-    private final String userPoolId;
+    private static final Pattern USER_ID = Pattern.compile("\"id\"\\s*:\\s*\"([0-9a-fA-F-]{36})\"");
+
+    private final HttpClient http = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+
+    private final String authUrl;
+    private final String secretKey;
+    private final String siteUrl;
 
     public CognitoAdminService(
-            @Qualifier("cognitoAdminClient") CognitoIdentityProviderClient adminClient,
-            @Value("${app.cognito.user-pool-id}") String userPoolId) {
-        this.adminClient = adminClient;
-        this.userPoolId = userPoolId;
+            @Value("${app.supabase.url}") String supabaseUrl,
+            @Value("${app.supabase.secret-key:}") String secretKey,
+            @Value("${app.supabase.site-url}") String siteUrl) {
+        this.authUrl = stripSlash(supabaseUrl) + "/auth/v1";
+        this.secretKey = secretKey;
+        this.siteUrl = stripSlash(siteUrl);
     }
 
     /** Outcome of an institution account provisioning attempt. */
@@ -43,90 +53,110 @@ public class CognitoAdminService {
     }
 
     /**
-     * Removes the sign-in behind a Cognito subject, so a deleted account cannot
-     * come back. Without this, CognitoAuthService re-provisions a User and
-     * Learner for any still-valid token whose subject it does not recognise.
+     * Removes the sign-in behind a subject, so a deleted account cannot come
+     * back. Without this, CognitoAuthService re-provisions a User and Learner
+     * for any still-valid token whose subject it does not recognise.
      *
      * <p>Best effort by design: the database rows are already gone by the time
-     * this runs, and an unreachable Cognito must not undo that. A missing user
-     * is the desired end state, not a failure.
+     * this runs, and an unreachable Supabase must not undo that. A missing user
+     * -- including an account last signed in through Cognito, which Supabase
+     * never had -- is the desired end state, not a failure.
      */
-    public void deleteAccount(String cognitoSub) {
+    public void deleteAccount(String subject) {
+        if (subject == null || subject.isBlank()) {
+            return;
+        }
         try {
-            String username = usernameForSubject(cognitoSub);
-            if (username == null) {
-                log.warn("No Cognito user for subject {}; nothing to delete", cognitoSub);
-                return;
+            HttpResponse<String> response = http.send(
+                    admin("/admin/users/" + URLEncoder.encode(subject, StandardCharsets.UTF_8)).DELETE().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            int status = response.statusCode();
+            if (status == 404) {
+                log.info("Sign-in for subject {} was already removed", subject);
+            } else if (status >= 200 && status < 300) {
+                log.info("Deleted Supabase account for subject {}", subject);
+            } else {
+                log.error("Supabase account for subject {} could not be deleted ({}): {}. "
+                        + "The learner's data is gone, but this sign-in must be removed by hand "
+                        + "or the account will be re-provisioned on next login.", subject, status, response.body());
             }
-            adminClient.adminDeleteUser(AdminDeleteUserRequest.builder()
-                    .userPoolId(userPoolId)
-                    .username(username)
-                    .build());
-            log.info("Deleted Cognito account for subject {}", cognitoSub);
-        } catch (UserNotFoundException alreadyGone) {
-            log.info("Cognito account for subject {} was already removed", cognitoSub);
         } catch (Exception ex) {
-            log.error("Cognito account for subject {} could not be deleted: {}. "
-                    + "The learner's data is gone, but this sign-in must be removed by hand "
-                    + "or the account will be re-provisioned on next login.", cognitoSub, ex.getMessage());
+            log.error("Supabase account for subject {} could not be deleted: {}. "
+                    + "Remove this sign-in by hand in the Supabase dashboard.", subject, ex.getMessage());
         }
     }
 
-    /** AdminDeleteUser takes a username; the token only carries the subject. */
-    private String usernameForSubject(String cognitoSub) {
-        return adminClient.listUsers(ListUsersRequest.builder()
-                        .userPoolId(userPoolId)
-                        .filter("sub = \"" + cognitoSub + "\"")
-                        .limit(1)
-                        .build())
-                .users().stream()
-                .findFirst()
-                .map(user -> user.username())
-                .orElse(null);
-    }
-
-    public ProvisionResult createInstitutionAccount(
-            String email, String givenName, String familyName) {
+    /**
+     * Invites the login account for someone REBYU is creating an account for.
+     * Supabase emails them a link; opening it signs them in on the
+     * set-new-password page, where they choose their password.
+     */
+    public ProvisionResult createInstitutionAccount(String email, String givenName, String familyName) {
         try {
-            AdminCreateUserResponse response = adminClient.adminCreateUser(
-                    AdminCreateUserRequest.builder()
-                            .userPoolId(userPoolId)
-                            .username(email)
-                            .userAttributes(
-                                    AttributeType.builder().name("email").value(email).build(),
-                                    AttributeType.builder().name("email_verified").value("true").build(),
-                                    AttributeType.builder().name("given_name")
-                                            .value(givenName == null ? "" : givenName).build(),
-                                    AttributeType.builder().name("family_name")
-                                            .value(familyName == null ? "" : familyName).build())
-                            // Cognito emails the username + temporary password.
-                            .desiredDeliveryMediums(DeliveryMediumType.EMAIL)
-                            .build());
+            String body = "{\"email\":" + quote(email)
+                    + ",\"data\":{\"given_name\":" + quote(givenName == null ? "" : givenName)
+                    + ",\"family_name\":" + quote(familyName == null ? "" : familyName) + "}}";
+            String redirect = URLEncoder.encode(siteUrl + "/set-new-password", StandardCharsets.UTF_8);
 
-            String sub = extractSub(response.user() == null ? List.of() : response.user().attributes());
-            log.info("Institution Cognito account created and credentials emailed to {}", email);
-            return new ProvisionResult(true, sub,
-                    "Login credentials were emailed to " + email + ".");
-        } catch (UsernameExistsException alreadyExists) {
-            log.info("Institution Cognito account already exists for {}", email);
-            return new ProvisionResult(false, null,
-                    "An account already exists for " + email + "; no new email was sent.");
+            HttpResponse<String> response = http.send(
+                    admin("/invite?redirect_to=" + redirect)
+                            .header("Content-Type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(body))
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
+
+            int status = response.statusCode();
+            if (status >= 200 && status < 300) {
+                Matcher id = USER_ID.matcher(response.body());
+                String subject = id.find() ? id.group(1) : null;
+                log.info("Invitation for a new account emailed to {}", email);
+                return new ProvisionResult(true, subject,
+                        "An invitation to create a password was emailed to " + email + ".");
+            }
+            if (status == 422 || response.body().contains("email_exists")) {
+                log.info("A sign-in already exists for {}", email);
+                return new ProvisionResult(false, null,
+                        "An account already exists for " + email + "; no new email was sent.");
+            }
+            log.warn("Could not invite {} ({}): {}", email, status, response.body());
         } catch (Exception e) {
-            // Most commonly an IAM AccessDeniedException. Approval must still
-            // succeed; the admin can send credentials manually or add the
-            // cognito-idp:AdminCreateUser permission and re-run provisioning.
-            log.warn("Could not create institution Cognito account for {}: {}", email, e.getMessage());
-            return new ProvisionResult(false, null,
-                    "The organization was approved, but the login account could not be "
-                            + "created automatically. Send credentials manually.");
+            log.warn("Could not invite {}: {}", email, e.getMessage());
         }
+        return new ProvisionResult(false, null,
+                "The account was saved, but the invitation email could not be sent. Send credentials manually.");
     }
 
-    private String extractSub(List<AttributeType> attributes) {
-        return attributes.stream()
-                .filter(a -> "sub".equals(a.name()))
-                .map(AttributeType::value)
-                .findFirst()
-                .orElse(null);
+    private HttpRequest.Builder admin(String path) {
+        if (secretKey == null || secretKey.isBlank()) {
+            throw new IllegalStateException("SUPABASE_SECRET_KEY is not set");
+        }
+        return HttpRequest.newBuilder(URI.create(authUrl + path))
+                .timeout(Duration.ofSeconds(20))
+                .header("apikey", secretKey)
+                .header("Authorization", "Bearer " + secretKey);
+    }
+
+    private static String stripSlash(String value) {
+        String trimmed = value == null ? "" : value.trim();
+        return trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
+    }
+
+    /** A JSON string literal. */
+    private static String quote(String value) {
+        StringBuilder out = new StringBuilder("\"");
+        for (char c : value.toCharArray()) {
+            switch (c) {
+                case '"' -> out.append("\\\"");
+                case '\\' -> out.append("\\\\");
+                case '\n' -> out.append("\\n");
+                case '\r' -> out.append("\\r");
+                case '\t' -> out.append("\\t");
+                default -> {
+                    if (c < 0x20) out.append(String.format("\\u%04x", (int) c));
+                    else out.append(c);
+                }
+            }
+        }
+        return out.append('"').toString();
     }
 }

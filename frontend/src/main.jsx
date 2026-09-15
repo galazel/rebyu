@@ -10,12 +10,12 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Toaster } from "@/components/ui/sonner"
 import { XpAwardModal } from "@/components/learner/xp-award-modal.jsx"
-import { configureAmplify } from "@/lib/amplify.js"
+// Creates the Supabase client, which also picks up a session from an invitation link.
+import "@/lib/supabase.js"
 import { AuthProvider } from "@/context/auth-context.jsx"
 import { LoadingOverlayProvider } from "@/components/loading-overlay.jsx"
 import { MotionConfig } from "framer-motion"
 
-configureAmplify()
 
 const rootElement = document.getElementById("root")
 /* React Query's own defaults are staleTime 0 and refetchOnWindowFocus true,

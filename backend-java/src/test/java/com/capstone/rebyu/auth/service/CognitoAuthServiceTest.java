@@ -11,10 +11,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.security.oauth2.jwt.Jwt;
-import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
-import software.amazon.awssdk.services.cognitoidentityprovider.model.AttributeType;
-import software.amazon.awssdk.services.cognitoidentityprovider.model.GetUserRequest;
-import software.amazon.awssdk.services.cognitoidentityprovider.model.GetUserResponse;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -35,7 +31,6 @@ class CognitoAuthServiceTest {
     private LearnerRepository learnerRepository;
     private com.capstone.rebyu.organization.repository.InstitutionMemberRepository institutionMemberRepository;
     private com.capstone.rebyu.organization.repository.InstitutionRepository institutionRepository;
-    private CognitoIdentityProviderClient cognitoClient;
     private com.capstone.rebyu.bkt.client.BktClient bktClient;
     private CognitoAuthService service;
 
@@ -49,7 +44,6 @@ class CognitoAuthServiceTest {
         institutionMemberRepository =
                 mock(com.capstone.rebyu.organization.repository.InstitutionMemberRepository.class);
         institutionRepository = mock(com.capstone.rebyu.organization.repository.InstitutionRepository.class);
-        cognitoClient = mock(CognitoIdentityProviderClient.class);
         when(institutionMemberRepository.findByUser_UserId(org.mockito.ArgumentMatchers.anyLong()))
                 .thenReturn(java.util.List.of());
         // None of these test accounts are institution contacts -- ensureInstitutionLinkage
@@ -68,7 +62,7 @@ class CognitoAuthServiceTest {
 
         service = new CognitoAuthService(
                 userRepository, userTypeRepository, learnerRepository,
-                institutionMemberRepository, institutionRepository, cognitoClient,
+                institutionMemberRepository, institutionRepository,
                 bktClient, self);
     }
 
@@ -80,10 +74,18 @@ class CognitoAuthServiceTest {
     }
 
     private Jwt jwt() {
+        return jwt("juan@rebyu.test");
+    }
+
+    /** A Supabase access token as the resource server hands it over. */
+    private Jwt jwt(String email) {
         return Jwt.withTokenValue("access-token")
-                .header("alg", "RS256")
+                .header("alg", "ES256")
                 .subject(SUB)
-                .claim("token_use", "access")
+                .audience(java.util.List.of("authenticated"))
+                .claim("role", "authenticated")
+                .claim("email", email)
+                .claim("user_metadata", java.util.Map.of("given_name", "Juan", "family_name", "Cruz"))
                 .build();
     }
 
@@ -101,15 +103,6 @@ class CognitoAuthServiceTest {
                 .build();
     }
 
-    private void stubCognitoEmail(String email) {
-        when(cognitoClient.getUser(any(GetUserRequest.class))).thenReturn(
-                GetUserResponse.builder()
-                        .username("cognito-user")
-                        .userAttributes(
-                                AttributeType.builder().name("email").value(email).build())
-                        .build());
-    }
-
     @Test
     void alreadyLinkedUserIsReturnedWithoutProvisioning() {
         User linked = existingUser(7L, "juan@rebyu.test", SUB);
@@ -120,14 +113,12 @@ class CognitoAuthServiceTest {
 
         assertEquals(7L, dto.userId());
         assertEquals("LEARNER", dto.role());
-        verify(cognitoClient, never()).getUser(any(GetUserRequest.class));
         verify(userRepository, never()).save(any());
     }
 
     @Test
     void existingEmailAccountIsLinkedNotDuplicated() {
         when(userRepository.findByCognitoSub(SUB)).thenReturn(Optional.empty());
-        stubCognitoEmail("juan@rebyu.test");
         User byEmail = existingUser(9L, "juan@rebyu.test", null);
         when(userRepository.findByEmailIgnoreCase("juan@rebyu.test"))
                 .thenReturn(Optional.of(byEmail));
@@ -151,7 +142,6 @@ class CognitoAuthServiceTest {
     @Test
     void unknownUserIsProvisionedAsLearnerOnly() {
         when(userRepository.findByCognitoSub(SUB)).thenReturn(Optional.empty());
-        stubCognitoEmail("new.learner@rebyu.test");
         when(userRepository.findByEmailIgnoreCase("new.learner@rebyu.test"))
                 .thenReturn(Optional.empty());
         UserType learnerType = new UserType();
@@ -177,7 +167,7 @@ class CognitoAuthServiceTest {
         when(learnerRepository.findByUser_UserId(42L))
                 .thenAnswer(inv -> Optional.ofNullable(stored.get()));
 
-        CurrentUserDto dto = service.syncCurrentUser(jwt(), "access-token");
+        CurrentUserDto dto = service.syncCurrentUser(jwt("new.learner@rebyu.test"), "access-token");
 
         assertEquals(42L, dto.userId());
         // Self-registration must never grant elevated access.
@@ -186,6 +176,9 @@ class CognitoAuthServiceTest {
         ArgumentCaptor<Learner> learner = ArgumentCaptor.forClass(Learner.class);
         verify(learnerRepository).save(learner.capture());
         assertNotNull(learner.getValue().getUsername());
+        // Names come from the token's user metadata.
+        assertEquals("Juan", learner.getValue().getFirstName());
+        assertEquals("Cruz", learner.getValue().getLastName());
         // NOT NULL columns must be set explicitly (@Builder ignores field
         // defaults) or provisioning fails at flush time.
         assertNotNull(learner.getValue().getReadinessScore());
@@ -193,14 +186,29 @@ class CognitoAuthServiceTest {
     }
 
     @Test
-    void emailBoundToDifferentSubjectIsRejected() {
+    void accountMovingFromCognitoIsRelinkedToTheSupabaseSubject() {
         when(userRepository.findByCognitoSub(SUB)).thenReturn(Optional.empty());
-        stubCognitoEmail("taken@rebyu.test");
-        when(userRepository.findByEmailIgnoreCase("taken@rebyu.test"))
-                .thenReturn(Optional.of(existingUser(3L, "taken@rebyu.test", "other-sub")));
+        User cognitoEra = existingUser(3L, "moved@rebyu.test", "old-cognito-sub");
+        when(userRepository.findByEmailIgnoreCase("moved@rebyu.test")).thenReturn(Optional.of(cognitoEra));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(learnerRepository.findByUser_UserId(3L)).thenReturn(Optional.of(
+                Learner.builder().learnerId(5L).user(cognitoEra).username("moved").build()));
 
-        assertThrows(IllegalStateException.class,
-                () -> service.syncCurrentUser(jwt(), "access-token"));
+        CurrentUserDto dto = service.syncCurrentUser(jwt("moved@rebyu.test"), "access-token");
+
+        // Same REBYU account, progress and all -- only the sign-in changed.
+        assertEquals(3L, dto.userId());
+        assertEquals(SUB, cognitoEra.getCognitoSub());
+        verify(learnerRepository, never()).save(any(Learner.class));
+    }
+
+    @Test
+    void tokenWithoutEmailIsRefused() {
+        when(userRepository.findByCognitoSub(SUB)).thenReturn(Optional.empty());
+        Jwt noEmail = Jwt.withTokenValue("access-token").header("alg", "ES256").subject(SUB)
+                .claim("role", "authenticated").build();
+
+        assertThrows(IllegalStateException.class, () -> service.syncCurrentUser(noEmail, "access-token"));
         verify(userRepository, never()).save(any());
     }
 

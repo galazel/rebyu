@@ -1,52 +1,11 @@
-import {
-  confirmResetPassword,
-  confirmSignIn,
-  confirmSignUp,
-  fetchAuthSession,
-  resendSignUpCode,
-  resetPassword,
-  signIn,
-  signOut,
-  signUp,
-  updatePassword,
-} from "aws-amplify/auth"
+import { supabase } from "@/lib/supabase.js"
 
 import { base } from "./base"
 
-// Store the current sign-in context to handle multi-step challenges
-// We use sessionStorage to persist the context across page navigation
-let signInContext = null
-
-function getStoredSignInContext() {
-  try {
-    const stored = sessionStorage.getItem("_amplify_signin_context")
-    return stored ? JSON.parse(stored) : null
-  } catch {
-    return null
-  }
-}
-
-function storeSignInContext(context) {
-  try {
-    if (context) {
-      sessionStorage.setItem("_amplify_signin_context", JSON.stringify({
-        ...context,
-        // Keep only serializable data
-        isSignedIn: context?.isSignedIn,
-        nextStep: context?.nextStep,
-      }))
-    } else {
-      sessionStorage.removeItem("_amplify_signin_context")
-    }
-    signInContext = context
-  } catch {
-    signInContext = context
-  }
-}
-
 // ---------------------------------------------------------------------------
-// Cognito auth wrapper. All provider errors are mapped to safe messages —
-// raw Cognito exception names never reach the UI.
+// Supabase auth wrapper. Every provider error is turned into one of the error
+// names below before it leaves this file, so the pages keep reading
+// `err.name` the way they always have and no raw provider text reaches the UI.
 // ---------------------------------------------------------------------------
 
 const ERROR_MESSAGES = {
@@ -57,32 +16,59 @@ const ERROR_MESSAGES = {
       "Unable to process your details. Please check them and try again.",
   CodeMismatchException: "That code is not right. Check the newest email -- each resend replaces the last code.",
   CodeDeliveryFailureException: "We could not send the code to that address.",
-  ExpiredCodeException: "That code has expired. Request a new one below.",
+  ExpiredCodeException: "That code is wrong or has expired. Request a new one below.",
   UserNotConfirmedException:
       "Your account must be verified before signing in.",
-  NotAuthorizedException: "Incorrect email or password.",
-  UserNotFoundException: "Incorrect email or password.",
+  NotAuthorizedException:
+      "Incorrect email or password. Joined REBYU before 16 September 2026? Sign up again with the same email -- your progress is kept.",
+  SamePasswordException: "Choose a password different from your current one.",
   LimitExceededException:
       "Too many attempts. Please wait a moment and try again.",
-  TooManyRequestsException:
-      "Too many attempts. Please wait a moment and try again.",
-  PasswordResetRequiredException:
-      "A password reset is required. Use Forgot Password to continue.",
-  UserAlreadyAuthenticatedException:
-      "You are already signed in. Redirecting you now.",
+  NoSessionException: "Your sign-in link has expired. Sign in again.",
   EmptySignInUsername: "Enter your email address.",
   EmptySignInPassword: "Enter your password.",
+}
+
+/** Supabase error codes, mapped onto the names the pages already handle. */
+const SUPABASE_CODES = {
+  invalid_credentials: "NotAuthorizedException",
+  email_not_confirmed: "UserNotConfirmedException",
+  user_already_exists: "UsernameExistsException",
+  email_exists: "UsernameExistsException",
+  weak_password: "InvalidPasswordException",
+  validation_failed: "InvalidParameterException",
+  email_address_invalid: "InvalidParameterException",
+  otp_expired: "ExpiredCodeException",
+  otp_disabled: "CodeDeliveryFailureException",
+  over_email_send_rate_limit: "LimitExceededException",
+  over_request_rate_limit: "LimitExceededException",
+  same_password: "SamePasswordException",
+  session_not_found: "NoSessionException",
+}
+
+function authError(error) {
+  const name =
+    SUPABASE_CODES[error?.code] ??
+    (error?.status === 429 ? "LimitExceededException" : error?.name ?? "AuthError")
+  const wrapped = new Error(error?.message ?? name)
+  wrapped.name = name
+  wrapped.code = error?.code
+  return wrapped
+}
+
+/** Runs a Supabase auth call and throws a mapped error when it reports one. */
+async function run(call) {
+  const { data, error } = await call
+  if (error) throw authError(error)
+  return data
 }
 
 export function toSafeAuthMessage(error, fallback = "Something went wrong. Please try again.") {
   const name = error?.name ?? error?.code
 
-  /* Unmapped errors are logged before being flattened into the fallback.
-     Raw provider names must never reach the UI, but they also must not vanish:
-     with a fallback like "your code is invalid or expired", a network failure,
-     a misconfigured pool and a throttle all present as the same sentence, and
-     the learner is told to fix the one thing that is not wrong. The console
-     keeps the truth for whoever has to work out why. */
+  /* Unmapped errors are logged before being flattened into the fallback, so a
+     network failure or a misconfigured project does not silently present as
+     "your code is wrong". */
   if (name && !ERROR_MESSAGES[name]) {
     console.warn(`Unmapped auth error: ${name}`, error?.message ?? error)
   }
@@ -91,136 +77,114 @@ export function toSafeAuthMessage(error, fallback = "Something went wrong. Pleas
 }
 
 /**
- * Registers a learner, or picks up a registration that was abandoned.
+ * Registers a learner. Supabase emails a 6-digit code (the "Confirm signup"
+ * email template must include {{ .Token }}).
  *
- * <p>Cognito creates the account the moment sign-up succeeds, in an UNCONFIRMED
- * state, and it stays there until a code is entered. Someone who closed the tab
- * on the verification screen therefore has an account they cannot use and
- * cannot re-create: signing up again is rejected with "already registered", and
- * signing in is rejected because they are unconfirmed. A dead end reached by
- * doing nothing more unusual than closing a tab.
+ * <p>Signing up again with an address that never confirmed simply sends a new
+ * code, so an abandoned registration is not a dead end. An address that is
+ * already confirmed comes back with no identities -- Supabase's way of not
+ * revealing which emails are registered -- and is reported as taken.
  *
- * <p>So an existing username is not automatically a refusal. Cognito will only
- * resend a sign-up code to an account that is still unconfirmed -- a confirmed
- * one raises instead -- which makes the resend itself the test. If it goes
- * through, this was an abandoned registration and the caller is told to send
- * the learner to verification. If it does not, the email really is taken.
- *
- * @returns {{ status: "SIGNED_UP" | "RESENT_CODE" }}
- *   `RESENT_CODE` means no new account was created: a fresh code was sent to
- *   the one that was already waiting.
+ * @returns {{ status: "SIGNED_UP" }}
  */
 export async function registerAccount({ email, password, firstName, lastName }) {
-  // A lingering session from an earlier/incomplete flow makes Cognito reject a
-  // fresh sign-up; clear it first so registering always works.
-  await signOut().catch(() => {})
+  await supabase.auth.signOut({ scope: "local" }).catch(() => {})
 
-  try {
-    await signUp({
-      username: email,
+  const data = await run(
+    supabase.auth.signUp({
+      email,
       password,
       options: {
-        userAttributes: {
-          email,
+        data: {
           ...(firstName ? { given_name: firstName } : {}),
           ...(lastName ? { family_name: lastName } : {}),
         },
       },
     })
-    return { status: "SIGNED_UP" }
-  } catch (error) {
-    if ((error?.name ?? error?.code) !== "UsernameExistsException") {
-      throw error
-    }
+  )
 
-    /* The password typed just now is deliberately not applied to the waiting
-       account. Cognito offers no way to set it without proving ownership of
-       the address, and anything that did would let a stranger overwrite the
-       credentials of an unconfirmed account by knowing only its email. They
-       verify with the code, then sign in with the password from their first
-       attempt. */
-    await resendSignUpCode({ username: email })
-    return { status: "RESENT_CODE" }
+  if (Array.isArray(data?.user?.identities) && data.user.identities.length === 0) {
+    const taken = new Error("already registered")
+    taken.name = "UsernameExistsException"
+    throw taken
   }
+
+  return { status: "SIGNED_UP" }
 }
 
-export function confirmRegistration(email, code) {
-  return confirmSignUp({ username: email, confirmationCode: code })
+/**
+ * Checks the emailed code. A correct code also signs the learner in; that
+ * session is dropped so the page's "now sign in" step stays true.
+ */
+export async function confirmRegistration(email, code) {
+  await run(supabase.auth.verifyOtp({ email, token: code, type: "email" }))
+  await supabase.auth.signOut({ scope: "local" }).catch(() => {})
 }
 
 export function resendVerificationCode(email) {
-  return resendSignUpCode({ username: email })
+  return run(supabase.auth.resend({ type: "signup", email }))
 }
 
 export async function loginWithCognito(email, password) {
-  try {
-    const result = await signIn({ username: email, password })
-    // Store the sign-in context for handling challenges across page navigation
-    storeSignInContext(result)
-    return result
-  } catch (error) {
-    // A stale/lingering Cognito session blocks a new sign-in with
-    // "There is already a signed in user." Clear it and retry once so the
-    // learner isn't stuck on the login page.
-    if (error?.name === "UserAlreadyAuthenticatedException") {
-      await signOut().catch(() => {})
-      const result = await signIn({ username: email, password })
-      storeSignInContext(result)
-      return result
-    }
-    throw error
-  }
+  if (!email) throw Object.assign(new Error("email"), { name: "EmptySignInUsername" })
+  if (!password) throw Object.assign(new Error("password"), { name: "EmptySignInPassword" })
+
+  await run(supabase.auth.signInWithPassword({ email, password }))
+  // The shape the auth context reads: signed in, no further step.
+  return { isSignedIn: true, nextStep: { signInStep: "DONE" } }
 }
 
 export function logoutFromCognito() {
-  storeSignInContext(null)
-  return signOut()
+  return supabase.auth.signOut({ scope: "local" })
 }
 
 /**
- * Changes the password of the signed-in user.
+ * Changes the signed-in user's password.
  *
- * Cognito owns the credential, so this goes straight to it rather than through
- * our API -- the backend never sees either password and has nothing to store.
- * It requires the current one, which is what makes this safe to expose on a
- * settings page: a borrowed session cannot change the password without it.
+ * Supabase would accept a new password from any live session, so the current
+ * one is checked first by signing in with it. That keeps the settings page as
+ * safe as before: a borrowed session cannot change the password without it.
  */
-export function changePassword(oldPassword, newPassword) {
-  return updatePassword({ oldPassword, newPassword })
+export async function changePassword(oldPassword, newPassword) {
+  const { data } = await supabase.auth.getUser()
+  const email = data?.user?.email
+  if (!email) throw Object.assign(new Error("no session"), { name: "NoSessionException" })
+
+  await run(supabase.auth.signInWithPassword({ email, password: oldPassword }))
+  await run(supabase.auth.updateUser({ password: newPassword }))
 }
 
-/**
- * Signs out everywhere, not just here.
- *
- * `signOut()` clears this browser. The global form revokes every refresh token
- * the user has, which is the one useful thing a learner can do from a settings
- * page about a device they no longer have.
- */
+/** Signs out on every device, not just this browser. */
 export function signOutEverywhere() {
-  storeSignInContext(null)
-  return signOut({ global: true })
+  return supabase.auth.signOut({ scope: "global" })
 }
 
+/** Emails a reset code (the "Reset password" template must include {{ .Token }}). */
 export function requestPasswordReset(email) {
-  return resetPassword({ username: email })
+  return run(supabase.auth.resetPasswordForEmail(email))
 }
 
-export function confirmPasswordReset(email, code, newPassword) {
-  return confirmResetPassword({
-    username: email,
-    confirmationCode: code,
-    newPassword,
-  })
+export async function confirmPasswordReset(email, code, newPassword) {
+  await run(supabase.auth.verifyOtp({ email, token: code, type: "recovery" }))
+  await run(supabase.auth.updateUser({ password: newPassword }))
+  // Signed in by the code; the page sends them to sign in with the new password.
+  await supabase.auth.signOut({ scope: "local" }).catch(() => {})
 }
 
-// Returns the current Cognito access token, or null when signed out.
+// Returns the current access token, refreshed when it has expired, or null.
 export async function getAccessToken() {
   try {
-    const session = await fetchAuthSession()
-    return session?.tokens?.accessToken?.toString() ?? null
+    const { data } = await supabase.auth.getSession()
+    return data?.session?.access_token ?? null
   } catch {
     return null
   }
+}
+
+/** The email of the session opened by an invitation link, or null. */
+export async function currentSessionEmail() {
+  const { data } = await supabase.auth.getSession()
+  return data?.session?.user?.email ?? null
 }
 
 // Backend-confirmed identity: links/provisions the REBYU account for the
@@ -229,39 +193,15 @@ export function syncCurrentUser() {
   return base("auth/me")
 }
 
-// Completes the temporary password challenge from Cognito.
-// This is called after a user signs in with a temporary password and receives
-// a NEW_PASSWORD_REQUIRED challenge. Responds with the new password.
+/**
+ * Sets the first password of an account an admin or organization created.
+ * The invitation link has already signed them in; this gives that account a
+ * password so they can sign in normally afterwards.
+ */
 export async function completeTemporaryPassword(newPassword) {
-  try {
-    // Try to get sign-in context from memory or storage
-    const context = signInContext || getStoredSignInContext()
-    
-    if (!context) {
-      throw new Error("No active sign-in session. Please sign in again.")
-    }
-
-    console.log("Completing temporary password challenge...")
-    console.log("Using sign-in context:", context)
-    
-    // In Amplify v6, when you get NEW_PASSWORD_REQUIRED, you respond by
-    // calling confirmSignIn with the new password as the challengeResponse.
-    // The current auth session context is maintained internally by Amplify.
-    const result = await confirmSignIn({
-      challengeResponse: newPassword,
-    })
-    
-    console.log("confirmSignIn result:", result)
-    console.log("isSignedIn:", result?.isSignedIn)
-    console.log("nextStep:", result?.nextStep)
-    
-    // Clear the stored sign-in context after successful completion
-    storeSignInContext(null)
-    
-    return result
-  } catch (error) {
-    console.error("completeTemporaryPassword failed with error:", error)
-    storeSignInContext(null)
-    throw error
+  const { data } = await supabase.auth.getSession()
+  if (!data?.session) {
+    throw Object.assign(new Error("no session"), { name: "NoSessionException" })
   }
+  return run(supabase.auth.updateUser({ password: newPassword }))
 }

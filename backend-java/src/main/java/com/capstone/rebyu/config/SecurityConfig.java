@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
@@ -231,8 +232,12 @@ public class SecurityConfig {
     }
 
     /**
-     * Decoder bound to the Cognito User Pool: validates the signature against
-     * the pool JWKS, the issuer, expiry, and that the token is an access token.
+     * Decoder bound to the Supabase project: validates the ES256 signature
+     * against the project JWKS, the issuer, expiry, and that the token belongs
+     * to a signed-in user (audience and role "authenticated").
+     *
+     * <p>The notes below were written for Cognito and hold unchanged for
+     * Supabase, which also publishes its keys at {@code {issuer}/.well-known/jwks.json}.
      *
      * <p>Built from the JWKS URI rather than by OIDC discovery. {@code
      * JwtDecoders.fromIssuerLocation} fetches {@code
@@ -261,15 +266,22 @@ public class SecurityConfig {
     ) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder
                 .withJwkSetUri(jwkSetUri(issuerUri))
+                .jwsAlgorithm(SignatureAlgorithm.ES256)
+                // Explicit timeouts: the key set is fetched on the first token,
+                // and a slow first TLS handshake to Supabase otherwise failed
+                // that sign-in outright. Cached by the decoder afterwards.
+                .restOperations(jwksClient())
                 .build();
 
+        // Only a signed-in user's token -- not a project API key, which is also
+        // a JWT the same project can sign.
         OAuth2TokenValidator<Jwt> tokenUseIsAccess = jwt -> {
-            Object tokenUse = jwt.getClaims().get("token_use");
-            if ("access".equals(tokenUse)) {
+            boolean userAudience = jwt.getAudience() != null && jwt.getAudience().contains("authenticated");
+            if (userAudience && "authenticated".equals(jwt.getClaimAsString("role"))) {
                 return OAuth2TokenValidatorResult.success();
             }
             return OAuth2TokenValidatorResult.failure(
-                    new OAuth2Error("invalid_token", "Not a Cognito access token", null));
+                    new OAuth2Error("invalid_token", "Not a signed-in user's access token", null));
         };
 
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
@@ -279,8 +291,16 @@ public class SecurityConfig {
         return decoder;
     }
 
+    private static org.springframework.web.client.RestTemplate jwksClient() {
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory =
+                new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(java.time.Duration.ofSeconds(10));
+        factory.setReadTimeout(java.time.Duration.ofSeconds(15));
+        return new org.springframework.web.client.RestTemplate(factory);
+    }
+
     /**
-     * Where a Cognito User Pool publishes its signing keys.
+     * Where the sign-in provider publishes its signing keys.
      *
      * <p>{@code {issuer}/.well-known/jwks.json} is fixed for every pool -- it
      * is what discovery would have reported. Derived rather than configured so

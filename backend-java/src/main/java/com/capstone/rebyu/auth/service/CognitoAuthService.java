@@ -18,12 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
-import software.amazon.awssdk.services.cognitoidentityprovider.CognitoIdentityProviderClient;
-import software.amazon.awssdk.services.cognitoidentityprovider.model.AttributeType;
-import software.amazon.awssdk.services.cognitoidentityprovider.model.GetUserRequest;
-import software.amazon.awssdk.services.cognitoidentityprovider.model.GetUserResponse;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -67,7 +64,6 @@ public class CognitoAuthService {
     private final LearnerRepository learnerRepository;
     private final com.capstone.rebyu.organization.repository.InstitutionMemberRepository institutionMemberRepository;
     private final InstitutionRepository institutionRepository;
-    private final CognitoIdentityProviderClient cognitoClient;
     private final com.capstone.rebyu.bkt.client.BktClient bktClient;
 
     /**
@@ -142,13 +138,13 @@ public class CognitoAuthService {
             return toDto(existing);
         }
 
-        // First sign-in for this subject: fetch verified attributes from
-        // Cognito itself (never from frontend-supplied fields).
-        Map<String, String> attributes = fetchCognitoAttributes(rawAccessToken);
+        // First sign-in for this subject: attributes come from the verified,
+        // signed token (never from frontend-supplied fields).
+        Map<String, String> attributes = tokenAttributes(jwt);
         String email = attributes.get("email");
         if (email == null || email.isBlank()) {
             throw new IllegalStateException(
-                    "Cognito account has no email attribute; cannot link a REBYU user.");
+                    "This sign-in has no email; cannot link a REBYU user.");
         }
 
         try {
@@ -199,9 +195,12 @@ public class CognitoAuthService {
     private User linkOrProvision(String cognitoSub, String email, Map<String, String> attributes) {
         User byEmail = userRepository.findByEmailIgnoreCase(email).orElse(null);
         if (byEmail != null) {
+            /* A different subject on the same email is an account moving
+               from Cognito to Supabase. Supabase only issues a token once the
+               address is confirmed, so whoever holds this token owns the
+               email, and the account follows it. */
             if (byEmail.getCognitoSub() != null && !byEmail.getCognitoSub().equals(cognitoSub)) {
-                throw new IllegalStateException(
-                        "This email is already linked to a different sign-in identity.");
+                log.info("Relinking userId={} to its new sign-in identity", byEmail.getUserId());
             }
             byEmail.setCognitoSub(cognitoSub);
             return userRepository.save(byEmail);
@@ -217,8 +216,8 @@ public class CognitoAuthService {
         User user = User.builder()
                 .userType(learnerType)
                 .email(email)
-                // Authentication is delegated to Cognito; no local password.
-                .passwordHash("COGNITO")
+                // Authentication is delegated to Supabase; no local password.
+                .passwordHash("SUPABASE")
                 .accountStatus(User.AccountStatus.active)
                 .joinedAt(LocalDateTime.now())
                 .cognitoSub(cognitoSub)
@@ -271,11 +270,32 @@ public class CognitoAuthService {
         }
     }
 
-    private Map<String, String> fetchCognitoAttributes(String rawAccessToken) {
-        GetUserResponse response = cognitoClient.getUser(
-                GetUserRequest.builder().accessToken(rawAccessToken).build());
-        return response.userAttributes().stream()
-                .collect(Collectors.toMap(AttributeType::name, AttributeType::value, (a, b) -> a));
+    /**
+     * Email and names from a Supabase access token. The token's signature is
+     * already checked by the resource server; names were saved as user
+     * metadata at sign-up or invitation.
+     */
+    private Map<String, String> tokenAttributes(Jwt jwt) {
+        Map<String, String> attributes = new HashMap<>();
+        if (Boolean.TRUE.equals(jwt.getClaims().get("is_anonymous"))) {
+            return attributes; // no email: refused by the caller
+        }
+        String email = jwt.getClaimAsString("email");
+        if (email != null && !email.isBlank()) {
+            attributes.put("email", email.trim().toLowerCase(Locale.ROOT));
+        }
+        if (jwt.getClaims().get("user_metadata") instanceof Map<?, ?> metadata) {
+            putName(attributes, "given_name", metadata.get("given_name"), metadata.get("first_name"));
+            putName(attributes, "family_name", metadata.get("family_name"), metadata.get("last_name"));
+        }
+        return attributes;
+    }
+
+    private static void putName(Map<String, String> attributes, String key, Object preferred, Object fallback) {
+        Object value = preferred != null ? preferred : fallback;
+        if (value != null && !value.toString().isBlank()) {
+            attributes.put(key, value.toString().trim());
+        }
     }
 
     private String uniqueUsernameFrom(String email) {

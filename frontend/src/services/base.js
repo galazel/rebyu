@@ -1,5 +1,5 @@
 import axios from "axios"
-import { fetchAuthSession } from "aws-amplify/auth"
+import { supabase } from "@/lib/supabase.js"
 
 // In development, Vite forwards /api to the local backend. In deployed builds,
 // use the public API URL supplied by the host (for example, Railway).
@@ -32,13 +32,13 @@ if (
   )
 }
 
-// Attaches the Cognito access token when a session exists. Exported because
+// Attaches the Supabase access token when a session exists. Exported because
 // the SSE notification stream needs the same bearer token but is opened with
 // fetch (not axios), so it can't go through base() below.
 export async function currentAccessToken() {
   try {
-    const session = await fetchAuthSession()
-    return session?.tokens?.accessToken?.toString() ?? null
+    const { data } = await supabase.auth.getSession()
+    return data?.session?.access_token ?? null
   } catch {
     return null
   }

@@ -9,10 +9,12 @@ spring:
     password: ${RABBITMQ_PASSWORD:guest}
 
   mail:
-    host: smtp.gmail.com
-    port: 587
-    username: testprojectcode8080@gmail.com
-    password: ${GOOGLE_APP_PASS}
+    # Resend's SMTP relay: the username is literally "resend", the password
+    # is a Resend API key, and the sender must be on a domain verified in Resend.
+    host: ${MAIL_HOST:smtp.resend.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:resend}
+    password: ${RESEND_API_KEY:}
     properties:
       mail:
         smtp:
@@ -27,7 +29,8 @@ spring:
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: RebyuHikariPool
-      maximum-pool-size: 8
+      # Supabase's free pooler allows ~15 connections across every service.
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE:8}
       minimum-idle: 2
       connection-timeout: 10000
       idle-timeout: 600000
@@ -113,19 +116,22 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${COGNITO_ISSUER_URI:https://cognito-idp.us-east-1.amazonaws.com/us-east-1_YhXCAZ9HF}
+          issuer-uri: ${SUPABASE_URL:https://nmjowdjsdlquhozlhpmx.supabase.co}/auth/v1
 
 app:
   response-cache:
     enabled: ${RESPONSE_CACHE_ENABLED:true}
     ttl-seconds: ${RESPONSE_CACHE_TTL_SECONDS:30}
     failure-cooldown-seconds: ${RESPONSE_CACHE_FAILURE_COOLDOWN_SECONDS:30}
-  cognito:
-    region: ${COGNITO_REGION:us-east-1}
-    user-pool-id: ${COGNITO_USER_POOL_ID:us-east-1_YhXCAZ9HF}
+  # Sign-in. The secret key is only ever read here, on the backend.
+  supabase:
+    url: ${SUPABASE_URL:https://nmjowdjsdlquhozlhpmx.supabase.co}
+    secret-key: ${SUPABASE_SECRET_KEY:}
+    # Where invitation links send people to create their password.
+    site-url: ${SITE_URL:https://rebyu.online}
   frontend-url: http://localhost:5173
   mail:
-    from: testprojectcode8080@gmail.com
+    from: ${MAIL_FROM:REBYU <no-reply@rebyu.online>}
 
 server:
   port: 8080
@@ -182,10 +188,9 @@ management:
       show-details: when-authorized
 
 aws:
-  # Real AWS keys. Cognito's admin client signs with these, so they must stay
-  # AWS credentials even when file storage lives somewhere else.
-  access-key: ${AWS_ACCESS_KEY_ID}
-  secret-key: ${AWS_SECRET_ACCESS_KEY}
+  # Only a fallback for the storage keys now that sign-in is on Supabase.
+  access-key: ${AWS_ACCESS_KEY_ID:}
+  secret-key: ${AWS_SECRET_ACCESS_KEY:}
   s3:
     # Any S3-compatible store. Leave S3_ENDPOINT empty for AWS S3. For
     # Cloudflare R2: S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com,
