@@ -1745,7 +1745,11 @@ export default function LearnerCertificationCurriculumPage() {
              width rather than being pinned into a narrow left lane beside
              nothing. */
           <NarrowRoadContext.Provider value={narrowRoad}>
-          <StaggerList className="space-y-6" stagger={0.09}>
+          {/* amount={0}: the road is one element as tall as the whole
+              certification. At the default "10% in view" a phone screen can
+              never show a tenth of a road thousands of pixels tall, so it never
+              counted as in view and the page stayed blank under the header. */}
+          <StaggerList className="space-y-6" stagger={0.09} amount={0}>
             {/* The road. Every unit contributes a caption and a stretch of
                 nodes, and the whole certification reads as one continuous
                 scroll from the first topic to the final -- which is the point:

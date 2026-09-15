@@ -60,6 +60,16 @@ export function FolderShelf({ items, hint = "click to open" }) {
       if (prefersReduced()) tl.progress(1)
       else tl.play()
 
+      /* The spread starts at opacity 0 and only the timeline brings it in. GSAP
+         advances on animation frames, and a browser that stops handing those
+         out (an embedded preview, a tab that was in the background) left the
+         folder marked open with nothing visible under it. If the opening has
+         not moved after a beat, show the finished spread outright. */
+      const safety = window.setTimeout(() => {
+        if (timeline.current === tl && tl.progress() < 0.05 && !tl.reversed()) tl.progress(1)
+      }, 1200)
+      return () => window.clearTimeout(safety)
+
       scope.current
         ?.querySelector(".rb-spread")
         ?.scrollIntoView({ behavior: prefersReduced() ? "auto" : "smooth", block: "nearest" })

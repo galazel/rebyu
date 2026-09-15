@@ -16,7 +16,7 @@ export default function BlueprintArenaPage() {
       arenaId="blueprint"
       name="Blueprint Arena"
       icon={Network}
-      tone={{ face: "bg-rb-beetle" }}
+      tone={{ face: "bg-rb-macaw" }}
       blurb="UML and system design problems on a canvas, checked against structural rules."
     />
   )

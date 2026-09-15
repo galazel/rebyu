@@ -21,7 +21,7 @@ export default function CodeStrikePage() {
       arenaId="codestrike"
       name="CodeStrike"
       icon={Code2}
-      tone={{ face: "bg-rb-macaw" }}
+      tone={{ face: "bg-rb-feather" }}
       blurb="Coding problems back to back, judged against real unit tests."
     />
   )
