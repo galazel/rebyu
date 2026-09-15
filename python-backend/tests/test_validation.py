@@ -121,18 +121,70 @@ def test_programming_requires_more_than_one_test_case():
         )
 
 
-def test_programming_accepts_a_covered_task():
-    q = QuestionDraft(
+def _coding(**overrides):
+    fields = dict(
         question_type="PROGRAMMING",
-        question="Reverse a string.",
+        question="Implement reverse_text(text), which returns the text reversed.",
+        function_name="reverse_text",
+        rules="reverse_text(text) returns a new string with the characters in reverse order; '' gives ''.",
+        reference_solution="def reverse_text(text):\n    return text[::-1]\n",
         test_cases=[
-            ProgrammingTestCase(input_data="ab", expected_output="ba"),
-            ProgrammingTestCase(input_data="", expected_output=""),
-            ProgrammingTestCase(input_data="a", expected_output="a"),
+            ProgrammingTestCase(input_data="reverse_text('ab')", expected_output="ba"),
+            ProgrammingTestCase(input_data="reverse_text('')", expected_output=""),
+            ProgrammingTestCase(input_data="reverse_text('a')", expected_output="a"),
         ],
         explanation="Reversing walks the string from the end to the start.",
     )
+    fields.update(overrides)
+    return QuestionDraft(**fields)
+
+
+def test_programming_accepts_a_covered_task():
+    q = _coding()
     assert q.test_cases[0].expected_output == "ba"
+    assert q.function_name == "reverse_text"
+
+
+def test_programming_requires_a_reference_solution():
+    """Expected outputs are computed by running it, so without one nothing can be verified."""
+    with pytest.raises(ValidationError, match="reference_solution"):
+        _coding(reference_solution="")
+
+
+def test_programming_requires_the_rules_the_tests_depend_on():
+    with pytest.raises(ValidationError, match="rules"):
+        _coding(rules="")
+
+
+def test_programming_rejects_a_test_described_in_prose():
+    """A prose test ("repo_url=invalid_url => Clone step fails") can never be run."""
+    with pytest.raises(ValidationError, match="must be Python code that calls reverse_text"):
+        _coding(test_cases=[
+            ProgrammingTestCase(input_data="reverse_text('ab')", expected_output="ba"),
+            ProgrammingTestCase(input_data="an empty string gives an empty string", expected_output=""),
+            ProgrammingTestCase(input_data="reverse_text('a')", expected_output="a"),
+        ])
+
+
+def test_programming_rejects_tests_that_never_call_the_named_function():
+    with pytest.raises(ValidationError, match="calls reverse_text"):
+        _coding(test_cases=[
+            ProgrammingTestCase(input_data="[1, 2, 3]", expected_output="[3, 2, 1]"),
+            ProgrammingTestCase(input_data="reverse_text('')", expected_output=""),
+            ProgrammingTestCase(input_data="reverse_text('a')", expected_output="a"),
+        ])
+
+
+def test_short_answer_alternatives_are_normalised_like_the_grader_compares():
+    """Lower-cased, whitespace collapsed, no repeat of the key, no duplicates."""
+    q = QuestionDraft(
+        question_type="SHORT_ANSWER",
+        question="Which access control model grants permissions by job role?",
+        correct_answer="Role-Based Access Control",
+        accepted_variations=["RBAC", "rbac", "  role-based   access control ", "Role based access control"],
+        explanation="Role-based access control attaches permissions to roles, not to people.",
+    )
+    assert q.accepted_variations == ["rbac", "role based access control"]
 
 
 def test_diagram_requires_type_and_instructions():

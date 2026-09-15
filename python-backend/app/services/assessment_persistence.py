@@ -102,8 +102,15 @@ def _persist_one_question(session: Session, question: dict[str, Any]) -> int:
 
     elif question_type in ("SHORT_ANSWER", "DESCRIPTIVE"):
         answer = question.get("correct_answer") or question.get("rubric_answer") or ""
+        # Other correct wordings of a short answer, one per line -- the format the
+        # Java grader's matchesTextAnswer reads.
+        variations = (
+            "\n".join(question.get("accepted_variations") or [])
+            if question_type == "SHORT_ANSWER" else ""
+        )
         repo.insert_text_config(
-            session, question_id, answer, checking_method_for(question_type)
+            session, question_id, answer, checking_method_for(question_type),
+            accepted_variations=variations or None,
         )
 
     elif question_type == "PROGRAMMING":

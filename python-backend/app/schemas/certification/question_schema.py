@@ -1,3 +1,4 @@
+import ast
 import logging
 import re
 from typing import List, Literal, Optional
@@ -272,7 +273,25 @@ SHORT_ANSWER_MAX_WORDS = 6
 
 class ProgrammingTestCase(BaseModel):
     input_data: str
-    expected_output: str
+    #: Written by the model, but never trusted: generation replaces it with what
+    #: the reference solution prints for `input_data` under the real grader.
+    expected_output: str = ""
+
+
+def _calls(code: str, name: str) -> bool:
+    """Whether `code` parses as Python and calls `name` somewhere."""
+    try:
+        tree = ast.parse((code or "").strip())
+    except SyntaxError:
+        return False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Name) and func.id == name:
+                return True
+            if isinstance(func, ast.Attribute) and func.attr == name:
+                return True
+    return False
 
 
 class SubQuestionDraft(BaseModel):
@@ -349,6 +368,13 @@ class QuestionDraft(BaseModel):
 
     # SHORT_ANSWER
     correct_answer: Optional[str] = None
+    #: Other spellings of the SAME answer: acronym and full name ("RBAC" /
+    #: "Role-Based Access Control"), synonyms ("help desk" / "service desk"),
+    #: with and without a hyphen, singular and plural. Stored as the question's
+    #: accepted variations, so a learner who knows the answer is not marked
+    #: wrong for choosing a different correct wording. Case and surrounding
+    #: spaces are already ignored by the grader, so those never need listing.
+    accepted_variations: List[str] = Field(default_factory=list)
 
     # DESCRIPTIVE
     rubric_answer: Optional[str] = None
@@ -356,6 +382,17 @@ class QuestionDraft(BaseModel):
     # PROGRAMMING
     starter_code: Optional[str] = None
     test_cases: List[ProgrammingTestCase] = Field(default_factory=list)
+    #: The Python function (or class) the learner implements. Every test input
+    #: must call it.
+    function_name: Optional[str] = None
+    #: Every exact rule the tests depend on: the signature, return formats, exact
+    #: messages, rounding, ordering. Appended to the question as "Rules for this
+    #: question", so a learner is told everything the tests check.
+    rules: Optional[str] = None
+    #: A correct Python solution, never shown to learners. Generation runs it on
+    #: Judge0 through the grader's harness and stores what it prints as each
+    #: test's expected output -- see `app.ai.programming_verification`.
+    reference_solution: Optional[str] = None
 
     # DIAGRAM
     diagram_type: Optional[str] = None
@@ -440,6 +477,7 @@ class QuestionDraft(BaseModel):
         )
 
         self.question_type = "DESCRIPTIVE"
+        self.accepted_variations = []
         # The intended answer becomes the grading rubric; nothing is discarded.
         if not (self.rubric_answer or "").strip():
             self.rubric_answer = (self.correct_answer or "").strip() or (
@@ -472,6 +510,15 @@ class QuestionDraft(BaseModel):
         elif self.question_type == "SHORT_ANSWER":
             if not (self.correct_answer or "").strip():
                 raise ValueError("SHORT_ANSWER must set correct_answer")
+            # Normalised the way the grader compares (trimmed, lower-cased,
+            # inner whitespace collapsed), without repeats of the key itself.
+            key = " ".join(self.correct_answer.split()).lower()
+            cleaned: list[str] = []
+            for variation in self.accepted_variations:
+                text = " ".join(str(variation or "").split()).lower()
+                if text and text != key and text not in cleaned:
+                    cleaned.append(text)
+            self.accepted_variations = cleaned
 
         elif self.question_type == "DESCRIPTIVE":
             if not (self.rubric_answer or "").strip():
@@ -487,6 +534,36 @@ class QuestionDraft(BaseModel):
                     f"PROGRAMMING must include at least {MIN_PROGRAMMING_TEST_CASES} "
                     f"test cases covering the ordinary case and its edges"
                 )
+            name = (self.function_name or "").strip()
+            if not name.isidentifier():
+                raise ValueError(
+                    "PROGRAMMING must set function_name to the Python function or class "
+                    "the learner implements"
+                )
+            if not (self.rules or "").strip():
+                raise ValueError(
+                    "PROGRAMMING must set rules: the signature and every exact return "
+                    "format, message, rounding and ordering the tests depend on"
+                )
+            if name not in f"{self.question} {self.rules}":
+                raise ValueError(f"the question or its rules must name {name}")
+            solution = (self.reference_solution or "").strip()
+            if not solution:
+                raise ValueError(
+                    "PROGRAMMING must include reference_solution: a correct Python "
+                    "solution the tests are run against"
+                )
+            try:
+                ast.parse(solution)
+            except SyntaxError as error:
+                raise ValueError(f"reference_solution is not valid Python: {error}") from error
+            for index, case in enumerate(self.test_cases, 1):
+                if not _calls(case.input_data, name):
+                    raise ValueError(
+                        f"test case {index} must be Python code that calls {name}(...), "
+                        "such as a single call or a few statements ending in one; "
+                        "prose descriptions and bare data cannot be run"
+                    )
 
         elif self.question_type == "DIAGRAM":
             if not (self.diagram_type or "").strip():

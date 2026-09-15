@@ -374,13 +374,18 @@ def insert_choice(
 
 
 def insert_text_config(
-    session: Session, question_id: int, correct_answer: str, checking_method: str
+    session: Session,
+    question_id: int,
+    correct_answer: str,
+    checking_method: str,
+    accepted_variations: str | None = None,
 ) -> None:
     session.execute(
         insert(text_question_configs).values(
             question_id=question_id,
             correct_answer=correct_answer,
             checking_method=checking_method,
+            accepted_variations=accepted_variations,
         )
     )
 

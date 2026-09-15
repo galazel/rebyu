@@ -180,6 +180,22 @@ class Settings(BaseSettings):
     #: those off mid-diagram, and a truncated mxGraph document does not parse,
     #: so the whole reference was discarded.
     ai_diagram_max_tokens: int = 10000
+
+    # --- Judge0 (running generated reference solutions) ----------------------
+    # Generation runs each coding question's reference solution on Judge0,
+    # through the same harness the Java grader uses, and stores what it prints
+    # as the tests' expected outputs -- see `app.ai.programming_verification`.
+    # Defaults to the free public Judge0 CE instance, which is also what the
+    # Java backend grades against. Generated code never runs in this process.
+    judge0_enabled: bool = True
+    judge0_base_url: str = "https://ce.judge0.com"
+    judge0_api_key: str = ""
+    judge0_api_key_header: str = "X-RapidAPI-Key"
+    judge0_timeout_seconds: float = 40.0
+    #: Parallel submissions per question. The public instance rate-limits.
+    judge0_concurrency: int = 3
+    judge0_cpu_time_limit_seconds: float = 5.0
+    judge0_memory_limit_kb: int = 128000
     ai_diagram_temperature: float = 0.2
 
     ai_question_provider: str = "openrouter"

@@ -28,6 +28,7 @@ from app.agents.certification.diagram_reference_agent import (
     get_diagram_reference_agent,
 )
 from app.agents.certification.question_agent import get_question_generation_agent
+from app.ai.programming_verification import verify_programming_questions
 from app.ai import guardrails, tasks
 from app.ai.json_output import extract_json_object, final_message_text
 from app.ai.prompts.question import build_question_batch_prompt
@@ -403,6 +404,7 @@ async def invoke_question_agent(
             )
         final = kept if count is None else kept[:count]
         await fill_diagram_references(final)
+        final = await verify_programming_questions(final)
         return QuestionBatch(scope=scope, questions=final)
 
     batches = math.ceil(count / size)
@@ -460,6 +462,7 @@ async def invoke_question_agent(
 
     final = questions[:count]
     await fill_diagram_references(final)
+    final = await verify_programming_questions(final)
     return QuestionBatch(scope=scope, questions=final)
 
 

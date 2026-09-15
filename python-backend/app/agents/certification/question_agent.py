@@ -168,8 +168,21 @@ smaller artifacts, not easier thinking.
 
   Case is not significant: the learner's answer is compared lower-cased and
   trimmed, so "3nf", "3NF" and " 3NF " all mark correct. Do not add
-  capitalisation or whitespace variants to accepted_variations -- use those
-  only for genuinely different wordings ("SQL" / "Structured Query Language").
+  capitalisation or whitespace variants to accepted_variations.
+
+  ALWAYS fill accepted_variations with every other way of writing the SAME
+  answer, because the learner is marked by exact match against the key and
+  these alternatives only: the acronym and the full name ("RBAC" /
+  "role-based access control"), established synonyms ("help desk" /
+  "service desk", "e-commerce" / "electronic commerce"), with and without a
+  hyphen ("plan do check act"), singular and plural, and a leading article.
+  Never list an answer that means something different, and never a vaguer
+  answer. If there is truly no other wording (a number like "443"), leave it
+  empty.
+
+  The key must be the precise answer, not the topic the question is about: for
+  "Which design principle makes future changes less risky through clear
+  structure?" the answer is "Modularity", never "Design principles".
 
 - DESCRIPTIVE is the type for open-ended questions -- explanation, reasoning,
   analysis, judgement. It is graded on meaning, not exact text, so this is
@@ -187,6 +200,31 @@ smaller artifacts, not easier thinking.
   describe (empty input, boundary values, duplicates, invalid input) rather
   than three variations of the same easy case. Difficulty is normally
   AVERAGE or HARD, and estimated_seconds should reflect the real work.
+
+  Every PROGRAMMING item is PYTHON and is graded automatically, so it must be
+  fully specified and runnable:
+
+    * function_name -- the one Python function (or class) the learner writes.
+      The question must name it.
+    * rules -- one paragraph stating the signature and EVERY exact thing the
+      tests check: return types and formats, exact message strings, rounding,
+      ordering and tie-breaking, what to return for empty or invalid input. If a
+      test expects "Error: Invalid amount", the rules say so word for word. The
+      learner is shown these rules; nothing a test checks may be left unstated.
+    * reference_solution -- a complete, correct Python solution that follows the
+      rules exactly. It is never shown to learners.
+    * test_cases -- each input_data is Python code that calls function_name: a
+      single call such as `process_payment(-50, {'number': '4111', 'cvv': '123'})`,
+      or a few statements ending in a call or a print. Use plain dicts, lists
+      and tuples for data; never rely on a class the question does not define,
+      never on files the question does not create, and never describe a test in
+      prose. Put anything with a variable order (sets, dict built from a set)
+      behind sorted(...) in the rules.
+    * expected_output -- write your best value, but it is REPLACED: generation
+      runs reference_solution on the real grader and stores what it prints
+      (the printed value of the final expression, as the Python prompt shows
+      it). A test whose reference run fails is discarded, so make every test
+      pass on your own solution.
 
   CODE AT PROFESSIONAL SCALE, for the same reason DIAGRAM items must model at
   it. FizzBuzz, reversing a string, summing an array, checking a palindrome
