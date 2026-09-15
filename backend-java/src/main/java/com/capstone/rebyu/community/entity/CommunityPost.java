@@ -57,6 +57,15 @@ public class CommunityPost {
     @Column(name = "attachment_size")
     private Long attachmentSize;
 
+    /**
+     * Every file of a post that shares more than one (several images), as a JSON
+     * array of {name, key, size}. The single attachment_* columns above still hold
+     * the first file, so a post with one file -- every post before this column --
+     * reads exactly as it always did. Null when the post has at most one file.
+     */
+    @Column(name = "attachments_json", columnDefinition = "TEXT")
+    private String attachmentsJson;
+
     /** Set when this post shares a generated quiz/flashcard set (V29). */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shared_library_item_id")

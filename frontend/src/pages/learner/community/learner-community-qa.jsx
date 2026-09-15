@@ -161,6 +161,9 @@ function attachmentTone(type) {
 /** What a reviewer can be shared as. The reader previews every one of these. */
 const REVIEWER_ACCEPT = ".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp"
 
+/** Images can be shared several at a time, up to this many in one post (the API's limit too). */
+const MAX_REVIEWER_IMAGES = 10
+
 /** The attachment's kind, from its extension: PDF, DOCX (Word), TXT or IMAGE. */
 function reviewerAttachmentKind(name) {
     const extension = String(name ?? "").toLowerCase().split(".").pop()
@@ -485,7 +488,7 @@ function CommunityPost({
                     <PayloadTile
                         icon={post.attachment.type === "DOCX" ? FileArchive : FileText}
                         tone={attachmentTone(post.attachment.type)}
-                        name={post.attachment.name}
+                        name={post.attachment.files ? `${post.attachment.files.length} images` : post.attachment.name}
                         meta={post.attachment.key
                             ? [post.attachment.type, fileSize, "shared reviewer"].filter(Boolean).join(" · ")
                             : "No file attached"}
@@ -862,8 +865,12 @@ export default function Community() {
         const attachment = post?.attachment
         if (!attachment?.key) return
         countView(post.postId)
-        const params = new URLSearchParams({ key: attachment.key })
-        if (attachment.name) params.set("name", attachment.name)
+        const params = new URLSearchParams()
+        // A set of images repeats key and name once per file, in order.
+        for (const file of attachment.files ?? [{ key: attachment.key, name: attachment.name }]) {
+            params.append("key", file.key)
+            params.append("name", file.name ?? "")
+        }
         if (post.attachmentSize) params.set("size", String(post.attachmentSize))
         if (post.authorName) params.set("by", post.authorName)
         if (post.community) params.set("circle", post.community)
@@ -950,14 +957,48 @@ export default function Community() {
         }
     }
 
+    /**
+     * One PDF, Word or text file -- or several images, which are shared together
+     * and read as the pages of one post. Choosing more images adds to the ones
+     * already attached; choosing any other file replaces them.
+     */
     async function handleAttachmentSelected(event) {
-        const file = event.target.files?.[0]
-        if (!file) return
+        const chosen = Array.from(event.target.files ?? [])
+        if (chosen.length === 0) return
+        const clearInput = () => {
+            if (fileInputRef.current) fileInputRef.current.value = ""
+        }
+
+        const allImages = chosen.every((file) => reviewerAttachmentKind(file.name) === "IMAGE")
+        if (chosen.length > 1 && !allImages) {
+            toast.error("Choose several images, or a single PDF, Word or text file.")
+            clearInput()
+            return
+        }
+        const kept = allImages && reviewerAttachmentKind(attachedFile?.name) === "IMAGE"
+            ? attachedFile.files ?? [{ name: attachedFile.name, key: attachedFile.key, size: attachedFile.size }]
+            : []
+        if (kept.length + chosen.length > MAX_REVIEWER_IMAGES) {
+            toast.error(`Share up to ${MAX_REVIEWER_IMAGES} images in one post.`)
+            clearInput()
+            return
+        }
 
         setIsUploadingAttachment(true)
         try {
-            const { attachmentKey, attachmentSize } = await uploadCommunityAttachment(file)
-            setAttachedFile({ name: file.name, key: attachmentKey, size: attachmentSize ?? file.size })
+            const uploaded = await Promise.all(
+                chosen.map(async (file) => {
+                    const { attachmentKey, attachmentSize } = await uploadCommunityAttachment(file)
+                    return { name: file.name, key: attachmentKey, size: attachmentSize ?? file.size }
+                })
+            )
+            const files = [...kept, ...uploaded]
+            setAttachedFile({
+                name: files[0].name,
+                key: files[0].key,
+                size: files.reduce((total, file) => total + (Number(file.size) || 0), 0),
+                files,
+            })
         } catch (error) {
             toast.error(apiMessage(error, "The file could not be uploaded."))
         } finally {
@@ -1020,6 +1061,7 @@ export default function Community() {
                 attachmentType: shareType === "reviewer" ? attachmentKind : null,
                 attachmentKey: attachedFile?.key ?? null,
                 attachmentSize: attachedFile?.size ?? null,
+                attachments: attachedFile?.files?.length > 1 ? attachedFile.files : null,
             })
 
             setPosts((current) => [nextPost, ...current])
@@ -1401,10 +1443,14 @@ export default function Community() {
 
                                 {shareType === "reviewer" ? (
                                     <div>
-                                        <input ref={fileInputRef} type="file" accept={REVIEWER_ACCEPT} className="hidden" onChange={handleAttachmentSelected} />
+                                        <input ref={fileInputRef} type="file" accept={REVIEWER_ACCEPT} multiple className="hidden" onChange={handleAttachmentSelected} />
                                         <button type="button" disabled={isUploadingAttachment} onClick={() => fileInputRef.current?.click()} className="flex w-full items-center gap-3 rounded-rb-tile border-2 border-dashed border-border px-4 py-3 text-left hover:border-rb-macaw disabled:opacity-60">
                                             {isUploadingAttachment ? <Loader2 className="size-5 animate-spin text-muted-foreground" /> : <FileText className="size-5 text-primary" />}
-                                            <span className="min-w-0 flex-1 truncate text-sm">{attachedFile?.name ?? "Add a PDF, Word, text or image file"}</span>
+                                            <span className="min-w-0 flex-1 truncate text-sm">
+                                                {attachedFile?.files?.length > 1
+                                                    ? `${attachedFile.files.length} images — add more, up to ${MAX_REVIEWER_IMAGES}`
+                                                    : attachedFile?.name ?? "Add a PDF, Word or text file, or several images"}
+                                            </span>
                                             {attachedFile ? <span className="shrink-0 text-xs font-medium text-primary">{formatBytes(attachedFile.size) ?? "Change"}</span> : null}
                                         </button>
                                     </div>

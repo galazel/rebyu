@@ -23,6 +23,9 @@ import com.capstone.rebyu.learningtools.entity.LearnerLibraryItem;
 import com.capstone.rebyu.learningtools.repository.LearnerLibraryItemRepository;
 import com.capstone.rebyu.user.entity.Learner;
 import com.capstone.rebyu.user.repository.LearnerRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -64,9 +67,23 @@ public class CommunityService {
     private final LearnerRepository learnerRepository;
     private final S3StorageService s3StorageService;
 
+    /** Most files one post can carry (a set of images shared together). */
+    static final int MAX_ATTACHMENTS = 10;
+
+    private static final ObjectMapper JSON = new ObjectMapper();
+
+    /** One uploaded file of a post: its original name, storage key and byte size. */
+    public record Attachment(String name, String key, Long size) {}
+
+    /**
+     * {@code attachments} lists every file when a post shares several (images);
+     * the single attachment fields still describe the first, and are all a post
+     * with one file sends.
+     */
     public record PostRequest(
             String postType, String title, String description, Long circleId,
-            String attachmentName, String attachmentType, String attachmentKey, Long attachmentSize) {}
+            String attachmentName, String attachmentType, String attachmentKey, Long attachmentSize,
+            List<Attachment> attachments) {}
 
     public record CircleRequest(String name, String description, String topic) {}
 
@@ -81,6 +98,7 @@ public class CommunityService {
             Long postId, String authorName, String initials, String community, OffsetDateTime createdAt,
             String title, String description, String postType, Long circleId,
             String attachmentName, String attachmentType, String attachmentKey, Long attachmentSize,
+            List<Attachment> attachments,
             long reactions, long comments, long saves, long views,
             boolean liked, boolean saved, boolean ownedByMe) {}
 
@@ -139,6 +157,13 @@ public class CommunityService {
         if (request.circleId() != null) {
             requireCircleMember(learnerId, request.circleId());
         }
+        List<Attachment> files = request.attachments() == null ? List.of()
+                : request.attachments().stream()
+                        .filter(file -> file != null && file.key() != null && !file.key().isBlank())
+                        .toList();
+        if (files.size() > MAX_ATTACHMENTS) {
+            throw new IllegalArgumentException("Share up to " + MAX_ATTACHMENTS + " files in one post");
+        }
 
         CommunityCircle circle = request.circleId() == null ? null : circleRef(request.circleId());
         CommunityPost post = CommunityPost.builder()
@@ -151,6 +176,7 @@ public class CommunityService {
                 .attachmentType(blankToNull(request.attachmentType()))
                 .attachmentKey(blankToNull(request.attachmentKey()))
                 .attachmentSize(request.attachmentSize())
+                .attachmentsJson(files.size() > 1 ? writeAttachments(files) : null)
                 .build();
         CommunityPost saved = postRepository.save(post);
         return postById(learnerId, saved.getPostId());
@@ -574,9 +600,30 @@ public class CommunityService {
                 row.getCreatedAt() == null ? null : row.getCreatedAt().atOffset(ZoneOffset.UTC),
                 row.getTitle(), row.getBody(), row.getPostType(), row.getCircleId(),
                 row.getAttachmentName(), row.getAttachmentType(), row.getAttachmentKey(), row.getAttachmentSize(),
+                readAttachments(row.getAttachmentsJson()),
                 row.getReactions(),
                 row.getComments(), row.getSaves(), row.getViews(),
                 row.getLiked(), row.getSaved(), row.getOwnedByMe());
+    }
+
+    static String writeAttachments(List<Attachment> files) {
+        try {
+            return JSON.writeValueAsString(files);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("The attachments could not be saved", e);
+        }
+    }
+
+    /** The post's file list, or empty for a post with at most one file. */
+    static List<Attachment> readAttachments(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            return JSON.readValue(json, new TypeReference<List<Attachment>>() {});
+        } catch (JsonProcessingException e) {
+            return List.of();
+        }
     }
 
     private static Circle mapCircleRow(CommunityCircleRow row) {

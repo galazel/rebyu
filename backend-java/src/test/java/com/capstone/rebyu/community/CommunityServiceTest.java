@@ -8,6 +8,7 @@ import com.capstone.rebyu.community.repository.CommunityCommentRepository;
 import com.capstone.rebyu.community.repository.CommunityPostLikeRepository;
 import com.capstone.rebyu.community.repository.CommunityPostReportRepository;
 import com.capstone.rebyu.community.repository.CommunityPostRepository;
+import com.capstone.rebyu.community.repository.CommunityPostRow;
 import com.capstone.rebyu.community.repository.CommunityPostViewRepository;
 import com.capstone.rebyu.community.repository.CommunitySavedPostRepository;
 import com.capstone.rebyu.community.repository.LearnerCommunityNotificationRepository;
@@ -19,6 +20,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -99,6 +101,72 @@ class CommunityServiceTest {
 
     private CommunityPost visiblePost() {
         return sharedQuizPost("VISIBLE");
+    }
+
+    // ---- createPost: several images in one post ----
+
+    private static CommunityService.PostRequest reviewerRequest(List<CommunityService.Attachment> files) {
+        CommunityService.Attachment first = files.isEmpty() ? null : files.get(0);
+        return new CommunityService.PostRequest("notes", "Diagrams", "Three pages of notes", null,
+                first == null ? null : first.name(), "IMAGE", first == null ? null : first.key(),
+                first == null ? null : first.size(), files);
+    }
+
+    private static List<CommunityService.Attachment> images(int count) {
+        return java.util.stream.IntStream.rangeClosed(1, count)
+                .mapToObj(i -> new CommunityService.Attachment(
+                        "page-" + i + ".png", "community-attachments/page-" + i + ".png", 1000L * i))
+                .toList();
+    }
+
+    /** The feed row the post is read back through, carrying whatever file list was saved. */
+    private void stubReadBack(String attachmentsJson) {
+        CommunityPostRow row = mock(CommunityPostRow.class);
+        when(row.getPostType()).thenReturn("notes");
+        when(row.getAttachmentsJson()).thenReturn(attachmentsJson);
+        when(postRepository.findRowById(any(), any())).thenReturn(Optional.of(row));
+        when(postRepository.findById(any())).thenReturn(Optional.of(visiblePost()));
+    }
+
+    @Test
+    void createPost_withSeveralImages_storesAndReturnsEveryFile() {
+        List<CommunityService.Attachment> files = images(3);
+        stubReadBack(CommunityService.writeAttachments(files));
+
+        CommunityService.Post created = service.createPost(LEARNER_ID, reviewerRequest(files));
+
+        verify(postRepository).save(argThat(post -> post.getAttachmentsJson() != null
+                && post.getAttachmentsJson().contains("community-attachments/page-1.png")
+                && post.getAttachmentsJson().contains("community-attachments/page-3.png")
+                && "community-attachments/page-1.png".equals(post.getAttachmentKey())));
+        assertEquals(files, created.attachments());
+    }
+
+    @Test
+    void createPost_withOneFile_storesNoFileList() {
+        stubReadBack(null);
+
+        CommunityService.Post created = service.createPost(LEARNER_ID, reviewerRequest(images(1)));
+
+        verify(postRepository).save(argThat(post -> post.getAttachmentsJson() == null
+                && "community-attachments/page-1.png".equals(post.getAttachmentKey())));
+        assertTrue(created.attachments().isEmpty());
+    }
+
+    @Test
+    void createPost_withMoreFilesThanTheLimit_isRefused() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createPost(LEARNER_ID, reviewerRequest(images(CommunityService.MAX_ATTACHMENTS + 1))));
+        verify(postRepository, never()).save(any(CommunityPost.class));
+    }
+
+    @Test
+    void attachmentList_survivesTheJsonColumn() {
+        List<CommunityService.Attachment> files = images(2);
+
+        assertEquals(files, CommunityService.readAttachments(CommunityService.writeAttachments(files)));
+        assertTrue(CommunityService.readAttachments(null).isEmpty());
+        assertTrue(CommunityService.readAttachments("not json").isEmpty());
     }
 
     // ---- hidePost ----

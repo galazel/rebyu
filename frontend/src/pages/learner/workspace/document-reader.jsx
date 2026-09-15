@@ -113,7 +113,11 @@ function usePdfDocument(file, enabled) {
         import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
       ])
       if (cancelled) throw new Error("cancelled")
-      pdfjs.GlobalWorkerOptions.workerSrc = worker.default
+      // The query string is a new cache key. The worker's filename did not
+      // change when nginx started serving .mjs as JavaScript, so a browser that
+      // had it cached as application/octet-stream kept revalidating that copy
+      // (a 304 keeps the stored Content-Type) and refused to run it.
+      pdfjs.GlobalWorkerOptions.workerSrc = `${worker.default}?type=module-js`
 
       const common = { useSystemFonts: true, isEvalSupported: false }
       let doc
@@ -298,7 +302,14 @@ export function DocumentReader({ file, onReplace, onRemove, back }) {
   const isPdf = extension === ".pdf"
   const isText = extension === ".txt"
   const isWord = extension === ".docx" || extension === ".doc"
-  const isImage = IMAGE_EXTENSIONS.includes(extension)
+  // A set of images (file.images) reads as one page per image; a single image
+  // file is a set of one.
+  const images = file.images?.length
+    ? file.images
+    : IMAGE_EXTENSIONS.includes(extension)
+      ? [{ name: file.name, url: file.previewUrl }]
+      : null
+  const isImage = Boolean(images)
   const typeLabel = extension.replace(".", "").toUpperCase() || "FILE"
 
   const frameRef = useRef(null)
@@ -345,7 +356,7 @@ export function DocumentReader({ file, onReplace, onRemove, back }) {
   useEffect(() => setImageError(false), [file])
 
   const pageCount = isImage
-    ? 1
+    ? images.length
     : isPdf
     ? pdf.status === "ready"
       ? pdf.pageCount
@@ -533,7 +544,7 @@ export function DocumentReader({ file, onReplace, onRemove, back }) {
             <span className="rb-reader-type">{typeLabel}</span>
           </div>
 
-          <h1 className="rb-reader-title">{file.name.replace(/\.[^.]+$/, "")}</h1>
+          <h1 className="rb-reader-title">{file.title ?? file.name.replace(/\.[^.]+$/, "")}</h1>
 
           {file.uploader ? (
             <p className="rb-reader-muted mt-2 text-sm font-semibold">
@@ -608,15 +619,19 @@ export function DocumentReader({ file, onReplace, onRemove, back }) {
             </div>
           ) : isImage ? (
             <div className="rb-reader-stack">
-              <div data-page="1" className="rb-reader-page-slot">
-                <img
-                  src={file.previewUrl}
-                  alt={file.name}
-                  onError={() => setImageError(true)}
-                  className="rb-reader-sheet block h-auto"
-                  style={{ width: pdfWidth, maxWidth: "none" }}
-                />
-              </div>
+              {images.map((image, index) => (
+                <div key={`${image.url}-${index}`} data-page={index + 1} className="rb-reader-page-slot">
+                  <img
+                    src={image.url}
+                    alt={image.name}
+                    loading={index === 0 ? "eager" : "lazy"}
+                    onError={() => setImageError(true)}
+                    className="rb-reader-sheet block h-auto"
+                    style={{ width: pdfWidth, maxWidth: "none" }}
+                  />
+                  {images.length > 1 ? <p className="rb-reader-page-number">{index + 1}</p> : null}
+                </div>
+              ))}
             </div>
           ) : isPdf ? (
             <div className="rb-reader-stack">

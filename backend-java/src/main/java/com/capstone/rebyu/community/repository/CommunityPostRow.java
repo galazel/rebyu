@@ -21,6 +21,8 @@ public interface CommunityPostRow {
     String getAttachmentType();
     String getAttachmentKey();
     Long getAttachmentSize();
+    /** JSON array of every file when the post shares several; null otherwise. */
+    String getAttachmentsJson();
     long getReactions();
     long getComments();
     long getSaves();

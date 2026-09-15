@@ -40,6 +40,8 @@ const postView = (post) => ({
     type: post.attachmentType || "PDF",
     meta: "Community resource",
     key: post.attachmentKey || null,
+    // Every file when the post shares several (images); a one-file post has none.
+    files: post.attachments?.length > 1 ? post.attachments : null,
   } : null,
 })
 

@@ -31,11 +31,13 @@ import { fetchFileBlob, getFileViewLink } from "@/services/fileService"
  */
 
 /** What the reader needs of a file, for something that is not a File. */
-function readerDocument({ name, size, previewUrl, blob, fileKey, uploader, circle }) {
+function readerDocument({ name, title, size, previewUrl, images, blob, fileKey, uploader, circle }) {
     return {
         name,
+        title,
         size,
         previewUrl,
+        images,
         uploader,
         circle,
         text: () => (blob ? blob.text() : Promise.resolve("")),
@@ -61,8 +63,13 @@ export default function CommunityReviewerPage() {
     const [params] = useSearchParams()
     const navigate = useNavigate()
 
-    const fileKey = params.get("key")
-    const name = params.get("name") || "Shared reviewer"
+    // A post sharing several images repeats key and name once per image.
+    const keys = params.getAll("key").filter(Boolean)
+    const names = params.getAll("name")
+    const keysSignature = keys.join("\n")
+    const isImageSet = keys.length > 1
+    const fileKey = keys[0] ?? null
+    const name = names[0] || "Shared reviewer"
     const size = Number(params.get("size")) || 0
     const uploader = params.get("by") || null
     const circle = params.get("circle") || null
@@ -81,6 +88,21 @@ export default function CommunityReviewerPage() {
 
         async function load() {
             try {
+                if (isImageSet) {
+                    const links = await Promise.all(keys.map((key, index) => getFileViewLink(key, names[index])))
+                    if (!cancelled) {
+                        setState({
+                            status: "ready",
+                            previewUrl: links[0].url,
+                            images: links.map((link, index) => ({
+                                name: names[index] || `Image ${index + 1}`,
+                                url: link.url,
+                            })),
+                        })
+                    }
+                    return
+                }
+
                 if (isStreamable(name)) {
                     const { url } = await getFileViewLink(fileKey, name)
                     if (!cancelled) setState({ status: "ready", previewUrl: url })
@@ -111,22 +133,26 @@ export default function CommunityReviewerPage() {
                 objectUrlRef.current = null
             }
         }
-    }, [fileKey, name])
+        // keysSignature stands in for keys/names, which are new arrays every render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [keysSignature, name])
 
     const document = useMemo(
         () =>
             state.status === "ready"
                 ? readerDocument({
                       name,
+                      title: isImageSet ? `${keys.length} images` : undefined,
                       size,
                       previewUrl: state.previewUrl,
+                      images: state.images,
                       blob: state.blob,
                       fileKey,
                       uploader,
                       circle,
                   })
                 : null,
-        [state, name, size, fileKey, uploader, circle]
+        [state, name, size, fileKey, uploader, circle, isImageSet, keys.length]
     )
 
     function back() {
