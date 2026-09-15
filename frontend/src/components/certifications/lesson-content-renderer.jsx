@@ -234,7 +234,12 @@ const LIGHTBOX_PANEL =
 //: The absolute caps the previous panel needed are gone with it: `dvh`/`vw` are
 //: resolved against the viewport, never against a parent whose size depends on
 //: the answer, so there is no cycle to avoid here.
-const LIGHTBOX_MEDIA = "max-h-[92dvh] max-w-[94vw] object-contain"
+//:
+//: Half the screen, not all of it: opened media is a closer look that keeps the
+//: lesson visible around it, not a takeover. On a phone half would be too small
+//: to read, so it takes nearly the width there.
+const LIGHTBOX_MEDIA =
+    "max-h-[70dvh] max-w-[92vw] sm:max-h-[60dvh] sm:max-w-[50vw] bg-white object-contain shadow-2xl"
 
 //: Nothing in this view is rounded. A radius is a card's edge treatment, and
 //: opened media is not on a card -- a rounded corner over a square diagram
@@ -476,7 +481,7 @@ function VideoBlock({ videoKey, className }) {
                 `max-h-`: a <video> with no loaded frame has no intrinsic size,
                 so a max-height alone collapses the player to nothing until the
                 first frame arrives. */}
-            {player(`${LIGHTBOX_MEDIA} h-[92dvh] w-[94vw]`)}
+            {player(`${LIGHTBOX_MEDIA} aspect-video h-auto w-[92vw] sm:w-[50vw]`)}
             <LightboxClose />
           </DialogContent>
         </Dialog>

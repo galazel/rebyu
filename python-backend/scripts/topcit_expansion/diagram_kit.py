@@ -69,6 +69,33 @@ def split_words(body, per_line):
     return lines
 
 
+#: Average advance of a system-ui glyph as a fraction of the font size. SVG has
+#: no text wrapping, so line breaks are decided by estimated width; the figure
+#: is slightly generous so a line of wide letters still fits its box.
+GLYPH_WIDTH = 0.56
+
+
+def chars_per_line(width, size):
+    return max(8, int(width / (size * GLYPH_WIDTH)))
+
+
+def note(x, y, w, body, fill=WASH, stroke=LINE, size=12.5):
+    """A full-width note box whose text wraps inside it.
+
+    Returns (svg, height). Footers and notes used to be one `text()` line
+    centred in a fixed 44px box, so any sentence longer than the figure ran
+    off both edges -- SVG text never wraps on its own. The box now grows by a
+    line for every line the note needs.
+    """
+    line_height = size + 5
+    lines = split_words(body, chars_per_line(w - 36, size))
+    height = max(44, 22 + len(lines) * line_height)
+    first_baseline = y + (height - len(lines) * line_height) / 2 + size
+    return (box(x, y, w, height, fill, stroke)
+            + wrap(None, lines, x + w / 2, first_baseline, size, 400, MUTED, "middle", line_height),
+            height)
+
+
 def box(x, y, w, h, fill=PAPER, stroke=LINE, radius=12, stroke_width=2):
     return ('<rect x="%s" y="%s" width="%s" height="%s" rx="%s" fill="%s" '
             'stroke="%s" stroke-width="%s"/>' % (x, y, w, h, radius, fill, stroke, stroke_width))
@@ -107,8 +134,19 @@ def plain_line(x1, y1, x2, y2, colour=LINE, dashed=False, width=2):
 
 
 def render(height, body, title, caption=None):
-    head = text(28, 40, title, 19, 800, INK)
-    sub = text(28, 62, caption, 13, 400, MUTED) if caption else ""
+    # Title and caption wrap to the figure's width. Every archetype lays its
+    # body out below a two-line heading (from y=88), so any extra heading lines
+    # push the whole body down by the same amount instead of overlapping it.
+    usable = WIDTH - 56
+    title_lines = split_words(title, chars_per_line(usable, 19))
+    caption_lines = split_words(caption, chars_per_line(usable, 13)) if caption else []
+    head = wrap(None, title_lines, 28, 40, 19, 800, INK, "start", 24)
+    caption_top = 40 + (len(title_lines) - 1) * 24 + 22
+    sub = wrap(None, caption_lines, 28, caption_top, 13, 400, MUTED, "start", 17)
+    extra = (len(title_lines) - 1) * 24 + max(len(caption_lines) - 1, 0) * 17
+    if extra:
+        body = '<g transform="translate(0 %s)">%s</g>' % (extra, body)
+        height += extra
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" '
         'width="%d" height="%d" font-family="%s" role="img" aria-label="%s">'
@@ -170,9 +208,9 @@ def flow(title, steps, caption=None, note=None):
                               x + width + gap - 5, top + height / 2))
     bottom = top + height
     if note:
-        body.append(box(28, bottom + 20, WIDTH - 56, 46, WASH, LINE))
-        body.append(text(WIDTH / 2, bottom + 48, note, 12.5, 400, MUTED, "middle"))
-        bottom += 66
+        svg, note_height = globals()["note"](28, bottom + 20, WIDTH - 56, note)
+        body.append(svg)
+        bottom += 20 + note_height
     return render(bottom + 24, "".join(body), title, caption)
 
 
@@ -244,9 +282,9 @@ def compare(title, columns, caption=None, footer=None):
             y += 26
     bottom = top + height
     if footer:
-        body.append(box(28, bottom + 18, WIDTH - 56, 44, WASH, LINE))
-        body.append(text(WIDTH / 2, bottom + 45, footer, 12.5, 400, MUTED, "middle"))
-        bottom += 62
+        svg, note_height = note(28, bottom + 18, WIDTH - 56, footer)
+        body.append(svg)
+        bottom += 18 + note_height
     return render(bottom + 22, "".join(body), title, caption)
 
 
@@ -282,9 +320,9 @@ def table(title, headers, rows, caption=None, widths=None, footer=None):
     body.append(box(28, top, total, header_height + len(rows) * row_height, "none", LINE))
     bottom = y
     if footer:
-        body.append(box(28, bottom + 18, total, 44, WASH, LINE))
-        body.append(text(WIDTH / 2, bottom + 45, footer, 12.5, 400, MUTED, "middle"))
-        bottom += 62
+        svg, note_height = note(28, bottom + 18, total, footer)
+        body.append(svg)
+        bottom += 18 + note_height
     return render(bottom + 22, "".join(body), title, caption)
 
 
@@ -337,9 +375,9 @@ def tiers(title, rows, caption=None, footer=None):
     body = links + body
     bottom = top + len(rows) * band - band + 56
     if footer:
-        body.append(box(28, bottom + 18, WIDTH - 56, 44, WASH, LINE))
-        body.append(text(WIDTH / 2, bottom + 45, footer, 12.5, 400, MUTED, "middle"))
-        bottom += 62
+        svg, note_height = note(28, bottom + 18, WIDTH - 56, footer)
+        body.append(svg)
+        bottom += 18 + note_height
     return render(bottom + 22, "".join(body), title, caption)
 
 
@@ -361,9 +399,9 @@ def fields(title, segments, caption=None, footer=None):
         x += width
     bottom = top + 74
     if footer:
-        body.append(box(28, bottom + 20, total, 46, PAPER, LINE))
-        body.append(text(WIDTH / 2, bottom + 48, footer, 12.5, 400, MUTED, "middle"))
-        bottom += 66
+        svg, note_height = note(28, bottom + 20, total, footer, fill=PAPER)
+        body.append(svg)
+        bottom += 20 + note_height
     return render(bottom + 22, "".join(body), title, caption)
 
 
@@ -393,9 +431,9 @@ def timeline(title, before, after, caption=None, footer=None):
 
     bottom = axis + 70
     if footer:
-        body.append(box(28, bottom, WIDTH - 56, 46, WASH, LINE))
-        body.append(text(WIDTH / 2, bottom + 28, footer, 12.5, 400, MUTED, "middle"))
-        bottom += 66
+        svg, note_height = note(28, bottom, WIDTH - 56, footer)
+        body.append(svg)
+        bottom += 20 + note_height
     return render(bottom + 20, "".join(body), title, caption)
 
 
@@ -425,7 +463,7 @@ def split_planes(title, left, right, caption=None, footer=None):
         body.append(text(x + width / 2, top + panel_height + 20, subtitle, 11.5, 400, MUTED, "middle"))
     bottom = top + height + 34
     if footer:
-        body.append(box(28, bottom, WIDTH - 56, 46, WASH, LINE))
-        body.append(text(WIDTH / 2, bottom + 28, footer, 12.5, 400, MUTED, "middle"))
-        bottom += 66
+        svg, note_height = note(28, bottom, WIDTH - 56, footer)
+        body.append(svg)
+        bottom += 20 + note_height
     return render(bottom + 20, "".join(body), title, caption)

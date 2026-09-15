@@ -29,14 +29,17 @@ import httpx
 WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
 
-#: Wikimedia asks automated clients to identify themselves.
-USER_AGENT = "REBYU-lesson-media/1.0 (educational courseware; contact via repository)"
+#: Wikimedia's robot policy (https://w.wiki/4wJS) requires automated clients to
+#: name themselves AND give a way to reach them. A User-Agent without a URL or
+#: address -- or one dressed up as a browser -- is answered 403 on every API
+#: call, which this module used to swallow as "no image found" for all 206
+#: figures it was asked about.
+USER_AGENT = "REBYU-lesson-media/1.0 (https://rebyu.online)"
 
+#: Used for every request, API and image alike: the same honest identity.
 BROWSER_HEADERS = {
-    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                   "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"),
-    "Referer": "http://localhost:3000/",
-    "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+    "User-Agent": USER_AGENT,
+    "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
 }
 
 MIN_BYTES = 3000
@@ -194,5 +197,4 @@ def find_image(client, queries):
 
 
 def client():
-    return httpx.Client(timeout=25.0, follow_redirects=True,
-                        headers=BROWSER_HEADERS, verify=False)
+    return httpx.Client(timeout=25.0, follow_redirects=True, headers=BROWSER_HEADERS)
