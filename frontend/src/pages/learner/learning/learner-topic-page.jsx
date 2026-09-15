@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import {
   Link,
   useLocation,
@@ -23,6 +24,7 @@ import {
   Clock,
   Loader2,
   PanelLeft,
+  Sparkles,
   Zap,
 } from "@/components/icons"
 
@@ -41,7 +43,6 @@ import {
 } from "@/components/motion/rebyu-motion.jsx"
 import { LearnerEmptyState } from "@/components/learner/learner-ui.jsx"
 import { LessonAiTutor } from "@/components/learner/lesson-ai-tutor.jsx"
-import { TutorChatHead } from "@/components/learner/tutor-chat-head.jsx"
 import { LessonKnowledgeCheck } from "@/components/learner/lesson-knowledge-check.jsx"
 import { useDailyStudyChallenge } from "@/hooks/useDailyStudyChallenge.js"
 import { useReadingPaceGuard } from "@/hooks/useReadingPaceGuard.js"
@@ -94,6 +95,21 @@ import {
  */
 
 /* --------------------------------------------------------------------- data */
+
+function useIsXl() {
+  const [isXl, setIsXl] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 1280px)").matches,
+  )
+
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1280px)")
+    const handle = (event) => setIsXl(event.matches)
+    query.addEventListener("change", handle)
+    return () => query.removeEventListener("change", handle)
+  }, [])
+
+  return isXl
+}
 
 /** Ordered run a learner walks: lesson, lesson, …, then the unit assessment. */
 function buildTrack(middle) {
@@ -1219,6 +1235,7 @@ export default function LearnerTopicPage() {
   const queryClient = useQueryClient()
   const { certificationId, middleCategoryId } = useParams()
   const { data } = useOutletContext()
+  const isXl = useIsXl()
 
   const [searchParams] = useSearchParams()
   const [activeId, setActiveId] = useState(null)
@@ -1637,8 +1654,12 @@ export default function LearnerTopicPage() {
   const tutorVisible = tutorOpen && active?.kind === "lesson"
 
   const columns = outlineCollapsed
-    ? "xl:grid-cols-[88px_minmax(0,1fr)]"
-    : "xl:grid-cols-[340px_minmax(0,1fr)]"
+    ? tutorVisible
+      ? "xl:grid-cols-[88px_minmax(0,1fr)_400px]"
+      : "xl:grid-cols-[88px_minmax(0,1fr)]"
+    : tutorVisible
+      ? "xl:grid-cols-[340px_minmax(0,1fr)_400px]"
+      : "xl:grid-cols-[340px_minmax(0,1fr)]"
 
   const outline = (
     <Outline
@@ -1736,24 +1757,56 @@ export default function LearnerTopicPage() {
           </AnimatePresence>
         </main>
 
+        {/* --------------------------------------------------------- right */}
+        {tutorVisible && isXl ? (
+          <aside className="hidden min-h-0 border-l-2 border-rb-swan xl:block">
+            <div className="sticky top-0 h-dvh overflow-hidden">
+              <LessonAiTutor
+                lessonId={activeLessonId}
+                lessonName={active?.name}
+                learnerName={data?.user?.firstName ?? data?.learner?.firstName ?? "Learner"}
+                learnerId={data?.learnerId}
+                onClose={() => setTutorOpen(false)}
+              />
+            </div>
+          </aside>
+        ) : null}
       </div>
 
-      {/* The tutor as a Messenger-style chat head: drag it out of the way,
-          tap it to talk. Off on the unit assessment, and while the outline
-          drawer is open so it never pokes through that drawer's overlay. */}
-      <TutorChatHead
-        open={tutorVisible}
-        onOpenChange={setTutorOpen}
-        hidden={railOpen || active?.kind !== "lesson"}
-      >
-        <LessonAiTutor
-            lessonId={activeLessonId}
-            lessonName={active?.name}
-            learnerName={data?.user?.firstName ?? data?.learner?.firstName ?? "Learner"}
-            learnerId={data?.learnerId}
-            onClose={() => setTutorOpen(false)}
-          />
-      </TutorChatHead>
+      {/* The circle, portaled straight to <body>. Hidden while the tutor
+          column is open (no second control to open it needed) and while the
+          mobile outline Sheet is open (it would otherwise render on top of
+          that Sheet's overlay).
+
+          Portaled rather than rendered inline: every route is wrapped by
+          `RouteTransition` (the `.rb-route-enter` class), whose entrance
+          keyframe applies a real `transform`, and a transformed ancestor pins
+          a `position: fixed` descendant to itself instead of the viewport.
+
+          `z-[60]`, one step above the Sheets' `z-50`, keeps it clickable in the
+          moment right after a Sheet closes, while Radix still has the closed
+          Sheet's portal mounted for its exit animation. */}
+      {createPortal(
+        <AnimatePresence>
+          {!tutorVisible && !railOpen && active?.kind === "lesson" ? (
+            <motion.button
+              type="button"
+              onClick={() => setTutorOpen(true)}
+              aria-label="Open AI tutor"
+              initial={{ scale: 0, rotate: -90 }}
+              animate={{ scale: 1, rotate: 0 }}
+              exit={{ scale: 0, rotate: 90 }}
+              whileHover={{ scale: 1.07 }}
+              whileTap={{ scale: 0.92 }}
+              transition={{ type: "spring", stiffness: 480, damping: 22 }}
+              className="fixed bottom-6 right-6 z-[60] grid size-16 place-items-center rounded-full bg-rb-feather text-white shadow-[var(--comic-shadow-sm)]"
+            >
+              <Sparkles className="size-7" aria-hidden="true" />
+            </motion.button>
+          ) : null}
+        </AnimatePresence>,
+        document.body,
+      )}
 
       {/* Narrow windows get the outline and the tutor as sheets rather than
           columns — three columns on a laptop leaves nothing for the reading. */}
@@ -1761,6 +1814,19 @@ export default function LearnerTopicPage() {
         <SheetContent side="left" className="rebyu-ds p-0">
           <SheetTitle className="sr-only">Topic outline</SheetTitle>
           {outline}
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={tutorVisible && !isXl} onOpenChange={(open) => !open && setTutorOpen(false)}>
+        <SheetContent side="right" className="rebyu-ds gap-0 p-0">
+          <SheetTitle className="sr-only">AI tutor</SheetTitle>
+          <LessonAiTutor
+            lessonId={activeLessonId}
+            lessonName={active?.name}
+            learnerName={data?.user?.firstName ?? data?.learner?.firstName ?? "Learner"}
+            learnerId={data?.learnerId}
+            onClose={() => setTutorOpen(false)}
+          />
         </SheetContent>
       </Sheet>
 
