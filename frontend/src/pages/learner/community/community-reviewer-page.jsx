@@ -46,9 +46,14 @@ function readerDocument({ name, size, previewUrl, blob, fileKey, uploader, circl
     }
 }
 
+/**
+ * PDFs and images are read straight from storage by a presigned URL: pdf.js
+ * streams a PDF in ranges, and an image needs nothing but an <img src>. Word and
+ * text files have to be parsed in the browser, so they still come back as bytes.
+ */
 function isStreamable(name) {
     const extension = String(name ?? "").toLowerCase().split(".").pop()
-    return extension === "pdf"
+    return ["pdf", "png", "jpg", "jpeg", "gif", "webp"].includes(extension)
 }
 
 export default function CommunityReviewerPage() {

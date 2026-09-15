@@ -153,7 +153,21 @@ function CommunityAvatar({ initials, tone, className = "" }) {
 function attachmentTone(type) {
     if (type === "QUIZ") return "bg-rb-feather-wash text-rb-feather-lip"
     if (type === "DOCX") return "bg-rb-bee-wash text-rb-bee-lip"
+    if (type === "IMAGE") return "bg-rb-feather-wash text-rb-feather-lip"
+    if (type === "TXT") return "bg-rb-snow text-rb-hare"
     return "bg-rb-cardinal-wash text-rb-cardinal-lip"
+}
+
+/** What a reviewer can be shared as. The reader previews every one of these. */
+const REVIEWER_ACCEPT = ".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp"
+
+/** The attachment's kind, from its extension: PDF, DOCX (Word), TXT or IMAGE. */
+function reviewerAttachmentKind(name) {
+    const extension = String(name ?? "").toLowerCase().split(".").pop()
+    if (extension === "docx" || extension === "doc") return "DOCX"
+    if (extension === "txt") return "TXT"
+    if (["png", "jpg", "jpeg", "gif", "webp"].includes(extension)) return "IMAGE"
+    return "PDF"
 }
 
 /**
@@ -986,13 +1000,14 @@ export default function Community() {
             return
         }
         if (shareType === "reviewer" && !attachedFile) {
-            toast.error("Attach the PDF or Word reviewer you want to share.")
+            toast.error("Attach the PDF, Word, text or image file you want to share.")
             return
         }
 
-        // One "Reviewer" composer tab, two post types: the file's own extension
-        // decides which, so the learner never has to pick PDF vs Word twice.
-        const isWordFile = /\.docx$/i.test(attachedFile?.name ?? "")
+        // One "Reviewer" composer tab, several kinds of file: the file's own
+        // extension decides the kind, so the learner never has to say it twice.
+        const attachmentKind = reviewerAttachmentKind(attachedFile?.name)
+        const isWordFile = attachmentKind === "DOCX"
         const postType = shareType === "reviewer" ? (isWordFile ? "docx" : "notes") : shareType
 
         try {
@@ -1002,7 +1017,7 @@ export default function Community() {
                 postType,
                 circleId: shareCommunity ? Number(shareCommunity) : null,
                 attachmentName: attachedFile?.name ?? null,
-                attachmentType: shareType === "reviewer" ? (isWordFile ? "DOCX" : "PDF") : null,
+                attachmentType: shareType === "reviewer" ? attachmentKind : null,
                 attachmentKey: attachedFile?.key ?? null,
                 attachmentSize: attachedFile?.size ?? null,
             })
@@ -1341,7 +1356,7 @@ export default function Community() {
                                 <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("discussion")} title="Start a discussion"><MessageCircle className="size-4 text-rb-macaw-lip sm:mr-2" /><span className="hidden sm:inline">Discussion</span></Button>
                                 <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("quiz")} title="Share a quiz"><BookOpen className="size-4 text-rb-feather-lip sm:mr-2" /><span className="hidden sm:inline">Quiz</span></Button>
                                 <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("flashcard")} title="Share flashcards"><Sparkles className="size-4 text-rb-beetle-lip sm:mr-2" /><span className="hidden sm:inline">Flashcards</span></Button>
-                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("reviewer")} title="Share a PDF or Word reviewer"><FileText className="size-4 text-rb-cardinal-lip sm:mr-2" /><span className="hidden sm:inline">Reviewer</span></Button>
+                                <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("reviewer")} title="Share a PDF, Word, text or image reviewer"><FileText className="size-4 text-rb-cardinal-lip sm:mr-2" /><span className="hidden sm:inline">Reviewer</span></Button>
                             </div>
 
                         </div>
@@ -1386,10 +1401,10 @@ export default function Community() {
 
                                 {shareType === "reviewer" ? (
                                     <div>
-                                        <input ref={fileInputRef} type="file" accept=".pdf,.docx" className="hidden" onChange={handleAttachmentSelected} />
+                                        <input ref={fileInputRef} type="file" accept={REVIEWER_ACCEPT} className="hidden" onChange={handleAttachmentSelected} />
                                         <button type="button" disabled={isUploadingAttachment} onClick={() => fileInputRef.current?.click()} className="flex w-full items-center gap-3 rounded-rb-tile border-2 border-dashed border-border px-4 py-3 text-left hover:border-rb-macaw disabled:opacity-60">
                                             {isUploadingAttachment ? <Loader2 className="size-5 animate-spin text-muted-foreground" /> : <FileText className="size-5 text-primary" />}
-                                            <span className="min-w-0 flex-1 truncate text-sm">{attachedFile?.name ?? "Add a PDF or Word reviewer"}</span>
+                                            <span className="min-w-0 flex-1 truncate text-sm">{attachedFile?.name ?? "Add a PDF, Word, text or image file"}</span>
                                             {attachedFile ? <span className="shrink-0 text-xs font-medium text-primary">{formatBytes(attachedFile.size) ?? "Change"}</span> : null}
                                         </button>
                                     </div>

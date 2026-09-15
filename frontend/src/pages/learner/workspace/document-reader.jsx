@@ -31,6 +31,8 @@ import {
  *       letter-sized sheets: each block is measured and packed until the next
  *       one would spill past the bottom margin.</li>
  *   <li><b>TXT</b> — paragraphs packed onto the same sheets.</li>
+ *   <li><b>Images</b> — shown whole as a single page, fitted to the room and
+ *       zoomed like a PDF page.</li>
  * </ul>
  *
  * <p>pdf.js and mammoth are both imported only when a file of their kind is
@@ -46,6 +48,8 @@ const SHEET_PADDING = 84
 
 /** The widest a PDF page is drawn at 100%. */
 const PDF_MAX_WIDTH = 880
+
+const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".webp"]
 
 function fileExtension(name) {
   const dot = name.lastIndexOf(".")
@@ -294,6 +298,7 @@ export function DocumentReader({ file, onReplace, onRemove, back }) {
   const isPdf = extension === ".pdf"
   const isText = extension === ".txt"
   const isWord = extension === ".docx" || extension === ".doc"
+  const isImage = IMAGE_EXTENSIONS.includes(extension)
   const typeLabel = extension.replace(".", "").toUpperCase() || "FILE"
 
   const frameRef = useRef(null)
@@ -336,7 +341,12 @@ export function DocumentReader({ file, onReplace, onRemove, back }) {
 
   const { sheets, measurer } = useSheets(html)
 
-  const pageCount = isPdf
+  const [imageError, setImageError] = useState(false)
+  useEffect(() => setImageError(false), [file])
+
+  const pageCount = isImage
+    ? 1
+    : isPdf
     ? pdf.status === "ready"
       ? pdf.pageCount
       : null
@@ -424,7 +434,11 @@ export function DocumentReader({ file, onReplace, onRemove, back }) {
   const loading =
     (isPdf && (pdf.status === "loading" || pdf.status === "idle")) ||
     ((isText || isWord) && !flowError && sheets === null)
-  const failed = (isPdf && pdf.status === "error") || Boolean(flowError) || (!isPdf && !isText && !isWord)
+  const failed =
+    (isPdf && pdf.status === "error") ||
+    Boolean(flowError) ||
+    (isImage && imageError) ||
+    (!isPdf && !isText && !isWord && !isImage)
 
   const pageNumbers = useMemo(
     () => (pageCount ? Array.from({ length: pageCount }, (_, i) => i + 1) : []),
@@ -582,12 +596,26 @@ export function DocumentReader({ file, onReplace, onRemove, back }) {
                   {flowError ??
                     (isPdf
                       ? "This PDF could not be shown here. Download it to read it."
-                      : "This file type has no preview. Download it to read it.")}
+                      : isImage
+                        ? "This image could not be shown here. Download it to see it."
+                        : "This file type has no preview. Download it to read it.")}
                 </p>
                 <a href={file.previewUrl} download={file.name} className="rb-reader-download mt-5">
                   <Download className="size-4" aria-hidden="true" />
                   Download
                 </a>
+              </div>
+            </div>
+          ) : isImage ? (
+            <div className="rb-reader-stack">
+              <div data-page="1" className="rb-reader-page-slot">
+                <img
+                  src={file.previewUrl}
+                  alt={file.name}
+                  onError={() => setImageError(true)}
+                  className="rb-reader-sheet block h-auto"
+                  style={{ width: pdfWidth, maxWidth: "none" }}
+                />
               </div>
             </div>
           ) : isPdf ? (
