@@ -64,7 +64,7 @@ function TutorPanel({ fileName, onClose }) {
 
   return (
     <section className="flex h-full min-h-0 flex-col bg-rb-snow">
-      <header className="flex h-16 shrink-0 items-center justify-between gap-3 bg-rb-beetle px-4">
+      <header className="flex h-16 shrink-0 items-center justify-between gap-3 bg-rb-feather px-4">
         <div className="flex min-w-0 items-center gap-3">
           <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/15 text-white ring-2 ring-white/30">
             <Sparkles className="size-5" aria-hidden="true" />
@@ -106,7 +106,7 @@ function TutorPanel({ fileName, onClose }) {
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center px-2 text-center">
             <motion.span
-              className="grid size-14 place-items-center rounded-3xl bg-rb-beetle text-white shadow-[var(--comic-shadow-sm)] ring-2 ring-white"
+              className="grid size-14 place-items-center rounded-3xl bg-rb-feather text-white shadow-[var(--comic-shadow-sm)] ring-2 ring-white"
               animate={{ scale: [1, 1.06, 1] }}
               transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
             >
@@ -127,7 +127,7 @@ function TutorPanel({ fileName, onClose }) {
                     key={suggestion}
                     variant="snow"
                     size="sm"
-                    className="!h-auto !gap-1.5 !border-2 !border-rb-beetle/30 !bg-white !px-3.5 !py-2 !text-rb-beetle-lip hover:!border-rb-beetle hover:!bg-rb-beetle-wash"
+                    className="!h-auto !gap-1.5 !border-2 !border-rb-feather/30 !bg-white !px-3.5 !py-2 !text-rb-feather-lip hover:!border-rb-feather hover:!bg-rb-feather-wash"
                     onClick={() => send(suggestion)}
                   >
                     <MessageCircle className="size-3.5" aria-hidden="true" />
@@ -147,7 +147,7 @@ function TutorPanel({ fileName, onClose }) {
                 <div
                   className={`max-w-[85%] rounded-rb-card border-2 px-3.5 py-2.5 text-sm font-medium leading-6 ${
                     message.role === "user"
-                      ? "border-rb-beetle bg-rb-beetle text-white"
+                      ? "border-rb-feather bg-rb-feather text-white"
                       : "border-border bg-white text-rb-eel"
                   }`}
                 >
@@ -159,7 +159,7 @@ function TutorPanel({ fileName, onClose }) {
               <li className="flex justify-start">
                 <div className="flex items-center gap-2 rounded-rb-card border-2 border-border bg-white px-3.5 py-2.5">
                   <Loader2
-                    className="size-4 animate-spin text-rb-beetle-lip"
+                    className="size-4 animate-spin text-rb-feather-lip"
                     aria-hidden="true"
                   />
                   <span className="text-sm font-bold text-rb-hare">Thinking…</span>

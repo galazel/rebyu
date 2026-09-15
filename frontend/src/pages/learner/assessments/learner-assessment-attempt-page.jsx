@@ -1089,7 +1089,7 @@ export default function LearnerAssessmentAttemptPage() {
           </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 gap-4 overflow-hidden p-4">
+        <div className="flex min-h-0 flex-1 gap-4 overflow-hidden p-2 sm:p-4">
           {isProgramming && currentQuestion ? (
               <div
                   className={cn(

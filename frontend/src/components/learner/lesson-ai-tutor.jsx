@@ -108,8 +108,8 @@ function TutorAvatar({ size = "size-7", iconSize = "size-4", onViolet = false })
       <span
           className={`grid ${size} shrink-0 place-items-center rounded-full ring-2 ${
               onViolet
-                ? "bg-white text-rb-beetle-lip ring-white/40"
-                : "bg-rb-beetle text-white shadow-[var(--comic-shadow-sm)] ring-white"
+                ? "bg-white text-rb-feather-lip ring-white/40"
+                : "bg-rb-feather text-white shadow-[var(--comic-shadow-sm)] ring-white"
           }`}
       >
         <Sparkles className={iconSize} aria-hidden="true" />
@@ -150,9 +150,9 @@ function StudyAidActionCard({ action }) {
   const Icon = action.kind === "flashcard" ? Layers3 : BookOpenCheck
 
   return (
-      <div className="mt-3 rounded-xl border-2 border-rb-beetle/25 bg-rb-beetle-wash p-3">
+      <div className="mt-3 rounded-xl border-2 border-rb-feather/25 bg-rb-feather-wash p-3">
         <div className="flex items-start gap-2.5">
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-rb-beetle text-white shadow-[var(--comic-shadow-sm)]">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-rb-feather text-white shadow-[var(--comic-shadow-sm)]">
             <Icon className="size-4" aria-hidden="true" />
           </span>
 
@@ -164,7 +164,7 @@ function StudyAidActionCard({ action }) {
 
         <TactileButton
             type="button"
-            variant="beetle"
+            variant="feather"
             size="sm"
             className="!mt-3 !w-full !gap-2"
             onClick={() => navigate(action.href)}
@@ -203,7 +203,7 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
               every bubble at its natural block position (the left). */}
           <div className={`flex min-w-0 flex-1 flex-col ${isLearner ? "items-end" : "items-start"}`}>
             {!isLearner && isFirstInGroup ? (
-                <p className="mb-1 text-xs font-bold uppercase tracking-wide text-rb-beetle-lip">
+                <p className="mb-1 text-xs font-bold uppercase tracking-wide text-rb-feather-lip">
                   REBYU AI Tutor
                 </p>
             ) : null}
@@ -224,8 +224,8 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
               <BubbleContent
                   className={
                     isLearner
-                      ? `!rounded-2xl ${tailCorner} !border-0 !bg-rb-beetle !px-3.5 !py-2.5 !text-white !shadow-none`
-                      : `!rounded-2xl ${tailCorner} ${message.action ? "!w-full" : ""} !border-0 !bg-rb-beetle-wash !px-3.5 !py-2.5 !text-rb-eel !shadow-none`
+                      ? `!rounded-2xl ${tailCorner} !border-0 !bg-rb-feather !px-3.5 !py-2.5 !text-white !shadow-none`
+                      : `!rounded-2xl ${tailCorner} ${message.action ? "!w-full" : ""} !border-0 !bg-rb-feather-wash !px-3.5 !py-2.5 !text-rb-eel !shadow-none`
                   }
               >
                 <div className="text-sm font-medium leading-6 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-extrabold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5">
@@ -489,7 +489,7 @@ export function LessonAiTutor({
 
   return (
       <section className="flex h-full min-h-0 flex-col bg-rb-snow">
-        <header className="relative flex h-16 shrink-0 items-center justify-between overflow-hidden bg-rb-beetle px-4">
+        <header className="relative flex h-16 shrink-0 items-center justify-between overflow-hidden bg-rb-feather px-4">
           <div className="flex min-w-0 items-center gap-3">
             <TutorAvatar size="size-10" iconSize="size-5" onViolet />
 
@@ -523,7 +523,7 @@ export function LessonAiTutor({
 
         {loadingHistory ? (
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 py-8 text-center">
-              <Loader2 className="size-5 animate-spin text-rb-beetle-lip" aria-hidden="true" />
+              <Loader2 className="size-5 animate-spin text-rb-feather-lip" aria-hidden="true" />
               <p className="text-xs font-bold text-rb-hare">Loading your conversation…</p>
             </div>
         ) : !hasConversation ? (
@@ -534,12 +534,12 @@ export function LessonAiTutor({
             >
               <div className="relative">
                 <motion.span
-                    className="absolute inset-0 -z-10 rounded-full bg-rb-beetle/30 blur-xl"
+                    className="absolute inset-0 -z-10 rounded-full bg-rb-feather/30 blur-xl"
                     animate={{ scale: [1, 1.18, 1], opacity: [0.55, 0.9, 0.55] }}
                     transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
                     aria-hidden="true"
                 />
-                <span className="relative grid size-16 shrink-0 place-items-center rounded-3xl bg-rb-beetle text-white shadow-[var(--comic-shadow-sm)] ring-2 ring-white">
+                <span className="relative grid size-16 shrink-0 place-items-center rounded-3xl bg-rb-feather text-white shadow-[var(--comic-shadow-sm)] ring-2 ring-white">
                   <Sparkles className="size-8" aria-hidden="true" />
                 </span>
               </div>
@@ -558,7 +558,7 @@ export function LessonAiTutor({
                 <TactileButton
                     variant="snow"
                     size="sm"
-                    className="!h-auto !gap-1.5 !border-2 !border-rb-beetle/30 !bg-white !px-3.5 !py-2 !text-rb-beetle-lip hover:!border-rb-beetle hover:!bg-rb-beetle-wash"
+                    className="!h-auto !gap-1.5 !border-2 !border-rb-feather/30 !bg-white !px-3.5 !py-2 !text-rb-feather-lip hover:!border-rb-feather hover:!bg-rb-feather-wash"
                     disabled={pending}
                     onClick={() =>
                         sendTutorMessage("Explain this lesson in simple words.")
@@ -571,7 +571,7 @@ export function LessonAiTutor({
                 <TactileButton
                     variant="snow"
                     size="sm"
-                    className="!h-auto !gap-1.5 !border-2 !border-rb-beetle/30 !bg-white !px-3.5 !py-2 !text-rb-beetle-lip hover:!border-rb-beetle hover:!bg-rb-beetle-wash"
+                    className="!h-auto !gap-1.5 !border-2 !border-rb-feather/30 !bg-white !px-3.5 !py-2 !text-rb-feather-lip hover:!border-rb-feather hover:!bg-rb-feather-wash"
                     disabled={pending}
                     onClick={() =>
                         sendTutorMessage(
@@ -586,7 +586,7 @@ export function LessonAiTutor({
                 <TactileButton
                     variant="snow"
                     size="sm"
-                    className="!h-auto !gap-1.5 !border-2 !border-rb-beetle/30 !bg-white !px-3.5 !py-2 !text-rb-beetle-lip hover:!border-rb-beetle hover:!bg-rb-beetle-wash"
+                    className="!h-auto !gap-1.5 !border-2 !border-rb-feather/30 !bg-white !px-3.5 !py-2 !text-rb-feather-lip hover:!border-rb-feather hover:!bg-rb-feather-wash"
                     disabled={pending}
                     onClick={() =>
                         sendTutorMessage(
@@ -637,12 +637,12 @@ export function LessonAiTutor({
                               <TutorAvatar />
 
                               <div className="min-w-0 flex-1">
-                                <p className="mb-1 text-xs font-bold uppercase tracking-wide text-rb-beetle-lip">
+                                <p className="mb-1 text-xs font-bold uppercase tracking-wide text-rb-feather-lip">
                                   REBYU AI Tutor
                                 </p>
 
                                 <Bubble variant="secondary">
-                                  <BubbleContent className="!flex !items-center !gap-2 !rounded-2xl !rounded-bl-md !border-0 !bg-rb-beetle-wash !px-3.5 !py-2.5 !text-sm !font-medium !text-rb-wolf !shadow-none">
+                                  <BubbleContent className="!flex !items-center !gap-2 !rounded-2xl !rounded-bl-md !border-0 !bg-rb-feather-wash !px-3.5 !py-2.5 !text-sm !font-medium !text-rb-wolf !shadow-none">
                                     <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                                     Thinking...
                                   </BubbleContent>
@@ -664,7 +664,7 @@ export function LessonAiTutor({
             onSubmit={handleSubmit}
             className="shrink-0 border-t-2 border-rb-swan bg-rb-polar/60 p-3"
         >
-          <div className="flex items-end gap-1.5 rounded-full border-2 border-rb-swan bg-rb-snow py-1.5 pl-1.5 pr-2 shadow-[var(--comic-shadow-sm)] transition-colors focus-within:border-rb-beetle/60">
+          <div className="flex items-end gap-1.5 rounded-full border-2 border-rb-swan bg-rb-snow py-1.5 pl-1.5 pr-2 shadow-[var(--comic-shadow-sm)] transition-colors focus-within:border-rb-feather/60">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <TactileButton
@@ -717,7 +717,7 @@ export function LessonAiTutor({
 
             <TactileButton
                 type="submit"
-                variant="beetle"
+                variant="feather"
                 size="sm"
                 className="rb-btn-icon shrink-0 self-center"
                 disabled={pending || Boolean(generating) || !draft.trim()}

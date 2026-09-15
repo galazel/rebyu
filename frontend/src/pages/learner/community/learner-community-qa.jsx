@@ -851,6 +851,8 @@ export default function Community() {
         const params = new URLSearchParams({ key: attachment.key })
         if (attachment.name) params.set("name", attachment.name)
         if (post.attachmentSize) params.set("size", String(post.attachmentSize))
+        if (post.authorName) params.set("by", post.authorName)
+        if (post.community) params.set("circle", post.community)
         navigate(`/learner/community/reviewer/${post.postId}?${params.toString()}`)
     }
 

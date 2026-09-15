@@ -1,60 +1,51 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 import {
-  Bookmark,
   ChevronDown,
   ChevronUpIcon,
   Download,
   FileText,
+  Loader2,
   Maximize,
   Minimize2Icon,
   Minus,
-  MoreHorizontal,
   Plus,
-  Printer,
   RefreshCw,
-  Search,
-  Share2,
   Trash2,
-  X,
 } from "@/components/icons"
-import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 
 /**
- * Upload & Learn — the reader half of the study workspace.
+ * The document reader, laid out the way Scribd reads a file.
  *
- * <p>Modelled on a document-reader layout (Scribd's): a title bar carrying the
- * document's own actions, a slim control rail pinned down the left edge of the
- * page area for search / page stepping / zoom, and the pages themselves stacked
- * in a scroller. The AI is deliberately NOT in here — it lives in the panel to
- * the right, which is the whole point of the split.
- *
- * <p>How much of the chrome is live depends on what was uploaded, and the
- * component is explicit about that rather than showing dead controls:
+ * <p>A light room, not a dark one: a warm grey ground with every page as its own
+ * white sheet stacked down the middle, an info panel on the left saying what
+ * the document is, and one toolbar across the top for download, paging and
+ * zoom. Every kind of file is read the same way:
  *
  * <ul>
- *   <li><b>TXT</b> — fully driven here. The text is paginated into real pages,
- *       so stepping, the page counter, zoom and in-document search all work.</li>
- *   <li><b>PDF</b> — handed to the browser's built-in viewer, which brings its
- *       own paging, zoom and search. Duplicating those in this rail would give
- *       the learner two sets of controls where only one set moved anything, so
- *       the rail's page and search controls step aside and say why. Driving
- *       them ourselves needs a PDF renderer (pdf.js) the project does not
- *       currently depend on.</li>
- *   <li><b>Word</b> — no browser-native viewer exists, so the .docx is
- *       converted to HTML with mammoth and laid out on the same paper sheet
- *       the text branch uses. That reads paragraphs, headings, lists, tables
- *       and bold/italic runs and drops the page furniture that only means
- *       something inside Word, so it is a faithful read of the content and not
- *       a facsimile of the file. Zoom applies; paging does not, because the
- *       converted document has no page breaks to honour.</li>
+ *   <li><b>PDF</b> — drawn by pdf.js onto canvases, one per page. The browser's
+ *       own PDF viewer is dark and cannot be restyled, which is why it is not
+ *       used. Pages draw as they come near the screen and let their pixels go
+ *       once they are far away, so a 400-page book does not hold 400 bitmaps.</li>
+ *   <li><b>Word</b> — converted to HTML with mammoth, then laid out onto
+ *       letter-sized sheets: each block is measured and packed until the next
+ *       one would spill past the bottom margin.</li>
+ *   <li><b>TXT</b> — paragraphs packed onto the same sheets.</li>
  * </ul>
+ *
+ * <p>pdf.js and mammoth are both imported only when a file of their kind is
+ * opened, so neither weighs on any other page.
  */
 
-/** Characters per rendered page for text documents. */
-const TEXT_PAGE_SIZE = 1800
+const ZOOM_STEPS = [0.5, 0.75, 0.9, 1, 1.15, 1.35, 1.6, 2]
 
-const ZOOM_STEPS = [0.75, 0.9, 1, 1.15, 1.35, 1.6, 2]
+/** A letter-sized sheet at 96dpi, and its inch margins. */
+const SHEET_WIDTH = 816
+const SHEET_HEIGHT = 1056
+const SHEET_PADDING = 84
+
+/** The widest a PDF page is drawn at 100%. */
+const PDF_MAX_WIDTH = 880
 
 function fileExtension(name) {
   const dot = name.lastIndexOf(".")
@@ -62,443 +53,591 @@ function fileExtension(name) {
 }
 
 function formatBytes(bytes) {
-  if (!Number.isFinite(bytes)) return ""
+  if (!Number.isFinite(bytes) || bytes <= 0) return null
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-/**
- * Splits text into pages on paragraph boundaries.
- *
- * <p>Slicing at a fixed character count is simpler and reads badly — it cuts
- * sentences in half across a page break. Paragraphs are kept whole and packed
- * until the next one would overflow, so a page ends where the writing does. A
- * single paragraph longer than a page is its own page rather than being split.
- */
-function paginateText(text) {
-  if (!text) return [""]
-  const paragraphs = text.split(/\n{2,}/)
-  const pages = []
-  let current = ""
-
-  for (const paragraph of paragraphs) {
-    if (current && current.length + paragraph.length > TEXT_PAGE_SIZE) {
-      pages.push(current)
-      current = paragraph
-    } else {
-      current = current ? `${current}\n\n${paragraph}` : paragraph
-    }
-  }
-  if (current) pages.push(current)
-  return pages.length > 0 ? pages : [""]
+function escapeHtml(text) {
+  return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])
 }
 
-/** Wraps every case-insensitive hit in <mark>, without touching the rest. */
-function highlight(text, term) {
-  if (!term.trim()) return text
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-  const parts = text.split(new RegExp(`(${escaped})`, "gi"))
-  return parts.map((part, index) =>
-    part.toLowerCase() === term.toLowerCase() ? (
-      <mark key={index} className="rounded-sm bg-rb-bee/60 px-0.5 text-rb-eel">
-        {part}
-      </mark>
-    ) : (
-      part
+/** Plain text as paragraphs the sheet packer can measure. */
+function textToHtml(text) {
+  return (text ?? "")
+    .split(/\n{2,}/)
+    .filter((paragraph) => paragraph.trim())
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`)
+    .join("")
+}
+
+/** Tracks the width of an element, for fitting pages to the room they have. */
+function useElementWidth(ref) {
+  const [width, setWidth] = useState(0)
+  useLayoutEffect(() => {
+    const node = ref.current
+    if (!node) return undefined
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width))
+    observer.observe(node)
+    setWidth(node.clientWidth)
+    return () => observer.disconnect()
+  }, [ref])
+  return width
+}
+
+/* ------------------------------------------------------------------ PDF --- */
+
+/**
+ * Opens a PDF with pdf.js. The URL is tried first so a large file streams in
+ * ranges; if that is refused (a storage bucket without CORS for this origin),
+ * the file's bytes are asked for instead.
+ */
+function usePdfDocument(file, enabled) {
+  const [state, setState] = useState({ status: "idle" })
+
+  useEffect(() => {
+    if (!enabled) return undefined
+    let cancelled = false
+    // In pdf.js the loading task, not the document, is what closes the worker.
+    let task = null
+    setState({ status: "loading" })
+
+    async function open() {
+      const [pdfjs, worker] = await Promise.all([
+        import("pdfjs-dist"),
+        import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
+      ])
+      if (cancelled) throw new Error("cancelled")
+      pdfjs.GlobalWorkerOptions.workerSrc = worker.default
+
+      const common = { useSystemFonts: true, isEvalSupported: false }
+      let doc
+      try {
+        task = pdfjs.getDocument({ ...common, url: file.previewUrl })
+        doc = await task.promise
+      } catch {
+        task?.destroy()
+        if (cancelled) throw new Error("cancelled")
+        const bytes = await file.arrayBuffer()
+        if (!bytes || bytes.byteLength === 0) throw new Error("empty")
+        if (cancelled) throw new Error("cancelled")
+        task = pdfjs.getDocument({ ...common, data: new Uint8Array(bytes) })
+        doc = await task.promise
+      }
+      const first = await doc.getPage(1)
+      const viewport = first.getViewport({ scale: 1 })
+      return { doc, pageCount: doc.numPages, ratio: viewport.height / viewport.width }
+    }
+
+    open().then(
+      (result) => !cancelled && setState({ status: "ready", ...result }),
+      () => !cancelled && setState({ status: "error" })
     )
+
+    return () => {
+      cancelled = true
+      task?.destroy()
+    }
+  }, [file, enabled])
+
+  return state
+}
+
+/** One PDF page: a white sheet that draws itself when it nears the screen. */
+function PdfPage({ doc, number, width, ratio, rootRef }) {
+  const holderRef = useRef(null)
+  const canvasRef = useRef(null)
+  const [near, setNear] = useState(false)
+  const [pageRatio, setPageRatio] = useState(ratio)
+  const [drawn, setDrawn] = useState(false)
+
+  useEffect(() => {
+    const node = holderRef.current
+    if (!node) return undefined
+    const observer = new IntersectionObserver(([entry]) => setNear(entry.isIntersecting), {
+      root: rootRef.current,
+      rootMargin: "1200px 0px",
+    })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [rootRef])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return undefined
+    if (!near || width <= 0) {
+      // Far away: give the bitmap back.
+      canvas.width = 0
+      canvas.height = 0
+      setDrawn(false)
+      return undefined
+    }
+
+    let task = null
+    let cancelled = false
+    doc.getPage(number).then((page) => {
+      if (cancelled) return
+      const base = page.getViewport({ scale: 1 })
+      const scale = width / base.width
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      const viewport = page.getViewport({ scale: scale * dpr })
+      setPageRatio(base.height / base.width)
+      const buffer = document.createElement("canvas")
+      buffer.width = Math.floor(viewport.width)
+      buffer.height = Math.floor(viewport.height)
+      task = page.render({ canvas: buffer, viewport })
+      task.promise.then(
+        () => {
+          if (cancelled) return
+          // Drawn off screen and copied in whole, so a zoom never shows a
+          // half-painted page over the old one.
+          canvas.width = buffer.width
+          canvas.height = buffer.height
+          canvas.getContext("2d").drawImage(buffer, 0, 0)
+          setDrawn(true)
+        },
+        () => {}
+      )
+    })
+
+    return () => {
+      cancelled = true
+      task?.cancel()
+    }
+  }, [doc, number, near, width])
+
+  return (
+    <div data-page={number} ref={holderRef} className="rb-reader-page-slot">
+      <div className="rb-reader-sheet" style={{ width, height: Math.round(width * pageRatio) }}>
+        <canvas ref={canvasRef} className="block size-full" aria-label={`Page ${number}`} />
+        {!drawn ? (
+          <span className="rb-reader-sheet-wait" aria-hidden="true">
+            <Loader2 className="size-5 animate-spin" />
+          </span>
+        ) : null}
+      </div>
+      <p className="rb-reader-page-number">{number}</p>
+    </div>
   )
 }
+
+/* ------------------------------------------------------- Word and text --- */
+
+/**
+ * Packs a document's blocks onto sheets. Each top-level block is measured in an
+ * invisible sheet of the real width; a block joins the current sheet until it
+ * would pass the bottom margin. One block taller than a whole sheet gets a
+ * sheet of its own and lets it grow.
+ */
+function useSheets(html) {
+  const measureRef = useRef(null)
+  const [sheets, setSheets] = useState(null)
+
+  useLayoutEffect(() => {
+    setSheets(null)
+  }, [html])
+
+  useLayoutEffect(() => {
+    if (html === null || sheets !== null) return
+    const node = measureRef.current
+    if (!node) return
+    const blocks = [...node.children]
+    const room = SHEET_HEIGHT - SHEET_PADDING * 2
+    const packed = []
+    let current = []
+    let top = 0
+
+    blocks.forEach((block, index) => {
+      const next = blocks[index + 1]
+      const start = block.offsetTop
+      const end = next ? next.offsetTop : node.scrollHeight
+      if (current.length === 0) top = start
+      if (current.length > 0 && end - top > room) {
+        packed.push(current)
+        current = []
+        top = start
+      }
+      current.push(block.outerHTML)
+    })
+    if (current.length > 0) packed.push(current)
+    setSheets(packed.length > 0 ? packed.map((parts) => parts.join("")) : [""])
+  }, [html, sheets])
+
+  const measurer =
+    html !== null && sheets === null ? (
+      <div
+        ref={measureRef}
+        className="rb-docx rb-reader-flow"
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          visibility: "hidden",
+          pointerEvents: "none",
+          left: -99999,
+          top: 0,
+          width: SHEET_WIDTH - SHEET_PADDING * 2,
+        }}
+        // mammoth's own output (a fixed set of semantic tags, no scripts) or
+        // text this component escaped itself.
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    ) : null
+
+  return { sheets, measurer }
+}
+
+/* -------------------------------------------------------------- reader --- */
 
 export function DocumentReader({ file, onReplace, onRemove, back }) {
   const extension = fileExtension(file.name)
   const isPdf = extension === ".pdf"
   const isText = extension === ".txt"
   const isWord = extension === ".docx" || extension === ".doc"
+  const typeLabel = extension.replace(".", "").toUpperCase() || "FILE"
 
-  const [text, setText] = useState(null)
-  const [wordHtml, setWordHtml] = useState(null)
-  const [wordError, setWordError] = useState(null)
-  const [page, setPage] = useState(1)
-  const [zoomIndex, setZoomIndex] = useState(ZOOM_STEPS.indexOf(1))
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [term, setTerm] = useState("")
-  const [fullscreen, setFullscreen] = useState(false)
   const frameRef = useRef(null)
   const scrollRef = useRef(null)
+  const roomWidth = useElementWidth(scrollRef)
+
+  const [zoomIndex, setZoomIndex] = useState(ZOOM_STEPS.indexOf(1))
+  const [page, setPage] = useState(1)
+  const [pageDraft, setPageDraft] = useState(null)
+  const [fullscreen, setFullscreen] = useState(false)
+  const zoom = ZOOM_STEPS[zoomIndex]
+
+  /* ---- content */
+  const pdf = usePdfDocument(file, isPdf)
+  const [html, setHtml] = useState(null)
+  const [flowError, setFlowError] = useState(null)
 
   useEffect(() => {
-    if (!isText) return undefined
+    if (!isText && !isWord) return undefined
     let cancelled = false
-    file.text().then(
-      (content) => !cancelled && setText(content),
-      () => !cancelled && setText(null)
+    setHtml(null)
+    setFlowError(null)
+
+    const read = isText
+      ? file.text().then(textToHtml)
+      : Promise.all([import("mammoth/mammoth.browser"), file.arrayBuffer()])
+          .then(([mammoth, buffer]) => mammoth.convertToHtml({ arrayBuffer: buffer }))
+          .then(({ value }) => value)
+
+    read.then(
+      (value) => !cancelled && setHtml(value),
+      () =>
+        !cancelled &&
+        setFlowError(isWord ? "This Word document could not be read." : "This file could not be read.")
     )
     return () => {
       cancelled = true
     }
-  }, [file, isText])
+  }, [file, isText, isWord])
 
-  /* Word, converted on demand. mammoth is a good deal larger than this
-     component and only this branch needs it, so it is imported when a .docx is
-     actually opened rather than bundled into every page that can read a file. */
-  useEffect(() => {
-    if (!isWord) return undefined
-    let cancelled = false
-    setWordHtml(null)
-    setWordError(null)
+  const { sheets, measurer } = useSheets(html)
 
-    Promise.all([import("mammoth/mammoth.browser"), file.arrayBuffer()])
-      .then(([mammoth, buffer]) => mammoth.convertToHtml({ arrayBuffer: buffer }))
-      .then(({ value }) => {
-        if (!cancelled) setWordHtml(value)
-      })
-      .catch(() => {
-        if (!cancelled) setWordError("This Word document could not be read.")
-      })
+  const pageCount = isPdf
+    ? pdf.status === "ready"
+      ? pdf.pageCount
+      : null
+    : sheets
+      ? sheets.length
+      : null
 
-    return () => {
-      cancelled = true
+  /* ---- sizing: fit the room, then zoom */
+  const gutter = roomWidth < 640 ? 24 : 64
+  const available = Math.max(roomWidth - gutter, 200)
+  const pdfWidth = Math.round(Math.min(available, PDF_MAX_WIDTH) * zoom)
+  const sheetScale = Math.min(1, available / SHEET_WIDTH) * zoom
+
+  /* ---- paging */
+  const updateCurrentPage = useCallback(() => {
+    const room = scrollRef.current
+    if (!room) return
+    const slots = room.querySelectorAll("[data-page]")
+    if (slots.length === 0) return
+    const line = room.scrollTop + room.clientHeight * 0.35
+    let low = 0
+    let high = slots.length - 1
+    while (low < high) {
+      const mid = Math.ceil((low + high) / 2)
+      if (slots[mid].offsetTop <= line) low = mid
+      else high = mid - 1
     }
-  }, [file, isWord])
+    setPage(Number(slots[low].dataset.page))
+  }, [])
 
-  const pages = useMemo(() => (isText ? paginateText(text) : []), [isText, text])
-  const pageCount = isText ? pages.length : null
-  const zoom = ZOOM_STEPS[zoomIndex]
-
-  // Only text documents are paged by this component; see the class note.
-  const paged = isText && pageCount > 0
+  useEffect(() => {
+    const room = scrollRef.current
+    if (!room) return undefined
+    let frame = 0
+    const onScroll = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(updateCurrentPage)
+    }
+    room.addEventListener("scroll", onScroll, { passive: true })
+    return () => {
+      cancelAnimationFrame(frame)
+      room.removeEventListener("scroll", onScroll)
+    }
+  }, [updateCurrentPage])
 
   const goTo = useCallback(
-    (next) => {
-      if (!paged) return
-      const clamped = Math.min(Math.max(next, 1), pageCount)
-      setPage(clamped)
-      scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })
+    (target) => {
+      if (!pageCount) return
+      const number = Math.min(Math.max(Math.round(target), 1), pageCount)
+      const slot = scrollRef.current?.querySelector(`[data-page="${number}"]`)
+      if (slot) scrollRef.current.scrollTo({ top: slot.offsetTop - 20, behavior: "smooth" })
+      setPage(number)
     },
-    [paged, pageCount]
+    [pageCount]
   )
 
-  // The Fullscreen API can also be exited with Escape or the browser's own
-  // chrome, so the button's label follows the document rather than our state.
+  /* ---- zoom keeps the page you were on */
+  const keepPageRef = useRef(null)
+  const zoomTo = (index) => {
+    keepPageRef.current = page
+    setZoomIndex(index)
+  }
+  // After the pages have re-laid out at the new size, not before.
+  useLayoutEffect(() => {
+    const keep = keepPageRef.current
+    if (keep === null) return
+    keepPageRef.current = null
+    const slot = scrollRef.current?.querySelector(`[data-page="${keep}"]`)
+    if (slot) scrollRef.current.scrollTop = slot.offsetTop - 20
+  }, [zoomIndex])
+
+  /* ---- fullscreen follows the document, which Escape can also leave */
   useEffect(() => {
-    function sync() {
-      setFullscreen(document.fullscreenElement === frameRef.current)
-    }
+    const sync = () => setFullscreen(document.fullscreenElement === frameRef.current)
     document.addEventListener("fullscreenchange", sync)
     return () => document.removeEventListener("fullscreenchange", sync)
   }, [])
 
-  function toggleFullscreen() {
-    if (document.fullscreenElement) {
-      document.exitFullscreen?.()
-    } else {
-      frameRef.current?.requestFullscreen?.()
-    }
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen?.()
+    else frameRef.current?.requestFullscreen?.()
   }
 
-  const matchCount = useMemo(() => {
-    if (!paged || !term.trim()) return 0
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-    return (pages.join("\n").match(new RegExp(escaped, "gi")) ?? []).length
-  }, [paged, pages, term])
+  const size = formatBytes(file.size)
+  const loading =
+    (isPdf && (pdf.status === "loading" || pdf.status === "idle")) ||
+    ((isText || isWord) && !flowError && sheets === null)
+  const failed = (isPdf && pdf.status === "error") || Boolean(flowError) || (!isPdf && !isText && !isWord)
+
+  const pageNumbers = useMemo(
+    () => (pageCount ? Array.from({ length: pageCount }, (_, i) => i + 1) : []),
+    [pageCount]
+  )
 
   return (
-    <div ref={frameRef} className="flex h-full min-h-0 flex-col bg-rb-snow">
-      {/* Title bar: what this document is, and what you can do with it. */}
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-3">
+    <div ref={frameRef} className="rb-reader">
+      {/* ---- toolbar */}
+      <header className="rb-reader-bar">
         <div className="flex min-w-0 items-center gap-3">
-          {/* The way out, where a page's back control always is: at the head of
-              the title bar, beside the thing it leaves. A reader opened as a
-              page of its own had it in a second bar stacked above this one --
-              two headers for one document, the top one carrying a single
-              button. A reader embedded in a workspace passes no `back` and
-              keeps the bar it always had. */}
           {back ?? null}
-          <span className="grid size-10 shrink-0 place-items-center rounded-rb-tile bg-rb-macaw-wash text-rb-macaw-lip">
-            <FileText className="size-5" aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-extrabold text-rb-eel">{file.name}</p>
-            <p className="text-xs font-bold text-rb-hare">
-              {extension.replace(".", "").toUpperCase()} · {formatBytes(file.size)}
-              {paged ? ` · ${pageCount} page${pageCount === 1 ? "" : "s"}` : ""}
+          <div className="min-w-0 lg:hidden">
+            <p className="truncate text-sm font-extrabold">{file.name}</p>
+            <p className="rb-reader-muted text-xs font-bold">
+              {[typeLabel, pageCount ? `${pageCount} pages` : null].filter(Boolean).join(" · ")}
             </p>
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-          {/* Reading actions. Download and print are genuinely local -- the
-              file is already in the browser -- so they work; save and share
-              need a server and are left out rather than mimed. */}
-          <a
-            href={file.previewUrl}
-            download={file.name}
-            className="inline-flex h-9 items-center gap-1.5 rounded-rb-control border-2 border-border bg-white px-3 text-xs font-extrabold text-rb-wolf transition-colors hover:border-rb-beetle hover:text-rb-beetle-lip"
-          >
-            <Download className="size-3.5" aria-hidden="true" />
-            Download
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <a href={file.previewUrl} download={file.name} className="rb-reader-download">
+            <Download className="size-4" aria-hidden="true" />
+            <span className="hidden sm:inline">Download</span>
           </a>
-          <TactileButton
-            variant="ghost"
-            size="sm"
-            className="rb-btn-icon"
-            onClick={() => window.print()}
-            aria-label="Print this document"
-          >
-            <Printer className="size-4" aria-hidden="true" />
-          </TactileButton>
-          <TactileButton
-            variant="ghost"
-            size="sm"
-            className="rb-btn-icon"
-            onClick={toggleFullscreen}
-            aria-label={fullscreen ? "Exit full screen" : "Read full screen"}
-          >
-            {fullscreen ? (
-              <Minimize2Icon className="size-4" aria-hidden="true" />
-            ) : (
-              <Maximize className="size-4" aria-hidden="true" />
-            )}
-          </TactileButton>
-          {/* The uploader's own controls. A reader opened on someone else's
-              shared document has neither, and a Replace button over a file you
-              did not upload is an offer the page cannot keep. */}
+
+          <span className="rb-reader-divider" aria-hidden="true" />
+
+          <div className="flex items-center gap-1" role="group" aria-label="Pages">
+            <ToolButton label="Previous page" onClick={() => goTo(page - 1)} disabled={!pageCount || page <= 1}>
+              <ChevronUpIcon className="size-4" />
+            </ToolButton>
+            <input
+              value={pageDraft ?? (pageCount ? page : "–")}
+              onChange={(event) => setPageDraft(event.target.value.replace(/\D/g, ""))}
+              onBlur={() => {
+                if (pageDraft) goTo(Number(pageDraft))
+                setPageDraft(null)
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur()
+              }}
+              disabled={!pageCount}
+              aria-label="Page number"
+              className="rb-reader-page-input"
+            />
+            <span className="rb-reader-muted text-sm font-bold">/ {pageCount ?? "–"}</span>
+            <ToolButton label="Next page" onClick={() => goTo(page + 1)} disabled={!pageCount || page >= pageCount}>
+              <ChevronDown className="size-4" />
+            </ToolButton>
+          </div>
+
+          <span className="rb-reader-divider hidden sm:block" aria-hidden="true" />
+
+          <div className="hidden items-center gap-1 sm:flex" role="group" aria-label="Zoom">
+            <ToolButton label="Zoom out" onClick={() => zoomTo(Math.max(0, zoomIndex - 1))} disabled={zoomIndex === 0}>
+              <Minus className="size-4" />
+            </ToolButton>
+            <span className="w-12 text-center text-sm font-bold tabular-nums">{Math.round(zoom * 100)}%</span>
+            <ToolButton
+              label="Zoom in"
+              onClick={() => zoomTo(Math.min(ZOOM_STEPS.length - 1, zoomIndex + 1))}
+              disabled={zoomIndex === ZOOM_STEPS.length - 1}
+            >
+              <Plus className="size-4" />
+            </ToolButton>
+          </div>
+
+          <ToolButton label={fullscreen ? "Exit full screen" : "Read full screen"} onClick={toggleFullscreen}>
+            {fullscreen ? <Minimize2Icon className="size-4" /> : <Maximize className="size-4" />}
+          </ToolButton>
+
+          {/* The uploader's own controls; a shared file has neither. */}
           {onReplace ? (
-            <TactileButton variant="ghost" size="sm" onClick={onReplace}>
-              <RefreshCw className="size-4" aria-hidden="true" />
-              Replace
-            </TactileButton>
+            <ToolButton label="Replace this file" onClick={onReplace}>
+              <RefreshCw className="size-4" />
+            </ToolButton>
           ) : null}
           {onRemove ? (
-            <TactileButton
-              variant="ghost"
-              size="sm"
-              className="rb-btn-icon"
-              onClick={onRemove}
-              aria-label="Remove this file"
-            >
-              <Trash2 className="size-4" aria-hidden="true" />
-            </TactileButton>
+            <ToolButton label="Remove this file" onClick={onRemove}>
+              <Trash2 className="size-4" />
+            </ToolButton>
           ) : null}
         </div>
       </header>
 
-      {/* Search opens as a strip rather than a floating box, so it never
-          covers the line the learner is reading. */}
-      {searchOpen && paged ? (
-        <div className="flex shrink-0 items-center gap-2 border-b border-border bg-white px-4 py-2">
-          <Search className="size-4 shrink-0 text-rb-hare" aria-hidden="true" />
-          <input
-            autoFocus
-            value={term}
-            onChange={(event) => setTerm(event.target.value)}
-            placeholder="Search in this document…"
-            aria-label="Search in this document"
-            className="h-9 min-w-0 flex-1 rounded-rb-control border-2 border-border bg-white px-3 text-sm font-medium text-rb-eel outline-none placeholder:text-rb-hare focus-visible:border-rb-macaw"
-          />
-          <span className="shrink-0 text-xs font-bold text-rb-hare">
-            {term.trim()
-              ? `${matchCount} match${matchCount === 1 ? "" : "es"}`
-              : "Type to search"}
-          </span>
-          <TactileButton
-            variant="ghost"
-            size="sm"
-            className="rb-btn-icon shrink-0"
-            onClick={() => {
-              setSearchOpen(false)
-              setTerm("")
-            }}
-            aria-label="Close search"
-          >
-            <X className="size-4" aria-hidden="true" />
-          </TactileButton>
-        </div>
-      ) : null}
-
       <div className="flex min-h-0 flex-1">
-        {/* Control rail, pinned down the left edge of the page area. */}
-        <div className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-border bg-card py-3">
-          <RailButton
-            label="Search in document"
-            onClick={() => setSearchOpen((open) => !open)}
-            disabled={!paged}
-            active={searchOpen}
-          >
-            <Search className="size-4" aria-hidden="true" />
-          </RailButton>
-          <RailButton label="Bookmark" disabled>
-            <Bookmark className="size-4" aria-hidden="true" />
-          </RailButton>
-          <RailButton label="Share" disabled>
-            <Share2 className="size-4" aria-hidden="true" />
-          </RailButton>
-
-          <span className="my-1 h-px w-6 bg-border" aria-hidden="true" />
-
-          <RailButton
-            label="Previous page"
-            onClick={() => goTo(page - 1)}
-            disabled={!paged || page <= 1}
-          >
-            <ChevronUpIcon className="size-4" aria-hidden="true" />
-          </RailButton>
-
-          {/* The page indicator doubles as a jump box. */}
-          <div className="flex flex-col items-center gap-0.5 py-0.5">
-            <input
-              value={paged ? page : "–"}
-              onChange={(event) => {
-                const next = Number(event.target.value.replace(/\D/g, ""))
-                if (Number.isFinite(next) && next > 0) goTo(next)
-              }}
-              disabled={!paged}
-              aria-label="Page number"
-              className="h-7 w-8 rounded-rb-control border-2 border-border bg-white text-center text-xs font-extrabold text-rb-eel outline-none focus-visible:border-rb-macaw disabled:opacity-50"
-            />
-            <span className="text-[10px] font-bold text-rb-hare">
-              {paged ? pageCount : "–"}
-            </span>
+        {/* ---- info panel */}
+        <aside className="rb-reader-info" aria-label="About this document">
+          <div className="rb-reader-cover" aria-hidden="true">
+            <FileText className="size-8" />
+            <span className="rb-reader-type">{typeLabel}</span>
           </div>
 
-          <RailButton
-            label="Next page"
-            onClick={() => goTo(page + 1)}
-            disabled={!paged || page >= pageCount}
-          >
-            <ChevronDown className="size-4" aria-hidden="true" />
-          </RailButton>
+          <h1 className="rb-reader-title">{file.name.replace(/\.[^.]+$/, "")}</h1>
 
-          <span className="my-1 h-px w-6 bg-border" aria-hidden="true" />
-
-          <RailButton
-            label="Zoom out"
-            onClick={() => setZoomIndex((index) => Math.max(0, index - 1))}
-            disabled={zoomIndex === 0}
-          >
-            <Minus className="size-4" aria-hidden="true" />
-          </RailButton>
-          <span className="text-[10px] font-bold text-rb-hare">
-            {Math.round(zoom * 100)}%
-          </span>
-          <RailButton
-            label="Zoom in"
-            onClick={() =>
-              setZoomIndex((index) => Math.min(ZOOM_STEPS.length - 1, index + 1))
-            }
-            disabled={zoomIndex === ZOOM_STEPS.length - 1}
-          >
-            <Plus className="size-4" aria-hidden="true" />
-          </RailButton>
-
-          <span className="my-1 h-px w-6 bg-border" aria-hidden="true" />
-
-          <RailButton label="More options" disabled>
-            <MoreHorizontal className="size-4" aria-hidden="true" />
-          </RailButton>
-        </div>
-
-        {/* The pages. */}
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto p-4">
-          {isPdf ? (
-            <div className="flex h-full min-h-[28rem] flex-col gap-2">
-              <p className="shrink-0 rounded-rb-tile border-2 border-rb-macaw/30 bg-rb-macaw-wash px-3 py-2 text-xs font-bold text-rb-macaw-lip">
-                PDFs use the browser's own viewer, which brings its own page and
-                zoom controls — the rail's are for text documents.
-              </p>
-              <object
-                data={file.previewUrl}
-                type="application/pdf"
-                className="min-h-0 w-full flex-1 rounded-rb-card border-2 border-border bg-white"
-              >
-                <div className="grid h-full place-items-center p-8 text-center">
-                  <div>
-                    <p className="text-sm font-bold text-rb-eel">
-                      This browser cannot preview PDFs inline.
-                    </p>
-                    <a
-                      href={file.previewUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-3 inline-flex items-center gap-2 text-sm font-extrabold text-rb-macaw-lip underline"
-                    >
-                      <Download className="size-4" aria-hidden="true" />
-                      Open it in a new tab
-                    </a>
-                  </div>
-                </div>
-              </object>
-            </div>
-          ) : paged ? (
-            /* One page, sized and centred like a sheet of paper. Zoom scales
-               the sheet from its top edge so the text does not drift off the
-               left as it grows. */
-            <div className="flex justify-center">
-              <article
-                style={{
-                  transform: `scale(${zoom})`,
-                  transformOrigin: "top center",
-                  width: "min(46rem, 100%)",
-                }}
-                className="rounded-rb-card border-2 border-border bg-white p-8 shadow-[var(--comic-shadow-sm)]"
-              >
-                <p className="rb-nav-label mb-4 text-rb-hare">
-                  Page {page} of {pageCount}
-                </p>
-                <pre className="whitespace-pre-wrap font-sans text-sm leading-7 text-rb-eel">
-                  {highlight(pages[page - 1] ?? "", term)}
-                </pre>
-              </article>
-            </div>
-          ) : isWord && wordHtml !== null ? (
-            /* The converted document, on the same sheet the text branch uses --
-               a Word file and a text file are the same kind of thing to read,
-               so they are read the same way. */
-            <div className="flex justify-center">
-              <article
-                style={{
-                  transform: `scale(${zoom})`,
-                  transformOrigin: "top center",
-                  width: "min(46rem, 100%)",
-                }}
-                className="rounded-rb-card border-2 border-border bg-white p-8 shadow-[var(--comic-shadow-sm)]"
-              >
-                <div
-                  className="rb-docx text-sm leading-7 text-rb-eel"
-                  // mammoth's own output, built from the .docx's structure: a
-                  // fixed set of semantic tags, carrying no scripts across.
-                  dangerouslySetInnerHTML={{ __html: wordHtml }}
-                />
-              </article>
-            </div>
-          ) : isText || (isWord && !wordError) ? (
-            <p className="p-8 text-center text-sm font-bold text-rb-hare">
-              Reading your file…
+          {file.uploader ? (
+            <p className="rb-reader-muted mt-2 text-sm font-semibold">
+              Shared by <span className="rb-reader-strong">{file.uploader}</span>
+              {file.circle ? <> in {file.circle}</> : null}
             </p>
-          ) : (
-            <div className="grid h-full min-h-[24rem] place-items-center rounded-rb-card border-2 border-border bg-white p-8 text-center">
+          ) : null}
+
+          <dl className="rb-reader-facts">
+            <div>
+              <dt>Pages</dt>
+              <dd>{pageCount ?? "…"}</dd>
+            </div>
+            <div>
+              <dt>Format</dt>
+              <dd>{typeLabel}</dd>
+            </div>
+            {size ? (
               <div>
-                <span className="mx-auto grid size-14 place-items-center rounded-3xl bg-rb-macaw-wash text-rb-macaw-lip">
-                  <FileText className="size-6" aria-hidden="true" />
-                </span>
-                <p className="mt-5 font-rb-display text-lg font-extrabold text-rb-eel">
-                  {file.name}
+                <dt>Size</dt>
+                <dd>{size}</dd>
+              </div>
+            ) : null}
+          </dl>
+
+          {file.description ? <p className="rb-reader-description">{file.description}</p> : null}
+
+          {pageNumbers.length > 1 ? (
+            <nav className="mt-6" aria-label="Jump to page">
+              <p className="rb-reader-label">Jump to page</p>
+              <div className="rb-reader-jump">
+                {pageNumbers.map((number) => (
+                  <button
+                    key={number}
+                    type="button"
+                    onClick={() => goTo(number)}
+                    aria-current={number === page ? "page" : undefined}
+                  >
+                    {number}
+                  </button>
+                ))}
+              </div>
+            </nav>
+          ) : null}
+        </aside>
+
+        {/* ---- pages */}
+        <div ref={scrollRef} className="rb-reader-room">
+          {loading ? (
+            <div className="rb-reader-state">
+              <Loader2 className="size-5 animate-spin" aria-hidden="true" />
+              Opening your document…
+            </div>
+          ) : failed ? (
+            <div className="rb-reader-state">
+              <div className="rb-reader-sheet grid max-w-md place-items-center p-10 text-center" style={{ width: "100%" }}>
+                <FileText className="rb-reader-muted size-8" aria-hidden="true" />
+                <p className="mt-4 text-base font-extrabold">{file.name}</p>
+                <p className="rb-reader-muted mt-2 text-sm font-medium leading-6">
+                  {flowError ??
+                    (isPdf
+                      ? "This PDF could not be shown here. Download it to read it."
+                      : "This file type has no preview. Download it to read it.")}
                 </p>
-                <p className="mx-auto mt-2 max-w-xs text-sm font-medium leading-6 text-rb-wolf">
-                  {wordError ?? "This file type has no preview in the browser."}
-                </p>
+                <a href={file.previewUrl} download={file.name} className="rb-reader-download mt-5">
+                  <Download className="size-4" aria-hidden="true" />
+                  Download
+                </a>
               </div>
             </div>
+          ) : isPdf ? (
+            <div className="rb-reader-stack">
+              {pageNumbers.map((number) => (
+                <PdfPage
+                  key={number}
+                  doc={pdf.doc}
+                  number={number}
+                  width={pdfWidth}
+                  ratio={pdf.ratio}
+                  rootRef={scrollRef}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="rb-reader-stack">
+              {sheets.map((sheet, index) => (
+                <div key={index} data-page={index + 1} className="rb-reader-page-slot">
+                  <div
+                    className="rb-reader-sheet"
+                    style={{
+                      width: SHEET_WIDTH * sheetScale,
+                      minHeight: SHEET_HEIGHT * sheetScale,
+                    }}
+                  >
+                    <div
+                      className="rb-docx rb-reader-flow"
+                      style={{
+                        width: SHEET_WIDTH,
+                        minHeight: SHEET_HEIGHT,
+                        padding: SHEET_PADDING,
+                        zoom: sheetScale,
+                      }}
+                      dangerouslySetInnerHTML={{ __html: sheet }}
+                    />
+                  </div>
+                  <p className="rb-reader-page-number">{index + 1}</p>
+                </div>
+              ))}
+            </div>
           )}
+          {measurer}
         </div>
       </div>
     </div>
   )
 }
 
-/** One square control in the left rail. */
-function RailButton({ label, children, onClick, disabled, active }) {
+function ToolButton({ label, onClick, disabled, children }) {
   return (
     <button
       type="button"
@@ -506,12 +645,7 @@ function RailButton({ label, children, onClick, disabled, active }) {
       disabled={disabled}
       title={label}
       aria-label={label}
-      aria-pressed={active ? true : undefined}
-      className={`grid size-9 place-items-center rounded-rb-control border-2 transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${
-        active
-          ? "border-rb-beetle bg-rb-beetle text-white"
-          : "border-transparent text-rb-wolf hover:border-border hover:bg-rb-snow enabled:hover:text-rb-beetle-lip"
-      }`}
+      className="rb-reader-tool"
     >
       {children}
     </button>

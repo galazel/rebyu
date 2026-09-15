@@ -31,15 +31,18 @@ import { fetchFileBlob, getFileViewLink } from "@/services/fileService"
  */
 
 /** What the reader needs of a file, for something that is not a File. */
-function readerDocument({ name, size, previewUrl, blob }) {
+function readerDocument({ name, size, previewUrl, blob, fileKey, uploader, circle }) {
     return {
         name,
         size,
         previewUrl,
-        // Only ever called for the branches that parse the bytes themselves,
-        // which are the branches this page fetches a blob for.
+        uploader,
+        circle,
         text: () => (blob ? blob.text() : Promise.resolve("")),
-        arrayBuffer: () => (blob ? blob.arrayBuffer() : Promise.resolve(new ArrayBuffer(0))),
+        // A PDF streams from its presigned URL; its bytes are only fetched if
+        // the reader cannot load that URL itself.
+        arrayBuffer: () =>
+            blob ? blob.arrayBuffer() : fetchFileBlob(fileKey).then((fetched) => fetched.arrayBuffer()),
     }
 }
 
@@ -56,6 +59,8 @@ export default function CommunityReviewerPage() {
     const fileKey = params.get("key")
     const name = params.get("name") || "Shared reviewer"
     const size = Number(params.get("size")) || 0
+    const uploader = params.get("by") || null
+    const circle = params.get("circle") || null
 
     const [state, setState] = useState({ status: "loading" })
     const objectUrlRef = useRef(null)
@@ -106,9 +111,17 @@ export default function CommunityReviewerPage() {
     const document = useMemo(
         () =>
             state.status === "ready"
-                ? readerDocument({ name, size, previewUrl: state.previewUrl, blob: state.blob })
+                ? readerDocument({
+                      name,
+                      size,
+                      previewUrl: state.previewUrl,
+                      blob: state.blob,
+                      fileKey,
+                      uploader,
+                      circle,
+                  })
                 : null,
-        [state, name, size]
+        [state, name, size, fileKey, uploader, circle]
     )
 
     function back() {

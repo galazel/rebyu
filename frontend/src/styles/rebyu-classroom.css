@@ -3145,3 +3145,290 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
         transform: none;
     }
 }
+
+/* ===========================================================================
+   Document reader (Scribd-style)
+
+   A light reading room in both themes: warm grey ground, white page sheets
+   with a soft lift, an info panel on the left, one toolbar on top. Colours are
+   literal on purpose -- a document is paper, and the night palette must not
+   turn the room black.
+   =========================================================================== */
+.rb-reader {
+  --reader-ground: #efede7;
+  --reader-panel: #ffffff;
+  --reader-line: #e2ded4;
+  --reader-ink: #2d2a26;
+  --reader-muted: #6f6a61;
+  --reader-green: #4f8a78;
+  --reader-green-lip: #3c6e5f;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--reader-ground);
+  color: var(--reader-ink);
+  color-scheme: light;
+}
+.dark .rb-reader { --reader-ground: #dcd8cf; }
+
+.rb-reader-muted { color: var(--reader-muted); }
+.rb-reader-strong { color: var(--reader-ink); font-weight: 800; }
+
+.rb-reader-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  padding: 0.6rem 1rem;
+  background: var(--reader-panel);
+  border-bottom: 1px solid var(--reader-line);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+}
+.rb-reader-divider { width: 1px; height: 1.5rem; background: var(--reader-line); }
+
+.rb-reader-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 2.25rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  background: var(--reader-green);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 800;
+  transition: background-color 0.15s ease;
+}
+.rb-reader-download:hover { background: var(--reader-green-lip); }
+
+.rb-reader-tool {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  color: var(--reader-ink);
+  transition: background-color 0.15s ease;
+}
+.rb-reader-tool:hover:not(:disabled) { background: #f1efe9; }
+.rb-reader-tool:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.rb-reader-page-input {
+  width: 3rem;
+  height: 2rem;
+  border: 1px solid var(--reader-line);
+  border-radius: 0.5rem;
+  background: #fff;
+  color: var(--reader-ink);
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 800;
+  outline: none;
+}
+.rb-reader-page-input:focus { border-color: var(--reader-green); }
+
+.rb-reader-info {
+  display: none;
+  width: 18.5rem;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 1.75rem 1.5rem;
+  background: var(--reader-panel);
+  border-right: 1px solid var(--reader-line);
+}
+@media (min-width: 1024px) { .rb-reader-info { display: block; } }
+
+.rb-reader-cover {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 5.5rem;
+  aspect-ratio: 8.5 / 11;
+  border: 1px solid var(--reader-line);
+  border-radius: 0.3rem;
+  background: #fff;
+  color: var(--reader-muted);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.08);
+}
+.rb-reader-type {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.25rem;
+  background: var(--reader-green);
+  color: #fff;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+.rb-reader-title {
+  margin-top: 1.25rem;
+  font-family: var(--font-rb-display, inherit);
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.rb-reader-facts {
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  justify-content: start;
+  gap: 1.5rem;
+  margin-top: 1.25rem;
+  padding: 0.9rem 0;
+  border-block: 1px solid var(--reader-line);
+}
+.rb-reader-facts dt {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--reader-muted);
+}
+.rb-reader-facts dd { margin-top: 0.15rem; font-size: 0.95rem; font-weight: 800; }
+.rb-reader-description {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--reader-muted);
+}
+.rb-reader-label {
+  margin-bottom: 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--reader-muted);
+}
+.rb-reader-jump {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.35rem;
+}
+.rb-reader-jump button {
+  height: 2rem;
+  border: 1px solid var(--reader-line);
+  border-radius: 0.4rem;
+  background: #fff;
+  color: var(--reader-ink);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.rb-reader-jump button:hover { border-color: var(--reader-green); }
+.rb-reader-jump button[aria-current="page"] {
+  border-color: var(--reader-green);
+  background: var(--reader-green);
+  color: #fff;
+}
+
+.rb-reader-room {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+/* max-content + min-width 100%: a page zoomed wider than the room scrolls
+   sideways instead of being centred off the left edge where it can't be reached. */
+.rb-reader-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: max-content;
+  min-width: 100%;
+  padding: 1.25rem 0.75rem 3rem;
+}
+
+/* The night palette recolours headings and body text app-wide; paper keeps its ink. */
+.dark .rb-reader :is(h1, h2, h3, h4, p, dd, span, li, td, th, strong, em, a):not(.rb-reader-download, .rb-reader-download *, .rb-reader-type) {
+  color: inherit;
+}
+.dark .rb-reader .rb-reader-muted,
+.dark .rb-reader .rb-reader-facts dt,
+.dark .rb-reader .rb-reader-label,
+.dark .rb-reader .rb-reader-page-number { color: var(--reader-muted); }
+.rb-reader-page-slot { display: flex; flex-direction: column; align-items: center; }
+.rb-reader-sheet {
+  position: relative;
+  overflow: hidden;
+  background: #fff;
+  color: #2d2a26;
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.1), 0 8px 24px rgb(0 0 0 / 0.07);
+}
+.rb-reader-sheet-wait {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #b8b2a6;
+}
+.rb-reader-page-number {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--reader-muted);
+  font-variant-numeric: tabular-nums;
+}
+.rb-reader-flow {
+  box-sizing: border-box;
+  font-size: 15px;
+  line-height: 1.7;
+  color: #2d2a26;
+  overflow-wrap: anywhere;
+}
+.rb-reader-flow > :first-child { margin-top: 0; }
+.rb-reader-state {
+  display: flex;
+  min-height: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--reader-muted);
+}
+
+/* ===========================================================================
+   Compact mobile
+
+   On a phone every page read oversized: desktop-sized labels, padding and
+   controls in a 400px column. Tailwind's spacing and type are rem-based, so
+   shrinking the root size tightens text, gaps, padding, icons and bars together
+   and in proportion, instead of chasing every component. The design-system
+   type tokens are pixel values, so they are stepped down alongside.
+   =========================================================================== */
+@media (max-width: 639px) {
+  html { font-size: 14px; }
+
+  :root,
+  .rebyu-ds,
+  .netacad-portal,
+  body.netacad-overlay-theme {
+    --text-rb-caption: 11.5px;
+    --text-rb-nav: 13px;
+    --text-rb-body: 15px;
+    --text-rb-subheading: 16px;
+    --text-rb-heading-sm: 24px;
+    --text-rb-heading: 32px;
+    --text-rb-display: 40px;
+  }
+
+  /* The page itself never scrolls sideways on a phone; strips that are meant
+     to (tab rows, tables, code) keep their own overflow-x-auto. */
+  html,
+  body { overflow-x: clip; }
+}
+
+@media (max-width: 380px) {
+  html { font-size: 13px; }
+}

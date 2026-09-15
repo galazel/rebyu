@@ -103,13 +103,13 @@ function AchievementMark({ achievement }) {
       title={`${achievementDescription(achievement)}${earned ? "" : " (locked)"}`}
     >
       <div
-        className={`mx-auto flex size-20 items-center justify-center overflow-hidden rounded-full border border-border bg-muted/40 transition group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-md ${
+        className={`mx-auto flex size-14 items-center sm:size-20 justify-center overflow-hidden rounded-full border border-border bg-muted/40 transition group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-md ${
           earned ? "" : "opacity-40 grayscale"
         }`}
       >
-        {image ? <img src={image} alt="" className="h-full w-full object-contain p-1.5" loading="lazy" /> : <Award className="size-9 text-primary" aria-hidden="true" />}
+        {image ? <img src={image} alt="" className="h-full w-full object-contain p-1.5" loading="lazy" /> : <Award className="size-7 text-primary sm:size-9" aria-hidden="true" />}
       </div>
-      <p className={`mt-2 truncate text-xs font-medium ${earned ? "text-foreground" : "text-muted-foreground"}`}>{achievementTitle(achievement)}</p>
+      <p className={`mt-1.5 truncate text-[11px] font-medium sm:mt-2 sm:text-xs ${earned ? "text-foreground" : "text-muted-foreground"}`}>{achievementTitle(achievement)}</p>
       {achievement?.earnedAt ? <p className="mt-0.5 text-[11px] text-muted-foreground">{new Date(achievement.earnedAt).toLocaleDateString()}</p> : null}
     </div>
   )
@@ -117,10 +117,10 @@ function AchievementMark({ achievement }) {
 
 function SectionHeader({ title, description }) {
   return (
-    <div className="border-b px-5 py-4 sm:px-6">
-      <h2 className="text-base font-semibold text-foreground">{title}</h2>
+    <div className="border-b px-4 py-3 sm:px-6 sm:py-4">
+      <h2 className="text-[15px] font-semibold text-foreground sm:text-base">{title}</h2>
       {description ? (
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">{description}</p>
       ) : null}
     </div>
   )
@@ -128,7 +128,7 @@ function SectionHeader({ title, description }) {
 
 function PreferenceRow({ title, description, checked, onCheckedChange }) {
   return (
-    <div className="flex items-start justify-between gap-6 border-b px-5 py-4 last:border-b-0 sm:px-6">
+    <div className="flex items-start justify-between gap-4 border-b px-4 py-3 last:border-b-0 sm:gap-6 sm:px-6 sm:py-4">
       <div>
         <p className="text-sm font-medium text-foreground">{title}</p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
@@ -384,21 +384,21 @@ export default function LearnerAccountPage() {
           }}
         >
           <SectionHeader title="Profile details" description="Update how your learner identity appears across REBYU." />
-          <div className="p-5 sm:p-6">
-            <section className="border-b border-border/70 pb-6">
-              <div className="flex items-end justify-between gap-4">
-                <div><h3 className="text-base font-semibold">Achievements</h3><p className="mt-1 text-sm text-muted-foreground">Milestones earned through lessons, assessments, and learning streaks.</p></div>
-                <span className="text-sm font-medium text-muted-foreground">{earnedAchievements.length} of {achievements.length} earned</span>
+          <div className="p-4 sm:p-6">
+            <section className="border-b border-border/70 pb-5 sm:pb-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0"><h3 className="text-[15px] font-semibold sm:text-base">Achievements</h3><p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">Milestones earned through lessons, assessments, and learning streaks.</p></div>
+                <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">{earnedAchievements.length}/{achievements.length} earned</span>
               </div>
               {achievements.length ? (
-                <div className="mt-5 grid grid-cols-3 gap-5 sm:grid-cols-5 lg:grid-cols-8">
+                <div className="mt-4 grid grid-cols-4 gap-x-2 gap-y-4 sm:mt-5 sm:grid-cols-5 sm:gap-5 lg:grid-cols-8">
                   {orderedAchievements.map((achievement, index) => <AchievementMark key={achievement.code ?? achievement.achievementId ?? `${achievementTitle(achievement)}-${index}`} achievement={achievement} />)}
                 </div>
               ) : (
                 <div className="mt-5 flex items-center gap-3 py-3 text-sm text-muted-foreground"><span className="flex size-10 items-center justify-center rounded-full bg-muted"><Award className="size-5" /></span>Complete lessons and assessments to earn your first achievement.</div>
               )}
             </section>
-            <div className="mt-6 grid max-w-2xl gap-4 sm:grid-cols-2">
+            <div className="mt-5 grid max-w-2xl gap-3 sm:mt-6 sm:grid-cols-2 sm:gap-4">
               <label className="space-y-2">
                 <span className="text-sm font-medium">First name</span>
                 <Input value={form.firstName} onChange={(e) => updateField("firstName", e.target.value)} disabled={!canSave} required />
@@ -414,8 +414,8 @@ export default function LearnerAccountPage() {
               </label>
             </div>
           </div>
-          <div className="flex justify-end border-t bg-muted/20 px-5 py-4 sm:px-6">
-            <Button disabled={!canSave || saveMutation.isPending} type="submit">
+          <div className="flex justify-end border-t bg-muted/20 px-4 py-3 sm:px-6 sm:py-4">
+            <Button className="w-full sm:w-auto" disabled={!canSave || saveMutation.isPending} type="submit">
               {saveMutation.isPending ? "Saving..." : "Save profile"}
             </Button>
           </div>
@@ -857,20 +857,22 @@ export default function LearnerAccountPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-4 sm:space-y-6">
       <header className="border-b border-border/70">
-        <div className="flex flex-col gap-5 pb-6 sm:flex-row sm:items-center">
-          <Avatar className="size-24 border border-border shadow-sm">
-            <AvatarFallback className="bg-primary/10 text-2xl font-semibold text-primary">{initials(fullName)}</AvatarFallback>
+        {/* A student ID row: photo beside the name at every width. Stacking a
+            96px avatar over the name spent a phone's whole first screen on it. */}
+        <div className="flex items-center gap-3 pb-4 sm:gap-5 sm:pb-6">
+          <Avatar className="size-14 shrink-0 border border-border shadow-sm sm:size-24">
+            <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary sm:text-2xl">{initials(fullName)}</AvatarFallback>
           </Avatar>
-          <div className="min-w-0">
-            <p className="truncate font-heading text-2xl font-semibold tracking-tight">{fullName}</p>
-            <p className="mt-1 truncate text-base text-muted-foreground">@{learner?.username || "learner"}</p>
-            <div className="mt-3 flex flex-wrap items-center gap-2"><Badge variant="secondary">Learner</Badge><span className="text-sm text-muted-foreground">{user?.email || "Learner account"}</span></div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-heading text-lg font-semibold leading-tight tracking-tight sm:text-2xl">{fullName}</p>
+            <p className="truncate text-xs text-muted-foreground sm:mt-1 sm:text-base">@{learner?.username || "learner"}</p>
+            <div className="mt-1.5 flex min-w-0 items-center gap-2 sm:mt-3"><Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px] sm:px-2 sm:py-0.5 sm:text-xs">Learner</Badge><span className="truncate text-xs text-muted-foreground sm:text-sm">{user?.email || "Learner account"}</span></div>
           </div>
         </div>
 
-        <nav className="flex overflow-x-auto" aria-label="Account settings">
+        <nav className="-mx-4 flex gap-1 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:gap-0 sm:px-0 [&::-webkit-scrollbar]:hidden" aria-label="Account settings">
           {ACCOUNT_TABS.map((tab) => {
             const Icon = tab.icon
             const active = activeTab === tab.id
@@ -879,9 +881,9 @@ export default function LearnerAccountPage() {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-sm transition ${active ? "border-primary font-semibold text-primary" : "border-transparent text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground"}`}
+                className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap border-b-2 px-2.5 py-2.5 text-xs transition sm:gap-2 sm:px-3 sm:py-3 sm:text-sm ${active ? "border-primary font-semibold text-primary" : "border-transparent text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground"}`}
               >
-                <Icon className="size-4" />{tab.label}
+                <Icon className="size-3.5 sm:size-4" />{tab.label}
               </button>
             )
           })}

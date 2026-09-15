@@ -156,7 +156,7 @@ function ImageAttribution({ sourceUrl, sourceName }) {
   }
 
   return (
-      <p className="mt-1.5 text-xs text-muted-foreground">
+      <p className="mt-1.5 text-center text-xs text-muted-foreground">
         Source:{" "}
         <a
             href={sourceUrl}
@@ -327,7 +327,7 @@ function LessonImage({ imageKey, alt = "", className, sourceUrl, sourceName }) {
   if (imageKey && !src) {
     return (
         <div
-            className={`${className} !border-dashed motion-safe:animate-pulse`}
+            className="aspect-video w-full rounded-[var(--radius-rb-tile)] bg-muted/60 motion-safe:animate-pulse"
             aria-label={alt ? `Loading ${alt}` : "Loading image"}
             role="img"
         />
@@ -344,7 +344,7 @@ function LessonImage({ imageKey, alt = "", className, sourceUrl, sourceName }) {
             type="button"
             onClick={() => setOpen(true)}
             aria-label={alt ? `View "${alt}" full size` : "View image full size"}
-            className="group relative block w-full cursor-zoom-in rounded-[var(--radius-rb-tile)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="group relative mx-auto block w-fit max-w-full cursor-zoom-in rounded-[var(--radius-rb-tile)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           <img src={src} alt={alt} className={className} />
           <span
@@ -1280,7 +1280,7 @@ function LessonTool({ tool, index = 0 }) {
               match. */}
           <LessonImage
               imageKey={data.imageKey}
-              className="aspect-video w-full rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-muted object-contain"
+              className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-[var(--radius-rb-tile)] object-contain"
               sourceUrl={data.imageSourceUrl}
               sourceName={data.imageSourceName}
           />
@@ -1309,7 +1309,7 @@ function LessonTool({ tool, index = 0 }) {
         <LessonImage
             imageKey={data.imageKey}
             alt={data.title ?? ""}
-            className="aspect-video w-full rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-muted object-contain"
+            className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-[var(--radius-rb-tile)] object-contain"
             sourceUrl={data.imageSourceUrl}
             sourceName={data.imageSourceName}
         />
@@ -1392,7 +1392,7 @@ function LessonTool({ tool, index = 0 }) {
                     other look mismatched. */}
                 <LessonImage
                     imageKey={data.imageKey}
-                    className="aspect-video w-full rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-muted object-contain"
+                    className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-[var(--radius-rb-tile)] object-contain"
                     sourceUrl={data.imageSourceUrl}
                     sourceName={data.imageSourceName}
                 />
@@ -1413,7 +1413,7 @@ function LessonTool({ tool, index = 0 }) {
                     be, which is what made two images in a row look mismatched. */}
                 <LessonImage
                     imageKey={data.imageKey}
-                    className="aspect-video w-full rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-muted object-contain"
+                    className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-[var(--radius-rb-tile)] object-contain"
                     sourceUrl={data.imageSourceUrl}
                     sourceName={data.imageSourceName}
                 />
@@ -1509,7 +1509,7 @@ function LessonTool({ tool, index = 0 }) {
             <LessonImage
                 imageKey={data.imageKey}
                 alt={data.supportingTitle ?? ""}
-                className="aspect-video w-full rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-muted object-contain"
+                className="mx-auto block h-auto max-h-[560px] w-auto max-w-full rounded-[var(--radius-rb-tile)] object-contain"
                 sourceUrl={data.imageSourceUrl}
                 sourceName={data.imageSourceName}
             />

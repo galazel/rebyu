@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { createPortal } from "react-dom"
 import {
   Link,
   useLocation,
@@ -24,7 +23,6 @@ import {
   Clock,
   Loader2,
   PanelLeft,
-  Sparkles,
   Zap,
 } from "@/components/icons"
 
@@ -43,6 +41,7 @@ import {
 } from "@/components/motion/rebyu-motion.jsx"
 import { LearnerEmptyState } from "@/components/learner/learner-ui.jsx"
 import { LessonAiTutor } from "@/components/learner/lesson-ai-tutor.jsx"
+import { TutorChatHead } from "@/components/learner/tutor-chat-head.jsx"
 import { LessonKnowledgeCheck } from "@/components/learner/lesson-knowledge-check.jsx"
 import { useDailyStudyChallenge } from "@/hooks/useDailyStudyChallenge.js"
 import { useReadingPaceGuard } from "@/hooks/useReadingPaceGuard.js"
@@ -95,21 +94,6 @@ import {
  */
 
 /* --------------------------------------------------------------------- data */
-
-function useIsXl() {
-  const [isXl, setIsXl] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(min-width: 1280px)").matches,
-  )
-
-  useEffect(() => {
-    const query = window.matchMedia("(min-width: 1280px)")
-    const handle = (event) => setIsXl(event.matches)
-    query.addEventListener("change", handle)
-    return () => query.removeEventListener("change", handle)
-  }, [])
-
-  return isXl
-}
 
 /** Ordered run a learner walks: lesson, lesson, …, then the unit assessment. */
 function buildTrack(middle) {
@@ -605,7 +589,7 @@ const SECTION_TONE = {
        height -- is shared by every section and lives on the element itself;
        a tone that also carried padding could disagree with its neighbours
        and shift the copy sideways on every snap. */
-    shell: "bg-rb-humpback-lip",
+    shell: "bg-rb-feather-lip",
     heading: "text-white",
     eyebrow: "text-white/70",
     rule: "bg-white/30",
@@ -650,6 +634,7 @@ const SECTION_TONE = {
 }
 
 function LessonView({
+  onOpenOutline,
   lessonItem,
   sections,
   loading,
@@ -800,8 +785,22 @@ function LessonView({
           are their own bar below: a second row of content is what made this
           box a head taller than the outline beside it. */}
       <div ref={headerRef} className="sticky top-0 z-10 -mx-4 border-b-2 border-rb-swan bg-rb-snow/95 px-4 shadow-[0_1px_0_rgba(0,0,0,0.02)] backdrop-blur supports-[backdrop-filter]:bg-rb-snow/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        <div className="flex h-[var(--rb-topbar-h)] items-center justify-between gap-4">
-          <div className="min-w-0">
+        <div className="flex h-[var(--rb-topbar-h)] items-center justify-between gap-2 sm:gap-4">
+          {/* The outline lives in a drawer below xl. Its opener sits in this
+              sticky bar so it is always in reach -- in a bar of its own above
+              the lesson it scrolled away with the first swipe. */}
+          {onOpenOutline ? (
+            <button
+              type="button"
+              onClick={onOpenOutline}
+              aria-label="Open topic outline"
+              title="Topic outline"
+              className="grid size-10 shrink-0 place-items-center rounded-xl border-2 border-rb-swan bg-white text-rb-eel transition-transform active:scale-95 xl:hidden"
+            >
+              <PanelLeft className="size-5" aria-hidden="true" />
+            </button>
+          ) : null}
+          <div className="min-w-0 flex-1">
             <p className="rb-eyebrow">
               lesson {position} of {total}
             </p>
@@ -817,9 +816,9 @@ function LessonView({
               look like it belonged to another screen. */}
           {backTo ? (
             <TactileButton asChild variant="feather" size="sm" className="shrink-0">
-              <Link to={backTo}>
+              <Link to={backTo} aria-label="Back to curriculum">
                 <ArrowLeft className="size-4" />
-                back to curriculum
+                <span className="hidden sm:inline">back to curriculum</span>
               </Link>
             </TactileButton>
           ) : null}
@@ -1094,7 +1093,7 @@ function QuizBand({ quiz, taken }) {
 }
 
 /** The unit assessment splash: what it takes to pass, and one key. */
-function AssessmentView({ exam, position, total, backTo, taken }) {
+function AssessmentView({ exam, position, total, backTo, taken, onOpenOutline }) {
   // Same reasoning as QuizBand: finishing returns to this topic.
   const location = useLocation()
   const passMark = Math.round(Number(exam.passingScore ?? 0))
@@ -1104,8 +1103,22 @@ function AssessmentView({ exam, position, total, backTo, taken }) {
       {/* Same sticky frame the lesson view wears, so stepping from the last
           lesson onto the assessment does not drop the title and the way out. */}
       <div className="sticky top-0 z-10 border-b-2 border-rb-swan bg-rb-snow/95 px-5 shadow-[0_1px_0_rgba(0,0,0,0.02)] backdrop-blur supports-[backdrop-filter]:bg-rb-snow/80 sm:px-10 lg:px-14">
-        <div className="flex h-[var(--rb-topbar-h)] items-center justify-between gap-4">
-          <div className="min-w-0">
+        <div className="flex h-[var(--rb-topbar-h)] items-center justify-between gap-2 sm:gap-4">
+          {/* The outline lives in a drawer below xl. Its opener sits in this
+              sticky bar so it is always in reach -- in a bar of its own above
+              the lesson it scrolled away with the first swipe. */}
+          {onOpenOutline ? (
+            <button
+              type="button"
+              onClick={onOpenOutline}
+              aria-label="Open topic outline"
+              title="Topic outline"
+              className="grid size-10 shrink-0 place-items-center rounded-xl border-2 border-rb-swan bg-white text-rb-eel transition-transform active:scale-95 xl:hidden"
+            >
+              <PanelLeft className="size-5" aria-hidden="true" />
+            </button>
+          ) : null}
+          <div className="min-w-0 flex-1">
             <p className="rb-eyebrow">
               lesson {position} of {total}
             </p>
@@ -1121,9 +1134,9 @@ function AssessmentView({ exam, position, total, backTo, taken }) {
               look like it belonged to another screen. */}
           {backTo ? (
             <TactileButton asChild variant="feather" size="sm" className="shrink-0">
-              <Link to={backTo}>
+              <Link to={backTo} aria-label="Back to curriculum">
                 <ArrowLeft className="size-4" />
-                back to curriculum
+                <span className="hidden sm:inline">back to curriculum</span>
               </Link>
             </TactileButton>
           ) : null}
@@ -1206,7 +1219,6 @@ export default function LearnerTopicPage() {
   const queryClient = useQueryClient()
   const { certificationId, middleCategoryId } = useParams()
   const { data } = useOutletContext()
-  const isXl = useIsXl()
 
   const [searchParams] = useSearchParams()
   const [activeId, setActiveId] = useState(null)
@@ -1625,12 +1637,8 @@ export default function LearnerTopicPage() {
   const tutorVisible = tutorOpen && active?.kind === "lesson"
 
   const columns = outlineCollapsed
-    ? tutorVisible
-      ? "xl:grid-cols-[88px_minmax(0,1fr)_400px]"
-      : "xl:grid-cols-[88px_minmax(0,1fr)]"
-    : tutorVisible
-      ? "xl:grid-cols-[340px_minmax(0,1fr)_400px]"
-      : "xl:grid-cols-[340px_minmax(0,1fr)]"
+    ? "xl:grid-cols-[88px_minmax(0,1fr)]"
+    : "xl:grid-cols-[340px_minmax(0,1fr)]"
 
   const outline = (
     <Outline
@@ -1667,24 +1675,6 @@ export default function LearnerTopicPage() {
 
         {/* -------------------------------------------------------- centre */}
         <main className="min-w-0 bg-rb-snow">
-          {/* Narrow-window header: the outline column is xl-only, so without
-              this the topic you are in has no name on a laptop. */}
-          <div className="flex items-center gap-3 border-b-2 border-rb-swan px-5 py-4 xl:hidden">
-            <TactileButton variant="ghost" size="sm" onClick={() => setRailOpen(true)}>
-              <PanelLeft className="size-4" />
-              outline
-            </TactileButton>
-
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[11px] font-bold uppercase tracking-wide text-rb-wolf">
-                unit {major.index} · {major.name}
-              </p>
-              <p className="truncate font-rb-display text-sm font-extrabold text-rb-eel">
-                {middle.name}
-              </p>
-            </div>
-          </div>
-
           {/* Crossfade between a lesson and the unit assessment. Keyed on the
               item so switching rows in the rail reads as the content changing
               under a fixed frame, rather than the page reloading. */}
@@ -1730,6 +1720,7 @@ export default function LearnerTopicPage() {
                   : undefined
               }
               backTo={backTo}
+              onOpenOutline={() => setRailOpen(true)}
             />
           ) : (
             <AssessmentView
@@ -1737,6 +1728,7 @@ export default function LearnerTopicPage() {
               position={activeIndex + 1}
               total={track.length}
               backTo={backTo}
+              onOpenOutline={() => setRailOpen(true)}
               taken={Boolean(takenExamIds.has(String(active.exam.examId)))}
             />
           )}
@@ -1744,71 +1736,24 @@ export default function LearnerTopicPage() {
           </AnimatePresence>
         </main>
 
-        {/* --------------------------------------------------------- right */}
-        {tutorVisible && isXl ? (
-          <aside className="hidden min-h-0 border-l-2 border-rb-swan xl:block">
-            <div className="sticky top-0 h-dvh overflow-hidden">
-              <LessonAiTutor
-                lessonId={activeLessonId}
-                lessonName={active?.name}
-                learnerName={data?.user?.firstName ?? data?.learner?.firstName ?? "Learner"}
-                learnerId={data?.learnerId}
-                onClose={() => setTutorOpen(false)}
-              />
-            </div>
-          </aside>
-        ) : null}
       </div>
 
-      {/* The circle, portaled straight to <body>. Hidden while the tutor
-          column is open (no second control to open it needed) and while the
-          mobile outline Sheet is open (it would otherwise render on top of
-          that Sheet's overlay, poking through a modal that is supposed to be
-          covering the page).
-
-          Portaled rather than rendered inline: every route is wrapped by
-          `RouteTransition` in App.jsx (the `.rb-route-enter` class), whose
-          entrance keyframe applies a real `transform` for the run of that
-          animation. Any non-`none` transform on an ancestor creates a new
-          containing block *and* stacking context for `position: fixed`
-          descendants — this button stops being fixed to the viewport and its
-          z-index stops being comparable to page-level UI (like the Sheets
-          below, which Radix portals straight to `<body>`) for as long as
-          that ancestor's transform is live. Rendering here via
-          `createPortal` sidesteps that entirely by never being a descendant
-          of `.rb-route-enter` in the first place, so it stays fixed to the
-          real viewport and stacks by z-index alone against Radix's own
-          body-level portals.
-
-          `z-[60]`, one step above the Sheets' `z-50`, covers the moment
-          right after either Sheet closes: Radix keeps a closed Sheet's
-          portal (overlay + content) mounted with `pointer-events: auto`
-          until its own CSS exit animation fires `animationend`, which is not
-          instant. At equal z-index the Sheet's portal would win that
-          stacking tie and silently swallow clicks on this button right after
-          closing it (or picking a lesson from the mobile outline).
-          Outranking it here keeps the button clickable regardless. */}
-      {createPortal(
-        <AnimatePresence>
-          {!tutorVisible && !railOpen && active?.kind === "lesson" ? (
-            <motion.button
-              type="button"
-              onClick={() => setTutorOpen(true)}
-              aria-label="Open AI tutor"
-              initial={{ scale: 0, rotate: -90 }}
-              animate={{ scale: 1, rotate: 0 }}
-              exit={{ scale: 0, rotate: 90 }}
-              whileHover={{ scale: 1.07 }}
-              whileTap={{ scale: 0.92 }}
-              transition={{ type: "spring", stiffness: 480, damping: 22 }}
-              className="fixed bottom-6 right-6 z-[60] grid size-16 place-items-center rounded-full bg-rb-beetle text-white shadow-[var(--comic-shadow-sm)]"
-            >
-              <Sparkles className="size-7" aria-hidden="true" />
-            </motion.button>
-          ) : null}
-        </AnimatePresence>,
-        document.body,
-      )}
+      {/* The tutor as a Messenger-style chat head: drag it out of the way,
+          tap it to talk. Off on the unit assessment, and while the outline
+          drawer is open so it never pokes through that drawer's overlay. */}
+      <TutorChatHead
+        open={tutorVisible}
+        onOpenChange={setTutorOpen}
+        hidden={railOpen || active?.kind !== "lesson"}
+      >
+        <LessonAiTutor
+            lessonId={activeLessonId}
+            lessonName={active?.name}
+            learnerName={data?.user?.firstName ?? data?.learner?.firstName ?? "Learner"}
+            learnerId={data?.learnerId}
+            onClose={() => setTutorOpen(false)}
+          />
+      </TutorChatHead>
 
       {/* Narrow windows get the outline and the tutor as sheets rather than
           columns — three columns on a laptop leaves nothing for the reading. */}
@@ -1819,18 +1764,6 @@ export default function LearnerTopicPage() {
         </SheetContent>
       </Sheet>
 
-      <Sheet open={tutorVisible && !isXl} onOpenChange={(open) => !open && setTutorOpen(false)}>
-        <SheetContent side="right" className="rebyu-ds gap-0 p-0">
-          <SheetTitle className="sr-only">AI tutor</SheetTitle>
-          <LessonAiTutor
-            lessonId={activeLessonId}
-            lessonName={active?.name}
-            learnerName={data?.user?.firstName ?? data?.learner?.firstName ?? "Learner"}
-            learnerId={data?.learnerId}
-            onClose={() => setTutorOpen(false)}
-          />
-        </SheetContent>
-      </Sheet>
 
       {/* Raced through the lesson: stop, and start it again from the top.
           Closing the board any other way does the same -- the point is that

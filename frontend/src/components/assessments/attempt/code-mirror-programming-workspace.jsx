@@ -17,7 +17,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   Select,
   SelectContent,
@@ -55,13 +54,27 @@ function getLanguageExtension(language) {
   }
 }
 
+/** One square key on the editor's toolbar. */
+function ToolbarKey({ label, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="grid size-8 shrink-0 place-items-center rounded-lg text-rb-wolf transition-colors hover:bg-rb-snow hover:text-rb-eel [&_svg]:size-4"
+    >
+      {children}
+    </button>
+  )
+}
+
 // CodeMirror-based programming answer workspace.
 //
-// `actions` is rendered into the toolbar's right-hand cluster, next to Reset
-// Code and fullscreen. Run Code lives there rather than on a strip above the
-// editor: it acts on the editor, so it belongs on the editor's own toolbar
-// beside the other controls that do, instead of on a second row that pushed
-// the editor down and read as page furniture.
+// The editor and its toolbar are one card: language on the left, the keys that
+// act on the code (`actions` -- Run Code -- then Reset and fullscreen) on the
+// right, all on a single row. The "saved with your answer" note used to take a
+// row of its own and push Run Code onto a second line above the editor.
 export default function CodeMirrorProgrammingWorkspace({
   value,
   language,
@@ -75,42 +88,25 @@ export default function CodeMirrorProgrammingWorkspace({
   const [resetOpen, setResetOpen] = useState(false)
 
   const extensions = useMemo(() => getLanguageExtension(language), [language])
-
-  const editor = (
-    <CodeMirror
-      value={value}
-      onChange={readOnly ? undefined : onChange}
-      readOnly={readOnly}
-      extensions={extensions}
-      height="100%"
-      style={{ height: "100%", fontSize: "14px" }}
-      basicSetup={{
-        lineNumbers: true,
-        highlightActiveLine: true,
-        bracketMatching: true,
-        closeBrackets: true,
-        indentOnInput: true,
-      }}
-    />
-  )
+  const lineCount = (value ?? "").split("\n").length
 
   return (
     <div
       className={
         fullscreen
-          ? "fixed inset-0 z-50 flex flex-col bg-background p-4"
+          ? "fixed inset-0 z-50 flex flex-col bg-rb-polar p-2 sm:p-4"
           : "flex h-full min-h-0 flex-col"
       }
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
-        <div className="flex items-center gap-2">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-rb-swan bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <div className="flex shrink-0 items-center gap-2 border-b border-rb-swan bg-rb-polar/60 px-2 py-1.5">
           {readOnly ? (
             <Badge variant="secondary">{language}</Badge>
           ) : (
             <Select value={language} onValueChange={onLanguageChange}>
               <SelectTrigger
                 size="sm"
-                className="h-8 w-[140px]"
+                className="h-8 w-[118px] bg-white text-xs font-bold sm:w-[140px]"
                 aria-label="Programming language"
               >
                 <SelectValue />
@@ -124,47 +120,47 @@ export default function CodeMirrorProgrammingWorkspace({
               </SelectContent>
             </Select>
           )}
-          {!readOnly ? (
-            <span className="text-xs text-muted-foreground">
-              Your code is saved as part of your assessment answer.
-            </span>
-          ) : null}
-        </div>
-        <div className="flex min-w-0 items-center gap-1">
-          {actions}
-          {!readOnly && starterCode ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              /* The label collapses to its icon on a narrow screen, the same
-                 way Skip and Flag do in the attempt footer. Run Code, Reset
-                 Code and the fullscreen key are 307px of controls; on a 320px
-                 screen the toolbar row is 288px wide, and what went over the
-                 edge was the fullscreen key. The name stays on the button for
-                 assistive tech and as a tooltip either way. */
-              aria-label="Reset Code"
-              title="Reset Code"
-              onClick={() => setResetOpen(true)}
-            >
-              <RotateCcwIcon aria-hidden="true" />
-              <span className="hidden sm:inline">Reset Code</span>
-            </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen editor"}
-            onClick={() => setFullscreen((current) => !current)}
-          >
-            {fullscreen ? <Minimize2Icon /> : <Maximize2Icon />}
-          </Button>
-        </div>
-      </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden rounded-b-lg border border-t-0">
-        {editor}
+          <div className="ml-auto flex min-w-0 items-center gap-1">
+            {actions}
+            {!readOnly && starterCode ? (
+              <ToolbarKey label="Reset code" onClick={() => setResetOpen(true)}>
+                <RotateCcwIcon aria-hidden="true" />
+              </ToolbarKey>
+            ) : null}
+            <ToolbarKey
+              label={fullscreen ? "Exit fullscreen" : "Fullscreen editor"}
+              onClick={() => setFullscreen((current) => !current)}
+            >
+              {fullscreen ? <Minimize2Icon aria-hidden="true" /> : <Maximize2Icon aria-hidden="true" />}
+            </ToolbarKey>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <CodeMirror
+            value={value}
+            onChange={readOnly ? undefined : onChange}
+            readOnly={readOnly}
+            extensions={extensions}
+            height="100%"
+            style={{ height: "100%", fontSize: "13.5px" }}
+            basicSetup={{
+              lineNumbers: true,
+              highlightActiveLine: true,
+              bracketMatching: true,
+              closeBrackets: true,
+              indentOnInput: true,
+            }}
+          />
+        </div>
+
+        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-rb-swan bg-rb-polar/40 px-3 py-1 text-[11px] font-semibold text-rb-hare">
+          <span className="truncate">{readOnly ? "Submitted code" : "Saved with your answer"}</span>
+          <span className="shrink-0 tabular-nums">
+            {language} · {lineCount} {lineCount === 1 ? "line" : "lines"}
+          </span>
+        </div>
       </div>
 
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>

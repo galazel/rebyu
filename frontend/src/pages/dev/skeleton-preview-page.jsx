@@ -9,6 +9,7 @@ import { TeacherStamp } from "@/components/classroom/teacher-stamp.jsx"
 import { AttemptFlipbook } from "@/components/classroom/attempt-flipbook.jsx"
 import { useState } from "react"
 import { useReadingPaceGuard } from "@/hooks/useReadingPaceGuard.js"
+import { TutorChatHead } from "@/components/learner/tutor-chat-head.jsx"
 
 /**
  * Dev-only: the portal's loading skeletons, held on screen so they can be
@@ -34,6 +35,22 @@ function PaceGuardDemo() {
         </DialogContent>
       </Dialog>
     </section>
+  )
+}
+
+/** Dev-only: the tutor chat head, so dragging and tapping it can be tried without a login. */
+function TutorChatHeadDemo() {
+  const [open, setOpen] = useState(false)
+  return (
+    <TutorChatHead open={open} onOpenChange={setOpen}>
+      <div className="flex h-full flex-col">
+        <div className="flex h-14 items-center justify-between bg-rb-feather px-4 text-white">
+          <span className="font-rb-display font-extrabold">REBYU AI Tutor</span>
+          <button type="button" onClick={() => setOpen(false)} aria-label="Close AI Tutor">x</button>
+        </div>
+        <p id="chat-head-demo-body" className="p-4 text-sm">Ask anything about this lesson.</p>
+      </div>
+    </TutorChatHead>
   )
 }
 
@@ -185,6 +202,7 @@ export default function SkeletonPreviewPage() {
         </section>
 
         <PaceGuardDemo />
+        <TutorChatHeadDemo />
       </main>
     </div>
   )

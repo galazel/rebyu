@@ -1,24 +1,22 @@
 import { useCallback, useEffect, useState } from "react"
-import { Loader2Icon, PlayIcon, TerminalIcon } from "@/components/icons"
+import { Code2, FileText, ListChecks, Loader2Icon, PlayIcon, TerminalIcon, XIcon } from "@/components/icons"
 import { toast } from "sonner"
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getFileViewUrl } from "@/services/fileService.js"
 import {
   getAttemptExecutions,
   runAttemptProgramming,
 } from "@/services/assessmentService.js"
+import { ProblemStatement, SidePanel, WorkspaceShell } from "./attempt-workspace-shell.jsx"
 import CodeMirrorProgrammingWorkspace from "./code-mirror-programming-workspace.jsx"
 import ExecutionHistoryPanel from "./execution-history-panel.jsx"
 import SubQuestionTabs from "./sub-question-tabs.jsx"
 import TestCasesPanel from "./test-cases-panel.jsx"
 
-// Three-column programming environment: problem | editor | navigation + tests.
-// Run/Check hit real endpoints; the executor is stubbed server-side, so results
-// come back as "not run / unavailable" — nothing is fake-scored here.
+// Programming environment: problem | editor | navigation + tests, as tabs on a
+// phone. Run hits real endpoints; the executor is stubbed server-side, so
+// results come back as "not run / unavailable" — nothing is fake-scored here.
 //
 // `runner` swaps where Run goes. An assessment attempt leaves it unset and
 // the attempt endpoints are used; an arena run — which has no attempt, no
@@ -51,10 +49,8 @@ export default function ProgrammingQuestionLayout({
   // Code" (in CodeMirrorProgrammingWorkspace) remains available as an
   // explicit, learner-initiated action when starter code exists.
   const code = answer?.submittedCode ?? ""
-  const busy = running
   const subQuestions = question.subQuestions ?? []
 
-  // Reset test/output panels when switching items.
   useEffect(() => {
     setTests(question.testCases ?? [])
     setNotice(null)
@@ -79,176 +75,137 @@ export default function ProgrammingQuestionLayout({
 
   // Run only. Check Code was removed: it graded the code against the item's
   // test cases mid-attempt, which is a verdict, and it is the same call the
-  // marker makes at submission -- so it either told a learner their answer was
-  // wrong before they had finished, or reported nothing when the runner was
-  // unavailable. Running code and seeing its output is the useful half.
+  // marker makes at submission.
   const execute = async () => {
     setRunning(true)
     try {
       const result = runner
         ? await runner.run(code, language)
-        : await runAttemptProgramming(
-            attemptId,
-            attemptQuestionId,
-            learnerId,
-            code,
-            language
-          )
+        : await runAttemptProgramming(attemptId, attemptQuestionId, learnerId, code, language)
       setTests(result.tests ?? [])
       setNotice(result.message ?? null)
-      setOutput(result.message ?? null)
+      setOutput(result.message ?? "Finished with no output.")
       setActiveTab("tests")
       refreshExecutions()
     } catch (error) {
-      toast.error(
-        error?.response?.data?.message ?? "Unable to run your code right now."
-      )
+      toast.error(error?.response?.data?.message ?? "Unable to run your code right now.")
     } finally {
       setRunning(false)
     }
   }
 
-  return (
-    <div className="grid h-full min-h-0 gap-4 lg:grid-cols-[minmax(240px,1fr)_minmax(0,1.5fr)_300px]">
-      {/* Left — problem statement */}
-      <ScrollArea className="max-h-full rounded-[var(--radius-rb-card)] border bg-card">
-        <div className="space-y-4 p-4">
-          {/* Title and difficulty live here, at the head of the problem
-              statement. An arena run used to carry them in a strip across the
-              top of the workspace, which is a second header for one column's
-              worth of information. Both are optional: an exam item has neither,
-              and nothing renders when they are absent. */}
-          {question.title ? (
-            <h2 className="text-base font-bold leading-6">{question.title}</h2>
-          ) : null}
+  const runKey = (
+    <button
+      type="button"
+      onClick={execute}
+      disabled={running || editingLocked}
+      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-rb-feather px-3 text-xs font-extrabold text-white shadow-[0_2px_0_var(--color-rb-feather-lip)] transition hover:bg-rb-feather-lip active:translate-y-[2px] active:shadow-none disabled:opacity-60"
+    >
+      {running ? (
+        <Loader2Icon className="size-3.5 animate-spin" aria-hidden="true" />
+      ) : (
+        <PlayIcon className="size-3.5" aria-hidden="true" />
+      )}
+      {running ? "Running" : "Run"}
+    </button>
+  )
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-muted-foreground">
-              Item {index + 1}
-            </span>
-            {question.difficultyLevel ? (
-              <Badge variant="outline" className="capitalize">
-                {question.difficultyLevel}
-              </Badge>
-            ) : null}
-            {question.points != null ? (
-              <Badge variant="secondary">{Number(question.points)} pt(s)</Badge>
-            ) : null}
-            <Badge variant="outline">Programming</Badge>
-          </div>
-
-          <p className="whitespace-pre-wrap text-sm leading-7">
-            {question.question}
-          </p>
-
-          {question.instructions ? (
-            <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">
-                Instructions
-              </p>
-              <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
-                {question.instructions}
-              </p>
-            </div>
-          ) : null}
-
-          {question.questionImageKey ? (
-            <img
-              src={getFileViewUrl(question.questionImageKey)}
-              alt="Problem reference"
-              className="w-full rounded-[var(--radius-rb-card)] border"
-            />
-          ) : null}
-
-          {subQuestions.length > 0 ? (
-            <div className="rounded-[var(--radius-rb-card)] border bg-background p-3">
-              <SubQuestionTabs
-                subQuestions={subQuestions.map((sub) => ({
-                  questionId: sub.subQuestionId,
-                  questionText: sub.questionText,
-                }))}
-                answers={answer?.subAnswers ?? {}}
-                readOnly={editingLocked}
-                onAnswerChange={(subQuestionId, text) =>
-                  onAnswer({
-                    subAnswers: {
-                      ...(answer?.subAnswers ?? {}),
-                      [subQuestionId]: text,
-                    },
-                  })
-                }
-              />
-            </div>
-          ) : null}
-        </div>
-      </ScrollArea>
-
-      {/* Center — code editor + actions + output */}
-      <div className="flex min-h-0 flex-col gap-2">
-        <div className="min-h-0 flex-1">
-          <CodeMirrorProgrammingWorkspace
-            value={code}
-            language={language}
-            starterCode={question.starterCode ?? ""}
+  const problem = (
+    <ProblemStatement
+      question={question}
+      index={index}
+      typeLabel="Programming"
+      imageSrc={question.questionImageKey ? getFileViewUrl(question.questionImageKey) : null}
+    >
+      {subQuestions.length > 0 ? (
+        <div className="rounded-xl border border-rb-swan bg-rb-polar/40 p-3">
+          <SubQuestionTabs
+            subQuestions={subQuestions.map((sub) => ({
+              questionId: sub.subQuestionId,
+              questionText: sub.questionText,
+            }))}
+            answers={answer?.subAnswers ?? {}}
             readOnly={editingLocked}
-            onChange={(next) => onAnswer({ submittedCode: next })}
-            onLanguageChange={(next) => onAnswer({ programmingLanguage: next })}
-            actions={
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={execute}
-                disabled={busy || editingLocked}
-              >
-                {running ? (
-                  <Loader2Icon className="animate-spin" aria-hidden="true" />
-                ) : (
-                  <PlayIcon aria-hidden="true" />
-                )}
-                Run Code
-              </Button>
+            onAnswerChange={(subQuestionId, text) =>
+              onAnswer({ subAnswers: { ...(answer?.subAnswers ?? {}), [subQuestionId]: text } })
             }
           />
         </div>
+      ) : null}
+    </ProblemStatement>
+  )
 
-        {output ? (
-          <div className="rounded-[var(--radius-rb-card)] border bg-card">
-            <div className="flex items-center gap-1.5 border-b px-3 py-1.5 text-xs font-medium text-muted-foreground">
-              <TerminalIcon className="size-3.5" aria-hidden="true" />
-              Output
-            </div>
-            <pre className="max-h-32 overflow-auto whitespace-pre-wrap p-3 text-xs">
-              {output}
-            </pre>
-          </div>
-        ) : null}
+  const workspace = (
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="min-h-0 flex-1">
+        <CodeMirrorProgrammingWorkspace
+          value={code}
+          language={language}
+          starterCode={question.starterCode ?? ""}
+          readOnly={editingLocked}
+          onChange={(next) => onAnswer({ submittedCode: next })}
+          onLanguageChange={(next) => onAnswer({ programmingLanguage: next })}
+          actions={runKey}
+        />
       </div>
 
-      {/* Right — navigation + tests / executions */}
-      <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
-        <div className="rounded-[var(--radius-rb-card)] border bg-card p-3">{navigator}</div>
+      {/* Output reads off a chalkboard, like everything the classroom writes back. */}
+      {output ? (
+        <div className="shrink-0 overflow-hidden rounded-2xl bg-[#22302a] text-[#e6eee8] shadow-inner">
+          <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-1.5">
+            <span className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white/70">
+              <TerminalIcon className="size-3.5" aria-hidden="true" />
+              Output
+            </span>
+            <button
+              type="button"
+              onClick={() => setOutput(null)}
+              aria-label="Close output"
+              className="grid size-6 place-items-center rounded-md text-white/60 hover:bg-white/10 hover:text-white"
+            >
+              <XIcon className="size-3.5" aria-hidden="true" />
+            </button>
+          </div>
+          <pre className="max-h-36 overflow-auto whitespace-pre-wrap px-3 py-2.5 font-mono text-xs leading-5">
+            {output}
+          </pre>
+        </div>
+      ) : null}
+    </div>
+  )
 
-        <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-          className="rounded-[var(--radius-rb-card)] border bg-card p-3"
-        >
+  const side = (
+    <>
+      {/* The item grid is in the header's menu on a phone already. */}
+      <SidePanel className="hidden lg:block">{navigator}</SidePanel>
+
+      <SidePanel className="min-h-0">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="tests">Tests</TabsTrigger>
-            <TabsTrigger value="executions">Executions</TabsTrigger>
+            <TabsTrigger value="executions">Runs</TabsTrigger>
           </TabsList>
           <TabsContent value="tests" className="mt-3">
             <TestCasesPanel tests={tests} notice={notice} />
           </TabsContent>
           <TabsContent value="executions" className="mt-3">
-            <ExecutionHistoryPanel
-              executions={executions}
-              loading={executionsLoading}
-            />
+            <ExecutionHistoryPanel executions={executions} loading={executionsLoading} />
           </TabsContent>
         </Tabs>
-      </div>
-    </div>
+      </SidePanel>
+    </>
+  )
+
+  return (
+    <WorkspaceShell
+      tabs={[
+        { id: "problem", label: "Problem", icon: FileText },
+        { id: "workspace", label: "Code", icon: Code2 },
+        { id: "side", label: "Tests", icon: ListChecks },
+      ]}
+      problem={problem}
+      workspace={workspace}
+      side={side}
+    />
   )
 }

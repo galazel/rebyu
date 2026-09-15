@@ -48,7 +48,7 @@ export default function QuestionNavigator({
               here; the written-type aside is now w-72 rather than w-64, which
               is the width five cards need without clipping their points and
               flag badges. */}
-          <div className="grid w-full auto-rows-max grid-cols-5 gap-2">
+          <div className="grid w-full auto-rows-max grid-cols-5 gap-1.5">
             {list.map((item, index) => (
                 <ItemNavigatorCard
                     key={item.attemptQuestionId ?? index}
