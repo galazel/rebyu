@@ -438,7 +438,7 @@ export function TrendLineChart({
             ) : null}
 
             {series.map((entry, index) => {
-              const color = seriesColor(theme, index)
+              const color = entry.color ?? seriesColor(theme, index)
               return (
                 <Line
                   key={entry.key}
@@ -461,7 +461,7 @@ export function TrendLineChart({
           items={series.map((entry, index) => ({
             name: entry.name,
             value: `${last?.[entry.key] ?? "—"}${unit}`,
-            color: seriesColor(theme, index),
+            color: entry.color ?? seriesColor(theme, index),
           }))}
           note={legendNote ?? "Latest value in the period"}
         />

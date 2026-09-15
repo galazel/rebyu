@@ -116,6 +116,15 @@ function getTopicTitle(topic, fallback = "Untitled Topic") {
 
 /* ------------------------------------------------------------------ pieces */
 
+
+/* "Score across retakes" shows the ten most retaken assessments, so it needs
+   ten hues that stay apart on a line chart: greens, golds, oranges, reds and
+   browns, in the classroom palette -- no blue or purple. */
+const RETAKE_COLORS = [
+  "#2f6b4f", "#c9962b", "#c8553d", "#6b7d3f", "#d9822b",
+  "#4f8a78", "#8a5a2b", "#a8412c", "#9bb35a", "#5c3d2e",
+]
+
 /**
  * How well the learner is holding a topic, as a tier.
  *
@@ -819,11 +828,9 @@ export default function LearnerProgressPage() {
       // learner has ground away at is the one they came here to look at.
       .sort((a, b) => b.attempts.length - a.attempts.length)
 
-    // Capped to the chart kit's four categorical hues, and said out loud in
-    // the tile rather than silently truncated. A fifth series is not given a
-    // new colour by the kit -- it folds into neutral grey, so two assessments
-    // would arrive the same shade and stop being distinguishable at all.
-    const MAX_SERIES = 4
+    // The ten most retaken, each with its own colour from RETAKE_COLORS -- the
+    // chart kit's own palette stops at four and greys out the rest.
+    const MAX_SERIES = RETAKE_COLORS.length
     const shown = assessments.slice(0, MAX_SERIES)
 
     const longestRun = shown.reduce((max, item) => Math.max(max, item.attempts.length), 0)
@@ -854,7 +861,11 @@ export default function LearnerProgressPage() {
 
     return {
       rows,
-      series: shown.map((assessment) => ({ key: assessment.key, name: assessment.name })),
+      series: shown.map((assessment, index) => ({
+        key: assessment.key,
+        name: assessment.name,
+        color: RETAKE_COLORS[index],
+      })),
       summaries,
       hiddenCount: assessments.length - shown.length,
     }
@@ -1306,7 +1317,7 @@ export default function LearnerProgressPage() {
                   <div key={summary.key} className="flex items-center gap-2.5 text-xs">
                     <span
                       className="size-2.5 shrink-0 rounded-sm"
-                      style={{ background: seriesColor(chartTheme, index) }}
+                      style={{ background: RETAKE_COLORS[index] ?? seriesColor(chartTheme, index) }}
                       aria-hidden="true"
                     />
 
