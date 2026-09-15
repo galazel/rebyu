@@ -229,8 +229,11 @@ public class CodeExecutionService {
                 with contextlib.redirect_stdout(io.StringIO()):
                     exec(compile(_rebyu_source, "main.py", "exec"), _rebyu_ns)
                 _rebyu_body = _rebyu_tree.body
-                if len(_rebyu_body) == 1 and isinstance(_rebyu_body[0], ast.Expr):
-                    _rebyu_value = eval(compile(ast.Expression(_rebyu_body[0].value), "test.py", "eval"), _rebyu_ns)
+                if _rebyu_body and isinstance(_rebyu_body[-1], ast.Expr):
+                    # Like the Python prompt: the statements run, and the value of
+                    # a final bare expression is printed.
+                    exec(compile(ast.Module(body=_rebyu_body[:-1], type_ignores=[]), "test.py", "exec"), _rebyu_ns)
+                    _rebyu_value = eval(compile(ast.Expression(_rebyu_body[-1].value), "test.py", "eval"), _rebyu_ns)
                     if _rebyu_value is not None:
                         print(_rebyu_value)
                 else:

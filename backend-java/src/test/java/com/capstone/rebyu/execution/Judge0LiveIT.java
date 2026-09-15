@@ -105,6 +105,19 @@ class Judge0LiveIT {
     }
 
     @Test
+    void pythonTestEndingInABareExpressionPrintsItsValue() {
+        String code = "def authenticate(user, password, valid, log):\n"
+                + "    result = 'Success' if valid.get(user) == password else 'Failed'\n"
+                + "    log.append((user, result))\n"
+                + "    return result\n";
+        CodeExecutionResultDto result = service.execute(new CodeExecutionRequestDto("Python", code, List.of(
+                new TestCaseInputDto(1, true,
+                        "log = []\nauthenticate('bob', 'wrong', {'bob': 'pw'}, log)\nlog", "[('bob', 'Failed')]"))));
+
+        assertEquals(1, result.passedTests(), () -> "results: " + result.testResults());
+    }
+
+    @Test
     void javaCompileErrorIsReported() {
         CodeExecutionResultDto result = service.execute(new CodeExecutionRequestDto("Java",
                 "public class Main { public static void main(String[] a) { System.out.println(1) } }",
