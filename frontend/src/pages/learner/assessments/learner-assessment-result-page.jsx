@@ -609,6 +609,27 @@ export default function LearnerAssessmentResultPage() {
                       </div>
                     ) : null}
 
+                    {/* What the program printed when it was graded, on the same
+                        chalkboard the editor's Run writes to. */}
+                    {answer.submittedCode && (answer.programOutput != null || answer.programError) ? (
+                      <div className="text-sm">
+                        <p className="mb-2 text-rb-wolf">Your program's output:</p>
+                        <div className="overflow-hidden rounded-rb-tile bg-[#22302a] text-[#e6eee8]">
+                          <div className="max-h-56 overflow-auto px-3 py-2.5 font-mono text-xs leading-5">
+                            {answer.programOutput ? (
+                              <pre className="whitespace-pre-wrap">{answer.programOutput}</pre>
+                            ) : null}
+                            {answer.programError ? (
+                              <pre className="mt-1 whitespace-pre-wrap text-[#ff9d92]">{answer.programError}</pre>
+                            ) : null}
+                            {!answer.programOutput && !answer.programError ? (
+                              <pre className="whitespace-pre-wrap text-white/60">(your program printed nothing)</pre>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
                     {/* Which cases the program actually failed.
 
                         A code item used to be reviewed as a score and a copy of

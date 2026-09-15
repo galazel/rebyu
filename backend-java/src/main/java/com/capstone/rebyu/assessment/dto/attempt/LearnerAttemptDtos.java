@@ -202,7 +202,13 @@ public final class LearnerAttemptDtos {
             String feedback,
             List<SubQuestionAnswerReviewDto> subQuestionAnswers,
             List<DiagramElementReviewDto> diagramElements,
-            List<ProgrammingTestReviewDto> programmingTests
+            List<ProgrammingTestReviewDto> programmingTests,
+            /* What the submitted program printed when it was graded, and its
+               compile or runtime error, for the result screen. Drawn from sample
+               cases only, by the same rule as ProgrammingTestReviewDto: output
+               produced from a hidden input describes that input. */
+            String programOutput,
+            String programError
     ) {
     }
 

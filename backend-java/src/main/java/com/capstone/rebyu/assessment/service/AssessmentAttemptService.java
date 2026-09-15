@@ -814,7 +814,9 @@ public class AssessmentAttemptService {
                     answer == null ? null : answer.getFeedback(),
                     buildSubQuestionAnswerReviews(source, answer, subQuestionsByParentId),
                     buildDiagramElementReviews(answer, releaseAnswers),
-                    buildProgrammingTestReviews(attemptQuestion, answer, source, releaseAnswers)
+                    buildProgrammingTestReviews(attemptQuestion, answer, source, releaseAnswers),
+                    programOutputFor(answer),
+                    programErrorFor(answer)
             ));
         }
 
@@ -2299,6 +2301,66 @@ public class AssessmentAttemptService {
             log.warn("Could not parse persisted execution result for attempt question {}",
                     attemptQuestion.getAttemptQuestionId());
             return List.of();
+        }
+    }
+
+    /**
+     * What the graded program printed, for the result screen: the output of the
+     * first sample case it ran on. A run with no test cases at all has nothing
+     * hidden to protect, so its plain output is used.
+     */
+    private String programOutputFor(AssessmentAttemptAnswer answer) {
+        JsonNode payload = gradedPayload(answer);
+        if (payload == null) {
+            return null;
+        }
+        JsonNode tests = payload.path("testResults");
+        if (!tests.isArray() || tests.isEmpty()) {
+            return payload.hasNonNull("output") ? payload.get("output").asText() : null;
+        }
+        for (JsonNode test : tests) {
+            if (test.path("sample").asBoolean(false) && test.hasNonNull("actualOutput")) {
+                return test.get("actualOutput").asText();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The graded program's error text. A compile error never depends on input,
+     * so it is always shown. A runtime error is shown only when the case it came
+     * from -- the first case to raise one -- is a sample case.
+     */
+    private String programErrorFor(AssessmentAttemptAnswer answer) {
+        JsonNode payload = gradedPayload(answer);
+        if (payload == null || !payload.hasNonNull("error")) {
+            return null;
+        }
+        if ("COMPILE_ERROR".equals(payload.path("status").asText(null))) {
+            return payload.get("error").asText();
+        }
+        JsonNode tests = payload.path("testResults");
+        if (!tests.isArray() || tests.isEmpty()) {
+            return payload.get("error").asText();
+        }
+        for (JsonNode test : tests) {
+            String status = test.path("status").asText("");
+            if (status.equals("RUNTIME_ERROR") || status.equals("TIME_LIMIT_EXCEEDED")) {
+                return test.path("sample").asBoolean(false) ? payload.get("error").asText() : null;
+            }
+        }
+        return null;
+    }
+
+    private JsonNode gradedPayload(AssessmentAttemptAnswer answer) {
+        if (answer == null || answer.getExecutionResult() == null
+                || answer.getSubmittedCode() == null || answer.getSubmittedCode().isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readTree(answer.getExecutionResult());
+        } catch (Exception e) {
+            return null;
         }
     }
 
