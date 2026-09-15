@@ -17,6 +17,8 @@ import { formatWhen, toDateKey } from "@/lib/study-schedule.js"
 import { EVENT_TYPE_LABELS, describeEvent, eventKind } from "@/lib/study-plan-events.js"
 import { returnState } from "@/lib/assessment-return"
 import { createPlanMockExam } from "@/services/recallService.js"
+import { getLessonById } from "@/services/learnerService.js"
+import { startPomodoro } from "@/lib/pomodoro-store.js"
 
 /* How each kind of session looks. Every entry carries its own words -- a mock
    exam and a lesson are different work, and the icon's colour alone would hide
@@ -58,7 +60,14 @@ function actionFor(event, certificationId) {
   }
 
   if ((kind === "lesson" || kind === "review" || kind === "quiz") && event.lessonId) {
-    return { label: kind === "lesson" ? "Open lesson" : "Open topic", to: `/learner/lessons/${event.lessonId}` }
+    return {
+      label: kind === "lesson" ? "Open lesson" : "Open topic",
+      lesson: {
+        lessonId: event.lessonId,
+        middleCategoryId: event.middleCategoryId ?? null,
+        certificationId: event.certificationId ?? certificationId ?? null,
+      },
+    }
   }
 
   return null
@@ -82,6 +91,28 @@ export function TodaysPlanTile({ certificationId, onCreatePlan }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [mock, setMock] = useState({ building: null, error: null })
+
+  /**
+   * Opens a lesson where lessons are read now: its topic page, with the outline
+   * and the AI tutor. `/learner/lessons/:id` is the older standalone page. Plans
+   * made before sessions carried their topic look it up from the lesson first;
+   * the old page is only the fallback when that cannot be done.
+   */
+  async function openLesson({ lessonId, middleCategoryId, certificationId: certId }) {
+    let topicId = middleCategoryId
+    if (!topicId && certId) {
+      try {
+        topicId = (await getLessonById(lessonId))?.middleCategoryId ?? null
+      } catch {
+        topicId = null
+      }
+    }
+    navigate(
+      topicId && certId
+        ? `/learner/learning/${certId}/topics/${topicId}?lesson=${lessonId}`
+        : `/learner/lessons/${lessonId}`
+    )
+  }
 
   async function startMock(eventId, id) {
     setMock({ building: eventId, error: null })
@@ -217,7 +248,7 @@ export function TodaysPlanTile({ certificationId, onCreatePlan }) {
                         type="button"
                         disabled={mock.building != null}
                         onClick={() =>
-                          action.mockFor ? startMock(event.id, action.mockFor) : navigate(action.to)
+                          action.mockFor ? startMock(event.id, action.mockFor) : openLesson(action.lesson)
                         }
                         className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 disabled:opacity-60"
                       >
@@ -228,6 +259,27 @@ export function TodaysPlanTile({ certificationId, onCreatePlan }) {
 
                     {mock.error?.eventId === event.id ? (
                       <p className="mt-1 text-xs leading-5 text-destructive">{mock.error.message}</p>
+                    ) : null}
+
+                    {/* A Pomodoro-plan lesson can be started from here: the
+                        timer starts and the lesson opens beside it. */}
+                    {action?.lesson && kind === "lesson" && event.technique === "pomodoro" ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          startPomodoro({
+                            title: event.lessonTitle ?? event.title,
+                            lessonId: event.lessonId ?? null,
+                            planId: plan?.planId ?? null,
+                            eventId: event.id ?? null,
+                          })
+                          openLesson(action.lesson)
+                        }}
+                        className="ml-4 mt-2 inline-flex items-center gap-1 text-xs font-semibold text-rb-fox-lip hover:text-rb-fox"
+                      >
+                        Start pomodoro
+                        <ArrowRight className="size-3" aria-hidden="true" />
+                      </button>
                     ) : null}
                   </div>
                 </li>

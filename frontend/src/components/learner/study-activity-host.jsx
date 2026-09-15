@@ -8,10 +8,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { PomodoroSession } from "@/components/learner/pomodoro-session.jsx"
+import { PomodoroStart } from "@/components/learner/pomodoro-overlay.jsx"
 import { RecallSession } from "@/components/learner/recall-session.jsx"
 import { SpacedRepetitionSession } from "@/components/learner/spaced-repetition-session.jsx"
-import { formatWhen, isDue } from "@/lib/study-schedule.js"
+import { formatWhen, isDue, isStale } from "@/lib/study-schedule.js"
 import {
   STUDY_PLAN_QUERY_KEY,
   STUDY_PLAN_TASKS_QUERY_KEY,
@@ -118,6 +118,9 @@ export function StudyActivityHost() {
 
       for (const event of plan.schedule?.events ?? []) {
         if (!isDue(event, now)) continue
+        // Long past, or past before the plan existed: left on Today's plan
+        // instead of opening over the page.
+        if (isStale(event, now, plan.schedule?.generatedAt)) continue
 
         const key = `${plan.planId}:${event.id}`
         const status = statusByTask.get(key)
@@ -229,9 +232,11 @@ export function StudyActivityHost() {
         )}
 
         {technique === "pomodoro" ? (
-          <PomodoroSession
-            task={activeTask.event}
-            onComplete={() => finishTask("COMPLETED")}
+          /* Only the start prompt: once started, the timer lives in
+             PomodoroOverlay, which records COMPLETED when the last block ends. */
+          <PomodoroStart
+            task={activeTask}
+            onStarted={() => finishTask(null)}
             onDismiss={() => finishTask(null)}
           />
         ) : technique === "active-recall" ? (

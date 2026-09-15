@@ -129,12 +129,12 @@ import {
   faNetworkWired,
   faNoteSticky,
   faPaperPlane,
+  faPause,
   faPenToSquare,
   faPencil,
   faPlay,
   faPlugCircleXmark,
   faPlus,
-  faPrint,
   faReceipt,
   faRepeat,
   faRightFromBracket,
@@ -353,7 +353,6 @@ export const KeyRound = icon(faKey, "KeyRound")
 export const Layers = icon(faLayerGroup, "Layers")
 export const Layers3 = icon(faLayerGroup, "Layers3")
 export const Layers3Icon = icon(faLayerGroup, "Layers3Icon")
-export const LayersIcon = icon(faLayerGroup, "LayersIcon")
 export const LayoutDashboard = icon(faTableColumns, "LayoutDashboard")
 export const LibraryBig = icon(faBookBookmark, "LibraryBig")
 export const Link = icon(faLink, "Link")
@@ -394,15 +393,16 @@ export const PanelLeft = icon(faTableColumns, "PanelLeft")
 export const PanelLeftIcon = icon(faTableColumns, "PanelLeftIcon")
 export const PanelRight = icon(faTableColumns, "PanelRight")
 export const PanelsTopLeft = icon(faTableCells, "PanelsTopLeft")
+export const Pause = icon(faPause, "Pause")
 export const Pencil = icon(faPencil, "Pencil")
 export const PencilIcon = icon(faPencil, "PencilIcon")
 export const PinIcon = icon(faThumbtack, "PinIcon")
+export const Play = icon(faPlay, "Play")
 export const PlayCircle = icon(faCirclePlay, "PlayCircle")
 export const PlayIcon = icon(faPlay, "PlayIcon")
 export const Plus = icon(faPlus, "Plus")
 export const PlusCircleIcon = icon(faCirclePlus, "PlusCircleIcon")
 export const PlusIcon = icon(faPlus, "PlusIcon")
-export const Printer = icon(faPrint, "Printer")
 export const Radio = icon(faTowerBroadcast, "Radio")
 export const ReceiptTextIcon = icon(faReceipt, "ReceiptTextIcon")
 export const RefreshCw = icon(faArrowsRotate, "RefreshCw")

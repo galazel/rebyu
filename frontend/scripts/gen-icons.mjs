@@ -162,6 +162,7 @@ const MAP = {
   PanelsTopLeft: "faTableCells",
   Pencil: "faPencil",
   Pin: "faThumbtack",
+  Pause: "faPause",
   Play: "faPlay",
   PlayCircle: "faCirclePlay",
   Plus: "faPlus",

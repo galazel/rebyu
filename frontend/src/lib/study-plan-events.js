@@ -150,6 +150,7 @@ export function generateStudyEvents({
             "No new lessons this close to the exam. Go over this weak topic once more and redo the questions you got wrong.",
           minutes: 30,
           lessonId: topic.lessonId ?? null,
+          middleCategoryId: topic.middleCategoryId ?? null,
           lessonTitle: topic.title,
         })
       } else {
@@ -163,6 +164,7 @@ export function generateStudyEvents({
           detail: LESSON_DETAIL[technique] ?? "Work through this lesson and its practice questions.",
           minutes: LESSON_MINUTES[technique] ?? 40,
           lessonId: topic.lessonId ?? null,
+          middleCategoryId: topic.middleCategoryId ?? null,
           lessonTitle: topic.title,
         })
 
@@ -187,6 +189,7 @@ export function generateStudyEvents({
               "Answer questions on your last topic without looking at notes. Only check the lesson after you have answered.",
             minutes: 15,
             lessonId: previousTopic.lessonId ?? null,
+            middleCategoryId: previousTopic.middleCategoryId ?? null,
             lessonTitle: previousTopic.title,
           })
         }
@@ -212,6 +215,7 @@ export function generateStudyEvents({
           detail: `Flashcard review ${review.round} of 3. Try to recall each answer before you flip the card.`,
           minutes: 15,
           lessonId: review.topic.lessonId ?? null,
+          middleCategoryId: review.topic.middleCategoryId ?? null,
           lessonTitle: review.topic.title,
         })
       }

@@ -100,6 +100,39 @@ export function isTriggerable(event) {
  * only fires on the exact minute would silently skip every session the learner
  * was not already sitting in front of — which is most of them.
  */
+/**
+ * How long after its time a session may still open by itself.
+ *
+ * Coming back an hour late to a 7:00 PM session should still offer it. Coming
+ * back the next morning -- or making a plan at 10 PM that put today's session at
+ * 2 PM -- should not throw a modal over whatever the learner opened the app to
+ * do. Those stay on Today's plan to be opened by hand.
+ */
+export const AUTO_OPEN_WINDOW_MS = 3 * 60 * 60_000
+
+/** When a session is scheduled, as a Date, or null when it has no time. */
+function dueAt(event) {
+  const minutes = minutesOfDay(event?.at)
+  if (minutes == null || !event?.dateKey) return null
+  const due = new Date(`${event.dateKey}T00:00:00`)
+  due.setMinutes(minutes)
+  return Number.isNaN(due.getTime()) ? null : due
+}
+
+/**
+ * Whether a due session is too old to open by itself: more than the window past
+ * its time, or already past when the plan was generated (`generatedAt`, an ISO
+ * string the generator stamps on the schedule).
+ */
+export function isStale(event, now = new Date(), generatedAt = null) {
+  const due = dueAt(event)
+  if (!due) return false
+  if (now.getTime() - due.getTime() > AUTO_OPEN_WINDOW_MS) return true
+
+  const made = generatedAt ? new Date(generatedAt) : null
+  return Boolean(made && !Number.isNaN(made.getTime()) && due.getTime() < made.getTime())
+}
+
 export function isDue(event, now = new Date()) {
   if (!isTriggerable(event)) return false
   if (event.dateKey !== toDateKey(now)) return false

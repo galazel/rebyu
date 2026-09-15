@@ -44,6 +44,7 @@ import { PortalThemeMenuItem } from "@/components/portal-theme-toggle"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { StudyActivityHost } from "@/components/learner/study-activity-host.jsx"
+import { PomodoroOverlay } from "@/components/learner/pomodoro-overlay.jsx"
 import {
   CurriculumPageSkeleton,
   TopicPageSkeleton,
@@ -395,6 +396,8 @@ export default function LearnerLayout() {
           /learner/*, which is the right trade -- there is no study session to
           run on the login page. */}
       <StudyActivityHost />
+      {/* A running Pomodoro's timer, break lock and prompts, on every learner page. */}
+      <PomodoroOverlay />
     </div>
   )
 }

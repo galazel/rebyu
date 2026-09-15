@@ -210,7 +210,7 @@ function topicRefs(rows) {
         if (!title || seen.has(title)) continue
 
         seen.add(title)
-        refs.push({ lessonId: row?.lessonId ?? null, title })
+        refs.push({ lessonId: row?.lessonId ?? null, middleCategoryId: row?.middleCategoryId ?? null, title })
     }
 
     return refs
@@ -870,6 +870,9 @@ export function StudyPlanContent({
                       certificationPlans,
                   }
                 : null),
+            // When the plan was made, so sessions already past at that moment
+            // are never opened automatically (see isStale).
+            generatedAt: new Date().toISOString(),
             courseGoal,
             targetExamDate: planTargetExamDate,
             targetReadiness,
