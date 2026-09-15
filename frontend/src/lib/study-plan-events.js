@@ -131,8 +131,8 @@ export function generateStudyEvents({
           type: "mock",
           title: daysLeft <= 7 ? "Final mock exam" : "Mock exam",
           detail:
-            "Take a full, timed practice test for this certification, the way you would sit the real exam. " +
-            "Your score updates your exam readiness and shows which topics still need work.",
+            "A timed practice test built from every lesson you have finished in this certification so far. " +
+            "It shows what you still remember and which topics need another look.",
           minutes: null,
           lessonId: null,
           lessonTitle: null,
@@ -278,8 +278,8 @@ export function describeEvent(event) {
   switch (eventKind(event)) {
     case "mock":
       return (
-        "Take a full, timed practice test for this certification, the way you would sit the real exam. " +
-        "Your score updates your exam readiness and shows which topics still need work."
+        "A timed practice test built from every lesson you have finished in this certification so far. " +
+        "It shows what you still remember and which topics need another look."
       )
     case "exam":
       return "The day of your certification exam."

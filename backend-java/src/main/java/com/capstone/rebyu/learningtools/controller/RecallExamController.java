@@ -34,6 +34,9 @@ public class RecallExamController {
   public RecallExamService.RecallExam create(
       @AuthenticationPrincipal Jwt jwt,
       @RequestBody CreateRecallRequest request) {
+    if ("mock".equalsIgnoreCase(request.mode())) {
+      return recallExamService.createPlanMockExam(me(jwt), request.certificationId(), request.size());
+    }
     return recallExamService.createRecallExam(
         me(jwt), request.certificationId(), request.lessonId(), request.size());
   }
@@ -42,9 +45,11 @@ public class RecallExamController {
    * @param lessonId the topic the plan scheduled, when there is one -- its
    *                 questions are preferred so a session lines up with what the
    *                 learner was told they would be studying
-   * @param size     defaults to 20
+   * @param size     defaults to 20 (30 for a mock)
+   * @param mode     "mock" for the study plan's mock exam over finished lessons;
+   *                 anything else is an active recall session
    */
-  public record CreateRecallRequest(Long certificationId, Long lessonId, Integer size) {}
+  public record CreateRecallRequest(Long certificationId, Long lessonId, Integer size, String mode) {}
 
   private Long me(Jwt jwt) {
     if (jwt == null) {

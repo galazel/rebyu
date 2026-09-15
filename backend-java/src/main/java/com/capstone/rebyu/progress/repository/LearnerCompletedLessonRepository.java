@@ -23,6 +23,17 @@ public interface LearnerCompletedLessonRepository extends JpaRepository<LearnerC
     long countByLearner_LearnerIdAndLesson_MiddleCategory_MajorCategory_Certification_CertificationId(
             Long learnerId, Long certificationId);
 
+    /** Ids of the certification's lessons this learner has finished -- ids only, no lesson content. */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT l.lesson.lessonId
+            FROM LearnerCompletedLesson l
+            WHERE l.learner.learnerId = :learnerId
+              AND l.lesson.middleCategory.majorCategory.certification.certificationId = :certificationId
+            """)
+    List<Long> completedLessonIds(
+            @org.springframework.data.repository.query.Param("learnerId") Long learnerId,
+            @org.springframework.data.repository.query.Param("certificationId") Long certificationId);
+
     /** Lessons finished per learner, for a whole roster at once. */
     interface LessonsDone {
         Long getLearnerId();

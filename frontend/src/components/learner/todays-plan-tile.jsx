@@ -1,5 +1,5 @@
-import { useMemo } from "react"
-import { useNavigate } from "react-router-dom"
+import { useMemo, useState } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
 
 import {
   ArrowRight,
@@ -15,6 +15,8 @@ import { BentoHeading, BentoSkeleton, BentoTile } from "@/components/commons/ben
 import { useCertificationStudyPlan } from "@/components/learner/use-certification-study-plan.js"
 import { formatWhen, toDateKey } from "@/lib/study-schedule.js"
 import { EVENT_TYPE_LABELS, describeEvent, eventKind } from "@/lib/study-plan-events.js"
+import { returnState } from "@/lib/assessment-return"
+import { createPlanMockExam } from "@/services/recallService.js"
 
 /* How each kind of session looks. Every entry carries its own words -- a mock
    exam and a lesson are different work, and the icon's colour alone would hide
@@ -43,16 +45,16 @@ function formatDay(dateKey) {
 /**
  * Where a session's button goes, or null when there is nowhere to go.
  *
- * A mock exam lives with the certification's assessments, so it opens the
- * curriculum page -- the same place "go to assessments" leads. Anything tied to
- * a lesson opens that lesson.
+ * A mock exam is built on the spot from the lessons already finished -- the
+ * certification's official mock stays locked until the curriculum is done, so
+ * linking to it would lead nowhere. Anything tied to a lesson opens that lesson.
  */
 function actionFor(event, certificationId) {
   const kind = eventKind(event)
 
   if (kind === "mock") {
     const id = event.certificationId ?? certificationId
-    return id ? { label: "Find a mock exam", to: `/learner/learning/${id}` } : null
+    return id ? { label: "Start mock exam", mockFor: id } : null
   }
 
   if ((kind === "lesson" || kind === "review" || kind === "quiz") && event.lessonId) {
@@ -78,6 +80,24 @@ function actionFor(event, certificationId) {
  */
 export function TodaysPlanTile({ certificationId, onCreatePlan }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [mock, setMock] = useState({ building: null, error: null })
+
+  async function startMock(eventId, id) {
+    setMock({ building: eventId, error: null })
+    try {
+      const exam = await createPlanMockExam({ certificationId: id })
+      navigate(`/learner/assessments/${exam.examId}`, { state: returnState(location) })
+    } catch (error) {
+      setMock({
+        building: null,
+        error: {
+          eventId,
+          message: error?.response?.data?.message ?? error?.message ?? "Could not build the mock exam.",
+        },
+      })
+    }
+  }
 
   const { plan, isLoading, isOverall } = useCertificationStudyPlan(certificationId)
 
@@ -195,12 +215,19 @@ export function TodaysPlanTile({ certificationId, onCreatePlan }) {
                     {action ? (
                       <button
                         type="button"
-                        onClick={() => navigate(action.to)}
-                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80"
+                        disabled={mock.building != null}
+                        onClick={() =>
+                          action.mockFor ? startMock(event.id, action.mockFor) : navigate(action.to)
+                        }
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 disabled:opacity-60"
                       >
-                        {action.label}
+                        {mock.building === event.id ? "Building your mock exam…" : action.label}
                         <ArrowRight className="size-3" aria-hidden="true" />
                       </button>
+                    ) : null}
+
+                    {mock.error?.eventId === event.id ? (
+                      <p className="mt-1 text-xs leading-5 text-destructive">{mock.error.message}</p>
                     ) : null}
                   </div>
                 </li>

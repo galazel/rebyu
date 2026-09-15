@@ -18,3 +18,15 @@ export function createRecallSession({ certificationId, lessonId, size }) {
     data: { certificationId, lessonId, size },
   })
 }
+
+/**
+ * The study plan's mock exam: a timed paper over only the lessons this learner
+ * has finished in the certification. Fails with a message when none are
+ * finished yet.
+ */
+export function createPlanMockExam({ certificationId }) {
+  return base("recall-sessions", {
+    method: "POST",
+    data: { certificationId, mode: "mock" },
+  })
+}

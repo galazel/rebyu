@@ -15,6 +15,7 @@ import com.capstone.rebyu.bkt.dto.LessonPriorityView;
 import com.capstone.rebyu.bkt.service.LearnerMasteryService;
 import com.capstone.rebyu.certification.entity.Certification;
 import com.capstone.rebyu.certification.repository.CertificationRepository;
+import com.capstone.rebyu.progress.repository.LearnerCompletedLessonRepository;
 import com.capstone.rebyu.user.entity.Learner;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -83,6 +85,7 @@ public class RecallExamService {
 
   private static final int DEFAULT_SIZE = 20;
   private static final int MAX_SIZE = 50;
+  private static final int MOCK_DEFAULT_SIZE = 30;
 
   /** Below this mastery a lesson is worth re-testing. */
   private static final double WEAK_MASTERY_CEILING = 0.7;
@@ -95,6 +98,7 @@ public class RecallExamService {
   private final CertificationRepository certifications;
   private final EligibleQuestionService eligibleQuestions;
   private final LearnerMasteryService mastery;
+  private final LearnerCompletedLessonRepository completedLessons;
 
   public record RecallExam(
       Long examId, String title, Long certificationId, int itemCount, String basis) {}
@@ -219,6 +223,104 @@ public class RecallExamService {
 
     return new RecallExam(
         exam.getExamId(), exam.getTitle(), certificationId, distinct.size(), basis);
+  }
+
+  /**
+   * The study plan's mock exam: a timed paper over every lesson this learner has
+   * finished in the certification, and nothing they have not.
+   *
+   * <p>The certification's official mock exam unlocks only once the whole
+   * curriculum is done, so a plan that schedules "mock exam" every two weeks
+   * would otherwise point at something locked. This checks what has been
+   * covered so far instead. Questions are dealt round-robin across the finished
+   * lessons so a lesson with a large bank cannot crowd out the rest.
+   *
+   * <p>Minted as the learner's own RECALL-type paper, not a MOCK_EXAM: it must
+   * not count as the certification's official mock in readiness or analytics.
+   */
+  @Transactional
+  public RecallExam createPlanMockExam(Long learnerId, Long certificationId, Integer size) {
+    if (certificationId == null) {
+      throw new IllegalArgumentException("A certification is required to build a mock exam");
+    }
+    int target = size == null ? MOCK_DEFAULT_SIZE : Math.min(Math.max(size, 1), MAX_SIZE);
+
+    Certification certification = certifications.findById(certificationId)
+        .orElseThrow(() -> new EntityNotFoundException("Certification not found: " + certificationId));
+
+    List<Long> finished = completedLessons.completedLessonIds(learnerId, certificationId);
+    if (finished.isEmpty()) {
+      throw new IllegalArgumentException(
+          "Finish at least one lesson in this certification first -- the mock exam only covers lessons you have finished.");
+    }
+
+    List<List<Long>> pools = new ArrayList<>();
+    for (Long finishedLessonId : finished) {
+      List<Long> pool = new ArrayList<>(scopeQuestionIds(null, finishedLessonId));
+      Collections.shuffle(pool);
+      if (!pool.isEmpty()) {
+        pools.add(pool);
+      }
+    }
+    if (pools.isEmpty()) {
+      throw new IllegalStateException("The lessons you have finished have no questions yet");
+    }
+
+    // Round-robin, a few spare per slot so removing text copies below still fills the paper.
+    Set<Long> dealt = new LinkedHashSet<>();
+    int limit = target * 2;
+    for (int round = 0; dealt.size() < limit; round++) {
+      boolean any = false;
+      for (List<Long> pool : pools) {
+        if (round < pool.size()) {
+          dealt.add(pool.get(round));
+          any = true;
+          if (dealt.size() >= limit) break;
+        }
+      }
+      if (!any) break;
+    }
+
+    List<Long> distinct = stemDistinct(dealt);
+    if (distinct.size() > target) {
+      distinct = new ArrayList<>(distinct.subList(0, target));
+    }
+    Collections.shuffle(distinct);
+
+    ExamType examType = examTypes.findByExamTypeText(RECALL_EXAM_TYPE)
+        .orElseThrow(() -> new IllegalStateException(
+            "Exam type '" + RECALL_EXAM_TYPE + "' is not seeded -- see ExamTypeSeeder"));
+
+    LocalDateTime now = LocalDateTime.now();
+    Exam exam = exams.save(Exam.builder()
+        .certification(certification)
+        .examType(examType)
+        .title("Study plan mock exam · " + now.toLocalDate())
+        .isGenerated(true)
+        .learner(Learner.builder().learnerId(learnerId).build())
+        .totalQuestions(distinct.size())
+        .durationMinutes(Math.max(10, (int) Math.ceil(distinct.size() * 1.5)))
+        .passingScore(new BigDecimal("70.00"))
+        .status(Exam.Status.PUBLISHED)
+        .targetScope(RECALL_TARGET_SCOPE)
+        .publishedAt(now)
+        .updatedAt(now)
+        .releaseAnswersAfterSubmit(true)
+        .build());
+
+    int displayOrder = 1;
+    for (Long questionId : distinct) {
+      examQuestions.save(ExamQuestion.builder()
+          .exam(exam)
+          .question(questions.getReferenceById(questionId))
+          .displayOrder(displayOrder++)
+          .build());
+    }
+
+    log.info("Plan mock exam {} built for learner {} on certification {} ({} items from {} finished lessons)",
+        exam.getExamId(), learnerId, certificationId, distinct.size(), finished.size());
+
+    return new RecallExam(exam.getExamId(), exam.getTitle(), certificationId, distinct.size(), "finished-lessons");
   }
 
   private List<Long> missedQuestionIds(Long learnerId, Long certificationId, Long lessonId) {
