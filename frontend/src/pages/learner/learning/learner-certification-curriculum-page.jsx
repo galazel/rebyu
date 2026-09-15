@@ -209,24 +209,24 @@ function XpPill({ amount, earned, upTo = false }) {
  * centred, is also what makes the swing read as a road at all -- the eye needs
  * the same amplitude every time it comes back around.
  */
-const PATH_WIDTH = 440
+const PATH_WIDTH = 480
 /* The name no longer hangs below the node -- it stands beside it -- so a row
    only has to be as tall as the node itself plus the gap the connector needs
    to read as a line between two stops. That is most of where the page's old
    length went: 208px per stop with the lower half reserved for text that is
    now in space the row already had. */
-const PATH_ROW = 158
+const PATH_ROW = 188
 
 /* The node is an isometric plinth, not a disc: a top face in the unit's colour
    with two shaded faces under it, and the icon standing on top. `PLINTH_H` is
    the top face alone (2:1, which is what makes it read as isometric rather
    than as a squashed square) and `PLINTH_D` the extruded depth beneath it. */
-const NODE_W = 132
-const PLINTH_H = 66
-const PLINTH_D = 20
+const NODE_W = 160
+const PLINTH_H = 80
+const PLINTH_D = 24
 /* How far the icon floats above the plinth's centre. Sitting it flat on the
    face made it look printed on; lifted, it reads as standing there. */
-const ICON_LIFT = 30
+const ICON_LIFT = 36
 const NODE_H = PLINTH_H + PLINTH_D + ICON_LIFT
 
 /* The final sits on a bigger plinth than anything else on the road.
@@ -239,7 +239,7 @@ const NODE_H = PLINTH_H + PLINTH_D + ICON_LIFT
    above it. The row it occupies grows to match, or the taller plinth would
    push into the stop above. */
 const NODE_SCALE_GRAND = 1.34
-const PATH_ROW_GRAND = 200
+const PATH_ROW_GRAND = 238
 
 /** Every measurement of one node, at its own size. */
 function nodeDims(node, narrow = false) {
@@ -281,7 +281,7 @@ function stretchHeight(nodes, narrow = false) {
    right stop, and the label always on the outer edge where there is nothing to
    collide with. An eight-step swing on top of that would put two consecutive
    nodes on the same side with their labels overlapping. */
-const PATH_OFFSETS = [88, -88]
+const PATH_OFFSETS = [104, -104]
 
 /* ------------------------------------------------- the same road, on a phone */
 
@@ -302,8 +302,8 @@ const PATH_OFFSETS = [88, -88]
  * a full-width swing on a phone puts the outer stops under the screen edge.
  */
 const NARROW_PATH_WIDTH = 288
-const NARROW_OFFSETS = [44, -44]
-const NARROW_NODE_SCALE = 0.78
+const NARROW_OFFSETS = [50, -50]
+const NARROW_NODE_SCALE = 0.92
 /** Room under a stop for its name, its meta line and any pill it carries. */
 const NARROW_LABEL_H = 84
 
