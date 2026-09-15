@@ -84,7 +84,14 @@ export default function ProgrammingQuestionLayout({
         : await runAttemptProgramming(attemptId, attemptQuestionId, learnerId, code, language)
       setTests(result.tests ?? [])
       setNotice(result.message ?? null)
-      setOutput(result.message ?? "Finished with no output.")
+      setOutput({
+        stdout: result.stdout ?? null,
+        stderr: result.stderr ?? null,
+        passed: result.passedTests ?? null,
+        total: result.totalTests ?? null,
+        // Only when there is nothing the program itself printed to show.
+        message: result.message ?? null,
+      })
       setActiveTab("tests")
       refreshExecutions()
     } catch (error) {
@@ -156,6 +163,15 @@ export default function ProgrammingQuestionLayout({
             <span className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-white/70">
               <TerminalIcon className="size-3.5" aria-hidden="true" />
               Output
+              {output.total != null ? (
+                <span
+                  className={`ml-1 rounded-full px-2 py-0.5 normal-case tracking-normal ${
+                    output.passed === output.total ? "bg-[#2f7d55] text-white" : "bg-white/15 text-white/85"
+                  }`}
+                >
+                  {output.passed}/{output.total} sample tests passed
+                </span>
+              ) : null}
             </span>
             <button
               type="button"
@@ -166,9 +182,20 @@ export default function ProgrammingQuestionLayout({
               <XIcon className="size-3.5" aria-hidden="true" />
             </button>
           </div>
-          <pre className="max-h-36 overflow-auto whitespace-pre-wrap px-3 py-2.5 font-mono text-xs leading-5">
-            {output}
-          </pre>
+          {/* What the program printed, verbatim, then any compile or runtime
+              error in red. The summary line is only a fallback for runs that
+              printed nothing and failed nothing (an unavailable runner). */}
+          <div className="max-h-56 overflow-auto px-3 py-2.5 font-mono text-xs leading-5">
+            {output.stdout ? <pre className="whitespace-pre-wrap">{output.stdout}</pre> : null}
+            {output.stderr ? (
+              <pre className="mt-1 whitespace-pre-wrap text-[#ff9d92]">{output.stderr}</pre>
+            ) : null}
+            {!output.stdout && !output.stderr ? (
+              <pre className="whitespace-pre-wrap text-white/60">
+                {output.total != null ? "(your program printed nothing)" : output.message ?? "Finished with no output."}
+              </pre>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </div>

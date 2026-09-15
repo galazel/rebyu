@@ -2725,7 +2725,8 @@ public class AssessmentAttemptService {
                             .build());
             return new ExecutionResultDto(
                     execution.getExecutionId(), mode.name(), execution.getStatus().name(),
-                    message, request.language(), null, execution.getTotalTests(), now, learnerTests);
+                    message, request.language(), null, execution.getTotalTests(), now, learnerTests,
+                    null, null);
         }
 
         List<TestCaseInputDto> inputs = scopedTestCases.stream()
@@ -2762,7 +2763,9 @@ public class AssessmentAttemptService {
                 result.passedTests(),
                 result.totalTests(),
                 now,
-                mergeTestStatuses(learnerTests, result));
+                mergeTestStatuses(learnerTests, result, scopedTestCases),
+                result.output(),
+                result.error());
     }
 
     private record IndexedTestCase(int index, ProgrammingTestCase testCase) {}
@@ -2888,19 +2891,32 @@ public class AssessmentAttemptService {
         return result.output();
     }
 
-    /** Overlays real PASSED/FAILED/etc. statuses onto the learner-safe test list; never adds actual output for hidden tests (the DTO has no such field). */
+    /**
+     * Overlays real PASSED/FAILED/etc. statuses onto the learner-safe test list.
+     * A sample test also carries its expected output and what the program
+     * printed for it; a hidden test never carries either.
+     */
     private List<LearnerTestCaseDto> mergeTestStatuses(
-            List<LearnerTestCaseDto> learnerTests, CodeExecutionResultDto result) {
+            List<LearnerTestCaseDto> learnerTests, CodeExecutionResultDto result,
+            List<IndexedTestCase> ranTestCases) {
         Map<Integer, TestCaseResultDto> byIndex = new LinkedHashMap<>();
         for (TestCaseResultDto testResult : result.testResults()) {
             byIndex.put(testResult.index(), testResult);
         }
+        Map<Integer, ProgrammingTestCase> ranByIndex = new LinkedHashMap<>();
+        for (IndexedTestCase indexed : ranTestCases) {
+            ranByIndex.put(indexed.index(), indexed.testCase());
+        }
         List<LearnerTestCaseDto> merged = new ArrayList<>();
         for (LearnerTestCaseDto test : learnerTests) {
             TestCaseResultDto matched = byIndex.get(test.index());
+            ProgrammingTestCase source = ranByIndex.get(test.index());
+            boolean showOutputs = test.sample() && source != null && source.isSample();
             merged.add(new LearnerTestCaseDto(
                     test.index(), test.label(), test.sample(), test.input(),
-                    matched != null ? matched.status() : test.status()));
+                    matched != null ? matched.status() : test.status(),
+                    showOutputs ? source.getExpectedOutput() : null,
+                    showOutputs && matched != null ? matched.actualOutput() : null));
         }
         return merged;
     }
@@ -2971,7 +2987,9 @@ public class AssessmentAttemptService {
                             (String) map.get("label"),
                             Boolean.TRUE.equals(map.get("sample")),
                             (String) map.get("input"),
-                            "NOT_RUN"));
+                            "NOT_RUN",
+                            null,
+                            null));
                 }
             }
         }

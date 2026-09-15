@@ -71,7 +71,28 @@ function installPreviewAdapter() {
         config.adapter = (request) => localResponse(request, [])
         return config
       }
-      if (/\/(run|check|check-diagram)$/.test(url)) {
+      if (/\/run$/.test(url)) {
+        // Shaped like the real ExecutionResultDto, so the output panel and the
+        // sample-test comparison can be reviewed without a Judge0 call.
+        config.adapter = (request) =>
+          localResponse(request, {
+            mode: "RUN",
+            status: "COMPLETED",
+            message: "1 / 2 test case(s) passed.",
+            language: "Python",
+            passedTests: 1,
+            totalTests: 2,
+            stdout: "True\nFalse\nTrue\n",
+            stderr: null,
+            tests: [
+              { index: 1, label: "Rejects n < 2", sample: true, input: "1", status: "PASSED", expectedOutput: "False", actualOutput: "False" },
+              { index: 2, label: "Detects 7, 13, 97", sample: true, input: "7\n13\n97", status: "FAILED", expectedOutput: "True\nTrue\nTrue", actualOutput: "True\nFalse\nTrue" },
+              { index: 3, label: "Rejects even numbers", sample: false, input: null, status: "NOT_RUN", expectedOutput: null, actualOutput: null },
+            ],
+          })
+        return config
+      }
+      if (/\/(check|check-diagram)$/.test(url)) {
         config.adapter = (request) =>
           localResponse(request, {
             status: "NOT_RUN",
