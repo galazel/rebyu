@@ -40,7 +40,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { generateStudyEvents } from "@/lib/study-plan-events.js"
+import { planStudy } from "@/lib/study-plan-events.js"
 
 const readinessOptions = [
     "Ready 1 week before the exam",
@@ -193,6 +193,38 @@ function buildMonthDays(viewDate) {
 }
 
 /**
+ * A certification's lessons in course order, with whether each is completed --
+ * from the learner portal snapshot every learner page already has. By id when
+ * there is one; by title for the page version that picks a course by name.
+ */
+function curriculumFor(lessons, certificationId, certificationTitle = null) {
+    return (Array.isArray(lessons) ? lessons : []).filter((lesson) =>
+        certificationId != null
+            ? String(lesson?.certificationId) === String(certificationId)
+            : certificationTitle != null && lesson?.certificationTitle === certificationTitle
+    )
+}
+
+/** `{ [lessonId]: mastery % }` from the analytics service's per-lesson rows. */
+function masteryMap(rows) {
+    const map = {}
+    for (const row of Array.isArray(rows) ? rows : []) {
+        if (row?.lessonId != null && row?.masteryPercentage != null) {
+            map[String(row.lessonId)] = row.masteryPercentage
+        }
+    }
+    return map
+}
+
+function shortDate(dateKey) {
+    if (!dateKey) return null
+    const date = new Date(`${dateKey}T00:00:00`)
+    return Number.isNaN(date.getTime())
+        ? dateKey
+        : date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+}
+
+/**
  * Weak-topic rows reduced to unique lessons, in the order given.
  *
  * The lesson id travels with the title because the schedule is not only read by
@@ -294,8 +326,11 @@ function TechniqueCard({ technique, selected, onSelect }) {
             type="button"
             onClick={onSelect}
             aria-pressed={selected}
-            className={`h-full rounded-2xl p-4 text-left transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-                selected ? "bg-primary/10 ring-2 ring-primary" : "bg-muted/50 hover:bg-muted"
+            /* Solid paper, not a translucent tint: inside the chalkboard dialog
+               only solid surfaces get dark ink, and a see-through card left pale
+               chalk text on a pale card. The pick is a yellow chalk outline. */
+            className={`h-full rounded-2xl border-2 bg-card p-4 text-left shadow-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                selected ? "border-rb-bee ring-4 ring-rb-bee/40" : "border-transparent hover:border-rb-swan"
             }`}
         >
             <div className="flex items-start justify-between gap-3">
@@ -314,11 +349,11 @@ function TechniqueCard({ technique, selected, onSelect }) {
                 ) : null}
             </div>
 
-            <h3 className="mt-4 text-sm font-semibold text-foreground">
+            <h3 className="mt-3 text-base font-bold text-foreground">
                 {technique.title}
             </h3>
 
-            <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
+            <p className="mt-1.5 text-sm leading-5 text-muted-foreground">
                 {technique.description}
             </p>
         </button>
@@ -693,15 +728,18 @@ export function StudyPlanContent({
                Zipped by position: `useQueries` returns results in the order the
                queries were given, which is the order of the selected ids. */
             const byCertification = {}
+            const masteryByCertification = {}
             results.forEach((result, index) => {
                 const id = selectedCertificationIds[index]
                 if (id != null) {
                     byCertification[id] = topicRefs(result.data?.weakestTopics)
+                    masteryByCertification[id] = masteryMap(result.data?.lessonPriorities)
                 }
             })
 
             return {
                 byCertification,
+                masteryByCertification,
 
                 /* The pooled view, for the priority-topics section: one list of
                    what to work on first across the whole plan. Re-sorted because
@@ -739,6 +777,11 @@ export function StudyPlanContent({
             ),
         ]
     }, [analyticsQuery.data])
+
+    const singleMastery = useMemo(
+        () => masteryMap(analyticsQuery.data?.lessonPriorities),
+        [analyticsQuery.data]
+    )
 
     const priorityTopics = overall ? overallPriorities.topics : singleCertificationTopics
 
@@ -778,6 +821,41 @@ export function StudyPlanContent({
               .reduce((latest, value) => (value > latest ? value : latest), "") || "—"
         : targetExamDate
 
+    /* The pace, worked out live by the same planner that saves the plan, so
+       the preview says whether the lessons fit before anything is generated. */
+    const pacePreview = useMemo(() => {
+        const entries = overall
+            ? selectedCertificationIds.map((id) => ({
+                  certificationId: id,
+                  title: enrolledCertifications.find((row) => row.id === id)?.title ?? "Certification",
+                  ...datesFor(id),
+                  mastery: overallPriorities.masteryByCertification?.[String(id)] ?? {},
+              }))
+            : [{ certificationId, title: certification, calendarStart, targetExamDate, mastery: singleMastery }]
+
+        return entries
+            .filter((entry) => entry.calendarStart && entry.targetExamDate)
+            .map((entry) => ({
+                title: entry.title,
+                summary: planStudy({
+                    calendarStart: entry.calendarStart,
+                    targetExamDate: entry.targetExamDate,
+                    studyDays,
+                    studyWindow,
+                    studyWindowTimes: STUDY_WINDOW_TIMES,
+                    studyTime: entry.studyTime ?? null,
+                    selectedTechniqueInfo,
+                    readiness: targetReadiness,
+                    curriculum: curriculumFor(data?.lessons, entry.certificationId, overall ? null : certification),
+                    masteryByLesson: entry.mastery,
+                    priorityTopics: overall ? [] : priorityTopics,
+                }).summary,
+            }))
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [overall, selectedCertificationIds, certificationDates, calendarStart, targetExamDate, studyDays, studyWindow,
+        selectedTechniqueInfo, targetReadiness, data?.lessons, overallPriorities.masteryByCertification, singleMastery,
+        priorityTopics, certification, certificationId, enrolledCertifications])
+
     function handleGeneratePlan() {
         if (noCertificationsSelected) {
             return
@@ -806,20 +884,48 @@ export function StudyPlanContent({
               }))
             : []
 
-        const events = overall
-            ? certificationPlans.flatMap((entry) =>
-                  generateStudyEvents({
+        const plannedByCertification = overall
+            ? certificationPlans.map((entry) => ({
+                  entry,
+                  planned: planStudy({
                       calendarStart: entry.calendarStart,
                       targetExamDate: entry.targetExamDate,
                       studyDays,
                       studyWindow,
                       studyWindowTimes: STUDY_WINDOW_TIMES,
+                      // The time picked for this certification, when there is one.
+                      studyTime: entry.studyTime ?? null,
                       selectedTechniqueInfo,
+                      readiness: targetReadiness,
+                      curriculum: curriculumFor(data?.lessons, entry.certificationId),
+                      masteryByLesson:
+                          overallPriorities.masteryByCertification[String(entry.certificationId)] ?? {},
                       priorityTopics:
                           overallPriorities.byCertification[String(entry.certificationId)] ?? [],
-                  }).map((event) => ({
+                  }),
+              }))
+            : []
+
+        const singlePlanned = overall
+            ? null
+            : planStudy({
+                  calendarStart,
+                  targetExamDate,
+                  studyDays,
+                  studyWindow,
+                  studyWindowTimes: STUDY_WINDOW_TIMES,
+                  selectedTechniqueInfo,
+                  readiness: targetReadiness,
+                  curriculum: curriculumFor(data?.lessons, certificationId, certification),
+                  masteryByLesson: singleMastery,
+                  priorityTopics,
+              })
+
+        const events = overall
+            ? plannedByCertification.flatMap(({ entry, planned }) =>
+                  planned.events.map((event) => ({
                       ...event,
-                      /* Namespaced: the generator numbers events from one per
+                      /* Namespaced: the planner numbers events from one per
                          schedule, so without this every certification would
                          contribute an "event-1" and React would see duplicate
                          keys on the calendar. */
@@ -828,15 +934,7 @@ export function StudyPlanContent({
                       certification: entry.title,
                   }))
               )
-            : generateStudyEvents({
-                  calendarStart,
-                  targetExamDate,
-                  studyDays,
-                  studyWindow,
-                  studyWindowTimes: STUDY_WINDOW_TIMES,
-                  selectedTechniqueInfo,
-                  priorityTopics,
-              })
+            : singlePlanned.events
 
         /* The plan's outer span. For an overall plan that is the earliest start
            and the latest exam across its certifications -- what the study
@@ -873,6 +971,14 @@ export function StudyPlanContent({
             // When the plan was made, so sessions already past at that moment
             // are never opened automatically (see isStale).
             generatedAt: new Date().toISOString(),
+            // The pace each schedule was built at, kept for showing and review.
+            summaries: overall
+                ? plannedByCertification.map(({ entry, planned }) => ({
+                      certificationId: entry.certificationId,
+                      title: entry.title,
+                      ...planned.summary,
+                  }))
+                : [{ certificationId: certificationId ?? null, title: certification, ...singlePlanned.summary }],
             courseGoal,
             targetExamDate: planTargetExamDate,
             targetReadiness,
@@ -932,7 +1038,7 @@ export function StudyPlanContent({
                 anything else. */}
             <main className="min-w-0 space-y-8">
                 <section>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <p className="text-sm font-bold uppercase tracking-wider text-foreground">
                         Course and target
                     </p>
 
@@ -1029,6 +1135,26 @@ export function StudyPlanContent({
                                                                     : undefined
                                                             }
                                                         />
+
+                                                        {/* Its own time of day: one
+                                                            certification in the morning,
+                                                            another in the evening. Until
+                                                            changed it follows the default
+                                                            study time below. */}
+                                                        <div className="sm:col-span-2">
+                                                            <FormInput
+                                                                label="Study time"
+                                                                value={
+                                                                    dates.studyTime ??
+                                                                    STUDY_WINDOW_TIMES[studyWindow] ??
+                                                                    "19:00"
+                                                                }
+                                                                onChange={(value) =>
+                                                                    setCertificationDate(row.id, "studyTime", value || null)
+                                                                }
+                                                                type="time"
+                                                            />
+                                                        </div>
                                                     </div>
                                                 ) : null}
                                             </div>
@@ -1103,7 +1229,7 @@ export function StudyPlanContent({
                 </section>
 
                 <section>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <p className="text-sm font-bold uppercase tracking-wider text-foreground">
                         Schedule
                     </p>
 
@@ -1139,7 +1265,7 @@ export function StudyPlanContent({
                         />
 
                         <FormSelect
-                            label="Preferred study time"
+                            label={overall ? "Default study time" : "Preferred study time"}
                             value={studyWindow}
                             onValueChange={setStudyWindow}
                             options={studyWindowOptions}
@@ -1148,7 +1274,7 @@ export function StudyPlanContent({
                 </section>
 
                 <section>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <p className="text-sm font-bold uppercase tracking-wider text-foreground">
                         Study technique
                     </p>
 
@@ -1166,7 +1292,7 @@ export function StudyPlanContent({
 
                 <section>
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        <p className="text-sm font-bold uppercase tracking-wider text-foreground">
                             Priority topics
                         </p>
 
@@ -1183,14 +1309,14 @@ export function StudyPlanContent({
                                 <Badge
                                     key={topic.title}
                                     variant="secondary"
-                                    className="rounded-full px-3 py-1.5 text-xs font-medium"
+                                    className="h-auto max-w-full whitespace-normal rounded-full px-3 py-1.5 text-left text-xs font-medium leading-snug"
                                 >
                                     {topic.title}
                                 </Badge>
                             ))}
                         </div>
                     ) : (
-                        <p className="mt-4 rounded-2xl bg-muted/50 p-4 text-sm leading-6 text-muted-foreground">
+                        <p className="mt-4 rounded-2xl bg-card p-4 text-sm leading-6 text-muted-foreground">
                             {priorityTopicsPending
                                 ? "Working out which topics to put first from your diagnostic. This takes a moment."
                                 : overall
@@ -1201,7 +1327,7 @@ export function StudyPlanContent({
                 </section>
 
                 <section>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <p className="text-sm font-bold uppercase tracking-wider text-foreground">
                         Anything else
                     </p>
 
@@ -1210,7 +1336,7 @@ export function StudyPlanContent({
                         onChange={(event) => setStudyPreferences(event.target.value)}
                         maxLength={500}
                         placeholder="Example: I am available Monday, Wednesday, and Friday after 7 PM. Use short sessions with breaks and add one catch-up day every week."
-                        className="mt-4 min-h-28 resize-none rounded-2xl border-transparent bg-muted/50 focus-visible:bg-background"
+                        className="mt-4 min-h-28 resize-none rounded-2xl"
                     />
 
                     <p className="mt-2 text-right text-xs text-muted-foreground">
@@ -1242,7 +1368,7 @@ export function StudyPlanContent({
             {/* Right: what the plan currently amounts to, updating as the form
                 is filled. Sticky, so it stays readable while the form scrolls. */}
             <aside className="min-w-0 xl:sticky xl:top-0 xl:self-start">
-                <div className="rounded-2xl bg-muted/50 p-5">
+                <div className="overflow-hidden rounded-2xl bg-card p-5 shadow-sm">
                     <div className="flex items-center gap-2 text-muted-foreground">
                         <ListChecks className="size-4" aria-hidden="true" />
 
@@ -1273,13 +1399,43 @@ export function StudyPlanContent({
                         ))}
                     </dl>
 
+                    {pacePreview.length > 0 ? (
+                        <div className="mt-5 space-y-3 border-t border-border/60 pt-4">
+                            <p className="text-xs text-muted-foreground">Pace</p>
+                            {pacePreview.map(({ title, summary }) => (
+                                <div key={title} className="text-sm leading-5">
+                                    {overall ? <p className="font-semibold text-foreground">{title}</p> : null}
+                                    <p className="text-foreground">
+                                        {summary.lessonsToStudy} lessons left
+                                        {summary.lessonsCompleted > 0 ? ` (${summary.lessonsCompleted} done)` : ""}
+                                        {" · "}
+                                        {summary.lessonsPerDay} per study day
+                                    </p>
+                                    {summary.lessonsEndOn ? (
+                                        <p className="text-xs text-muted-foreground">
+                                            New lessons done by {shortDate(summary.lessonsEndOn)}, then review and{" "}
+                                            {summary.mockCount} mock {summary.mockCount === 1 ? "exam" : "exams"}.
+                                        </p>
+                                    ) : null}
+                                    {summary.warning ? (
+                                        <p className="mt-1 text-xs font-semibold text-destructive">{summary.warning}</p>
+                                    ) : null}
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
+
                     {priorityTopics.length > 0 ? (
                         <div className="mt-5 border-t border-border/60 pt-4">
                             <p className="text-xs text-muted-foreground">Focus first</p>
 
                             <div className="mt-2 flex flex-wrap gap-1.5">
                                 {priorityTopics.slice(0, 4).map((topic) => (
-                                    <Badge key={topic.title} variant="secondary" className="rounded-full">
+                                    <Badge
+                                        key={topic.title}
+                                        variant="secondary"
+                                        className="h-auto max-w-full whitespace-normal rounded-xl text-left leading-snug"
+                                    >
                                         {topic.title}
                                     </Badge>
                                 ))}
