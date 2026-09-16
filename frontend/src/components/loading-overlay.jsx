@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 
-import { LoadingScreen } from "@/components/loading-screen.jsx"
+import { LoadingScreen, messagesForUser } from "@/components/loading-screen.jsx"
+import { useAuth } from "@/context/auth-context.jsx"
 
 const MIN_VISIBLE_MS = 1200
 
@@ -24,6 +25,11 @@ export function LoadingOverlayProvider({ children }) {
   const [signals, setSignals] = useState([])
   const [phase, setPhase] = useState("hidden") // hidden | loading | finishing
   const [messages, setMessages] = useState(undefined)
+  // A wait with no copy of its own (a route loading, the auth check) speaks
+  // for the portal it is in: a learner, an organization, a group leader or an
+  // admin each see their own lines.
+  const { user } = useAuth()
+  const roleMessages = messagesForUser(user)
 
   const register = useCallback((id, next) => {
     setSignals((list) => [...list.filter((s) => s.id !== id), { id, messages: next }])
@@ -63,7 +69,7 @@ export function LoadingOverlayProvider({ children }) {
       {phase !== "hidden" ? (
         <LoadingScreen
           overlay
-          messages={messages}
+          messages={messages ?? roleMessages}
           finishing={phase === "finishing"}
           onFinished={() => setPhase((current) => (current === "finishing" ? "hidden" : current))}
         />

@@ -27,6 +27,49 @@ const MESSAGES = [
   { tag: "challenge", text: "Loading your next challenge...", tone: "fox" },
 ]
 
+/* Each portal waits on different work, so each says so. The learner's copy
+   above stays the default; these are picked by the signed-in role. */
+export const INSTITUTION_MESSAGES = [
+  { tag: "organization", text: "Opening your organization...", tone: "macaw" },
+  { tag: "learners", text: "Gathering your learners' progress...", tone: "beetle" },
+  { tag: "certifications", text: "Checking your certification slots...", tone: "bee" },
+  { tag: "groups", text: "Lining up your groups...", tone: "fox" },
+]
+
+export const INSTITUTION_MEMBER_MESSAGES = [
+  { tag: "class", text: "Opening your class...", tone: "macaw" },
+  { tag: "roster", text: "Taking attendance...", tone: "beetle" },
+  { tag: "assessments", text: "Stacking your assessments...", tone: "bee" },
+  { tag: "announcements", text: "Pinning up announcements...", tone: "fox" },
+]
+
+export const ADMIN_MESSAGES = [
+  { tag: "platform", text: "Checking the whole school...", tone: "macaw" },
+  { tag: "content", text: "Sorting the curriculum...", tone: "beetle" },
+  { tag: "organizations", text: "Reviewing partner organizations...", tone: "bee" },
+  { tag: "reports", text: "Tallying the reports...", tone: "fox" },
+]
+
+export const GUEST_MESSAGES = [
+  { tag: "rebyu", text: "Opening the classroom...", tone: "macaw" },
+  { tag: "board", text: "Wiping the chalkboard...", tone: "beetle" },
+  { tag: "seats", text: "Setting out the desks...", tone: "bee" },
+  { tag: "almost", text: "Almost ready...", tone: "fox" },
+]
+
+/** The waiting copy for whoever is signed in. */
+export function messagesForUser(user) {
+  const role = String(user?.role ?? "").toUpperCase()
+  if (!role) return GUEST_MESSAGES
+  if (role === "ADMIN") return ADMIN_MESSAGES
+  if (role === "INSTITUTION_MEMBER"
+      || (role === "INSTITUTION" && user?.institutionMemberRole && user.institutionMemberRole !== "owner")) {
+    return INSTITUTION_MEMBER_MESSAGES
+  }
+  if (role === "INSTITUTION") return INSTITUTION_MESSAGES
+  return MESSAGES
+}
+
 /** Copy for the wait after submitting an assessment: the real grading stages. */
 export const GRADING_MESSAGES = [
   { tag: "answers", text: "Checking your answers...", tone: "macaw" },
