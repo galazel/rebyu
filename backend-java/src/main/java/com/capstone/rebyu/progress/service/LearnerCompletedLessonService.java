@@ -1,6 +1,8 @@
 package com.capstone.rebyu.progress.service;
 
 import com.capstone.rebyu.certification.entity.Lesson;
+import com.capstone.rebyu.certification.repository.LessonRepository;
+import com.capstone.rebyu.enrollment.service.OrgEnrollmentProgressService;
 import com.capstone.rebyu.gamification.RewardService;
 import com.capstone.rebyu.gamification.service.StreakService;
 import com.capstone.rebyu.progress.dto.LearnerCompletedLessonDto;
@@ -29,6 +31,8 @@ public class LearnerCompletedLessonService {
     private final RewardService rewardService;
     private final StreakService streakService;
     private final AchievementAwardService achievementAwardService;
+    private final OrgEnrollmentProgressService orgEnrollmentProgressService;
+    private final LessonRepository lessonRepository;
 
     public List<LearnerCompletedLessonDto> getAll() {
         return learnerCompletedLessonRepository.findAll().stream().map(learnerCompletedLessonMapper::toDto).toList();
@@ -56,6 +60,7 @@ public class LearnerCompletedLessonService {
         // After the row is saved, so "First Step" sees this very lesson. The
         // evaluation is idempotent, so a re-marked lesson awards nothing twice.
         achievementAwardService.evaluate(dto.getLearnerId());
+        syncInstitutionProgress(dto.getLearnerId(), dto.getLessonId());
 
         return saved;
     }
@@ -72,6 +77,19 @@ public class LearnerCompletedLessonService {
 
     public void delete(Long learnerId, Long lessonId) {
         learnerCompletedLessonRepository.delete(findEntity(learnerId, lessonId));
+        syncInstitutionProgress(learnerId, lessonId);
+    }
+
+    /** An institution seat's stored progress follows the learner's finished lessons. */
+    private void syncInstitutionProgress(Long learnerId, Long lessonId) {
+        learnerCompletedLessonRepository.flush();
+        lessonRepository.findById(lessonId)
+                .map(lesson -> lesson.getMiddleCategory() == null
+                        || lesson.getMiddleCategory().getMajorCategory() == null
+                        || lesson.getMiddleCategory().getMajorCategory().getCertification() == null
+                        ? null
+                        : lesson.getMiddleCategory().getMajorCategory().getCertification().getCertificationId())
+                .ifPresent(certificationId -> orgEnrollmentProgressService.sync(learnerId, certificationId));
     }
 
     private LearnerCompletedLesson findEntity(Long learnerId, Long lessonId) {

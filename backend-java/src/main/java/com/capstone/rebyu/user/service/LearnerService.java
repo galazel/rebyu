@@ -50,6 +50,7 @@ public class LearnerService {
     private final AccountDeletionService accountDeletionService;
     private final InstitutionGroupRepository institutionGroupRepository;
     private final NotificationService notificationService;
+    private final com.capstone.rebyu.enrollment.service.OrgEnrollmentProgressService orgEnrollmentProgressService;
 
     public List<LearnerDto> getAll() {
         List<Learner> learners = learnerRepository.findAll();
@@ -275,6 +276,8 @@ public class LearnerService {
                         .status(OrganizationCertificationLearner.Status.active)
                         .build();
         enrollment = organizationCertificationLearnerRepository.save(enrollment);
+        // Lessons already finished on their own count toward the institution seat.
+        orgEnrollmentProgressService.sync(enrollment);
 
         // The invitation was sent by a group leader for a specific group --
         // place the newly-enrolled learner directly into it, so no separate

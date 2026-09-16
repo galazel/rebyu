@@ -57,7 +57,8 @@ class LearnerServiceAcceptInvitationTest {
                 mock(InstitutionGroupAssigneeRepository.class),
                 mock(AccountDeletionService.class),
                 mock(InstitutionGroupRepository.class),
-                mock(NotificationService.class));
+                mock(NotificationService.class),
+                mock(com.capstone.rebyu.enrollment.service.OrgEnrollmentProgressService.class));
     }
 
     private OrganizationCertificate orgCert() {
