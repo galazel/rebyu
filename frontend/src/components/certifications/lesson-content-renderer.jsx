@@ -1564,14 +1564,38 @@ export { LessonTool }
 
 /** Parses a lesson_component_structure string and renders its blocks. */
 export function LessonContent({ structure, className = "space-y-8" }) {
-  const blocks = parseLessonStructure(structure)
-  if (blocks.length === 0) {
+  const items = parseLessonStructure(structure)
+  if (items.length === 0) {
     return null
   }
+  /* Lessons are stored as sections, each holding its blocks in `content`.
+     Handed straight to LessonTool, every section read as a block with no type,
+     so the institution's reader showed a column of "Unsupported lesson block".
+     A flat list of blocks (older lessons) still renders as it did. */
+  const isSections = items.some((item) => Array.isArray(item?.content) && !item?.type)
+  if (!isSections) {
+    return (
+      <div className={className}>
+        {items.map((tool, index) => (
+          <LessonTool key={tool.id ?? index} tool={tool} index={index} />
+        ))}
+      </div>
+    )
+  }
+  let blockIndex = 0
   return (
     <div className={className}>
-      {blocks.map((tool, index) => (
-        <LessonTool key={tool.id ?? index} tool={tool} index={index} />
+      {items.map((section, sectionIndex) => (
+        <section key={section.id ?? sectionIndex} className="space-y-6">
+          {section.sectionName || section.name ? (
+            <h2 className="font-rb-display text-xl font-extrabold text-foreground">
+              {section.sectionName ?? section.name}
+            </h2>
+          ) : null}
+          {(Array.isArray(section.content) ? section.content : []).map((tool, index) => (
+            <LessonTool key={tool.id ?? `${sectionIndex}-${index}`} tool={tool} index={blockIndex++} />
+          ))}
+        </section>
       ))}
     </div>
   )
