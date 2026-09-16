@@ -299,6 +299,11 @@ public class AdminPartnershipService {
                 .findByPrimaryContactEmailIgnoreCase(request.getOrganizationEmail())
                 .orElse(null);
         if (byEmail != null) {
+            // An approved partnership is what verifies an organization.
+            if (!byEmail.isVerified()) {
+                byEmail.setVerified(true);
+                institutionRepository.save(byEmail);
+            }
             return byEmail;
         }
 
