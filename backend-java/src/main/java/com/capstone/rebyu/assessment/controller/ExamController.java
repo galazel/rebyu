@@ -46,7 +46,7 @@ public class ExamController {
             @RequestParam(required = false) Long includeGroupId,
             @RequestParam(required = false) Long certificationId) {
         requireGroupAccessIfRequested(jwt, includeGroupId);
-        return examService.getAll(includeGroupId, certificationId);
+        return examService.getAll(includeGroupId, certificationId, viewerLearnerId(jwt));
     }
 
     @GetMapping("/{id}")
@@ -107,6 +107,16 @@ public class ExamController {
         CurrentUserDto user = requireAdminOrInstitution(jwt);
         boolean isAdmin = isAdmin(user);
         return examService.archive(id, isAdmin, user.institutionId(), user.userId(), isOwner(user));
+    }
+
+    /** The caller's learner id, or null for anyone who is not a learner. */
+    private Long viewerLearnerId(Jwt jwt) {
+        if (jwt == null) return null;
+        try {
+            return auth.syncCurrentUser(jwt, jwt.getTokenValue()).learnerId();
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     private CurrentUserDto requireAdminOrInstitution(Jwt jwt) {

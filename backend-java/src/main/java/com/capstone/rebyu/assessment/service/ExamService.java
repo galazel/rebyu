@@ -66,7 +66,7 @@ public class ExamService {
      * the response is every exam on the platform, as before -- callers that
      * fetch the whole table and filter it client-side still work unchanged.
      */
-    public List<ExamDto> getAll(Long includeGroupId, Long certificationId) {
+    public List<ExamDto> getAll(Long includeGroupId, Long certificationId, Long viewerLearnerId) {
         log.debug("Fetching exams (includeGroupId={}, certificationId={})", includeGroupId, certificationId);
         List<Exam> exams = (certificationId == null
                 ? examRepository.findAll()
@@ -74,6 +74,12 @@ public class ExamService {
                 .stream()
                 .filter(exam -> exam.getOwnerGroup() == null
                         || exam.getOwnerGroup().getInstitutionGroupId().equals(includeGroupId))
+                // A practice exam generated for one learner (recall, knowledge
+                // check, study-plan mock) is theirs alone. The list used to hand
+                // everyone's to every caller, so an institution's certification
+                // page listed a stranger's "Active recall" exams.
+                .filter(exam -> exam.getLearner() == null
+                        || exam.getLearner().getLearnerId().equals(viewerLearnerId))
                 .toList();
         Map<Long, List<Long>> questionIdsByExamId = questionIdsByExamId(exams);
         return exams.stream()
