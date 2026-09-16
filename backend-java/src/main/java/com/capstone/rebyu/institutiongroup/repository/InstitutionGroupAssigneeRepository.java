@@ -11,6 +11,13 @@ import java.util.Optional;
 public interface InstitutionGroupAssigneeRepository extends JpaRepository<InstitutionGroupAssignee, Long> {
     List<InstitutionGroupAssignee> findByInstitutionGroup_InstitutionGroupId(Long institutionGroupId);
 
+    /** A learner's own group memberships -- the learner side of a class. */
+    List<InstitutionGroupAssignee> findByOrgCertLearner_Learner_LearnerIdAndStatus(
+            Long learnerId, InstitutionGroupAssignee.Status status);
+
+    boolean existsByInstitutionGroup_InstitutionGroupIdAndOrgCertLearner_Learner_LearnerIdAndStatus(
+            Long institutionGroupId, Long learnerId, InstitutionGroupAssignee.Status status);
+
     boolean existsByInstitutionGroupAndOrgCertLearner(
             InstitutionGroup institutionGroup, OrganizationCertificationLearner orgCertLearner);
 

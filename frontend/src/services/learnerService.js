@@ -50,6 +50,12 @@ export function markLessonComplete(data) {
  * server-side as they are earned (see AchievementAwardService), so there is no
  * "award me this" call from the browser to make.
  */
+/** The learner's institution classes (groups): announcements and class assessments. */
+export function getMyClasses(certificationId) {
+  const query = certificationId != null ? `?certificationId=${encodeURIComponent(certificationId)}` : ""
+  return base(`learners/me/classes${query}`)
+}
+
 /** XP total and badge catalog only -- the cheap read behind the reward pop-ups. */
 export function getMyRewards() {
   return base("learner-achievements/me/rewards")

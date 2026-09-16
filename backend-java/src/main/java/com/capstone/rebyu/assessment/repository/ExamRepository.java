@@ -8,6 +8,8 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface ExamRepository extends JpaRepository<Exam, Long> {
+    List<Exam> findByOwnerGroup_InstitutionGroupId(Long institutionGroupId);
+
     List<Exam> findByCertification_CertificationId(Long certificationId);
 
     // Per-scope uniqueness checks (spec §5): one required assessment per scope.

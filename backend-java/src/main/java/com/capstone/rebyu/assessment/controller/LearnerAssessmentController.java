@@ -46,6 +46,23 @@ public class LearnerAssessmentController {
 
     private final AssessmentAttemptService assessmentAttemptService;
     private final CognitoAuthService auth;
+    private final com.capstone.rebyu.assessment.repository.ExamRepository examRepository;
+    private final com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAssigneeRepository groupAssignees;
+
+    /**
+     * A group's own assessment is for that group's learners. Nothing checked
+     * this: any learner who knew or guessed the exam id could open and sit it.
+     */
+    private void requireClassMemberIfGroupExam(Long assessmentId, Long learnerId) {
+        examRepository.findById(assessmentId).ifPresent(exam -> {
+            if (exam.getOwnerGroup() != null && !groupAssignees
+                    .existsByInstitutionGroup_InstitutionGroupIdAndOrgCertLearner_Learner_LearnerIdAndStatus(
+                            exam.getOwnerGroup().getInstitutionGroupId(), learnerId,
+                            com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAssignee.Status.active)) {
+                throw new jakarta.persistence.EntityNotFoundException("Assessment not found: " + assessmentId);
+            }
+        });
+    }
 
     /**
      * The learner making this request, from the token and nothing else.
@@ -70,7 +87,9 @@ public class LearnerAssessmentController {
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long assessmentId,
             @RequestParam(required = false) Long learnerId) {
-        return assessmentAttemptService.getLearnerAssessment(assessmentId, me(jwt));
+        Long caller = me(jwt);
+        requireClassMemberIfGroupExam(assessmentId, caller);
+        return assessmentAttemptService.getLearnerAssessment(assessmentId, caller);
     }
 
     @PostMapping("/assessments/{assessmentId}/attempts")
@@ -79,8 +98,10 @@ public class LearnerAssessmentController {
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long assessmentId,
             @Valid @RequestBody AssessmentAttemptStartRequestDto request) {
+        Long learnerId = me(jwt);
+        requireClassMemberIfGroupExam(assessmentId, learnerId);
         return assessmentAttemptService.startAttempt(
-                assessmentId, me(jwt), request.idempotencyKey());
+                assessmentId, learnerId, request.idempotencyKey());
     }
 
     @PutMapping("/assessment-attempts/{attemptId}/answers")

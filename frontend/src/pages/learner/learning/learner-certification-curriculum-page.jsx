@@ -8,6 +8,7 @@ import {
   useParams,
 } from "react-router-dom"
 import { returnState } from "@/lib/assessment-return"
+import { LearnerClassPanel } from "@/components/learner/learner-class-panel.jsx"
 import { useQuery } from "@tanstack/react-query"
 import {
   ArrowRight,
@@ -1754,6 +1755,9 @@ export default function LearnerCertificationCurriculumPage() {
           </TactileButton>
         </Reveal>
       ) : null}
+
+      {/* The class this learner joined through an institution invitation. */}
+      <LearnerClassPanel certificationId={certificationId} />
 
       {/* ------------------------------------------------------------- units */}
       <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-5 sm:py-10 lg:px-8">
