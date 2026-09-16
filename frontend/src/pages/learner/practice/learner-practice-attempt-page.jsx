@@ -206,11 +206,8 @@ export default function LearnerPracticeAttemptPage() {
             </span>
           </p>
 
-          {completion.xpEarned > 0 || completion.coinEarned > 0 ? (
-            <p className="mt-2 font-semibold text-rb-macaw">
-              +{completion.xpEarned} XP
-              {completion.coinEarned > 0 ? ` · +${completion.coinEarned} coins` : ""}
-            </p>
+          {completion.xpEarned > 0 ? (
+            <p className="mt-2 font-semibold text-rb-macaw">+{completion.xpEarned} XP</p>
           ) : null}
 
           <div className="mt-8 flex flex-wrap justify-center gap-3">

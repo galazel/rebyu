@@ -137,11 +137,8 @@ export default function LearnerFlashcardAttemptPage() {
 
           <p className="mt-3 text-white/80">You reviewed {completion.totalItems} cards.</p>
 
-          {completion.xpEarned > 0 || completion.coinEarned > 0 ? (
-            <p className="mt-2 font-semibold text-rb-macaw">
-              +{completion.xpEarned} XP
-              {completion.coinEarned > 0 ? ` · +${completion.coinEarned} coins` : ""}
-            </p>
+          {completion.xpEarned > 0 ? (
+            <p className="mt-2 font-semibold text-rb-macaw">+{completion.xpEarned} XP</p>
           ) : null}
 
           <Button className="mt-8" onClick={() => navigate("/learner/library")}>

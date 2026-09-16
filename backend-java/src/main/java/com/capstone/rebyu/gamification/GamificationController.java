@@ -31,12 +31,7 @@ public class GamificationController {
         return rewards.leaderboard(me(jwt), scope, period);
     }
 
-    public record CoinConversionRequest(int coins, String idempotencyKey) {}
-
-    @PostMapping("/me/convert-coins")
-    public RewardService.Conversion convertCoins(@AuthenticationPrincipal Jwt jwt, @RequestBody CoinConversionRequest request) {
-        return rewards.convertCoinsToAiCredits(me(jwt), request.coins(), request.idempotencyKey());
-    }
+    // Converting coins into AI credits was removed from the product.
 
     private Long me(Jwt jwt) {
         if (jwt == null) throw new IllegalArgumentException("Authentication is required");
