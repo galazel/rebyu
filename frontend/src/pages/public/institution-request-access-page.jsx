@@ -206,8 +206,6 @@ export default function InstitutionRequestAccessPage() {
         items: selectedItems.map((item) => ({
           certificationId: item.certificationId,
           requestedSlots: item.requestedSlots,
-          requestedAccessStartDate: item.start,
-          requestedAccessEndDate: item.end,
         })),
       }),
     onSuccess: (response) => {
@@ -243,12 +241,6 @@ export default function InstitutionRequestAccessPage() {
       )
     )
       return "Each selected certification needs at least 1 learner slot."
-    if (selectedItems.some((item) => !item.start || !item.end))
-      return "Each selected certification needs a start date and an end date."
-    if (selectedItems.some((item) => item.start < isoDate(0)))
-      return "A certification's start date cannot be in the past."
-    if (selectedItems.some((item) => item.end <= item.start))
-      return "A certification's end date must be after its start date."
     return ""
   }
 
@@ -486,11 +478,6 @@ export default function InstitutionRequestAccessPage() {
                       <span className="rb-numeric shrink-0 text-sm text-rb-wolf">
                         {Number.isFinite(item.requestedSlots) ? item.requestedSlots : 0}
                       </span>
-                      {item.start && item.end ? (
-                        <span className="basis-full text-xs text-rb-wolf">
-                          {formatShortDate(item.start)} – {formatShortDate(item.end)}
-                        </span>
-                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -639,38 +626,6 @@ function CertificationRow({ certification, selected, slots, start, end, onToggle
         </div>
       ) : null}
 
-      {selected ? (
-        <div className="grid gap-3 border-t-2 border-rb-swan px-5 py-4 sm:grid-cols-2">
-          <div className="min-w-0">
-            <label htmlFor={`start-${id}`} className="text-sm font-bold text-rb-eel">
-              Start date
-            </label>
-            <input
-              id={`start-${id}`}
-              type="date"
-              required
-              min={isoDate(0)}
-              value={start}
-              onChange={(event) => onDate("start", event.target.value)}
-              className="rb-input mt-1.5 w-full bg-rb-snow"
-            />
-          </div>
-          <div className="min-w-0">
-            <label htmlFor={`end-${id}`} className="text-sm font-bold text-rb-eel">
-              End date
-            </label>
-            <input
-              id={`end-${id}`}
-              type="date"
-              required
-              min={start || isoDate(0)}
-              value={end}
-              onChange={(event) => onDate("end", event.target.value)}
-              className="rb-input mt-1.5 w-full bg-rb-snow"
-            />
-          </div>
-        </div>
-      ) : null}
     </div>
   )
 }

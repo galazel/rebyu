@@ -21,9 +21,10 @@ public final class PublicPartnershipDtos {
     public record PublicPartnershipItemRequest(
             @NotNull Long certificationId,
             @NotNull @Min(1) Integer requestedSlots,
-            /* The access window the organization wants for this certification. */
-            @NotNull LocalDate requestedAccessStartDate,
-            @NotNull LocalDate requestedAccessEndDate
+            /* Optional access window. The request form no longer asks for one;
+               approval then grants a year from the day it is approved. */
+            LocalDate requestedAccessStartDate,
+            LocalDate requestedAccessEndDate
     ) {
     }
 
