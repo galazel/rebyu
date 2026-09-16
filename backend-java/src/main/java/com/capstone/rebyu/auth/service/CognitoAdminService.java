@@ -1,5 +1,6 @@
 package com.capstone.rebyu.auth.service;
 
+import com.capstone.rebyu.notification.service.EmailService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -10,7 +11,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,6 +35,8 @@ import java.util.regex.Pattern;
 public class CognitoAdminService {
 
     private static final Pattern USER_ID = Pattern.compile("\"id\"\\s*:\\s*\"([0-9a-fA-F-]{36})\"");
+    private static final Pattern INVITED_AT = Pattern.compile("\"invited_at\":\"[^\"]+\"");
+    private static final Pattern PASSWORD_SET = Pattern.compile("\"password_set\":true");
 
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -38,11 +45,14 @@ public class CognitoAdminService {
     private final String authUrl;
     private final String secretKey;
     private final String siteUrl;
+    private final EmailService emailService;
 
     public CognitoAdminService(
             @Value("${app.supabase.url}") String supabaseUrl,
             @Value("${app.supabase.secret-key:}") String secretKey,
-            @Value("${app.supabase.site-url}") String siteUrl) {
+            @Value("${app.supabase.site-url}") String siteUrl,
+            EmailService emailService) {
+        this.emailService = emailService;
         this.authUrl = stripSlash(supabaseUrl) + "/auth/v1";
         this.secretKey = secretKey;
         this.siteUrl = stripSlash(siteUrl);
@@ -87,19 +97,31 @@ public class CognitoAdminService {
     }
 
     /**
-     * Invites the login account for someone REBYU is creating an account for.
-     * Supabase emails them a link; opening it signs them in on the
-     * set-new-password page, where they choose their password.
+     * Creates the login account for someone REBYU is creating an account for,
+     * the way it worked on Cognito: the account gets a temporary password,
+     * REBYU emails it, and the first sign-in asks for a new one.
+     *
+     * <p>It used to send a Supabase invitation link instead. That link is
+     * single-use and signs in only the browser that opens it, so opening it on a
+     * phone (or a mail scanner opening it first) left an account with no
+     * password that could not sign in anywhere else.
+     *
+     * <p>An address that already has a sign-in is left alone, unless it is one of
+     * those invited accounts that never got a password -- that one is given a
+     * temporary password now, so it can finally sign in.
      */
     public ProvisionResult createInstitutionAccount(String email, String givenName, String familyName) {
+        String temporaryPassword = temporaryPassword();
         try {
             String body = "{\"email\":" + quote(email)
-                    + ",\"data\":{\"given_name\":" + quote(givenName == null ? "" : givenName)
-                    + ",\"family_name\":" + quote(familyName == null ? "" : familyName) + "}}";
-            String redirect = URLEncoder.encode(siteUrl + "/set-new-password", StandardCharsets.UTF_8);
+                    + ",\"password\":" + quote(temporaryPassword)
+                    + ",\"email_confirm\":true"
+                    + ",\"user_metadata\":{\"given_name\":" + quote(givenName == null ? "" : givenName)
+                    + ",\"family_name\":" + quote(familyName == null ? "" : familyName)
+                    + ",\"must_change_password\":true}}";
 
             HttpResponse<String> response = http.send(
-                    admin("/invite?redirect_to=" + redirect)
+                    admin("/admin/users")
                             .header("Content-Type", "application/json")
                             .POST(HttpRequest.BodyPublishers.ofString(body))
                             .build(),
@@ -109,21 +131,118 @@ public class CognitoAdminService {
             if (status >= 200 && status < 300) {
                 Matcher id = USER_ID.matcher(response.body());
                 String subject = id.find() ? id.group(1) : null;
-                log.info("Invitation for a new account emailed to {}", email);
-                return new ProvisionResult(true, subject,
-                        "An invitation to create a password was emailed to " + email + ".");
+                return emailTemporaryPassword(email, subject, temporaryPassword);
             }
             if (status == 422 || response.body().contains("email_exists")) {
-                log.info("A sign-in already exists for {}", email);
+                return recoverPasswordlessInvite(email);
+            }
+            log.warn("Could not create a sign-in for {} ({}): {}", email, status, response.body());
+        } catch (Exception e) {
+            log.warn("Could not create a sign-in for {}: {}", email, e.getMessage());
+        }
+        return new ProvisionResult(false, null,
+                "The account was saved, but its sign-in could not be created. Send credentials manually.");
+    }
+
+    /**
+     * Re-sends first sign-in details to an account created by invitation link
+     * that never set a password. Anyone who has set their own password is left
+     * alone.
+     */
+    public ProvisionResult recoverPasswordlessInvite(String email) {
+        try {
+            String user = findUserJson(email);
+            if (user == null) {
                 return new ProvisionResult(false, null,
                         "An account already exists for " + email + "; no new email was sent.");
             }
-            log.warn("Could not invite {} ({}): {}", email, status, response.body());
+            Matcher id = USER_ID.matcher(user);
+            String subject = id.find() ? id.group(1) : null;
+            boolean invited = INVITED_AT.matcher(user).find();
+            boolean passwordSet = PASSWORD_SET.matcher(user).find();
+            if (subject == null || !invited || passwordSet) {
+                log.info("A sign-in already exists for {}", email);
+                return new ProvisionResult(false, subject,
+                        "An account already exists for " + email + "; no new email was sent.");
+            }
+
+            String temporaryPassword = temporaryPassword();
+            HttpResponse<String> response = http.send(
+                    admin("/admin/users/" + subject)
+                            .header("Content-Type", "application/json")
+                            .PUT(HttpRequest.BodyPublishers.ofString("{\"password\":" + quote(temporaryPassword)
+                                    + ",\"email_confirm\":true"
+                                    + ",\"user_metadata\":{\"must_change_password\":true}}"))
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 300) {
+                log.warn("Could not repair the invited sign-in for {} ({}): {}",
+                        email, response.statusCode(), response.body());
+                return new ProvisionResult(false, subject,
+                        "An account already exists for " + email + " but has no password; send credentials manually.");
+            }
+            log.info("Invited sign-in for {} had no password; a temporary one was issued", email);
+            return emailTemporaryPassword(email, subject, temporaryPassword);
         } catch (Exception e) {
-            log.warn("Could not invite {}: {}", email, e.getMessage());
+            log.warn("Could not check the existing sign-in for {}: {}", email, e.getMessage());
+            return new ProvisionResult(false, null,
+                    "An account already exists for " + email + "; no new email was sent.");
         }
-        return new ProvisionResult(false, null,
-                "The account was saved, but the invitation email could not be sent. Send credentials manually.");
+    }
+
+    /** The admin API's user object for an address, or null. Paged; REBYU has few sign-ins. */
+    private String findUserJson(String email) throws Exception {
+        String wanted = "\"email\":\"" + email.trim().toLowerCase() + "\"";
+        for (int page = 1; page <= 50; page++) {
+            HttpResponse<String> response = http.send(
+                    admin("/admin/users?per_page=200&page=" + page).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 300) return null;
+            String compact = response.body().replaceAll("\\s+", "");
+            int at = compact.toLowerCase().indexOf(wanted);
+            if (at >= 0) {
+                int open = compact.lastIndexOf("{\"id\":", at);
+                int close = compact.indexOf("{\"id\":", at);
+                return compact.substring(Math.max(open, 0), close < 0 ? compact.length() : close);
+            }
+            if (!compact.contains("\"id\":")) return null;
+        }
+        return null;
+    }
+
+    private ProvisionResult emailTemporaryPassword(String email, String subject, String temporaryPassword) {
+        try {
+            emailService.sendTemporaryPassword(email, temporaryPassword, siteUrl + "/login");
+            log.info("Temporary password emailed to {}", email);
+            return new ProvisionResult(true, subject,
+                    "A temporary password was emailed to " + email + ".");
+        } catch (Exception e) {
+            log.warn("Sign-in created for {} but the email failed: {}", email, e.getMessage());
+            return new ProvisionResult(false, subject,
+                    "The sign-in was created, but the email with its temporary password could not be sent. "
+                            + "Ask them to use \"Forgot password\" on the sign-in page.");
+        }
+    }
+
+    /** 14 characters covering upper, lower, digit and symbol, so any password rule accepts it. */
+    private static String temporaryPassword() {
+        String upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        String lower = "abcdefghijkmnpqrstuvwxyz";
+        String digits = "23456789";
+        String symbols = "!@#$%*?";
+        String all = upper + lower + digits + symbols;
+        SecureRandom random = new SecureRandom();
+        List<Character> chars = new ArrayList<>();
+        for (String set : new String[]{upper, lower, digits, symbols}) {
+            chars.add(set.charAt(random.nextInt(set.length())));
+        }
+        while (chars.size() < 14) {
+            chars.add(all.charAt(random.nextInt(all.length())));
+        }
+        Collections.shuffle(chars, random);
+        StringBuilder out = new StringBuilder();
+        chars.forEach(out::append);
+        return out.toString();
     }
 
     private HttpRequest.Builder admin(String path) {

@@ -129,7 +129,13 @@ export async function loginWithCognito(email, password) {
   if (!email) throw Object.assign(new Error("email"), { name: "EmptySignInUsername" })
   if (!password) throw Object.assign(new Error("password"), { name: "EmptySignInPassword" })
 
-  await run(supabase.auth.signInWithPassword({ email, password }))
+  const data = await run(supabase.auth.signInWithPassword({ email, password }))
+  // An account REBYU created signs in first with the emailed temporary
+  // password, and must choose its own before going further -- the same step
+  // Cognito called NEW_PASSWORD_REQUIRED, which the auth context already reads.
+  if (data?.user?.user_metadata?.must_change_password) {
+    return { isSignedIn: false, nextStep: { signInStep: "NEW_PASSWORD_REQUIRED" } }
+  }
   // The shape the auth context reads: signed in, no further step.
   return { isSignedIn: true, nextStep: { signInStep: "DONE" } }
 }
@@ -203,5 +209,12 @@ export async function completeTemporaryPassword(newPassword) {
   if (!data?.session) {
     throw Object.assign(new Error("no session"), { name: "NoSessionException" })
   }
-  return run(supabase.auth.updateUser({ password: newPassword }))
+  return run(
+    supabase.auth.updateUser({
+      password: newPassword,
+      // Clears the first-sign-in step, and marks the account as having a real
+      // password so the backend never issues it another temporary one.
+      data: { must_change_password: false, password_set: true },
+    })
+  )
 }

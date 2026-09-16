@@ -38,7 +38,7 @@ export default function SetNewPasswordPage() {
                 if (found) {
                     setEmail(found)
                 } else {
-                    toast.info("Open the link in your invitation email to create your password.")
+                    toast.info("Sign in with the temporary password we emailed you to create your password.")
                     navigate("/login", { replace: true })
                 }
             })

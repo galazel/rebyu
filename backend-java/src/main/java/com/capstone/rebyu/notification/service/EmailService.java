@@ -53,6 +53,28 @@ public class EmailService {
         mailSender.send(message);
     }
 
+    /** First sign-in details for an account REBYU created, as the Cognito email used to send. */
+    public void sendTemporaryPassword(String recipientEmail, String temporaryPassword, String signInUrl) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(mailFrom);
+        message.setTo(recipientEmail);
+        message.setSubject("Your temporary password");
+        message.setText("""
+                Hello,
+
+                Your REBYU account is ready.
+
+                Username: %s
+                Temporary password: %s
+
+                Sign in here: %s
+                You will be asked to choose your own password the first time you sign in.
+
+                REBYU Team
+                """.formatted(recipientEmail, temporaryPassword, signInUrl));
+        mailSender.send(message);
+    }
+
     private String buildInvitationLink(String invitationToken) {
         if (invitationToken == null || invitationToken.isBlank()) {
             throw new IllegalArgumentException("Invitation token must not be blank.");
