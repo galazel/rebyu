@@ -21,7 +21,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet"
 
 import { cn } from "@/lib/utils"
 import { LESSON_COMPLETION_XP } from "@/lib/xp.js"
-import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
+import { announceRewards, prefetchRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
 import {
   getCertificationModules,
   getLessonById,
@@ -459,6 +459,10 @@ function CourseOutline({
 export default function LearnerLessonPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  // Warm the XP/badge snapshot so an award pops up the moment it is earned.
+  useEffect(() => {
+    prefetchRewards(queryClient).catch(() => {})
+  }, [queryClient])
   const { lessonId } = useParams()
   const { data } = useOutletContext()
 

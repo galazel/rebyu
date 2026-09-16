@@ -50,6 +50,11 @@ export function markLessonComplete(data) {
  * server-side as they are earned (see AchievementAwardService), so there is no
  * "award me this" call from the browser to make.
  */
+/** XP total and badge catalog only -- the cheap read behind the reward pop-ups. */
+export function getMyRewards() {
+  return base("learner-achievements/me/rewards")
+}
+
 export function getMyAchievements() {
   return base("learner-achievements/me")
 }

@@ -2,6 +2,7 @@ package com.capstone.rebyu.progress.controller;
 
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
+import com.capstone.rebyu.gamification.RewardService;
 import com.capstone.rebyu.progress.dto.LearnerAchievementDto;
 import com.capstone.rebyu.progress.dto.LearnerAchievementViewDto;
 import com.capstone.rebyu.progress.service.AchievementAwardService;
@@ -22,6 +23,10 @@ public class LearnerAchievementController {
     private final LearnerAchievementService learnerAchievementService;
     private final AchievementAwardService achievementAwardService;
     private final CognitoAuthService auth;
+    private final RewardService rewardService;
+
+    /** Just what the reward pop-ups diff before and after an action. */
+    public record MyRewardsDto(Long totalXp, List<LearnerAchievementViewDto> achievements) {}
 
     /**
      * The signed-in learner's own badge wall: the whole catalog, with the ones
@@ -32,6 +37,17 @@ public class LearnerAchievementController {
     @GetMapping("/me")
     public List<LearnerAchievementViewDto> myAchievements(@AuthenticationPrincipal Jwt jwt) {
         return achievementAwardService.catalogFor(me(jwt));
+    }
+
+    /**
+     * XP and badges only. The pop-ups used to read the whole learner portal
+     * payload before and after every action -- dozens of queries to learn two
+     * things -- which is why an award appeared seconds after it was earned.
+     */
+    @GetMapping("/me/rewards")
+    public MyRewardsDto myRewards(@AuthenticationPrincipal Jwt jwt) {
+        Long learnerId = me(jwt);
+        return new MyRewardsDto(rewardService.balance(learnerId).xp(), achievementAwardService.catalogFor(learnerId));
     }
 
     // ------------------------------------------------------------------

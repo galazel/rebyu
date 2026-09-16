@@ -43,7 +43,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { ASSESSMENT_XP } from "@/lib/xp.js"
-import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
+import { announceRewards, prefetchRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
 import { GRADING_MESSAGES } from "@/components/loading-screen.jsx"
 import { LoadingSignal } from "@/components/loading-overlay.jsx"
 import DiagramArea from "@/components/challenges/diagram-area.jsx"
@@ -495,6 +495,10 @@ export default function LearnerAssessmentAttemptPage() {
      reading rather than to the certification's roadmap. */
   const location = useLocation()
   const queryClient = useQueryClient()
+  // Warm the XP/badge snapshot so an award pops up the moment it is earned.
+  useEffect(() => {
+    prefetchRewards(queryClient).catch(() => {})
+  }, [queryClient])
 
   const identity = getCurrentLearnerIdentity()
   const currentLearnerQuery = useQuery({

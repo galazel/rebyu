@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
@@ -26,7 +26,7 @@ import { BackButton, TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { BUBBLE_TONES } from "@/components/commons/bubble-card.jsx"
 import { LearnerEmptyState, toneForCertification } from "@/components/learner/learner-ui.jsx"
 import { LearnerAnnouncements } from "@/components/learner/learner-announcements.jsx"
-import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
+import { announceRewards, prefetchRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
 
 import { getCertificationModules } from "@/services/learnerService.js"
 import { hasSatDiagnostic } from "./curriculum-model.js"
@@ -145,6 +145,10 @@ function RouteStep({ index, icon: Icon, title, children, tone, done }) {
 export default function LearnerCertificationDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  // Warm the XP/badge snapshot so an award pops up the moment it is earned.
+  useEffect(() => {
+    prefetchRewards(queryClient).catch(() => {})
+  }, [queryClient])
   const { certificationId } = useParams()
 
   const outletContext = useOutletContext()

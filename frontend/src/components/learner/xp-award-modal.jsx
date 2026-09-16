@@ -5,7 +5,7 @@ import { Award, Zap } from "@/components/icons"
 import { AnimatePresence, CountUp, motion } from "@/components/motion/rebyu-motion.jsx"
 import { Confetti } from "@/components/motion/confetti.jsx"
 import { achievementBadge, achievementKey, earnedAchievementKeys } from "@/lib/achievements.js"
-import { getLearnerPortalData } from "@/services/learnerService.js"
+import { getMyRewards } from "@/services/learnerService.js"
 import { playAchievementChime } from "@/lib/sound.js"
 
 /**
@@ -354,6 +354,7 @@ function AchievementCard({ card }) {
 export { XpAwardModal }
 
 const PORTAL_KEY = ["learner-portal-data"]
+const REWARDS_KEY = ["learner-rewards"]
 
 /**
  * What the learner had before the thing they just did.
@@ -369,14 +370,22 @@ const PORTAL_KEY = ["learner-portal-data"]
  * Reading `undefined` there would make every already-earned badge look new.
  */
 export async function snapshotRewards(queryClient) {
-  const data = await queryClient
-    .ensureQueryData({ queryKey: PORTAL_KEY, queryFn: getLearnerPortalData })
-    .catch(() => null)
+  // Whatever is already in memory, so the action is not held up waiting for a
+  // read: the rewards cache, else the portal payload the app shell loaded.
+  const cached = queryClient.getQueryData(REWARDS_KEY) ?? queryClient.getQueryData(PORTAL_KEY)
+  const data =
+    cached ??
+    (await queryClient.ensureQueryData({ queryKey: REWARDS_KEY, queryFn: getMyRewards }).catch(() => null))
 
   return {
     xp: Number(data?.totalXp) || 0,
     achievements: earnedAchievementKeys(data?.achievements),
   }
+}
+
+/** Warms the rewards cache on a page where an award can happen. */
+export function prefetchRewards(queryClient) {
+  return queryClient.prefetchQuery({ queryKey: REWARDS_KEY, queryFn: getMyRewards, staleTime: 60_000 })
 }
 
 /**
@@ -405,9 +414,19 @@ export async function snapshotRewards(queryClient) {
  * @param silentXp skip the XP announcement entirely (flows that pay no XP)
  */
 export async function announceRewards({ queryClient, before, title, fallback, silentXp = false }) {
+  /* The small rewards read, not the whole portal payload: it answers the only
+     two questions asked here in a fraction of the time, so the pop-up lands
+     right after the action instead of seconds later. The header's counter is
+     patched from it at once, and the full portal refreshes behind it. */
   const data = await queryClient
-    .fetchQuery({ queryKey: PORTAL_KEY, queryFn: getLearnerPortalData, staleTime: 0 })
+    .fetchQuery({ queryKey: REWARDS_KEY, queryFn: getMyRewards, staleTime: 0 })
     .catch(() => null)
+  if (data) {
+    queryClient.setQueryData(PORTAL_KEY, (portal) =>
+      portal ? { ...portal, totalXp: data.totalXp, achievements: data.achievements } : portal
+    )
+    queryClient.invalidateQueries({ queryKey: PORTAL_KEY })
+  }
 
   const total = Number(data?.totalXp) || 0
   const gained = total - (before?.xp ?? 0)
