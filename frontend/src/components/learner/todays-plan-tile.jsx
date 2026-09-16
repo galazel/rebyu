@@ -348,6 +348,13 @@ export function TodaysPlanTile({ onCreatePlan }) {
                               planId: event.planId ?? null,
                               eventId: event.id ?? null,
                             })
+                            // Recorded as started, so the scheduled prompt for
+                            // this same session does not open over the lesson.
+                            if (event.planId && event.id) {
+                              setStudyPlanTaskStatus({ planId: event.planId, eventId: event.id, status: "IN_PROGRESS" })
+                                .then(() => queryClient.invalidateQueries({ queryKey: [STUDY_PLAN_TASKS_QUERY_KEY] }))
+                                .catch((error) => console.warn("Could not record the Pomodoro as started.", error))
+                            }
                             openLesson(action.lesson)
                           }}
                           className="inline-flex items-center gap-1 text-xs font-semibold text-rb-fox-lip hover:text-rb-fox"

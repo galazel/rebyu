@@ -11,6 +11,7 @@ import {
 import { PomodoroStart } from "@/components/learner/pomodoro-overlay.jsx"
 import { RecallSession } from "@/components/learner/recall-session.jsx"
 import { SpacedRepetitionSession } from "@/components/learner/spaced-repetition-session.jsx"
+import { usePomodoro } from "@/lib/pomodoro-store.js"
 import { formatWhen, isDue, isStale } from "@/lib/study-schedule.js"
 import {
   STUDY_PLAN_QUERY_KEY,
@@ -54,6 +55,7 @@ const ACTIVITY_TITLES = {
 
 export function StudyActivityHost() {
   const queryClient = useQueryClient()
+  const pomodoro = usePomodoro()
 
   const plansQuery = useQuery({
     queryKey: [STUDY_PLAN_QUERY_KEY, "mine"],
@@ -111,6 +113,13 @@ export function StudyActivityHost() {
    * through what they missed rather than being handed the most recent first.
    */
   const dueTask = useMemo(() => {
+    /* Nothing fires until recorded status has loaded: judged against an empty
+       map, every session already started or finished looks untouched, and a
+       reload re-opens the one the learner is in the middle of. Nor while a
+       Pomodoro is running -- the learner is already studying, and its timer
+       is showing. */
+    if (!statusesQuery.isSuccess || pomodoro) return null
+
     const candidates = []
 
     for (const plan of plansQuery.data ?? []) {
@@ -146,7 +155,7 @@ export function StudyActivityHost() {
 
     candidates.sort((a, b) => String(a.event.at).localeCompare(String(b.event.at)))
     return candidates[0] ?? null
-  }, [plansQuery.data, statusByTask, now])
+  }, [plansQuery.data, statusesQuery.isSuccess, statusByTask, pomodoro, now])
 
   useEffect(() => {
     if (activeTask || !dueTask) return
