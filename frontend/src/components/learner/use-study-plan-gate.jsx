@@ -183,17 +183,24 @@ export function useStudyPlanGate() {
       return
     }
 
-    try {
-      if (await existingPlan(certificationId)) {
-        navigate(path)
-        return
-      }
-    } catch (error) {
-      /* Never swallowed, and never a blocker: a lookup that fails invisibly
-         looks exactly like a learner who has no plan, and would hold them at a
-         generator they may not need. */
-      console.warn("Study plan lookup failed; opening the certification directly.", error)
+    /* Answered from the cache only, never by waiting on the network.
+
+       This used to await up to two plan lookups before navigating, with
+       nothing on screen in the meantime -- against the remote database the
+       click sat dead for seconds. The curriculum page enforces the same rule
+       itself (it sends an unplanned learner to the generator), so going
+       straight there loses nothing. The generator opens here, over the
+       current page, only when the cache already knows there is no plan. */
+    const cachedScoped = queryClient.getQueryData([STUDY_PLAN_QUERY_KEY, String(certificationId ?? "")])
+    const cachedOverall = queryClient.getQueryData([STUDY_PLAN_QUERY_KEY, "overall"])
+    const knownNoPlan =
+      cachedScoped !== undefined && cachedOverall !== undefined
+      && !cachedScoped?.planId && !cachedOverall?.planId
+
+    if (!knownNoPlan) {
       navigate(path)
+      // Warm the answer for next time without holding this click.
+      existingPlan(certificationId).catch(() => {})
       return
     }
 
