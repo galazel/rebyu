@@ -290,10 +290,7 @@ function AnnouncementsTab({ groupId }) {
           that is already on screen, and covering the whole app to load a short
           list made switching tabs look like leaving the page. */}
       {announcementsQuery.isLoading ? (
-        <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          Loading announcements...
-        </p>
+        <InstitutionLoadingSkeleton rows={2} />
       ) : announcementsQuery.isError ? (
         <InstitutionErrorState
           title="Couldn't load announcements"

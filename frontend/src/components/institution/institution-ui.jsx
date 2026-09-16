@@ -1,3 +1,4 @@
+import { InlineLoading } from "@/components/inline-loading.jsx"
 import { AlertCircle, Inbox, RefreshCw } from "@/components/icons"
 
 import { Badge } from "@/components/ui/badge"
@@ -10,7 +11,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { LoadingSignal } from "@/components/loading-overlay.jsx"
 
 export function InstitutionPageHeader({ title, subtitle, actions }) {
   if (!title && !subtitle && !actions) return null
@@ -68,9 +68,13 @@ export function InstitutionStatCard({ icon: Icon, label, value, hint, tone = "ma
 }
 
 export function InstitutionLoadingSkeleton({ rows = 4 }) {
-  /* Navigation waits show the one shared loading screen (LoadingSignal),
-     not a page-shaped skeleton, so every wait in the app looks the same. */
-  return <LoadingSignal />
+  /* Inline, not the full-screen loading board. This is used inside pages that
+     are already on screen -- a tab's panel, a section waiting on its data --
+     and covering the whole app for that made every tab click look like
+     leaving the page. The board stays for the app booting and a route's code
+     loading, which is what it is for. */
+
+  return <InlineLoading rows={rows} />
 }
 
 export function InstitutionErrorState({ title, description, onRetry }) {

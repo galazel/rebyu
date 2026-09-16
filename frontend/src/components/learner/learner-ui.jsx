@@ -1,3 +1,4 @@
+import { InlineLoading } from "@/components/inline-loading.jsx"
 import { LoadingNote } from "@/components/classroom/loading-note.jsx"
 import React from "react"
 import { NavLink, useLocation, useNavigate } from "react-router-dom"
@@ -39,7 +40,6 @@ import {
   TrendLineChart,
 } from "@/components/charts/rebyu-charts.jsx"
 import { BUBBLE_TONES, BubbleCard } from "@/components/commons/bubble-card.jsx"
-import { LoadingSignal } from "@/components/loading-overlay.jsx"
 
 const mainItems = [
   { label: "Progress", href: "/learner/progress", icon: BarChart3 },
@@ -318,9 +318,9 @@ export function LearnerErrorState({ title = "Could not load data", error, onRetr
 }
 
 export function LearnerLoadingSkeleton() {
-  /* Navigation waits show the one shared loading screen (LoadingSignal),
-     not a page-shaped skeleton, so every wait in the app looks the same. */
-  return <LoadingSignal />
+  /* Inline for the same reason as InstitutionLoadingSkeleton: a section of an
+     open page waiting on data should not cover the whole app. */
+  return <InlineLoading />
 }
 
 /** Tone keys the icon chip to the metric so a row of tiles is scannable. */
