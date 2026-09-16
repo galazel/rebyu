@@ -778,12 +778,19 @@ function LessonView({
 
   useEffect(() => {
     if (autoCompletedRef.current) return
-    if (sections.length === 0 || quizPending) return
-    if (!sections.every((section) => readSections.has(section.key))) return
+    if (quizPending) return
+    // Sitting the lesson's quick check is proof enough that it was studied:
+    // the lesson completes as soon as the check has been taken, without
+    // waiting on every section to be ticked again.
+    const quizTaken = Boolean(lessonItem.quiz)
+    if (!quizTaken) {
+      if (sections.length === 0) return
+      if (!sections.every((section) => readSections.has(section.key))) return
+    }
 
     autoCompletedRef.current = true
     onReadLesson()
-  }, [sections, readSections, quizPending, onReadLesson])
+  }, [sections, readSections, quizPending, onReadLesson, lessonItem.quiz])
 
 
   return (
@@ -1470,9 +1477,13 @@ export default function LearnerTopicPage() {
       }),
     // Before the request: the announcement diffs the portal payload, and this
     // completion is what moves it.
-    onMutate: () => snapshotRewards(queryClient),
-    onSuccess: async (_result, lessonId, before) => {
+    // The tick goes green straight away; the request confirms it behind the
+    // scenes and takes it back only if it fails.
+    onMutate: (lessonId) => {
       setLocallyDone((current) => new Set(current).add(lessonId))
+      return snapshotRewards(queryClient)
+    },
+    onSuccess: async (_result, lessonId, before) => {
       await announceRewards({
         queryClient,
         before,
@@ -1481,7 +1492,12 @@ export default function LearnerTopicPage() {
       })
       await queryClient.invalidateQueries({ queryKey: ["learner-streak"] })
     },
-    onError: (error) => {
+    onError: (error, lessonId) => {
+      setLocallyDone((current) => {
+        const next = new Set(current)
+        next.delete(lessonId)
+        return next
+      })
       toast.error("Could not mark lesson complete", {
         description: error?.response?.data?.message ?? error?.message ?? "Please try again.",
       })
