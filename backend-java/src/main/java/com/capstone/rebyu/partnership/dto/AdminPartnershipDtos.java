@@ -1,5 +1,6 @@
 package com.capstone.rebyu.partnership.dto;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -13,7 +14,9 @@ public final class AdminPartnershipDtos {
             Long partnershipRequestItemId,
             Long certificationId,
             String certificationTitle,
-            Integer requestedSlots
+            Integer requestedSlots,
+            LocalDate requestedAccessStartDate,
+            LocalDate requestedAccessEndDate
     ) {
     }
 

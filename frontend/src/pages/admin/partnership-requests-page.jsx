@@ -65,7 +65,8 @@ const STATUS_VARIANT = {
 
 function formatDate(value) {
   if (!value) return "—"
-  const d = new Date(value)
+  // A bare yyyy-mm-dd is read as local midnight, not UTC, so it never slips a day.
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value)
   return Number.isNaN(d.getTime())
     ? "—"
     : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
@@ -366,8 +367,10 @@ export default function PartnershipRequests() {
             </div>
           ) : (
             <div className="space-y-4">
-              <section className="space-y-1.5 text-sm">
-                <h3 className="font-semibold">Organization</h3>
+              {/* The details sit on a paper card pinned to the board: dim chalk
+                  on dark green was unreadable at this size. */}
+              <section className="space-y-2 rounded-lg bg-card p-4 text-sm shadow-sm">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Organization</h3>
                 <Row label="Name" value={detail.organizationName} />
                 <Row label="Email" value={detail.organizationEmail} />
                 <Row label="Contact" value={detail.contactPersonName} />
@@ -375,20 +378,33 @@ export default function PartnershipRequests() {
                 <Row label="Address" value={detail.organizationAddress} />
                 <div>
                   <p className="text-muted-foreground">Description</p>
-                  <p className="mt-0.5 whitespace-pre-wrap">{detail.businessDescription}</p>
+                  <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground">
+                    {detail.businessDescription || "—"}
+                  </p>
                 </div>
               </section>
 
-              <section className="space-y-1.5">
-                <h3 className="text-sm font-semibold">Requested certifications</h3>
-                <ul className="divide-y rounded-lg border">
+              <section className="space-y-2 rounded-lg bg-card p-4 shadow-sm">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                  Requested certifications
+                </h3>
+                <ul className="divide-y divide-[#e5ddcc] rounded-md border border-[#e5ddcc]">
                   {(detail.items ?? []).map((item) => (
                     <li
                       key={item.partnershipRequestItemId}
                       className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
                     >
-                      <span className="truncate">{item.certificationTitle}</span>
-                      <span className="shrink-0 text-muted-foreground">
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-foreground">
+                          {item.certificationTitle}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {item.requestedAccessStartDate && item.requestedAccessEndDate
+                            ? `${formatDate(item.requestedAccessStartDate)} – ${formatDate(item.requestedAccessEndDate)}`
+                            : "No dates requested"}
+                        </span>
+                      </span>
+                      <span className="shrink-0 tabular-nums text-muted-foreground">
                         {item.requestedSlots} slot(s)
                       </span>
                     </li>
@@ -398,7 +414,9 @@ export default function PartnershipRequests() {
 
               {canReview ? (
                 <section className="space-y-2">
-                  <Label htmlFor="admin-remarks">Remarks (optional)</Label>
+                  <Label htmlFor="admin-remarks" className="text-sm text-[var(--rb-chalk)]">
+                    Remarks (optional)
+                  </Label>
                   <Textarea
                     id="admin-remarks"
                     rows={2}
@@ -496,8 +514,8 @@ function SummaryCard({ icon: Icon, label, value }) {
 function Row({ label, value }) {
   return (
     <div className="flex justify-between gap-3">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-right font-medium">{value || "—"}</span>
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <span className="min-w-0 break-words text-right font-medium text-foreground">{value || "—"}</span>
     </div>
   )
 }

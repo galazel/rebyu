@@ -119,6 +119,8 @@ export default function InstitutionRequestAccessPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   // certificationId -> requested slots (string while editing)
   const [selected, setSelected] = useState({})
+  // certificationId -> { start, end } as yyyy-mm-dd
+  const [dates, setDates] = useState({})
   const [error, setError] = useState("")
   const [confirmation, setConfirmation] = useState(null)
 
@@ -148,7 +150,18 @@ export default function InstitutionRequestAccessPage() {
       }
       return next
     })
+    setDates((current) =>
+      certificationId in current
+        ? current
+        : { ...current, [certificationId]: { start: isoDate(0), end: isoDate(12) } }
+    )
   }
+
+  const setDate = (certificationId, key, value) =>
+    setDates((current) => ({
+      ...current,
+      [certificationId]: { ...current[certificationId], [key]: value },
+    }))
 
   const setSlots = (certificationId, value) =>
     setSelected((current) => ({ ...current, [certificationId]: value }))
@@ -167,11 +180,13 @@ export default function InstitutionRequestAccessPage() {
       Object.entries(selected).map(([certificationId, slots]) => ({
         certificationId: Number(certificationId),
         requestedSlots: Number(slots),
+        start: dates[certificationId]?.start ?? "",
+        end: dates[certificationId]?.end ?? "",
         certification: certifications.find(
           (c) => String(c.certificationId) === String(certificationId)
         ),
       })),
-    [selected, certifications]
+    [selected, dates, certifications]
   )
 
   const totalSlots = selectedItems.reduce(
@@ -191,12 +206,15 @@ export default function InstitutionRequestAccessPage() {
         items: selectedItems.map((item) => ({
           certificationId: item.certificationId,
           requestedSlots: item.requestedSlots,
+          requestedAccessStartDate: item.start,
+          requestedAccessEndDate: item.end,
         })),
       }),
     onSuccess: (response) => {
       setConfirmation(response)
       setForm(EMPTY_FORM)
       setSelected({})
+      setDates({})
       setError("")
       toast.success("Partnership request submitted.")
     },
@@ -225,6 +243,12 @@ export default function InstitutionRequestAccessPage() {
       )
     )
       return "Each selected certification needs at least 1 learner slot."
+    if (selectedItems.some((item) => !item.start || !item.end))
+      return "Each selected certification needs a start date and an end date."
+    if (selectedItems.some((item) => item.start < isoDate(0)))
+      return "A certification's start date cannot be in the past."
+    if (selectedItems.some((item) => item.end <= item.start))
+      return "A certification's end date must be after its start date."
     return ""
   }
 
@@ -421,6 +445,9 @@ export default function InstitutionRequestAccessPage() {
                     certification={certification}
                     selected={certification.certificationId in selected}
                     slots={selected[certification.certificationId] ?? ""}
+                    start={dates[certification.certificationId]?.start ?? ""}
+                    end={dates[certification.certificationId]?.end ?? ""}
+                    onDate={(key, value) => setDate(certification.certificationId, key, value)}
                     onToggle={() => toggleCertification(certification.certificationId)}
                     onSlots={(value) => setSlots(certification.certificationId, value)}
                     onNudge={(delta) => nudgeSlots(certification.certificationId, delta)}
@@ -450,7 +477,7 @@ export default function InstitutionRequestAccessPage() {
                   {selectedItems.map((item) => (
                     <li
                       key={item.certificationId}
-                      className="flex items-baseline justify-between gap-3 text-sm"
+                      className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm"
                     >
                       <span className="min-w-0 truncate font-bold text-rb-eel">
                         {item.certification?.title ??
@@ -459,6 +486,11 @@ export default function InstitutionRequestAccessPage() {
                       <span className="rb-numeric shrink-0 text-sm text-rb-wolf">
                         {Number.isFinite(item.requestedSlots) ? item.requestedSlots : 0}
                       </span>
+                      {item.start && item.end ? (
+                        <span className="basis-full text-xs text-rb-wolf">
+                          {formatShortDate(item.start)} – {formatShortDate(item.end)}
+                        </span>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -528,7 +560,22 @@ function PublicHeader() {
  * than a label wrapping a control, because the slot stepper sits in the same
  * card -- inside a label, every press of "+" would also toggle the row off.
  */
-function CertificationRow({ certification, selected, slots, onToggle, onSlots, onNudge }) {
+/** A date `months` from today as yyyy-mm-dd, in local time. */
+function isoDate(months) {
+  const date = new Date()
+  date.setMonth(date.getMonth() + months)
+  const pad = (n) => String(n).padStart(2, "0")
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+function formatShortDate(value) {
+  const date = new Date(`${value}T00:00:00`)
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+}
+
+function CertificationRow({ certification, selected, slots, start, end, onToggle, onSlots, onNudge, onDate }) {
   const id = certification.certificationId
 
   return (
@@ -588,6 +635,39 @@ function CertificationRow({ certification, selected, slots, onToggle, onSlots, o
             <StepperKey label="Add one learner slot" onClick={() => onNudge(1)}>
               +
             </StepperKey>
+          </div>
+        </div>
+      ) : null}
+
+      {selected ? (
+        <div className="grid gap-3 border-t-2 border-rb-swan px-5 py-4 sm:grid-cols-2">
+          <div className="min-w-0">
+            <label htmlFor={`start-${id}`} className="text-sm font-bold text-rb-eel">
+              Start date
+            </label>
+            <input
+              id={`start-${id}`}
+              type="date"
+              required
+              min={isoDate(0)}
+              value={start}
+              onChange={(event) => onDate("start", event.target.value)}
+              className="rb-input mt-1.5 w-full bg-rb-snow"
+            />
+          </div>
+          <div className="min-w-0">
+            <label htmlFor={`end-${id}`} className="text-sm font-bold text-rb-eel">
+              End date
+            </label>
+            <input
+              id={`end-${id}`}
+              type="date"
+              required
+              min={start || isoDate(0)}
+              value={end}
+              onChange={(event) => onDate("end", event.target.value)}
+              className="rb-input mt-1.5 w-full bg-rb-snow"
+            />
           </div>
         </div>
       ) : null}

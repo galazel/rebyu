@@ -74,7 +74,7 @@ class PublicPartnershipServiceTest {
                 "0917-000-0000",
                 "123 Main St",
                 "A tutoring organization.",
-                List.of(new PublicPartnershipItemRequest(CERT_ID, 10))
+                List.of(new PublicPartnershipItemRequest(CERT_ID, 10, java.time.LocalDate.now(), java.time.LocalDate.now().plusMonths(12)))
         );
     }
 

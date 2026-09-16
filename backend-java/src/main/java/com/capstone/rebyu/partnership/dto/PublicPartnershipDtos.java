@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,7 +20,10 @@ public final class PublicPartnershipDtos {
 
     public record PublicPartnershipItemRequest(
             @NotNull Long certificationId,
-            @NotNull @Min(1) Integer requestedSlots
+            @NotNull @Min(1) Integer requestedSlots,
+            /* The access window the organization wants for this certification. */
+            @NotNull LocalDate requestedAccessStartDate,
+            @NotNull LocalDate requestedAccessEndDate
     ) {
     }
 

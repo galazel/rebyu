@@ -84,6 +84,12 @@ public class AdminPartnershipService {
         for (PartnershipRequestItem item : itemRepository
                 .findByPartnershipRequest_RequestId(requestId)) {
             int requestedSlots = item.getSlots() == null ? 0 : item.getSlots();
+            // The window the organization asked for; older requests without one
+            // get the default year from today.
+            LocalDate start = item.getRequestedAccessStartDate() != null
+                    ? item.getRequestedAccessStartDate() : today;
+            LocalDate end = item.getRequestedAccessEndDate() != null
+                    ? item.getRequestedAccessEndDate() : start.plusMonths(DEFAULT_ACCESS_MONTHS);
             OrganizationCertificate existing = organizationCertificateRepository
                     .findByInstitution_InstitutionIdAndCertification_CertificationId(
                             institution.getInstitutionId(),
@@ -96,8 +102,8 @@ public class AdminPartnershipService {
                         .certification(item.getCertification())
                         .totalSlots(requestedSlots)
                         .usedSlots(0)
-                        .accessStartDate(today)
-                        .accessExpiryDate(today.plusMonths(DEFAULT_ACCESS_MONTHS))
+                        .accessStartDate(start)
+                        .accessExpiryDate(end)
                         .status(OrganizationCertificate.Status.active)
                         .build();
                 organizationCertificateRepository.save(access);
@@ -105,6 +111,13 @@ public class AdminPartnershipService {
                 // Top up the existing allocation; never overwrite. remaining_slots
                 // is a DB-computed column, so only total_slots changes here.
                 existing.setTotalSlots(existing.getTotalSlots() + requestedSlots);
+                // Widen the window to cover the new request; never shorten it.
+                if (existing.getAccessStartDate() == null || start.isBefore(existing.getAccessStartDate())) {
+                    existing.setAccessStartDate(start);
+                }
+                if (existing.getAccessExpiryDate() == null || end.isAfter(existing.getAccessExpiryDate())) {
+                    existing.setAccessExpiryDate(end);
+                }
                 existing.setStatus(OrganizationCertificate.Status.active);
                 organizationCertificateRepository.save(existing);
             }
@@ -342,7 +355,9 @@ public class AdminPartnershipService {
                         item.getPartnershipRequestItemId(),
                         item.getCertification().getCertificationId(),
                         item.getCertification().getTitle(),
-                        item.getSlots()))
+                        item.getSlots(),
+                        item.getRequestedAccessStartDate(),
+                        item.getRequestedAccessEndDate()))
                 .toList();
         return new PartnershipRequestDetailDto(
                 request.getRequestId(),

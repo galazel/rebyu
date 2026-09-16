@@ -107,6 +107,18 @@ public class PublicPartnershipService {
                 throw new BusinessRuleException.InvalidPartnershipRequestException(
                         "Each certification needs at least one requested learner slot.");
             }
+            if (item.requestedAccessStartDate() == null || item.requestedAccessEndDate() == null) {
+                throw new BusinessRuleException.InvalidPartnershipRequestException(
+                        "Each certification needs a start date and an end date.");
+            }
+            if (item.requestedAccessStartDate().isBefore(java.time.LocalDate.now().minusDays(1))) {
+                throw new BusinessRuleException.InvalidPartnershipRequestException(
+                        "A certification's start date cannot be in the past.");
+            }
+            if (!item.requestedAccessEndDate().isAfter(item.requestedAccessStartDate())) {
+                throw new BusinessRuleException.InvalidPartnershipRequestException(
+                        "A certification's end date must be after its start date.");
+            }
             Certification certification = certificationRepository.findById(item.certificationId())
                     .orElseThrow(() -> new BusinessRuleException.InvalidPartnershipRequestException(
                             "A selected certification is no longer available."));
@@ -122,6 +134,8 @@ public class PublicPartnershipService {
                     .partnershipRequest(partnershipRequest)
                     .certification(certification)
                     .slots(item.requestedSlots())
+                    .requestedAccessStartDate(item.requestedAccessStartDate())
+                    .requestedAccessEndDate(item.requestedAccessEndDate())
                     .build();
             itemRepository.save(entity);
             totalSlots += item.requestedSlots();
