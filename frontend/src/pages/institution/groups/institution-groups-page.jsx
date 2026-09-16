@@ -57,7 +57,6 @@ import {
 } from "@/hooks/use-institution-data.js"
 import {
   addInstitutionGroupAssignee,
-  archiveInstitutionGroup,
   assignInstitutionGroupAuthority,
   changeInstitutionGroupAssigneeRole,
   createInstitutionGroup,
@@ -906,7 +905,6 @@ export default function InstitutionGroupsPage() {
   const data = useInstitutionData(institutionId)
   const [createOpen, setCreateOpen] = useState(false)
   const [manageGroup, setManageGroup] = useState(null)
-  const [archiveTarget, setArchiveTarget] = useState(null)
   const queryClient = useQueryClient()
 
   const groupsQuery = useQuery({
@@ -1033,13 +1031,6 @@ export default function InstitutionGroupsPage() {
                     <UserCog className="size-4" aria-hidden="true" />
                     Manage
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setArchiveTarget(group)}
-                  >
-                    Archive
-                  </Button>
                 </CardFooter>
               </Card>
             )
@@ -1066,56 +1057,6 @@ export default function InstitutionGroupsPage() {
         invitations={data.invitations}
         orgCertById={data.orgCertById}
       />
-
-      <ArchiveGroupDialog
-        group={archiveTarget}
-        onClose={() => setArchiveTarget(null)}
-        onArchived={() => {
-          queryClient.invalidateQueries({ queryKey: ["institution-groups"] })
-          setArchiveTarget(null)
-        }}
-      />
     </div>
-  )
-}
-
-function ArchiveGroupDialog({ group, onClose, onArchived }) {
-  const archiveMutation = useMutation({
-    mutationFn: (groupId) => archiveInstitutionGroup(groupId),
-    onSuccess: () => {
-      toast.success("Group archived.")
-      onArchived()
-    },
-    onError: (err) =>
-      toast.error(backendMessage(err, "Unable to archive the group.")),
-  })
-
-  return (
-    <AlertDialog open={group != null} onOpenChange={(open) => !open && onClose()}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Archive this group?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {group?.groupName} will be archived. Learners and authorities stay on
-            record but the group is no longer active.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={archiveMutation.isPending}>
-            Keep group
-          </AlertDialogCancel>
-          <AlertDialogAction
-            onClick={(e) => {
-              e.preventDefault()
-              archiveMutation.mutate(group.institutionGroupId)
-            }}
-            disabled={archiveMutation.isPending}
-            className="bg-destructive text-white hover:bg-destructive/90"
-          >
-            {archiveMutation.isPending ? "Archiving..." : "Archive group"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   )
 }
