@@ -671,6 +671,12 @@ export default function LearnerAssessmentAttemptPage() {
     return () => window.removeEventListener("beforeunload", handler)
   }, [])
 
+  /* A diagnostic sets the order of the whole study plan, so it is only
+     submitted once every question has an answer (the server enforces the same
+     rule). A paper whose time ran out is the exception: nothing more can be
+     answered, so it goes in as it is. */
+  const isDiagnostic = String(attempt?.assessmentType ?? "").toUpperCase() === "DIAGNOSTIC"
+
   const answeredIds = useMemo(() => {
     const set = new Set()
     questions.forEach((question) => {
@@ -1358,7 +1364,9 @@ export default function LearnerAssessmentAttemptPage() {
                   </dl>
                   {questions.length - answeredIds.size > 0 ? (
                       <p className="text-destructive">
-                        Unanswered items may receive no score.
+                        {isDiagnostic && !timeUp
+                          ? "Answer every question before submitting. Your diagnostic decides where your study plan starts."
+                          : "Unanswered items may receive no score."}
                       </p>
                   ) : null}
                 </div>
@@ -1371,16 +1379,32 @@ export default function LearnerAssessmentAttemptPage() {
               >
                 Review Answers
               </AlertDialogCancel>
-              <AlertDialogAction
-                  className="rb-btn"
-                  onClick={(event) => {
-                    event.preventDefault()
-                    submitMutation.mutate()
-                  }}
-                  disabled={submitMutation.isPending}
-              >
-                {submitMutation.isPending ? "Submitting..." : "Submit Assessment"}
-              </AlertDialogAction>
+              {isDiagnostic && !timeUp && questions.length - answeredIds.size > 0 ? (
+                <AlertDialogAction
+                    className="rb-btn"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      const first = questions.findIndex(
+                        (question) => !answeredIds.has(question.attemptQuestionId)
+                      )
+                      if (first >= 0) setCurrentIndex(first)
+                      setFinishOpen(false)
+                    }}
+                >
+                  Go to first unanswered
+                </AlertDialogAction>
+              ) : (
+                <AlertDialogAction
+                    className="rb-btn"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      submitMutation.mutate()
+                    }}
+                    disabled={submitMutation.isPending}
+                >
+                  {submitMutation.isPending ? "Submitting..." : "Submit Assessment"}
+                </AlertDialogAction>
+              )}
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

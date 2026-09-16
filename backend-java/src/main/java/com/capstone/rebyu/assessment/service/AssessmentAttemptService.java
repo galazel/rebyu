@@ -503,6 +503,23 @@ public class AssessmentAttemptService {
             answersByQuestion.put(answer.getAttemptQuestion().getAttemptQuestionId(), answer);
         }
 
+        /* A diagnostic decides where the whole study plan starts, so it is not
+           graded with blanks in it. Only a paper whose time ran out may go in
+           incomplete -- the learner cannot answer any more of it. */
+        boolean timedOut = attempt.getStatus() == AssessmentAttempt.Status.EXPIRED
+                || (attempt.getExpiresAt() != null && !LocalDateTime.now().isBefore(attempt.getExpiresAt()));
+        if (!timedOut && attempt.getExam() != null && attempt.getExam().getExamType() != null
+                && TYPE_DIAGNOSTIC.equals(attempt.getExam().getExamType().getExamTypeText())) {
+            long unanswered = questions.stream()
+                    .filter(q -> !hasAnswerContent(answersByQuestion.get(q.getAttemptQuestionId())))
+                    .count();
+            if (unanswered > 0) {
+                throw new BusinessRuleException.InvalidAssessmentSubmissionException(
+                        "Answer every question before submitting your diagnostic ("
+                                + unanswered + " left). It decides where your study plan starts.");
+            }
+        }
+
         /* Every source question this paper grades against, in one query.
 
            Both passes below used to call questionRepository.findById() per
@@ -1185,6 +1202,14 @@ public class AssessmentAttemptService {
                 || draft.selectedChoiceId() != null
                 || (draft.submittedCode() != null && !draft.submittedCode().isBlank())
                 || (draft.diagramSubmissionData() != null && !draft.diagramSubmissionData().isBlank());
+    }
+
+    private static boolean hasAnswerContent(AssessmentAttemptAnswer answer) {
+        return answer != null
+                && ((answer.getLearnerAnswer() != null && !answer.getLearnerAnswer().isBlank())
+                || answer.getSelectedChoiceId() != null
+                || (answer.getSubmittedCode() != null && !answer.getSubmittedCode().isBlank())
+                || (answer.getDiagramSubmissionData() != null && !answer.getDiagramSubmissionData().isBlank()));
     }
 
     private static boolean equalsNullable(Object a, Object b) {
