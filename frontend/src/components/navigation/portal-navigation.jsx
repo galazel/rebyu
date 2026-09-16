@@ -19,6 +19,7 @@ import {
   Target,
   Users,
   UsersRound,
+  FolderOpen,
   X,
 } from "@/components/icons"
 
@@ -117,6 +118,29 @@ const adminGroups = [
   },
 ]
 
+/* An institution member (group leader) works only inside their own groups, so
+   their header carries just that workspace and the organization's shared files.
+   It used to be empty, with a one-link strip repeated at the top of each page. */
+const institutionMemberGroups = [
+  {
+    label: "My groups",
+    icon: UsersRound,
+    items: [
+      {
+        label: "My groups",
+        href: "/institution/member",
+        icon: UsersRound,
+        match: ["/institution/member", "/institution/groups", "/institution/certifications"],
+      },
+    ],
+  },
+  {
+    label: "Files",
+    icon: FolderOpen,
+    items: [{ label: "Files", href: "/institution/files", icon: FolderOpen }],
+  },
+]
+
 // Groups now live inside Certifications (you create a group from within the
 // certification it belongs to), so there's no standalone "Groups" nav item.
 // Items flagged ownerOnly are hidden for a group leader / other institution
@@ -133,15 +157,14 @@ const institutionGroups = [
     ],
   },
   {
-    label: "Learning",
-    icon: BookOpenCheck,
+    label: "Certifications",
+    icon: Award,
     items: [
       // No "Learners" entry. A learner belongs to the certification they were
       // invited to, and that is the only place the roster means anything -- so
       // they are reached through it ("View learners" on a certification card),
       // not from a top-level list of everyone in the organization.
       { label: "Certifications", href: "/institution/certifications", icon: Award },
-      { label: "Question Bank", href: "/institution/question-bank", icon: FileQuestion },
     ],
   },
   {
@@ -327,7 +350,7 @@ export function PortalTopNavigation({ role, actions, organizationName, instituti
      driven by `groups.length` alone, and with the old fallback it would have
      offered a learner the organization's own navigation. */
   const allGroups = role === "ADMIN" ? adminGroups : role === "LEARNER" ? [] : institutionGroups
-  const groups = isInstitutionMember ? [] : allGroups
+  const groups = isInstitutionMember ? institutionMemberGroups : allGroups
   /* The palette searches every learner destination, so it uses the longer of
      the two lists -- a search box that cannot find a page the app has is worse
      than useless. */

@@ -36,7 +36,6 @@ import { useInstitutionData } from "@/hooks/use-institution-data.js"
 import { getExamTypes, getExams } from "@/services/assessmentService.js"
 import { getAllCertifications } from "@/services/certificationService.js"
 import { getInstitutionGroups } from "@/services/institutionService.js"
-import { InstitutionQuestionBankPanel } from "./institution-question-bank-page.jsx"
 
 function asArray(value) {
   return Array.isArray(value) ? value : []
@@ -80,14 +79,16 @@ function MiddleCategoryRow({ middleCategory, onAddQuestion }) {
                 className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2"
               >
                 <span className="truncate text-sm">{lesson.name}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onAddQuestion(lesson.lessonId)}
-                >
-                  <FileQuestionIcon className="size-4" aria-hidden="true" />
-                  Add Question
-                </Button>
+                {onAddQuestion ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onAddQuestion(lesson.lessonId)}
+                  >
+                    <FileQuestionIcon className="size-4" aria-hidden="true" />
+                    Add Question
+                  </Button>
+                ) : null}
               </div>
             ))
           )}
@@ -126,7 +127,6 @@ export default function InstitutionCertificationDetailPage() {
   const [activeTab, setActiveTab] = useState("curriculum")
   // Lesson handed to the Question Bank tab by the "Add Question" button next to
   // a lesson in the curriculum -- it opens the tab with the form already up.
-  const [questionBankTarget, setQuestionBankTarget] = useState(null)
 
   const examsQuery = useQuery({
     queryKey: ["exams"],
@@ -256,7 +256,6 @@ export default function InstitutionCertificationDetailPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
-          <TabsTrigger value="question-bank">Question Bank</TabsTrigger>
           <TabsTrigger value="groups">Groups ({groups.length})</TabsTrigger>
           <TabsTrigger value="invitations">Invitations</TabsTrigger>
         </TabsList>
@@ -283,15 +282,6 @@ export default function InstitutionCertificationDetailPage() {
                       <MiddleCategoryRow
                         key={middle.middleCategoryId ?? middleIndex}
                         middleCategory={middle}
-                        onAddQuestion={(lessonId) => {
-                          setQuestionBankTarget({
-                            lessonId,
-                            // A fresh key each click so re-picking the same
-                            // lesson re-opens the form.
-                            requestId: `${lessonId}-${performance.now()}`,
-                          })
-                          setActiveTab("question-bank")
-                        }}
                       />
                     ))}
                   </div>
@@ -332,19 +322,6 @@ export default function InstitutionCertificationDetailPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="question-bank" className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Add questions to any lesson in this certification. You can edit or delete
-            only the questions you created.
-          </p>
-          <InstitutionQuestionBankPanel
-            key={questionBankTarget?.requestId ?? "browse"}
-            certificationId={String(certification.certificationId)}
-            initialLessonId={questionBankTarget?.lessonId ?? ""}
-            autoOpenAdd={questionBankTarget != null}
-          />
         </TabsContent>
 
         <TabsContent value="groups" className="space-y-4">

@@ -1,5 +1,4 @@
-import { AlertCircle, Inbox, RefreshCw, UsersRoundIcon } from "@/components/icons"
-import { NavLink, useLocation } from "react-router-dom"
+import { AlertCircle, Inbox, RefreshCw } from "@/components/icons"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,61 +10,25 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { cn } from "@/lib/utils"
 import { LoadingSignal } from "@/components/loading-overlay.jsx"
 
-// Files moved into the account dropdown (with Profile/Settings/Log out) --
-// see institution-layout.jsx -- so it isn't listed here anymore.
-const MEMBER_WORKSPACE_LINKS = [
-  { label: "My Groups", href: "/institution/member", icon: UsersRoundIcon },
-]
-
-/**
- * An Institution Member (group leader) has no header nav for their workspace
- * -- it lives on the page instead. Drop this at the top of any member page
- * (the group picker, a group's own workspace) so they can still move
- * between them.
- */
-export function InstitutionMemberSubNav() {
-  const location = useLocation()
-  return (
-    <nav
-      aria-label="Your workspace"
-      className="flex items-center gap-1 border-b border-border pb-3"
-    >
-      {MEMBER_WORKSPACE_LINKS.map((link) => {
-        const Icon = link.icon
-        const active =
-          location.pathname === link.href || location.pathname.startsWith(`${link.href}/`)
-        return (
-          <NavLink
-            key={link.href}
-            to={link.href}
-            className={cn(
-              "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              active
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            <Icon className="size-4" aria-hidden="true" />
-            {link.label}
-          </NavLink>
-        )
-      })}
-    </nav>
-  )
-}
-
 export function InstitutionPageHeader({ title, subtitle, actions }) {
-  void title
-  void subtitle
-
-  return actions ? (
-    <div className="flex justify-end">
-      <div className="flex items-center gap-2">{actions}</div>
+  if (!title && !subtitle && !actions) return null
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+      <div className="min-w-0 max-w-3xl">
+        {title ? (
+          <h1 className="font-rb-display text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
+            {title}
+          </h1>
+        ) : null}
+        {subtitle ? (
+          <p className="mt-1 text-sm leading-6 text-muted-foreground">{subtitle}</p>
+        ) : null}
+      </div>
+      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </div>
-  ) : null
+  )
 }
 
 /** Matches LearnerStatCard so a tile reads the same in either portal. */

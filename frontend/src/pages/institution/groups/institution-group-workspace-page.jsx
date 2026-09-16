@@ -50,7 +50,6 @@ import {
   InstitutionEmptyState,
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
-  InstitutionMemberSubNav,
   InstitutionPageHeader,
   InstitutionStatusBadge,
   formatDateTime,
@@ -63,6 +62,7 @@ import {
   publishExam,
 } from "@/services/assessmentService.js"
 import { getQuestions } from "@/services/questionService.js"
+import { InstitutionQuestionBankPanel } from "@/pages/institution/certifications/institution-question-bank-page.jsx"
 import AssessmentPreviewDialog from "@/components/assessments/admin/assessment-preview-dialog.jsx"
 import { getAllCertifications } from "@/services/certificationService.js"
 import {
@@ -886,7 +886,6 @@ export default function InstitutionGroupWorkspacePage() {
 
   return (
     <div className="space-y-6">
-      <InstitutionMemberSubNav />
       <InstitutionPageHeader
         title={group.groupName}
         subtitle={group.groupDescription || "Your assigned group workspace."}
@@ -903,6 +902,7 @@ export default function InstitutionGroupWorkspacePage() {
         <TabsList>
           <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
           <TabsTrigger value="assessments">Assessments</TabsTrigger>
+          <TabsTrigger value="question-bank">Question Bank</TabsTrigger>
           <TabsTrigger value="learners">Learners ({learners.length})</TabsTrigger>
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
         </TabsList>
@@ -1081,6 +1081,21 @@ export default function InstitutionGroupWorkspacePage() {
 
         <TabsContent value="learners" className="mt-5">
           <LearnersTab groupId={id} group={group} />
+        </TabsContent>
+
+        {/* Moved here from the organization account: writing questions is the
+            group leader's work, for the certification their group studies. */}
+        <TabsContent value="question-bank" className="mt-5 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Add questions to any lesson in this certification. You can edit or delete
+            only the questions you created.
+          </p>
+          {certification ? (
+            <InstitutionQuestionBankPanel
+              certificationId={String(certification.certificationId)}
+              groupId={id}
+            />
+          ) : null}
         </TabsContent>
 
         <TabsContent value="announcements" className="mt-5">

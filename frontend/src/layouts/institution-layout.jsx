@@ -2,7 +2,7 @@ import { Suspense, useMemo } from "react"
 import { Outlet, useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { PortalPageSkeleton } from "@/components/portal-page-skeleton.jsx"
-import { FilesIcon, LogOutIcon, SettingsIcon } from "@/components/icons"
+import { LogOutIcon, SettingsIcon } from "@/components/icons"
 
 import { PortalTopNavigation } from "@/components/navigation/portal-navigation.jsx"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -66,10 +66,8 @@ export default function InstitutionLayout() {
   )
 
   const orgName = institution?.institutionName ?? "Organization"
-  // An Institution Member (group leader, non-owner) has no header nav for
-  // Files (see institution-ui.jsx's InstitutionMemberSubNav) -- it lives in
-  // this account menu instead. The owner already has Files in the header
-  // nav, so it isn't duplicated here for them.
+  // An institution member (group leader) has no Organization page; Files and
+  // their groups are in the header navigation instead.
   const isInstitutionMember = user?.institutionMemberRole && user.institutionMemberRole !== "owner"
   // Pass the account's real role through so the header can tell the
   // organization's own account apart from one it created for a member.
@@ -126,17 +124,15 @@ export default function InstitutionLayout() {
                {/* One entry. "Profile" and "Settings" were two items onto what
                    is now one tabbed page -- and /institution/settings had no
                    route behind it at all, so it fell through to the 404. */}
-               <DropdownMenuItem onClick={() => navigate("/institution/organization")}>
-                 <SettingsIcon />
-                 Organization
-               </DropdownMenuItem>
-               {isInstitutionMember ? (
-                 <DropdownMenuItem onClick={() => navigate("/institution/files")}>
-                   <FilesIcon />
-                   Files
-                 </DropdownMenuItem>
-               ) : null}
-               <DropdownMenuSeparator />
+               {isInstitutionMember ? null : (
+                 <>
+                   <DropdownMenuItem onClick={() => navigate("/institution/organization")}>
+                     <SettingsIcon />
+                     Organization
+                   </DropdownMenuItem>
+                   <DropdownMenuSeparator />
+                 </>
+               )}
                <PortalThemeMenuItem />
                <DropdownMenuSeparator />
                <DropdownMenuItem variant="destructive" onClick={logout}>

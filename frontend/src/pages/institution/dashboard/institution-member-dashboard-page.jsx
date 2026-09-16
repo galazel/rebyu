@@ -7,7 +7,6 @@ import {
   InstitutionEmptyState,
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
-  InstitutionMemberSubNav,
 } from "@/components/institution/institution-ui.jsx"
 import { BubbleCard, toneForIndex } from "@/components/commons/bubble-card.jsx"
 import { getInstitutionGroups } from "@/services/institutionService.js"
@@ -28,7 +27,6 @@ export default function InstitutionMemberDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <InstitutionMemberSubNav />
 
       {/* TEMPORARILY REMOVED (2026-08-24): the "group analytics" section --
           a "completion by group" bar and a "where your learners are" donut.

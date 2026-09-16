@@ -70,7 +70,6 @@ const InstitutionGroupsPage = lazyRoute(() => import("./pages/institution/groups
 // see institution-account-page.jsx. The five paths are kept so existing links
 // still resolve; each one opens its own tab.
 const InstitutionAccountPage = lazyRoute(() => import("./pages/institution/account/institution-account-page.jsx"))
-const InstitutionQuestionBankPage = lazyRoute(() => import("./pages/institution/certifications/institution-question-bank-page.jsx"))
 const InstitutionRequestAccessPage = lazyRoute(() => import("./pages/public/institution-request-access-page.jsx"))
 const CompilerArea = lazyRoute(() => import("./pages/challenges/compiler-area-page.jsx"))
 const CodeStrikePage = lazyRoute(() => import("./pages/learner/challenges/codestrike-page.jsx"))
@@ -495,7 +494,9 @@ export function App() {
                         path="certifications/:certificationId/view"
                         element={<InstitutionCertificationViewerPage />}
                     />
-                    <Route path="question-bank" element={<InstitutionQuestionBankPage />} />
+                    {/* The question bank belongs to institution members, inside their
+                        group workspace; the organization account no longer has one. */}
+                    <Route path="question-bank" element={<Navigate to="/institution/certifications" replace />} />
                     <Route path="license" element={<InstitutionAccountPage />} />
                     {/* Analytics is not a second page. It was a separate route
                         that recomputed the same cohort figures from a second read

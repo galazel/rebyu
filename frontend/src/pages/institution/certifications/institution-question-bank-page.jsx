@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { useOutletContext, useSearchParams } from "react-router-dom"
+import { useOutletContext } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { FileQuestionIcon, Loader2, Plus, Trash2 } from "@/components/icons"
 import { toast } from "sonner"
@@ -38,9 +38,7 @@ import {
 } from "@/components/ui/select"
 import {
   InstitutionEmptyState,
-  InstitutionErrorState,
   InstitutionLoadingSkeleton,
-  InstitutionPageHeader,
 } from "@/components/institution/institution-ui.jsx"
 import { useAuth } from "@/context/auth-context.jsx"
 import { useInstitutionData } from "@/hooks/use-institution-data.js"
@@ -640,53 +638,6 @@ export function InstitutionQuestionBankPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-  )
-}
-
-export default function InstitutionQuestionBankPage() {
-  const { institution, institutionLoading, institutionError, refetchInstitution } =
-    useOutletContext()
-  const institutionData = useInstitutionData(institution?.institutionId)
-  const [searchParams] = useSearchParams()
-
-  const preselectedCertId = searchParams.get("certificationId")
-  const preselectedLessonId = searchParams.get("lessonId")
-  const shouldAutoOpenForm = searchParams.get("add") === "1"
-  // Opened from a group workspace: questions authored here belong to that
-  // group, and the list shows the group's own questions alongside official ones.
-  const groupId = searchParams.get("groupId")
-    ? Number(searchParams.get("groupId"))
-    : undefined
-
-  if (institutionLoading || (institution && institutionData.isLoading)) {
-    return <InstitutionLoadingSkeleton />
-  }
-  if (institutionError) {
-    return <InstitutionErrorState onRetry={refetchInstitution} />
-  }
-  if (!institution) {
-    return (
-      <InstitutionEmptyState
-        title="No organization found"
-        description="The question bank appears here once your organization is registered."
-      />
-    )
-  }
-
-  return (
-    <div className="space-y-6">
-      <InstitutionPageHeader
-        title="Question Bank"
-        subtitle="Add questions to lessons within certifications your organization has access to. You can edit or delete only the questions you created."
-      />
-
-      <InstitutionQuestionBankPanel
-        initialCertificationId={preselectedCertId ?? ""}
-        initialLessonId={preselectedLessonId ?? ""}
-        autoOpenAdd={shouldAutoOpenForm}
-        groupId={groupId}
-      />
     </div>
   )
 }
