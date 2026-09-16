@@ -66,8 +66,8 @@ export default function InstitutionLayout() {
   )
 
   const orgName = institution?.institutionName ?? "Organization"
-  // An institution member (group leader) has no Organization page; Files and
-  // their groups are in the header navigation instead.
+  // An institution member (group leader) has no Organization page; their
+  // groups are in the header navigation instead.
   const isInstitutionMember = user?.institutionMemberRole && user.institutionMemberRole !== "owner"
   // Pass the account's real role through so the header can tell the
   // organization's own account apart from one it created for a member.

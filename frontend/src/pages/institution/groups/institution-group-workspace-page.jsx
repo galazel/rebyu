@@ -207,6 +207,7 @@ function AnnouncementsTab({ groupId }) {
     queryKey: ["group-announcements", groupId],
     queryFn: () => getGroupAnnouncements(groupId),
     enabled: Number.isFinite(groupId),
+    retry: 1,
   })
 
   const key = ["group-announcements", groupId]
@@ -285,8 +286,20 @@ function AnnouncementsTab({ groupId }) {
         </CardContent>
       </Card>
 
+      {/* Inline, not the full-screen loading board: this is one tab of a page
+          that is already on screen, and covering the whole app to load a short
+          list made switching tabs look like leaving the page. */}
       {announcementsQuery.isLoading ? (
-        <InstitutionLoadingSkeleton rows={2} />
+        <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          Loading announcements...
+        </p>
+      ) : announcementsQuery.isError ? (
+        <InstitutionErrorState
+          title="Couldn't load announcements"
+          description="Try again in a moment."
+          onRetry={() => announcementsQuery.refetch()}
+        />
       ) : announcements.length === 0 ? (
         <InstitutionEmptyState
           icon={MegaphoneIcon}
@@ -737,7 +750,7 @@ function GroupLearnerTable({ groupId, hasPendingInvitations }) {
   )
 }
 
-const VALID_TABS = ["curriculum", "assessments", "learners", "announcements"]
+const VALID_TABS = ["curriculum", "assessments", "question-bank", "learners", "announcements"]
 
 export default function InstitutionGroupWorkspacePage() {
   const { groupId } = useParams()

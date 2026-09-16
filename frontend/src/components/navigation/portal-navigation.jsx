@@ -19,7 +19,6 @@ import {
   Target,
   Users,
   UsersRound,
-  FolderOpen,
   X,
 } from "@/components/icons"
 
@@ -119,7 +118,7 @@ const adminGroups = [
 ]
 
 /* An institution member (group leader) works only inside their own groups, so
-   their header carries just that workspace and the organization's shared files.
+   their header carries just that workspace.
    It used to be empty, with a one-link strip repeated at the top of each page. */
 const institutionMemberGroups = [
   {
@@ -133,11 +132,6 @@ const institutionMemberGroups = [
         match: ["/institution/member", "/institution/groups", "/institution/certifications"],
       },
     ],
-  },
-  {
-    label: "Files",
-    icon: FolderOpen,
-    items: [{ label: "Files", href: "/institution/files", icon: FolderOpen }],
   },
 ]
 
