@@ -1139,8 +1139,7 @@ export function StudyPlanContent({
                                                         {/* Its own time of day: one
                                                             certification in the morning,
                                                             another in the evening. Until
-                                                            changed it follows the default
-                                                            study time below. */}
+                                                            changed it is 7:00 PM. */}
                                                         <div className="sm:col-span-2">
                                                             <FormInput
                                                                 label="Study time"
@@ -1264,12 +1263,16 @@ export function StudyPlanContent({
                             options={studyDaysOptions}
                         />
 
-                        <FormSelect
-                            label={overall ? "Default study time" : "Preferred study time"}
-                            value={studyWindow}
-                            onValueChange={setStudyWindow}
-                            options={studyWindowOptions}
-                        />
+                        {/* An overall plan sets a study time on each certification
+                            above, so a shared default here would only repeat it. */}
+                        {overall ? null : (
+                            <FormSelect
+                                label="Preferred study time"
+                                value={studyWindow}
+                                onValueChange={setStudyWindow}
+                                options={studyWindowOptions}
+                            />
+                        )}
                     </div>
                 </section>
 
