@@ -89,6 +89,24 @@ public class EmailService {
         send(message);
     }
 
+    /** An HTML email with a plain-text fallback (the text alone over SMTP). */
+    public void sendHtml(String to, String subject, String text, String html) {
+        if (resendApiKey == null || resendApiKey.isBlank()) {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(mailFrom);
+            message.setTo(to);
+            message.setSubject(subject);
+            message.setText(text);
+            mailSender.send(message);
+            return;
+        }
+        post("{\"from\":" + json(mailFrom)
+                + ",\"to\":[" + json(to) + "]"
+                + ",\"subject\":" + json(subject)
+                + ",\"text\":" + json(text)
+                + ",\"html\":" + json(html) + "}");
+    }
+
     /**
      * Sends through Resend's HTTPS API when a Resend key is configured, and over
      * SMTP otherwise. Railway blocks outbound SMTP, so on the live server every
@@ -104,6 +122,10 @@ public class EmailService {
                 + ",\"to\":[" + json(to) + "]"
                 + ",\"subject\":" + json(message.getSubject())
                 + ",\"text\":" + json(message.getText()) + "}";
+        post(body);
+    }
+
+    private void post(String body) {
         try {
             HttpResponse<String> response = http.send(
                     HttpRequest.newBuilder(URI.create("https://api.resend.com/emails"))

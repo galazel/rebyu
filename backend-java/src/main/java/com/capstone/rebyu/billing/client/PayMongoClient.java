@@ -88,6 +88,8 @@ public class PayMongoClient {
             // Credit and debit cards both come under "card"; GCash is the e-wallet.
             attributes.put("payment_method_types", new String[]{"card", "gcash"});
             attributes.put("billing_name_required", true);
+            // PayMongo's own payment receipt, on top of REBYU's invoice email.
+            attributes.put("send_email_receipt", true);
             attributes.put("description", planName + " (test mode)");
             attributes.put("reference_number", "REBYU-" + learnerId + "-" + System.currentTimeMillis());
             // PayMongo does not fill in a {checkout_session_id} placeholder (that is

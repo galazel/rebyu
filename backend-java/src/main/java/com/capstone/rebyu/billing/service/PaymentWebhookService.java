@@ -25,6 +25,7 @@ public class PaymentWebhookService {
 
     private final LearnerSubscriptionRepository learnerSubscriptionRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
+    private final InvoiceEmailService invoiceEmails;
 
     /**
      * Activate (or idempotently re-confirm) a subscription from a completed
@@ -67,6 +68,9 @@ public class PaymentWebhookService {
                 .build();
 
         LearnerSubscription saved = learnerSubscriptionRepository.save(subscription);
+        // Only a newly recorded payment gets an invoice; the duplicate delivery
+        // (return page + webhook) returned above without reaching here.
+        invoiceEmails.sendInvoiceAfterCommit(saved);
         log.info("Checkout paid for learner={} plan={} session={}; awaiting admin approval",
                 learnerId, planId, providerReference);
         return saved;
@@ -85,7 +89,9 @@ public class PaymentWebhookService {
         subscription.setReviewNote(null);
         subscription.setUpdatedAt(now);
         log.info("Subscription {} approved by user {}", subscriptionId, adminUserId);
-        return learnerSubscriptionRepository.save(subscription);
+        LearnerSubscription saved = learnerSubscriptionRepository.save(subscription);
+        invoiceEmails.sendActivationAfterCommit(saved);
+        return saved;
     }
 
     /** Admin rejection: nothing is granted, and the learner sees the note. */

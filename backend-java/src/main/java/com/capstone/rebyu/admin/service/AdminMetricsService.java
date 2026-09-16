@@ -70,6 +70,26 @@ public class AdminMetricsService {
             BigDecimal proRevenue,
             long proApprovals) {}
 
+    /** One row of the "Pro payments" feed. */
+    public record ProPaymentDto(
+            Long subscriptionId,
+            String invoiceNumber,
+            String learnerName,
+            String email,
+            BigDecimal amount,
+            LocalDateTime paidAt,
+            String status) {}
+
+    /** Pro subscription money and queue, all-time and recent. */
+    public record ProMetrics(
+            BigDecimal approvedRevenue,
+            BigDecimal approvedRevenueLast30Days,
+            BigDecimal awaitingRevenue,
+            long awaitingApproval,
+            long activePro,
+            long paymentsLast30Days,
+            List<ProPaymentDto> recentPayments) {}
+
     /** Who is on which plan right now. */
     public record PlanMix(long freeLearners, long proLearners, long awaitingApproval) {}
 
@@ -125,13 +145,14 @@ public class AdminMetricsService {
             List<CertificationEnrolmentDto> learnersPerCertification,
             List<PaymentDto> recentPayments,
             List<MonthTrend> trends,
-            PlanMix planMix) {}
+            PlanMix planMix,
+            ProMetrics pro) {}
 
     @Transactional(readOnly = true)
     public PlatformMetrics platformMetrics() {
         return new PlatformMetrics(
                 people(), catalog(), assessments(), sales(),
-                learnersPerCertification(), recentPayments(), trends(), planMix());
+                learnersPerCertification(), recentPayments(), trends(), planMix(), pro());
     }
 
     /**
@@ -202,6 +223,56 @@ public class AdminMetricsService {
             if (row != null && value != null) row[index] = value;
         } catch (java.sql.SQLException e) {
             throw new IllegalStateException(e);
+        }
+    }
+
+    private ProMetrics pro() {
+        try {
+            var totals = jdbc.queryForMap("""
+                    select
+                      coalesce(sum(amount_paid) filter (where current_period_start is not null), 0) approved,
+                      coalesce(sum(amount_paid) filter (where current_period_start is not null
+                                                       and current_period_start >= now() - interval '30 days'), 0) approved30,
+                      coalesce(sum(amount_paid) filter (where status = 'PENDING' and paid_at is not null), 0) awaiting_money,
+                      count(*) filter (where status = 'PENDING' and paid_at is not null) awaiting,
+                      count(distinct learner_id) filter (where status in ('ACTIVE','TRIALING')
+                                                         and (current_period_end is null or current_period_end > now())) active,
+                      count(*) filter (where paid_at >= now() - interval '30 days') paid30
+                    from learner_subscriptions""");
+            List<ProPaymentDto> recent = jdbc.query("""
+                    select s.learner_subscription_id id, s.amount_paid amount, s.paid_at paid_at, s.status status,
+                           s.current_period_start started, s.review_note note,
+                           trim(coalesce(l.first_name,'') || ' ' || coalesce(l.last_name,'')) full_name,
+                           l.username username, u.email email
+                    from learner_subscriptions s
+                    join learners l on l.learner_id = s.learner_id
+                    left join users u on u.user_id = l.user_id
+                    where s.paid_at is not null
+                    order by s.paid_at desc
+                    limit 8""", (rs, i) -> {
+                LocalDateTime paidAt = rs.getTimestamp("paid_at").toLocalDateTime();
+                String status = rs.getString("status");
+                String label = "PENDING".equals(status) ? "Awaiting approval"
+                        : "ACTIVE".equals(status) || "TRIALING".equals(status) ? "Active"
+                        : rs.getString("note") != null ? "Rejected"
+                        : rs.getTimestamp("started") != null ? "Ended" : status;
+                String name = rs.getString("full_name");
+                if (name == null || name.isBlank()) name = rs.getString("username");
+                long id = rs.getLong("id");
+                return new ProPaymentDto(id,
+                        "REBYU-INV-%s-%06d".formatted(paidAt.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMM")), id),
+                        name, rs.getString("email"), rs.getBigDecimal("amount"), paidAt, label);
+            });
+            return new ProMetrics(
+                    money((BigDecimal) totals.get("approved")),
+                    money((BigDecimal) totals.get("approved30")),
+                    money((BigDecimal) totals.get("awaiting_money")),
+                    ((Number) totals.get("awaiting")).longValue(),
+                    ((Number) totals.get("active")).longValue(),
+                    ((Number) totals.get("paid30")).longValue(),
+                    recent);
+        } catch (RuntimeException ex) {
+            return new ProMetrics(BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, 0, 0, 0, List.of());
         }
     }
 

@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
+  CreditCard,
   DollarSign,
   GraduationCapIcon,
   UsersIcon,
@@ -80,6 +81,7 @@ export default function AdminDashboard() {
 
   const assessments = metrics.assessments ?? {}
   const planMix = metrics.planMix ?? null
+  const pro = metrics.pro ?? null
 
   /* Six calendar months, oldest first, labelled "Apr", "May"... The server
      zero-fills quiet months so a line never jumps a gap. */
@@ -325,6 +327,83 @@ export default function AdminDashboard() {
         ),
       },
       {
+        id: "admin-pro-revenue",
+        col: 2,
+        row: 2,
+        element: (
+          <BentoStat
+            tone="feather"
+            col={2}
+            row={2}
+            icon={CreditCard}
+            label="Pro revenue (test)"
+            value={failed || !pro ? "—" : money(pro.approvedRevenue)}
+            hint={
+              failed || !pro
+                ? "Could not be loaded"
+                : `${money(pro.approvedRevenueLast30Days)} in 30 days · ${count(pro.activePro)} on Pro · ${count(
+                    pro.awaitingApproval
+                  )} waiting (${money(pro.awaitingRevenue)})`
+            }
+          />
+        ),
+      },
+      {
+        id: "admin-pro-payments",
+        col: 4,
+        row: 2,
+        element: (
+          <BentoTile col={4} row={2} className="!p-0">
+            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+              <BentoHeading
+                title="Pro payments"
+                hint="Latest PayMongo payments and their invoice numbers."
+                action={
+                  <Link to="/admin/subscriptions" className="text-xs font-bold text-rb-feather-lip underline">
+                    {pro?.awaitingApproval ? `Review ${pro.awaitingApproval} waiting` : "Manage"}
+                  </Link>
+                }
+              />
+              {failed ? (
+                <p className="text-sm text-muted-foreground">Payments could not be loaded.</p>
+              ) : !pro?.recentPayments?.length ? (
+                <p className="text-sm text-muted-foreground">No Pro payments yet.</p>
+              ) : (
+                <ul className="-mr-2 grid min-h-0 flex-1 grid-cols-1 content-start gap-x-6 overflow-y-auto pr-2 lg:grid-cols-2">
+                  {pro.recentPayments.map((payment) => (
+                    <li
+                      key={payment.subscriptionId}
+                      className="flex items-center justify-between gap-2 border-b-2 border-border py-3 text-sm"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-bold">{payment.learnerName ?? payment.email}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {payment.invoiceNumber} · {formatDateTime(payment.paidAt)}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="font-bold tabular-nums text-primary">{money(payment.amount)}</p>
+                        <p
+                          className={`text-[11px] font-bold ${
+                            payment.status === "Awaiting approval"
+                              ? "text-rb-bee-lip"
+                              : payment.status === "Active"
+                                ? "text-rb-feather-lip"
+                                : "text-muted-foreground"
+                          }`}
+                        >
+                          {payment.status}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </BentoTile>
+        ),
+      },
+      {
         id: "admin-learners-per-cert",
         col: 4,
         row: 2,
@@ -531,6 +610,7 @@ export default function AdminDashboard() {
     revenuePeak,
     planSlices,
     planMix,
+    pro,
     assessments,
     people,
     catalog,
