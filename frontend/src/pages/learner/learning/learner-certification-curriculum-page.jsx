@@ -8,13 +8,12 @@ import {
   useParams,
 } from "react-router-dom"
 import { returnState } from "@/lib/assessment-return"
-import { LearnerClassPanel } from "@/components/learner/learner-class-panel.jsx"
+import { CurriculumDock } from "@/components/learner/curriculum-dock.jsx"
 import { useQuery } from "@tanstack/react-query"
 import {
   ArrowRight,
   BookOpen,
   Brain,
-  CalendarDays,
   Check,
   CheckCircle2,
   ClipboardCheck,
@@ -37,7 +36,6 @@ import {
 } from "@/components/ui/dialog"
 import { BackButton, TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import {
-  CountUp,
   Reveal,
   StaggerItem,
   StaggerList,
@@ -1683,42 +1681,6 @@ export default function LearnerCertificationCurriculumPage() {
             The unit card below states where you are. */}
         <h1 className="sr-only">{certification.title ?? "Certification"}</h1>
 
-        <div className="ml-auto flex shrink-0 items-center gap-3">
-          {/* One number, so it is drawn as one: a bar and a figure, not a card. */}
-          <div
-            className="flex items-center gap-2"
-            title={`${Math.round(headerProgress)}% of this certification complete`}
-          >
-            <div className="h-2.5 w-24 overflow-hidden rounded-full bg-rb-swan sm:w-32">
-              <motion.div
-                className="h-full rounded-full bg-rb-feather"
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.max(0, Math.min(100, headerProgress))}%` }}
-                transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
-              />
-            </div>
-            <CountUp
-              value={headerProgress}
-              suffix="%"
-              className="rb-numeric text-sm text-rb-eel"
-            />
-          </div>
-
-          {diagnosticDone && hasPlan ? (
-            <TactileButton
-              variant="ghost"
-              size="md"
-              asChild
-              aria-label="Study calendar"
-              title="Study calendar"
-              className="rb-btn-icon"
-            >
-              <Link to="/learner/plan">
-                <CalendarDays className="size-5" aria-hidden="true" />
-              </Link>
-            </TactileButton>
-          ) : null}
-        </div>
       </div>
 
       {/* The gate. Out of the header and into the page, directly above the
@@ -1756,17 +1718,14 @@ export default function LearnerCertificationCurriculumPage() {
         </Reveal>
       ) : null}
 
-      {/* The class this learner joined through an institution invitation.
-          Wide screens: a rail in the left margin, sticky while the road scrolls.
-          Narrower: a one-line card above the road that opens on tap. */}
-      <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-[300px] pl-6 pt-24 2xl:block">
-        <div className="pointer-events-auto sticky top-24 max-h-[calc(100dvh-7rem)] overflow-y-auto pb-6">
-          <LearnerClassPanel certificationId={certificationId} variant="rail" />
-        </div>
-      </div>
-      <div className="mx-auto mt-4 max-w-[720px] px-4 2xl:hidden">
-        <LearnerClassPanel certificationId={certificationId} variant="compact" />
-      </div>
+      {/* One dock, bottom right: the class, the study calendar, and the
+          certification's progress as a ring -- instead of a bar in one corner,
+          an icon in another and the class card floating in the margin. */}
+      <CurriculumDock
+        certificationId={certificationId}
+        progress={headerProgress}
+        showCalendar={diagnosticDone && hasPlan}
+      />
 
       {/* ------------------------------------------------------------- units */}
       <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-5 sm:py-10 lg:px-8">

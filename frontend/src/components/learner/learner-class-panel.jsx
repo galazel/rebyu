@@ -22,7 +22,7 @@ function formatDate(value) {
     : date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
 
-function useMyClasses(certificationId) {
+export function useMyClasses(certificationId) {
   const query = useQuery({
     queryKey: ["learner-classes", String(certificationId)],
     queryFn: () => getMyClasses(certificationId),
@@ -33,7 +33,7 @@ function useMyClasses(certificationId) {
   return Array.isArray(query.data) ? query.data : []
 }
 
-function ClassHeader({ group }) {
+export function ClassHeader({ group }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
       <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-rb-macaw-wash text-rb-macaw-lip">
@@ -51,7 +51,7 @@ function ClassHeader({ group }) {
   )
 }
 
-function ClassBody({ group }) {
+export function ClassBody({ group }) {
   const location = useLocation()
   const [showAll, setShowAll] = useState(false)
   const announcements = group.announcements ?? []
