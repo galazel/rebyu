@@ -134,19 +134,29 @@ export default function InstitutionGroupLearnerPage() {
      before building it -- so this is the curriculum's own assessments only.
      Labelled by title and attempt number because a retake of the same exam is
      a different bar, and two bars reading "Mock Exam" would be unreadable. */
-  const assessmentScores = useMemo(
-    () =>
-      (analytics?.scoreTrend ?? [])
-        .filter((point) => point.percentage != null)
-        .map((point) => ({
-          label:
-            point.attemptNumber && point.attemptNumber > 1
-              ? `${point.examTitle ?? "Assessment"} (try ${point.attemptNumber})`
-              : point.examTitle ?? "Assessment",
-          score: Number(point.percentage),
-        })),
-    [analytics?.scoreTrend]
-  )
+  const assessmentScores = useMemo(() => {
+    const points = (analytics?.scoreTrend ?? []).filter((point) => point.percentage != null)
+    // The DTO's field is `assessmentTitle`; this read `examTitle`, which never
+    // existed, so every bar and legend entry said "Assessment".
+    const titleOf = (point) => point.assessmentTitle ?? point.examTitle ?? "Assessment"
+    const titleCounts = points.reduce((counts, point) => {
+      counts.set(titleOf(point), (counts.get(titleOf(point)) ?? 0) + 1)
+      return counts
+    }, new Map())
+    return points.map((point) => {
+      const title = titleOf(point)
+      const repeated = titleCounts.get(title) > 1
+      const date = point.submittedAt
+        ? new Date(point.submittedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+        : null
+      return {
+        label: repeated
+          ? `${title} (${point.attemptNumber ? `try ${point.attemptNumber}` : date ?? "retake"})`
+          : title,
+        score: Math.round(Number(point.percentage) * 10) / 10,
+      }
+    })
+  }, [analytics?.scoreTrend])
 
   if (analyticsQuery.isLoading || rosterQuery.isLoading) {
     return (
@@ -293,8 +303,9 @@ export default function InstitutionGroupLearnerPage() {
             valueKey="score"
             unit="%"
             target={75}
-            height={Math.max(220, assessmentScores.length * 38)}
-            categoryWidth={150}
+            domainMax={100}
+            height={Math.max(220, assessmentScores.length * 44)}
+            categoryWidth={220}
           />
         )}
       </ChartPanel>

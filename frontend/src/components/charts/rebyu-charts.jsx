@@ -606,9 +606,14 @@ export function BarBreakdownChart({
   target,
   horizontal = true,
   categoryWidth = 108,
+  domainMax,
 }) {
   const theme = useChartTheme()
   if (!data?.length) return <ChartEmpty />
+  // A fixed ceiling (100 for percentages) keeps the scale honest and the target
+  // line on the chart; left to itself the axis stopped at the highest bar, so a
+  // 75% target on a chart topping out at 28% was never drawn.
+  const domain = domainMax != null ? [0, domainMax] : undefined
 
   const [above, below] = [seriesColor(theme, 0), seriesColor(theme, 2)]
   const colorFor = (row) =>
@@ -633,7 +638,7 @@ export function BarBreakdownChart({
 
             {horizontal ? (
               <>
-                <XAxis type="number" unit={unit} {...axisProps(theme)} />
+                <XAxis type="number" unit={unit} domain={domain} allowDataOverflow={false} {...axisProps(theme)} />
                 <YAxis
                   type="category"
                   dataKey={categoryKey}
@@ -652,7 +657,7 @@ export function BarBreakdownChart({
             ) : (
               <>
                 <XAxis dataKey={categoryKey} {...axisProps(theme)} />
-                <YAxis unit={unit} {...axisProps(theme)} />
+                <YAxis unit={unit} domain={domain} {...axisProps(theme)} />
               </>
             )}
 
@@ -679,8 +684,8 @@ export function BarBreakdownChart({
               barSize={18}
               radius={horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]}
             >
-              {data.map((row) => (
-                <Cell key={row[categoryKey]} fill={colorFor(row)} />
+              {data.map((row, index) => (
+                <Cell key={`${row[categoryKey]}-${index}`} fill={colorFor(row)} />
               ))}
             </Bar>
           </BarChart>
@@ -695,7 +700,7 @@ export function BarBreakdownChart({
         }))}
         note={
           target != null
-            ? `Azure is at or above the ${target}${unit} target; orange is below it.`
+            ? `Bars that reach the ${target}${unit} line are drawn in the first colour; those below it in the second.`
             : undefined
         }
       />
