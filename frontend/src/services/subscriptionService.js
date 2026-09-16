@@ -22,6 +22,11 @@ export function initiateCheckout(planId) {
   return base(`subscription/checkout/${planId}`, { method: "POST" })
 }
 
+export function verifyLatestCheckout(sessionId) {
+  const query = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ""
+  return base(`subscription/verify-latest${query}`)
+}
+
 export function verifyCheckoutSession(sessionId) {
   return base(`subscription/verify/${encodeURIComponent(sessionId)}`)
 }

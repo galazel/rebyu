@@ -4,7 +4,7 @@ import { CheckCircle2Icon, Loader2Icon, XCircleIcon } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { verifyCheckoutSession } from "@/services/subscriptionService.js"
+import { verifyLatestCheckout } from "@/services/subscriptionService.js"
 
 /**
  * Landing page for both PayMongo redirect outcomes (success_url/cancel_url).
@@ -21,17 +21,26 @@ export default function SubscriptionCheckoutResultPage({ canceled = false }) {
 
   useEffect(() => {
     if (canceled) return
-    if (!sessionId) {
-      setState("error")
-      setMessage("No checkout session was found.")
-      return
+    let stored = null
+    try {
+      stored = localStorage.getItem("rebyu_checkout_session")
+    } catch {
+      stored = null
     }
+    // PayMongo returns here without a usable session id, so the one saved
+    // before redirecting (or the server's own record) is what gets checked.
+    const id = sessionId && sessionId.startsWith("cs_") ? sessionId : stored
 
     let cancelled = false
-    verifyCheckoutSession(sessionId)
+    verifyLatestCheckout(id)
       .then((result) => {
         if (cancelled) return
         if (result?.status === "awaiting_approval") {
+          try {
+            localStorage.removeItem("rebyu_checkout_session")
+          } catch {
+            // nothing to clean up
+          }
           setState("approval")
         } else if (result?.status === "success") {
           setState("success")

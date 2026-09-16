@@ -44,6 +44,13 @@ public class PayMongoClient {
      * Test mode only. A live key (sk_live_) is refused outright, so this build
      * can never take real money; checkout works whenever a test key is set.
      */
+    private final java.util.Map<Long, String> lastSessionByLearner = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** The checkout session this learner opened most recently (since the server started). */
+    public String lastSessionFor(Long learnerId) {
+        return lastSessionByLearner.get(learnerId);
+    }
+
     public boolean isEnabled() {
         return secretKey != null && secretKey.trim().startsWith("sk_test_");
     }
@@ -78,11 +85,16 @@ public class PayMongoClient {
 
             Map<String, Object> attributes = new HashMap<>();
             attributes.put("line_items", new Object[]{lineItem});
-            attributes.put("payment_method_types", new String[]{"card", "gcash", "paymaya"});
+            // Credit and debit cards both come under "card"; GCash is the e-wallet.
+            attributes.put("payment_method_types", new String[]{"card", "gcash"});
             attributes.put("billing_name_required", true);
             attributes.put("description", planName + " (test mode)");
             attributes.put("reference_number", "REBYU-" + learnerId + "-" + System.currentTimeMillis());
-            attributes.put("success_url", frontendUrl + "/subscription/success?session_id={checkout_session_id}");
+            // PayMongo does not fill in a {checkout_session_id} placeholder (that is
+            // Stripe's), so the id came back literally and verify never found the
+            // payment. The session id is remembered per learner instead; see
+            // lastSessionFor.
+            attributes.put("success_url", frontendUrl + "/subscription/success");
             attributes.put("cancel_url", frontendUrl + "/subscription/cancel");
             attributes.put("metadata", Map.of(
                     "learnerId", learnerId.toString(),
@@ -98,6 +110,9 @@ public class PayMongoClient {
             String checkoutUrl = root.path("data").path("attributes").path("checkout_url").asText();
             String sessionId = root.path("data").path("id").asText();
 
+            if (!sessionId.isBlank()) {
+                lastSessionByLearner.put(learnerId, sessionId);
+            }
             log.info("Created PayMongo hosted checkout: sessionId={}, learnerId={}, planCode={}",
                     sessionId, learnerId, planCode);
             return checkoutUrl;

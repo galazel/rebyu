@@ -124,6 +124,11 @@ export default function LearnerSubscriptionPage() {
     onSuccess: (data) => {
       if (data?.checkout_url) {
         setRedirecting(true)
+        try {
+          if (data.session_id) localStorage.setItem("rebyu_checkout_session", data.session_id)
+        } catch {
+          // The server remembers the session too.
+        }
         // PayMongo's own hosted checkout page takes it from here.
         window.location.href = data.checkout_url
       } else {
@@ -261,8 +266,8 @@ export default function LearnerSubscriptionPage() {
         <InfoIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
         <span>
           <b className="text-rb-eel">Test mode.</b> Checkout opens PayMongo's own payment page and no real money
-          moves. Pay with the test card <b className="text-rb-eel">4343 4343 4343 4345</b>, any future expiry date and
-          any CVC, or with test GCash / Maya. After paying, an admin approves your Pro access.
+          moves. Pay by credit or debit card (test card <b className="text-rb-eel">4343 4343 4343 4345</b>, any future
+          expiry date and any CVC) or by GCash. After paying, an admin approves your Pro access.
         </span>
       </div>
     </div>

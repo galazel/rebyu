@@ -85,7 +85,10 @@ public class SubscriptionCheckoutController {
         }
 
         log.info("Checkout initiated for learner={}, plan={}", user.learnerId(), planId);
-        return ResponseEntity.ok(Map.of("checkout_url", checkoutUrl));
+        String sessionId = payMongoClient.lastSessionFor(user.learnerId());
+        return ResponseEntity.ok(sessionId == null
+                ? Map.of("checkout_url", checkoutUrl)
+                : Map.of("checkout_url", checkoutUrl, "session_id", sessionId));
     }
 
     /**
@@ -96,6 +99,34 @@ public class SubscriptionCheckoutController {
      * dev and isn't guaranteed to arrive promptly even in production.
      * Idempotent: safe to call more than once for the same session.
      */
+    /**
+     * Verify the learner's most recent checkout, for a return from PayMongo that
+     * carries no session id. Checks the id the browser kept first, then the one
+     * the server remembers.
+     */
+    @GetMapping("/verify-latest")
+    public ResponseEntity<?> verifyLatest(
+            @RequestParam(required = false) String sessionId,
+            @AuthenticationPrincipal Jwt jwt) {
+        if (jwt == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Authentication required"));
+        }
+        CurrentUserDto user = auth.syncCurrentUser(jwt, jwt.getTokenValue());
+        String id = sessionId != null && sessionId.startsWith("cs_") ? sessionId
+                : user.learnerId() == null ? null : payMongoClient.lastSessionFor(user.learnerId());
+        if (id == null) {
+            var latest = user.learnerId() == null ? java.util.Optional.<com.capstone.rebyu.billing.entity.LearnerSubscription>empty()
+                    : learnerSubscriptionRepository.findFirstByLearner_LearnerIdOrderByCreatedAtDesc(user.learnerId());
+            if (latest.isPresent() && latest.get().isAwaitingApproval()) {
+                return ResponseEntity.ok(Map.of("status", "awaiting_approval",
+                        "message", "Payment received. An admin will approve your Pro access shortly."));
+            }
+            return ResponseEntity.ok(Map.of("status", "pending",
+                    "message", "We could not find your checkout. If you paid, open the subscription page in a minute."));
+        }
+        return verifyPayment(id, jwt);
+    }
+
     @GetMapping("/verify/{sessionId}")
     @SuppressWarnings("unchecked")
     public ResponseEntity<?> verifyPayment(
