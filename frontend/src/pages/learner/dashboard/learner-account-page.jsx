@@ -17,7 +17,6 @@ import {
   Shield,
   Sparkles,
   UserRound,
-  Coins,
   LogOut,
 } from "@/components/icons"
 
@@ -27,10 +26,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
-import { updateLearner, updateUser } from "@/services/learnerService.js"
+import { updateMyProfile } from "@/services/learnerService.js"
 import { achievementBadge } from "@/lib/achievements.js"
 import {
-  convertCoinsToAiCredits,
   getMyRewardBalance,
   getMyRewardLedger,
 } from "@/services/gamificationService.js"
@@ -233,21 +231,28 @@ export default function LearnerAccountPage() {
     mutationFn: async () => {
       if (!canSave) throw new Error("Your learner profile could not be resolved.")
 
-      await updateUser(user.userId, {
-        ...user,
-        email: form.email,
-        phoneNumber: form.phoneNumber,
-      })
-      await updateLearner(learner.learnerId, {
-        ...learner,
-        firstName: form.firstName,
-        lastName: form.lastName,
-        username: form.username,
+      // The learner's own endpoint. The admin-only PUT /learners/{id} and
+      // /users/{id} this used to call refused every save.
+      return updateMyProfile({
+        firstName: form.firstName.trim(),
+        lastName: form.lastName.trim(),
+        username: form.username.trim(),
+        phoneNumber: form.phoneNumber?.trim() ?? "",
       })
     },
-    onSuccess: async () => {
+    onSuccess: async (saved) => {
       toast.success("Profile updated")
-      await queryClient.invalidateQueries({ queryKey: ["learner-portal-data"] })
+      // Patched straight into the portal cache: the server keeps a short-lived
+      // copy of the portal, so a refetch alone could show the old name for a bit.
+      queryClient.setQueryData(["learner-portal-data"], (portal) =>
+        portal
+          ? {
+              ...portal,
+              learner: portal.learner ? { ...portal.learner, ...saved } : portal.learner,
+              user: portal.user ? { ...portal.user, phoneNumber: saved?.phoneNumber ?? null } : portal.user,
+            }
+          : portal
+      )
     },
     onError: (error) => {
       toast.error("Could not update profile", {
@@ -285,39 +290,6 @@ export default function LearnerAccountPage() {
   const updatePreference = (field, value) => {
     preferenceMutation.mutate({ ...preferences, [field]: value })
   }
-
-  const [coinsToConvert, setCoinsToConvert] = useState("")
-
-  const conversionMutation = useMutation({
-    /* The idempotency key is the server's protection against a double-tap
-       spending the coins twice; it has to be new per attempt, not per render. */
-    mutationFn: (coins) =>
-        convertCoinsToAiCredits(coins, `convert-${learner?.learnerId ?? "me"}-${Date.now()}`),
-    onSuccess: async (result) => {
-      if (result?.converted === false) {
-        toast.info("Nothing was converted", {
-          description: "That is not enough coins for a single AI credit.",
-        })
-      } else {
-        toast.success(
-            `${result?.aiCreditsReceived ?? 0} AI credit${
-                result?.aiCreditsReceived === 1 ? "" : "s"
-            } added`
-        )
-      }
-      setCoinsToConvert("")
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["learner-reward-balance"] }),
-        queryClient.invalidateQueries({ queryKey: ["learner-reward-ledger"] }),
-        queryClient.invalidateQueries({ queryKey: ["learner-portal-data"] }),
-      ])
-    },
-    onError: (error) => {
-      toast.error("Could not convert coins", {
-        description: error?.response?.data?.message || error?.message || "Please try again.",
-      })
-    },
-  })
 
   const [passwordForm, setPasswordForm] = useState({
     oldPassword: "",
@@ -430,7 +402,11 @@ export default function LearnerAccountPage() {
           <div className="grid gap-5 p-5 sm:p-6">
             <label className="max-w-xl space-y-2">
               <span className="text-sm font-medium">Email address</span>
-              <Input type="email" value={form.email} onChange={(e) => updateField("email", e.target.value)} disabled={!canSave} required />
+              {/* Read-only: the email is the sign-in identity. */}
+              <Input type="email" value={form.email} readOnly disabled />
+              <span className="block text-xs text-muted-foreground">
+                This is the email you sign in with, so it can't be changed here.
+              </span>
             </label>
             <label className="max-w-xl space-y-2">
               <span className="text-sm font-medium">Phone number</span>
@@ -453,13 +429,6 @@ export default function LearnerAccountPage() {
       const spent = creditEntries
           .filter((entry) => entry.amount < 0)
           .reduce((total, entry) => total + Math.abs(entry.amount), 0)
-      const coins = Number(balance?.coins ?? 0)
-      const requestedCoins = Number(coinsToConvert)
-      const canConvert =
-          Number.isFinite(requestedCoins) &&
-          requestedCoins > 0 &&
-          requestedCoins <= coins &&
-          !conversionMutation.isPending
 
       return (
         <div className="space-y-4">
@@ -488,45 +457,8 @@ export default function LearnerAccountPage() {
             </div>
           </section>
 
-          {/* Coins are earned by studying and are the only way a free learner
-              gets AI credits, so the exchange belongs on the page that shows
-              the balance rather than three clicks away. */}
           <section className="overflow-hidden rounded-md border bg-card shadow-sm">
-            <SectionHeader title="Turn coins into AI credits" description="Coins earned from practice, streaks, and assessments." />
-            <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-end sm:p-6">
-              <div className="flex items-center gap-2 rounded-md border bg-muted/20 px-4 py-3">
-                <Coins className="size-5 text-primary" />
-                <span className="text-sm text-muted-foreground">Coin balance</span>
-                <span className="font-semibold tabular-nums">
-                  {balanceQuery.isLoading ? "..." : coins.toLocaleString()}
-                </span>
-              </div>
-
-              <label className="space-y-2">
-                <span className="text-sm font-medium">Coins to convert</span>
-                <Input
-                    type="number"
-                    min={1}
-                    max={coins || undefined}
-                    value={coinsToConvert}
-                    onChange={(event) => setCoinsToConvert(event.target.value)}
-                    className="w-40"
-                    placeholder="0"
-                />
-              </label>
-
-              <Button
-                  type="button"
-                  disabled={!canConvert}
-                  onClick={() => conversionMutation.mutate(Math.floor(requestedCoins))}
-              >
-                {conversionMutation.isPending ? "Converting..." : "Convert"}
-              </Button>
-            </div>
-          </section>
-
-          <section className="overflow-hidden rounded-md border bg-card shadow-sm">
-            <SectionHeader title="Recent credit activity" description="Grants, conversions, and generations on this account." />
+            <SectionHeader title="Recent credit activity" description="Credits granted to this account and spent on AI generations." />
             {creditEntries.length ? (
               <ul className="divide-y">
                 {creditEntries.map((entry, index) => (

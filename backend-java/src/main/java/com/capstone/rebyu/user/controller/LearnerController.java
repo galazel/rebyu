@@ -22,6 +22,58 @@ import java.util.List;
 public class LearnerController {
     private final LearnerService learnerService;
     private final CognitoAuthService cognitoAuthService;
+    private final com.capstone.rebyu.user.repository.LearnerRepository learnerRepository;
+    private final com.capstone.rebyu.user.repository.UserRepository userRepository;
+
+    public record MyProfileRequest(
+            @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 50) String firstName,
+            @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 50) String lastName,
+            @jakarta.validation.constraints.NotBlank
+            @jakarta.validation.constraints.Pattern(regexp = "^[A-Za-z0-9._-]{3,50}$",
+                    message = "Usernames are 3-50 letters, numbers, dots, dashes or underscores.")
+            String username,
+            @jakarta.validation.constraints.Size(max = 30) String phoneNumber) {
+    }
+
+    public record MyProfileResponse(String firstName, String lastName, String username, String email, String phoneNumber) {
+    }
+
+    /**
+     * The signed-in learner edits their own profile. The account page used to
+     * call the admin-only PUT /api/learners/{id} and /api/users/{id}, so every
+     * save failed with "Admin access is required".
+     *
+     * <p>Email is not editable here: it is the sign-in identity, and changing it
+     * in REBYU's tables alone would unlink the account from its login.
+     */
+    @PutMapping("/me/profile")
+    @org.springframework.transaction.annotation.Transactional
+    public MyProfileResponse updateMyProfile(
+            @Valid @RequestBody MyProfileRequest request, @AuthenticationPrincipal Jwt jwt) {
+        if (jwt == null) throw new IllegalArgumentException("Authentication is required");
+        CurrentUserDto me = cognitoAuthService.syncCurrentUser(jwt, jwt.getTokenValue());
+        if (me.learnerId() == null) throw new IllegalArgumentException("A learner account is required");
+
+        var learner = learnerRepository.findById(me.learnerId())
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Learner not found"));
+        String username = request.username().trim();
+        if (!username.equalsIgnoreCase(learner.getUsername()) && learnerRepository.existsByUsername(username)) {
+            throw new IllegalArgumentException("That username is already taken.");
+        }
+        learner.setFirstName(request.firstName().trim());
+        learner.setLastName(request.lastName().trim());
+        learner.setUsername(username);
+        learnerRepository.save(learner);
+
+        var user = me.userId() == null ? null : userRepository.findById(me.userId()).orElse(null);
+        if (user != null) {
+            String phone = request.phoneNumber() == null ? null : request.phoneNumber().trim();
+            user.setPhoneNumber(phone == null || phone.isEmpty() ? null : phone);
+            userRepository.save(user);
+        }
+        return new MyProfileResponse(learner.getFirstName(), learner.getLastName(), learner.getUsername(),
+                user == null ? me.email() : user.getEmail(), user == null ? null : user.getPhoneNumber());
+    }
 
     // Reading the full learner list / arbitrary learner records exposes every
     // learner across every institution, so reads are admin-only. Learners read

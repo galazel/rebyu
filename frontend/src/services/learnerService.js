@@ -56,6 +56,14 @@ export function getMyClasses(certificationId) {
   return base(`learners/me/classes${query}`)
 }
 
+/** The signed-in learner edits their own name, username and phone number. */
+export function updateMyProfile({ firstName, lastName, username, phoneNumber }) {
+  return base("learners/me/profile", {
+    method: "PUT",
+    data: { firstName, lastName, username, phoneNumber },
+  })
+}
+
 /** XP total and badge catalog only -- the cheap read behind the reward pop-ups. */
 export function getMyRewards() {
   return base("learner-achievements/me/rewards")
