@@ -1756,8 +1756,17 @@ export default function LearnerCertificationCurriculumPage() {
         </Reveal>
       ) : null}
 
-      {/* The class this learner joined through an institution invitation. */}
-      <LearnerClassPanel certificationId={certificationId} />
+      {/* The class this learner joined through an institution invitation.
+          Wide screens: a rail in the left margin, sticky while the road scrolls.
+          Narrower: a one-line card above the road that opens on tap. */}
+      <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-[300px] pl-6 pt-24 2xl:block">
+        <div className="pointer-events-auto sticky top-24 max-h-[calc(100dvh-7rem)] overflow-y-auto pb-6">
+          <LearnerClassPanel certificationId={certificationId} variant="rail" />
+        </div>
+      </div>
+      <div className="mx-auto mt-4 max-w-[720px] px-4 2xl:hidden">
+        <LearnerClassPanel certificationId={certificationId} variant="compact" />
+      </div>
 
       {/* ------------------------------------------------------------- units */}
       <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-5 sm:py-10 lg:px-8">
