@@ -7,6 +7,12 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+
 @Service
 @RequiredArgsConstructor
 public class EmailService {
@@ -18,6 +24,14 @@ public class EmailService {
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
+
+    /** The Resend API key, which is also the SMTP password. */
+    @Value("${spring.mail.password:}")
+    private String resendApiKey;
+
+    private final HttpClient http = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
 
     public void sendInstitutionInvitation(
             String recipientEmail,
@@ -50,7 +64,7 @@ public class EmailService {
                 invitationLink
         ));
 
-        mailSender.send(message);
+        send(message);
     }
 
     /** First sign-in details for an account REBYU created, as the Cognito email used to send. */
@@ -72,7 +86,62 @@ public class EmailService {
 
                 REBYU Team
                 """.formatted(recipientEmail, temporaryPassword, signInUrl));
-        mailSender.send(message);
+        send(message);
+    }
+
+    /**
+     * Sends through Resend's HTTPS API when a Resend key is configured, and over
+     * SMTP otherwise. Railway blocks outbound SMTP, so on the live server every
+     * SMTP send failed -- the temporary-password and invitation emails never left.
+     */
+    private void send(SimpleMailMessage message) {
+        if (resendApiKey == null || resendApiKey.isBlank()) {
+            mailSender.send(message);
+            return;
+        }
+        String to = message.getTo() == null || message.getTo().length == 0 ? "" : message.getTo()[0];
+        String body = "{\"from\":" + json(message.getFrom())
+                + ",\"to\":[" + json(to) + "]"
+                + ",\"subject\":" + json(message.getSubject())
+                + ",\"text\":" + json(message.getText()) + "}";
+        try {
+            HttpResponse<String> response = http.send(
+                    HttpRequest.newBuilder(URI.create("https://api.resend.com/emails"))
+                            .timeout(Duration.ofSeconds(15))
+                            .header("Authorization", "Bearer " + resendApiKey)
+                            .header("Content-Type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(body))
+                            .build(),
+                    HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() >= 300) {
+                throw new IllegalStateException("Resend rejected the email (" + response.statusCode() + "): "
+                        + response.body());
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Email sending was interrupted", e);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Could not reach Resend: " + e.getMessage(), e);
+        }
+    }
+
+    private static String json(String value) {
+        if (value == null) return "\"\"";
+        StringBuilder out = new StringBuilder("\"");
+        for (char c : value.toCharArray()) {
+            switch (c) {
+                case '"' -> out.append("\\\"");
+                case '\\' -> out.append("\\\\");
+                case '\n' -> out.append("\\n");
+                case '\r' -> out.append("\\r");
+                case '\t' -> out.append("\\t");
+                default -> {
+                    if (c < 0x20) out.append(String.format("\\u%04x", (int) c));
+                    else out.append(c);
+                }
+            }
+        }
+        return out.append('"').toString();
     }
 
     private String buildInvitationLink(String invitationToken) {

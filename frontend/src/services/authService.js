@@ -172,7 +172,14 @@ export function requestPasswordReset(email) {
 
 export async function confirmPasswordReset(email, code, newPassword) {
   await run(supabase.auth.verifyOtp({ email, token: code, type: "recovery" }))
-  await run(supabase.auth.updateUser({ password: newPassword }))
+  // A chosen password also ends the temporary-password step, so an account
+  // whose emailed password never arrived is not asked for a new one again.
+  await run(
+    supabase.auth.updateUser({
+      password: newPassword,
+      data: { must_change_password: false, password_set: true },
+    })
+  )
   // Signed in by the code; the page sends them to sign in with the new password.
   await supabase.auth.signOut({ scope: "local" }).catch(() => {})
 }

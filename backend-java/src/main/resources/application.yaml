@@ -21,6 +21,13 @@ spring:
           auth: true
           starttls:
             enable: true
+          # JavaMail waits forever by default. Account creation sends its
+          # temporary-password email while holding a database connection, so a
+          # slow SMTP relay would otherwise hang "Creating account..." and tie
+          # up one of the few pooled connections.
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
 
   datasource:
     url: ${DB_URL}
