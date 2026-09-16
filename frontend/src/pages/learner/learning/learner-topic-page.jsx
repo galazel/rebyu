@@ -57,7 +57,7 @@ import {
 } from "@/components/ui/dialog"
 import { PriorityBookmark } from "@/components/learner/priority-tag.jsx"
 import { ASSESSMENT_MAX_XP, LESSON_COMPLETION_XP } from "@/lib/xp.js"
-import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
+import { announceRewards, prefetchRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
 import { LessonTool } from "@/components/certifications/lesson-content-renderer.jsx"
 import {
   getLessonById,
@@ -1240,6 +1240,10 @@ function AssessmentView({ exam, position, total, backTo, taken, onOpenOutline })
 export default function LearnerTopicPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  // Warm the XP/badge snapshot so an award pops up the moment it is earned.
+  useEffect(() => {
+    prefetchRewards(queryClient).catch(() => {})
+  }, [queryClient])
   const { certificationId, middleCategoryId } = useParams()
   const { data } = useOutletContext()
   const isXl = useIsXl()
@@ -1458,6 +1462,11 @@ export default function LearnerTopicPage() {
       setSlowDownOpen(true)
     },
   })
+
+  const keepReading = () => {
+    setSlowDownOpen(false)
+    paceGuard.pause(1500)
+  }
 
   const restartLesson = () => {
     setSlowDownOpen(false)
@@ -1847,20 +1856,21 @@ export default function LearnerTopicPage() {
       </Sheet>
 
 
-      {/* Raced through the lesson: stop, and start it again from the top.
-          Closing the board any other way does the same -- the point is that
-          the lesson gets studied. */}
-      <Dialog open={slowDownOpen} onOpenChange={(open) => !open && restartLesson()}>
+      {/* Raced through the lesson: a nudge, not a lock. The sections raced
+          past are already taken back as unread; going back to the top is the
+          learner's choice. Closing the board keeps them where they are. */}
+      <Dialog open={slowDownOpen} onOpenChange={(open) => !open && keepReading()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Oooops! Slow down.</DialogTitle>
             <DialogDescription>
-              You scrolled through this lesson faster than anyone can read it. Study it
-              properly -- we&apos;ll take you back to the start so you go through the whole
-              lesson.
+              You scrolled faster than anyone can read. The sections you skimmed past
+              aren&apos;t counted as read yet -- you can go back to the start, or keep going
+              from here.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
+            <Button variant="ghost" onClick={keepReading}>Keep reading here</Button>
             <Button onClick={restartLesson}>Start the lesson again</Button>
           </DialogFooter>
         </DialogContent>

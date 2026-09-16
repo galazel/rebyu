@@ -9,10 +9,10 @@ const WINDOW_MS = 1600
  * learner many seconds; two and a half screens in a second and a half is
  * someone flicking to the end.
  */
-const RUSH_SCREENS = 2.6
+const RUSH_SCREENS = 3.5
 
 /** Moving faster than this is too fast for a section passed to count as read. */
-const SKIM_SCREENS = 1.5
+const SKIM_SCREENS = 2
 
 /**
  * Only scrolling the learner is doing themselves counts. A wheel, a touch drag,
@@ -43,17 +43,33 @@ export function useReadingPaceGuard({ enabled, onRush }) {
   const onRushRef = useRef(onRush)
   onRushRef.current = onRush
 
+  /* Travel is summed from one scroll event to the next, not read as "where
+     the page is now minus where it was". A single jump bigger than a screen
+     is not the learner scrolling: it is the browser keeping the view steady
+     while an image or an opened panel above changes the page's height, or a
+     scroll-snap settling. Counting those is what flagged a learner who had
+     only nudged the wheel. The scrollbar is the exception -- a fast drag
+     really does move a screen or more per event. */
+  const lastY = useRef(null)
+  const draggingBar = useRef(false)
+
   const measure = useCallback(() => {
     const now = performance.now()
+    const y = window.scrollY
+    const step = lastY.current == null ? 0 : y - lastY.current
+    lastY.current = y
+    const counted = !draggingBar.current && Math.abs(step) > window.innerHeight ? 0 : step
     const list = samples.current
-    list.push({ t: now, y: window.scrollY })
+    list.push({ t: now, d: counted })
     while (list.length > 1 && now - list[0].t > WINDOW_MS) list.shift()
-    return { now, travelled: window.scrollY - list[0].y, since: list[0].t }
+    const travelled = list.reduce((sum, sample) => sum + sample.d, 0)
+    return { now, travelled, since: list[0].t }
   }, [])
 
   const pause = useCallback((ms = 1500) => {
     pausedUntil.current = performance.now() + ms
     samples.current = []
+    lastY.current = null
   }, [])
 
   const isRushing = useCallback(() => {
@@ -81,25 +97,25 @@ export function useReadingPaceGuard({ enabled, onRush }) {
        the document's width is on the scrollbar; it counts as a gesture until
        the button is released. Chrome often swallows the mouseup that ends a
        scrollbar drag, so the next move with no button held also ends it. */
-    let onScrollbar = false
     const onMouseDown = (event) => {
       if (event.clientX >= document.documentElement.clientWidth) {
-        onScrollbar = true
+        draggingBar.current = true
         gesture()
       }
     }
     const endScrollbar = () => {
-      onScrollbar = false
+      draggingBar.current = false
     }
     const onMouseMove = (event) => {
-      if (onScrollbar && event.buttons === 0) onScrollbar = false
+      if (draggingBar.current && event.buttons === 0) draggingBar.current = false
     }
 
     function onScroll() {
-      if (onScrollbar) gesture()
+      if (draggingBar.current) gesture()
       const now = performance.now()
       if (now < pausedUntil.current || now - lastGesture.current > GESTURE_MS) {
         samples.current = []
+        lastY.current = window.scrollY
         return
       }
       const { travelled, since } = measure()
