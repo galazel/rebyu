@@ -15,8 +15,8 @@ const RUSH_SCREENS = 2.6
 const SKIM_SCREENS = 1.5
 
 /**
- * Only scrolling the learner is doing themselves counts. A wheel, a touch drag
- * or a scrolling key within this long before the scroll event marks it as
+ * Only scrolling the learner is doing themselves counts. A wheel, a touch drag,
+ * the scrollbar or a scrolling key within this long before the scroll event marks it as
  * theirs; a table-of-contents link, "next lesson" or the page's own scrollTo
  * never does, so those are never mistaken for skimming.
  */
@@ -76,7 +76,27 @@ export function useReadingPaceGuard({ enabled, onRush }) {
       if (SCROLL_KEYS.has(event.key)) gesture()
     }
 
+    /* Dragging the page's scrollbar (or clicking its track or arrows) is the
+       learner's scrolling too, but sends no wheel or key event. A press past
+       the document's width is on the scrollbar; it counts as a gesture until
+       the button is released. Chrome often swallows the mouseup that ends a
+       scrollbar drag, so the next move with no button held also ends it. */
+    let onScrollbar = false
+    const onMouseDown = (event) => {
+      if (event.clientX >= document.documentElement.clientWidth) {
+        onScrollbar = true
+        gesture()
+      }
+    }
+    const endScrollbar = () => {
+      onScrollbar = false
+    }
+    const onMouseMove = (event) => {
+      if (onScrollbar && event.buttons === 0) onScrollbar = false
+    }
+
     function onScroll() {
+      if (onScrollbar) gesture()
       const now = performance.now()
       if (now < pausedUntil.current || now - lastGesture.current > GESTURE_MS) {
         samples.current = []
@@ -93,12 +113,20 @@ export function useReadingPaceGuard({ enabled, onRush }) {
     window.addEventListener("wheel", gesture, { passive: true })
     window.addEventListener("touchmove", gesture, { passive: true })
     window.addEventListener("keydown", onKeyDown)
+    window.addEventListener("mousedown", onMouseDown, { passive: true })
+    window.addEventListener("mouseup", endScrollbar, { passive: true })
+    window.addEventListener("mousemove", onMouseMove, { passive: true })
+    window.addEventListener("blur", endScrollbar)
     window.addEventListener("scroll", onScroll, { passive: true })
 
     return () => {
       window.removeEventListener("wheel", gesture)
       window.removeEventListener("touchmove", gesture)
       window.removeEventListener("keydown", onKeyDown)
+      window.removeEventListener("mousedown", onMouseDown)
+      window.removeEventListener("mouseup", endScrollbar)
+      window.removeEventListener("mousemove", onMouseMove)
+      window.removeEventListener("blur", endScrollbar)
       window.removeEventListener("scroll", onScroll)
     }
   }, [enabled, measure])
