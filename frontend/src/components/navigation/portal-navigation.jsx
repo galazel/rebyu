@@ -217,6 +217,25 @@ function Brand({ role, organizationName }) {
       ? organizationName || "Institution"
       : "Admin"
 
+  /* An organization's portal leads with the school's own name, in full: it is
+     the one thing on the bar that tells a member whose workspace they are in.
+     The navigation moved to the right beside the account menu to make room. */
+  if (isInstitution) {
+    return (
+      <NavLink to={home} className="flex min-w-0 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${label} home`}>
+        <BrandLogo className="size-8 shrink-0" />
+        <span className="min-w-0 leading-none">
+          <span className="block truncate font-heading text-[15px] font-bold tracking-tight sm:text-base" title={label}>
+            {label}
+          </span>
+          <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            REBYU · {role === "INSTITUTION_MEMBER" ? "Group workspace" : "Organization"}
+          </span>
+        </span>
+      </NavLink>
+    )
+  }
+
   return (
     <NavLink to={home} className="flex shrink-0 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={role === "LEARNER" ? "REBYU home and analytics" : "REBYU home"}>
       <BrandLogo className="size-8" />
@@ -371,7 +390,7 @@ export function PortalTopNavigation({ role, actions, organizationName, instituti
               middle of the bar and shifted horizontally whenever the brand or
               the action cluster changed width -- next to the wordmark they have
               a fixed edge to start from. */}
-          <nav className="hidden min-w-0 flex-1 items-center justify-start gap-1 lg:flex" aria-label={`${role.toLowerCase()} navigation`}>
+          <nav className={cn("hidden min-w-0 flex-1 items-center gap-1 lg:flex", isInstitutionRole(role) ? "justify-end" : "justify-start")} aria-label={`${role.toLowerCase()} navigation`}>
             {role === "LEARNER"
               ? learnerNavigation.slice(0, 6).map((item) => {
                   const Icon = item.icon
