@@ -117,10 +117,34 @@ export default function AdminDashboard() {
     [planMix]
   )
 
-  const recentPayments = useMemo(
-    () => asArray(metrics.recentPayments),
-    [metrics.recentPayments]
-  )
+  /* Everyone who actually paid, whichever way: certification orders and Pro
+     subscriptions in one feed, newest first. A ₱0 order (a free certification)
+     is an enrollment, not a payment, so it is left out. */
+  const recentPayments = useMemo(() => {
+    const orders = asArray(metrics.recentPayments)
+      .filter((order) => Number(order.amount ?? 0) > 0)
+      .map((order) => ({
+        key: `order-${order.orderId}`,
+        name: order.learnerName,
+        kind: "Certification",
+        reference: order.orderNumber ?? `Order #${order.orderId}`,
+        amount: order.amount,
+        paidAt: order.paidAt,
+        status: "Paid",
+      }))
+    const proPayments = asArray(pro?.recentPayments).map((payment) => ({
+      key: `pro-${payment.subscriptionId}`,
+      name: payment.learnerName ?? payment.email,
+      kind: "Pro",
+      reference: payment.invoiceNumber,
+      amount: payment.amount,
+      paidAt: payment.paidAt,
+      status: payment.status,
+    }))
+    return [...orders, ...proPayments]
+      .sort((a, b) => new Date(b.paidAt ?? 0) - new Date(a.paidAt ?? 0))
+      .slice(0, 8)
+  }, [metrics.recentPayments, pro])
 
   const learnersPerCertification = useMemo(
     () => asArray(metrics.learnersPerCertification),
@@ -349,61 +373,6 @@ export default function AdminDashboard() {
         ),
       },
       {
-        id: "admin-pro-payments",
-        col: 4,
-        row: 2,
-        element: (
-          <BentoTile col={4} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
-              <BentoHeading
-                title="Pro payments"
-                hint="Latest PayMongo payments and their invoice numbers."
-                action={
-                  <Link to="/admin/subscriptions" className="text-xs font-bold text-rb-feather-lip underline">
-                    {pro?.awaitingApproval ? `Review ${pro.awaitingApproval} waiting` : "Manage"}
-                  </Link>
-                }
-              />
-              {failed ? (
-                <p className="text-sm text-muted-foreground">Payments could not be loaded.</p>
-              ) : !pro?.recentPayments?.length ? (
-                <p className="text-sm text-muted-foreground">No Pro payments yet.</p>
-              ) : (
-                <ul className="-mr-2 grid min-h-0 flex-1 grid-cols-1 content-start gap-x-6 overflow-y-auto pr-2 lg:grid-cols-2">
-                  {pro.recentPayments.map((payment) => (
-                    <li
-                      key={payment.subscriptionId}
-                      className="flex items-center justify-between gap-2 border-b-2 border-border py-3 text-sm"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-bold">{payment.learnerName ?? payment.email}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {payment.invoiceNumber} · {formatDateTime(payment.paidAt)}
-                        </p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="font-bold tabular-nums text-primary">{money(payment.amount)}</p>
-                        <p
-                          className={`text-[11px] font-bold ${
-                            payment.status === "Awaiting approval"
-                              ? "text-rb-bee-lip"
-                              : payment.status === "Active"
-                                ? "text-rb-feather-lip"
-                                : "text-muted-foreground"
-                          }`}
-                        >
-                          {payment.status}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </BentoTile>
-        ),
-      },
-      {
         id: "admin-learners-per-cert",
         col: 4,
         row: 2,
@@ -567,7 +536,14 @@ export default function AdminDashboard() {
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
               <BentoHeading
                 title="Learners who paid"
-                hint="Latest completed orders."
+                hint="Latest certification purchases and Pro subscriptions (PayMongo test mode)."
+                action={
+                  pro?.awaitingApproval ? (
+                    <Link to="/admin/subscriptions" className="text-xs font-bold text-rb-feather-lip underline">
+                      Review {pro.awaitingApproval} waiting
+                    </Link>
+                  ) : null
+                }
               />
 
               {metricsQuery.isError ? (
@@ -575,26 +551,45 @@ export default function AdminDashboard() {
                   Payments could not be loaded.
                 </p>
               ) : recentPayments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No payments recorded yet.</p>
+                <p className="text-sm text-muted-foreground">No paid purchases or Pro subscriptions yet.</p>
               ) : (
                 /* A wide tile would strand a single column of rows in white
                    space, so the feed splits into two tracks once there is room. */
                 <ul className="-mr-2 grid min-h-0 flex-1 grid-cols-1 content-start gap-x-6 overflow-y-auto pr-2 lg:grid-cols-2">
                   {recentPayments.map((payment) => (
                     <li
-                      key={payment.orderId}
+                      key={payment.key}
                       className="flex items-center justify-between gap-2 border-b-2 border-border py-3 text-sm"
                     >
                       <div className="min-w-0">
-                        <p className="truncate font-bold">{payment.learnerName}</p>
+                        <p className="flex items-center gap-2 truncate font-bold">
+                          <span className="truncate">{payment.name}</span>
+                          <span
+                            className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                              payment.kind === "Pro" ? "bg-rb-feather-wash text-rb-feather-lip" : "bg-rb-macaw-wash text-rb-macaw-lip"
+                            }`}
+                          >
+                            {payment.kind}
+                          </span>
+                        </p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {payment.orderNumber ?? `Order #${payment.orderId}`} ·{" "}
-                          {formatDateTime(payment.paidAt)}
+                          {payment.reference} · {formatDateTime(payment.paidAt)}
                         </p>
                       </div>
-                      <span className="shrink-0 font-bold tabular-nums text-primary">
-                        {money(payment.amount)}
-                      </span>
+                      <div className="shrink-0 text-right">
+                        <p className="font-bold tabular-nums text-primary">{money(payment.amount)}</p>
+                        <p
+                          className={`text-[11px] font-bold ${
+                            payment.status === "Awaiting approval"
+                              ? "text-rb-bee-lip"
+                              : payment.status === "Active" || payment.status === "Paid"
+                                ? "text-rb-feather-lip"
+                                : "text-muted-foreground"
+                          }`}
+                        >
+                          {payment.status}
+                        </p>
+                      </div>
                     </li>
                   ))}
                 </ul>
