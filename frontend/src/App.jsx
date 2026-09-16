@@ -184,7 +184,11 @@ export function App() {
             <Route path="/register" element={<GuestOnlyRoute><RegisterPage /></GuestOnlyRoute>} />
             <Route path="/verify-email" element={<GuestOnlyRoute><VerifyEmailPage /></GuestOnlyRoute>} />
             <Route path="/forgot-password" element={<GuestOnlyRoute><ForgotPasswordPage /></GuestOnlyRoute>} />
-            <Route path="/set-new-password" element={<GuestOnlyRoute><SetNewPasswordPage /></GuestOnlyRoute>} />
+            {/* Not guest-only: an invitation link signs the account in before the
+                password exists, and a guest-only route bounced that session straight
+                to its dashboard -- the password was never set, so signing in on any
+                other device failed. */}
+            <Route path="/set-new-password" element={<SetNewPasswordPage />} />
 
             {/* Public: organization representatives request Institution access with no account. */}
             <Route
