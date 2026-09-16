@@ -25,7 +25,12 @@ public final class EntitlementDtos {
             String personalPlanCode,
             String personalStatus,
             LocalDateTime currentPeriodEnd,
-            boolean cancelAtPeriodEnd
+            boolean cancelAtPeriodEnd,
+            /* Paid in checkout, waiting for an admin to approve it. */
+            boolean awaitingApproval,
+            /* Tutor study-aid generations: used today, and the daily cap (0 on Free). */
+            int aiGenerationsUsedToday,
+            int aiGenerationDailyLimit
     ) {
     }
 
@@ -41,7 +46,9 @@ public final class EntitlementDtos {
             LocalDateTime currentPeriodStart,
             LocalDateTime currentPeriodEnd,
             boolean cancelAtPeriodEnd,
-            LocalDateTime canceledAt
+            LocalDateTime canceledAt,
+            boolean awaitingApproval,
+            String reviewNote
     ) {
     }
 

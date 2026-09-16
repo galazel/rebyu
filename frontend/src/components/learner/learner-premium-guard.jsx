@@ -11,7 +11,7 @@ import FeatureLockState from "./feature-lock-state.jsx"
 // still enforced server-side, so flipping this cannot leak paid data — it just
 // shows the UI. Revert by setting this to false; nothing else changes.
 // ---------------------------------------------------------------------------
-const PREVIEW_UNLOCK_ALL_PRO_FEATURES = true
+const PREVIEW_UNLOCK_ALL_PRO_FEATURES = false
 
 // Wrap premium UI so protected content never renders (or flashes) unless the
 // backend confirms the learner has the feature. Backend controllers still

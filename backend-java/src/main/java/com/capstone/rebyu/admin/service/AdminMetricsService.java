@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The platform counters behind the admin dashboard.
@@ -57,6 +58,20 @@ public class AdminMetricsService {
     private final LearnerOrderRepository orderRepository;
     private final LearnerSubscriptionRepository subscriptionRepository;
     private final InstitutionalLicenseRepository licenseRepository;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    /** One month of the growth chart. Money is pesos; counts are rows begun that month. */
+    public record MonthTrend(
+            String month,
+            long newUsers,
+            long attempts,
+            long passedAttempts,
+            BigDecimal certificationSales,
+            BigDecimal proRevenue,
+            long proApprovals) {}
+
+    /** Who is on which plan right now. */
+    public record PlanMix(long freeLearners, long proLearners, long awaitingApproval) {}
 
     public record PeopleMetrics(
             long totalUsers,
@@ -108,13 +123,104 @@ public class AdminMetricsService {
             AssessmentMetrics assessments,
             SalesMetrics sales,
             List<CertificationEnrolmentDto> learnersPerCertification,
-            List<PaymentDto> recentPayments) {}
+            List<PaymentDto> recentPayments,
+            List<MonthTrend> trends,
+            PlanMix planMix) {}
 
     @Transactional(readOnly = true)
     public PlatformMetrics platformMetrics() {
         return new PlatformMetrics(
                 people(), catalog(), assessments(), sales(),
-                learnersPerCertification(), recentPayments());
+                learnersPerCertification(), recentPayments(), trends(), planMix());
+    }
+
+    /**
+     * The last six calendar months, oldest first, zero-filled so the line does
+     * not skip a quiet month. Five grouped queries rather than a query per month.
+     */
+    private List<MonthTrend> trends() {
+        java.time.YearMonth current = java.time.YearMonth.now();
+        java.time.YearMonth first = current.minusMonths(5);
+        LocalDateTime from = first.atDay(1).atStartOfDay();
+        Map<String, long[]> counts = new java.util.LinkedHashMap<>();
+        Map<String, BigDecimal[]> money = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < 6; i++) {
+            String key = first.plusMonths(i).toString();
+            counts.put(key, new long[4]);
+            money.put(key, new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+        }
+        java.util.function.BiConsumer<String, java.util.function.Consumer<java.sql.ResultSet>> each = (sql, row) -> {
+            try {
+                jdbc.query(sql, rs -> { row.accept(rs); }, java.sql.Timestamp.valueOf(from));
+            } catch (RuntimeException ignored) {
+                // A missing table or column leaves that series at zero rather
+                // than taking the whole dashboard down.
+            }
+        };
+        each.accept("select to_char(date_trunc('month', joined_at), 'YYYY-MM') m, count(*) c from users "
+                + "where joined_at >= ? group by 1", rs -> bump(counts, rs, 0));
+        each.accept("select to_char(date_trunc('month', submitted_at), 'YYYY-MM') m, count(*) c, "
+                + "count(*) filter (where passed) p from assessment_attempts "
+                + "where status = 'SUBMITTED' and submitted_at >= ? group by 1", rs -> {
+            bump(counts, rs, 1);
+            try {
+                long[] row = counts.get(rs.getString("m"));
+                if (row != null) row[2] = rs.getLong("p");
+            } catch (java.sql.SQLException e) {
+                throw new IllegalStateException(e);
+            }
+        });
+        each.accept("select to_char(date_trunc('month', paid_at), 'YYYY-MM') m, sum(total_amount) s from learner_orders "
+                + "where status = 'completed' and paid_at >= ? group by 1", rs -> add(money, rs, 0));
+        each.accept("select to_char(date_trunc('month', current_period_start), 'YYYY-MM') m, "
+                + "coalesce(sum(amount_paid), 0) s, count(*) c from learner_subscriptions "
+                + "where current_period_start is not null and current_period_start >= ? group by 1", rs -> {
+            add(money, rs, 1);
+            bump(counts, rs, 3);
+        });
+        return counts.entrySet().stream()
+                .map(e -> new MonthTrend(e.getKey(), e.getValue()[0], e.getValue()[1], e.getValue()[2],
+                        money.get(e.getKey())[0].setScale(2, RoundingMode.HALF_UP),
+                        money.get(e.getKey())[1].setScale(2, RoundingMode.HALF_UP),
+                        e.getValue()[3]))
+                .toList();
+    }
+
+    private static void bump(Map<String, long[]> counts, java.sql.ResultSet rs, int index) {
+        try {
+            long[] row = counts.get(rs.getString("m"));
+            if (row != null) row[index] = rs.getLong("c");
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private static void add(Map<String, BigDecimal[]> money, java.sql.ResultSet rs, int index) {
+        try {
+            BigDecimal[] row = money.get(rs.getString("m"));
+            BigDecimal value = rs.getBigDecimal("s");
+            if (row != null && value != null) row[index] = value;
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private PlanMix planMix() {
+        long learners = learnerRepository.count();
+        long pro = 0;
+        long awaiting = 0;
+        try {
+            Long active = jdbc.queryForObject("select count(distinct learner_id) from learner_subscriptions "
+                    + "where status in ('ACTIVE','TRIALING') and (current_period_end is null or current_period_end > now())",
+                    Long.class);
+            Long pending = jdbc.queryForObject("select count(*) from learner_subscriptions "
+                    + "where status = 'PENDING' and paid_at is not null", Long.class);
+            pro = active == null ? 0 : active;
+            awaiting = pending == null ? 0 : pending;
+        } catch (RuntimeException ignored) {
+            // Leave the split at "everyone is free" if billing is unreadable.
+        }
+        return new PlanMix(Math.max(learners - pro, 0), pro, awaiting);
     }
 
     private List<CertificationEnrolmentDto> learnersPerCertification() {

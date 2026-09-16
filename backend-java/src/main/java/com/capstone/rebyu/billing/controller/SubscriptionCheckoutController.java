@@ -26,6 +26,7 @@ public class SubscriptionCheckoutController {
     private final PayMongoClient payMongoClient;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final PaymentWebhookService paymentWebhookService;
+    private final com.capstone.rebyu.billing.repository.LearnerSubscriptionRepository learnerSubscriptionRepository;
     private final CognitoAuthService auth;
 
     /**
@@ -51,6 +52,22 @@ public class SubscriptionCheckoutController {
 
         if (plan.isFree()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Only premium plans can be purchased"));
+        }
+        if (!payMongoClient.isEnabled()) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", payMongoClient.disabledReason(), "message", payMongoClient.disabledReason()));
+        }
+
+        // One subscription at a time: a second checkout while one is live or
+        // still waiting for review would take a second payment for nothing.
+        var current = learnerSubscriptionRepository.findFirstByLearner_LearnerIdOrderByCreatedAtDesc(user.learnerId());
+        if (current.isPresent() && current.get().isAwaitingApproval()) {
+            String message = "Your Pro payment is already waiting for an admin to approve it.";
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", message, "message", message));
+        }
+        if (current.isPresent() && current.get().isCurrentlyActive() && !current.get().getSubscriptionPlan().isFree()) {
+            String message = "You already have REBYU Pro.";
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", message, "message", message));
         }
 
         // Create hosted checkout
@@ -118,10 +135,12 @@ public class SubscriptionCheckoutController {
 
         LearnerSubscription subscription =
                 paymentWebhookService.activateFromCheckoutSession(metadataLearnerId, metadataPlanId, sessionId);
-        log.info("Payment verified and subscription activated for learner={}, session={}", user.learnerId(), sessionId);
+        log.info("Payment verified for learner={}, session={}", user.learnerId(), sessionId);
         return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Payment successful",
+                "status", subscription.isAwaitingApproval() ? "awaiting_approval" : "success",
+                "message", subscription.isAwaitingApproval()
+                        ? "Payment received. An admin will approve your Pro access shortly."
+                        : "Payment successful",
                 "subscriptionStatus", subscription.getStatus().name(),
                 "currentPeriodEnd", String.valueOf(subscription.getCurrentPeriodEnd())
         ));

@@ -31,7 +31,9 @@ export default function SubscriptionCheckoutResultPage({ canceled = false }) {
     verifyCheckoutSession(sessionId)
       .then((result) => {
         if (cancelled) return
-        if (result?.status === "success") {
+        if (result?.status === "awaiting_approval") {
+          setState("approval")
+        } else if (result?.status === "success") {
           setState("success")
         } else {
           setState("pending")
@@ -57,12 +59,13 @@ export default function SubscriptionCheckoutResultPage({ canceled = false }) {
             {state === "verifying" && (
               <Loader2Icon className="size-5 animate-spin text-muted-foreground" aria-hidden="true" />
             )}
-            {state === "success" && <CheckCircle2Icon className="size-5 text-green-600" aria-hidden="true" />}
+            {(state === "success" || state === "approval") && <CheckCircle2Icon className="size-5 text-green-600" aria-hidden="true" />}
             {(state === "canceled" || state === "error") && (
               <XCircleIcon className="size-5 text-destructive" aria-hidden="true" />
             )}
             {state === "verifying" && "Confirming your payment…"}
             {state === "success" && "You're now on REBYU Pro"}
+            {state === "approval" && "Payment received"}
             {state === "pending" && "Payment still processing"}
             {state === "canceled" && "Checkout canceled"}
             {state === "error" && "Something went wrong"}
@@ -71,6 +74,12 @@ export default function SubscriptionCheckoutResultPage({ canceled = false }) {
         <CardContent className="space-y-4 text-sm text-muted-foreground">
           {state === "success" && (
             <p>Your Pro features are active. Thanks for upgrading!</p>
+          )}
+          {state === "approval" && (
+            <p>
+              Thanks! This is a test-mode payment, so an admin reviews it before Pro turns on. Your Pro month starts
+              when it is approved; you can check its status on the subscription page.
+            </p>
           )}
           {state === "pending" && <p>{message}</p>}
           {state === "canceled" && <p>You can upgrade any time from the subscription page.</p>}

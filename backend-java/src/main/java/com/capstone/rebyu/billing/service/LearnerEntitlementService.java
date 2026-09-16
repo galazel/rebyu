@@ -40,10 +40,20 @@ public class LearnerEntitlementService {
             Entitlements.BASIC_LEARNING,
             Entitlements.BASIC_COMPLETION_TRACKING);
 
+    private static final Set<String> SPONSORED_LEARNER_FEATURES = Set.of(
+            Entitlements.QUIZ_RETAKES,
+            Entitlements.MOCK_EXAM_ACCESS,
+            Entitlements.AI_TUTOR,
+            Entitlements.COMMUNITY_FULL_ACCESS,
+            Entitlements.MISTAKE_BANK,
+            Entitlements.CHALLENGES_ACCESS,
+            Entitlements.WORLD_CUP_ACCESS);
+
     private final LearnerSubscriptionRepository learnerSubscriptionRepository;
     private final PlanEntitlementRepository planEntitlementRepository;
     private final OrganizationCertificationLearnerRepository orgCertLearnerRepository;
     private final InstitutionalEntitlementService institutionalEntitlementService;
+    private final com.capstone.rebyu.billing.repository.AiGenerationUsageRepository aiGenerationUsageRepository;
 
     @Transactional(readOnly = true)
     public Optional<LearnerSubscription> getCurrentLearnerSubscription(Long learnerId) {
@@ -69,7 +79,9 @@ public class LearnerEntitlementService {
                 subscription.getCurrentPeriodStart(),
                 subscription.getCurrentPeriodEnd(),
                 subscription.isCancelAtPeriodEnd(),
-                subscription.getCanceledAt());
+                subscription.getCanceledAt(),
+                subscription.isAwaitingApproval(),
+                subscription.getReviewNote());
     }
 
     @Transactional(readOnly = true)
@@ -95,6 +107,12 @@ public class LearnerEntitlementService {
         Set<String> institutionalFeatures = institutionalCoverage(learnerId, certificationId);
         boolean institutionalActive = !institutionalFeatures.isEmpty();
         features.addAll(institutionalFeatures);
+        // A sponsored learner studies on the organization's licence: everything
+        // that separates Free from Pro comes with it, whatever else the licence
+        // plan lists.
+        if (institutionalActive) {
+            features.addAll(SPONSORED_LEARNER_FEATURES);
+        }
 
         AccessSource source;
         if (proActive && institutionalActive) {
@@ -116,7 +134,39 @@ public class LearnerEntitlementService {
                 subscription == null ? "FREE" : subscription.getSubscriptionPlan().getPlanCode(),
                 subscription == null ? null : subscription.getStatus().name(),
                 subscription == null ? null : subscription.getCurrentPeriodEnd(),
-                subscription != null && subscription.isCancelAtPeriodEnd());
+                subscription != null && subscription.isCancelAtPeriodEnd(),
+                subscription != null && subscription.isAwaitingApproval(),
+                (int) aiGenerationUsageRepository.countByLearnerIdAndUsageDate(
+                        learnerId, AiGenerationQuotaService.today()),
+                features.contains(Entitlements.AI_TUTOR) ? dailyGenerationLimit(learnerId, subscription) : 0);
+    }
+
+    /** Tutor generations allowed per day: the Pro plan's limit row, else the default. */
+    @Transactional(readOnly = true)
+    public int dailyGenerationLimit(Long learnerId) {
+        return dailyGenerationLimit(learnerId, getCurrentLearnerSubscription(learnerId).orElse(null));
+    }
+
+    private int dailyGenerationLimit(Long learnerId, LearnerSubscription subscription) {
+        if (subscription != null && subscription.isCurrentlyActive()) {
+            Integer limit = planEntitlementRepository
+                    .findBySubscriptionPlan_SubscriptionPlanIdAndEntitlementCode(
+                            subscription.getSubscriptionPlan().getSubscriptionPlanId(),
+                            Entitlements.AI_TUTOR_DAILY_GENERATIONS)
+                    .filter(PlanEntitlement::isEnabled)
+                    .map(PlanEntitlement::getLimitValue)
+                    .orElse(null);
+            if (limit != null && limit > 0) {
+                return limit;
+            }
+        }
+        return Entitlements.DEFAULT_DAILY_AI_GENERATIONS;
+    }
+
+    /** Whether the learner holds any paid access at all (personal Pro or a sponsor's licence). */
+    @Transactional(readOnly = true)
+    public boolean isPro(Long learnerId) {
+        return getEffectiveEntitlements(learnerId, null).accessSource() != AccessSource.FREE;
     }
 
     @Transactional(readOnly = true)

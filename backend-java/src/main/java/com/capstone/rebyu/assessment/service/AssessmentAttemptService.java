@@ -57,6 +57,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -75,6 +76,10 @@ public class AssessmentAttemptService {
     private static final String TYPE_MOCK = "MOCK_EXAM";
     /** An IT Olympics arena run; see ChallengeArenaService. */
     private static final String TYPE_CHALLENGE = "CHALLENGE";
+    /** Types a Free learner may sit once but not retake. */
+    private static final Set<String> RETAKE_GATED_TYPES = Set.of("QUIZ", "LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM");
+    /** Solo arenas a Free learner may enter for the first few problems. */
+    private static final Set<String> CAPPED_ARENAS = Set.of("codestrike", "blueprint");
 
     private final ExamRepository examRepository;
     private final ExamQuestionRepository examQuestionRepository;
@@ -238,7 +243,7 @@ public class AssessmentAttemptService {
         // Mock exams are a premium feature: require personal Pro or an
         // institution-sponsored MOCK_EXAM_ACCESS entitlement for this
         // certification before an attempt can be created (structured 403).
-        if (mockExamRequiresEntitlement && TYPE_MOCK.equals(exam.getExamType().getExamTypeText())) {
+        if (TYPE_MOCK.equals(exam.getExamType().getExamTypeText())) {
             learnerEntitlementService.requireLearnerEntitlement(
                     learnerId, Entitlements.MOCK_EXAM_ACCESS,
                     exam.getCertification().getCertificationId());
@@ -329,6 +334,15 @@ public class AssessmentAttemptService {
                     .filter(Objects::nonNull)
                     .toList();
             PhaseTimer.mark(timer, "load questions");
+        }
+
+        /* Free learners see the first problems of a solo arena, not the whole set. */
+        if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
+                && CAPPED_ARENAS.contains(exam.getTargetScope())
+                && questionsToUse.size() > Entitlements.FREE_ARENA_PROBLEM_LIMIT
+                && !learnerEntitlementService.hasLearnerEntitlement(
+                        learnerId, Entitlements.CHALLENGES_ACCESS, null)) {
+            questionsToUse = questionsToUse.subList(0, Entitlements.FREE_ARENA_PROBLEM_LIMIT);
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -961,6 +975,12 @@ public class AssessmentAttemptService {
          * entry, which is the exact failure the lock was meant to prevent.
          */
         if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())) {
+            // World Cup is Pro; the solo arenas are open, capped in startAttempt.
+            if ("worldcup".equals(exam.getTargetScope())
+                    && !learnerEntitlementService.hasLearnerEntitlement(
+                            learnerId, Entitlements.WORLD_CUP_ACCESS, null)) {
+                return "World Cup is part of REBYU Pro. Upgrade to enter the bracket.";
+            }
             return null;
         }
 
@@ -997,11 +1017,10 @@ public class AssessmentAttemptService {
         // Mock exams are premium: lock them for learners without personal Pro or
         // an eligible institution-sponsored entitlement (shown as locked upfront;
         // startAttempt also hard-blocks with a structured 403).
-        if (mockExamRequiresEntitlement
-                && TYPE_MOCK.equals(type)
+        if (TYPE_MOCK.equals(type)
                 && !learnerEntitlementService.hasLearnerEntitlement(
                         learnerId, Entitlements.MOCK_EXAM_ACCESS, certificationId)) {
-            return "This mock exam requires REBYU Pro or an eligible institutional license.";
+            return "Mock exams are part of REBYU Pro. Upgrade to take this mock exam.";
         }
         boolean diagnosticSat = diagnosticSat(enrollment.orElse(null), learnerId, certificationId);
 
@@ -1009,6 +1028,18 @@ public class AssessmentAttemptService {
         // once it has completed the enrollment's gate, block starting another.
         if (TYPE_DIAGNOSTIC.equals(type) && diagnosticSat) {
             return "You have already completed the diagnostic assessment for this certification.";
+        }
+        /* Free sits each quiz, middle and major exam once; retaking is Pro.
+           A class's own assessments are the institution's to run, so they are
+           left alone. The submitted-attempt check goes first because it is one
+           cheap EXISTS, and most opens are a first sitting. */
+        if (RETAKE_GATED_TYPES.contains(type)
+                && exam.getOwnerGroup() == null
+                && attemptRepository.existsByExam_ExamIdAndLearnerIdAndStatus(
+                        exam.getExamId(), learnerId, AssessmentAttempt.Status.SUBMITTED)
+                && !learnerEntitlementService.hasLearnerEntitlement(
+                        learnerId, Entitlements.QUIZ_RETAKES, certificationId)) {
+            return "Retakes are part of REBYU Pro. Your first attempt is saved in your history.";
         }
         if (!TYPE_DIAGNOSTIC.equals(type)
                 && !diagnosticSat

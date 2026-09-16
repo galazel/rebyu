@@ -873,13 +873,15 @@ export default function LearnerAssessmentAttemptPage() {
           <div className="max-w-md rounded-2xl border bg-card p-8 text-center">
             <p className="font-medium">Assessment unavailable</p>
             <p className="mt-1 text-sm text-muted-foreground">{startError}</p>
-            <Button
-                className="mt-4"
-                variant="outline"
-                onClick={() => navigate(-1)}
-            >
-              Go back
-            </Button>
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <Button variant="outline" onClick={() => navigate(-1)}>
+                Go back
+              </Button>
+              {/* Retakes, mock exams and World Cup are Pro; say so with a way in. */}
+              {/REBYU Pro/.test(startError) ? (
+                <Button onClick={() => navigate("/learner/subscription")}>Upgrade to Pro</Button>
+              ) : null}
+            </div>
           </div>
         </div>
     )

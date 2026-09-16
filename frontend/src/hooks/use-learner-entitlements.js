@@ -37,6 +37,12 @@ export function useLearnerEntitlements(certificationId) {
       personalStatus: data?.personalStatus ?? null,
       currentPeriodEnd: data?.currentPeriodEnd ?? null,
       cancelAtPeriodEnd: Boolean(data?.cancelAtPeriodEnd),
+      // Paid through PayMongo, waiting for an admin to approve it.
+      awaitingApproval: Boolean(data?.awaitingApproval),
+      // Known to be on Free: false while loading, so nothing flashes locked.
+      isFree: learnerId != null && !query.isLoading && !query.isError && (data?.accessSource ?? "FREE") === "FREE",
+      aiGenerationsUsedToday: Number(data?.aiGenerationsUsedToday ?? 0),
+      aiGenerationDailyLimit: Number(data?.aiGenerationDailyLimit ?? 0),
       refetch: query.refetch,
     }
   }, [query.data, query.isLoading, query.isError, query.refetch, learnerId])

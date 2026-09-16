@@ -22,9 +22,10 @@ import {
   getChallengeLeaderboard,
   getMyChallengeRecord,
 } from "@/services/challengeService.js"
-import LearnerPremiumGuard from "@/components/learner/learner-premium-guard.jsx"
+import ProBadge from "@/components/learner/pro-badge.jsx"
+import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { XpRankingsPanel } from "@/components/learner/xp-rankings-panel.jsx"
-import { FEATURES } from "@/services/subscriptionService.js"
+import { FREE_ARENA_PROBLEM_LIMIT } from "@/services/subscriptionService.js"
 import { getWorldCupTracks } from "@/lib/arenas.js"
 
 /* The three IT Olympics arenas, and only those three.
@@ -105,6 +106,7 @@ export default function LearnerChallengesPage() {
   const outletContext = useOutletContext()
   const learnerId = outletContext?.data?.learnerId ?? null
   const [activeIndex, setActiveIndex] = useState(0)
+  const { isFree } = useLearnerEntitlements()
 
   /* The learner's own tracks. Enrolled in TOPCIT and nothing else? TOPCIT is
      the only track the World Cup can put you in. */
@@ -162,16 +164,22 @@ export default function LearnerChallengesPage() {
           !restricted ||
           (arena.industries ?? []).some((industry) => learnerIndustries.has(industry))
 
+        /* Free: World Cup is Pro, and the solo arenas stop after the first few problems. */
+        const proLocked = isFree && challenge.id === "worldcup"
+        const freeCapped = isFree && challenge.id !== "worldcup"
+
         return {
           ...challenge,
           ...(challenge.needsEnrollment ? { tracks: worldCupTracks } : null),
           problemCount: arena?.problemCount ?? 0,
           unconfigured: known && !configured,
           inIndustry,
-          available: ready && enrolled,
+          proLocked,
+          freeCapped,
+          available: ready && enrolled && !proLocked,
         }
       }),
-    [worldCupTracks, configuredArenas, arenaQuery.isSuccess, learnerIndustries],
+    [worldCupTracks, configuredArenas, arenaQuery.isSuccess, learnerIndustries, isFree],
   )
 
   /* Arenas for someone else's industry are not shown at all, rather than shown
@@ -205,6 +213,10 @@ export default function LearnerChallengesPage() {
   const recentSessions = Array.isArray(record?.recent) ? record.recent : []
 
   const startChallenge = (challenge) => {
+    if (challenge.proLocked) {
+      navigate("/learner/subscription")
+      return
+    }
     if (challenge.available) {
       navigate(challenge.route)
       return
@@ -225,14 +237,18 @@ export default function LearnerChallengesPage() {
   }
 
   const statusLabel = (challenge) =>
-    challenge.available ? "ready" : challenge.unconfigured ? "not open yet" : "enrol to unlock"
+    challenge.proLocked
+      ? "pro"
+      : challenge.available
+        ? challenge.freeCapped
+          ? `free · ${FREE_ARENA_PROBLEM_LIMIT} problems`
+          : "ready"
+        : challenge.unconfigured
+          ? "not open yet"
+          : "enrol to unlock"
 
   return (
-    <LearnerPremiumGuard
-      feature={FEATURES.CHALLENGES_ACCESS}
-      title="Pro challenges and battles"
-      description="Unlock ranked challenges, battles, leaderboards, rewards, and certification-specific practice with Pro or institution access."
-    >
+    <>
       <div className="mx-auto w-full max-w-6xl space-y-10 pb-10 sm:space-y-12">
         <header className="text-center">
           <p className="rb-chalk-label mx-auto">it olympics</p>
@@ -320,7 +336,11 @@ export default function LearnerChallengesPage() {
                 ) : null}
 
                 <p className="rb-chalk-body mt-3 text-xs">
-                  {activeChallenge.available
+                  {activeChallenge.proLocked
+                    ? "World Cup is part of REBYU Pro. Upgrade to queue for the bracket."
+                    : activeChallenge.available && activeChallenge.freeCapped
+                    ? `Free plan: the first ${Math.min(FREE_ARENA_PROBLEM_LIMIT, activeChallenge.problemCount || FREE_ARENA_PROBLEM_LIMIT)} of ${activeChallenge.problemCount || "its"} problems. Pro opens every one.`
+                    : activeChallenge.available
                     ? activeChallenge.problemCount
                       ? `${activeChallenge.problemCount} problem${activeChallenge.problemCount === 1 ? "" : "s"} waiting.`
                       : "Ready to play."
@@ -331,11 +351,16 @@ export default function LearnerChallengesPage() {
               </div>
 
               <TactileButton
-                variant={activeChallenge.available ? "feather" : "ghost"}
+                variant={activeChallenge.available || activeChallenge.proLocked ? "feather" : "ghost"}
                 className="w-full shrink-0 sm:w-auto"
                 onClick={() => startChallenge(activeChallenge)}
               >
-                {activeChallenge.available ? "start challenge" : "how to unlock"}
+                {activeChallenge.proLocked ? <ProBadge /> : null}
+                {activeChallenge.proLocked
+                  ? "upgrade to pro"
+                  : activeChallenge.available
+                    ? "start challenge"
+                    : "how to unlock"}
                 <ChevronRight className="size-4" aria-hidden="true" />
               </TactileButton>
             </div>
@@ -464,6 +489,6 @@ export default function LearnerChallengesPage() {
           <XpRankingsPanel />
         </section>
       </div>
-    </LearnerPremiumGuard>
+    </>
   )
 }

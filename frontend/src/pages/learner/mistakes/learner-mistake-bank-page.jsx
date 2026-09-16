@@ -33,6 +33,8 @@ import {
   LearnerStatCard,
 } from "@/components/learner/learner-ui.jsx"
 import { getMistakes, setMistakeReviewed } from "@/services/learnerToolsService"
+import ProGate from "@/components/learner/pro-gate.jsx"
+import { FEATURES } from "@/services/subscriptionService.js"
 
 const ALL_VALUE = "all"
 
@@ -288,7 +290,20 @@ function MistakeCard({ mistake, onToggleReviewed, isPending }) {
  * no page: `GET /api/learner-tools/mistakes` already returned all of this,
  * including the reviewed flag that `PUT .../reviewed` toggles.
  */
+/* The mistake bank is REBYU Pro; Free learners get the upgrade card instead. */
 export default function LearnerMistakeBankPage() {
+  return (
+    <ProGate
+      feature={FEATURES.MISTAKE_BANK}
+      title="Your mistake bank is a Pro feature"
+      description="Every question you got wrong, grouped by lesson, ready to review until it sticks. Upgrade to REBYU Pro to open it."
+    >
+      <MistakeBankContent />
+    </ProGate>
+  )
+}
+
+function MistakeBankContent() {
   const queryClient = useQueryClient()
 
   const [search, setSearch] = useState("")

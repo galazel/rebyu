@@ -6,6 +6,8 @@ import { BackButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { DocumentReader } from "@/pages/learner/workspace/document-reader.jsx"
 import { apiMessage } from "@/services/base"
 import { fetchFileBlob, getFileViewLink } from "@/services/fileService"
+import { ProLockCard } from "@/components/learner/pro-gate.jsx"
+import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 
 /**
  * A shared community reviewer, read full-page.
@@ -58,7 +60,11 @@ function isStreamable(name) {
     return ["pdf", "png", "jpg", "jpeg", "gif", "webp"].includes(extension)
 }
 
+/** Pages of a shared file a Free learner can read before the preview stops. */
+const FREE_PREVIEW_PAGES = 2
+
 export default function CommunityReviewerPage() {
+    const plan = useLearnerEntitlements()
     const { postId } = useParams()
     const [params] = useSearchParams()
     const navigate = useNavigate()
@@ -196,7 +202,18 @@ export default function CommunityReviewerPage() {
                 ) : null}
 
                 {state.status === "ready" && document ? (
-                    <DocumentReader file={document} back={backControl} />
+                    <DocumentReader
+                        file={document}
+                        back={backControl}
+                        previewPages={plan.isFree ? FREE_PREVIEW_PAGES : null}
+                        lockedNotice={
+                            <ProLockCard
+                                compact
+                                title="Keep reading with Pro"
+                                description={`Free shows the first ${FREE_PREVIEW_PAGES} pages of a shared file. Upgrade to REBYU Pro to read and download all of it.`}
+                            />
+                        }
+                    />
                 ) : null}
             </div>
         </div>

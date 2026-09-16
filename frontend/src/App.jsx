@@ -22,6 +22,7 @@ const AdminOrganizationDetail = lazyRoute(() => import("./pages/admin/admin-orga
 const ViewCertificationAdmin = lazyRoute(() => import("./pages/admin/view-certification-admin-page.jsx"))
 const AdminDashboard = lazyRoute(() => import("./pages/admin/admin-dashboard-page.jsx"))
 const PartnershipRequests = lazyRoute(() => import("./pages/admin/partnership-requests-page.jsx"))
+const AdminSubscriptions = lazyRoute(() => import("./pages/admin/subscriptions-page.jsx"))
 const CommunityModeration = lazyRoute(() => import("./pages/admin/community-moderation-page.jsx"))
 const AcceptInstitutionInvitationPage = lazyRoute(() => import("./pages/admin/accept-institution-invitation-page.jsx"))
 const LandingPage = lazyRoute(() => import("./pages/public/landing-page.jsx"))
@@ -320,6 +321,7 @@ export function App() {
                         element={<AdminOrganizationDetail />}
                     />
                     <Route path="partnership-requests" element={<PartnershipRequests />} />
+                    <Route path="subscriptions" element={<AdminSubscriptions />} />
                     <Route path="community" element={<CommunityModeration />} />
                     {/* BKT delivery status is withdrawn from the admin portal.
                         The page and its service still exist -- re-register this

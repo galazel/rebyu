@@ -50,25 +50,83 @@ public class PaymentWebhookService {
                 .orElseThrow(() -> new EntityNotFoundException("Subscription plan not found: " + planId));
 
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime periodEnd = computePeriodEnd(now, plan.getBillingInterval());
 
+        // Paid, but not yet Pro: PayMongo is in test mode, so an admin approves
+        // every subscription before it grants anything. The period starts on
+        // approval, not here, so the wait does not eat into the paid month.
         LearnerSubscription subscription = LearnerSubscription.builder()
                 .learner(Learner.builder().learnerId(learnerId).build())
                 .subscriptionPlan(plan)
                 .provider("PAYMONGO")
                 .providerSubscriptionId(providerReference)
-                .status(BillingStatus.ACTIVE)
-                .startedAt(now)
-                .currentPeriodStart(now)
-                .currentPeriodEnd(periodEnd)
+                .status(BillingStatus.PENDING)
+                .amountPaid(plan.getAmount())
+                .paidAt(now)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
 
         LearnerSubscription saved = learnerSubscriptionRepository.save(subscription);
-        log.info("Subscription activated for learner={} plan={} via checkout session={}",
+        log.info("Checkout paid for learner={} plan={} session={}; awaiting admin approval",
                 learnerId, planId, providerReference);
         return saved;
+    }
+
+    /** Admin approval: the subscription becomes Pro from this moment. */
+    public LearnerSubscription approve(Long subscriptionId, Long adminUserId) {
+        LearnerSubscription subscription = requireAwaitingApproval(subscriptionId);
+        LocalDateTime now = LocalDateTime.now();
+        subscription.setStatus(BillingStatus.ACTIVE);
+        subscription.setStartedAt(now);
+        subscription.setCurrentPeriodStart(now);
+        subscription.setCurrentPeriodEnd(computePeriodEnd(now, subscription.getSubscriptionPlan().getBillingInterval()));
+        subscription.setReviewedAt(now);
+        subscription.setReviewedByUserId(adminUserId);
+        subscription.setReviewNote(null);
+        subscription.setUpdatedAt(now);
+        log.info("Subscription {} approved by user {}", subscriptionId, adminUserId);
+        return learnerSubscriptionRepository.save(subscription);
+    }
+
+    /** Admin rejection: nothing is granted, and the learner sees the note. */
+    public LearnerSubscription reject(Long subscriptionId, Long adminUserId, String note) {
+        LearnerSubscription subscription = requireAwaitingApproval(subscriptionId);
+        LocalDateTime now = LocalDateTime.now();
+        subscription.setStatus(BillingStatus.CANCELED);
+        subscription.setCanceledAt(now);
+        subscription.setEndedAt(now);
+        subscription.setReviewedAt(now);
+        subscription.setReviewedByUserId(adminUserId);
+        subscription.setReviewNote(note == null || note.isBlank() ? null : note.trim());
+        subscription.setUpdatedAt(now);
+        log.info("Subscription {} rejected by user {}", subscriptionId, adminUserId);
+        return learnerSubscriptionRepository.save(subscription);
+    }
+
+    /** Ends a Pro subscription at once (admin), e.g. to reset a test account. */
+    public LearnerSubscription revoke(Long subscriptionId, Long adminUserId) {
+        LearnerSubscription subscription = learnerSubscriptionRepository.findById(subscriptionId)
+                .orElseThrow(() -> new EntityNotFoundException("Subscription not found: " + subscriptionId));
+        if (!subscription.isCurrentlyActive()) {
+            throw new IllegalStateException("Only an active subscription can be revoked.");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        subscription.setStatus(BillingStatus.CANCELED);
+        subscription.setCanceledAt(now);
+        subscription.setEndedAt(now);
+        subscription.setCurrentPeriodEnd(now);
+        subscription.setReviewedByUserId(adminUserId);
+        subscription.setUpdatedAt(now);
+        return learnerSubscriptionRepository.save(subscription);
+    }
+
+    private LearnerSubscription requireAwaitingApproval(Long subscriptionId) {
+        LearnerSubscription subscription = learnerSubscriptionRepository.findById(subscriptionId)
+                .orElseThrow(() -> new EntityNotFoundException("Subscription not found: " + subscriptionId));
+        if (!subscription.isAwaitingApproval()) {
+            throw new IllegalStateException("This subscription is not waiting for approval.");
+        }
+        return subscription;
     }
 
     /** Cancel-at-period-end: access continues until the paid period lapses. */

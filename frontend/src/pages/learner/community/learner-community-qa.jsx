@@ -74,6 +74,8 @@ import {
     readCommunityFeedSnapshot,
     writeCommunityFeedSnapshot,
 } from "@/services/communityService"
+import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
+import { isPremiumError } from "@/services/subscriptionService.js"
 
 const FEED_TABS = [
     { value: "for-you", label: "For you" },
@@ -658,6 +660,7 @@ function CommunityPost({
 }
 
 export default function Community() {
+    const plan = useLearnerEntitlements()
     const navigate = useNavigate()
     /* Seeded from the cache during the first render, not from an effect after
        it. `useEffect` runs after paint, so on a return visit these would be
@@ -903,7 +906,19 @@ export default function Community() {
             .catch(() => {})
     }
 
+    function promptUpgrade(message) {
+        toast.info(message, {
+            description: "Upgrade to REBYU Pro to take shared quizzes, exams and flashcards.",
+            action: { label: "Upgrade", onClick: () => navigate("/learner/subscription") },
+        })
+    }
+
     async function startPractice(postId) {
+        // Shared quizzes, exams and flashcard sets are Pro; Free can still read the post.
+        if (plan.isFree) {
+            promptUpgrade("Shared study sets are a Pro feature")
+            return
+        }
         countView(postId)
         try {
             const attempt = await startSharedCommunityPractice(postId)
@@ -913,6 +928,10 @@ export default function Community() {
                     : `/learner/practice/${attempt.studySetId}`
             )
         } catch (error) {
+            if (isPremiumError(error)) {
+                promptUpgrade("Shared study sets are a Pro feature")
+                return
+            }
             toast.error(apiMessage(error, "This shared study item could not be opened."))
         }
     }

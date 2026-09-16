@@ -28,6 +28,8 @@ import java.util.Map;
 public class LearnerToolsController {
 
     private final LearnerToolsService service;
+    private final com.capstone.rebyu.billing.service.AiGenerationQuotaService generationQuota;
+    private final com.capstone.rebyu.billing.service.LearnerEntitlementService entitlements;
     private final CognitoAuthService auth;
     private final AiServiceClient aiServiceClient;
     private final GeneratedAssessmentService generatedAssessmentService;
@@ -64,7 +66,10 @@ public class LearnerToolsController {
 
     @GetMapping("/mistakes")
     public List<LearnerToolsService.Mistake> mistakes(@AuthenticationPrincipal Jwt jwt) {
-        return service.mistakes(me(jwt));
+        Long learnerId = me(jwt);
+        entitlements.requireLearnerEntitlement(
+                learnerId, com.capstone.rebyu.billing.entitlement.Entitlements.MISTAKE_BANK, null);
+        return service.mistakes(learnerId);
     }
 
     @PutMapping("/mistakes/{questionId}/reviewed")
@@ -86,6 +91,9 @@ public class LearnerToolsController {
         }
         String lesson = request.lessonName() == null || request.lessonName().isBlank()
                 ? "this lesson" : request.lessonName().trim();
+        // Pro only, and at most the plan's daily allowance. Counted after the
+        // set is saved, so a failed generation does not use one up.
+        generationQuota.requireAvailable(learnerId);
 
         Map<String, Object> aiResult = aiServiceClient.generateStudyAid(type, lesson, request.lessonId());
         // AI-credit spend intentionally disabled while the study-aid generation
@@ -95,6 +103,7 @@ public class LearnerToolsController {
         if ("flashcard".equals(type)) {
             var generatedSet = persistGeneratedFlashcards(
                     learnerId, lesson, request.lessonId(), aiResult);
+            generationQuota.record(learnerId, type);
             return service.createLibraryItem(learnerId,
                     new LearnerToolsService.LibraryRequest(type, generatedSet.title(),
                             "Generated from " + lesson + ". Open it to begin studying.",
@@ -103,6 +112,7 @@ public class LearnerToolsController {
         }
 
         var generatedExam = persistGeneratedExam(learnerId, type, lesson, request.lessonId(), aiResult);
+        generationQuota.record(learnerId, type);
         return service.createLibraryItem(learnerId,
                 new LearnerToolsService.LibraryRequest(type, generatedExam.title(),
                         "Generated from " + lesson + ". Open it to begin an attempt.",

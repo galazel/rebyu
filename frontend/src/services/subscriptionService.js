@@ -55,4 +55,35 @@ export const FEATURES = {
   CHALLENGES_ACCESS: "CHALLENGES_ACCESS",
   READINESS_ANALYSIS: "READINESS_ANALYSIS",
   ADVANCED_RECOMMENDATIONS: "ADVANCED_RECOMMENDATIONS",
+  QUIZ_RETAKES: "QUIZ_RETAKES",
+  AI_TUTOR: "AI_TUTOR",
+  COMMUNITY_FULL_ACCESS: "COMMUNITY_FULL_ACCESS",
+  MISTAKE_BANK: "MISTAKE_BANK",
+  WORLD_CUP_ACCESS: "WORLD_CUP_ACCESS",
+}
+
+/** Problems a Free learner may sit in CodeStrike and Blueprint Arena (matches the backend). */
+export const FREE_ARENA_PROBLEM_LIMIT = 5
+
+/** True when an API error is the backend saying "this is Pro". */
+export function isPremiumError(error) {
+  const code = error?.response?.data?.code
+  return code === "PREMIUM_ACCESS_REQUIRED" || code === "DAILY_LIMIT_REACHED"
+}
+
+// Admin review queue for Pro (PayMongo runs in test mode, so an admin approves each one).
+export function getAdminSubscriptions() {
+  return base("admin/subscriptions")
+}
+
+export function approveSubscription(id) {
+  return base(`admin/subscriptions/${id}/approve`, { method: "POST" })
+}
+
+export function rejectSubscription(id, note) {
+  return base(`admin/subscriptions/${id}/reject`, { method: "POST", data: { note } })
+}
+
+export function revokeSubscription(id) {
+  return base(`admin/subscriptions/${id}/revoke`, { method: "POST" })
 }

@@ -17,7 +17,11 @@ import { BentoHeading, BentoStat, BentoTile } from "@/components/commons/bento.j
 import {
   BarBreakdownChart,
   DonutChart,
+  RadialGauge,
+  TrendAreaChart,
+  TrendLineChart,
 } from "@/components/charts/rebyu-charts.jsx"
+import { Link } from "react-router-dom"
 import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
 import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
 import { useDashboardLayout } from "@/hooks/use-dashboard-layout.js"
@@ -74,6 +78,43 @@ export default function AdminDashboard() {
   const catalog = metrics.catalog ?? {}
   const sales = metrics.sales ?? {}
 
+  const assessments = metrics.assessments ?? {}
+  const planMix = metrics.planMix ?? null
+
+  /* Six calendar months, oldest first, labelled "Apr", "May"... The server
+     zero-fills quiet months so a line never jumps a gap. */
+  const trends = useMemo(
+    () =>
+      asArray(metrics.trends).map((row) => {
+        const [year, month] = String(row.month).split("-").map(Number)
+        const label = new Date(year, (month || 1) - 1, 1).toLocaleDateString(undefined, { month: "short" })
+        const attempts = Number(row.attempts ?? 0)
+        return {
+          month: label,
+          users: Number(row.newUsers ?? 0),
+          attempts,
+          passRate: attempts ? Math.round((Number(row.passedAttempts ?? 0) * 100) / attempts) : 0,
+          sales: Math.round(Number(row.certificationSales ?? 0)),
+          pro: Math.round(Number(row.proRevenue ?? 0)),
+          approvals: Number(row.proApprovals ?? 0),
+        }
+      }),
+    [metrics.trends]
+  )
+  const revenuePeak = Math.max(10, ...trends.map((row) => Math.max(row.sales, row.pro)))
+
+  const planSlices = useMemo(
+    () =>
+      planMix
+        ? [
+            { name: "Free", value: Number(planMix.freeLearners ?? 0) },
+            { name: "Pro", value: Number(planMix.proLearners ?? 0) },
+            { name: "Awaiting approval", value: Number(planMix.awaitingApproval ?? 0) },
+          ].filter((slice) => slice.value > 0)
+        : [],
+    [planMix]
+  )
+
   const recentPayments = useMemo(
     () => asArray(metrics.recentPayments),
     [metrics.recentPayments]
@@ -109,6 +150,118 @@ export default function AdminDashboard() {
     const failed = metricsQuery.isError
 
     return [
+      {
+        id: "admin-growth",
+        col: 4,
+        row: 2,
+        element: (
+          <BentoTile col={4} row={2}>
+            <BentoHeading
+              title="Platform activity"
+              hint="New accounts and graded assessment attempts, last six months"
+            />
+            {failed ? (
+              <p className="mt-4 text-sm text-muted-foreground">Could not be loaded.</p>
+            ) : (
+              <TrendAreaChart
+                data={trends}
+                xKey="month"
+                stacked={false}
+                height={190}
+                series={[
+                  { key: "attempts", name: "Assessment attempts" },
+                  { key: "users", name: "New accounts" },
+                ]}
+                legendNote="This month"
+              />
+            )}
+          </BentoTile>
+        ),
+      },
+      {
+        id: "admin-plan-mix",
+        col: 2,
+        row: 2,
+        element: (
+          <BentoTile col={2} row={2}>
+            <BentoHeading
+              title="Learner plans"
+              hint={
+                <>
+                  Free against Pro.{" "}
+                  {Number(planMix?.awaitingApproval ?? 0) > 0 ? (
+                    <Link to="/admin/subscriptions" className="font-bold text-rb-feather-lip underline">
+                      {planMix.awaitingApproval} waiting for approval
+                    </Link>
+                  ) : null}
+                </>
+              }
+            />
+            {failed || planSlices.length === 0 ? (
+              <p className="mt-4 text-sm text-muted-foreground">
+                {failed ? "Could not be loaded." : "No learners yet."}
+              </p>
+            ) : (
+              <DonutChart
+                data={planSlices}
+                height={160}
+                centerValue={String(Number(planMix?.proLearners ?? 0))}
+                centerLabel="on Pro"
+              />
+            )}
+          </BentoTile>
+        ),
+      },
+      {
+        id: "admin-revenue",
+        col: 4,
+        row: 2,
+        element: (
+          <BentoTile col={4} row={2}>
+            <BentoHeading
+              title="Revenue"
+              hint="Certification sales and approved Pro subscriptions (PayMongo test mode), in pesos"
+            />
+            {failed ? (
+              <p className="mt-4 text-sm text-muted-foreground">Could not be loaded.</p>
+            ) : (
+              <TrendLineChart
+                data={trends}
+                xKey="month"
+                height={190}
+                domain={[0, Math.ceil(revenuePeak * 1.15)]}
+                series={[
+                  { key: "sales", name: "Certification sales" },
+                  { key: "pro", name: "Pro subscriptions" },
+                ]}
+                legendNote="This month, ₱"
+              />
+            )}
+          </BentoTile>
+        ),
+      },
+      {
+        id: "admin-pass-rate",
+        col: 2,
+        row: 2,
+        element: (
+          <BentoTile col={2} row={2}>
+            <BentoHeading
+              title="Pass rate"
+              hint={`${count(assessments.gradedAttempts)} graded attempts · average score ${
+                assessments.averageScore == null ? "—" : `${assessments.averageScore}%`
+              }`}
+            />
+            {failed || assessments.passRate == null ? (
+              <p className="mt-4 text-sm text-muted-foreground">
+                {failed ? "Could not be loaded." : "Nothing graded yet."}
+              </p>
+            ) : (
+              <RadialGauge value={assessments.passRate} label="passed" height={170} />
+            )}
+          </BentoTile>
+        ),
+      },
       {
         id: "admin-users",
         col: 2,
@@ -247,6 +400,7 @@ export default function AdminDashboard() {
                   { label: "Paid orders", count: Number(sales.paidOrders ?? 0) },
                   { label: "Pending orders", count: Number(sales.pendingOrders ?? 0) },
                   { label: "Pro subs", count: Number(sales.activeSubscriptions ?? 0) },
+                  { label: "Pro pending", count: Number(planMix?.awaitingApproval ?? 0) },
                   { label: "Licences", count: Number(sales.activeLicenses ?? 0) },
                 ]}
                 categoryKey="label"
@@ -373,6 +527,11 @@ export default function AdminDashboard() {
     ]
   }, [
     metricsQuery.isError,
+    trends,
+    revenuePeak,
+    planSlices,
+    planMix,
+    assessments,
     people,
     catalog,
     sales,

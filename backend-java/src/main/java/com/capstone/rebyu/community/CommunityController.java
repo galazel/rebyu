@@ -22,6 +22,7 @@ public class CommunityController {
     private final CommunityService service;
     private final CognitoAuthService auth;
     private final StudyPracticeService practiceService;
+    private final com.capstone.rebyu.billing.service.LearnerEntitlementService entitlements;
 
     @GetMapping("/posts")
     public List<CommunityService.Post> posts(
@@ -80,6 +81,8 @@ public class CommunityController {
     @PostMapping("/posts/{postId}/practice")
     public SharedPractice startSharedPractice(@AuthenticationPrincipal Jwt jwt, @PathVariable Long postId) {
         Long learnerId = me(jwt);
+        entitlements.requireLearnerEntitlement(
+                learnerId, com.capstone.rebyu.billing.entitlement.Entitlements.COMMUNITY_FULL_ACCESS, null);
         CommunityService.SharedStudyTarget target = service.sharedStudyTarget(postId);
         StudyPracticeService.Attempt attempt = "EXAM".equals(target.store())
                 ? practiceService.startCommunityExamAttempt(learnerId, target.id())

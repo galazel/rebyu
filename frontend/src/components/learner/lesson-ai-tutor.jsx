@@ -40,7 +40,8 @@ import { Reveal, motion, popIn } from "@/components/motion/rebyu-motion.jsx"
 
 import { base } from "@/services/base"
 import { generateStudyAid } from "@/services/learnerToolsService.js"
-import { getMyRewardBalance } from "@/services/gamificationService.js"
+import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
+import { ProLockCard } from "@/components/learner/pro-gate.jsx"
 
 /**
  * The lesson AI tutor panel.
@@ -273,7 +274,11 @@ export function LessonAiTutor({
   const [pending, setPending] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [generating, setGenerating] = useState(null)
-  const rewardsQuery = useQuery({ queryKey: ["my-reward-balance"], queryFn: getMyRewardBalance })
+  const entitlements = useLearnerEntitlements()
+  // Free has no tutor; Pro has a daily allowance of generated quizzes/flashcards.
+  const tutorLocked = entitlements.isFree
+  const generationLimit = entitlements.aiGenerationDailyLimit
+  const generationsLeft = Math.max(generationLimit - entitlements.aiGenerationsUsedToday, 0)
 
   // Each lesson has its own thread on the server (see `buildTutorSessionId`),
   // so switching lessons should restore that lesson's own past conversation
@@ -286,7 +291,7 @@ export function LessonAiTutor({
     setDraft("")
     setPending(false)
 
-    if (lessonId == null) {
+    if (lessonId == null || tutorLocked) {
       return undefined
     }
 
@@ -324,7 +329,7 @@ export function LessonAiTutor({
     return () => {
       cancelled = true
     }
-  }, [lessonId, learnerId])
+  }, [lessonId, learnerId, tutorLocked])
 
   async function sendTutorMessage(value) {
     const question = String(value ?? "").trim()
@@ -458,7 +463,7 @@ export function LessonAiTutor({
         // only the history entry isn't worth interrupting them over.
       })
 
-      rewardsQuery.refetch()
+      entitlements.refetch()
     } catch (error) {
       setMessages((current) => [
         ...current,
@@ -469,6 +474,7 @@ export function LessonAiTutor({
           createdAt: Date.now(),
         },
       ])
+      entitlements.refetch()
     } finally {
       setGenerating(null)
     }
@@ -486,6 +492,37 @@ export function LessonAiTutor({
   }
 
   const hasConversation = messages.length > 0
+
+  if (tutorLocked) {
+    return (
+      <section className="flex h-full min-h-0 flex-col bg-rb-snow">
+        <header className="flex h-16 shrink-0 items-center justify-between bg-rb-feather px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <TutorAvatar size="size-10" iconSize="size-5" onViolet />
+            <p className="font-rb-display text-sm font-extrabold text-white">REBYU AI Tutor</p>
+          </div>
+          <TactileButton
+            variant="ghost"
+            size="sm"
+            className="rb-btn-icon shrink-0 !border-transparent hover:!bg-white/15"
+            style={{ "--rb-btn-face": "transparent", "--rb-btn-ink": "#ffffff" }}
+            onClick={onClose}
+            aria-label="Close AI Tutor"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </TactileButton>
+        </header>
+        <div className="grid min-h-0 flex-1 place-items-center overflow-y-auto p-4">
+          <ProLockCard
+            compact
+            title="The AI tutor is a Pro feature"
+            description="Ask questions about this lesson and generate practice quizzes and flashcards (up to 10 a day). Upgrade to REBYU Pro to start."
+            className="!border-0 !shadow-none"
+          />
+        </div>
+      </section>
+    )
+  }
 
   return (
       <section className="flex h-full min-h-0 flex-col bg-rb-snow">
@@ -685,19 +722,19 @@ export function LessonAiTutor({
               <DropdownMenuContent align="start" side="top" className="w-64">
                 <DropdownMenuLabel>
                   <span className="block text-sm font-bold text-rb-eel">Create with AI</span>
-                  <span className="mt-0.5 block text-xs font-medium text-rb-wolf">Generated items are saved to Library. {rewardsQuery.data?.aiCredits ?? 0} AI Credits available.</span>
+                  <span className="mt-0.5 block text-xs font-medium text-rb-wolf">Generated items are saved to Library. {generationLimit > 0 ? `${generationsLeft} of ${generationLimit} generations left today.` : ""}</span>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={() => createStudyAid("quiz")}
-                  disabled={Boolean(generating)}
+                  disabled={Boolean(generating) || (generationLimit > 0 && generationsLeft === 0)}
                 >
                   <BookOpenCheck className="mr-2 size-4" />
                   <span className="flex-1">Generate quiz</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={() => createStudyAid("flashcard")}
-                  disabled={Boolean(generating)}
+                  disabled={Boolean(generating) || (generationLimit > 0 && generationsLeft === 0)}
                 >
                   <Layers3 className="mr-2 size-4" />
                   <span className="flex-1">Generate flashcards</span>

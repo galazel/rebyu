@@ -27,6 +27,21 @@ public final class Entitlements {
     public static final String READINESS_ANALYSIS = "READINESS_ANALYSIS";
     public static final String ADVANCED_RECOMMENDATIONS = "ADVANCED_RECOMMENDATIONS";
 
+    // What separates Free from Pro. Free keeps every lesson and the first sitting
+    // of each quiz/exam; these are the rest.
+    public static final String QUIZ_RETAKES = "QUIZ_RETAKES";
+    public static final String AI_TUTOR = "AI_TUTOR";
+    public static final String COMMUNITY_FULL_ACCESS = "COMMUNITY_FULL_ACCESS";
+    public static final String MISTAKE_BANK = "MISTAKE_BANK";
+    public static final String WORLD_CUP_ACCESS = "WORLD_CUP_ACCESS";
+    /** limit_value = study aids the tutor may generate per day on Pro. */
+    public static final String AI_TUTOR_DAILY_GENERATIONS = "AI_TUTOR_DAILY_GENERATIONS";
+
+    /** Problems a Free learner may sit in each solo arena (CodeStrike, Blueprint). */
+    public static final int FREE_ARENA_PROBLEM_LIMIT = 5;
+    /** Tutor generations per day on Pro when the plan row carries no limit. */
+    public static final int DEFAULT_DAILY_AI_GENERATIONS = 10;
+
     // Institutional management features
     public static final String GROUP_MANAGEMENT = "GROUP_MANAGEMENT";
     public static final String AUTHORITY_MANAGEMENT = "AUTHORITY_MANAGEMENT";

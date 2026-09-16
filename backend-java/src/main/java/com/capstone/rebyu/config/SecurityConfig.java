@@ -174,6 +174,9 @@ public class SecurityConfig {
                         // Anonymous access is blocked here so a new handler that forgets
                         // is not publicly reachable.
                         .requestMatchers("/api/community/**").authenticated()
+                        // The AI tutor is Pro and costs money per call; it was public.
+                        .requestMatchers("/api/ai/tutor", "/api/ai/tutor/**").authenticated()
+                        .requestMatchers("/api/admin/subscriptions/**", "/api/admin/subscriptions").authenticated()
                         // The question bank (including choices/correct answers) had no
                         // auth at all -- anyone could read, create, edit, or delete any
                         // question. Now admin- or institution-scoped at the controller;

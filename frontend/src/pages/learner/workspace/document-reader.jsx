@@ -297,7 +297,26 @@ function useSheets(html) {
 
 /* -------------------------------------------------------------- reader --- */
 
-export function DocumentReader({ file, onReplace, onRemove, back }) {
+/**
+ * `previewPages` turns the reader into a preview, the way Scribd shows a
+ * document to someone without access: the first pages read normally, the next
+ * one is blurred under `lockedNotice`, the rest are not drawn, and there is no
+ * download.
+ */
+function LockedPage({ notice, children }) {
+  return (
+    <div className="relative">
+      <div className="pointer-events-none select-none blur-md" aria-hidden="true" inert="">
+        {children}
+      </div>
+      <div className="absolute inset-0 z-10 flex items-start justify-center bg-white/30 px-4 pt-16">
+        {notice}
+      </div>
+    </div>
+  )
+}
+
+export function DocumentReader({ file, onReplace, onRemove, back, previewPages = null, lockedNotice = null }) {
   const extension = fileExtension(file.name)
   const isPdf = extension === ".pdf"
   const isText = extension === ".txt"
@@ -471,10 +490,12 @@ export function DocumentReader({ file, onReplace, onRemove, back }) {
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <a href={file.previewUrl} download={file.name} className="rb-reader-download">
-            <Download className="size-4" aria-hidden="true" />
-            <span className="hidden sm:inline">Download</span>
-          </a>
+          {previewPages == null ? (
+            <a href={file.previewUrl} download={file.name} className="rb-reader-download">
+              <Download className="size-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Download</span>
+            </a>
+          ) : null}
 
           <span className="rb-reader-divider" aria-hidden="true" />
 
@@ -611,15 +632,20 @@ export function DocumentReader({ file, onReplace, onRemove, back }) {
                         ? "This image could not be shown here. Download it to see it."
                         : "This file type has no preview. Download it to read it.")}
                 </p>
-                <a href={file.previewUrl} download={file.name} className="rb-reader-download mt-5">
-                  <Download className="size-4" aria-hidden="true" />
-                  Download
-                </a>
+                {previewPages == null ? (
+                  <a href={file.previewUrl} download={file.name} className="rb-reader-download mt-5">
+                    <Download className="size-4" aria-hidden="true" />
+                    Download
+                  </a>
+                ) : (
+                  <div className="mt-5">{lockedNotice}</div>
+                )}
               </div>
             </div>
           ) : isImage ? (
             <div className="rb-reader-stack">
-              {images.map((image, index) => (
+              {(previewPages == null ? images : images.slice(0, previewPages + 1)).map((image, index) => {
+                const slot = (
                 <div key={`${image.url}-${index}`} data-page={index + 1} className="rb-reader-page-slot">
                   <img
                     src={image.url}
@@ -631,24 +657,34 @@ export function DocumentReader({ file, onReplace, onRemove, back }) {
                   />
                   {images.length > 1 ? <p className="rb-reader-page-number">{index + 1}</p> : null}
                 </div>
-              ))}
+                )
+                return previewPages != null && index >= previewPages ? (
+                  <LockedPage key={`locked-${index}`} notice={lockedNotice}>{slot}</LockedPage>
+                ) : slot
+              })}
             </div>
           ) : isPdf ? (
             <div className="rb-reader-stack">
-              {pageNumbers.map((number) => (
-                <PdfPage
-                  key={number}
-                  doc={pdf.doc}
-                  number={number}
-                  width={pdfWidth}
-                  ratio={pdf.ratio}
-                  rootRef={scrollRef}
-                />
-              ))}
+              {(previewPages == null ? pageNumbers : pageNumbers.slice(0, previewPages + 1)).map((number) => {
+                const pdfPage = (
+                  <PdfPage
+                    key={number}
+                    doc={pdf.doc}
+                    number={number}
+                    width={pdfWidth}
+                    ratio={pdf.ratio}
+                    rootRef={scrollRef}
+                  />
+                )
+                return previewPages != null && number > previewPages ? (
+                  <LockedPage key={`locked-${number}`} notice={lockedNotice}>{pdfPage}</LockedPage>
+                ) : pdfPage
+              })}
             </div>
           ) : (
             <div className="rb-reader-stack">
-              {sheets.map((sheet, index) => (
+              {(previewPages == null ? sheets : sheets.slice(0, previewPages + 1)).map((sheet, index) => {
+                const sheetSlot = (
                 <div key={index} data-page={index + 1} className="rb-reader-page-slot">
                   <div
                     className="rb-reader-sheet"
@@ -670,7 +706,11 @@ export function DocumentReader({ file, onReplace, onRemove, back }) {
                   </div>
                   <p className="rb-reader-page-number">{index + 1}</p>
                 </div>
-              ))}
+                )
+                return previewPages != null && index >= previewPages ? (
+                  <LockedPage key={`locked-${index}`} notice={lockedNotice}>{sheetSlot}</LockedPage>
+                ) : sheetSlot
+              })}
             </div>
           )}
           {measurer}

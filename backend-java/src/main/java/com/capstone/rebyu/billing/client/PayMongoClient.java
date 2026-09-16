@@ -33,14 +33,30 @@ public class PayMongoClient {
     @Value("${paymongo.enabled:false}")
     private boolean enabled;
 
+    // Checkout Sessions live on v1; there is no v2 of this API.
     @Value("${paymongo.base-url:https://api.paymongo.com/v1}")
     private String baseUrl;
 
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
+    /**
+     * Test mode only. A live key (sk_live_) is refused outright, so this build
+     * can never take real money; checkout works whenever a test key is set.
+     */
     public boolean isEnabled() {
-        return enabled && secretKey != null && !secretKey.isBlank();
+        return secretKey != null && secretKey.trim().startsWith("sk_test_");
+    }
+
+    /** Why checkout is unavailable, for the error the learner sees. */
+    public String disabledReason() {
+        if (secretKey == null || secretKey.isBlank()) {
+            return "Payments are not configured yet (PAYMONGO_SECRET_KEY is missing).";
+        }
+        if (!secretKey.trim().startsWith("sk_test_")) {
+            return "Only a PayMongo test key (sk_test_...) is accepted.";
+        }
+        return null;
     }
 
     /**
@@ -64,6 +80,8 @@ public class PayMongoClient {
             attributes.put("line_items", new Object[]{lineItem});
             attributes.put("payment_method_types", new String[]{"card", "gcash", "paymaya"});
             attributes.put("billing_name_required", true);
+            attributes.put("description", planName + " (test mode)");
+            attributes.put("reference_number", "REBYU-" + learnerId + "-" + System.currentTimeMillis());
             attributes.put("success_url", frontendUrl + "/subscription/success?session_id={checkout_session_id}");
             attributes.put("cancel_url", frontendUrl + "/subscription/cancel");
             attributes.put("metadata", Map.of(
@@ -141,7 +159,7 @@ public class PayMongoClient {
     private String postRequest(String path, Object body) {
         try {
             String url = baseUrl + path;
-            String auth = "Basic " + Base64.getEncoder().encodeToString((secretKey + ":").getBytes());
+            String auth = "Basic " + Base64.getEncoder().encodeToString((secretKey.trim() + ":").getBytes());
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -164,13 +182,15 @@ public class PayMongoClient {
     private String getRequest(String path) {
         try {
             String url = baseUrl + path;
-            String auth = "Basic " + Base64.getEncoder().encodeToString((secretKey + ":").getBytes());
+            String auth = "Basic " + Base64.getEncoder().encodeToString((secretKey.trim() + ":").getBytes());
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("Authorization", auth);
 
             HttpEntity<Void> entity = new HttpEntity<>(headers);
-            String response = restTemplate.getForObject(url, String.class);
+            // getForObject(url) sent no headers at all, so every verify call
+            // reached PayMongo unauthenticated and was refused.
+            String response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, String.class).getBody();
 
             log.debug("PayMongo GET {} response received", path);
             return response;

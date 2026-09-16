@@ -29,7 +29,6 @@ import {
   LearnerEmptyState,
   LearnerErrorState,
 } from "@/components/learner/learner-ui.jsx"
-import LearnerPremiumGuard from "@/components/learner/learner-premium-guard.jsx"
 import { ExamCountdownTile } from "@/components/learner/exam-countdown-tile.jsx"
 import { StudyNotesTile } from "@/components/learner/study-notes-tile.jsx"
 import { TodaysPlanTile } from "@/components/learner/todays-plan-tile.jsx"
@@ -48,7 +47,6 @@ import {
   seriesColor,
   useChartTheme,
 } from "@/components/charts/rebyu-charts.jsx"
-import { FEATURES } from "@/services/subscriptionService.js"
 import {
   PRIORITY_META,
   NEW_STUDY_PLAN_PARAM as NEW_PLAN_PARAM,
@@ -1655,11 +1653,7 @@ export default function LearnerProgressPage() {
   }
 
   return (
-    <LearnerPremiumGuard
-      feature={FEATURES.PROGRESS_ANALYTICS}
-      title="Advanced progress analytics"
-      description="Unlock mastery, weakness analysis, performance trends, confidence, and recommended next actions with Pro or institution access."
-    >
+    <>
       <div className="space-y-6">
         {/* No page title. The route is already named "Analytics" in the top
             navigation, and the strapline under it described the tiles rather
@@ -1818,6 +1812,6 @@ export default function LearnerProgressPage() {
             offer a study plan on this page and have nothing to render it in. */}
         {studyPlanDialog}
       </div>
-    </LearnerPremiumGuard>
+    </>
   )
 }
