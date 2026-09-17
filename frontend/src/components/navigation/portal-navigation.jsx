@@ -390,11 +390,13 @@ export function PortalTopNavigation({ role, actions, organizationName, instituti
             indented relative to every heading underneath them. */}
         <div className="mx-auto flex h-16 w-full max-w-[1800px] items-center gap-4 px-3 sm:px-5 lg:px-6">
           <Brand role={role} organizationName={organizationName} />
-          {/* Right-aligned, next to the account menu. Centred, the links
+          {/* Left-aligned against the logo for a learner. Centred, the links
               floated in the middle of the bar and shifted horizontally
-              whenever the brand or the action cluster changed width -- against
-              the account menu they have a fixed edge to end on instead. */}
-          <nav className="hidden min-w-0 flex-1 items-center justify-end gap-1 lg:flex" aria-label={`${role.toLowerCase()} navigation`}>
+              whenever the brand or the action cluster changed width -- next to
+              the wordmark they have a fixed edge to start from. The
+              institution/admin nav stays right-aligned, next to the account
+              menu, to make room for the organization's own name in the brand. */}
+          <nav className={cn("hidden min-w-0 flex-1 items-center gap-1 lg:flex", isInstitutionRole(role) ? "justify-end" : "justify-start")} aria-label={`${role.toLowerCase()} navigation`}>
             {role === "LEARNER"
               ? learnerNavigation.slice(0, 6).map((item) => {
                   const Icon = item.icon
