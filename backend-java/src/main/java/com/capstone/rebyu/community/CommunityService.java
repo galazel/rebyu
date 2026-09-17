@@ -123,6 +123,12 @@ public class CommunityService {
                 .toList();
     }
 
+    public boolean isPostAuthor(Long postId, Long learnerId) {
+        return learnerId != null && postRepository.findById(postId)
+                .map(p -> p.getAuthor() != null && learnerId.equals(p.getAuthor().getLearnerId()))
+                .orElse(false);
+    }
+
     private Post postById(Long learnerId, Long postId) {
         return postRepository.findRowById(postId, learnerId)
                 .map(CommunityService::mapPostRow)

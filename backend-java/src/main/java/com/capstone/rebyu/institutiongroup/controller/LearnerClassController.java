@@ -28,7 +28,7 @@ import java.util.List;
  * nothing of the group at all -- only the official curriculum.
  */
 @RestController
-@RequestMapping("/api/learners/me/classes")
+@RequestMapping("/api/learners/me")
 @RequiredArgsConstructor
 public class LearnerClassController {
 
@@ -51,7 +51,7 @@ public class LearnerClassController {
     }
 
     /** Every active class the learner is in, optionally narrowed to one certification. */
-    @GetMapping
+    @GetMapping("/classes")
     @Transactional(readOnly = true)
     public List<LearnerClass> myClasses(
             @AuthenticationPrincipal Jwt jwt,
@@ -71,6 +71,26 @@ public class LearnerClassController {
                 .filter(group -> certificationId == null || certificationId.equals(certificationIdOf(group)))
                 .distinct()
                 .map(this::toClass)
+                .toList();
+    }
+
+    public record MyAnnouncement(Long groupAnnouncementId, String title, String body, boolean pinned,
+                                 LocalDateTime createdAt, String groupName, String authorName) {
+    }
+
+    /** Announcements from every active class the learner is in, newest pinned first. */
+    @GetMapping("/announcements")
+    @Transactional(readOnly = true)
+    public List<MyAnnouncement> myAnnouncements(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) Long certificationId) {
+        return myClasses(jwt, certificationId).stream()
+                .flatMap(c -> c.announcements().stream()
+                        .map(a -> new MyAnnouncement(a.groupAnnouncementId(), a.title(), a.body(),
+                                a.pinned(), a.createdAt(), c.groupName(), null)))
+                .sorted(java.util.Comparator.comparing(MyAnnouncement::pinned).reversed()
+                        .thenComparing(MyAnnouncement::createdAt,
+                                java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
                 .toList();
     }
 

@@ -97,7 +97,7 @@ public class FileController {
      * altogether; this limit exists so the refusal is an explanation rather
      * than an out-of-memory error.
      */
-    private static final long MAX_BUFFERED_VIEW_BYTES = 12L * 1024 * 1024;
+    private static final long MAX_BUFFERED_VIEW_BYTES = 40L * 1024 * 1024;
 
     @GetMapping("/view")
     public ResponseEntity<byte[]> viewFile(

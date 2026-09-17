@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -180,6 +182,38 @@ public class GlobalExceptionHandler {
         log.warn("Missing request data: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), ex.getMessage(), null));
+    }
+
+    /**
+     * A file view/download for a key that no longer exists in the bucket --
+     * a stale community attachment, a lesson image whose row survived a
+     * deleted object, or similar drift. Left uncaught this fell through to
+     * {@link #handleGeneric}, which told the learner "an unexpected error
+     * occurred" for what is really just a missing file, and hid the real
+     * cause behind a generic 500 in the logs too.
+     */
+    @ExceptionHandler(NoSuchKeyException.class)
+    public ResponseEntity<ErrorResponse> handleS3NotFound(NoSuchKeyException ex) {
+        log.warn("S3 object not found: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), "That file could not be found.", null));
+    }
+
+    /** Any other S3 failure -- credentials, region, throttling -- as a clearly
+     *  upstream problem rather than a bug in this service. */
+    @ExceptionHandler(S3Exception.class)
+    public ResponseEntity<ErrorResponse> handleS3Error(S3Exception ex) {
+        log.error("S3 request failed: {}", ex.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(new ErrorResponse(HttpStatus.BAD_GATEWAY.value(),
+                        "The file storage service is unavailable right now.", null));
+    }
+
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatus(org.springframework.web.server.ResponseStatusException ex) {
+        log.warn("Request refused ({}): {}", ex.getStatusCode(), ex.getReason());
+        return ResponseEntity.status(ex.getStatusCode())
+                .body(new ErrorResponse(ex.getStatusCode().value(), ex.getReason(), null));
     }
 
     @ExceptionHandler(AsyncRequestNotUsableException.class)

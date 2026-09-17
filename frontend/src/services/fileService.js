@@ -39,7 +39,16 @@ export function getFileViewUrl(key) {
  * through base() sends the bearer token; wrap the result in URL.createObjectURL
  * and point the element at that instead (and revoke it when done).
  */
-export function fetchFileBlob(key) {
+export async function fetchFileBlob(key) {
+  // Straight from storage first: no API size cap. Falls back to the API if the
+  // bucket's CORS rules block a browser fetch.
+  try {
+    const { url } = await getFileViewLink(key)
+    const response = await fetch(url)
+    if (response.ok) return await response.blob()
+  } catch {
+    // fall through to the API
+  }
   return base(`files/view?key=${encodeURIComponent(key)}`, { responseType: "blob" })
 }
 

@@ -205,7 +205,7 @@ export default function CommunityReviewerPage() {
                     <DocumentReader
                         file={document}
                         back={backControl}
-                        previewPages={plan.isFree ? FREE_PREVIEW_PAGES : null}
+                        previewPages={plan.isFree && params.get("mine") !== "1" ? FREE_PREVIEW_PAGES : null}
                         lockedNotice={
                             <ProLockCard
                                 compact

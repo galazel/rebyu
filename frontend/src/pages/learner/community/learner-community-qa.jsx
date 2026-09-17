@@ -877,6 +877,7 @@ export default function Community() {
         if (post.attachmentSize) params.set("size", String(post.attachmentSize))
         if (post.authorName) params.set("by", post.authorName)
         if (post.community) params.set("circle", post.community)
+        if (post.ownedByMe) params.set("mine", "1")
         navigate(`/learner/community/reviewer/${post.postId}?${params.toString()}`)
     }
 
@@ -915,7 +916,8 @@ export default function Community() {
 
     async function startPractice(postId) {
         // Shared quizzes, exams and flashcard sets are Pro; Free can still read the post.
-        if (plan.isFree) {
+        const ownPost = posts.some((post) => post.postId === postId && post.ownedByMe)
+        if (plan.isFree && !ownPost) {
             promptUpgrade("Shared study sets are a Pro feature")
             return
         }

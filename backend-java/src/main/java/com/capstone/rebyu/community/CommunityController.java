@@ -81,8 +81,11 @@ public class CommunityController {
     @PostMapping("/posts/{postId}/practice")
     public SharedPractice startSharedPractice(@AuthenticationPrincipal Jwt jwt, @PathVariable Long postId) {
         Long learnerId = me(jwt);
-        entitlements.requireLearnerEntitlement(
-                learnerId, com.capstone.rebyu.billing.entitlement.Entitlements.COMMUNITY_FULL_ACCESS, null);
+        // The author practising their own shared set is not using the community.
+        if (!service.isPostAuthor(postId, learnerId)) {
+            entitlements.requireLearnerEntitlement(
+                    learnerId, com.capstone.rebyu.billing.entitlement.Entitlements.COMMUNITY_FULL_ACCESS, null);
+        }
         CommunityService.SharedStudyTarget target = service.sharedStudyTarget(postId);
         StudyPracticeService.Attempt attempt = "EXAM".equals(target.store())
                 ? practiceService.startCommunityExamAttempt(learnerId, target.id())
