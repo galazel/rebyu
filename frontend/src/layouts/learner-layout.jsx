@@ -26,7 +26,6 @@ import {
   LearnerLoadingSkeleton,
   getLearnerDisplayName,
 } from "@/components/learner/learner-ui.jsx"
-import { LearnerStatusStrip } from "@/components/learner/learner-status-strip.jsx"
 import {
   PROGRESS_ANALYTICS_PARAM,
   PROGRESS_ANALYTICS_STALE_TIME,
@@ -267,10 +266,6 @@ export default function LearnerLayout() {
     <div className="rebyu-ds netacad-portal learner-portal flex min-h-screen flex-col">
       {!isTopicPage ? (
       <PortalTopNavigation role="LEARNER" actions={<>
-            {/* Ahead of the action icons: these are what the learner is
-                playing for, and they read as state rather than controls. */}
-            <LearnerStatusStrip portalData={query.data} />
-
             <NotificationBell
               items={notifications}
               unreadCount={unreadCount}

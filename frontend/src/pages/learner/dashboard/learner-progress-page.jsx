@@ -1686,11 +1686,10 @@ export default function LearnerProgressPage() {
             </span>
           ) : null}
 
-          {/* The same streak and XP counters the header carries, shown here
-              without the header's mobile cutoff -- this board is the one page
-              a learner reads specifically to check their progress, so the
-              numbers earn their place beside the picker at every width. */}
-          <LearnerStatusStrip portalData={data} alwaysVisible className="ml-auto" />
+          {/* The learner's streak and XP counters, beside the certification
+              picker -- this board is the one page a learner reads
+              specifically to check their progress. */}
+          <LearnerStatusStrip portalData={data} className="ml-auto" />
 
           <Select
             value={selectedCertificationId}

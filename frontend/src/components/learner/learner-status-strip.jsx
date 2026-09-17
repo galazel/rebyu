@@ -6,18 +6,14 @@ import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /**
- * The learner's gamification counters, in the portal header.
+ * The learner's gamification counters, on the analytics board.
  *
  * Two numbers only: the streak they do not want to break, and the XP they are
- * accumulating. Coins and AI credits are balances you spend deliberately from
- * the page that spends them, not things you glance at between lessons — in the
- * header they were two more numbers competing with the two that drive study.
- * Both lived only on the dashboard before, which meant the streak was invisible
- * on every page where breaking it was actually a risk.
+ * accumulating.
  *
- * Each counter is an icon *and* a number. The icon is what makes them scannable
- * in a 16px-tall strip, and each keeps a text label in its tooltip and its
- * accessible name, so the icon is never the only carrier.
+ * Each counter is an icon *and* a number. The icon is what makes them scannable,
+ * and each keeps a text label in its tooltip and its accessible name, so the
+ * icon is never the only carrier.
  *
  * XP comes from the portal payload the layout has already fetched, so it costs
  * no extra request. Only the streak needs its own call.
@@ -50,7 +46,7 @@ function Counter({ icon: Icon, tone, value, label, hint }) {
   )
 }
 
-export function LearnerStatusStrip({ portalData, alwaysVisible = false, className }) {
+export function LearnerStatusStrip({ portalData, className }) {
   const streakQuery = useQuery({
     queryKey: ["learner-streak"],
     queryFn: () => base("streaks/me"),
@@ -65,15 +61,7 @@ export function LearnerStatusStrip({ portalData, alwaysVisible = false, classNam
   const xp = Number(portalData?.totalXp) || 0
 
   return (
-    // Hidden on small screens by default: at 375px the counters and the
-    // header's action icons cannot both fit, and the actions are the ones you
-    // can't get to any other way. `alwaysVisible` opts out for a caller that
-    // isn't sharing the header strip with those icons, such as the analytics
-    // page's own controls row.
-    <div
-      className={cn("mr-1 items-center gap-0.5", alwaysVisible ? "flex" : "hidden md:flex", className)}
-      aria-label="Your progress"
-    >
+    <div className={cn("flex items-center gap-0.5", className)} aria-label="Your progress">
       <Counter
         icon={Flame}
         tone="flame"
