@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { Flame, Zap } from "@/components/icons"
 
 import { base } from "@/services/base"
+import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
 /**
@@ -49,7 +50,7 @@ function Counter({ icon: Icon, tone, value, label, hint }) {
   )
 }
 
-export function LearnerStatusStrip({ portalData }) {
+export function LearnerStatusStrip({ portalData, alwaysVisible = false, className }) {
   const streakQuery = useQuery({
     queryKey: ["learner-streak"],
     queryFn: () => base("streaks/me"),
@@ -64,10 +65,15 @@ export function LearnerStatusStrip({ portalData }) {
   const xp = Number(portalData?.totalXp) || 0
 
   return (
-    // Hidden on small screens: at 375px the counters and the action icons
-    // cannot both fit, and the actions are the ones you can't get to any other
-    // way. The dashboard still carries the full set.
-    <div className="mr-1 hidden items-center gap-0.5 md:flex" aria-label="Your progress">
+    // Hidden on small screens by default: at 375px the counters and the
+    // header's action icons cannot both fit, and the actions are the ones you
+    // can't get to any other way. `alwaysVisible` opts out for a caller that
+    // isn't sharing the header strip with those icons, such as the analytics
+    // page's own controls row.
+    <div
+      className={cn("mr-1 items-center gap-0.5", alwaysVisible ? "flex" : "hidden md:flex", className)}
+      aria-label="Your progress"
+    >
       <Counter
         icon={Flame}
         tone="flame"

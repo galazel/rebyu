@@ -45,12 +45,13 @@ import { cn } from "@/lib/utils"
 const learnerNavigation = [
   { label: "Analytics", href: "/learner/analytics", icon: BarChart3 },
   { label: "Certifications", href: "/learner/certifications", icon: Award },
-  { label: "My Learning", href: "/learner/learning", match: ["/learner/learning", "/learner/lessons"], icon: BookOpenCheck },
   { label: "Challenges", href: "/learner/challenges", icon: Swords },
   { label: "Community", href: "/learner/community", icon: UsersRound },
   // No Rankings entry: the XP leaderboard is a panel on Challenges now, beside
   // the challenge-points board. Two standings on two pages meant knowing which
   // board you wanted before you could find it.
+  // No My Learning entry either: it now lives in the account menu next to the
+  // mistake bank, the other place a learner returns to rather than discovers.
 ]
 
 /* The bottom bar carries one destination the top bar does not.
@@ -389,11 +390,11 @@ export function PortalTopNavigation({ role, actions, organizationName, instituti
             indented relative to every heading underneath them. */}
         <div className="mx-auto flex h-16 w-full max-w-[1800px] items-center gap-4 px-3 sm:px-5 lg:px-6">
           <Brand role={role} organizationName={organizationName} />
-          {/* Left-aligned against the logo. Centred, the links floated in the
-              middle of the bar and shifted horizontally whenever the brand or
-              the action cluster changed width -- next to the wordmark they have
-              a fixed edge to start from. */}
-          <nav className={cn("hidden min-w-0 flex-1 items-center gap-1 lg:flex", isInstitutionRole(role) ? "justify-end" : "justify-start")} aria-label={`${role.toLowerCase()} navigation`}>
+          {/* Right-aligned, next to the account menu. Centred, the links
+              floated in the middle of the bar and shifted horizontally
+              whenever the brand or the action cluster changed width -- against
+              the account menu they have a fixed edge to end on instead. */}
+          <nav className="hidden min-w-0 flex-1 items-center justify-end gap-1 lg:flex" aria-label={`${role.toLowerCase()} navigation`}>
             {role === "LEARNER"
               ? learnerNavigation.slice(0, 6).map((item) => {
                   const Icon = item.icon

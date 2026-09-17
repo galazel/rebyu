@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, useMemo, useState } from "react"
 import { Outlet, useLocation, useNavigate } from "react-router-dom"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
+  BookOpenCheck,
   CalendarDays,
   LogOutIcon,
   FilesIcon,
@@ -323,9 +324,13 @@ export default function LearnerLayout() {
                   <FilesIcon />
                   Library
                 </DropdownMenuItem>
-                {/* Next to the library because it is the other thing the
-                    learner accumulates rather than a setting: everything they
-                    have got wrong, kept. */}
+                {/* My Learning and the mistake bank sit together: the two
+                    places a learner returns to rather than discovers, and no
+                    longer a spot in the top nav of their own. */}
+                <DropdownMenuItem onClick={() => navigate("/learner/learning")}>
+                  <BookOpenCheck />
+                  My Learning
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/learner/mistakes")}>
                   <Target />
                   Mistake bank

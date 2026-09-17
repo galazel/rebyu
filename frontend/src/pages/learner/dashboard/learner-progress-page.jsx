@@ -29,6 +29,7 @@ import {
   LearnerEmptyState,
   LearnerErrorState,
 } from "@/components/learner/learner-ui.jsx"
+import { LearnerStatusStrip } from "@/components/learner/learner-status-strip.jsx"
 import { ExamCountdownTile } from "@/components/learner/exam-countdown-tile.jsx"
 import { StudyNotesTile } from "@/components/learner/study-notes-tile.jsx"
 import { TodaysPlanTile } from "@/components/learner/todays-plan-tile.jsx"
@@ -1685,12 +1686,18 @@ export default function LearnerProgressPage() {
             </span>
           ) : null}
 
+          {/* The same streak and XP counters the header carries, shown here
+              without the header's mobile cutoff -- this board is the one page
+              a learner reads specifically to check their progress, so the
+              numbers earn their place beside the picker at every width. */}
+          <LearnerStatusStrip portalData={data} alwaysVisible className="ml-auto" />
+
           <Select
             value={selectedCertificationId}
             onValueChange={setSelectedCertificationId}
             disabled={publishedCertifications.length === 0}
           >
-            <SelectTrigger className="ml-auto w-auto min-w-[210px] bg-background text-sm font-medium">
+            <SelectTrigger className="w-auto min-w-[210px] bg-background text-sm font-medium">
               <SelectValue placeholder="Select certification" />
             </SelectTrigger>
 
