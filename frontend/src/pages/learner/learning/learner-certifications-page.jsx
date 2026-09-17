@@ -103,7 +103,7 @@ function CertificationCard({
                 style={{ background: palette.solid }}
                 onClick={onAction}
             >
-              View details
+              {enrolled ? "Continue learning" : "View details"}
             </Button>
           }
       >
@@ -349,14 +349,15 @@ export default function LearnerCertificationsPage() {
     )
   }
 
-  /* One destination for every card, enrolled or not: this certification's
-     page. The catalog answers "what is this and do I want it"; carrying on
-     with something you are already enrolled in is My Learning's job, and the
-     button that used to do it from here jumped an enrolled learner straight
-     into the curriculum -- past the details the card had just offered to show
-     them, and through a study-plan dialog they had not asked for. */
+  // Enrolled cards say "Continue learning" and open the curriculum; the rest
+  // open the certification's details page.
   function handleCertificationAction(certification) {
-    navigate(`/learner/certifications/${getCertificationId(certification)}`)
+    const id = getCertificationId(certification)
+    navigate(
+      enrolledCertificationIds.has(String(id))
+        ? `/learner/learning/${id}`
+        : `/learner/certifications/${id}`
+    )
   }
 
   const enrolledCount = enrolledCertificationIds.size
