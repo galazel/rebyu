@@ -91,15 +91,11 @@ public class EmailService {
         sendHtml(recipientEmail, "Your temporary password", text, html);
     }
 
-    /**
-     * The REBYU logo as an email header: the same artwork the site serves,
-     * linked by absolute URL because mail clients load nothing relative.
-     */
+    /** The REBYU wordmark as an email header, linked to the site. */
     public String logoHeader() {
         String base = frontendUrl.replaceAll("/+$", "");
-        return "<a href=\"" + base + "\" style=\"display:inline-block;margin:0 0 14px\">"
-                + "<img src=\"" + base + "/brand/rebyu-logo.png\" alt=\"REBYU\" height=\"32\" "
-                + "style=\"height:32px;width:auto;display:block;border:0\"></a>";
+        return "<a href=\"" + base + "\" style=\"display:inline-block;margin:0 0 14px;"
+                + "font-size:20px;font-weight:bold;letter-spacing:.04em;color:#2f6b4f;text-decoration:none\">REBYU</a>";
     }
 
     /** The standard REBYU email frame: paper, white card, logo on top, body inside. */
