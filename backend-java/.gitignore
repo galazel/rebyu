@@ -32,6 +32,8 @@ build/
 
 .vscode/
 config/
+# Java source packages named `config` are code, not local configuration.
+!src/**/config/
 !src/main/java/com/capstone/rebyu/config/
 !src/main/java/com/capstone/rebyu/config/RedisResponseCacheConfig.java
 !src/main/java/com/capstone/rebyu/config/RedisResponseCacheFilter.java
