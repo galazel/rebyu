@@ -2,7 +2,9 @@ package com.capstone.rebyu.knowledgecheck.controller;
 
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
+import com.capstone.rebyu.knowledgecheck.dto.KnowledgeCheckDtos.CheckKeyItem;
 import com.capstone.rebyu.knowledgecheck.dto.KnowledgeCheckDtos.CheckOffer;
+import java.util.List;
 import com.capstone.rebyu.knowledgecheck.service.LessonKnowledgeCheckService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -49,6 +51,12 @@ public class LessonKnowledgeCheckController {
     }
 
     public record CreateRequest(Long lessonId, boolean currentLessonOnly) {}
+
+    /** The answer key for the caller's own minted check, for instant marking in the modal. */
+    @GetMapping("/{examId}/key")
+    public List<CheckKeyItem> key(@PathVariable Long examId, @AuthenticationPrincipal Jwt jwt) {
+        return knowledgeCheckService.answerKey(requireLearner(jwt), examId);
+    }
 
     private Long requireLearner(Jwt jwt) {
         if (jwt == null) {

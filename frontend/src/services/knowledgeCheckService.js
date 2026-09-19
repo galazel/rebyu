@@ -37,3 +37,9 @@ export function createKnowledgeCheck(lessonId, { currentLessonOnly = false } = {
     data: { lessonId: Number(lessonId), currentLessonOnly },
   })
 }
+
+/** The answer key for one of the caller's own checks: correct choice / accepted
+ *  answers and explanation per question, so the modal can mark instantly. */
+export function getKnowledgeCheckKey(examId) {
+  return base(`learners/me/knowledge-checks/${examId}/key`)
+}

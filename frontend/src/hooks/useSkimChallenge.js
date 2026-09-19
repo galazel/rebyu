@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { createKnowledgeCheck, getKnowledgeCheckOffer } from "@/services/knowledgeCheckService.js"
+import { createKnowledgeCheck, getKnowledgeCheckKey } from "@/services/knowledgeCheckService.js"
 import { startAssessmentAttempt } from "@/services/assessmentService.js"
 
 /**
@@ -39,15 +39,19 @@ export function useSkimChallenge({ learnerId, lessonId, enabled }) {
     askedRef.current = true
     busyRef.current = true
 
-    getKnowledgeCheckOffer(lesson, { currentLessonOnly: true })
-      .then(async (result) => {
-        if (lessonRef.current !== lesson || !result?.available) return
-        const check = await createKnowledgeCheck(lesson, { currentLessonOnly: true })
-        if (!check?.examId || lessonRef.current !== lesson) return
-        const key = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
-        const attempt = await startAssessmentAttempt(check.examId, learnerId, key)
+    /* Minting re-checks eligibility server-side and answers `unavailable` the
+       same way the pre-flight would, so the pre-flight is one round trip the
+       learner would only ever wait on. */
+    createKnowledgeCheck(lesson, { currentLessonOnly: true })
+      .then(async (check) => {
+        if (lessonRef.current !== lesson || !check?.examId) return
+        const idem = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
+        const [attempt, answerKey] = await Promise.all([
+          startAssessmentAttempt(check.examId, learnerId, idem),
+          getKnowledgeCheckKey(check.examId).catch(() => []),
+        ])
         if (lessonRef.current !== lesson) return
-        setOffer({ ...result, currentLessonOnly: true, attempt })
+        setOffer({ ...check, currentLessonOnly: true, attempt, answerKey })
       })
       .catch(() => {
         /* An optional prompt must never surface an error over the lesson. */

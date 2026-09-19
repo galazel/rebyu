@@ -886,6 +886,7 @@ export default function LearnerLessonPage() {
             itemCount={knowledgeCheck.offer?.itemCount}
             lessonNames={knowledgeCheck.offer?.lessonNames}
             attempt={knowledgeCheck.offer?.attempt ?? null}
+        answerKey={knowledgeCheck.offer?.answerKey ?? []}
             onDismiss={knowledgeCheck.dismiss}
         />
 

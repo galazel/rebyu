@@ -624,25 +624,29 @@ public class AssessmentAttemptService {
         PhaseTimer.mark(timer, "score + persist");
 
         awardAssessmentXp(attempt);
+        PhaseTimer.mark(timer, "xp");
         streakService.recordActivity(attempt.getLearnerId());
+        PhaseTimer.mark(timer, "streak");
         // First Quiz / First Perfect Score / Exam Ready all hang off a submitted
         // attempt, and the evaluation reads this one back from the row saved
         // above. Idempotent, so a retake awards nothing twice.
         achievementAwardService.evaluate(attempt.getLearnerId());
+        PhaseTimer.mark(timer, "achievements");
 
         recordLegacyExamResult(attempt);
         completeDiagnosticGateIfApplicable(attempt);
+        PhaseTimer.mark(timer, "legacy result + diagnostic");
 
         // Transactional outbox: enqueue final, lesson-mapped BKT evidence in the
         // SAME commit as the result. Dispatched to FastAPI asynchronously; an
         // unavailable BKT service can never fail or roll back this submission.
         bktOutboxService.enqueueForAttempt(attempt, questions, answersByQuestion);
+        PhaseTimer.mark(timer, "bkt outbox");
 
         // Lightweight RabbitMQ trigger (ids only) alongside the synchronous
         // flow above -- Phase 6 wires the consumer.
         assessmentEventProducer.publishAssessmentSubmitted(attemptId);
-
-        PhaseTimer.mark(timer, "rewards + progress");
+        PhaseTimer.mark(timer, "rabbit publish");
 
         log.info("Attempt {} submitted: {}% ({} / {} points)",
                 attemptId, percentage, earnedPoints, totalPoints);

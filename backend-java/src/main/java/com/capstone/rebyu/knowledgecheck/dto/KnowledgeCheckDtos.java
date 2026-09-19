@@ -46,4 +46,18 @@ public final class KnowledgeCheckDtos {
             return new CheckOffer(true, null, examId, itemCount, lessonNames);
         }
     }
+
+    /**
+     * The answer key for one minted check, so the modal can mark each answer
+     * the moment it is given. Only ever issued for a KNOWLEDGE_CHECK exam that
+     * belongs to the caller; the check is released-answers by design.
+     */
+    public record CheckKeyItem(
+            Long questionId,
+            Long correctChoiceId,
+            String correctChoiceText,
+            List<String> acceptedAnswers,
+            String explanation
+    ) {
+    }
 }

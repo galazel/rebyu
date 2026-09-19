@@ -13,7 +13,10 @@ import com.capstone.rebyu.assessment.service.EligibleQuestionService;
 import com.capstone.rebyu.certification.entity.Certification;
 import com.capstone.rebyu.certification.entity.Lesson;
 import com.capstone.rebyu.certification.repository.LessonRepository;
+import com.capstone.rebyu.knowledgecheck.dto.KnowledgeCheckDtos.CheckKeyItem;
 import com.capstone.rebyu.knowledgecheck.dto.KnowledgeCheckDtos.CheckOffer;
+import com.capstone.rebyu.assessment.entity.Choice;
+import com.capstone.rebyu.assessment.entity.TextQuestionConfig;
 import com.capstone.rebyu.learningtools.service.LearnerQuestionHistoryService;
 import com.capstone.rebyu.progress.entity.LearnerCompletedLesson;
 import com.capstone.rebyu.progress.repository.LearnerCompletedLessonRepository;
@@ -263,6 +266,45 @@ public class LessonKnowledgeCheckService {
         }
 
         return List.copyOf(chosen);
+    }
+
+    /** See {@link CheckKeyItem}. Refuses anything that is not this learner's own check. */
+    @Transactional(readOnly = true)
+    public List<CheckKeyItem> answerKey(Long learnerId, Long examId) {
+        Exam exam = exams.findById(examId)
+                .orElseThrow(() -> new EntityNotFoundException("Exam not found: " + examId));
+        boolean ownCheck = exam.getLearner() != null
+                && learnerId.equals(exam.getLearner().getLearnerId())
+                && KNOWLEDGE_CHECK_EXAM_TYPE.equals(exam.getExamType().getExamTypeText());
+        if (!ownCheck) {
+            throw new IllegalArgumentException("Not your knowledge check");
+        }
+
+        List<CheckKeyItem> key = new ArrayList<>();
+        for (ExamQuestion examQuestion : examQuestions.findByExam_ExamIdOrderByDisplayOrderAsc(examId)) {
+            Question question = questions.findById(examQuestion.getQuestion().getQuestionId()).orElse(null);
+            if (question == null) continue;
+
+            Choice correct = question.getChoices().stream().filter(Choice::isCorrect).findFirst().orElse(null);
+            List<String> accepted = new ArrayList<>();
+            String explanation = correct != null ? correct.getExplanation() : null;
+            TextQuestionConfig text = question.getTextQuestionConfig();
+            if (text != null) {
+                if (text.getCorrectAnswer() != null) accepted.add(text.getCorrectAnswer());
+                if (text.getAcceptedVariations() != null) {
+                    for (String v : text.getAcceptedVariations().split("\n")) {
+                        if (!v.isBlank()) accepted.add(v.trim());
+                    }
+                }
+            }
+            key.add(new CheckKeyItem(
+                    question.getQuestionId(),
+                    correct != null ? correct.getChoiceId() : null,
+                    correct != null ? correct.getChoiceText() : null,
+                    accepted,
+                    explanation));
+        }
+        return key;
     }
 
     private boolean onCooldown(Long learnerId, boolean currentLessonOnly) {

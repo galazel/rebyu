@@ -44,7 +44,7 @@ import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-
  * leaving the learner sealed behind a modal over a failed request would trap
  * them in the lesson with no way out.
  */
-export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, lessonNames, currentLessonOnly = true, attempt: preparedAttempt = null, onDismiss }) {
+export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, lessonNames, currentLessonOnly = true, attempt: preparedAttempt = null, answerKey = [], onDismiss }) {
   const queryClient = useQueryClient()
 
   const [phase, setPhase] = useState("intro")
@@ -52,6 +52,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
   const [attempt, setAttempt] = useState(null)
   const [index, setIndex] = useState(0)
   const [answers, setAnswers] = useState({})
+  const [revealed, setRevealed] = useState(false)
   const [result, setResult] = useState(null)
 
   /* Minted at most once per opening. Without the guard a double-click, or
@@ -67,6 +68,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       setAttempt(null)
       setIndex(0)
       setAnswers({})
+      setRevealed(false)
       setResult(null)
       return
     }
@@ -109,8 +111,11 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
   const currentAnswer = current ? answers[current.attemptQuestionId] : null
   const answered = isAnswered(current, currentAnswer)
   const last = index === questions.length - 1
+  const currentKey = Array.isArray(answerKey) ? answerKey[index] : null
+  const verdict = revealed ? localVerdict(current, currentAnswer, currentKey) : null
 
   function setAnswer(patch) {
+    if (revealed) return
     setAnswers((existing) => ({
       ...existing,
       [current.attemptQuestionId]: { ...(existing[current.attemptQuestionId] ?? {}), ...patch },
@@ -119,17 +124,32 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
 
   async function next() {
     if (!answered) return
+    if (!revealed && currentKey) {
+      setRevealed(true)
+      return
+    }
     if (!last) {
+      setRevealed(false)
       setIndex(index + 1)
       return
     }
-    setPhase("submitting")
     const payload = questions
       .map((question) => {
         const answer = answers[question.attemptQuestionId]
         return answer ? toDraftDto(question.attemptQuestionId, answer) : null
       })
       .filter(Boolean)
+
+    /* The score is shown from the marks the learner has already seen, the
+       moment they ask for it. The official submit -- XP, mastery, history --
+       runs behind it and only rewrites the screen if the server disagrees. */
+    const local = localResult(questions, answers, answerKey)
+    if (local) {
+      setResult(local)
+      setPhase("result")
+    } else {
+      setPhase("submitting")
+    }
     const before = await snapshotRewards(queryClient)
     try {
       const submitted = await submitAssessmentAttempt(attempt.assessmentAttemptId, learnerId, payload)
@@ -143,8 +163,10 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
         silentXp: true,
       })
     } catch (caught) {
-      setError(caught)
-      setPhase("error")
+      if (!local) {
+        setError(caught)
+        setPhase("error")
+      }
     }
   }
 
@@ -205,27 +227,35 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                   <div className="grid gap-2 sm:grid-cols-2">
                     {(current.choices ?? []).map((choice, choiceIndex) => {
                       const selected = currentAnswer?.selectedChoiceId === choice.choiceId
+                      const isRight = revealed && currentKey?.correctChoiceId === choice.choiceId
+                      const isWrong = revealed && selected && !isRight
                       return (
                         <button
                           key={choice.choiceId ?? choiceIndex}
                           type="button"
                           onClick={() => setAnswer({ selectedChoiceId: choice.choiceId })}
                           aria-pressed={selected}
+                          disabled={revealed}
                           className={cn(
                             "flex min-h-14 items-start gap-3 rounded-2xl border-2 p-3 text-left text-sm leading-6 transition",
-                            "active:translate-y-[2px]",
-                            selected
-                              ? "border-rb-leaf bg-rb-leaf-wash text-rb-leaf-lip shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-rb-leaf)_20%,transparent)]"
-                              : "border-rb-swan bg-rb-snow text-rb-eel hover:border-rb-leaf/60 hover:bg-rb-polar",
+                            !revealed && "active:translate-y-[2px]",
+                            isRight
+                              ? "border-rb-leaf bg-rb-leaf-wash text-rb-leaf-lip"
+                              : isWrong
+                                ? "border-rb-cardinal bg-rb-cardinal-wash text-rb-cardinal-lip"
+                                : selected
+                                  ? "border-rb-feather bg-rb-feather-wash text-rb-feather-ink shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-rb-feather)_20%,transparent)]"
+                                  : "border-rb-swan bg-rb-snow text-rb-eel hover:border-rb-feather/60 hover:bg-rb-polar",
+                            revealed && !isRight && !isWrong && "opacity-60",
                           )}
                         >
                           <span
                             className={cn(
                               "grid size-7 shrink-0 place-items-center rounded-lg text-xs font-bold",
-                              selected ? "bg-rb-leaf text-white" : "bg-rb-polar text-rb-wolf",
+                              isRight ? "bg-rb-leaf text-white" : isWrong ? "bg-rb-cardinal text-white" : selected ? "bg-rb-feather text-white" : "bg-rb-polar text-rb-wolf",
                             )}
                           >
-                            {String.fromCharCode(65 + choiceIndex)}
+                            {isRight ? <CheckCircle2 className="size-4" aria-hidden="true" /> : isWrong ? <XCircle className="size-4" aria-hidden="true" /> : String.fromCharCode(65 + choiceIndex)}
                           </span>
                           <span className="min-w-0">{choice.choiceText}</span>
                         </button>
@@ -244,6 +274,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                           }
                           placeholder="Type the term"
                           autoComplete="off"
+                          disabled={revealed}
                         />
                       </div>
                     ))}
@@ -258,9 +289,32 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                     }}
                     placeholder="Type your answer"
                     autoComplete="off"
+                    disabled={revealed}
                     className="h-12 text-base"
                   />
                 )}
+
+                {verdict ? (
+                  <div
+                    className={cn(
+                      "rounded-xl border p-3 text-sm",
+                      verdict.correct ? "border-rb-leaf/50 bg-rb-leaf-wash" : "border-rb-cardinal/45 bg-rb-cardinal-wash",
+                    )}
+                    role="status"
+                  >
+                    <p className={cn("font-bold", verdict.correct ? "text-rb-leaf-lip" : "text-rb-cardinal-lip")}>
+                      {verdict.correct ? "Correct!" : "Not quite"}
+                    </p>
+                    {!verdict.correct && verdict.expected ? (
+                      <p className="mt-1 text-rb-eel">
+                        Correct answer: <span className="font-semibold text-rb-leaf-lip">{verdict.expected}</span>
+                      </p>
+                    ) : null}
+                    {currentKey?.explanation ? (
+                      <p className="mt-1 text-xs leading-5 text-rb-wolf">{currentKey.explanation}</p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -274,8 +328,10 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                     <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                     Checking
                   </>
+                ) : !revealed && currentKey ? (
+                  "Check"
                 ) : last ? (
-                  "Finish"
+                  "See my score"
                 ) : (
                   <>
                     Next
@@ -419,6 +475,52 @@ function ProgressDots({ total, current, answers, questions }) {
       })}
     </div>
   )
+}
+
+/* The result screen's shape, built from the local marks so it can be shown
+   before the server has graded. Same fields the server review uses. */
+function localResult(questions, answers, answerKey) {
+  if (!Array.isArray(answerKey) || answerKey.length !== questions.length) return null
+  const items = questions.map((question, position) => {
+    const answer = answers[question.attemptQuestionId]
+    const key = answerKey[position]
+    const verdict = localVerdict(question, answer, key)
+    if (!verdict) return null
+    const selected = isMultipleChoice(question)
+      ? (question.choices ?? []).find((choice) => choice.choiceId === answer?.selectedChoiceId)?.choiceText
+      : answer?.learnerAnswer
+    return {
+      attemptQuestionId: question.attemptQuestionId,
+      question: question.question,
+      isCorrect: verdict.correct,
+      pendingManualEvaluation: false,
+      selectedChoiceText: selected ?? null,
+      learnerAnswer: answer?.learnerAnswer ?? null,
+      correctChoiceText: verdict.expected ?? null,
+      explanation: key?.explanation ?? null,
+    }
+  })
+  if (items.some((item) => item == null)) return null
+  const correct = items.filter((item) => item.isCorrect).length
+  return {
+    answers: items,
+    correctCount: correct,
+    totalQuestions: items.length,
+    passed: items.length > 0 && correct / items.length >= 0.6,
+  }
+}
+
+/* Marks an answer against the check's own key, for the moment it is given.
+   The server's grade on submit is still the one that counts. */
+function localVerdict(question, answer, key) {
+  if (!question || !answer || !key) return null
+  if (isMultipleChoice(question)) {
+    return { correct: answer.selectedChoiceId === key.correctChoiceId, expected: key.correctChoiceText }
+  }
+  const norm = (v) => String(v ?? "").trim().toLowerCase()
+  const given = norm(answer.learnerAnswer)
+  const accepted = (key.acceptedAnswers ?? []).map(norm).filter(Boolean)
+  return { correct: given.length > 0 && accepted.includes(given), expected: key.acceptedAnswers?.[0] ?? null }
 }
 
 function isMultipleChoice(question) {
