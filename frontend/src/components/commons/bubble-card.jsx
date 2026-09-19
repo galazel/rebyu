@@ -22,9 +22,9 @@
 
 export const BUBBLE_TONES = {
   macaw: {
-    accent: "linear-gradient(135deg, #2f6b4f, #4f8a78)",
+    accent: "linear-gradient(135deg, #1B6EF3, #1CB0F6)",
     surface: "bg-rb-macaw-wash dark:bg-[#12283d]",
-    flat: "#4f8a78",
+    flat: "#1CB0F6",
     ink: "text-rb-macaw-lip",
     chip: "bg-rb-macaw-wash text-rb-macaw-lip",
     solid: "#147DAF",
@@ -54,12 +54,12 @@ export const BUBBLE_TONES = {
     solid: "#008194",
   },
   feather: {
-    accent: "linear-gradient(135deg, #245440, #2f6b4f)",
+    accent: "linear-gradient(135deg, #118a57, #34a853)",
     surface: "bg-rb-feather-wash dark:bg-[#152744]",
-    flat: "#2f6b4f",
+    flat: "#34a853",
     ink: "text-rb-feather-lip",
     chip: "bg-rb-feather-wash text-rb-feather-lip",
-    solid: "#2f6b4f",
+    solid: "#118a57",
   },
   cardinal: {
     accent: "linear-gradient(135deg, #E03D3D, #FF4B4B)",

@@ -17,6 +17,7 @@ import { toast } from "sonner"
 
 import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { Button } from "@/components/ui/button"
+import { BubbleCard } from "@/components/commons/bubble-card.jsx"
 import {
   CHALLENGE_ARENAS_KEY,
   getChallengeArenas,
@@ -50,6 +51,7 @@ const CHALLENGES = [
       "Ten stages of coding problems, judged against real unit tests and scored on time complexity.",
     icon: Code2,
     color: "var(--color-rb-feather)",
+    tone: "macaw",
     area: "left",
     route: "/learner/challenges/codestrike",
   },
@@ -62,6 +64,7 @@ const CHALLENGES = [
       "Ten stages of UML and system design on a drag-and-drop canvas, checked against structural rules.",
     icon: Network,
     color: "var(--color-rb-macaw)",
+    tone: "beetle",
     area: "right",
     route: "/learner/challenges/blueprint-arena",
   },
@@ -74,6 +77,7 @@ const CHALLENGES = [
       "An eight-player bracket on one of your certification tracks — quarterfinals, semis, and a timed final.",
     icon: Trophy,
     color: "var(--color-rb-fox)",
+    tone: "fox",
     area: "bottom",
     route: "/learner/challenges/world-cup",
     // The bracket is played on one certification's question bank, so it opens
@@ -290,49 +294,47 @@ export default function LearnerChallengesPage() {
                 const isActive = position === 0
                 const Icon = challenge.icon
                 return (
-                  <button
+                  <BubbleCard
                     key={challenge.id}
+                    as="button"
                     type="button"
+                    tone={challenge.tone}
+                    icon={Icon}
+                    title={challenge.title}
+                    active={isActive}
+                    capHeight="h-40"
+                    chips={[
+                      { label: challenge.role },
+                      { label: challenge.format, side: "right" },
+                    ]}
                     onClick={() => (isActive ? startChallenge(challenge) : setActiveIndex(index))}
                     aria-current={isActive ? "true" : undefined}
                     aria-label={`${challenge.title}${isActive ? ", selected" : ", select"}`}
-                    className={`absolute left-1/2 top-1/2 flex h-[340px] w-[250px] flex-col overflow-hidden rounded-rb-card border-2 bg-white text-left transition-all duration-500 ease-out sm:w-[280px] ${
+                    className={`absolute left-1/2 top-1/2 h-[350px] w-[250px] transition-all duration-500 ease-out sm:w-[280px] ${
                       isActive
-                        ? "border-rb-feather shadow-[0_26px_60px_-18px_rgba(17,138,87,0.45)]"
-                        : "border-rb-swan shadow-[0_18px_40px_-18px_rgba(18,49,38,0.3)]"
+                        ? "shadow-[0_26px_65px_-18px_rgba(18,49,38,0.45)]"
+                        : "shadow-[0_22px_55px_-18px_rgba(18,49,38,0.3)]"
                     }`}
                     style={{
                       transform: `translate(calc(-50% + ${position * 200}px), -50%) scale(${isActive ? 1 : Math.abs(position) === 1 ? 0.84 : 0.68})`,
                       zIndex: 10 - Math.abs(position),
                       opacity: Math.abs(position) > 1 ? 0.5 : 1,
                     }}
-                  >
-                    <div
-                      className="flex h-40 items-center justify-center text-white"
-                      style={{ background: challenge.color }}
-                    >
-                      <Icon className="size-16" strokeWidth={1.5} aria-hidden="true" />
-                    </div>
-                    <div className="flex flex-1 flex-col p-4">
-                      <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-rb-wolf">
-                        {challenge.role}
-                      </span>
-                      <span className="mt-1 font-rb-display text-xl font-extrabold text-rb-eel">
-                        {challenge.title}
-                      </span>
-                      <span className="mt-1 text-xs text-rb-wolf">{challenge.format}</span>
+                    footer={
                       <span
-                        className={`mt-auto inline-flex w-fit items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                        className={`inline-flex w-fit items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
                           challenge.available
                             ? "border-rb-leaf/40 bg-rb-leaf-wash text-rb-leaf-lip"
-                            : "border-rb-swan bg-rb-polar text-rb-wolf"
+                            : "border-rb-swan bg-white/70 text-rb-wolf"
                         }`}
                       >
                         {!challenge.available ? <Lock className="size-2.5" aria-hidden="true" /> : null}
                         {statusLabel(challenge)}
                       </span>
-                    </div>
-                  </button>
+                    }
+                  >
+                    <p className="text-sm leading-6 text-rb-wolf">{challenge.description}</p>
+                  </BubbleCard>
                 )
               })}
             </div>
