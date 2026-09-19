@@ -70,7 +70,7 @@ export default function AuthShell({
             to="/"
             className="flex items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw"
           >
-            <BrandWordmark className="h-7" alt="REBYU" />
+            <BrandWordmark className="h-10" alt="REBYU" />
           </Link>
 
           <BackButton asChild size="sm" label="Back to home">
