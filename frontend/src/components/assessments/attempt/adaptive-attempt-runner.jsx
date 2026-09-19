@@ -13,8 +13,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { LoadingSignal } from "@/components/loading-overlay.jsx"
-import { GRADING_MESSAGES } from "@/components/loading-screen.jsx"
 import { answerAdaptiveItem } from "@/services/assessmentService.js"
 import { getFileViewUrl } from "@/services/fileService.js"
 import { cn } from "@/lib/utils"
@@ -58,17 +56,19 @@ export function AdaptiveAttemptRunner({
     [attempt.questions, initialProgress?.currentAttemptQuestionId],
   )
 
-  const initialQueued = useMemo(
-    () => (attempt.questions ?? []).find((q) => q.attemptQuestionId === initialProgress?.queuedAttemptQuestionId) ?? null,
-    [attempt.questions, initialProgress?.queuedAttemptQuestionId],
+  /* Everything served past the current item comes back in `questions`. */
+  const initialReserve = useMemo(
+    () => (attempt.questions ?? []).filter((q) => initialCurrent && (q.displayOrder ?? 0) > (initialCurrent.displayOrder ?? 0)),
+    [attempt.questions, initialCurrent],
   )
+  const initialQueued = initialReserve[0] ?? null
 
   const [current, setCurrent] = useState(initialCurrent)
   /* Items the server has served but the learner has not reached, by their
      position on the paper. The one after the current is shown the moment the
      current is done, while the server records the answer and serves another
      reserve in the background. */
-  const reserveRef = useRef(new Map(initialQueued ? [[initialQueued.displayOrder, initialQueued]] : []))
+  const reserveRef = useRef(new Map(initialReserve.map((q) => [q.displayOrder, q])))
   const [queued, setQueued] = useState(initialQueued)
   const [progress, setProgress] = useState(initialProgress)
   const [draft, setDraft] = useState(() => {
@@ -120,7 +120,7 @@ export function AdaptiveAttemptRunner({
     send
       .then((response) => {
         setProgress(response.progress)
-        for (const served of [response.next, response.queued]) {
+        for (const served of [response.next, ...(response.queued ?? [])]) {
           if (served && served.attemptQuestionId !== item.attemptQuestionId) {
             reserveRef.current.set(served.displayOrder, served)
           }
@@ -189,16 +189,18 @@ export function AdaptiveAttemptRunner({
   /* Moves to the item after the current one; if the server has not served
      it yet, waits for the answer in flight, which brings it. */
   async function advance() {
-    setVerdict(null)
-    setDraft({})
     const position = (current?.displayOrder ?? 0) + 1
     let next = reserveRef.current.get(position) ?? null
     if (!next) {
+      /* Nothing served ahead yet (slow link): keep the marked card on screen
+         with the button showing it is fetching, rather than a loading page. */
       setAwaitingServer(true)
       await pendingRef.current
       setAwaitingServer(false)
       next = reserveRef.current.get(position) ?? null
     }
+    setVerdict(null)
+    setDraft({})
     reserveRef.current.delete(position)
     setQueued(reserveRef.current.get(position + 1) ?? null)
     if (!next) {
@@ -234,8 +236,21 @@ export function AdaptiveAttemptRunner({
     )
   }
 
-  if (phase === "COMPLETED" || isSubmitting || awaitingServer) {
-    return <LoadingSignal messages={GRADING_MESSAGES} />
+  if (phase === "COMPLETED" || isSubmitting) {
+    /* A couple of seconds while the paper is closed and the result built;
+       a small card, not the full classroom loading screen with a fake
+       percentage -- that read as a long wait for a short one. */
+    return (
+      <div className="rebyu-ds flex h-dvh items-center justify-center bg-rb-polar p-6">
+        <div className="flex items-center gap-3 rounded-rb-card border-2 border-rb-swan bg-rb-snow px-6 py-5 shadow-[var(--comic-shadow-sm)]">
+          <Loader2 className="size-5 animate-spin text-rb-feather" aria-hidden="true" />
+          <div>
+            <p className="font-rb-display text-base font-extrabold text-rb-eel">Finishing up…</p>
+            <p className="text-xs text-rb-wolf">Closing your paper and building your results.</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const isProgramming = current?.criticalThinkingType === "PROGRAMMING" || current?.questionType === "PROGRAMMING"
@@ -313,14 +328,14 @@ export function AdaptiveAttemptRunner({
               />
             )}
           </div>
-          <FinalRoundFooter onSubmit={() => check()} busy={grading} last={answeredCount + 1 >= total} />
+          <FinalRoundFooter onSubmit={() => check()} busy={grading || awaitingServer} last={answeredCount + 1 >= total} />
         </div>
       ) : current && isWorkspace ? (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-4">
           <div className="min-h-0 flex-1 overflow-hidden">
             <WorkspaceQuestionPanel question={current} index={answeredCount} answer={draft} onAnswer={setAnswer} />
           </div>
-          <FinalRoundFooter onSubmit={() => check()} busy={grading} last={answeredCount + 1 >= total} />
+          <FinalRoundFooter onSubmit={() => check()} busy={grading || awaitingServer} last={answeredCount + 1 >= total} />
         </div>
       ) : current ? (
         <main className="min-h-0 flex-1 overflow-y-auto">
@@ -446,8 +461,13 @@ export function AdaptiveAttemptRunner({
                 <span className="text-xs text-rb-wolf">
                   {revealed ? "Marked. Ready for the next one?" : grading ? (finalItem ? "Saving…" : "Marking…") : finalItem ? "Final round: marked with the whole paper when you finish." : "Pick or type an answer, then check."}
                 </span>
-                <Button onClick={() => (revealed ? next() : check())} disabled={(!answered && !revealed) || grading} className="gap-2">
-                  {grading ? (
+                <Button onClick={() => (revealed ? next() : check())} disabled={(!answered && !revealed) || grading || awaitingServer} className="gap-2">
+                  {awaitingServer ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                      Loading next…
+                    </>
+                  ) : grading ? (
                     <>
                       <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                       Checking
@@ -476,7 +496,10 @@ export function AdaptiveAttemptRunner({
           </div>
         </main>
       ) : (
-        <LoadingSignal messages={GRADING_MESSAGES} />
+        <div className="flex flex-1 items-center justify-center text-sm text-rb-wolf">
+          <Loader2 className="mr-2 size-4 animate-spin" aria-hidden="true" />
+          Loading the next question…
+        </div>
       )}
     </div>
   )

@@ -150,8 +150,8 @@ public final class LearnerAttemptDtos {
             AdaptiveProgressDto progress,
             /** The next item to show; null once the session is complete. */
             LearnerAttemptQuestionDto next,
-            /** The item behind `next`, served ahead so the client holds one in reserve. */
-            LearnerAttemptQuestionDto queued,
+            /** The items behind `next`, served ahead so the client holds them in reserve. */
+            List<LearnerAttemptQuestionDto> queued,
             boolean enteringFinalRound,
             boolean completed
     ) {

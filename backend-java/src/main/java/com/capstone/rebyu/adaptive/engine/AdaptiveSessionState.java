@@ -63,8 +63,15 @@ public class AdaptiveSessionState {
     /** Normalised stems of everything served, so a twin under another id is not served too. */
     private List<String> servedStems = new ArrayList<>();
 
-    /** The item served behind the current one (its attempt-question id), or null. */
-    private Long queuedAttemptQuestionId;
+    /** Items served behind the current one (attempt-question ids), in paper order. */
+    private List<Long> queuedAttemptQuestionIds = new ArrayList<>();
+
+    /** How many items are kept served ahead of the one being asked. */
+    public static final int RESERVE_DEPTH = 3;
+
+    public Long getQueuedAttemptQuestionId() {
+        return queuedAttemptQuestionIds.isEmpty() ? null : queuedAttemptQuestionIds.get(0);
+    }
 
     /** Per-assessment point overrides from the optional seed list. */
     private Map<Long, java.math.BigDecimal> pointsOverride = new LinkedHashMap<>();

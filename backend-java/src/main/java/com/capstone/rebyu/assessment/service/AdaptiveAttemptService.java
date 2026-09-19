@@ -230,8 +230,7 @@ public class AdaptiveAttemptService {
            to sixty items. */
         LearnerAttemptQuestionDto first = serveNext(attempt, state);
         attempt.setCurrentQuestionId(first.attemptQuestionId());
-        LearnerAttemptQuestionDto reserve = state.getServedCount() < state.getTargetCount() ? serveNext(attempt, state) : null;
-        state.setQueuedAttemptQuestionId(reserve == null ? null : reserve.attemptQuestionId());
+        topUpReserve(attempt, state);
         saveState(attempt, state);
         com.capstone.rebyu.common.PhaseTimer.mark(timer, "serve first");
         com.capstone.rebyu.common.PhaseTimer.finish(timer);
@@ -319,9 +318,9 @@ public class AdaptiveAttemptService {
            a new reserve is served behind it. */
         boolean enteringFinal = false;
         LearnerAttemptQuestionDto next = null;
-        LearnerAttemptQuestionDto reserve = null;
-        if (state.getQueuedAttemptQuestionId() != null) {
-            AssessmentAttemptQuestion queued = attemptQuestionRepository.findById(state.getQueuedAttemptQuestionId()).orElse(null);
+        if (!state.getQueuedAttemptQuestionIds().isEmpty()) {
+            Long nextId = state.getQueuedAttemptQuestionIds().remove(0);
+            AssessmentAttemptQuestion queued = attemptQuestionRepository.findById(nextId).orElse(null);
             if (queued != null) {
                 next = withKey(attempt, queued, attempts.toLearnerQuestion(queued));
                 attempt.setCurrentQuestionId(queued.getAttemptQuestionId());
@@ -333,11 +332,7 @@ public class AdaptiveAttemptService {
                 }
             }
         }
-        state.setQueuedAttemptQuestionId(null);
-        if (next != null && state.getServedCount() < state.getTargetCount()) {
-            reserve = serveNext(attempt, state);
-            state.setQueuedAttemptQuestionId(reserve == null ? null : reserve.attemptQuestionId());
-        }
+        List<LearnerAttemptQuestionDto> reserve = next == null ? List.of() : topUpReserve(attempt, state);
         if (next == null) {
             finish(attempt, state);
         }
@@ -347,6 +342,30 @@ public class AdaptiveAttemptService {
         return new AdaptiveAnswerResponseDto(verdict, progressOf(attempt, state), next, reserve, enteringFinal, state.done());
     }
 
+    /**
+     * Keeps RESERVE_DEPTH items served behind the one being asked, and returns
+     * every reserve item (old and new) so the client can hold all of them.
+     * Two ahead rather than one: the client shows a reserve the instant an
+     * answer is given, and with a slow link one item was not always back in
+     * time for the next press.
+     */
+    private List<LearnerAttemptQuestionDto> topUpReserve(AssessmentAttempt attempt, AdaptiveSessionState state) {
+        List<LearnerAttemptQuestionDto> reserve = new ArrayList<>();
+        for (Long id : state.getQueuedAttemptQuestionIds()) {
+            attemptQuestionRepository.findById(id)
+                    .map(q -> withKey(attempt, q, attempts.toLearnerQuestion(q)))
+                    .ifPresent(reserve::add);
+        }
+        while (state.getQueuedAttemptQuestionIds().size() < AdaptiveSessionState.RESERVE_DEPTH
+                && state.getServedCount() < state.getTargetCount()) {
+            LearnerAttemptQuestionDto served = serveNext(attempt, state);
+            if (served == null) break;
+            state.getQueuedAttemptQuestionIds().add(served.attemptQuestionId());
+            reserve.add(served);
+        }
+        return reserve;
+    }
+
     /** A second delivery of an answer already taken: the same response, nothing recomputed. */
     private AdaptiveAnswerResponseDto replay(
             AssessmentAttempt attempt, AdaptiveSessionState state,
@@ -354,14 +373,14 @@ public class AdaptiveAttemptService {
         AdaptiveVerdictDto verdict = AssessmentAttemptService.hasDefinitiveVerdict(answer)
                 ? verdictOf(attempt, item, answer) : null;
         LearnerAttemptQuestionDto next = null;
-        LearnerAttemptQuestionDto reserve = null;
+        List<LearnerAttemptQuestionDto> reserve = new ArrayList<>();
         if (attempt.getCurrentQuestionId() != null) {
             next = attemptQuestionRepository.findById(attempt.getCurrentQuestionId())
                     .map(q -> withKey(attempt, q, attempts.toLearnerQuestion(q))).orElse(null);
         }
-        if (state.getQueuedAttemptQuestionId() != null) {
-            reserve = attemptQuestionRepository.findById(state.getQueuedAttemptQuestionId())
-                    .map(q -> withKey(attempt, q, attempts.toLearnerQuestion(q))).orElse(null);
+        for (Long id : state.getQueuedAttemptQuestionIds()) {
+            attemptQuestionRepository.findById(id)
+                    .map(q -> withKey(attempt, q, attempts.toLearnerQuestion(q))).ifPresent(reserve::add);
         }
         return new AdaptiveAnswerResponseDto(verdict, progressOf(attempt, state), next, reserve, false, state.done());
     }
