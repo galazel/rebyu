@@ -289,7 +289,7 @@ const FEED_POSTS = [
 function BrandMark({ light = false }) {
   return (
     <span className={`flex items-center ${light ? "drop-shadow-[0_1px_3px_rgba(0,0,0,0.45)]" : ""}`}>
-      <BrandWordmark className="h-10" alt="REBYU" />
+      <BrandWordmark className="h-7" alt="REBYU" />
     </span>
   );
 }
