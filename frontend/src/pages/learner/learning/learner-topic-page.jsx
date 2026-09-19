@@ -1838,6 +1838,7 @@ export default function LearnerTopicPage() {
         itemCount={knowledgeCheck.offer?.itemCount}
         lessonNames={knowledgeCheck.offer?.lessonNames}
         currentLessonOnly={knowledgeCheck.offer?.currentLessonOnly}
+        attempt={knowledgeCheck.offer?.attempt ?? null}
         onDismiss={knowledgeCheck.dismiss}
       />
     </div>

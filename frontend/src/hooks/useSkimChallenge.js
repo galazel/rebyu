@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { getKnowledgeCheckOffer } from "@/services/knowledgeCheckService.js"
+import { createKnowledgeCheck, getKnowledgeCheckOffer } from "@/services/knowledgeCheckService.js"
+import { startAssessmentAttempt } from "@/services/assessmentService.js"
 
 /**
  * The pop-up challenge, fired by one thing only: the reading-pace guard
@@ -13,6 +14,10 @@ import { getKnowledgeCheckOffer } from "@/services/knowledgeCheckService.js"
  * cooldown, or too few multiple-choice / short-answer questions in the lesson)
  * closes the matter for this lesson opening rather than being retried on the
  * next rush. Reopening the lesson re-arms it.
+ *
+ * When the answer is yes, the check is minted and the attempt started here,
+ * before anything is shown: the modal opens already holding its five
+ * questions, rather than making the learner press a button and wait.
  */
 export function useSkimChallenge({ learnerId, lessonId, enabled }) {
   const [offer, setOffer] = useState(null)
@@ -35,9 +40,14 @@ export function useSkimChallenge({ learnerId, lessonId, enabled }) {
     busyRef.current = true
 
     getKnowledgeCheckOffer(lesson, { currentLessonOnly: true })
-      .then((result) => {
+      .then(async (result) => {
+        if (lessonRef.current !== lesson || !result?.available) return
+        const check = await createKnowledgeCheck(lesson, { currentLessonOnly: true })
+        if (!check?.examId || lessonRef.current !== lesson) return
+        const key = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
+        const attempt = await startAssessmentAttempt(check.examId, learnerId, key)
         if (lessonRef.current !== lesson) return
-        if (result?.available) setOffer({ ...result, currentLessonOnly: true })
+        setOffer({ ...result, currentLessonOnly: true, attempt })
       })
       .catch(() => {
         /* An optional prompt must never surface an error over the lesson. */

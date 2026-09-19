@@ -44,7 +44,7 @@ import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-
  * leaving the learner sealed behind a modal over a failed request would trap
  * them in the lesson with no way out.
  */
-export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, lessonNames, currentLessonOnly = true, onDismiss }) {
+export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, lessonNames, currentLessonOnly = true, attempt: preparedAttempt = null, onDismiss }) {
   const queryClient = useQueryClient()
 
   const [phase, setPhase] = useState("intro")
@@ -68,8 +68,15 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       setIndex(0)
       setAnswers({})
       setResult(null)
+      return
     }
-  }, [open])
+    /* Opened with the attempt already started: straight to question one. */
+    if (preparedAttempt) {
+      mintingRef.current = true
+      setAttempt(preparedAttempt)
+      setPhase("playing")
+    }
+  }, [open, preparedAttempt])
 
   function start() {
     if (mintingRef.current) return
