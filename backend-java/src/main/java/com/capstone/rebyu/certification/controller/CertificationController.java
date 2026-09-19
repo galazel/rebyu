@@ -21,7 +21,7 @@ import java.util.List;
 
 /**
  * Reads stay public -- the certification catalog is browsed from the public
- * partnership-request page before an organization even has an account, and by
+ * partnership-request page before an institution even has an account, and by
  * every signed-in role. WRITES had no authentication at all (anyone could
  * create/edit/delete/publish any certification); now admin-only.
  *

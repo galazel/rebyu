@@ -25,7 +25,7 @@ import {
 } from "@/components/institution/institution-ui.jsx"
 import { updateInstitution } from "@/services/institutionService.js"
 
-export default function InstitutionOrganizationPage() {
+export default function InstitutionProfilePage() {
   const { institution, institutionLoading, institutionError, refetchInstitution } =
     useOutletContext()
   const queryClient = useQueryClient()
@@ -53,7 +53,7 @@ export default function InstitutionOrganizationPage() {
       updateInstitution(institution.institutionId, { ...institution, ...form }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["institutions"] })
-      toast.success("Organization details updated.")
+      toast.success("Institution details updated.")
     },
     onError: () => {
       toast.error("Unable to save changes. Please try again.")
@@ -67,8 +67,8 @@ export default function InstitutionOrganizationPage() {
   if (!institution) {
     return (
       <InstitutionEmptyState
-        title="No organization found"
-        description="Organization details appear here once your organization is registered."
+        title="No institution found"
+        description="Institution details appear here once your institution is registered."
       />
     )
   }
@@ -79,8 +79,8 @@ export default function InstitutionOrganizationPage() {
   return (
     <div className="space-y-6">
       <InstitutionPageHeader
-        title="Organization"
-        subtitle="Your organization profile and primary contact details."
+        title="Institution"
+        subtitle="Your institution profile and primary contact details."
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -99,7 +99,7 @@ export default function InstitutionOrganizationPage() {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Type</span>
               <span className="font-medium capitalize">
-                {String(institution.organizationType ?? "—").replaceAll(
+                {String(institution.institutionType ?? "—").replaceAll(
                   "_",
                   " "
                 )}

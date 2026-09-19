@@ -3,8 +3,8 @@ package com.capstone.rebyu.enrollment.controller;
 
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
-import com.capstone.rebyu.enrollment.dto.OrganizationCertificationLearnerDto;
-import com.capstone.rebyu.enrollment.service.OrganizationCertificationLearnerService;
+import com.capstone.rebyu.enrollment.dto.InstitutionCertificationLearnerDto;
+import com.capstone.rebyu.enrollment.service.InstitutionCertificationLearnerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -15,24 +15,24 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/organization-certification-learners")
+@RequestMapping("/api/institution-certification-learners")
 @RequiredArgsConstructor
-public class OrganizationCertificationLearnerController {
-    private final OrganizationCertificationLearnerService organizationCertificationLearnerService;
+public class InstitutionCertificationLearnerController {
+    private final InstitutionCertificationLearnerService institutionCertificationLearnerService;
     private final CognitoAuthService auth;
 
     // Cross-tenant learner-allocation data: the unfiltered list exposes which learners
-    // hold which certifications across every organization, so it's admin-only.
+    // hold which certifications across every institution, so it's admin-only.
     @GetMapping
-    public List<OrganizationCertificationLearnerDto> getAll(@AuthenticationPrincipal Jwt jwt) {
+    public List<InstitutionCertificationLearnerDto> getAll(@AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
-        return organizationCertificationLearnerService.getAll();
+        return institutionCertificationLearnerService.getAll();
     }
 
     @GetMapping("/{id}")
-    public OrganizationCertificationLearnerDto getById(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+    public InstitutionCertificationLearnerDto getById(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
-        return organizationCertificationLearnerService.getById(id);
+        return institutionCertificationLearnerService.getById(id);
     }
 
     private void requireAdmin(Jwt jwt) {
@@ -43,24 +43,24 @@ public class OrganizationCertificationLearnerController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public OrganizationCertificationLearnerDto create(@Valid @RequestBody OrganizationCertificationLearnerDto dto,
+    public InstitutionCertificationLearnerDto create(@Valid @RequestBody InstitutionCertificationLearnerDto dto,
                                                         @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
-        return organizationCertificationLearnerService.create(dto);
+        return institutionCertificationLearnerService.create(dto);
     }
 
     @PutMapping("/{id}")
-    public OrganizationCertificationLearnerDto update(@PathVariable Long id,
-                                                        @Valid @RequestBody OrganizationCertificationLearnerDto dto,
+    public InstitutionCertificationLearnerDto update(@PathVariable Long id,
+                                                        @Valid @RequestBody InstitutionCertificationLearnerDto dto,
                                                         @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
-        return organizationCertificationLearnerService.update(id, dto);
+        return institutionCertificationLearnerService.update(id, dto);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
-        organizationCertificationLearnerService.delete(id);
+        institutionCertificationLearnerService.delete(id);
     }
 }

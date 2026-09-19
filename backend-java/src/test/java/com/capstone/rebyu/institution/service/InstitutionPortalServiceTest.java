@@ -1,14 +1,12 @@
 package com.capstone.rebyu.institution.service;
 
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
-import com.capstone.rebyu.enrollment.mapper.OrganizationCertificationLearnerMapper;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
+import com.capstone.rebyu.enrollment.mapper.InstitutionCertificationLearnerMapper;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.institution.dto.InstitutionPortalDtos.OverviewDto;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAssigneeRepository;
-import com.capstone.rebyu.organization.mapper.OrganizationCertificateMapper;
-import com.capstone.rebyu.organization.repository.OrganizationCertificateRepository;
-import com.capstone.rebyu.partnership.mapper.InstitutionInvoiceMapper;
-import com.capstone.rebyu.partnership.repository.InstitutionInvoiceRepository;
+import com.capstone.rebyu.institution.mapper.InstitutionCertificateMapper;
+import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import com.capstone.rebyu.partnership.service.InstitutionInvitationService;
 import com.capstone.rebyu.user.entity.Learner;
 import com.capstone.rebyu.user.repository.LearnerRepository;
@@ -32,10 +30,9 @@ class InstitutionPortalServiceTest {
 
     private static final Long INSTITUTION_ID = 7L;
 
-    private OrganizationCertificateRepository orgCertRepository;
-    private OrganizationCertificationLearnerRepository orgCertLearnerRepository;
-    private OrganizationCertificationLearnerMapper orgCertLearnerMapper;
-    private InstitutionInvoiceRepository invoiceRepository;
+    private InstitutionCertificateRepository institutionCertRepository;
+    private InstitutionCertificationLearnerRepository institutionCertLearnerRepository;
+    private InstitutionCertificationLearnerMapper institutionCertLearnerMapper;
     private LearnerRepository learnerRepository;
     private InstitutionInvitationService invitationService;
     private InstitutionGroupAssigneeRepository groupAssigneeRepository;
@@ -44,22 +41,20 @@ class InstitutionPortalServiceTest {
 
     @BeforeEach
     void setUp() {
-        orgCertRepository = mock(OrganizationCertificateRepository.class);
-        orgCertLearnerRepository = mock(OrganizationCertificationLearnerRepository.class);
-        orgCertLearnerMapper = mock(OrganizationCertificationLearnerMapper.class);
-        invoiceRepository = mock(InstitutionInvoiceRepository.class);
+        institutionCertRepository = mock(InstitutionCertificateRepository.class);
+        institutionCertLearnerRepository = mock(InstitutionCertificationLearnerRepository.class);
+        institutionCertLearnerMapper = mock(InstitutionCertificationLearnerMapper.class);
         learnerRepository = mock(LearnerRepository.class);
         invitationService = mock(InstitutionInvitationService.class);
         groupAssigneeRepository = mock(InstitutionGroupAssigneeRepository.class);
         examResultRepository = mock(com.capstone.rebyu.assessment.repository.ExamResultRepository.class);
-        service = new InstitutionPortalService(orgCertRepository, mock(OrganizationCertificateMapper.class),
-                orgCertLearnerRepository, orgCertLearnerMapper, invoiceRepository,
-                mock(InstitutionInvoiceMapper.class), learnerRepository, invitationService,
+        service = new InstitutionPortalService(institutionCertRepository, mock(InstitutionCertificateMapper.class),
+                institutionCertLearnerRepository, institutionCertLearnerMapper,
+                learnerRepository, invitationService,
                 groupAssigneeRepository, examResultRepository,
                 mock(com.capstone.rebyu.assessment.mapper.ExamResultMapper.class));
 
-        when(orgCertRepository.findByInstitution_InstitutionId(INSTITUTION_ID)).thenReturn(List.of());
-        when(invoiceRepository.findByInstitution_InstitutionId(INSTITUTION_ID)).thenReturn(List.of());
+        when(institutionCertRepository.findByInstitution_InstitutionId(INSTITUTION_ID)).thenReturn(List.of());
         when(invitationService.listInvitations(INSTITUTION_ID)).thenReturn(List.of());
         /* Stubbed, not left as a bare mock: `overview` streams this result
            straight away, so the default null would NPE before any assertion in
@@ -68,15 +63,15 @@ class InstitutionPortalServiceTest {
         when(groupAssigneeRepository.assignmentGroupsByInstitution(INSTITUTION_ID)).thenReturn(List.of());
     }
 
-    private OrganizationCertificationLearner assignment(Long learnerId) {
-        OrganizationCertificationLearner row = new OrganizationCertificationLearner();
+    private InstitutionCertificationLearner assignment(Long learnerId) {
+        InstitutionCertificationLearner row = new InstitutionCertificationLearner();
         row.setLearner(Learner.builder().learnerId(learnerId).build());
         return row;
     }
 
     @Test
     void overview_fetchesLearnersOnlyForThisInstitutionsAssignments() {
-        when(orgCertLearnerRepository.findByOrgCert_Institution_InstitutionId(INSTITUTION_ID))
+        when(institutionCertLearnerRepository.findByInstitutionCert_Institution_InstitutionId(INSTITUTION_ID))
                 .thenReturn(List.of(assignment(11L), assignment(22L), assignment(11L)));
         when(learnerRepository.findByLearnerIdIn(any())).thenReturn(List.of(
                 Learner.builder().learnerId(11L).firstName("Ana").lastName("Cruz").username("ana").build(),
@@ -92,7 +87,7 @@ class InstitutionPortalServiceTest {
 
     @Test
     void overview_noAssignments_skipsLearnerLookupEntirely() {
-        when(orgCertLearnerRepository.findByOrgCert_Institution_InstitutionId(INSTITUTION_ID)).thenReturn(List.of());
+        when(institutionCertLearnerRepository.findByInstitutionCert_Institution_InstitutionId(INSTITUTION_ID)).thenReturn(List.of());
 
         OverviewDto result = service.overview(INSTITUTION_ID);
 
@@ -102,20 +97,18 @@ class InstitutionPortalServiceTest {
 
     @Test
     void overview_usesInstitutionScopedRepositoryQueries_notGlobalFindAll() {
-        when(orgCertLearnerRepository.findByOrgCert_Institution_InstitutionId(INSTITUTION_ID)).thenReturn(List.of());
+        when(institutionCertLearnerRepository.findByInstitutionCert_Institution_InstitutionId(INSTITUTION_ID)).thenReturn(List.of());
 
         service.overview(INSTITUTION_ID);
 
-        verify(orgCertRepository).findByInstitution_InstitutionId(eq(INSTITUTION_ID));
-        verify(orgCertRepository, never()).findAll();
-        verify(invoiceRepository).findByInstitution_InstitutionId(eq(INSTITUTION_ID));
-        verify(invoiceRepository, never()).findAll();
+        verify(institutionCertRepository).findByInstitution_InstitutionId(eq(INSTITUTION_ID));
+        verify(institutionCertRepository, never()).findAll();
     }
 
     @Test
     void learnerExamResults_learnerNotInInstitution_throwsNotFoundWithoutReadingResults() {
         Long otherLearnerId = 999L;
-        when(orgCertLearnerRepository.existsByLearner_LearnerIdAndOrgCert_Institution_InstitutionId(otherLearnerId, INSTITUTION_ID))
+        when(institutionCertLearnerRepository.existsByLearner_LearnerIdAndInstitutionCert_Institution_InstitutionId(otherLearnerId, INSTITUTION_ID))
                 .thenReturn(false);
 
         assertThrows(jakarta.persistence.EntityNotFoundException.class,
@@ -126,7 +119,7 @@ class InstitutionPortalServiceTest {
     @Test
     void learnerExamResults_learnerInInstitution_returnsScopedResults() {
         Long learnerId = 55L;
-        when(orgCertLearnerRepository.existsByLearner_LearnerIdAndOrgCert_Institution_InstitutionId(learnerId, INSTITUTION_ID))
+        when(institutionCertLearnerRepository.existsByLearner_LearnerIdAndInstitutionCert_Institution_InstitutionId(learnerId, INSTITUTION_ID))
                 .thenReturn(true);
         when(examResultRepository.findByLearner_LearnerId(learnerId)).thenReturn(List.of());
 

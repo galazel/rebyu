@@ -1,9 +1,9 @@
-package com.capstone.rebyu.organization.controller;
+package com.capstone.rebyu.institution.controller;
 
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
-import com.capstone.rebyu.organization.dto.InstitutionMemberDto;
-import com.capstone.rebyu.organization.service.InstitutionMemberService;
+import com.capstone.rebyu.institution.dto.InstitutionMemberDto;
+import com.capstone.rebyu.institution.service.InstitutionMemberService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

@@ -1,16 +1,16 @@
 package com.capstone.rebyu.institutiongroup.service;
 
 import com.capstone.rebyu.common.BusinessRuleException;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.institutiongroup.dto.InstitutionGroupAssigneeDto;
 import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
 import com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAssignee;
 import com.capstone.rebyu.institutiongroup.mapper.InstitutionGroupAssigneeMapper;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAssigneeRepository;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupRepository;
-import com.capstone.rebyu.organization.entity.Institution;
-import com.capstone.rebyu.organization.entity.OrganizationCertificate;
+import com.capstone.rebyu.institution.entity.Institution;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,13 +31,13 @@ class InstitutionGroupAssigneeServiceTest {
     private static final Long CALLER_INSTITUTION_ID = 1L;
     private static final Long OTHER_INSTITUTION_ID = 2L;
     private static final Long GROUP_ID = 10L;
-    private static final Long ORG_CERT_LEARNER_ID = 20L;
-    private static final Long ORG_CERT_ID = 30L;
+    private static final Long INSTITUTION_CERT_LEARNER_ID = 20L;
+    private static final Long INSTITUTION_CERT_ID = 30L;
     private static final Long ASSIGNEE_ID = 40L;
 
     private InstitutionGroupAssigneeRepository assigneeRepository;
     private InstitutionGroupRepository groupRepository;
-    private OrganizationCertificationLearnerRepository orgCertLearnerRepository;
+    private InstitutionCertificationLearnerRepository institutionCertLearnerRepository;
     private InstitutionGroupAssigneeMapper mapper;
 
     private InstitutionGroupAssigneeService service;
@@ -46,11 +46,11 @@ class InstitutionGroupAssigneeServiceTest {
     void setUp() {
         assigneeRepository = mock(InstitutionGroupAssigneeRepository.class);
         groupRepository = mock(InstitutionGroupRepository.class);
-        orgCertLearnerRepository = mock(OrganizationCertificationLearnerRepository.class);
+        institutionCertLearnerRepository = mock(InstitutionCertificationLearnerRepository.class);
         mapper = mock(InstitutionGroupAssigneeMapper.class);
 
         service = new InstitutionGroupAssigneeService(
-                assigneeRepository, groupRepository, orgCertLearnerRepository, mapper);
+                assigneeRepository, groupRepository, institutionCertLearnerRepository, mapper);
 
         when(mapper.toDto(any(InstitutionGroupAssignee.class))).thenAnswer(inv -> {
             InstitutionGroupAssignee entity = inv.getArgument(0);
@@ -73,28 +73,28 @@ class InstitutionGroupAssigneeServiceTest {
     private InstitutionGroup group(Long institutionId) {
         Institution institution = new Institution();
         institution.setInstitutionId(institutionId);
-        OrganizationCertificate orgCert = new OrganizationCertificate();
-        orgCert.setOrgCertId(ORG_CERT_ID);
+        InstitutionCertificate institutionCert = new InstitutionCertificate();
+        institutionCert.setInstitutionCertId(INSTITUTION_CERT_ID);
         return InstitutionGroup.builder()
                 .institutionGroupId(GROUP_ID)
                 .institution(institution)
-                .orgCert(orgCert)
+                .institutionCert(institutionCert)
                 .build();
     }
 
-    private OrganizationCertificationLearner learner(Long orgCertId) {
-        OrganizationCertificate orgCert = new OrganizationCertificate();
-        orgCert.setOrgCertId(orgCertId);
-        return OrganizationCertificationLearner.builder()
-                .orgCertLearnerId(ORG_CERT_LEARNER_ID)
-                .orgCert(orgCert)
+    private InstitutionCertificationLearner learner(Long institutionCertId) {
+        InstitutionCertificate institutionCert = new InstitutionCertificate();
+        institutionCert.setInstitutionCertId(institutionCertId);
+        return InstitutionCertificationLearner.builder()
+                .institutionCertLearnerId(INSTITUTION_CERT_LEARNER_ID)
+                .institutionCert(institutionCert)
                 .build();
     }
 
     private InstitutionGroupAssigneeDto dto() {
         InstitutionGroupAssigneeDto dto = new InstitutionGroupAssigneeDto();
         dto.setInstitutionGroupId(GROUP_ID);
-        dto.setOrgCertLearnerId(ORG_CERT_LEARNER_ID);
+        dto.setInstitutionCertLearnerId(INSTITUTION_CERT_LEARNER_ID);
         dto.setAssignedBy(99L);
         return dto;
     }
@@ -110,9 +110,9 @@ class InstitutionGroupAssigneeServiceTest {
 
     // ---- 2: learner from a different certification allocation is rejected ----
     @Test
-    void create_learnerBelongsToDifferentOrgCert_throwsBusinessRuleException() {
+    void create_learnerBelongsToDifferentInstitutionCert_throwsBusinessRuleException() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(CALLER_INSTITUTION_ID)));
-        when(orgCertLearnerRepository.findById(ORG_CERT_LEARNER_ID))
+        when(institutionCertLearnerRepository.findById(INSTITUTION_CERT_LEARNER_ID))
                 .thenReturn(Optional.of(learner(999L))); // different org cert than the group's
 
         assertThrows(BusinessRuleException.InstitutionGroupRuleException.class,
@@ -123,9 +123,9 @@ class InstitutionGroupAssigneeServiceTest {
     @Test
     void create_newAssignment_defaultsToMemberRole() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(CALLER_INSTITUTION_ID)));
-        when(orgCertLearnerRepository.findById(ORG_CERT_LEARNER_ID))
-                .thenReturn(Optional.of(learner(ORG_CERT_ID)));
-        when(assigneeRepository.findByInstitutionGroupAndOrgCertLearner(any(), any()))
+        when(institutionCertLearnerRepository.findById(INSTITUTION_CERT_LEARNER_ID))
+                .thenReturn(Optional.of(learner(INSTITUTION_CERT_ID)));
+        when(assigneeRepository.findByInstitutionGroupAndInstitutionCertLearner(any(), any()))
                 .thenReturn(Optional.empty());
         when(assigneeRepository.save(any(InstitutionGroupAssignee.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -140,13 +140,13 @@ class InstitutionGroupAssigneeServiceTest {
     @Test
     void create_alreadyActiveAssignment_throwsBusinessRuleException() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(CALLER_INSTITUTION_ID)));
-        when(orgCertLearnerRepository.findById(ORG_CERT_LEARNER_ID))
-                .thenReturn(Optional.of(learner(ORG_CERT_ID)));
+        when(institutionCertLearnerRepository.findById(INSTITUTION_CERT_LEARNER_ID))
+                .thenReturn(Optional.of(learner(INSTITUTION_CERT_ID)));
         InstitutionGroupAssignee activeRow = InstitutionGroupAssignee.builder()
                 .institutionGroupAssigneeId(ASSIGNEE_ID)
                 .status(InstitutionGroupAssignee.Status.active)
                 .build();
-        when(assigneeRepository.findByInstitutionGroupAndOrgCertLearner(any(), any()))
+        when(assigneeRepository.findByInstitutionGroupAndInstitutionCertLearner(any(), any()))
                 .thenReturn(Optional.of(activeRow));
 
         assertThrows(BusinessRuleException.InstitutionGroupRuleException.class,
@@ -158,15 +158,15 @@ class InstitutionGroupAssigneeServiceTest {
     @Test
     void create_archivedAssignment_reactivatesInsteadOfInserting() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(CALLER_INSTITUTION_ID)));
-        when(orgCertLearnerRepository.findById(ORG_CERT_LEARNER_ID))
-                .thenReturn(Optional.of(learner(ORG_CERT_ID)));
+        when(institutionCertLearnerRepository.findById(INSTITUTION_CERT_LEARNER_ID))
+                .thenReturn(Optional.of(learner(INSTITUTION_CERT_ID)));
         InstitutionGroupAssignee archivedRow = InstitutionGroupAssignee.builder()
                 .institutionGroupAssigneeId(ASSIGNEE_ID)
                 .status(InstitutionGroupAssignee.Status.archived)
                 .removedAt(LocalDateTime.now().minusDays(1))
                 .role(InstitutionGroupAssignee.Role.lead)
                 .build();
-        when(assigneeRepository.findByInstitutionGroupAndOrgCertLearner(any(), any()))
+        when(assigneeRepository.findByInstitutionGroupAndInstitutionCertLearner(any(), any()))
                 .thenReturn(Optional.of(archivedRow));
         when(assigneeRepository.save(any(InstitutionGroupAssignee.class)))
                 .thenAnswer(inv -> inv.getArgument(0));

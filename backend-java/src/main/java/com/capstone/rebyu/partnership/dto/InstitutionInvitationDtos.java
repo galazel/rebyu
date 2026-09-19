@@ -16,9 +16,9 @@ public final class InstitutionInvitationDtos {
     private InstitutionInvitationDtos() {
     }
 
-    /** Organization certification access + live slot counts. */
+    /** Institution certification access + live slot counts. */
     public record CertificationAccessDto(
-            Long orgCertId,
+            Long institutionCertId,
             Long certificationId,
             String certificationTitle,
             String status,
@@ -52,7 +52,7 @@ public final class InstitutionInvitationDtos {
 
     public record InvitationDto(
             Long invitationId,
-            Long orgCertId,
+            Long institutionCertId,
             Long certificationId,
             String certificationTitle,
             Long institutionGroupId,

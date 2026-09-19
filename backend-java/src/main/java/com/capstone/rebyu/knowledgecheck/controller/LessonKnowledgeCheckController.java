@@ -31,8 +31,11 @@ public class LessonKnowledgeCheckController {
      * cheap, so the frontend can ask before committing to interrupting.
      */
     @GetMapping("/offer")
-    public CheckOffer offer(@RequestParam Long lessonId, @AuthenticationPrincipal Jwt jwt) {
-        return knowledgeCheckService.offer(requireLearner(jwt), lessonId);
+    public CheckOffer offer(
+            @RequestParam Long lessonId,
+            @RequestParam(defaultValue = "false") boolean currentLessonOnly,
+            @AuthenticationPrincipal Jwt jwt) {
+        return knowledgeCheckService.offer(requireLearner(jwt), lessonId, currentLessonOnly);
     }
 
     /**
@@ -42,10 +45,10 @@ public class LessonKnowledgeCheckController {
      */
     @PostMapping
     public CheckOffer create(@RequestBody CreateRequest request, @AuthenticationPrincipal Jwt jwt) {
-        return knowledgeCheckService.create(requireLearner(jwt), request.lessonId());
+        return knowledgeCheckService.create(requireLearner(jwt), request.lessonId(), request.currentLessonOnly());
     }
 
-    public record CreateRequest(Long lessonId) {}
+    public record CreateRequest(Long lessonId, boolean currentLessonOnly) {}
 
     private Long requireLearner(Jwt jwt) {
         if (jwt == null) {

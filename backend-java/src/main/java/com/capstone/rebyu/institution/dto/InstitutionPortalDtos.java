@@ -1,8 +1,7 @@
 package com.capstone.rebyu.institution.dto;
 
-import com.capstone.rebyu.enrollment.dto.OrganizationCertificationLearnerDto;
-import com.capstone.rebyu.organization.dto.OrganizationCertificateDto;
-import com.capstone.rebyu.partnership.dto.InstitutionInvoiceDto;
+import com.capstone.rebyu.enrollment.dto.InstitutionCertificationLearnerDto;
+import com.capstone.rebyu.institution.dto.InstitutionCertificateDto;
 import com.capstone.rebyu.partnership.dto.InstitutionInvitationDtos.InvitationDto;
 
 import java.util.List;
@@ -22,14 +21,13 @@ public final class InstitutionPortalDtos {
      * the institutiongroup package -- folding one into the other would put a
      * grouping concern into the enrollment mapper.
      */
-    public record GroupMembershipDto(Long orgCertLearnerId, Long institutionGroupId, String groupName) {}
+    public record GroupMembershipDto(Long institutionCertLearnerId, Long institutionGroupId, String groupName) {}
 
     public record OverviewDto(
-            List<OrganizationCertificateDto> orgCerts,
-            List<OrganizationCertificationLearnerDto> assignments,
+            List<InstitutionCertificateDto> institutionCerts,
+            List<InstitutionCertificationLearnerDto> assignments,
             List<LearnerSummaryDto> learners,
             List<InvitationDto> invitations,
-            List<InstitutionInvoiceDto> invoices,
             List<GroupMembershipDto> groupMemberships
     ) {}
 }

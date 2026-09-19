@@ -1,9 +1,9 @@
 package com.capstone.rebyu.user.service;
 
 import com.capstone.rebyu.common.InvitationAcceptanceException;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
 import com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAssignee;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAssigneeRepository;
@@ -12,8 +12,8 @@ import com.capstone.rebyu.notification.entity.LearnerInvitation;
 import com.capstone.rebyu.notification.repository.LearnerInvitationRepository;
 import com.capstone.rebyu.notification.service.InvitationTokenService;
 import com.capstone.rebyu.notification.service.NotificationService;
-import com.capstone.rebyu.organization.entity.OrganizationCertificate;
-import com.capstone.rebyu.organization.repository.OrganizationCertificateRepository;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
+import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import com.capstone.rebyu.user.dto.AcceptInvitationResponse;
 import com.capstone.rebyu.user.dto.LearnerDto;
 import com.capstone.rebyu.user.entity.Learner;
@@ -41,9 +41,9 @@ public class LearnerService {
     private final LearnerRepository learnerRepository;
     private final LearnerMapper learnerMapper;
     private final LearnerInvitationRepository learnerInvitationRepository;
-    private final OrganizationCertificationLearnerRepository
-            organizationCertificationLearnerRepository;
-    private final OrganizationCertificateRepository organizationCertificateRepository;
+    private final InstitutionCertificationLearnerRepository
+            institutionCertificationLearnerRepository;
+    private final InstitutionCertificateRepository institutionCertificateRepository;
     private final LearnerCertificationRepository learnerCertificationRepository;
     private final InvitationTokenService invitationTokenService;
     private final InstitutionGroupAssigneeRepository institutionGroupAssigneeRepository;
@@ -61,8 +61,8 @@ public class LearnerService {
          * a per-learner lookup here is the list length in round trips to a
          * remote database -- and it is the page an admin opens first.
          */
-        Map<Long, List<OrganizationCertificationLearner>> orgEnrolmentsByLearner =
-                organizationCertificationLearnerRepository.findAll().stream()
+        Map<Long, List<InstitutionCertificationLearner>> orgEnrolmentsByLearner =
+                institutionCertificationLearnerRepository.findAll().stream()
                         .filter(row -> row.getLearner() != null)
                         .collect(Collectors.groupingBy(
                                 row -> row.getLearner().getLearnerId()));
@@ -91,7 +91,7 @@ public class LearnerService {
         return enrich(
                 learnerMapper.toDto(learner),
                 learner,
-                organizationCertificationLearnerRepository
+                institutionCertificationLearnerRepository
                         .findByLearner_LearnerId(id),
                 (long) learnerCertificationRepository
                         .findByLearner_LearnerId(id).size());
@@ -110,7 +110,7 @@ public class LearnerService {
     private LearnerDto enrich(
             LearnerDto dto,
             Learner learner,
-            List<OrganizationCertificationLearner> orgEnrolments,
+            List<InstitutionCertificationLearner> orgEnrolments,
             long individualEnrolments) {
 
         if (learner.getUser() != null) {
@@ -121,16 +121,16 @@ public class LearnerService {
                     : learner.getUser().getAccountStatus().name());
         }
 
-        String organizationName = orgEnrolments.stream()
-                .map(OrganizationCertificationLearner::getOrgCert)
-                .filter(orgCert -> orgCert != null && orgCert.getInstitution() != null)
-                .map(orgCert -> orgCert.getInstitution().getInstitutionName())
+        String institutionName = orgEnrolments.stream()
+                .map(InstitutionCertificationLearner::getInstitutionCert)
+                .filter(institutionCert -> institutionCert != null && institutionCert.getInstitution() != null)
+                .map(institutionCert -> institutionCert.getInstitution().getInstitutionName())
                 .filter(name -> name != null && !name.isBlank())
                 .findFirst()
                 .orElse(null);
 
-        dto.setOrganizationName(organizationName);
-        dto.setLearnerType(organizationName == null ? "individual" : "institution");
+        dto.setInstitutionName(institutionName);
+        dto.setLearnerType(institutionName == null ? "individual" : "institution");
         dto.setCertificationCount((int) (orgEnrolments.size() + individualEnrolments));
 
         /*
@@ -140,7 +140,7 @@ public class LearnerService {
          * than a number this query cannot honestly produce.
          */
         dto.setProgressPercentage(orgEnrolments.stream()
-                .map(OrganizationCertificationLearner::getProgressPercentage)
+                .map(InstitutionCertificationLearner::getProgressPercentage)
                 .filter(java.util.Objects::nonNull)
                 .mapToDouble(BigDecimal::doubleValue)
                 .average()
@@ -211,7 +211,7 @@ public class LearnerService {
                     "This invitation has already been accepted.");
             case REVOKED -> throw new InvitationAcceptanceException(
                     InvitationAcceptanceException.Code.INVITATION_REVOKED,
-                    "This invitation was cancelled by the organization.");
+                    "This invitation was cancelled by the institution.");
             case EXPIRED -> throw new InvitationAcceptanceException(
                     InvitationAcceptanceException.Code.INVITATION_EXPIRED,
                     "This invitation has expired.");
@@ -223,7 +223,7 @@ public class LearnerService {
                 && invitation.getExpiresAt().isBefore(LocalDateTime.now())) {
             invitation.setStatus(LearnerInvitation.Status.EXPIRED);
             learnerInvitationRepository.save(invitation);
-            restoreSlot(invitation.getOrgCert());
+            restoreSlot(invitation.getInstitutionCert());
             restoreGroupSlot(invitation.getInstitutionGroup());
             throw new InvitationAcceptanceException(
                     InvitationAcceptanceException.Code.INVITATION_EXPIRED,
@@ -250,32 +250,32 @@ public class LearnerService {
         }
 
         // 13. Certification access must exist.
-        OrganizationCertificate orgCert = invitation.getOrgCert();
-        if (orgCert == null) {
+        InstitutionCertificate institutionCert = invitation.getInstitutionCert();
+        if (institutionCert == null) {
             throw new InvitationAcceptanceException(
                     InvitationAcceptanceException.Code.INVALID_TOKEN,
                     "This invitation is no longer valid.");
         }
 
         // 14-15. Reject duplicate enrollment.
-        if (organizationCertificationLearnerRepository
-                .existsByOrgCertAndLearner(orgCert, learner)) {
+        if (institutionCertificationLearnerRepository
+                .existsByInstitutionCertAndLearner(institutionCert, learner)) {
             throw new InvitationAcceptanceException(
                     InvitationAcceptanceException.Code.ALREADY_ENROLLED,
                     "You already have access to this certification.");
         }
 
         // 16-17. Create the enrollment.
-        OrganizationCertificationLearner enrollment =
-                OrganizationCertificationLearner.builder()
-                        .orgCert(orgCert)
+        InstitutionCertificationLearner enrollment =
+                InstitutionCertificationLearner.builder()
+                        .institutionCert(institutionCert)
                         .learner(learner)
                         .assignedAt(LocalDateTime.now())
                         .progressPercentage(BigDecimal.ZERO)
                         .completedAt(null)
-                        .status(OrganizationCertificationLearner.Status.active)
+                        .status(InstitutionCertificationLearner.Status.active)
                         .build();
-        enrollment = organizationCertificationLearnerRepository.save(enrollment);
+        enrollment = institutionCertificationLearnerRepository.save(enrollment);
         // Lessons already finished on their own count toward the institution seat.
         orgEnrollmentProgressService.sync(enrollment);
 
@@ -286,7 +286,7 @@ public class LearnerService {
         if (group != null && invitation.getInvitedBy() != null) {
             InstitutionGroupAssignee assignee = InstitutionGroupAssignee.builder()
                     .institutionGroup(group)
-                    .orgCertLearner(enrollment)
+                    .institutionCertLearner(enrollment)
                     .assignedBy(invitation.getInvitedBy())
                     .assignedAt(LocalDateTime.now())
                     .status(InstitutionGroupAssignee.Status.active)
@@ -332,14 +332,14 @@ public class LearnerService {
 
         log.info("Learner {} accepted invitation {} for certification {}",
                 learner.getLearnerId(), invitation.getInvitationId(),
-                orgCert.getCertification().getCertificationId());
+                institutionCert.getCertification().getCertificationId());
 
         // 21. Return the result shape.
         return new AcceptInvitationResponse(
                 "Invitation accepted successfully.",
-                orgCert.getCertification().getCertificationId(),
-                orgCert.getCertification().getTitle(),
-                enrollment.getOrgCertLearnerId());
+                institutionCert.getCertification().getCertificationId(),
+                institutionCert.getCertification().getTitle(),
+                enrollment.getInstitutionCertLearnerId());
     }
 
     /** Restores exactly one reserved slot on the group; used_slots never goes negative. */
@@ -381,12 +381,12 @@ public class LearnerService {
     }
 
     /** Restores exactly one reserved slot; used_slots never goes negative. */
-    private void restoreSlot(OrganizationCertificate orgCert) {
-        if (orgCert == null) {
+    private void restoreSlot(InstitutionCertificate institutionCert) {
+        if (institutionCert == null) {
             return;
         }
-        orgCert.setUsedSlots(Math.max(0, orgCert.getUsedSlots() - 1));
-        organizationCertificateRepository.save(orgCert);
+        institutionCert.setUsedSlots(Math.max(0, institutionCert.getUsedSlots() - 1));
+        institutionCertificateRepository.save(institutionCert);
     }
 
     /**

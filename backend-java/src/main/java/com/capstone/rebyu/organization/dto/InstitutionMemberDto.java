@@ -1,6 +1,6 @@
-package com.capstone.rebyu.organization.dto;
+package com.capstone.rebyu.institution.dto;
 
-import com.capstone.rebyu.organization.entity.InstitutionMember;
+import com.capstone.rebyu.institution.entity.InstitutionMember;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;

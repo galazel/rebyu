@@ -36,6 +36,6 @@ public class PublicPartnershipController {
     public PublicPartnershipStatusResponse status(
             @Valid @RequestBody PublicPartnershipStatusRequest request) {
         return publicPartnershipService.lookupStatus(
-                request.referenceNumber(), request.organizationEmail());
+                request.referenceNumber(), request.institutionEmail());
     }
 }

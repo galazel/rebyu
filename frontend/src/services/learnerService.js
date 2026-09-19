@@ -223,30 +223,6 @@ function getScoreNumber(value) {
   return Number.isFinite(number) ? number : null
 }
 
-function computeStudyStreak(activityLogs) {
-  const days = new Set(
-    activityLogs
-      .map((log) => log.dateTime)
-      .filter(Boolean)
-      .map((date) => new Date(date).toISOString().slice(0, 10))
-  )
-
-  if (days.size === 0) {
-    return null
-  }
-
-  let streak = 0
-  const cursor = new Date()
-  cursor.setHours(0, 0, 0, 0)
-
-  while (days.has(cursor.toISOString().slice(0, 10))) {
-    streak += 1
-    cursor.setDate(cursor.getDate() - 1)
-  }
-
-  return streak
-}
-
 export async function getLearnerPortalData() {
   const identity = getCurrentLearnerIdentity()
 
@@ -272,10 +248,9 @@ export async function getLearnerPortalData() {
 
   const learnerCertifications = asArray(portal.learnerCertifications)
   const completedLessons = asArray(portal.completedLessons)
-  const activityLogs = asArray(portal.activityLogs)
   const examResults = asArray(portal.examResults)
-  const orgCertLearners = asArray(portal.orgCertLearners)
-  const orgCertificates = asArray(portal.orgCertificates)
+  const institutionCertLearners = asArray(portal.institutionCertLearners)
+  const institutionCertificates = asArray(portal.institutionCertificates)
 
   // The learners table is authoritative. Never fall back to a stale legacy
   // localStorage value when no learner profile exists for the signed-in user.
@@ -294,21 +269,21 @@ export async function getLearnerPortalData() {
   )
 
   // Institution-assigned access: map this learner's active
-  // organization_certification_learners rows to their certificationId via the
-  // organization_certificates allocation, then treat them as enrollments.
-  const orgCertIdToCertificationId = new Map(
-    asArray(orgCertificates).map((orgCert) => [
-      String(orgCert.orgCertId),
-      orgCert.certificationId,
+  // institution_certification_learners rows to their certificationId via the
+  // institution_certificates allocation, then treat them as enrollments.
+  const institutionCertIdToCertificationId = new Map(
+    asArray(institutionCertificates).map((institutionCert) => [
+      String(institutionCert.institutionCertId),
+      institutionCert.certificationId,
     ])
   )
-  const institutionEnrollments = asArray(orgCertLearners)
+  const institutionEnrollments = asArray(institutionCertLearners)
     .filter(
       (item) =>
         isSameId(item.learnerId, learnerId) && item.status === "active"
     )
     .map((item) => ({
-      certificationId: orgCertIdToCertificationId.get(String(item.orgCertId)),
+      certificationId: institutionCertIdToCertificationId.get(String(item.institutionCertId)),
       learnerId,
       status: "active",
       source: "institution",
@@ -337,10 +312,6 @@ export async function getLearnerPortalData() {
     isSameId(item.learnerId, learnerId)
   )
   const completedSet = new Set(completedForLearner.map(completionKey))
-
-  const activityLogsForUser = asArray(activityLogs).filter((item) =>
-    isSameId(item.userId, userId)
-  )
 
   const examById = new Map(asArray(exams).map((exam) => [String(exam.examId), exam]))
   const examResultsForLearner = asArray(examResults)
@@ -442,7 +413,6 @@ export async function getLearnerPortalData() {
     enrolledCertifications,
     lessons: lessonsWithProgress,
     completedLessons: completedForLearner,
-    activityLogs: activityLogsForUser,
     exams: asArray(exams),
     examResults: examResultsForLearner,
     performancePoints,
@@ -470,7 +440,6 @@ export async function getLearnerPortalData() {
       overallProgress,
       confidenceLevel: learner?.confidenceLevel ?? null,
       readinessScore: learner?.readinessScore ?? null,
-      studyStreak: computeStudyStreak(activityLogsForUser),
     },
   }
 }

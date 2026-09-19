@@ -2,10 +2,9 @@ package com.capstone.rebyu.user.dto;
 
 import com.capstone.rebyu.assessment.dto.ExamResultDto;
 import com.capstone.rebyu.enrollment.dto.LearnerCertificationDto;
-import com.capstone.rebyu.enrollment.dto.OrganizationCertificationLearnerDto;
-import com.capstone.rebyu.organization.dto.OrganizationCertificateDto;
+import com.capstone.rebyu.enrollment.dto.InstitutionCertificationLearnerDto;
+import com.capstone.rebyu.institution.dto.InstitutionCertificateDto;
 import com.capstone.rebyu.progress.analytics.dto.CertificationProgressDto;
-import com.capstone.rebyu.progress.dto.ActivityLogDto;
 import com.capstone.rebyu.progress.dto.LearnerAchievementViewDto;
 import com.capstone.rebyu.progress.dto.LearnerCompletedLessonDto;
 
@@ -25,10 +24,9 @@ public record LearnerPortalDto(
         UserDto user,
         List<LearnerCertificationDto> learnerCertifications,
         List<LearnerCompletedLessonDto> completedLessons,
-        List<ActivityLogDto> activityLogs,
         List<ExamResultDto> examResults,
-        List<OrganizationCertificationLearnerDto> orgCertLearners,
-        List<OrganizationCertificateDto> orgCertificates,
+        List<InstitutionCertificationLearnerDto> institutionCertLearners,
+        List<InstitutionCertificateDto> institutionCertificates,
         // The whole achievement catalog with this learner's earned ones flagged,
         // so the portal can show both what they have and what is left to chase.
         List<LearnerAchievementViewDto> achievements,
@@ -50,12 +48,11 @@ public record LearnerPortalDto(
             UserDto user,
             List<LearnerCertificationDto> learnerCertifications,
             List<LearnerCompletedLessonDto> completedLessons,
-            List<ActivityLogDto> activityLogs,
-            List<ExamResultDto> examResults,
-            List<OrganizationCertificationLearnerDto> orgCertLearners,
-            List<OrganizationCertificateDto> orgCertificates) {
-        this(learner, user, learnerCertifications, completedLessons, activityLogs,
-             examResults, orgCertLearners, orgCertificates, List.of(), 0L, BigDecimal.ZERO, 0L,
+                List<ExamResultDto> examResults,
+            List<InstitutionCertificationLearnerDto> institutionCertLearners,
+            List<InstitutionCertificateDto> institutionCertificates) {
+        this(learner, user, learnerCertifications, completedLessons,
+             examResults, institutionCertLearners, institutionCertificates, List.of(), 0L, BigDecimal.ZERO, 0L,
              Map.of(), List.of());
     }
 }

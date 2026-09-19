@@ -1,7 +1,7 @@
 package com.capstone.rebyu.enrollment.entity;
 
 
-import com.capstone.rebyu.organization.entity.OrganizationCertificate;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
 import com.capstone.rebyu.user.entity.Learner;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -13,13 +13,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "organization_certification_learners",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"org_cert_id", "learner_id"}))
+@Table(name = "institution_certification_learners",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"institution_cert_id", "learner_id"}))
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class OrganizationCertificationLearner {
+public class InstitutionCertificationLearner {
 
     public enum Status {
         active, completed, revoked
@@ -27,11 +27,11 @@ public class OrganizationCertificationLearner {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long orgCertLearnerId;
+    private Long institutionCertLearnerId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "org_cert_id", nullable = false)
-    private OrganizationCertificate orgCert;
+    @JoinColumn(name = "institution_cert_id", nullable = false)
+    private InstitutionCertificate institutionCert;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "learner_id", nullable = false)

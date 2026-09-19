@@ -1,9 +1,9 @@
-package com.capstone.rebyu.organization.service;
+package com.capstone.rebyu.institution.service;
 
-import com.capstone.rebyu.organization.dto.OrganizationCertificateDto;
-import com.capstone.rebyu.organization.mapper.OrganizationCertificateMapper;
-import com.capstone.rebyu.organization.entity.OrganizationCertificate;
-import com.capstone.rebyu.organization.repository.OrganizationCertificateRepository;
+import com.capstone.rebyu.institution.dto.InstitutionCertificateDto;
+import com.capstone.rebyu.institution.mapper.InstitutionCertificateMapper;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
+import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,47 +16,47 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class OrganizationCertificateService {
-    private final OrganizationCertificateRepository organizationCertificateRepository;
-    private final OrganizationCertificateMapper organizationCertificateMapper;
+public class InstitutionCertificateService {
+    private final InstitutionCertificateRepository institutionCertificateRepository;
+    private final InstitutionCertificateMapper institutionCertificateMapper;
 
-    public List<OrganizationCertificateDto> getAll() {
-        log.debug("Fetching all organization certificates");
-        return organizationCertificateRepository.findAll().stream().map(organizationCertificateMapper::toDto).toList();
+    public List<InstitutionCertificateDto> getAll() {
+        log.debug("Fetching all institution certificates");
+        return institutionCertificateRepository.findAll().stream().map(institutionCertificateMapper::toDto).toList();
     }
 
-    public OrganizationCertificateDto getById(Long id) {
-        log.debug("Fetching organization certificate id: {}", id);
-        return organizationCertificateMapper.toDto(findEntity(id));
+    public InstitutionCertificateDto getById(Long id) {
+        log.debug("Fetching institution certificate id: {}", id);
+        return institutionCertificateMapper.toDto(findEntity(id));
     }
 
-    public OrganizationCertificateDto create(OrganizationCertificateDto dto) {
-        log.info("Creating new organization certificate");
-        OrganizationCertificate entity = organizationCertificateMapper.toEntity(dto);
-        entity.setOrgCertId(null);
-        OrganizationCertificateDto result = organizationCertificateMapper.toDto(organizationCertificateRepository.save(entity));
-        log.info("OrganizationCertificate created with id: {}", result.getOrgCertId());
+    public InstitutionCertificateDto create(InstitutionCertificateDto dto) {
+        log.info("Creating new institution certificate");
+        InstitutionCertificate entity = institutionCertificateMapper.toEntity(dto);
+        entity.setInstitutionCertId(null);
+        InstitutionCertificateDto result = institutionCertificateMapper.toDto(institutionCertificateRepository.save(entity));
+        log.info("InstitutionCertificate created with id: {}", result.getInstitutionCertId());
         return result;
     }
 
-    public OrganizationCertificateDto update(Long id, OrganizationCertificateDto dto) {
-        log.info("Updating organization certificate id: {}", id);
+    public InstitutionCertificateDto update(Long id, InstitutionCertificateDto dto) {
+        log.info("Updating institution certificate id: {}", id);
         findEntity(id);
-        OrganizationCertificate entity = organizationCertificateMapper.toEntity(dto);
-        entity.setOrgCertId(id);
-        OrganizationCertificateDto result = organizationCertificateMapper.toDto(organizationCertificateRepository.save(entity));
-        log.info("OrganizationCertificate id: {} updated", id);
+        InstitutionCertificate entity = institutionCertificateMapper.toEntity(dto);
+        entity.setInstitutionCertId(id);
+        InstitutionCertificateDto result = institutionCertificateMapper.toDto(institutionCertificateRepository.save(entity));
+        log.info("InstitutionCertificate id: {} updated", id);
         return result;
     }
 
     public void delete(Long id) {
-        log.info("Deleting organization certificate id: {}", id);
-        organizationCertificateRepository.delete(findEntity(id));
-        log.info("OrganizationCertificate id: {} deleted", id);
+        log.info("Deleting institution certificate id: {}", id);
+        institutionCertificateRepository.delete(findEntity(id));
+        log.info("InstitutionCertificate id: {} deleted", id);
     }
 
-    private OrganizationCertificate findEntity(Long id) {
-        return organizationCertificateRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("OrganizationCertificate not found: " + id));
+    private InstitutionCertificate findEntity(Long id) {
+        return institutionCertificateRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("InstitutionCertificate not found: " + id));
     }
 }

@@ -4,7 +4,7 @@ import api from '@/services/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Building, Users, Mail, Settings } from "@/components/icons"
 
-export default function OrganizationSettingsPage() {
+export default function InstitutionSettingsPage() {
   const { id } = useParams()
   const [org, setOrg] = useState(null)
   const [members, setMembers] = useState([])
@@ -19,8 +19,8 @@ export default function OrganizationSettingsPage() {
   const fetchOrgData = async () => {
     try {
       const [orgRes, membersRes] = await Promise.all([
-        api.get(`/organizations/${id}`),
-        api.get(`/organizations/${id}/members`),
+        api.get(`/institutions/${id}`),
+        api.get(`/institutions/${id}/members`),
       ])
       setOrg(orgRes.data)
       setMembers(membersRes.data)
@@ -36,7 +36,7 @@ export default function OrganizationSettingsPage() {
     if (!inviteEmail.trim()) return
 
     try {
-      await api.post(`/organizations/${id}/invite`, {
+      await api.post(`/institutions/${id}/invite`, {
         email: inviteEmail,
         role: inviteRole,
       })
@@ -47,20 +47,20 @@ export default function OrganizationSettingsPage() {
     }
   }
 
-  if (loading) return <div className="p-8">Loading organization...</div>
+  if (loading) return <div className="p-8">Loading institution...</div>
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <Building className="w-8 h-8 text-blue-600" />
-          <h1 className="text-4xl font-bold">Organization Settings</h1>
+          <h1 className="text-4xl font-bold">Institution Settings</h1>
         </div>
 
         {/* Org Details */}
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle>Organization Details</CardTitle>
+            <CardTitle>Institution Details</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>

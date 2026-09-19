@@ -520,7 +520,7 @@ export default function LearnerAccountPage() {
 
       return (
         <div className="overflow-hidden rounded-md border bg-card shadow-sm">
-          <SectionHeader title="Plan and billing" description="Your personal or organization-sponsored learning access." />
+          <SectionHeader title="Plan and billing" description="Your personal or institution-sponsored learning access." />
           <div className="p-5 sm:p-6">
             <div className="flex flex-col justify-between gap-5 rounded-md border bg-muted/20 p-5 sm:flex-row sm:items-center">
               <div>
@@ -528,7 +528,7 @@ export default function LearnerAccountPage() {
                 <h3 className="mt-3 text-lg font-semibold">{entitlements.hasPremium ? "Premium learning access" : "Free learner access"}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {entitlements.institutionalActive
-                    ? "Your organization currently sponsors eligible certification features."
+                    ? "Your institution currently sponsors eligible certification features."
                     : entitlements.personalProActive
                       ? "Your personal subscription is active."
                       : "Upgrade to access premium learning and AI capabilities."}

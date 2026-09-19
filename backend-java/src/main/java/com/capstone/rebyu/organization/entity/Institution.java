@@ -1,4 +1,4 @@
-package com.capstone.rebyu.organization.entity;
+package com.capstone.rebyu.institution.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @Builder
 public class Institution {
 
-    public enum OrganizationType {
+    public enum InstitutionType {
         school, university, review_center, company, government, training_center, other
     }
 
@@ -28,8 +28,8 @@ public class Institution {
     private String institutionName;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "organization_type", nullable = false, length = 50)
-    private OrganizationType organizationType;
+    @Column(name = "institution_type", nullable = false, length = 50)
+    private InstitutionType institutionType;
 
     @Column(nullable = false, length = 100)
     private String industry;

@@ -298,7 +298,7 @@ export default function LearnerCertificationDetailPage() {
   /* Two pieces of evidence, and the flag is only one of them.
      `diagnosticCompletedAt` is stamped on whichever enrollment row was active
      when the diagnostic was submitted, so anything that produces a different
-     active row afterwards -- re-enrolling, an organization re-issuing a seat, a
+     active row afterwards -- re-enrolling, an institution re-issuing a seat, a
      self-enrollment added beside a sponsored one -- leaves a learner who has
      demonstrably sat it being told to sit it again. Their own submitted result
      is the fact; the flag is a cache of it, and `hasSatDiagnostic` is the same

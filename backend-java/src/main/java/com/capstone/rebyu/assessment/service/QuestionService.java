@@ -6,7 +6,6 @@ import com.capstone.rebyu.assessment.mapper.QuestionMapper;
 import com.capstone.rebyu.assessment.repository.ChoiceRepository;
 import com.capstone.rebyu.assessment.repository.DiagramQuestionConfigRepository;
 import com.capstone.rebyu.assessment.repository.ExamQuestionRepository;
-import com.capstone.rebyu.assessment.repository.LearnerExamDetailRepository;
 import com.capstone.rebyu.assessment.repository.ProgrammingQuestionConfigRepository;
 import com.capstone.rebyu.assessment.repository.QuestionRepository;
 import com.capstone.rebyu.assessment.repository.TextQuestionConfigRepository;
@@ -17,7 +16,7 @@ import com.capstone.rebyu.certification.entity.MiddleCategory;
 import com.capstone.rebyu.certification.repository.LessonRepository;
 import com.capstone.rebyu.common.BusinessRuleException;
 import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
-import com.capstone.rebyu.organization.repository.OrganizationCertificateRepository;
+import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import com.capstone.rebyu.user.entity.User;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -41,9 +40,8 @@ public class QuestionService {
     private final ProgrammingQuestionConfigRepository programmingQuestionConfigRepository;
     private final DiagramQuestionConfigRepository diagramQuestionConfigRepository;
     private final ExamQuestionRepository examQuestionRepository;
-    private final LearnerExamDetailRepository learnerExamDetailRepository;
     private final QuestionMapper questionMapper;
-    private final OrganizationCertificateRepository organizationCertificateRepository;
+    private final InstitutionCertificateRepository institutionCertificateRepository;
 
     /**
      * includeGroupId is the same opt-in scoping used for the curriculum tree
@@ -97,7 +95,7 @@ public class QuestionService {
      * @param creatorUserId        the authenticated caller who authored this question.
      * @param restrictToInstitutionId non-null for an INSTITUTION caller (owner or group
      *                             leader): the question's lesson must belong to a
-     *                             certification this organization has purchased
+     *                             certification this institution has purchased
      *                             access to. Null for an ADMIN caller (no restriction).
      */
     public QuestionDto create(
@@ -153,7 +151,7 @@ public class QuestionService {
      * supplies a certificationId — that the lesson actually belongs to that
      * certification. This backs the rule that every generated or manually
      * created question must carry a lessonId within the selected certification.
-     * When restrictToInstitutionId is set, also enforces that the organization
+     * When restrictToInstitutionId is set, also enforces that the institution
      * actually has purchased access to that certification.
      */
     private void validateLesson(QuestionDto dto, Long restrictToInstitutionId) {
@@ -179,11 +177,11 @@ public class QuestionService {
 
         if (restrictToInstitutionId != null) {
             boolean hasAccess = resolvedCertificationId != null
-                    && organizationCertificateRepository.findByInstitution_InstitutionIdAndCertification_CertificationId(
+                    && institutionCertificateRepository.findByInstitution_InstitutionIdAndCertification_CertificationId(
                             restrictToInstitutionId, resolvedCertificationId).isPresent();
             if (!hasAccess) {
                 throw new BusinessRuleException.QuestionAccessException(
-                        "Your organization does not have access to this certification.");
+                        "Your institution does not have access to this certification.");
             }
         }
     }
@@ -214,9 +212,6 @@ public class QuestionService {
             throw new IllegalStateException("Question cannot be deleted because it is already used in an exam.");
         }
 
-        if (learnerExamDetailRepository.existsByQuestion_QuestionId(id)) {
-            throw new IllegalStateException("Question cannot be deleted because learners have already answered it.");
-        }
 
         questionRepository.findByParentQuestion_QuestionId(id)
                 .forEach(childQuestion -> validateQuestionTreeCanBeDeleted(childQuestion.getQuestionId()));

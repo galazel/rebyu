@@ -361,7 +361,7 @@ export default function InstitutionAssessmentBuilderPage() {
   const certification = (certificationsQuery.data ?? []).find(
     (item) =>
       item.certificationId === group?.certificationId ||
-      item.certificationId === group?.orgCert?.certificationId
+      item.certificationId === group?.institutionCert?.certificationId
   )
 
   const { own: ownMajors, official: officialMajors } = useMemo(

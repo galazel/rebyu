@@ -3,20 +3,18 @@ package com.capstone.rebyu.user.service;
 import com.capstone.rebyu.assessment.mapper.ExamResultMapper;
 import com.capstone.rebyu.assessment.repository.ExamResultRepository;
 import com.capstone.rebyu.enrollment.entity.LearnerCertification;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.mapper.LearnerCertificationMapper;
-import com.capstone.rebyu.enrollment.mapper.OrganizationCertificationLearnerMapper;
+import com.capstone.rebyu.enrollment.mapper.InstitutionCertificationLearnerMapper;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.gamification.RewardService;
-import com.capstone.rebyu.organization.dto.OrganizationCertificateDto;
-import com.capstone.rebyu.organization.entity.OrganizationCertificate;
-import com.capstone.rebyu.organization.mapper.OrganizationCertificateMapper;
+import com.capstone.rebyu.institution.dto.InstitutionCertificateDto;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
+import com.capstone.rebyu.institution.mapper.InstitutionCertificateMapper;
 import com.capstone.rebyu.progress.analytics.dto.CertificationProgressDto;
 import com.capstone.rebyu.progress.analytics.service.ProgressAnalyticsService;
-import com.capstone.rebyu.progress.mapper.ActivityLogMapper;
 import com.capstone.rebyu.progress.mapper.LearnerCompletedLessonMapper;
-import com.capstone.rebyu.progress.repository.ActivityLogRepository;
 import com.capstone.rebyu.progress.repository.LearnerCompletedLessonRepository;
 import com.capstone.rebyu.progress.service.AchievementAwardService;
 import com.capstone.rebyu.user.dto.LearnerDto;
@@ -58,13 +56,11 @@ public class LearnerPortalService {
     private final LearnerCertificationMapper learnerCertificationMapper;
     private final LearnerCompletedLessonRepository completedLessonRepository;
     private final LearnerCompletedLessonMapper completedLessonMapper;
-    private final ActivityLogRepository activityLogRepository;
-    private final ActivityLogMapper activityLogMapper;
     private final ExamResultRepository examResultRepository;
     private final ExamResultMapper examResultMapper;
-    private final OrganizationCertificationLearnerRepository orgCertLearnerRepository;
-    private final OrganizationCertificationLearnerMapper orgCertLearnerMapper;
-    private final OrganizationCertificateMapper orgCertMapper;
+    private final InstitutionCertificationLearnerRepository institutionCertLearnerRepository;
+    private final InstitutionCertificationLearnerMapper institutionCertLearnerMapper;
+    private final InstitutionCertificateMapper institutionCertMapper;
     private final RewardService rewardService;
     private final AchievementAwardService achievementAwardService;
     private final ProgressAnalyticsService progressAnalyticsService;
@@ -114,20 +110,20 @@ public class LearnerPortalService {
             return cached.value();
         }
 
-        List<OrganizationCertificationLearner> orgCertLearnerEntities =
-                orgCertLearnerRepository.findByLearner_LearnerId(learnerId);
+        List<InstitutionCertificationLearner> institutionCertLearnerEntities =
+                institutionCertLearnerRepository.findByLearner_LearnerId(learnerId);
 
         // The learner's own certification allocations, deduped -- these are the only
-        // org certificates the portal needs (to map orgCertId -> certificationId).
-        Map<Long, OrganizationCertificate> orgCertsById = new LinkedHashMap<>();
-        for (OrganizationCertificationLearner row : orgCertLearnerEntities) {
-            OrganizationCertificate orgCert = row.getOrgCert();
-            if (orgCert != null) {
-                orgCertsById.putIfAbsent(orgCert.getOrgCertId(), orgCert);
+        // org certificates the portal needs (to map institutionCertId -> certificationId).
+        Map<Long, InstitutionCertificate> institutionCertsById = new LinkedHashMap<>();
+        for (InstitutionCertificationLearner row : institutionCertLearnerEntities) {
+            InstitutionCertificate institutionCert = row.getInstitutionCert();
+            if (institutionCert != null) {
+                institutionCertsById.putIfAbsent(institutionCert.getInstitutionCertId(), institutionCert);
             }
         }
-        List<OrganizationCertificateDto> orgCertificates = orgCertsById.values().stream()
-                .map(orgCertMapper::toDto).toList();
+        List<InstitutionCertificateDto> institutionCertificates = institutionCertsById.values().stream()
+                .map(institutionCertMapper::toDto).toList();
 
         RewardService.Balance rewardBalance = rewardService.balance(learnerId);
         Long totalXp = rewardBalance.xp();
@@ -148,8 +144,8 @@ public class LearnerPortalService {
         /* Progress per enrolled certification, counted once, server-side.
          *
          * Both routes into a certification count: a self-purchased enrollment
-         * writes learner_certifications, an organization-sponsored one writes
-         * only organization_certification_learners, and a learner can hold
+         * writes learner_certifications, an institution-sponsored one writes
+         * only institution_certification_learners, and a learner can hold
          * both. Deduped, or a certification held twice would be counted twice.
          *
          * This is the counts only -- no BKT, no readiness, no mastery rows (see
@@ -162,11 +158,11 @@ public class LearnerPortalService {
                 enrolledCertificationIds.add(enrollment.getCertification().getCertificationId());
             }
         }
-        for (OrganizationCertificationLearner row : orgCertLearnerEntities) {
-            if (row.getStatus() == OrganizationCertificationLearner.Status.active
-                    && row.getOrgCert() != null
-                    && row.getOrgCert().getCertification() != null) {
-                enrolledCertificationIds.add(row.getOrgCert().getCertification().getCertificationId());
+        for (InstitutionCertificationLearner row : institutionCertLearnerEntities) {
+            if (row.getStatus() == InstitutionCertificationLearner.Status.active
+                    && row.getInstitutionCert() != null
+                    && row.getInstitutionCert().getCertification() != null) {
+                enrolledCertificationIds.add(row.getInstitutionCert().getCertification().getCertificationId());
             }
         }
 
@@ -183,12 +179,10 @@ public class LearnerPortalService {
                         .map(learnerCertificationMapper::toDto).toList(),
                 completedLessons.stream()
                         .map(completedLessonMapper::toDto).toList(),
-                activityLogRepository.findByUser_UserId(userId).stream()
-                        .map(activityLogMapper::toDto).toList(),
                 examResultRepository.findByLearner_LearnerId(learnerId).stream()
                         .map(examResultMapper::toDto).toList(),
-                orgCertLearnerEntities.stream().map(orgCertLearnerMapper::toDto).toList(),
-                orgCertificates,
+                institutionCertLearnerEntities.stream().map(institutionCertLearnerMapper::toDto).toList(),
+                institutionCertificates,
                 achievementAwardService.catalogFor(learnerId),
                 totalXp,
                 coinBalance,

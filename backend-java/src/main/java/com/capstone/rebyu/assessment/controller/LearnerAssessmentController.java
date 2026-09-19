@@ -56,7 +56,7 @@ public class LearnerAssessmentController {
     private void requireClassMemberIfGroupExam(Long assessmentId, Long learnerId) {
         examRepository.findById(assessmentId).ifPresent(exam -> {
             if (exam.getOwnerGroup() != null && !groupAssignees
-                    .existsByInstitutionGroup_InstitutionGroupIdAndOrgCertLearner_Learner_LearnerIdAndStatus(
+                    .existsByInstitutionGroup_InstitutionGroupIdAndInstitutionCertLearner_Learner_LearnerIdAndStatus(
                             exam.getOwnerGroup().getInstitutionGroupId(), learnerId,
                             com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAssignee.Status.active)) {
                 throw new jakarta.persistence.EntityNotFoundException("Assessment not found: " + assessmentId);

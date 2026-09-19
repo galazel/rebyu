@@ -1,6 +1,6 @@
-package com.capstone.rebyu.organization.dto;
+package com.capstone.rebyu.institution.dto;
 
-import com.capstone.rebyu.organization.entity.OrganizationCertificate;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -12,8 +12,8 @@ import java.time.LocalDate;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrganizationCertificateDto {
-    private Long orgCertId;
+public class InstitutionCertificateDto {
+    private Long institutionCertId;
 
     @NotNull
     private Long institutionId;
@@ -36,5 +36,5 @@ public class OrganizationCertificateDto {
     @NotNull
     private LocalDate accessExpiryDate;
 
-    private OrganizationCertificate.Status status = OrganizationCertificate.Status.active;
+    private InstitutionCertificate.Status status = InstitutionCertificate.Status.active;
 }

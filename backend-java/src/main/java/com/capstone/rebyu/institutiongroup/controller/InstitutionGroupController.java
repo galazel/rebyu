@@ -24,10 +24,10 @@ public class InstitutionGroupController {
     @GetMapping
     public List<InstitutionGroupDto> getAll(
             @AuthenticationPrincipal Jwt jwt,
-            @RequestParam(required = false) Long orgCertId) {
+            @RequestParam(required = false) Long institutionCertId) {
         CurrentUserDto user = institutionUser(jwt);
         return institutionGroupService.getAccessible(
-                user.institutionId(), user.userId(), isOwner(user), orgCertId);
+                user.institutionId(), user.userId(), isOwner(user), institutionCertId);
     }
 
     @GetMapping("/{id}")

@@ -96,6 +96,15 @@ public class LessonKnowledgeCheckService {
      */
     private static final Duration COOLDOWN = Duration.ofDays(1);
 
+    /**
+     * The skim challenge ({@code currentLessonOnly}) is the frontend's answer
+     * to a learner racing through the lesson on screen, and it has to be able
+     * to fire on every lesson they race through, so the daily cooldown cannot
+     * apply. A few minutes is enough to stop a client minting checks in a loop
+     * for the XP.
+     */
+    private static final Duration SKIM_COOLDOWN = Duration.ofMinutes(3);
+
     private final LearnerCompletedLessonRepository completedLessons;
     private final LessonRepository lessons;
     private final EligibleQuestionService eligibleQuestions;
@@ -113,13 +122,18 @@ public class LessonKnowledgeCheckService {
      */
     @Transactional(readOnly = true)
     public CheckOffer offer(Long learnerId, Long triggerLessonId) {
+        return offer(learnerId, triggerLessonId, false);
+    }
+
+    @Transactional(readOnly = true)
+    public CheckOffer offer(Long learnerId, Long triggerLessonId, boolean currentLessonOnly) {
         Lesson trigger = requireLesson(triggerLessonId);
 
-        if (onCooldown(learnerId)) {
+        if (onCooldown(learnerId, currentLessonOnly)) {
             return CheckOffer.unavailable("cooldown");
         }
 
-        Candidates candidates = candidateQuestions(learnerId, trigger);
+        Candidates candidates = candidateQuestions(learnerId, trigger, currentLessonOnly);
         if (candidates.questionIds().size() < CHECK_SIZE) {
             // Not enough finished material to test yet. Said plainly so the
             // frontend can stop asking rather than retrying on every scroll.
@@ -136,13 +150,18 @@ public class LessonKnowledgeCheckService {
      */
     @Transactional
     public CheckOffer create(Long learnerId, Long triggerLessonId) {
+        return create(learnerId, triggerLessonId, false);
+    }
+
+    @Transactional
+    public CheckOffer create(Long learnerId, Long triggerLessonId, boolean currentLessonOnly) {
         Lesson trigger = requireLesson(triggerLessonId);
 
-        if (onCooldown(learnerId)) {
+        if (onCooldown(learnerId, currentLessonOnly)) {
             return CheckOffer.unavailable("cooldown");
         }
 
-        Candidates candidates = candidateQuestions(learnerId, trigger);
+        Candidates candidates = candidateQuestions(learnerId, trigger, currentLessonOnly);
         if (candidates.questionIds().size() < CHECK_SIZE) {
             return CheckOffer.unavailable("not-enough-completed-lessons");
         }
@@ -243,9 +262,10 @@ public class LessonKnowledgeCheckService {
         return List.copyOf(chosen);
     }
 
-    private boolean onCooldown(Long learnerId) {
+    private boolean onCooldown(Long learnerId, boolean currentLessonOnly) {
         LocalDateTime lastServed = exams.findLastServedAt(learnerId, KNOWLEDGE_CHECK_EXAM_TYPE);
-        return lastServed != null && lastServed.isAfter(LocalDateTime.now().minus(COOLDOWN));
+        Duration cooldown = currentLessonOnly ? SKIM_COOLDOWN : COOLDOWN;
+        return lastServed != null && lastServed.isAfter(LocalDateTime.now().minus(cooldown));
     }
 
     private Lesson requireLesson(Long lessonId) {
@@ -277,7 +297,21 @@ public class LessonKnowledgeCheckService {
      * modal names the source lessons either way, so a question from another
      * certification arrives labelled rather than baffling.
      */
-    private Candidates candidateQuestions(Long learnerId, Lesson trigger) {
+    private Candidates candidateQuestions(Long learnerId, Lesson trigger, boolean currentLessonOnly) {
+        if (currentLessonOnly) {
+            List<Long> questionIds = eligibleQuestions
+                    .resolveScopeViews(null, null, null, trigger.getLessonId()).stream()
+                    .filter(view -> view.getOwnerGroupId() == null)
+                    .map(QuestionSelectionView::getQuestionId)
+                    .filter(questionId -> questions.findById(questionId)
+                            .map(question -> "MULTIPLE_CHOICE".equals(question.getQuestionType())
+                                    || "SHORT_ANSWER".equals(question.getQuestionType()))
+                            .orElse(false))
+                    .toList();
+            return new Candidates(questionIds,
+                    questionIds.isEmpty() ? List.of() : List.of(trigger.getName()));
+        }
+
         Long certificationId = certificationOf(trigger).getCertificationId();
 
         List<LearnerCompletedLesson> sameCertification = completedLessons

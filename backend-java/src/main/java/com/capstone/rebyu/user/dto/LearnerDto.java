@@ -57,7 +57,7 @@ public class LearnerDto {
     private String email;
     private String status;
     private LocalDateTime joinedAt;
-    private String organizationName;
+    private String institutionName;
     private String learnerType;
     private Integer certificationCount = 0;
     private Double progressPercentage = 0.0;

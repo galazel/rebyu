@@ -116,7 +116,6 @@ class CurriculumSubtreeServiceTest {
     void deletesChildrenBeforeTheRowsTheyPointAt() {
         service.clearFor(CurriculumSubtreeService.Node.LESSON, 11L);
 
-        assertTrue(indexOf("DELETE FROM exam_choices") < indexOf("DELETE FROM exam_questions"));
         assertTrue(indexOf("DELETE FROM exam_questions") < indexOf("DELETE FROM exams"));
         assertTrue(indexOf("DELETE FROM programming_test_cases")
                 < indexOf("DELETE FROM programming_question_configs"));

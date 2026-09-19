@@ -22,9 +22,9 @@ import com.capstone.rebyu.certification.repository.LessonRepository;
 import com.capstone.rebyu.common.BusinessRuleException;
 import com.capstone.rebyu.common.PhaseTimer;
 import com.capstone.rebyu.enrollment.entity.LearnerCertification;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.execution.dto.CodeExecutionRequestDto;
 import com.capstone.rebyu.execution.dto.CodeExecutionRequestDto.TestCaseInputDto;
 import com.capstone.rebyu.execution.dto.CodeExecutionResultDto;
@@ -91,7 +91,7 @@ public class AssessmentAttemptService {
     private final AssessmentAttemptQuestionRepository attemptQuestionRepository;
     private final AssessmentAttemptAnswerRepository attemptAnswerRepository;
     private final LearnerCertificationRepository learnerCertificationRepository;
-    private final OrganizationCertificationLearnerRepository organizationCertificationLearnerRepository;
+    private final InstitutionCertificationLearnerRepository institutionCertificationLearnerRepository;
     private final ExamResultRepository examResultRepository;
     private final AssessmentAttemptExecutionRepository executionRepository;
     private final QuestionRubricCriterionRepository rubricCriterionRepository;
@@ -991,8 +991,8 @@ public class AssessmentAttemptService {
         /* Two ways to hold a certification, and both must open its assessments.
          *
          * A learner who buys it themselves gets a `learner_certifications` row.
-         * One an organization sponsors gets only an
-         * `organization_certification_learners` row -- `LearnerService
+         * One an institution sponsors gets only an
+         * `institution_certification_learners` row -- `LearnerService
          * .acceptInvitation` never writes the former, and cannot: that table's
          * `order_detail_id` is NOT NULL, so it models a *purchase* and a
          * sponsored seat has no order behind it.
@@ -1006,11 +1006,11 @@ public class AssessmentAttemptService {
          * routes for exactly this reason; this is the same test, applied at the
          * gate that decides whether an assessment can be opened at all.
          */
-        boolean organizationSponsored = organizationCertificationLearnerRepository
-                .existsByLearner_LearnerIdAndOrgCert_Certification_CertificationIdAndStatus(
-                        learnerId, certificationId, OrganizationCertificationLearner.Status.active);
+        boolean institutionSponsored = institutionCertificationLearnerRepository
+                .existsByLearner_LearnerIdAndInstitutionCert_Certification_CertificationIdAndStatus(
+                        learnerId, certificationId, InstitutionCertificationLearner.Status.active);
 
-        if (enrollment.isEmpty() && !organizationSponsored) {
+        if (enrollment.isEmpty() && !institutionSponsored) {
             return "Enroll in this certification before taking its assessments.";
         }
         String type = exam.getExamType().getExamTypeText();
@@ -1056,7 +1056,7 @@ public class AssessmentAttemptService {
      * not the only evidence and it is not always there. The flag is stamped on
      * the enrollment row that was active when the diagnostic was submitted, so
      * anything that produces a *different* active row afterwards -- unenrolling
-     * and re-enrolling, an organization re-issuing a seat, a self-enrollment
+     * and re-enrolling, an institution re-issuing a seat, a self-enrollment
      * added alongside a sponsored one -- leaves a learner who has demonstrably
      * sat the diagnostic looking, to this gate, like they never did. Every
      * assessment on the certification then refuses to start, while the
@@ -1073,7 +1073,7 @@ public class AssessmentAttemptService {
      */
     private boolean diagnosticSat(LearnerCertification enrollment, Long learnerId, Long certificationId) {
         // Null for a sponsored learner: they hold the certification through an
-        // organization allocation, which has no enrollment row to cache the
+        // institution allocation, which has no enrollment row to cache the
         // flag on. The submitted-attempt check below is the real evidence
         // anyway -- the flag is only ever a shortcut past it.
         if (enrollment != null && enrollment.getDiagnosticCompletedAt() != null) {

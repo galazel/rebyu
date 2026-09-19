@@ -8,7 +8,7 @@ function asArray(value) {
   return Array.isArray(value) ? value : []
 }
 
-// Shared tenant-scoped data for the organization portal. All org-scoped lists come
+// Shared tenant-scoped data for the institution portal. All org-scoped lists come
 // pre-filtered from the backend (/api/institution/me/overview resolves the institution
 // from the caller's JWT) -- the browser never fetches global lists and filters them.
 export function useInstitutionData(institutionId) {
@@ -30,7 +30,7 @@ export function useInstitutionData(institutionId) {
 
   const derived = useMemo(() => {
     const overview = overviewQuery.data ?? {}
-    const orgCerts = asArray(overview.orgCerts)
+    const institutionCerts = asArray(overview.institutionCerts)
 
     const certificationById = new Map(
       asArray(certificationsQuery.data).map((certification) => [
@@ -43,27 +43,26 @@ export function useInstitutionData(institutionId) {
       asArray(overview.learners).map((learner) => [learner.learnerId, learner])
     )
 
-    const orgCertById = new Map(orgCerts.map((cert) => [cert.orgCertId, cert]))
+    const institutionCertById = new Map(institutionCerts.map((cert) => [cert.institutionCertId, cert]))
 
-    /* Group name per assignment row, keyed by orgCertLearnerId -- the same id
+    /* Group name per assignment row, keyed by institutionCertLearnerId -- the same id
        the assignment carries, so a roster row looks its group up directly. A
        learner in no active group is simply absent from this map. */
-    const groupByOrgCertLearnerId = new Map(
+    const groupByInstitutionCertLearnerId = new Map(
       asArray(overview.groupMemberships).map((membership) => [
-        membership.orgCertLearnerId,
+        membership.institutionCertLearnerId,
         membership,
       ])
     )
 
     return {
-      orgCerts,
-      orgCertById,
+      institutionCerts,
+      institutionCertById,
       certificationById,
       invitations: asArray(overview.invitations),
       assignments: asArray(overview.assignments),
       learnerById,
-      groupByOrgCertLearnerId,
-      invoices: asArray(overview.invoices),
+      groupByInstitutionCertLearnerId,
     }
   }, [certificationsQuery.data, overviewQuery.data])
 

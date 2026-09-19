@@ -11,7 +11,7 @@ import java.util.List;
 public interface InstitutionGroupRepository extends JpaRepository<InstitutionGroup, Long> {
     List<InstitutionGroup> findByInstitution_InstitutionId(Long institutionId);
 
-    List<InstitutionGroup> findByOrgCert_OrgCertId(Long orgCertId);
+    List<InstitutionGroup> findByInstitutionCert_InstitutionCertId(Long institutionCertId);
 
     long countByInstitution_InstitutionIdAndStatus(Long institutionId, InstitutionGroup.Status status);
 

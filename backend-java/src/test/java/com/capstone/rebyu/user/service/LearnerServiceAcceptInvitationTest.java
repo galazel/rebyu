@@ -2,17 +2,17 @@ package com.capstone.rebyu.user.service;
 
 import com.capstone.rebyu.certification.entity.Certification;
 import com.capstone.rebyu.common.InvitationAcceptanceException;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAssigneeRepository;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupRepository;
 import com.capstone.rebyu.notification.entity.LearnerInvitation;
 import com.capstone.rebyu.notification.repository.LearnerInvitationRepository;
 import com.capstone.rebyu.notification.service.InvitationTokenService;
 import com.capstone.rebyu.notification.service.NotificationService;
-import com.capstone.rebyu.organization.entity.OrganizationCertificate;
-import com.capstone.rebyu.organization.repository.OrganizationCertificateRepository;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
+import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import com.capstone.rebyu.user.dto.AcceptInvitationResponse;
 import com.capstone.rebyu.user.entity.Learner;
 import com.capstone.rebyu.user.mapper.LearnerMapper;
@@ -36,8 +36,8 @@ class LearnerServiceAcceptInvitationTest {
 
     private LearnerRepository learnerRepository;
     private LearnerInvitationRepository invitationRepository;
-    private OrganizationCertificationLearnerRepository enrollmentRepository;
-    private OrganizationCertificateRepository orgCertRepository;
+    private InstitutionCertificationLearnerRepository enrollmentRepository;
+    private InstitutionCertificateRepository institutionCertRepository;
     private LearnerService service;
 
     private static final String RAW_TOKEN = "raw-token-abc123";
@@ -47,11 +47,11 @@ class LearnerServiceAcceptInvitationTest {
     void setUp() {
         learnerRepository = mock(LearnerRepository.class);
         invitationRepository = mock(LearnerInvitationRepository.class);
-        enrollmentRepository = mock(OrganizationCertificationLearnerRepository.class);
-        orgCertRepository = mock(OrganizationCertificateRepository.class);
+        enrollmentRepository = mock(InstitutionCertificationLearnerRepository.class);
+        institutionCertRepository = mock(InstitutionCertificateRepository.class);
         service = new LearnerService(
                 learnerRepository, mock(LearnerMapper.class), invitationRepository,
-                enrollmentRepository, orgCertRepository,
+                enrollmentRepository, institutionCertRepository,
                 mock(LearnerCertificationRepository.class),
                 new InvitationTokenService(),
                 mock(InstitutionGroupAssigneeRepository.class),
@@ -61,23 +61,23 @@ class LearnerServiceAcceptInvitationTest {
                 mock(com.capstone.rebyu.enrollment.service.OrgEnrollmentProgressService.class));
     }
 
-    private OrganizationCertificate orgCert() {
+    private InstitutionCertificate institutionCert() {
         Certification cert = new Certification();
         cert.setCertificationId(7L);
         cert.setTitle("TOPCIT Review");
-        return OrganizationCertificate.builder()
-                .orgCertId(3L)
+        return InstitutionCertificate.builder()
+                .institutionCertId(3L)
                 .certification(cert)
                 .totalSlots(10)
                 .usedSlots(4)
-                .status(OrganizationCertificate.Status.active)
+                .status(InstitutionCertificate.Status.active)
                 .build();
     }
 
     private LearnerInvitation invitation(LearnerInvitation.Status status, LocalDateTime expiresAt) {
         return LearnerInvitation.builder()
                 .invitationId(11L)
-                .orgCert(orgCert())
+                .institutionCert(institutionCert())
                 .email(INVITED_EMAIL)
                 .tokenHash("does-not-matter-mock-returns-it")
                 .sentAt(LocalDateTime.now().minusDays(1))
@@ -96,11 +96,11 @@ class LearnerServiceAcceptInvitationTest {
                 LearnerInvitation.Status.PENDING, LocalDateTime.now().plusDays(5));
         when(invitationRepository.findByTokenHash(anyString())).thenReturn(Optional.of(inv));
         when(learnerRepository.findById(9L)).thenReturn(Optional.of(learner(9L)));
-        when(enrollmentRepository.existsByOrgCertAndLearner(any(), any())).thenReturn(false);
-        when(enrollmentRepository.save(any(OrganizationCertificationLearner.class)))
+        when(enrollmentRepository.existsByInstitutionCertAndLearner(any(), any())).thenReturn(false);
+        when(enrollmentRepository.save(any(InstitutionCertificationLearner.class)))
                 .thenAnswer(a -> {
-                    OrganizationCertificationLearner e = a.getArgument(0);
-                    e.setOrgCertLearnerId(100L);
+                    InstitutionCertificationLearner e = a.getArgument(0);
+                    e.setInstitutionCertLearnerId(100L);
                     return e;
                 });
 
@@ -113,7 +113,7 @@ class LearnerServiceAcceptInvitationTest {
         assertEquals(LearnerInvitation.Status.ACCEPTED, inv.getStatus());
         assertEquals(9L, inv.getLearner().getLearnerId());
         // Slots are NOT changed on acceptance (reserved at send time).
-        verify(orgCertRepository, never()).save(any());
+        verify(institutionCertRepository, never()).save(any());
     }
 
     @Test
@@ -162,8 +162,8 @@ class LearnerServiceAcceptInvitationTest {
         assertEquals(InvitationAcceptanceException.Code.INVITATION_EXPIRED, ex.code());
         assertEquals(LearnerInvitation.Status.EXPIRED, inv.getStatus());
         // Exactly one reserved slot restored: 4 -> 3.
-        assertEquals(3, inv.getOrgCert().getUsedSlots());
-        verify(orgCertRepository).save(inv.getOrgCert());
+        assertEquals(3, inv.getInstitutionCert().getUsedSlots());
+        verify(institutionCertRepository).save(inv.getInstitutionCert());
     }
 
     @Test
@@ -185,7 +185,7 @@ class LearnerServiceAcceptInvitationTest {
                 .thenReturn(Optional.of(invitation(
                         LearnerInvitation.Status.PENDING, LocalDateTime.now().plusDays(5))));
         when(learnerRepository.findById(9L)).thenReturn(Optional.of(learner(9L)));
-        when(enrollmentRepository.existsByOrgCertAndLearner(any(), any())).thenReturn(true);
+        when(enrollmentRepository.existsByInstitutionCertAndLearner(any(), any())).thenReturn(true);
 
         assertEquals(InvitationAcceptanceException.Code.ALREADY_ENROLLED,
                 assertThrows(InvitationAcceptanceException.class,

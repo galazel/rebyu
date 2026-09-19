@@ -125,7 +125,7 @@ function RequestPartnershipDialog({ open, onOpenChange, institution, data }) {
           <DialogTitle>Request partnership</DialogTitle>
           <DialogDescription>
             Request certification access and learner slots for your
-            organization. The REBYU team will review your request.
+            institution. The REBYU team will review your request.
           </DialogDescription>
         </DialogHeader>
 
@@ -279,8 +279,8 @@ export default function InstitutionPartnershipPage() {
   if (!institution) {
     return (
       <InstitutionEmptyState
-        title="No organization found"
-        description="Partnership requests appear here once your organization is registered."
+        title="No institution found"
+        description="Partnership requests appear here once your institution is registered."
       />
     )
   }
@@ -289,7 +289,7 @@ export default function InstitutionPartnershipPage() {
     <div className="space-y-6">
       <InstitutionPageHeader
         title="Partnership"
-        subtitle="Request certification access for your organization and track approval status."
+        subtitle="Request certification access for your institution and track approval status."
         actions={
           <Button onClick={() => setRequestOpen(true)}>
             <HandshakeIcon aria-hidden="true" />
@@ -306,7 +306,7 @@ export default function InstitutionPartnershipPage() {
         <InstitutionEmptyState
           icon={HandshakeIcon}
           title="No partnership requests yet"
-          description="Submit a request to allocate certifications and learner slots for your organization."
+          description="Submit a request to allocate certifications and learner slots for your institution."
           action={
             <Button size="sm" onClick={() => setRequestOpen(true)}>
               Request Partnership

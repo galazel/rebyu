@@ -23,13 +23,10 @@ import com.capstone.rebyu.certification.entity.MajorCategory;
 import com.capstone.rebyu.certification.entity.MiddleCategory;
 import com.capstone.rebyu.certification.repository.CertificationRepository;
 import com.capstone.rebyu.certification.repository.LessonRepository;
-import com.capstone.rebyu.challenge.entity.ChallengeMode;
-import com.capstone.rebyu.challenge.entity.ChallengeSession;
-import com.capstone.rebyu.challenge.repository.ChallengeSessionRepository;
 import com.capstone.rebyu.enrollment.entity.LearnerCertification;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.gamification.service.StreakService;
 import com.capstone.rebyu.progress.entity.LearnerCompletedLesson;
 import com.capstone.rebyu.progress.entity.LearnerCompletedLessonId;
@@ -71,9 +68,8 @@ class ProgressAnalyticsServiceTest {
     private QuestionRepository questionRepository;
     private ExamRepository examRepository;
     private StreakService streakService;
-    private ChallengeSessionRepository challengeSessionRepository;
     private LessonRepository lessonRepository;
-    private OrganizationCertificationLearnerRepository organizationCertificationLearnerRepository;
+    private InstitutionCertificationLearnerRepository institutionCertificationLearnerRepository;
     private LearnerCompletedLessonRepository learnerCompletedLessonRepository;
     private LearnerMasteryService learnerMasteryService;
     private BktEventFactory bktEventFactory;
@@ -90,9 +86,8 @@ class ProgressAnalyticsServiceTest {
         questionRepository = mock(QuestionRepository.class);
         examRepository = mock(ExamRepository.class);
         streakService = mock(StreakService.class);
-        challengeSessionRepository = mock(ChallengeSessionRepository.class);
         lessonRepository = mock(LessonRepository.class);
-        organizationCertificationLearnerRepository = mock(OrganizationCertificationLearnerRepository.class);
+        institutionCertificationLearnerRepository = mock(InstitutionCertificationLearnerRepository.class);
         learnerCompletedLessonRepository = mock(LearnerCompletedLessonRepository.class);
         learnerMasteryService = mock(LearnerMasteryService.class);
         bktEventFactory = mock(BktEventFactory.class);
@@ -106,9 +101,8 @@ class ProgressAnalyticsServiceTest {
                 questionRepository,
                 examRepository,
                 streakService,
-                challengeSessionRepository,
                 lessonRepository,
-                organizationCertificationLearnerRepository,
+                institutionCertificationLearnerRepository,
                 learnerCompletedLessonRepository,
                 learnerMasteryService,
                 bktEventFactory,
@@ -124,14 +118,13 @@ class ProgressAnalyticsServiceTest {
                 eq(LEARNER_ID), eq(CERT_ID), eq(LearnerCertification.Status.active))).thenReturn(true);
         when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
                 eq(LEARNER_ID), eq(CERT_ID), eq(AssessmentAttempt.Status.SUBMITTED))).thenReturn(List.of());
-        when(organizationCertificationLearnerRepository
-                .existsByLearner_LearnerIdAndOrgCert_Certification_CertificationIdAndStatus(
-                        eq(LEARNER_ID), eq(CERT_ID), eq(OrganizationCertificationLearner.Status.active)))
+        when(institutionCertificationLearnerRepository
+                .existsByLearner_LearnerIdAndInstitutionCert_Certification_CertificationIdAndStatus(
+                        eq(LEARNER_ID), eq(CERT_ID), eq(InstitutionCertificationLearner.Status.active)))
                 .thenReturn(false);
         when(examRepository.findByCertification_CertificationId(CERT_ID)).thenReturn(List.of());
         when(streakService.getStreak(LEARNER_ID))
                 .thenReturn(new StreakService.StreakView(0, 0, null, null));
-        when(challengeSessionRepository.findByLearner_LearnerId(LEARNER_ID)).thenReturn(List.of());
         when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerGroupIsNull(CERT_ID)).thenReturn(List.of());
         when(learnerCompletedLessonRepository
                 .findByLearner_LearnerIdAndLesson_MiddleCategory_MajorCategory_Certification_CertificationId(
@@ -247,17 +240,6 @@ class ProgressAnalyticsServiceTest {
                 null, List.of(), null, null, evidenceCount, null);
     }
 
-    private ChallengeSession challengeSession(Long id, BigDecimal score, ChallengeSession.Status status, LocalDateTime endedAt) {
-        return ChallengeSession.builder()
-                .challengeSessionId(id)
-                .challengeMode(ChallengeMode.builder().challengeModeId(1L).name("Speed Round").description("d").build())
-                .startedAt(endedAt.minusMinutes(5))
-                .endedAt(endedAt)
-                .score(score)
-                .status(status)
-                .build();
-    }
-
     private LearnerCompletedLesson completedLesson(Long lessonId, Lesson lessonEntity) {
         LearnerCompletedLessonId id = new LearnerCompletedLessonId();
         id.setLearnerId(LEARNER_ID);
@@ -306,19 +288,22 @@ class ProgressAnalyticsServiceTest {
 
     // ---- 3: challenges only ----
     @Test
-    void withFinishedChallengeSessions_computesGlobalChallengeStats() {
-        ChallengeSession passed = challengeSession(1L, new BigDecimal("90.00"), ChallengeSession.Status.passed, LocalDateTime.now());
-        ChallengeSession failed = challengeSession(2L, new BigDecimal("40.00"), ChallengeSession.Status.failed, LocalDateTime.now());
-        ChallengeSession abandoned = challengeSession(3L, null, ChallengeSession.Status.abandoned, LocalDateTime.now());
-        when(challengeSessionRepository.findByLearner_LearnerId(LEARNER_ID))
-                .thenReturn(List.of(passed, failed, abandoned));
+    void withSubmittedChallengeRuns_computesChallengeStats() {
+        Exam arena = exam("CodeStrike", "CHALLENGE");
+        when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
+                eq(LEARNER_ID), eq(CERT_ID), eq(AssessmentAttempt.Status.SUBMITTED)))
+                .thenReturn(List.of(
+                        attempt(1L, arena, new BigDecimal("90.00"), true, LocalDateTime.now()),
+                        attempt(2L, arena, new BigDecimal("40.00"), false, LocalDateTime.now())));
+        when(attemptQuestionRepository.findByAttempt_AssessmentAttemptIdIn(any())).thenReturn(List.of());
+        when(attemptAnswerRepository.findByAttempt_AssessmentAttemptIdIn(any())).thenReturn(List.of());
 
         ProgressAnalyticsResponse response = service.getProgressAnalytics(LEARNER_ID, CERT_ID);
 
         assertTrue(response.hasChallengeActivity());
-        assertEquals(2, response.totalChallengeAttempts()); // abandoned excluded
+        assertEquals(2, response.totalChallengeAttempts());
         assertEquals(65.0, response.averageChallengeScore());
-        assertFalse(response.challengeStatsCertificationScoped());
+        assertTrue(response.challengeStatsCertificationScoped());
     }
 
     // ---- 4: has mastery data ----
@@ -367,14 +352,13 @@ class ProgressAnalyticsServiceTest {
                 eq(LEARNER_ID), eq(otherCertId), eq(LearnerCertification.Status.active))).thenReturn(true);
         when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
                 eq(LEARNER_ID), eq(otherCertId), eq(AssessmentAttempt.Status.SUBMITTED))).thenReturn(List.of());
-        when(organizationCertificationLearnerRepository
-                .existsByLearner_LearnerIdAndOrgCert_Certification_CertificationIdAndStatus(
-                        eq(LEARNER_ID), eq(CERT_ID), eq(OrganizationCertificationLearner.Status.active)))
+        when(institutionCertificationLearnerRepository
+                .existsByLearner_LearnerIdAndInstitutionCert_Certification_CertificationIdAndStatus(
+                        eq(LEARNER_ID), eq(CERT_ID), eq(InstitutionCertificationLearner.Status.active)))
                 .thenReturn(false);
         when(examRepository.findByCertification_CertificationId(CERT_ID)).thenReturn(List.of());
         when(streakService.getStreak(LEARNER_ID))
                 .thenReturn(new StreakService.StreakView(0, 0, null, null));
-        when(challengeSessionRepository.findByLearner_LearnerId(LEARNER_ID)).thenReturn(List.of());
         when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerGroupIsNull(otherCertId)).thenReturn(List.of());
         when(learnerCompletedLessonRepository
                 .findByLearner_LearnerIdAndLesson_MiddleCategory_MajorCategory_Certification_CertificationId(
@@ -518,13 +502,11 @@ class ProgressAnalyticsServiceTest {
         AssessmentAttempt oldAttempt = attempt(1L, examA, new BigDecimal("70.00"), true, LocalDateTime.now().minusDays(5));
         when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
                 eq(LEARNER_ID), eq(CERT_ID), eq(AssessmentAttempt.Status.SUBMITTED)))
-                .thenReturn(List.of(oldAttempt));
+                .thenReturn(List.of(oldAttempt, attempt(2L, exam("Blueprint", "CHALLENGE"),
+                        new BigDecimal("80.00"), true, LocalDateTime.now())));
         when(attemptQuestionRepository.findByAttempt_AssessmentAttemptIdIn(any())).thenReturn(List.of());
         when(attemptAnswerRepository.findByAttempt_AssessmentAttemptIdIn(any())).thenReturn(List.of());
 
-        ChallengeSession recentChallenge = challengeSession(1L, new BigDecimal("80.00"),
-                ChallengeSession.Status.passed, LocalDateTime.now());
-        when(challengeSessionRepository.findByLearner_LearnerId(LEARNER_ID)).thenReturn(List.of(recentChallenge));
 
         ProgressAnalyticsResponse response = service.getProgressAnalytics(LEARNER_ID, CERT_ID);
 
@@ -619,13 +601,16 @@ class ProgressAnalyticsServiceTest {
     // ---- 19: challenge answer breakdown is always flagged unavailable ----
     @Test
     void challengeAnswerBreakdown_alwaysUnavailableNeverFabricated() {
-        ChallengeSession passed = challengeSession(1L, new BigDecimal("90.00"), ChallengeSession.Status.passed, LocalDateTime.now());
-        when(challengeSessionRepository.findByLearner_LearnerId(LEARNER_ID)).thenReturn(List.of(passed));
+        when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
+                eq(LEARNER_ID), eq(CERT_ID), eq(AssessmentAttempt.Status.SUBMITTED)))
+                .thenReturn(List.of(attempt(1L, exam("CodeStrike", "CHALLENGE"), new BigDecimal("90.00"), true, LocalDateTime.now())));
+        when(attemptQuestionRepository.findByAttempt_AssessmentAttemptIdIn(any())).thenReturn(List.of());
+        when(attemptAnswerRepository.findByAttempt_AssessmentAttemptIdIn(any())).thenReturn(List.of());
 
         ProgressAnalyticsResponse response = service.getProgressAnalytics(LEARNER_ID, CERT_ID);
 
         assertFalse(response.challengeAnswerBreakdownAvailable());
-        assertEquals(0, response.totalCorrectAnswers()); // challenge sessions never contribute to answer totals
+        assertEquals(0, response.totalCorrectAnswers()); // no answers recorded, so nothing is counted
     }
 
     // ---- 20: refresh reflects newly fetched data on each call (no server-side caching) ----

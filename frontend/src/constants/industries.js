@@ -2,7 +2,7 @@ export const industries = [
   "Information and Communications Technology (ICT)",
   "Business, Management, and Entrepreneurship",
   "Finance, Banking, and Accounting",
-  "Human Resources and Organizational Development",
+  "Human Resources and Institutional Development",
   "Sales, Marketing, and Customer Service",
   "Education and Teacher Development",
   "Healthcare and Allied Health",

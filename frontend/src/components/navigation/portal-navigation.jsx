@@ -108,7 +108,7 @@ const adminGroups = [
     label: "Management",
     icon: ServerCog,
     items: [
-      { label: "Institutions", href: "/admin/organizations", icon: Building2 },
+      { label: "Institutions", href: "/admin/institutions", icon: Building2 },
       { label: "Partnership requests", href: "/admin/partnership-requests", icon: Handshake },
       // Test-mode PayMongo payments wait here for an admin to approve Pro.
       { label: "Pro subscriptions", href: "/admin/subscriptions", icon: CreditCard },
@@ -142,16 +142,16 @@ const institutionMemberGroups = [
 // Groups now live inside Certifications (you create a group from within the
 // certification it belongs to), so there's no standalone "Groups" nav item.
 // Items flagged ownerOnly are hidden for a group leader / other institution
-// member -- only the organization owner sees them.
+// member -- only the institution owner sees them.
 const institutionGroups = [
   {
     label: "Overview",
     icon: LayoutDashboard,
     items: [
-      // One entry, because there is one page. "Organization overview" and
+      // One entry, because there is one page. "Institution overview" and
       // "Analytics" were two nav items onto what is now a single board -- the
       // same shape as the learner portal, which lists Analytics once.
-      { label: "Organization overview", href: "/institution/dashboard", icon: LayoutDashboard },
+      { label: "Institution overview", href: "/institution/dashboard", icon: LayoutDashboard },
     ],
   },
   {
@@ -161,28 +161,27 @@ const institutionGroups = [
       // No "Learners" entry. A learner belongs to the certification they were
       // invited to, and that is the only place the roster means anything -- so
       // they are reached through it ("View learners" on a certification card),
-      // not from a top-level list of everyone in the organization.
+      // not from a top-level list of everyone in the institution.
       { label: "Certifications", href: "/institution/certifications", icon: Award },
     ],
   },
   {
-    label: "Organization",
+    label: "Institution",
     icon: Building2,
     ownerOnly: true,
     items: [
-      // One entry, because there is one page. Profile, Partnership, License,
-      // Billing and Files were five short routes behind a five-item menu; they
-      // are now tabs on /institution/organization, and the old paths still open
+      // One entry, because there is one page. Profile, Partnership, License
+      // and Files were short routes behind a menu; they
+      // are now tabs on /institution/profile, and the old paths still open
       // their own tab. `match` keeps the header underlined on all of them.
       {
-        label: "Organization",
-        href: "/institution/organization",
+        label: "Institution",
+        href: "/institution/profile",
         icon: Building2,
         match: [
-          "/institution/organization",
+          "/institution/profile",
           "/institution/partnership",
           "/institution/license",
-          "/institution/billing",
           "/institution/files",
         ],
       },
@@ -191,7 +190,7 @@ const institutionGroups = [
 ]
 
 /**
- * Both institution-side roles: INSTITUTION is the organization's own (owner)
+ * Both institution-side roles: INSTITUTION is the institution's own (owner)
  * account, INSTITUTION_MEMBER is someone it created an account for. They share
  * the same portal and permissions -- see CognitoAuthService.isInstitutionRole.
  */
@@ -204,24 +203,24 @@ function pathMatches(pathname, item) {
   return candidates.some((path) => pathname === path || (path !== "/admin" && pathname.startsWith(`${path}/`)))
 }
 
-function Brand({ role, organizationName }) {
+function Brand({ role, institutionName }) {
   const isInstitution = isInstitutionRole(role)
   const home = role === "LEARNER"
     ? "/learner/analytics"
     : isInstitution
       ? "/institution/dashboard"
       : "/admin/dashboard"
-  // On the institution side this shows the organization's own name rather than
+  // On the institution side this shows the institution's own name rather than
   // the generic word "Institution" -- a member works inside one specific
-  // organization, and naming it is what makes the header useful to them. Falls
+  // institution, and naming it is what makes the header useful to them. Falls
   // back to the generic label only while the profile is still loading.
   const label = role === "LEARNER"
     ? "Learn"
     : isInstitution
-      ? organizationName || "Institution"
+      ? institutionName || "Institution"
       : "Admin"
 
-  /* An organization's portal leads with the school's own name, in full: it is
+  /* An institution's portal leads with the school's own name, in full: it is
      the one thing on the bar that tells a member whose workspace they are in.
      The navigation moved to the right beside the account menu to make room. */
   if (isInstitution) {
@@ -233,7 +232,7 @@ function Brand({ role, organizationName }) {
             {label}
           </span>
           <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            REBYU · {role === "INSTITUTION_MEMBER" ? "Group workspace" : "Organization"}
+            REBYU · {role === "INSTITUTION_MEMBER" ? "Group workspace" : "Institution"}
           </span>
         </span>
       </NavLink>
@@ -247,7 +246,7 @@ function Brand({ role, organizationName }) {
         <span className="block font-heading text-[15px] font-bold tracking-tight">REBYU</span>
         <span
           className="mt-1 block max-w-40 truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
-          title={isInstitution && organizationName ? organizationName : undefined}
+          title={isInstitution && institutionName ? institutionName : undefined}
         >
           {label}
         </span>
@@ -345,7 +344,7 @@ export function CommandPalette({ open, onOpenChange, items }) {
   )
 }
 
-export function PortalTopNavigation({ role, actions, organizationName, institutionMemberRole }) {
+export function PortalTopNavigation({ role, actions, institutionName, institutionMemberRole }) {
   const location = useLocation()
   const [commandOpen, setCommandOpen] = useState(false)
   const isInstitutionOwner = institutionMemberRole === "owner"
@@ -365,7 +364,7 @@ export function PortalTopNavigation({ role, actions, organizationName, instituti
      branch that used the learner list instead. Naming the empty case here
      means those guards are no longer load-bearing: the mobile menu below is
      driven by `groups.length` alone, and with the old fallback it would have
-     offered a learner the organization's own navigation. */
+     offered a learner the institution's own navigation. */
   const allGroups = role === "ADMIN" ? adminGroups : role === "LEARNER" ? [] : institutionGroups
   const groups = isInstitutionMember ? institutionMemberGroups : allGroups
   /* The palette searches every learner destination, so it uses the longer of
@@ -389,13 +388,13 @@ export function PortalTopNavigation({ role, actions, organizationName, instituti
             together — widening the page alone left the brand and the nav links
             indented relative to every heading underneath them. */}
         <div className="mx-auto flex h-16 w-full max-w-[1800px] items-center gap-4 px-3 sm:px-5 lg:px-6">
-          <Brand role={role} organizationName={organizationName} />
+          <Brand role={role} institutionName={institutionName} />
           {/* Left-aligned against the logo for a learner. Centred, the links
               floated in the middle of the bar and shifted horizontally
               whenever the brand or the action cluster changed width -- next to
               the wordmark they have a fixed edge to start from. The
               institution/admin nav stays right-aligned, next to the account
-              menu, to make room for the organization's own name in the brand. */}
+              menu, to make room for the institution's own name in the brand. */}
           <nav className={cn("hidden min-w-0 flex-1 items-center gap-1 lg:flex", isInstitutionRole(role) ? "justify-end" : "justify-start")} aria-label={`${role.toLowerCase()} navigation`}>
             {role === "LEARNER"
               ? learnerNavigation.slice(0, 6).map((item) => {

@@ -1,4 +1,4 @@
-package com.capstone.rebyu.organization.entity;
+package com.capstone.rebyu.institution.entity;
 
 import com.capstone.rebyu.user.entity.User;
 import jakarta.persistence.*;

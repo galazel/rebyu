@@ -1,9 +1,9 @@
-package com.capstone.rebyu.organization.service;
+package com.capstone.rebyu.institution.service;
 
-import com.capstone.rebyu.organization.dto.InstitutionMemberDto;
-import com.capstone.rebyu.organization.entity.InstitutionMember;
-import com.capstone.rebyu.organization.mapper.InstitutionMemberMapper;
-import com.capstone.rebyu.organization.repository.InstitutionMemberRepository;
+import com.capstone.rebyu.institution.dto.InstitutionMemberDto;
+import com.capstone.rebyu.institution.entity.InstitutionMember;
+import com.capstone.rebyu.institution.mapper.InstitutionMemberMapper;
+import com.capstone.rebyu.institution.repository.InstitutionMemberRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

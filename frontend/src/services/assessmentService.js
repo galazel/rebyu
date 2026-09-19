@@ -102,43 +102,6 @@ export function getProgrammingQuestionConfig(questionId) {
   return base(`programming-question-configs/by-question/${questionId}`)
 }
 
-// Results and attempt details
-export function getExamResults() {
-  return base("exam-results")
-}
-
-export function getExamResult(learnerId, examId, attemptNo) {
-  return base(`exam-results/${learnerId}/${examId}/${attemptNo}`)
-}
-
-export function createExamResult(result) {
-  return base("exam-results", { method: "POST", data: result })
-}
-
-export function createLearnerExamDetail(detail) {
-  return base("learner-exam-details", { method: "POST", data: detail })
-}
-
-export function getLearnerExamDetailsByAttempt(learnerId, examId, attemptNo) {
-  return base(`learner-exam-details/by-attempt/${learnerId}/${examId}/${attemptNo}`)
-}
-
-export function createMcqAnswer(answer) {
-  return base("learner-mcq-answers", { method: "POST", data: answer })
-}
-
-export function createTextAnswer(answer) {
-  return base("learner-text-answers", { method: "POST", data: answer })
-}
-
-export function createDiagramAnswer(answer) {
-  return base("learner-diagram-answers", { method: "POST", data: answer })
-}
-
-export function createProgrammingAnswer(answer) {
-  return base("learner-programming-answers", { method: "POST", data: answer })
-}
-
 // ---------------------------------------------------------------------------
 // Learner-safe attempt transaction API (server-side snapshots and scoring)
 // ---------------------------------------------------------------------------

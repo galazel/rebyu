@@ -22,7 +22,7 @@ import java.util.List;
 /**
  * The question bank: admin manages it platform-wide; an institution (owner or
  * group leader) may add/edit/delete questions too, but only within
- * certifications their organization has purchased access to, and only for
+ * certifications their institution has purchased access to, and only for
  * questions they themselves authored (admin-authored questions are read-only
  * to them). Every question records who created it.
  */
@@ -138,7 +138,7 @@ public class QuestionController {
 
     /**
      * No-op when no group is referenced. Otherwise the caller must belong to
-     * that group's organization and be its active leader (or the institution
+     * that group's institution and be its active leader (or the institution
      * owner) -- so a group's private questions can't be read, or written to,
      * by guessing a group id. Reuses the same check as the rest of the app.
      */

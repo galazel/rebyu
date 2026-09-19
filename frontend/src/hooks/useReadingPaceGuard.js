@@ -1,18 +1,27 @@
 import { useCallback, useEffect, useRef } from "react"
 
-/** The span of recent scrolling the pace is judged over. */
+/** The span of recent scrolling a flick is judged over. */
 const WINDOW_MS = 1600
 
 /**
  * How many screen heights of downward travel inside that window counts as
  * racing through the lesson rather than reading it. Reading a screen takes a
- * learner many seconds; two and a half screens in a second and a half is
+ * learner many seconds; three and a half screens in a second and a half is
  * someone flicking to the end.
  */
 const RUSH_SCREENS = 3.5
 
 /** Moving faster than this is too fast for a section passed to count as read. */
 const SKIM_SCREENS = 2
+
+/**
+ * The second, slower pattern: passive skimming. Nobody flicks, the page just
+ * keeps moving at a pace no one can read at -- a screen every second or two,
+ * sustained. Judged over a longer window so a single fast scroll to find a
+ * heading is not mistaken for it.
+ */
+const PASSIVE_WINDOW_MS = 8000
+const PASSIVE_SCREENS = 5
 
 /**
  * Only scrolling the learner is doing themselves counts. A wheel, a touch drag,
@@ -25,10 +34,12 @@ const GESTURE_MS = 500
 const SCROLL_KEYS = new Set(["PageDown", "ArrowDown", " ", "Spacebar", "End"])
 
 /**
- * Notices a learner racing down a lesson instead of studying it.
+ * Notices a learner racing down a lesson instead of studying it, whether as
+ * one flick to the bottom or as steady scrolling too fast to be reading.
  *
- * `onRush(since)` fires when downward travel inside the window passes
- * RUSH_SCREENS; `since` is the `performance.now()` time the rush began, so the
+ * `onRush(since)` fires when downward travel inside the short window passes
+ * RUSH_SCREENS, or inside the long one passes PASSIVE_SCREENS; `since` is the
+ * `performance.now()` time the rush began, so the
  * caller can take back anything that was recorded during it. `isRushing()`
  * answers "is the learner moving too fast for what just scrolled past to count
  * as read?" and is meant to be asked by the section-reading check. `pause(ms)`
@@ -61,9 +72,19 @@ export function useReadingPaceGuard({ enabled, onRush }) {
     const counted = !draggingBar.current && Math.abs(step) > window.innerHeight ? 0 : step
     const list = samples.current
     list.push({ t: now, d: counted })
-    while (list.length > 1 && now - list[0].t > WINDOW_MS) list.shift()
-    const travelled = list.reduce((sum, sample) => sum + sample.d, 0)
-    return { now, travelled, since: list[0].t }
+    while (list.length > 1 && now - list[0].t > PASSIVE_WINDOW_MS) list.shift()
+
+    let travelled = 0
+    let since = now
+    let passiveTravelled = 0
+    for (const sample of list) {
+      passiveTravelled += sample.d
+      if (now - sample.t <= WINDOW_MS) {
+        travelled += sample.d
+        since = Math.min(since, sample.t)
+      }
+    }
+    return { now, travelled, since, passiveTravelled, passiveSince: list[0].t }
   }, [])
 
   const pause = useCallback((ms = 1500) => {
@@ -118,11 +139,16 @@ export function useReadingPaceGuard({ enabled, onRush }) {
         lastY.current = window.scrollY
         return
       }
-      const { travelled, since } = measure()
-      if (travelled > window.innerHeight * RUSH_SCREENS) {
+      const { travelled, since, passiveTravelled, passiveSince } = measure()
+      const screen = window.innerHeight
+      if (travelled > screen * RUSH_SCREENS) {
         samples.current = []
         pausedUntil.current = now + 2000
         onRushRef.current?.(since)
+      } else if (passiveTravelled > screen * PASSIVE_SCREENS) {
+        samples.current = []
+        pausedUntil.current = now + 2000
+        onRushRef.current?.(passiveSince)
       }
     }
 

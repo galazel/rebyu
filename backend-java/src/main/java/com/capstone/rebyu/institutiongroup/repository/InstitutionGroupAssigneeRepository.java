@@ -1,6 +1,6 @@
 package com.capstone.rebyu.institutiongroup.repository;
 
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
 import com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAssignee;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,19 +12,19 @@ public interface InstitutionGroupAssigneeRepository extends JpaRepository<Instit
     List<InstitutionGroupAssignee> findByInstitutionGroup_InstitutionGroupId(Long institutionGroupId);
 
     /** A learner's own group memberships -- the learner side of a class. */
-    List<InstitutionGroupAssignee> findByOrgCertLearner_Learner_LearnerIdAndStatus(
+    List<InstitutionGroupAssignee> findByInstitutionCertLearner_Learner_LearnerIdAndStatus(
             Long learnerId, InstitutionGroupAssignee.Status status);
 
-    boolean existsByInstitutionGroup_InstitutionGroupIdAndOrgCertLearner_Learner_LearnerIdAndStatus(
+    boolean existsByInstitutionGroup_InstitutionGroupIdAndInstitutionCertLearner_Learner_LearnerIdAndStatus(
             Long institutionGroupId, Long learnerId, InstitutionGroupAssignee.Status status);
 
-    boolean existsByInstitutionGroupAndOrgCertLearner(
-            InstitutionGroup institutionGroup, OrganizationCertificationLearner orgCertLearner);
+    boolean existsByInstitutionGroupAndInstitutionCertLearner(
+            InstitutionGroup institutionGroup, InstitutionCertificationLearner institutionCertLearner);
 
     // Regardless of status -- used to reactivate an archived assignment
     // instead of colliding with it on re-add.
-    Optional<InstitutionGroupAssignee> findByInstitutionGroupAndOrgCertLearner(
-            InstitutionGroup institutionGroup, OrganizationCertificationLearner orgCertLearner);
+    Optional<InstitutionGroupAssignee> findByInstitutionGroupAndInstitutionCertLearner(
+            InstitutionGroup institutionGroup, InstitutionCertificationLearner institutionCertLearner);
 
     // --- Per-group rollups (institution member dashboard) -------------------
 
@@ -51,7 +51,7 @@ public interface InstitutionGroupAssigneeRepository extends JpaRepository<Instit
                    SUM(CASE WHEN l.completedAt IS NOT NULL THEN 1 ELSE 0 END) AS completedLearners
             FROM InstitutionGroupAssignee a
             JOIN a.institutionGroup g
-            JOIN a.orgCertLearner l
+            JOIN a.institutionCertLearner l
             WHERE g.institution.institutionId = :institutionId
               AND a.status = com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAssignee.Status.active
               AND g.status = com.capstone.rebyu.institutiongroup.entity.InstitutionGroup.Status.active
@@ -64,7 +64,7 @@ public interface InstitutionGroupAssigneeRepository extends JpaRepository<Instit
     // --- Group membership per assignment (institution learner roster) --------
 
     interface AssignmentGroup {
-        Long getOrgCertLearnerId();
+        Long getInstitutionCertLearnerId();
         Long getInstitutionGroupId();
         String getGroupName();
     }
@@ -79,12 +79,12 @@ public interface InstitutionGroupAssigneeRepository extends JpaRepository<Instit
      * as "not in a group" rather than inventing one.
      */
     @org.springframework.data.jpa.repository.Query("""
-            SELECT l.orgCertLearnerId AS orgCertLearnerId,
+            SELECT l.institutionCertLearnerId AS institutionCertLearnerId,
                    g.institutionGroupId AS institutionGroupId,
                    g.groupName AS groupName
             FROM InstitutionGroupAssignee a
             JOIN a.institutionGroup g
-            JOIN a.orgCertLearner l
+            JOIN a.institutionCertLearner l
             WHERE g.institution.institutionId = :institutionId
               AND a.status = com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAssignee.Status.active
               AND g.status = com.capstone.rebyu.institutiongroup.entity.InstitutionGroup.Status.active

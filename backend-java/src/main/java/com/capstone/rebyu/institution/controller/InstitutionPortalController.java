@@ -11,12 +11,12 @@ import com.capstone.rebyu.institution.dto.InstitutionMemberInviteRequestDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.InstitutionLearningStatsDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.GroupProgressDto;
 import com.capstone.rebyu.institution.dto.InstitutionPortalDtos.OverviewDto;
-import com.capstone.rebyu.organization.dto.InstitutionDto;
-import com.capstone.rebyu.organization.dto.InstitutionMemberDto;
-import com.capstone.rebyu.organization.entity.Institution;
-import com.capstone.rebyu.organization.repository.InstitutionRepository;
-import com.capstone.rebyu.organization.service.InstitutionMemberService;
-import com.capstone.rebyu.organization.service.InstitutionService;
+import com.capstone.rebyu.institution.dto.InstitutionDto;
+import com.capstone.rebyu.institution.dto.InstitutionMemberDto;
+import com.capstone.rebyu.institution.entity.Institution;
+import com.capstone.rebyu.institution.repository.InstitutionRepository;
+import com.capstone.rebyu.institution.service.InstitutionMemberService;
+import com.capstone.rebyu.institution.service.InstitutionService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +47,7 @@ public class InstitutionPortalController {
     private final InstitutionRepository institutionRepository;
     private final CognitoAuthService auth;
 
-    /** The caller's own organization profile (name, contact, address, etc.). */
+    /** The caller's own institution profile (name, contact, address, etc.). */
     @GetMapping("/profile")
     public InstitutionDto profile(@AuthenticationPrincipal Jwt jwt) {
         return institutionService.getById(myInstitutionId(jwt));
@@ -59,7 +59,7 @@ public class InstitutionPortalController {
     }
 
     /**
-     * Learning statistics for the caller's own organization: a roster-wide
+     * Learning statistics for the caller's own institution: a roster-wide
      * rollup plus a row per member (progress, lessons finished, graded attempts,
      * pass rate, average score, last activity).
      */
@@ -74,7 +74,7 @@ public class InstitutionPortalController {
         return learningStatsService.groupProgress(myInstitutionId(jwt));
     }
 
-    /** Every member of the caller's own organization (owners, managers, staff). */
+    /** Every member of the caller's own institution (owners, managers, staff). */
     @GetMapping("/members")
     public List<InstitutionMemberDto> members(@AuthenticationPrincipal Jwt jwt) {
         return institutionMemberService.getByInstitutionId(myInstitutionId(jwt));

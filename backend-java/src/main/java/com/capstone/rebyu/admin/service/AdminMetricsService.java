@@ -11,7 +11,7 @@ import com.capstone.rebyu.enrollment.entity.LearnerCertification;
 import com.capstone.rebyu.enrollment.entity.LearnerOrder;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
 import com.capstone.rebyu.enrollment.repository.LearnerOrderRepository;
-import com.capstone.rebyu.organization.repository.InstitutionRepository;
+import com.capstone.rebyu.institution.repository.InstitutionRepository;
 import com.capstone.rebyu.partnership.entity.PartnershipRequest;
 import com.capstone.rebyu.partnership.repository.PartnershipRequestRepository;
 import com.capstone.rebyu.user.entity.User;
@@ -101,7 +101,7 @@ public class AdminMetricsService {
             long activeEnrollments) {}
 
     public record CatalogMetrics(
-            long organizations,
+            long institutions,
             long certifications,
             long publishedCertifications,
             long pendingPartnerships) {}

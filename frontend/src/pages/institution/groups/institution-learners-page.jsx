@@ -47,7 +47,7 @@ export default function InstitutionLearnersPage() {
      ?certification=<id>. Held in `useState` (which is what this was) that
      parameter was accepted by the router and then silently dropped, so
      "View learners" on a specific certification always opened the unscoped
-     roster of everyone in the organization. */
+     roster of everyone in the institution. */
   const [searchParams, setSearchParams] = useSearchParams()
   const certificationFilter = searchParams.get("certification") ?? "all"
   const setCertificationFilter = (value) => {
@@ -64,12 +64,12 @@ export default function InstitutionLearnersPage() {
   const rows = useMemo(() => {
     return data.assignments
       .map((assignment) => {
-        const orgCert = data.orgCertById.get(assignment.orgCertId)
-        const certification = orgCert
-          ? data.certificationById.get(orgCert.certificationId)
+        const institutionCert = data.institutionCertById.get(assignment.institutionCertId)
+        const certification = institutionCert
+          ? data.certificationById.get(institutionCert.certificationId)
           : null
         const learner = data.learnerById.get(assignment.learnerId)
-        const group = data.groupByOrgCertLearnerId.get(assignment.orgCertLearnerId)
+        const group = data.groupByInstitutionCertLearnerId.get(assignment.institutionCertLearnerId)
         return {
           assignment,
           learner,
@@ -107,8 +107,8 @@ export default function InstitutionLearnersPage() {
 
   const certificationOptions = useMemo(() => {
     const seen = new Map()
-    data.orgCerts.forEach((orgCert) => {
-      const certification = data.certificationById.get(orgCert.certificationId)
+    data.institutionCerts.forEach((institutionCert) => {
+      const certification = data.certificationById.get(institutionCert.certificationId)
       if (certification) {
         seen.set(certification.certificationId, certification.title)
       }
@@ -118,7 +118,7 @@ export default function InstitutionLearnersPage() {
 
   /* Named rather than merely filtered: arriving from one certification, the
      page has to say which one, or a short roster is indistinguishable from the
-     organization having only one learner. */
+     institution having only one learner. */
   const scopedCertification =
     certificationFilter === "all"
       ? null
@@ -134,8 +134,8 @@ export default function InstitutionLearnersPage() {
   if (!institution) {
     return (
       <InstitutionEmptyState
-        title="No organization found"
-        description="Learner rosters appear here once your organization is registered."
+        title="No institution found"
+        description="Learner rosters appear here once your institution is registered."
       />
     )
   }
@@ -164,7 +164,7 @@ export default function InstitutionLearnersPage() {
             Learners
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Learners assigned to your organization's certifications.
+            Learners assigned to your institution's certifications.
           </p>
         </div>
       )}
@@ -253,7 +253,7 @@ export default function InstitutionLearnersPage() {
                   <TableBody>
                     {rows.map((row) => {
                       return (
-                        <TableRow key={row.assignment.orgCertLearnerId}>
+                        <TableRow key={row.assignment.institutionCertLearnerId}>
                           <TableCell>
                             <div className="font-medium">{row.name}</div>
                             {row.learner?.username ? (

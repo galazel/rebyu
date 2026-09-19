@@ -45,12 +45,12 @@ import { getAllInstitutions } from "@/services/adminInstitutionService"
 
 const ALL_FILTER_VALUE = "all"
 
-// Replace this with data from your organization service.
-// The component also accepts an `organizations` prop.
-const DEMO_ORGANIZATIONS = [
+// Replace this with data from your institution service.
+// The component also accepts an `institutions` prop.
+const DEMO_INSTITUTIONS = [
   {
-    organizationId: 1,
-    organizationName: "Cebu Institute of Technology",
+    institutionId: 1,
+    institutionName: "Cebu Institute of Technology",
     contactPerson: "Maria Santos",
     contactEmail: "maria.santos@example.com",
     industry: "Education",
@@ -60,8 +60,8 @@ const DEMO_ORGANIZATIONS = [
     createdAt: "2026-06-12",
   },
   {
-    organizationId: 2,
-    organizationName: "TechBridge Training Center",
+    institutionId: 2,
+    institutionName: "TechBridge Training Center",
     contactPerson: "Daniel Reyes",
     contactEmail: "daniel.reyes@example.com",
     industry: "Training Center",
@@ -71,8 +71,8 @@ const DEMO_ORGANIZATIONS = [
     createdAt: "2026-06-07",
   },
   {
-    organizationId: 3,
-    organizationName: "Northstar Review Academy",
+    institutionId: 3,
+    institutionName: "Northstar Review Academy",
     contactPerson: "Angela Cruz",
     contactEmail: "angela.cruz@example.com",
     industry: "Review Center",
@@ -82,8 +82,8 @@ const DEMO_ORGANIZATIONS = [
     createdAt: "2026-05-28",
   },
   {
-    organizationId: 4,
-    organizationName: "Innovate Cebu Solutions",
+    institutionId: 4,
+    institutionName: "Innovate Cebu Solutions",
     contactPerson: "Paolo Lim",
     contactEmail: "paolo.lim@example.com",
     industry: "Information Technology",
@@ -93,8 +93,8 @@ const DEMO_ORGANIZATIONS = [
     createdAt: "2026-05-21",
   },
   {
-    organizationId: 5,
-    organizationName: "Global Skills Development Hub",
+    institutionId: 5,
+    institutionName: "Global Skills Development Hub",
     contactPerson: "Karen Dela Peña",
     contactEmail: "karen.delapena@example.com",
     industry: "Professional Training",
@@ -104,8 +104,8 @@ const DEMO_ORGANIZATIONS = [
     createdAt: "2026-05-14",
   },
   {
-    organizationId: 6,
-    organizationName: "Metro Learning Partners",
+    institutionId: 6,
+    institutionName: "Metro Learning Partners",
     contactPerson: "Joshua Tan",
     contactEmail: "joshua.tan@example.com",
     industry: "Education",
@@ -115,8 +115,8 @@ const DEMO_ORGANIZATIONS = [
     createdAt: "2026-04-30",
   },
   {
-    organizationId: 7,
-    organizationName: "FutureReady Philippines",
+    institutionId: 7,
+    institutionName: "FutureReady Philippines",
     contactPerson: "Nicole Ramos",
     contactEmail: "nicole.ramos@example.com",
     industry: "Training Center",
@@ -126,8 +126,8 @@ const DEMO_ORGANIZATIONS = [
     createdAt: "2026-04-18",
   },
   {
-    organizationId: 8,
-    organizationName: "Digital Career Academy",
+    institutionId: 8,
+    institutionName: "Digital Career Academy",
     contactPerson: "Mark Villanueva",
     contactEmail: "mark.villanueva@example.com",
     industry: "Review Center",
@@ -137,8 +137,8 @@ const DEMO_ORGANIZATIONS = [
     createdAt: "2026-04-03",
   },
   {
-    organizationId: 9,
-    organizationName: "Central Visayas Tech Council",
+    institutionId: 9,
+    institutionName: "Central Visayas Tech Council",
     contactPerson: "Leah Mendoza",
     contactEmail: "leah.mendoza@example.com",
     industry: "Government",
@@ -149,22 +149,22 @@ const DEMO_ORGANIZATIONS = [
   },
 ]
 
-function getOrganizationId(organization, index) {
+function getInstitutionId(institution, index) {
   return (
-      organization.institutionId ??
-      organization.organizationId ??
-      organization.id ??
-      `organization-${index}`
+      institution.institutionId ??
+      institution.institutionId ??
+      institution.id ??
+      `institution-${index}`
   )
 }
 
-function getOrganizationName(organization) {
+function getInstitutionName(institution) {
   return (
-      organization.institutionName ??
-      organization.organizationName ??
-      organization.name ??
-      organization.title ??
-      "Unnamed organization"
+      institution.institutionName ??
+      institution.institutionName ??
+      institution.name ??
+      institution.title ??
+      "Unnamed institution"
   )
 }
 
@@ -194,7 +194,7 @@ function formatDate(value) {
   }).format(date)
 }
 
-export default function Organizations({ onEdit, onDelete }) {
+export default function Institutions({ onEdit, onDelete }) {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState(ALL_FILTER_VALUE)
@@ -203,41 +203,41 @@ export default function Organizations({ onEdit, onDelete }) {
   const [pageSize, setPageSize] = useState(10)
   const { sort, toggle, sortRows } = useTableSort()
 
-  const { data: fetchedOrganizations = [], isLoading } = useQuery({
+  const { data: fetchedInstitutions = [], isLoading } = useQuery({
     queryKey: ["admin-institutions"],
     queryFn: () => getAllInstitutions(),
     staleTime: 5 * 60 * 1000,
   })
 
-  const list = Array.isArray(fetchedOrganizations) ? fetchedOrganizations : []
+  const list = Array.isArray(fetchedInstitutions) ? fetchedInstitutions : []
 
   const industries = useMemo(() => {
     return [...new Set(
         list
-            .map((organization) => organization.industry)
+            .map((institution) => institution.industry)
             .filter(Boolean)
     )].sort((a, b) => a.localeCompare(b))
   }, [list])
 
-  const filteredOrganizations = useMemo(() => {
+  const filteredInstitutions = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase()
 
-    return list.filter((organization) => {
-      const name = getOrganizationName(organization).toLowerCase()
+    return list.filter((institution) => {
+      const name = getInstitutionName(institution).toLowerCase()
       const contactPerson = String(
-          organization.primaryContactName ??
-          organization.contactPerson ??
-          organization.contactName ??
+          institution.primaryContactName ??
+          institution.contactPerson ??
+          institution.contactName ??
           ""
       ).toLowerCase()
       const email = String(
-          organization.primaryContactEmail ??
-          organization.contactEmail ??
-          organization.email ??
+          institution.primaryContactEmail ??
+          institution.contactEmail ??
+          institution.email ??
           ""
       ).toLowerCase()
-      const industry = String(organization.industry ?? "").toLowerCase()
-      const status = String(organization.status ?? "pending").toLowerCase()
+      const industry = String(institution.industry ?? "").toLowerCase()
+      const status = String(institution.status ?? "pending").toLowerCase()
 
       const matchesSearch =
           !normalizedSearch ||
@@ -258,48 +258,48 @@ export default function Organizations({ onEdit, onDelete }) {
 
   /* Sorting runs on the filtered set, so a sort never pulls in a row the
      filters excluded. Accessors read the same fallbacks the cells render. */
-  const sortedOrganizations = useMemo(
+  const sortedInstitutions = useMemo(
       () =>
-          sortRows(filteredOrganizations, {
-            organization: (organization) => getOrganizationName(organization),
-            contact: (organization) =>
-                organization.primaryContactName ??
-                organization.contactPerson ??
-                organization.contactName ??
+          sortRows(filteredInstitutions, {
+            institution: (institution) => getInstitutionName(institution),
+            contact: (institution) =>
+                institution.primaryContactName ??
+                institution.contactPerson ??
+                institution.contactName ??
                 null,
-            industry: (organization) => organization.industry ?? null,
-            learners: (organization) =>
+            industry: (institution) => institution.industry ?? null,
+            learners: (institution) =>
                 Number(
-                    organization.learnerCount ??
-                    organization.totalLearners ??
-                    organization.learnersCount ??
+                    institution.learnerCount ??
+                    institution.totalLearners ??
+                    institution.learnersCount ??
                     0
                 ),
-            certifications: (organization) =>
+            certifications: (institution) =>
                 Number(
-                    organization.certificationCount ??
-                    organization.totalCertifications ??
-                    organization.certificationsCount ??
+                    institution.certificationCount ??
+                    institution.totalCertifications ??
+                    institution.certificationsCount ??
                     0
                 ),
-            status: (organization) => organization.status ?? "pending",
-            added: (organization) => {
+            status: (institution) => institution.status ?? "pending",
+            added: (institution) => {
               const raw =
-                  organization.joinedAt ??
-                  organization.createdAt ??
-                  organization.dateCreated ??
-                  organization.createdDate
+                  institution.joinedAt ??
+                  institution.createdAt ??
+                  institution.dateCreated ??
+                  institution.createdDate
               const time = raw ? new Date(raw).getTime() : Number.NaN
               return Number.isNaN(time) ? null : time
             },
           }),
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [filteredOrganizations, sort]
+      [filteredInstitutions, sort]
   )
 
   const totalPages = Math.max(
       1,
-      Math.ceil(sortedOrganizations.length / pageSize)
+      Math.ceil(sortedInstitutions.length / pageSize)
   )
 
   useEffect(() => {
@@ -310,20 +310,20 @@ export default function Organizations({ onEdit, onDelete }) {
     setCurrentPage((page) => Math.min(page, totalPages))
   }, [totalPages])
 
-  const paginatedOrganizations = useMemo(() => {
+  const paginatedInstitutions = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize
 
-    return sortedOrganizations.slice(
+    return sortedInstitutions.slice(
         startIndex,
         startIndex + pageSize
     )
-  }, [currentPage, pageSize, sortedOrganizations])
+  }, [currentPage, pageSize, sortedInstitutions])
 
   const activeCount = useMemo(
       () =>
           list.filter(
-              (organization) =>
-                  String(organization.status ?? "").toLowerCase() === "active"
+              (institution) =>
+                  String(institution.status ?? "").toLowerCase() === "active"
           ).length,
       [list]
   )
@@ -331,12 +331,12 @@ export default function Organizations({ onEdit, onDelete }) {
   const totalLearners = useMemo(
       () =>
           list.reduce(
-              (total, organization) =>
+              (total, institution) =>
                   total +
                   Number(
-                      organization.learnerCount ??
-                      organization.totalLearners ??
-                      organization.learnersCount ??
+                      institution.learnerCount ??
+                      institution.totalLearners ??
+                      institution.learnersCount ??
                       0
                   ),
               0
@@ -345,13 +345,13 @@ export default function Organizations({ onEdit, onDelete }) {
   )
 
   const visibleStart =
-      sortedOrganizations.length === 0
+      sortedInstitutions.length === 0
           ? 0
           : (currentPage - 1) * pageSize + 1
 
   const visibleEnd = Math.min(
       currentPage * pageSize,
-      sortedOrganizations.length
+      sortedInstitutions.length
   )
 
   return (
@@ -366,7 +366,7 @@ export default function Organizations({ onEdit, onDelete }) {
             <Building2 className="h-4 w-4 self-center text-primary" />
             <p className="text-xl font-semibold tabular-nums">{list.length}</p>
             <p className="text-xs font-medium text-muted-foreground">
-              Total organizations
+              Total institutions
             </p>
           </div>
 
@@ -398,7 +398,7 @@ export default function Organizations({ onEdit, onDelete }) {
                 onPageSizeChange={setPageSize}
                 search={searchQuery}
                 onSearchChange={setSearchQuery}
-                searchPlaceholder="Search organization, contact, or email"
+                searchPlaceholder="Search institution, contact, or email"
             >
               <Select value={industryFilter} onValueChange={setIndustryFilter}>
                 <SelectTrigger className="h-9 w-full sm:w-52">
@@ -438,8 +438,8 @@ export default function Organizations({ onEdit, onDelete }) {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <SortableHead
-                        column="organization"
-                        label="Organization"
+                        column="institution"
+                        label="Institution"
                         sort={sort}
                         onSort={toggle}
                         className="min-w-64"
@@ -499,40 +499,40 @@ export default function Organizations({ onEdit, onDelete }) {
                             </TableCell>
                           </TableRow>
                       ))
-                  ) : paginatedOrganizations.length > 0 ? (
-                      paginatedOrganizations.map((organization, index) => {
-                        const organizationName = getOrganizationName(organization)
+                  ) : paginatedInstitutions.length > 0 ? (
+                      paginatedInstitutions.map((institution, index) => {
+                        const institutionName = getInstitutionName(institution)
                         const learnerCount = Number(
-                            organization.learnerCount ??
-                            organization.totalLearners ??
-                            organization.learnersCount ??
+                            institution.learnerCount ??
+                            institution.totalLearners ??
+                            institution.learnersCount ??
                             0
                         )
                         const certificationCount = Number(
-                            organization.certificationCount ??
-                            organization.totalCertifications ??
-                            organization.certificationsCount ??
+                            institution.certificationCount ??
+                            institution.totalCertifications ??
+                            institution.certificationsCount ??
                             0
                         )
 
                         return (
                             <TableRow
-                                key={getOrganizationId(organization, index)}
+                                key={getInstitutionId(institution, index)}
                                 className="group"
                             >
                               <TableCell>
                                 <div className="flex min-w-0 items-center gap-3">
                                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border bg-primary/5 text-xs font-bold text-primary">
-                                    {getInitials(organizationName)}
+                                    {getInitials(institutionName)}
                                   </div>
 
                                   <div className="min-w-0">
                                     <p className="truncate text-sm font-semibold text-foreground">
-                                      {organizationName}
+                                      {institutionName}
                                     </p>
 
                                     <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                                      ID: {getOrganizationId(organization, index)}
+                                      ID: {getInstitutionId(institution, index)}
                                     </p>
                                   </div>
                                 </div>
@@ -541,23 +541,23 @@ export default function Organizations({ onEdit, onDelete }) {
                               <TableCell>
                                 <div className="min-w-0">
                                   <p className="truncate text-sm font-medium text-foreground">
-                                    {organization.primaryContactName ??
-                                        organization.contactPerson ??
-                                        organization.contactName ??
+                                    {institution.primaryContactName ??
+                                        institution.contactPerson ??
+                                        institution.contactName ??
                                         "Not assigned"}
                                   </p>
 
                                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                                    {organization.primaryContactEmail ??
-                                        organization.contactEmail ??
-                                        organization.email ??
+                                    {institution.primaryContactEmail ??
+                                        institution.contactEmail ??
+                                        institution.email ??
                                         "No email provided"}
                                   </p>
                                 </div>
                               </TableCell>
 
                               <TableCell className="text-sm text-muted-foreground">
-                                {organization.industry ?? "Not specified"}
+                                {institution.industry ?? "Not specified"}
                               </TableCell>
 
                               <TableCell className="text-center font-medium tabular-nums">
@@ -570,16 +570,16 @@ export default function Organizations({ onEdit, onDelete }) {
 
                               <TableCell>
                                 <InstitutionStatusBadge
-                                    status={organization.status}
+                                    status={institution.status}
                                 />
                               </TableCell>
 
                               <TableCell className="text-sm text-muted-foreground">
                                 {formatDate(
-                                    organization.joinedAt ??
-                                    organization.createdAt ??
-                                    organization.dateCreated ??
-                                    organization.createdDate
+                                    institution.joinedAt ??
+                                    institution.createdAt ??
+                                    institution.dateCreated ??
+                                    institution.createdDate
                                 )}
                               </TableCell>
 
@@ -591,7 +591,7 @@ export default function Organizations({ onEdit, onDelete }) {
                                         variant="ghost"
                                         size="icon"
                                         className="h-8 w-8"
-                                        aria-label={`Actions for ${organizationName}`}
+                                        aria-label={`Actions for ${institutionName}`}
                                     >
                                       <MoreHorizontal className="h-4 w-4" />
                                     </Button>
@@ -601,7 +601,7 @@ export default function Organizations({ onEdit, onDelete }) {
                                     <DropdownMenuItem
                                         onSelect={() =>
                                             navigate(
-                                                `/admin/organizations/${getOrganizationId(organization, index)}`
+                                                `/admin/institutions/${getInstitutionId(institution, index)}`
                                             )
                                         }
                                     >
@@ -610,7 +610,7 @@ export default function Organizations({ onEdit, onDelete }) {
                                     </DropdownMenuItem>
 
                                     <DropdownMenuItem
-                                        onSelect={() => onEdit?.(organization)}
+                                        onSelect={() => onEdit?.(institution)}
                                     >
                                       <Pencil className="mr-2 h-4 w-4" />
                                       Edit
@@ -619,7 +619,7 @@ export default function Organizations({ onEdit, onDelete }) {
                                     <DropdownMenuSeparator />
 
                                     <DropdownMenuItem
-                                        onSelect={() => onDelete?.(organization)}
+                                        onSelect={() => onDelete?.(institution)}
                                         className="text-destructive focus:text-destructive"
                                     >
                                       <Trash2 className="mr-2 h-4 w-4" />
@@ -640,12 +640,12 @@ export default function Organizations({ onEdit, onDelete }) {
                             </div>
 
                             <p className="mt-4 text-sm font-semibold">
-                              No organizations found
+                              No institutions found
                             </p>
 
                             <p className="mt-1 text-xs leading-5 text-muted-foreground">
                               Try changing the search or filter, or add a new
-                              organization.
+                              institution.
                             </p>
                           </div>
                         </TableCell>
@@ -661,8 +661,8 @@ export default function Organizations({ onEdit, onDelete }) {
                 onPageChange={setCurrentPage}
                 rangeStart={visibleStart}
                 rangeEnd={visibleEnd}
-                total={sortedOrganizations.length}
-                unit="organizations"
+                total={sortedInstitutions.length}
+                unit="institutions"
             />
           </TableCard>
         </div>

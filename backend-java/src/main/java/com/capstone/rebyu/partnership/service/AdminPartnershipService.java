@@ -2,12 +2,12 @@ package com.capstone.rebyu.partnership.service;
 
 import com.capstone.rebyu.auth.service.CognitoAdminService;
 import com.capstone.rebyu.common.BusinessRuleException;
-import com.capstone.rebyu.organization.entity.Institution;
-import com.capstone.rebyu.organization.entity.InstitutionMember;
-import com.capstone.rebyu.organization.entity.OrganizationCertificate;
-import com.capstone.rebyu.organization.repository.InstitutionMemberRepository;
-import com.capstone.rebyu.organization.repository.InstitutionRepository;
-import com.capstone.rebyu.organization.repository.OrganizationCertificateRepository;
+import com.capstone.rebyu.institution.entity.Institution;
+import com.capstone.rebyu.institution.entity.InstitutionMember;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
+import com.capstone.rebyu.institution.repository.InstitutionMemberRepository;
+import com.capstone.rebyu.institution.repository.InstitutionRepository;
+import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import com.capstone.rebyu.notification.service.NotificationService;
 import com.capstone.rebyu.user.entity.User;
 import com.capstone.rebyu.user.entity.UserType;
@@ -34,8 +34,8 @@ import java.util.Locale;
 /**
  * Transaction Two: an admin approves or rejects a partnership request.
  *
- * Approval is atomic: it creates the Organization (Institution) record if it
- * does not exist yet, then creates or tops up an OrganizationCertificate slot
+ * Approval is atomic: it creates the Institution (Institution) record if it
+ * does not exist yet, then creates or tops up an InstitutionCertificate slot
  * allocation for every requested certification. Existing allocations are
  * increased, never overwritten. Rejection records the decision only and grants
  * no access.
@@ -51,7 +51,7 @@ public class AdminPartnershipService {
     private final PartnershipRequestRepository requestRepository;
     private final PartnershipRequestItemRepository itemRepository;
     private final InstitutionRepository institutionRepository;
-    private final OrganizationCertificateRepository organizationCertificateRepository;
+    private final InstitutionCertificateRepository institutionCertificateRepository;
     private final InstitutionMemberRepository institutionMemberRepository;
     private final UserRepository userRepository;
     private final UserTypeRepository userTypeRepository;
@@ -84,29 +84,29 @@ public class AdminPartnershipService {
         for (PartnershipRequestItem item : itemRepository
                 .findByPartnershipRequest_RequestId(requestId)) {
             int requestedSlots = item.getSlots() == null ? 0 : item.getSlots();
-            // The window the organization asked for; older requests without one
+            // The window the institution asked for; older requests without one
             // get the default year from today.
             LocalDate start = item.getRequestedAccessStartDate() != null
                     ? item.getRequestedAccessStartDate() : today;
             LocalDate end = item.getRequestedAccessEndDate() != null
                     ? item.getRequestedAccessEndDate() : start.plusMonths(DEFAULT_ACCESS_MONTHS);
-            OrganizationCertificate existing = organizationCertificateRepository
+            InstitutionCertificate existing = institutionCertificateRepository
                     .findByInstitution_InstitutionIdAndCertification_CertificationId(
                             institution.getInstitutionId(),
                             item.getCertification().getCertificationId())
                     .orElse(null);
 
             if (existing == null) {
-                OrganizationCertificate access = OrganizationCertificate.builder()
+                InstitutionCertificate access = InstitutionCertificate.builder()
                         .institution(institution)
                         .certification(item.getCertification())
                         .totalSlots(requestedSlots)
                         .usedSlots(0)
                         .accessStartDate(start)
                         .accessExpiryDate(end)
-                        .status(OrganizationCertificate.Status.active)
+                        .status(InstitutionCertificate.Status.active)
                         .build();
-                organizationCertificateRepository.save(access);
+                institutionCertificateRepository.save(access);
             } else {
                 // Top up the existing allocation; never overwrite. remaining_slots
                 // is a DB-computed column, so only total_slots changes here.
@@ -118,8 +118,8 @@ public class AdminPartnershipService {
                 if (existing.getAccessExpiryDate() == null || end.isAfter(existing.getAccessExpiryDate())) {
                     existing.setAccessExpiryDate(end);
                 }
-                existing.setStatus(OrganizationCertificate.Status.active);
-                organizationCertificateRepository.save(existing);
+                existing.setStatus(InstitutionCertificate.Status.active);
+                institutionCertificateRepository.save(existing);
             }
         }
 
@@ -156,12 +156,12 @@ public class AdminPartnershipService {
                 .findByInstitution_InstitutionId(institution.getInstitutionId()).isEmpty();
         if (alreadyLinked) {
             return new CognitoAdminService.ProvisionResult(false, null,
-                    "This organization already has an institution account.");
+                    "This institution already has an institution account.");
         }
 
         String[] name = splitName(request.getContactPersonName());
         CognitoAdminService.ProvisionResult result = cognitoAdminService
-                .createInstitutionAccount(request.getOrganizationEmail(), name[0], name[1]);
+                .createInstitutionAccount(request.getInstitutionEmail(), name[0], name[1]);
 
         // Link a local INSTITUTION user only when a Cognito identity exists, so
         // sign-in and role resolution work. If the sub is unknown (existing
@@ -174,10 +174,10 @@ public class AdminPartnershipService {
                         return userTypeRepository.save(type);
                     });
 
-            User user = userRepository.findByEmailIgnoreCase(request.getOrganizationEmail())
+            User user = userRepository.findByEmailIgnoreCase(request.getInstitutionEmail())
                     .orElseGet(() -> User.builder()
                             .userType(institutionType)
-                            .email(request.getOrganizationEmail())
+                            .email(request.getInstitutionEmail())
                             .passwordHash("COGNITO")
                             .accountStatus(User.AccountStatus.active)
                             .joinedAt(LocalDateTime.now())
@@ -205,7 +205,7 @@ public class AdminPartnershipService {
             // orphaned with nobody able to manage it. Link the existing local User
             // for that email if one exists; CognitoAuthService will already
             // resolve sign-in for that account by its Cognito sub/email.
-            User existingUser = userRepository.findByEmailIgnoreCase(request.getOrganizationEmail())
+            User existingUser = userRepository.findByEmailIgnoreCase(request.getInstitutionEmail())
                     .orElse(null);
             if (existingUser != null) {
                 InstitutionMember member = InstitutionMember.builder()
@@ -219,7 +219,7 @@ public class AdminPartnershipService {
             } else {
                 log.warn("Cognito account already exists for {} but no local User is linked to it; "
                                 + "institution {} was created with no owner and requires manual linking.",
-                        request.getOrganizationEmail(), institution.getInstitutionId());
+                        request.getInstitutionEmail(), institution.getInstitutionId());
             }
         }
         return result;
@@ -290,16 +290,16 @@ public class AdminPartnershipService {
         }
         // Reuse the existing Institution that shares this contact email, so an
         // approved partnership provisions the login account on the SAME
-        // organization the admin already set up — never a duplicate. (Restored
-        // 2026-07-19: a prior change ALSO required an exact organization-name
+        // institution the admin already set up — never a duplicate. (Restored
+        // 2026-07-19: a prior change ALSO required an exact institution-name
         // match here, which created duplicate institutions on approval and left
         // the original one with no account — the "I approved but can't get an
         // account for that institution" bug.)
         Institution byEmail = institutionRepository
-                .findByPrimaryContactEmailIgnoreCase(request.getOrganizationEmail())
+                .findByPrimaryContactEmailIgnoreCase(request.getInstitutionEmail())
                 .orElse(null);
         if (byEmail != null) {
-            // An approved partnership is what verifies an organization.
+            // An approved partnership is what verifies an institution.
             if (!byEmail.isVerified()) {
                 byEmail.setVerified(true);
                 institutionRepository.save(byEmail);
@@ -308,7 +308,7 @@ public class AdminPartnershipService {
         }
 
         // Ensure the unique institution_name does not collide.
-        String name = request.getOrganizationName();
+        String name = request.getInstitutionName();
         if (institutionRepository.findByInstitutionNameIgnoreCase(name).isPresent()) {
             name = name + " (" + request.getReferenceNumber() + ")";
         }
@@ -316,13 +316,13 @@ public class AdminPartnershipService {
         Institution institution = Institution.builder()
                 .institutionName(name)
                 // The public form does not collect these; use safe defaults an
-                // admin can refine later on the organization page.
-                .organizationType(Institution.OrganizationType.other)
+                // admin can refine later on the institution page.
+                .institutionType(Institution.InstitutionType.other)
                 .industry("General")
                 .primaryContactName(request.getContactPersonName())
-                .primaryContactEmail(request.getOrganizationEmail())
+                .primaryContactEmail(request.getInstitutionEmail())
                 .primaryContactPhone(request.getContactNumber())
-                .address(request.getOrganizationAddress())
+                .address(request.getInstitutionAddress())
                 .isVerified(true)
                 .joinedAt(LocalDateTime.now())
                 .build();
@@ -338,8 +338,8 @@ public class AdminPartnershipService {
         return new PartnershipRequestSummaryDto(
                 request.getRequestId(),
                 request.getReferenceNumber(),
-                request.getOrganizationName(),
-                request.getOrganizationEmail(),
+                request.getInstitutionName(),
+                request.getInstitutionEmail(),
                 request.getStatus().name(),
                 request.getSubmittedAt(),
                 items.size(),
@@ -367,11 +367,11 @@ public class AdminPartnershipService {
         return new PartnershipRequestDetailDto(
                 request.getRequestId(),
                 request.getReferenceNumber(),
-                request.getOrganizationName(),
-                request.getOrganizationEmail(),
+                request.getInstitutionName(),
+                request.getInstitutionEmail(),
                 request.getContactPersonName(),
                 request.getContactNumber(),
-                request.getOrganizationAddress(),
+                request.getInstitutionAddress(),
                 request.getBusinessDescription(),
                 request.getStatus().name(),
                 request.getSubmittedAt(),

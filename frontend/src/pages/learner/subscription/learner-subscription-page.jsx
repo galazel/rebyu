@@ -187,7 +187,7 @@ export default function LearnerSubscriptionPage() {
         </StatusBanner>
       ) : entitlements.institutionalActive ? (
         <StatusBanner tone="feather" icon={CheckIcon} title="Pro through your institution">
-          Your organization's licence gives you every Pro feature. There is nothing to buy.
+          Your institution's licence gives you every Pro feature. There is nothing to buy.
         </StatusBanner>
       ) : rejected ? (
         <StatusBanner tone="cardinal" icon={XCircleIcon} title="Your last Pro request was not approved">

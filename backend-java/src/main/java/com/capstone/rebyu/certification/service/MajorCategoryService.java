@@ -127,8 +127,8 @@ public class MajorCategoryService {
 
         InstitutionGroup group = institutionGroupRepository.findById(ownerGroupId)
                 .orElseThrow(() -> new EntityNotFoundException("Group not found: " + ownerGroupId));
-        Long groupCertificationId = group.getOrgCert() != null && group.getOrgCert().getCertification() != null
-                ? group.getOrgCert().getCertification().getCertificationId() : null;
+        Long groupCertificationId = group.getInstitutionCert() != null && group.getInstitutionCert().getCertification() != null
+                ? group.getInstitutionCert().getCertification().getCertificationId() : null;
         if (!Objects.equals(groupCertificationId, targetCertificationId)) {
             throw new BusinessRuleException.InstitutionGroupRuleException(
                     "This group's certification does not match the certification you're adding content to.");

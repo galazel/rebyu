@@ -9,14 +9,14 @@ import com.capstone.rebyu.billing.entity.InstitutionalLicense;
 import com.capstone.rebyu.billing.entity.PlanEntitlement;
 import com.capstone.rebyu.billing.repository.InstitutionalLicenseRepository;
 import com.capstone.rebyu.billing.repository.PlanEntitlementRepository;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
 import com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAuthority;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAuthorityRepository;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupRepository;
-import com.capstone.rebyu.organization.entity.OrganizationCertificate;
-import com.capstone.rebyu.organization.repository.OrganizationCertificateRepository;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
+import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,8 +40,8 @@ public class InstitutionalEntitlementService {
 
     private final InstitutionalLicenseRepository licenseRepository;
     private final PlanEntitlementRepository planEntitlementRepository;
-    private final OrganizationCertificationLearnerRepository orgCertLearnerRepository;
-    private final OrganizationCertificateRepository orgCertificateRepository;
+    private final InstitutionCertificationLearnerRepository institutionCertLearnerRepository;
+    private final InstitutionCertificateRepository institutionCertificateRepository;
     private final InstitutionGroupRepository groupRepository;
     private final InstitutionGroupAuthorityRepository authorityRepository;
 
@@ -150,7 +150,7 @@ public class InstitutionalEntitlementService {
         return getActiveLicense(institutionId).orElseThrow(() ->
                 new InstitutionalEntitlementRequiredException(
                         "INSTITUTIONAL_LICENSE",
-                        "This organization does not have an active institutional license."));
+                        "This institution does not have an active institutional license."));
     }
 
     private Map<String, PlanEntitlement> planEntitlements(InstitutionalLicense license) {
@@ -163,8 +163,8 @@ public class InstitutionalEntitlementService {
     }
 
     private int seatsUsed(Long institutionId) {
-        return (int) orgCertLearnerRepository.countDistinctActiveLearners(
-                institutionId, OrganizationCertificationLearner.Status.active);
+        return (int) institutionCertLearnerRepository.countDistinctActiveLearners(
+                institutionId, InstitutionCertificationLearner.Status.active);
     }
 
     private int groupsUsed(Long institutionId) {
@@ -178,8 +178,8 @@ public class InstitutionalEntitlementService {
     }
 
     private int certificationsUsed(Long institutionId) {
-        return (int) orgCertificateRepository.countByInstitution_InstitutionIdAndStatus(
-                institutionId, OrganizationCertificate.Status.active);
+        return (int) institutionCertificateRepository.countByInstitution_InstitutionIdAndStatus(
+                institutionId, InstitutionCertificate.Status.active);
     }
 
     private int seatLimit(InstitutionalLicense license, Map<String, PlanEntitlement> entitlements) {

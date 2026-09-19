@@ -1,7 +1,7 @@
 package com.capstone.rebyu.user.dto;
 
 
-import com.capstone.rebyu.organization.entity.Institution;
+import com.capstone.rebyu.institution.entity.Institution;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;

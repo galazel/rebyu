@@ -52,6 +52,10 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
 
     List<AssessmentAttempt> findByLearnerIdOrderByStartedAtDesc(Long learnerId);
 
+    List<AssessmentAttempt> findByStatusAndExam_ExamType_ExamTypeText(AssessmentAttempt.Status status, String examTypeText);
+
+    List<AssessmentAttempt> findByLearnerIdAndExam_ExamType_ExamTypeText(Long learnerId, String examTypeText);
+
     List<AssessmentAttempt> findByExam_ExamIdAndLearnerIdOrderByAttemptNumberDesc(
             Long examId, Long learnerId);
 
@@ -97,7 +101,7 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
      * Graded-attempt statistics for a whole roster in one query.
      *
      * Batched on purpose: the institution dashboard renders a row per member,
-     * and doing this per learner is the N+1 that makes a 200-seat organization's
+     * and doing this per learner is the N+1 that makes a 200-seat institution's
      * dashboard take seconds.
      */
     @org.springframework.data.jpa.repository.Query("""

@@ -99,8 +99,8 @@ function MiddleCategoryRow({ middleCategory, onAddQuestion }) {
 }
 
 export default function InstitutionCertificationDetailPage() {
-  const { orgCertId } = useParams()
-  const numericOrgCertId = Number(orgCertId)
+  const { institutionCertId } = useParams()
+  const numericInstitutionCertId = Number(institutionCertId)
   const { institution, institutionLoading, institutionError, refetchInstitution } =
     useOutletContext()
   const institutionId = institution?.institutionId
@@ -112,7 +112,7 @@ export default function InstitutionCertificationDetailPage() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const orgCert = data.orgCertById.get(numericOrgCertId)
+  const institutionCert = data.institutionCertById.get(numericInstitutionCertId)
 
   const groupsQuery = useQuery({
     queryKey: ["institution-groups", institutionId],
@@ -121,7 +121,7 @@ export default function InstitutionCertificationDetailPage() {
   })
 
   const groups = asArray(groupsQuery.data).filter(
-    (group) => group.orgCertId === numericOrgCertId && group.status === "active"
+    (group) => group.institutionCertId === numericInstitutionCertId && group.status === "active"
   )
 
   const [activeTab, setActiveTab] = useState("curriculum")
@@ -142,7 +142,7 @@ export default function InstitutionCertificationDetailPage() {
     asArray(examTypesQuery.data).map((type) => [type.examTypeId, type.examTypeText])
   )
   const certificationExams = asArray(examsQuery.data).filter(
-    (exam) => exam.certificationId === orgCert?.certificationId && exam.status === "PUBLISHED"
+    (exam) => exam.certificationId === institutionCert?.certificationId && exam.status === "PUBLISHED"
   )
 
   const groupInvitations = useMemo(() => {
@@ -153,9 +153,9 @@ export default function InstitutionCertificationDetailPage() {
   const certification = useMemo(
     () =>
       asArray(certificationsQuery.data).find(
-        (c) => c.certificationId === orgCert?.certificationId
+        (c) => c.certificationId === institutionCert?.certificationId
       ) ?? null,
-    [certificationsQuery.data, orgCert?.certificationId]
+    [certificationsQuery.data, institutionCert?.certificationId]
   )
 
   const isLoading =
@@ -168,7 +168,7 @@ export default function InstitutionCertificationDetailPage() {
 
   if (isLoading) return <InstitutionLoadingSkeleton />
   if (institutionError) return <InstitutionErrorState onRetry={refetchInstitution} />
-  if (!institution || !orgCert || !certification) {
+  if (!institution || !institutionCert || !certification) {
     return (
       <div className="space-y-6">
         <Link
@@ -196,8 +196,8 @@ export default function InstitutionCertificationDetailPage() {
       ),
     0
   )
-  const used = orgCert.usedSlots ?? 0
-  const total = orgCert.totalSlots ?? 0
+  const used = institutionCert.usedSlots ?? 0
+  const total = institutionCert.totalSlots ?? 0
 
   return (
     <div className="space-y-6">
@@ -212,7 +212,7 @@ export default function InstitutionCertificationDetailPage() {
       <InstitutionPageHeader
         title={certification.title}
         subtitle={certification.description || "No description available."}
-        actions={<InstitutionStatusBadge status={orgCert.status} />}
+        actions={<InstitutionStatusBadge status={institutionCert.status} />}
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -327,7 +327,7 @@ export default function InstitutionCertificationDetailPage() {
         <TabsContent value="groups" className="space-y-4">
           <div className="flex justify-end">
             <Button asChild size="sm">
-              <Link to={`/institution/groups?orgCertId=${numericOrgCertId}`}>
+              <Link to={`/institution/groups?institutionCertId=${numericInstitutionCertId}`}>
                 <UsersRoundIcon className="size-4" aria-hidden="true" />
                 Manage groups
               </Link>
@@ -340,7 +340,7 @@ export default function InstitutionCertificationDetailPage() {
               description="Create a group under this certification to assign a leader and start inviting learners."
               action={
                 <Button asChild size="sm">
-                  <Link to={`/institution/groups?orgCertId=${numericOrgCertId}`}>
+                  <Link to={`/institution/groups?institutionCertId=${numericInstitutionCertId}`}>
                     Create group
                   </Link>
                 </Button>

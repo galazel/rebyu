@@ -1,6 +1,6 @@
 import { base } from "./base"
 
-// Organization / tenant
+// Institution / tenant
 export function getAllInstitutions() {
   return base("institutions")
 }
@@ -9,18 +9,18 @@ export function getInstitutionById(institutionId) {
   return base(`institutions/${institutionId}`)
 }
 
-// Admin-only, cross-tenant: every organization's certificate allocations /
+// Admin-only, cross-tenant: every institution's certificate allocations /
 // enrolled learners. The admin institution-detail page filters these
 // client-side to one institutionId.
-export function getAllOrganizationCertificates() {
-  return base("organization-certificates")
+export function getAllInstitutionCertificates() {
+  return base("institution-certificates")
 }
 
-export function getAllOrganizationCertificationLearners() {
-  return base("organization-certification-learners")
+export function getAllInstitutionCertificationLearners() {
+  return base("institution-certification-learners")
 }
 
-// The caller's OWN organization profile, scoped to the JWT (no admin required).
+// The caller's OWN institution profile, scoped to the JWT (no admin required).
 // The institution portal must use this instead of getInstitutionById, which is
 // an admin-only endpoint.
 export function getMyInstitutionProfile() {
@@ -38,7 +38,7 @@ export function getInstitutionMembers(institutionId) {
   return base(`institution-members/institution/${institutionId}`)
 }
 
-// Every member of the caller's OWN organization, scoped to the JWT.
+// Every member of the caller's OWN institution, scoped to the JWT.
 export function getMyInstitutionMembers() {
   return base("institution/me/members")
 }
@@ -95,10 +95,10 @@ export function archiveGroupAnnouncement(groupId, announcementId) {
 }
 
 // Institution learner groups (per certification allocation)
-export function getInstitutionGroups({ institutionId, orgCertId } = {}) {
+export function getInstitutionGroups({ institutionId, institutionCertId } = {}) {
   const params = new URLSearchParams()
   if (institutionId != null) params.set("institutionId", institutionId)
-  if (orgCertId != null) params.set("orgCertId", orgCertId)
+  if (institutionCertId != null) params.set("institutionCertId", institutionCertId)
   const query = params.toString()
   return base(`institution-groups${query ? `?${query}` : ""}`)
 }
@@ -175,18 +175,6 @@ export function submitPartnershipRequestTransaction(request) {
 
 export function getPartnershipRequestTransactions() {
   return base("institution/partnership-requests")
-}
-
-// Renewals
-export function getRenewalRequestsByOrgCert(orgCertId) {
-  return base(`institution-certification-renewal-requests/org-cert/${orgCertId}`)
-}
-
-export function createRenewalRequest(request) {
-  return base("institution-certification-renewal-requests", {
-    method: "POST",
-    data: request,
-  })
 }
 
 export function getInstitutionFiles() { return base("institution/files") }

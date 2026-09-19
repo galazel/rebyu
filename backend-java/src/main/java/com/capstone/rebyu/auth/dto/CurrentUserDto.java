@@ -8,7 +8,7 @@ public record CurrentUserDto(
         String role,
         Long learnerId,
         // Present when the account belongs to an institution, so the frontend
-        // scopes the institution portal to that organization.
+        // scopes the institution portal to that institution.
         Long institutionId,
         // "owner" | "manager" | "staff" -- present only alongside institutionId.
         // The frontend uses this to tell the org owner's dashboard apart from a

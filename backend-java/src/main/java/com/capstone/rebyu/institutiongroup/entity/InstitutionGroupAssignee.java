@@ -1,6 +1,6 @@
 package com.capstone.rebyu.institutiongroup.entity;
 
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -40,8 +40,8 @@ public class InstitutionGroupAssignee {
     private InstitutionGroup institutionGroup;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "org_cert_learner_id", nullable = false)
-    private OrganizationCertificationLearner orgCertLearner;
+    @JoinColumn(name = "institution_cert_learner_id", nullable = false)
+    private InstitutionCertificationLearner institutionCertLearner;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_by", nullable = false)

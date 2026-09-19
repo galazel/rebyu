@@ -35,7 +35,7 @@ public class EmailService {
 
     public void sendInstitutionInvitation(
             String recipientEmail,
-            String organizationName,
+            String institutionName,
             String certificationTitle,
             String invitationToken
     ) {
@@ -59,7 +59,7 @@ public class EmailService {
 
                 REBYU Team
                 """.formatted(
-                organizationName,
+                institutionName,
                 certificationTitle,
                 invitationLink
         ));

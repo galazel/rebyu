@@ -207,7 +207,7 @@ export function syncCurrentUser() {
 }
 
 /**
- * Sets the first password of an account an admin or organization created.
+ * Sets the first password of an account an admin or institution created.
  * The invitation link has already signed them in; this gives that account a
  * password so they can sign in normally afterwards.
  */

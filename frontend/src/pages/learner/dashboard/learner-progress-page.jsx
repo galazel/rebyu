@@ -1778,7 +1778,7 @@ export default function LearnerProgressPage() {
           <LearnerEmptyState
             icon={BookOpen}
             title="No enrolled certifications yet"
-            description="Enroll in a certification -- or accept an organization invitation -- and your mastery, performance trends, and recommended next steps will appear here."
+            description="Enroll in a certification -- or accept an institution invitation -- and your mastery, performance trends, and recommended next steps will appear here."
             action={
               <Button onClick={() => navigate("/learner/certifications")}>
                 Browse certifications

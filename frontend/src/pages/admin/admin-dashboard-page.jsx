@@ -467,7 +467,7 @@ export default function AdminDashboard() {
         element: (
           <BentoTile col={2} row={2}>
             <BentoHeading
-              title="Organizations"
+              title="Institutions"
               hint="Onboarded against requests still awaiting review"
             />
             {failed ? (
@@ -475,7 +475,7 @@ export default function AdminDashboard() {
             ) : (
               <BarBreakdownChart
                 data={[
-                  { label: "Onboarded", count: Number(catalog.organizations ?? 0) },
+                  { label: "Onboarded", count: Number(catalog.institutions ?? 0) },
                   { label: "Pending", count: Number(catalog.pendingPartnerships ?? 0) },
                 ]}
                 categoryKey="label"
@@ -496,7 +496,7 @@ export default function AdminDashboard() {
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
               <BentoHeading
                 title="Recent partnership requests"
-                hint="Latest requests from organizations."
+                hint="Latest requests from institutions."
               />
 
               {partnershipsQuery.isError ? (
@@ -624,7 +624,7 @@ export default function AdminDashboard() {
       <div className="space-y-6">
         <InstitutionPageHeader
           title="Dashboard"
-          subtitle="Platform overview across learners, organizations, and certifications."
+          subtitle="Platform overview across learners, institutions, and certifications."
         />
         <InstitutionErrorState
           title="Unable to load platform data"
@@ -642,7 +642,7 @@ export default function AdminDashboard() {
     <div className="space-y-6">
       <InstitutionPageHeader
         title="Dashboard"
-        subtitle="Platform overview across learners, organizations, and certifications."
+        subtitle="Platform overview across learners, institutions, and certifications."
       />
 
       <div className="flex flex-wrap items-center justify-end gap-3">

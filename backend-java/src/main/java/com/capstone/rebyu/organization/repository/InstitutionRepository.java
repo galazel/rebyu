@@ -1,6 +1,6 @@
-package com.capstone.rebyu.organization.repository;
+package com.capstone.rebyu.institution.repository;
 
-import com.capstone.rebyu.organization.entity.Institution;
+import com.capstone.rebyu.institution.entity.Institution;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

@@ -1,9 +1,9 @@
-package com.capstone.rebyu.organization.controller;
+package com.capstone.rebyu.institution.controller;
 
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
-import com.capstone.rebyu.organization.dto.OrganizationCertificateDto;
-import com.capstone.rebyu.organization.service.OrganizationCertificateService;
+import com.capstone.rebyu.institution.dto.InstitutionCertificateDto;
+import com.capstone.rebyu.institution.service.InstitutionCertificateService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -14,25 +14,25 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/organization-certificates")
+@RequestMapping("/api/institution-certificates")
 @RequiredArgsConstructor
-public class OrganizationCertificateController {
-    private final OrganizationCertificateService organizationCertificateService;
+public class InstitutionCertificateController {
+    private final InstitutionCertificateService institutionCertificateService;
     private final CognitoAuthService auth;
 
-    // Cross-tenant allocation data: the unfiltered list exposes every organization's
+    // Cross-tenant allocation data: the unfiltered list exposes every institution's
     // certificate allocations, so it's admin-only. Institutions read their own via
     // /api/institution/me/overview; learners via /api/learners/me/portal.
     @GetMapping
-    public List<OrganizationCertificateDto> getAll(@AuthenticationPrincipal Jwt jwt) {
+    public List<InstitutionCertificateDto> getAll(@AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
-        return organizationCertificateService.getAll();
+        return institutionCertificateService.getAll();
     }
 
     @GetMapping("/{id}")
-    public OrganizationCertificateDto getById(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+    public InstitutionCertificateDto getById(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
-        return organizationCertificateService.getById(id);
+        return institutionCertificateService.getById(id);
     }
 
     private void requireAdmin(Jwt jwt) {
@@ -43,21 +43,21 @@ public class OrganizationCertificateController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public OrganizationCertificateDto create(@Valid @RequestBody OrganizationCertificateDto dto, @AuthenticationPrincipal Jwt jwt) {
+    public InstitutionCertificateDto create(@Valid @RequestBody InstitutionCertificateDto dto, @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
-        return organizationCertificateService.create(dto);
+        return institutionCertificateService.create(dto);
     }
 
     @PutMapping("/{id}")
-    public OrganizationCertificateDto update(@PathVariable Long id, @Valid @RequestBody OrganizationCertificateDto dto, @AuthenticationPrincipal Jwt jwt) {
+    public InstitutionCertificateDto update(@PathVariable Long id, @Valid @RequestBody InstitutionCertificateDto dto, @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
-        return organizationCertificateService.update(id, dto);
+        return institutionCertificateService.update(id, dto);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
-        organizationCertificateService.delete(id);
+        institutionCertificateService.delete(id);
     }
 }

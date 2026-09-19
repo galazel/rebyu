@@ -14,13 +14,13 @@ public interface PartnershipRequestRepository extends JpaRepository<PartnershipR
 
     Optional<PartnershipRequest> findByReferenceNumber(String referenceNumber);
 
-    Optional<PartnershipRequest> findByReferenceNumberAndOrganizationEmailIgnoreCase(
-            String referenceNumber, String organizationEmail);
+    Optional<PartnershipRequest> findByReferenceNumberAndInstitutionEmailIgnoreCase(
+            String referenceNumber, String institutionEmail);
 
     List<PartnershipRequest> findAllByOrderBySubmittedAtDesc();
 
-    boolean existsByOrganizationEmailIgnoreCaseAndStatus(
-            String organizationEmail, PartnershipRequest.Status status);
+    boolean existsByInstitutionEmailIgnoreCaseAndStatus(
+            String institutionEmail, PartnershipRequest.Status status);
 
     long countByStatus(PartnershipRequest.Status status);
 }

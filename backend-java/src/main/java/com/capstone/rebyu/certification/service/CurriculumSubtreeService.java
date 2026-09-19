@@ -75,18 +75,16 @@ public class CurriculumSubtreeService {
         String exams = examScope(node, lessons);
         String questions = "SELECT question_id FROM questions WHERE lesson_id IN (" + lessons + ")";
 
-        requireNoGradedRecords(node, id, exams, questions);
+        requireNoGradedRecords(node, id, exams);
 
         // Anything the caller has already staged has to reach the database
         // before these native statements run, or the ordering they depend on
         // is only half true.
         entityManager.flush();
 
-        // Exams first: exam_questions and exam_choices are what tie an exam to
+        // Exams first: exam_questions is what ties an exam to
         // the questions deleted below, so unpicking that link has to come
         // before either side of it.
-        delete("DELETE FROM exam_choices WHERE exam_question_id IN ("
-                + "SELECT exam_question_id FROM exam_questions WHERE exam_id IN (" + exams + "))", id);
         delete("DELETE FROM exam_questions WHERE exam_id IN (" + exams + ")", id);
         delete("DELETE FROM exams WHERE exam_id IN (" + exams + ")", id);
 
@@ -138,17 +136,13 @@ public class CurriculumSubtreeService {
      * attempted an assessment under this module" is something an admin can act
      * on and "it is in use" is not.
      */
-    private void requireNoGradedRecords(Node node, Long id, String exams, String questions) {
+    private void requireNoGradedRecords(Node node, Long id, String exams) {
         refuseIfAny(
                 "SELECT count(*) FROM assessment_attempts WHERE exam_id IN (" + exams + ")",
                 id, node, "assessment attempt");
         refuseIfAny(
                 "SELECT count(*) FROM exam_results WHERE exam_id IN (" + exams + ")",
                 id, node, "recorded exam result");
-        refuseIfAny(
-                "SELECT count(*) FROM learner_exam_details WHERE exam_id IN (" + exams + ")"
-                        + " OR question_id IN (" + questions + ")",
-                id, node, "answered exam question");
     }
 
     private void refuseIfAny(String countSql, Long id, Node node, String what) {

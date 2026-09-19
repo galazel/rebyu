@@ -1,6 +1,6 @@
 package com.capstone.rebyu.institution.dto;
 
-import com.capstone.rebyu.organization.entity.InstitutionMember;
+import com.capstone.rebyu.institution.entity.InstitutionMember;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;

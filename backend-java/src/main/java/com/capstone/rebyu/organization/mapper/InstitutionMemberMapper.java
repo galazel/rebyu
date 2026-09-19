@@ -1,7 +1,7 @@
-package com.capstone.rebyu.organization.mapper;
+package com.capstone.rebyu.institution.mapper;
 
-import com.capstone.rebyu.organization.dto.InstitutionMemberDto;
-import com.capstone.rebyu.organization.entity.InstitutionMember;
+import com.capstone.rebyu.institution.dto.InstitutionMemberDto;
+import com.capstone.rebyu.institution.entity.InstitutionMember;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 

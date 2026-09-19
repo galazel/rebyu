@@ -9,8 +9,8 @@ import java.util.Optional;
 
 public interface LearnerInvitationRepository extends JpaRepository<LearnerInvitation, Long> {
 
-    List<LearnerInvitation> findByOrgCert_Institution_InstitutionIdOrderBySentAtDesc(Long institutionId);
-    boolean existsByOrgCert_OrgCertIdAndEmailIgnoreCaseAndStatus(
-            Long orgCertId, String email, LearnerInvitation.Status status);
+    List<LearnerInvitation> findByInstitutionCert_Institution_InstitutionIdOrderBySentAtDesc(Long institutionId);
+    boolean existsByInstitutionCert_InstitutionCertIdAndEmailIgnoreCaseAndStatus(
+            Long institutionCertId, String email, LearnerInvitation.Status status);
     Optional<LearnerInvitation> findByTokenHash(String token);
 }

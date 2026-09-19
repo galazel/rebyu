@@ -27,7 +27,7 @@ import java.util.List;
  * along, but nothing served them: every read failed and was retried behind the
  * loading screen, and posting ended in "An unexpected error occurred".
  *
- * <p>Access is the group workspace's own rule: the organization owner, or an
+ * <p>Access is the group workspace's own rule: the institution owner, or an
  * active authority (leader) of this group, within the caller's institution.
  */
 @RestController
@@ -127,7 +127,7 @@ public class GroupAnnouncementController {
         return announcement;
     }
 
-    /** Throws unless the caller is this group's organization owner or one of its leaders. */
+    /** Throws unless the caller is this group's institution owner or one of its leaders. */
     private CurrentUserDto requireGroupAccess(Jwt jwt, Long groupId) {
         if (jwt == null) {
             throw new IllegalArgumentException("Authentication is required");

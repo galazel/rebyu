@@ -3,14 +3,14 @@ package com.capstone.rebyu.institution.service;
 import com.capstone.rebyu.assessment.entity.AssessmentAttempt;
 import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository;
 import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository.LearnerAttemptStats;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.InstitutionLearningStatsDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.GroupProgressDto;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAssigneeRepository;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.LearningStatsSummaryDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.MemberLearningStatsDto;
-import com.capstone.rebyu.organization.repository.OrganizationCertificateRepository;
+import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import com.capstone.rebyu.progress.repository.LearnerCompletedLessonRepository;
 import com.capstone.rebyu.progress.repository.LearnerCompletedLessonRepository.LessonsDone;
 import com.capstone.rebyu.user.entity.Learner;
@@ -32,7 +32,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * How the organization's own people are actually doing.
+ * How the institution's own people are actually doing.
  *
  * Scoped to one institution throughout -- the roster is derived from that
  * institution's assignment rows, and every rollup is keyed on those learner ids,
@@ -40,23 +40,23 @@ import java.util.stream.Collectors;
  *
  * The rollups (attempts, lessons) are each a single batched query over the whole
  * roster rather than a query per member. A per-member loop is the obvious way to
- * write this and it is what makes a large organization's dashboard crawl.
+ * write this and it is what makes a large institution's dashboard crawl.
  */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class InstitutionLearningStatsService {
 
-    private final OrganizationCertificationLearnerRepository orgCertLearnerRepository;
-    private final OrganizationCertificateRepository orgCertRepository;
+    private final InstitutionCertificationLearnerRepository institutionCertLearnerRepository;
+    private final InstitutionCertificateRepository institutionCertRepository;
     private final AssessmentAttemptRepository attemptRepository;
     private final LearnerCompletedLessonRepository completedLessonRepository;
     private final LearnerRepository learnerRepository;
     private final InstitutionGroupAssigneeRepository groupAssigneeRepository;
 
     public InstitutionLearningStatsDto learningStats(Long institutionId) {
-        List<OrganizationCertificationLearner> assignments =
-                orgCertLearnerRepository.findByOrgCert_Institution_InstitutionId(institutionId);
+        List<InstitutionCertificationLearner> assignments =
+                institutionCertLearnerRepository.findByInstitutionCert_Institution_InstitutionId(institutionId);
 
         // Insertion-ordered so the roster is stable between reloads even before
         // the sort below, which makes diffing a dashboard by eye possible.
@@ -66,9 +66,9 @@ public class InstitutionLearningStatsService {
 
         int seatsTotal = 0;
         int seatsUsed = 0;
-        for (var orgCert : orgCertRepository.findByInstitution_InstitutionId(institutionId)) {
-            seatsTotal += orgCert.getTotalSlots() == null ? 0 : orgCert.getTotalSlots();
-            seatsUsed += orgCert.getUsedSlots() == null ? 0 : orgCert.getUsedSlots();
+        for (var institutionCert : institutionCertRepository.findByInstitution_InstitutionId(institutionId)) {
+            seatsTotal += institutionCert.getTotalSlots() == null ? 0 : institutionCert.getTotalSlots();
+            seatsUsed += institutionCert.getUsedSlots() == null ? 0 : institutionCert.getUsedSlots();
         }
 
         if (learnerIds.isEmpty()) {
@@ -88,7 +88,7 @@ public class InstitutionLearningStatsService {
         Map<Long, Learner> learnerById = learnerRepository.findByLearnerIdIn(learnerIds).stream()
                 .collect(Collectors.toMap(Learner::getLearnerId, Function.identity()));
 
-        Map<Long, List<OrganizationCertificationLearner>> assignmentsByLearner = assignments.stream()
+        Map<Long, List<InstitutionCertificationLearner>> assignmentsByLearner = assignments.stream()
                 .collect(Collectors.groupingBy(a -> a.getLearner().getLearnerId()));
 
         List<MemberLearningStatsDto> members = new ArrayList<>();
@@ -137,15 +137,15 @@ public class InstitutionLearningStatsService {
     private MemberLearningStatsDto member(
             Long learnerId,
             Learner learner,
-            List<OrganizationCertificationLearner> assignments,
+            List<InstitutionCertificationLearner> assignments,
             LearnerAttemptStats stats,
             long lessonsCompleted) {
 
         int active = 0;
         int completed = 0;
         BigDecimal progressSum = BigDecimal.ZERO;
-        for (OrganizationCertificationLearner assignment : assignments) {
-            if (assignment.getStatus() == OrganizationCertificationLearner.Status.active) {
+        for (InstitutionCertificationLearner assignment : assignments) {
+            if (assignment.getStatus() == InstitutionCertificationLearner.Status.active) {
                 active++;
             }
             if (assignment.getCompletedAt() != null) {
@@ -202,7 +202,7 @@ public class InstitutionLearningStatsService {
             }
             if (member.averageScore() != null) {
                 // Weighted by attempts so a member with one graded attempt does
-                // not move the organization's average as much as one with forty.
+                // not move the institution's average as much as one with forty.
                 scoreTotal += member.averageScore() * member.gradedAttempts();
                 scoreWeight += member.gradedAttempts();
             }

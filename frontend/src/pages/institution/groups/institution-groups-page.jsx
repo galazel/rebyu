@@ -78,28 +78,28 @@ function backendMessage(error, fallback) {
   return error?.response?.data?.message ?? fallback
 }
 
-function CreateGroupDialog({ open, onOpenChange, orgCerts, certificationById, lockedOrgCertId }) {
+function CreateGroupDialog({ open, onOpenChange, institutionCerts, certificationById, lockedInstitutionCertId }) {
   const queryClient = useQueryClient()
-  const [orgCertId, setOrgCertId] = useState("")
+  const [institutionCertId, setInstitutionCertId] = useState("")
   const [groupName, setGroupName] = useState("")
   const [groupDescription, setGroupDescription] = useState("")
   const [totalSlots, setTotalSlots] = useState("")
   const [error, setError] = useState("")
 
-  const selectedOrgCert = orgCerts.find(
-    (orgCert) => String(orgCert.orgCertId) === orgCertId
+  const selectedInstitutionCert = institutionCerts.find(
+    (institutionCert) => String(institutionCert.institutionCertId) === institutionCertId
   )
 
   // Arriving from a specific certification's card: the allocation is fixed,
   // not picked from a dropdown.
   useEffect(() => {
     if (open) {
-      setOrgCertId(lockedOrgCertId != null ? String(lockedOrgCertId) : "")
+      setInstitutionCertId(lockedInstitutionCertId != null ? String(lockedInstitutionCertId) : "")
     }
-  }, [open, lockedOrgCertId])
+  }, [open, lockedInstitutionCertId])
 
   const reset = () => {
-    setOrgCertId(lockedOrgCertId != null ? String(lockedOrgCertId) : "")
+    setInstitutionCertId(lockedInstitutionCertId != null ? String(lockedInstitutionCertId) : "")
     setGroupName("")
     setGroupDescription("")
     setTotalSlots("")
@@ -109,7 +109,7 @@ function CreateGroupDialog({ open, onOpenChange, orgCerts, certificationById, lo
   const createMutation = useMutation({
     mutationFn: () =>
       createInstitutionGroup({
-        orgCertId: Number(orgCertId),
+        institutionCertId: Number(institutionCertId),
         groupName: groupName.trim(),
         groupDescription: groupDescription.trim() || null,
         totalSlots: Number(totalSlots),
@@ -129,7 +129,7 @@ function CreateGroupDialog({ open, onOpenChange, orgCerts, certificationById, lo
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    if (!orgCertId) {
+    if (!institutionCertId) {
       setError("Select a certification allocation.")
       return
     }
@@ -142,9 +142,9 @@ function CreateGroupDialog({ open, onOpenChange, orgCerts, certificationById, lo
       setError("Enter a number of slots (at least 1).")
       return
     }
-    if (selectedOrgCert && slots > selectedOrgCert.totalSlots) {
+    if (selectedInstitutionCert && slots > selectedInstitutionCert.totalSlots) {
       setError(
-        `This group can have at most ${selectedOrgCert.totalSlots} slot(s) -- the certification's own allocation limit.`
+        `This group can have at most ${selectedInstitutionCert.totalSlots} slot(s) -- the certification's own allocation limit.`
       )
       return
     }
@@ -172,18 +172,18 @@ function CreateGroupDialog({ open, onOpenChange, orgCerts, certificationById, lo
           <div className="space-y-2">
             <Label htmlFor="group-cert">Certification allocation</Label>
             <Select
-              value={orgCertId}
-              onValueChange={setOrgCertId}
-              disabled={lockedOrgCertId != null}
+              value={institutionCertId}
+              onValueChange={setInstitutionCertId}
+              disabled={lockedInstitutionCertId != null}
             >
               <SelectTrigger id="group-cert" className="w-full">
                 <SelectValue placeholder="Select certification allocation" />
               </SelectTrigger>
               <SelectContent>
-                {orgCerts.map((orgCert) => (
-                  <SelectItem key={orgCert.orgCertId} value={String(orgCert.orgCertId)}>
-                    {certificationById.get(orgCert.certificationId)?.title ??
-                      `Certification #${orgCert.certificationId}`}
+                {institutionCerts.map((institutionCert) => (
+                  <SelectItem key={institutionCert.institutionCertId} value={String(institutionCert.institutionCertId)}>
+                    {certificationById.get(institutionCert.certificationId)?.title ??
+                      `Certification #${institutionCert.certificationId}`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -219,14 +219,14 @@ function CreateGroupDialog({ open, onOpenChange, orgCerts, certificationById, lo
               id="group-slots"
               type="number"
               min={1}
-              max={selectedOrgCert?.totalSlots}
+              max={selectedInstitutionCert?.totalSlots}
               value={totalSlots}
               onChange={(e) => setTotalSlots(e.target.value)}
               placeholder="e.g. 30"
             />
-            {selectedOrgCert ? (
+            {selectedInstitutionCert ? (
               <p className="text-xs text-muted-foreground">
-                Up to {selectedOrgCert.totalSlots} slot(s) available on this certification allocation.
+                Up to {selectedInstitutionCert.totalSlots} slot(s) available on this certification allocation.
               </p>
             ) : null}
           </div>
@@ -275,13 +275,13 @@ function ManageGroupDialog({
   assignments,
   learnerById,
   invitations,
-  orgCertById,
+  institutionCertById,
 }) {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const groupId = group?.institutionGroupId
   const [authorityUserId, setAuthorityUserId] = useState("")
-  const [orgCertLearnerId, setOrgCertLearnerId] = useState("")
+  const [institutionCertLearnerId, setInstitutionCertLearnerId] = useState("")
   const [showInviteForm, setShowInviteForm] = useState(false)
   const [inviteFirstName, setInviteFirstName] = useState("")
   const [inviteLastName, setInviteLastName] = useState("")
@@ -338,8 +338,8 @@ function ManageGroupDialog({
   // institution account itself is read-only here.
   const isLeader = activeAuthorities.some((a) => a.userId === user?.userId)
   // Assigning/removing a group's leader (and creating a new leader's account)
-  // is an organization-management action -- owner-only, same as Billing/
-  // Partnership/Organization profile.
+  // is an institution-management action -- owner-only, same as Billing/
+  // Partnership/Institution profile.
   const isOwner = user?.institutionMemberRole === "owner"
 
   const groupInvitations = (Array.isArray(invitations) ? invitations : []).filter(
@@ -347,7 +347,7 @@ function ManageGroupDialog({
   )
   const pendingGroupInvitations = groupInvitations.filter((inv) => inv.status === "PENDING")
 
-  const orgCert = orgCertById?.get(group?.orgCertId)
+  const institutionCert = institutionCertById?.get(group?.institutionCertId)
   // The group's own slot cap is the binding constraint a leader actually
   // faces (never more than the certification's own remaining slots either --
   // the backend enforces both).
@@ -355,8 +355,8 @@ function ManageGroupDialog({
   const groupUsedSlots = group?.usedSlots ?? 0
   const remainingSlots = Math.max(0, groupTotalSlots - groupUsedSlots)
 
-  const assignedOrgCertLearnerIds = new Set(
-    activeAssignees.map((a) => a.orgCertLearnerId)
+  const assignedInstitutionCertLearnerIds = new Set(
+    activeAssignees.map((a) => a.institutionCertLearnerId)
   )
 
   // Only learners that already hold access to THIS group's certification and are
@@ -365,10 +365,10 @@ function ManageGroupDialog({
     () =>
       assignments.filter(
         (assignment) =>
-          assignment.orgCertId === group?.orgCertId &&
-          !assignedOrgCertLearnerIds.has(assignment.orgCertLearnerId)
+          assignment.institutionCertId === group?.institutionCertId &&
+          !assignedInstitutionCertLearnerIds.has(assignment.institutionCertLearnerId)
       ),
-    [assignments, group?.orgCertId, assignedOrgCertLearnerIds]
+    [assignments, group?.institutionCertId, assignedInstitutionCertLearnerIds]
   )
 
   const assignAuthorityMutation = useMutation({
@@ -458,12 +458,12 @@ function ManageGroupDialog({
     mutationFn: () =>
       addInstitutionGroupAssignee({
         institutionGroupId: groupId,
-        orgCertLearnerId: Number(orgCertLearnerId),
+        institutionCertLearnerId: Number(institutionCertLearnerId),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["institution-group-assignees", groupId] })
       toast.success("Learner added to group.")
-      setOrgCertLearnerId("")
+      setInstitutionCertLearnerId("")
     },
     onError: (err) => toast.error(backendMessage(err, "Unable to add this learner.")),
   })
@@ -526,7 +526,7 @@ function ManageGroupDialog({
                   <Input
                     type="number"
                     min={groupUsedSlots}
-                    max={orgCert?.totalSlots}
+                    max={institutionCert?.totalSlots}
                     value={slotsInput}
                     onChange={(e) => setSlotsInput(e.target.value)}
                     className="w-20"
@@ -568,7 +568,7 @@ function ManageGroupDialog({
                 <div className="flex gap-2">
                   <Select value={authorityUserId} onValueChange={setAuthorityUserId}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select an organization member" />
+                      <SelectValue placeholder="Select an institution member" />
                     </SelectTrigger>
                     <SelectContent>
                       {members.length === 0 ? (
@@ -666,7 +666,7 @@ function ManageGroupDialog({
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Only the organization owner can assign this group's leader.
+                Only the institution owner can assign this group's leader.
               </p>
             )}
 
@@ -795,7 +795,7 @@ function ManageGroupDialog({
 
             {isLeader ? (
               <div className="flex gap-2">
-                <Select value={orgCertLearnerId} onValueChange={setOrgCertLearnerId}>
+                <Select value={institutionCertLearnerId} onValueChange={setInstitutionCertLearnerId}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Add a learner with access to this certification" />
                   </SelectTrigger>
@@ -807,8 +807,8 @@ function ManageGroupDialog({
                     ) : (
                       availableLearners.map((assignment) => (
                         <SelectItem
-                          key={assignment.orgCertLearnerId}
-                          value={String(assignment.orgCertLearnerId)}
+                          key={assignment.institutionCertLearnerId}
+                          value={String(assignment.institutionCertLearnerId)}
                         >
                           {getLearnerDisplayName(learnerById.get(assignment.learnerId))}
                         </SelectItem>
@@ -820,7 +820,7 @@ function ManageGroupDialog({
                   type="button"
                   variant="outline"
                   onClick={() => addLearnerMutation.mutate()}
-                  disabled={!orgCertLearnerId || addLearnerMutation.isPending}
+                  disabled={!institutionCertLearnerId || addLearnerMutation.isPending}
                 >
                   <Plus className="size-4" aria-hidden="true" />
                   Add
@@ -899,8 +899,8 @@ export default function InstitutionGroupsPage() {
   // Reached from a specific certification's card on the Certifications page --
   // groups are always created/viewed in the context of one allocation. Without
   // this param (a stale bookmark, e.g.), every group across the org is shown.
-  const scopedOrgCertIdParam = searchParams.get("orgCertId")
-  const scopedOrgCertId = scopedOrgCertIdParam ? Number(scopedOrgCertIdParam) : null
+  const scopedInstitutionCertIdParam = searchParams.get("institutionCertId")
+  const scopedInstitutionCertId = scopedInstitutionCertIdParam ? Number(scopedInstitutionCertIdParam) : null
 
   const data = useInstitutionData(institutionId)
   const [createOpen, setCreateOpen] = useState(false)
@@ -933,11 +933,11 @@ export default function InstitutionGroupsPage() {
   const groups = (Array.isArray(groupsQuery.data) ? groupsQuery.data : []).filter(
     (group) =>
       group.status === "active" &&
-      (scopedOrgCertId == null || group.orgCertId === scopedOrgCertId)
+      (scopedInstitutionCertId == null || group.institutionCertId === scopedInstitutionCertId)
   )
 
-  const scopedCertification = scopedOrgCertId != null
-    ? data.certificationById.get(data.orgCertById.get(scopedOrgCertId)?.certificationId)
+  const scopedCertification = scopedInstitutionCertId != null
+    ? data.certificationById.get(data.institutionCertById.get(scopedInstitutionCertId)?.certificationId)
     : null
 
   if (institutionLoading || (institution && data.isLoading)) {
@@ -949,17 +949,17 @@ export default function InstitutionGroupsPage() {
   if (!institution) {
     return (
       <InstitutionEmptyState
-        title="No organization found"
-        description="Learner groups appear here once your organization is registered."
+        title="No institution found"
+        description="Learner groups appear here once your institution is registered."
       />
     )
   }
 
-  const hasAllocations = data.orgCerts.length > 0
+  const hasAllocations = data.institutionCerts.length > 0
 
   return (
     <div className="space-y-6">
-      {scopedOrgCertId != null ? (
+      {scopedInstitutionCertId != null ? (
         <Link
           to="/institution/certifications"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -986,7 +986,7 @@ export default function InstitutionGroupsPage() {
         <InstitutionEmptyState
           icon={UsersRound}
           title="No certification allocations yet"
-          description="Once your organization has a certification allocation, you can create groups under it."
+          description="Once your institution has a certification allocation, you can create groups under it."
         />
       ) : groups.length === 0 ? (
         <InstitutionEmptyState
@@ -997,9 +997,9 @@ export default function InstitutionGroupsPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {groups.map((group) => {
-            const orgCert = data.orgCertById.get(group.orgCertId)
-            const certification = orgCert
-              ? data.certificationById.get(orgCert.certificationId)
+            const institutionCert = data.institutionCertById.get(group.institutionCertId)
+            const certification = institutionCert
+              ? data.certificationById.get(institutionCert.certificationId)
               : null
             return (
               <Card key={group.institutionGroupId} className="flex flex-col">
@@ -1010,7 +1010,7 @@ export default function InstitutionGroupsPage() {
                   </div>
                   <CardDescription>
                     {certification?.title ??
-                      `Certification #${orgCert?.certificationId ?? "?"}`}
+                      `Certification #${institutionCert?.certificationId ?? "?"}`}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 space-y-1">
@@ -1041,9 +1041,9 @@ export default function InstitutionGroupsPage() {
       <CreateGroupDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
-        orgCerts={data.orgCerts}
+        institutionCerts={data.institutionCerts}
         certificationById={data.certificationById}
-        lockedOrgCertId={scopedOrgCertId}
+        lockedInstitutionCertId={scopedInstitutionCertId}
       />
 
       <ManageGroupDialog
@@ -1055,7 +1055,7 @@ export default function InstitutionGroupsPage() {
         assignments={data.assignments}
         learnerById={data.learnerById}
         invitations={data.invitations}
-        orgCertById={data.orgCertById}
+        institutionCertById={data.institutionCertById}
       />
     </div>
   )

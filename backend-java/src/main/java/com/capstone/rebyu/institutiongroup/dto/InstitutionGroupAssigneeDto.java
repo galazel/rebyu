@@ -18,11 +18,11 @@ public class InstitutionGroupAssigneeDto {
     private Long institutionGroupId;
 
     @NotNull
-    private Long orgCertLearnerId;
+    private Long institutionCertLearnerId;
 
-    // Read-only, denormalized from the referenced org_cert_learner so the
+    // Read-only, denormalized from the referenced institution_cert_learner so the
     // authority UI can display and cross-check the learner without extra calls.
-    private Long orgCertId;
+    private Long institutionCertId;
     private Long learnerId;
 
     // Always overwritten server-side from the caller's JWT (see

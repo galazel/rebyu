@@ -2,7 +2,7 @@ package com.capstone.rebyu.notification.entity;
 
 
 import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
-import com.capstone.rebyu.organization.entity.OrganizationCertificate;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
 import com.capstone.rebyu.user.entity.Learner;
 import com.capstone.rebyu.user.entity.User;
 import jakarta.persistence.*;
@@ -30,8 +30,8 @@ public class LearnerInvitation {
     private Long invitationId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "org_cert_id", nullable = false)
-    private OrganizationCertificate orgCert;
+    @JoinColumn(name = "institution_cert_id", nullable = false)
+    private InstitutionCertificate institutionCert;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "learner_id")

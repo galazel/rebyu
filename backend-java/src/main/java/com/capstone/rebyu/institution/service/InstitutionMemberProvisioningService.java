@@ -4,11 +4,11 @@ import com.capstone.rebyu.auth.service.CognitoAdminService;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
 import com.capstone.rebyu.common.BusinessRuleException;
 import com.capstone.rebyu.institution.dto.InstitutionMemberInviteRequestDto;
-import com.capstone.rebyu.organization.dto.InstitutionMemberDto;
-import com.capstone.rebyu.organization.entity.Institution;
-import com.capstone.rebyu.organization.entity.InstitutionMember;
-import com.capstone.rebyu.organization.mapper.InstitutionMemberMapper;
-import com.capstone.rebyu.organization.repository.InstitutionMemberRepository;
+import com.capstone.rebyu.institution.dto.InstitutionMemberDto;
+import com.capstone.rebyu.institution.entity.Institution;
+import com.capstone.rebyu.institution.entity.InstitutionMember;
+import com.capstone.rebyu.institution.mapper.InstitutionMemberMapper;
+import com.capstone.rebyu.institution.repository.InstitutionMemberRepository;
 import com.capstone.rebyu.user.entity.User;
 import com.capstone.rebyu.user.entity.UserType;
 import com.capstone.rebyu.user.repository.UserRepository;
@@ -25,7 +25,7 @@ import java.time.LocalDateTime;
  * Lets an institution create a login account for someone new -- a group leader,
  * a co-admin -- the same way the institution's own owner account was created on
  * partnership approval: a Cognito account is minted (credentials emailed), and
- * the person is linked as an InstitutionMember of the caller's own organization.
+ * the person is linked as an InstitutionMember of the caller's own institution.
  *
  * Never mints an "owner": that role is reserved for the account created when
  * the admin approves the partnership request.
@@ -46,7 +46,7 @@ public class InstitutionMemberProvisioningService {
     /**
      * Everyone this service creates is a non-owner (an owner is rejected above),
      * so they are typed INSTITUTION_MEMBER rather than INSTITUTION -- the latter
-     * identifies the organization's own account. Both roles carry the same
+     * identifies the institution's own account. Both roles carry the same
      * permissions; see CognitoAuthService.isInstitutionRole.
      */
     private static final String INSTITUTION_MEMBER_USER_TYPE =
@@ -67,7 +67,7 @@ public class InstitutionMemberProvisioningService {
                     .isEmpty();
             if (alreadyMember) {
                 throw new BusinessRuleException.InstitutionGroupRuleException(
-                        "This person is already a member of your organization.");
+                        "This person is already a member of your institution.");
             }
         }
 

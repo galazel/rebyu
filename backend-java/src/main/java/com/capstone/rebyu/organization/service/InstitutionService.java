@@ -1,11 +1,11 @@
-package com.capstone.rebyu.organization.service;
+package com.capstone.rebyu.institution.service;
 
-import com.capstone.rebyu.organization.dto.InstitutionDto;
-import com.capstone.rebyu.organization.mapper.InstitutionMapper;
-import com.capstone.rebyu.organization.entity.Institution;
-import com.capstone.rebyu.organization.repository.InstitutionRepository;
-import com.capstone.rebyu.organization.repository.OrganizationCertificateRepository;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.institution.dto.InstitutionDto;
+import com.capstone.rebyu.institution.mapper.InstitutionMapper;
+import com.capstone.rebyu.institution.entity.Institution;
+import com.capstone.rebyu.institution.repository.InstitutionRepository;
+import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,8 +21,8 @@ import java.util.List;
 public class InstitutionService {
     private final InstitutionRepository institutionRepository;
     private final InstitutionMapper institutionMapper;
-    private final OrganizationCertificateRepository organizationCertificateRepository;
-    private final OrganizationCertificationLearnerRepository organizationCertificationLearnerRepository;
+    private final InstitutionCertificateRepository institutionCertificateRepository;
+    private final InstitutionCertificationLearnerRepository institutionCertificationLearnerRepository;
 
     public List<InstitutionDto> getAll() {
         log.debug("Fetching all institutions");
@@ -44,9 +44,9 @@ public class InstitutionService {
     private InstitutionDto toDtoWithAggregates(Institution entity) {
         InstitutionDto dto = institutionMapper.toDto(entity);
         dto.setCertificationCount(
-                organizationCertificateRepository.findByInstitution_InstitutionId(entity.getInstitutionId()).size());
-        long learnerCount = organizationCertificationLearnerRepository
-                .findByOrgCert_Institution_InstitutionId(entity.getInstitutionId())
+                institutionCertificateRepository.findByInstitution_InstitutionId(entity.getInstitutionId()).size());
+        long learnerCount = institutionCertificationLearnerRepository
+                .findByInstitutionCert_Institution_InstitutionId(entity.getInstitutionId())
                 .stream()
                 .map(l -> l.getLearner().getLearnerId())
                 .distinct()

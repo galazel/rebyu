@@ -1,8 +1,8 @@
 package com.capstone.rebyu.enrollment.service;
 
 import com.capstone.rebyu.certification.repository.LessonRepository;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.progress.repository.LearnerCompletedLessonRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +31,7 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class OrgEnrollmentProgressService {
 
-    private final OrganizationCertificationLearnerRepository orgCertLearnerRepository;
+    private final InstitutionCertificationLearnerRepository institutionCertLearnerRepository;
     private final LessonRepository lessonRepository;
     private final LearnerCompletedLessonRepository completedLessonRepository;
 
@@ -39,7 +39,7 @@ public class OrgEnrollmentProgressService {
     @Transactional
     public void sync(Long learnerId, Long certificationId) {
         if (learnerId == null || certificationId == null) return;
-        List<OrganizationCertificationLearner> rows = orgCertLearnerRepository.findByLearner_LearnerId(learnerId).stream()
+        List<InstitutionCertificationLearner> rows = institutionCertLearnerRepository.findByLearner_LearnerId(learnerId).stream()
                 .filter(row -> certificationId.equals(certificationIdOf(row)))
                 .toList();
         if (!rows.isEmpty()) apply(rows, learnerId, certificationId);
@@ -47,7 +47,7 @@ public class OrgEnrollmentProgressService {
 
     /** Recomputes one seat, e.g. the one an accepted invitation just created. */
     @Transactional
-    public void sync(OrganizationCertificationLearner row) {
+    public void sync(InstitutionCertificationLearner row) {
         Long certificationId = certificationIdOf(row);
         if (row.getLearner() == null || certificationId == null) return;
         apply(List.of(row), row.getLearner().getLearnerId(), certificationId);
@@ -58,7 +58,7 @@ public class OrgEnrollmentProgressService {
     @Transactional
     public void backfill() {
         try {
-            orgCertLearnerRepository.findAll().stream()
+            institutionCertLearnerRepository.findAll().stream()
                     .filter(row -> row.getLearner() != null && certificationIdOf(row) != null)
                     .map(row -> List.of(row.getLearner().getLearnerId(), certificationIdOf(row)))
                     .distinct()
@@ -68,13 +68,13 @@ public class OrgEnrollmentProgressService {
         }
     }
 
-    private static Long certificationIdOf(OrganizationCertificationLearner row) {
-        return row.getOrgCert() == null || row.getOrgCert().getCertification() == null
+    private static Long certificationIdOf(InstitutionCertificationLearner row) {
+        return row.getInstitutionCert() == null || row.getInstitutionCert().getCertification() == null
                 ? null
-                : row.getOrgCert().getCertification().getCertificationId();
+                : row.getInstitutionCert().getCertification().getCertificationId();
     }
 
-    private void apply(List<OrganizationCertificationLearner> rows, Long learnerId, Long certificationId) {
+    private void apply(List<InstitutionCertificationLearner> rows, Long learnerId, Long certificationId) {
         int total = lessonRepository.findOfficialLessonIdsByCertificationId(certificationId).size();
         long done = completedLessonRepository
                 .countByLearner_LearnerIdAndLesson_MiddleCategory_MajorCategory_Certification_CertificationId(
@@ -83,7 +83,7 @@ public class OrgEnrollmentProgressService {
                 : BigDecimal.valueOf(Math.min(100.0, done * 100.0 / total)).setScale(2, RoundingMode.HALF_UP);
         boolean finished = total > 0 && done >= total;
 
-        for (OrganizationCertificationLearner row : rows) {
+        for (InstitutionCertificationLearner row : rows) {
             boolean changed = row.getProgressPercentage() == null
                     || row.getProgressPercentage().compareTo(percent) != 0;
             row.setProgressPercentage(percent);
@@ -94,7 +94,7 @@ public class OrgEnrollmentProgressService {
                 row.setCompletedAt(null);
                 changed = true;
             }
-            if (changed) orgCertLearnerRepository.save(row);
+            if (changed) institutionCertLearnerRepository.save(row);
         }
     }
 }

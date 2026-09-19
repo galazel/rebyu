@@ -2,19 +2,17 @@ package com.capstone.rebyu.user.service;
 
 import com.capstone.rebyu.assessment.mapper.ExamResultMapper;
 import com.capstone.rebyu.assessment.repository.ExamResultRepository;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.mapper.LearnerCertificationMapper;
-import com.capstone.rebyu.enrollment.mapper.OrganizationCertificationLearnerMapper;
+import com.capstone.rebyu.enrollment.mapper.InstitutionCertificationLearnerMapper;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
-import com.capstone.rebyu.organization.entity.OrganizationCertificate;
-import com.capstone.rebyu.organization.mapper.OrganizationCertificateMapper;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
+import com.capstone.rebyu.institution.mapper.InstitutionCertificateMapper;
 import com.capstone.rebyu.gamification.RewardService;
 import com.capstone.rebyu.progress.analytics.service.ProgressAnalyticsService;
 import com.capstone.rebyu.progress.service.AchievementAwardService;
-import com.capstone.rebyu.progress.mapper.ActivityLogMapper;
 import com.capstone.rebyu.progress.mapper.LearnerCompletedLessonMapper;
-import com.capstone.rebyu.progress.repository.ActivityLogRepository;
 import com.capstone.rebyu.progress.repository.LearnerCompletedLessonRepository;
 import com.capstone.rebyu.user.dto.LearnerPortalDto;
 import com.capstone.rebyu.user.mapper.LearnerMapper;
@@ -43,10 +41,9 @@ class LearnerPortalServiceTest {
     private UserRepository userRepository;
     private LearnerCertificationRepository learnerCertRepository;
     private LearnerCompletedLessonRepository completedLessonRepository;
-    private ActivityLogRepository activityLogRepository;
     private ExamResultRepository examResultRepository;
-    private OrganizationCertificationLearnerRepository orgCertLearnerRepository;
-    private OrganizationCertificateMapper orgCertMapper;
+    private InstitutionCertificationLearnerRepository institutionCertLearnerRepository;
+    private InstitutionCertificateMapper institutionCertMapper;
     private RewardService rewardService;
     private LearnerPortalService service;
 
@@ -61,10 +58,9 @@ class LearnerPortalServiceTest {
         userRepository = mock(UserRepository.class);
         learnerCertRepository = mock(LearnerCertificationRepository.class);
         completedLessonRepository = mock(LearnerCompletedLessonRepository.class);
-        activityLogRepository = mock(ActivityLogRepository.class);
         examResultRepository = mock(ExamResultRepository.class);
-        orgCertLearnerRepository = mock(OrganizationCertificationLearnerRepository.class);
-        orgCertMapper = mock(OrganizationCertificateMapper.class);
+        institutionCertLearnerRepository = mock(InstitutionCertificationLearnerRepository.class);
+        institutionCertMapper = mock(InstitutionCertificateMapper.class);
 
         rewardService = mock(RewardService.class);
         // The portal reports XP/coins/credits now; without a balance it NPEs
@@ -73,9 +69,9 @@ class LearnerPortalServiceTest {
 
         service = new LearnerPortalService(learnerRepository, mock(LearnerMapper.class), userRepository,
                 mock(UserMapper.class), learnerCertRepository, mock(LearnerCertificationMapper.class),
-                completedLessonRepository, mock(LearnerCompletedLessonMapper.class), activityLogRepository,
-                mock(ActivityLogMapper.class), examResultRepository, mock(ExamResultMapper.class),
-                orgCertLearnerRepository, mock(OrganizationCertificationLearnerMapper.class), orgCertMapper,
+                completedLessonRepository, mock(LearnerCompletedLessonMapper.class),
+                examResultRepository, mock(ExamResultMapper.class),
+                institutionCertLearnerRepository, mock(InstitutionCertificationLearnerMapper.class), institutionCertMapper,
                 rewardService, mock(AchievementAwardService.class),
                 mock(ProgressAnalyticsService.class));
 
@@ -83,22 +79,21 @@ class LearnerPortalServiceTest {
         when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
         when(learnerCertRepository.findByLearner_LearnerId(LEARNER_ID)).thenReturn(List.of());
         when(completedLessonRepository.findByLearner_LearnerId(LEARNER_ID)).thenReturn(List.of());
-        when(activityLogRepository.findByUser_UserId(USER_ID)).thenReturn(List.of());
         when(examResultRepository.findByLearner_LearnerId(LEARNER_ID)).thenReturn(List.of());
-        when(orgCertMapper.toDto(any())).thenReturn(null);
+        when(institutionCertMapper.toDto(any())).thenReturn(null);
     }
 
-    private OrganizationCertificationLearner assignmentWithOrgCert(Long orgCertId) {
-        OrganizationCertificate orgCert = new OrganizationCertificate();
-        orgCert.setOrgCertId(orgCertId);
-        OrganizationCertificationLearner row = new OrganizationCertificationLearner();
-        row.setOrgCert(orgCert);
+    private InstitutionCertificationLearner assignmentWithInstitutionCert(Long institutionCertId) {
+        InstitutionCertificate institutionCert = new InstitutionCertificate();
+        institutionCert.setInstitutionCertId(institutionCertId);
+        InstitutionCertificationLearner row = new InstitutionCertificationLearner();
+        row.setInstitutionCert(institutionCert);
         return row;
     }
 
     @Test
     void portal_usesScopedFinders_neverGlobalFindAll() {
-        when(orgCertLearnerRepository.findByLearner_LearnerId(LEARNER_ID)).thenReturn(List.of());
+        when(institutionCertLearnerRepository.findByLearner_LearnerId(LEARNER_ID)).thenReturn(List.of());
 
         service.portal(LEARNER_ID, USER_ID);
 
@@ -106,31 +101,29 @@ class LearnerPortalServiceTest {
         verify(examResultRepository, never()).findAll();
         verify(completedLessonRepository).findByLearner_LearnerId(LEARNER_ID);
         verify(completedLessonRepository, never()).findAll();
-        verify(activityLogRepository).findByUser_UserId(USER_ID);
-        verify(activityLogRepository, never()).findAll();
-        verify(orgCertLearnerRepository, never()).findAll();
+        verify(institutionCertLearnerRepository, never()).findAll();
     }
 
     @Test
-    void portal_orgCertificatesAreDedupedFromLearnersOwnAssignments() {
-        when(orgCertLearnerRepository.findByLearner_LearnerId(LEARNER_ID)).thenReturn(List.of(
-                assignmentWithOrgCert(100L), assignmentWithOrgCert(200L), assignmentWithOrgCert(100L)));
+    void portal_institutionCertificatesAreDedupedFromLearnersOwnAssignments() {
+        when(institutionCertLearnerRepository.findByLearner_LearnerId(LEARNER_ID)).thenReturn(List.of(
+                assignmentWithInstitutionCert(100L), assignmentWithInstitutionCert(200L), assignmentWithInstitutionCert(100L)));
 
         LearnerPortalDto result = service.portal(LEARNER_ID, USER_ID);
 
         // Two distinct org certs (100, 200) -- the duplicate 100 is collapsed, and only
         // the learner's own allocations are mapped (never a global org-cert fetch).
-        assertEquals(2, result.orgCertificates().size());
-        verify(orgCertMapper, org.mockito.Mockito.times(2)).toDto(any());
+        assertEquals(2, result.institutionCertificates().size());
+        verify(institutionCertMapper, org.mockito.Mockito.times(2)).toDto(any());
     }
 
     @Test
-    void portal_noAssignments_returnsEmptyOrgCertificates() {
-        when(orgCertLearnerRepository.findByLearner_LearnerId(LEARNER_ID)).thenReturn(List.of());
+    void portal_noAssignments_returnsEmptyInstitutionCertificates() {
+        when(institutionCertLearnerRepository.findByLearner_LearnerId(LEARNER_ID)).thenReturn(List.of());
 
         LearnerPortalDto result = service.portal(LEARNER_ID, USER_ID);
 
-        assertEquals(0, result.orgCertificates().size());
-        assertEquals(0, result.orgCertLearners().size());
+        assertEquals(0, result.institutionCertificates().size());
+        assertEquals(0, result.institutionCertLearners().size());
     }
 }

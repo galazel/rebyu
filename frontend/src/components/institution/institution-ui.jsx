@@ -91,7 +91,7 @@ export function InstitutionErrorState({ title, description, onRetry }) {
       </p>
       <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-rb-eel">
         {description ??
-          "The organization data could not be loaded right now. It may require a signed-in organization account."}
+          "The institution data could not be loaded right now. It may require a signed-in institution account."}
       </p>
       {onRetry ? (
         <Button variant="outline" size="sm" className="mt-4" onClick={onRetry}>

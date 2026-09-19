@@ -79,7 +79,7 @@ public class CertificationService {
      * Strips out group-owned major categories (and everything nested under
      * them) except the one group the caller was authorized for, if any. This
      * is the ONLY place member-authored content is prevented from leaking
-     * into every other organization's view of a certification.
+     * into every other institution's view of a certification.
      */
     private CertificationDto toFilteredDto(Certification certification, Long includeGroupId) {
         CertificationDto dto = certificationMapper.toDto(certification);
@@ -408,65 +408,10 @@ public class CertificationService {
                 )
                 """, certificationId);
 
-        executeDelete("""
-                DELETE FROM learner_mcq_answers
-                WHERE learner_exam_detail_id IN (
-                    SELECT led.learner_exam_detail_id
-                    FROM learner_exam_details led
-                    JOIN exams e ON e.exam_id = led.exam_id
-                    WHERE e.certification_id = :certificationId
-                )
-                OR exam_question_id IN (
-                    SELECT eq.exam_question_id
-                    FROM exam_questions eq
-                    JOIN exams e ON e.exam_id = eq.exam_id
-                    WHERE e.certification_id = :certificationId
-                )
-                """, certificationId);
 
-        executeDelete("""
-                DELETE FROM learner_text_answers
-                WHERE learner_exam_detail_id IN (
-                    SELECT led.learner_exam_detail_id
-                    FROM learner_exam_details led
-                    JOIN exams e ON e.exam_id = led.exam_id
-                    WHERE e.certification_id = :certificationId
-                )
-                """, certificationId);
 
-        executeDelete("""
-                DELETE FROM learner_programming_answers
-                WHERE learner_exam_detail_id IN (
-                    SELECT led.learner_exam_detail_id
-                    FROM learner_exam_details led
-                    JOIN exams e ON e.exam_id = led.exam_id
-                    WHERE e.certification_id = :certificationId
-                )
-                """, certificationId);
 
-        executeDelete("""
-                DELETE FROM learner_diagram_answers
-                WHERE learner_exam_detail_id IN (
-                    SELECT led.learner_exam_detail_id
-                    FROM learner_exam_details led
-                    JOIN exams e ON e.exam_id = led.exam_id
-                    WHERE e.certification_id = :certificationId
-                )
-                """, certificationId);
 
-        executeDelete("""
-                DELETE FROM learner_exam_details
-                WHERE exam_id IN (
-                    SELECT exam_id FROM exams WHERE certification_id = :certificationId
-                )
-                OR lesson_id IN (
-                    SELECT l.lesson_id
-                    FROM lessons l
-                    JOIN middle_categories mc ON mc.middle_category_id = l.middle_category_id
-                    JOIN major_categories maj ON maj.major_category_id = mc.major_category_id
-                    WHERE maj.certification_id = :certificationId
-                )
-                """, certificationId);
 
         executeDelete("""
                 DELETE FROM exam_results
@@ -475,24 +420,6 @@ public class CertificationService {
                 )
                 """, certificationId);
 
-        executeDelete("""
-                DELETE FROM exam_choices
-                WHERE exam_question_id IN (
-                    SELECT eq.exam_question_id
-                    FROM exam_questions eq
-                    JOIN exams e ON e.exam_id = eq.exam_id
-                    WHERE e.certification_id = :certificationId
-                )
-                OR choice_id IN (
-                    SELECT ch.choice_id
-                    FROM choices ch
-                    JOIN questions q ON q.question_id = ch.question_id
-                    JOIN lessons l ON l.lesson_id = q.lesson_id
-                    JOIN middle_categories mc ON mc.middle_category_id = l.middle_category_id
-                    JOIN major_categories maj ON maj.major_category_id = mc.major_category_id
-                    WHERE maj.certification_id = :certificationId
-                )
-                """, certificationId);
 
         executeDelete("""
                 DELETE FROM exam_questions
@@ -651,49 +578,27 @@ public class CertificationService {
 
         executeDelete("""
                 DELETE FROM learner_invitations
-                WHERE org_cert_id IN (
-                    SELECT org_cert_id
-                    FROM organization_certificates
+                WHERE institution_cert_id IN (
+                    SELECT institution_cert_id
+                    FROM institution_certificates
                     WHERE certification_id = :certificationId
                 )
                 """, certificationId);
 
         executeDelete("""
-                DELETE FROM organization_certification_learners
-                WHERE org_cert_id IN (
-                    SELECT org_cert_id
-                    FROM organization_certificates
+                DELETE FROM institution_certification_learners
+                WHERE institution_cert_id IN (
+                    SELECT institution_cert_id
+                    FROM institution_certificates
                     WHERE certification_id = :certificationId
                 )
                 """, certificationId);
 
-        executeDelete("""
-                DELETE FROM institution_invoice_items
-                WHERE certification_id = :certificationId
-                """, certificationId);
 
-        executeUpdate("""
-                UPDATE institution_invoices
-                SET renewal_request_id = NULL
-                WHERE renewal_request_id IN (
-                    SELECT renewal_request_id
-                    FROM institution_certification_renewal_requests ecrr
-                    JOIN organization_certificates oc ON oc.org_cert_id = ecrr.org_cert_id
-                    WHERE oc.certification_id = :certificationId
-                )
-                """, certificationId);
+
 
         executeDelete("""
-                DELETE FROM institution_certification_renewal_requests
-                WHERE org_cert_id IN (
-                    SELECT org_cert_id
-                    FROM organization_certificates
-                    WHERE certification_id = :certificationId
-                )
-                """, certificationId);
-
-        executeDelete("""
-                DELETE FROM organization_certificates
+                DELETE FROM institution_certificates
                 WHERE certification_id = :certificationId
                 """, certificationId);
 

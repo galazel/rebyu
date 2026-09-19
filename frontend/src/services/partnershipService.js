@@ -6,10 +6,10 @@ export function submitPublicPartnershipRequest(payload) {
   return base("public/partnership-requests", { method: "POST", data: payload })
 }
 
-export function getPublicPartnershipStatus({ referenceNumber, organizationEmail }) {
+export function getPublicPartnershipStatus({ referenceNumber, institutionEmail }) {
   return base("public/partnership-requests/status", {
     method: "POST",
-    data: { referenceNumber, organizationEmail },
+    data: { referenceNumber, institutionEmail },
   })
 }
 

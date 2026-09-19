@@ -32,8 +32,8 @@ import {
 import { getAllCertifications } from "@/services/certificationService.js"
 import { getAllLearners } from "@/services/adminLearnerService.js"
 import {
-  getAllOrganizationCertificates,
-  getAllOrganizationCertificationLearners,
+  getAllInstitutionCertificates,
+  getAllInstitutionCertificationLearners,
   getInstitutionById,
 } from "@/services/institutionService.js"
 
@@ -47,7 +47,7 @@ function getLearnerDisplayName(learner) {
   return full || learner.username || `Learner #${learner.learnerId}`
 }
 
-export default function AdminOrganizationDetail() {
+export default function AdminInstitutionDetail() {
   const { id } = useParams()
   const institutionId = Number(id)
 
@@ -58,15 +58,15 @@ export default function AdminOrganizationDetail() {
     retry: 1,
   })
 
-  const orgCertsQuery = useQuery({
-    queryKey: ["admin-organization-certificates"],
-    queryFn: getAllOrganizationCertificates,
+  const institutionCertsQuery = useQuery({
+    queryKey: ["admin-institution-certificates"],
+    queryFn: getAllInstitutionCertificates,
     staleTime: 60_000,
   })
 
-  const orgCertLearnersQuery = useQuery({
-    queryKey: ["admin-organization-certification-learners"],
-    queryFn: getAllOrganizationCertificationLearners,
+  const institutionCertLearnersQuery = useQuery({
+    queryKey: ["admin-institution-certification-learners"],
+    queryFn: getAllInstitutionCertificationLearners,
     staleTime: 60_000,
   })
 
@@ -84,8 +84,8 @@ export default function AdminOrganizationDetail() {
 
   const isLoading =
     institutionQuery.isLoading ||
-    orgCertsQuery.isLoading ||
-    orgCertLearnersQuery.isLoading ||
+    institutionCertsQuery.isLoading ||
+    institutionCertLearnersQuery.isLoading ||
     certificationsQuery.isLoading ||
     learnersQuery.isLoading
 
@@ -101,35 +101,35 @@ export default function AdminOrganizationDetail() {
     [learnersQuery.data]
   )
 
-  const orgCerts = useMemo(
+  const institutionCerts = useMemo(
     () =>
-      asArray(orgCertsQuery.data).filter(
-        (orgCert) => orgCert.institutionId === institutionId
+      asArray(institutionCertsQuery.data).filter(
+        (institutionCert) => institutionCert.institutionId === institutionId
       ),
-    [orgCertsQuery.data, institutionId]
+    [institutionCertsQuery.data, institutionId]
   )
 
-  const orgCertIds = useMemo(
-    () => new Set(orgCerts.map((c) => c.orgCertId)),
-    [orgCerts]
+  const institutionCertIds = useMemo(
+    () => new Set(institutionCerts.map((c) => c.institutionCertId)),
+    [institutionCerts]
   )
 
-  const orgCertLearners = useMemo(
+  const institutionCertLearners = useMemo(
     () =>
-      asArray(orgCertLearnersQuery.data).filter((row) =>
-        orgCertIds.has(row.orgCertId)
+      asArray(institutionCertLearnersQuery.data).filter((row) =>
+        institutionCertIds.has(row.institutionCertId)
       ),
-    [orgCertLearnersQuery.data, orgCertIds]
+    [institutionCertLearnersQuery.data, institutionCertIds]
   )
 
-  const orgCertById = useMemo(
-    () => new Map(orgCerts.map((c) => [c.orgCertId, c])),
-    [orgCerts]
+  const institutionCertById = useMemo(
+    () => new Map(institutionCerts.map((c) => [c.institutionCertId, c])),
+    [institutionCerts]
   )
 
   const distinctLearnerCount = useMemo(
-    () => new Set(orgCertLearners.map((row) => row.learnerId)).size,
-    [orgCertLearners]
+    () => new Set(institutionCertLearners.map((row) => row.learnerId)).size,
+    [institutionCertLearners]
   )
 
   if (isLoading) return <InstitutionLoadingSkeleton />
@@ -138,11 +138,11 @@ export default function AdminOrganizationDetail() {
     return (
       <div className="space-y-6">
         <Link
-          to="/admin/organizations"
+          to="/admin/institutions"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeftIcon className="size-4" aria-hidden="true" />
-          Back to Organizations
+          Back to Institutions
         </Link>
         <InstitutionErrorState onRetry={institutionQuery.refetch} />
       </div>
@@ -152,11 +152,11 @@ export default function AdminOrganizationDetail() {
   return (
     <div className="space-y-6">
       <Link
-        to="/admin/organizations"
+        to="/admin/institutions"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeftIcon className="size-4" aria-hidden="true" />
-        Back to Organizations
+        Back to Institutions
       </Link>
 
       <InstitutionPageHeader
@@ -176,7 +176,7 @@ export default function AdminOrganizationDetail() {
         <InstitutionStatCard
           icon={AwardIcon}
           label="Certification allocations"
-          value={orgCerts.length}
+          value={institutionCerts.length}
         />
         <InstitutionStatCard
           icon={Building2Icon}
@@ -191,15 +191,15 @@ export default function AdminOrganizationDetail() {
         <CardHeader>
           <CardTitle>Certifications</CardTitle>
           <CardDescription>
-            Slot allocations this organization has purchased access to.
+            Slot allocations this institution has purchased access to.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          {orgCerts.length === 0 ? (
+          {institutionCerts.length === 0 ? (
             <InstitutionEmptyState
               icon={AwardIcon}
               title="No certification allocations"
-              description="This organization has no active partnership allocations yet."
+              description="This institution has no active partnership allocations yet."
             />
           ) : (
             <Table>
@@ -212,14 +212,14 @@ export default function AdminOrganizationDetail() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orgCerts.map((orgCert) => {
-                  const certification = certificationById.get(orgCert.certificationId)
-                  const used = orgCert.usedSlots ?? 0
-                  const total = orgCert.totalSlots ?? 0
+                {institutionCerts.map((institutionCert) => {
+                  const certification = certificationById.get(institutionCert.certificationId)
+                  const used = institutionCert.usedSlots ?? 0
+                  const total = institutionCert.totalSlots ?? 0
                   return (
-                    <TableRow key={orgCert.orgCertId}>
+                    <TableRow key={institutionCert.institutionCertId}>
                       <TableCell className="font-medium">
-                        {certification?.title ?? `Certification #${orgCert.certificationId}`}
+                        {certification?.title ?? `Certification #${institutionCert.certificationId}`}
                       </TableCell>
                       <TableCell className="w-56">
                         <div className="space-y-1">
@@ -230,11 +230,11 @@ export default function AdminOrganizationDetail() {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(orgCert.accessStartDate)} –{" "}
-                        {formatDate(orgCert.accessExpiryDate)}
+                        {formatDate(institutionCert.accessStartDate)} –{" "}
+                        {formatDate(institutionCert.accessExpiryDate)}
                       </TableCell>
                       <TableCell>
-                        <InstitutionStatusBadge status={orgCert.status} />
+                        <InstitutionStatusBadge status={institutionCert.status} />
                       </TableCell>
                     </TableRow>
                   )
@@ -247,17 +247,17 @@ export default function AdminOrganizationDetail() {
 
       <Card className={TABLE_SURFACE}>
         <CardHeader>
-          <CardTitle>Learners ({orgCertLearners.length})</CardTitle>
+          <CardTitle>Learners ({institutionCertLearners.length})</CardTitle>
           <CardDescription>
-            Every learner enrolled in one of this organization's certifications.
+            Every learner enrolled in one of this institution's certifications.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          {orgCertLearners.length === 0 ? (
+          {institutionCertLearners.length === 0 ? (
             <InstitutionEmptyState
               icon={UsersIcon}
               title="No learners yet"
-              description="Learners appear here once they accept an invitation to this organization."
+              description="Learners appear here once they accept an invitation to this institution."
             />
           ) : (
             <Table>
@@ -270,13 +270,13 @@ export default function AdminOrganizationDetail() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orgCertLearners.map((row) => {
-                  const orgCert = orgCertById.get(row.orgCertId)
-                  const certification = orgCert
-                    ? certificationById.get(orgCert.certificationId)
+                {institutionCertLearners.map((row) => {
+                  const institutionCert = institutionCertById.get(row.institutionCertId)
+                  const certification = institutionCert
+                    ? certificationById.get(institutionCert.certificationId)
                     : null
                   return (
-                    <TableRow key={row.orgCertLearnerId}>
+                    <TableRow key={row.institutionCertLearnerId}>
                       <TableCell className="font-medium">
                         {getLearnerDisplayName(learnerById.get(row.learnerId))}
                       </TableCell>

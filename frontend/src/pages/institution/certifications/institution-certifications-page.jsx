@@ -35,8 +35,8 @@ export default function InstitutionCertificationsPage() {
   if (!institution) {
     return (
       <InstitutionEmptyState
-        title="No organization found"
-        description="Certification allocations appear here once your organization is registered."
+        title="No institution found"
+        description="Certification allocations appear here once your institution is registered."
       />
     )
   }
@@ -45,16 +45,16 @@ export default function InstitutionCertificationsPage() {
     <div className="space-y-6">
       <InstitutionPageHeader
         title="Certifications"
-        subtitle="Certification programs allocated to your organization."
+        subtitle="Certification programs allocated to your institution."
       />
 
       {data.isError ? (
         <InstitutionErrorState onRetry={data.refetchAll} />
-      ) : data.orgCerts.length === 0 ? (
+      ) : data.institutionCerts.length === 0 ? (
         <InstitutionEmptyState
           icon={GraduationCapIcon}
           title="No certification allocations yet"
-          description="Submit a partnership request to allocate certifications and learner slots for your organization."
+          description="Submit a partnership request to allocate certifications and learner slots for your institution."
           action={
             <Button asChild size="sm">
               <Link to="/institution/partnership">Go to Partnership</Link>
@@ -63,28 +63,28 @@ export default function InstitutionCertificationsPage() {
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {data.orgCerts.map((orgCert) => {
+          {data.institutionCerts.map((institutionCert) => {
             const certification = data.certificationById.get(
-              orgCert.certificationId
+              institutionCert.certificationId
             )
-            const used = orgCert.usedSlots ?? 0
-            const total = orgCert.totalSlots ?? 0
+            const used = institutionCert.usedSlots ?? 0
+            const total = institutionCert.totalSlots ?? 0
             const assignedCount = data.assignments.filter(
-              (assignment) => assignment.orgCertId === orgCert.orgCertId
+              (assignment) => assignment.institutionCertId === institutionCert.institutionCertId
             ).length
             return (
-              <Card key={orgCert.orgCertId} className="flex flex-col">
+              <Card key={institutionCert.institutionCertId} className="flex flex-col">
                 <CardHeader>
                   <div className="flex items-start justify-between gap-2">
                     <CardTitle className="text-base">
                       {certification?.title ??
-                        `Certification #${orgCert.certificationId}`}
+                        `Certification #${institutionCert.certificationId}`}
                     </CardTitle>
-                    <InstitutionStatusBadge status={orgCert.status} />
+                    <InstitutionStatusBadge status={institutionCert.status} />
                   </div>
                   <CardDescription>
-                    Access {formatDate(orgCert.accessStartDate)} –{" "}
-                    {formatDate(orgCert.accessExpiryDate)}
+                    Access {formatDate(institutionCert.accessStartDate)} –{" "}
+                    {formatDate(institutionCert.accessExpiryDate)}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 space-y-3">
@@ -106,13 +106,13 @@ export default function InstitutionCertificationsPage() {
                 </CardContent>
                 <CardFooter className="gap-2">
                   <Button asChild size="sm">
-                    <Link to={`/institution/certifications/${orgCert.orgCertId}`}>
+                    <Link to={`/institution/certifications/${institutionCert.institutionCertId}`}>
                       View certification
                     </Link>
                   </Button>
                   <Button asChild variant="outline" size="sm">
                     <Link
-                      to={`/institution/learners?certification=${orgCert.certificationId}`}
+                      to={`/institution/learners?certification=${institutionCert.certificationId}`}
                     >
                       View learners
                     </Link>

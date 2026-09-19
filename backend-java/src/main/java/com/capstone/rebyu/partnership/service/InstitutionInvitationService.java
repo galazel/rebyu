@@ -9,8 +9,8 @@ import com.capstone.rebyu.notification.entity.LearnerInvitation;
 import com.capstone.rebyu.notification.repository.LearnerInvitationRepository;
 import com.capstone.rebyu.notification.service.EmailService;
 import com.capstone.rebyu.notification.service.NotificationService;
-import com.capstone.rebyu.organization.entity.OrganizationCertificate;
-import com.capstone.rebyu.organization.repository.OrganizationCertificateRepository;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
+import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import com.capstone.rebyu.partnership.dto.InstitutionInvitationDtos.CertificationAccessDto;
 import com.capstone.rebyu.partnership.dto.InstitutionInvitationDtos.InvitationDto;
 import com.capstone.rebyu.partnership.dto.InstitutionInvitationDtos.InvitedLearner;
@@ -38,7 +38,7 @@ import java.util.regex.Pattern;
  * {@link #certificationAccess}.
  *
  * Slot reservation is protected against oversubscription by the optimistic
- * lock (@Version) on OrganizationCertificate: two concurrent invitation
+ * lock (@Version) on InstitutionCertificate: two concurrent invitation
  * batches that both try to consume the last slots will conflict, and the
  * loser's transaction rolls back instead of driving remaining_slots negative.
  */
@@ -50,7 +50,7 @@ public class InstitutionInvitationService {
     private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private static final int INVITATION_VALID_DAYS = 14;
 
-    private final OrganizationCertificateRepository organizationCertificateRepository;
+    private final InstitutionCertificateRepository institutionCertificateRepository;
     private final LearnerInvitationRepository invitationRepository;
     private final EmailService emailService;
     private final com.capstone.rebyu.notification.service.InvitationTokenService invitationTokenService;
@@ -62,7 +62,7 @@ public class InstitutionInvitationService {
 
     @Transactional(readOnly = true)
     public List<CertificationAccessDto> certificationAccess(Long institutionId) {
-        return organizationCertificateRepository.findByInstitution_InstitutionId(institutionId)
+        return institutionCertificateRepository.findByInstitution_InstitutionId(institutionId)
                 .stream()
                 .map(this::toAccessDto)
                 .toList();
@@ -71,7 +71,7 @@ public class InstitutionInvitationService {
     @Transactional
     public List<InvitationDto> listInvitations(Long institutionId) {
         List<LearnerInvitation> invitations = invitationRepository
-                .findByOrgCert_Institution_InstitutionIdOrderBySentAtDesc(institutionId);
+                .findByInstitutionCert_Institution_InstitutionIdOrderBySentAtDesc(institutionId);
 
         // Lazy expiration: no scheduler in this codebase, so overdue PENDING
         // invitations are expired (and their reserved slot restored) whenever
@@ -83,12 +83,12 @@ public class InstitutionInvitationService {
                     && invitation.getExpiresAt().isBefore(now)) {
                 invitation.setStatus(LearnerInvitation.Status.EXPIRED);
                 invitationRepository.save(invitation);
-                OrganizationCertificate orgCert = invitation.getOrgCert();
-                orgCert.setUsedSlots(Math.max(0, orgCert.getUsedSlots() - 1));
-                organizationCertificateRepository.save(orgCert);
+                InstitutionCertificate institutionCert = invitation.getInstitutionCert();
+                institutionCert.setUsedSlots(Math.max(0, institutionCert.getUsedSlots() - 1));
+                institutionCertificateRepository.save(institutionCert);
                 restoreGroupSlot(invitation.getInstitutionGroup());
-                log.info("Invitation {} expired; 1 slot restored on orgCert {}",
-                        invitation.getInvitationId(), orgCert.getOrgCertId());
+                log.info("Invitation {} expired; 1 slot restored on institutionCert {}",
+                        invitation.getInvitationId(), institutionCert.getInstitutionCertId());
             }
         }
 
@@ -101,15 +101,15 @@ public class InstitutionInvitationService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Group not found: " + request.institutionGroupId()));
 
-        // Ownership: the group must belong to the caller's organization.
+        // Ownership: the group must belong to the caller's institution.
         if (group.getInstitution() == null
                 || !group.getInstitution().getInstitutionId().equals(request.institutionId())) {
             throw new EntityNotFoundException("Group not found: " + request.institutionGroupId());
         }
         requireActiveLeader(group, request.invitedByUserId());
 
-        OrganizationCertificate orgCert = group.getOrgCert();
-        if (orgCert.getStatus() != OrganizationCertificate.Status.active) {
+        InstitutionCertificate institutionCert = group.getInstitutionCert();
+        if (institutionCert.getStatus() != InstitutionCertificate.Status.active) {
             throw new BusinessRuleException.InvalidPartnershipRequestException(
                     "This certification access is not active.");
         }
@@ -129,8 +129,8 @@ public class InstitutionInvitationService {
             if (toInvite.containsKey(email)) {
                 continue;
             }
-            if (invitationRepository.existsByOrgCert_OrgCertIdAndEmailIgnoreCaseAndStatus(
-                    orgCert.getOrgCertId(), email, LearnerInvitation.Status.PENDING)) {
+            if (invitationRepository.existsByInstitutionCert_InstitutionCertIdAndEmailIgnoreCaseAndStatus(
+                    institutionCert.getInstitutionCertId(), email, LearnerInvitation.Status.PENDING)) {
                 skipped.add(email + " (already invited)");
                 continue;
             }
@@ -143,7 +143,7 @@ public class InstitutionInvitationService {
                     "No new valid learner emails to invite.");
         }
 
-        int remaining = orgCert.getTotalSlots() - orgCert.getUsedSlots();
+        int remaining = institutionCert.getTotalSlots() - institutionCert.getUsedSlots();
         if (toInvite.size() > remaining) {
             throw new BusinessRuleException.InvalidPartnershipRequestException(
                     "The number of invitations exceeds the available slots. "
@@ -169,7 +169,7 @@ public class InstitutionInvitationService {
             String tokenHash = invitationTokenService.hashToken(rawToken);
 
             LearnerInvitation invitation = LearnerInvitation.builder()
-                    .orgCert(orgCert)
+                    .institutionCert(institutionCert)
                     .institutionGroup(group)
                     .invitedBy(User.builder().userId(request.invitedByUserId()).build())
                     .email(email)
@@ -192,8 +192,8 @@ public class InstitutionInvitationService {
 
             emailService.sendInstitutionInvitation(
                     savedInvitation.getEmail(),
-                    orgCert.getInstitution().getInstitutionName(),
-                    orgCert.getCertification().getTitle(),
+                    institutionCert.getInstitution().getInstitutionName(),
+                    institutionCert.getCertification().getTitle(),
                     rawToken
             );
 
@@ -205,20 +205,20 @@ public class InstitutionInvitationService {
                     notificationService.notify(
                             existingUser,
                             "You've been invited",
-                            orgCert.getInstitution().getInstitutionName() + " invited you to "
-                                    + orgCert.getCertification().getTitle() + ". Check your email to accept.",
+                            institutionCert.getInstitution().getInstitutionName() + " invited you to "
+                                    + institutionCert.getCertification().getTitle() + ". Check your email to accept.",
                             null));
         }
 
         // Reserve slots. The @Version lock makes this safe under concurrency;
         // remaining_slots is a DB-computed column, so only used_slots changes.
-        orgCert.setUsedSlots(orgCert.getUsedSlots() + toInvite.size());
-        organizationCertificateRepository.save(orgCert);
+        institutionCert.setUsedSlots(institutionCert.getUsedSlots() + toInvite.size());
+        institutionCertificateRepository.save(institutionCert);
         group.setUsedSlots(group.getUsedSlots() + toInvite.size());
         institutionGroupRepository.save(group);
 
-        log.info("Institution {} sent {} invitation(s) for orgCert {} ({} skipped)",
-                request.institutionId(), created.size(), orgCert.getOrgCertId(), skipped.size());
+        log.info("Institution {} sent {} invitation(s) for institutionCert {} ({} skipped)",
+                request.institutionId(), created.size(), institutionCert.getInstitutionCertId(), skipped.size());
         return new SendInvitationsResponse(created.size(), skipped, created);
     }
 
@@ -228,8 +228,8 @@ public class InstitutionInvitationService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Invitation not found: " + invitationId));
 
-        OrganizationCertificate orgCert = invitation.getOrgCert();
-        if (!orgCert.getInstitution().getInstitutionId().equals(institutionId)) {
+        InstitutionCertificate institutionCert = invitation.getInstitutionCert();
+        if (!institutionCert.getInstitution().getInstitutionId().equals(institutionId)) {
             throw new EntityNotFoundException("Invitation not found: " + invitationId);
         }
         InstitutionGroup group = invitation.getInstitutionGroup();
@@ -245,11 +245,11 @@ public class InstitutionInvitationService {
         if (invitation.getStatus() == LearnerInvitation.Status.PENDING) {
             invitation.setStatus(LearnerInvitation.Status.REVOKED);
             invitationRepository.save(invitation);
-            orgCert.setUsedSlots(Math.max(0, orgCert.getUsedSlots() - 1));
-            organizationCertificateRepository.save(orgCert);
+            institutionCert.setUsedSlots(Math.max(0, institutionCert.getUsedSlots() - 1));
+            institutionCertificateRepository.save(institutionCert);
             restoreGroupSlot(group);
-            log.info("Invitation {} cancelled; 1 slot restored on orgCert {}",
-                    invitationId, orgCert.getOrgCertId());
+            log.info("Invitation {} cancelled; 1 slot restored on institutionCert {}",
+                    invitationId, institutionCert.getInstitutionCertId());
         } else {
             throw new BusinessRuleException.InvalidPartnershipRequestException(
                     "Only a pending invitation can be cancelled.");
@@ -284,27 +284,27 @@ public class InstitutionInvitationService {
         }
     }
 
-    private CertificationAccessDto toAccessDto(OrganizationCertificate orgCert) {
-        int remaining = orgCert.getTotalSlots() - orgCert.getUsedSlots();
+    private CertificationAccessDto toAccessDto(InstitutionCertificate institutionCert) {
+        int remaining = institutionCert.getTotalSlots() - institutionCert.getUsedSlots();
         return new CertificationAccessDto(
-                orgCert.getOrgCertId(),
-                orgCert.getCertification().getCertificationId(),
-                orgCert.getCertification().getTitle(),
-                orgCert.getStatus().name(),
-                orgCert.getTotalSlots(),
-                orgCert.getUsedSlots(),
+                institutionCert.getInstitutionCertId(),
+                institutionCert.getCertification().getCertificationId(),
+                institutionCert.getCertification().getTitle(),
+                institutionCert.getStatus().name(),
+                institutionCert.getTotalSlots(),
+                institutionCert.getUsedSlots(),
                 remaining
         );
     }
 
     private InvitationDto toInvitationDto(LearnerInvitation invitation) {
-        OrganizationCertificate orgCert = invitation.getOrgCert();
+        InstitutionCertificate institutionCert = invitation.getInstitutionCert();
         InstitutionGroup group = invitation.getInstitutionGroup();
         return new InvitationDto(
                 invitation.getInvitationId(),
-                orgCert.getOrgCertId(),
-                orgCert.getCertification().getCertificationId(),
-                orgCert.getCertification().getTitle(),
+                institutionCert.getInstitutionCertId(),
+                institutionCert.getCertification().getCertificationId(),
+                institutionCert.getCertification().getTitle(),
                 group != null ? group.getInstitutionGroupId() : null,
                 group != null ? group.getGroupName() : null,
                 invitation.getEmail(),

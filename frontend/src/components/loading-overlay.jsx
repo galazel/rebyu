@@ -26,7 +26,7 @@ export function LoadingOverlayProvider({ children }) {
   const [phase, setPhase] = useState("hidden") // hidden | loading | finishing
   const [messages, setMessages] = useState(undefined)
   // A wait with no copy of its own (a route loading, the auth check) speaks
-  // for the portal it is in: a learner, an organization, a group leader or an
+  // for the portal it is in: a learner, an institution, a group leader or an
   // admin each see their own lines.
   const { user } = useAuth()
   const roleMessages = messagesForUser(user)

@@ -5,10 +5,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Learning statistics for one organization: a roster-wide rollup plus a row per
+ * Learning statistics for one institution: a roster-wide rollup plus a row per
  * member.
  *
- * Every figure is derived from the organization's own assignments, attempts and
+ * Every figure is derived from the institution's own assignments, attempts and
  * completed lessons -- nothing here is sampled or projected. A member with no
  * activity yet reports nulls for the score fields rather than zeros, because
  * "has not been graded" is not the same fact as "scored zero" and the dashboard

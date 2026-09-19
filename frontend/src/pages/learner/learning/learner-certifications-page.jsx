@@ -99,8 +99,18 @@ function CertificationCard({
                 /* 12px corners, not a pill: the system puts every rectangular
                    control on the same radius so a button and a round node stay
                    distinguishable shapes. */
-                className="w-full text-white hover:opacity-90"
-                style={{ background: palette.solid }}
+                variant={enrolled ? "outline" : "default"}
+                className="w-full hover:opacity-90"
+                style={
+                  enrolled
+                    ? {
+                        background: "var(--color-rb-leaf-wash)",
+                        color: "var(--color-rb-leaf-lip)",
+                        borderColor: "var(--color-rb-leaf)",
+                        borderWidth: 2,
+                      }
+                    : { background: palette.solid, color: "#fff" }
+                }
                 onClick={onAction}
             >
               {enrolled ? "Continue learning" : "View details"}

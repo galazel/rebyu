@@ -3,13 +3,15 @@ package com.capstone.rebyu.challenge.service;
 import com.capstone.rebyu.challenge.dto.ChallengeStandingsDtos.ChallengeActivityRow;
 import com.capstone.rebyu.challenge.dto.ChallengeStandingsDtos.ChallengeLeaderboardRow;
 import com.capstone.rebyu.challenge.dto.ChallengeStandingsDtos.ChallengeRecord;
-import com.capstone.rebyu.challenge.entity.ChallengeSession;
-import com.capstone.rebyu.challenge.repository.ChallengeSessionRepository;
+import com.capstone.rebyu.assessment.entity.AssessmentAttempt;
+import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository;
 import com.capstone.rebyu.user.entity.Learner;
+import com.capstone.rebyu.user.repository.LearnerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -22,10 +24,10 @@ import java.util.HashSet;
 /**
  * Challenge standings, computed server-side.
  *
- * <p>Scoring is the same rule the portal has always drawn: a finished session
- * contributes its score to the learner's total, and an unfinished one
- * contributes nothing. Sessions still in progress are excluded rather than
- * counted as zero -- a challenge you are part-way through is not a result.
+ * <p>A challenge run is an ordinary assessment attempt on an arena's
+ * CHALLENGE exam. A submitted run contributes its percentage score to the
+ * learner's total; runs still in progress are excluded rather than counted as
+ * zero -- a challenge you are part-way through is not a result.
  */
 @Service
 @RequiredArgsConstructor
@@ -36,7 +38,8 @@ public class ChallengeStandingsService {
     private static final int MAX_LEADERBOARD_ROWS = 50;
     private static final int RECENT_ACTIVITY_ROWS = 8;
 
-    private final ChallengeSessionRepository challengeSessionRepository;
+    private final AssessmentAttemptRepository attempts;
+    private final LearnerRepository learners;
 
     private record Standing(Long learnerId, String name, int points, int completed, int bestScore) {}
 
@@ -70,19 +73,20 @@ public class ChallengeStandingsService {
             }
         }
 
-        List<ChallengeSession> sessions = challengeSessionRepository.findByLearner_LearnerId(learnerId);
+        List<AssessmentAttempt> runs = attempts.findByLearnerIdAndExam_ExamType_ExamTypeText(
+                learnerId, ChallengeArenaService.CHALLENGE_EXAM_TYPE);
 
-        List<ChallengeActivityRow> recent = sessions.stream()
+        List<ChallengeActivityRow> recent = runs.stream()
                 .sorted(Comparator.comparing(
-                        ChallengeSession::getStartedAt,
+                        AssessmentAttempt::getStartedAt,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .limit(RECENT_ACTIVITY_ROWS)
-                .map(session -> new ChallengeActivityRow(
-                        session.getChallengeSessionId(),
-                        session.getChallengeMode() == null ? null : session.getChallengeMode().getName(),
-                        session.getStartedAt(),
-                        session.getStatus() == null ? null : session.getStatus().name(),
-                        session.getScore() == null ? null : session.getScore().intValue()))
+                .map(run -> new ChallengeActivityRow(
+                        run.getAssessmentAttemptId(),
+                        run.getExam() == null ? null : run.getExam().getTitle(),
+                        run.getStartedAt(),
+                        run.getStatus() == null ? null : run.getStatus().name(),
+                        score(run)))
                 .toList();
 
         return new ChallengeRecord(
@@ -90,7 +94,7 @@ public class ChallengeStandingsService {
                 mine == null ? 0 : mine.points(),
                 mine == null ? 0 : mine.completed(),
                 mine == null ? 0 : mine.bestScore(),
-                streakDays(sessions),
+                streakDays(runs),
                 recent);
     }
 
@@ -102,31 +106,24 @@ public class ChallengeStandingsService {
      * requests, which reads as the board being unstable rather than tied.
      */
     private List<Standing> standings() {
+        Map<Long, int[]> totals = new LinkedHashMap<>();
+        for (AssessmentAttempt run : attempts.findByStatusAndExam_ExamType_ExamTypeText(
+                AssessmentAttempt.Status.SUBMITTED, ChallengeArenaService.CHALLENGE_EXAM_TYPE)) {
+            Integer score = score(run);
+            if (score == null || run.getLearnerId() == null) {
+                continue;
+            }
+            int[] t = totals.computeIfAbsent(run.getLearnerId(), id -> new int[3]);
+            t[0] += score;
+            t[1] += 1;
+            t[2] = Math.max(t[2], score);
+        }
+
         Map<Long, Standing> byLearner = new LinkedHashMap<>();
-
-        for (ChallengeSession session : challengeSessionRepository.findAll()) {
-            if (session.getScore() == null
-                    || session.getStatus() == ChallengeSession.Status.in_progress) {
-                continue;
-            }
-            Learner learner = session.getLearner();
-            if (learner == null) {
-                continue;
-            }
-
-            int score = session.getScore().intValue();
-            Standing current = byLearner.get(learner.getLearnerId());
-            if (current == null) {
-                byLearner.put(learner.getLearnerId(), new Standing(
-                        learner.getLearnerId(), displayName(learner), score, 1, score));
-            } else {
-                byLearner.put(learner.getLearnerId(), new Standing(
-                        current.learnerId(),
-                        current.name(),
-                        current.points() + score,
-                        current.completed() + 1,
-                        Math.max(current.bestScore(), score)));
-            }
+        for (Learner learner : learners.findAllById(totals.keySet())) {
+            int[] t = totals.get(learner.getLearnerId());
+            byLearner.put(learner.getLearnerId(),
+                    new Standing(learner.getLearnerId(), displayName(learner), t[0], t[1], t[2]));
         }
 
         return byLearner.values().stream()
@@ -161,12 +158,17 @@ public class ChallengeStandingsService {
         return "Learner " + learner.getLearnerId();
     }
 
-    /** Consecutive days up to today (or yesterday) with at least one session. */
-    private int streakDays(List<ChallengeSession> sessions) {
+    private static Integer score(AssessmentAttempt run) {
+        BigDecimal percentage = run.getPercentage();
+        return percentage == null ? null : percentage.intValue();
+    }
+
+    /** Consecutive days up to today (or yesterday) with at least one run. */
+    private int streakDays(List<AssessmentAttempt> runs) {
         Set<LocalDate> days = new HashSet<>();
-        for (ChallengeSession session : sessions) {
-            if (session.getStartedAt() != null) {
-                days.add(session.getStartedAt().toLocalDate());
+        for (AssessmentAttempt run : runs) {
+            if (run.getStartedAt() != null) {
+                days.add(run.getStartedAt().toLocalDate());
             }
         }
         if (days.isEmpty()) {

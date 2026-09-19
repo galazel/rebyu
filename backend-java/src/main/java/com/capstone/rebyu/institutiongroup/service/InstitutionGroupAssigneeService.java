@@ -1,8 +1,8 @@
 package com.capstone.rebyu.institutiongroup.service;
 
 import com.capstone.rebyu.common.BusinessRuleException;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.institutiongroup.dto.InstitutionGroupAssigneeDto;
 import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
 import com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAssignee;
@@ -27,7 +27,7 @@ public class InstitutionGroupAssigneeService {
 
     private final InstitutionGroupAssigneeRepository institutionGroupAssigneeRepository;
     private final InstitutionGroupRepository institutionGroupRepository;
-    private final OrganizationCertificationLearnerRepository organizationCertificationLearnerRepository;
+    private final InstitutionCertificationLearnerRepository institutionCertificationLearnerRepository;
     private final InstitutionGroupAssigneeMapper institutionGroupAssigneeMapper;
 
     @Transactional(readOnly = true)
@@ -44,8 +44,8 @@ public class InstitutionGroupAssigneeService {
     }
 
     public InstitutionGroupAssigneeDto create(InstitutionGroupAssigneeDto dto, Long callerInstitutionId) {
-        log.info("Adding learner (orgCertLearnerId={}) to groupId={}",
-                dto.getOrgCertLearnerId(), dto.getInstitutionGroupId());
+        log.info("Adding learner (institutionCertLearnerId={}) to groupId={}",
+                dto.getInstitutionCertLearnerId(), dto.getInstitutionGroupId());
 
         InstitutionGroup group = institutionGroupRepository.findById(dto.getInstitutionGroupId())
                 .orElseThrow(() -> new EntityNotFoundException(
@@ -57,16 +57,16 @@ public class InstitutionGroupAssigneeService {
                     "InstitutionGroup not found: " + dto.getInstitutionGroupId());
         }
 
-        OrganizationCertificationLearner learner = organizationCertificationLearnerRepository
-                .findById(dto.getOrgCertLearnerId())
+        InstitutionCertificationLearner learner = institutionCertificationLearnerRepository
+                .findById(dto.getInstitutionCertLearnerId())
                 .orElseThrow(() -> new EntityNotFoundException(
-                        "OrganizationCertificationLearner not found: " + dto.getOrgCertLearnerId()));
+                        "InstitutionCertificationLearner not found: " + dto.getInstitutionCertLearnerId()));
 
-        // The learner must already hold org_cert access for the SAME allocation the
+        // The learner must already hold institution_cert access for the SAME allocation the
         // group belongs to — you cannot group a learner into another certification.
-        Long groupOrgCertId = group.getOrgCert() != null ? group.getOrgCert().getOrgCertId() : null;
-        Long learnerOrgCertId = learner.getOrgCert() != null ? learner.getOrgCert().getOrgCertId() : null;
-        if (!Objects.equals(groupOrgCertId, learnerOrgCertId)) {
+        Long groupInstitutionCertId = group.getInstitutionCert() != null ? group.getInstitutionCert().getInstitutionCertId() : null;
+        Long learnerInstitutionCertId = learner.getInstitutionCert() != null ? learner.getInstitutionCert().getInstitutionCertId() : null;
+        if (!Objects.equals(groupInstitutionCertId, learnerInstitutionCertId)) {
             throw new BusinessRuleException.InstitutionGroupRuleException(
                     "This learner does not have access to the certification this group belongs to.");
         }
@@ -75,7 +75,7 @@ public class InstitutionGroupAssigneeService {
         // partial unique index (uq_institution_group_assignee_active) only
         // guards active rows, so a stale archived row must be found and
         // revived explicitly rather than inserted alongside.
-        var existing = institutionGroupAssigneeRepository.findByInstitutionGroupAndOrgCertLearner(group, learner);
+        var existing = institutionGroupAssigneeRepository.findByInstitutionGroupAndInstitutionCertLearner(group, learner);
         if (existing.isPresent()) {
             InstitutionGroupAssignee row = existing.get();
             if (row.getStatus() == InstitutionGroupAssignee.Status.active) {

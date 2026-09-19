@@ -8,8 +8,8 @@ import com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAuthority;
 import com.capstone.rebyu.institutiongroup.mapper.InstitutionGroupAuthorityMapper;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAuthorityRepository;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupRepository;
-import com.capstone.rebyu.organization.entity.InstitutionMember;
-import com.capstone.rebyu.organization.repository.InstitutionMemberRepository;
+import com.capstone.rebyu.institution.entity.InstitutionMember;
+import com.capstone.rebyu.institution.repository.InstitutionMemberRepository;
 import com.capstone.rebyu.user.entity.User;
 import com.capstone.rebyu.user.entity.UserType;
 import com.capstone.rebyu.user.repository.UserRepository;
@@ -88,7 +88,7 @@ public class InstitutionGroupAuthorityService {
      * can also be added from an account that already existed for another
      * reason, so neither path can be relied on to have set it already.
      *
-     * The organization's own INSTITUTION account is deliberately left alone: an
+     * The institution's own INSTITUTION account is deliberately left alone: an
      * owner who also leads a group stays the owner.
      */
     private void promoteToInstitutionMember(Long userId) {
@@ -101,7 +101,7 @@ public class InstitutionGroupAuthorityService {
         }
         String currentType = user.getUserType() != null ? user.getUserType().getUserTypeText() : null;
         if (CognitoAuthService.INSTITUTION_USER_TYPE.equalsIgnoreCase(currentType)
-                && isOrganizationOwnAccount(user)) {
+                && isInstitutionOwnAccount(user)) {
             return;
         }
         if (CognitoAuthService.INSTITUTION_MEMBER_USER_TYPE.equalsIgnoreCase(currentType)) {
@@ -121,8 +121,8 @@ public class InstitutionGroupAuthorityService {
                 userId, CognitoAuthService.INSTITUTION_MEMBER_USER_TYPE);
     }
 
-    /** An owner/primary contact holds the organization's own account. */
-    private boolean isOrganizationOwnAccount(User user) {
+    /** An owner/primary contact holds the institution's own account. */
+    private boolean isInstitutionOwnAccount(User user) {
         return institutionMemberRepository.findByUser_UserId(user.getUserId()).stream()
                 .anyMatch(member -> member.isPrimaryContact()
                         || member.getMemberRole() == InstitutionMember.MemberRole.owner);

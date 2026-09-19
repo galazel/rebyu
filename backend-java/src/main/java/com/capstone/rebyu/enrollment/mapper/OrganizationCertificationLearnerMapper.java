@@ -1,17 +1,17 @@
 package com.capstone.rebyu.enrollment.mapper;
 
-import com.capstone.rebyu.enrollment.dto.OrganizationCertificationLearnerDto;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
+import com.capstone.rebyu.enrollment.dto.InstitutionCertificationLearnerDto;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 @Mapper(componentModel = "spring")
-public interface OrganizationCertificationLearnerMapper {
-    @Mapping(source = "orgCert.orgCertId", target = "orgCertId")
+public interface InstitutionCertificationLearnerMapper {
+    @Mapping(source = "institutionCert.institutionCertId", target = "institutionCertId")
     @Mapping(source = "learner.learnerId", target = "learnerId")
-    OrganizationCertificationLearnerDto toDto(OrganizationCertificationLearner entity);
+    InstitutionCertificationLearnerDto toDto(InstitutionCertificationLearner entity);
 
-    @Mapping(source = "orgCertId", target = "orgCert.orgCertId")
+    @Mapping(source = "institutionCertId", target = "institutionCert.institutionCertId")
     @Mapping(source = "learnerId", target = "learner.learnerId")
-    OrganizationCertificationLearner toEntity(OrganizationCertificationLearnerDto dto);
+    InstitutionCertificationLearner toEntity(InstitutionCertificationLearnerDto dto);
 }

@@ -30,7 +30,7 @@ const MESSAGES = [
 /* Each portal waits on different work, so each says so. The learner's copy
    above stays the default; these are picked by the signed-in role. */
 export const INSTITUTION_MESSAGES = [
-  { tag: "organization", text: "Opening your organization...", tone: "macaw" },
+  { tag: "institution", text: "Opening your institution...", tone: "macaw" },
   { tag: "learners", text: "Gathering your learners' progress...", tone: "beetle" },
   { tag: "certifications", text: "Checking your certification slots...", tone: "bee" },
   { tag: "groups", text: "Lining up your groups...", tone: "fox" },
@@ -46,7 +46,7 @@ export const INSTITUTION_MEMBER_MESSAGES = [
 export const ADMIN_MESSAGES = [
   { tag: "platform", text: "Checking the whole school...", tone: "macaw" },
   { tag: "content", text: "Sorting the curriculum...", tone: "beetle" },
-  { tag: "organizations", text: "Reviewing partner organizations...", tone: "bee" },
+  { tag: "institutions", text: "Reviewing partner institutions...", tone: "bee" },
   { tag: "reports", text: "Tallying the reports...", tone: "fox" },
 ]
 

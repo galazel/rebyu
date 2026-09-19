@@ -1,6 +1,6 @@
 package com.capstone.rebyu.enrollment.dto;
 
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
@@ -14,11 +14,11 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrganizationCertificationLearnerDto {
-    private Long orgCertLearnerId;
+public class InstitutionCertificationLearnerDto {
+    private Long institutionCertLearnerId;
 
     @NotNull
-    private Long orgCertId;
+    private Long institutionCertId;
 
     @NotNull
     private Long learnerId;
@@ -32,5 +32,5 @@ public class OrganizationCertificationLearnerDto {
 
     private LocalDateTime completedAt;
 
-    private OrganizationCertificationLearner.Status status = OrganizationCertificationLearner.Status.active;
+    private InstitutionCertificationLearner.Status status = InstitutionCertificationLearner.Status.active;
 }

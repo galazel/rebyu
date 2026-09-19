@@ -1,4 +1,4 @@
-package com.capstone.rebyu.organization.entity;
+package com.capstone.rebyu.institution.entity;
 
 
 import com.capstone.rebyu.certification.entity.Certification;
@@ -11,12 +11,12 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "organization_certificates")
+@Table(name = "institution_certificates")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class OrganizationCertificate {
+public class InstitutionCertificate {
 
     public enum Status {
         pending, active, expired, suspended, cancelled
@@ -24,7 +24,7 @@ public class OrganizationCertificate {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long orgCertId;
+    private Long institutionCertId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "institution_id", nullable = false)

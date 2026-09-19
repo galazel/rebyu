@@ -2,11 +2,11 @@ package com.capstone.rebyu.partnership.service;
 
 import com.capstone.rebyu.auth.service.CognitoAdminService;
 import com.capstone.rebyu.notification.service.NotificationService;
-import com.capstone.rebyu.organization.entity.Institution;
-import com.capstone.rebyu.organization.entity.InstitutionMember;
-import com.capstone.rebyu.organization.repository.InstitutionMemberRepository;
-import com.capstone.rebyu.organization.repository.InstitutionRepository;
-import com.capstone.rebyu.organization.repository.OrganizationCertificateRepository;
+import com.capstone.rebyu.institution.entity.Institution;
+import com.capstone.rebyu.institution.entity.InstitutionMember;
+import com.capstone.rebyu.institution.repository.InstitutionMemberRepository;
+import com.capstone.rebyu.institution.repository.InstitutionRepository;
+import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import com.capstone.rebyu.partnership.dto.AdminPartnershipDtos.PartnershipRequestDetailDto;
 import com.capstone.rebyu.partnership.entity.PartnershipRequest;
 import com.capstone.rebyu.partnership.repository.PartnershipRequestItemRepository;
@@ -43,7 +43,7 @@ class AdminPartnershipServiceTest {
     private PartnershipRequestRepository requestRepository;
     private PartnershipRequestItemRepository itemRepository;
     private InstitutionRepository institutionRepository;
-    private OrganizationCertificateRepository organizationCertificateRepository;
+    private InstitutionCertificateRepository institutionCertificateRepository;
     private InstitutionMemberRepository institutionMemberRepository;
     private UserRepository userRepository;
     private UserTypeRepository userTypeRepository;
@@ -57,7 +57,7 @@ class AdminPartnershipServiceTest {
         requestRepository = mock(PartnershipRequestRepository.class);
         itemRepository = mock(PartnershipRequestItemRepository.class);
         institutionRepository = mock(InstitutionRepository.class);
-        organizationCertificateRepository = mock(OrganizationCertificateRepository.class);
+        institutionCertificateRepository = mock(InstitutionCertificateRepository.class);
         institutionMemberRepository = mock(InstitutionMemberRepository.class);
         userRepository = mock(UserRepository.class);
         userTypeRepository = mock(UserTypeRepository.class);
@@ -66,7 +66,7 @@ class AdminPartnershipServiceTest {
 
         service = new AdminPartnershipService(
                 requestRepository, itemRepository, institutionRepository,
-                organizationCertificateRepository, institutionMemberRepository,
+                institutionCertificateRepository, institutionMemberRepository,
                 userRepository, userTypeRepository, cognitoAdminService, notificationService);
 
         // Common approve() plumbing: no certificate items to process, request save is a no-op passthrough.
@@ -85,11 +85,11 @@ class AdminPartnershipServiceTest {
         return PartnershipRequest.builder()
                 .requestId(REQUEST_ID)
                 .referenceNumber("REF-001")
-                .organizationName(ORG_NAME)
-                .organizationEmail(ORG_EMAIL)
+                .institutionName(ORG_NAME)
+                .institutionEmail(ORG_EMAIL)
                 .contactPersonName("Jane Doe")
                 .contactNumber("123456")
-                .organizationAddress("123 Street")
+                .institutionAddress("123 Street")
                 .submittedAt(LocalDateTime.now())
                 .status(PartnershipRequest.Status.PENDING)
                 .build();
@@ -99,7 +99,7 @@ class AdminPartnershipServiceTest {
         return Institution.builder()
                 .institutionId(EXISTING_INSTITUTION_ID)
                 .institutionName(name)
-                .organizationType(Institution.OrganizationType.other)
+                .institutionType(Institution.InstitutionType.other)
                 .industry("General")
                 .primaryContactName("Old Contact")
                 .primaryContactEmail(ORG_EMAIL)
@@ -125,7 +125,7 @@ class AdminPartnershipServiceTest {
 
         PartnershipRequestDetailDto result = service.approve(REQUEST_ID, "ok", "admin");
 
-        // Reused the organization already on file (by contact email); the account
+        // Reused the institution already on file (by contact email); the account
         // is provisioned on it and no duplicate Institution is created.
         assertEquals(EXISTING_INSTITUTION_ID, result.institutionId());
         verify(institutionRepository, never()).save(any(Institution.class));

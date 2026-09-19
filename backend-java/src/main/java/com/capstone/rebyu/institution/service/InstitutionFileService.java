@@ -3,7 +3,7 @@ package com.capstone.rebyu.institution.service;
 import com.capstone.rebyu.certification.service.S3StorageService;
 import com.capstone.rebyu.institution.entity.InstitutionFile;
 import com.capstone.rebyu.institution.repository.InstitutionFileRepository;
-import com.capstone.rebyu.organization.entity.Institution;
+import com.capstone.rebyu.institution.entity.Institution;
 import com.capstone.rebyu.user.entity.User;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -46,14 +46,14 @@ public class InstitutionFileService {
                     .build();
             return toView(files.save(entity));
         } catch (IOException e) {
-            throw new IllegalStateException("The organization file could not be uploaded", e);
+            throw new IllegalStateException("The institution file could not be uploaded", e);
         }
     }
 
     @Transactional
     public void delete(Long institutionId, Long fileId) {
         InstitutionFile entity = files.findByInstitutionFileIdAndInstitution_InstitutionId(fileId, institutionId)
-                .orElseThrow(() -> new EntityNotFoundException("Organization file not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Institution file not found"));
         files.delete(entity);
         storage.deleteFile(entity.getStorageKey());
     }
@@ -66,7 +66,7 @@ public class InstitutionFileService {
     @Transactional(readOnly = true)
     public String downloadUrl(Long institutionId, Long fileId) {
         InstitutionFile entity = files.findByInstitutionFileIdAndInstitution_InstitutionId(fileId, institutionId)
-                .orElseThrow(() -> new EntityNotFoundException("Organization file not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Institution file not found"));
         return storage.presignDownloadUrl(entity.getStorageKey(), entity.getFileName(), Duration.ofMinutes(5));
     }
 

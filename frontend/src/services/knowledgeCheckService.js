@@ -17,8 +17,10 @@ import { base } from "./base.js"
  * "not-enough-completed-lessons" when the learner has not finished enough
  * material to be tested on yet.
  */
-export function getKnowledgeCheckOffer(lessonId) {
-  return base(`learners/me/knowledge-checks/offer?lessonId=${lessonId}`)
+export function getKnowledgeCheckOffer(lessonId, { currentLessonOnly = false } = {}) {
+  return base(
+    `learners/me/knowledge-checks/offer?lessonId=${lessonId}&currentLessonOnly=${currentLessonOnly}`,
+  )
 }
 
 /**
@@ -29,9 +31,9 @@ export function getKnowledgeCheckOffer(lessonId) {
  * is the only place in the product that knows how to render and grade all five
  * question types.
  */
-export function createKnowledgeCheck(lessonId) {
+export function createKnowledgeCheck(lessonId, { currentLessonOnly = false } = {}) {
   return base("learners/me/knowledge-checks", {
     method: "POST",
-    data: { lessonId: Number(lessonId) },
+    data: { lessonId: Number(lessonId), currentLessonOnly },
   })
 }

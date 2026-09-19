@@ -32,7 +32,8 @@ import { LearnerEmptyState } from "@/components/learner/learner-ui.jsx"
 import { LessonTool } from "@/components/certifications/lesson-content-renderer.jsx"
 import { LessonAiTutor } from "@/components/learner/lesson-ai-tutor.jsx"
 import { LessonKnowledgeCheck } from "@/components/learner/lesson-knowledge-check.jsx"
-import { useKnowledgeCheckTrigger } from "@/hooks/useKnowledgeCheckTrigger.js"
+import { useSkimChallenge } from "@/hooks/useSkimChallenge.js"
+import { useReadingPaceGuard } from "@/hooks/useReadingPaceGuard.js"
 
 
 
@@ -605,12 +606,17 @@ export default function LearnerLessonPage() {
     completionSentRef.current = false
   }, [lessonId])
 
-  /* The pop-up check. Armed only once there is a lesson with content actually
-     on screen -- a lesson still loading, or one with no published blocks, has
-     nothing to read and so nothing to interrupt. */
-  const knowledgeCheck = useKnowledgeCheckTrigger({
+  /* The skim challenge. Armed only once there is a lesson with content
+     actually on screen -- a lesson still loading, or one with no published
+     blocks, has nothing to read and so nothing to skim. */
+  const knowledgeCheck = useSkimChallenge({
+    learnerId: data?.learnerId,
     lessonId,
     enabled: Boolean(data?.learnerId) && sections.length > 0,
+  })
+  useReadingPaceGuard({
+    enabled: Boolean(data?.learnerId) && sections.length > 0 && !knowledgeCheck.offer,
+    onRush: knowledgeCheck.trigger,
   })
 
   useEffect(() => {
@@ -876,6 +882,7 @@ export default function LearnerLessonPage() {
         <LessonKnowledgeCheck
             open={Boolean(knowledgeCheck.offer)}
             lessonId={lessonId}
+            learnerId={data?.learnerId}
             itemCount={knowledgeCheck.offer?.itemCount}
             lessonNames={knowledgeCheck.offer?.lessonNames}
             onDismiss={knowledgeCheck.dismiss}

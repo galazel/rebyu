@@ -1,9 +1,9 @@
 package com.capstone.rebyu.enrollment.service;
 
-import com.capstone.rebyu.enrollment.dto.OrganizationCertificationLearnerDto;
-import com.capstone.rebyu.enrollment.mapper.OrganizationCertificationLearnerMapper;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.dto.InstitutionCertificationLearnerDto;
+import com.capstone.rebyu.enrollment.mapper.InstitutionCertificationLearnerMapper;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,48 +16,48 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class OrganizationCertificationLearnerService {
-    private final OrganizationCertificationLearnerRepository organizationCertificationLearnerRepository;
-    private final OrganizationCertificationLearnerMapper organizationCertificationLearnerMapper;
+public class InstitutionCertificationLearnerService {
+    private final InstitutionCertificationLearnerRepository institutionCertificationLearnerRepository;
+    private final InstitutionCertificationLearnerMapper institutionCertificationLearnerMapper;
 
-    public List<OrganizationCertificationLearnerDto> getAll() {
-        log.debug("Fetching all organization certification learners");
-        return organizationCertificationLearnerRepository.findAll().stream()
-                .map(organizationCertificationLearnerMapper::toDto).toList();
+    public List<InstitutionCertificationLearnerDto> getAll() {
+        log.debug("Fetching all institution certification learners");
+        return institutionCertificationLearnerRepository.findAll().stream()
+                .map(institutionCertificationLearnerMapper::toDto).toList();
     }
 
-    public OrganizationCertificationLearnerDto getById(Long id) {
-        log.debug("Fetching organization certification learner id: {}", id);
-        return organizationCertificationLearnerMapper.toDto(findEntity(id));
+    public InstitutionCertificationLearnerDto getById(Long id) {
+        log.debug("Fetching institution certification learner id: {}", id);
+        return institutionCertificationLearnerMapper.toDto(findEntity(id));
     }
 
-    public OrganizationCertificationLearnerDto create(OrganizationCertificationLearnerDto dto) {
-        log.info("Creating new organization certification learner");
-        OrganizationCertificationLearner entity = organizationCertificationLearnerMapper.toEntity(dto);
-        entity.setOrgCertLearnerId(null);
-        OrganizationCertificationLearnerDto result = organizationCertificationLearnerMapper.toDto(organizationCertificationLearnerRepository.save(entity));
-        log.info("OrganizationCertificationLearner created with id: {}", result.getOrgCertLearnerId());
+    public InstitutionCertificationLearnerDto create(InstitutionCertificationLearnerDto dto) {
+        log.info("Creating new institution certification learner");
+        InstitutionCertificationLearner entity = institutionCertificationLearnerMapper.toEntity(dto);
+        entity.setInstitutionCertLearnerId(null);
+        InstitutionCertificationLearnerDto result = institutionCertificationLearnerMapper.toDto(institutionCertificationLearnerRepository.save(entity));
+        log.info("InstitutionCertificationLearner created with id: {}", result.getInstitutionCertLearnerId());
         return result;
     }
 
-    public OrganizationCertificationLearnerDto update(Long id, OrganizationCertificationLearnerDto dto) {
-        log.info("Updating organization certification learner id: {}", id);
+    public InstitutionCertificationLearnerDto update(Long id, InstitutionCertificationLearnerDto dto) {
+        log.info("Updating institution certification learner id: {}", id);
         findEntity(id);
-        OrganizationCertificationLearner entity = organizationCertificationLearnerMapper.toEntity(dto);
-        entity.setOrgCertLearnerId(id);
-        OrganizationCertificationLearnerDto result = organizationCertificationLearnerMapper.toDto(organizationCertificationLearnerRepository.save(entity));
-        log.info("OrganizationCertificationLearner id: {} updated", id);
+        InstitutionCertificationLearner entity = institutionCertificationLearnerMapper.toEntity(dto);
+        entity.setInstitutionCertLearnerId(id);
+        InstitutionCertificationLearnerDto result = institutionCertificationLearnerMapper.toDto(institutionCertificationLearnerRepository.save(entity));
+        log.info("InstitutionCertificationLearner id: {} updated", id);
         return result;
     }
 
     public void delete(Long id) {
-        log.info("Deleting organization certification learner id: {}", id);
-        organizationCertificationLearnerRepository.delete(findEntity(id));
-        log.info("OrganizationCertificationLearner id: {} deleted", id);
+        log.info("Deleting institution certification learner id: {}", id);
+        institutionCertificationLearnerRepository.delete(findEntity(id));
+        log.info("InstitutionCertificationLearner id: {} deleted", id);
     }
 
-    private OrganizationCertificationLearner findEntity(Long id) {
-        return organizationCertificationLearnerRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("OrganizationCertificationLearner not found: " + id));
+    private InstitutionCertificationLearner findEntity(Long id) {
+        return institutionCertificationLearnerRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("InstitutionCertificationLearner not found: " + id));
     }
 }

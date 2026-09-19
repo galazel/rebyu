@@ -7,8 +7,8 @@ import com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAuthority;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAuthorityRepository;
 import com.capstone.rebyu.institutiongroup.mapper.InstitutionGroupMapper;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupRepository;
-import com.capstone.rebyu.organization.entity.OrganizationCertificate;
-import com.capstone.rebyu.organization.repository.OrganizationCertificateRepository;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
+import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,20 +27,20 @@ public class InstitutionGroupService {
 
     private final InstitutionGroupRepository institutionGroupRepository;
     private final InstitutionGroupAuthorityRepository institutionGroupAuthorityRepository;
-    private final OrganizationCertificateRepository organizationCertificateRepository;
+    private final InstitutionCertificateRepository institutionCertificateRepository;
     private final InstitutionGroupMapper institutionGroupMapper;
 
     // institutionId is always the JWT-derived caller (never client-supplied and
     // never optional here) so this can never fall through to a global fetch.
-    // orgCertId, when given, narrows further -- but only within that same
+    // institutionCertId, when given, narrows further -- but only within that same
     // institution, so a caller can't read another tenant's groups by guessing
-    // an orgCertId that belongs to a different institution.
+    // an institutionCertId that belongs to a different institution.
     @Transactional(readOnly = true)
-    public List<InstitutionGroupDto> getAll(Long institutionId, Long orgCertId) {
+    public List<InstitutionGroupDto> getAll(Long institutionId, Long institutionCertId) {
         List<InstitutionGroup> groups = institutionGroupRepository.findByInstitution_InstitutionId(institutionId);
-        if (orgCertId != null) {
+        if (institutionCertId != null) {
             groups = groups.stream()
-                    .filter(g -> g.getOrgCert() != null && orgCertId.equals(g.getOrgCert().getOrgCertId()))
+                    .filter(g -> g.getInstitutionCert() != null && institutionCertId.equals(g.getInstitutionCert().getInstitutionCertId()))
                     .toList();
         }
         return groups.stream().map(institutionGroupMapper::toDto).toList();
@@ -52,7 +52,7 @@ public class InstitutionGroupService {
      */
     @Transactional(readOnly = true)
     public List<InstitutionGroupDto> getAccessible(
-            Long institutionId, Long userId, boolean owner, Long orgCertId) {
+            Long institutionId, Long userId, boolean owner, Long institutionCertId) {
         List<InstitutionGroup> groups = owner
                 ? institutionGroupRepository.findByInstitution_InstitutionId(institutionId)
                 : institutionGroupRepository.findActiveAuthorizedGroups(
@@ -61,7 +61,7 @@ public class InstitutionGroupService {
                         InstitutionGroup.Status.active,
                         InstitutionGroupAuthority.Status.active);
         return groups.stream()
-                .filter(group -> orgCertId == null || Objects.equals(group.getOrgCert().getOrgCertId(), orgCertId))
+                .filter(group -> institutionCertId == null || Objects.equals(group.getInstitutionCert().getInstitutionCertId(), institutionCertId))
                 .map(institutionGroupMapper::toDto)
                 .toList();
     }
@@ -88,39 +88,39 @@ public class InstitutionGroupService {
     }
 
     public InstitutionGroupDto create(InstitutionGroupDto dto) {
-        log.info("Creating institution group '{}' for orgCertId={}", dto.getGroupName(), dto.getOrgCertId());
+        log.info("Creating institution group '{}' for institutionCertId={}", dto.getGroupName(), dto.getInstitutionCertId());
 
-        OrganizationCertificate orgCert = organizationCertificateRepository.findById(dto.getOrgCertId())
+        InstitutionCertificate institutionCert = institutionCertificateRepository.findById(dto.getInstitutionCertId())
                 .orElseThrow(() -> new EntityNotFoundException(
-                        "OrganizationCertificate not found: " + dto.getOrgCertId()));
+                        "InstitutionCertificate not found: " + dto.getInstitutionCertId()));
 
         // The org cert allocation referenced by the group must belong to the
         // SAME institution the caller was resolved to -- otherwise a caller
         // could create a group under an allocation owned by another tenant.
-        Long orgCertInstitutionId = orgCert.getInstitution() != null
-                ? orgCert.getInstitution().getInstitutionId() : null;
-        if (!Objects.equals(dto.getInstitutionId(), orgCertInstitutionId)) {
-            throw new EntityNotFoundException("OrganizationCertificate not found: " + dto.getOrgCertId());
+        Long institutionCertInstitutionId = institutionCert.getInstitution() != null
+                ? institutionCert.getInstitution().getInstitutionId() : null;
+        if (!Objects.equals(dto.getInstitutionId(), institutionCertInstitutionId)) {
+            throw new EntityNotFoundException("InstitutionCertificate not found: " + dto.getInstitutionCertId());
         }
 
         // A single group can't be handed more slots than the certification
         // allocation itself has -- a real (if generous) sanity bound. It does
         // NOT sum across sibling groups; that would require re-validating every
         // other group whenever one changes.
-        if (dto.getTotalSlots() > orgCert.getTotalSlots()) {
+        if (dto.getTotalSlots() > institutionCert.getTotalSlots()) {
             throw new BusinessRuleException.InstitutionGroupRuleException(
-                    "This group can have at most " + orgCert.getTotalSlots()
+                    "This group can have at most " + institutionCert.getTotalSlots()
                             + " slot(s) -- the certification's own allocation limit.");
         }
 
         InstitutionGroup entity = institutionGroupMapper.toEntity(dto);
         entity.setInstitutionGroupId(null);
-        // The mapper builds DETACHED stubs for the orgCert/institution FKs (id
+        // The mapper builds DETACHED stubs for the institutionCert/institution FKs (id
         // set, @Version null). Persisting the group against those stubs throws
-        // "uninitialized version value 'null'". Attach the managed orgCert we
+        // "uninitialized version value 'null'". Attach the managed institutionCert we
         // already loaded (and its managed institution) instead.
-        entity.setOrgCert(orgCert);
-        entity.setInstitution(orgCert.getInstitution());
+        entity.setInstitutionCert(institutionCert);
+        entity.setInstitution(institutionCert.getInstitution());
         entity.setCreatedAt(dto.getCreatedAt() != null ? dto.getCreatedAt() : LocalDateTime.now());
         entity.setStatus(dto.getStatus() != null ? dto.getStatus() : InstitutionGroup.Status.active);
         entity.setUsedSlots(0);
@@ -131,7 +131,7 @@ public class InstitutionGroupService {
 
     public InstitutionGroupDto update(Long id, InstitutionGroupDto dto, Long callerInstitutionId) {
         log.info("Updating institution group id: {}", id);
-        // Mutate editable fields only; createdBy/createdAt/institution/orgCert/
+        // Mutate editable fields only; createdBy/createdAt/institution/institutionCert/
         // usedSlots are immutable here -- usedSlots only changes via invitations.
         InstitutionGroup entity = findEntity(id);
         requireSameInstitution(entity, callerInstitutionId);
@@ -143,10 +143,10 @@ public class InstitutionGroupService {
                         "This group already has " + entity.getUsedSlots()
                                 + " slot(s) in use -- lower the limit no further than that.");
             }
-            OrganizationCertificate orgCert = entity.getOrgCert();
-            if (orgCert != null && dto.getTotalSlots() > orgCert.getTotalSlots()) {
+            InstitutionCertificate institutionCert = entity.getInstitutionCert();
+            if (institutionCert != null && dto.getTotalSlots() > institutionCert.getTotalSlots()) {
                 throw new BusinessRuleException.InstitutionGroupRuleException(
-                        "This group can have at most " + orgCert.getTotalSlots()
+                        "This group can have at most " + institutionCert.getTotalSlots()
                                 + " slot(s) -- the certification's own allocation limit.");
             }
             entity.setTotalSlots(dto.getTotalSlots());

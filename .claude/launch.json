@@ -4,21 +4,56 @@
     {
       "name": "rebyu-frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontend", "run", "dev", "--", "--port", "5199", "--strictPort"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5199",
+        "--strictPort"
+      ],
       "port": 5199
     },
     {
       "name": "rebyu-frontend-alt",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontend", "run", "dev", "--", "--port", "5200", "--strictPort"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5200",
+        "--strictPort"
+      ],
       "port": 5200
     },
     {
       "name": "rebyu-frontend-auto",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontend", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev"
+      ],
       "autoPort": true,
       "port": 5173
+    },
+    {
+      "name": "rebyu-backend",
+      "runtimeExecutable": "C:/Users/galazel/IdeaProjects/capstone/backend-java/mvnw.cmd",
+      "runtimeArgs": [
+        "-f",
+        "C:/Users/galazel/IdeaProjects/capstone/backend-java/pom.xml",
+        "-o",
+        "-q",
+        "spring-boot:run"
+      ],
+      "port": 8080
     }
   ]
 }

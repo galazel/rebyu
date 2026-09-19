@@ -1,6 +1,6 @@
-package com.capstone.rebyu.organization.dto;
+package com.capstone.rebyu.institution.dto;
 
-import com.capstone.rebyu.organization.entity.Institution;
+import com.capstone.rebyu.institution.entity.Institution;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -21,7 +21,7 @@ public class InstitutionDto {
     private String institutionName;
 
     @NotNull
-    private Institution.OrganizationType organizationType;
+    private Institution.InstitutionType institutionType;
 
     @NotBlank
     @Size(max = 100)
@@ -45,7 +45,7 @@ public class InstitutionDto {
 
     private LocalDateTime joinedAt;
 
-    // Display-only aggregates for the admin organizations list; computed in
+    // Display-only aggregates for the admin institutions list; computed in
     // InstitutionService, never accepted on create/update.
     private Integer learnerCount;
     private Integer certificationCount;

@@ -64,7 +64,7 @@ public class LearnerClassController {
             return List.of();
         }
         return assignees
-                .findByOrgCertLearner_Learner_LearnerIdAndStatus(user.learnerId(), InstitutionGroupAssignee.Status.active)
+                .findByInstitutionCertLearner_Learner_LearnerIdAndStatus(user.learnerId(), InstitutionGroupAssignee.Status.active)
                 .stream()
                 .map(InstitutionGroupAssignee::getInstitutionGroup)
                 .filter(group -> group != null && group.getStatus() == InstitutionGroup.Status.active)
@@ -115,8 +115,8 @@ public class LearnerClassController {
     }
 
     private static Long certificationIdOf(InstitutionGroup group) {
-        return group.getOrgCert() == null || group.getOrgCert().getCertification() == null
+        return group.getInstitutionCert() == null || group.getInstitutionCert().getCertification() == null
                 ? null
-                : group.getOrgCert().getCertification().getCertificationId();
+                : group.getInstitutionCert().getCertification().getCertificationId();
     }
 }

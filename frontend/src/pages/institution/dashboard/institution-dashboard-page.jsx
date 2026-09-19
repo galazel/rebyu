@@ -300,7 +300,7 @@ export default function InstitutionDashboardPage() {
           <BentoTile col={6} row={1}>
             <BentoHeading
               title="At a glance"
-              hint="Learning activity across the whole organization."
+              hint="Learning activity across the whole institution."
             />
             <dl className="grid flex-1 grid-cols-2 items-center gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
               <Figure
@@ -323,7 +323,7 @@ export default function InstitutionDashboardPage() {
               <Figure
                 icon={GraduationCapIcon}
                 label="Active certifications"
-                value={data.orgCerts.filter((cert) => cert.status === "active").length}
+                value={data.institutionCerts.filter((cert) => cert.status === "active").length}
               />
               <Figure
                 icon={BarChart3Icon}
@@ -537,31 +537,31 @@ export default function InstitutionDashboardPage() {
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
               <BentoHeading
                 title="Certification allocations"
-                hint="Slot usage per certification your organization has access to."
+                hint="Slot usage per certification your institution has access to."
                 chip={
-                  data.orgCerts.length > 0 ? (
-                    <Badge variant="secondary">{data.orgCerts.length}</Badge>
+                  data.institutionCerts.length > 0 ? (
+                    <Badge variant="secondary">{data.institutionCerts.length}</Badge>
                   ) : null
                 }
               />
 
-              {data.orgCerts.length === 0 ? (
+              {data.institutionCerts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No certification allocations yet. Submit a partnership request to get started.
                 </p>
               ) : (
                 <div className="-mr-2 min-h-0 flex-1 space-y-4 overflow-y-auto pr-2">
-                  {data.orgCerts.map((orgCert) => {
-                    const certification = data.certificationById.get(orgCert.certificationId)
-                    const used = orgCert.usedSlots ?? 0
-                    const total = orgCert.totalSlots ?? 0
+                  {data.institutionCerts.map((institutionCert) => {
+                    const certification = data.certificationById.get(institutionCert.certificationId)
+                    const used = institutionCert.usedSlots ?? 0
+                    const total = institutionCert.totalSlots ?? 0
                     const pct = total > 0 ? (used / total) * 100 : 0
 
                     return (
-                      <div key={orgCert.orgCertId} className="space-y-1.5">
+                      <div key={institutionCert.institutionCertId} className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2 text-sm">
                           <span className="truncate font-bold">
-                            {certification?.title ?? `Certification #${orgCert.certificationId}`}
+                            {certification?.title ?? `Certification #${institutionCert.certificationId}`}
                           </span>
                           <span className="shrink-0 text-muted-foreground">
                             {used} / {total} slots
@@ -586,7 +586,7 @@ export default function InstitutionDashboardPage() {
     members,
     cohort,
     groupStats,
-    data.orgCerts,
+    data.institutionCerts,
     data.certificationById,
     recentInvitations,
     pendingInvitations,
@@ -599,7 +599,7 @@ export default function InstitutionDashboardPage() {
   if (institutionError) {
     return (
       <InstitutionErrorState
-        title="Unable to load your organization"
+        title="Unable to load your institution"
         onRetry={refetchInstitution}
       />
     )
@@ -608,8 +608,8 @@ export default function InstitutionDashboardPage() {
   if (!institution) {
     return (
       <InstitutionEmptyState
-        title="No organization found"
-        description="Once your organization is registered with REBYU, its dashboard will appear here."
+        title="No institution found"
+        description="Once your institution is registered with REBYU, its dashboard will appear here."
       />
     )
   }
@@ -650,7 +650,7 @@ export default function InstitutionDashboardPage() {
           {/* The four chart panels that used to sit here were fed from
               components/charts/sample-data.js -- invented months, invented group
               names, a donut whose centre read "120 learners" regardless of the
-              roster. They are replaced by the organization's own figures rather
+              roster. They are replaced by the institution's own figures rather
               than kept behind a "sample data" chip. */}
           <DashboardBoard
             tiles={tiles}

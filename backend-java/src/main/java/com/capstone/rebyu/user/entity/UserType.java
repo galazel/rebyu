@@ -1,7 +1,7 @@
 package com.capstone.rebyu.user.entity;
 
 
-import com.capstone.rebyu.organization.entity.Institution;
+import com.capstone.rebyu.institution.entity.Institution;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -14,6 +14,7 @@ public class UserType {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long userTypeId;
-    @Column(name = "user_type_text", nullable = false, length = 20)
+
+    @Column(name = "user_type_text", nullable = false, length = 20)
     private String userTypeText;
 }

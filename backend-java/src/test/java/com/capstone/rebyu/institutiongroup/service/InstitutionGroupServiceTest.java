@@ -5,9 +5,9 @@ import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
 import com.capstone.rebyu.institutiongroup.mapper.InstitutionGroupMapper;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAuthorityRepository;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupRepository;
-import com.capstone.rebyu.organization.entity.Institution;
-import com.capstone.rebyu.organization.entity.OrganizationCertificate;
-import com.capstone.rebyu.organization.repository.OrganizationCertificateRepository;
+import com.capstone.rebyu.institution.entity.Institution;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
+import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,10 +27,10 @@ class InstitutionGroupServiceTest {
     private static final Long CALLER_INSTITUTION_ID = 1L;
     private static final Long OTHER_INSTITUTION_ID = 2L;
     private static final Long GROUP_ID = 10L;
-    private static final Long ORG_CERT_ID = 30L;
+    private static final Long INSTITUTION_CERT_ID = 30L;
 
     private InstitutionGroupRepository groupRepository;
-    private OrganizationCertificateRepository orgCertRepository;
+    private InstitutionCertificateRepository institutionCertRepository;
     private InstitutionGroupMapper mapper;
 
     private InstitutionGroupService service;
@@ -38,11 +38,11 @@ class InstitutionGroupServiceTest {
     @BeforeEach
     void setUp() {
         groupRepository = mock(InstitutionGroupRepository.class);
-        orgCertRepository = mock(OrganizationCertificateRepository.class);
+        institutionCertRepository = mock(InstitutionCertificateRepository.class);
         mapper = mock(InstitutionGroupMapper.class);
 
         service = new InstitutionGroupService(
-                groupRepository, mock(InstitutionGroupAuthorityRepository.class), orgCertRepository, mapper);
+                groupRepository, mock(InstitutionGroupAuthorityRepository.class), institutionCertRepository, mapper);
 
         when(mapper.toDto(any(InstitutionGroup.class))).thenAnswer(inv -> {
             InstitutionGroup entity = inv.getArgument(0);
@@ -70,13 +70,13 @@ class InstitutionGroupServiceTest {
     private InstitutionGroup group(Long institutionId) {
         Institution institution = new Institution();
         institution.setInstitutionId(institutionId);
-        OrganizationCertificate orgCert = new OrganizationCertificate();
-        orgCert.setOrgCertId(ORG_CERT_ID);
-        orgCert.setTotalSlots(100);
+        InstitutionCertificate institutionCert = new InstitutionCertificate();
+        institutionCert.setInstitutionCertId(INSTITUTION_CERT_ID);
+        institutionCert.setTotalSlots(100);
         return InstitutionGroup.builder()
                 .institutionGroupId(GROUP_ID)
                 .institution(institution)
-                .orgCert(orgCert)
+                .institutionCert(institutionCert)
                 .groupName("Original Name")
                 .groupDescription("Original Description")
                 .totalSlots(10)
@@ -85,11 +85,11 @@ class InstitutionGroupServiceTest {
                 .build();
     }
 
-    private OrganizationCertificate orgCert(Long institutionId) {
+    private InstitutionCertificate institutionCert(Long institutionId) {
         Institution institution = new Institution();
         institution.setInstitutionId(institutionId);
-        return OrganizationCertificate.builder()
-                .orgCertId(ORG_CERT_ID)
+        return InstitutionCertificate.builder()
+                .institutionCertId(INSTITUTION_CERT_ID)
                 .institution(institution)
                 .totalSlots(100)
                 .build();
@@ -98,7 +98,7 @@ class InstitutionGroupServiceTest {
     private InstitutionGroupDto createDto(Long institutionId) {
         InstitutionGroupDto dto = new InstitutionGroupDto();
         dto.setInstitutionId(institutionId);
-        dto.setOrgCertId(ORG_CERT_ID);
+        dto.setInstitutionCertId(INSTITUTION_CERT_ID);
         dto.setGroupName("New Group");
         dto.setGroupDescription("New Description");
         dto.setTotalSlots(10);
@@ -108,8 +108,8 @@ class InstitutionGroupServiceTest {
     // ---- create() ----
 
     @Test
-    void create_orgCertBelongsToDifferentInstitution_throwsNotFound() {
-        when(orgCertRepository.findById(ORG_CERT_ID)).thenReturn(Optional.of(orgCert(OTHER_INSTITUTION_ID)));
+    void create_institutionCertBelongsToDifferentInstitution_throwsNotFound() {
+        when(institutionCertRepository.findById(INSTITUTION_CERT_ID)).thenReturn(Optional.of(institutionCert(OTHER_INSTITUTION_ID)));
 
         assertThrows(EntityNotFoundException.class,
                 () -> service.create(createDto(CALLER_INSTITUTION_ID)));
@@ -119,7 +119,7 @@ class InstitutionGroupServiceTest {
 
     @Test
     void create_matchingInstitution_succeedsAndReturnsMappedDto() {
-        when(orgCertRepository.findById(ORG_CERT_ID)).thenReturn(Optional.of(orgCert(CALLER_INSTITUTION_ID)));
+        when(institutionCertRepository.findById(INSTITUTION_CERT_ID)).thenReturn(Optional.of(institutionCert(CALLER_INSTITUTION_ID)));
         when(groupRepository.save(any(InstitutionGroup.class))).thenAnswer(inv -> {
             InstitutionGroup entity = inv.getArgument(0);
             entity.setInstitutionGroupId(GROUP_ID);

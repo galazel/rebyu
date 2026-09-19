@@ -1,7 +1,7 @@
 package com.capstone.rebyu.partnership.entity;
 
 
-import com.capstone.rebyu.organization.entity.Institution;
+import com.capstone.rebyu.institution.entity.Institution;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "partnership_requests", indexes = {
         @Index(name = "idx_partnership_request_status", columnList = "status"),
-        @Index(name = "idx_partnership_request_org_email", columnList = "organization_email"),
+        @Index(name = "idx_partnership_request_org_email", columnList = "institution_email"),
         @Index(name = "idx_partnership_request_reference", columnList = "reference_number")
 })
 @Data
@@ -35,18 +35,18 @@ public class PartnershipRequest {
     private String referenceNumber;
 
     // Null until the request is approved and an Institution record is created.
-    // A public organization representative has no account when they submit.
+    // A public institution representative has no account when they submit.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "institution_id")
     private Institution institution;
 
-    // Organization details captured on the public request (denormalized so no
-    // unverified organization pollutes the institutions table before approval).
-    @Column(name = "organization_name", length = 150)
-    private String organizationName;
+    // Institution details captured on the public request (denormalized so no
+    // unverified institution pollutes the institutions table before approval).
+    @Column(name = "institution_name", length = 150)
+    private String institutionName;
 
-    @Column(name = "organization_email", length = 254)
-    private String organizationEmail;
+    @Column(name = "institution_email", length = 254)
+    private String institutionEmail;
 
     @Column(name = "contact_person_name", length = 150)
     private String contactPersonName;
@@ -54,8 +54,8 @@ public class PartnershipRequest {
     @Column(name = "contact_number", length = 40)
     private String contactNumber;
 
-    @Column(name = "organization_address", columnDefinition = "text")
-    private String organizationAddress;
+    @Column(name = "institution_address", columnDefinition = "text")
+    private String institutionAddress;
 
     @Column(name = "business_description", columnDefinition = "text")
     private String businessDescription;
@@ -82,7 +82,7 @@ public class PartnershipRequest {
     private String idempotencyKey;
 
     // Optimistic lock so two near-simultaneous approve/reject calls on the
-    // same request can't both succeed (mirrors OrganizationCertificate.version).
+    // same request can't both succeed (mirrors InstitutionCertificate.version).
     @Version
     @Column(name = "version")
     private Long version;

@@ -859,7 +859,7 @@ export default function InstitutionGroupWorkspacePage() {
   const certification = (certificationsQuery.data ?? []).find(
     (item) =>
       item.certificationId === group.certificationId ||
-      item.certificationId === group.orgCert?.certificationId
+      item.certificationId === group.institutionCert?.certificationId
   )
   const learners = (assigneesQuery.data ?? []).filter((item) => item.status === "active")
   // The official curriculum tree excludes this group's own authored content
@@ -1093,7 +1093,7 @@ export default function InstitutionGroupWorkspacePage() {
           <LearnersTab groupId={id} group={group} />
         </TabsContent>
 
-        {/* Moved here from the organization account: writing questions is the
+        {/* Moved here from the institution account: writing questions is the
             group leader's work, for the certification their group studies. */}
         <TabsContent value="question-bank" className="mt-5 space-y-4">
           <p className="text-sm text-muted-foreground">

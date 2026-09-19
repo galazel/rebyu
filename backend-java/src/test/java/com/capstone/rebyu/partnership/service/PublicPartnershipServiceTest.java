@@ -56,7 +56,7 @@ class PublicPartnershipServiceTest {
         when(certificationRepository.findById(CERT_ID)).thenReturn(Optional.of(certification));
 
         when(requestRepository.findByReferenceNumber(anyString())).thenReturn(Optional.empty());
-        when(requestRepository.existsByOrganizationEmailIgnoreCaseAndStatus(anyString(), any()))
+        when(requestRepository.existsByInstitutionEmailIgnoreCaseAndStatus(anyString(), any()))
                 .thenReturn(false);
         when(requestRepository.save(any(PartnershipRequest.class))).thenAnswer(inv -> {
             PartnershipRequest req = inv.getArgument(0);
@@ -66,14 +66,14 @@ class PublicPartnershipServiceTest {
         when(itemRepository.save(any(PartnershipRequestItem.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
-    private SubmitPublicPartnershipRequest request(String organizationName) {
+    private SubmitPublicPartnershipRequest request(String institutionName) {
         return new SubmitPublicPartnershipRequest(
-                organizationName,
+                institutionName,
                 "contact@example.com",
                 "Jane Doe",
                 "0917-000-0000",
                 "123 Main St",
-                "A tutoring organization.",
+                "A tutoring institution.",
                 List.of(new PublicPartnershipItemRequest(CERT_ID, 10, java.time.LocalDate.now(), java.time.LocalDate.now().plusMonths(12)))
         );
     }
@@ -84,8 +84,8 @@ class PublicPartnershipServiceTest {
         PartnershipRequest existing = PartnershipRequest.builder()
                 .requestId(99L)
                 .referenceNumber("PR-EXISTING1")
-                .organizationName("Acme Corp")
-                .organizationEmail("contact@example.com")
+                .institutionName("Acme Corp")
+                .institutionEmail("contact@example.com")
                 .status(PartnershipRequest.Status.PENDING)
                 .build();
 
@@ -109,13 +109,13 @@ class PublicPartnershipServiceTest {
 
         verify(requestRepository, times(1)).save(any(PartnershipRequest.class));
         assertNotEquals(null, response.referenceNumber());
-        assertEquals("Acme Corp", response.organizationName());
+        assertEquals("Acme Corp", response.institutionName());
         assertEquals(PartnershipRequest.Status.PENDING.name(), response.status());
     }
 
-    // ---- 3: different organizationName produces a different idempotency key, so both are fresh inserts ----
+    // ---- 3: different institutionName produces a different idempotency key, so both are fresh inserts ----
     @Test
-    void submit_sameEmailDifferentOrganizationName_doesNotCollide() {
+    void submit_sameEmailDifferentInstitutionName_doesNotCollide() {
         when(requestRepository.findByIdempotencyKey(anyString())).thenReturn(Optional.empty());
 
         service.submit(request("Acme Corp"));
@@ -124,7 +124,7 @@ class PublicPartnershipServiceTest {
         verify(requestRepository, times(2)).save(any(PartnershipRequest.class));
     }
 
-    // ---- 4: an organization cannot inquire about a draft (unpublished) certification ----
+    // ---- 4: an institution cannot inquire about a draft (unpublished) certification ----
     @Test
     void submit_draftCertification_isRejected() {
         when(requestRepository.findByIdempotencyKey(anyString())).thenReturn(Optional.empty());

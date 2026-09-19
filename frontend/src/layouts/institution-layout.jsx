@@ -36,7 +36,7 @@ export default function InstitutionLayout() {
   usePortalTheme()
   const navigate = useNavigate()
   const { user, logout: authLogout } = useAuth()
-  // A signed-in institution account is scoped to its own organization via the
+  // A signed-in institution account is scoped to its own institution via the
   // institutionId from /api/auth/me.
   const authInstitutionId = user?.institutionId ?? null
 
@@ -65,12 +65,12 @@ export default function InstitutionLayout() {
     [institution, scopedQuery.isLoading, scopedQuery.isError, scopedQuery.refetch]
   )
 
-  const orgName = institution?.institutionName ?? "Organization"
-  // An institution member (group leader) has no Organization page; their
+  const orgName = institution?.institutionName ?? "Institution"
+  // An institution member (group leader) has no Institution page; their
   // groups are in the header navigation instead.
   const isInstitutionMember = user?.institutionMemberRole && user.institutionMemberRole !== "owner"
   // Pass the account's real role through so the header can tell the
-  // organization's own account apart from one it created for a member.
+  // institution's own account apart from one it created for a member.
   const portalRole = (user?.role ?? "").toUpperCase() === "INSTITUTION_MEMBER"
     ? "INSTITUTION_MEMBER"
     : "INSTITUTION"
@@ -79,13 +79,13 @@ export default function InstitutionLayout() {
   const logout = async () => {
     await authLogout()
     localStorage.removeItem("institution_id")
-    localStorage.removeItem("organizationId")
+    localStorage.removeItem("institutionId")
     navigate("/login", { replace: true })
   }
 
   return (
     <div className="netacad-portal institution-portal flex min-h-screen flex-col">
-      <PortalTopNavigation role={portalRole} organizationName={orgName} institutionMemberRole={user?.institutionMemberRole} actions={<>
+      <PortalTopNavigation role={portalRole} institutionName={orgName} institutionMemberRole={user?.institutionMemberRole} actions={<>
             <NotificationBell
               items={notifications.items}
               unreadCount={notifications.unreadCount}
@@ -126,9 +126,9 @@ export default function InstitutionLayout() {
                    route behind it at all, so it fell through to the 404. */}
                {isInstitutionMember ? null : (
                  <>
-                   <DropdownMenuItem onClick={() => navigate("/institution/organization")}>
+                   <DropdownMenuItem onClick={() => navigate("/institution/profile")}>
                      <SettingsIcon />
-                     Organization
+                     Institution
                    </DropdownMenuItem>
                    <DropdownMenuSeparator />
                  </>

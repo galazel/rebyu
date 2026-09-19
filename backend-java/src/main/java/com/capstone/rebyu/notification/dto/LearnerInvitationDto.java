@@ -18,7 +18,7 @@ public class LearnerInvitationDto {
     private Long invitationId;
 
     @NotNull
-    private Long orgCertId;
+    private Long institutionCertId;
 
     private Long learnerId;
 

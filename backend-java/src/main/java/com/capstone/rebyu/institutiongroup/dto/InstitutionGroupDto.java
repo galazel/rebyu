@@ -23,9 +23,9 @@ public class InstitutionGroupDto {
     private Long institutionId;
 
     @NotNull
-    private Long orgCertId;
+    private Long institutionCertId;
 
-    /** Read-only certification behind the group's organization allocation. */
+    /** Read-only certification behind the group's institution allocation. */
     private Long certificationId;
 
     @NotBlank

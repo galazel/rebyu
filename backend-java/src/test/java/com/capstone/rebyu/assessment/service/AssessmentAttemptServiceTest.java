@@ -12,7 +12,7 @@ import com.capstone.rebyu.certification.entity.Lesson;
 import com.capstone.rebyu.certification.repository.LessonRepository;
 import com.capstone.rebyu.enrollment.entity.LearnerCertification;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.diagram.service.DiagramGradingService;
 import com.capstone.rebyu.gamification.RewardService;
 import com.capstone.rebyu.gamification.service.StreakService;
@@ -55,7 +55,7 @@ class AssessmentAttemptServiceTest {
        purpose: Mockito's default `false` is "not sponsored", so these tests keep
        reaching the gate through their own direct enrollment, which is what they
        are about. */
-    @Mock private OrganizationCertificationLearnerRepository organizationCertificationLearnerRepository;
+    @Mock private InstitutionCertificationLearnerRepository institutionCertificationLearnerRepository;
     @Mock private ExamResultRepository examResultRepository;
     @Mock private AssessmentAttemptExecutionRepository attemptExecutionRepository;
     @Mock private QuestionRubricCriterionRepository questionRubricCriterionRepository;
@@ -82,7 +82,7 @@ class AssessmentAttemptServiceTest {
                 textQuestionConfigRepository, programmingQuestionConfigRepository,
                 diagramQuestionConfigRepository, attemptRepository,
                 attemptQuestionRepository, attemptAnswerRepository,
-                learnerCertificationRepository, organizationCertificationLearnerRepository,
+                learnerCertificationRepository, institutionCertificationLearnerRepository,
                 examResultRepository,
                 attemptExecutionRepository, questionRubricCriterionRepository,
                 lessonRepository, learnerEntitlementService, bktOutboxService,

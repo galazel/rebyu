@@ -29,11 +29,11 @@ public final class PublicPartnershipDtos {
     }
 
     public record SubmitPublicPartnershipRequest(
-            @NotBlank @Size(max = 150) String organizationName,
-            @NotBlank @Email @Size(max = 254) String organizationEmail,
+            @NotBlank @Size(max = 150) String institutionName,
+            @NotBlank @Email @Size(max = 254) String institutionEmail,
             @NotBlank @Size(max = 150) String contactPersonName,
             @NotBlank @Size(max = 40) String contactNumber,
-            @NotBlank String organizationAddress,
+            @NotBlank String institutionAddress,
             @NotBlank String businessDescription,
             @NotEmpty List<@Valid PublicPartnershipItemRequest> items
     ) {
@@ -42,7 +42,7 @@ public final class PublicPartnershipDtos {
     /** Returned to the requester after a successful submission. */
     public record PublicPartnershipRequestResponse(
             String referenceNumber,
-            String organizationName,
+            String institutionName,
             LocalDateTime submittedAt,
             String status,
             Integer certificationCount,
@@ -50,17 +50,17 @@ public final class PublicPartnershipDtos {
     ) {
     }
 
-    /** Public status lookup input: reference number + organization email. */
+    /** Public status lookup input: reference number + institution email. */
     public record PublicPartnershipStatusRequest(
             @NotBlank String referenceNumber,
-            @NotBlank @Email String organizationEmail
+            @NotBlank @Email String institutionEmail
     ) {
     }
 
     /** Limited public status view — no admin internals or slot allocations. */
     public record PublicPartnershipStatusResponse(
             String referenceNumber,
-            String organizationName,
+            String institutionName,
             LocalDateTime submittedAt,
             String status,
             String remarks

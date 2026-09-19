@@ -1,9 +1,9 @@
 package com.capstone.rebyu.auth.service;
 
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
-import com.capstone.rebyu.organization.entity.Institution;
-import com.capstone.rebyu.organization.entity.InstitutionMember;
-import com.capstone.rebyu.organization.repository.InstitutionRepository;
+import com.capstone.rebyu.institution.entity.Institution;
+import com.capstone.rebyu.institution.entity.InstitutionMember;
+import com.capstone.rebyu.institution.repository.InstitutionRepository;
 import com.capstone.rebyu.user.entity.Learner;
 import com.capstone.rebyu.user.entity.User;
 import com.capstone.rebyu.user.entity.UserType;
@@ -40,11 +40,11 @@ import java.util.stream.Collectors;
 public class CognitoAuthService {
 
     public static final String LEARNER_USER_TYPE = "LEARNER";
-    /** The organization's own account -- the owner / primary contact. */
+    /** The institution's own account -- the owner / primary contact. */
     public static final String INSTITUTION_USER_TYPE = "INSTITUTION";
     /**
-     * Someone the organization created an account for (a group leader, a
-     * co-admin) rather than the organization account itself. Carries the same
+     * Someone the institution created an account for (a group leader, a
+     * co-admin) rather than the institution account itself. Carries the same
      * permissions as INSTITUTION; it exists so the two can be told apart.
      */
     public static final String INSTITUTION_MEMBER_USER_TYPE = "INSTITUTION_MEMBER";
@@ -62,7 +62,7 @@ public class CognitoAuthService {
     private final UserRepository userRepository;
     private final UserTypeRepository userTypeRepository;
     private final LearnerRepository learnerRepository;
-    private final com.capstone.rebyu.organization.repository.InstitutionMemberRepository institutionMemberRepository;
+    private final com.capstone.rebyu.institution.repository.InstitutionMemberRepository institutionMemberRepository;
     private final InstitutionRepository institutionRepository;
     private final com.capstone.rebyu.bkt.client.BktClient bktClient;
 
@@ -316,13 +316,13 @@ public class CognitoAuthService {
     /**
      * Self-heals institution account linkage on sign-in. When a validated user's
      * email matches an Institution's primary contact (i.e. an admin-approved
-     * partnership created that organization for this email), make sure the
-     * account is typed INSTITUTION and linked to that organization as its owner.
+     * partnership created that institution for this email), make sure the
+     * account is typed INSTITUTION and linked to that institution as its owner.
      *
      * Without this, the first sign-in of an approved institution contact falls
      * through {@link #linkOrProvision} and is provisioned as a plain LEARNER with
      * no InstitutionMember row — so institutionId never resolves and the institution
-     * portal shows "Unable to load your organization". This runs on every sync,
+     * portal shows "Unable to load your institution". This runs on every sync,
      * so it also repairs accounts that were already mis-provisioned.
      */
     private void ensureInstitutionLinkage(User user) {
@@ -355,7 +355,7 @@ public class CognitoAuthService {
         }
 
         // 2) Ensure an owner InstitutionMember link exists so the portal can scope
-        //    to this organization.
+        //    to this institution.
         boolean alreadyLinked = !institutionMemberRepository
                 .findByInstitution_InstitutionIdAndUser_UserId(
                         institution.getInstitutionId(), user.getUserId())
@@ -402,7 +402,7 @@ public class CognitoAuthService {
             displayName = learner != null ? learner.getUsername() : user.getEmail();
         }
 
-        // Institution members carry their organization so the portal can scope
+        // Institution members carry their institution so the portal can scope
         // to it; their role comes from the INSTITUTION user type.
         InstitutionMember membership = institutionMemberRepository.findByUser_UserId(user.getUserId())
                 .stream()

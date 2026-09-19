@@ -1,22 +1,18 @@
-import * as React from "react"
 import { MoonIcon, SunIcon } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useTheme } from "@/components/theme-provider"
+import { useTheme } from "@/hooks/use-theme"
 
 /** Shared between the icon button and the menu item, so the two can never
  *  disagree about which way the theme is currently set. */
 function useIsDark() {
   const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = React.useState(false)
-  React.useEffect(() => setMounted(true), [])
 
-  const isDark = mounted
-    ? theme === "dark" ||
-      (theme === "system" && document.documentElement.classList.contains("dark"))
-    : false
+  const isDark =
+    theme === "dark" ||
+    (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)
 
   return { isDark, toggle: () => setTheme(isDark ? "light" : "dark") }
 }

@@ -339,7 +339,6 @@ function icon(definition: IconDefinition, displayName: string) {
     return (
       <FontAwesomeIcon
         icon={definition}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ref={ref as any}
         // FontAwesome types \`style\` as \`CSSProperties & CSSVariables\`, whose
         // index signature (\`--fa-font-\${string}\`) React's plain
@@ -347,9 +346,7 @@ function icon(definition: IconDefinition, displayName: string) {
         // set, where \`mask\` and friends mean something else. Both are cast
         // rather than modelled: this module's job is to accept lucide's props
         // at the call sites, not to re-describe FontAwesome's.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         style={size === undefined ? (style as any) : ({ width: size, height: size, ...(style as any) } as any)}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         {...(props as any)}
       />
     )

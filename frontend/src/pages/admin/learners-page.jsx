@@ -68,7 +68,7 @@ const DEMO_LEARNERS = [
     firstName: "Alyssa",
     lastName: "Santos",
     email: "alyssa.santos@example.com",
-    organizationName: "Cebu Institute of Technology",
+    institutionName: "Cebu Institute of Technology",
     learnerType: "institution",
     certificationCount: 3,
     progressPercentage: 78,
@@ -80,7 +80,7 @@ const DEMO_LEARNERS = [
     firstName: "John Mark",
     lastName: "Reyes",
     email: "john.reyes@example.com",
-    organizationName: null,
+    institutionName: null,
     learnerType: "individual",
     certificationCount: 2,
     progressPercentage: 62,
@@ -92,7 +92,7 @@ const DEMO_LEARNERS = [
     firstName: "Patricia",
     lastName: "Cruz",
     email: "patricia.cruz@example.com",
-    organizationName: "TechBridge Training Center",
+    institutionName: "TechBridge Training Center",
     learnerType: "institution",
     certificationCount: 1,
     progressPercentage: 35,
@@ -104,7 +104,7 @@ const DEMO_LEARNERS = [
     firstName: "Miguel",
     lastName: "Tan",
     email: "miguel.tan@example.com",
-    organizationName: null,
+    institutionName: null,
     learnerType: "individual",
     certificationCount: 4,
     progressPercentage: 91,
@@ -116,7 +116,7 @@ const DEMO_LEARNERS = [
     firstName: "Nicole",
     lastName: "Ramos",
     email: "nicole.ramos@example.com",
-    organizationName: "Northstar Review Academy",
+    institutionName: "Northstar Review Academy",
     learnerType: "institution",
     certificationCount: 2,
     progressPercentage: 48,
@@ -128,7 +128,7 @@ const DEMO_LEARNERS = [
     firstName: "Joshua",
     lastName: "Lim",
     email: "joshua.lim@example.com",
-    organizationName: "Digital Career Academy",
+    institutionName: "Digital Career Academy",
     learnerType: "institution",
     certificationCount: 2,
     progressPercentage: 19,
@@ -140,7 +140,7 @@ const DEMO_LEARNERS = [
     firstName: "Camille",
     lastName: "Mendoza",
     email: "camille.mendoza@example.com",
-    organizationName: null,
+    institutionName: null,
     learnerType: "individual",
     certificationCount: 1,
     progressPercentage: 54,
@@ -152,7 +152,7 @@ const DEMO_LEARNERS = [
     firstName: "Paolo",
     lastName: "Villanueva",
     email: "paolo.villanueva@example.com",
-    organizationName: "FutureReady Philippines",
+    institutionName: "FutureReady Philippines",
     learnerType: "institution",
     certificationCount: 3,
     progressPercentage: 83,
@@ -164,7 +164,7 @@ const DEMO_LEARNERS = [
     firstName: "Angela",
     lastName: "Dela Cruz",
     email: "angela.delacruz@example.com",
-    organizationName: null,
+    institutionName: null,
     learnerType: "individual",
     certificationCount: 2,
     progressPercentage: 41,
@@ -282,7 +282,7 @@ export default function Learners({
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState(ALL_FILTER_VALUE)
   const [typeFilter, setTypeFilter] = useState(ALL_FILTER_VALUE)
-  const [organizationFilter, setOrganizationFilter] =
+  const [institutionFilter, setInstitutionFilter] =
       useState(ALL_FILTER_VALUE)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -312,15 +312,15 @@ export default function Learners({
 
   const list = Array.isArray(fetchedLearners) ? fetchedLearners : []
 
-  const organizations = useMemo(() => {
+  const institutions = useMemo(() => {
     return [
       ...new Set(
           list
               .map(
                   (learner) =>
-                      learner.organizationName ??
-                      learner.organization?.name ??
-                      learner.organization?.organizationName
+                      learner.institutionName ??
+                      learner.institution?.name ??
+                      learner.institution?.institutionName
               )
               .filter(Boolean)
       ),
@@ -333,25 +333,25 @@ export default function Learners({
     return list.filter((learner) => {
       const learnerName = getLearnerName(learner).toLowerCase()
       const email = String(learner.email ?? "").toLowerCase()
-      const organizationName = String(
-          learner.organizationName ??
-          learner.organization?.name ??
-          learner.organization?.organizationName ??
+      const institutionName = String(
+          learner.institutionName ??
+          learner.institution?.name ??
+          learner.institution?.institutionName ??
           ""
       )
-      const organizationNameLower = organizationName.toLowerCase()
+      const institutionNameLower = institutionName.toLowerCase()
       const status = String(learner.status ?? "pending").toLowerCase()
       const type = String(
           learner.learnerType ??
           learner.type ??
-          (organizationName ? "institution" : "individual")
+          (institutionName ? "institution" : "individual")
       ).toLowerCase()
 
       const matchesSearch =
           !normalizedSearch ||
           learnerName.includes(normalizedSearch) ||
           email.includes(normalizedSearch) ||
-          organizationNameLower.includes(normalizedSearch)
+          institutionNameLower.includes(normalizedSearch)
 
       const matchesStatus =
           statusFilter === ALL_FILTER_VALUE || status === statusFilter
@@ -359,20 +359,20 @@ export default function Learners({
       const matchesType =
           typeFilter === ALL_FILTER_VALUE || type === typeFilter
 
-      const matchesOrganization =
-          organizationFilter === ALL_FILTER_VALUE ||
-          organizationName === organizationFilter
+      const matchesInstitution =
+          institutionFilter === ALL_FILTER_VALUE ||
+          institutionName === institutionFilter
 
       return (
           matchesSearch &&
           matchesStatus &&
           matchesType &&
-          matchesOrganization
+          matchesInstitution
       )
     })
   }, [
     list,
-    organizationFilter,
+    institutionFilter,
     searchQuery,
     statusFilter,
     typeFilter,
@@ -384,10 +384,10 @@ export default function Learners({
       () =>
           sortRows(filteredLearners, {
             learner: (learner) => getLearnerName(learner),
-            organization: (learner) =>
-                learner.organizationName ??
-                learner.organization?.name ??
-                learner.organization?.organizationName ??
+            institution: (learner) =>
+                learner.institutionName ??
+                learner.institution?.name ??
+                learner.institution?.institutionName ??
                 null,
             type: (learner) =>
                 learner.learnerType ?? learner.type ?? "individual",
@@ -424,7 +424,7 @@ export default function Learners({
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, statusFilter, typeFilter, organizationFilter, pageSize])
+  }, [searchQuery, statusFilter, typeFilter, institutionFilter, pageSize])
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages))
@@ -451,15 +451,15 @@ export default function Learners({
   const institutionCount = useMemo(
       () =>
           list.filter((learner) => {
-            const organizationName =
-                learner.organizationName ??
-                learner.organization?.name ??
-                learner.organization?.organizationName
+            const institutionName =
+                learner.institutionName ??
+                learner.institution?.name ??
+                learner.institution?.institutionName
 
             const type = String(
                 learner.learnerType ??
                 learner.type ??
-                (organizationName ? "institution" : "individual")
+                (institutionName ? "institution" : "individual")
             ).toLowerCase()
 
             return type === "institution"
@@ -541,27 +541,27 @@ export default function Learners({
                 onPageSizeChange={setPageSize}
                 search={searchQuery}
                 onSearchChange={setSearchQuery}
-                searchPlaceholder="Search learner, email, or organization"
+                searchPlaceholder="Search learner, email, or institution"
             >
               <Select
-                  value={organizationFilter}
-                  onValueChange={setOrganizationFilter}
+                  value={institutionFilter}
+                  onValueChange={setInstitutionFilter}
               >
                 <SelectTrigger className="h-9 w-full sm:w-52">
-                  <SelectValue placeholder="All organizations" />
+                  <SelectValue placeholder="All institutions" />
                 </SelectTrigger>
 
                 <SelectContent>
                   <SelectItem value={ALL_FILTER_VALUE}>
-                    All organizations
+                    All institutions
                   </SelectItem>
 
-                  {organizations.map((organization) => (
+                  {institutions.map((institution) => (
                       <SelectItem
-                          key={organization}
-                          value={organization}
+                          key={institution}
+                          value={institution}
                       >
-                        {organization}
+                        {institution}
                       </SelectItem>
                   ))}
                 </SelectContent>
@@ -609,8 +609,8 @@ export default function Learners({
                         className="min-w-64"
                     />
                     <SortableHead
-                        column="organization"
-                        label="Organization"
+                        column="institution"
+                        label="Institution"
                         sort={sort}
                         onSort={toggle}
                         className="min-w-52"
@@ -666,15 +666,15 @@ export default function Learners({
                   ) : paginatedLearners.length > 0 ? (
                       paginatedLearners.map((learner, index) => {
                         const learnerName = getLearnerName(learner)
-                        const organizationName =
-                            learner.organizationName ??
-                            learner.organization?.name ??
-                            learner.organization?.organizationName
+                        const institutionName =
+                            learner.institutionName ??
+                            learner.institution?.name ??
+                            learner.institution?.institutionName
 
                         const learnerType = String(
                             learner.learnerType ??
                             learner.type ??
-                            (organizationName ? "institution" : "individual")
+                            (institutionName ? "institution" : "individual")
                         ).toLowerCase()
 
                         const certificationCount = Number(
@@ -721,13 +721,13 @@ export default function Learners({
                               </TableCell>
 
                               <TableCell>
-                                {organizationName ? (
+                                {institutionName ? (
                                     <div className="min-w-0">
                                       <p className="truncate text-sm font-medium text-foreground">
-                                        {organizationName}
+                                        {institutionName}
                                       </p>
                                       <p className="mt-0.5 text-xs text-muted-foreground">
-                                        Organization learner
+                                        Institution learner
                                       </p>
                                     </div>
                                 ) : (

@@ -44,7 +44,7 @@ const FEATURE_LABELS = {
   DETAILED_PROGRESS: "Detailed progress",
   PROGRESS_ANALYTICS: "Progress analytics",
   EXPORT_REPORTS: "Report exports",
-  ORG_WIDE_ANALYTICS: "Organization-wide analytics",
+  ORG_WIDE_ANALYTICS: "Institution-wide analytics",
   AUDIT_LOGS: "Audit logs",
 }
 
@@ -98,8 +98,8 @@ export default function InstitutionLicensePage() {
   if (!institution) {
     return (
       <InstitutionEmptyState
-        title="No organization found"
-        description="Your institutional license appears here once your organization is registered."
+        title="No institution found"
+        description="Your institutional license appears here once your institution is registered."
       />
     )
   }
@@ -111,7 +111,7 @@ export default function InstitutionLicensePage() {
     <div className="space-y-6">
       <InstitutionPageHeader
         title="Institutional License"
-        subtitle="Your organization's plan, entitlements, and usage against its limits."
+        subtitle="Your institution's plan, entitlements, and usage against its limits."
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => toast.info("Contact your REBYU account manager to add capacity.")}>
@@ -133,7 +133,7 @@ export default function InstitutionLicensePage() {
         <InstitutionEmptyState
           icon={SparklesIcon}
           title="No active institutional license"
-          description="Once an institutional license is activated for your organization, your plan tier, entitlements, and usage will appear here."
+          description="Once an institutional license is activated for your institution, your plan tier, entitlements, and usage will appear here."
           action={
             <Button onClick={() => toast.info("Contact sales to set up an institutional license.")}>
               Contact Sales

@@ -172,7 +172,7 @@ function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, gro
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit question" : "Add question"}</DialogTitle>
           <DialogDescription>
-            This question is added to your organization's copy of the question bank for
+            This question is added to your institution's copy of the question bank for
             this lesson.
           </DialogDescription>
         </DialogHeader>
@@ -384,16 +384,16 @@ export function InstitutionQuestionBankPanel({
     staleTime: 5 * 60 * 1000,
   })
 
-  // Only certifications this organization has actually purchased access to --
+  // Only certifications this institution has actually purchased access to --
   // matches the backend's enforcement in QuestionService.
   const accessibleCertifications = useMemo(() => {
     const certById = new Map(
       (certificationsQuery.data ?? []).map((c) => [c.certificationId, c])
     )
-    return data.orgCerts
-      .map((orgCert) => certById.get(orgCert.certificationId))
+    return data.institutionCerts
+      .map((institutionCert) => certById.get(institutionCert.certificationId))
       .filter(Boolean)
-  }, [certificationsQuery.data, data.orgCerts])
+  }, [certificationsQuery.data, data.institutionCerts])
 
   const lessonOptions = useMemo(() => {
     const cert = accessibleCertifications.find(

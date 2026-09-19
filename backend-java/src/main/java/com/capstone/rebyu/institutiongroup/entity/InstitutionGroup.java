@@ -1,7 +1,7 @@
 package com.capstone.rebyu.institutiongroup.entity;
 
-import com.capstone.rebyu.organization.entity.Institution;
-import com.capstone.rebyu.organization.entity.OrganizationCertificate;
+import com.capstone.rebyu.institution.entity.Institution;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
 import com.capstone.rebyu.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -32,8 +32,8 @@ public class InstitutionGroup {
     private Institution institution;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "org_cert_id", nullable = false)
-    private OrganizationCertificate orgCert;
+    @JoinColumn(name = "institution_cert_id", nullable = false)
+    private InstitutionCertificate institutionCert;
 
     @Column(name = "group_name", nullable = false, length = 150)
     private String groupName;

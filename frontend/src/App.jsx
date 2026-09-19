@@ -17,8 +17,8 @@ const SetNewPasswordPage = lazyRoute(() => import("@/pages/auth/set-new-password
 const Certifications = lazyRoute(() => import("./pages/admin/certifications-page.jsx"))
 const Challenges = lazyRoute(() => import("./pages/admin/challenges-page.jsx"))
 const Learners = lazyRoute(() => import("./pages/admin/learners-page.jsx"))
-const Organizations = lazyRoute(() => import("./pages/admin/organizations-page.jsx"))
-const AdminOrganizationDetail = lazyRoute(() => import("./pages/admin/admin-organization-detail-page.jsx"))
+const Institutions = lazyRoute(() => import("./pages/admin/institutions-page.jsx"))
+const AdminInstitutionDetail = lazyRoute(() => import("./pages/admin/admin-institution-detail-page.jsx"))
 const ViewCertificationAdmin = lazyRoute(() => import("./pages/admin/view-certification-admin-page.jsx"))
 const AdminDashboard = lazyRoute(() => import("./pages/admin/admin-dashboard-page.jsx"))
 const PartnershipRequests = lazyRoute(() => import("./pages/admin/partnership-requests-page.jsx"))
@@ -190,7 +190,7 @@ export function App() {
                 other device failed. */}
             <Route path="/set-new-password" element={<SetNewPasswordPage />} />
 
-            {/* Public: organization representatives request Institution access with no account. */}
+            {/* Public: institution representatives request Institution access with no account. */}
             <Route
                 path="/institution/request-access"
                 element={<InstitutionRequestAccessPage />}
@@ -315,10 +315,10 @@ export function App() {
                         the same builder is embedded in that certification's
                         Question Bank tab -- a global list made you pick the
                         certification again after arriving. */}
-                    <Route path="organizations" element={<Organizations />} />
+                    <Route path="institutions" element={<Institutions />} />
                     <Route
-                        path="organizations/:id"
-                        element={<AdminOrganizationDetail />}
+                        path="institutions/:id"
+                        element={<AdminInstitutionDetail />}
                     />
                     <Route path="partnership-requests" element={<PartnershipRequests />} />
                     <Route path="subscriptions" element={<AdminSubscriptions />} />
@@ -454,7 +454,7 @@ export function App() {
                     <Route path="member" element={<InstitutionMemberDashboardPage />} />
                     {/* The roster only. Its per-learner detail page was reached
                         from a "View" action that no longer exists -- an
-                        organization sees who is on a certification and which
+                        institution sees who is on a certification and which
                         group teaches them, not an individual's performance
                         record. The group workspace is where a leader works with
                         a learner. */}
@@ -467,11 +467,11 @@ export function App() {
                         allocation -- content, group creation, and invitations all
                         live within the certification they belong to. */}
                     <Route
-                        path="certifications/:orgCertId"
+                        path="certifications/:institutionCertId"
                         element={<InstitutionCertificationDetailPage />}
                     />
                     {/* Deep-linked from a specific certification on the
-                        Certifications page (?orgCertId=...) -- groups are
+                        Certifications page (?institutionCertId=...) -- groups are
                         always created/viewed in the context of one
                         certification allocation. */}
                     <Route path="groups" element={<InstitutionGroupsPage />} />
@@ -497,7 +497,7 @@ export function App() {
                         element={<InstitutionCertificationViewerPage />}
                     />
                     {/* The question bank belongs to institution members, inside their
-                        group workspace; the organization account no longer has one. */}
+                        group workspace; the institution account no longer has one. */}
                     <Route path="question-bank" element={<Navigate to="/institution/certifications" replace />} />
                     <Route path="license" element={<InstitutionAccountPage />} />
                     {/* Analytics is not a second page. It was a separate route
@@ -508,9 +508,9 @@ export function App() {
                         /learner/dashboard and /learner/analytics are one board. */}
                     <Route path="analytics" element={<Navigate to="/institution/dashboard" replace />} />
                     <Route path="partnership" element={<InstitutionAccountPage />} />
-                    <Route path="billing" element={<InstitutionAccountPage />} />
+                    <Route path="billing" element={<Navigate to="/institution/license" replace />} />
                     <Route path="files" element={<InstitutionAccountPage />} />
-                    <Route path="organization" element={<InstitutionAccountPage />} />
+                    <Route path="institution" element={<InstitutionAccountPage />} />
                 </Route>
             </Route>
 

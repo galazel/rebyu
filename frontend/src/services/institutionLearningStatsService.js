@@ -1,7 +1,7 @@
 import { base } from "./base"
 
 /**
- * Learning statistics for the caller's own organization.
+ * Learning statistics for the caller's own institution.
  *
  * The institution is resolved from the JWT server-side, so no institutionId is
  * ever sent from the browser and a manager cannot read another tenant's roster.
@@ -14,7 +14,7 @@ export function getInstitutionLearningStats() {
 }
 
 /**
- * Completion per learning group for the caller's own organization.
+ * Completion per learning group for the caller's own institution.
  *
  * Shape: [{ institutionGroupId, groupName, learners, averageProgress,
  * completedLearners }] — one row per active group with active assignees.

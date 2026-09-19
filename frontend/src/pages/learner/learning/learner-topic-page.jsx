@@ -44,17 +44,9 @@ import {
 import { LearnerEmptyState } from "@/components/learner/learner-ui.jsx"
 import { LessonAiTutor } from "@/components/learner/lesson-ai-tutor.jsx"
 import { LessonKnowledgeCheck } from "@/components/learner/lesson-knowledge-check.jsx"
-import { useDailyStudyChallenge } from "@/hooks/useDailyStudyChallenge.js"
+import { useSkimChallenge } from "@/hooks/useSkimChallenge.js"
 import { useReadingPaceGuard } from "@/hooks/useReadingPaceGuard.js"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { PriorityBookmark } from "@/components/learner/priority-tag.jsx"
 import { ASSESSMENT_MAX_XP, LESSON_COMPLETION_XP } from "@/lib/xp.js"
 import { announceRewards, prefetchRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
@@ -1255,7 +1247,6 @@ export default function LearnerTopicPage() {
   const [railOpen, setRailOpen] = useState(false)
   const [readSections, setReadSections] = useState(() => new Set())
   const [locallyDone, setLocallyDone] = useState(() => new Set())
-  const [slowDownOpen, setSlowDownOpen] = useState(false)
 
   const certification = (data?.enrolledCertifications ?? []).find(
     (item) => String(item.certificationId) === String(certificationId),
@@ -1420,28 +1411,23 @@ export default function LearnerTopicPage() {
      back exactly the sections it raced past and nothing read before it. */
   const readAtRef = useRef(new Map())
 
-  /* The pop-up challenge: once a day, at a random moment of active study,
-     whichever lesson is open then -- not on every lesson, which learners found
-     annoying. Questions come from lessons already completed. Held while the
-     slow-down board is up so the two never stack. */
-  const knowledgeCheck = useDailyStudyChallenge({
+  /* The pop-up challenge has exactly one trigger: the pace guard below
+     catching the learner skimming. Five questions from the lesson on screen,
+     played inside the modal. */
+  const knowledgeCheck = useSkimChallenge({
     learnerId: data?.learnerId,
     lessonId: activeLessonId,
-    enabled: Boolean(data?.learnerId) && !slowDownOpen,
+    enabled: Boolean(data?.learnerId),
   })
 
-  /* Racing down a lesson is not studying it. A learner who flicks through more
-     than a couple of screens in a moment is stopped, the sections they raced
-     past are taken back, and they are sent to the start of the lesson. Off for a
-     lesson already completed -- re-reading a finished lesson quickly is fine --
-     and while either prompt is already on screen. */
+  /* A rapid pass does not count as reading: the sections raced through are
+     taken back, and the challenge fires. */
   const lessonFinished = activeLessonId ? isDone(activeLessonId) : false
   const paceGuard = useReadingPaceGuard({
     enabled:
       Boolean(activeLessonId) &&
       sections.length > 0 &&
       !lessonFinished &&
-      !slowDownOpen &&
       !knowledgeCheck.offer,
     onRush: (since) => {
       const rushed = [...readAtRef.current]
@@ -1459,20 +1445,9 @@ export default function LearnerTopicPage() {
           if (activeLessonId) markSectionUnread(activeLessonId, key).catch(() => {})
         })
       }
-      setSlowDownOpen(true)
+      knowledgeCheck.trigger()
     },
   })
-
-  const keepReading = () => {
-    setSlowDownOpen(false)
-    paceGuard.pause(1500)
-  }
-
-  const restartLesson = () => {
-    setSlowDownOpen(false)
-    paceGuard.pause(2500)
-    window.scrollTo({ top: 0, behavior: "smooth" })
-  }
 
   const completeMutation = useMutation({
     mutationFn: (lessonId) =>
@@ -1855,33 +1830,14 @@ export default function LearnerTopicPage() {
         </SheetContent>
       </Sheet>
 
-
-      {/* Raced through the lesson: a nudge, not a lock. The sections raced
-          past are already taken back as unread; going back to the top is the
-          learner's choice. Closing the board keeps them where they are. */}
-      <Dialog open={slowDownOpen} onOpenChange={(open) => !open && keepReading()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Oooops! Slow down.</DialogTitle>
-            <DialogDescription>
-              You scrolled faster than anyone can read. The sections you skimmed past
-              aren&apos;t counted as read yet -- you can go back to the start, or keep going
-              from here.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={keepReading}>Keep reading here</Button>
-            <Button onClick={restartLesson}>Start the lesson again</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* The day's pop-up challenge, on lessons already completed. */}
+      {/* The skim challenge, fired by the pace guard. */}
       <LessonKnowledgeCheck
         open={Boolean(knowledgeCheck.offer)}
         lessonId={activeLessonId}
+        learnerId={data?.learnerId}
         itemCount={knowledgeCheck.offer?.itemCount}
         lessonNames={knowledgeCheck.offer?.lessonNames}
+        currentLessonOnly={knowledgeCheck.offer?.currentLessonOnly}
         onDismiss={knowledgeCheck.dismiss}
       />
     </div>

@@ -209,11 +209,11 @@ body.netacad-overlay-theme {
         filter 0.15s ease-out;
 }
 :root [data-slot="button"][data-variant="default"] {
-    box-shadow: 0 1px 2px rgb(40 30 20 / 0.18);
+    box-shadow: 0 1px 2px rgb(18 49 38 / 0.18);
 }
 :root [data-slot="button"]:is([data-variant="outline"], [data-variant="secondary"]) {
     border-width: 1px;
-    box-shadow: 0 1px 2px rgb(40 30 20 / 0.06);
+    box-shadow: 0 1px 2px rgb(18 49 38 / 0.06);
 }
 :root [data-slot="button"][data-variant="destructive"] {
     border-width: 1px;
@@ -256,7 +256,7 @@ body.netacad-overlay-theme {
 }
 .rebyu-ds .rb-btn-ghost {
     border: 1px solid var(--rb-line);
-    box-shadow: 0 1px 2px rgb(40 30 20 / 0.06);
+    box-shadow: 0 1px 2px rgb(18 49 38 / 0.06);
 }
 .rebyu-ds .rb-btn-ghost:hover {
     border-color: #cfc6b3;
@@ -274,7 +274,7 @@ body.netacad-overlay-theme {
     box-shadow: var(--rb-shadow-lift);
 }
 .rebyu-ds .rb-card-press:hover {
-    border-color: #d3c9b5;
+    border-color: #d8e9df;
     transform: translateY(-2px);
     box-shadow: var(--rb-shadow-lift);
 }
@@ -386,7 +386,7 @@ body.netacad-overlay-theme {
     box-shadow: 0 0 0 4px #ffffff;
 }
 .rb-arena :is(.rb-seat-outer, .rb-seat-inner, .rb-seat-final) {
-    box-shadow: 0 3px 8px rgb(40 30 20 / 0.18);
+    box-shadow: 0 3px 8px rgb(18 49 38 / 0.18);
 }
 
 .rebyu-ds .rb-progress-fill {
@@ -410,7 +410,7 @@ body.netacad-overlay-theme {
     border-width: 1px;
 }
 :root [data-slot="tabs-list"]:not([data-variant="line"]) [data-slot="tabs-trigger"]:is([data-active], [data-state="active"]) {
-    box-shadow: 0 1px 2px rgb(40 30 20 / 0.1);
+    box-shadow: 0 1px 2px rgb(18 49 38 / 0.1);
 }
 :root [data-slot="table-container"],
 :root [data-slot="alert"] {
@@ -544,7 +544,7 @@ body.netacad-overlay-theme {
     color: var(--color-rb-feather-lip);
     border: 1px solid var(--rb-line);
     border-radius: 6px;
-    box-shadow: 0 3px 8px rgb(40 30 20 / 0.1);
+    box-shadow: 0 3px 8px rgb(18 49 38 / 0.1);
     transform: rotate(-1.5deg);
 }
 .rb-classroom-landing main > :is(section, div) + :is(section, div) {
@@ -642,17 +642,17 @@ body.netacad-overlay-theme {
     --rb-rule: 28px;
     --rb-rule-top: 44px;
     --rb-rule-color: #d9e3ec;
-    --rb-margin-color: #e6b3ae;
-    --rb-hole: #ebe5d8;
+    --rb-margin-color: #b9dcc7;
+    --rb-hole: #eef5f0;
 }
 
 .rb-notebook,
 .rebyu-ds.rb-classroom-landing .rb-card:not([class*="!p-0"]) {
     background-color: var(--rb-paper);
     background-image:
-        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(60 45 25 / 0.18) 5px 6px, transparent 6.5px),
-        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(60 45 25 / 0.18) 5px 6px, transparent 6.5px),
-        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(60 45 25 / 0.18) 5px 6px, transparent 6.5px),
+        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(18 49 38 / 0.18) 5px 6px, transparent 6.5px),
+        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(18 49 38 / 0.18) 5px 6px, transparent 6.5px),
+        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(18 49 38 / 0.18) 5px 6px, transparent 6.5px),
         linear-gradient(90deg, transparent 40px, var(--rb-margin-color) 40px 41px, transparent 41px 44px, var(--rb-margin-color) 44px 45px, transparent 45px),
         linear-gradient(to bottom, transparent calc(var(--rb-rule) - 1px), var(--rb-rule-color) 0);
     background-size: 22px 22px, 22px 22px, 22px 22px, 100% 100%, 100% var(--rb-rule);
@@ -1593,11 +1593,11 @@ body.netacad-overlay-theme {
     padding: 0.4rem 1.5rem 0.5rem;
     border: 2px solid var(--color-rb-feather);
     border-radius: 999px;
-    background: #fffdf8;
+    background: #ffffff;
     box-shadow:
-        inset 0 0 0 3px #fffdf8,
+        inset 0 0 0 3px #ffffff,
         inset 0 0 0 4.5px rgb(47 107 79 / 0.45),
-        0 3px 8px rgb(40 30 20 / 0.12);
+        0 3px 8px rgb(18 49 38 / 0.12);
     font-family: var(--font-rb-display);
     font-size: 1.2rem;
     font-weight: 400;
@@ -1826,7 +1826,7 @@ body.netacad-overlay-theme {
     place-items: center;
     border-radius: 999px;
     color: #fff;
-    box-shadow: inset 0 0 0 5px rgb(255 255 255 / 0.35), 0 12px 22px -12px rgb(40 30 20 / 0.55);
+    box-shadow: inset 0 0 0 5px rgb(255 255 255 / 0.35), 0 12px 22px -12px rgb(18 49 38 / 0.55);
     transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .rb-olympic:hover .rb-olympic-icon,
@@ -1987,7 +1987,7 @@ body.netacad-overlay-theme {
         position: absolute;
         top: 42%;
         width: 3rem;
-        border-top: 2px dashed #d3c9b5;
+        border-top: 2px dashed #d8e9df;
     }
     .rb-trophy-stage > [data-slot-area="left"]::after { right: -3.5rem; }
     .rb-trophy-stage > [data-slot-area="right"]::after { left: -3.5rem; }
@@ -1997,7 +1997,7 @@ body.netacad-overlay-theme {
         top: -2rem;
         left: 50%;
         height: 1.5rem;
-        border-left: 2px dashed #d3c9b5;
+        border-left: 2px dashed #d8e9df;
     }
 }
 
@@ -2070,7 +2070,7 @@ body.netacad-overlay-theme {
     box-shadow: none;
 }
 .rb-olympic-icon svg {
-    filter: drop-shadow(0 6px 6px rgb(40 30 20 / 0.18));
+    filter: drop-shadow(0 6px 6px rgb(18 49 38 / 0.18));
 }
 
 /* ===========================================================================
@@ -2102,40 +2102,36 @@ body {
    them stay faintly ruled, section labels are tasselled bookmarks, and alerts,
    empty and error states are pinned sticky notes.
    =========================================================================== */
-.netacad-portal :is([data-slot="card"], .rb-card:not([class*="!p-0"])) {
+/* Portal cards are plain white sheets: the notebook dressing (punch holes,
+   red margin rule, ruling) stayed on the landing page only. Data inside the
+   portals reads as data, so tables are real grids. */
+.netacad-portal :is([data-slot="card"], .rb-card, [class*="rounded-rb-card"], .rounded-2xl, .rounded-3xl):not(.rb-sticky) {
     background-color: var(--rb-paper);
-    background-image:
-        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(60 45 25 / 0.18) 5px 6px, transparent 6.5px),
-        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(60 45 25 / 0.18) 5px 6px, transparent 6.5px),
-        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(60 45 25 / 0.18) 5px 6px, transparent 6.5px),
-        linear-gradient(90deg, transparent 38px, var(--rb-margin-color) 38px 39px, transparent 39px 42px, var(--rb-margin-color) 42px 43px, transparent 43px),
-        linear-gradient(to bottom, transparent calc(var(--rb-rule) - 1px), rgb(217 227 236 / 0.55) 0);
-    background-size: 20px 20px, 20px 20px, 20px 20px, 100% 100%, 100% var(--rb-rule);
-    background-position: 9px 14%, 9px 50%, 9px 86%, 0 0, 0 14px;
-    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat-y;
+    background-image: none;
 }
-.netacad-portal [data-slot="card"] {
-    padding-left: 1.75rem;
+
+.netacad-portal [data-slot="table"] {
+    border-collapse: separate;
+    border-spacing: 0;
 }
-.netacad-portal .rb-card:not([class*="!p-0"]) {
-    padding-left: 3.25rem;
+.netacad-portal [data-slot="table-header"] {
+    background: var(--color-rb-leaf-wash);
 }
-/* Cards inside cards: plain faint ruling, their own padding. */
-.netacad-portal
-    :is([data-slot="card"], .rb-card, [class*="rounded-rb-card"], .rounded-2xl, .rounded-3xl)
-    :is([data-slot="card"], .rb-card) {
-    padding-left: revert-layer;
-    background-image: linear-gradient(to bottom, transparent calc(var(--rb-rule) - 1px), rgb(217 227 236 / 0.45) 0);
-    background-size: 100% var(--rb-rule);
-    background-position: 0 14px;
-    background-repeat: repeat-y;
+.netacad-portal [data-slot="table-head"] {
+    color: var(--color-rb-leaf-lip);
+    font-weight: 700;
 }
-/* Utility-built panels: faintly ruled paper. */
-.netacad-portal :is([class*="rounded-rb-card"], .rounded-2xl, .rounded-3xl):is(.border, .border-2):not([data-slot], .border-dashed, .rb-sticky) {
-    background-color: var(--rb-paper);
-    background-image: linear-gradient(to bottom, transparent calc(var(--rb-rule) - 1px), rgb(217 227 236 / 0.4) 0);
-    background-size: 100% var(--rb-rule);
-    background-position: 0 14px;
+.netacad-portal :is([data-slot="table-head"], [data-slot="table-cell"]) {
+    border-bottom: 1px solid var(--border);
+}
+.netacad-portal :is([data-slot="table-head"], [data-slot="table-cell"]) + :is([data-slot="table-head"], [data-slot="table-cell"]) {
+    border-left: 1px solid var(--border);
+}
+.netacad-portal [data-slot="table-body"] [data-slot="table-row"]:last-child [data-slot="table-cell"] {
+    border-bottom: 0;
+}
+.netacad-portal [data-slot="table-body"] [data-slot="table-row"]:hover {
+    background: var(--color-rb-polar);
 }
 
 /* Bookmark labels in portals (page labels that were chalk slates). */
@@ -2264,8 +2260,8 @@ body {
 /* Paper pinned on the board: fields and content surfaces keep normal ink. */
 :root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"])
     :is(input:not([type="checkbox"], [type="radio"], [type="range"]), textarea, [data-slot="select-trigger"], [data-slot="input"], [data-slot="textarea"]) {
-    background: #fffdf8;
-    border-color: #d9cfbb;
+    background: #ffffff;
+    border-color: #c9dfd3;
     color: #2c3a33;
     font-family: var(--font-rb-body);
 }
@@ -2349,14 +2345,14 @@ body {
     background-size: 100% 100%, 100% var(--rb-rule);
     background-position: 0 0, 0 12px;
     background-repeat: no-repeat, repeat-y;
-    box-shadow: 0 1px 2px rgb(40 30 20 / 0.12), 0 8px 18px -10px rgb(40 30 20 / 0.3);
+    box-shadow: 0 1px 2px rgb(18 49 38 / 0.12), 0 8px 18px -10px rgb(18 49 38 / 0.3);
 }
 .rb-graded-sheet {
     padding-left: 3.75rem !important;
     background-image:
-        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(60 45 25 / 0.18) 5px 6px, transparent 6.5px),
-        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(60 45 25 / 0.18) 5px 6px, transparent 6.5px),
-        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(60 45 25 / 0.18) 5px 6px, transparent 6.5px),
+        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(18 49 38 / 0.18) 5px 6px, transparent 6.5px),
+        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(18 49 38 / 0.18) 5px 6px, transparent 6.5px),
+        radial-gradient(circle, var(--rb-hole) 0 5px, rgb(18 49 38 / 0.18) 5px 6px, transparent 6.5px),
         linear-gradient(90deg, transparent 40px, var(--rb-margin-color) 40px 41px, transparent 41px 44px, var(--rb-margin-color) 44px 45px, transparent 45px),
         linear-gradient(to bottom, transparent calc(var(--rb-rule) - 1px), var(--rb-rule-color) 0);
     background-size: 22px 22px, 22px 22px, 22px 22px, 100% 100%, 100% var(--rb-rule);
@@ -2368,7 +2364,7 @@ body {
     padding: 1rem 1.25rem 1.1rem 3.75rem;
 }
 .rb-graded-row.is-highest {
-    box-shadow: 0 0 0 2px rgb(201 122 30 / 0.55), 0 8px 18px -10px rgb(40 30 20 / 0.3);
+    box-shadow: 0 0 0 2px rgb(201 122 30 / 0.55), 0 8px 18px -10px rgb(18 49 38 / 0.3);
 }
 .rb-graded-heading {
     font-family: var(--font-rb-display);
@@ -2636,11 +2632,11 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
 .rb-flip-page-left {
     display: none;
     border-radius: 4px 0 0 4px;
-    box-shadow: inset -28px 0 26px -22px rgb(40 30 20 / 0.28);
+    box-shadow: inset -28px 0 26px -22px rgb(18 49 38 / 0.28);
 }
 .rb-flip-page-right {
     border-radius: 0 4px 4px 0;
-    box-shadow: inset 28px 0 26px -22px rgb(40 30 20 / 0.24);
+    box-shadow: inset 28px 0 26px -22px rgb(18 49 38 / 0.24);
 }
 .rb-flip-cover {
     display: grid;
@@ -2675,7 +2671,7 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
     inset: 0;
     opacity: 0;
     pointer-events: none;
-    background: linear-gradient(90deg, rgb(40 30 20 / 0.3), rgb(40 30 20 / 0.06) 40%, rgb(255 255 255 / 0.25) 78%, rgb(40 30 20 / 0.18));
+    background: linear-gradient(90deg, rgb(18 49 38 / 0.3), rgb(18 49 38 / 0.06) 40%, rgb(255 255 255 / 0.25) 78%, rgb(18 49 38 / 0.18));
 }
 .rb-flip-hand {
     position: absolute;
@@ -2802,7 +2798,7 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
     gap: 0.4rem;
     padding: 0.45rem 0.9rem;
     border-radius: 999px;
-    background: #fffdf8;
+    background: #ffffff;
     box-shadow: 0 2px 4px rgb(0 0 0 / 0.25);
     color: #2c3a33;
     font-family: var(--font-rb-display);
@@ -3101,18 +3097,18 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
     --color-rb-eel: #2c3a33;
     --color-rb-wolf: #5b6b62;
     --color-rb-hare: #a3aca5;
-    --color-rb-swan: #e3dccd;
-    --color-rb-polar: #f6f1e6;
+    --color-rb-swan: #d8e9df;
+    --color-rb-polar: #f5fbf7;
     --color-rb-snow: #ffffff;
     --background: #ffffff;
     --foreground: #2c3a33;
-    --card: #fffdf8;
+    --card: #ffffff;
     --card-foreground: #2c3a33;
-    --muted: #f6f1e6;
+    --muted: #f5fbf7;
     --muted-foreground: #5b6b62;
-    --border: #e3dccd;
-    --input: #d8d0bf;
-    --rb-paper: #fffdf8;
+    --border: #d8e9df;
+    --input: #c9dfd3;
+    --rb-paper: #ffffff;
     color-scheme: light;
 }
 /* Dialog text is chalk, not the paper ink the reset above gives children. */
@@ -3123,14 +3119,14 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
 /* --- Index cards (certifications on the partnership request form) --------------- */
 .rb-index-card {
     border-radius: 4px;
-    background-color: #fffdf8;
+    background-color: #ffffff;
     background-image:
         linear-gradient(to bottom, transparent 30px, rgb(214 108 94 / 0.5) 30px 31.5px, transparent 31.5px),
         linear-gradient(to bottom, transparent 27px, #e3e9ee 27px 28px);
     background-size: 100% 100%, 100% 28px;
     background-position: 0 0, 0 34px;
     background-repeat: no-repeat, repeat-y;
-    box-shadow: 0 1px 2px rgb(40 30 20 / 0.15), 0 8px 16px -10px rgb(40 30 20 / 0.35);
+    box-shadow: 0 1px 2px rgb(18 49 38 / 0.15), 0 8px 16px -10px rgb(18 49 38 / 0.35);
     transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 .rb-index-card:hover {
@@ -3138,7 +3134,7 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
 }
 .rb-index-card.is-selected {
     background-color: #f3f8ef;
-    box-shadow: 0 0 0 3px var(--color-rb-feather), 0 10px 18px -10px rgb(40 30 20 / 0.4);
+    box-shadow: 0 0 0 3px var(--color-rb-feather), 0 10px 18px -10px rgb(18 49 38 / 0.4);
 }
 @media (prefers-reduced-motion: reduce) {
     .rb-index-card:hover {

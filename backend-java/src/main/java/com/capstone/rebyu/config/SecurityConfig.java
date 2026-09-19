@@ -81,9 +81,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/learners/me/portal").authenticated()
                         // Flat cross-tenant/cross-user lists that no scoped flow uses anymore --
                         // their controllers now require ADMIN; block anonymous access here too.
-                        .requestMatchers("/api/organization-certificates/**").authenticated()
-                        .requestMatchers("/api/organization-certification-learners/**").authenticated()
-                        .requestMatchers("/api/activity-logs/**").authenticated()
+                        .requestMatchers("/api/institution-certificates/**").authenticated()
+                        .requestMatchers("/api/institution-certification-learners/**").authenticated()
                         // Exam-result reads are admin-only at the controller; managers/learners
                         // read their own via the scoped portal endpoints. Block anonymous here too.
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/exam-results/**").authenticated()
@@ -101,9 +100,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/learners", "/api/learners/*").authenticated()
                         .requestMatchers("/api/institutions/**").authenticated()
                         .requestMatchers("/api/institution-members/**").authenticated()
-                        .requestMatchers("/api/institution-verification-documents/**").authenticated()
-                        .requestMatchers("/api/institution-invoices/**").authenticated()
-                        .requestMatchers("/api/learner-exam-details/**").authenticated()
                         // A user's own in-app notifications -- never public.
                         .requestMatchers("/api/notifications/**").authenticated()
                         // Achievements: /me is JWT-derived, the rest is admin-only at the
@@ -158,7 +154,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/learner/**").authenticated()
                         // Generic scaffolding CRUD for partnership requests/items was
                         // previously fully public and unfiltered -- anyone could read
-                        // every organization's contact info across every tenant with
+                        // every institution's contact info across every tenant with
                         // no auth. The real flows are the tenant-scoped transaction
                         // and admin-review endpoints above; this path is admin-only now.
                         .requestMatchers("/api/partnership-requests/**").authenticated()

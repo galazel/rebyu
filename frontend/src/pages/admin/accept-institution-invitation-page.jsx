@@ -16,8 +16,8 @@ const PENDING_INVITATION_KEY = "rebyu_pending_invitation_token"
 // fallback for anything unexpected.
 const ERROR_BY_CODE = {
   INVALID_TOKEN: "This invitation link is invalid. Please use the exact link from your email.",
-  INVITATION_EXPIRED: "This invitation has expired. Ask your organization to send a new one.",
-  INVITATION_REVOKED: "This invitation was cancelled by your organization.",
+  INVITATION_EXPIRED: "This invitation has expired. Ask your institution to send a new one.",
+  INVITATION_REVOKED: "This invitation was cancelled by your institution.",
   ALREADY_ACCEPTED: "This invitation has already been accepted.",
   EMAIL_MISMATCH:
     "This invitation was sent to a different email. Sign in with the invited email address.",
@@ -168,7 +168,7 @@ export default function AcceptInstitutionInvitationPage() {
           </h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
             Accept this invitation to receive certification access from your
-            organization.
+            institution.
           </p>
         </div>
 

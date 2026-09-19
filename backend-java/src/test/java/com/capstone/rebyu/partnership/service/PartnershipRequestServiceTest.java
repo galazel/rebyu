@@ -1,6 +1,6 @@
 package com.capstone.rebyu.partnership.service;
 
-import com.capstone.rebyu.organization.entity.Institution;
+import com.capstone.rebyu.institution.entity.Institution;
 import com.capstone.rebyu.partnership.dto.PartnershipRequestDto;
 import com.capstone.rebyu.partnership.entity.PartnershipRequest;
 import com.capstone.rebyu.partnership.mapper.PartnershipRequestMapper;

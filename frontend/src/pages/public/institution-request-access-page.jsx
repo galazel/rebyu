@@ -27,11 +27,11 @@ import { TraySupplies } from "@/components/classroom/tray-supplies.jsx"
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const EMPTY_FORM = {
-  organizationName: "",
-  organizationEmail: "",
+  institutionName: "",
+  institutionEmail: "",
   contactPersonName: "",
   contactNumber: "",
-  organizationAddress: "",
+  institutionAddress: "",
   businessDescription: "",
 }
 
@@ -63,12 +63,12 @@ const PROCESS = [
   {
     icon: ClipboardCheck,
     title: "you submit",
-    body: "Organization details and the certifications your learners need. No account is created yet.",
+    body: "Institution details and the certifications your learners need. No account is created yet.",
   },
   {
     icon: ShieldCheckMark,
     title: "we review",
-    body: "Our team verifies your organization and the learner slots you asked for.",
+    body: "Our team verifies your institution and the learner slots you asked for.",
   },
   {
     icon: Mail,
@@ -130,7 +130,7 @@ export default function InstitutionRequestAccessPage() {
     staleTime: 5 * 60 * 1000,
   })
 
-  // Organizations can only inquire about published certifications -- drafts are
+  // Institutions can only inquire about published certifications -- drafts are
   // still being built by the admin (lessons, content, and required assessments)
   // and the submit endpoint rejects them anyway.
   const certifications = (
@@ -197,11 +197,11 @@ export default function InstitutionRequestAccessPage() {
   const submitMutation = useMutation({
     mutationFn: () =>
       submitPublicPartnershipRequest({
-        organizationName: form.organizationName.trim(),
-        organizationEmail: form.organizationEmail.trim(),
+        institutionName: form.institutionName.trim(),
+        institutionEmail: form.institutionEmail.trim(),
         contactPersonName: form.contactPersonName.trim(),
         contactNumber: form.contactNumber.trim(),
-        organizationAddress: form.organizationAddress.trim(),
+        institutionAddress: form.institutionAddress.trim(),
         businessDescription: form.businessDescription.trim(),
         items: selectedItems.map((item) => ({
           certificationId: item.certificationId,
@@ -226,14 +226,14 @@ export default function InstitutionRequestAccessPage() {
   })
 
   const validate = () => {
-    if (!form.organizationName.trim()) return "Enter your organization name."
-    if (!EMAIL_PATTERN.test(form.organizationEmail.trim()))
-      return "Enter a valid organization email."
+    if (!form.institutionName.trim()) return "Enter your institution name."
+    if (!EMAIL_PATTERN.test(form.institutionEmail.trim()))
+      return "Enter a valid institution email."
     if (!form.contactPersonName.trim()) return "Enter a contact person name."
     if (!form.contactNumber.trim()) return "Enter a contact number."
-    if (!form.organizationAddress.trim()) return "Enter your organization address."
+    if (!form.institutionAddress.trim()) return "Enter your institution address."
     if (!form.businessDescription.trim())
-      return "Add a short description of your organization."
+      return "Add a short description of your institution."
     if (selectedItems.length === 0) return "Select at least one certification."
     if (
       selectedItems.some(
@@ -268,7 +268,7 @@ export default function InstitutionRequestAccessPage() {
             </span>
             <h1 className="rb-display rb-display-md mt-5">request submitted</h1>
             <p className="rb-body mt-3">
-              Our team will review your organization details and requested
+              Our team will review your institution details and requested
               certification access. You will receive an email at the address you
               gave once the request is approved or rejected.
             </p>
@@ -307,7 +307,7 @@ export default function InstitutionRequestAccessPage() {
               bring your school onto rebyu.
             </h1>
             <p className="rb-chalk-body mx-auto mt-4 max-w-2xl text-lg">
-              Tell us about your organization and the certifications your learners
+              Tell us about your institution and the certifications your learners
               need. Nothing is charged, and no account is created by this form.
             </p>
             <TraySupplies />
@@ -340,22 +340,22 @@ export default function InstitutionRequestAccessPage() {
         <div className="rb-graded-sheet space-y-10 p-6 sm:p-10">
           <FormSection
             icon={Building2}
-            title="organization details"
-            description="We use these to verify your organization and to reach you about the request."
+            title="institution details"
+            description="We use these to verify your institution and to reach you about the request."
           >
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field id="org-name" label="Organization name" className="sm:col-span-2">
+              <Field id="org-name" label="Institution name" className="sm:col-span-2">
                 <input
                   id="org-name"
                   className="rb-input"
-                  value={form.organizationName}
-                  onChange={setField("organizationName")}
+                  value={form.institutionName}
+                  onChange={setField("institutionName")}
                   placeholder="Cebu Institute of Technology"
                 />
               </Field>
               <Field
                 id="org-email"
-                label="Organization email"
+                label="Institution email"
                 hint="The approval or rejection email goes here."
               >
                 <input
@@ -363,8 +363,8 @@ export default function InstitutionRequestAccessPage() {
                   type="email"
                   autoComplete="email"
                   className="rb-input"
-                  value={form.organizationEmail}
-                  onChange={setField("organizationEmail")}
+                  value={form.institutionEmail}
+                  onChange={setField("institutionEmail")}
                   placeholder="partnerships@org.edu"
                 />
               </Field>
@@ -387,18 +387,18 @@ export default function InstitutionRequestAccessPage() {
                   placeholder="+63 32 261 7741"
                 />
               </Field>
-              <Field id="org-address" label="Organization address">
+              <Field id="org-address" label="Institution address">
                 <input
                   id="org-address"
                   className="rb-input"
-                  value={form.organizationAddress}
-                  onChange={setField("organizationAddress")}
+                  value={form.institutionAddress}
+                  onChange={setField("institutionAddress")}
                   placeholder="N. Bacalso Ave, Cebu City"
                 />
               </Field>
               <Field
                 id="org-description"
-                label="Organization / business description"
+                label="Institution / business description"
                 className="sm:col-span-2"
               >
                 <textarea
@@ -407,7 +407,7 @@ export default function InstitutionRequestAccessPage() {
                   className="rb-input py-3 leading-relaxed"
                   value={form.businessDescription}
                   onChange={setField("businessDescription")}
-                  placeholder="Briefly describe your organization and why you want to partner with REBYU."
+                  placeholder="Briefly describe your institution and why you want to partner with REBYU."
                 />
               </Field>
             </div>

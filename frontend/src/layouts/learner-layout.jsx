@@ -176,7 +176,7 @@ export default function LearnerLayout() {
       id: `pending-certification-invitation-${invitation.invitationId}`,
       type: "invitation",
       title: "You have a certification invitation",
-      description: "An organization invited you to join a certification. Open the invitation email to accept it.",
+      description: "An institution invited you to join a certification. Open the invitation email to accept it.",
       createdAt: invitation.sentAt,
     }))
 
@@ -188,7 +188,7 @@ export default function LearnerLayout() {
         id: `institution-certification-${enrollment.certificationId}`,
         type: "certification",
         title: "New certification assigned",
-        description: certification?.title ?? certification?.name ?? "Your organization assigned you a certification.",
+        description: certification?.title ?? certification?.name ?? "Your institution assigned you a certification.",
         createdAt: enrollment.assignedAt,
         href: `/learner/certifications/${enrollment.certificationId}`,
       }

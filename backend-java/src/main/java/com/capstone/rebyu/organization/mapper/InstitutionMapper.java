@@ -1,7 +1,7 @@
-package com.capstone.rebyu.organization.mapper;
+package com.capstone.rebyu.institution.mapper;
 
-import com.capstone.rebyu.organization.dto.InstitutionDto;
-import com.capstone.rebyu.organization.entity.Institution;
+import com.capstone.rebyu.institution.dto.InstitutionDto;
+import com.capstone.rebyu.institution.entity.Institution;
 import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "spring")

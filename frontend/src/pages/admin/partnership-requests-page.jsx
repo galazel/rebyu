@@ -111,15 +111,15 @@ export default function PartnershipRequests() {
     if (!term) return requests
     return requests.filter(
       (r) =>
-        r.organizationName?.toLowerCase().includes(term) ||
-        r.organizationEmail?.toLowerCase().includes(term)
+        r.institutionName?.toLowerCase().includes(term) ||
+        r.institutionEmail?.toLowerCase().includes(term)
     )
   }, [requests, search])
 
   const sorted = useMemo(
     () =>
       sortRows(filtered, {
-        organization: (request) => request.organizationName ?? null,
+        institution: (request) => request.institutionName ?? null,
         reference: (request) => request.referenceNumber ?? null,
         certifications: (request) => Number(request.certificationCount ?? 0),
         slots: (request) => Number(request.totalRequestedSlots ?? 0),
@@ -165,7 +165,7 @@ export default function PartnershipRequests() {
         toast.success("Partnership approved.", {
           description:
             data?.institutionAccountNote ??
-            "The organization now has certification access.",
+            "The institution now has certification access.",
         })
       } else {
         toast.success("Partnership rejected.")
@@ -207,7 +207,7 @@ export default function PartnershipRequests() {
           onPageSizeChange={setPageSize}
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search organization or email"
+          searchPlaceholder="Search institution or email"
         >
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="h-9 w-[170px]" aria-label="Filter by status">
@@ -230,8 +230,8 @@ export default function PartnershipRequests() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <SortableHead
-                  column="organization"
-                  label="Organization"
+                  column="institution"
+                  label="Institution"
                   sort={sort}
                   onSort={toggle}
                   className="min-w-56"
@@ -288,9 +288,9 @@ export default function PartnershipRequests() {
                 paged.map((r) => (
                   <TableRow key={r.requestId}>
                     <TableCell>
-                      <div className="font-bold">{r.organizationName}</div>
+                      <div className="font-bold">{r.institutionName}</div>
                       <div className="text-xs text-muted-foreground">
-                        {r.organizationEmail}
+                        {r.institutionEmail}
                       </div>
                     </TableCell>
                     <TableCell className="font-mono text-xs">
@@ -370,12 +370,12 @@ export default function PartnershipRequests() {
               {/* The details sit on a paper card pinned to the board: dim chalk
                   on dark green was unreadable at this size. */}
               <section className="space-y-2 rounded-lg bg-card p-4 text-sm shadow-sm">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Organization</h3>
-                <Row label="Name" value={detail.organizationName} />
-                <Row label="Email" value={detail.organizationEmail} />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Institution</h3>
+                <Row label="Name" value={detail.institutionName} />
+                <Row label="Email" value={detail.institutionEmail} />
                 <Row label="Contact" value={detail.contactPersonName} />
                 <Row label="Phone" value={detail.contactNumber} />
-                <Row label="Address" value={detail.organizationAddress} />
+                <Row label="Address" value={detail.institutionAddress} />
                 <div>
                   <p className="text-muted-foreground">Description</p>
                   <p className="mt-0.5 whitespace-pre-wrap break-words text-foreground">
@@ -422,7 +422,7 @@ export default function PartnershipRequests() {
                     rows={2}
                     value={remarks}
                     onChange={(e) => setRemarks(e.target.value)}
-                    placeholder="Notes shared with the organization."
+                    placeholder="Notes shared with the institution."
                   />
                   <div className="flex gap-2">
                     <Button
@@ -468,8 +468,8 @@ export default function PartnershipRequests() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirm?.action === "approve"
-                ? "The organization will receive certification access and learner slots."
-                : "The organization will be notified that the request was rejected. No access is granted."}
+                ? "The institution will receive certification access and learner slots."
+                : "The institution will be notified that the request was rejected. No access is granted."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

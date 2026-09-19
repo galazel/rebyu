@@ -1,7 +1,7 @@
 package com.capstone.rebyu.partnership.mapper;
 
 
-import com.capstone.rebyu.organization.entity.Institution;
+import com.capstone.rebyu.institution.entity.Institution;
 import com.capstone.rebyu.partnership.dto.PartnershipRequestDto;
 import com.capstone.rebyu.partnership.entity.PartnershipRequest;
 import org.mapstruct.Mapper;

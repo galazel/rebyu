@@ -10,8 +10,8 @@ import com.capstone.rebyu.billing.entity.LearnerSubscription;
 import com.capstone.rebyu.billing.entity.PlanEntitlement;
 import com.capstone.rebyu.billing.repository.LearnerSubscriptionRepository;
 import com.capstone.rebyu.billing.repository.PlanEntitlementRepository;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -51,7 +51,7 @@ public class LearnerEntitlementService {
 
     private final LearnerSubscriptionRepository learnerSubscriptionRepository;
     private final PlanEntitlementRepository planEntitlementRepository;
-    private final OrganizationCertificationLearnerRepository orgCertLearnerRepository;
+    private final InstitutionCertificationLearnerRepository institutionCertLearnerRepository;
     private final InstitutionalEntitlementService institutionalEntitlementService;
     private final com.capstone.rebyu.billing.repository.AiGenerationUsageRepository aiGenerationUsageRepository;
 
@@ -107,7 +107,7 @@ public class LearnerEntitlementService {
         Set<String> institutionalFeatures = institutionalCoverage(learnerId, certificationId);
         boolean institutionalActive = !institutionalFeatures.isEmpty();
         features.addAll(institutionalFeatures);
-        // A sponsored learner studies on the organization's licence: everything
+        // A sponsored learner studies on the institution's licence: everything
         // that separates Free from Pro comes with it, whatever else the licence
         // plan lists.
         if (institutionalActive) {
@@ -193,23 +193,23 @@ public class LearnerEntitlementService {
      */
     private Set<String> institutionalCoverage(Long learnerId, Long certificationId) {
         Set<String> features = new HashSet<>();
-        for (OrganizationCertificationLearner assignment :
-                orgCertLearnerRepository.findByLearner_LearnerIdAndStatus(
-                        learnerId, OrganizationCertificationLearner.Status.active)) {
-            var orgCert = assignment.getOrgCert();
-            if (orgCert == null || orgCert.getInstitution() == null) {
+        for (InstitutionCertificationLearner assignment :
+                institutionCertLearnerRepository.findByLearner_LearnerIdAndStatus(
+                        learnerId, InstitutionCertificationLearner.Status.active)) {
+            var institutionCert = assignment.getInstitutionCert();
+            if (institutionCert == null || institutionCert.getInstitution() == null) {
                 continue;
             }
             if (certificationId != null
-                    && (orgCert.getCertification() == null
-                    || !Objects.equals(orgCert.getCertification().getCertificationId(), certificationId))) {
+                    && (institutionCert.getCertification() == null
+                    || !Objects.equals(institutionCert.getCertification().getCertificationId(), certificationId))) {
                 continue;
             }
             Optional<InstitutionalLicense> license = institutionalEntitlementService
-                    .getActiveLicense(orgCert.getInstitution().getInstitutionId());
+                    .getActiveLicense(institutionCert.getInstitution().getInstitutionId());
             if (license.isPresent()) {
                 features.addAll(institutionalEntitlementService
-                        .getInstitutionalEntitlements(orgCert.getInstitution().getInstitutionId())
+                        .getInstitutionalEntitlements(institutionCert.getInstitution().getInstitutionId())
                         .keySet());
             }
         }

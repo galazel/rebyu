@@ -67,12 +67,12 @@ export function LearnerAppSidebar({
                                   }: React.ComponentProps<typeof Sidebar>) {
   const entitlements = useLearnerEntitlements()
   const planLabel = entitlements.institutionalActive
-    ? "Organization access"
+    ? "Institution access"
     : entitlements.personalProActive
       ? "Pro learner"
       : "Free learner"
   const planDescription = entitlements.institutionalActive
-    ? "Sponsored by your organization"
+    ? "Sponsored by your institution"
     : entitlements.personalProActive
       ? "Premium features enabled"
       : "Standard learning access"

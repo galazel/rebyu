@@ -1,7 +1,7 @@
 package com.capstone.rebyu.institution.service;
 
 import com.capstone.rebyu.certification.repository.LessonRepository;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
 import com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAssignee;
 import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAssigneeRepository;
@@ -51,7 +51,7 @@ public class InstitutionLearnerInsightsService {
     public record GroupLearnerRow(
             Long institutionGroupAssigneeId,
             Long learnerId,
-            Long orgCertLearnerId,
+            Long institutionCertLearnerId,
             String name,
             String username,
             String email,
@@ -117,7 +117,7 @@ public class InstitutionLearnerInsightsService {
     /**
      * Unassigns a learner from the group and returns their reserved slot. The
      * account, its enrollment, and all progress history are left untouched --
-     * removing someone from a group is an organizational change, not a reason
+     * removing someone from a group is an institutional change, not a reason
      * to destroy their record, and they can be added back later.
      */
     @Transactional
@@ -175,7 +175,7 @@ public class InstitutionLearnerInsightsService {
 
     private GroupLearnerRow toRow(
             InstitutionGroupAssignee assignee, Long certificationId, int totalLessons) {
-        OrganizationCertificationLearner enrollment = assignee.getOrgCertLearner();
+        InstitutionCertificationLearner enrollment = assignee.getInstitutionCertLearner();
         Learner learner = learnerOf(assignee);
 
         int completedLessons = 0;
@@ -192,7 +192,7 @@ public class InstitutionLearnerInsightsService {
         return new GroupLearnerRow(
                 assignee.getInstitutionGroupAssigneeId(),
                 learner != null ? learner.getLearnerId() : null,
-                enrollment != null ? enrollment.getOrgCertLearnerId() : null,
+                enrollment != null ? enrollment.getInstitutionCertLearnerId() : null,
                 displayName(learner),
                 learner != null ? learner.getUsername() : null,
                 learner != null && learner.getUser() != null ? learner.getUser().getEmail() : null,
@@ -221,13 +221,13 @@ public class InstitutionLearnerInsightsService {
     }
 
     private Learner learnerOf(InstitutionGroupAssignee assignee) {
-        return assignee.getOrgCertLearner() != null ? assignee.getOrgCertLearner().getLearner() : null;
+        return assignee.getInstitutionCertLearner() != null ? assignee.getInstitutionCertLearner().getLearner() : null;
     }
 
     private Long certificationIdOf(InstitutionGroup group) {
-        if (group.getOrgCert() == null || group.getOrgCert().getCertification() == null) {
+        if (group.getInstitutionCert() == null || group.getInstitutionCert().getCertification() == null) {
             return null;
         }
-        return group.getOrgCert().getCertification().getCertificationId();
+        return group.getInstitutionCert().getCertification().getCertificationId();
     }
 }

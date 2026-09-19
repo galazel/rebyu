@@ -21,12 +21,11 @@ import com.capstone.rebyu.certification.entity.MiddleCategory;
 import com.capstone.rebyu.certification.repository.CertificationRepository;
 import com.capstone.rebyu.certification.repository.CurriculumLessonIdView;
 import com.capstone.rebyu.certification.repository.LessonRepository;
-import com.capstone.rebyu.challenge.entity.ChallengeSession;
-import com.capstone.rebyu.challenge.repository.ChallengeSessionRepository;
+import com.capstone.rebyu.challenge.service.ChallengeArenaService;
 import com.capstone.rebyu.enrollment.entity.LearnerCertification;
-import com.capstone.rebyu.enrollment.entity.OrganizationCertificationLearner;
+import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
-import com.capstone.rebyu.enrollment.repository.OrganizationCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.gamification.service.StreakService;
 import com.capstone.rebyu.learningtools.service.GeneratedAssessmentService;
 import com.capstone.rebyu.progress.entity.LearnerCompletedLesson;
@@ -90,9 +89,8 @@ public class ProgressAnalyticsService {
     private final QuestionRepository questionRepository;
     private final ExamRepository examRepository;
     private final StreakService streakService;
-    private final ChallengeSessionRepository challengeSessionRepository;
     private final LessonRepository lessonRepository;
-    private final OrganizationCertificationLearnerRepository organizationCertificationLearnerRepository;
+    private final InstitutionCertificationLearnerRepository institutionCertificationLearnerRepository;
     private final LearnerCompletedLessonRepository learnerCompletedLessonRepository;
     private final LearnerMasteryService learnerMasteryService;
     private final BktEventFactory bktEventFactory;
@@ -114,9 +112,8 @@ public class ProgressAnalyticsService {
             QuestionRepository questionRepository,
             ExamRepository examRepository,
             StreakService streakService,
-            ChallengeSessionRepository challengeSessionRepository,
             LessonRepository lessonRepository,
-            OrganizationCertificationLearnerRepository organizationCertificationLearnerRepository,
+            InstitutionCertificationLearnerRepository institutionCertificationLearnerRepository,
             LearnerCompletedLessonRepository learnerCompletedLessonRepository,
             LearnerMasteryService learnerMasteryService,
             BktEventFactory bktEventFactory,
@@ -129,9 +126,8 @@ public class ProgressAnalyticsService {
         this.questionRepository = questionRepository;
         this.examRepository = examRepository;
         this.streakService = streakService;
-        this.challengeSessionRepository = challengeSessionRepository;
         this.lessonRepository = lessonRepository;
-        this.organizationCertificationLearnerRepository = organizationCertificationLearnerRepository;
+        this.institutionCertificationLearnerRepository = institutionCertificationLearnerRepository;
         this.learnerCompletedLessonRepository = learnerCompletedLessonRepository;
         this.learnerMasteryService = learnerMasteryService;
         this.bktEventFactory = bktEventFactory;
@@ -225,17 +221,17 @@ public class ProgressAnalyticsService {
 
         // Two ways to be enrolled, and both must count here. A learner who bought
         // the certification themselves gets a learner_certifications row; one an
-        // organization sponsors gets only an organization_certification_learners
+        // institution sponsors gets only an institution_certification_learners
         // row (see LearnerService.acceptInvitation, which never writes the
         // former). Checking just the first made every institution learner look
         // unenrolled -- including on their own analytics page.
         boolean selfEnrolled = learnerCertificationRepository
                 .existsByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
                         learnerId, certificationId, LearnerCertification.Status.active);
-        boolean organizationSponsored = organizationCertificationLearnerRepository
-                .existsByLearner_LearnerIdAndOrgCert_Certification_CertificationIdAndStatus(
-                        learnerId, certificationId, OrganizationCertificationLearner.Status.active);
-        if (!selfEnrolled && !organizationSponsored) {
+        boolean institutionSponsored = institutionCertificationLearnerRepository
+                .existsByLearner_LearnerIdAndInstitutionCert_Certification_CertificationIdAndStatus(
+                        learnerId, certificationId, InstitutionCertificationLearner.Status.active);
+        if (!selfEnrolled && !institutionSponsored) {
             throw new EntityNotFoundException("No active enrollment in this certification");
         }
 
@@ -365,18 +361,16 @@ public class ProgressAnalyticsService {
                         a.getPassed()))
                 .toList();
 
-        List<ChallengeSession> sessions = challengeSessionRepository.findByLearner_LearnerId(learnerId);
-        List<ChallengeSession> finishedChallenges = sessions.stream()
-                .filter(s -> s.getStatus() == ChallengeSession.Status.passed
-                        || s.getStatus() == ChallengeSession.Status.failed)
+        List<AssessmentAttempt> finishedChallenges = attempts.stream()
+                .filter(ProgressAnalyticsService::isChallengeRun)
                 .toList();
         int totalChallengeAttempts = finishedChallenges.size();
         Double averageChallengeScore = average(finishedChallenges.stream()
-                .map(ChallengeSession::getScore)
+                .map(AssessmentAttempt::getPercentage)
                 .filter(Objects::nonNull)
                 .map(BigDecimal::doubleValue)
                 .toList());
-        boolean hasChallengeActivity = !sessions.isEmpty();
+        boolean hasChallengeActivity = !finishedChallenges.isEmpty();
 
         // Official lessons only. The unfiltered query counts every lesson on the
         // certification including ones private to an Institution group, so a
@@ -559,7 +553,7 @@ public class ProgressAnalyticsService {
                         h.assessmentType()))
                 .toList();
 
-        List<RecentActivityItem> recentActivity = buildRecentActivity(attempts, finishedChallenges);
+        List<RecentActivityItem> recentActivity = buildRecentActivity(attempts);
 
         List<RecommendationRow> recommendations = buildRecommendations(
                 lessonPriorities, historyResult.history(), certLessons, lessonById);
@@ -586,7 +580,7 @@ public class ProgressAnalyticsService {
                 passedAssessmentCount,
                 totalAssessmentAttempts,
                 totalChallengeAttempts,
-                false,
+                true,
                 averageAssessmentScore,
                 averageChallengeScore,
                 totalCorrect,
@@ -1014,26 +1008,22 @@ public class ProgressAnalyticsService {
         }
     }
 
-    private List<RecentActivityItem> buildRecentActivity(
-            List<AssessmentAttempt> attempts, List<ChallengeSession> finishedChallenges) {
+    private static boolean isChallengeRun(AssessmentAttempt attempt) {
+        return attempt.getExam() != null && attempt.getExam().getExamType() != null
+                && ChallengeArenaService.CHALLENGE_EXAM_TYPE.equals(attempt.getExam().getExamType().getExamTypeText());
+    }
+
+    private List<RecentActivityItem> buildRecentActivity(List<AssessmentAttempt> attempts) {
         List<RecentActivityItem> items = new ArrayList<>();
         for (AssessmentAttempt attempt : attempts) {
             if (attempt.getSubmittedAt() == null) {
                 continue;
             }
-            String title = attempt.getExam() != null ? attempt.getExam().getTitle() : "Assessment";
-            items.add(new RecentActivityItem("ASSESSMENT", title, attempt.getSubmittedAt(),
+            boolean challenge = isChallengeRun(attempt);
+            String title = attempt.getExam() != null ? attempt.getExam().getTitle() : (challenge ? "Challenge" : "Assessment");
+            items.add(new RecentActivityItem(challenge ? "CHALLENGE" : "ASSESSMENT", title, attempt.getSubmittedAt(),
                     attempt.getPercentage() == null ? null : attempt.getPercentage().doubleValue(),
                     attempt.getPassed()));
-        }
-        for (ChallengeSession session : finishedChallenges) {
-            if (session.getEndedAt() == null) {
-                continue;
-            }
-            String title = session.getChallengeMode() != null ? session.getChallengeMode().getName() : "Challenge";
-            items.add(new RecentActivityItem("CHALLENGE", title, session.getEndedAt(),
-                    session.getScore() == null ? null : session.getScore().doubleValue(),
-                    session.getStatus() == ChallengeSession.Status.passed));
         }
         return items.stream()
                 .sorted(Comparator.comparing(RecentActivityItem::occurredAt).reversed())

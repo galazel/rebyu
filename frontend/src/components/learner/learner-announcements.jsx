@@ -20,7 +20,7 @@ function formatWhen(value) {
  * certification they belong to.
  *
  * Renders nothing at all when the learner has no announcements -- most
- * learners are not in an organization group, and an empty "Announcements"
+ * learners are not in an institution group, and an empty "Announcements"
  * heading on every certification page would be noise rather than information.
  */
 export function LearnerAnnouncements({ certificationId }) {
@@ -35,7 +35,7 @@ export function LearnerAnnouncements({ certificationId }) {
   const announcements = Array.isArray(query.data) ? query.data : []
 
   // Nothing while loading, for the same reason as nothing when empty: most
-  // learners are not in an organization group, so the usual outcome of this
+  // learners are not in an institution group, so the usual outcome of this
   // request is that this component draws nothing at all. A skeleton held a
   // 112px blank band open on every certification page for a section that
   // almost never arrives -- it read as a layout gap, not as loading.

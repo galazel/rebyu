@@ -47,7 +47,7 @@ public class InstitutionInvitationController {
         return invitationService.sendInvitations(trusted);
     }
 
-    /** Read-only across the whole organization -- the owner keeps visibility here. */
+    /** Read-only across the whole institution -- the owner keeps visibility here. */
     @GetMapping("/invitations")
     public List<InvitationDto> list(@AuthenticationPrincipal Jwt jwt) {
         return invitationService.listInvitations(myInstitutionId(jwt));
