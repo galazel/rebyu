@@ -14,8 +14,13 @@ public class AdaptivePolicy {
     public static final Set<String> ADAPTIVE_TYPES =
             Set.of("LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM", "MOCK_EXAM", "DIAGNOSTIC");
 
-    /** Item types answered in a workspace rather than by picking or typing a short answer. */
-    private static final Set<String> WORKSPACE_TYPES = Set.of("CRITICAL_THINKING", "PROGRAMMING", "DIAGRAM");
+    /**
+     * Item types served in the final round and marked with the whole paper:
+     * the ones a workspace answers (code, diagram, analytical sets) and the
+     * written answer, whose marking is a model call the learner should not
+     * wait on between every question.
+     */
+    private static final Set<String> WORKSPACE_TYPES = Set.of("CRITICAL_THINKING", "PROGRAMMING", "DIAGRAM", "DESCRIPTIVE");
 
     private final AdaptiveProperties properties;
 

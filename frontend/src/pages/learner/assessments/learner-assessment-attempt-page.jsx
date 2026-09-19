@@ -68,6 +68,7 @@ import {
   submitAssessmentAttempt,
 } from "@/services/assessmentService.js"
 import { GeneratedQuizArena } from "@/components/practice/generated-quiz-arena.jsx"
+import { AdaptiveAttemptRunner } from "@/components/assessments/attempt/adaptive-attempt-runner.jsx"
 
 function formatClock(totalSeconds) {
   const minutes = Math.floor(totalSeconds / 60)
@@ -953,6 +954,30 @@ export default function LearnerAssessmentAttemptPage() {
    * mock exam is a paper the learner is meant to work through at their own
    * pace, revisiting flagged items -- a per-question countdown would change
    * what the score means. */
+  /* An adaptive assessment is not a paper: the engine serves one question at
+     a time and the runner below walks it. Start, timer and submit are the
+     page's, as for every other runner; only the frame differs. */
+  if (attempt.adaptive) {
+    return (
+        <AdaptiveAttemptRunner
+            attempt={attempt}
+            learnerId={learnerId}
+            remainingSeconds={remainingSeconds}
+            timeUp={timeUp}
+            onFinish={() => {
+              if (!submitMutation.isPending && !submitMutation.isSuccess) submitMutation.mutate()
+            }}
+            /* Straight out: the attempt is saved server-side after every
+               answer and reopens at the same question. */
+            onLeave={() => navigate(-1)}
+            isSubmitting={submitMutation.isPending || submitMutation.isSuccess}
+            toDraftDto={toDraftDto}
+            isMultipleChoice={isMultipleChoice}
+            WorkspaceQuestionPanel={WorkspaceQuestionPanel}
+        />
+    )
+  }
+
   if (attempt.assessmentType === "GENERATED_QUIZ" && !timeUp) {
     return (
         <GeneratedQuizArena

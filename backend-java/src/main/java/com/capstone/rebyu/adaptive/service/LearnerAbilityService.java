@@ -111,17 +111,16 @@ public class LearnerAbilityService {
         return new Seed(mu0, sigma0, pKnown, params);
     }
 
-    /** Writes the session's ability estimate back; called after every graded answer. */
+    /** Writes the session's ability estimate back, with how many responses it rests on. */
     @Transactional
-    public void persistAbility(Long learnerId, Long certificationId, AdaptiveSessionState state) {
+    public void persistAbility(Long learnerId, Long certificationId, AdaptiveSessionState state, int responsesThisSession) {
         String key = scopeKey(certificationId);
         LearnerAbility ability = abilityRepository.findByLearnerIdAndScopeKey(learnerId, key)
                 .orElseGet(() -> LearnerAbility.builder()
                         .learnerId(learnerId).scopeKey(key).responseCount(0).build());
         ability.setTheta(state.getTheta());
         ability.setStandardError(state.getSe());
-        // Only the responses this session added, so a resumed attempt does not double-count.
-        ability.setResponseCount(Math.max(ability.getResponseCount(), 0) + 1);
+        ability.setResponseCount(Math.max(ability.getResponseCount(), 0) + Math.max(0, responsesThisSession));
         ability.setUpdatedAt(LocalDateTime.now());
         abilityRepository.save(ability);
     }

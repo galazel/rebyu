@@ -59,6 +59,9 @@ public class AdaptiveSessionState {
     /** Normalised stems of everything served, so a twin under another id is not served too. */
     private List<String> servedStems = new ArrayList<>();
 
+    /** Per-assessment point overrides from the optional seed list. */
+    private Map<Long, java.math.BigDecimal> pointsOverride = new LinkedHashMap<>();
+
     @Data
     @NoArgsConstructor
     public static class ResponseRecord {

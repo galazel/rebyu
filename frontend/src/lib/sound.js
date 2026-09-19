@@ -137,3 +137,31 @@ export function playAchievementChime() {
     /* Any failure here is a sound that did not play. Nothing else depends on it. */
   }
 }
+
+/**
+ * The boxing bell that opens the final round of an adaptive assessment: a
+ * struck bell is a bright partial over a lower fundamental, rung three times.
+ * The one other sound in the product, for the one other moment that earns it.
+ */
+export function playFinalRoundBell() {
+  if (!isSoundEnabled()) return
+  if (typeof document !== "undefined" && document.hidden) return
+  const ctx = getContext()
+  if (!ctx) return
+  try {
+    const resumed = ctx.state === "suspended" ? ctx.resume() : Promise.resolve()
+    resumed
+      .then(() => {
+        const now = ctx.currentTime
+        for (let hit = 0; hit < 3; hit += 1) {
+          const at = now + hit * 0.45
+          playNote(ctx, 880, at, 0.9, 0.16)
+          playNote(ctx, 1760, at, 0.6, 0.06)
+          playNote(ctx, 2637, at, 0.35, 0.03)
+        }
+      })
+      .catch(() => {})
+  } catch {
+    /* A bell that did not ring. */
+  }
+}

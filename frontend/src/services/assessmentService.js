@@ -172,6 +172,14 @@ export function checkAttemptDiagram(attemptId, attemptQuestionId, learnerId, dia
   )
 }
 
+/** One answer of an adaptive session; returns the marking (main round) and the next item. */
+export function answerAdaptiveItem(attemptId, learnerId, answer) {
+  return base(`learner/assessment-attempts/${attemptId}/adaptive/answer`, {
+    method: "POST",
+    data: { learnerId, answer },
+  })
+}
+
 export function submitAssessmentAttempt(attemptId, learnerId, answers) {
   return base(`learner/assessment-attempts/${attemptId}/submit`, {
     method: "POST",
