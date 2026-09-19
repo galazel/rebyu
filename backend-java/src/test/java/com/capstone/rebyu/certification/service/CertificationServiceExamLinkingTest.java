@@ -44,7 +44,9 @@ class CertificationServiceExamLinkingTest {
     void setUp() {
         service = new CertificationService(
                 certificationRepository, certificationMapper, entityManager,
-                examRepository, examQuestionRepository, workflowClient);
+                examRepository, examQuestionRepository, workflowClient,
+                org.mockito.Mockito.mock(com.capstone.rebyu.adaptive.service.AdaptivePolicy.class),
+                org.mockito.Mockito.mock(com.capstone.rebyu.adaptive.service.QuestionBankSizeService.class));
     }
 
     @Test

@@ -49,6 +49,8 @@ public class CertificationService {
     private final ExamRepository examRepository;
     private final ExamQuestionRepository examQuestionRepository;
     private final WorkflowClient workflowClient;
+    private final com.capstone.rebyu.adaptive.service.AdaptivePolicy adaptivePolicy;
+    private final com.capstone.rebyu.adaptive.service.QuestionBankSizeService questionBankSize;
 
     /**
      * @param includeGroupId when null, only official (platform-wide) content is
@@ -838,7 +840,19 @@ public class CertificationService {
         for (Exam exam : exams) {
             List<ExamQuestion> examQuestions =
                     examQuestionRepository.findByExam_ExamIdOrderByDisplayOrderAsc(exam.getExamId());
-            if (examQuestions.isEmpty()) {
+            /* Adaptive assessments are served from the scope's question bank;
+               an assigned list is only an optional seed. What must be there is
+               enough bank to draw a paper from. */
+            if (adaptivePolicy.isAdaptiveType(exam.getExamType().getExamTypeText())) {
+                var size = questionBankSize.measure(exam);
+                if (!size.sufficient()) {
+                    invalid.add(new InvalidRequirementDto(
+                            exam.getExamId(), exam.getTitle(), "QUESTION_BANK_TOO_SMALL", List.of()));
+                }
+                if (examQuestions.isEmpty()) {
+                    continue;
+                }
+            } else if (examQuestions.isEmpty()) {
                 invalid.add(new InvalidRequirementDto(
                         exam.getExamId(), exam.getTitle(), "ASSESSMENT_HAS_NO_QUESTIONS", List.of()));
                 continue;

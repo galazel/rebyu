@@ -82,7 +82,57 @@ public final class LearnerAttemptDtos {
             Map<Long, AttemptAnswerDraftDto> savedAnswers,
             Long currentAttemptQuestionId,
             List<Long> flaggedAttemptQuestionIds,
-            List<Long> skippedAttemptQuestionIds
+            List<Long> skippedAttemptQuestionIds,
+            /** Null for a fixed-paper attempt. For an adaptive one, `questions` holds only the items served so far. */
+            AdaptiveProgressDto adaptive
+    ) {
+    }
+
+    // ------------------------------------------------------------------
+    // Adaptive (IRT + BKT) session
+    // ------------------------------------------------------------------
+
+    public record AdaptiveProgressDto(
+            int answered,
+            int total,
+            int mainTotal,
+            int finalRoundTotal,
+            /** MAIN, FINAL or DONE. */
+            String stage,
+            Long currentAttemptQuestionId
+    ) {
+    }
+
+    /**
+     * The marking of one main-round item, returned the moment it is answered.
+     * Null for a final-round item, which is marked with the whole paper at submit.
+     */
+    public record AdaptiveVerdictDto(
+            Boolean isCorrect,
+            BigDecimal earnedPoints,
+            BigDecimal points,
+            Long correctChoiceId,
+            String correctChoiceText,
+            String acceptedAnswer,
+            String explanation,
+            String feedback,
+            List<SubQuestionAnswerReviewDto> subQuestionAnswers
+    ) {
+    }
+
+    public record AdaptiveAnswerRequestDto(
+            @NotNull Long learnerId,
+            @NotNull AttemptAnswerDraftDto answer
+    ) {
+    }
+
+    public record AdaptiveAnswerResponseDto(
+            AdaptiveVerdictDto verdict,
+            AdaptiveProgressDto progress,
+            /** The next item to show; null once the session is complete. */
+            LearnerAttemptQuestionDto next,
+            boolean enteringFinalRound,
+            boolean completed
     ) {
     }
 

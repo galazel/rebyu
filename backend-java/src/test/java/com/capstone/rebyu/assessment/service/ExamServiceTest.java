@@ -53,6 +53,9 @@ class ExamServiceTest {
     @Mock private ExamMapper examMapper;
     @Mock private MajorCategoryService majorCategoryService;
 
+    @org.mockito.Mock private com.capstone.rebyu.adaptive.service.AdaptivePolicy adaptivePolicy;
+    @org.mockito.Mock private com.capstone.rebyu.adaptive.service.QuestionBankSizeService questionBankSize;
+
     private ExamService service;
 
     @BeforeEach
@@ -60,7 +63,8 @@ class ExamServiceTest {
         service = new ExamService(
                 examRepository, examQuestionRepository, questionRepository,
                 examTypeRepository, certificationRepository, majorCategoryRepository,
-                middleCategoryRepository, lessonRepository, examMapper, majorCategoryService);
+                middleCategoryRepository, lessonRepository, examMapper, majorCategoryService,
+                adaptivePolicy, questionBankSize);
     }
 
     @Test

@@ -162,7 +162,7 @@ public class SecurityConfig {
                         // BKT outbox retry/reconcile trigger real backend side effects and
                         // had no auth at all (neither here nor in the controller) -- anyone
                         // on the public internet could force-retry or reconcile mastery events.
-                        .requestMatchers("/api/admin/bkt/**").authenticated()
+                        .requestMatchers("/api/admin/bkt/**", "/api/admin/adaptive/**").authenticated()
                         .requestMatchers("/api/admin/community/reports/**").authenticated()
                         .requestMatchers("/api/admin/gamification-settings/**").authenticated()
                         // The learner-facing community fell through to permitAll and was

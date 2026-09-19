@@ -103,7 +103,10 @@ public class AssessmentAttemptService {
     private final CodeExecutionService codeExecutionService;
     private final DiagramGradingService diagramGradingService;
     private final AttemptGradingBatchService gradingBatchService;
-    private final AdaptiveRetakeQuestionSelectionService adaptiveRetakeQuestionSelectionService;
+    /* Looked up lazily: the adaptive service calls back into this one for
+       grading and snapshots, and Spring will not wire that circle eagerly. */
+    private final org.springframework.beans.factory.ObjectProvider<AdaptiveAttemptService> adaptiveAttemptService;
+    private final com.capstone.rebyu.adaptive.service.AdaptivePolicy adaptivePolicy;
     private final AssessmentEventProducer assessmentEventProducer;
     private final RewardService rewardService;
     private final StreakService streakService;
@@ -188,7 +191,10 @@ public class AssessmentAttemptService {
             throw new BusinessRuleException.AssessmentNotPublishedException();
         }
         String lockReason = resolveLockReason(exam, learnerId);
-        long questionCount = examQuestionRepository.countByExam_ExamId(examId);
+        String examType = exam.getExamType().getExamTypeText();
+        long questionCount = adaptivePolicy.isAdaptiveType(examType)
+                ? adaptivePolicy.targetCount(examType)
+                : examQuestionRepository.countByExam_ExamId(examId);
         return new LearnerAssessmentDto(
                 exam.getExamId(),
                 exam.getTitle(),
@@ -269,72 +275,57 @@ public class AssessmentAttemptService {
             attemptRepository.save(attempt);
         }
 
+        int nextAttemptNumber = attemptRepository
+                .findTopByExam_ExamIdAndLearnerIdOrderByAttemptNumberDesc(examId, learnerId)
+                .map(previous -> previous.getAttemptNumber() + 1)
+                .orElse(1);
+
+        /* Adaptive assessments have no paper to snapshot: the engine serves
+           one question at a time from the scope's bank, choosing each from
+           what the learner has answered so far. */
+        if (adaptivePolicy.isAdaptiveType(exam.getExamType().getExamTypeText())) {
+            AssessmentAttempt attempt = adaptiveAttemptService.getObject()
+                    .start(exam, learnerId, nextAttemptNumber, idempotencyKey);
+            PhaseTimer.mark(timer, "adaptive start");
+            if (nextAttemptNumber > 1) {
+                assessmentEventProducer.publishAssessmentRetakeRequested(attempt.getAssessmentAttemptId());
+            }
+            log.info("Started adaptive attempt {} (#{}) of exam {} for learner {}",
+                    attempt.getAssessmentAttemptId(), nextAttemptNumber, examId, learnerId);
+            AssessmentAttemptStartResponseDto response = buildStartResponse(attempt, false);
+            PhaseTimer.finish(timer);
+            return response;
+        }
+
         List<ExamQuestion> examQuestions =
                 examQuestionRepository.findByExam_ExamIdOrderByDisplayOrderAsc(examId);
         if (examQuestions.isEmpty()) {
             throw new BusinessRuleException.AssessmentNotPublishedException();
         }
 
-        int nextAttemptNumber = attemptRepository
-                .findTopByExam_ExamIdAndLearnerIdOrderByAttemptNumberDesc(examId, learnerId)
-                .map(previous -> previous.getAttemptNumber() + 1)
-                .orElse(1);
-
-        // Retakes (attempt #2+) get a fresh, weakness-targeted question set
-        // instead of replaying the fixed exam template; attempt #1 always
-        // uses the exam's authored question list, unshuffled.
-        List<Question> questionsToUse;
+        /* Every attempt of a fixed-paper assessment (challenge arenas,
+           knowledge checks, generated quizzes, recall) runs its authored list,
+           in order, with its per-assessment points. Fetched in one query with
+           choices and the type configs, rather than by dereferencing each
+           ExamQuestion's lazy question -- Question owns three EAGER inverse-side
+           one-to-ones, so walking the proxies costs three round trips per
+           question. */
         Map<Long, BigDecimal> pointOverrideByQuestionId = new HashMap<>();
         for (ExamQuestion examQuestion : examQuestions) {
             if (examQuestion.getPoints() != null) {
                 pointOverrideByQuestionId.put(examQuestion.getQuestion().getQuestionId(), examQuestion.getPoints());
             }
         }
-        String retakeBasisJson = null;
-
-        /*
-         * Adaptive retake is for exams that assess a curriculum. It rebuilds
-         * the paper from the learner's weakest (lesson, difficulty) cells,
-         * drawing from the whole certification's question bank -- which is
-         * right for a unit exam and wrong for a challenge arena.
-         *
-         * An arena IS its problem set. CodeStrike is one programming problem
-         * and Blueprint Arena is one diagram problem, chosen by an admin; on
-         * the second attempt the selector was replacing them with whatever
-         * multiple-choice questions the certification happened to have, so
-         * CodeStrike stopped being CodeStrike and asked about requirements
-         * elicitation instead. Nothing failed loudly -- the paper was valid,
-         * just not the arena's.
-         *
-         * So a CHALLENGE exam always runs its configured problems, on every
-         * attempt.
-         */
-        boolean adaptiveRetake = nextAttemptNumber > 1
-                && !TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText());
-
-        if (adaptiveRetake) {
-            AdaptiveRetakeQuestionSelectionService.Selection selection =
-                    adaptiveRetakeQuestionSelectionService.select(exam, learnerId, examQuestions);
-            questionsToUse = selection.questions();
-            retakeBasisJson = selection.retakeBasisJson();
-            PhaseTimer.mark(timer, "select new questions");
-        } else {
-            /* Fetched in one query with choices and the type configs, rather
-               than by dereferencing each ExamQuestion's lazy question. Question
-               owns three EAGER inverse-side one-to-ones, so walking the proxies
-               costs three round trips per question on top of the choices --
-               about four times the queries needed to build one paper. */
-            List<Long> baselineIds = examQuestions.stream()
-                    .map(examQuestion -> examQuestion.getQuestion().getQuestionId())
-                    .toList();
-            Map<Long, Question> baselineById = questionRepository.findForAttemptByIdIn(baselineIds).stream()
-                    .collect(Collectors.toMap(Question::getQuestionId, q -> q, (a, b) -> a));
-            questionsToUse = baselineIds.stream()
-                    .map(baselineById::get)
-                    .filter(Objects::nonNull)
-                    .toList();
-            PhaseTimer.mark(timer, "load questions");
-        }
+        List<Long> baselineIds = examQuestions.stream()
+                .map(examQuestion -> examQuestion.getQuestion().getQuestionId())
+                .toList();
+        Map<Long, Question> baselineById = questionRepository.findForAttemptByIdIn(baselineIds).stream()
+                .collect(Collectors.toMap(Question::getQuestionId, q -> q, (x, y) -> x));
+        List<Question> questionsToUse = baselineIds.stream()
+                .map(baselineById::get)
+                .filter(Objects::nonNull)
+                .toList();
+        PhaseTimer.mark(timer, "load questions");
 
         /* Free learners see the first problems of a solo arena, not the whole set. */
         if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
@@ -359,7 +350,6 @@ public class AssessmentAttemptService {
                 .idempotencyKey(idempotencyKey != null && !idempotencyKey.isBlank()
                         ? idempotencyKey
                         : UUID.randomUUID().toString())
-                .retakeBasis(retakeBasisJson)
                 .build();
         attempt = attemptRepository.save(attempt);
         PhaseTimer.mark(timer, "create attempt");
@@ -401,9 +391,6 @@ public class AssessmentAttemptService {
         PhaseTimer.mark(timer, "snapshot questions");
 
         if (nextAttemptNumber > 1) {
-            // Lightweight RabbitMQ trigger (ids only) alongside the
-            // synchronous adaptive-retake selection above -- Phase 6 wires
-            // the consumer.
             assessmentEventProducer.publishAssessmentRetakeRequested(attempt.getAssessmentAttemptId());
         }
 
@@ -458,7 +445,7 @@ public class AssessmentAttemptService {
         attemptRepository.save(attempt);
     }
 
-    private AssessmentAttemptQuestion requireAttemptQuestion(AssessmentAttempt attempt, Long attemptQuestionId) {
+    AssessmentAttemptQuestion requireAttemptQuestion(AssessmentAttempt attempt, Long attemptQuestionId) {
         AssessmentAttemptQuestion question = attemptQuestionRepository.findById(attemptQuestionId)
                 .orElseThrow(() -> new BusinessRuleException.InvalidAssessmentSubmissionException(
                         "That item does not belong to this attempt."));
@@ -470,7 +457,7 @@ public class AssessmentAttemptService {
     }
 
     /** Rejects edits once an attempt is submitted or its server clock expired. */
-    private void requireEditable(AssessmentAttempt attempt) {
+    void requireEditable(AssessmentAttempt attempt) {
         if (attempt.getStatus() != AssessmentAttempt.Status.IN_PROGRESS) {
             throw new BusinessRuleException.AssessmentAttemptAlreadySubmittedException();
         }
@@ -501,6 +488,14 @@ public class AssessmentAttemptService {
         if (attempt.getExpiresAt() != null
                 && LocalDateTime.now().isAfter(attempt.getExpiresAt().plus(SUBMIT_GRACE))) {
             attempt.setStatus(AssessmentAttempt.Status.EXPIRED);
+        }
+
+        boolean timedOutNow = attempt.getStatus() == AssessmentAttempt.Status.EXPIRED
+                || (attempt.getExpiresAt() != null && !LocalDateTime.now().isBefore(attempt.getExpiresAt()));
+        if (attempt.isAdaptive() && !timedOutNow
+                && !com.capstone.rebyu.adaptive.engine.AdaptiveSessionState.STAGE_DONE.equals(attempt.getPhase())) {
+            throw new BusinessRuleException.InvalidAssessmentSubmissionException(
+                    "Answer the remaining questions before finishing this assessment.");
         }
 
         if (request.answers() != null && !request.answers().isEmpty()) {
@@ -574,8 +569,17 @@ public class AssessmentAttemptService {
            below then reads the results instead of making the calls itself. */
         PhaseTimer.mark(timer, "load paper");
 
+        /* On an adaptive attempt every main-round item was marked the moment
+           it was answered; only the final-round items are still open. Those
+           are what the batch grades here, together and concurrently -- the
+           already-marked ones are neither re-graded nor sent to a grader. */
+        Map<Long, AssessmentAttemptAnswer> toGrade = attempt.isAdaptive()
+                ? answersByQuestion.entrySet().stream()
+                        .filter(e -> !hasDefinitiveVerdict(e.getValue()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+                : answersByQuestion;
         GradingBatch gradingBatch = prepareGradingBatch(
-                questions, answersByQuestion, sourceQuestions, subQuestionsByParentId);
+                questions, toGrade, sourceQuestions, subQuestionsByParentId);
         PhaseTimer.mark(timer, "graders (ai/code/diagram)");
 
         BigDecimal totalPoints = BigDecimal.ZERO;
@@ -592,9 +596,11 @@ public class AssessmentAttemptService {
             if (answer == null) {
                 continue;
             }
-            scoreAnswer(attemptQuestion, answer, points, gradingBatch,
-                    sourceQuestions, subQuestionsByParentId);
-            attemptAnswerRepository.save(answer);
+            if (!(attempt.isAdaptive() && hasDefinitiveVerdict(answer))) {
+                scoreAnswer(attemptQuestion, answer, points, gradingBatch,
+                        sourceQuestions, subQuestionsByParentId);
+                attemptAnswerRepository.save(answer);
+            }
             // Partial credit (AI-graded descriptive/critical-thinking, future
             // diagram grading) sets earnedPoints without isCorrect=TRUE, so
             // gating the sum on isCorrect would silently drop that credit.
@@ -622,6 +628,11 @@ public class AssessmentAttemptService {
                 .between(attempt.getStartedAt(), now).getSeconds());
         attemptRepository.save(attempt);
         PhaseTimer.mark(timer, "score + persist");
+
+        if (attempt.isAdaptive()) {
+            adaptiveAttemptService.getObject().onSubmitted(attempt);
+            PhaseTimer.mark(timer, "adaptive close");
+        }
 
         awardAssessmentXp(attempt);
         PhaseTimer.mark(timer, "xp");
@@ -952,7 +963,7 @@ public class AssessmentAttemptService {
     // Internals
     // ------------------------------------------------------------------
 
-    private AssessmentAttempt requireOwnedAttempt(Long attemptId, Long learnerId) {
+    AssessmentAttempt requireOwnedAttempt(Long attemptId, Long learnerId) {
         AssessmentAttempt attempt = attemptRepository.findById(attemptId)
                 .orElseThrow(() -> new EntityNotFoundException("Attempt not found: " + attemptId));
         if (learnerId == null || !attempt.getLearnerId().equals(learnerId)) {
@@ -1103,7 +1114,7 @@ public class AssessmentAttemptService {
                 certificationId, TYPE_DIAGNOSTIC, Exam.Status.PUBLISHED);
     }
 
-    private Long findEnrollmentId(Exam exam, Long learnerId) {
+    Long findEnrollmentId(Exam exam, Long learnerId) {
         return learnerCertificationRepository
                 .findFirstByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
                         learnerId,
@@ -1165,7 +1176,7 @@ public class AssessmentAttemptService {
         }
     }
 
-    private void upsertAnswers(AssessmentAttempt attempt, List<AttemptAnswerDraftDto> drafts) {
+    void upsertAnswers(AssessmentAttempt attempt, List<AttemptAnswerDraftDto> drafts) {
         if (drafts == null) {
             return;
         }
@@ -1232,7 +1243,7 @@ public class AssessmentAttemptService {
         }
     }
 
-    private boolean hasAnswerContent(AttemptAnswerDraftDto draft) {
+    boolean hasAnswerContent(AttemptAnswerDraftDto draft) {
         return (draft.learnerAnswer() != null && !draft.learnerAnswer().isBlank())
                 || draft.selectedChoiceId() != null
                 || (draft.submittedCode() != null && !draft.submittedCode().isBlank())
@@ -1251,16 +1262,16 @@ public class AssessmentAttemptService {
         return a == null ? b == null : a.equals(b);
     }
 
-    private static boolean isMultipleChoice(String questionType) {
+    static boolean isMultipleChoice(String questionType) {
         return "MULTIPLE_CHOICE".equalsIgnoreCase(questionType)
                 || "MCQ".equalsIgnoreCase(questionType);
     }
 
-    private static String normalizeQuestionType(String questionType) {
+    static String normalizeQuestionType(String questionType) {
         return isMultipleChoice(questionType) ? "MULTIPLE_CHOICE" : questionType;
     }
 
-    private void scoreAnswer(
+    void scoreAnswer(
             AssessmentAttemptQuestion attemptQuestion,
             AssessmentAttemptAnswer answer,
             BigDecimal points,
@@ -1428,7 +1439,7 @@ public class AssessmentAttemptService {
      * the transaction-bound thread and the tasks do not. What it hands over are
      * closures over plain values.
      */
-    private GradingBatch prepareGradingBatch(
+    GradingBatch prepareGradingBatch(
             List<AssessmentAttemptQuestion> questions,
             Map<Long, AssessmentAttemptAnswer> answersByQuestion,
             Map<Long, Question> sourceQuestions,
@@ -1540,7 +1551,7 @@ public class AssessmentAttemptService {
     }
 
     /** Whether the learner put anything at all into this item. */
-    private static boolean hasSubmittedContent(AssessmentAttemptAnswer answer) {
+    static boolean hasSubmittedContent(AssessmentAttemptAnswer answer) {
         return (answer.getLearnerAnswer() != null && !answer.getLearnerAnswer().isBlank())
                 || answer.getSelectedChoiceId() != null
                 || (answer.getSubmittedCode() != null && !answer.getSubmittedCode().isBlank())
@@ -1549,7 +1560,7 @@ public class AssessmentAttemptService {
     }
 
     /** A Check already produced a real verdict for this answer. */
-    private static boolean hasDefinitiveVerdict(AssessmentAttemptAnswer answer) {
+    static boolean hasDefinitiveVerdict(AssessmentAttemptAnswer answer) {
         return !answer.isPendingManualEvaluation() && answer.getIsCorrect() != null;
     }
 
@@ -2221,7 +2232,7 @@ public class AssessmentAttemptService {
      * question tree with the persisted AI score/feedback so review is a pure
      * read — grading never re-runs here.
      */
-    private List<SubQuestionAnswerReviewDto> buildSubQuestionAnswerReviews(
+    List<SubQuestionAnswerReviewDto> buildSubQuestionAnswerReviews(
             Question source, AssessmentAttemptAnswer answer,
             Map<Long, List<Question>> subQuestionsByParentId) {
         // Any parent with parts, not just workspace ones.
@@ -2496,7 +2507,8 @@ public class AssessmentAttemptService {
                 savedAnswers,
                 attempt.getCurrentQuestionId(),
                 flaggedIds,
-                skippedIds
+                skippedIds,
+                attempt.isAdaptive() ? adaptiveAttemptService.getObject().progressOf(attempt) : null
         );
     }
 
@@ -2508,7 +2520,7 @@ public class AssessmentAttemptService {
      * {@link #startAttempt} for why the per-question form it replaces was the
      * dominant cost of opening an assessment.
      */
-    private record SnapshotContext(
+    record SnapshotContext(
             Map<Long, List<Question>> subQuestionsByParentId,
             Map<Long, List<QuestionRubricCriterion>> rubricByQuestionId) {
 
@@ -2525,7 +2537,7 @@ public class AssessmentAttemptService {
         }
     }
 
-    private SnapshotContext buildSnapshotContext(List<Question> questions) {
+    SnapshotContext buildSnapshotContext(List<Question> questions) {
         List<Long> questionIds = questions.stream()
                 .map(Question::getQuestionId)
                 .filter(Objects::nonNull)
@@ -2559,7 +2571,7 @@ public class AssessmentAttemptService {
      * {@link SnapshotContext}. It issues no query of its own -- see
      * {@link #buildSnapshotContext}.
      */
-    private String buildLearnerSafeSnapshot(Question question, SnapshotContext context) {
+    String buildLearnerSafeSnapshot(Question question, SnapshotContext context) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("questionImageKey", question.getImageKey());
 
@@ -2647,7 +2659,7 @@ public class AssessmentAttemptService {
     }
 
     @SuppressWarnings("unchecked")
-    private LearnerAttemptQuestionDto toLearnerQuestion(AssessmentAttemptQuestion attemptQuestion) {
+    LearnerAttemptQuestionDto toLearnerQuestion(AssessmentAttemptQuestion attemptQuestion) {
         Map<String, Object> data = Map.of();
         try {
             if (attemptQuestion.getQuestionDataSnapshot() != null) {

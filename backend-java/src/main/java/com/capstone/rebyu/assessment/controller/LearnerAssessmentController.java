@@ -3,6 +3,7 @@ package com.capstone.rebyu.assessment.controller;
 import com.capstone.rebyu.assessment.dto.attempt.DiagramAttemptDtos.*;
 import com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.*;
 import com.capstone.rebyu.assessment.dto.attempt.ProgrammingAttemptDtos.*;
+import com.capstone.rebyu.assessment.service.AdaptiveAttemptService;
 import com.capstone.rebyu.assessment.service.AssessmentAttemptService;
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
@@ -45,6 +46,7 @@ import java.util.List;
 public class LearnerAssessmentController {
 
     private final AssessmentAttemptService assessmentAttemptService;
+    private final AdaptiveAttemptService adaptiveAttemptService;
     private final CognitoAuthService auth;
     private final com.capstone.rebyu.assessment.repository.ExamRepository examRepository;
     private final com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAssigneeRepository groupAssignees;
@@ -180,6 +182,19 @@ public class LearnerAssessmentController {
         return assessmentAttemptService.checkDiagram(attemptId, attemptQuestionId,
                 new DiagramCheckRequestDto(
                         me(jwt), request.diagramData(), request.diagramType()));
+    }
+
+    /**
+     * One answer of an adaptive session: marked at once (main round) or saved
+     * for the final marking (final round), and the next question comes back
+     * with it.
+     */
+    @PostMapping("/assessment-attempts/{attemptId}/adaptive/answer")
+    public AdaptiveAnswerResponseDto answerAdaptive(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long attemptId,
+            @Valid @RequestBody AdaptiveAnswerRequestDto request) {
+        return adaptiveAttemptService.answer(attemptId, me(jwt), request.answer());
     }
 
     @PostMapping("/assessment-attempts/{attemptId}/submit")

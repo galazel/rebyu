@@ -54,6 +54,8 @@ public class ExamService {
     private final LessonRepository lessonRepository;
     private final ExamMapper examMapper;
     private final MajorCategoryService majorCategoryService;
+    private final com.capstone.rebyu.adaptive.service.AdaptivePolicy adaptivePolicy;
+    private final com.capstone.rebyu.adaptive.service.QuestionBankSizeService questionBankSize;
 
     /**
      * includeGroupId is the same opt-in mechanism used for the curriculum
@@ -182,7 +184,16 @@ public class ExamService {
 
         List<ExamQuestion> examQuestions =
                 examQuestionRepository.findByExam_ExamIdOrderByDisplayOrderAsc(id);
-        if (examQuestions.isEmpty()) {
+        /* An adaptive assessment draws from the scope's bank, so what has to
+           exist is the bank, not an assigned list -- any list is a seed. */
+        boolean adaptive = adaptivePolicy.isAdaptiveType(exam.getExamType().getExamTypeText());
+        if (adaptive) {
+            var size = questionBankSize.measure(exam);
+            if (!size.sufficient()) {
+                throw new BusinessRuleException.InvalidAssessmentSubmissionException(
+                        questionBankSize.shortfallMessage(exam, size));
+            }
+        } else if (examQuestions.isEmpty()) {
             throw new BusinessRuleException.InvalidAssessmentSubmissionException(
                     "Add at least one question before publishing this assessment.");
         }
