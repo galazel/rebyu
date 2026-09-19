@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom"
 
-import { BrandLogo } from "@/components/brand-logo"
+import { BrandWordmark } from "@/components/brand-logo"
 import { TraySupplies } from "@/components/classroom/tray-supplies.jsx"
 import { BackButton } from "@/components/rebyu/rebyu-ui.jsx"
 
@@ -70,8 +70,7 @@ export default function AuthShell({
             to="/"
             className="flex items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw"
           >
-            <BrandLogo className="size-9" />
-            <span className="font-rb-display text-2xl leading-none text-rb-eel">rebyu</span>
+            <BrandWordmark className="h-10" alt="REBYU" />
           </Link>
 
           <BackButton asChild size="sm" label="Back to home">
