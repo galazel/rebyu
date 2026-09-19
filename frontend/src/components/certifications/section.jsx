@@ -2,6 +2,7 @@ import React from "react"
 import { Trash2 } from "@/components/icons"
 import {
     AccordionTool,
+    CodeTool,
     DescriptionTool,
     FlipGridTool,
     HeadingTool,
@@ -46,6 +47,7 @@ const TOOL_COMPONENTS = {
     "media-text-block": MediaTextBlockTool,
     "image-hotspot": ImageHotspotTool,
     table: TableTool,
+    code: CodeTool,
 }
 
 function Section({

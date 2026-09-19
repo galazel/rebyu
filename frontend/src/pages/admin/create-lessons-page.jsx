@@ -7,6 +7,7 @@ import {
   BetweenHorizontalEnd,
   CheckCircle2,
   CircleAlert,
+  Code2 as CodeIcon,
   FilePlay,
   FlipHorizontal,
   Heading as HeadingIcon,
@@ -267,6 +268,20 @@ const combinedActions = [
           description: "",
         },
       ],
+    }),
+  },
+  {
+    type: "code",
+    name: "Code sample",
+    description: "A block of code in a monospace box with syntax colouring",
+    icon: CodeIcon,
+    createData: () => ({
+      smallHeader: "",
+      description: "",
+      language: "text",
+      title: "",
+      code: "",
+      caption: "",
     }),
   },
   {
@@ -823,7 +838,8 @@ function normalizeToolData(type, data = {}, toolId, imageKeys = {}, videoKeys = 
       type === "content-accordion-block" ||
       type === "content-tabs-block" ||
       type === "media-text-block" ||
-      type === "table"
+      type === "table" ||
+      type === "code"
   ) {
     normalizedData.smallHeader = normalizedData.smallHeader ?? ""
     normalizedData.description = normalizedData.description ?? ""
@@ -1381,6 +1397,12 @@ function CreateLessons() {
 
       if (!hasMediaFileOrKey(data, "imageKey")) {
         return `${toolLabel}: upload an image first.`
+      }
+    }
+
+    if (tool.type === "code") {
+      if (!(data.code ?? "").trim()) {
+        return `${toolLabel}: paste the code.`
       }
     }
 

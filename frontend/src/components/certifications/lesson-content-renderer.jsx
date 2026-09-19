@@ -2,7 +2,9 @@
 import { motion } from "framer-motion"
 import { fetchFileBlob, getFileViewLink } from "@/services/fileService.js"
 import { parseLessonStructure } from "@/services/learnerService.js"
-import { Maximize, RotateCcw, X } from "@/components/icons"
+import { Check, Copy, Maximize, RotateCcw, X } from "@/components/icons"
+import { Light as SyntaxHighlighter } from "react-syntax-highlighter"
+import { CODE_LANGUAGES, registerCodeLanguages } from "./code-languages.js"
 import { Card } from "@/components/ui/card"
 import {
   Accordion,
@@ -622,6 +624,83 @@ function TableBlock({ data, accent = ACCENTS[0] }) {
               {data.footer}
             </p>
         ) : null}
+      </div>
+  )
+}
+
+/**
+ * A code sample, the way W3Schools shows one: a titled box, the language in
+ * the corner, a copy button, and the code itself in a monospace face with
+ * syntax colouring. Real text -- selectable, searchable, read by screen
+ * readers -- rather than the paragraph-per-line the generator used to emit,
+ * which lost indentation and read as prose.
+ */
+registerCodeLanguages(SyntaxHighlighter)
+
+function CodeBlock({ data, accent = ACCENTS[0] }) {
+  const [copied, setCopied] = useState(false)
+  const code = typeof data.code === "string" ? data.code.replace(/\s+$/, "") : ""
+  if (!code) return null
+  const language = CODE_LANGUAGES[data.language] ? data.language : "text"
+  const label = CODE_LANGUAGES[language]?.label ?? "Code"
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1600)
+    } catch {
+      /* Clipboard denied: the code is still selectable by hand. */
+    }
+  }
+
+  return (
+      <div className="space-y-4">
+        <SectionIntro smallHeader={data.smallHeader} description={data.description} accent={accent} />
+
+        <figure className="overflow-hidden rounded-[var(--radius-rb-tile)] border-2 border-border/70 bg-card">
+          <div className="flex items-center justify-between gap-3 border-b-2 border-border/70 bg-muted/60 px-4 py-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className={`rounded-md px-2 py-0.5 font-heading text-[12px] font-bold uppercase tracking-wide ${accent.bgSoft} ${accent.text}`}>
+                {label}
+              </span>
+              {data.title ? (
+                  <span className="truncate font-mono text-[13px] text-muted-foreground">{data.title}</span>
+              ) : null}
+            </div>
+            <button
+                type="button"
+                onClick={copy}
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                aria-live="polite"
+            >
+              {copied ? <Check className="size-3.5" aria-hidden="true" /> : <Copy className="size-3.5" aria-hidden="true" />}
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+
+          {/* Horizontal overflow stays inside the box, as with tables: long
+              lines scroll here and never widen the page. */}
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label={data.title ? `Code: ${data.title}` : `${label} code sample`}>
+            <SyntaxHighlighter
+                language={language}
+                useInlineStyles={false}
+                PreTag="pre"
+                CodeTag="code"
+                className="rb-code-sample"
+                showLineNumbers={code.split("\n").length > 4}
+                wrapLongLines={false}
+            >
+              {code}
+            </SyntaxHighlighter>
+          </div>
+
+          {data.caption ? (
+              <figcaption className="border-t-2 border-border/70 px-4 py-2.5 text-sm text-muted-foreground">
+                {data.caption}
+              </figcaption>
+          ) : null}
+        </figure>
       </div>
   )
 }
@@ -1262,6 +1341,10 @@ function LessonTool({ tool, index = 0 }) {
           ))}
         </Tag>
     )
+  }
+
+  if (tool.type === "code") {
+    return <CodeBlock data={data} accent={accent} />
   }
 
   if (tool.type === "table") {

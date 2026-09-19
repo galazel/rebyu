@@ -154,6 +154,22 @@ _PROMPT_TEMPLATE = """
     do not put a paragraph inside a cell -- a cell holds a value or a short
     phrase.
 
+    {"type": "code",
+     "data": {"smallHeader": "", "description": "", "language": "python",
+              "title": "", "code": "", "caption": ""}}
+
+    Use `code` for EVERY code sample, command, query, or configuration
+    snippet -- never put code in a `description` paragraph or a list item,
+    where it loses its indentation and reads as prose. `code` is the whole
+    snippet as one string with real newlines (
+) and the indentation kept.
+    `language` is one of: javascript, typescript, python, java, csharp, cpp,
+    c, go, php, sql, html, xml, css, json, yaml, bash, pseudocode, text.
+    `title` is an optional file name or label ("app.py", "Bad", "Good");
+    `caption` is one sentence on what to notice. A before/after comparison
+    is two `code` blocks, titled "Bad" and "Good", not one block with prose
+    between the lines.
+
     {"type": "image", "data": {"imageQuery": ""}}
     {"type": "video", "data": {"videoQuery": ""}}
 

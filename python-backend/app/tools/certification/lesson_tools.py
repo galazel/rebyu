@@ -259,6 +259,46 @@ def create_media_text_block(
     }
 
 
+CODE_LANGUAGES = (
+    "javascript", "typescript", "python", "java", "csharp", "cpp", "c", "go",
+    "php", "sql", "html", "xml", "css", "json", "yaml", "bash", "pseudocode", "text",
+)
+
+
+@tool("add_code_sample",
+      description=(
+          "Creates a code sample block: a snippet shown in a monospace box with syntax "
+          "colouring and a copy button, the way a tutorial site shows code. Use it for "
+          "EVERY piece of code, command, query or configuration -- never put code in a "
+          "description paragraph, where indentation is lost. `code` is the whole snippet "
+          "with real newlines and indentation kept. `language` is one of: " + ", ".join(CODE_LANGUAGES) + ". "
+          "`title` is an optional file name or label such as 'app.py', 'Bad' or 'Good'; "
+          "`caption` is one sentence on what to notice."
+      ))
+def create_code_sample(
+        code: str,
+        language: str = "text",
+        title: str = "",
+        small_header: str = "",
+        description: str = "",
+        caption: str = "",
+):
+    lang = (language or "text").strip().lower()
+    if lang not in CODE_LANGUAGES:
+        lang = "text"
+    return {
+        "type": "code",
+        "data": {
+            "smallHeader": small_header,
+            "description": description,
+            "language": lang,
+            "title": title,
+            "code": code.rstrip(),
+            "caption": caption,
+        }
+    }
+
+
 @tool("search_educational_image",
       description="Searches the web via Google Custom Search / Serper for educational diagrams, technical charts, or architecture schematics matching the query and returns the direct image URL.")
 def search_educational_image(query: str) -> str:
@@ -321,6 +361,7 @@ lesson_builder_tools = [
     create_review_card_grid,
     create_content_accordion_block,
     create_media_text_block,
+    create_code_sample,
 ]
 
 lesson_search_tools = [

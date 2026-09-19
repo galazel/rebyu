@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/accordion"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { fetchFileBlob, getFileViewLink } from "@/services/fileService.js"
+import { CODE_LANGUAGES } from "./code-languages.js"
 
 function createId(prefix) {
     return `${prefix}-${crypto.randomUUID()}`
@@ -1132,6 +1133,76 @@ function TableEditor({ data, onDataChange }) {
                 First column labels its row
             </label>
         </div>
+    )
+}
+
+export function CodeTool({ data, onDataChange, onDelete }) {
+    const toolData = data ?? {}
+
+    return (
+        <ToolShell
+            title="Code sample"
+            description="A block of code shown in a monospace box with syntax colouring and a copy button."
+            onDelete={onDelete}
+        >
+            <CombinedHeaderFields
+                data={toolData}
+                onDataChange={onDataChange}
+                title="Code intro"
+                description="Add a heading and a lead-in, then paste the code below."
+            />
+
+            <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
+                <Select
+                    value={toolData.language ?? "text"}
+                    onValueChange={(value) => onDataChange({ ...toolData, language: value })}
+                >
+                    <SelectTrigger aria-label="Language">
+                        <SelectValue placeholder="Language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {Object.entries(CODE_LANGUAGES).map(([key, { label }]) => (
+                            <SelectItem key={key} value={key}>{label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <InlineField
+                    value={toolData.title}
+                    onChange={(value) => onDataChange({ ...toolData, title: value })}
+                    placeholder="File name or label, e.g. app.py (optional)"
+                    className="rounded-lg bg-muted/40 px-3 py-2 text-sm"
+                />
+            </div>
+
+            {/* A real textarea with the tab key kept as indentation: code is
+                the one field where Tab must not move focus. */}
+            <textarea
+                value={toolData.code ?? ""}
+                onChange={(event) => onDataChange({ ...toolData, code: event.target.value })}
+                onKeyDown={(event) => {
+                    if (event.key !== "Tab") return
+                    event.preventDefault()
+                    const { selectionStart, selectionEnd, value } = event.target
+                    const next = value.slice(0, selectionStart) + "  " + value.slice(selectionEnd)
+                    onDataChange({ ...toolData, code: next })
+                    requestAnimationFrame(() => {
+                        event.target.selectionStart = event.target.selectionEnd = selectionStart + 2
+                    })
+                }}
+                placeholder="Paste the code here..."
+                rows={Math.min(24, Math.max(6, (toolData.code ?? "").split("\n").length + 1))}
+                spellCheck={false}
+                wrap="off"
+                className="w-full rounded-lg bg-muted/40 p-4 font-mono text-[13px] leading-6 text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:bg-muted/60 focus:ring-2 focus:ring-ring/25"
+            />
+
+            <TextAreaField
+                value={toolData.caption}
+                onChange={(value) => onDataChange({ ...toolData, caption: value })}
+                placeholder="Caption under the code, e.g. what to notice (optional)..."
+                rows={2}
+            />
+        </ToolShell>
     )
 }
 

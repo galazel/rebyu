@@ -3525,3 +3525,63 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
   --color-rb-wolf: #6b706c;
   color: #2c3a33;
 }
+
+/* ===========================================================================
+   LESSON CODE SAMPLES
+   ---------------------------------------------------------------------------
+   The code block's own colouring (highlight.js token classes), kept in the
+   green-and-white palette: white paper, ink text, a few restrained hues for
+   keywords/strings/comments. Light and dark.
+   =========================================================================== */
+.rb-code-sample {
+    margin: 0;
+    padding: 16px 18px;
+    background: var(--color-rb-snow, #fff);
+    color: var(--color-rb-eel, #2c3a33);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13.5px;
+    line-height: 1.7;
+    tab-size: 4;
+    white-space: pre;
+}
+.rb-code-sample code { font: inherit; background: transparent; }
+.rb-code-sample .react-syntax-highlighter-line-number {
+    display: inline-block;
+    min-width: 2.2em;
+    padding-right: 1em;
+    text-align: right;
+    color: color-mix(in srgb, currentColor 35%, transparent);
+    user-select: none;
+}
+.rb-code-sample .hljs-keyword,
+.rb-code-sample .hljs-selector-tag,
+.rb-code-sample .hljs-built_in,
+.rb-code-sample .hljs-name,
+.rb-code-sample .hljs-tag { color: #1c5d8f; font-weight: 600; }
+.rb-code-sample .hljs-string,
+.rb-code-sample .hljs-attr,
+.rb-code-sample .hljs-template-variable,
+.rb-code-sample .hljs-addition { color: #1f7a4d; }
+.rb-code-sample .hljs-number,
+.rb-code-sample .hljs-literal,
+.rb-code-sample .hljs-symbol { color: #a04a1a; }
+.rb-code-sample .hljs-comment,
+.rb-code-sample .hljs-quote { color: #6b706c; font-style: italic; }
+.rb-code-sample .hljs-title,
+.rb-code-sample .hljs-function .hljs-title,
+.rb-code-sample .hljs-section { color: #6b2fa0; }
+.rb-code-sample .hljs-type,
+.rb-code-sample .hljs-class .hljs-title { color: #0b6b45; }
+.rb-code-sample .hljs-meta,
+.rb-code-sample .hljs-variable { color: #7a5b00; }
+.rb-code-sample .hljs-deletion { color: #b3261e; }
+.dark .rb-code-sample {
+    background: #14201a;
+    color: #e6efe9;
+}
+.dark .rb-code-sample .hljs-keyword, .dark .rb-code-sample .hljs-tag, .dark .rb-code-sample .hljs-built_in, .dark .rb-code-sample .hljs-name { color: #8ec5ff; }
+.dark .rb-code-sample .hljs-string, .dark .rb-code-sample .hljs-attr { color: #8fd9a8; }
+.dark .rb-code-sample .hljs-number, .dark .rb-code-sample .hljs-literal { color: #f2b27a; }
+.dark .rb-code-sample .hljs-comment { color: #9aa79f; }
+.dark .rb-code-sample .hljs-title, .dark .rb-code-sample .hljs-section { color: #d9b3ff; }
+.dark .rb-code-sample .hljs-type { color: #7fd7b0; }
