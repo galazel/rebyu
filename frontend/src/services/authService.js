@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase.js"
 
-import { base } from "./base"
+import { API, base } from "./base"
 
 // ---------------------------------------------------------------------------
 // Supabase auth wrapper. Every provider error is turned into one of the error
@@ -19,8 +19,7 @@ const ERROR_MESSAGES = {
   ExpiredCodeException: "That code is wrong or has expired. Request a new one below.",
   UserNotConfirmedException:
       "Your account must be verified before signing in.",
-  NotAuthorizedException:
-      "Incorrect email or password. Joined REBYU before 16 September 2026? Sign up again with the same email -- your progress is kept.",
+  NotAuthorizedException: "Incorrect email or password.",
   SamePasswordException: "Choose a password different from your current one.",
   LimitExceededException:
       "Too many attempts. Please wait a moment and try again.",
@@ -123,6 +122,23 @@ export async function confirmRegistration(email, code) {
 
 export function resendVerificationCode(email) {
   return run(supabase.auth.resend({ type: "signup", email }))
+}
+
+/**
+ * After a rejected password, asks the server which problem it really was:
+ * READY (wrong password), NEEDS_SIGN_IN (an account from before sign-in moved
+ * to Supabase on 16 September 2026, which registering again reclaims),
+ * NO_ACCOUNT, or UNKNOWN when the server could not tell.
+ */
+export async function signInState(email) {
+  try {
+    const response = await fetch(`${API}/public/sign-in-state?email=${encodeURIComponent(email)}`)
+    if (!response.ok) return "UNKNOWN"
+    const body = await response.json()
+    return body?.state ?? "UNKNOWN"
+  } catch {
+    return "UNKNOWN"
+  }
 }
 
 export async function loginWithCognito(email, password) {

@@ -190,6 +190,20 @@ public class CognitoAdminService {
         }
     }
 
+    /**
+     * Whether Supabase holds a sign-in for this address. Empty when Supabase
+     * could not be asked, so the caller can fall back to a neutral message
+     * rather than guess.
+     */
+    public java.util.Optional<Boolean> hasSignIn(String email) {
+        try {
+            return java.util.Optional.of(findUserJson(email) != null);
+        } catch (Exception e) {
+            log.warn("Could not look up the sign-in for {}: {}", email, e.getMessage());
+            return java.util.Optional.empty();
+        }
+    }
+
     /** The admin API's user object for an address, or null. Paged; REBYU has few sign-ins. */
     private String findUserJson(String email) throws Exception {
         String wanted = "\"email\":\"" + email.trim().toLowerCase() + "\"";

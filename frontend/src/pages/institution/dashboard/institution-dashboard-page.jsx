@@ -224,7 +224,7 @@ export default function InstitutionDashboardPage() {
         row: 2,
         element: (
           <BentoStat
-            tone="macaw"
+            tone="bee"
             col={2}
             row={2}
             icon={UsersIcon}

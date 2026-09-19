@@ -192,6 +192,9 @@ export default function LearnerSubscriptionPage() {
       ) : rejected ? (
         <StatusBanner tone="cardinal" icon={XCircleIcon} title="Your last Pro request was not approved">
           {subscription.reviewNote}
+          {subscription.refunded
+            ? " Your payment has been refunded to the card or wallet you paid with."
+            : " Your payment will be refunded to the card or wallet you paid with."}
         </StatusBanner>
       ) : null}
 

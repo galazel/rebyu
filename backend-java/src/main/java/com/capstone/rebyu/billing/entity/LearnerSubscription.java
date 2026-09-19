@@ -81,6 +81,14 @@ public class LearnerSubscription {
     @Column(name = "review_note", length = 500)
     private String reviewNote;
 
+    /* A rejected payment is sent back. The refund id is PayMongo's; null on a
+       rejection means the refund could not be made and must be done by hand. */
+    @Column(name = "refund_id", length = 100)
+    private String refundId;
+
+    @Column(name = "refunded_at")
+    private LocalDateTime refundedAt;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 

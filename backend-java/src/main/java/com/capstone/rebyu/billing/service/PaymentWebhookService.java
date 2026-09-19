@@ -1,5 +1,6 @@
 package com.capstone.rebyu.billing.service;
 
+import com.capstone.rebyu.billing.client.PayMongoClient;
 import com.capstone.rebyu.billing.entity.BillingStatus;
 import com.capstone.rebyu.billing.entity.LearnerSubscription;
 import com.capstone.rebyu.billing.entity.SubscriptionPlan;
@@ -30,6 +31,7 @@ public class PaymentWebhookService {
     private final InvoiceEmailService invoiceEmails;
     private final LearnerRepository learnerRepository;
     private final NotificationService notifications;
+    private final PayMongoClient payMongo;
 
     /**
      * Activate (or idempotently re-confirm) a subscription from a completed
@@ -112,14 +114,71 @@ public class PaymentWebhookService {
         subscription.setReviewNote(note == null || note.isBlank() ? null : note.trim());
         subscription.setUpdatedAt(now);
         log.info("Subscription {} rejected by user {}", subscriptionId, adminUserId);
+
+        // Nothing was granted, so the money goes back: the payment behind the
+        // checkout session is refunded in full through PayMongo.
+        refund(subscription, "REBYU subscription rejected: " + (subscription.getReviewNote() == null ? "not approved" : subscription.getReviewNote()));
+
         LearnerSubscription saved = learnerSubscriptionRepository.save(subscription);
         // The learner hears about it the same two ways an approval reaches
         // them: an email, and the bell in the portal.
         invoiceEmails.sendRejectionAfterCommit(saved);
         String reason = saved.getReviewNote();
+        String refundLine = saved.getRefundId() != null ? " Your payment has been refunded." : "";
         notifyLearner(saved, "Your Pro subscription was not approved",
-                reason == null ? "Pro has not been switched on. Open your plan for details." : "Reason: " + reason);
+                (reason == null ? "Pro has not been switched on." : "Reason: " + reason) + refundLine);
         return saved;
+    }
+
+    private void refund(LearnerSubscription subscription, String notes) {
+        if (subscription.getRefundId() != null || subscription.getAmountPaid() == null) return;
+        String paymentId = payMongo.paymentIdForSession(subscription.getProviderSubscriptionId());
+        long cents = subscription.getAmountPaid().movePointRight(2).longValue();
+        String refundId = paymentId == null ? null : payMongo.refundPayment(paymentId, cents, notes);
+        if (refundId == null) {
+            log.error("Subscription {} was rejected but its payment ({}) could not be refunded; refund it by hand in PayMongo.",
+                    subscription.getLearnerSubscriptionId(), subscription.getProviderSubscriptionId());
+            return;
+        }
+        subscription.setRefundId(refundId);
+        subscription.setRefundedAt(LocalDateTime.now());
+    }
+
+    /**
+     * Run daily: settles every Pro subscription whose paid period has lapsed.
+     * One the learner cancelled simply ends. One they kept is renewed for
+     * another period, the way a card on file would be charged -- in test mode
+     * PayMongo's hosted checkout keeps no card, so the renewal is recorded
+     * and invoiced without a real charge.
+     */
+    @org.springframework.scheduling.annotation.Scheduled(cron = "0 15 0 * * *", zone = "Asia/Manila")
+    public void settleLapsedPeriods() {
+        LocalDateTime now = LocalDateTime.now();
+        for (LearnerSubscription s : learnerSubscriptionRepository.findByStatusAndCurrentPeriodEndBefore(BillingStatus.ACTIVE, now)) {
+            if (s.isCancelAtPeriodEnd()) {
+                s.setStatus(BillingStatus.EXPIRED);
+                s.setEndedAt(s.getCurrentPeriodEnd());
+                s.setUpdatedAt(now);
+                learnerSubscriptionRepository.save(s);
+                notifyLearner(s, "Your Pro subscription has ended",
+                        "Your paid period is over and renewal was cancelled. You are back on the free plan.");
+                log.info("Subscription {} ended after its cancelled period", s.getLearnerSubscriptionId());
+                continue;
+            }
+            LocalDateTime start = s.getCurrentPeriodEnd();
+            LocalDateTime end = computePeriodEnd(start, s.getSubscriptionPlan().getBillingInterval());
+            if (end == null) continue;
+            s.setCurrentPeriodStart(start);
+            s.setCurrentPeriodEnd(end);
+            s.setAmountPaid(s.getSubscriptionPlan().getAmount());
+            s.setPaidAt(now);
+            s.setUpdatedAt(now);
+            LearnerSubscription saved = learnerSubscriptionRepository.save(s);
+            invoiceEmails.sendRenewalAfterCommit(saved);
+            notifyLearner(saved, "Your Pro subscription renewed",
+                    "Another period was charged (test mode) and Pro continues. Cancel renewal any time from your plan.");
+            log.info("Subscription {} auto-renewed until {}", s.getLearnerSubscriptionId(), end);
+        }
     }
 
     /* Resolved inside the transaction: the subscription only holds a learner id. */

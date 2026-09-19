@@ -155,6 +155,49 @@ public class PayMongoClient {
         return "paid".equalsIgnoreCase(status);
     }
 
+    /** The id of the payment a paid checkout session produced, or null. */
+    public String paymentIdForSession(String sessionId) {
+        if (!isEnabled() || sessionId == null) return null;
+        try {
+            JsonNode root = objectMapper.readTree(getRequest("/checkout_sessions/" + sessionId));
+            JsonNode payments = root.path("data").path("attributes").path("payments");
+            for (JsonNode payment : payments) {
+                String status = payment.path("attributes").path("status").asText();
+                if ("paid".equalsIgnoreCase(status) || status.isBlank()) {
+                    return payment.path("id").asText(null);
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            log.error("Failed to read payments of checkout session {}: {}", sessionId, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Refunds a payment in full (or the given amount). Returns the refund id,
+     * or null if PayMongo would not take it. Test-mode money, like everything
+     * else this client touches.
+     */
+    public String refundPayment(String paymentId, long amountCents, String notes) {
+        if (!isEnabled() || paymentId == null) return null;
+        try {
+            Map<String, Object> attributes = new HashMap<>();
+            attributes.put("amount", amountCents);
+            attributes.put("payment_id", paymentId);
+            attributes.put("reason", "requested_by_customer");
+            if (notes != null && !notes.isBlank()) attributes.put("notes", notes);
+            String response = postRequest("/refunds", Map.of("data", Map.of("attributes", attributes)));
+            JsonNode root = objectMapper.readTree(response);
+            String refundId = root.path("data").path("id").asText(null);
+            log.info("Refunded PayMongo payment {} ({} cents): refund {}", paymentId, amountCents, refundId);
+            return refundId;
+        } catch (Exception e) {
+            log.error("Failed to refund PayMongo payment {}: {}", paymentId, e.getMessage());
+            return null;
+        }
+    }
+
     /**
      * Retrieve a subscription from PayMongo.
      */

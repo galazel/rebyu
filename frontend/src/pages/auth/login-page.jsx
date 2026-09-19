@@ -1,16 +1,50 @@
 import { useEffect, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { AlertCircle, Loader2, LogIn } from "@/components/icons"
+import { AlertCircle, AlertTriangle, Loader2, LogIn } from "@/components/icons"
 
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PasswordInput } from "@/components/ui/password-input"
 import { roleHomePath, useAuth } from "@/context/auth-context.jsx"
-import { resendVerificationCode, toSafeAuthMessage } from "@/services/authService.js"
+import { resendVerificationCode, signInState, toSafeAuthMessage } from "@/services/authService.js"
 import AuthShell from "./auth-shell.jsx"
+
+/* Supabase says "invalid credentials" for a wrong password, for an email it
+   has never seen, and for an account REBYU kept from before sign-in moved to
+   Supabase. Those need three different notices, so the server is asked which
+   one this is. */
+async function passwordRejectedNotice(email) {
+  const state = await signInState(email)
+  switch (state) {
+    case "NEEDS_SIGN_IN":
+      return {
+        tone: "warning",
+        title: "Your account needs a new sign-in",
+        message:
+          "This email joined REBYU before 16 September 2026, when sign-in moved to a new system. Create a new sign-in with the same email and your progress, XP and certifications carry over.",
+        action: { to: "/register", label: "Create your sign-in", state: { email } },
+      }
+    case "NO_ACCOUNT":
+      return {
+        tone: "warning",
+        title: "No account with this email",
+        message: "Check the address for typos, or create an account to get started.",
+        action: { to: "/register", label: "Create an account", state: { email } },
+      }
+    case "READY":
+      return {
+        tone: "error",
+        title: "Incorrect password",
+        message: "The password does not match this email.",
+        action: { to: "/forgot-password", label: "Reset your password", state: { email } },
+      }
+    default:
+      return { tone: "error", title: "Incorrect email or password", message: "Check both and try again." }
+  }
+}
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -18,7 +52,7 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
+  const [error, setError] = useState(null)
   const [pending, setPending] = useState(false)
 
   useEffect(() => {
@@ -31,14 +65,14 @@ export default function LoginPage() {
   useEffect(() => {
     if (sessionStorage.getItem("rebyu_session_expired")) {
       sessionStorage.removeItem("rebyu_session_expired")
-      setError("Your session expired. Please sign in again.")
+      setError({ tone: "warning", title: "Your session expired", message: "Please sign in again." })
     }
   }, [])
 
   async function handleSubmit(event) {
     event.preventDefault()
 
-    setError("")
+    setError(null)
     setPending(true)
 
     const cleanEmail = email.trim().toLowerCase()
@@ -95,7 +129,7 @@ export default function LoginPage() {
       const user = result?.user
 
       if (!user) {
-        setError("Unable to load your account. Please try again.")
+        setError({ tone: "error", title: "Unable to load your account", message: "Please try again." })
         return
       }
 
@@ -144,7 +178,12 @@ export default function LoginPage() {
         return
       }
 
-      setError(toSafeAuthMessage(err, "Incorrect email or password."))
+      if (err?.name === "NotAuthorizedException") {
+        setError(await passwordRejectedNotice(cleanEmail))
+        return
+      }
+
+      setError({ tone: "error", title: "Sign-in failed", message: toSafeAuthMessage(err, "Incorrect email or password.") })
     } finally {
       setPending(false)
     }
@@ -208,9 +247,25 @@ export default function LoginPage() {
           </div>
 
           {error ? (
-              <Alert variant="destructive">
-                <AlertCircle className="size-4" />
-                <AlertDescription>{error}</AlertDescription>
+              <Alert
+                  variant={error.tone === "warning" ? "default" : "destructive"}
+                  role={error.tone === "warning" ? "status" : "alert"}
+                  className={error.tone === "warning" ? "border-amber-400/70 bg-amber-50 text-amber-900" : undefined}
+              >
+                {error.tone === "warning" ? <AlertTriangle className="size-4" /> : <AlertCircle className="size-4" />}
+                <AlertTitle>{error.title}</AlertTitle>
+                <AlertDescription>
+                  <span>{error.message}</span>
+                  {error.action ? (
+                      <Link
+                          to={error.action.to}
+                          state={error.action.state}
+                          className="mt-1 inline-block font-semibold underline underline-offset-2"
+                      >
+                        {error.action.label}
+                      </Link>
+                  ) : null}
+                </AlertDescription>
               </Alert>
           ) : null}
 

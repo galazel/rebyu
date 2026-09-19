@@ -45,13 +45,23 @@ export const BUBBLE_TONES = {
     chip: "bg-rb-fox-wash text-rb-fox-lip",
     solid: "#8A4F00",
   },
+  /* The green family: the product is green-and-white, so lists rotate
+     through these three rather than the whole rainbow. */
   bee: {
-    accent: "linear-gradient(135deg, #0092A8, #00B8D4)",
+    accent: "linear-gradient(135deg, #248f4c, #47b96d)",
     surface: "bg-rb-bee-wash dark:bg-[#12333a]",
-    flat: "#00B8D4",
+    flat: "#47b96d",
     ink: "text-rb-bee-lip",
     chip: "bg-rb-bee-wash text-rb-bee-lip",
-    solid: "#008194",
+    solid: "#248f4c",
+  },
+  leaf: {
+    accent: "linear-gradient(135deg, #3c6e46, #6aa676)",
+    surface: "bg-rb-leaf-wash dark:bg-[#1a2e1e]",
+    flat: "#6aa676",
+    ink: "text-rb-leaf-lip",
+    chip: "bg-rb-leaf-wash text-rb-leaf-lip",
+    solid: "#3c6e46",
   },
   feather: {
     accent: "linear-gradient(135deg, #0b6b45, #168a5b)",
@@ -79,7 +89,7 @@ export const BUBBLE_TONES = {
 
 /** Rotates tones for lists that have no meaningful colour of their own. */
 export function toneForIndex(index) {
-  const order = ["macaw", "beetle", "fox", "bee", "feather"]
+  const order = ["feather", "bee", "leaf"]
   return order[index % order.length]
 }
 

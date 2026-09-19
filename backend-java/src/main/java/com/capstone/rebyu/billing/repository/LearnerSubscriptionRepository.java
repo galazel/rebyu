@@ -20,5 +20,9 @@ public interface LearnerSubscriptionRepository extends JpaRepository<LearnerSubs
 
     List<LearnerSubscription> findAllByOrderByCreatedAtDesc();
 
+    /** Subscriptions whose paid period has lapsed, for the daily renewal/expiry pass. */
+    List<LearnerSubscription> findByStatusAndCurrentPeriodEndBefore(
+            com.capstone.rebyu.billing.entity.BillingStatus status, java.time.LocalDateTime before);
+
     long countByStatusIn(java.util.Collection<com.capstone.rebyu.billing.entity.BillingStatus> statuses);
 }

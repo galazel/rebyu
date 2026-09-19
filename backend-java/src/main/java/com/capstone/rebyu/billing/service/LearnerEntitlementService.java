@@ -81,7 +81,8 @@ public class LearnerEntitlementService {
                 subscription.isCancelAtPeriodEnd(),
                 subscription.getCanceledAt(),
                 subscription.isAwaitingApproval(),
-                subscription.getReviewNote());
+                subscription.getReviewNote(),
+                subscription.getRefundId() != null);
     }
 
     @Transactional(readOnly = true)

@@ -50,6 +50,8 @@ public class AdminSubscriptionController {
             LocalDateTime currentPeriodStart,
             LocalDateTime currentPeriodEnd,
             String reviewNote,
+            String refundId,
+            LocalDateTime refundedAt,
             LocalDateTime createdAt) {
     }
 
@@ -109,6 +111,8 @@ public class AdminSubscriptionController {
                 s.getCurrentPeriodStart(),
                 s.getCurrentPeriodEnd(),
                 s.getReviewNote(),
+                s.getRefundId(),
+                s.getRefundedAt(),
                 s.getCreatedAt());
     }
 

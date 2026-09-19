@@ -48,7 +48,8 @@ public final class EntitlementDtos {
             boolean cancelAtPeriodEnd,
             LocalDateTime canceledAt,
             boolean awaitingApproval,
-            String reviewNote
+            String reviewNote,
+            boolean refunded
     ) {
     }
 

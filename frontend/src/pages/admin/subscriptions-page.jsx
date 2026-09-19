@@ -123,6 +123,13 @@ function SubscriptionCard({ row }) {
         <p className="mt-2 truncate text-xs text-rb-hare">PayMongo checkout · {row.checkoutReference}</p>
       ) : null}
       {row.reviewNote ? <p className="mt-2 text-sm text-rb-wolf">Note: {row.reviewNote}</p> : null}
+      {row.status === "CANCELED" && row.reviewedAt && row.reviewNote !== undefined && !row.active ? (
+        row.refundId ? (
+          <p className="mt-1 text-xs text-rb-feather-lip">Refunded via PayMongo · {row.refundId}</p>
+        ) : row.reviewNote ? (
+          <p className="mt-1 text-xs text-rb-cardinal-lip">Refund failed — refund this payment by hand in PayMongo.</p>
+        ) : null
+      ) : null}
 
       {row.awaitingApproval ? (
         rejecting ? (

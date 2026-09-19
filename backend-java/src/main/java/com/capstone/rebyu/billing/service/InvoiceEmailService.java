@@ -156,31 +156,80 @@ public class InvoiceEmailService {
 
     private void sendRejection(LearnerSubscription s, Recipient to) {
         String note = s.getReviewNote() == null ? "" : s.getReviewNote();
+        String refund = s.getRefundId() != null
+                ? "Your payment of " + peso(s.getAmountPaid()) + " has been refunded (PayMongo test mode, reference "
+                        + s.getRefundId() + "). It goes back to the card or wallet you paid with."
+                : "Your payment will be refunded to the card or wallet you paid with.";
         String text = """
                 Hi %s,
 
                 Your REBYU Pro subscription (invoice %s) was not approved, so Pro has not been switched on.%s
 
-                If you think this is a mistake, or want to sort out the payment, reply to this email or reach us from the app.
+                %s
+
+                If you think this is a mistake, reply to this email or reach us from the app.
 
                 View your plan: %s/learner/subscription
 
                 REBYU Team
-                """.formatted(to.name, invoiceNumber(s), note.isEmpty() ? "" : "\n\nReason from the admin: " + note, base());
+                """.formatted(to.name, invoiceNumber(s), note.isEmpty() ? "" : "\n\nReason from the admin: " + note, refund, base());
         String html = """
                 <div style="font-family:Arial,Helvetica,sans-serif;background:#f4f1ea;padding:24px">
                   <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e3ddd0;border-radius:14px;padding:24px;color:#2c3a33">
                     <div style="font-size:20px;font-weight:bold;color:#b3261e">Your Pro subscription was not approved</div>
                     <p>Hi %s, your subscription (invoice %s) was reviewed and not approved, so Pro has not been switched on.</p>
                     %s
-                    <p>If you think this is a mistake, or want to sort out the payment, reply to this email or reach us from the app.</p>
+                    <div style="background:#e8f3ec;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.5;margin-top:12px"><b>Refund:</b> %s</div>
+                    <p>If you think this is a mistake, reply to this email or reach us from the app.</p>
                     <p><a href="%s/learner/subscription" style="background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold">View your plan</a></p>
                   </div>
                 </div>
                 """.formatted(esc(to.name), invoiceNumber(s),
                 note.isEmpty() ? "" : "<div style=\"background:#fdecea;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.5\"><b>Reason from the admin:</b> " + esc(note) + "</div>",
-                base());
+                esc(refund), base());
         deliver(to.email, "Your REBYU Pro subscription was not approved", text, html);
+    }
+
+    public void sendRenewalAfterCommit(LearnerSubscription subscription) {
+        Recipient to = recipient(subscription);
+        String planName = subscription.getSubscriptionPlan().getPlanName();
+        if (to != null) afterCommit(() -> sendRenewal(subscription, to, planName));
+    }
+
+    private void sendRenewal(LearnerSubscription s, Recipient to, String planName) {
+        String amount = peso(s.getAmountPaid());
+        String until = s.getCurrentPeriodEnd() == null ? "" : manila(s.getCurrentPeriodEnd());
+        String charged = s.getPaidAt() == null ? "" : manila(s.getPaidAt());
+        String text = """
+                Hi %s,
+
+                Your REBYU Pro subscription renewed automatically.
+
+                %s          %s
+                Charged (PayMongo test mode): %s
+                Pro runs until: %s
+
+                Don't want it to renew again? Cancel renewal from your plan page; Pro stays on until the date above.
+
+                View your plan: %s/learner/subscription
+
+                REBYU Team
+                """.formatted(to.name, planName, amount, charged, until, base());
+        String html = """
+                <div style="font-family:Arial,Helvetica,sans-serif;background:#f4f1ea;padding:24px">
+                  <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e3ddd0;border-radius:14px;padding:24px;color:#2c3a33">
+                    <div style="font-size:20px;font-weight:bold;color:#2f6b4f">Your REBYU Pro renewed</div>
+                    <p>Hi %s, your subscription renewed automatically.</p>
+                    <table style="width:100%%;font-size:14px;border-collapse:collapse;border-top:1px solid #e3ddd0;border-bottom:1px solid #e3ddd0">
+                      <tr><td style="padding:12px 0">%s</td><td style="text-align:right;padding:12px 0">%s</td></tr>
+                    </table>
+                    <p style="font-size:13px;color:#6b706c">Charged %s (PayMongo test mode). Pro runs until %s.</p>
+                    <p style="font-size:13px">Don't want it to renew again? Cancel renewal from your plan page; Pro stays on until then.</p>
+                    <p><a href="%s/learner/subscription" style="background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold">View your plan</a></p>
+                  </div>
+                </div>
+                """.formatted(esc(to.name), esc(planName), amount, charged, until, base());
+        deliver(to.email, "Your REBYU Pro renewed", text, html);
     }
 
     private void deliver(String to, String subject, String text, String html) {

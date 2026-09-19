@@ -2114,19 +2114,11 @@ body.netacad-overlay-theme {
 /* ===========================================================================
    CURSORS
    ---------------------------------------------------------------------------
-   A normal-sized pencil everywhere, a blue ballpoint on anything clickable, and
-   the ordinary text cursor in fields so typing never feels odd. Hotspot is the
-   tip (bottom-left). Unaffected on touch screens, which have no cursor.
+   The system's own: arrow, hand on anything clickable, I-beam in fields. The
+   drawn pencil/pen cursors were retired.
    =========================================================================== */
-html,
-body {
-    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg transform='rotate(-45 16 16)' stroke='%233b2a12' stroke-width='0.7' stroke-linejoin='round'%3E%3Cpolygon points='-5,16 0,14 0,18' fill='%23333'/%3E%3Cpolygon points='0,14 6,12.5 6,19.5 0,18' fill='%23f0cfa0'/%3E%3Crect x='6' y='12.5' width='22' height='7' fill='%23f2c230'/%3E%3Crect x='28' y='12.5' width='4' height='7' fill='%23b8bcc0'/%3E%3Crect x='32' y='12.5' width='5' height='7' rx='1.5' fill='%23ee8f95'/%3E%3C/g%3E%3C/svg%3E") 1 31, auto;
-}
 :where(a[href], button:not(:disabled), [role="button"], summary, label[for], select, .cursor-pointer, .rb-folder, .rb-olympic) {
-    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg transform='rotate(-45 16 16)' stroke='%231c3326' stroke-width='0.7' stroke-linejoin='round'%3E%3Cpolygon points='-5,16 1,14.5 1,17.5' fill='%23c9ced3'/%3E%3Crect x='1' y='13' width='6' height='6' fill='%236f777f'/%3E%3Crect x='7' y='12.5' width='30' height='7' rx='2' fill='%232f6b4f'/%3E%3Crect x='22' y='10.6' width='13' height='2' rx='1' fill='%23c9ced3'/%3E%3C/g%3E%3C/svg%3E") 1 31, pointer;
-}
-:where(input:not([type="checkbox"], [type="radio"], [type="range"], [type="button"], [type="submit"]), textarea, [contenteditable="true"]) {
-    cursor: text;
+    cursor: pointer;
 }
 :where(button:disabled, [aria-disabled="true"]) {
     cursor: not-allowed;
