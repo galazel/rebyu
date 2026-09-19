@@ -40,13 +40,8 @@ public class EmailService {
             String invitationToken
     ) {
         String invitationLink = buildInvitationLink(invitationToken);
-
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(mailFrom);
-        message.setTo(recipientEmail);
-        message.setSubject("You're invited to join " + certificationTitle + " on REBYU");
-
-        message.setText("""
+        String subject = "You're invited to join " + certificationTitle + " on REBYU";
+        String text = """
                 Hello,
 
                 %s invited you to join the %s certification review on REBYU.
@@ -62,18 +57,18 @@ public class EmailService {
                 institutionName,
                 certificationTitle,
                 invitationLink
-        ));
-
-        send(message);
+        );
+        String html = frame("<p>Hello,</p>"
+                + "<p><b>" + escape(institutionName) + "</b> invited you to join the <b>" + escape(certificationTitle)
+                + "</b> certification review on REBYU.</p>"
+                + "<p><a href=\"" + invitationLink + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;display:inline-block\">Accept invitation</a></p>"
+                + "<p style=\"font-size:12px;color:#6b706c\">This link expires in 7 days. Please do not share it.</p>");
+        sendHtml(recipientEmail, subject, text, html);
     }
 
     /** First sign-in details for an account REBYU created, as the Cognito email used to send. */
     public void sendTemporaryPassword(String recipientEmail, String temporaryPassword, String signInUrl) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(mailFrom);
-        message.setTo(recipientEmail);
-        message.setSubject("Your temporary password");
-        message.setText("""
+        String text = """
                 Hello,
 
                 Your REBYU account is ready.
@@ -85,8 +80,37 @@ public class EmailService {
                 You will be asked to choose your own password the first time you sign in.
 
                 REBYU Team
-                """.formatted(recipientEmail, temporaryPassword, signInUrl));
-        send(message);
+                """.formatted(recipientEmail, temporaryPassword, signInUrl);
+        String html = frame("<p>Hello,</p><p>Your REBYU account is ready.</p>"
+                + "<table style=\"font-size:14px;border-collapse:collapse;margin:0 0 16px\">"
+                + "<tr><td style=\"color:#6b706c;padding:3px 12px 3px 0\">Username</td><td>" + escape(recipientEmail) + "</td></tr>"
+                + "<tr><td style=\"color:#6b706c;padding:3px 12px 3px 0\">Temporary password</td><td style=\"font-family:Consolas,Menlo,monospace\">" + escape(temporaryPassword) + "</td></tr>"
+                + "</table>"
+                + "<p><a href=\"" + signInUrl + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;display:inline-block\">Sign in</a></p>"
+                + "<p style=\"font-size:12px;color:#6b706c\">You will be asked to choose your own password the first time you sign in.</p>");
+        sendHtml(recipientEmail, "Your temporary password", text, html);
+    }
+
+    /**
+     * The REBYU logo as an email header: the same artwork the site serves,
+     * linked by absolute URL because mail clients load nothing relative.
+     */
+    public String logoHeader() {
+        String base = frontendUrl.replaceAll("/+$", "");
+        return "<a href=\"" + base + "\" style=\"display:inline-block;margin:0 0 14px\">"
+                + "<img src=\"" + base + "/brand/rebyu-logo.png\" alt=\"REBYU\" height=\"32\" "
+                + "style=\"height:32px;width:auto;display:block;border:0\"></a>";
+    }
+
+    /** The standard REBYU email frame: paper, white card, logo on top, body inside. */
+    public String frame(String bodyHtml) {
+        return "<div style=\"font-family:Arial,Helvetica,sans-serif;background:#f4f1ea;padding:24px\">"
+                + "<div style=\"max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e3ddd0;border-radius:14px;padding:24px;color:#2c3a33\">"
+                + logoHeader() + bodyHtml + "</div></div>";
+    }
+
+    private static String escape(String value) {
+        return value == null ? "" : value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
     }
 
     /** An HTML email with a plain-text fallback (the text alone over SMTP). */

@@ -89,9 +89,9 @@ public class InvoiceEmailService {
         String html = """
                 <div style="font-family:Arial,Helvetica,sans-serif;background:#f4f1ea;padding:24px">
                   <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e3ddd0;border-radius:14px;overflow:hidden">
-                    <div style="background:#2f6b4f;color:#ffffff;padding:20px 24px">
-                      <div style="font-size:20px;font-weight:bold">REBYU</div>
-                      <div style="font-size:13px;opacity:.85">Invoice %s</div>
+                    <div style="padding:20px 24px 0">
+                      %s
+                      <div style="font-size:13px;color:#6b706c">Invoice %s</div>
                     </div>
                     <div style="padding:24px;color:#2c3a33">
                       <p style="margin:0 0 16px">Hi %s, thank you for your payment.</p>
@@ -117,7 +117,7 @@ public class InvoiceEmailService {
                     </div>
                   </div>
                 </div>
-                """.formatted(number, esc(to.name), number, paidAt, esc(to.name), esc(to.email),
+                """.formatted(email.logoHeader(), number, esc(to.name), number, paidAt, esc(to.name), esc(to.email),
                 esc(planName), amount, amount, esc(s.getProviderSubscriptionId()), base());
 
         deliver(to.email, "Your REBYU invoice " + number, text, html);
@@ -139,13 +139,14 @@ public class InvoiceEmailService {
         String html = """
                 <div style="font-family:Arial,Helvetica,sans-serif;background:#f4f1ea;padding:24px">
                   <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e3ddd0;border-radius:14px;padding:24px;color:#2c3a33">
+                    %s
                     <div style="font-size:20px;font-weight:bold;color:#2f6b4f">REBYU Pro is active</div>
                     <p>Hi %s, your subscription (invoice %s) has been approved.%s</p>
                     <p>Retakes, mock exams, the AI tutor, the mistake bank, the full community and every challenge are unlocked.</p>
                     <p><a href="%s/learner/learning" style="background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold">Start studying</a></p>
                   </div>
                 </div>
-                """.formatted(esc(to.name), invoiceNumber(s), until.isEmpty() ? "" : " Pro runs until " + until + ".", base());
+                """.formatted(email.logoHeader(), esc(to.name), invoiceNumber(s), until.isEmpty() ? "" : " Pro runs until " + until + ".", base());
         deliver(to.email, "Your REBYU Pro is active", text, html);
     }
 
@@ -176,6 +177,7 @@ public class InvoiceEmailService {
         String html = """
                 <div style="font-family:Arial,Helvetica,sans-serif;background:#f4f1ea;padding:24px">
                   <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e3ddd0;border-radius:14px;padding:24px;color:#2c3a33">
+                    %s
                     <div style="font-size:20px;font-weight:bold;color:#b3261e">Your Pro subscription was not approved</div>
                     <p>Hi %s, your subscription (invoice %s) was reviewed and not approved, so Pro has not been switched on.</p>
                     %s
@@ -184,7 +186,7 @@ public class InvoiceEmailService {
                     <p><a href="%s/learner/subscription" style="background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold">View your plan</a></p>
                   </div>
                 </div>
-                """.formatted(esc(to.name), invoiceNumber(s),
+                """.formatted(email.logoHeader(), esc(to.name), invoiceNumber(s),
                 note.isEmpty() ? "" : "<div style=\"background:#fdecea;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.5\"><b>Reason from the admin:</b> " + esc(note) + "</div>",
                 esc(refund), base());
         deliver(to.email, "Your REBYU Pro subscription was not approved", text, html);
@@ -218,6 +220,7 @@ public class InvoiceEmailService {
         String html = """
                 <div style="font-family:Arial,Helvetica,sans-serif;background:#f4f1ea;padding:24px">
                   <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e3ddd0;border-radius:14px;padding:24px;color:#2c3a33">
+                    %s
                     <div style="font-size:20px;font-weight:bold;color:#2f6b4f">Your REBYU Pro renewed</div>
                     <p>Hi %s, your subscription renewed automatically.</p>
                     <table style="width:100%%;font-size:14px;border-collapse:collapse;border-top:1px solid #e3ddd0;border-bottom:1px solid #e3ddd0">
@@ -228,7 +231,7 @@ public class InvoiceEmailService {
                     <p><a href="%s/learner/subscription" style="background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold">View your plan</a></p>
                   </div>
                 </div>
-                """.formatted(esc(to.name), esc(planName), amount, charged, until, base());
+                """.formatted(email.logoHeader(), esc(to.name), esc(planName), amount, charged, until, base());
         deliver(to.email, "Your REBYU Pro renewed", text, html);
     }
 
