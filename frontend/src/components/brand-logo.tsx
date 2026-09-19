@@ -3,42 +3,32 @@ type BrandLogoProps = {
 }
 
 /**
- * The REBYU mark: the pair of watching eyes from the logo, cut from the
- * supplied artwork with a transparent background. Decorative on its own; the
- * wordmark beside it, or `BrandWordmark`, carries the name. Size comes from
- * the `size-*` class at each call site.
+ * Rebyu mark: a small wood-framed chalkboard with a chalk "r" and a stick of
+ * chalk on its tray -- the classroom identity in 40 units.
+ *
+ * Drawn as SVG so it stays crisp at every size, needs no request, and takes its
+ * size from the `size-*` class at each call site. Decorative: the wordmark
+ * beside it carries the name. The favicon PNGs in public/brand/classroom are
+ * rendered from the same shapes.
  */
 export function BrandLogo({ className = "" }: BrandLogoProps) {
   return (
-    <img
-      src="/brand/rebyu-mark.png"
-      alt=""
-      aria-hidden="true"
-      draggable={false}
-      className={`shrink-0 select-none object-contain ${className}`}
-    />
-  )
-}
-
-type BrandWordmarkProps = {
-  className?: string
-  /** Accessible name; the image is the whole brand, so it needs one. */
-  alt?: string
-}
-
-/**
- * The full logo -- eyes plus the outlined REBYU letters. The letters are
- * white with a green outline, so it reads on the white body and on the green
- * portal header alike. Height is set by the call site (`h-8`, `h-10`); width
- * follows the 4.7:1 artwork.
- */
-export function BrandWordmark({ className = "", alt = "REBYU" }: BrandWordmarkProps) {
-  return (
-    <img
-      src="/brand/rebyu-logo.png"
-      alt={alt}
-      draggable={false}
-      className={`w-auto shrink-0 select-none object-contain ${className}`}
-    />
+    <svg viewBox="0 0 40 40" aria-hidden="true" className={`shrink-0 ${className}`}>
+      <rect x="1.5" y="3" width="37" height="30" rx="4" fill="#8a5a33" />
+      <rect x="5" y="6.5" width="30" height="23" rx="2" fill="#2f4a3c" />
+      <text
+        x="20"
+        y="18.5"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="#f4f1e8"
+        fontSize="18"
+        fontFamily='"REBYU Chalk", "Patrick Hand", ui-rounded, sans-serif'
+      >
+        r
+      </text>
+      <rect x="7" y="33" width="26" height="3.2" rx="1.6" fill="#b07a4a" />
+      <rect x="23" y="31.4" width="7" height="2" rx="1" fill="#f4f1e8" />
+    </svg>
   )
 }

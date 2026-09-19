@@ -30,7 +30,7 @@ import {
   Zap,
 } from "@/components/icons";
 
-import { BrandWordmark } from "@/components/brand-logo";
+import { BrandLogo } from "@/components/brand-logo";
 import { FolderShelf } from "@/components/classroom/folder-shelf.jsx";
 import { GradedNotebook } from "@/components/classroom/graded-notebook.jsx";
 import { PinBoard } from "@/components/classroom/pin-board.jsx";
@@ -288,8 +288,15 @@ const FEED_POSTS = [
 
 function BrandMark({ light = false }) {
   return (
-    <span className={`flex items-center ${light ? "drop-shadow-[0_1px_3px_rgba(0,0,0,0.45)]" : ""}`}>
-      <BrandWordmark className="h-10" alt="REBYU" />
+    <span className="flex items-center gap-2.5">
+      <BrandLogo className="size-9" />
+      <span
+        className={`rb-display text-2xl leading-none transition-colors duration-200 ${
+          light ? "text-white! [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]" : ""
+        }`}
+      >
+        rebyu
+      </span>
     </span>
   );
 }

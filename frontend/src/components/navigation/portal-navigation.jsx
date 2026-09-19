@@ -24,7 +24,7 @@ import {
 } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
-import { BrandLogo, BrandWordmark } from "@/components/brand-logo"
+import { BrandLogo } from "@/components/brand-logo"
 import {
   Dialog,
   DialogContent,
@@ -241,12 +241,15 @@ function Brand({ role, institutionName }) {
 
   return (
     <NavLink to={home} className="flex shrink-0 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={role === "LEARNER" ? "REBYU home and analytics" : "REBYU home"}>
-      <BrandWordmark className="h-8" alt="REBYU" />
-      <span
-        className="hidden max-w-40 truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-white/80 sm:block"
-        title={isInstitution && institutionName ? institutionName : undefined}
-      >
-        {label}
+      <BrandLogo className="size-8" />
+      <span className="hidden leading-none sm:block">
+        <span className="block font-heading text-[15px] font-bold tracking-tight">REBYU</span>
+        <span
+          className="mt-1 block max-w-40 truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground"
+          title={isInstitution && institutionName ? institutionName : undefined}
+        >
+          {label}
+        </span>
       </span>
     </NavLink>
   )
