@@ -72,15 +72,19 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       setResult(null)
       return
     }
-    /* Opened with the attempt already started: straight to question one. */
+    /* Opened with the attempt already started: the intro is a gate, not a
+       wait -- "Take the challenge" goes straight to question one. */
     if (preparedAttempt) {
       mintingRef.current = true
       setAttempt(preparedAttempt)
-      setPhase("playing")
     }
   }, [open, preparedAttempt])
 
   function start() {
+    if (attempt) {
+      setPhase("playing")
+      return
+    }
     if (mintingRef.current) return
     mintingRef.current = true
     setPhase("minting")
@@ -347,11 +351,11 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
               <AlertDialogMedia className="bg-rb-leaf-wash text-rb-leaf-lip">
                 <Zap aria-hidden="true" />
               </AlertDialogMedia>
-              <AlertDialogTitle>Whoa, slow down!</AlertDialogTitle>
+              <AlertDialogTitle>Oops, caught you skimming!</AlertDialogTitle>
               <AlertDialogDescription>
-                You are moving through this lesson faster than anyone can read.
-                Prove you have got it: {count} quick {count === 1 ? "question" : "questions"} on
-                what you just scrolled past.
+                That was faster than anyone can read. Prove you have got it:{" "}
+                {count} quick {count === 1 ? "question" : "questions"} on what you just scrolled
+                past. Get them right and carry on.
               </AlertDialogDescription>
             </AlertDialogHeader>
 
@@ -370,7 +374,10 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                     Building your questions
                   </>
                 ) : (
-                  "Let's go"
+                  <>
+                    <Zap className="size-4" aria-hidden="true" />
+                    Take the challenge
+                  </>
                 )}
               </Button>
             </AlertDialogFooter>
