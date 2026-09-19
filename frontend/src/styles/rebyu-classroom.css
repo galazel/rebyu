@@ -27,32 +27,29 @@
 
 /* --- Tokens ---------------------------------------------------------------- */
 :root {
-    /* Fresh digital-learning palette: white surfaces, emerald depth, and
-       cool green interaction states.  The old cream paper and wood tones made
-       the product feel like a traditional classroom rather than an AI tool. */
-    --rb-board: #0b6b45;
-    --rb-board-deep: #064d32;
-    --rb-chalk: #ffffff;
-    --rb-chalk-dim: rgb(255 255 255 / 0.82);
-    --rb-chalk-yellow: #b7f7cf;
-    --rb-wood: #168a5b;
-    --rb-wood-light: #35b77d;
-    --rb-paper: #ffffff;
-    --rb-wall: #f5fbf7;
-    --rb-line: #d8e9df;
+    --rb-board: #2f4a3c;
+    --rb-board-deep: #243a2f;
+    --rb-chalk: #f4f1e8;
+    --rb-chalk-dim: rgb(244 241 232 / 0.8);
+    --rb-chalk-yellow: #f2d479;
+    --rb-wood: #8a5a33;
+    --rb-wood-light: #b07a4a;
+    --rb-paper: #fffdf8;
+    --rb-wall: #faf7f0;
+    --rb-line: #e3dccd;
     --rb-chalk-font: "REBYU Chalk", "Patrick Hand", ui-rounded, system-ui, sans-serif;
 
-    --rb-shadow-soft: 0 1px 2px rgb(6 77 50 / 0.06), 0 6px 18px rgb(6 77 50 / 0.07);
-    --rb-shadow-lift: 0 2px 4px rgb(6 77 50 / 0.08), 0 14px 32px rgb(6 77 50 / 0.13);
+    --rb-shadow-soft: 0 1px 2px rgb(40 30 20 / 0.06), 0 6px 18px rgb(40 30 20 / 0.06);
+    --rb-shadow-lift: 0 2px 4px rgb(40 30 20 / 0.08), 0 14px 32px rgb(40 30 20 / 0.12);
 
     /* Retire the solid lip everywhere the base layers reference it. */
     --rb-lip: 0px;
     --rb-lip-sm: 0px;
     --rb-lip-lg: 0px;
     --rb-primary-lip: transparent;
-    --rb-focus: #20a568;
-    --rb-elev-popover: 0 10px 28px rgb(6 77 50 / 0.14);
-    --rb-elev-overlay: 0 24px 56px rgb(6 77 50 / 0.2);
+    --rb-focus: #5c9c7c;
+    --rb-elev-popover: 0 10px 28px rgb(40 30 20 / 0.14);
+    --rb-elev-overlay: 0 24px 56px rgb(40 30 20 / 0.2);
 
     /* A few components still name this shadow token in a utility class. */
     --comic-shadow-sm: var(--rb-shadow-soft);
@@ -72,100 +69,100 @@ body.netacad-overlay-theme {
     --font-rb-sfx: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
     --font-rb-hand: "Patrick Hand", "Nunito Sans", ui-rounded, system-ui, sans-serif;
 
-    --color-rb-feather: #118a57;
-    --color-rb-feather-lip: #086b41;
-    --color-rb-feather-ink: #075c38;
-    --color-rb-feather-wash: #e5f7ed;
-    --color-rb-mask: #20a568;
-    --color-rb-mask-lip: #118a57;
-    --color-rb-macaw: #0f9d86;
-    --color-rb-macaw-lip: #087d6b;
-    --color-rb-macaw-wash: #e1f7f2;
-    --color-rb-bee: #47b96d;
-    --color-rb-bee-lip: #248f4c;
-    --color-rb-bee-ink: #176b37;
-    --color-rb-bee-wash: #e6f8eb;
-    --color-rb-fox: #23a866;
-    --color-rb-fox-lip: #14854d;
-    --color-rb-fox-wash: #e1f7ea;
-    --color-rb-leaf: #34a853;
-    --color-rb-leaf-lip: #1c7d3b;
-    --color-rb-leaf-wash: #e6f6e9;
+    --color-rb-feather: #2f6b4f;
+    --color-rb-feather-lip: #245440;
+    --color-rb-feather-ink: #2f6b4f;
+    --color-rb-feather-wash: #e4efe8;
+    --color-rb-mask: #5c9c7c;
+    --color-rb-mask-lip: #467f62;
+    --color-rb-macaw: #4f8a78;
+    --color-rb-macaw-lip: #3c6e5f;
+    --color-rb-macaw-wash: #e1eee8;
+    --color-rb-bee: #e9b949;
+    --color-rb-bee-lip: #c99a2e;
+    --color-rb-bee-ink: #7a5a10;
+    --color-rb-bee-wash: #fbf0d2;
+    --color-rb-fox: #d9822b;
+    --color-rb-fox-lip: #b86a1d;
+    --color-rb-fox-wash: #f9e6d3;
+    --color-rb-leaf: #4f8a5b;
+    --color-rb-leaf-lip: #3c6e46;
+    --color-rb-leaf-wash: #e5f0e4;
     --color-rb-cardinal: #c8553d;
     --color-rb-cardinal-lip: #a8412c;
     --color-rb-cardinal-wash: #f7e1db;
     --color-rb-beetle: #8b5f7d;
     --color-rb-beetle-lip: #704a64;
     --color-rb-beetle-wash: #f1e6ee;
-    --color-rb-humpback: #168a5b;
-    --color-rb-humpback-lip: #086b41;
-    --color-rb-ink: #064d32;
-    --color-rb-sun: #effbf4;
-    --color-rb-cyan: #e3f7f0;
-    --color-rb-magenta: #edf8f1;
-    --color-rb-purple: #e7f4ec;
-    --color-rb-lime: #effaf2;
+    --color-rb-humpback: #6b7d3f;
+    --color-rb-humpback-lip: #56652f;
+    --color-rb-ink: #2f4a3c;
+    --color-rb-sun: #f6eed9;
+    --color-rb-cyan: #e3eee6;
+    --color-rb-magenta: #efe3d3;
+    --color-rb-purple: #dfe7e1;
+    --color-rb-lime: #eef3e6;
     --color-rb-tomato: #c8553d;
     --color-rb-strawberry: #c8553d;
 
-    --color-rb-eel: #123126;
-    --color-rb-wolf: #557064;
-    --color-rb-hare: #9db3a8;
-    --color-rb-swan: #d8e9df;
-    --color-rb-polar: #f5fbf7;
+    --color-rb-eel: #2c3a33;
+    --color-rb-wolf: #5b6b62;
+    --color-rb-hare: #a3aca5;
+    --color-rb-swan: #e3dccd;
+    --color-rb-polar: #f6f1e6;
     --color-rb-snow: #ffffff;
 
     --background: #ffffff;
-    --foreground: #123126;
+    --foreground: #2c3a33;
     --card: #ffffff;
-    --card-foreground: #123126;
+    --card-foreground: #2c3a33;
     --popover: #ffffff;
-    --popover-foreground: #123126;
-    --primary: #118a57;
+    --popover-foreground: #2c3a33;
+    --primary: #2f6b4f;
     --primary-foreground: #ffffff;
-    --secondary: #f5fbf7;
-    --secondary-foreground: #123126;
-    --muted: #f5fbf7;
-    --muted-foreground: #557064;
-    --accent: #e5f7ed;
-    --accent-foreground: #086b41;
+    --secondary: #f6f1e6;
+    --secondary-foreground: #2c3a33;
+    --muted: #f6f1e6;
+    --muted-foreground: #5b6b62;
+    --accent: #e4efe8;
+    --accent-foreground: #245440;
     --destructive: #c8553d;
     --destructive-foreground: #ffffff;
-    --border: #d8e9df;
-    --input: #c9dfd3;
-    --ring: #20a568;
-    --chart-1: #118a57;
-    --chart-2: #0f9d86;
+    --border: #e3dccd;
+    --input: #d8d0bf;
+    --ring: #5c9c7c;
+    --chart-1: #2f6b4f;
+    --chart-2: #e9b949;
     --chart-3: #c8553d;
     --chart-4: #8b5f7d;
-    --chart-5: #34a853;
-    --brand-navy: #123126;
-    --brand-navy-soft: #315847;
-    --brand-blue: #118a57;
-    --brand-blue-dark: #086b41;
-    --brand-blue-soft: #e5f7ed;
-    --brand-sky: #0f9d86;
-    --brand-sky-soft: #e1f7f2;
-    --brand-yellow: #47b96d;
-    --brand-yellow-foreground: #123126;
-    --brand-yellow-soft: #e6f8eb;
+    --chart-5: #8a5a33;
+    --brand-navy: #2c3a33;
+    --brand-navy-soft: #45524b;
+    --brand-blue: #2f6b4f;
+    --brand-blue-dark: #245440;
+    --brand-blue-soft: #e4efe8;
+    --brand-sky: #4f8a78;
+    --brand-sky-soft: #e1eee8;
+    --brand-yellow: #e9b949;
+    --brand-yellow-foreground: #2c3a33;
+    --brand-yellow-soft: #fbf0d2;
     --brand-lilac: #ece8f4;
     --brand-lilac-foreground: #62548e;
     --sidebar: #ffffff;
-    --sidebar-foreground: #123126;
-    --sidebar-primary: #118a57;
+    --sidebar-foreground: #2c3a33;
+    --sidebar-primary: #2f6b4f;
     --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #e5f7ed;
-    --sidebar-accent-foreground: #086b41;
-    --sidebar-border: #d8e9df;
-    --sidebar-ring: #20a568;
+    --sidebar-accent: #e4efe8;
+    --sidebar-accent-foreground: #245440;
+    --sidebar-border: #e3dccd;
+    --sidebar-ring: #5c9c7c;
 }
 
 /* The portals sit on a light classroom wall; cards are white paper on it. */
 .netacad-portal,
 body.netacad-overlay-theme {
-    --background: #f5fbf7;
-    --rb-page-surface: #f5fbf7;
+    --background: #faf7f0;
+    --rb-page-surface: #faf7f0;
 }
 
 .rebyu-ds {
@@ -316,7 +313,7 @@ body.netacad-overlay-theme {
 }
 
 .netacad-portal > header {
-    background: rgb(255 255 255 / 0.96);
+    background: rgb(255 253 248 / 0.96);
     border-bottom: 1px solid var(--rb-line);
 }
 .rb-nav-active {
@@ -341,7 +338,7 @@ body.netacad-overlay-theme {
 .rebyu-ds .rb-answer {
     border: 1.5px solid var(--rb-line);
     background: #ffffff;
-    box-shadow: 0 1px 2px rgb(6 77 50 / 0.05);
+    box-shadow: 0 1px 2px rgb(40 30 20 / 0.05);
 }
 .rebyu-ds .rb-answer:hover {
     background: var(--color-rb-polar);
@@ -443,18 +440,18 @@ body.netacad-overlay-theme {
 /* --- Classroom surfaces -------------------------------------------------------------- */
 .rb-classroom-photo {
     background:
-        linear-gradient(180deg, rgb(6 77 50 / 0.2), rgb(6 77 50 / 0.45)),
+        linear-gradient(180deg, rgb(28 20 12 / 0.2), rgb(28 20 12 / 0.45)),
         url("/brand/classroom-2560.webp") center 40% / cover no-repeat;
 }
 @media (max-width: 767px) {
     .rb-classroom-photo {
         background:
-            linear-gradient(180deg, rgb(6 77 50 / 0.2), rgb(6 77 50 / 0.45)),
+            linear-gradient(180deg, rgb(28 20 12 / 0.2), rgb(28 20 12 / 0.45)),
             url("/brand/classroom-1280.webp") center 40% / cover no-repeat;
     }
 }
 
-/* An emerald-framed learning board with a slim accent tray. */
+/* A wood-framed chalkboard with a chalk tray under it. */
 .rb-chalkboard {
     position: relative;
     color: var(--rb-chalk);
@@ -467,7 +464,7 @@ body.netacad-overlay-theme {
     box-shadow:
         inset 0 0 0 2px rgb(0 0 0 / 0.2),
         inset 0 0 40px rgb(0 0 0 / 0.25),
-        0 18px 40px rgb(6 77 50 / 0.3);
+        0 18px 40px rgb(20 14 8 / 0.45);
 }
 .rb-chalkboard::after {
     content: "";
@@ -478,7 +475,7 @@ body.netacad-overlay-theme {
     height: 10px;
     border-radius: 0 0 6px 6px;
     background: linear-gradient(var(--rb-wood-light), var(--rb-wood));
-    box-shadow: 0 4px 8px rgb(6 77 50 / 0.22);
+    box-shadow: 0 4px 8px rgb(20 14 8 / 0.3);
     pointer-events: none;
 }
 
@@ -500,7 +497,7 @@ body.netacad-overlay-theme {
     gap: 0.4rem;
     width: fit-content;
     padding: 0.25rem 0.85rem;
-    border: 1.5px dashed rgb(255 255 255 / 0.55);
+    border: 1.5px dashed rgb(244 241 232 / 0.55);
     border-radius: 8px;
     color: var(--rb-chalk-yellow);
     font-family: var(--rb-chalk-font);
@@ -526,7 +523,7 @@ body.netacad-overlay-theme {
     color: var(--color-rb-eel);
     border: 1px solid var(--rb-line);
     border-radius: 6px;
-    box-shadow: 0 6px 14px rgb(6 77 50 / 0.16);
+    box-shadow: 0 6px 14px rgb(20 14 8 / 0.25);
     font-size: 0.875rem;
     font-weight: 600;
     transform: rotate(-1deg);
@@ -535,7 +532,7 @@ body.netacad-overlay-theme {
 .rb-supply {
     user-select: none;
     pointer-events: none;
-    filter: drop-shadow(0 6px 10px rgb(6 77 50 / 0.22));
+    filter: drop-shadow(0 6px 10px rgb(20 14 8 / 0.35));
 }
 
 /* --- Landing ------------------------------------------------------------------------- */
@@ -2155,10 +2152,10 @@ body {
     border: 0;
     border-radius: 3px;
     background:
-        radial-gradient(circle 5px at 15px 50%, rgb(8 107 65 / 0.35) 0 4px, rgb(8 107 65 / 0.12) 4px 5px, transparent 5.5px),
-        linear-gradient(175deg, #ffffff, #e5f7ed);
-    box-shadow: 0 1px 1px rgb(6 77 50 / 0.12), 4px 9px 14px -7px rgb(6 77 50 / 0.22);
-    color: #086b41;
+        radial-gradient(circle 5px at 15px 50%, rgb(110 88 55 / 0.45) 0 4px, rgb(110 88 55 / 0.2) 4px 5px, transparent 5.5px),
+        linear-gradient(175deg, #f1e5c3, #e3cf9d);
+    box-shadow: 0 1px 1px rgb(60 40 10 / 0.15), 4px 9px 14px -7px rgb(60 40 10 / 0.4);
+    color: #1f4f36;
     font-family: var(--font-rb-display);
     font-size: 1.3rem;
     font-weight: 400;
@@ -2318,9 +2315,9 @@ body {
     border-radius: 3px !important;
     background:
         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 72'%3E%3Cpath d='M41 34 C44 12 26 1 16 10 C10 15 11 22 12 30' fill='none' stroke='%238e2a2a' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='33' r='4.5' fill='%237a2020'/%3E%3Cpath d='M8 36 L16 36 L23 68 L1 68 Z' fill='%238e2a2a'/%3E%3Cpath d='M9 40 L5 67 M12 40 L11 67 M15 40 L17 67 M13 40 L21 67' stroke='%236d1a1a' stroke-width='1'/%3E%3C/svg%3E") no-repeat 2px center / 34px 56px,
-        radial-gradient(circle 6px at 34px 50%, rgb(8 107 65 / 0.35) 0 5px, rgb(8 107 65 / 0.12) 5px 6px, transparent 6.5px),
-        linear-gradient(175deg, #ffffff, #e5f7ed) !important;
-    box-shadow: 0 1px 1px rgb(6 77 50 / 0.12), 6px 12px 18px -8px rgb(6 77 50 / 0.25) !important;
+        radial-gradient(circle 6px at 34px 50%, rgb(110 88 55 / 0.45) 0 5px, rgb(110 88 55 / 0.2) 5px 6px, transparent 6.5px),
+        linear-gradient(175deg, #f1e5c3, #e3cf9d) !important;
+    box-shadow: 0 1px 1px rgb(60 40 10 / 0.15), 6px 12px 18px -8px rgb(60 40 10 / 0.45) !important;
     color: #1f4f36 !important;
 }
 :root [data-sonner-toast][data-styled="true"] .netacad-toast-title {
