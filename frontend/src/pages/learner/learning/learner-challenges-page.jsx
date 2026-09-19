@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useOutletContext } from "react-router-dom"
 import {
   Activity,
+  ChevronLeft,
   ChevronRight,
   Code2,
   Crown,
@@ -14,8 +15,8 @@ import {
 } from "@/components/icons"
 import { toast } from "sonner"
 
-import { BigTrophy } from "@/components/classroom/big-trophy.jsx"
 import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
+import { Button } from "@/components/ui/button"
 import {
   CHALLENGE_ARENAS_KEY,
   getChallengeArenas,
@@ -84,6 +85,14 @@ const CHALLENGES = [
 /* No preview data. The board and the record come from endpoints scoped to the
    caller, and empty means empty: a board nobody is on says so, and says that
    finishing a challenge puts you top of it. */
+
+function relativePosition(index, activeIndex, total) {
+  let difference = index - activeIndex
+  const midpoint = Math.floor(total / 2)
+  if (difference > midpoint) difference -= total
+  if (difference < -midpoint) difference += total
+  return difference
+}
 
 function formatSessionDate(value) {
   if (!value) return "Date unavailable"
@@ -195,6 +204,11 @@ export default function LearnerChallengesPage() {
     : 0
   const activeChallenge = visibleChallenges[safeIndex] ?? null
 
+  const move = (direction) => {
+    if (visibleChallenges.length === 0) return
+    setActiveIndex((current) => (current + direction + visibleChallenges.length) % visibleChallenges.length)
+  }
+
   const leaderboardQuery = useQuery({
     queryKey: ["challenge-leaderboard"],
     queryFn: () => getChallengeLeaderboard(10),
@@ -261,33 +275,100 @@ export default function LearnerChallengesPage() {
         </header>
 
         {visibleChallenges.length > 0 ? (
-          <section className="rb-arena-stage" aria-label="Arenas">
-            <BigTrophy className="rb-arena-trophy" />
-            {visibleChallenges.map((challenge, index) => {
-              const Icon = challenge.icon
-              const selected = index === safeIndex
-              return (
-                <button
-                  key={challenge.id}
+          <section
+            className="relative"
+            aria-label="Arena carousel"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") move(-1)
+              if (event.key === "ArrowRight") move(1)
+            }}
+          >
+            <div className="relative h-[380px] sm:h-[400px]">
+              {visibleChallenges.map((challenge, index) => {
+                const position = relativePosition(index, safeIndex, visibleChallenges.length)
+                const isActive = position === 0
+                const Icon = challenge.icon
+                return (
+                  <button
+                    key={challenge.id}
+                    type="button"
+                    onClick={() => (isActive ? startChallenge(challenge) : setActiveIndex(index))}
+                    aria-current={isActive ? "true" : undefined}
+                    aria-label={`${challenge.title}${isActive ? ", selected" : ", select"}`}
+                    className={`absolute left-1/2 top-1/2 flex h-[340px] w-[250px] flex-col overflow-hidden rounded-rb-card border-2 bg-white text-left transition-all duration-500 ease-out sm:w-[280px] ${
+                      isActive
+                        ? "border-rb-feather shadow-[0_26px_60px_-18px_rgba(17,138,87,0.45)]"
+                        : "border-rb-swan shadow-[0_18px_40px_-18px_rgba(18,49,38,0.3)]"
+                    }`}
+                    style={{
+                      transform: `translate(calc(-50% + ${position * 200}px), -50%) scale(${isActive ? 1 : Math.abs(position) === 1 ? 0.84 : 0.68})`,
+                      zIndex: 10 - Math.abs(position),
+                      opacity: Math.abs(position) > 1 ? 0.5 : 1,
+                    }}
+                  >
+                    <div
+                      className="flex h-40 items-center justify-center text-white"
+                      style={{ background: challenge.color }}
+                    >
+                      <Icon className="size-16" strokeWidth={1.5} aria-hidden="true" />
+                    </div>
+                    <div className="flex flex-1 flex-col p-4">
+                      <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-rb-wolf">
+                        {challenge.role}
+                      </span>
+                      <span className="mt-1 font-rb-display text-xl font-extrabold text-rb-eel">
+                        {challenge.title}
+                      </span>
+                      <span className="mt-1 text-xs text-rb-wolf">{challenge.format}</span>
+                      <span
+                        className={`mt-auto inline-flex w-fit items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                          challenge.available
+                            ? "border-rb-leaf/40 bg-rb-leaf-wash text-rb-leaf-lip"
+                            : "border-rb-swan bg-rb-polar text-rb-wolf"
+                        }`}
+                      >
+                        {!challenge.available ? <Lock className="size-2.5" aria-hidden="true" /> : null}
+                        {statusLabel(challenge)}
+                      </span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {visibleChallenges.length > 1 ? (
+              <div className="mt-2 flex items-center justify-center gap-3">
+                <Button
                   type="button"
-                  data-area={challenge.area}
-                  onClick={() => setActiveIndex(index)}
-                  aria-pressed={selected}
-                  className={`rb-olympic rb-arena-pick ${selected ? "is-selected" : ""}`}
+                  variant="outline"
+                  size="icon"
+                  aria-label="Previous arena"
+                  onClick={() => move(-1)}
                 >
-                  <span className="rb-olympic-icon" style={{ color: challenge.color }}>
-                    <Icon strokeWidth={1.7} aria-hidden="true" />
-                  </span>
-                  <span className="rb-olympic-role">{challenge.role}</span>
-                  <span className="rb-olympic-name">{challenge.title}</span>
-                  <span className="rb-olympic-format">{challenge.format}</span>
-                  <span className={`rb-arena-status ${challenge.available ? "is-ready" : "is-locked"}`}>
-                    {!challenge.available ? <Lock className="size-2.5" aria-hidden="true" /> : null}
-                    {statusLabel(challenge)}
-                  </span>
-                </button>
-              )
-            })}
+                  <ChevronLeft className="size-4" />
+                </Button>
+                <div className="flex items-center gap-1.5" aria-hidden="true">
+                  {visibleChallenges.map((challenge, index) => (
+                    <span
+                      key={challenge.id}
+                      className={`h-1.5 rounded-full transition-all ${
+                        index === safeIndex ? "w-6 bg-rb-feather" : "w-1.5 bg-rb-swan"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Next arena"
+                  onClick={() => move(1)}
+                >
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
+            ) : null}
           </section>
         ) : (
           <div className="rb-sticky-yellow mx-auto max-w-md p-6 text-center">

@@ -81,6 +81,9 @@ public class LessonKnowledgeCheckService {
     /** Five, as specified. The modal copy is written around five. */
     private static final int CHECK_SIZE = 5;
 
+    /** The only types the in-modal skim challenge can render: no editor, no canvas. */
+    private static final Set<String> QUICK_TYPES = Set.of("MCQ", "MULTIPLE_CHOICE", "SHORT_ANSWER");
+
     /**
      * How long after one check before another may fire: one per day.
      *
@@ -304,8 +307,7 @@ public class LessonKnowledgeCheckService {
                     .filter(view -> view.getOwnerGroupId() == null)
                     .map(QuestionSelectionView::getQuestionId)
                     .filter(questionId -> questions.findById(questionId)
-                            .map(question -> "MULTIPLE_CHOICE".equals(question.getQuestionType())
-                                    || "SHORT_ANSWER".equals(question.getQuestionType()))
+                            .map(question -> QUICK_TYPES.contains(question.getQuestionType()))
                             .orElse(false))
                     .toList();
             return new Candidates(questionIds,

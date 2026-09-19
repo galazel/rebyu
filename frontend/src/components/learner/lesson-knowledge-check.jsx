@@ -353,7 +353,7 @@ function ResultScreen({ result, onDone }) {
             <li
               key={answer.attemptQuestionId ?? position}
               className={cn(
-                "rounded-xl border p-3 text-sm",
+                "rb-paper-card rounded-xl border p-3 text-sm",
                 state === "correct" && "border-rb-leaf/50 bg-rb-leaf-wash",
                 state === "incorrect" && "border-rb-cardinal/45 bg-rb-cardinal-wash",
                 state === "pending" && "border-rb-fox/45 bg-rb-fox-wash",

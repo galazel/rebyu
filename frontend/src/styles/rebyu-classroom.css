@@ -2244,98 +2244,43 @@ body {
 }
 
 /* ===========================================================================
-   DIALOGS AS CHALKBOARDS
+   DIALOGS
    ---------------------------------------------------------------------------
-   Every dialog and alert dialog is a green board in a wood frame, written in
-   chalk. Anything that has to stay readable as a control -- fields, selects,
-   tables, cards -- is pinned-up paper on the board with ordinary ink.
+   A white card with a green rule along the top. Ink is the ordinary page ink;
+   the primary action is the green button.
    =========================================================================== */
 :root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) {
-    border: 12px solid var(--rb-wood);
-    border-bottom-width: 18px;
-    border-radius: 12px;
-    background:
-        radial-gradient(rgb(255 255 255 / 0.035) 1px, transparent 1.6px) 0 0 / 5px 5px,
-        radial-gradient(ellipse at 20% 15%, rgb(255 255 255 / 0.08), transparent 55%),
-        linear-gradient(160deg, var(--rb-board), var(--rb-board-deep));
-    box-shadow:
-        inset 0 0 0 2px rgb(0 0 0 / 0.22),
-        inset 0 0 44px rgb(0 0 0 / 0.3),
-        0 26px 50px -14px rgb(20 14 8 / 0.6);
-    color: var(--rb-chalk);
-    font-family: var(--font-rb-display);
+    border: 1px solid var(--color-rb-swan);
+    border-top: 6px solid var(--color-rb-feather);
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 24px 56px rgb(18 49 38 / 0.18);
+    color: var(--color-rb-eel);
+    font-family: var(--font-rb-body);
 }
 :root :is([data-slot="dialog-title"], [data-slot="alert-dialog-title"]) {
-    color: var(--rb-chalk);
-    font-family: var(--rb-chalk-font);
-    font-size: 1.65rem;
-    font-weight: 400;
-    letter-spacing: 0.01em;
+    color: var(--color-rb-eel);
+    font-family: var(--font-rb-display);
+    font-size: 1.4rem;
+    font-weight: 700;
     line-height: 1.2;
 }
 :root :is([data-slot="dialog-description"], [data-slot="alert-dialog-description"]) {
-    color: rgb(244 241 232 / 0.82);
-    font-family: var(--font-rb-display);
-    font-size: 1.1rem;
-}
-/* Chalk colour for the utility text classes used inside dialog bodies. */
-:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"])
-    :is(.text-foreground, .text-card-foreground, .text-rb-eel, .text-zinc-950, .text-zinc-900, .text-slate-900, .text-gray-900) {
-    color: var(--rb-chalk);
-}
-:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"])
-    :is(.text-muted-foreground, .text-rb-wolf, .text-rb-hare, .text-zinc-500, .text-zinc-600, .text-slate-500, .text-gray-500) {
-    color: rgb(244 241 232 / 0.72);
-}
-:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) :is(hr, [data-slot="separator"], .border, .border-t, .border-b) {
-    border-color: rgb(244 241 232 / 0.2);
+    color: var(--color-rb-wolf);
+    font-size: 0.95rem;
 }
 :root :is([data-slot="dialog-close"]) {
-    color: var(--rb-chalk);
-    opacity: 0.85;
+    color: var(--color-rb-wolf);
 }
-
-/* Paper pinned on the board: fields and content surfaces keep normal ink. */
-:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"])
-    :is(input:not([type="checkbox"], [type="radio"], [type="range"]), textarea, [data-slot="select-trigger"], [data-slot="input"], [data-slot="textarea"]) {
-    background: #ffffff;
-    border-color: #c9dfd3;
-    color: #2c3a33;
-    font-family: var(--font-rb-body);
-}
-:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"])
-    :is([data-slot="card"], [data-slot="table-container"], table, .bg-white, .bg-card, .bg-background, .bg-rb-snow, .bg-rb-polar, .bg-muted) {
-    color: #2c3a33;
-    font-family: var(--font-rb-body);
-}
-:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"])
-    :is([data-slot="card"], [data-slot="table-container"], table, .bg-white, .bg-card, .bg-background, .bg-rb-snow, .bg-rb-polar, .bg-muted)
-    :is(.text-foreground, .text-card-foreground, .text-rb-eel, .text-zinc-950, .text-zinc-900) {
-    color: #2c3a33;
-}
-:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"])
-    :is([data-slot="card"], [data-slot="table-container"], table, .bg-white, .bg-card, .bg-background, .bg-rb-snow, .bg-rb-polar, .bg-muted)
-    :is(.text-muted-foreground, .text-rb-wolf, .text-rb-hare, .text-zinc-500, .text-zinc-600) {
-    color: #6b706c;
-}
-
-/* Buttons written for the board: the main action is yellow chalk, the quiet
-   ones are chalk outlines. */
 :root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) [data-slot="button"]:is([data-variant="default"]),
 :root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) .rb-btn:not(.rb-btn-ghost, .rb-btn-snow, .rb-btn-cardinal) {
-    background: var(--rb-chalk-yellow);
-    color: #2a2118;
-    box-shadow: 0 3px 0 rgb(0 0 0 / 0.25);
+    background: var(--color-rb-feather);
+    color: #ffffff;
 }
-:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) [data-slot="button"]:is([data-variant="outline"], [data-variant="secondary"]),
-:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) .rb-btn:is(.rb-btn-ghost, .rb-btn-snow) {
-    background: transparent;
-    border: 2px dashed rgb(244 241 232 / 0.6);
-    color: var(--rb-chalk);
-    box-shadow: none;
-}
-:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) [data-slot="button"]:is([data-variant="ghost"], [data-variant="link"]) {
-    color: var(--rb-chalk);
+:root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) [data-slot="button"]:is([data-variant="outline"], [data-variant="secondary"]) {
+    background: #ffffff;
+    border: 2px solid var(--color-rb-swan);
+    color: var(--color-rb-eel);
 }
 
 /* ===========================================================================
@@ -2610,12 +2555,11 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
     }
 }
 
-/* The dialog's close key sits on the wood frame, so it is wood with chalk ink. */
 :root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) [data-slot="dialog-close"],
 :root [data-slot="dialog-content"] ~ [data-slot="dialog-close"] {
-    background: var(--rb-wood-light);
-    border-color: var(--rb-wood);
-    color: var(--rb-chalk);
+    background: var(--color-rb-polar);
+    border-color: var(--color-rb-swan);
+    color: var(--color-rb-wolf);
     opacity: 1;
 }
 
@@ -3148,10 +3092,6 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
     --input: #c9dfd3;
     --rb-paper: #ffffff;
     color-scheme: light;
-}
-/* Dialog text is chalk, not the paper ink the reset above gives children. */
-.dark :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) {
-    color: var(--rb-chalk);
 }
 
 /* --- Index cards (certifications on the partnership request form) --------------- */
