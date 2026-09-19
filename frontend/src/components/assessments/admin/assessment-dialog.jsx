@@ -30,6 +30,9 @@ import {
 } from "@/services/assessmentService.js"
 import AssessmentQuestionPickerDialog from "./assessment-question-picker-dialog.jsx"
 
+/* Served by the IRT + BKT engine one question at a time; mirrors AdaptivePolicy. */
+const ADAPTIVE_TYPES = new Set(["LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM", "MOCK_EXAM", "DIAGNOSTIC"])
+
 const ASSESSMENT_CREATE_TYPES = [
   {
     value: "DIAGNOSTIC",
@@ -656,7 +659,9 @@ export default function AssessmentDialog({
       return
     }
 
-    if (selectedQuestions.length === 0) {
+    /* Adaptive assessments draw from the whole scope bank; an assigned
+       list is only an optional seed, so an empty one is fine. */
+    if (selectedQuestions.length === 0 && !isAdaptiveType) {
       setError("Add at least one question.")
       return
     }
@@ -705,6 +710,8 @@ export default function AssessmentDialog({
       return next
     })
   }
+
+  const isAdaptiveType = ADAPTIVE_TYPES.has(createTypeConfig?.examTypeText)
 
   const canOpenQuestionPicker =
       createTypeConfig.scope === "CERTIFICATION" || Boolean(targetId)
@@ -885,7 +892,7 @@ export default function AssessmentDialog({
                 <section className="space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="text-sm font-semibold text-muted-foreground">
-                      Questions ({selectedQuestions.length} selected)
+                      {isAdaptiveType ? "Seed questions (optional)" : "Questions"} ({selectedQuestions.length} selected)
                       {selectedQuestions.length > 0 ? (
                           <span className="ml-2 font-normal">
                             · {totalScore} total point
@@ -913,6 +920,13 @@ export default function AssessmentDialog({
                       Add Questions
                     </Button>
                   </div>
+                  {isAdaptiveType ? (
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        This assessment is adaptive: the engine picks each question from the whole
+                        question bank in scope as the learner answers, so it needs no fixed list.
+                        Questions added here only set per-question points when the engine serves them.
+                      </p>
+                  ) : null}
 
                   {selectedQuestions.length === 0 ? (
                       <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">

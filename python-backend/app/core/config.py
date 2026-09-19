@@ -48,6 +48,10 @@ class Settings(BaseSettings):
     celery_task_eager_propagates: bool = True
     timezone: str = "Asia/Manila"
     scheduled_retraining_enabled: bool = True
+    # IRT calibration: an item needs this many graded responses before it is fitted.
+    irt_min_responses_per_item: int = 20
+    irt_min_items_per_person: int = 3
+    scheduled_irt_calibration_enabled: bool = True
     scheduled_retraining_day_of_week: str = "sun"
     scheduled_retraining_hour: int = 2
     scheduled_retraining_minute: int = 0

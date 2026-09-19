@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.router import api_router
+from app.api.router import api_router, irt_router
 from app.api.routes import assessments as assessment_routes
 from app.api.routes import certification as certification_routes
 from app.api.routes import question_bank as question_bank_routes
@@ -86,6 +86,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(api_router)
+    app.include_router(irt_router)
     # AI generation routes (certification/lesson/question) live under their
     # own /api/v1/ai prefix, separate from the BKT service's /api/v1/bkt
     # prefix baked into api_router.

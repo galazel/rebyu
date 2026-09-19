@@ -54,6 +54,7 @@ const REASON_LABELS = {
   ASSESSMENT_NOT_CREATED: "Not created yet",
   LESSON_CONTENT_MISSING: "No lesson content yet",
   ASSESSMENT_HAS_NO_QUESTIONS: "No questions added",
+  QUESTION_BANK_TOO_SMALL: "Question bank too small for an adaptive assessment (add more questions in scope)",
   QUESTION_POINTS_REQUIRED: "Some questions have no points",
   ASSESSMENT_TOTAL_POINTS_INVALID: "Total points must be greater than zero",
   PASSING_SCORE_EXCEEDS_TOTAL_POINTS: "Passing score is invalid",
