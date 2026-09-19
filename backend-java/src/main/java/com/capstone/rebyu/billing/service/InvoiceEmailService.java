@@ -149,6 +149,40 @@ public class InvoiceEmailService {
         deliver(to.email, "Your REBYU Pro is active", text, html);
     }
 
+    public void sendRejectionAfterCommit(LearnerSubscription subscription) {
+        Recipient to = recipient(subscription);
+        if (to != null) afterCommit(() -> sendRejection(subscription, to));
+    }
+
+    private void sendRejection(LearnerSubscription s, Recipient to) {
+        String note = s.getReviewNote() == null ? "" : s.getReviewNote();
+        String text = """
+                Hi %s,
+
+                Your REBYU Pro subscription (invoice %s) was not approved, so Pro has not been switched on.%s
+
+                If you think this is a mistake, or want to sort out the payment, reply to this email or reach us from the app.
+
+                View your plan: %s/learner/subscription
+
+                REBYU Team
+                """.formatted(to.name, invoiceNumber(s), note.isEmpty() ? "" : "\n\nReason from the admin: " + note, base());
+        String html = """
+                <div style="font-family:Arial,Helvetica,sans-serif;background:#f4f1ea;padding:24px">
+                  <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e3ddd0;border-radius:14px;padding:24px;color:#2c3a33">
+                    <div style="font-size:20px;font-weight:bold;color:#b3261e">Your Pro subscription was not approved</div>
+                    <p>Hi %s, your subscription (invoice %s) was reviewed and not approved, so Pro has not been switched on.</p>
+                    %s
+                    <p>If you think this is a mistake, or want to sort out the payment, reply to this email or reach us from the app.</p>
+                    <p><a href="%s/learner/subscription" style="background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold">View your plan</a></p>
+                  </div>
+                </div>
+                """.formatted(esc(to.name), invoiceNumber(s),
+                note.isEmpty() ? "" : "<div style=\"background:#fdecea;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.5\"><b>Reason from the admin:</b> " + esc(note) + "</div>",
+                base());
+        deliver(to.email, "Your REBYU Pro subscription was not approved", text, html);
+    }
+
     private void deliver(String to, String subject, String text, String html) {
         try {
             email.sendHtml(to, subject, text, html);

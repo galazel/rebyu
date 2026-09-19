@@ -5,7 +5,9 @@ import com.capstone.rebyu.billing.entity.LearnerSubscription;
 import com.capstone.rebyu.billing.entity.SubscriptionPlan;
 import com.capstone.rebyu.billing.repository.LearnerSubscriptionRepository;
 import com.capstone.rebyu.billing.repository.SubscriptionPlanRepository;
+import com.capstone.rebyu.notification.service.NotificationService;
 import com.capstone.rebyu.user.entity.Learner;
+import com.capstone.rebyu.user.repository.LearnerRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,8 @@ public class PaymentWebhookService {
     private final LearnerSubscriptionRepository learnerSubscriptionRepository;
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final InvoiceEmailService invoiceEmails;
+    private final LearnerRepository learnerRepository;
+    private final NotificationService notifications;
 
     /**
      * Activate (or idempotently re-confirm) a subscription from a completed
@@ -91,6 +95,8 @@ public class PaymentWebhookService {
         log.info("Subscription {} approved by user {}", subscriptionId, adminUserId);
         LearnerSubscription saved = learnerSubscriptionRepository.save(subscription);
         invoiceEmails.sendActivationAfterCommit(saved);
+        notifyLearner(saved, "Your Pro subscription is approved",
+                "Pro is active now. Retakes, mock exams, the AI tutor and every challenge are unlocked.");
         return saved;
     }
 
@@ -106,7 +112,23 @@ public class PaymentWebhookService {
         subscription.setReviewNote(note == null || note.isBlank() ? null : note.trim());
         subscription.setUpdatedAt(now);
         log.info("Subscription {} rejected by user {}", subscriptionId, adminUserId);
-        return learnerSubscriptionRepository.save(subscription);
+        LearnerSubscription saved = learnerSubscriptionRepository.save(subscription);
+        // The learner hears about it the same two ways an approval reaches
+        // them: an email, and the bell in the portal.
+        invoiceEmails.sendRejectionAfterCommit(saved);
+        String reason = saved.getReviewNote();
+        notifyLearner(saved, "Your Pro subscription was not approved",
+                reason == null ? "Pro has not been switched on. Open your plan for details." : "Reason: " + reason);
+        return saved;
+    }
+
+    /* Resolved inside the transaction: the subscription only holds a learner id. */
+    private void notifyLearner(LearnerSubscription subscription, String title, String body) {
+        Long learnerId = subscription.getLearner() == null ? null : subscription.getLearner().getLearnerId();
+        if (learnerId == null) return;
+        learnerRepository.findById(learnerId)
+                .map(Learner::getUser)
+                .ifPresent(user -> notifications.notify(user, title, body, "/learner/subscription"));
     }
 
     /** Ends a Pro subscription at once (admin), e.g. to reset a test account. */
