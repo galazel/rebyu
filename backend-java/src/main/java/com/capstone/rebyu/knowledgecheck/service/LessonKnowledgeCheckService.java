@@ -106,10 +106,10 @@ public class LessonKnowledgeCheckService {
      * The skim challenge ({@code currentLessonOnly}) is the frontend's answer
      * to a learner racing through the lesson on screen, and it has to be able
      * to fire on every lesson they race through, so the daily cooldown cannot
-     * apply. A few minutes is enough to stop a client minting checks in a loop
+     * apply. A minute is enough to stop a client minting checks in a loop
      * for the XP.
      */
-    private static final Duration SKIM_COOLDOWN = Duration.ofMinutes(3);
+    private static final Duration SKIM_COOLDOWN = Duration.ofMinutes(1);
 
     private final LearnerCompletedLessonRepository completedLessons;
     private final LessonRepository lessons;
