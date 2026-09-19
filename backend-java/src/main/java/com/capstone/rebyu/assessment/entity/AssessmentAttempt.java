@@ -107,6 +107,39 @@ public class AssessmentAttempt {
     @Column(name = "retake_basis", columnDefinition = "TEXT")
     private String retakeBasis;
 
+    /*
+     * Adaptive (IRT + BKT) session. Questions are served one at a time from
+     * the scope's bank, so the paper is built as it is answered. The default
+     * lives in the column definition: ddl-auto adds columns to a populated
+     * table, and a bare NOT NULL there is a failed ALTER on the live database.
+     */
+    @Builder.Default
+    @Column(name = "adaptive", columnDefinition = "boolean not null default false")
+    private boolean adaptive = false;
+
+    @Column(name = "theta_start")
+    private Double thetaStart;
+
+    @Column(name = "theta_current")
+    private Double thetaCurrent;
+
+    @Column(name = "theta_se")
+    private Double thetaSe;
+
+    @Column(name = "target_question_count")
+    private Integer targetQuestionCount;
+
+    @Column(name = "final_round_count")
+    private Integer finalRoundCount;
+
+    /** MAIN, FINAL or DONE for an adaptive attempt; null otherwise. */
+    @Column(name = "phase", length = 10)
+    private String phase;
+
+    /** The engine's whole in-session state (see AdaptiveSessionState), JSON. */
+    @Column(name = "adaptive_state_json", columnDefinition = "TEXT")
+    private String adaptiveStateJson;
+
     @Version
     @Column(name = "version")
     private Long version;

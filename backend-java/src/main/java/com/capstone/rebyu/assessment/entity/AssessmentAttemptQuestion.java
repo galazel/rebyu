@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 /**
  * Learner-visible snapshot of one question at attempt start. The snapshot JSON
@@ -20,9 +21,13 @@ import java.math.BigDecimal;
            of a paper -- start, resume, submit, result, analytics -- filters on
            assessment_attempt_id, so without this each of them is a sequential
            scan of every attempt question ever recorded. */
-        indexes = @Index(
-                name = "ix_attempt_question_attempt",
-                columnList = "assessment_attempt_id"))
+        indexes = {
+                @Index(name = "ix_attempt_question_attempt", columnList = "assessment_attempt_id"),
+                /* The adaptive engine asks "which of these questions has this
+                   learner met before" on every start; that is a scan over the
+                   source question id without this. */
+                @Index(name = "ix_attempt_question_source", columnList = "source_question_id")
+        })
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -66,4 +71,27 @@ public class AssessmentAttemptQuestion {
     /** Learner intentionally moved past this item without answering. */
     @Column(name = "skipped", nullable = false)
     private boolean skipped = false;
+
+    /* Adaptive session audit: the ability estimate the item was chosen at and
+       the one it left behind, how informative it was, and why the engine
+       picked it (JSON: lesson, tier, pKnown, candidates considered). Null on
+       fixed-paper attempts. */
+    @Column(name = "theta_before")
+    private Double thetaBefore;
+
+    @Column(name = "theta_after")
+    private Double thetaAfter;
+
+    @Column(name = "item_information")
+    private Double itemInformation;
+
+    @Column(name = "selection_reason", columnDefinition = "TEXT")
+    private String selectionReason;
+
+    @Column(name = "served_at")
+    private LocalDateTime servedAt;
+
+    /** MAIN or FINAL for an adaptive attempt; null otherwise. */
+    @Column(name = "stage", length = 10)
+    private String stage;
 }

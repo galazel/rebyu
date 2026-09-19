@@ -62,7 +62,8 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     @Query("""
             SELECT q.questionId AS questionId, l.lessonId AS lessonId,
                    q.difficultyLevel AS difficultyLevel, q.questionText AS questionText,
-                   og.institutionGroupId AS ownerGroupId
+                   og.institutionGroupId AS ownerGroupId,
+                   q.questionType AS questionType, q.totalPoints AS totalPoints
             FROM Question q JOIN q.lesson l LEFT JOIN q.ownerGroup og
             WHERE q.parentQuestion IS NULL AND l.lessonId = :lessonId
             ORDER BY q.questionId ASC
@@ -72,7 +73,8 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     @Query("""
             SELECT q.questionId AS questionId, l.lessonId AS lessonId,
                    q.difficultyLevel AS difficultyLevel, q.questionText AS questionText,
-                   og.institutionGroupId AS ownerGroupId
+                   og.institutionGroupId AS ownerGroupId,
+                   q.questionType AS questionType, q.totalPoints AS totalPoints
             FROM Question q JOIN q.lesson l LEFT JOIN q.ownerGroup og
             WHERE q.parentQuestion IS NULL AND l.middleCategory.middleCategoryId = :middleCategoryId
             ORDER BY q.questionId ASC
@@ -83,7 +85,8 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     @Query("""
             SELECT q.questionId AS questionId, l.lessonId AS lessonId,
                    q.difficultyLevel AS difficultyLevel, q.questionText AS questionText,
-                   og.institutionGroupId AS ownerGroupId
+                   og.institutionGroupId AS ownerGroupId,
+                   q.questionType AS questionType, q.totalPoints AS totalPoints
             FROM Question q JOIN q.lesson l LEFT JOIN q.ownerGroup og
             WHERE q.parentQuestion IS NULL
               AND l.middleCategory.majorCategory.majorCategoryId = :majorCategoryId
@@ -95,7 +98,8 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     @Query("""
             SELECT q.questionId AS questionId, l.lessonId AS lessonId,
                    q.difficultyLevel AS difficultyLevel, q.questionText AS questionText,
-                   og.institutionGroupId AS ownerGroupId
+                   og.institutionGroupId AS ownerGroupId,
+                   q.questionType AS questionType, q.totalPoints AS totalPoints
             FROM Question q JOIN q.lesson l LEFT JOIN q.ownerGroup og
             WHERE q.parentQuestion IS NULL
               AND l.middleCategory.majorCategory.certification.certificationId = :certificationId
@@ -107,7 +111,8 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     @Query("""
             SELECT q.questionId AS questionId, l.lessonId AS lessonId,
                    q.difficultyLevel AS difficultyLevel, q.questionText AS questionText,
-                   og.institutionGroupId AS ownerGroupId
+                   og.institutionGroupId AS ownerGroupId,
+                   q.questionType AS questionType, q.totalPoints AS totalPoints
             FROM Question q JOIN q.lesson l LEFT JOIN q.ownerGroup og
             WHERE q.questionId IN :ids
             """)

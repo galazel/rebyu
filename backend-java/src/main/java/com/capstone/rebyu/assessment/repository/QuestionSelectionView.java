@@ -32,4 +32,9 @@ public interface QuestionSelectionView {
 
     /** Null for official, platform-wide questions. */
     Long getOwnerGroupId();
+
+    /** MULTIPLE_CHOICE, SHORT_ANSWER, DESCRIPTIVE, CRITICAL_THINKING, PROGRAMMING, DIAGRAM... */
+    String getQuestionType();
+
+    java.math.BigDecimal getTotalPoints();
 }

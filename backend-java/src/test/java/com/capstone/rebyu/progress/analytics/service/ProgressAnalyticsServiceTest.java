@@ -232,6 +232,8 @@ class ProgressAnalyticsServiceTest {
             @Override public String getDifficultyLevel() { return difficulty; }
             @Override public String getQuestionText() { return "q"; }
             @Override public Long getOwnerGroupId() { return null; }
+            @Override public String getQuestionType() { return "MULTIPLE_CHOICE"; }
+            @Override public java.math.BigDecimal getTotalPoints() { return java.math.BigDecimal.ONE; }
         };
     }
 

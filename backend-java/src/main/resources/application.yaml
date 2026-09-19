@@ -249,13 +249,19 @@ bkt:
 
 # Adaptive assessment retake question selection (Phase 4). Pure application
 # logic + DB queries -- no AI/external service call.
-retake:
-  enabled: ${RETAKE_ADAPTIVE_ENABLED:true}
-  weak-accuracy-threshold: ${RETAKE_WEAK_ACCURACY_THRESHOLD:0.70}
-  strong-accuracy-threshold: ${RETAKE_STRONG_ACCURACY_THRESHOLD:0.85}
-  weak-boost-factor: ${RETAKE_WEAK_BOOST_FACTOR:1.5}
-  strong-reduction-factor: ${RETAKE_STRONG_REDUCTION_FACTOR:0.5}
-  min-evidence-per-cell: ${RETAKE_MIN_EVIDENCE_PER_CELL:2}
+# IRT + BKT adaptive assessment engine.
+adaptive:
+  enabled: ${ADAPTIVE_ENABLED:true}
+  item-counts:
+    LESSON_QUIZ: ${ADAPTIVE_ITEMS_LESSON_QUIZ:10}
+    MIDDLE_EXAM: ${ADAPTIVE_ITEMS_MIDDLE_EXAM:20}
+    MAJOR_EXAM: ${ADAPTIVE_ITEMS_MAJOR_EXAM:30}
+    MOCK_EXAM: ${ADAPTIVE_ITEMS_MOCK_EXAM:60}
+    DIAGNOSTIC: ${ADAPTIVE_ITEMS_DIAGNOSTIC:20}
+  final-round-max: ${ADAPTIVE_FINAL_ROUND_MAX:2}
+  randomesque-top-k: ${ADAPTIVE_RANDOMESQUE_TOP_K:3}
+  min-bank-multiplier: ${ADAPTIVE_MIN_BANK_MULTIPLIER:1.5}
+  irt-service-url: ${ADAPTIVE_IRT_SERVICE_URL:http://localhost:8000/api/v1/irt}
 
 # Assessment access rules.
 #
