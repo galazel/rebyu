@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 
 import { returnPath } from "@/lib/assessment-return"
@@ -7,8 +7,10 @@ import {
   CheckCircle2Icon,
   ClockIcon,
   HourglassIcon,
+  Loader2Icon,
   XCircleIcon,
 } from "@/components/icons"
+import { toast } from "sonner"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
@@ -177,9 +179,23 @@ export default function LearnerAssessmentResultPage() {
     queryFn: () => getAttemptResult(attemptId, learnerId),
     enabled: attemptId != null && learnerId != null,
     retry: 1,
+    /* Code, diagram and written answers are marked in the background after
+       submit. While they are, the page asks again every few seconds and each
+       item fills in as its mark lands; the poll stops by itself. */
+    refetchInterval: (query) => (query.state.data?.gradingPending ? 2500 : false),
+    refetchIntervalInBackground: false,
   })
 
   const result = resultQuery.data
+  const marking = Boolean(result?.gradingPending)
+  const wasMarkingRef = useRef(false)
+  useEffect(() => {
+    if (marking) wasMarkingRef.current = true
+    else if (wasMarkingRef.current && result) {
+      wasMarkingRef.current = false
+      toast.success(`All marked — final score ${Number(result.percentage ?? 0).toFixed(0)}%`)
+    }
+  }, [marking, result])
   const answers = useMemo(() => result?.answers ?? [], [result])
 
   const counts = useMemo(() => {
@@ -237,7 +253,7 @@ export default function LearnerAssessmentResultPage() {
   const statTiles = [
     { label: "Correct", value: result.correctCount, tone: "leaf" },
     { label: "Incorrect", value: result.incorrectCount, tone: "cardinal" },
-    { label: "Pending", value: result.pendingCount, tone: "fox" },
+    { label: marking ? "Marking" : "Pending", value: result.pendingCount, tone: "fox" },
     { label: "Unanswered", value: result.unansweredCount, tone: "neutral" },
   ].filter((tile) => tile.tone === "leaf" || tile.tone === "cardinal" || tile.value > 0)
 
@@ -337,7 +353,13 @@ export default function LearnerAssessmentResultPage() {
             </div>
           </div>
 
-          {result.pendingCount > 0 ? (
+          {marking ? (
+            <p className="rb-caption mt-6 flex items-start gap-2 rounded-rb-tile border-2 border-rb-feather/40 bg-rb-feather-wash p-3 text-rb-feather-ink" role="status" aria-live="polite">
+              <Loader2Icon className="mt-0.5 size-3.5 shrink-0 animate-spin" aria-hidden="true" />
+              Marking your {result.pendingCount} code, diagram or written {result.pendingCount === 1 ? "answer" : "answers"}…
+              this usually takes under a minute. The score above is provisional and updates here as each one lands.
+            </p>
+          ) : result.pendingCount > 0 ? (
             <p className="rb-caption mt-6 flex items-start gap-2 rounded-rb-tile border-2 border-rb-fox/45 bg-rb-fox-wash p-3 text-rb-fox-lip">
               <HourglassIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
               {result.pendingCount} written, code, or diagram response(s) await
@@ -492,7 +514,7 @@ export default function LearnerAssessmentResultPage() {
                                     : "question"
                             }
                           />
-                          <span className="rb-pen">{STATE_LABEL[state]}</span>
+                          <span className="rb-pen">{state === "pending" && marking ? "Marking…" : STATE_LABEL[state]}</span>
                         </span>
                         {answer.points != null && answer.earnedPoints != null ? (
                           <span className="rb-pen rb-graded-points">

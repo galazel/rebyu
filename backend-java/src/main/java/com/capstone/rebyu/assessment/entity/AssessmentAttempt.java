@@ -136,6 +136,15 @@ public class AssessmentAttempt {
     @Column(name = "phase", length = 10)
     private String phase;
 
+    /**
+     * True while the slow-marked items of a submitted adaptive attempt (code,
+     * diagram, written) are still with the graders in the background. The
+     * result is provisional until this clears.
+     */
+    @Builder.Default
+    @Column(name = "grading_pending", columnDefinition = "boolean not null default false")
+    private boolean gradingPending = false;
+
     /** The engine's whole in-session state (see AdaptiveSessionState), JSON. */
     @Column(name = "adaptive_state_json", columnDefinition = "TEXT")
     private String adaptiveStateJson;

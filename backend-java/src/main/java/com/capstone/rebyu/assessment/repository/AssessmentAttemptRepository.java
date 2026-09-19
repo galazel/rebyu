@@ -117,4 +117,8 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
     List<LearnerAttemptStats> statsByLearnerIds(
             @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds,
             @org.springframework.data.repository.query.Param("status") AssessmentAttempt.Status status);
+
+    /** Submitted attempts whose background marking has not finished -- the sweep's worklist. */
+    List<AssessmentAttempt> findByStatusAndGradingPendingTrueAndSubmittedAtBefore(
+            AssessmentAttempt.Status status, java.time.LocalDateTime before);
 }

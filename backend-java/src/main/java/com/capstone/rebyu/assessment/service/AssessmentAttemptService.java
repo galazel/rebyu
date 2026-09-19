@@ -106,6 +106,7 @@ public class AssessmentAttemptService {
     /* Looked up lazily: the adaptive service calls back into this one for
        grading and snapshots, and Spring will not wire that circle eagerly. */
     private final org.springframework.beans.factory.ObjectProvider<AdaptiveAttemptService> adaptiveAttemptService;
+    private final org.springframework.beans.factory.ObjectProvider<AdaptiveGradingService> adaptiveGradingService;
     private final com.capstone.rebyu.adaptive.service.AdaptivePolicy adaptivePolicy;
     private final AssessmentEventProducer assessmentEventProducer;
     private final RewardService rewardService;
@@ -570,62 +571,49 @@ public class AssessmentAttemptService {
         PhaseTimer.mark(timer, "load paper");
 
         /* On an adaptive attempt every main-round item was marked the moment
-           it was answered; only the final-round items are still open. Those
-           are what the batch grades here, together and concurrently -- the
-           already-marked ones are neither re-graded nor sent to a grader. */
+           it was answered; only the final-round items are still open -- code,
+           diagrams, written answers, each marked by an outside service that
+           takes seconds. Those are NOT graded here. The paper is submitted
+           with them pending, the learner gets a provisional result at once,
+           and the background marker finishes the job (see AdaptiveGradingService).
+           Answers with nothing in them are closed at zero now; there is
+           nothing for a grader to look at. */
+        boolean deferSlowGrading = attempt.isAdaptive();
         Map<Long, AssessmentAttemptAnswer> toGrade = attempt.isAdaptive()
-                ? answersByQuestion.entrySet().stream()
-                        .filter(e -> !hasDefinitiveVerdict(e.getValue()))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))
+                ? Map.of()
                 : answersByQuestion;
         GradingBatch gradingBatch = prepareGradingBatch(
                 questions, toGrade, sourceQuestions, subQuestionsByParentId);
         PhaseTimer.mark(timer, "graders (ai/code/diagram)");
 
-        BigDecimal totalPoints = BigDecimal.ZERO;
-        BigDecimal earnedPoints = BigDecimal.ZERO;
-
+        int leftPending = 0;
         for (AssessmentAttemptQuestion attemptQuestion : questions) {
-            BigDecimal points = attemptQuestion.getPoints() == null
-                    ? BigDecimal.ONE
-                    : attemptQuestion.getPoints();
-            totalPoints = totalPoints.add(points);
-
-            AssessmentAttemptAnswer answer =
-                    answersByQuestion.get(attemptQuestion.getAttemptQuestionId());
+            BigDecimal points = attemptQuestion.getPoints() == null ? BigDecimal.ONE : attemptQuestion.getPoints();
+            AssessmentAttemptAnswer answer = answersByQuestion.get(attemptQuestion.getAttemptQuestionId());
             if (answer == null) {
                 continue;
             }
-            if (!(attempt.isAdaptive() && hasDefinitiveVerdict(answer))) {
-                scoreAnswer(attemptQuestion, answer, points, gradingBatch,
-                        sourceQuestions, subQuestionsByParentId);
+            if (attempt.isAdaptive() && hasDefinitiveVerdict(answer)) {
+                continue;
+            }
+            if (deferSlowGrading && hasSubmittedContent(answer)) {
+                answer.setPendingManualEvaluation(true);
+                answer.setIsCorrect(null);
+                answer.setEarnedPoints(null);
                 attemptAnswerRepository.save(answer);
+                leftPending++;
+                continue;
             }
-            // Partial credit (AI-graded descriptive/critical-thinking, future
-            // diagram grading) sets earnedPoints without isCorrect=TRUE, so
-            // gating the sum on isCorrect would silently drop that credit.
-            if (answer.getEarnedPoints() != null) {
-                earnedPoints = earnedPoints.add(answer.getEarnedPoints());
-            }
+            scoreAnswer(attemptQuestion, answer, points, gradingBatch, sourceQuestions, subQuestionsByParentId);
+            attemptAnswerRepository.save(answer);
         }
-
-        BigDecimal percentage = totalPoints.signum() > 0
-                ? earnedPoints.multiply(BigDecimal.valueOf(100))
-                        .divide(totalPoints, 2, RoundingMode.HALF_UP)
-                : BigDecimal.ZERO;
-        BigDecimal passingScore = attempt.getExam().getPassingScore() == null
-                ? BigDecimal.ZERO
-                : attempt.getExam().getPassingScore();
 
         LocalDateTime now = LocalDateTime.now();
         attempt.setStatus(AssessmentAttempt.Status.SUBMITTED);
         attempt.setSubmittedAt(now);
-        attempt.setTotalPoints(totalPoints);
-        attempt.setEarnedPoints(earnedPoints);
-        attempt.setPercentage(percentage);
-        attempt.setPassed(percentage.compareTo(passingScore) >= 0);
-        attempt.setDurationSeconds((int) Duration
-                .between(attempt.getStartedAt(), now).getSeconds());
+        attempt.setDurationSeconds((int) Duration.between(attempt.getStartedAt(), now).getSeconds());
+        attempt.setGradingPending(leftPending > 0);
+        applyTotals(attempt, questions, answersByQuestion);
         attemptRepository.save(attempt);
         PhaseTimer.mark(timer, "score + persist");
 
@@ -633,38 +621,90 @@ public class AssessmentAttemptService {
             adaptiveAttemptService.getObject().onSubmitted(attempt);
             PhaseTimer.mark(timer, "adaptive close");
         }
-
-        awardAssessmentXp(attempt);
-        PhaseTimer.mark(timer, "xp");
         streakService.recordActivity(attempt.getLearnerId());
         PhaseTimer.mark(timer, "streak");
-        // First Quiz / First Perfect Score / Exam Ready all hang off a submitted
-        // attempt, and the evaluation reads this one back from the row saved
-        // above. Idempotent, so a retake awards nothing twice.
-        achievementAwardService.evaluate(attempt.getLearnerId());
-        PhaseTimer.mark(timer, "achievements");
 
-        recordLegacyExamResult(attempt);
-        completeDiagnosticGateIfApplicable(attempt);
-        PhaseTimer.mark(timer, "legacy result + diagnostic");
+        if (leftPending > 0) {
+            /* Provisional result now; XP, achievements, the legacy result row,
+               the diagnostic gate and the BKT evidence all read the final score
+               or final marks, so they wait for the marker. Handed over only
+               once this transaction is on disk -- the marker reads it back. */
+            final Long id = attemptId;
+            final int pending = leftPending;
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            adaptiveGradingService.getObject().gradeInBackground(id);
+                        }
+                    });
+            log.info("Attempt {} submitted provisionally: {} item(s) marking in the background", id, pending);
+        } else {
+            finalizeSubmission(attempt, questions, answersByQuestion);
+            PhaseTimer.mark(timer, "finalise (xp, achievements, result, bkt)");
+        }
 
-        // Transactional outbox: enqueue final, lesson-mapped BKT evidence in the
-        // SAME commit as the result. Dispatched to FastAPI asynchronously; an
-        // unavailable BKT service can never fail or roll back this submission.
-        bktOutboxService.enqueueForAttempt(attempt, questions, answersByQuestion);
-        PhaseTimer.mark(timer, "bkt outbox");
-
-        // Lightweight RabbitMQ trigger (ids only) alongside the synchronous
-        // flow above -- Phase 6 wires the consumer.
         assessmentEventProducer.publishAssessmentSubmitted(attemptId);
         PhaseTimer.mark(timer, "rabbit publish");
 
         log.info("Attempt {} submitted: {}% ({} / {} points)",
-                attemptId, percentage, earnedPoints, totalPoints);
+                attemptId, attempt.getPercentage(), attempt.getEarnedPoints(), attempt.getTotalPoints());
         AssessmentAttemptResultDto result = getResult(attemptId, request.learnerId());
         PhaseTimer.mark(timer, "build result");
         PhaseTimer.finish(timer);
         return result;
+    }
+
+    /**
+     * Totals from whatever marks exist right now. Pending answers count as
+     * nothing; the marker calls this again when they are in.
+     */
+    void applyTotals(AssessmentAttempt attempt, List<AssessmentAttemptQuestion> questions,
+                     Map<Long, AssessmentAttemptAnswer> answersByQuestion) {
+        BigDecimal totalPoints = BigDecimal.ZERO;
+        BigDecimal earnedPoints = BigDecimal.ZERO;
+        for (AssessmentAttemptQuestion attemptQuestion : questions) {
+            BigDecimal points = attemptQuestion.getPoints() == null ? BigDecimal.ONE : attemptQuestion.getPoints();
+            totalPoints = totalPoints.add(points);
+            AssessmentAttemptAnswer answer = answersByQuestion.get(attemptQuestion.getAttemptQuestionId());
+            // Partial credit (AI-graded descriptive/critical-thinking, diagram
+            // grading) sets earnedPoints without isCorrect=TRUE, so gating the
+            // sum on isCorrect would silently drop that credit.
+            if (answer != null && answer.getEarnedPoints() != null) {
+                earnedPoints = earnedPoints.add(answer.getEarnedPoints());
+            }
+        }
+        BigDecimal percentage = totalPoints.signum() > 0
+                ? earnedPoints.multiply(BigDecimal.valueOf(100)).divide(totalPoints, 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        BigDecimal passingScore = attempt.getExam().getPassingScore() == null
+                ? BigDecimal.ZERO : attempt.getExam().getPassingScore();
+        attempt.setTotalPoints(totalPoints);
+        attempt.setEarnedPoints(earnedPoints);
+        attempt.setPercentage(percentage);
+        attempt.setPassed(percentage.compareTo(passingScore) >= 0);
+    }
+
+    /**
+     * Everything that hangs off a FINAL score: XP tiers, achievements, the
+     * legacy result row, the diagnostic gate, and the BKT evidence. Run at
+     * submit when the paper is fully marked, or by the background marker
+     * once it is. Every step is idempotent, so running it after a late
+     * marking tops up rather than pays twice.
+     */
+    void finalizeSubmission(AssessmentAttempt attempt, List<AssessmentAttemptQuestion> questions,
+                            Map<Long, AssessmentAttemptAnswer> answersByQuestion) {
+        awardAssessmentXp(attempt);
+        // First Quiz / First Perfect Score / Exam Ready all hang off a submitted
+        // attempt, and the evaluation reads this one back from the row saved
+        // above. Idempotent, so a retake awards nothing twice.
+        achievementAwardService.evaluate(attempt.getLearnerId());
+        recordLegacyExamResult(attempt);
+        completeDiagnosticGateIfApplicable(attempt);
+        // Transactional outbox: enqueue final, lesson-mapped BKT evidence in the
+        // SAME commit as the result. Dispatched to FastAPI asynchronously; an
+        // unavailable BKT service can never fail or roll back this submission.
+        bktOutboxService.enqueueForAttempt(attempt, questions, answersByQuestion);
     }
 
     /**
@@ -908,7 +948,8 @@ public class AssessmentAttemptService {
                 correct, incorrect, pending, unanswered,
                 reviews,
                 lessonBreakdown,
-                exam.getCertification().getCertificationId()
+                exam.getCertification().getCertificationId(),
+                attempt.isGradingPending()
         );
     }
 

@@ -309,7 +309,9 @@ public final class LearnerAttemptDtos {
             Integer unansweredCount,
             List<AttemptAnswerReviewDto> answers,
             List<LessonPerformanceDto> lessonBreakdown,
-            Long certificationId
+            Long certificationId,
+            /** True while code/diagram/written answers are still being marked in the background. */
+            boolean gradingPending
     ) {
     }
 

@@ -65,6 +65,7 @@ class AssessmentAttemptServiceTest {
     @Mock private AiAnswerGradingService aiAnswerGradingService;
     @Mock private CodeExecutionService codeExecutionService;
     @Mock private org.springframework.beans.factory.ObjectProvider<AdaptiveAttemptService> adaptiveAttemptService;
+    @Mock private org.springframework.beans.factory.ObjectProvider<AdaptiveGradingService> adaptiveGradingService;
     @Mock private com.capstone.rebyu.adaptive.service.AdaptivePolicy adaptivePolicy;
     @Mock private AssessmentEventProducer assessmentEventProducer;
     @Mock private RewardService rewardService;
@@ -90,7 +91,7 @@ class AssessmentAttemptServiceTest {
                 new ObjectMapper(), aiAnswerGradingService, codeExecutionService,
                 new DiagramGradingService(new DiagramGraphExtractor()),
                 new AttemptGradingBatchService(8, 4, 4),
-                adaptiveAttemptService, adaptivePolicy, assessmentEventProducer,
+                adaptiveAttemptService, adaptiveGradingService, adaptivePolicy, assessmentEventProducer,
                 rewardService, streakService, achievementAwardService);
 
         Certification certification = new Certification();
