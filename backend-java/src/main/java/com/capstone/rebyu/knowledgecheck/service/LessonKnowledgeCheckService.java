@@ -172,7 +172,12 @@ public class LessonKnowledgeCheckService {
             return CheckOffer.unavailable("not-enough-completed-lessons");
         }
 
-        List<Long> chosen = selectQuestions(learnerId, candidates);
+        // The skim challenge is a straight draw from the lesson's own bank:
+        // the learner is being asked about the page in front of them, not
+        // steered back to old mistakes.
+        List<Long> chosen = currentLessonOnly
+                ? randomFive(candidates)
+                : selectQuestions(learnerId, candidates);
 
         Certification certification = certificationOf(trigger);
 
@@ -305,6 +310,12 @@ public class LessonKnowledgeCheckService {
                     explanation));
         }
         return key;
+    }
+
+    private static List<Long> randomFive(Candidates candidates) {
+        List<Long> pool = new ArrayList<>(new LinkedHashSet<>(candidates.questionIds()));
+        Collections.shuffle(pool, ThreadLocalRandom.current());
+        return List.copyOf(pool.subList(0, Math.min(CHECK_SIZE, pool.size())));
     }
 
     private boolean onCooldown(Long learnerId, boolean currentLessonOnly) {
