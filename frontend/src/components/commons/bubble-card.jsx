@@ -54,9 +54,9 @@ export const BUBBLE_TONES = {
     solid: "#008194",
   },
   feather: {
-    accent: "linear-gradient(135deg, #118a57, #34a853)",
+    accent: "linear-gradient(135deg, #0b6b45, #168a5b)",
     surface: "bg-rb-feather-wash dark:bg-[#152744]",
-    flat: "#34a853",
+    flat: "#168a5b",
     ink: "text-rb-feather-lip",
     chip: "bg-rb-feather-wash text-rb-feather-lip",
     solid: "#118a57",

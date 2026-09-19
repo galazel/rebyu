@@ -99,16 +99,10 @@ function CertificationCard({
                 /* 12px corners, not a pill: the system puts every rectangular
                    control on the same radius so a button and a round node stay
                    distinguishable shapes. */
-                variant={enrolled ? "outline" : "default"}
                 className="w-full hover:opacity-90"
                 style={
                   enrolled
-                    ? {
-                        background: "var(--color-rb-leaf-wash)",
-                        color: "var(--color-rb-leaf-lip)",
-                        borderColor: "var(--color-rb-leaf)",
-                        borderWidth: 2,
-                      }
+                    ? { background: "var(--color-rb-feather-ink)", color: "#fff" }
                     : { background: palette.solid, color: "#fff" }
                 }
                 onClick={onAction}
