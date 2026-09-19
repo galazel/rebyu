@@ -142,9 +142,11 @@ public class AdaptiveAttemptService {
         target = mainTarget + finalRound;
 
         Map<Long, Integer> poolCountByLesson = new LinkedHashMap<>();
+        Map<String, Integer> poolCountByType = new LinkedHashMap<>();
         for (QuestionSelectionView view : pool) {
             if (!AdaptivePolicy.isWorkspaceType(view.getQuestionType())) {
                 poolCountByLesson.merge(view.getLessonId(), 1, Integer::sum);
+                poolCountByType.merge(AdaptiveItemSelector.normaliseType(view.getQuestionType()), 1, Integer::sum);
             }
         }
         Long certificationId = exam.getCertification().getCertificationId();
@@ -162,6 +164,7 @@ public class AdaptiveAttemptService {
         state.setPKnownByLesson(new LinkedHashMap<>(seed.pKnownByLesson()));
         state.setParamsByLesson(new LinkedHashMap<>(seed.paramsByLesson()));
         state.setPoolCountByLesson(poolCountByLesson);
+        state.setPoolCountByType(poolCountByType);
 
         /* What this learner has met before, in any attempt of anything, and
            what was on their last attempt of this very exam. Snapshotted now so
@@ -219,7 +222,16 @@ public class AdaptiveAttemptService {
                 .build();
         attempt = attemptRepository.save(attempt);
 
-        serveNext(attempt, state);
+        /* Two items at once: the one being asked and the one behind it. The
+           client shows the reserve the moment the first is answered and the
+           server catches up in the background, so the learner never waits on
+           a round trip between questions. The reserve is chosen from all
+           answers but the very latest -- one step of lag, on a paper of ten
+           to sixty items. */
+        LearnerAttemptQuestionDto first = serveNext(attempt, state);
+        attempt.setCurrentQuestionId(first.attemptQuestionId());
+        LearnerAttemptQuestionDto reserve = state.getServedCount() < state.getTargetCount() ? serveNext(attempt, state) : null;
+        state.setQueuedAttemptQuestionId(reserve == null ? null : reserve.attemptQuestionId());
         saveState(attempt, state);
         com.capstone.rebyu.common.PhaseTimer.mark(timer, "serve first");
         com.capstone.rebyu.common.PhaseTimer.finish(timer);
@@ -303,18 +315,28 @@ public class AdaptiveAttemptService {
         }
         state.setAnsweredCount(state.getAnsweredCount() + 1);
 
-        /* What comes next. */
+        /* What comes next: the reserve becomes the question being asked, and
+           a new reserve is served behind it. */
         boolean enteringFinal = false;
         LearnerAttemptQuestionDto next = null;
-        if (state.getAnsweredCount() < state.getMainCount()) {
-            next = serveNext(attempt, state);
-        } else if (state.getAnsweredCount() < state.getTargetCount()) {
-            if (!state.inFinalRound()) {
-                state.setStage(AdaptiveSessionState.STAGE_FINAL);
-                attempt.setPhase(AdaptiveSessionState.STAGE_FINAL);
-                enteringFinal = true;
+        LearnerAttemptQuestionDto reserve = null;
+        if (state.getQueuedAttemptQuestionId() != null) {
+            AssessmentAttemptQuestion queued = attemptQuestionRepository.findById(state.getQueuedAttemptQuestionId()).orElse(null);
+            if (queued != null) {
+                next = withKey(attempt, queued, attempts.toLearnerQuestion(queued));
+                attempt.setCurrentQuestionId(queued.getAttemptQuestionId());
+                boolean nowFinal = AdaptiveSessionState.STAGE_FINAL.equals(queued.getStage());
+                if (nowFinal && !state.inFinalRound()) {
+                    state.setStage(AdaptiveSessionState.STAGE_FINAL);
+                    attempt.setPhase(AdaptiveSessionState.STAGE_FINAL);
+                    enteringFinal = true;
+                }
             }
-            next = serveNext(attempt, state);
+        }
+        state.setQueuedAttemptQuestionId(null);
+        if (next != null && state.getServedCount() < state.getTargetCount()) {
+            reserve = serveNext(attempt, state);
+            state.setQueuedAttemptQuestionId(reserve == null ? null : reserve.attemptQuestionId());
         }
         if (next == null) {
             finish(attempt, state);
@@ -322,7 +344,7 @@ public class AdaptiveAttemptService {
         saveState(attempt, state);
         com.capstone.rebyu.common.PhaseTimer.mark(timer, "serve next + state");
         com.capstone.rebyu.common.PhaseTimer.finish(timer);
-        return new AdaptiveAnswerResponseDto(verdict, progressOf(attempt, state), next, enteringFinal, state.done());
+        return new AdaptiveAnswerResponseDto(verdict, progressOf(attempt, state), next, reserve, enteringFinal, state.done());
     }
 
     /** A second delivery of an answer already taken: the same response, nothing recomputed. */
@@ -332,11 +354,16 @@ public class AdaptiveAttemptService {
         AdaptiveVerdictDto verdict = AssessmentAttemptService.hasDefinitiveVerdict(answer)
                 ? verdictOf(attempt, item, answer) : null;
         LearnerAttemptQuestionDto next = null;
+        LearnerAttemptQuestionDto reserve = null;
         if (attempt.getCurrentQuestionId() != null) {
             next = attemptQuestionRepository.findById(attempt.getCurrentQuestionId())
-                    .map(attempts::toLearnerQuestion).orElse(null);
+                    .map(q -> withKey(attempt, q, attempts.toLearnerQuestion(q))).orElse(null);
         }
-        return new AdaptiveAnswerResponseDto(verdict, progressOf(attempt, state), next, false, state.done());
+        if (state.getQueuedAttemptQuestionId() != null) {
+            reserve = attemptQuestionRepository.findById(state.getQueuedAttemptQuestionId())
+                    .map(q -> withKey(attempt, q, attempts.toLearnerQuestion(q))).orElse(null);
+        }
+        return new AdaptiveAnswerResponseDto(verdict, progressOf(attempt, state), next, reserve, false, state.done());
     }
 
     private AdaptiveVerdictDto gradeNow(
@@ -466,7 +493,9 @@ public class AdaptiveAttemptService {
      * current stage is exhausted, which ends the session early.
      */
     private LearnerAttemptQuestionDto serveNext(AssessmentAttempt attempt, AdaptiveSessionState state) {
-        boolean finalRound = state.inFinalRound();
+        /* An item's round is its position on the paper: the last
+           finalRoundCount slots are the final round. */
+        boolean finalRound = state.getServedCount() + 1 > state.getMainCount();
         List<Candidate> candidates = cachedPool(attempt.getExam()).candidates().values().stream()
                 .filter(c -> c.workspace() == finalRound)
                 .toList();
@@ -503,7 +532,7 @@ public class AdaptiveAttemptService {
                 .itemInformation(selection.get().reason().information())
                 .selectionReason(toJson(selection.get().reason()))
                 .servedAt(LocalDateTime.now())
-                .stage(state.getStage())
+                .stage(finalRound ? AdaptiveSessionState.STAGE_FINAL : AdaptiveSessionState.STAGE_MAIN)
                 .build();
         item = attemptQuestionRepository.save(item);
 
@@ -512,9 +541,52 @@ public class AdaptiveAttemptService {
         state.getServedStems().add(QuestionStem.of(question.getQuestionText()));
         if (!finalRound) {
             state.getServedCountByLesson().merge(item.getLessonId(), 1, Integer::sum);
+            state.getServedCountByType().merge(AdaptiveItemSelector.normaliseType(question.getQuestionType()), 1, Integer::sum);
         }
-        attempt.setCurrentQuestionId(item.getAttemptQuestionId());
-        return attempts.toLearnerQuestion(item);
+        return withKey(attempt, item, attempts.toLearnerQuestion(item), question);
+    }
+
+    /**
+     * The answer key rides with a main-round item so the client can mark the
+     * answer the instant it is given, without a round trip. Only when the
+     * assessment releases answers, and never for a final-round item, whose
+     * marking is a grader's job.
+     */
+    /** Adds the answer key to a served item's DTO where one applies (start/resume response). */
+    public LearnerAttemptQuestionDto decorate(AssessmentAttempt attempt, AssessmentAttemptQuestion item, LearnerAttemptQuestionDto dto) {
+        return withKey(attempt, item, dto);
+    }
+
+    private LearnerAttemptQuestionDto withKey(AssessmentAttempt attempt, AssessmentAttemptQuestion item, LearnerAttemptQuestionDto dto) {
+        if (AdaptiveSessionState.STAGE_FINAL.equals(item.getStage())) return dto;
+        return withKey(attempt, item, dto, loadQuestion(item.getSourceQuestionId()));
+    }
+
+    private LearnerAttemptQuestionDto withKey(AssessmentAttempt attempt, AssessmentAttemptQuestion item,
+                                              LearnerAttemptQuestionDto dto, Question source) {
+        if (source == null || AdaptiveSessionState.STAGE_FINAL.equals(item.getStage())
+                || !attempt.getExam().effectiveReleaseAnswers()) {
+            return dto;
+        }
+        if (AssessmentAttemptService.isMultipleChoice(item.getQuestionType())) {
+            Choice correct = source.getChoices().stream().filter(Choice::isCorrect).findFirst().orElse(null);
+            if (correct == null) return dto;
+            return dto.withAnswerKey(new com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.AdaptiveAnswerKeyDto(
+                    correct.getChoiceId(), correct.getChoiceText(), List.of(), correct.getExplanation()));
+        }
+        if ("SHORT_ANSWER".equals(item.getQuestionType()) && source.getTextQuestionConfig() != null
+                && "EXACT_MATCH".equalsIgnoreCase(source.getTextQuestionConfig().getCheckingMethod())
+                && (dto.subQuestions() == null || dto.subQuestions().isEmpty())) {
+            List<String> accepted = new ArrayList<>();
+            if (source.getTextQuestionConfig().getCorrectAnswer() != null) accepted.add(source.getTextQuestionConfig().getCorrectAnswer());
+            String variations = source.getTextQuestionConfig().getAcceptedVariations();
+            if (variations != null) {
+                for (String v : variations.split("\\r?\\n")) if (!v.isBlank()) accepted.add(v.trim());
+            }
+            return dto.withAnswerKey(new com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.AdaptiveAnswerKeyDto(
+                    null, null, accepted, null));
+        }
+        return dto;
     }
 
     private List<Candidate> toCandidates(List<QuestionSelectionView> views, Map<Long, QuestionItemParameter> known) {
@@ -624,7 +696,8 @@ public class AdaptiveAttemptService {
     private AdaptiveProgressDto progressOf(AssessmentAttempt attempt, AdaptiveSessionState state) {
         return new AdaptiveProgressDto(
                 state.getAnsweredCount(), state.getTargetCount(), state.getMainCount(),
-                state.getFinalRoundCount(), state.getStage(), attempt.getCurrentQuestionId());
+                state.getFinalRoundCount(), state.getStage(), attempt.getCurrentQuestionId(),
+                state.getQueuedAttemptQuestionId());
     }
 
     private AdaptiveSessionState loadState(AssessmentAttempt attempt) {

@@ -14,13 +14,21 @@ public class AdaptivePolicy {
     public static final Set<String> ADAPTIVE_TYPES =
             Set.of("LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM", "MOCK_EXAM", "DIAGNOSTIC");
 
+    /** Item types served in the final round and marked with the whole paper: the ones a workspace answers. */
+    private static final Set<String> WORKSPACE_TYPES = Set.of("CRITICAL_THINKING", "PROGRAMMING", "DIAGRAM");
+
     /**
-     * Item types served in the final round and marked with the whole paper:
-     * the ones a workspace answers (code, diagram, analytical sets) and the
-     * written answer, whose marking is a model call the learner should not
-     * wait on between every question.
+     * Types the adaptive engine never serves. A written answer is marked by a
+     * model call that takes ten seconds or more; in the main round that is a
+     * wait between every question, and in the final round it is the wait at
+     * the end the learner sits through with nothing to do. Written answers
+     * stay in the bank for the fixed-paper assessments that can afford them.
      */
-    private static final Set<String> WORKSPACE_TYPES = Set.of("CRITICAL_THINKING", "PROGRAMMING", "DIAGRAM", "DESCRIPTIVE");
+    private static final Set<String> EXCLUDED_TYPES = Set.of("DESCRIPTIVE");
+
+    public static boolean isServable(String questionType) {
+        return questionType != null && !EXCLUDED_TYPES.contains(questionType.trim().toUpperCase());
+    }
 
     private final AdaptiveProperties properties;
 

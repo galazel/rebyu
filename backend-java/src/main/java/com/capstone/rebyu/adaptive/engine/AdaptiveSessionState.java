@@ -48,6 +48,10 @@ public class AdaptiveSessionState {
     private Map<Long, Integer> poolCountByLesson = new LinkedHashMap<>();
     private Map<Long, Integer> servedCountByLesson = new LinkedHashMap<>();
 
+    /** Question-type mix of the main pool and of what has been served, for balance. */
+    private Map<String, Integer> poolCountByType = new LinkedHashMap<>();
+    private Map<String, Integer> servedCountByType = new LinkedHashMap<>();
+
     private List<Long> servedQuestionIds = new ArrayList<>();
     private List<ResponseRecord> responses = new ArrayList<>();
 
@@ -58,6 +62,9 @@ public class AdaptiveSessionState {
 
     /** Normalised stems of everything served, so a twin under another id is not served too. */
     private List<String> servedStems = new ArrayList<>();
+
+    /** The item served behind the current one (its attempt-question id), or null. */
+    private Long queuedAttemptQuestionId;
 
     /** Per-assessment point overrides from the optional seed list. */
     private Map<Long, java.math.BigDecimal> pointsOverride = new LinkedHashMap<>();

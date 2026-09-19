@@ -2467,7 +2467,12 @@ public class AssessmentAttemptService {
         List<Long> flaggedIds = new ArrayList<>();
         List<Long> skippedIds = new ArrayList<>();
         for (AssessmentAttemptQuestion attemptQuestion : questions) {
-            questionDtos.add(toLearnerQuestion(attemptQuestion));
+            LearnerAttemptQuestionDto dto = toLearnerQuestion(attemptQuestion);
+            if (attempt.isAdaptive()) {
+                // The answer key rides with a served item so the client marks it on the spot.
+                dto = adaptiveAttemptService.getObject().decorate(attempt, attemptQuestion, dto);
+            }
+            questionDtos.add(dto);
             if (attemptQuestion.isFlagged()) {
                 flaggedIds.add(attemptQuestion.getAttemptQuestionId());
             }
@@ -2725,7 +2730,9 @@ public class AssessmentAttemptService {
                 subQuestions,
                 attemptQuestion.getPoints(),
                 parseLearnerTestCases(data),
-                parseRubric(data)
+                parseRubric(data),
+                attemptQuestion.getStage(),
+                null
         );
     }
 

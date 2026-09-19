@@ -59,7 +59,24 @@ public final class LearnerAttemptDtos {
             List<LearnerSubQuestionDto> subQuestions,
             BigDecimal points,
             List<ProgrammingAttemptDtos.LearnerTestCaseDto> testCases,
-            List<DiagramAttemptDtos.RubricCriterionDto> rubric
+            List<DiagramAttemptDtos.RubricCriterionDto> rubric,
+            /** MAIN or FINAL on an adaptive attempt; null on a fixed paper. */
+            String stage,
+            /** Present on adaptive main-round items so the client can mark the answer the instant it is given. */
+            AdaptiveAnswerKeyDto answerKey
+    ) {
+        public LearnerAttemptQuestionDto withAnswerKey(AdaptiveAnswerKeyDto key) {
+            return new LearnerAttemptQuestionDto(attemptQuestionId, displayOrder, questionType, criticalThinkingType,
+                    question, questionImageKey, choices, starterCode, diagramType, instructions, subQuestions, points,
+                    testCases, rubric, stage, key);
+        }
+    }
+
+    public record AdaptiveAnswerKeyDto(
+            Long correctChoiceId,
+            String correctChoiceText,
+            List<String> acceptedAnswers,
+            String explanation
     ) {
     }
 
@@ -99,7 +116,9 @@ public final class LearnerAttemptDtos {
             int finalRoundTotal,
             /** MAIN, FINAL or DONE. */
             String stage,
-            Long currentAttemptQuestionId
+            Long currentAttemptQuestionId,
+            /** The item already served behind the current one, so the learner never waits between questions. */
+            Long queuedAttemptQuestionId
     ) {
     }
 
@@ -131,6 +150,8 @@ public final class LearnerAttemptDtos {
             AdaptiveProgressDto progress,
             /** The next item to show; null once the session is complete. */
             LearnerAttemptQuestionDto next,
+            /** The item behind `next`, served ahead so the client holds one in reserve. */
+            LearnerAttemptQuestionDto queued,
             boolean enteringFinalRound,
             boolean completed
     ) {

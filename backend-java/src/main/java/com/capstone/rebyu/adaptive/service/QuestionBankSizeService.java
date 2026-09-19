@@ -40,6 +40,7 @@ public class QuestionBankSizeService {
                 exam.getLesson() == null ? null : exam.getLesson().getLessonId());
         return views.stream()
                 .filter(q -> q.getOwnerGroupId() == null || Objects.equals(q.getOwnerGroupId(), ownerGroupId))
+                .filter(q -> AdaptivePolicy.isServable(q.getQuestionType()))
                 .toList();
     }
 

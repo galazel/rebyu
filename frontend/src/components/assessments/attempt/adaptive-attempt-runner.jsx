@@ -58,7 +58,18 @@ export function AdaptiveAttemptRunner({
     [attempt.questions, initialProgress?.currentAttemptQuestionId],
   )
 
+  const initialQueued = useMemo(
+    () => (attempt.questions ?? []).find((q) => q.attemptQuestionId === initialProgress?.queuedAttemptQuestionId) ?? null,
+    [attempt.questions, initialProgress?.queuedAttemptQuestionId],
+  )
+
   const [current, setCurrent] = useState(initialCurrent)
+  /* Items the server has served but the learner has not reached, by their
+     position on the paper. The one after the current is shown the moment the
+     current is done, while the server records the answer and serves another
+     reserve in the background. */
+  const reserveRef = useRef(new Map(initialQueued ? [[initialQueued.displayOrder, initialQueued]] : []))
+  const [queued, setQueued] = useState(initialQueued)
   const [progress, setProgress] = useState(initialProgress)
   const [draft, setDraft] = useState(() => {
     const saved = initialCurrent ? attempt.savedAnswers?.[initialCurrent.attemptQuestionId] : null
@@ -68,23 +79,26 @@ export function AdaptiveAttemptRunner({
   const [phase, setPhase] = useState(() =>
     initialProgress?.stage === "DONE" || !initialCurrent ? "COMPLETED" : "ANSWERING",
   )
-  const [pendingNext, setPendingNext] = useState(null)
-  /* Set when the item just marked was the last of the main round: the next
-     press shows the bell before the first final-round problem. */
-  const [enteringFinal, setEnteringFinal] = useState(false)
+  /* The in-flight recording of the last answer. Answers are sent one after
+     another -- the server insists each is for the question it is asking. */
+  const pendingRef = useRef(Promise.resolve(null))
+  const [awaitingServer, setAwaitingServer] = useState(false)
+  const [failure, setFailure] = useState(null)
   const finishedRef = useRef(false)
+  const failedRef = useRef(false)
 
-  const stage = progress?.stage ?? "MAIN"
-  const inFinalRound = stage === "FINAL"
-  const answeredCount = progress?.answered ?? 0
   const total = progress?.total ?? 0
+  /* Position of the item on screen; the server's own count lags by the
+     answer still in flight. */
+  const answeredCount = current ? Math.max(0, (current.displayOrder ?? 1) - 1) : (progress?.answered ?? 0)
 
   /* Completion hands the paper to the page, which submits it and opens the
      result. Once, however many renders see the state. */
   useEffect(() => {
     if (phase === "COMPLETED" && !finishedRef.current) {
       finishedRef.current = true
-      onFinish?.()
+      /* The last answer may still be in flight; submit only once it is recorded. */
+      pendingRef.current.then(() => onFinish?.())
     }
   }, [phase, onFinish])
 
@@ -93,77 +107,140 @@ export function AdaptiveAttemptRunner({
   }, [])
 
   const answered = current ? isAnswered(current, draft, isMultipleChoice) : false
+  const finalItem = current?.stage === "FINAL"
 
-  async function check() {
+  /* Records an answer on the server, after the previous one has been
+     recorded. Resolves to the server's response; the reserve item it
+     carries becomes the queued one. */
+  function record(item, answerDraft) {
+    const send = pendingRef.current.then(() =>
+      answerAdaptiveItem(attempt.assessmentAttemptId, learnerId, toDraftDto(item.attemptQuestionId, answerDraft ?? {})),
+    )
+    pendingRef.current = send.catch(() => null)
+    send
+      .then((response) => {
+        setProgress(response.progress)
+        for (const served of [response.next, response.queued]) {
+          if (served && served.attemptQuestionId !== item.attemptQuestionId) {
+            reserveRef.current.set(served.displayOrder, served)
+          }
+        }
+        setQueued(reserveRef.current.get(item.displayOrder + 1) ?? null)
+      })
+      .catch((error) => {
+        /* The server did not take the answer, so the paper on screen and
+           the paper on record have parted: stop here rather than let the
+           learner answer questions that will never count. Reloading resumes
+           from the server's own position. */
+        failedRef.current = true
+        setFailure(error?.response?.data?.message ?? "Could not record that answer. Please check your connection.")
+        setPhase("FAILED")
+      })
+    return send
+  }
+
+  const checkRef = useRef(null)
+
+  /**
+   * Marks the current answer. With the key on hand the verdict is immediate
+   * and the server is told in the background; without one (a resumed item,
+   * blanks with several parts) the server's marking is awaited.
+   */
+  async function check(override) {
     if (!current || phase !== "ANSWERING") return
-    if (!answered && !inFinalRound) return
+    const answerDraft = override ?? draft ?? {}
+    if (!isAnswered(current, answerDraft, isMultipleChoice) && !finalItem) return
+    const item = current
+
+    if (finalItem) {
+      /* Saved, not marked: on to the next problem at once. */
+      record(item, answerDraft)
+      advance()
+      return
+    }
+
+    const local = localVerdict(item, answerDraft, isMultipleChoice)
+    if (local) {
+      setVerdict(local)
+      setPhase("REVEALED")
+      record(item, answerDraft).then((response) => {
+        /* The server is the marker of record; if it disagrees, it wins. */
+        if (response?.verdict && response.verdict.isCorrect !== local.isCorrect) setVerdict(response.verdict)
+      }).catch(() => {})
+      return
+    }
+
     setPhase("GRADING")
     try {
-      const response = await answerAdaptiveItem(
-        attempt.assessmentAttemptId,
-        learnerId,
-        toDraftDto(current.attemptQuestionId, draft ?? {}),
-      )
-      setProgress(response.progress)
-      setPendingNext(response.next ?? null)
-      setEnteringFinal(Boolean(response.enteringFinalRound))
+      const response = await record(item, answerDraft)
       if (response.verdict) {
-        /* Main round: show the marking; the learner moves on when ready. */
         setVerdict(response.verdict)
         setPhase("REVEALED")
-        return
-      }
-      /* Final round: saved, not marked. Straight to the next problem. */
-      if (response.completed || !response.next) {
-        setPhase("COMPLETED")
-      } else if (response.enteringFinalRound) {
-        setPhase("FINAL_INTRO")
       } else {
-        advance(response.next)
+        advance()
       }
-    } catch (error) {
+    } catch {
       setPhase("ANSWERING")
-      toast.error(error?.response?.data?.message ?? "Could not record that answer. Please try again.")
     }
   }
 
-  function advance(next) {
+  checkRef.current = check
+
+  /* Moves to the item after the current one; if the server has not served
+     it yet, waits for the answer in flight, which brings it. */
+  async function advance() {
     setVerdict(null)
-    setCurrent(next)
     setDraft({})
-    setPendingNext(null)
-    setPhase(next ? "ANSWERING" : "COMPLETED")
+    const position = (current?.displayOrder ?? 0) + 1
+    let next = reserveRef.current.get(position) ?? null
+    if (!next) {
+      setAwaitingServer(true)
+      await pendingRef.current
+      setAwaitingServer(false)
+      next = reserveRef.current.get(position) ?? null
+    }
+    reserveRef.current.delete(position)
+    setQueued(reserveRef.current.get(position + 1) ?? null)
+    if (!next) {
+      setCurrent(null)
+      setPhase("COMPLETED")
+      return
+    }
+    const wasMain = current?.stage !== "FINAL"
+    setCurrent(next)
+    setPhase(next.stage === "FINAL" && wasMain ? "FINAL_INTRO" : "ANSWERING")
   }
 
   function next() {
     if (phase !== "REVEALED") return
-    if (!pendingNext) {
-      setPhase("COMPLETED")
-      return
-    }
-    if (enteringFinal) {
-      setPhase("FINAL_INTRO")
-      return
-    }
-    advance(pendingNext)
+    advance()
   }
 
   const continueToFinal = useCallback(() => {
-    setEnteringFinal(false)
-    advance(pendingNext)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingNext])
+    setPhase("ANSWERING")
+  }, [])
 
-  if (phase === "COMPLETED" || isSubmitting) {
+  if (phase === "FAILED") {
+    return (
+      <div className="rebyu-ds flex h-dvh items-center justify-center bg-rb-polar p-6">
+        <div className="w-full max-w-md rounded-rb-card border-2 border-rb-cardinal/40 bg-rb-snow p-6 text-center">
+          <XCircle className="mx-auto size-8 text-rb-cardinal" aria-hidden="true" />
+          <h2 className="mt-3 font-rb-display text-xl font-extrabold text-rb-eel">We lost the thread</h2>
+          <p className="mt-2 text-sm leading-6 text-rb-wolf">{failure}</p>
+          <p className="mt-1 text-sm leading-6 text-rb-wolf">Your answers so far are saved. Reload to pick up where the server left you.</p>
+          <Button className="mt-5" onClick={() => window.location.reload()}>Reload and continue</Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (phase === "COMPLETED" || isSubmitting || awaitingServer) {
     return <LoadingSignal messages={GRADING_MESSAGES} />
   }
 
   const isProgramming = current?.criticalThinkingType === "PROGRAMMING" || current?.questionType === "PROGRAMMING"
   const isDiagram = current?.criticalThinkingType === "DIAGRAM" || current?.questionType === "DIAGRAM"
   const isWorkspace = current?.questionType === "CRITICAL_THINKING" && !isProgramming && !isDiagram
-  /* While the last main-round item's marking is on screen the stage has
-     already moved to FINAL; the item itself is still a main one. */
-  const finalItem = inFinalRound && phase !== "REVEALED"
   const grading = phase === "GRADING"
   const revealed = phase === "REVEALED"
 
@@ -180,7 +257,7 @@ export function AdaptiveAttemptRunner({
           <div className="min-w-0">
             <p className="truncate font-rb-display text-base font-extrabold text-rb-eel">{attempt.assessmentTitle}</p>
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-rb-wolf">
-              {finalItem ? "Final round" : "Adaptive"} · Question {Math.min(revealed ? answeredCount : answeredCount + 1, Math.max(total, 1))} of {total}
+              {finalItem ? "Final round" : "Adaptive"} · Question {Math.min(answeredCount + 1, Math.max(total, 1))} of {total}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -236,14 +313,14 @@ export function AdaptiveAttemptRunner({
               />
             )}
           </div>
-          <FinalRoundFooter onSubmit={check} busy={grading} last={answeredCount + 1 >= total} />
+          <FinalRoundFooter onSubmit={() => check()} busy={grading} last={answeredCount + 1 >= total} />
         </div>
       ) : current && isWorkspace ? (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-4">
           <div className="min-h-0 flex-1 overflow-hidden">
             <WorkspaceQuestionPanel question={current} index={answeredCount} answer={draft} onAnswer={setAnswer} />
           </div>
-          <FinalRoundFooter onSubmit={check} busy={grading} last={answeredCount + 1 >= total} />
+          <FinalRoundFooter onSubmit={() => check()} busy={grading} last={answeredCount + 1 >= total} />
         </div>
       ) : current ? (
         <main className="min-h-0 flex-1 overflow-y-auto">
@@ -281,7 +358,14 @@ export function AdaptiveAttemptRunner({
                         <button
                           key={choice.choiceId ?? choiceIndex}
                           type="button"
-                          onClick={() => !revealed && !grading && setAnswer({ selectedChoiceId: choice.choiceId })}
+                          onClick={() => {
+                            if (revealed || grading) return
+                            setAnswer({ selectedChoiceId: choice.choiceId })
+                            /* Duolingo-style: picking a choice is the answer. */
+                            if (current.answerKey?.correctChoiceId != null) {
+                              queueMicrotask(() => checkRef.current?.({ ...(draft ?? {}), selectedChoiceId: choice.choiceId }))
+                            }
+                          }}
                           aria-pressed={selected}
                           disabled={revealed || grading}
                           className={cn(
@@ -346,7 +430,7 @@ export function AdaptiveAttemptRunner({
                     value={draft?.learnerAnswer ?? ""}
                     onChange={(event) => setAnswer({ learnerAnswer: event.target.value })}
                     onKeyDown={(event) => {
-                      if (event.key === "Enter") (revealed ? next : check)()
+                      if (event.key === "Enter") (revealed ? next() : check())
                     }}
                     placeholder="Type your answer"
                     autoComplete="off"
@@ -362,7 +446,7 @@ export function AdaptiveAttemptRunner({
                 <span className="text-xs text-rb-wolf">
                   {revealed ? "Marked. Ready for the next one?" : grading ? (finalItem ? "Saving…" : "Marking…") : finalItem ? "Final round: marked with the whole paper when you finish." : "Pick or type an answer, then check."}
                 </span>
-                <Button onClick={revealed ? next : check} disabled={(!answered && !revealed) || grading} className="gap-2">
+                <Button onClick={() => (revealed ? next() : check())} disabled={(!answered && !revealed) || grading} className="gap-2">
                   {grading ? (
                     <>
                       <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -370,12 +454,12 @@ export function AdaptiveAttemptRunner({
                     </>
                   ) : !revealed ? (
                     finalItem ? (answeredCount + 1 >= total ? "Finish and see results" : "Submit answer") : "Check"
-                  ) : !pendingNext ? (
+                  ) : answeredCount + 1 >= total ? (
                     <>
                       <Sparkles className="size-4" aria-hidden="true" />
                       See my results
                     </>
-                  ) : enteringFinal ? (
+                  ) : queued?.stage === "FINAL" && !finalItem ? (
                     <>
                       To the final round
                       <ArrowRight className="size-4" aria-hidden="true" />
@@ -486,6 +570,35 @@ function isAnswered(question, draft, isMultipleChoice) {
     return question.subQuestions.every((sub) => (draft.subAnswers?.[sub.subQuestionId] ?? "").trim())
   }
   return Boolean(draft.learnerAnswer?.trim() || draft.submittedCode?.trim() || draft.diagramSubmissionData)
+}
+
+/* The instant marking, from the key that came with the question. */
+function localVerdict(question, answerDraft, isMultipleChoice) {
+  const key = question?.answerKey
+  if (!key) return null
+  if (isMultipleChoice(question)) {
+    if (key.correctChoiceId == null) return null
+    const correct = answerDraft?.selectedChoiceId === key.correctChoiceId
+    return {
+      isCorrect: correct,
+      earnedPoints: correct ? question.points : 0,
+      points: question.points,
+      correctChoiceId: key.correctChoiceId,
+      correctChoiceText: key.correctChoiceText,
+      explanation: key.explanation,
+    }
+  }
+  if (!Array.isArray(key.acceptedAnswers) || key.acceptedAnswers.length === 0) return null
+  const norm = (v) => String(v ?? "").trim().toLowerCase()
+  const given = norm(answerDraft?.learnerAnswer)
+  const correct = given.length > 0 && key.acceptedAnswers.map(norm).includes(given)
+  return {
+    isCorrect: correct,
+    earnedPoints: correct ? question.points : 0,
+    points: question.points,
+    acceptedAnswer: key.acceptedAnswers[0],
+    explanation: key.explanation,
+  }
 }
 
 function fromDraftDto(saved) {

@@ -715,7 +715,10 @@ export default function LearnerAssessmentAttemptPage() {
 
   // Persist the last-viewed item (debounced) so a refresh resumes in place.
   useEffect(() => {
-    if (!attempt || !questions[currentIndex]) return
+    /* An adaptive attempt's current item is the engine's to set; writing
+       the page's own index over it would point the server back at item 1
+       and reject every answer after it. */
+    if (!attempt || attempt.adaptive || !questions[currentIndex]) return
     const attemptQuestionId = questions[currentIndex].attemptQuestionId
     const timeout = setTimeout(() => {
       setAttemptCurrentItem(

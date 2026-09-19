@@ -115,6 +115,24 @@ public final class AdaptiveItemSelector {
         return TIER_REPEAT;
     }
 
+    static double typeWeight(String questionType, AdaptiveSessionState state) {
+        String type = normaliseType(questionType);
+        int poolTotal = state.getPoolCountByType().values().stream().mapToInt(Integer::intValue).sum();
+        if (poolTotal == 0) return 1.0;
+        double targetShare = (double) state.getPoolCountByType().getOrDefault(type, 0) / poolTotal;
+        int servedTotal = state.getServedCountByType().values().stream().mapToInt(Integer::intValue).sum();
+        double servedShare = servedTotal == 0 ? 0.0
+                : (double) state.getServedCountByType().getOrDefault(type, 0) / servedTotal;
+        double deficit = targetShare - servedShare;
+        return Math.max(0.15, 1.0 + 3.0 * deficit);
+    }
+
+    /** MCQ and MULTIPLE_CHOICE are one type; everything else is its own. */
+    public static String normaliseType(String questionType) {
+        String t = questionType == null ? "" : questionType.trim().toUpperCase();
+        return "MCQ".equals(t) ? "MULTIPLE_CHOICE" : t;
+    }
+
     private static boolean isTwinOfServed(
             Candidate candidate, List<Set<String>> servedTokens, List<String> servedStems) {
         String stem = QuestionStem.of(candidate.questionText());
@@ -172,8 +190,14 @@ public final class AdaptiveItemSelector {
             if (!near.isEmpty()) ranked = new ArrayList<>(near);
         }
 
+        /* Information alone starves the paper of variety: a guessable
+           multiple-choice item carries less information than a typed one of
+           the same difficulty, so left to itself the selector serves short
+           answers all day. The paper should reflect the bank's mix instead --
+           a type that is behind its share gets a boost, one that is ahead a
+           penalty -- and information decides within that. */
         ranked.sort(Comparator.comparingDouble(
-                (Candidate c) -> IrtModel.information(theta, c.params())).reversed());
+                (Candidate c) -> IrtModel.information(theta, c.params()) * typeWeight(c.questionType(), state)).reversed());
         int k = Math.max(1, Math.min(settings.topK(), ranked.size()));
         return ranked.get(random.nextInt(k));
     }
