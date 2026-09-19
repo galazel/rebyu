@@ -382,7 +382,7 @@ export function PortalTopNavigation({ role, actions, institutionName, institutio
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-border/80 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/90">
+      <header className="sticky top-0 z-40 border-b">
         {/* Cap and padding track `.rebyu-page` in index.css. The two are
             independent declarations of the same gutter, so they have to move
             together — widening the page alone left the brand and the nav links

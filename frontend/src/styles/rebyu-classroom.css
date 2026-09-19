@@ -27,20 +27,20 @@
 
 /* --- Tokens ---------------------------------------------------------------- */
 :root {
-    --rb-board: #2f4a3c;
-    --rb-board-deep: #243a2f;
-    --rb-chalk: #f4f1e8;
-    --rb-chalk-dim: rgb(244 241 232 / 0.8);
-    --rb-chalk-yellow: #f2d479;
-    --rb-wood: #8a5a33;
-    --rb-wood-light: #b07a4a;
-    --rb-paper: #fffdf8;
-    --rb-wall: #faf7f0;
-    --rb-line: #e3dccd;
+    --rb-board: #0b6b45;
+    --rb-board-deep: #064d32;
+    --rb-chalk: #ffffff;
+    --rb-chalk-dim: rgb(255 255 255 / 0.8);
+    --rb-chalk-yellow: #b7f7cf;
+    --rb-wood: #168a5b;
+    --rb-wood-light: #35b77d;
+    --rb-paper: #ffffff;
+    --rb-wall: #f5fbf7;
+    --rb-line: #d8e9df;
     --rb-chalk-font: "REBYU Chalk", "Patrick Hand", ui-rounded, system-ui, sans-serif;
 
-    --rb-shadow-soft: 0 1px 2px rgb(40 30 20 / 0.06), 0 6px 18px rgb(40 30 20 / 0.06);
-    --rb-shadow-lift: 0 2px 4px rgb(40 30 20 / 0.08), 0 14px 32px rgb(40 30 20 / 0.12);
+    --rb-shadow-soft: 0 1px 2px rgb(18 49 38 / 0.06), 0 6px 18px rgb(18 49 38 / 0.06);
+    --rb-shadow-lift: 0 2px 4px rgb(18 49 38 / 0.08), 0 14px 32px rgb(18 49 38 / 0.12);
 
     /* Retire the solid lip everywhere the base layers reference it. */
     --rb-lip: 0px;
@@ -48,8 +48,8 @@
     --rb-lip-lg: 0px;
     --rb-primary-lip: transparent;
     --rb-focus: #5c9c7c;
-    --rb-elev-popover: 0 10px 28px rgb(40 30 20 / 0.14);
-    --rb-elev-overlay: 0 24px 56px rgb(40 30 20 / 0.2);
+    --rb-elev-popover: 0 10px 28px rgb(18 49 38 / 0.14);
+    --rb-elev-overlay: 0 24px 56px rgb(18 49 38 / 0.2);
 
     /* A few components still name this shadow token in a utility class. */
     --comic-shadow-sm: var(--rb-shadow-soft);
@@ -78,10 +78,10 @@ body.netacad-overlay-theme {
     --color-rb-macaw: #4f8a78;
     --color-rb-macaw-lip: #3c6e5f;
     --color-rb-macaw-wash: #e1eee8;
-    --color-rb-bee: #e9b949;
-    --color-rb-bee-lip: #c99a2e;
-    --color-rb-bee-ink: #7a5a10;
-    --color-rb-bee-wash: #fbf0d2;
+    --color-rb-bee: #47b96d;
+    --color-rb-bee-lip: #248f4c;
+    --color-rb-bee-ink: #176b37;
+    --color-rb-bee-wash: #e6f8eb;
     --color-rb-fox: #d9822b;
     --color-rb-fox-lip: #b86a1d;
     --color-rb-fox-wash: #f9e6d3;
@@ -105,37 +105,37 @@ body.netacad-overlay-theme {
     --color-rb-tomato: #c8553d;
     --color-rb-strawberry: #c8553d;
 
-    --color-rb-eel: #2c3a33;
-    --color-rb-wolf: #5b6b62;
-    --color-rb-hare: #a3aca5;
-    --color-rb-swan: #e3dccd;
-    --color-rb-polar: #f6f1e6;
+    --color-rb-eel: #123126;
+    --color-rb-wolf: #557064;
+    --color-rb-hare: #9db3a8;
+    --color-rb-swan: #d8e9df;
+    --color-rb-polar: #f5fbf7;
     --color-rb-snow: #ffffff;
 
     --background: #ffffff;
-    --foreground: #2c3a33;
+    --foreground: #123126;
     --card: #ffffff;
-    --card-foreground: #2c3a33;
+    --card-foreground: #123126;
     --popover: #ffffff;
-    --popover-foreground: #2c3a33;
-    --primary: #2f6b4f;
+    --popover-foreground: #123126;
+    --primary: #118a57;
     --primary-foreground: #ffffff;
-    --secondary: #f6f1e6;
-    --secondary-foreground: #2c3a33;
-    --muted: #f6f1e6;
-    --muted-foreground: #5b6b62;
-    --accent: #e4efe8;
-    --accent-foreground: #245440;
+    --secondary: #f5fbf7;
+    --secondary-foreground: #123126;
+    --muted: #f5fbf7;
+    --muted-foreground: #557064;
+    --accent: #e5f7ed;
+    --accent-foreground: #086b41;
     --destructive: #c8553d;
     --destructive-foreground: #ffffff;
-    --border: #e3dccd;
-    --input: #d8d0bf;
+    --border: #d8e9df;
+    --input: #c9dfd3;
     --ring: #5c9c7c;
     --chart-1: #2f6b4f;
     --chart-2: #e9b949;
     --chart-3: #c8553d;
     --chart-4: #8b5f7d;
-    --chart-5: #8a5a33;
+    --chart-5: #0f9d86;
     --brand-navy: #2c3a33;
     --brand-navy-soft: #45524b;
     --brand-blue: #2f6b4f;
@@ -154,15 +154,52 @@ body.netacad-overlay-theme {
     --sidebar-primary-foreground: #ffffff;
     --sidebar-accent: #e4efe8;
     --sidebar-accent-foreground: #245440;
-    --sidebar-border: #e3dccd;
+    --sidebar-border: #d8e9df;
     --sidebar-ring: #5c9c7c;
 }
 
-/* The portals sit on a light classroom wall; cards are white paper on it. */
+/* The portals sit on plain white; the colour lives in the top bar. */
 .netacad-portal,
 body.netacad-overlay-theme {
-    --background: #faf7f0;
-    --rb-page-surface: #faf7f0;
+    --background: #ffffff;
+    --rb-page-surface: #ffffff;
+}
+
+.netacad-portal > header.sticky,
+.netacad-portal header.rb-portal-header {
+    background: var(--color-rb-feather);
+    border-bottom-color: var(--color-rb-feather-lip);
+    color: #ffffff;
+}
+.netacad-portal header.sticky :is(a, button):not([data-slot="dropdown-menu-item"]) {
+    color: rgb(255 255 255 / 0.85);
+}
+.netacad-portal header.sticky a[aria-label$="home"],
+.netacad-portal header.sticky a[aria-label$="analytics"] {
+    background: transparent;
+    color: #ffffff;
+}
+.netacad-portal header.sticky nav :is(a, button):hover {
+    color: #ffffff;
+    background: rgb(255 255 255 / 0.12);
+}
+.netacad-portal header.sticky :is(a, button).rb-nav-active,
+.netacad-portal header.sticky :is(a, button).rb-nav-active:hover,
+.netacad-portal header.sticky .rb-nav-active :is(svg, span) {
+    color: var(--color-rb-feather-ink);
+    background: #ffffff;
+}
+.netacad-portal header.sticky .text-muted-foreground {
+    color: rgb(255 255 255 / 0.7);
+}
+.netacad-portal header.sticky [data-slot="avatar-fallback"] {
+    background: #ffffff;
+    color: var(--color-rb-feather-ink);
+    font-weight: 700;
+}
+.netacad-portal header.sticky [data-slot="tooltip-trigger"]:hover {
+    background: rgb(255 255 255 / 0.12);
+    color: #ffffff;
 }
 
 .rebyu-ds {
@@ -313,8 +350,9 @@ body.netacad-overlay-theme {
 }
 
 .netacad-portal > header {
-    background: rgb(255 253 248 / 0.96);
-    border-bottom: 1px solid var(--rb-line);
+    background: var(--color-rb-feather);
+    border-bottom: 1px solid var(--color-rb-feather-lip);
+    color: #ffffff;
 }
 .rb-nav-active {
     color: var(--color-rb-feather-lip);
@@ -338,7 +376,7 @@ body.netacad-overlay-theme {
 .rebyu-ds .rb-answer {
     border: 1.5px solid var(--rb-line);
     background: #ffffff;
-    box-shadow: 0 1px 2px rgb(40 30 20 / 0.05);
+    box-shadow: 0 1px 2px rgb(18 49 38 / 0.05);
 }
 .rebyu-ds .rb-answer:hover {
     background: var(--color-rb-polar);
@@ -2041,7 +2079,7 @@ body.netacad-overlay-theme {
     border-radius: 3px;
     background:
         radial-gradient(circle 5px at 15px 50%, rgb(110 88 55 / 0.45) 0 4px, rgb(110 88 55 / 0.2) 4px 5px, transparent 5.5px),
-        linear-gradient(175deg, #f1e5c3, #e3cf9d);
+        linear-gradient(175deg, #e6f6e9, #c9ecd3);
     box-shadow: 0 1px 1px rgb(60 40 10 / 0.15), 4px 9px 14px -7px rgb(60 40 10 / 0.4);
     color: #1f4f36;
     font-size: 1.3rem;
@@ -2057,7 +2095,7 @@ body.netacad-overlay-theme {
     display: block;
     width: 44px;
     height: 72px;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 72'%3E%3Cpath d='M41 34 C44 12 26 1 16 10 C10 15 11 22 12 30' fill='none' stroke='%238e2a2a' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='33' r='4.5' fill='%237a2020'/%3E%3Cpath d='M8 36 L16 36 L23 68 L1 68 Z' fill='%238e2a2a'/%3E%3Cpath d='M9 40 L5 67 M12 40 L11 67 M15 40 L17 67 M13 40 L21 67' stroke='%236d1a1a' stroke-width='1'/%3E%3C/svg%3E") no-repeat;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 72'%3E%3Cpath d='M41 34 C44 12 26 1 16 10 C10 15 11 22 12 30' fill='none' stroke='%23168a5b' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='33' r='4.5' fill='%23086b41'/%3E%3Cpath d='M8 36 L16 36 L23 68 L1 68 Z' fill='%23168a5b'/%3E%3Cpath d='M9 40 L5 67 M12 40 L11 67 M15 40 L17 67 M13 40 L21 67' stroke='%23086b41' stroke-width='1'/%3E%3C/svg%3E") no-repeat;
     font-size: 0;
 }
 
@@ -2149,7 +2187,7 @@ body {
     border-radius: 3px;
     background:
         radial-gradient(circle 5px at 15px 50%, rgb(110 88 55 / 0.45) 0 4px, rgb(110 88 55 / 0.2) 4px 5px, transparent 5.5px),
-        linear-gradient(175deg, #f1e5c3, #e3cf9d);
+        linear-gradient(175deg, #e6f6e9, #c9ecd3);
     box-shadow: 0 1px 1px rgb(60 40 10 / 0.15), 4px 9px 14px -7px rgb(60 40 10 / 0.4);
     color: #1f4f36;
     font-family: var(--font-rb-display);
@@ -2168,7 +2206,7 @@ body {
     display: block;
     width: 44px;
     height: 72px;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 72'%3E%3Cpath d='M41 34 C44 12 26 1 16 10 C10 15 11 22 12 30' fill='none' stroke='%238e2a2a' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='33' r='4.5' fill='%237a2020'/%3E%3Cpath d='M8 36 L16 36 L23 68 L1 68 Z' fill='%238e2a2a'/%3E%3Cpath d='M9 40 L5 67 M12 40 L11 67 M15 40 L17 67 M13 40 L21 67' stroke='%236d1a1a' stroke-width='1'/%3E%3C/svg%3E") no-repeat;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 72'%3E%3Cpath d='M41 34 C44 12 26 1 16 10 C10 15 11 22 12 30' fill='none' stroke='%23168a5b' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='33' r='4.5' fill='%23086b41'/%3E%3Cpath d='M8 36 L16 36 L23 68 L1 68 Z' fill='%23168a5b'/%3E%3Cpath d='M9 40 L5 67 M12 40 L11 67 M15 40 L17 67 M13 40 L21 67' stroke='%23086b41' stroke-width='1'/%3E%3C/svg%3E") no-repeat;
     font-size: 0;
 }
 
@@ -2310,9 +2348,9 @@ body {
     border: 0 !important;
     border-radius: 3px !important;
     background:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 72'%3E%3Cpath d='M41 34 C44 12 26 1 16 10 C10 15 11 22 12 30' fill='none' stroke='%238e2a2a' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='33' r='4.5' fill='%237a2020'/%3E%3Cpath d='M8 36 L16 36 L23 68 L1 68 Z' fill='%238e2a2a'/%3E%3Cpath d='M9 40 L5 67 M12 40 L11 67 M15 40 L17 67 M13 40 L21 67' stroke='%236d1a1a' stroke-width='1'/%3E%3C/svg%3E") no-repeat 2px center / 34px 56px,
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 72'%3E%3Cpath d='M41 34 C44 12 26 1 16 10 C10 15 11 22 12 30' fill='none' stroke='%23168a5b' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='33' r='4.5' fill='%23086b41'/%3E%3Cpath d='M8 36 L16 36 L23 68 L1 68 Z' fill='%23168a5b'/%3E%3Cpath d='M9 40 L5 67 M12 40 L11 67 M15 40 L17 67 M13 40 L21 67' stroke='%23086b41' stroke-width='1'/%3E%3C/svg%3E") no-repeat 2px center / 34px 56px,
         radial-gradient(circle 6px at 34px 50%, rgb(110 88 55 / 0.45) 0 5px, rgb(110 88 55 / 0.2) 5px 6px, transparent 6.5px),
-        linear-gradient(175deg, #f1e5c3, #e3cf9d) !important;
+        linear-gradient(175deg, #e6f6e9, #c9ecd3) !important;
     box-shadow: 0 1px 1px rgb(60 40 10 / 0.15), 6px 12px 18px -8px rgb(60 40 10 / 0.45) !important;
     color: #1f4f36 !important;
 }
@@ -2734,7 +2772,7 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
     margin: 0 0 10px;
 }
 .rb-flipbook-tab {
-    --tab: #f1e5c3;
+    --tab: #e6f6e9;
     min-width: 40px;
     height: 34px;
     padding: 0 0.6rem;
