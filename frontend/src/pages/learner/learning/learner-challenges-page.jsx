@@ -1,23 +1,19 @@
-import React, { useMemo, useState } from "react"
+import React, { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useOutletContext } from "react-router-dom"
 import {
   Activity,
-  ChevronLeft,
   ChevronRight,
   Code2,
   Crown,
   Lock,
   Medal,
   Network,
-  Target,
   Trophy,
 } from "@/components/icons"
 import { toast } from "sonner"
 
 import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
-import { Button } from "@/components/ui/button"
-import { BubbleCard } from "@/components/commons/bubble-card.jsx"
 import {
   CHALLENGE_ARENAS_KEY,
   getChallengeArenas,
@@ -36,11 +32,10 @@ import { getWorldCupTracks } from "@/lib/arenas.js"
    be enrolled in and nothing to unlock. World Cup is the exception -- see
    `worldCupTracks` below.
 
-   Laid out the way the landing page shows them: a trophy in the middle and the
-   arenas around it as icons with labels, not a swipe carousel of cards. The
-   carousel hid two of the three at any moment and, on a phone, clipped the
-   neighbours off both edges. Each arena takes a classroom colour -- green,
-   sage, orange -- rather than the blue and violet glows the page used to sit on. */
+   Laid out side by side, all three at once, each with its own way in. The
+   swipe carousel before this hid two of the three at any moment and stacked
+   the neighbours half under the middle card; a learner picking an arena
+   should see the whole choice. */
 const CHALLENGES = [
   {
     id: "codestrike",
@@ -50,9 +45,6 @@ const CHALLENGES = [
     description:
       "Ten stages of coding problems, judged against real unit tests and scored on time complexity.",
     icon: Code2,
-    color: "var(--color-rb-feather)",
-    tone: "feather",
-    area: "left",
     route: "/learner/challenges/codestrike",
   },
   {
@@ -63,9 +55,6 @@ const CHALLENGES = [
     description:
       "Ten stages of UML and system design on a drag-and-drop canvas, checked against structural rules.",
     icon: Network,
-    color: "var(--color-rb-macaw)",
-    tone: "bee",
-    area: "right",
     route: "/learner/challenges/blueprint-arena",
   },
   {
@@ -76,9 +65,6 @@ const CHALLENGES = [
     description:
       "An eight-player bracket on one of your certification tracks — quarterfinals, semis, and a timed final.",
     icon: Trophy,
-    color: "var(--color-rb-fox)",
-    tone: "leaf",
-    area: "bottom",
     route: "/learner/challenges/world-cup",
     // The bracket is played on one certification's question bank, so it opens
     // only for a learner who is enrolled in at least one.
@@ -89,14 +75,6 @@ const CHALLENGES = [
 /* No preview data. The board and the record come from endpoints scoped to the
    caller, and empty means empty: a board nobody is on says so, and says that
    finishing a challenge puts you top of it. */
-
-function relativePosition(index, activeIndex, total) {
-  let difference = index - activeIndex
-  const midpoint = Math.floor(total / 2)
-  if (difference > midpoint) difference -= total
-  if (difference < -midpoint) difference += total
-  return difference
-}
 
 function formatSessionDate(value) {
   if (!value) return "Date unavailable"
@@ -118,7 +96,6 @@ export default function LearnerChallengesPage() {
   const navigate = useNavigate()
   const outletContext = useOutletContext()
   const learnerId = outletContext?.data?.learnerId ?? null
-  const [activeIndex, setActiveIndex] = useState(0)
   const { isFree } = useLearnerEntitlements()
 
   /* The learner's own tracks. Enrolled in TOPCIT and nothing else? TOPCIT is
@@ -202,17 +179,6 @@ export default function LearnerChallengesPage() {
     [challenges],
   )
 
-  // Clamped: filtering can shorten the list under a selection already made.
-  const safeIndex = visibleChallenges.length
-    ? Math.min(activeIndex, visibleChallenges.length - 1)
-    : 0
-  const activeChallenge = visibleChallenges[safeIndex] ?? null
-
-  const move = (direction) => {
-    if (visibleChallenges.length === 0) return
-    setActiveIndex((current) => (current + direction + visibleChallenges.length) % visibleChallenges.length)
-  }
-
   const leaderboardQuery = useQuery({
     queryKey: ["challenge-leaderboard"],
     queryFn: () => getChallengeLeaderboard(10),
@@ -267,110 +233,128 @@ export default function LearnerChallengesPage() {
 
   return (
     <>
-      <div className="mx-auto w-full max-w-6xl space-y-10 pb-10 sm:space-y-12">
-        <header className="text-center">
-          <p className="rb-chalk-label mx-auto">it olympics</p>
-          <h1 className="mt-4 font-rb-display text-3xl font-extrabold text-rb-eel sm:text-4xl">
-            pick your arena
-          </h1>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-rb-wolf">
-            Tap an arena to see what it is, then step in.
-          </p>
+      <div className="mx-auto w-full max-w-6xl space-y-8 pb-10 sm:space-y-10">
+        {/* The board at the front of the room: what this is, and where you
+            stand. The record used to sit below the fold on its own sheet;
+            up here it is the first thing read, next to the arenas it is
+            earned in. */}
+        <header className="rb-chalkboard px-5 py-6 sm:px-8 sm:py-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
+              <p className="rb-chalk-label">it olympics</p>
+              <h1 className="rb-chalk mt-3 text-4xl leading-none sm:text-5xl">pick your arena</h1>
+              <p className="rb-chalk-body mt-2 max-w-md text-sm leading-6">
+                Three arenas, one board. Coding, design, and a bracket against seven others on
+                your own track.
+              </p>
+            </div>
+            <dl className="grid shrink-0 grid-cols-4 gap-x-5 gap-y-1 border-t border-white/20 pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+              {[
+                ["rank", record?.rank ? `#${record.rank}` : "\u2014"],
+                ["points", (record?.points ?? 0).toLocaleString()],
+                ["streak", `${record?.streakDays ?? 0}d`],
+                ["best", (record?.bestScore ?? 0).toLocaleString()],
+              ].map(([label, value]) => (
+                <div key={label} className="min-w-0">
+                  <dt className="rb-chalk-body text-[11px] uppercase tracking-[0.14em] opacity-80">{label}</dt>
+                  <dd className="rb-chalk truncate text-2xl sm:text-3xl">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
         </header>
 
         {visibleChallenges.length > 0 ? (
-          <section
-            className="relative"
-            aria-label="Arena carousel"
-            tabIndex={0}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowLeft") move(-1)
-              if (event.key === "ArrowRight") move(1)
-            }}
-          >
-            <div className="relative h-[380px] sm:h-[400px]">
-              {visibleChallenges.map((challenge, index) => {
-                const position = relativePosition(index, safeIndex, visibleChallenges.length)
-                const isActive = position === 0
-                const Icon = challenge.icon
-                return (
-                  <BubbleCard
-                    key={challenge.id}
-                    as="button"
-                    type="button"
-                    tone={challenge.tone}
-                    icon={Icon}
-                    title={challenge.title}
-                    active={isActive}
-                    capHeight="h-40"
-                    chips={[
-                      { label: challenge.role },
-                      { label: challenge.format, side: "right" },
-                    ]}
-                    onClick={() => (isActive ? startChallenge(challenge) : setActiveIndex(index))}
-                    aria-current={isActive ? "true" : undefined}
-                    aria-label={`${challenge.title}${isActive ? ", selected" : ", select"}`}
-                    className={`absolute left-1/2 top-1/2 h-[350px] w-[250px] transition-all duration-500 ease-out sm:w-[280px] ${
-                      isActive
-                        ? "shadow-[0_26px_65px_-18px_rgba(18,49,38,0.45)]"
-                        : "shadow-[0_22px_55px_-18px_rgba(18,49,38,0.3)]"
-                    }`}
-                    style={{
-                      transform: `translate(calc(-50% + ${position * 200}px), -50%) scale(${isActive ? 1 : Math.abs(position) === 1 ? 0.84 : 0.68})`,
-                      zIndex: 10 - Math.abs(position),
-                      opacity: Math.abs(position) > 1 ? 0.5 : 1,
-                    }}
-                    footer={
-                      <span
-                        className={`inline-flex w-fit items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                          challenge.available
-                            ? "border-rb-leaf/40 bg-rb-leaf-wash text-rb-leaf-lip"
-                            : "border-rb-swan bg-white/70 text-rb-wolf"
-                        }`}
-                      >
-                        {!challenge.available ? <Lock className="size-2.5" aria-hidden="true" /> : null}
-                        {statusLabel(challenge)}
-                      </span>
-                    }
-                  >
-                    <p className="text-sm leading-6 text-rb-wolf">{challenge.description}</p>
-                  </BubbleCard>
-                )
-              })}
-            </div>
-
-            {visibleChallenges.length > 1 ? (
-              <div className="mt-2 flex items-center justify-center gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label="Previous arena"
-                  onClick={() => move(-1)}
+          <section aria-label="Arenas" className="grid gap-5 md:grid-cols-3">
+            {visibleChallenges.map((challenge) => {
+              const Icon = challenge.icon
+              const open = challenge.available
+              return (
+                <article
+                  key={challenge.id}
+                  className={`group flex min-w-0 flex-col rounded-2xl border-2 bg-white p-5 transition-[transform,box-shadow] duration-200 sm:p-6 ${
+                    open
+                      ? "border-rb-swan hover:-translate-y-0.5 hover:border-rb-feather hover:shadow-[0_18px_40px_-18px_rgba(18,49,38,0.35)]"
+                      : "border-dashed border-rb-swan"
+                  }`}
                 >
-                  <ChevronLeft className="size-4" />
-                </Button>
-                <div className="flex items-center gap-1.5" aria-hidden="true">
-                  {visibleChallenges.map((challenge, index) => (
+                  <div className="flex items-start justify-between gap-3">
                     <span
-                      key={challenge.id}
-                      className={`h-1.5 rounded-full transition-all ${
-                        index === safeIndex ? "w-6 bg-rb-feather" : "w-1.5 bg-rb-swan"
+                      className={`grid size-14 shrink-0 place-items-center rounded-2xl ${
+                        open ? "bg-rb-feather-wash text-rb-feather-ink" : "bg-rb-polar text-rb-wolf"
                       }`}
-                    />
-                  ))}
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  aria-label="Next arena"
-                  onClick={() => move(1)}
-                >
-                  <ChevronRight className="size-4" />
-                </Button>
-              </div>
-            ) : null}
+                    >
+                      <Icon className="size-7" aria-hidden="true" />
+                    </span>
+                    <span
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                        open
+                          ? "border-rb-leaf/40 bg-rb-leaf-wash text-rb-leaf-lip"
+                          : "border-rb-swan bg-rb-polar text-rb-wolf"
+                      }`}
+                    >
+                      {!open ? <Lock className="size-2.5" aria-hidden="true" /> : null}
+                      {statusLabel(challenge)}
+                    </span>
+                  </div>
+
+                  <p className="mt-5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-rb-wolf">
+                    {challenge.role}
+                  </p>
+                  <h2 className="mt-1 font-rb-display text-2xl font-extrabold leading-tight text-rb-eel">
+                    {challenge.title}
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-rb-wolf">{challenge.description}</p>
+
+                  <p className="mt-4 text-xs text-rb-wolf">
+                    <span className="font-semibold text-rb-eel">{challenge.format}</span>
+                    {challenge.problemCount ? (
+                      <>
+                        {" \u00b7 "}
+                        {challenge.freeCapped
+                          ? `${Math.min(FREE_ARENA_PROBLEM_LIMIT, challenge.problemCount)} of ${challenge.problemCount} on free`
+                          : `${challenge.problemCount} problem${challenge.problemCount === 1 ? "" : "s"}`}
+                      </>
+                    ) : null}
+                  </p>
+
+                  {/* Your tracks, named here. "Choose your certification track" on
+                      the next screen is no help if you cannot tell which are yours. */}
+                  {challenge.tracks ? (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {challenge.tracks.length > 0 ? (
+                        challenge.tracks.map((track) => (
+                          <span
+                            key={track.id}
+                            className="max-w-full truncate rounded-full bg-rb-polar px-2.5 py-0.5 text-xs font-semibold text-rb-eel"
+                          >
+                            {track.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-rb-wolf">No certification enrolled yet</span>
+                      )}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-auto pt-5">
+                    <TactileButton
+                      variant={open || challenge.proLocked ? "feather" : "ghost"}
+                      className="w-full"
+                      onClick={() => startChallenge(challenge)}
+                    >
+                      {challenge.proLocked ? <ProBadge /> : null}
+                      {challenge.proLocked
+                        ? "upgrade to pro"
+                        : open
+                          ? "start challenge"
+                          : "how to unlock"}
+                      <ChevronRight className="size-4" aria-hidden="true" />
+                    </TactileButton>
+                  </div>
+                </article>
+              )
+            })}
           </section>
         ) : (
           <div className="rb-sticky-yellow mx-auto max-w-md p-6 text-center">
@@ -381,74 +365,6 @@ export default function LearnerChallengesPage() {
             </p>
           </div>
         )}
-
-        {/* The chosen arena, written up on the board. */}
-        {activeChallenge ? (
-          <section
-            className="rb-chalkboard mx-auto max-w-3xl px-5 py-6 sm:px-8 sm:py-7"
-            aria-live="polite"
-            aria-label={`${activeChallenge.title} details`}
-          >
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-              <div className="min-w-0 flex-1">
-                <p className="rb-chalk text-sm uppercase tracking-[0.14em] opacity-80">
-                  {activeChallenge.role}
-                </p>
-                <h2 className="rb-chalk mt-1 text-3xl leading-tight sm:text-4xl">
-                  {activeChallenge.title}
-                </h2>
-                <p className="rb-chalk-body mt-2 text-sm leading-6">{activeChallenge.description}</p>
-
-                {/* Your tracks, named here. "Choose your certification track" on
-                    the next screen is no help if you cannot tell which are yours. */}
-                {activeChallenge.tracks ? (
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {activeChallenge.tracks.length > 0 ? (
-                      activeChallenge.tracks.map((track) => (
-                        <span
-                          key={track.id}
-                          className="max-w-full truncate rounded-full border border-white/30 px-2.5 py-0.5 text-xs font-semibold text-white/85"
-                        >
-                          {track.name}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="rb-chalk-body text-xs">No certification enrolled</span>
-                    )}
-                  </div>
-                ) : null}
-
-                <p className="rb-chalk-body mt-3 text-xs">
-                  {activeChallenge.proLocked
-                    ? "World Cup is part of REBYU Pro. Upgrade to queue for the bracket."
-                    : activeChallenge.available && activeChallenge.freeCapped
-                    ? `Free plan: the first ${Math.min(FREE_ARENA_PROBLEM_LIMIT, activeChallenge.problemCount || FREE_ARENA_PROBLEM_LIMIT)} of ${activeChallenge.problemCount || "its"} problems. Pro opens every one.`
-                    : activeChallenge.available
-                    ? activeChallenge.problemCount
-                      ? `${activeChallenge.problemCount} problem${activeChallenge.problemCount === 1 ? "" : "s"} waiting.`
-                      : "Ready to play."
-                    : activeChallenge.unconfigured
-                      ? "This arena is not set up yet."
-                      : "Enrol in a certification to queue for the World Cup bracket."}
-                </p>
-              </div>
-
-              <TactileButton
-                variant={activeChallenge.available || activeChallenge.proLocked ? "feather" : "ghost"}
-                className="w-full shrink-0 sm:w-auto"
-                onClick={() => startChallenge(activeChallenge)}
-              >
-                {activeChallenge.proLocked ? <ProBadge /> : null}
-                {activeChallenge.proLocked
-                  ? "upgrade to pro"
-                  : activeChallenge.available
-                    ? "start challenge"
-                    : "how to unlock"}
-                <ChevronRight className="size-4" aria-hidden="true" />
-              </TactileButton>
-            </div>
-          </section>
-        ) : null}
 
         <section className="grid gap-6 pt-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.8fr)]">
           {/* The class leaderboard, on a sheet of notebook paper. */}
@@ -515,40 +431,15 @@ export default function LearnerChallengesPage() {
           {/* Your own record and last few runs. */}
           <div className="rb-graded-sheet min-w-0 p-5 sm:p-6">
             <p className={`rb-graded-heading flex items-center gap-2 !text-2xl ${INK}`}>
-              <Target className="size-5 shrink-0 text-[#2f7d55]" aria-hidden="true" />
-              your record
+              <Activity className="size-5 shrink-0 text-[#2f7d55]" aria-hidden="true" />
+              recent runs
             </p>
-            <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-4">
-              <div className="rb-grade-tally is-leaf">
-                <dt>Rank</dt>
-                <dd>{record?.rank ? `#${record.rank}` : "—"}</dd>
-              </div>
-              <div className="rb-grade-tally is-fox">
-                <dt>Points</dt>
-                <dd>{(record?.points ?? 0).toLocaleString()}</dd>
-              </div>
-              <div className="rb-grade-tally is-cardinal">
-                <dt>Streak</dt>
-                <dd>
-                  {record?.streakDays ?? 0}
-                  <span className="rb-grade-tally-caption ml-1">{record?.streakDays === 1 ? "day" : "days"}</span>
-                </dd>
-              </div>
-              <div className="rb-grade-tally">
-                <dt>Best</dt>
-                <dd>{(record?.bestScore ?? 0).toLocaleString()}</dd>
-              </div>
-            </dl>
-
-            <p className={`mt-6 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wide ${INK_SOFT}`}>
-              <Activity className="size-3.5" aria-hidden="true" />
-              Recent runs
-            </p>
+            <p className={`mt-0.5 text-xs ${INK_SOFT}`}>Your last few challenges, newest first.</p>
             {recentSessions.length === 0 ? (
               <p className={`mt-2 text-sm leading-6 ${INK_SOFT}`}>Your finished challenges will appear here.</p>
             ) : (
               <ul className="mt-1">
-                {recentSessions.slice(0, 4).map((session) => (
+                {recentSessions.slice(0, 6).map((session) => (
                   <li key={session.challengeSessionId} className="flex items-center justify-between gap-3 py-2">
                     <span className="min-w-0">
                       <span className={`block truncate text-sm font-bold ${INK}`}>{session.mode ?? "Challenge"}</span>
