@@ -483,11 +483,9 @@ class Settings(BaseSettings):
     smart_guess_easy: float = 0.30
     smart_guess_average: float = 0.25
     smart_guess_hard: float = 0.20
-    smart_guess_difficult: float = 0.15
     smart_slip_easy: float = 0.08
     smart_slip_average: float = 0.10
     smart_slip_hard: float = 0.15
-    smart_slip_difficult: float = 0.20
     smart_learn_diagnostic: float = 0.05
     smart_learn_lesson_quiz: float = 0.08
     smart_learn_middle_exam: float = 0.10

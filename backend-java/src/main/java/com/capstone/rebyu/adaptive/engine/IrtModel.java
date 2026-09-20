@@ -121,11 +121,11 @@ public final class IrtModel {
         return new ItemParams(1.0, difficultyOf(difficultyLevel), c);
     }
 
-    /** EASY -1.5, AVERAGE 0, HARD (and anything harder) +1.5. Unknown levels are average. */
+    /** EASY -1.5, AVERAGE 0, HARD +1.5. Unknown levels are average. */
     public static double difficultyOf(String difficultyLevel) {
         return switch (difficultyLevel == null ? "" : difficultyLevel.trim().toUpperCase()) {
             case "EASY" -> DIFFICULTY_EASY;
-            case "HARD", "DIFFICULT" -> DIFFICULTY_HARD;
+            case "HARD" -> DIFFICULTY_HARD;
             default -> DIFFICULTY_AVERAGE;
         };
     }

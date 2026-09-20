@@ -48,7 +48,6 @@ class IrtModelTest {
         assertEquals(-1.5, IrtModel.difficultyOf("easy"), 1e-9);
         assertEquals(0.0, IrtModel.difficultyOf("AVERAGE"), 1e-9);
         assertEquals(1.5, IrtModel.difficultyOf("Hard"), 1e-9);
-        assertEquals(1.5, IrtModel.difficultyOf("DIFFICULT"), 1e-9);
         assertEquals(0.0, IrtModel.difficultyOf(null), 1e-9);
     }
 

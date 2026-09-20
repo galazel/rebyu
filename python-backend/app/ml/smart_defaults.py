@@ -28,7 +28,7 @@ import pandas as pd
 
 from app.core.config import get_settings
 
-DIFFICULTIES = ("EASY", "AVERAGE", "HARD", "DIFFICULT")
+DIFFICULTIES = ("EASY", "AVERAGE", "HARD")
 ASSESSMENT_TYPES = ("DIAGNOSTIC", "LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM", "MOCK_EXAM")
 
 
@@ -77,13 +77,11 @@ def smart_defaults() -> SmartDefaults:
             "EASY": s.smart_guess_easy,
             "AVERAGE": s.smart_guess_average,
             "HARD": s.smart_guess_hard,
-            "DIFFICULT": s.smart_guess_difficult,
         },
         slip_by_difficulty={
             "EASY": s.smart_slip_easy,
             "AVERAGE": s.smart_slip_average,
             "HARD": s.smart_slip_hard,
-            "DIFFICULT": s.smart_slip_difficult,
         },
         learn_by_assessment={
             "DIAGNOSTIC": s.smart_learn_diagnostic,
