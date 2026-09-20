@@ -72,9 +72,6 @@ public class LearnerPracticeAttempt {
     @Builder.Default
     private boolean masteryEligible = false;
 
-    @Column(name = "ineligibility_reason", length = 64)
-    private String ineligibilityReason;
-
     @Column(name = "bkt_event_id", length = 128)
     private String bktEventId;
 

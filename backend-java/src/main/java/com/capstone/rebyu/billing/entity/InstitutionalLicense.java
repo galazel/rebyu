@@ -30,24 +30,12 @@ public class InstitutionalLicense {
     @JoinColumn(name = "subscription_plan_id", nullable = false)
     private SubscriptionPlan subscriptionPlan;
 
-    @Column(length = 30)
-    private String provider;
-
-    @Column(name = "provider_customer_id", length = 100)
-    private String providerCustomerId;
-
-    @Column(name = "provider_subscription_id", length = 100)
-    private String providerSubscriptionId;
-
     @Column(name = "contract_number", length = 60)
     private String contractNumber;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "license_status", nullable = false, length = 20)
     private BillingStatus licenseStatus = BillingStatus.PENDING;
-
-    @Column(name = "started_at")
-    private LocalDateTime startedAt;
 
     @Column(name = "current_period_start")
     private LocalDateTime currentPeriodStart;
@@ -60,9 +48,6 @@ public class InstitutionalLicense {
 
     @Column(name = "canceled_at")
     private LocalDateTime canceledAt;
-
-    @Column(name = "ended_at")
-    private LocalDateTime endedAt;
 
     // Custom contract overrides (null = use the plan's limit).
     @Column(name = "custom_seat_limit")

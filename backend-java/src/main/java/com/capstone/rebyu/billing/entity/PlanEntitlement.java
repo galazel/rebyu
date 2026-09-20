@@ -35,7 +35,4 @@ public class PlanEntitlement {
 
     @Column(name = "limit_value")
     private Integer limitValue;
-
-    @Column(name = "configuration_json", columnDefinition = "TEXT")
-    private String configurationJson;
 }

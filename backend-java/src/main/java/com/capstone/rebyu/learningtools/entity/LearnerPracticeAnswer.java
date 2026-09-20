@@ -54,9 +54,6 @@ public class LearnerPracticeAnswer {
     @Column(name = "flashcard_rating", length = 16)
     private String flashcardRating;
 
-    @Column(name = "time_spent_seconds")
-    private Integer timeSpentSeconds;
-
     @Column(name = "answered_at", nullable = false)
     @Builder.Default
     private OffsetDateTime answeredAt = OffsetDateTime.now();

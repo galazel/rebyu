@@ -214,11 +214,6 @@ public class CertificationService {
 
 
 
-        if (!StringUtils.hasText(updatedCertification.getImageKey())) {
-            updatedCertification.setImageKey(
-                    existingCertification.getImageKey()
-            );
-        }
 
         /*
          * Fields the client never sends, carried over rather than dropped.

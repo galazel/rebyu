@@ -1,7 +1,6 @@
 package com.capstone.rebyu.gamification;
 
 import com.capstone.rebyu.billing.service.LearnerEntitlementService;
-import com.capstone.rebyu.gamification.entity.GamificationSettings;
 import com.capstone.rebyu.gamification.entity.LearnerRewardBalance;
 import com.capstone.rebyu.gamification.repository.LearnerRewardBalanceRepository;
 import com.capstone.rebyu.gamification.repository.LearnerRewardLedgerRepository;
@@ -22,7 +21,6 @@ public class RewardService {
     private final LearnerRewardBalanceRepository balances;
     private final LearnerRewardLedgerRepository ledger;
     private final LearnerEntitlementService entitlements;
-    private final GamificationSettingsService settings;
 
     public record Balance(long xp, long coins, int aiCredits) {}
     public record PracticeReward(int xp, int coins, boolean awarded) {}
@@ -41,7 +39,7 @@ public class RewardService {
     public void grantMonthlyProAiCredits(Long learnerId) {
         if (!entitlements.hasActiveProSubscription(learnerId)) return;
         ensureBalance(learnerId);
-        int amount = settings.current().getMonthlyProAiCredits();
+        int amount = RewardAmounts.MONTHLY_PRO_AI_CREDITS;
         if (amount <= 0) return;
         String key = "pro-monthly-ai-credit:" + YearMonth.now();
         int created = ledger.insertIfAbsent(learnerId, "AI_CREDITS", amount, "PRO_MONTHLY_GRANT", key);
@@ -50,7 +48,7 @@ public class RewardService {
 
     @Transactional
     public Conversion convertCoinsToAiCredits(Long learnerId, int coins, String idempotencyKey) {
-        int rate = settings.current().getCoinsPerAiCredit();
+        int rate = RewardAmounts.COINS_PER_AI_CREDIT;
         if (coins <= 0 || coins % rate != 0) {
             throw new IllegalArgumentException("Convert coins in multiples of " + rate);
         }
@@ -72,7 +70,7 @@ public class RewardService {
     public boolean spendAiCredit(Long learnerId, String requestKey) {
         ensureBalance(learnerId);
         grantMonthlyProAiCredits(learnerId);
-        int cost = settings.current().getAiGenerationCost();
+        int cost = RewardAmounts.AI_GENERATION_COST;
         String key = "ai-generation:" + (requestKey == null || requestKey.isBlank() ? UUID.randomUUID() : requestKey.trim());
         int created = ledger.insertIfAbsent(learnerId, "AI_CREDITS", -cost, "AI_GENERATION", key);
         if (created == 0) return false;
@@ -85,7 +83,7 @@ public class RewardService {
     @Transactional
     public void refundAiCredit(Long learnerId, String requestKey) {
         if (requestKey == null || requestKey.isBlank()) return;
-        int amount = settings.current().getAiGenerationCost();
+        int amount = RewardAmounts.AI_GENERATION_COST;
         if (amount <= 0) return;
         String original = "ai-generation:" + requestKey.trim();
         String refund = "ai-refund:" + requestKey.trim();
@@ -118,13 +116,12 @@ public class RewardService {
 
     @Transactional
     public PracticeReward awardCompletedPractice(Long learnerId, Long studySetId, String sourceType, double percentage) {
-        GamificationSettings cfg = settings.current();
-        int xp = "COMMUNITY_QUIZ".equals(sourceType) ? cfg.getCommunityQuizXp()
-                : "FLASHCARD_RECALL".equals(sourceType) ? cfg.getFlashcardXp() : cfg.getTutorQuizXp();
-        int coins = "COMMUNITY_QUIZ".equals(sourceType) ? cfg.getCommunityQuizCoins()
-                : "FLASHCARD_RECALL".equals(sourceType) ? cfg.getFlashcardCoins() : cfg.getTutorQuizCoins();
-        if (percentage < cfg.getLowScoreThresholdPercent()) {
-            xp = Math.max(cfg.getLowScoreMinXp(), xp / 2);
+        int xp = "COMMUNITY_QUIZ".equals(sourceType) ? RewardAmounts.COMMUNITY_QUIZ_XP
+                : "FLASHCARD_RECALL".equals(sourceType) ? RewardAmounts.FLASHCARD_XP : RewardAmounts.TUTOR_QUIZ_XP;
+        int coins = "COMMUNITY_QUIZ".equals(sourceType) ? RewardAmounts.COMMUNITY_QUIZ_COINS
+                : "FLASHCARD_RECALL".equals(sourceType) ? RewardAmounts.FLASHCARD_COINS : RewardAmounts.TUTOR_QUIZ_COINS;
+        if (percentage < RewardAmounts.LOW_SCORE_THRESHOLD_PERCENT) {
+            xp = Math.max(RewardAmounts.LOW_SCORE_MIN_XP, xp / 2);
             coins = 0;
         }
         String key = "practice-set:" + sourceType + ":" + studySetId;

@@ -52,7 +52,4 @@ public class LearnerCertification {
 
     @Column(name = "diagnostic_attempt_id")
     private Long diagnosticAttemptId;
-
-    @Column(name = "last_accessed_at")
-    private LocalDateTime lastAccessedAt;
 }

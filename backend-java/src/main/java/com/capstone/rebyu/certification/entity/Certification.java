@@ -36,9 +36,6 @@ public class Certification {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "image_key", length = 255)
-    private String imageKey;
-
     @Column(name = "date_created", nullable = true)
     private LocalDateTime dateCreated;
 

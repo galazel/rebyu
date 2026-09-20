@@ -363,21 +363,6 @@ export async function getLearnerPortalData() {
   const recentExamResults = performancePoints.slice(-5).reverse()
 
   const resources = []
-  for (const certification of asArray(certifications)) {
-    if (certification.imageKey) {
-      resources.push({
-        id: `cert-${certification.certificationId}`,
-        name: `${certification.title} cover image`,
-        key: certification.imageKey,
-        type: "Image",
-        certificationId: certification.certificationId,
-        certificationTitle: certification.title,
-        lessonTitle: "",
-        viewUrl: getFileViewUrl(certification.imageKey),
-        downloadUrl: getFileDownloadUrl(certification.imageKey),
-      })
-    }
-  }
 
   for (const lesson of allLessons) {
     const parsed = parseLessonStructure(lesson.lessonComponentStructure)
@@ -438,8 +423,6 @@ export async function getLearnerPortalData() {
       totalLessons,
       completedCount,
       overallProgress,
-      confidenceLevel: learner?.confidenceLevel ?? null,
-      readinessScore: learner?.readinessScore ?? null,
     },
   }
 }

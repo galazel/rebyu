@@ -179,10 +179,6 @@ class CognitoAuthServiceTest {
         // Names come from the token's user metadata.
         assertEquals("Juan", learner.getValue().getFirstName());
         assertEquals("Cruz", learner.getValue().getLastName());
-        // NOT NULL columns must be set explicitly (@Builder ignores field
-        // defaults) or provisioning fails at flush time.
-        assertNotNull(learner.getValue().getReadinessScore());
-        assertNotNull(learner.getValue().getConfidenceLevel());
     }
 
     @Test

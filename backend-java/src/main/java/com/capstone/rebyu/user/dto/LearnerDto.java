@@ -32,14 +32,6 @@ public class LearnerDto {
     @Size(max = 50)
     private String lastName;
 
-    @DecimalMin(value = "0.0")
-    @DecimalMax(value = "100.0")
-    private Double readinessScore = 0.0;
-
-    @DecimalMin(value = "0.0")
-    @DecimalMax(value = "100.0")
-    private Double confidenceLevel = 0.0;
-
     /*
      * Read-only, and deliberately unvalidated.
      *

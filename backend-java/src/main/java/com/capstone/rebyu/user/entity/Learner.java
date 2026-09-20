@@ -31,10 +31,4 @@ public class Learner {
 
     @Column(nullable = false, length = 50)
     private String lastName;
-
-    @Column(nullable = false)
-    private BigDecimal readinessScore = BigDecimal.valueOf(0);
-
-    @Column(nullable = false)
-    private BigDecimal confidenceLevel = BigDecimal.valueOf(0);
 }

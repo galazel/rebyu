@@ -229,10 +229,6 @@ public class CognitoAuthService {
                 .username(uniqueUsernameFrom(email))
                 .firstName(attributes.getOrDefault("given_name", ""))
                 .lastName(attributes.getOrDefault("family_name", ""))
-                // @Builder ignores the entity's field defaults, and these
-                // columns are NOT NULL — set them explicitly.
-                .readinessScore(java.math.BigDecimal.ZERO)
-                .confidenceLevel(java.math.BigDecimal.ZERO)
                 .build();
         learnerRepository.save(learner);
         purgeInheritedBktState(learner.getLearnerId());
@@ -388,8 +384,6 @@ public class CognitoAuthService {
                     .username(uniqueUsernameFrom(user.getEmail()))
                     .firstName("")
                     .lastName("")
-                    .readinessScore(java.math.BigDecimal.ZERO)
-                    .confidenceLevel(java.math.BigDecimal.ZERO)
                     .build();
             learner = learnerRepository.save(learner);
             log.info("Provisioned missing learner profile for legacy user userId={}", user.getUserId());

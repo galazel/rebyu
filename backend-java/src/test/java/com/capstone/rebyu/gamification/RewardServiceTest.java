@@ -1,7 +1,6 @@
 package com.capstone.rebyu.gamification;
 
 import com.capstone.rebyu.billing.service.LearnerEntitlementService;
-import com.capstone.rebyu.gamification.entity.GamificationSettings;
 import com.capstone.rebyu.gamification.entity.LearnerRewardBalance;
 import com.capstone.rebyu.gamification.repository.LearnerRewardBalanceRepository;
 import com.capstone.rebyu.gamification.repository.LearnerRewardLedgerRepository;
@@ -31,7 +30,6 @@ class RewardServiceTest {
     private LearnerRewardBalanceRepository balances;
     private LearnerRewardLedgerRepository ledger;
     private LearnerEntitlementService entitlements;
-    private GamificationSettingsService settings;
     private RewardService service;
 
     @BeforeEach
@@ -39,12 +37,8 @@ class RewardServiceTest {
         balances = mock(LearnerRewardBalanceRepository.class);
         ledger = mock(LearnerRewardLedgerRepository.class);
         entitlements = mock(LearnerEntitlementService.class);
-        settings = mock(GamificationSettingsService.class);
-        service = new RewardService(balances, ledger, entitlements, settings);
+        service = new RewardService(balances, ledger, entitlements);
 
-        // Default settings match the historical hardcoded values (15/3 XP-coins, 10:1 conversion,
-        // 1-credit AI cost, 30 monthly Pro credits, 50% low-score threshold, 3 min XP).
-        when(settings.current()).thenReturn(GamificationSettings.builder().build());
         when(balances.findById(LEARNER_ID)).thenReturn(Optional.of(
                 LearnerRewardBalance.builder().learnerId(LEARNER_ID).xpBalance(0).coinBalance(0).aiCreditBalance(0).build()));
     }

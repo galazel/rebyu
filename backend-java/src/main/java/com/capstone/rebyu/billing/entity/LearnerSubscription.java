@@ -33,9 +33,6 @@ public class LearnerSubscription {
     @Column(length = 30)
     private String provider;
 
-    @Column(name = "provider_customer_id", length = 100)
-    private String providerCustomerId;
-
     @Column(name = "provider_subscription_id", length = 100)
     private String providerSubscriptionId;
 

@@ -164,7 +164,6 @@ public class SecurityConfig {
                         // on the public internet could force-retry or reconcile mastery events.
                         .requestMatchers("/api/admin/bkt/**", "/api/admin/adaptive/**").authenticated()
                         .requestMatchers("/api/admin/community/reports/**").authenticated()
-                        .requestMatchers("/api/admin/gamification-settings/**").authenticated()
                         // The learner-facing community fell through to permitAll and was
                         // held shut only by every handler remembering to call me(jwt).
                         // Anonymous access is blocked here so a new handler that forgets
