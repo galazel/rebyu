@@ -88,7 +88,7 @@ them, and track progress. Partnership requests are reviewed by an admin.
 | --- | --- |
 | Frontend | React 19, Vite 8, Tailwind, shadcn/ui, React Query, React Router |
 | Backend | Spring Boot 4, Java 21, Hibernate |
-| Adaptive service | FastAPI, SQLAlchemy, Celery, Redis, RabbitMQ |
+| Adaptive service | FastAPI, SQLAlchemy, Redis, RabbitMQ (BKT on Smart Defaults; training off until there is a cohort) |
 | Database | PostgreSQL (Supabase) |
 | Vectors | Qdrant Cloud |
 | Auth | AWS Cognito |

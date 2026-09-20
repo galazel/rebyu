@@ -29,7 +29,7 @@ celery_app.conf.update(
     task_eager_propagates=settings.celery_task_eager_propagates,
 )
 
-if settings.scheduled_retraining_enabled:
+if settings.model_training_enabled and settings.scheduled_retraining_enabled:
     celery_app.conf.beat_schedule = {
         "weekly-rebyu-bkt-retraining": {
             "task": "app.workers.tasks.schedule_weekly_training",
@@ -41,7 +41,7 @@ if settings.scheduled_retraining_enabled:
         }
     }
 
-if settings.scheduled_irt_calibration_enabled:
+if settings.model_training_enabled and settings.scheduled_irt_calibration_enabled:
     celery_app.conf.beat_schedule = {
         **(celery_app.conf.beat_schedule or {}),
         "weekly-rebyu-irt-calibration": {

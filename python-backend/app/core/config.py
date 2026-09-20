@@ -444,6 +444,17 @@ class Settings(BaseSettings):
     training_view_name: str = "rebyu_bkt_training_data_v"
     max_upload_mb: int = 100
 
+    # --- Parameter source -------------------------------------------------
+    # Off: the platform is in its cold-start phase. With a handful of learners
+    # a fitted BKT model is noise (pyBKT itself warns that its metrics on so
+    # few learners are not generalization metrics), so mastery runs on the
+    # hand-set Smart Defaults below, and pyBKT is used only to *predict* with
+    # them, never to fit. Nothing can start a training or calibration run
+    # while this is false -- the endpoints answer 409 and Celery beat
+    # registers no schedule. Flip it once there is a real cohort; the whole
+    # training pipeline is still here.
+    model_training_enabled: bool = False
+
     bkt_seed: int = 42
     bkt_num_fits: int = 2
     bkt_test_size: float = 0.20
@@ -466,6 +477,25 @@ class Settings(BaseSettings):
     # on the strength of an old streak. With forget at exactly zero the
     # transition can only ever add, which is why the ceiling was so sticky.
     fallback_forget: float = 0.03
+
+    # Smart Defaults by class. Guess and slip follow the item's difficulty
+    # (an easy item is easier to guess and harder to slip on); the learn rate
+    # follows the assessment type (a graded exam is a stronger learning
+    # event than a lesson quiz, a diagnostic barely teaches). Anything not
+    # listed uses the plain fallback above.
+    smart_guess_easy: float = 0.30
+    smart_guess_average: float = 0.25
+    smart_guess_hard: float = 0.20
+    smart_guess_difficult: float = 0.15
+    smart_slip_easy: float = 0.08
+    smart_slip_average: float = 0.10
+    smart_slip_hard: float = 0.15
+    smart_slip_difficult: float = 0.20
+    smart_learn_diagnostic: float = 0.05
+    smart_learn_lesson_quiz: float = 0.08
+    smart_learn_middle_exam: float = 0.10
+    smart_learn_major_exam: float = 0.12
+    smart_learn_mock_exam: float = 0.10
 
     developing_threshold: float = 0.40
     good_threshold: float = 0.70

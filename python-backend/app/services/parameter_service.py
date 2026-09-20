@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.ml.smart_defaults import smart_defaults
 from app.db.models import BktParameter, BktParameterClass
 
 
@@ -51,6 +52,20 @@ def resolve_parameters(
     assessment_type: str,
 ) -> ResolvedParameters:
     settings = get_settings()
+    if not settings.model_training_enabled:
+        # Cold start: every lesson runs on the Smart Defaults, varied only by
+        # the item's difficulty and the assessment type. Fitted rows in
+        # bkt_parameters (if any exist from a past run) are deliberately
+        # ignored until training is switched on.
+        defaults = smart_defaults()
+        return ResolvedParameters(
+            prior=defaults.prior,
+            learn=defaults.learn_for(assessment_type),
+            guess=defaults.guess_for(difficulty_level),
+            slip=defaults.slip_for(difficulty_level),
+            forget=defaults.forget,
+            model_variant="smart_defaults",
+        )
     aggregate = session.get(BktParameter, lesson_id)
     rows = list(
         session.scalars(

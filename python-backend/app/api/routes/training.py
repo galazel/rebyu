@@ -33,7 +33,19 @@ router = APIRouter(
 )
 
 
+def _require_training_enabled() -> None:
+    if not get_settings().model_training_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "BKT training is disabled: the platform runs on Smart Defaults until there "
+                "is a cohort worth fitting (MODEL_TRAINING_ENABLED=false)."
+            ),
+        )
+
+
 def _dispatch(run: BktModelRun, db: Session, csv_path: str | None = None) -> None:
+    _require_training_enabled()
     from app.workers.tasks import train_bkt_model
 
     task = train_bkt_model.delay(run.model_run_id, csv_path)

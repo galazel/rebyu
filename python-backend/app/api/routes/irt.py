@@ -6,7 +6,7 @@ its training step."""
 from __future__ import annotations
 
 from celery.result import AsyncResult
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -27,6 +27,11 @@ class CalibrateRequest(BaseModel):
 @router.post("/calibrate")
 def calibrate(body: CalibrateRequest | None = None) -> dict:
     settings = get_settings()
+    if not settings.model_training_enabled:
+        raise HTTPException(
+            status_code=409,
+            detail="IRT calibration is disabled until there is a cohort worth fitting (MODEL_TRAINING_ENABLED=false).",
+        )
     from app.workers.tasks import calibrate_irt
 
     body = body or CalibrateRequest()
