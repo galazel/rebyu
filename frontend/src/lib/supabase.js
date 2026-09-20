@@ -13,7 +13,7 @@ import { createClient } from "@supabase/supabase-js"
  */
 const url = import.meta.env.VITE_SUPABASE_URL || "https://wjenfjqggmjpvhmffanp.supabase.co"
 const publishableKey =
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_FP4hDdkASdcNbz_M61wnuw_6oBDu_zo"
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_ppuWD_ZfzgwU_3NIgb2FMA_OICwRmze"
 
 export const supabase = createClient(url, publishableKey, {
   auth: {
