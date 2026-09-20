@@ -219,6 +219,8 @@ public class AdaptiveAttemptService {
         }
         state.setSeenQuestionIds(seen);
         state.setLastAttemptQuestionIds(lastAttemptIds);
+        state.setThisExamQuestionIds(new LinkedHashSet<>(
+                attemptQuestionRepository.findSourceQuestionIdsServedOnExam(learnerId, exam.getExamId())));
         com.capstone.rebyu.common.PhaseTimer.mark(timer, "seed + exposure");
 
         LocalDateTime now = LocalDateTime.now();

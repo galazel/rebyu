@@ -44,4 +44,13 @@ public interface AssessmentAttemptQuestionRepository
             """)
     List<ExposureView> findExposure(
             @Param("learnerId") Long learnerId, @Param("questionIds") Collection<Long> questionIds);
+
+    /** Every question this learner has been served on any attempt of this exam. */
+    @Query("""
+            SELECT DISTINCT q.sourceQuestionId
+            FROM AssessmentAttemptQuestion q JOIN q.attempt a
+            WHERE a.learnerId = :learnerId AND a.exam.examId = :examId
+            """)
+    List<Long> findSourceQuestionIdsServedOnExam(
+            @Param("learnerId") Long learnerId, @Param("examId") Long examId);
 }

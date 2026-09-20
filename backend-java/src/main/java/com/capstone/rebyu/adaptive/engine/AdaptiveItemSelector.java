@@ -32,9 +32,17 @@ public final class AdaptiveItemSelector {
     private AdaptiveItemSelector() {
     }
 
+    /**
+     * Never met. Then met only elsewhere (a knowledge check, a skim challenge,
+     * another exam). Then on an earlier attempt of this exam. Then on the
+     * last attempt of this exam. A retake of the same exam repeats a question
+     * only once every question the bank holds for it has been used.
+     */
     public static final String TIER_UNSEEN = "UNSEEN";
     public static final String TIER_OLDER = "OLDER";
+    public static final String TIER_EARLIER_ATTEMPT = "EARLIER_ATTEMPT";
     public static final String TIER_REPEAT = "REPEAT";
+    static final List<String> TIERS = List.of(TIER_UNSEEN, TIER_OLDER, TIER_EARLIER_ATTEMPT, TIER_REPEAT);
 
     public record Candidate(
             Long questionId,
@@ -91,7 +99,7 @@ public final class AdaptiveItemSelector {
            exist" outranks lesson choice: a lesson is only eligible at the
            best tier it can offer that is at least as good as what any other
            lesson offers. */
-        for (String tier : List.of(TIER_UNSEEN, TIER_OLDER, TIER_REPEAT)) {
+        for (String tier : TIERS) {
             List<Long> lessons = byLessonAndTier.entrySet().stream()
                     .filter(e -> e.getValue().containsKey(tier))
                     .map(Map.Entry::getKey)
@@ -114,9 +122,11 @@ public final class AdaptiveItemSelector {
     }
 
     private static String tierOf(Candidate candidate, AdaptiveSessionState state) {
-        if (!state.getSeenQuestionIds().contains(candidate.questionId())) return TIER_UNSEEN;
-        if (!state.getLastAttemptQuestionIds().contains(candidate.questionId())) return TIER_OLDER;
-        return TIER_REPEAT;
+        Long id = candidate.questionId();
+        if (!state.getSeenQuestionIds().contains(id)) return TIER_UNSEEN;
+        if (state.getLastAttemptQuestionIds().contains(id)) return TIER_REPEAT;
+        if (state.getThisExamQuestionIds() != null && state.getThisExamQuestionIds().contains(id)) return TIER_EARLIER_ATTEMPT;
+        return TIER_OLDER;
     }
 
     static double typeWeight(String questionType, AdaptiveSessionState state) {

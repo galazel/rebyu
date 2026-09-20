@@ -66,6 +66,8 @@ public class AdaptiveSessionState {
 
     /** Questions this learner had met in any attempt when the session began. */
     private Set<Long> seenQuestionIds = new LinkedHashSet<>();
+    /** Questions served on any earlier attempt of this exam, so a retake never repeats one while it can help it. */
+    private Set<Long> thisExamQuestionIds = new LinkedHashSet<>();
     /** Questions on the learner's most recent submitted attempt of this exam. */
     private Set<Long> lastAttemptQuestionIds = new LinkedHashSet<>();
 

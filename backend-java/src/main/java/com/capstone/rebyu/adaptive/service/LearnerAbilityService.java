@@ -64,15 +64,14 @@ public class LearnerAbilityService {
             params.put(lessonId, bktParameters.forLesson(lessonId));
         }
 
+        /* The BKT service is the system of record for mastery: it sees every
+           graded answer from every assessment. The local skill state is a copy
+           this engine writes at the end of a session, and it drifts (it once
+           held 0.09 for a lesson the service had at 1.00), so it is read only
+           for lessons the service cannot answer for. */
         Map<Long, Double> pKnown = new LinkedHashMap<>();
-        Map<Long, Double> stored = new HashMap<>();
-        if (!lessonIds.isEmpty()) {
-            for (LearnerSkillState state : skillStateRepository.findByLearnerIdAndLessonIdIn(learnerId, lessonIds)) {
-                stored.put(state.getLessonId(), state.getPKnown());
-            }
-        }
         Map<Long, Double> fromService = new HashMap<>();
-        if (!lessonIds.isEmpty() && stored.size() < lessonIds.size()) {
+        if (!lessonIds.isEmpty()) {
             LearnerMasteryView mastery = masteryService.getMastery(learnerId, new ArrayList<>(lessonIds));
             if (mastery != null && mastery.items() != null) {
                 for (LearnerMasteryView.Item item : mastery.items()) {
@@ -82,10 +81,16 @@ public class LearnerAbilityService {
                 }
             }
         }
+        Map<Long, Double> stored = new HashMap<>();
+        if (!lessonIds.isEmpty() && fromService.size() < lessonIds.size()) {
+            for (LearnerSkillState state : skillStateRepository.findByLearnerIdAndLessonIdIn(learnerId, lessonIds)) {
+                stored.put(state.getLessonId(), state.getPKnown());
+            }
+        }
         boolean anyEvidence = false;
         for (Long lessonId : lessonIds) {
-            Double p = stored.get(lessonId);
-            if (p == null) p = fromService.get(lessonId);
+            Double p = fromService.get(lessonId);
+            if (p == null) p = stored.get(lessonId);
             if (p != null) anyEvidence = true;
             pKnown.put(lessonId, p != null ? p : params.get(lessonId).prior());
         }
