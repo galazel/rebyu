@@ -9,12 +9,6 @@ from app.core.security import require_service_key
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.ml import smart_defaults as smart
-from app.repositories.bkt import get_active_artifact, get_lesson_parameters
-from app.schemas.certification.parameters import (
-    ActiveModelResponse,
-    LessonParametersResponse,
-    ParameterClassResponse,
-)
 
 router = APIRouter(
     prefix="/models",
@@ -23,50 +17,10 @@ router = APIRouter(
 )
 
 
-@router.get("/active", response_model=ActiveModelResponse)
-def active_model(db: Session = Depends(get_db)):
-    artifact = get_active_artifact(db)
-    if artifact is None:
-        raise HTTPException(status_code=404, detail="No active trained model")
-    return artifact
-
-
-@router.get("/lessons/{lesson_id}/parameters", response_model=LessonParametersResponse)
-def lesson_parameters(lesson_id: int, db: Session = Depends(get_db)):
-    aggregate, classes = get_lesson_parameters(db, lesson_id)
-    if aggregate is None:
-        raise HTTPException(status_code=404, detail="No trained parameters for this lesson")
-    return LessonParametersResponse(
-        lesson_id=aggregate.lesson_id,
-        prior_probability=aggregate.prior_probability,
-        learn_probability=aggregate.learn_probability,
-        guess_probability=aggregate.guess_probability,
-        slip_probability=aggregate.slip_probability,
-        forget_probability=aggregate.forget_probability,
-        model_variant=aggregate.model_variant,
-        model_run_id=aggregate.model_run_id,
-        last_trained_at=aggregate.last_trained_at,
-        classes=[
-            ParameterClassResponse(
-                parameter_name=row.parameter_name,
-                class_name=row.class_name,
-                parameter_value=row.parameter_value,
-            )
-            for row in classes
-        ],
-    )
-
-
 @router.get("/smart-defaults")
 def smart_defaults_in_use():
-    """The hand-set BKT parameters the platform runs on while training is
-    off, and whether they are the active source."""
-    settings = get_settings()
-    return {
-        "active": not settings.model_training_enabled,
-        "model_training_enabled": settings.model_training_enabled,
-        "parameters": smart.smart_defaults().as_dict(),
-    }
+    """The hand-set BKT parameters the platform runs on."""
+    return {"parameters": smart.smart_defaults().as_dict()}
 
 
 @router.post("/smart-defaults/evaluate")

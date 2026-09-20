@@ -2,9 +2,7 @@ package com.capstone.rebyu.adaptive.service;
 
 import com.capstone.rebyu.adaptive.config.AdaptiveProperties;
 import com.capstone.rebyu.adaptive.engine.BktModel;
-import com.capstone.rebyu.bkt.client.BktClient;
 import com.capstone.rebyu.bkt.config.BktProperties;
-import com.capstone.rebyu.bkt.dto.LessonBktParametersView;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -29,7 +27,6 @@ public class BktParameterProvider {
 
     private final AdaptiveProperties properties;
     private final BktProperties bktProperties;
-    private final BktClient bktClient;
     private final Map<Long, Cached> cache = new ConcurrentHashMap<>();
 
     public BktModel.Params defaults() {
@@ -48,23 +45,7 @@ public class BktParameterProvider {
             return cached.params();
         }
         BktModel.Params params = defaults();
-        try {
-            params = bktClient.getLessonParameters(lessonId)
-                    .map(this::toParams)
-                    .orElse(params);
-        } catch (Exception e) {
-            log.warn("BKT parameters unavailable for lesson {}; using defaults: {}", lessonId, e.getMessage());
-        }
         cache.put(lessonId, new Cached(params, Instant.now()));
         return params;
-    }
-
-    private BktModel.Params toParams(LessonBktParametersView view) {
-        BktModel.Params d = defaults();
-        return new BktModel.Params(
-                view.priorProbability() == null ? d.prior() : view.priorProbability(),
-                view.learnProbability() == null ? d.learn() : view.learnProbability(),
-                view.guessProbability() == null ? d.guess() : view.guessProbability(),
-                view.slipProbability() == null ? d.slip() : view.slipProbability());
     }
 }

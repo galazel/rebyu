@@ -88,7 +88,7 @@ them, and track progress. Partnership requests are reviewed by an admin.
 | --- | --- |
 | Frontend | React 19, Vite 8, Tailwind, shadcn/ui, React Query, React Router |
 | Backend | Spring Boot 4, Java 21, Hibernate |
-| Adaptive service | FastAPI, SQLAlchemy, Redis, RabbitMQ (BKT on Smart Defaults; training off until there is a cohort) |
+| Adaptive service | FastAPI, SQLAlchemy, Redis, RabbitMQ (BKT on Smart Defaults, no model training) |
 | Database | PostgreSQL (Supabase) |
 | Vectors | Qdrant Cloud |
 | Auth | AWS Cognito |
@@ -148,7 +148,7 @@ Copy the matching `.env.example` where one exists and fill in the values.
 ```
 backend-java/     Spring Boot API — curriculum, assessments, institutions,
                   gamification, challenges, billing
-python-backend/   FastAPI adaptive service — BKT, priorities, Celery workers
+python-backend/   FastAPI adaptive service — BKT mastery, priorities, generation workflows
 frontend/         React SPA — learner, admin and institution portals
 docs/             Documentation and screenshots
 ```

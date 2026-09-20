@@ -42,16 +42,7 @@ class Settings(BaseSettings):
     db_schema: str = "bkt"
 
     redis_url: str = "redis://redis:6379/0"
-    celery_broker_url: str = "redis://redis:6379/0"
-    celery_result_backend: str = "redis://redis:6379/1"
-    celery_task_always_eager: bool = False
-    celery_task_eager_propagates: bool = True
     timezone: str = "Asia/Manila"
-    scheduled_retraining_enabled: bool = True
-    # IRT calibration: an item needs this many graded responses before it is fitted.
-    scheduled_retraining_day_of_week: str = "sun"
-    scheduled_retraining_hour: int = 2
-    scheduled_retraining_minute: int = 0
 
     # --- OpenRouter -----------------------------------------------------------
     # Every agent talks to OpenRouter's OpenAI-compatible endpoint rather than
@@ -437,26 +428,9 @@ class Settings(BaseSettings):
     #: assumption -- it is a skip-this-model hint, not a sleep.
     ai_quota_cooldown_seconds: float = 3600.0
 
-    artifact_dir: Path = Path("artifacts")
     training_view_name: str = "rebyu_bkt_training_data_v"
     max_upload_mb: int = 100
 
-    # --- Parameter source -------------------------------------------------
-    # Off: the platform is in its cold-start phase. With a handful of learners
-    # a fitted BKT model is noise (pyBKT itself warns that its metrics on so
-    # few learners are not generalization metrics), so mastery runs on the
-    # hand-set Smart Defaults below, and pyBKT is used only to *predict* with
-    # them, never to fit. Nothing can start a training or calibration run
-    # while this is false -- the endpoints answer 409 and Celery beat
-    # registers no schedule. Flip it once there is a real cohort; the whole
-    # training pipeline is still here.
-    model_training_enabled: bool = False
-
-    bkt_seed: int = 42
-    bkt_num_fits: int = 2
-    bkt_test_size: float = 0.20
-    bkt_min_interactions_per_skill: int = 20
-    bkt_min_learners_per_skill: int = 3
 
     # Used for every lesson until the model is trained -- and with no training
     # run yet, that is every lesson. They are not a formality.
@@ -673,9 +647,9 @@ class Settings(BaseSettings):
             raise ValueError("db_schema must be a plain SQL identifier")
         return value
 
-    @field_validator("artifact_dir", "rag_index_dir", mode="before")
+    @field_validator("rag_index_dir", mode="before")
     @classmethod
-    def normalize_artifact_dir(cls, value: object) -> Path:
+    def normalize_index_dir(cls, value: object) -> Path:
         return Path(str(value)).expanduser()
 
     @field_validator("cors_origins", mode="before")
@@ -710,7 +684,6 @@ class Settings(BaseSettings):
         return value
 
     def ensure_directories(self) -> None:
-        self.artifact_dir.mkdir(parents=True, exist_ok=True)
         self.rag_index_dir.mkdir(parents=True, exist_ok=True)
 
 

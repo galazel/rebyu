@@ -191,18 +191,9 @@ def _process_mastery_event_once(session: Session, payload: MasteryEventCreate) -
     )
     previous_level = mastery.mastery_level if mastery else None
 
-    # Online, per-event scoring always uses the incremental Bayes+forget
-    # update below rather than pyBKT's Model.predict(): pyBKT has no API for
-    # a single-step update from an arbitrary starting probability, so it can
-    # only score a new observation by replaying the learner's ENTIRE event
-    # history for that lesson on every single request -- growing cost per
-    # event, executed while holding this row's lock. The math below is the
-    # same Bayes-rule-plus-forgetting update pyBKT itself applies at each
-    # step; what actually needs pyBKT's EM fitting is estimating good
-    # prior/learn/guess/slip/forget parameters per lesson/class in the first
-    # place, which happens offline in the weekly training job
-    # (app.ml.pipeline / training_service) and is already what
-    # resolve_parameters() reads back here.
+    # The same Bayes-rule-plus-forgetting update pyBKT applies at each step,
+    # in plain Python so one event costs one row. The parameters are the
+    # Smart Defaults (see app.ml.smart_defaults); there is no fitted model.
     fallback_prior = mastery.mastery_probability if mastery else parameters.prior
     result = update_mastery(
         mastery_before=fallback_prior,

@@ -188,10 +188,9 @@ services:
     networks:
       - rebyu-net
 
-  # No python-worker / python-beat: they existed to run and schedule BKT
-  # training and IRT calibration, which are off until there is a cohort worth
-  # fitting (MODEL_TRAINING_ENABLED=false). Mastery runs on Smart Defaults
-  # inside python-api. Add them back with the flag when the time comes.
+  # No python-worker / python-beat: there is no BKT training or IRT
+  # calibration to run or schedule. Mastery runs on Smart Defaults inside
+  # python-api.
 
   frontend:
     build:

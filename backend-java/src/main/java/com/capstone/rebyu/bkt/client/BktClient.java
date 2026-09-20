@@ -166,25 +166,6 @@ public class BktClient {
         }
     }
 
-    /**
-     * The trained BKT parameters for one lesson, or empty when the lesson has
-     * no trained model yet (the service answers 404) -- the caller falls back
-     * to defaults; that is expected, not an error.
-     */
-    public java.util.Optional<com.capstone.rebyu.bkt.dto.LessonBktParametersView> getLessonParameters(Long lessonId) {
-        try {
-            return java.util.Optional.ofNullable(webClient.get()
-                    .uri("/models/lessons/{lessonId}/parameters", lessonId)
-                    .retrieve()
-                    .bodyToMono(com.capstone.rebyu.bkt.dto.LessonBktParametersView.class)
-                    .block());
-        } catch (WebClientResponseException.NotFound e) {
-            return java.util.Optional.empty();
-        } catch (Exception e) {
-            throw new BktServiceException("Could not load BKT parameters for lesson " + lessonId, e);
-        }
-    }
-
     private Map<String, Object> getMap(String path, String action) {
         try {
             return webClient.get().uri(path).retrieve().bodyToMono(Map.class).block();

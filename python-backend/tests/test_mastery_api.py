@@ -1,53 +1,8 @@
 from datetime import datetime, timezone
 
-from app.db.models import BktParameter, BktParameterClass
 
 
-def seed_parameters(session_factory) -> None:
-    now = datetime.now(timezone.utc)
-    with session_factory() as session:
-        session.add(
-            BktParameter(
-                lesson_id=101,
-                prior_probability=0.30,
-                learn_probability=0.20,
-                guess_probability=0.25,
-                slip_probability=0.10,
-                forget_probability=0.00,
-                model_variant="full_rebyu",
-                last_trained_at=now,
-            )
-        )
-        session.add_all(
-            [
-                BktParameterClass(
-                    lesson_id=101,
-                    parameter_name="guesses",
-                    class_name="HARD",
-                    parameter_value=0.15,
-                    last_trained_at=now,
-                ),
-                BktParameterClass(
-                    lesson_id=101,
-                    parameter_name="slips",
-                    class_name="HARD",
-                    parameter_value=0.20,
-                    last_trained_at=now,
-                ),
-                BktParameterClass(
-                    lesson_id=101,
-                    parameter_name="learns",
-                    class_name="LESSON_QUIZ",
-                    parameter_value=0.25,
-                    last_trained_at=now,
-                ),
-            ]
-        )
-        session.commit()
-
-
-def test_mastery_event_is_processed_and_idempotent(client, session_factory) -> None:
-    seed_parameters(session_factory)
+def test_mastery_event_is_processed_and_idempotent(client) -> None:
     payload = {
         "source_event_id": "learner-exam-detail:1:10:55:1",
         "learner_id": 1,
@@ -65,9 +20,11 @@ def test_mastery_event_is_processed_and_idempotent(client, session_factory) -> N
     assert first_body["duplicate"] is False
     assert first_body["mastery_after"] > 0.30
     assert first_body["attempt_count"] == 1
-    assert first_body["parameters_used"]["guess"] == 0.15
-    assert first_body["parameters_used"]["slip"] == 0.20
-    assert first_body["parameters_used"]["learn"] == 0.25
+    # Smart Defaults for a HARD item on a lesson quiz.
+    assert first_body["parameters_used"]["guess"] == 0.20
+    assert first_body["parameters_used"]["slip"] == 0.15
+    assert first_body["parameters_used"]["learn"] == 0.08
+    assert first_body["parameters_used"]["model_variant"] == "smart_defaults"
 
     duplicate = client.post("/api/v1/bkt/mastery/events", json=payload)
     assert duplicate.status_code == 200
@@ -81,7 +38,7 @@ def test_mastery_event_is_processed_and_idempotent(client, session_factory) -> N
     assert mastery.json()["attempt_count"] == 1
 
 
-def test_fallback_parameters_work_without_training(client) -> None:
+def test_smart_defaults_are_the_parameters(client) -> None:
     response = client.post(
         "/api/v1/bkt/mastery/events",
         json={
@@ -96,5 +53,5 @@ def test_fallback_parameters_work_without_training(client) -> None:
     )
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["parameters_used"]["model_variant"] == "fallback"
+    assert body["parameters_used"]["model_variant"] == "smart_defaults"
     assert body["parameters_used"]["prior"] == 0.30

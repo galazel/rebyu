@@ -139,7 +139,7 @@ def build_model(skills: Iterable[str], *, defaults: SmartDefaults | None = None)
     from pyBKT.models import Model
 
     defaults = defaults or smart_defaults()
-    model = Model(seed=get_settings().bkt_seed)
+    model = Model(seed=42)
     model.skills = list(skills)
     model.model_type = [False] * len(Model.MODELS_BKT)
     model.fit_model = {skill: _skill_struct(defaults, ["default"], ["default"]) for skill in model.skills}

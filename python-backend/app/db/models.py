@@ -30,79 +30,6 @@ def uuid_string() -> str:
     return str(uuid4())
 
 
-class BktModelRun(Base):
-    __tablename__ = "bkt_model_runs"
-
-    model_run_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_string)
-    run_type: Mapped[str] = mapped_column(String(30), default="training", nullable=False)
-    trigger_type: Mapped[str] = mapped_column(String(30), default="manual", nullable=False)
-    source_type: Mapped[str] = mapped_column(String(30), default="database", nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default="queued", nullable=False, index=True)
-    requested_by: Mapped[str | None] = mapped_column(String(150))
-    celery_task_id: Mapped[str | None] = mapped_column(String(100), index=True)
-    certification_id: Mapped[int | None] = mapped_column(BigInteger)
-    date_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    date_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    model_variant: Mapped[str | None] = mapped_column(String(80))
-    evaluation_mode: Mapped[str | None] = mapped_column(String(80))
-    seed: Mapped[int] = mapped_column(Integer, nullable=False, default=42)
-    num_fits: Mapped[int] = mapped_column(Integer, nullable=False, default=2)
-    test_size: Mapped[float] = mapped_column(Float, nullable=False, default=0.20)
-    training_rows: Mapped[int | None] = mapped_column(Integer)
-    learner_count: Mapped[int | None] = mapped_column(Integer)
-    skill_count: Mapped[int | None] = mapped_column(Integer)
-    metrics: Mapped[dict | None] = mapped_column(JSON)
-    configuration: Mapped[dict | None] = mapped_column(JSON)
-    artifact_path: Mapped[str | None] = mapped_column(String(500))
-    error_message: Mapped[str | None] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
-    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-    __table_args__ = (
-        CheckConstraint(
-            "status IN ('queued','running','succeeded','failed','cancelled')",
-            name="ck_bkt_model_runs_status",
-        ),
-    )
-
-
-class BktParameter(Base):
-    __tablename__ = "bkt_parameters"
-
-    lesson_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    prior_probability: Mapped[float] = mapped_column(Float, nullable=False)
-    learn_probability: Mapped[float] = mapped_column(Float, nullable=False)
-    guess_probability: Mapped[float] = mapped_column(Float, nullable=False)
-    slip_probability: Mapped[float] = mapped_column(Float, nullable=False)
-    forget_probability: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
-    model_variant: Mapped[str] = mapped_column(String(80), nullable=False)
-    model_run_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("bkt_model_runs.model_run_id", ondelete="SET NULL")
-    )
-    last_trained_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-
-
-class BktParameterClass(Base):
-    __tablename__ = "bkt_parameter_classes"
-
-    lesson_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    parameter_name: Mapped[str] = mapped_column(String(30), primary_key=True)
-    class_name: Mapped[str] = mapped_column(String(80), primary_key=True)
-    parameter_value: Mapped[float] = mapped_column(Float, nullable=False)
-    model_run_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("bkt_model_runs.model_run_id", ondelete="SET NULL")
-    )
-    last_trained_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-
-    __table_args__ = (
-        CheckConstraint(
-            "parameter_name IN ('prior','learns','guesses','slips','forgets')",
-            name="ck_bkt_parameter_classes_parameter",
-        ),
-    )
-
-
 class LearnerLessonMastery(Base):
     __tablename__ = "learner_lesson_mastery"
 
@@ -123,9 +50,6 @@ class LearnerLessonMastery(Base):
     major_category_title: Mapped[str | None] = mapped_column(String(200))
     last_assessment_type: Mapped[str | None] = mapped_column(String(30))
     last_event_id: Mapped[str | None] = mapped_column(String(150))
-    model_run_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("bkt_model_runs.model_run_id", ondelete="SET NULL")
-    )
     last_updated: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
 
     __table_args__ = (
@@ -159,24 +83,6 @@ class BktMasteryEvent(Base):
 
     __table_args__ = (
         Index("ix_bkt_mastery_events_learner_lesson", "learner_id", "lesson_id", "occurred_at"),
-    )
-
-
-class BktModelArtifact(Base):
-    __tablename__ = "bkt_model_artifacts"
-
-    artifact_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_string)
-    model_run_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("bkt_model_runs.model_run_id", ondelete="CASCADE"), nullable=False
-    )
-    model_variant: Mapped[str] = mapped_column(String(80), nullable=False)
-    artifact_path: Mapped[str] = mapped_column(String(500), nullable=False)
-    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint("model_run_id", name="uq_bkt_model_artifact_run"),
     )
 
 
