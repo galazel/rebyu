@@ -80,8 +80,60 @@ def _find_duplicate_response(session: Session, source_event_id: str) -> MasteryE
     return _response_from_event(existing_event, mastery, duplicate=True)
 
 
+def _find_ledger_duplicate(session: Session, payload: MasteryEventCreate) -> MasteryEventResponse | None:
+    """A delivery already in the idempotency ledger but with no surviving
+    mastery event (the events were cleared while the ledger was kept).
+
+    Without this, the ledger's unique index rejected the re-delivery with a
+    500, the Java outbox retried until it dead-lettered the row, and 389
+    events sat there for two weeks. The answer is what any duplicate gets:
+    the learner's current standing on the lesson, marked duplicate."""
+    ledger = session.scalar(
+        select(BktProcessedEvent).where(BktProcessedEvent.event_id == payload.source_event_id)
+    )
+    if ledger is None:
+        return None
+    mastery = session.get(LearnerLessonMastery, (payload.learner_id, payload.lesson_id))
+    parameters = resolve_parameters(
+        session,
+        lesson_id=payload.lesson_id,
+        difficulty_level=payload.difficulty_level,
+        assessment_type=payload.assessment_type,
+    )
+    probability = mastery.mastery_probability if mastery is not None else parameters.prior
+    settings = get_settings()
+    level = (
+        mastery.mastery_level
+        if mastery is not None
+        else mastery_level(
+            probability,
+            developing_threshold=settings.developing_threshold,
+            good_threshold=settings.good_threshold,
+            mastered_threshold=settings.mastered_threshold,
+        )
+    )
+    return MasteryEventResponse(
+        source_event_id=payload.source_event_id,
+        duplicate=True,
+        learner_id=payload.learner_id,
+        lesson_id=payload.lesson_id,
+        question_id=payload.question_id,
+        is_correct=payload.is_correct,
+        predicted_correct_probability=probability,
+        mastery_before=probability,
+        mastery_posterior=probability,
+        mastery_after=probability,
+        mastery_level=level,
+        attempt_count=mastery.attempt_count if mastery is not None else 0,
+        parameters_used=ParametersUsed(**parameters.as_dict()),
+        processed_at=ledger.processed_at,
+    )
+
+
 def process_mastery_event(session: Session, payload: MasteryEventCreate) -> MasteryEventResponse:
     duplicate = _find_duplicate_response(session, payload.source_event_id)
+    if duplicate is None:
+        duplicate = _find_ledger_duplicate(session, payload)
     if duplicate is not None:
         return duplicate
 
@@ -101,6 +153,8 @@ def process_mastery_event(session: Session, payload: MasteryEventCreate) -> Mast
         except IntegrityError as exc:
             session.rollback()
             duplicate = _find_duplicate_response(session, payload.source_event_id)
+            if duplicate is None:
+                duplicate = _find_ledger_duplicate(session, payload)
             if duplicate is not None:
                 return duplicate
             last_error = exc
