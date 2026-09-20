@@ -283,7 +283,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
   return (
     <AlertDialog open={open}>
       <AlertDialogContent
-        className={cn(phase === "playing" || phase === "submitting" || phase === "result" ? "sm:max-w-2xl" : null)}
+        className={cn(phase === "playing" || phase === "submitting" || phase === "result" ? "sm:max-w-4xl sm:p-8" : null)}
         /* Both suppressed deliberately -- see the class comment. */
         onEscapeKeyDown={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
@@ -328,7 +328,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
 
             {current ? (
               <div key={current.attemptQuestionId} className={cn("space-y-4", verdict && !verdict.correct && "rb-wrong-shake")}>
-                <p className="text-base font-medium leading-7 text-rb-eel">{current.question}</p>
+                <p className="text-lg font-medium leading-8 text-rb-eel sm:text-xl sm:leading-9">{current.question}</p>
 
                 {isMultipleChoice(current) ? (
                   <div className="grid gap-2 sm:grid-cols-2">
@@ -344,7 +344,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                           aria-pressed={selected}
                           disabled={revealed}
                           className={cn(
-                            "flex min-h-14 items-start gap-3 rounded-2xl border-2 p-3 text-left text-sm leading-6 transition",
+                            "flex min-h-16 items-start gap-3 rounded-2xl border-2 p-4 text-left text-base leading-7 transition",
                             !revealed && "active:translate-y-[2px]",
                             isRight
                               ? "border-rb-leaf bg-rb-leaf-wash text-rb-leaf-lip"
@@ -524,7 +524,7 @@ function ResultScreen({ result, onDone, onReadAgain }) {
         </AlertDialogDescription>
       </AlertDialogHeader>
 
-      <ol className="max-h-72 space-y-2 overflow-y-auto pr-1">
+      <ol className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
         {answers.map((answer, position) => {
           const state = answer.pendingManualEvaluation ? "pending" : answer.isCorrect ? "correct" : "incorrect"
           return (
