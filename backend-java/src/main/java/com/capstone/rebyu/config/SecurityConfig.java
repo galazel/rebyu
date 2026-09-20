@@ -186,13 +186,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/text-question-configs/**").authenticated()
                         .requestMatchers("/api/programming-question-configs/**").authenticated()
                         .requestMatchers("/api/diagram-question-configs/**").authenticated()
-                        // Exam WRITES had no auth at all -- anyone could create/edit/
-                        // publish/delete any assessment platform-wide. Now admin-only at
-                        // the controller; block anonymous writes here too. GET stays open
-                        // because learners discover available assessments through it.
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/exams", "/api/exams/**").authenticated()
-                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/exams/**").authenticated()
-                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/exams/**").authenticated()
+                        // Exams had no auth at all -- anyone could create/edit/publish/
+                        // delete any assessment platform-wide, and list every exam with
+                        // its settings. Writes are admin-only at the controller; the list
+                        // and detail reads are only ever made by signed-in pages (admin,
+                        // institution, learner), so nothing anonymous is left here.
+                        .requestMatchers("/api/exams", "/api/exams/**").authenticated()
                         // Certification/category/lesson WRITES had no auth at all -- anyone
                         // could create/edit/delete/publish any certification, category, or
                         // lesson platform-wide. Now admin-only at the controller; block
