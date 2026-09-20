@@ -4,16 +4,47 @@ import { createKnowledgeCheck, getKnowledgeCheckKey } from "@/services/knowledge
 import { startAssessmentAttempt } from "@/services/assessmentService.js"
 
 /**
+ * A pattern, not a single flick: the challenge fires only once the learner
+ * has skimmed more than this many lessons in a row. One lesson raced through
+ * is a strike; a lesson finished without a rush clears the count.
+ */
+const STRIKES_BEFORE_CHALLENGE = 2
+
+const strikesKey = (learnerId) => `rebyu:skim-strikes:${learnerId}`
+
+function readStrikes(learnerId) {
+  try {
+    const raw = sessionStorage.getItem(strikesKey(learnerId))
+    const parsed = raw ? JSON.parse(raw) : null
+    return Array.isArray(parsed) ? parsed.map(Number) : []
+  } catch {
+    return []
+  }
+}
+
+function writeStrikes(learnerId, lessons) {
+  try {
+    sessionStorage.setItem(strikesKey(learnerId), JSON.stringify(lessons))
+  } catch {
+    /* Storage blocked: the count just lives for this page. */
+  }
+}
+
+/**
  * The pop-up challenge, fired by one thing only: the reading-pace guard
- * catching the learner skimming the lesson on screen. There is no timer and no
- * random scroll depth -- racing through the content is what earns the
- * interruption, and the five questions come from that same lesson.
+ * catching the learner skimming -- and not once, but as a habit. Each lesson
+ * the guard catches the learner racing through is a strike (one per lesson,
+ * however many rushes); when more than STRIKES_BEFORE_CHALLENGE different
+ * lessons in a row have been skimmed, the next skimmed lesson brings the
+ * challenge. Finishing a lesson at a reading pace wipes the strikes. The
+ * count sits in sessionStorage so moving between lessons keeps it.
  *
- * `trigger()` is what the guard calls. It asks the server once whether a
- * challenge can be served for this lesson; an unavailable answer (server
- * cooldown, or too few multiple-choice / short-answer questions in the lesson)
- * closes the matter for this lesson opening rather than being retried on the
- * next rush. Reopening the lesson re-arms it.
+ * `trigger()` is what the guard calls. When it is the challenge's turn, it
+ * asks the server once whether a challenge can be served for this lesson; an
+ * unavailable answer (server cooldown, or too few multiple-choice /
+ * short-answer questions in the lesson) closes the matter for this lesson
+ * opening rather than being retried on the next rush. Reopening the lesson
+ * re-arms it.
  *
  * When the answer is yes, the check is minted and the attempt started here,
  * before anything is shown: the modal opens already holding its five
@@ -24,18 +55,46 @@ export function useSkimChallenge({ learnerId, lessonId, enabled }) {
   const lessonRef = useRef(lessonId)
   const askedRef = useRef(false)
   const busyRef = useRef(false)
+  /* Whether the guard caught a rush in this opening of the lesson. */
+  const skimmedRef = useRef(false)
   lessonRef.current = lessonId
 
   useEffect(() => {
     askedRef.current = false
+    skimmedRef.current = false
     setOffer(null)
   }, [lessonId])
 
-  const trigger = useCallback(() => {
+  /* Called when the learner finishes a lesson: read properly, the streak of
+     skimmed lessons is over. */
+  const clearStrikes = useCallback(() => {
+    if (!learnerId || skimmedRef.current) return
+    writeStrikes(learnerId, [])
+  }, [learnerId])
+
+  const trigger = useCallback(({ force = false } = {}) => {
     if (!enabled || !learnerId || !lessonRef.current) return
     if (askedRef.current || busyRef.current) return
 
     const lesson = lessonRef.current
+
+    if (!force) {
+      /* First rush in this lesson: record the strike. The challenge only
+         comes once the pattern has held across more than two lessons. */
+      if (!skimmedRef.current) {
+        skimmedRef.current = true
+        const strikes = readStrikes(learnerId).filter((id) => id !== Number(lesson))
+        strikes.push(Number(lesson))
+        if (strikes.length <= STRIKES_BEFORE_CHALLENGE) {
+          writeStrikes(learnerId, strikes)
+          return
+        }
+        writeStrikes(learnerId, [])
+      } else {
+        return
+      }
+    }
+
     askedRef.current = true
     busyRef.current = true
 
@@ -65,6 +124,7 @@ export function useSkimChallenge({ learnerId, lessonId, enabled }) {
     offer,
     dismiss: useCallback(() => setOffer(null), []),
     trigger,
+    clearStrikes,
   }
 }
 

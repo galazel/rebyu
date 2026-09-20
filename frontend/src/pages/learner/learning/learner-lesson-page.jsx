@@ -616,7 +616,7 @@ export default function LearnerLessonPage() {
   })
   useReadingPaceGuard({
     enabled: Boolean(data?.learnerId) && sections.length > 0 && !knowledgeCheck.offer,
-    onRush: knowledgeCheck.trigger,
+    onRush: () => knowledgeCheck.trigger(),
   })
 
   useEffect(() => {
@@ -638,6 +638,8 @@ export default function LearnerLessonPage() {
         if (completionSentRef.current) return
 
         completionSentRef.current = true
+        // Finished at a reading pace: the run of skimmed lessons is over.
+        knowledgeCheck.clearStrikes()
         completeMutation.mutate()
       },
       { threshold: 0.8 }
@@ -645,7 +647,7 @@ export default function LearnerLessonPage() {
 
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [completed, completeMutation, data?.learnerId, lessonId, sections.length])
+  }, [completed, completeMutation, data?.learnerId, lessonId, sections.length, knowledgeCheck.clearStrikes])
 
   function openLesson(lesson) {
     setNavOpen(false)

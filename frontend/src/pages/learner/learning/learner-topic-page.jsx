@@ -1426,13 +1426,14 @@ export default function LearnerTopicPage() {
   useEffect(() => {
     if (!import.meta.env.DEV) return
     if (new URLSearchParams(location.search).get("skim") === "1" && data?.learnerId && activeLessonId) {
-      knowledgeCheck.trigger()
+      knowledgeCheck.trigger({ force: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search, data?.learnerId, activeLessonId])
 
   /* A rapid pass does not count as reading: the sections raced through are
-     taken back, and the challenge fires. */
+     taken back, and the lesson is a strike towards the challenge, which comes
+     only after the learner has skimmed more than two lessons in a row. */
   const lessonFinished = activeLessonId ? isDone(activeLessonId) : false
   const paceGuard = useReadingPaceGuard({
     enabled:
@@ -1476,6 +1477,8 @@ export default function LearnerTopicPage() {
     // scenes and takes it back only if it fails.
     onMutate: (lessonId) => {
       setLocallyDone((current) => new Set(current).add(lessonId))
+      // A lesson finished at a reading pace ends any run of skimmed lessons.
+      knowledgeCheck.clearStrikes()
       return snapshotRewards(queryClient)
     },
     onSuccess: async (_result, lessonId, before) => {
