@@ -12,6 +12,12 @@
 -- lesson it was drawing on), then from the source question. Answers still
 -- awaiting manual grading have no verdict and are left out; pyBKT needs 0/1.
 --
+-- Only what still exists trains the model. Deleting a learner, a lesson or a
+-- whole certification is a hard delete here, and the attempt rows can outlive
+-- it, so each is joined back to its owner: a response whose learner, lesson
+-- or certification is gone -- or whose account is no longer active -- drops
+-- out of the training set on the next run.
+--
 -- Output columns are unchanged, so the training pipeline is untouched.
 
 CREATE OR REPLACE VIEW rebyu_bkt_training_data_v AS
@@ -46,7 +52,16 @@ JOIN exams e
     ON e.exam_id = att.exam_id
 JOIN exam_types et
     ON et.exam_type_id = e.exam_type_id
+JOIN learners l
+    ON l.learner_id = att.learner_id
+JOIN users u
+    ON u.user_id = l.user_id
+JOIN lessons ls
+    ON ls.lesson_id = COALESCE(aq.lesson_id, q.lesson_id)
+JOIN certifications c
+    ON c.certification_id = e.certification_id
 WHERE att.status = 'SUBMITTED'
+  AND u.account_status = 'active'
   AND ans.is_correct IS NOT NULL
   AND ans.answered_at IS NOT NULL
   AND COALESCE(aq.lesson_id, q.lesson_id) IS NOT NULL;
