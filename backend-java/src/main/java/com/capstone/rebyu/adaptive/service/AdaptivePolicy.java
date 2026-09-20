@@ -74,6 +74,24 @@ public class AdaptivePolicy {
         return questionType != null && WORKSPACE_TYPES.contains(questionType.trim().toUpperCase());
     }
 
+    public static final String IRT_2PL = "2PL";
+    public static final String IRT_PARTIAL_CREDIT = "PARTIAL_CREDIT";
+
+    /**
+     * The response model an item is scored under. The objective items --
+     * multiple choice, short answer, true/false, fill-in, matching -- are
+     * right or wrong and use the two-parameter logistic model. Written, coded
+     * and drawn answers are marked on a scale and use the partial-credit
+     * form: the share earned is the response.
+     */
+    public static String irtModelFor(String questionType) {
+        return isWorkspaceType(questionType) ? IRT_PARTIAL_CREDIT : IRT_2PL;
+    }
+
+    public static boolean usesPartialCredit(String questionType) {
+        return IRT_PARTIAL_CREDIT.equals(irtModelFor(questionType));
+    }
+
     public static boolean isMultipleChoice(String questionType) {
         return "MULTIPLE_CHOICE".equalsIgnoreCase(questionType) || "MCQ".equalsIgnoreCase(questionType)
                 || "TRUE_FALSE".equalsIgnoreCase(questionType);

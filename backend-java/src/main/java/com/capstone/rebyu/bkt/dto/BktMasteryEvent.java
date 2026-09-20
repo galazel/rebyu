@@ -26,6 +26,8 @@ public record BktMasteryEvent(
         @JsonProperty("major_category_title") String majorCategoryTitle,
         @JsonProperty("question_id") Long questionId,
         @JsonProperty("is_correct") boolean isCorrect,
+        /** Share of the item earned, 0..1; the mastery update weighs the evidence by it. */
+        @JsonProperty("score") Double score,
         @JsonProperty("difficulty_level") String difficultyLevel,
         @JsonProperty("assessment_type") String assessmentType,
         @JsonProperty("occurred_at") String occurredAt

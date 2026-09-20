@@ -419,6 +419,11 @@ export default function LearnerAssessmentResultPage() {
                           : ""}
                         {" "}The tally beside it is the plain count.
                       </p>
+                      <p>
+                        Written, code and diagram answers count for the share they earned — a half-right diagram
+                        is half an item for the rating and the percentage, though it only joins the correct tally
+                        at 60% or more. Every other question is simply right or wrong.
+                      </p>
                     </div>
                   </details>
 

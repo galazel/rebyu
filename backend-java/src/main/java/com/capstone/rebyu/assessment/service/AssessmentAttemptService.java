@@ -8,6 +8,7 @@ import com.capstone.rebyu.aigateway.dto.AnswerGradingResultDto.SubAnswerGradeDto
 import com.capstone.rebyu.aigateway.service.AiAnswerGradingService;
 import com.capstone.rebyu.assessment.dto.attempt.DiagramAttemptDtos.*;
 import com.capstone.rebyu.adaptive.engine.IrtModel;
+import com.capstone.rebyu.adaptive.service.AdaptivePolicy;
 import com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.*;
 import com.capstone.rebyu.assessment.dto.attempt.ProgrammingAttemptDtos.*;
 import com.capstone.rebyu.assessment.entity.*;
@@ -666,11 +667,11 @@ public class AssessmentAttemptService {
      * nothing; the marker calls this again when they are in.
      *
      * <p>Every item is one observation. The score is the share of the items
-     * served that were answered right -- a blank counts against the learner
-     * on a fixed paper, and an adaptive paper never serves an item it does
-     * not then ask. Partial credit counts as right above the same threshold
-     * the mastery service uses, so the score, the BKT evidence and the
-     * learner's verdict on screen all agree.
+     * served that were earned -- a written, coded or drawn answer contributes
+     * the share it was marked at, an objective one 1 or 0, and a blank counts
+     * against the learner on a fixed paper (an adaptive paper never serves
+     * an item it does not then ask). The correct count is the verdict tally:
+     * partial credit at or above the mastery threshold reads as right.
      */
     void applyTotals(AssessmentAttempt attempt, List<AssessmentAttemptQuestion> questions,
                      Map<Long, AssessmentAttemptAnswer> answersByQuestion) {
@@ -680,6 +681,7 @@ public class AssessmentAttemptService {
         boolean weighted = questions.stream().anyMatch(q -> q.getPoints() != null);
         BigDecimal totalPoints = BigDecimal.ZERO;
         BigDecimal earnedPoints = BigDecimal.ZERO;
+        double earnedShare = 0.0;
         for (AssessmentAttemptQuestion attemptQuestion : questions) {
             BigDecimal weight = attemptQuestion.getPoints() == null ? BigDecimal.ONE : attemptQuestion.getPoints();
             totalPoints = totalPoints.add(weight);
@@ -691,18 +693,18 @@ public class AssessmentAttemptService {
             if (countsAsCorrect(answer)) {
                 correct++;
             }
+            earnedShare += scoreOf(attemptQuestion, answer);
             if (answer.getCredit() != null) {
                 earnedPoints = earnedPoints.add(weight.multiply(answer.getCredit()));
             }
         }
         /* An institution paper is scored by its weights, credit included; an
-           official one by the count of items answered right. */
+           official one by the share of its items earned. */
         BigDecimal percentage;
         if (weighted && totalPoints.signum() > 0) {
             percentage = earnedPoints.multiply(BigDecimal.valueOf(100)).divide(totalPoints, 2, RoundingMode.HALF_UP);
         } else if (items > 0) {
-            percentage = BigDecimal.valueOf(correct).multiply(BigDecimal.valueOf(100))
-                    .divide(BigDecimal.valueOf(items), 2, RoundingMode.HALF_UP);
+            percentage = BigDecimal.valueOf(earnedShare * 100.0 / items).setScale(2, RoundingMode.HALF_UP);
         } else {
             percentage = BigDecimal.ZERO;
         }
@@ -721,6 +723,28 @@ public class AssessmentAttemptService {
      * The engine's view of a marked answer: right, or partial credit at or
      * above the threshold that counts as right for mastery too.
      */
+    /**
+     * The response the models score, 0..1, by the item's response model
+     * ({@link AdaptivePolicy#irtModelFor}). A written, coded or drawn answer
+     * is marked on a scale and keeps that share (partial credit); every other
+     * item is 1 when it {@link #countsAsCorrect} and 0 otherwise (2PL). This
+     * is what the ability estimate, the mastery update and the percentage
+     * use, so a half-right diagram is half an item everywhere, while a short
+     * answer is right or wrong -- {@code countsAsCorrect} is the verdict shown.
+     */
+    double scoreOf(AssessmentAttemptQuestion question, AssessmentAttemptAnswer answer) {
+        if (answer == null || answer.isPendingManualEvaluation()) {
+            return 0.0;
+        }
+        if (AdaptivePolicy.usesPartialCredit(question.getQuestionType())) {
+            BigDecimal credit = answer.getCredit();
+            if (credit != null) {
+                return Math.min(1.0, Math.max(0.0, credit.doubleValue()));
+            }
+        }
+        return countsAsCorrect(answer) ? 1.0 : 0.0;
+    }
+
     boolean countsAsCorrect(AssessmentAttemptAnswer answer) {
         if (answer == null || answer.isPendingManualEvaluation()) {
             return false;

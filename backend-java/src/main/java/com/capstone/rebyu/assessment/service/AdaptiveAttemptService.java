@@ -480,15 +480,17 @@ public class AdaptiveAttemptService {
         attempts.scoreAnswer(item, answer, batch, sources, subs);
         attemptAnswerRepository.save(answer);
 
-        /* The engine's view of the response: right or wrong. Partial credit
-           counts as right above the same threshold the mastery service uses. */
+        /* The engine's view of the response. An objective item is 1 or 0
+           (2PL); a written, coded or drawn answer is the share it was marked
+           at (partial credit). The verdict is only for the tallies. */
+        double score = attempts.scoreOf(item, answer);
         boolean correct = attempts.countsAsCorrect(answer);
 
         // --- IRT: ability -------------------------------------------------
         ItemParams params = itemParamsOf(attempt.getExam(), source);
         state.getResponses().add(new AdaptiveSessionState.ResponseRecord(
-                source.getQuestionId(), item.getLessonId(), params, correct));
-        double theta = IrtModel.step(state.getTheta(), params, correct, properties.getAbilityStep());
+                source.getQuestionId(), item.getLessonId(), params, correct, score));
+        double theta = IrtModel.step(state.getTheta(), params, score, properties.getAbilityStep());
         double se = IrtModel.standardError(theta, state.irtResponses());
         state.setTheta(theta);
         state.setSe(se);
@@ -733,8 +735,7 @@ public class AdaptiveAttemptService {
         if (views.isEmpty()) return List.of();
         List<Candidate> out = new ArrayList<>(views.size());
         for (QuestionSelectionView view : views) {
-            ItemParams params = IrtModel.defaultParams(view.getDifficultyLevel(),
-                    AdaptivePolicy.isMultipleChoice(view.getQuestionType()), 4);
+            ItemParams params = IrtModel.defaultParams(view.getDifficultyLevel());
             out.add(new Candidate(view.getQuestionId(), view.getLessonId(), view.getQuestionType(),
                     view.getQuestionText(), params, AdaptivePolicy.isWorkspaceType(view.getQuestionType())));
         }
@@ -748,9 +749,7 @@ public class AdaptiveAttemptService {
     private ItemParams itemParamsOf(Exam exam, Question source) {
         Candidate cached = cachedPool(exam).candidates().get(source.getQuestionId());
         if (cached != null) return cached.params();
-        return IrtModel.defaultParams(source.getDifficultyLevel(),
-                AdaptivePolicy.isMultipleChoice(source.getQuestionType()),
-                source.getChoices() == null ? 4 : source.getChoices().size());
+        return IrtModel.defaultParams(source.getDifficultyLevel());
     }
 
     private BktModel.Params defaultBkt() {

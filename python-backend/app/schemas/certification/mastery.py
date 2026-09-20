@@ -15,6 +15,9 @@ class MasteryEventCreate(BaseModel):
     lesson_id: int = Field(gt=0)
     question_id: int | None = Field(default=None, gt=0)
     is_correct: bool
+    # Share of the item earned, 0..1. Absent on older producers: the update
+    # then falls back to the binary is_correct.
+    score: float | None = Field(default=None, ge=0.0, le=1.0)
     difficulty_level: Difficulty
     assessment_type: AssessmentType
     occurred_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

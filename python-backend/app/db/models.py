@@ -71,6 +71,8 @@ class BktMasteryEvent(Base):
     lesson_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
     question_id: Mapped[int | None] = mapped_column(BigInteger)
     is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    # Share of the item earned, 0..1; None on events from before partial credit.
+    score: Mapped[float | None] = mapped_column(Float)
     difficulty_level: Mapped[str] = mapped_column(String(20), nullable=False)
     assessment_type: Mapped[str] = mapped_column(String(30), nullable=False)
     mastery_before: Mapped[float] = mapped_column(Float, nullable=False)

@@ -31,6 +31,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -373,6 +374,37 @@ class AssessmentAttemptServiceTest {
     }
 
     @Test
+    void officialPaperScoresWrittenItemsByShareAndObjectiveItemsRightOrWrong() {
+        AssessmentAttempt attempt = AssessmentAttempt.builder()
+                .assessmentAttemptId(79L).exam(exam).learnerId(2L).attemptNumber(1)
+                .status(AssessmentAttempt.Status.IN_PROGRESS).startedAt(LocalDateTime.now()).build();
+        AssessmentAttemptQuestion written = AssessmentAttemptQuestion.builder()
+                .attemptQuestionId(1L).attempt(attempt).questionType("DESCRIPTIVE").displayOrder(1).build();
+        AssessmentAttemptQuestion shortAnswer = AssessmentAttemptQuestion.builder()
+                .attemptQuestionId(2L).attempt(attempt).questionType("SHORT_ANSWER").displayOrder(2).build();
+        // Half marks on the essay: half an item, not a wrong answer.
+        AssessmentAttemptAnswer essay = new AssessmentAttemptAnswer();
+        essay.setLearnerAnswer("Some of it");
+        essay.setIsCorrect(false);
+        essay.setCredit(new BigDecimal("0.5000"));
+        // 0.75 on a short answer clears the verdict threshold: a whole item.
+        AssessmentAttemptAnswer term = new AssessmentAttemptAnswer();
+        term.setLearnerAnswer("b tree");
+        term.setIsCorrect(false);
+        term.setCredit(new BigDecimal("0.7500"));
+
+        assertEquals(0.5, service.scoreOf(written, essay), 1e-9);
+        assertEquals(1.0, service.scoreOf(shortAnswer, term), 1e-9);
+
+        service.applyTotals(attempt, List.of(written, shortAnswer), Map.of(1L, essay, 2L, term));
+
+        assertEquals(0, new BigDecimal("75.00").compareTo(attempt.getPercentage()));
+        assertEquals(1, attempt.getCorrectCount());
+        assertEquals(2, attempt.getAnsweredCount());
+        assertNull(attempt.getTotalPoints());
+    }
+
+    @Test
     void submitGradesDescriptiveAnswerWithAiAndAppliesPartialCredit() {
         Question descriptiveQuestion = new Question();
         descriptiveQuestion.setQuestionId(200L);
@@ -436,10 +468,11 @@ class AssessmentAttemptServiceTest {
         when(examResultRepository.existsById(any())).thenReturn(false);
 
         // The AI grader awards partial credit and feedback — auto-finalized,
-        // no admin review step.
+        // no admin review step. It marks out of one unit; the paper's 10
+        // points weight that share.
         when(aiAnswerGradingService.grade(any())).thenReturn(Optional.of(
                 new com.capstone.rebyu.aigateway.dto.AnswerGradingResultDto(
-                        new BigDecimal("7.00"),
+                        new BigDecimal("0.70"),
                         "Good reasoning but missing the query-pattern trade-off.",
                         List.of())));
 

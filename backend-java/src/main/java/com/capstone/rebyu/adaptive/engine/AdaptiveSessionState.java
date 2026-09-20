@@ -100,8 +100,15 @@ public class AdaptiveSessionState {
         private double b;
         private double c;
         private boolean correct;
+        /** Share of the item earned, 0..1; the objective items send 0 or 1. */
+        private double score;
 
         public ResponseRecord(Long questionId, Long lessonId, IrtModel.ItemParams item, boolean correct) {
+            this(questionId, lessonId, item, correct, correct ? 1.0 : 0.0);
+        }
+
+        public ResponseRecord(Long questionId, Long lessonId, IrtModel.ItemParams item, boolean correct, double score) {
+            this.score = score;
             this.questionId = questionId;
             this.lessonId = lessonId;
             this.a = item.a();
@@ -111,7 +118,7 @@ public class AdaptiveSessionState {
         }
 
         public IrtModel.Response toResponse() {
-            return new IrtModel.Response(new IrtModel.ItemParams(a, b, c), correct);
+            return new IrtModel.Response(new IrtModel.ItemParams(a, b, c), score);
         }
     }
 

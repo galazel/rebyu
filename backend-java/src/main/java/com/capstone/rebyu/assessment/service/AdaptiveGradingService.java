@@ -203,14 +203,12 @@ public class AdaptiveGradingService {
             Question source = all.getOrDefault(question.getSourceQuestionId(), sources.get(question.getSourceQuestionId()));
             AssessmentAttemptAnswer answer = answersByQuestion.get(question.getAttemptQuestionId());
             if (source == null || answer == null || answer.isPendingManualEvaluation()) continue;
-            IrtModel.ItemParams params = IrtModel.defaultParams(source.getDifficultyLevel(),
-                    AssessmentAttemptService.isMultipleChoice(source.getQuestionType()),
-                    source.getChoices() == null ? 4 : source.getChoices().size());
-            boolean correct = attempts.countsAsCorrect(answer);
-            responses.add(new IrtModel.Response(params, correct));
+            IrtModel.ItemParams params = IrtModel.defaultParams(source.getDifficultyLevel());
+            double score = attempts.scoreOf(question, answer);
+            responses.add(new IrtModel.Response(params, score));
             if (justMarked.contains(question.getAttemptQuestionId())) {
                 question.setThetaBefore(theta);
-                theta = IrtModel.step(theta, params, correct, adaptiveProperties.getAbilityStep());
+                theta = IrtModel.step(theta, params, score, adaptiveProperties.getAbilityStep());
                 question.setThetaAfter(theta);
                 attemptQuestionRepository.save(question);
             }

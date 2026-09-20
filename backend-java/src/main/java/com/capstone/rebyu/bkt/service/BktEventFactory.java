@@ -1,5 +1,6 @@
 package com.capstone.rebyu.bkt.service;
 
+import com.capstone.rebyu.adaptive.service.AdaptivePolicy;
 import com.capstone.rebyu.assessment.entity.AssessmentAttempt;
 import com.capstone.rebyu.assessment.entity.AssessmentAttemptAnswer;
 import com.capstone.rebyu.assessment.entity.AssessmentAttemptQuestion;
@@ -90,6 +91,7 @@ public class BktEventFactory {
         }
 
         boolean correct = resolveCorrectness(answer);
+        double score = resolveScore(question, answer);
         String occurredAt = (answer.getAnsweredAt() != null
                 ? answer.getAnsweredAt() : LocalDateTime.now()).toString();
 
@@ -131,6 +133,7 @@ public class BktEventFactory {
                 majorCategoryTitle,
                 question.getSourceQuestionId(),
                 correct,
+                score,
                 normalizeDifficulty(rawDifficulty),
                 normalizeAssessmentType(rawAssessmentType),
                 occurredAt);
@@ -170,15 +173,32 @@ public class BktEventFactory {
                 majorCategoryTitle,
                 questionId,
                 isCorrect,
+                isCorrect ? 1.0 : 0.0,
                 normalizeDifficulty(rawDifficulty),
                 normalizeAssessmentType(rawAssessmentType),
                 LocalDateTime.now().toString());
     }
 
     /**
+     * The share of the item earned, by its response model: the graded credit
+     * for a written, coded or drawn answer, else 1 or 0 from the verdict. The
+     * mastery update weighs a partial answer by this instead of rounding it
+     * to right or wrong.
+     */
+    private double resolveScore(AssessmentAttemptQuestion question, AssessmentAttemptAnswer answer) {
+        if (AdaptivePolicy.usesPartialCredit(question.getQuestionType())) {
+            BigDecimal credit = answer.getCredit();
+            if (credit != null) {
+                return Math.min(1.0, Math.max(0.0, credit.doubleValue()));
+            }
+        }
+        return resolveCorrectness(answer) ? 1.0 : 0.0;
+    }
+
+    /**
      * Objective answers carry an explicit {@code isCorrect}. Partial-credit
-     * answers convert via the configurable awarded/max threshold. Never divides
-     * by zero.
+     * answers convert via the configurable awarded/max threshold -- the
+     * verdict the counters and the learner see. Never divides by zero.
      */
     private boolean resolveCorrectness(AssessmentAttemptAnswer answer) {
         if (answer.getIsCorrect() != null) {

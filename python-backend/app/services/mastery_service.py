@@ -198,6 +198,7 @@ def _process_mastery_event_once(session: Session, payload: MasteryEventCreate) -
     result = update_mastery(
         mastery_before=fallback_prior,
         is_correct=payload.is_correct,
+        score=payload.score,
         learn=parameters.learn,
         guess=parameters.guess,
         slip=parameters.slip,
@@ -253,6 +254,7 @@ def _process_mastery_event_once(session: Session, payload: MasteryEventCreate) -
         lesson_id=payload.lesson_id,
         question_id=payload.question_id,
         is_correct=payload.is_correct,
+        score=payload.score,
         difficulty_level=payload.difficulty_level,
         assessment_type=payload.assessment_type,
         mastery_before=mastery_before,

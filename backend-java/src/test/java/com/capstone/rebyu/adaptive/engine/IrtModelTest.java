@@ -101,4 +101,18 @@ class IrtModelTest {
         assertTrue(down < 0.3 + 0.08);
         assertTrue(down < up);
     }
+
+    @Test
+    void partialScoreMovesBetweenRightAndWrong() {
+        IrtModel.ItemParams average = new IrtModel.ItemParams(1.0, 0.0, 0.0);
+        double right = IrtModel.step(0.0, average, true, 0.6);
+        double wrong = IrtModel.step(0.0, average, false, 0.6);
+        double half = IrtModel.step(0.0, average, 0.5, 0.6);
+        assertEquals(0.0, half, 1e-9); // half credit at a coin-flip item: no surprise
+        assertTrue(wrong < IrtModel.step(0.0, average, 0.25, 0.6));
+        assertTrue(IrtModel.step(0.0, average, 0.75, 0.6) < right);
+        assertEquals(right, IrtModel.step(0.0, average, 1.0, 0.6), 1e-9);
+        assertEquals(wrong, IrtModel.step(0.0, average, 0.0, 0.6), 1e-9);
+        assertEquals(right, IrtModel.step(0.0, average, 1.7, 0.6), 1e-9); // scores are clamped
+    }
 }

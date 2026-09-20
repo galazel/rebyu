@@ -3,7 +3,13 @@ package com.capstone.rebyu.adaptive.engine;
 import java.util.List;
 
 /**
- * Item response theory, three-parameter logistic form (2PL when guessing is 0).
+ * Item response theory, mixed format: the two-parameter logistic model for
+ * the objective items (multiple choice, short answer, ...), which are right
+ * or wrong, and its partial-credit form for written, coded and drawn answers,
+ * which are marked on a scale. Both share one ability scale and one step
+ * rule; they differ only in what the response is -- 1 or 0, or the share
+ * earned. The guessing term {@code c} is kept in the formula for
+ * completeness but every item is served with it at zero.
  *
  * <p>Pure functions over doubles. Nothing here knows about questions, learners
  * or the database -- it is the mathematics that turns a run of right and wrong
@@ -55,7 +61,10 @@ public final class IrtModel {
     public record Estimate(double theta, double standardError) {
     }
 
-    public record Response(ItemParams item, boolean correct) {
+    public record Response(ItemParams item, double score) {
+        public Response(ItemParams item, boolean correct) {
+            this(item, correct ? 1.0 : 0.0);
+        }
     }
 
     /** Probability of a correct response at ability {@code theta}. */
@@ -82,15 +91,26 @@ public final class IrtModel {
     /**
      * The step rule: ability after one more answer. The estimate moves by
      * {@code step} scaled by how surprising the response was -- {@code u - P},
-     * where u is 1 for right and 0 for wrong and P the probability of a
-     * right answer at the current ability. A right answer on a hard item
-     * (P small) moves it most of a step up; a right answer on an item the
-     * learner "should" get moves it little. The estimate never leaves the
-     * scale.
+     * where u is the score earned (1 for right, 0 for wrong) and P the
+     * probability of a right answer at the current ability. A right answer
+     * on a hard item (P small) moves it most of a step up; a right answer on
+     * an item the learner "should" get moves it little. The estimate never
+     * leaves the scale.
      */
     public static double step(double theta, ItemParams item, boolean correct, double step) {
+        return step(theta, item, correct ? 1.0 : 0.0, step);
+    }
+
+    /**
+     * The partial-score form of the step rule. A written, coded or drawn
+     * answer is marked on a scale, and the share earned is the response:
+     * P is also the expected share at this ability, so {@code score - P}
+     * is the surprise. Half credit on an item the learner had a coin-flip
+     * chance at moves nothing; the objective items still send 0 or 1.
+     */
+    public static double step(double theta, ItemParams item, double score, double step) {
         double p = probability(theta, item);
-        double u = correct ? 1.0 : 0.0;
+        double u = clamp(score, 0.0, 1.0);
         return clamp(theta + step * (u - p), THETA_MIN, THETA_MAX);
     }
 
@@ -111,14 +131,12 @@ public final class IrtModel {
         return 1.0 / Math.sqrt(total);
     }
 
-    /** Parameters for an item, from its authored difficulty level alone. */
-    public static ItemParams defaultParams(String difficultyLevel, boolean multipleChoice, int choiceCount) {
-        double c = 0.0;
-        if (multipleChoice) {
-            c = choiceCount >= 2 ? 1.0 / choiceCount : 0.25;
-            c = Math.max(c, 0.2);
-        }
-        return new ItemParams(1.0, difficultyOf(difficultyLevel), c);
+    /**
+     * Parameters for an item, from its authored difficulty level alone: unit
+     * discrimination, difficulty from the level, no guessing (2PL).
+     */
+    public static ItemParams defaultParams(String difficultyLevel) {
+        return new ItemParams(1.0, difficultyOf(difficultyLevel), 0.0);
     }
 
     /** EASY -1.5, AVERAGE 0, HARD +1.5. Unknown levels are average. */
