@@ -55,6 +55,12 @@ public class AdaptivePolicy {
     }
 
     /** Whether this type may end with code, diagram or written items. */
+    /** The exams that sit over a category: BKT focuses them on the weak lessons. */
+    public static boolean isCategoryExam(String examTypeText) {
+        String t = examTypeText == null ? "" : examTypeText.trim().toUpperCase();
+        return "MIDDLE_EXAM".equals(t) || "MAJOR_EXAM".equals(t);
+    }
+
     public static boolean allowsFinalRound(String examTypeText) {
         return examTypeText == null || !QUICK_ONLY_TYPES.contains(examTypeText);
     }

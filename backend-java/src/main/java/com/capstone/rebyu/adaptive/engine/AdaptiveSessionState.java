@@ -46,6 +46,15 @@ public class AdaptiveSessionState {
 
     /** Pool composition per lesson (main-pool candidates), for coverage. */
     private Map<Long, Integer> poolCountByLesson = new LinkedHashMap<>();
+
+    /**
+     * The share of the paper each lesson is owed. Null or empty means
+     * "in proportion to the pool"; a focused exam sets it so the weak lessons
+     * hold their share and the rest split what remains.
+     */
+    private Map<Long, Double> targetShareByLesson = new LinkedHashMap<>();
+    /** The lessons the focus is on, for the selection reason and the result. */
+    private Set<Long> weakLessonIds = new LinkedHashSet<>();
     private Map<Long, Integer> servedCountByLesson = new LinkedHashMap<>();
 
     /** Question-type mix of the main pool and of what has been served, for balance. */

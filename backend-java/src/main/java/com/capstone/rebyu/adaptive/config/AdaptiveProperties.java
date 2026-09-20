@@ -41,6 +41,14 @@ public class AdaptiveProperties {
     /** How far one answer can move the ability estimate (scaled by surprise). */
     private double abilityStep = 0.6;
 
+    /**
+     * On a middle or major exam, this share of the items is drawn from the
+     * lessons BKT says the learner is weak on; the rest cover the category.
+     */
+    private double weakLessonShare = 0.5;
+    /** A lesson is "weak" when its BKT mastery is below this. */
+    private double weakMasteryThreshold = 0.5;
+
     /** A scope's bank must hold this many times the item count before the assessment can publish. */
     private double minBankMultiplier = 1.5;
 

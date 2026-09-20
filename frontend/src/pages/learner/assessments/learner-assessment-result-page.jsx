@@ -324,7 +324,7 @@ export default function LearnerAssessmentResultPage() {
   const proficiency = result.proficiency ?? null
   const proficiencyRating = proficiency ? toNumber(proficiency.rating) : null
   const correctCount = Number(result.correctCount ?? 0)
-  const answeredCount =
+  const answeredCount = // eslint-disable-line no-unused-vars
     Number(result.correctCount ?? 0) + Number(result.incorrectCount ?? 0) + Number(result.pendingCount ?? 0)
   const itemCount = answeredCount + Number(result.unansweredCount ?? 0)
 
@@ -402,15 +402,6 @@ export default function LearnerAssessmentResultPage() {
                   </p>
                   <ProficiencyScale rating={proficiencyRating} />
 
-                  <p className="mt-4 text-sm font-bold text-rb-eel" data-testid="real-score">
-                    <span className="rb-eyebrow block">real score</span>
-                    <span className="rb-numeric text-lg">{correctCount}</span>
-                    <span className="text-rb-wolf"> of {answeredCount} answered correct</span>
-                    {itemCount !== answeredCount ? (
-                      <span className="text-rb-wolf"> · {itemCount} asked</span>
-                    ) : null}
-                    <span className="text-rb-wolf"> · {percentage.toFixed(0)}%</span>
-                  </p>
                 </div>
               ) : (
                 <div>
@@ -620,10 +611,6 @@ export default function LearnerAssessmentResultPage() {
                         {answer.points != null && answer.credit != null ? (
                           <span className="rb-pen rb-graded-points">
                             {Number((Number(answer.credit) * Number(answer.points)).toFixed(2))} / {Number(answer.points)} pts
-                          </span>
-                        ) : answer.credit != null && state !== "correct" && state !== "pending" && Number(answer.credit) > 0 ? (
-                          <span className="rb-pen rb-graded-points" title="Partial credit from the grader">
-                            {Math.round(Number(answer.credit) * 100)}% credit
                           </span>
                         ) : null}
                       </div>

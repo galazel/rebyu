@@ -49,6 +49,8 @@ public final class AdaptiveItemSelector {
             Long lessonId,
             double lessonScore,
             double pKnown,
+            /** WEAK when the lesson is one the exam is focusing on, COVERAGE otherwise. */
+            String focus,
             String tier,
             int lessonsConsidered,
             int candidatesConsidered,
@@ -100,8 +102,10 @@ public final class AdaptiveItemSelector {
             List<Candidate> candidates = byLessonAndTier.get(lessonId).get(tier);
             Candidate chosen = chooseItem(candidates, state, settings, random);
             double pKnown = state.getPKnownByLesson().getOrDefault(lessonId, 0.5);
+            String focus = state.getWeakLessonIds() != null && state.getWeakLessonIds().contains(lessonId)
+                    ? "WEAK" : "COVERAGE";
             Reason reason = new Reason(
-                    lessonId, lessonScore(lessonId, state, settings, 0.0), pKnown, tier,
+                    lessonId, lessonScore(lessonId, state, settings, 0.0), pKnown, focus, tier,
                     lessons.size(), candidates.size(),
                     IrtModel.information(state.getTheta(), chosen.params()), state.getTheta());
             return Optional.of(new Selection(chosen, reason));
@@ -161,10 +165,7 @@ public final class AdaptiveItemSelector {
 
     /** Coverage owed to the lesson plus how much one more answer on it would tell us. */
     static double lessonScore(Long lessonId, AdaptiveSessionState state, Settings settings, double noise) {
-        int poolTotal = state.getPoolCountByLesson().values().stream().mapToInt(Integer::intValue).sum();
-        double targetShare = poolTotal == 0
-                ? 0.0
-                : (double) state.getPoolCountByLesson().getOrDefault(lessonId, 0) / poolTotal;
+        double targetShare = targetShare(lessonId, state);
         int servedTotal = state.getServedCountByLesson().values().stream().mapToInt(Integer::intValue).sum();
         double servedShare = servedTotal == 0
                 ? 0.0
@@ -173,6 +174,63 @@ public final class AdaptiveItemSelector {
         double pKnown = state.getPKnownByLesson().getOrDefault(lessonId, 0.5);
         double uncertainty = pKnown * (1.0 - pKnown);
         return coverageDeficit + settings.explorationWeight() * uncertainty + noise;
+    }
+
+    /** What the lesson is owed: the focus plan when there is one, else its share of the pool. */
+    static double targetShare(Long lessonId, AdaptiveSessionState state) {
+        Map<Long, Double> plan = state.getTargetShareByLesson();
+        if (plan != null && !plan.isEmpty()) {
+            return plan.getOrDefault(lessonId, 0.0);
+        }
+        int poolTotal = state.getPoolCountByLesson().values().stream().mapToInt(Integer::intValue).sum();
+        return poolTotal == 0 ? 0.0 : (double) state.getPoolCountByLesson().getOrDefault(lessonId, 0) / poolTotal;
+    }
+
+    /**
+     * The focus plan of a category exam: BKT names the weak lessons, and
+     * they are owed {@code weakShare} of the paper between them, each in
+     * proportion to how weak it is; the other lessons split what remains in
+     * proportion to their bank. With no weak lesson the single weakest one
+     * is the focus; with every lesson weak there is nothing to focus on and
+     * the plan is plain coverage.
+     */
+    public static Map<Long, Double> focusPlan(
+            Map<Long, Integer> poolCountByLesson, Map<Long, Double> pKnownByLesson,
+            double weakShare, double weakThreshold, Set<Long> weakOut) {
+        Map<Long, Double> plan = new LinkedHashMap<>();
+        if (poolCountByLesson.isEmpty()) return plan;
+        List<Long> weak = new ArrayList<>();
+        Long weakest = null;
+        double lowest = Double.POSITIVE_INFINITY;
+        for (Long lessonId : poolCountByLesson.keySet()) {
+            double p = pKnownByLesson.getOrDefault(lessonId, 0.5);
+            if (p < weakThreshold) weak.add(lessonId);
+            if (p < lowest) {
+                lowest = p;
+                weakest = lessonId;
+            }
+        }
+        if (weak.isEmpty() && weakest != null) weak.add(weakest);
+        if (weak.size() >= poolCountByLesson.size()) {
+            return plan; // everything is weak: cover the category
+        }
+        weakOut.addAll(weak);
+        double weakWeight = 0.0;
+        for (Long id : weak) weakWeight += 1.0 - pKnownByLesson.getOrDefault(id, 0.5);
+        int restPool = 0;
+        for (Map.Entry<Long, Integer> e : poolCountByLesson.entrySet()) {
+            if (!weak.contains(e.getKey())) restPool += e.getValue();
+        }
+        for (Map.Entry<Long, Integer> e : poolCountByLesson.entrySet()) {
+            Long id = e.getKey();
+            if (weak.contains(id)) {
+                double w = 1.0 - pKnownByLesson.getOrDefault(id, 0.5);
+                plan.put(id, weakWeight > 0 ? weakShare * w / weakWeight : weakShare / weak.size());
+            } else {
+                plan.put(id, restPool > 0 ? (1.0 - weakShare) * e.getValue() / restPool : 0.0);
+            }
+        }
+        return plan;
     }
 
     private static Candidate chooseItem(

@@ -181,6 +181,17 @@ public class AdaptiveAttemptService {
         state.setParamsByLesson(new LinkedHashMap<>(seed.paramsByLesson()));
         state.setPoolCountByLesson(poolCountByLesson);
         state.setPoolCountByType(poolCountByType);
+        /* A category exam is where BKT sets the target: half the paper on the
+           lessons the learner is weak on, the rest across the category. A
+           lesson quiz has one lesson, and the mock and diagnostic must mirror
+           the real exam, so they stay in proportion to the bank. */
+        if (AdaptivePolicy.isCategoryExam(examType)) {
+            java.util.Set<Long> weak = new LinkedHashSet<>();
+            state.setTargetShareByLesson(AdaptiveItemSelector.focusPlan(
+                    poolCountByLesson, state.getPKnownByLesson(),
+                    properties.getWeakLessonShare(), properties.getWeakMasteryThreshold(), weak));
+            state.setWeakLessonIds(weak);
+        }
 
         /* What this learner has met before, in any attempt of anything, and
            what was on their last attempt of this very exam. Snapshotted now so
