@@ -109,6 +109,15 @@ def delete_empty_certification(session: Session, certification_id: int) -> bool:
         )
         return False
 
+    # The figures captured out of each document before ingestion hang off
+    # knowledge_documents; without this the parent delete is what raised.
+    session.execute(
+        text(
+            "DELETE FROM knowledge_document_images WHERE knowledge_document_id IN "
+            "(SELECT knowledge_document_id FROM knowledge_documents WHERE certification_id = :cid)"
+        ),
+        {"cid": certification_id},
+    )
     session.execute(
         text("DELETE FROM knowledge_documents WHERE certification_id = :cid"),
         {"cid": certification_id},
