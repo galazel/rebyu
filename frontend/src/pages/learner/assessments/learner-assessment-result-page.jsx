@@ -401,6 +401,26 @@ export default function LearnerAssessmentResultPage() {
                     {marking ? " It may still change while the last answers are marked." : ""}
                   </p>
                   <ProficiencyScale rating={proficiencyRating} />
+                  {/* The rating is not a percentage of right answers, and the
+                      first time the two disagree a learner asks why. Said
+                      plainly, once, under the scale. */}
+                  <details className="mt-3 rounded-rb-tile border-2 border-rb-swan bg-rb-polar px-3 py-2 text-sm text-rb-eel">
+                    <summary className="cursor-pointer font-bold">How is this different from my correct answers?</summary>
+                    <div className="rb-caption mt-2 space-y-1.5">
+                      <p>
+                        Everyone starts at 50. Each answer moves the rating up or down, and how far depends on how
+                        surprising it was: a hard question answered right moves it up a lot, an easy question answered
+                        wrong moves it down a lot, and an expected result moves it only a little.
+                      </p>
+                      <p>
+                        So the rating measures the level of questions you can handle, not the share you got right.
+                        {correctCount === 0
+                          ? " Getting none right lowers it with every answer, but it settles near the bottom rather than at exactly 0 — the questions were already being chosen at your level."
+                          : ""}
+                        {" "}The tally beside it is the plain count.
+                      </p>
+                    </div>
+                  </details>
 
                 </div>
               ) : (
