@@ -247,3 +247,23 @@ async def test_a_researched_mock_exam_keeps_its_own_types(monkeypatch):
 
     assert "types ONLY: MCQ, PROGRAMMING" in sent["instructions"]
     assert "exactly 100 questions" in sent["instructions"]
+
+
+async def test_a_reworded_repeat_is_dropped_like_an_exact_one(recorder):
+    """The model rarely repeats verbatim: it adds a phrase, or a preamble.
+    Those are the twins that reached the bank; they must fall here, and be
+    made up for by a top-up round rather than leaving the paper short."""
+    stem = "Which phase of the PDCA cycle involves implementing a solution on a small scale to minimize risk?"
+    reworded = (
+        "Which phase of the PDCA cycle involves implementing a solution or improvement "
+        "strategy on a small scale to minimize risk?"
+    )
+    recorder(lambda n: [stem, reworded, f"fresh-{n}"])
+
+    batch = await invocation.invoke_question_agent(
+        "s", "c", "Generate exactly 3 questions.", count=3, existing_stems=[stem]
+    )
+
+    stems = [q.question for q in batch.questions]
+    assert stem not in stems and reworded not in stems
+    assert stems == ["fresh-1"]

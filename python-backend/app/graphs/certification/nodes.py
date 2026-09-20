@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -1421,6 +1422,40 @@ async def lesson_quiz_generate_node(state: CertificationState):
     return {"lesson_quizzes": [await _quiz_for(state, {**lesson, "name": name})]}
 
 
+#: certification_id -> (read at, stems). Mid-run flushes add to the database
+#: only what the state already lists, so a stale read costs nothing.
+_STORED_STEMS: dict[int, tuple[float, list[str]]] = {}
+_STORED_STEMS_TTL_SECONDS = 600
+
+
+def _stored_stems(state: CertificationState) -> list[str]:
+    """The stems already in the database for this certification."""
+    certification_id = state.get("certification_id")
+    if certification_id is None:
+        return []
+    cached = _STORED_STEMS.get(certification_id)
+    if cached and time.monotonic() - cached[0] < _STORED_STEMS_TTL_SECONDS:
+        return cached[1]
+    try:
+        from app.db.session import SessionLocal
+        from app.repositories import java_backend as repo
+
+        with SessionLocal() as session:
+            stems = [
+                row["question_text"]
+                for row in repo.list_certification_questions(session, certification_id)
+                if row.get("question_text")
+            ]
+    except Exception:
+        logger.warning(
+            "Could not read the stored questions of certification %s; generating "
+            "without them", certification_id, exc_info=True,
+        )
+        return []
+    _STORED_STEMS[certification_id] = (time.monotonic(), stems)
+    return stems
+
+
 def written_stems(state: CertificationState) -> list[str]:
     """Every question stem this run has produced so far.
 
@@ -1435,8 +1470,15 @@ def written_stems(state: CertificationState) -> list[str]:
     Deliberately the whole run rather than only the current scope: a question
     repeated between a lesson quiz and its major exam is the case this exists
     to catch, and those live in different parts of the state.
+
+    Also what the certification already has in the database. A second run
+    over an existing certification -- regenerating a bank, adding a quiz --
+    was the other source of twins: nothing in the state knew what the first
+    run had stored, so the model rewrote it. Read at most once every few
+    minutes per certification (a node sees a copy of the state, so it cannot
+    be kept there); a read that fails leaves the run to go on without it.
     """
-    stems: list[str] = []
+    stems: list[str] = list(_stored_stems(state))
 
     def collect(entries):
         for entry in entries or []:

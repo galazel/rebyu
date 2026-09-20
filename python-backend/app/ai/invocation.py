@@ -23,6 +23,7 @@ from typing import Any
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
+from app.domain.question_stem import KnownQuestions
 from app.agents.certification.diagram_reference_agent import (
     build_reference_prompt,
     get_diagram_reference_agent,
@@ -46,20 +47,6 @@ logger = logging.getLogger(__name__)
 #: distinct questions for a narrow scope, and an unbounded loop would spend the
 #: whole budget rediscovering that.
 _DEDUPE_TOPUP_ROUNDS = 2
-
-_PUNCTUATION = str.maketrans("", "", ".,;:!?'\"()[]{}-–—")
-
-
-def _stem_key(question: str) -> str:
-    """Normalised question text, for spotting a batch repeating itself.
-
-    Exact-match after normalisation only. Near-duplicate detection already
-    exists in `app.domain.validation.questions.find_duplicates`, which reports
-    rephrasings to the reviewing admin; doing fuzzy matching here as well would
-    silently discard questions a human might want to keep.
-    """
-    return " ".join(question.lower().translate(_PUNCTUATION).split())
-
 
 class MissingStructuredResponse(KeyError):
     """The agent finished without calling its structured-output tool.
@@ -337,17 +324,24 @@ def _avoid_clause(stems: list[str]) -> str:
     )
 
 
-def _take_new(result_questions, seen: set[str], into: list) -> int:
-    """Appends the questions whose stems are not already in `seen`."""
+def _take_new(result_questions, seen: KnownQuestions, into: list) -> int:
+    """Appends the questions that are not a copy of one already in `seen`."""
     fresh = 0
     for question in result_questions:
-        key = _stem_key(question.question)
-        if key in seen:
+        if seen.twin_of(question.question) is not None:
             continue
-        seen.add(key)
+        seen.add(question.question, len(into))
         into.append(question)
         fresh += 1
     return fresh
+
+
+def _known(stems: Iterable[str] | None) -> KnownQuestions:
+    known = KnownQuestions()
+    for index, stem in enumerate(stems or []):
+        if stem:
+            known.add(stem, -1 - index)
+    return known
 
 
 async def invoke_question_agent(
@@ -384,7 +378,6 @@ async def invoke_question_agent(
     most common call in a run -- was returned exactly as the model wrote it,
     internal repeats included.
     """
-    prior: set[str] = {_stem_key(s) for s in (existing_stems or []) if s}
     prior_list: list[str] = [s for s in (existing_stems or []) if s]
     size = get_settings().question_batch_size
 
@@ -394,7 +387,7 @@ async def invoke_question_agent(
             get_question_generation_agent,
             build_question_batch_prompt(scope, context, instructions + _avoid_clause(prior_list)),
         )
-        seen = set(prior)
+        seen = _known(prior_list)
         kept: list = []
         dropped = len(result.questions) - _take_new(result.questions, seen, kept)
         if dropped:
@@ -409,7 +402,7 @@ async def invoke_question_agent(
 
     batches = math.ceil(count / size)
     questions: list = []
-    seen: set[str] = set(prior)
+    seen = _known(prior_list)
     # Extra rounds to replace duplicates. A later batch cannot see the earlier
     # ones except through the "already written" list below, and the model still
     # repeats itself -- a live 30-question exam came back with 20 distinct

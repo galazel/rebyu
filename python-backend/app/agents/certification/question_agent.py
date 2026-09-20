@@ -48,6 +48,14 @@ Supported question types: MCQ, SHORT_ANSWER, DESCRIPTIVE, PROGRAMMING, DIAGRAM.
 
 Rules:
 - Respect the requested question count and per-type distribution exactly.
+- EVERY ITEM TESTS A DIFFERENT POINT. Never write the same question twice in
+  a batch, and never write it again with the wording changed -- a phrase
+  added, a preamble in front, a synonym swapped in, the same fact asked from
+  another angle. Two items that a learner who knows one answer can answer
+  both are one item. When the request lists questions already written, treat
+  them the same way: not one of them, and not a rewording of one of them.
+  If the material genuinely has nothing further to ask, return fewer items
+  rather than pad with repeats.
 - An MCQ normally has four choices with exactly one correct answer (set
   correct_choice_index to that choice's position). Up to nine are allowed, for
   the COMBINATION and TRACE items described below -- use more than four only
