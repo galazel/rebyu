@@ -1071,9 +1071,12 @@ public class AssessmentAttemptService {
             return null;
         }
         double theta = attempt.getThetaCurrent();
-        double rating = IrtModel.proficiencyRating(theta);
+        /* Whole numbers: the rating is read as "out of 100", and the tier is
+           taken from the number the learner sees, so 24.6 is "25, Developing"
+           rather than "25, Novice". */
+        double rating = Math.round(IrtModel.proficiencyRating(theta));
         return new ProficiencyDto(
-                BigDecimal.valueOf(rating).setScale(1, RoundingMode.HALF_UP),
+                BigDecimal.valueOf(rating).setScale(0, RoundingMode.HALF_UP),
                 IrtModel.proficiencyLabel(rating),
                 BigDecimal.valueOf(theta).setScale(2, RoundingMode.HALF_UP),
                 attempt.getThetaSe() == null ? null : BigDecimal.valueOf(attempt.getThetaSe()).setScale(2, RoundingMode.HALF_UP));
