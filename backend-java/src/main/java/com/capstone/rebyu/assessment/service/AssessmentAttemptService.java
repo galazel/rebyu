@@ -237,6 +237,14 @@ public class AssessmentAttemptService {
                     && byKey.get().getStatus() == AssessmentAttempt.Status.IN_PROGRESS) {
                 return buildStartResponse(byKey.get(), true);
             }
+            /* The key already names a finished attempt. It is unique per
+               attempt, so the new one cannot carry it: a retake from the same
+               tab used to fail on that constraint and surface as
+               "already exists. Choose a different name." A fresh key is minted
+               for the new attempt instead. */
+            if (byKey.isPresent()) {
+                idempotencyKey = null;
+            }
         }
 
         PhaseTimer timer = PhaseTimer.start("startAttempt exam=" + examId, log);

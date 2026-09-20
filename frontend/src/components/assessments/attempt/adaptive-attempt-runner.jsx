@@ -371,8 +371,8 @@ export function AdaptiveAttemptRunner({
         </div>
       ) : current ? (
         <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:py-10">
-            <div key={current.attemptQuestionId} className="rounded-rb-card border-2 border-rb-swan bg-rb-snow p-5 shadow-[var(--comic-shadow-sm)] sm:p-7">
+          <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:py-8">
+            <div key={current.attemptQuestionId} className="rounded-rb-card border-2 border-rb-swan bg-rb-snow p-6 shadow-[var(--comic-shadow-sm)] sm:p-10">
               <div className="mb-4 flex items-center gap-2">
                 <span className="rounded-full bg-rb-feather-wash px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-rb-feather-ink">
                   {typeLabel(current)}
@@ -384,7 +384,7 @@ export function AdaptiveAttemptRunner({
                 ) : null}
               </div>
 
-              <p className="whitespace-pre-wrap text-lg font-medium leading-8 text-rb-eel">{current.question}</p>
+              <p className="whitespace-pre-wrap text-xl font-medium leading-9 sm:text-2xl sm:leading-10 text-rb-eel">{current.question}</p>
               {current.questionImageKey ? (
                 <img
                   src={getFileViewUrl(current.questionImageKey)}
@@ -416,7 +416,7 @@ export function AdaptiveAttemptRunner({
                           aria-pressed={selected}
                           disabled={revealed || grading}
                           className={cn(
-                            "flex min-h-14 items-start gap-3 rounded-2xl border-2 p-3 text-left text-sm leading-6 transition",
+                            "flex min-h-16 items-start gap-3 rounded-2xl border-2 p-4 text-left text-base leading-7 transition",
                             !revealed && "active:translate-y-[2px]",
                             isRight
                               ? "border-rb-leaf bg-rb-leaf-wash text-rb-leaf-lip"
@@ -482,7 +482,7 @@ export function AdaptiveAttemptRunner({
                     placeholder="Type your answer"
                     autoComplete="off"
                     disabled={revealed || grading}
-                    className="h-12 text-base"
+                    className="h-14 text-lg"
                   />
                 )}
               </div>
