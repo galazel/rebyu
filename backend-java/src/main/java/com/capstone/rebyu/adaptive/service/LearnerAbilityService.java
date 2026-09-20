@@ -3,9 +3,7 @@ package com.capstone.rebyu.adaptive.service;
 import com.capstone.rebyu.adaptive.engine.AdaptiveSessionState;
 import com.capstone.rebyu.adaptive.engine.BktModel;
 import com.capstone.rebyu.adaptive.engine.IrtModel;
-import com.capstone.rebyu.adaptive.entity.LearnerAbility;
 import com.capstone.rebyu.adaptive.entity.LearnerSkillState;
-import com.capstone.rebyu.adaptive.repository.LearnerAbilityRepository;
 import com.capstone.rebyu.adaptive.repository.LearnerSkillStateRepository;
 import com.capstone.rebyu.bkt.dto.LearnerMasteryView;
 import com.capstone.rebyu.bkt.service.LearnerMasteryService;
@@ -33,10 +31,6 @@ import java.util.function.Function;
 @RequiredArgsConstructor
 public class LearnerAbilityService {
 
-    /** How many past responses it takes for the stored ability to outweigh the BKT-derived one. */
-    private static final double STORED_WEIGHT_HALF_LIFE = 8.0;
-
-    private final LearnerAbilityRepository abilityRepository;
     private final LearnerSkillStateRepository skillStateRepository;
     private final LearnerMasteryService masteryService;
     private final BktParameterProvider bktParameters;
@@ -98,26 +92,11 @@ public class LearnerAbilityService {
         /* Every attempt starts at the baseline. A head start from an earlier
            attempt or from BKT mastery made ratings incomparable between
            learners on the strength of very little evidence; the step rule
-           reaches the learner's level within a handful of items anyway. The
-           stored ability is kept for the record (see persistAbility), not
-           read here. */
+           reaches the learner's level within a handful of items anyway; the
+           attempt row keeps the theta it ended on. */
         double mu0 = IrtModel.THETA_BASELINE;
         double sigma0 = IrtModel.standardError(mu0, List.of());
         return new Seed(mu0, sigma0, pKnown, params);
-    }
-
-    /** Writes the session's ability estimate back, with how many responses it rests on. */
-    @Transactional
-    public void persistAbility(Long learnerId, Long certificationId, AdaptiveSessionState state, int responsesThisSession) {
-        String key = scopeKey(certificationId);
-        LearnerAbility ability = abilityRepository.findByLearnerIdAndScopeKey(learnerId, key)
-                .orElseGet(() -> LearnerAbility.builder()
-                        .learnerId(learnerId).scopeKey(key).responseCount(0).build());
-        ability.setTheta(state.getTheta());
-        ability.setStandardError(state.getSe());
-        ability.setResponseCount(Math.max(ability.getResponseCount(), 0) + Math.max(0, responsesThisSession));
-        ability.setUpdatedAt(LocalDateTime.now());
-        abilityRepository.save(ability);
     }
 
     /** Writes the per-lesson knowledge states back; called when the session ends. */

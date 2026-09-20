@@ -776,8 +776,6 @@ public class AdaptiveAttemptService {
        the attempt row carries the running theta meanwhile, and an abandoned
        attempt is not evidence the next session should start from anyway. */
     private void persistLearner(AssessmentAttempt attempt, AdaptiveSessionState state) {
-        Long certificationId = attempt.getExam().getCertification().getCertificationId();
-        abilities.persistAbility(attempt.getLearnerId(), certificationId, state, state.getResponses().size());
         abilities.persistSkillStates(attempt.getLearnerId(), state);
     }
 
