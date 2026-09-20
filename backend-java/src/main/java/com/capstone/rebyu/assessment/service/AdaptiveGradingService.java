@@ -1,5 +1,6 @@
 package com.capstone.rebyu.assessment.service;
 
+import com.capstone.rebyu.adaptive.engine.IrtModel;
 import com.capstone.rebyu.assessment.entity.AssessmentAttempt;
 import com.capstone.rebyu.assessment.entity.AssessmentAttemptAnswer;
 import com.capstone.rebyu.assessment.entity.AssessmentAttemptQuestion;
@@ -21,6 +22,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +58,7 @@ public class AdaptiveGradingService {
     private final AssessmentAttemptQuestionRepository attemptQuestionRepository;
     private final AssessmentAttemptAnswerRepository attemptAnswerRepository;
     private final QuestionRepository questionRepository;
+    private final com.capstone.rebyu.adaptive.config.AdaptiveProperties adaptiveProperties;
     private final LearnerRepository learnerRepository;
     private final NotificationService notifications;
     private final TransactionTemplate transactionTemplate;
@@ -70,8 +73,10 @@ public class AdaptiveGradingService {
             QuestionRepository questionRepository,
             LearnerRepository learnerRepository,
             NotificationService notifications,
+            com.capstone.rebyu.adaptive.config.AdaptiveProperties adaptiveProperties,
             PlatformTransactionManager transactionManager) {
         this.attempts = attempts;
+        this.adaptiveProperties = adaptiveProperties;
         this.attemptRepository = attemptRepository;
         this.attemptQuestionRepository = attemptQuestionRepository;
         this.attemptAnswerRepository = attemptAnswerRepository;
@@ -164,6 +169,9 @@ public class AdaptiveGradingService {
                 attempts.scoreAnswer(question, answer, batch, sources, subs);
                 attemptAnswerRepository.save(answer);
             }
+            if (attempt.isAdaptive()) {
+                moveAbility(attempt, questions, answersByQuestion, open.keySet(), sources);
+            }
         }
 
         attempts.applyTotals(attempt, questions, answersByQuestion);
@@ -174,6 +182,41 @@ public class AdaptiveGradingService {
                 attemptId, attempt.getPercentage(), open.size());
         return new Outcome(true, attempt.getLearnerId(), attempt.getExam().getTitle(),
                 attempt.getPercentage(), attempt.getPassed(), attemptId);
+    }
+
+    /**
+     * The final-round items are marked here, after submit, so their evidence
+     * reaches the ability estimate here too: the same step the main round
+     * took per answer, applied in paper order to the items that were still
+     * open, from the ability the main round ended on. The standard error is
+     * recomputed over every item on the paper.
+     */
+    private void moveAbility(AssessmentAttempt attempt, List<AssessmentAttemptQuestion> questions,
+                             Map<Long, AssessmentAttemptAnswer> answersByQuestion, Set<Long> justMarked,
+                             Map<Long, Question> sources) {
+        double theta = attempt.getThetaCurrent() == null ? IrtModel.THETA_BASELINE : attempt.getThetaCurrent();
+        List<IrtModel.Response> responses = new ArrayList<>();
+        Map<Long, Question> all = questionRepository.findForAttemptByIdIn(questions.stream()
+                        .map(AssessmentAttemptQuestion::getSourceQuestionId).filter(Objects::nonNull).distinct().toList())
+                .stream().collect(Collectors.toMap(Question::getQuestionId, q -> q, (a, b) -> a));
+        for (AssessmentAttemptQuestion question : questions) {
+            Question source = all.getOrDefault(question.getSourceQuestionId(), sources.get(question.getSourceQuestionId()));
+            AssessmentAttemptAnswer answer = answersByQuestion.get(question.getAttemptQuestionId());
+            if (source == null || answer == null || answer.isPendingManualEvaluation()) continue;
+            IrtModel.ItemParams params = IrtModel.defaultParams(source.getDifficultyLevel(),
+                    AssessmentAttemptService.isMultipleChoice(source.getQuestionType()),
+                    source.getChoices() == null ? 4 : source.getChoices().size());
+            boolean correct = attempts.countsAsCorrect(answer);
+            responses.add(new IrtModel.Response(params, correct));
+            if (justMarked.contains(question.getAttemptQuestionId())) {
+                question.setThetaBefore(theta);
+                theta = IrtModel.step(theta, params, correct, adaptiveProperties.getAbilityStep());
+                question.setThetaAfter(theta);
+                attemptQuestionRepository.save(question);
+            }
+        }
+        attempt.setThetaCurrent(theta);
+        attempt.setThetaSe(IrtModel.standardError(theta, responses));
     }
 
     private void tellLearner(Outcome outcome) {
