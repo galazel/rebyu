@@ -161,8 +161,9 @@ class _FakeAssessmentRepo:
     def list_certification_exams(self, session, certification_id):
         return list(self.exams)
 
-    def list_certification_question_texts(self, session, certification_id):
-        return [q["question_text"] for q in self.questions]
+    def list_certification_questions(self, session, certification_id):
+        return [{"question_id": i, "question_text": q["question_text"]}
+                for i, q in enumerate(self.questions, start=1)]
 
     def get_exam_type_id(self, session, exam_type_text):
         return 1
@@ -235,6 +236,33 @@ def test_persisting_the_same_run_twice_does_not_duplicate_anything(assessment_re
     assert [q["question_text"] for q in assessment_repo.questions] == [
         "What is A?", "Mock question?", "Bank question?"
     ]
+
+
+def test_a_reworded_copy_of_a_stored_question_is_not_stored_again(assessment_repo):
+    """Runs repeat, and a repeat rarely repeats verbatim: the same question
+    with a phrase slipped in, or a preamble in front, must link to the stored
+    row -- otherwise the bank holds twins and a paper can ask one twice."""
+    stem = "Which phase of the PDCA cycle involves implementing a solution on a small scale to minimize risk?"
+    persistence.persist_generated_assessments(_NullSession(), 1, {
+        "lessons": [], "lesson_quizzes": [], "mock_exam": {"questions": []},
+        "question_bank": [_mcq(stem)],
+    })
+    persistence.persist_generated_assessments(_NullSession(), 1, {
+        "lessons": [], "lesson_quizzes": [],
+        "mock_exam": {"questions": [_mcq(
+            "Which phase of the PDCA cycle involves implementing a solution or improvement "
+            "strategy on a small scale to minimize risk?")]},
+        "question_bank": [
+            _mcq("According to the provided context, " + stem[0].lower() + stem[1:]),
+            _mcq("Which phase of the PDCA cycle involves collecting data to check the results?"),
+        ],
+    })
+
+    assert [q["question_text"] for q in assessment_repo.questions] == [
+        stem,
+        "Which phase of the PDCA cycle involves collecting data to check the results?",
+    ]
+    assert [exam["title"] for exam in assessment_repo.exams] == ["Mock Exam"]
 
 
 def test_a_re_persist_of_stored_work_is_not_reported_as_a_total_loss(assessment_repo):

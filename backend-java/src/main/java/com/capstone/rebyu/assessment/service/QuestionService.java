@@ -104,9 +104,15 @@ public class QuestionService {
                 ownerGroup == null ? null : ownerGroup.getInstitutionGroupId());
         validateLesson(dto, restrictToInstitutionId);
         if (dto.getParentQuestionId() == null && dto.getQuestionText() != null) {
-            if (questionRepository.findDuplicate(dto.getLessonId(), dto.getQuestionText(), dto.getQuestionType()).isPresent()) {
-                throw new IllegalArgumentException("A question with this text already exists in this lesson");
-            }
+            // The same words, or the same words lightly edited: what the
+            // selector treats as one question, the bank must not hold twice.
+            questionRepository.findByParentQuestionIsNullAndLesson_LessonIdOrderByQuestionIdAsc(dto.getLessonId()).stream()
+                    .filter(existing -> QuestionStem.sameQuestion(existing.getQuestionText(), dto.getQuestionText()))
+                    .findFirst()
+                    .ifPresent(existing -> {
+                        throw new IllegalArgumentException("This lesson already asks this (question "
+                                + existing.getQuestionId() + "): " + existing.getQuestionText());
+                    });
         }
         Question entity = questionMapper.toEntity(dto);
         entity.setQuestionId(null);

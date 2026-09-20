@@ -25,6 +25,7 @@ from app.domain.persistence import (
     plan_question_rows,
     resolve_category_id,
 )
+from app.domain.question_stem import KnownQuestions
 from app.repositories import java_backend as repo
 
 logger = logging.getLogger(__name__)
@@ -170,20 +171,43 @@ def persist_questions(
     lesson_index: dict[str, int],
     *,
     fallback_lesson_id: int | None = None,
+    known: KnownQuestions | None = None,
 ) -> tuple[list[int], list[str]]:
     """Persists a set of questions, resolving each to a lesson first.
 
+    A question that is a copy of one already stored -- the same words, or the
+    same words with a small edit, a phrase added or a preamble in front --
+    is not written again: its stored twin's id is returned in its place, so
+    an exam that contained it still has it. Runs repeat, and a repeat rarely
+    repeats verbatim; without this the bank collected the same question under
+    several ids and a paper could ask it twice (see `question_stem`).
+
     Returns (question_ids, warnings). Warnings cover questions attributed to
-    a fallback lesson or skipped entirely -- never silent, because a
-    mis-attributed question degrades adaptive retake targeting.
+    a fallback lesson, skipped entirely, or folded into a stored twin -- never
+    silent, because a mis-attributed question degrades adaptive targeting.
     """
     plan = plan_question_rows(questions, lesson_index, fallback_lesson_id=fallback_lesson_id)
-    question_ids = [_persist_one_question(session, q) for q in plan.questions]
+    known = known if known is not None else KnownQuestions()
+    question_ids: list[int] = []
+    warnings = list(plan.warnings)
+    for question in plan.questions:
+        text = question.get("question", "")
+        twin = known.twin_of(text)
+        if twin is not None:
+            question_ids.append(twin)
+            warnings.append(
+                f"Question {twin} already asks this; the generated copy was not stored: "
+                f"'{str(text)[:80]}'"
+            )
+            continue
+        question_id = _persist_one_question(session, question)
+        known.add(text, question_id)
+        question_ids.append(question_id)
 
-    for warning in plan.warnings:
+    for warning in warnings:
         logger.warning("%s", warning)
 
-    return question_ids, plan.warnings
+    return question_ids, warnings
 
 
 def persist_exam(
@@ -200,6 +224,7 @@ def persist_exam(
     major_category_id: int | None = None,
     duration_minutes: int | None = None,
     passing_score: float | None = None,
+    known: KnownQuestions | None = None,
 ) -> tuple[int | None, list[str]]:
     """Persists one exam and the questions it contains.
 
@@ -216,10 +241,13 @@ def persist_exam(
         return None, [f"exam_type '{exam_type_text}' is not seeded; '{title}' was not saved."]
 
     question_ids, warnings = persist_questions(
-        session, questions, lesson_index, fallback_lesson_id=fallback_lesson_id
+        session, questions, lesson_index, fallback_lesson_id=fallback_lesson_id, known=known
     )
     if not question_ids:
         return None, warnings + [f"'{title}' produced no persistable questions."]
+    # A twin inside one generated paper: the paper listed it twice.
+    seen: set[int] = set()
+    question_ids = [q for q in question_ids if not (q in seen or seen.add(q))]
 
     exam_id = repo.insert_exam(
         session,
@@ -350,9 +378,11 @@ def persist_generated_assessments(
         (row.get("target_scope"), _title_key(row.get("title")))
         for row in repo.list_certification_exams(session, certification_id)
     }
-    existing_question_texts = {
-        _title_key(text) for text in repo.list_certification_question_texts(session, certification_id)
-    }
+    # Every question the certification already has, exam papers and bank
+    # alike, so a copy of any of them is linked rather than written again.
+    known = KnownQuestions()
+    for row in repo.list_certification_questions(session, certification_id):
+        known.add(row.get("question_text"), row["question_id"])
 
     def _already_stored(scope: str, title: str) -> bool:
         key = _title_key(title)
@@ -409,7 +439,8 @@ def persist_generated_assessments(
             return
         existing_exams.add((scope, _title_key(title)))
         _record(*persist_exam(
-            session, certification_id=certification_id, scope=scope, title=title, **kwargs
+            session, certification_id=certification_id, scope=scope, title=title,
+            known=known, **kwargs
         ))
 
     for quiz in result.get("lesson_quizzes") or []:
@@ -513,25 +544,23 @@ def persist_generated_assessments(
     # The bank is a pool for adaptive selection/practice, not a sittable
     # exam, so it becomes questions without an `exams` row.
     bank = result.get("question_bank") or []
-    # Anything already stored under this certification is dropped here rather
-    # than written again -- the bank has no exam row to key on, so its text is
-    # its identity.
-    fresh_bank = [
-        question
-        for question in bank
-        if _title_key(question.get("question")) not in existing_question_texts
-    ]
-    if len(fresh_bank) != len(bank):
-        logger.info(
-            "%d of %d bank question(s) are already stored for certification %s; skipping those",
-            len(bank) - len(fresh_bank), len(bank), certification_id,
-        )
+    # Anything already stored under this certification -- exactly or as a
+    # twin -- is linked rather than written again; the bank has no exam row
+    # to key on, so its text is its identity.
     bank_ids: list[int] = []
-    if fresh_bank:
+    bank_written = 0
+    if bank:
+        stored_before = len(known)
         bank_ids, bank_warnings = persist_questions(
-            session, fresh_bank, lesson_index, fallback_lesson_id=default_lesson_id
+            session, bank, lesson_index, fallback_lesson_id=default_lesson_id, known=known
         )
         warnings.extend(bank_warnings)
+        bank_written = len(known) - stored_before
+        if bank_written != len(bank):
+            logger.info(
+                "%d of %d bank question(s) are already stored for certification %s; skipping those",
+                len(bank) - bank_written, len(bank), certification_id,
+            )
 
     session.commit()
 
@@ -550,9 +579,9 @@ def persist_generated_assessments(
             + (1 if mock.get("questions") else 0)
             - len(skipped_exams),
         ),
-        # What this pass actually tried to write. Counting the whole bank here
-        # would report a re-persist of already-stored work as a total loss.
-        "bank_questions": len(fresh_bank),
+        # What this pass actually wrote. Counting the whole bank here would
+        # report a re-persist of already-stored work as a total loss.
+        "bank_questions": bank_written,
         "lessons": len(result.get("lessons") or []),
     }
 
@@ -560,13 +589,13 @@ def persist_generated_assessments(
         "Persisted %d/%d exam(s), %d/%d bank item(s), %d/%d lesson bod(y/ies) "
         "for certification %s",
         len(created), expected["exams"],
-        len(bank_ids), expected["bank_questions"],
+        bank_written, expected["bank_questions"],
         lessons_written, expected["lessons"],
         certification_id,
     )
     return {
         "exams": created,
-        "bank_questions": len(bank_ids),
+        "bank_questions": bank_written,
         "lessons_written": lessons_written,
         "expected": expected,
         "warnings": warnings,

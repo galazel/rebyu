@@ -298,15 +298,16 @@ def list_certification_exams(session: Session, certification_id: int) -> list[di
     return [dict(row) for row in rows]
 
 
-def list_certification_question_texts(session: Session, certification_id: int) -> list[str]:
-    """The text of every question hanging off this certification's lessons.
+def list_certification_questions(session: Session, certification_id: int) -> list[dict[str, Any]]:
+    """Id and text of every top-level question hanging off this
+    certification's lessons.
 
-    The question bank has no exam row to key on, so its only identity is what
-    the question says. Same purpose as `list_certification_exams`: keep a
-    re-persist additive.
+    A question's identity is what it says (the bank has no exam row to key
+    on), and a generated copy of one already stored is linked to the stored
+    row rather than written again -- which is why the id comes along.
     """
     rows = session.execute(
-        select(questions.c.question_text)
+        select(questions.c.question_id, questions.c.question_text)
         .select_from(
             questions.join(lessons, lessons.c.lesson_id == questions.c.lesson_id)
             .join(
@@ -319,8 +320,9 @@ def list_certification_question_texts(session: Session, certification_id: int) -
             )
         )
         .where(major_categories.c.certification_id == certification_id)
-    ).scalars().all()
-    return [row or "" for row in rows]
+        .where(questions.c.parent_question_id.is_(None))
+    ).all()
+    return [{"question_id": qid, "question_text": text or ""} for qid, text in rows]
 
 
 def get_exam_type_id(session: Session, exam_type_text: str) -> int | None:

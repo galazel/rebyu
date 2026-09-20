@@ -23,8 +23,9 @@ import java.util.Set;
  * question the learner was meant to be asked and silently was not. Word
  * overlap decides it, only above a length where one differing word cannot
  * carry the whole question, and only at an overlap where the pairs found are
- * edits of each other rather than questions sharing a topic. See the two
- * constants for what that excludes.
+ * edits of each other rather than questions sharing a topic; a stem that only
+ * has words added meets a lower bar, and a stem that adds or drops "not" never
+ * matches. See the constants for what each excludes.
  *
  * <p>Shared rather than duplicated: the adaptive retake selector and the recall
  * generator both have to agree on what "the same question" means, and two
@@ -53,6 +54,30 @@ public final class QuestionStem {
      * for" -- and nothing that merely shares a topic comes near it.
      */
     private static final double DUPLICATE_OVERLAP = 0.85;
+
+    /**
+     * The overlap that is enough when one stem is the other with words only
+     * added, none replaced.
+     *
+     * <p>Generation runs also save a question with a phrase slipped in --
+     * "a solution" beside "a solution or improvement strategy", or "according
+     * to the provided context, ..." in front of an otherwise identical stem.
+     * Every word of the shorter stem is still there, so nothing has been
+     * swapped for something else; that is what lets the bar sit lower here
+     * without "what does CRM stand for" and "what does ERP stand for" meeting
+     * it -- there a word was replaced, so neither contains the other. Set from
+     * the bank on 2026-09-20: at this value it found the added-phrase twins and
+     * nothing else.
+     */
+    private static final double INSERTION_OVERLAP = 0.75;
+
+    /**
+     * A stem with "not" in it asks the opposite of the same stem without --
+     * "which is NOT one of the three pillars" beside "which is one of the
+     * three pillars" share every other word and are different questions.
+     * Word overlap alone scored them as one; this keeps them apart.
+     */
+    private static final String NEGATION = "not";
 
     private QuestionStem() {
     }
@@ -91,6 +116,9 @@ public final class QuestionStem {
         if (tokensA.size() < MIN_TOKENS_FOR_FUZZY || tokensB.size() < MIN_TOKENS_FOR_FUZZY) {
             return false;
         }
+        if (tokensA.contains(NEGATION) != tokensB.contains(NEGATION)) {
+            return false;
+        }
         Set<String> shared = new LinkedHashSet<>(tokensA);
         shared.retainAll(tokensB);
         if (shared.isEmpty()) {
@@ -98,7 +126,12 @@ public final class QuestionStem {
         }
         Set<String> combined = new LinkedHashSet<>(tokensA);
         combined.addAll(tokensB);
-        return (double) shared.size() / combined.size() >= DUPLICATE_OVERLAP;
+        double overlap = (double) shared.size() / combined.size();
+        if (overlap >= DUPLICATE_OVERLAP) {
+            return true;
+        }
+        boolean insertionOnly = tokensA.containsAll(tokensB) || tokensB.containsAll(tokensA);
+        return insertionOnly && overlap >= INSERTION_OVERLAP;
     }
 
     /** The comparable stem for a question's text; empty string for null. */
