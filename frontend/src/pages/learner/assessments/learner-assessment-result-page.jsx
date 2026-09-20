@@ -187,6 +187,12 @@ export default function LearnerAssessmentResultPage() {
   })
 
   const result = resultQuery.data
+  /* Where both ways out lead -- the header arrow and "continue learning":
+     the lesson the learner was reading before the quiz, else the course. The
+     arrow used to go to the progress page, which is not where they came from. */
+  const backPath =
+    resumePath ??
+    (result?.certificationId != null ? `/learner/learning/${result.certificationId}` : "/learner/learning")
   const marking = Boolean(result?.gradingPending)
   const wasMarkingRef = useRef(false)
   useEffect(() => {
@@ -269,8 +275,8 @@ export default function LearnerAssessmentResultPage() {
     <div className="rebyu-ds min-h-dvh bg-rb-polar text-rb-eel">
       <header className="sticky top-0 z-40 border-b-2 border-rb-swan bg-rb-snow">
         <div className="mx-auto flex h-16 max-w-4xl items-center gap-3 px-4">
-          <BackButton asChild size="sm" label="Back to progress">
-            <Link to="/learner/progress" />
+          <BackButton asChild size="sm" label={resumePath ? "Back to the lesson" : "Back to the course"}>
+            <Link to={backPath} />
           </BackButton>
           <div className="min-w-0">
             <p className="rb-eyebrow">attempt result</p>
@@ -401,14 +407,7 @@ export default function LearnerAssessmentResultPage() {
               the certification, and only on the index when the attempt does not
               say which certification it belongs to. */}
           <TactileButton asChild>
-            <Link
-              to={
-                resumePath ??
-                (result.certificationId != null
-                  ? `/learner/learning/${result.certificationId}`
-                  : "/learner/learning")
-              }
-            >
+            <Link to={backPath}>
               continue learning
             </Link>
           </TactileButton>
