@@ -71,7 +71,6 @@ class LearnerLessonMasteryResponse(BaseModel):
     mastery_level: str
     attempt_count: int
     last_event_id: str | None
-    model_run_id: str | None
     last_updated: datetime
 
     model_config = {"from_attributes": True}
