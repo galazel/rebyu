@@ -23,8 +23,9 @@ import {
   Zap,
 } from "@/components/icons"
 import { createKnowledgeCheck } from "@/services/knowledgeCheckService.js"
-import { startAssessmentAttempt, submitAssessmentAttempt } from "@/services/assessmentService.js"
+import { answerAdaptiveItems, startAssessmentAttempt, submitAssessmentAttempt } from "@/services/assessmentService.js"
 import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
+import { playCorrectMark, playWrongMark } from "@/lib/sound.js"
 
 /**
  * The skim challenge: five quick questions from the lesson on screen, sprung
@@ -37,6 +38,14 @@ import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-
  * still run through the ordinary attempt engine -- the modal mints a real
  * check, starts an attempt, and submits it.
  *
+ * <p>The check is an adaptive attempt, the same engine as the lesson quiz:
+ * the server picks each item by the learner's ability from this lesson's
+ * bank, avoids what they have met, and re-estimates after every answer. The
+ * modal follows the same protocol the full-page runner does -- the key rides
+ * with each served item so the mark is instant, answers go to the server in
+ * the background, the next item is already held in reserve -- only smaller.
+ * A check minted the old way (a fixed paper with a separate key) still plays.
+ *
  * <h3>Why it does not close</h3>
  * The challenge is a gate: escape and outside-click are both suppressed, so
  * the lesson is unreadable until it is dealt with. The single exception is the
@@ -44,7 +53,7 @@ import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-
  * leaving the learner sealed behind a modal over a failed request would trap
  * them in the lesson with no way out.
  */
-export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, lessonNames, currentLessonOnly = true, attempt: preparedAttempt = null, answerKey = [], onDismiss }) {
+export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, lessonNames, currentLessonOnly = true, attempt: preparedAttempt = null, answerKey = [], onDismiss, onReadAgain }) {
   const queryClient = useQueryClient()
 
   const [phase, setPhase] = useState("intro")
@@ -60,6 +69,14 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
      and the second sits abandoned in the learner's history. */
   const mintingRef = useRef(false)
 
+  /* Adaptive protocol: items served so far by position, and the answers
+     still on their way to the server. One request in flight at a time,
+     carrying everything queued since the last one. */
+  const [served, setServed] = useState([])
+  const outboxRef = useRef([])
+  const inFlightRef = useRef(false)
+  const pendingRef = useRef(Promise.resolve())
+
   useEffect(() => {
     if (!open) {
       mintingRef.current = false
@@ -70,6 +87,10 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       setAnswers({})
       setRevealed(false)
       setResult(null)
+      setServed([])
+      outboxRef.current = []
+      inFlightRef.current = false
+      pendingRef.current = Promise.resolve()
       return
     }
     /* Opened with the attempt already started: the intro is a gate, not a
@@ -77,8 +98,48 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
     if (preparedAttempt) {
       mintingRef.current = true
       setAttempt(preparedAttempt)
+      setServed(orderedItems(preparedAttempt))
     }
   }, [open, preparedAttempt])
+
+  const adaptive = Boolean(attempt?.adaptive)
+
+  /* Sends everything queued to the server in one request; the items it
+     serves in return join the reserve. Failure ends the round -- the paper on
+     screen and on record have parted, and answering on is pointless. */
+  function pump() {
+    if (inFlightRef.current || outboxRef.current.length === 0 || !attempt) return
+    const batch = outboxRef.current.splice(0)
+    inFlightRef.current = true
+    const request = answerAdaptiveItems(
+      attempt.assessmentAttemptId, learnerId,
+      batch.map(({ question, answer }) => toDraftDto(question.attemptQuestionId, answer)),
+    )
+      .then((response) => {
+        const fresh = [response.next, ...(response.queued ?? [])].filter(Boolean)
+        if (fresh.length > 0) {
+          setServed((existing) => {
+            const byOrder = new Map(existing.map((item) => [item.displayOrder, item]))
+            for (const item of fresh) byOrder.set(item.displayOrder, item)
+            return [...byOrder.values()].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+          })
+        }
+      })
+      .catch((caught) => {
+        setError(caught)
+        setPhase("error")
+      })
+      .finally(() => {
+        inFlightRef.current = false
+        pump()
+      })
+    pendingRef.current = pendingRef.current.then(() => request.catch(() => null))
+  }
+
+  function record(question, answer) {
+    outboxRef.current.push({ question, answer })
+    pump()
+  }
 
   function start() {
     if (attempt) {
@@ -110,13 +171,19 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       })
   }
 
-  const questions = attempt?.questions ?? []
+  const questions = adaptive ? served : (attempt?.questions ?? [])
+  const total = adaptive ? (attempt?.adaptive?.total ?? itemCount ?? 5) : questions.length
   const current = questions[index]
   const currentAnswer = current ? answers[current.attemptQuestionId] : null
   const answered = isAnswered(current, currentAnswer)
-  const last = index === questions.length - 1
-  const currentKey = Array.isArray(answerKey) ? answerKey[index] : null
+  const last = index >= total - 1
+  /* The key comes with the item on an adaptive check; on a fixed paper it is
+     the separate list, by position. */
+  const currentKey = adaptive ? (current?.answerKey ?? null) : (Array.isArray(answerKey) ? answerKey[index] : null)
   const verdict = revealed ? localVerdict(current, currentAnswer, currentKey) : null
+  /* The next item is still on its way from the server (the learner is faster
+     than the round trip): the button waits rather than the whole modal. */
+  const awaitingNext = adaptive && revealed && !last && !questions[index + 1]
 
   function setAnswer(patch) {
     if (revealed) return
@@ -127,14 +194,50 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
   }
 
   async function next() {
-    if (!answered) return
+    if (!answered || awaitingNext) return
     if (!revealed && currentKey) {
       setRevealed(true)
+      const mark = localVerdict(current, currentAnswer, currentKey)
+      if (mark?.correct) playCorrectMark()
+      else if (mark) playWrongMark()
+      /* Marked here from the key; the server marks it too, in the background,
+         and picks the item after next from what it learned. */
+      if (adaptive) record(current, currentAnswer)
       return
     }
     if (!last) {
       setRevealed(false)
       setIndex(index + 1)
+      return
+    }
+    if (adaptive) {
+      /* Nothing more to send: every answer went as it was marked. Wait for the
+         last of them to land, then close the round. */
+      if (!revealed) record(current, currentAnswer)
+      setPhase("submitting")
+      const local = localResult(questions, answers, questions.map((question) => question.answerKey ?? null))
+      const before = await snapshotRewards(queryClient)
+      try {
+        await pendingRef.current
+        const submitted = await submitAssessmentAttempt(attempt.assessmentAttemptId, learnerId, [])
+        setResult(submitted)
+        setPhase("result")
+        await announceRewards({
+          queryClient,
+          before,
+          title: "Challenge complete",
+          fallback: "Nice work — keep reading at your own pace.",
+          silentXp: true,
+        })
+      } catch (caught) {
+        if (local) {
+          setResult(local)
+          setPhase("result")
+        } else {
+          setError(caught)
+          setPhase("error")
+        }
+      }
       return
     }
     const payload = questions
@@ -204,7 +307,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
             </AlertDialogFooter>
           </>
         ) : phase === "result" && result ? (
-          <ResultScreen result={result} onDone={() => onDismiss?.()} />
+          <ResultScreen result={result} onDone={() => onDismiss?.()} onReadAgain={onReadAgain ? () => { onDismiss?.(); onReadAgain() } : null} />
         ) : phase === "playing" || phase === "submitting" ? (
           <>
             <AlertDialogHeader className="items-start text-left sm:text-left">
@@ -214,17 +317,17 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
                   Skim challenge
                 </AlertDialogTitle>
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-rb-wolf">
-                  {index + 1} / {questions.length}
+                  {index + 1} / {total}
                 </span>
               </div>
-              <ProgressDots total={questions.length} current={index} answers={answers} questions={questions} />
+              <ProgressDots total={total} current={index} answers={answers} questions={questions} />
               <AlertDialogDescription className="sr-only">
-                Question {index + 1} of {questions.length}
+                Question {index + 1} of {total}
               </AlertDialogDescription>
             </AlertDialogHeader>
 
             {current ? (
-              <div key={current.attemptQuestionId} className="space-y-4">
+              <div key={current.attemptQuestionId} className={cn("space-y-4", verdict && !verdict.correct && "rb-wrong-shake")}>
                 <p className="text-base font-medium leading-7 text-rb-eel">{current.question}</p>
 
                 {isMultipleChoice(current) ? (
@@ -326,11 +429,16 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
               <span className="self-center text-xs text-rb-wolf">
                 {sources[0] ? `From: ${sources[0]}` : null}
               </span>
-              <Button onClick={next} disabled={!answered || phase === "submitting"} className="gap-2">
+              <Button onClick={next} disabled={!answered || phase === "submitting" || awaitingNext} className="gap-2">
                 {phase === "submitting" ? (
                   <>
                     <Loader2 className="size-4 animate-spin" aria-hidden="true" />
                     Checking
+                  </>
+                ) : awaitingNext ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                    Loading next
                   </>
                 ) : !revealed && currentKey ? (
                   "Check"
@@ -388,7 +496,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
   )
 }
 
-function ResultScreen({ result, onDone }) {
+function ResultScreen({ result, onDone, onReadAgain }) {
   const answers = result?.answers ?? []
   const correct = answers.filter((answer) => answer.isCorrect === true).length
   const pending = answers.filter((answer) => answer.pendingManualEvaluation).length
@@ -457,8 +565,18 @@ function ResultScreen({ result, onDone }) {
         })}
       </ol>
 
-      <AlertDialogFooter>
-        <Button onClick={onDone}>Back to the lesson</Button>
+      {/* Two ways out, and the score says which is the honest one: a round
+          that went badly is offered the lesson from the top; a round that
+          went well, the place they were at. Both are always there. */}
+      <AlertDialogFooter className="sm:justify-between">
+        {onReadAgain ? (
+          <Button variant={perfect || passed ? "outline" : "default"} onClick={onReadAgain}>
+            Read the lesson again
+          </Button>
+        ) : <span />}
+        <Button variant={perfect || passed ? "default" : "outline"} onClick={onDone}>
+          Continue reading
+        </Button>
       </AlertDialogFooter>
     </>
   )
@@ -528,6 +646,12 @@ function localVerdict(question, answer, key) {
   const given = norm(answer.learnerAnswer)
   const accepted = (key.acceptedAnswers ?? []).map(norm).filter(Boolean)
   return { correct: given.length > 0 && accepted.includes(given), expected: key.acceptedAnswers?.[0] ?? null }
+}
+
+/* The items an attempt was started with, in paper order: on an adaptive
+   check the first is the one being asked and the rest are held in reserve. */
+function orderedItems(attempt) {
+  return [...(attempt?.questions ?? [])].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
 }
 
 function isMultipleChoice(question) {

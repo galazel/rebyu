@@ -152,7 +152,8 @@ public class AdaptiveAttemptService {
 
         String examType = exam.getExamType().getExamTypeText();
         int target = policy.targetCount(examType);
-        int finalRound = Math.min(properties.getFinalRoundMax(), size.workspace());
+        int finalRound = AdaptivePolicy.allowsFinalRound(examType)
+                ? Math.min(properties.getFinalRoundMax(), size.workspace()) : 0;
         int mainTarget = Math.max(1, target - finalRound);
         /* A thin bank still runs, just shorter: repeats are what the tiers are
            for, but a paper of ten from a bank of four would be nothing but

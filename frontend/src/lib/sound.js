@@ -165,3 +165,60 @@ export function playFinalRoundBell() {
     /* A bell that did not ring. */
   }
 }
+
+/* Shared by the two marks below: the resume-then-play dance, once. */
+function withContext(play) {
+  if (!isSoundEnabled()) return
+  if (typeof document !== "undefined" && document.hidden) return
+  const ctx = getContext()
+  if (!ctx) return
+  try {
+    const resumed = ctx.state === "suspended" ? ctx.resume() : Promise.resolve()
+    resumed.then(() => play(ctx, ctx.currentTime)).catch(() => {})
+  } catch {
+    /* A sound that did not play. */
+  }
+}
+
+/**
+ * A right answer: two quick rising notes, a fifth apart, short and light.
+ * It is heard up to sixty times in one sitting, so it has to be over before
+ * it can be tiresome -- a quarter of a second, quiet, no ring.
+ */
+export function playCorrectMark() {
+  withContext((ctx, now) => {
+    playNote(ctx, 783.99, now, 0.16, 0.08)
+    playNote(ctx, 1174.66, now + 0.09, 0.22, 0.09)
+  })
+}
+
+/**
+ * A wrong answer: one low, soft note that falls a little. Not a buzzer --
+ * a learner who is wrong is not being told off, only told -- so it is a
+ * muted thud, shorter than the tick and lower than anything else here.
+ */
+export function playWrongMark() {
+  /* On a phone the wrong mark is felt as well as heard: one short buzz.
+     Desktop browsers have no motor and ignore this. */
+  try {
+    if (isSoundEnabled() && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      navigator.vibrate(90)
+    }
+  } catch {
+    /* No buzz. */
+  }
+  withContext((ctx, now) => {
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = "triangle"
+    osc.frequency.setValueAtTime(220, now)
+    osc.frequency.exponentialRampToValueAtTime(165, now + 0.22)
+    gain.gain.setValueAtTime(0.0001, now)
+    gain.gain.exponentialRampToValueAtTime(0.09, now + 0.015)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.26)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(now)
+    osc.stop(now + 0.3)
+  })
+}

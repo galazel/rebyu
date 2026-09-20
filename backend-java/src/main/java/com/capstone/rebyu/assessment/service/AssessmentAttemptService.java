@@ -193,7 +193,7 @@ public class AssessmentAttemptService {
         }
         String lockReason = resolveLockReason(exam, learnerId);
         String examType = exam.getExamType().getExamTypeText();
-        long questionCount = adaptivePolicy.isAdaptiveType(examType)
+        long questionCount = adaptivePolicy.isAdaptive(exam)
                 ? adaptivePolicy.targetCount(examType)
                 : examQuestionRepository.countByExam_ExamId(examId);
         return new LearnerAssessmentDto(
@@ -284,7 +284,7 @@ public class AssessmentAttemptService {
         /* Adaptive assessments have no paper to snapshot: the engine serves
            one question at a time from the scope's bank, choosing each from
            what the learner has answered so far. */
-        if (adaptivePolicy.isAdaptiveType(exam.getExamType().getExamTypeText())) {
+        if (adaptivePolicy.isAdaptive(exam)) {
             AssessmentAttempt attempt = adaptiveAttemptService.getObject()
                     .start(exam, learnerId, nextAttemptNumber, idempotencyKey);
             PhaseTimer.mark(timer, "adaptive start");

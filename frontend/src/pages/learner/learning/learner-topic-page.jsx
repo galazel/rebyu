@@ -1420,6 +1420,17 @@ export default function LearnerTopicPage() {
     enabled: Boolean(data?.learnerId),
   })
 
+  /* Development only: `?skim=1` springs the challenge on open, so it can be
+     worked on without fooling the pace guard by hand. Stripped from
+     production builds. */
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    if (new URLSearchParams(location.search).get("skim") === "1" && data?.learnerId && activeLessonId) {
+      knowledgeCheck.trigger()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search, data?.learnerId, activeLessonId])
+
   /* A rapid pass does not count as reading: the sections raced through are
      taken back, and the challenge fires. */
   const lessonFinished = activeLessonId ? isDone(activeLessonId) : false
@@ -1841,6 +1852,12 @@ export default function LearnerTopicPage() {
         attempt={knowledgeCheck.offer?.attempt ?? null}
         answerKey={knowledgeCheck.offer?.answerKey ?? []}
         onDismiss={knowledgeCheck.dismiss}
+        onReadAgain={() => {
+          /* The page's own scroll, not the learner's: muted for the guard so
+             the jump to the top is never read as a flick. */
+          paceGuard.pause?.(2000)
+          window.scrollTo({ top: 0, behavior: "smooth" })
+        }}
       />
     </div>
   )

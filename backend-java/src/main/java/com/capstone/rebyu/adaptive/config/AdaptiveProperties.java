@@ -27,7 +27,8 @@ public class AdaptiveProperties {
             "MIDDLE_EXAM", 20,
             "MAJOR_EXAM", 30,
             "MOCK_EXAM", 60,
-            "DIAGNOSTIC", 20));
+            "DIAGNOSTIC", 20,
+            "KNOWLEDGE_CHECK", 5));
 
     /** At most this many programming/diagram items, served last as the final round. */
     private int finalRoundMax = 2;

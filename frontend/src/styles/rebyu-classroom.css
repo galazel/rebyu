@@ -3585,3 +3585,19 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
 .dark .rb-code-sample .hljs-comment { color: #9aa79f; }
 .dark .rb-code-sample .hljs-title, .dark .rb-code-sample .hljs-section { color: #d9b3ff; }
 .dark .rb-code-sample .hljs-type { color: #7fd7b0; }
+
+/* A wrong answer shakes its head: the card jolts side to side once, like a
+   hand-held device buzzing. Short, and never on a learner who asked for
+   less motion. */
+@keyframes rb-wrong-shake {
+    10%, 90% { transform: translateX(-2px); }
+    20%, 80% { transform: translateX(4px); }
+    30%, 50%, 70% { transform: translateX(-6px); }
+    40%, 60% { transform: translateX(6px); }
+}
+.rb-wrong-shake {
+    animation: rb-wrong-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+@media (prefers-reduced-motion: reduce) {
+    .rb-wrong-shake { animation: none; }
+}

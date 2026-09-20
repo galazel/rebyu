@@ -38,9 +38,11 @@ public class QuestionBankSizeService {
                 exam.getMajorCategory() == null ? null : exam.getMajorCategory().getMajorCategoryId(),
                 exam.getMiddleCategory() == null ? null : exam.getMiddleCategory().getMiddleCategoryId(),
                 exam.getLesson() == null ? null : exam.getLesson().getLessonId());
+        boolean quickOnly = !AdaptivePolicy.allowsFinalRound(exam.getExamType().getExamTypeText());
         return views.stream()
                 .filter(q -> q.getOwnerGroupId() == null || Objects.equals(q.getOwnerGroupId(), ownerGroupId))
                 .filter(q -> AdaptivePolicy.isServable(q.getQuestionType()))
+                .filter(q -> !quickOnly || !AdaptivePolicy.isWorkspaceType(q.getQuestionType()))
                 .toList();
     }
 
@@ -52,9 +54,11 @@ public class QuestionBankSizeService {
     public BankSize measure(Exam exam, List<QuestionSelectionView> pool) {
         int workspace = (int) pool.stream().filter(q -> AdaptivePolicy.isWorkspaceType(q.getQuestionType())).count();
         int main = pool.size() - workspace;
-        int target = policy.targetCount(exam.getExamType().getExamTypeText());
+        String type = exam.getExamType().getExamTypeText();
+        int target = policy.targetCount(type);
         int required = (int) Math.ceil(target * properties.getMinBankMultiplier());
-        int requiredMain = Math.max(1, target - properties.getFinalRoundMax());
+        int finalRoundMax = AdaptivePolicy.allowsFinalRound(type) ? properties.getFinalRoundMax() : 0;
+        int requiredMain = Math.max(1, target - finalRoundMax);
         return new BankSize(pool.size(), main, workspace, required, requiredMain);
     }
 

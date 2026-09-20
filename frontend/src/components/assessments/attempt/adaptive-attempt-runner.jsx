@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { answerAdaptiveItems } from "@/services/assessmentService.js"
+import { playCorrectMark, playWrongMark } from "@/lib/sound.js"
 import { getFileViewUrl } from "@/services/fileService.js"
 import { cn } from "@/lib/utils"
 
@@ -192,6 +193,7 @@ export function AdaptiveAttemptRunner({
     if (local) {
       setVerdict(local)
       setPhase("REVEALED")
+      playMark(local.isCorrect)
       record(item, answerDraft).then((response) => {
         /* The server is the marker of record; if it disagrees, it wins. */
         if (response?.verdict && response.verdict.isCorrect !== local.isCorrect) setVerdict(response.verdict)
@@ -205,6 +207,7 @@ export function AdaptiveAttemptRunner({
       if (response.verdict) {
         setVerdict(response.verdict)
         setPhase("REVEALED")
+        playMark(response.verdict.isCorrect)
       } else {
         advance()
       }
@@ -554,6 +557,7 @@ function VerdictPanel({ verdict }) {
       role="status"
       className={cn(
         "mt-5 rounded-xl border-2 p-4 text-sm",
+        !correct && "rb-wrong-shake",
         correct ? "border-rb-leaf/50 bg-rb-leaf-wash" : partial ? "border-amber-400/60 bg-amber-50" : "border-rb-cardinal/45 bg-rb-cardinal-wash",
       )}
     >
@@ -613,6 +617,12 @@ function typeLabel(question) {
   if (type === "SHORT_ANSWER") return (question.subQuestions ?? []).length > 0 ? "Fill in the blanks" : "Short answer"
   if (type === "DESCRIPTIVE") return "Written answer"
   return type.replaceAll("_", " ").toLowerCase()
+}
+
+/* The mark, heard: right and wrong each have a short sound of their own. */
+function playMark(isCorrect) {
+  if (isCorrect) playCorrectMark()
+  else playWrongMark()
 }
 
 function isAnswered(question, draft, isMultipleChoice) {

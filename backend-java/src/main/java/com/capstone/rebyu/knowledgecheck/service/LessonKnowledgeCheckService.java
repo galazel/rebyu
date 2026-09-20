@@ -172,11 +172,14 @@ public class LessonKnowledgeCheckService {
             return CheckOffer.unavailable("not-enough-completed-lessons");
         }
 
-        // The skim challenge is a straight draw from the lesson's own bank:
-        // the learner is being asked about the page in front of them, not
-        // steered back to old mistakes.
+        /* The skim challenge is the lesson's own quiz in miniature: the exam
+           is scoped to the lesson and carries no paper, and the adaptive
+           engine serves it one item at a time, picked by ability from the
+           lesson's bank, seen items avoided, marked as answered -- exactly
+           as the lesson quiz is. The other check keeps its five, chosen
+           here mistakes-first. */
         List<Long> chosen = currentLessonOnly
-                ? randomFive(candidates)
+                ? List.of()
                 : selectQuestions(learnerId, candidates);
 
         Certification certification = certificationOf(trigger);
@@ -190,10 +193,11 @@ public class LessonKnowledgeCheckService {
         Exam exam = exams.save(Exam.builder()
                 .certification(certification)
                 .examType(examType)
-                .title("Knowledge check")
+                .title(currentLessonOnly ? "Skim challenge" : "Knowledge check")
                 .isGenerated(true)
                 .learner(Learner.builder().learnerId(learnerId).build())
-                .totalQuestions(chosen.size())
+                .lesson(currentLessonOnly ? trigger : null)
+                .totalQuestions(currentLessonOnly ? CHECK_SIZE : chosen.size())
                 .passingScore(new BigDecimal("60.00"))
                 .status(Exam.Status.PUBLISHED)
                 .targetScope(KNOWLEDGE_CHECK_TARGET_SCOPE)
@@ -215,12 +219,14 @@ public class LessonKnowledgeCheckService {
                     .build());
         }
 
+        int items = currentLessonOnly ? CHECK_SIZE : chosen.size();
         log.info("Knowledge check {} minted for learner {} on certification {} "
-                        + "({} items from {} completed lesson(s), triggered on lesson {})",
+                        + "({} items from {} lesson(s), triggered on lesson {}{})",
                 exam.getExamId(), learnerId, certification.getCertificationId(),
-                chosen.size(), candidates.lessonNames().size(), triggerLessonId);
+                items, candidates.lessonNames().size(), triggerLessonId,
+                currentLessonOnly ? ", adaptive" : "");
 
-        return CheckOffer.minted(exam.getExamId(), chosen.size(), candidates.lessonNames());
+        return CheckOffer.minted(exam.getExamId(), items, candidates.lessonNames());
     }
 
     /**
@@ -310,12 +316,6 @@ public class LessonKnowledgeCheckService {
                     explanation));
         }
         return key;
-    }
-
-    private static List<Long> randomFive(Candidates candidates) {
-        List<Long> pool = new ArrayList<>(new LinkedHashSet<>(candidates.questionIds()));
-        Collections.shuffle(pool, ThreadLocalRandom.current());
-        return List.copyOf(pool.subList(0, Math.min(CHECK_SIZE, pool.size())));
     }
 
     private boolean onCooldown(Long learnerId, boolean currentLessonOnly) {
