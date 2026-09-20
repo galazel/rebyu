@@ -397,9 +397,8 @@ export default function LearnerAssessmentResultPage() {
                     {proficiency.label} — proficiency {proficiencyRating.toFixed(0)} out of 100
                   </p>
                   <p className="rb-caption mt-1">
-                    Your rating comes from how hard the questions were that you could answer, not from how many you
-                    were asked. It moved with every answer, starting from 50.
-                    {marking ? " It is provisional while the last answers are marked." : ""}
+                    Your skill level based on the difficulty of the questions you answered correctly.
+                    {marking ? " It may still change while the last answers are marked." : ""}
                   </p>
                   <ProficiencyScale rating={proficiencyRating} />
 
@@ -412,13 +411,6 @@ export default function LearnerAssessmentResultPage() {
                     ) : null}
                     <span className="text-rb-wolf"> · {percentage.toFixed(0)}%</span>
                   </p>
-                  {passingScore != null ? (
-                    <p className="rb-caption mt-1">
-                      {result.passed
-                        ? `Cleared the ${passingScore.toFixed(0)}% pass mark on the real score.`
-                        : `${(passingScore - percentage).toFixed(0)}% short of the ${passingScore.toFixed(0)}% pass mark on the real score.`}
-                    </p>
-                  ) : null}
                 </div>
               ) : (
                 <div>
