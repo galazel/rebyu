@@ -327,7 +327,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
             </AlertDialogHeader>
 
             {current ? (
-              <div key={current.attemptQuestionId} className={cn("space-y-4", verdict && !verdict.correct && "rb-wrong-shake")}>
+              <div key={current.attemptQuestionId} className="space-y-4">
                 <p className="text-lg font-medium leading-8 text-rb-eel sm:text-xl sm:leading-9">{current.question}</p>
 
                 {isMultipleChoice(current) ? (

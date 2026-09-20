@@ -557,7 +557,6 @@ function VerdictPanel({ verdict }) {
       role="status"
       className={cn(
         "mt-5 rounded-xl border-2 p-4 text-sm",
-        !correct && "rb-wrong-shake",
         correct ? "border-rb-leaf/50 bg-rb-leaf-wash" : partial ? "border-amber-400/60 bg-amber-50" : "border-rb-cardinal/45 bg-rb-cardinal-wash",
       )}
     >

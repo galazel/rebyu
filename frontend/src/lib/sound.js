@@ -198,15 +198,6 @@ export function playCorrectMark() {
  * muted thud, shorter than the tick and lower than anything else here.
  */
 export function playWrongMark() {
-  /* On a phone the wrong mark is felt as well as heard: one short buzz.
-     Desktop browsers have no motor and ignore this. */
-  try {
-    if (isSoundEnabled() && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-      navigator.vibrate(90)
-    }
-  } catch {
-    /* No buzz. */
-  }
   withContext((ctx, now) => {
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
