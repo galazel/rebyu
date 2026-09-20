@@ -29,4 +29,4 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${SUPABASE_URL:https://nmjowdjsdlquhozlhpmx.supabase.co}/auth/v1
+          issuer-uri: ${SUPABASE_URL:https://wjenfjqggmjpvhmffanp.supabase.co}/auth/v1

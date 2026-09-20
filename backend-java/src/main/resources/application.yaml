@@ -123,7 +123,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${SUPABASE_URL:https://nmjowdjsdlquhozlhpmx.supabase.co}/auth/v1
+          issuer-uri: ${SUPABASE_URL:https://wjenfjqggmjpvhmffanp.supabase.co}/auth/v1
 
 app:
   response-cache:
@@ -132,7 +132,7 @@ app:
     failure-cooldown-seconds: ${RESPONSE_CACHE_FAILURE_COOLDOWN_SECONDS:30}
   # Sign-in. The secret key is only ever read here, on the backend.
   supabase:
-    url: ${SUPABASE_URL:https://nmjowdjsdlquhozlhpmx.supabase.co}
+    url: ${SUPABASE_URL:https://wjenfjqggmjpvhmffanp.supabase.co}
     secret-key: ${SUPABASE_SECRET_KEY:}
     # Where invitation links send people to create their password.
     site-url: ${SITE_URL:https://rebyu.online}

@@ -11,7 +11,7 @@ import { createClient } from "@supabase/supabase-js"
  * Defaults are written in so a build that was not given the VITE_ variables
  * still signs in, the same way the Cognito pool ids used to be.
  */
-const url = import.meta.env.VITE_SUPABASE_URL || "https://nmjowdjsdlquhozlhpmx.supabase.co"
+const url = import.meta.env.VITE_SUPABASE_URL || "https://wjenfjqggmjpvhmffanp.supabase.co"
 const publishableKey =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_FP4hDdkASdcNbz_M61wnuw_6oBDu_zo"
 
