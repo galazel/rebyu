@@ -89,8 +89,8 @@ them, and track progress. Partnership requests are reviewed by an admin.
 | Frontend | React 19, Vite 8, Tailwind, shadcn/ui, React Query, React Router |
 | Backend | Spring Boot 4, Java 21, Hibernate |
 | Adaptive service | FastAPI, SQLAlchemy, Celery, Redis, RabbitMQ |
-| Database | PostgreSQL 16 |
-| Vectors | Qdrant |
+| Database | PostgreSQL (Supabase) |
+| Vectors | Qdrant Cloud |
 | Auth | AWS Cognito |
 | Code execution | Judge0 |
 
@@ -98,7 +98,10 @@ them, and track progress. Partnership requests are reviewed by an admin.
 
 ## Running it
 
-Everything runs under Docker Compose:
+The application services and their brokers (RabbitMQ, Redis) run under Docker
+Compose. The database (Supabase Postgres) and the vector store (Qdrant Cloud)
+are hosted; their URLs and keys live in `backend-java/.env` and
+`python-backend/.env`, which Compose reads.
 
 ```bash
 docker compose up -d
@@ -110,8 +113,6 @@ docker compose up -d
 | Java API | http://localhost:8080 |
 | Adaptive service | http://localhost:8000 |
 | RabbitMQ console | http://localhost:15672 |
-| Qdrant | http://localhost:6333 |
-| Postgres | localhost:5432 |
 
 Rebuild a service after changing its source — the images are built, not
 mounted:
@@ -163,6 +164,6 @@ schema authority. Change the entity, not a migration.
 **Icons are generated.** `frontend/src/components/icons.tsx` is produced from a
 map; edit the map and run `npm run icons` rather than the file itself.
 
-**The database is remote.** Neon Postgres in ap-southeast-1 — the first request
+**The database is remote.** Supabase Postgres in ap-southeast-1 — the first request
 after an idle period pays a cold start of a few seconds. Batch reads across a
 list rather than issuing one query per row.

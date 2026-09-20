@@ -1,34 +1,7 @@
 services:
   # --- Infrastructure ---------------------------------------------------
-
-  postgres:
-    image: postgres:16-alpine
-    profiles: ["local"]
-    environment:
-      POSTGRES_DB: rebyu
-      POSTGRES_USER: rebyu
-      POSTGRES_PASSWORD: rebyu
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rebyu -d rebyu"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    networks:
-      - rebyu-net
-
-  qdrant:
-    image: qdrant/qdrant:latest
-    ports:
-      - "6333:6333"
-      - "6334:6334"
-    volumes:
-      - qdrant_data:/qdrant/storage
-    networks:
-      - rebyu-net
+  # Postgres is Supabase and vectors are Qdrant Cloud; both are reached over
+  # the internet with the URLs in the .env files, so neither runs here.
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
@@ -96,6 +69,8 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_DATABASE: 2
+      # The Compose frontend is on 3000, not Vite's dev port in the .env.
+      SITE_URL: http://localhost:3000
       # Cap the JVM. Left alone it sizes its heap from what the Docker VM
       # reports -- 2.81 GB here -- and settles around 1 GB resident, which on
       # this host is a third of everything Docker has for eight containers.
@@ -173,7 +148,6 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-      QDRANT_URL: http://qdrant:6333
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
     volumes:
@@ -195,13 +169,11 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      qdrant:
-        condition: service_started
     # Resolve DNS through public servers instead of the Docker Desktop host
     # resolver.
     #
     # On a user-defined network the container still uses Docker's embedded
-    # resolver (127.0.0.11), so service names -- redis, rabbitmq, qdrant --
+    # resolver (127.0.0.11), so service names -- redis, rabbitmq --
     # keep resolving; this only changes what that resolver forwards to.
     #
     # The default forwarder dropped lookups intermittently: the Neon host
@@ -228,7 +200,6 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-      QDRANT_URL: http://qdrant:6333
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
     volumes:
@@ -243,7 +214,7 @@ services:
     # resolver.
     #
     # On a user-defined network the container still uses Docker's embedded
-    # resolver (127.0.0.11), so service names -- redis, rabbitmq, qdrant --
+    # resolver (127.0.0.11), so service names -- redis, rabbitmq --
     # keep resolving; this only changes what that resolver forwards to.
     #
     # The default forwarder dropped lookups intermittently: the Neon host
@@ -275,7 +246,6 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-      QDRANT_URL: http://qdrant:6333
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
     volumes:
@@ -290,7 +260,7 @@ services:
     # resolver.
     #
     # On a user-defined network the container still uses Docker's embedded
-    # resolver (127.0.0.11), so service names -- redis, rabbitmq, qdrant --
+    # resolver (127.0.0.11), so service names -- redis, rabbitmq --
     # keep resolving; this only changes what that resolver forwards to.
     #
     # The default forwarder dropped lookups intermittently: the Neon host
@@ -309,26 +279,6 @@ services:
         - action: sync+restart
           path: ./python-backend
           target: /app
-
-  # One-shot: loads db-backup-2026-08-24/*.copy reference data (achievements,
-  # exam_types, user_types, etc.) once the backend has created the schema.
-  # Safe to re-run -- skips any table that already has rows.
-  db-seed:
-    image: postgres:16-alpine
-    profiles: ["local"]
-    entrypoint: ["sh", "/seed/seed.sh"]
-    environment:
-      DB_HOST: postgres
-      DB_DATABASE: rebyu
-      DB_USERNAME: rebyu
-      DB_PASSWORD: rebyu
-    volumes:
-      - ./db-backup-2026-08-24:/seed:ro
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - rebyu-net
 
   frontend:
     build:
@@ -355,8 +305,6 @@ services:
           path: ./frontend/package.json
 
 volumes:
-  postgres_data:
-  qdrant_data:
   rabbitmq_data:
   python_artifacts:
 
