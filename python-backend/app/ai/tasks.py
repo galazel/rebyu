@@ -124,7 +124,17 @@ DOCUMENT_AUDIT = "document_audit"
 #: Anthropic because of how the question agent builds its tool history.
 DIAGRAM = "diagram"
 
-TASKS = (LESSON, CURRICULUM, QUESTION, TUTOR, LESSON_AUDIT, DOCUMENT_AUDIT, DIAGRAM)
+#: Marking a learner's written or coded answer against a rubric.
+#:
+#: Its own task because it runs while a learner watches "Marking..." on the
+#: results page. It rode on TUTOR, whose model reasons before it answers --
+#: ten to twenty seconds an item, which is fine for a chat reply and not for
+#: a mark. A small instruction model returns the same percentage in two or
+#: three seconds; the judgement asked for here (does the answer meet these
+#: rubric points) does not need the thinking budget.
+GRADING = "grading"
+
+TASKS = (LESSON, CURRICULUM, QUESTION, TUTOR, LESSON_AUDIT, DOCUMENT_AUDIT, DIAGRAM, GRADING)
 
 #: Older call sites (and any caller that only knows the coarse distinction)
 #: pass the two names this module replaced. They resolve to the task that most

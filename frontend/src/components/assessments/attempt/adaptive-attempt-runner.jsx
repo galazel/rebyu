@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { answerAdaptiveItem } from "@/services/assessmentService.js"
+import { answerAdaptiveItems } from "@/services/assessmentService.js"
 import { getFileViewUrl } from "@/services/fileService.js"
 import { cn } from "@/lib/utils"
 
@@ -109,33 +109,62 @@ export function AdaptiveAttemptRunner({
   const answered = current ? isAnswered(current, draft, isMultipleChoice) : false
   const finalItem = current?.stage === "FINAL"
 
-  /* Records an answer on the server, after the previous one has been
-     recorded. Resolves to the server's response; the reserve item it
-     carries becomes the queued one. */
-  function record(item, answerDraft) {
-    const send = pendingRef.current.then(() =>
-      answerAdaptiveItem(attempt.assessmentAttemptId, learnerId, toDraftDto(item.attemptQuestionId, answerDraft ?? {})),
+  /* Answers waiting to go to the server. One request is in flight at a
+     time and takes everything queued while the previous one was out: a
+     learner who answers faster than a round trip costs one request per
+     burst, not one per answer, so the server's reserve of questions served
+     ahead is never drained by a backlog of single posts. */
+  const outboxRef = useRef([])
+  const inFlightRef = useRef(false)
+
+  function pump() {
+    if (inFlightRef.current || outboxRef.current.length === 0) return
+    const batch = outboxRef.current.splice(0)
+    inFlightRef.current = true
+    answerAdaptiveItems(
+      attempt.assessmentAttemptId, learnerId,
+      batch.map(({ item, answerDraft }) => toDraftDto(item.attemptQuestionId, answerDraft ?? {})),
     )
-    pendingRef.current = send.catch(() => null)
-    send
       .then((response) => {
         setProgress(response.progress)
+        const answeredIds = new Set(batch.map(({ item }) => item.attemptQuestionId))
         for (const served of [response.next, ...(response.queued ?? [])]) {
-          if (served && served.attemptQuestionId !== item.attemptQuestionId) {
+          if (served && !answeredIds.has(served.attemptQuestionId)) {
             reserveRef.current.set(served.displayOrder, served)
           }
         }
-        setQueued(reserveRef.current.get(item.displayOrder + 1) ?? null)
+        const last = batch[batch.length - 1].item
+        setQueued(reserveRef.current.get(last.displayOrder + 1) ?? null)
+        for (const entry of batch) {
+          entry.resolve({ ...response, verdict: response.verdicts?.[entry.item.attemptQuestionId] ?? null })
+        }
       })
       .catch((error) => {
-        /* The server did not take the answer, so the paper on screen and
+        /* The server did not take the answers, so the paper on screen and
            the paper on record have parted: stop here rather than let the
            learner answer questions that will never count. Reloading resumes
            from the server's own position. */
         failedRef.current = true
         setFailure(error?.response?.data?.message ?? "Could not record that answer. Please check your connection.")
         setPhase("FAILED")
+        for (const entry of batch) entry.reject(error)
       })
+      .finally(() => {
+        inFlightRef.current = false
+        pump()
+      })
+  }
+
+  /* Queues an answer for the server. Resolves to the server's response for
+     this item once its batch is back; the reserve items the batch carries
+     are kept by position. */
+  function record(item, answerDraft) {
+    const send = new Promise((resolve, reject) => {
+      outboxRef.current.push({ item, answerDraft, resolve, reject })
+    })
+    const drained = send.catch(() => null)
+    pendingRef.current = pendingRef.current.then(() => drained)
+    pump()
     return send
   }
 

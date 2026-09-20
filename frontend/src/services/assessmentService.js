@@ -180,6 +180,14 @@ export function answerAdaptiveItem(attemptId, learnerId, answer) {
   })
 }
 
+/** Every answer queued on the client, in order, in one request. */
+export function answerAdaptiveItems(attemptId, learnerId, answers) {
+  return base(`learner/assessment-attempts/${attemptId}/adaptive/answers`, {
+    method: "POST",
+    data: { learnerId, answers },
+  })
+}
+
 export function submitAssessmentAttempt(attemptId, learnerId, answers) {
   return base(`learner/assessment-attempts/${attemptId}/submit`, {
     method: "POST",

@@ -220,6 +220,14 @@ class Settings(BaseSettings):
     ai_tutor_max_tokens: int = 2000
     ai_tutor_temperature: float = 0.3
 
+    #: Marks written and coded answers while the learner waits on the results
+    #: page: a fast instruction model, no reasoning budget (see `tasks.GRADING`).
+    ai_grading_provider: str = "openrouter"
+    ai_grading_model: str = "openai/gpt-4.1-mini"
+    ai_grading_fallbacks: str = "google/gemini-2.5-flash-lite,google/gemini-2.5-flash"
+    ai_grading_max_tokens: int = 1500
+    ai_grading_temperature: float = 0.0
+
     #: Reads a full generated lesson and judges it against the curriculum. Small
     #: output, large input -- so this is sized by context, not by capability.
     ai_lesson_audit_provider: str = "openrouter"

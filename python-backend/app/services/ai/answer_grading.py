@@ -274,7 +274,7 @@ async def _invoke(build_agent, prompt: str) -> AnswerVerdict:
     return await ainvoke_with_fallback(
         build_agent,
         {"messages": [HumanMessage(content=prompt)]},
-        task=tasks.TUTOR,
+        task=tasks.GRADING,
     )
 
 

@@ -197,6 +197,15 @@ public class LearnerAssessmentController {
         return adaptiveAttemptService.answer(attemptId, me(jwt), request.answer());
     }
 
+    /** Every answer the client has queued, in order, in one request. */
+    @PostMapping("/assessment-attempts/{attemptId}/adaptive/answers")
+    public AdaptiveAnswersResponseDto answerAdaptiveAll(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long attemptId,
+            @Valid @RequestBody AdaptiveAnswersRequestDto request) {
+        return adaptiveAttemptService.answerAll(attemptId, me(jwt), request.answers());
+    }
+
     @PostMapping("/assessment-attempts/{attemptId}/submit")
     public AssessmentAttemptResultDto submitAttempt(
             @AuthenticationPrincipal Jwt jwt,

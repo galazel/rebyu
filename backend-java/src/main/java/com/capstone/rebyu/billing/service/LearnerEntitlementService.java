@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -170,12 +171,34 @@ public class LearnerEntitlementService {
         return getEffectiveEntitlements(learnerId, null).accessSource() != AccessSource.FREE;
     }
 
+    /*
+     * The feature set a gate last computed for a learner, kept briefly. The
+     * assessment gate asks this on every open and the answer costs three to
+     * six queries (subscription, plan, sponsoring institutions and their
+     * licences) -- on a database in another region, most of a second before
+     * the first question. Fifteen seconds is short enough that a subscription
+     * approved just now opens its features on the next open; the entitlement
+     * DTO the UI shows is not cached and stays exact.
+     */
+    private static final java.time.Duration GATE_CACHE_TTL = java.time.Duration.ofSeconds(15);
+    private record CachedFeatures(Set<String> features, java.time.Instant at) {
+    }
+    private final Map<String, CachedFeatures> gateCache = new java.util.concurrent.ConcurrentHashMap<>();
+
     @Transactional(readOnly = true)
     public boolean hasLearnerEntitlement(Long learnerId, String feature, Long certificationId) {
         if (FREE_FEATURES.contains(feature)) {
             return true;
         }
-        return getEffectiveEntitlements(learnerId, certificationId).features().contains(feature);
+        String key = learnerId + ":" + certificationId;
+        CachedFeatures cached = gateCache.get(key);
+        if (cached == null || cached.at().plus(GATE_CACHE_TTL).isBefore(java.time.Instant.now())) {
+            if (gateCache.size() > 10_000) gateCache.clear();
+            cached = new CachedFeatures(Set.copyOf(getEffectiveEntitlements(learnerId, certificationId).features()),
+                    java.time.Instant.now());
+            gateCache.put(key, cached);
+        }
+        return cached.features().contains(feature);
     }
 
     @Transactional(readOnly = true)

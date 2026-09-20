@@ -70,7 +70,7 @@ def get_answer_grading_agent(model: str | None = None):
     answer is a mark the learner does not get.
     """
     return create_agent(
-        model=get_llm(tasks.TUTOR, model),
+        model=get_llm(tasks.GRADING, model),
         system_prompt=GRADING_SYSTEM_PROMPT,
         response_format=ToolStrategy(AnswerVerdict),
     )

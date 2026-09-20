@@ -145,6 +145,26 @@ public final class LearnerAttemptDtos {
     ) {
     }
 
+    /** Several answers at once, in the order the learner gave them. */
+    public record AdaptiveAnswersRequestDto(
+            @NotNull Long learnerId,
+            @NotNull @jakarta.validation.constraints.Size(min = 1, max = 100) List<AttemptAnswerDraftDto> answers
+    ) {
+    }
+
+    public record AdaptiveAnswersResponseDto(
+            /** Verdict per attempt-question id; a final-round item has none. */
+            Map<Long, AdaptiveVerdictDto> verdicts,
+            AdaptiveProgressDto progress,
+            /** The item now being asked; null once the session is complete. */
+            LearnerAttemptQuestionDto next,
+            /** Items newly served behind `next`. */
+            List<LearnerAttemptQuestionDto> queued,
+            boolean enteringFinalRound,
+            boolean completed
+    ) {
+    }
+
     public record AdaptiveAnswerResponseDto(
             AdaptiveVerdictDto verdict,
             AdaptiveProgressDto progress,

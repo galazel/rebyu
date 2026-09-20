@@ -67,7 +67,14 @@ public class AdaptiveSessionState {
     private List<Long> queuedAttemptQuestionIds = new ArrayList<>();
 
     /** How many items are kept served ahead of the one being asked. */
-    public static final int RESERVE_DEPTH = 3;
+    public static final int RESERVE_DEPTH = 5;
+
+    /**
+     * How many are served ahead at the start, before the first answer tops
+     * the reserve up to RESERVE_DEPTH: each item served is an insert on the
+     * learner's clock, and the start is already the longest wait.
+     */
+    public static final int START_RESERVE = 3;
 
     public Long getQueuedAttemptQuestionId() {
         return queuedAttemptQuestionIds.isEmpty() ? null : queuedAttemptQuestionIds.get(0);
