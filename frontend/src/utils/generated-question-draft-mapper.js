@@ -43,7 +43,6 @@ function mapSubQuestions(draft) {
     return (draft.subQuestions ?? []).map((sub) => ({
         question: sub?.question ?? "",
         correctAnswer: sub?.expectedAnswer ?? sub?.correctAnswer ?? "",
-        points: sub?.points ?? null,
     }));
 }
 

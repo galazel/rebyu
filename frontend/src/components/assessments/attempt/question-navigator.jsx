@@ -11,6 +11,7 @@ export default function QuestionNavigator({
                                           }) {
   const list = Array.isArray(items) ? items : []
 
+  const weighted = list.some((item) => item.points != null)
   const totalPoints = list.reduce(
       (sum, item) =>
           sum + (item.points != null ? Number(item.points) : 0),
@@ -25,7 +26,7 @@ export default function QuestionNavigator({
           </h3>
 
           <span className="shrink-0 rounded-[var(--radius-rb-pill)] bg-rb-polar px-2.5 py-1 text-xs font-bold tabular-nums text-rb-wolf">
-          {totalPoints} pts
+          {weighted ? `${totalPoints} pts` : `${list.length} ${list.length === 1 ? "item" : "items"}`}
         </span>
         </div>
 

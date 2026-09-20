@@ -8,8 +8,6 @@ import com.capstone.rebyu.adaptive.engine.AdaptiveSessionState;
 import com.capstone.rebyu.adaptive.engine.BktModel;
 import com.capstone.rebyu.adaptive.engine.IrtModel;
 import com.capstone.rebyu.adaptive.engine.IrtModel.ItemParams;
-import com.capstone.rebyu.adaptive.entity.QuestionItemParameter;
-import com.capstone.rebyu.adaptive.repository.QuestionItemParameterRepository;
 import com.capstone.rebyu.adaptive.service.AdaptivePolicy;
 import com.capstone.rebyu.adaptive.service.LearnerAbilityService;
 import com.capstone.rebyu.adaptive.service.QuestionBankSizeService;
@@ -84,7 +82,6 @@ public class AdaptiveAttemptService {
     private final BktProperties bktProperties;
     private final QuestionBankSizeService bankSize;
     private final LearnerAbilityService abilities;
-    private final QuestionItemParameterRepository itemParameters;
     private final QuestionRepository questionRepository;
     private final ExamQuestionRepository examQuestionRepository;
     private final AssessmentAttemptRepository attemptRepository;
@@ -97,11 +94,10 @@ public class AdaptiveAttemptService {
      * item parameters -- cached for a few minutes. Building it is the widest
      * query in the session (a mock exam's scope is the whole certification),
      * and it is needed after every answer to pick the next item; the bank
-     * does not change between two answers, and a parameter nudged online is
-     * written back into the cached entry as it happens.
+     * does not change between two answers.
      */
     private record CachedPool(List<QuestionSelectionView> views, Map<Long, Candidate> candidates,
-                              Map<Long, QuestionItemParameter> parameters, java.time.Instant at) {
+                              java.time.Instant at) {
     }
 
     /*
@@ -214,13 +210,6 @@ public class AdaptiveAttemptService {
         state.setLastAttemptQuestionIds(lastAttemptIds);
         com.capstone.rebyu.common.PhaseTimer.mark(timer, "seed + exposure");
 
-        /* Per-assessment point overrides from the optional seed list, read once. */
-        Map<Long, BigDecimal> overrides = new LinkedHashMap<>();
-        for (ExamQuestion seedRow : examQuestionRepository.findByExam_ExamIdOrderByDisplayOrderAsc(exam.getExamId())) {
-            if (seedRow.getPoints() != null) overrides.put(seedRow.getQuestion().getQuestionId(), seedRow.getPoints());
-        }
-        state.setPointsOverride(overrides);
-
         LocalDateTime now = LocalDateTime.now();
         AssessmentAttempt attempt = AssessmentAttempt.builder()
                 .exam(exam)
@@ -269,12 +258,9 @@ public class AdaptiveAttemptService {
             return cached;
         }
         List<QuestionSelectionView> views = bankSize.pool(exam);
-        Map<Long, QuestionItemParameter> parameters = views.isEmpty() ? Map.of() : itemParameters
-                .findAllById(views.stream().map(QuestionSelectionView::getQuestionId).toList())
-                .stream().collect(Collectors.toMap(QuestionItemParameter::getQuestionId, x -> x));
         Map<Long, Candidate> candidates = new LinkedHashMap<>();
-        for (Candidate c : toCandidates(views, parameters)) candidates.put(c.questionId(), c);
-        CachedPool fresh = new CachedPool(views, candidates, new java.util.concurrent.ConcurrentHashMap<>(parameters), java.time.Instant.now());
+        for (Candidate c : toCandidates(views)) candidates.put(c.questionId(), c);
+        CachedPool fresh = new CachedPool(views, candidates, java.time.Instant.now());
         poolCache.put(exam.getExamId(), fresh);
         return fresh;
     }
@@ -408,7 +394,6 @@ public class AdaptiveAttemptService {
             finish(attempt, state);
         }
         saveState(attempt, state);
-        flushLearnedParametersAfterCommit(attempt.getExam());
         com.capstone.rebyu.common.PhaseTimer.mark(timer, "serve reserve + state");
         com.capstone.rebyu.common.PhaseTimer.finish(timer);
         return new AdaptiveAnswersResponseDto(verdicts, progressOf(attempt, state), next, reserve, enteringFinal, state.done());
@@ -469,41 +454,35 @@ public class AdaptiveAttemptService {
         Question source = loadQuestion(item.getSourceQuestionId());
         if (source == null) {
             answer.setIsCorrect(false);
-            answer.setEarnedPoints(BigDecimal.ZERO);
+            answer.setCredit(BigDecimal.ZERO);
             answer.setPendingManualEvaluation(false);
             attemptAnswerRepository.save(answer);
-            return new AdaptiveVerdictDto(false, BigDecimal.ZERO, item.getPoints(), null, null, null, null,
+            return new AdaptiveVerdictDto(false, BigDecimal.ZERO, null, null, null, null,
                     "This question is no longer available and was not counted against you.", List.of());
         }
         Map<Long, Question> sources = Map.of(source.getQuestionId(), source);
         Map<Long, List<Question>> subs = contextOf(List.of(source)).subQuestionsByParentId();
-        BigDecimal points = item.getPoints() == null ? BigDecimal.ONE : item.getPoints();
-
         GradingBatch batch = attempts.prepareGradingBatch(
                 List.of(item), Map.of(item.getAttemptQuestionId(), answer), sources, subs);
-        attempts.scoreAnswer(item, answer, points, batch, sources, subs);
+        attempts.scoreAnswer(item, answer, batch, sources, subs);
         attemptAnswerRepository.save(answer);
 
         /* The engine's view of the response: right or wrong. Partial credit
            counts as right above the same threshold the mastery service uses. */
-        boolean correct = Boolean.TRUE.equals(answer.getIsCorrect());
-        if (!correct && answer.getEarnedPoints() != null && points.signum() > 0) {
-            correct = answer.getEarnedPoints().doubleValue() / points.doubleValue()
-                    >= bktProperties.getPartialCreditCorrectThreshold();
-        }
+        boolean correct = attempts.countsAsCorrect(answer);
 
         // --- IRT: ability -------------------------------------------------
         ItemParams params = itemParamsOf(attempt.getExam(), source);
-        double thetaBefore = state.getTheta();
         state.getResponses().add(new AdaptiveSessionState.ResponseRecord(
                 source.getQuestionId(), item.getLessonId(), params, correct));
-        IrtModel.Estimate estimate = IrtModel.estimateEap(state.getMu0(), state.getSigma0(), state.irtResponses());
-        state.setTheta(estimate.theta());
-        state.setSe(estimate.standardError());
-        item.setThetaAfter(estimate.theta());
+        double theta = IrtModel.step(state.getTheta(), params, correct, properties.getAbilityStep());
+        double se = IrtModel.standardError(theta, state.irtResponses());
+        state.setTheta(theta);
+        state.setSe(se);
+        item.setThetaAfter(theta);
         attemptQuestionRepository.save(item);
-        attempt.setThetaCurrent(estimate.theta());
-        attempt.setThetaSe(estimate.standardError());
+        attempt.setThetaCurrent(theta);
+        attempt.setThetaSe(se);
 
         // --- BKT: knowledge of this lesson --------------------------------
         Long lessonId = item.getLessonId();
@@ -511,15 +490,6 @@ public class AdaptiveAttemptService {
             BktModel.Params bkt = state.getParamsByLesson().getOrDefault(lessonId, defaultBkt());
             double p = state.getPKnownByLesson().getOrDefault(lessonId, bkt.prior());
             state.getPKnownByLesson().put(lessonId, BktModel.update(p, correct, bkt));
-        }
-
-        // --- The item learns too ------------------------------------------
-        ItemParams learned = learnItem(attempt.getExam(), source, params, thetaBefore, correct);
-        CachedPool pool = poolCache.get(attempt.getExam().getExamId());
-        Candidate old = pool == null ? null : pool.candidates().get(source.getQuestionId());
-        if (old != null) {
-            pool.candidates().put(source.getQuestionId(), new Candidate(old.questionId(), old.lessonId(),
-                    old.questionType(), old.questionText(), learned, old.workspace()));
         }
 
         return verdictOf(attempt, item, answer, source, subs);
@@ -604,7 +574,7 @@ public class AdaptiveAttemptService {
         List<com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.SubQuestionAnswerReviewDto> subReviews =
                 source == null ? List.of() : attempts.buildSubQuestionAnswerReviews(source, answer, subs);
         return new AdaptiveVerdictDto(
-                answer.getIsCorrect(), answer.getEarnedPoints(), item.getPoints(),
+                answer.getIsCorrect(), answer.getCredit(),
                 correctChoiceId, correctChoiceText, acceptedAnswer, explanation, answer.getFeedback(), subReviews);
     }
 
@@ -662,7 +632,6 @@ public class AdaptiveAttemptService {
         for (Pick pick : picks) {
             Question question = questions.get(pick.candidate().questionId());
             if (question == null) continue;
-            BigDecimal points = state.getPointsOverride().getOrDefault(question.getQuestionId(), question.getTotalPoints());
             AssessmentAttemptQuestion item = AssessmentAttemptQuestion.builder()
                     .attempt(attempt)
                     .sourceQuestionId(question.getQuestionId())
@@ -670,7 +639,7 @@ public class AdaptiveAttemptService {
                     .questionTextSnapshot(question.getQuestionText())
                     .questionDataSnapshot(attempts.buildLearnerSafeSnapshot(question, context))
                     .displayOrder(pick.position())
-                    .points(points)
+                    .points(null)
                     .lessonId(question.getLesson().getLessonId())
                     .thetaBefore(state.getTheta())
                     .itemInformation(pick.selection().reason().information())
@@ -747,15 +716,12 @@ public class AdaptiveAttemptService {
         return dto;
     }
 
-    private List<Candidate> toCandidates(List<QuestionSelectionView> views, Map<Long, QuestionItemParameter> known) {
+    private List<Candidate> toCandidates(List<QuestionSelectionView> views) {
         if (views.isEmpty()) return List.of();
         List<Candidate> out = new ArrayList<>(views.size());
         for (QuestionSelectionView view : views) {
-            QuestionItemParameter stored = known.get(view.getQuestionId());
-            ItemParams params = stored != null
-                    ? new ItemParams(stored.getDiscrimination(), stored.getDifficulty(), stored.getGuessing())
-                    : IrtModel.defaultParams(view.getDifficultyLevel(),
-                            AdaptivePolicy.isMultipleChoice(view.getQuestionType()), 4);
+            ItemParams params = IrtModel.defaultParams(view.getDifficultyLevel(),
+                    AdaptivePolicy.isMultipleChoice(view.getQuestionType()), 4);
             out.add(new Candidate(view.getQuestionId(), view.getLessonId(), view.getQuestionType(),
                     view.getQuestionText(), params, AdaptivePolicy.isWorkspaceType(view.getQuestionType())));
         }
@@ -763,94 +729,16 @@ public class AdaptiveAttemptService {
     }
 
     // ------------------------------------------------------------------
-    // Item parameters
+    // Item parameters: from the authored difficulty level alone
     // ------------------------------------------------------------------
 
     private ItemParams itemParamsOf(Exam exam, Question source) {
         Candidate cached = cachedPool(exam).candidates().get(source.getQuestionId());
         if (cached != null) return cached.params();
-        return itemParameters.findById(source.getQuestionId())
-                .map(p -> new ItemParams(p.getDiscrimination(), p.getDifficulty(), p.getGuessing()))
-                .orElseGet(() -> IrtModel.defaultParams(source.getDifficultyLevel(),
-                        AdaptivePolicy.isMultipleChoice(source.getQuestionType()),
-                        source.getChoices() == null ? 4 : source.getChoices().size()));
+        return IrtModel.defaultParams(source.getDifficultyLevel(),
+                AdaptivePolicy.isMultipleChoice(source.getQuestionType()),
+                source.getChoices() == null ? 4 : source.getChoices().size());
     }
-
-    /** Online learning of the item's difficulty from this one response. */
-    private ItemParams learnItem(Exam exam, Question source, ItemParams before, double thetaBefore, boolean correct) {
-        CachedPool pool = cachedPool(exam);
-        QuestionItemParameter row = pool.parameters().get(source.getQuestionId());
-        boolean isNew = row == null;
-        if (isNew) {
-            row = QuestionItemParameter.builder()
-                    .questionId(source.getQuestionId())
-                    .discrimination(before.a()).difficulty(before.b()).guessing(before.c())
-                    .responseCount(0).source(QuestionItemParameter.SOURCE_ONLINE).build();
-        }
-        boolean calibrated = QuestionItemParameter.SOURCE_CALIBRATED.equals(row.getSource());
-        double k0 = calibrated ? properties.getCalibratedKDifficulty() : properties.getOnlineKDifficulty();
-        double k = k0 / (1.0 + row.getResponseCount() / 20.0);
-        ItemParams after = IrtModel.updateDifficulty(before, thetaBefore, correct, k);
-        row.setDifficulty(after.b());
-        row.setResponseCount(row.getResponseCount() + 1);
-        row.setUpdatedAt(LocalDateTime.now());
-        /* The pool's copy is what selection reads; the row is written after
-           the answer has been acknowledged (see flushLearnedParametersAfterCommit),
-           since a difficulty nudge of a few hundredths is not worth a round
-           trip on the learner's clock. */
-        pool.parameters().put(source.getQuestionId(), row);
-        dirtyParameters.add(source.getQuestionId());
-        return after;
-    }
-
-    /** Item parameters nudged since the last write. */
-    private final Set<Long> dirtyParameters = java.util.concurrent.ConcurrentHashMap.newKeySet();
-
-    /**
-     * Writes every nudged item parameter once the answer's transaction has
-     * committed, off the request thread. One statement per row either way --
-     * an upsert for a row never written, a column update for one that exists.
-     */
-    private void flushLearnedParametersAfterCommit(Exam exam) {
-        if (dirtyParameters.isEmpty()) return;
-        CachedPool pool = poolCache.get(exam.getExamId());
-        if (pool == null) return;
-        List<QuestionItemParameter> rows = new ArrayList<>();
-        for (Long id : new ArrayList<>(dirtyParameters)) {
-            QuestionItemParameter row = pool.parameters().get(id);
-            if (row != null && dirtyParameters.remove(id)) rows.add(row);
-        }
-        if (rows.isEmpty()) return;
-        Runnable write = () -> {
-            for (QuestionItemParameter row : rows) {
-                try {
-                    itemParameters.upsert(row.getQuestionId(), row.getDiscrimination(), row.getDifficulty(), row.getGuessing(),
-                            row.getResponseCount(), row.getSource(), row.getUpdatedAt());
-                } catch (Exception e) {
-                    dirtyParameters.add(row.getQuestionId());
-                    log.warn("Item parameter of question {} not written; will retry with the next answer: {}",
-                            row.getQuestionId(), e.getMessage());
-                }
-            }
-        };
-        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
-            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-                    new org.springframework.transaction.support.TransactionSynchronization() {
-                        @Override
-                        public void afterCommit() {
-                            parameterWriter.execute(write);
-                        }
-                    });
-        } else {
-            parameterWriter.execute(write);
-        }
-    }
-
-    private final java.util.concurrent.ExecutorService parameterWriter = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "adaptive-item-params");
-        t.setDaemon(true);
-        return t;
-    });
 
     private BktModel.Params defaultBkt() {
         return new BktModel.Params(properties.getDefaultPrior(), properties.getDefaultLearn(),

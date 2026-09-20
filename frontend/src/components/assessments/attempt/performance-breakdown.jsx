@@ -47,7 +47,7 @@ export default function PerformanceBreakdown({ lessonBreakdown }) {
                   {lesson.lessonTitle}
                 </span>
                 <span className="rb-numeric shrink-0 text-xs text-rb-wolf">
-                  {Number(lesson.earnedPoints)}/{Number(lesson.possiblePoints)} ·{" "}
+                  {Number(lesson.correctCount ?? 0)}/{Number(lesson.itemCount ?? 0)} right ·{" "}
                   {pct.toFixed(0)}%{pending ? " · pending" : ""}
                 </span>
               </div>

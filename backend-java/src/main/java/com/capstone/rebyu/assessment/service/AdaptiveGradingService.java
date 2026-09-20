@@ -161,8 +161,7 @@ public class AdaptiveGradingService {
             for (AssessmentAttemptQuestion question : questions) {
                 AssessmentAttemptAnswer answer = open.get(question.getAttemptQuestionId());
                 if (answer == null) continue;
-                BigDecimal points = question.getPoints() == null ? BigDecimal.ONE : question.getPoints();
-                attempts.scoreAnswer(question, answer, points, batch, sources, subs);
+                attempts.scoreAnswer(question, answer, batch, sources, subs);
                 attemptAnswerRepository.save(answer);
             }
         }

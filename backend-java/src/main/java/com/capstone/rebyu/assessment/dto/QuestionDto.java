@@ -54,7 +54,6 @@ public class QuestionDto {
     private Long certificationId;
 
     @Positive
-    private BigDecimal totalPoints;
 
     private List<ChoiceDto> choices;
 

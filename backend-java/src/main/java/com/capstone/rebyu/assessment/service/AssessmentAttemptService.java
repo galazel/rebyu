@@ -7,12 +7,14 @@ import com.capstone.rebyu.aigateway.dto.AnswerGradingResultDto;
 import com.capstone.rebyu.aigateway.dto.AnswerGradingResultDto.SubAnswerGradeDto;
 import com.capstone.rebyu.aigateway.service.AiAnswerGradingService;
 import com.capstone.rebyu.assessment.dto.attempt.DiagramAttemptDtos.*;
+import com.capstone.rebyu.adaptive.engine.IrtModel;
 import com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.*;
 import com.capstone.rebyu.assessment.dto.attempt.ProgrammingAttemptDtos.*;
 import com.capstone.rebyu.assessment.entity.*;
 import com.capstone.rebyu.assessment.repository.*;
 import com.capstone.rebyu.billing.entitlement.Entitlements;
 import com.capstone.rebyu.billing.service.LearnerEntitlementService;
+import com.capstone.rebyu.bkt.config.BktProperties;
 import com.capstone.rebyu.bkt.service.BktOutboxService;
 import com.capstone.rebyu.gamification.RewardService;
 import com.capstone.rebyu.gamification.service.StreakService;
@@ -82,6 +84,7 @@ public class AssessmentAttemptService {
     private static final Set<String> CAPPED_ARENAS = Set.of("codestrike", "blueprint");
 
     private final ExamRepository examRepository;
+    private final BktProperties bktProperties;
     private final ExamQuestionRepository examQuestionRepository;
     private final QuestionRepository questionRepository;
     private final TextQuestionConfigRepository textQuestionConfigRepository;
@@ -319,6 +322,9 @@ public class AssessmentAttemptService {
            ExamQuestion's lazy question -- Question owns three EAGER inverse-side
            one-to-ones, so walking the proxies costs three round trips per
            question. */
+        /* An institution paper weights its questions; an official one does
+           not. The weight is snapshotted onto the attempt so a later edit of
+           the paper cannot rescore an attempt already sat. */
         Map<Long, BigDecimal> pointOverrideByQuestionId = new HashMap<>();
         for (ExamQuestion examQuestion : examQuestions) {
             if (examQuestion.getPoints() != null) {
@@ -378,13 +384,6 @@ public class AssessmentAttemptService {
 
         int order = 1;
         for (Question question : questionsToUse) {
-            // Snapshot the per-assessment point value so this attempt scores by
-            // what the question is worth in THIS exam; fall back to the
-            // question's own total when no override was set (always the case
-            // for a question the adaptive retake pulled in from outside the
-            // exam's original authored list).
-            BigDecimal points = pointOverrideByQuestionId.getOrDefault(
-                    question.getQuestionId(), question.getTotalPoints());
             attemptQuestionRepository.save(AssessmentAttemptQuestion.builder()
                     .attempt(attempt)
                     .sourceQuestionId(question.getQuestionId())
@@ -392,7 +391,7 @@ public class AssessmentAttemptService {
                     .questionTextSnapshot(question.getQuestionText())
                     .questionDataSnapshot(buildLearnerSafeSnapshot(question, snapshotContext))
                     .displayOrder(order++)
-                    .points(points)
+                    .points(pointOverrideByQuestionId.get(question.getQuestionId()))
                     .lessonId(question.getLesson().getLessonId())
                     .build());
         }
@@ -596,7 +595,6 @@ public class AssessmentAttemptService {
 
         int leftPending = 0;
         for (AssessmentAttemptQuestion attemptQuestion : questions) {
-            BigDecimal points = attemptQuestion.getPoints() == null ? BigDecimal.ONE : attemptQuestion.getPoints();
             AssessmentAttemptAnswer answer = answersByQuestion.get(attemptQuestion.getAttemptQuestionId());
             if (answer == null) {
                 continue;
@@ -607,12 +605,12 @@ public class AssessmentAttemptService {
             if (deferSlowGrading && hasSubmittedContent(answer)) {
                 answer.setPendingManualEvaluation(true);
                 answer.setIsCorrect(null);
-                answer.setEarnedPoints(null);
+                answer.setCredit(null);
                 attemptAnswerRepository.save(answer);
                 leftPending++;
                 continue;
             }
-            scoreAnswer(attemptQuestion, answer, points, gradingBatch, sourceQuestions, subQuestionsByParentId);
+            scoreAnswer(attemptQuestion, answer, gradingBatch, sourceQuestions, subQuestionsByParentId);
             attemptAnswerRepository.save(answer);
         }
 
@@ -655,8 +653,8 @@ public class AssessmentAttemptService {
         assessmentEventProducer.publishAssessmentSubmitted(attemptId);
         PhaseTimer.mark(timer, "rabbit publish");
 
-        log.info("Attempt {} submitted: {}% ({} / {} points)",
-                attemptId, attempt.getPercentage(), attempt.getEarnedPoints(), attempt.getTotalPoints());
+        log.info("Attempt {} submitted: {}% ({} of {} item(s) right)",
+                attemptId, attempt.getPercentage(), attempt.getCorrectCount(), attempt.getItemCount());
         AssessmentAttemptResultDto result = getResult(attemptId, request.learnerId());
         PhaseTimer.mark(timer, "build result");
         PhaseTimer.finish(timer);
@@ -666,31 +664,72 @@ public class AssessmentAttemptService {
     /**
      * Totals from whatever marks exist right now. Pending answers count as
      * nothing; the marker calls this again when they are in.
+     *
+     * <p>Every item is one observation. The score is the share of the items
+     * served that were answered right -- a blank counts against the learner
+     * on a fixed paper, and an adaptive paper never serves an item it does
+     * not then ask. Partial credit counts as right above the same threshold
+     * the mastery service uses, so the score, the BKT evidence and the
+     * learner's verdict on screen all agree.
      */
     void applyTotals(AssessmentAttempt attempt, List<AssessmentAttemptQuestion> questions,
                      Map<Long, AssessmentAttemptAnswer> answersByQuestion) {
+        int items = questions.size();
+        int answered = 0;
+        int correct = 0;
+        boolean weighted = questions.stream().anyMatch(q -> q.getPoints() != null);
         BigDecimal totalPoints = BigDecimal.ZERO;
         BigDecimal earnedPoints = BigDecimal.ZERO;
         for (AssessmentAttemptQuestion attemptQuestion : questions) {
-            BigDecimal points = attemptQuestion.getPoints() == null ? BigDecimal.ONE : attemptQuestion.getPoints();
-            totalPoints = totalPoints.add(points);
+            BigDecimal weight = attemptQuestion.getPoints() == null ? BigDecimal.ONE : attemptQuestion.getPoints();
+            totalPoints = totalPoints.add(weight);
             AssessmentAttemptAnswer answer = answersByQuestion.get(attemptQuestion.getAttemptQuestionId());
-            // Partial credit (AI-graded descriptive/critical-thinking, diagram
-            // grading) sets earnedPoints without isCorrect=TRUE, so gating the
-            // sum on isCorrect would silently drop that credit.
-            if (answer != null && answer.getEarnedPoints() != null) {
-                earnedPoints = earnedPoints.add(answer.getEarnedPoints());
+            if (answer == null || !hasSubmittedContent(answer)) {
+                continue;
+            }
+            answered++;
+            if (countsAsCorrect(answer)) {
+                correct++;
+            }
+            if (answer.getCredit() != null) {
+                earnedPoints = earnedPoints.add(weight.multiply(answer.getCredit()));
             }
         }
-        BigDecimal percentage = totalPoints.signum() > 0
-                ? earnedPoints.multiply(BigDecimal.valueOf(100)).divide(totalPoints, 2, RoundingMode.HALF_UP)
-                : BigDecimal.ZERO;
+        /* An institution paper is scored by its weights, credit included; an
+           official one by the count of items answered right. */
+        BigDecimal percentage;
+        if (weighted && totalPoints.signum() > 0) {
+            percentage = earnedPoints.multiply(BigDecimal.valueOf(100)).divide(totalPoints, 2, RoundingMode.HALF_UP);
+        } else if (items > 0) {
+            percentage = BigDecimal.valueOf(correct).multiply(BigDecimal.valueOf(100))
+                    .divide(BigDecimal.valueOf(items), 2, RoundingMode.HALF_UP);
+        } else {
+            percentage = BigDecimal.ZERO;
+        }
         BigDecimal passingScore = attempt.getExam().getPassingScore() == null
                 ? BigDecimal.ZERO : attempt.getExam().getPassingScore();
-        attempt.setTotalPoints(totalPoints);
-        attempt.setEarnedPoints(earnedPoints);
+        attempt.setItemCount(items);
+        attempt.setAnsweredCount(answered);
+        attempt.setCorrectCount(correct);
+        attempt.setTotalPoints(weighted ? totalPoints.setScale(2, RoundingMode.HALF_UP) : null);
+        attempt.setEarnedPoints(weighted ? earnedPoints.setScale(2, RoundingMode.HALF_UP) : null);
         attempt.setPercentage(percentage);
         attempt.setPassed(percentage.compareTo(passingScore) >= 0);
+    }
+
+    /**
+     * The engine's view of a marked answer: right, or partial credit at or
+     * above the threshold that counts as right for mastery too.
+     */
+    boolean countsAsCorrect(AssessmentAttemptAnswer answer) {
+        if (answer == null || answer.isPendingManualEvaluation()) {
+            return false;
+        }
+        if (Boolean.TRUE.equals(answer.getIsCorrect())) {
+            return true;
+        }
+        BigDecimal credit = answer.getCredit();
+        return credit != null && credit.doubleValue() >= bktProperties.getPartialCreditCorrectThreshold();
     }
 
     /**
@@ -816,8 +855,8 @@ public class AssessmentAttemptService {
         int unanswered = 0;
 
         // Per-lesson performance for strengths / weak-area analysis (diagnostics).
-        Map<Long, BigDecimal> lessonPossible = new LinkedHashMap<>();
-        Map<Long, BigDecimal> lessonEarned = new LinkedHashMap<>();
+        Map<Long, Integer> lessonItems = new LinkedHashMap<>();
+        Map<Long, Integer> lessonCorrect = new LinkedHashMap<>();
         Map<Long, Integer> lessonPending = new LinkedHashMap<>();
 
         for (AssessmentAttemptQuestion attemptQuestion : questions) {
@@ -827,12 +866,10 @@ public class AssessmentAttemptService {
 
             Long lessonId = attemptQuestion.getLessonId();
             if (lessonId != null) {
-                BigDecimal points = attemptQuestion.getPoints() == null
-                        ? BigDecimal.ZERO : attemptQuestion.getPoints();
-                lessonPossible.merge(lessonId, points, BigDecimal::add);
-                BigDecimal earned = (answer != null && answer.getEarnedPoints() != null)
-                        ? answer.getEarnedPoints() : BigDecimal.ZERO;
-                lessonEarned.merge(lessonId, earned, BigDecimal::add);
+                lessonItems.merge(lessonId, 1, Integer::sum);
+                if (countsAsCorrect(answer)) {
+                    lessonCorrect.merge(lessonId, 1, Integer::sum);
+                }
                 if (answer != null && answer.isPendingManualEvaluation()) {
                     lessonPending.merge(lessonId, 1, Integer::sum);
                 }
@@ -878,11 +915,11 @@ public class AssessmentAttemptService {
                         .orElse(null);
             }
 
-            if (answer == null) {
+            if (answer == null || !hasSubmittedContent(answer)) {
                 unanswered++;
             } else if (answer.isPendingManualEvaluation()) {
                 pending++;
-            } else if (Boolean.TRUE.equals(answer.getIsCorrect())) {
+            } else if (countsAsCorrect(answer)) {
                 correct++;
             } else {
                 incorrect++;
@@ -895,7 +932,7 @@ public class AssessmentAttemptService {
                     attemptQuestion.getQuestionTextSnapshot(),
                     answer == null ? null : answer.getIsCorrect(),
                     answer != null && answer.isPendingManualEvaluation(),
-                    answer == null ? null : answer.getEarnedPoints(),
+                    answer == null ? null : answer.getCredit(),
                     attemptQuestion.getPoints(),
                     answer == null ? null : answer.getLearnerAnswer(),
                     answer == null ? null : answer.getSelectedChoiceId(),
@@ -917,22 +954,23 @@ public class AssessmentAttemptService {
         // Lesson names in one query. findById per lesson was cheap only because
         // the persistence context deduped repeats -- it was still one round
         // trip per distinct lesson on the paper.
-        Map<Long, String> lessonNames = lessonPossible.isEmpty()
+        Map<Long, String> lessonNames = lessonItems.isEmpty()
                 ? Map.of()
-                : lessonRepository.findAllById(lessonPossible.keySet()).stream()
+                : lessonRepository.findAllById(lessonItems.keySet()).stream()
                         .collect(Collectors.toMap(Lesson::getLessonId, Lesson::getName, (a, b) -> a));
 
         List<LessonPerformanceDto> lessonBreakdown = new ArrayList<>();
-        for (Map.Entry<Long, BigDecimal> entry : lessonPossible.entrySet()) {
+        for (Map.Entry<Long, Integer> entry : lessonItems.entrySet()) {
             Long lessonId = entry.getKey();
-            BigDecimal possible = entry.getValue();
-            BigDecimal earned = lessonEarned.getOrDefault(lessonId, BigDecimal.ZERO);
-            BigDecimal lessonPercentage = possible.signum() > 0
-                    ? earned.multiply(BigDecimal.valueOf(100)).divide(possible, 2, RoundingMode.HALF_UP)
+            int items = entry.getValue();
+            int right = lessonCorrect.getOrDefault(lessonId, 0);
+            BigDecimal lessonPercentage = items > 0
+                    ? BigDecimal.valueOf(right).multiply(BigDecimal.valueOf(100))
+                            .divide(BigDecimal.valueOf(items), 2, RoundingMode.HALF_UP)
                     : BigDecimal.ZERO;
             String title = lessonNames.getOrDefault(lessonId, "Lesson " + lessonId);
             lessonBreakdown.add(new LessonPerformanceDto(
-                    lessonId, title, possible, earned, lessonPercentage,
+                    lessonId, title, items, right, lessonPercentage,
                     lessonPending.getOrDefault(lessonId, 0)));
         }
 
@@ -951,9 +989,10 @@ public class AssessmentAttemptService {
                 attempt.getPercentage(),
                 attempt.getPassed(),
                 exam.getPassingScore(),
+                correct, incorrect, pending, unanswered,
+                proficiencyOf(attempt),
                 attempt.getTotalPoints(),
                 attempt.getEarnedPoints(),
-                correct, incorrect, pending, unanswered,
                 reviews,
                 lessonBreakdown,
                 exam.getCertification().getCertificationId(),
@@ -976,6 +1015,12 @@ public class AssessmentAttemptService {
             summary.put("submittedAt", attempt.getSubmittedAt());
             summary.put("percentage", attempt.getPercentage());
             summary.put("passed", attempt.getPassed());
+            summary.put("correctCount", attempt.getCorrectCount());
+            summary.put("answeredCount", attempt.getAnsweredCount());
+            summary.put("itemCount", attempt.getItemCount());
+            summary.put("proficiency", proficiencyOf(attempt));
+            summary.put("totalPoints", attempt.getTotalPoints());
+            summary.put("earnedPoints", attempt.getEarnedPoints());
             summaries.add(summary);
         }
         return summaries;
@@ -1000,10 +1045,14 @@ public class AssessmentAttemptService {
                     attempt.getStartedAt(),
                     attempt.getSubmittedAt(),
                     attempt.getDurationSeconds(),
-                    attempt.getTotalPoints(),
-                    attempt.getEarnedPoints(),
                     attempt.getPercentage(),
-                    attempt.getPassed()));
+                    attempt.getPassed(),
+                    attempt.getCorrectCount(),
+                    attempt.getAnsweredCount(),
+                    attempt.getItemCount(),
+                    proficiencyOf(attempt),
+                    attempt.getTotalPoints(),
+                    attempt.getEarnedPoints()));
         }
         return summaries;
     }
@@ -1011,6 +1060,24 @@ public class AssessmentAttemptService {
     // ------------------------------------------------------------------
     // Internals
     // ------------------------------------------------------------------
+
+    /**
+     * The learner-facing rating of an adaptive attempt: ability translated
+     * onto 0..100 with its tier. Null for a fixed paper, which measures no
+     * ability.
+     */
+    static ProficiencyDto proficiencyOf(AssessmentAttempt attempt) {
+        if (attempt == null || !attempt.isAdaptive() || attempt.getThetaCurrent() == null) {
+            return null;
+        }
+        double theta = attempt.getThetaCurrent();
+        double rating = IrtModel.proficiencyRating(theta);
+        return new ProficiencyDto(
+                BigDecimal.valueOf(rating).setScale(1, RoundingMode.HALF_UP),
+                IrtModel.proficiencyLabel(rating),
+                BigDecimal.valueOf(theta).setScale(2, RoundingMode.HALF_UP),
+                attempt.getThetaSe() == null ? null : BigDecimal.valueOf(attempt.getThetaSe()).setScale(2, RoundingMode.HALF_UP));
+    }
 
     AssessmentAttempt requireOwnedAttempt(Long attemptId, Long learnerId) {
         AssessmentAttempt attempt = attemptRepository.findById(attemptId)
@@ -1274,7 +1341,7 @@ public class AssessmentAttemptService {
             // describe new code. A fresh Run/Check repopulates it.
             if (codeChanged && answer.getExecutionResult() != null) {
                 answer.setExecutionResult(null);
-                answer.setEarnedPoints(null);
+                answer.setCredit(null);
                 answer.setIsCorrect(null);
                 answer.setPendingManualEvaluation(true);
             }
@@ -1320,13 +1387,16 @@ public class AssessmentAttemptService {
         return isMultipleChoice(questionType) ? "MULTIPLE_CHOICE" : questionType;
     }
 
+    /** One item, one observation: every grader awards a share of this. */
+    static final BigDecimal UNIT = BigDecimal.ONE;
+
     void scoreAnswer(
             AssessmentAttemptQuestion attemptQuestion,
             AssessmentAttemptAnswer answer,
-            BigDecimal points,
             GradingBatch batch,
             Map<Long, Question> sourceQuestions,
             Map<Long, List<Question>> subQuestionsByParentId) {
+        BigDecimal points = UNIT;
 
         String type = attemptQuestion.getQuestionType();
         Question source = sourceQuestions.get(attemptQuestion.getSourceQuestionId());
@@ -1338,7 +1408,7 @@ public class AssessmentAttemptService {
                                     .equals(answer.getSelectedChoiceId())
                                     && choice.isCorrect());
             answer.setIsCorrect(correct);
-            answer.setEarnedPoints(correct ? points : BigDecimal.ZERO);
+            answer.setCredit(correct ? points : BigDecimal.ZERO);
             answer.setPendingManualEvaluation(false);
             return;
         }
@@ -1358,7 +1428,7 @@ public class AssessmentAttemptService {
                     && answer.getLearnerAnswer() != null) {
                 boolean correct = matchesTextAnswer(answer.getLearnerAnswer(), config.get());
                 answer.setIsCorrect(correct);
-                answer.setEarnedPoints(correct ? points : BigDecimal.ZERO);
+                answer.setCredit(correct ? points : BigDecimal.ZERO);
                 answer.setPendingManualEvaluation(false);
                 return;
             }
@@ -1432,7 +1502,7 @@ public class AssessmentAttemptService {
         // empty box.
         if (!hasSubmittedContent(answer)) {
             answer.setIsCorrect(false);
-            answer.setEarnedPoints(BigDecimal.ZERO);
+            answer.setCredit(BigDecimal.ZERO);
             answer.setPendingManualEvaluation(false);
             return;
         }
@@ -1460,7 +1530,7 @@ public class AssessmentAttemptService {
                         + "closing it out at zero",
                 attemptQuestion.getAttemptQuestionId(), type);
         answer.setIsCorrect(false);
-        answer.setEarnedPoints(BigDecimal.ZERO);
+        answer.setCredit(BigDecimal.ZERO);
         answer.setPendingManualEvaluation(false);
         if (answer.getFeedback() == null || answer.getFeedback().isBlank()) {
             answer.setFeedback("This answer could not be marked automatically and was scored "
@@ -1509,8 +1579,7 @@ public class AssessmentAttemptService {
             if (source == null) {
                 continue;
             }
-            BigDecimal points = attemptQuestion.getPoints() == null
-                    ? BigDecimal.ONE : attemptQuestion.getPoints();
+            BigDecimal points = UNIT;
 
             if ("DESCRIPTIVE".equals(type) || isAiSemanticShortAnswer(type, source)) {
                 AnswerGradingRequestDto request = descriptiveGradingRequest(
@@ -1685,7 +1754,7 @@ public class AssessmentAttemptService {
         if (code == null || code.isBlank()) {
             // Nothing was written. That is a zero, not something to review.
             answer.setIsCorrect(false);
-            answer.setEarnedPoints(BigDecimal.ZERO);
+            answer.setCredit(BigDecimal.ZERO);
             answer.setPendingManualEvaluation(false);
             return;
         }
@@ -1736,10 +1805,10 @@ public class AssessmentAttemptService {
         if (total > 0) {
             BigDecimal ratio = BigDecimal.valueOf(passed)
                     .divide(BigDecimal.valueOf(total), 4, RoundingMode.HALF_UP);
-            answer.setEarnedPoints(points.multiply(ratio).setScale(2, RoundingMode.HALF_UP));
+            answer.setCredit(points.multiply(ratio).setScale(4, RoundingMode.HALF_UP));
             answer.setIsCorrect(passed == total);
         } else {
-            answer.setEarnedPoints(BigDecimal.ZERO);
+            answer.setCredit(BigDecimal.ZERO);
             answer.setIsCorrect(false);
         }
         answer.setPendingManualEvaluation(false);
@@ -1799,7 +1868,7 @@ public class AssessmentAttemptService {
             return false;
         }
 
-        answer.setEarnedPoints(result.earnedPoints());
+        answer.setCredit(result.earnedPoints());
         answer.setFeedback(result.feedback());
         answer.setIsCorrect(isPassingShare(result.earnedPoints(), points));
         answer.setPendingManualEvaluation(false);
@@ -1997,7 +2066,7 @@ public class AssessmentAttemptService {
             return false;
         }
         AnswerGradingResultDto result = graded.get();
-        answer.setEarnedPoints(result.earnedPoints());
+        answer.setCredit(result.earnedPoints());
         answer.setFeedback(result.feedback());
         answer.setIsCorrect(isPassingShare(result.earnedPoints(), points));
         answer.setPendingManualEvaluation(false);
@@ -2063,7 +2132,7 @@ public class AssessmentAttemptService {
             rows.add(row);
         }
 
-        answer.setEarnedPoints(earned);
+        answer.setCredit(earned);
         // "Correct" means every blank, so the item reads as right or wrong in
         // the attempt summary while the score still reflects partial credit.
         answer.setIsCorrect(correctBlanks == blanks.size());
@@ -2150,7 +2219,7 @@ public class AssessmentAttemptService {
             return false;
         }
         AnswerGradingResultDto result = graded.get();
-        answer.setEarnedPoints(result.earnedPoints());
+        answer.setCredit(result.earnedPoints());
         answer.setFeedback(result.feedback());
         answer.setIsCorrect(isPassingShare(result.earnedPoints(), points));
         answer.setPendingManualEvaluation(false);
@@ -2177,10 +2246,9 @@ public class AssessmentAttemptService {
     }
 
     /**
-     * Splits an assessment's configured points for a critical-thinking item
-     * across its sub-questions, weighted by each sub-question's own
-     * {@code totalPoints} (equal weight when unset). The last sub-question
-     * absorbs the rounding remainder so shares always sum to exactly points.
+     * Splits an item's single unit of credit equally across its
+     * sub-questions. The last sub-question absorbs the rounding remainder so
+     * the shares always sum to exactly the whole.
      */
     private Map<Long, BigDecimal> splitPointsAcrossSubQuestions(
             List<Question> subQuestions, BigDecimal totalPoints) {
@@ -2192,10 +2260,8 @@ public class AssessmentAttemptService {
         Map<Long, BigDecimal> weights = new LinkedHashMap<>();
         BigDecimal weightSum = BigDecimal.ZERO;
         for (Question sub : subQuestions) {
-            BigDecimal weight = sub.getTotalPoints() == null || sub.getTotalPoints().signum() <= 0
-                    ? BigDecimal.ONE : sub.getTotalPoints();
-            weights.put(sub.getQuestionId(), weight);
-            weightSum = weightSum.add(weight);
+            weights.put(sub.getQuestionId(), BigDecimal.ONE);
+            weightSum = weightSum.add(BigDecimal.ONE);
         }
 
         BigDecimal running = BigDecimal.ZERO;
@@ -2203,10 +2269,10 @@ public class AssessmentAttemptService {
             Long id = subQuestions.get(i).getQuestionId();
             BigDecimal share;
             if (i == subQuestions.size() - 1) {
-                share = totalPoints.subtract(running).setScale(2, RoundingMode.HALF_UP);
+                share = totalPoints.subtract(running).setScale(4, RoundingMode.HALF_UP);
             } else {
                 share = totalPoints.multiply(weights.get(id))
-                        .divide(weightSum, 2, RoundingMode.HALF_UP);
+                        .divide(weightSum, 4, RoundingMode.HALF_UP);
                 running = running.add(share);
             }
             allocation.put(id, share);
@@ -2272,7 +2338,8 @@ public class AssessmentAttemptService {
         if (earned == null || max == null || max.signum() <= 0) {
             return null;
         }
-        return earned.compareTo(max.multiply(new BigDecimal("0.5"))) >= 0;
+        double share = earned.doubleValue() / max.doubleValue();
+        return share >= bktProperties.getPartialCreditCorrectThreshold();
     }
 
     /**
@@ -3072,17 +3139,16 @@ public class AssessmentAttemptService {
 
         boolean definitive = "COMPLETED".equals(result.status()) || "COMPILE_ERROR".equals(result.status());
         if (mode == AssessmentAttemptExecution.Mode.CHECK && definitive) {
-            BigDecimal points = attemptQuestion.getPoints() == null
-                    ? BigDecimal.ZERO : attemptQuestion.getPoints();
+            BigDecimal points = UNIT;
             int total = result.totalTests() == null ? 0 : result.totalTests();
             int passed = result.passedTests() == null ? 0 : result.passedTests();
             if (total > 0) {
                 BigDecimal ratio = BigDecimal.valueOf(passed)
                         .divide(BigDecimal.valueOf(total), 4, RoundingMode.HALF_UP);
-                answer.setEarnedPoints(points.multiply(ratio).setScale(2, RoundingMode.HALF_UP));
+                answer.setCredit(points.multiply(ratio).setScale(4, RoundingMode.HALF_UP));
                 answer.setIsCorrect(passed == total);
             } else {
-                answer.setEarnedPoints(BigDecimal.ZERO);
+                answer.setCredit(BigDecimal.ZERO);
                 answer.setIsCorrect(false);
             }
             answer.setPendingManualEvaluation(false);

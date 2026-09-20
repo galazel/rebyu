@@ -80,9 +80,6 @@ public class AdaptiveSessionState {
         return queuedAttemptQuestionIds.isEmpty() ? null : queuedAttemptQuestionIds.get(0);
     }
 
-    /** Per-assessment point overrides from the optional seed list. */
-    private Map<Long, java.math.BigDecimal> pointsOverride = new LinkedHashMap<>();
-
     @Data
     @NoArgsConstructor
     public static class ResponseRecord {

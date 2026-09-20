@@ -109,13 +109,6 @@ function normalizeCreateType(value, fallback = "MOCK_EXAM") {
   return fallback
 }
 
-const DEFAULT_POINTS = 1
-
-function isValidPoints(value) {
-  const number = Number(value)
-  return Number.isFinite(number) && number > 0
-}
-
 function getLessonTitle(lesson) {
   return lesson?.name ?? lesson?.title ?? "Untitled lesson"
 }
@@ -238,9 +231,6 @@ export default function AssessmentDialog({
   const [passingScore, setPassingScore] = useState("")
   const [releaseAnswersAfterSubmit, setReleaseAnswersAfterSubmit] = useState(true)
   const [selectedQuestions, setSelectedQuestions] = useState([])
-  const [pointsById, setPointsById] = useState({})
-  const [pointsMode, setPointsMode] = useState("SAME")
-  const [samePoints, setSamePoints] = useState(DEFAULT_POINTS)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [error, setError] = useState("")
 
@@ -302,26 +292,6 @@ export default function AssessmentDialog({
       const ordered = orderedExamQuestions
           .map((examQuestion) => questionById.get(examQuestion.questionId))
           .filter(Boolean)
-
-      // Load only this assessment's saved points/order — never the question bank.
-      const nextPoints = {}
-      orderedExamQuestions.forEach((examQuestion) => {
-        if (questionById.get(examQuestion.questionId)) {
-          nextPoints[examQuestion.questionId] =
-              examQuestion.points != null
-                  ? Number(examQuestion.points)
-                  : DEFAULT_POINTS
-        }
-      })
-
-      const distinct = new Set(
-          Object.values(nextPoints).filter((value) => isValidPoints(value))
-      )
-
-      setSelectedQuestions(ordered)
-      setPointsById(nextPoints)
-      setPointsMode(distinct.size > 1 ? "INDIVIDUAL" : "SAME")
-      setSamePoints(distinct.size === 1 ? [...distinct][0] : DEFAULT_POINTS)
     } else {
       const nextType = normalizeCreateType(initialType, "MOCK_EXAM")
       const nextConfig = getCreateTypeConfig(nextType)
@@ -357,9 +327,6 @@ export default function AssessmentDialog({
       setPassingScore("")
       setReleaseAnswersAfterSubmit(true)
       setSelectedQuestions([])
-      setPointsById({})
-      setPointsMode("SAME")
-      setSamePoints(DEFAULT_POINTS)
     }
 
     setError("")
@@ -375,53 +342,6 @@ export default function AssessmentDialog({
       [selectedQuestions]
   )
 
-  const totalScore = useMemo(
-      () =>
-          selectedQuestions.reduce((sum, question) => {
-            const value = Number(pointsById[question.questionId])
-            return sum + (isValidPoints(value) ? value : 0)
-          }, 0),
-      [selectedQuestions, pointsById]
-  )
-
-  const unconfiguredCount = useMemo(
-      () =>
-          selectedQuestions.filter(
-              (question) => !isValidPoints(pointsById[question.questionId])
-          ).length,
-      [selectedQuestions, pointsById]
-  )
-
-  const requiredToPass = passingScore
-      ? Math.ceil((totalScore * Number(passingScore)) / 100)
-      : null
-
-  const setOnePoint = (questionId, value) => {
-    setPointsById((current) => ({ ...current, [questionId]: value }))
-  }
-
-  const applySamePoints = (value) => {
-    setPointsById(() => {
-      const next = {}
-      selectedQuestions.forEach((question) => {
-        next[question.questionId] = value
-      })
-      return next
-    })
-  }
-
-  const handlePointsModeChange = (nextMode) => {
-    if (nextMode === pointsMode) return
-
-    setPointsMode(nextMode)
-
-    // Switching to "same for all" normalizes every question to one value.
-    if (nextMode === "SAME") {
-      const value = isValidPoints(samePoints) ? Number(samePoints) : DEFAULT_POINTS
-      applySamePoints(value)
-    }
-  }
-
   const saveMutation = useMutation({
     mutationFn: async () => {
       const examType = await ensureExamType(createTypeConfig.examTypeText)
@@ -430,11 +350,10 @@ export default function AssessmentDialog({
           (question) => question.questionId
       )
 
-      // The admin's selection — with its per-question points and order — is the
-      // single source of truth persisted for this assessment.
+      // The admin's selection, in order, is the single source of truth
+      // persisted for this assessment. Every question counts the same.
       const questions = selectedQuestions.map((question, index) => ({
         questionId: question.questionId,
-        points: Number(pointsById[question.questionId]),
         displayOrder: index + 1,
       }))
 
@@ -504,7 +423,6 @@ export default function AssessmentDialog({
           examId: savedExam.examId,
           questionId: question.questionId,
           displayOrder: question.displayOrder ?? index + 1,
-          points: question.points,
         }))
 
         return [...filtered, ...restored]
@@ -576,7 +494,6 @@ export default function AssessmentDialog({
     setCreateType(nextType)
     setTargetId("")
     setSelectedQuestions([])
-    setPointsById({})
     setError("")
 
     setTitle(
@@ -593,7 +510,6 @@ export default function AssessmentDialog({
 
     setTargetId(nextTargetId)
     setSelectedQuestions([])
-    setPointsById({})
     setError("")
 
     // The admin never has to type an assessment name. Changing the selected
@@ -626,23 +542,6 @@ export default function AssessmentDialog({
       return [...current, ...newQuestions]
     })
 
-    // Give each newly added question a starting point value so the total and
-    // validation stay consistent. "Same for all" uses the shared value.
-    setPointsById((current) => {
-      const next = { ...current }
-      const startingValue =
-          pointsMode === "SAME" && isValidPoints(samePoints)
-              ? Number(samePoints)
-              : DEFAULT_POINTS
-
-      newlyAddedIds.forEach((questionId) => {
-        if (next[questionId] == null) {
-          next[questionId] = startingValue
-        }
-      })
-
-      return next
-    })
 
     setError("")
     setPickerOpen(false)
@@ -663,13 +562,6 @@ export default function AssessmentDialog({
        list is only an optional seed, so an empty one is fine. */
     if (selectedQuestions.length === 0 && !isAdaptiveType) {
       setError("Add at least one question.")
-      return
-    }
-
-    if (unconfiguredCount > 0) {
-      setError(
-          `Set a point value greater than zero for all ${selectedQuestions.length} question(s).`
-      )
       return
     }
 
@@ -704,11 +596,6 @@ export default function AssessmentDialog({
     setSelectedQuestions((current) =>
         current.filter((item) => item.questionId !== questionId)
     )
-    setPointsById((current) => {
-      const next = { ...current }
-      delete next[questionId]
-      return next
-    })
   }
 
   const isAdaptiveType = ADAPTIVE_TYPES.has(createTypeConfig?.examTypeText)
@@ -893,12 +780,6 @@ export default function AssessmentDialog({
                   <div className="flex items-center justify-between gap-3">
                     <h3 className="text-sm font-semibold text-muted-foreground">
                       {isAdaptiveType ? "Seed questions (optional)" : "Questions"} ({selectedQuestions.length} selected)
-                      {selectedQuestions.length > 0 ? (
-                          <span className="ml-2 font-normal">
-                            · {totalScore} total point
-                            {totalScore === 1 ? "" : "s"}
-                          </span>
-                      ) : null}
                     </h3>
 
                     <Button
@@ -924,7 +805,7 @@ export default function AssessmentDialog({
                       <p className="text-xs leading-5 text-muted-foreground">
                         This assessment is adaptive: the engine picks each question from the whole
                         question bank in scope as the learner answers, so it needs no fixed list.
-                        Questions added here only set per-question points when the engine serves them.
+                        Questions added here are only a seed the engine may draw on first.
                       </p>
                   ) : null}
 
@@ -935,75 +816,8 @@ export default function AssessmentDialog({
                       </div>
                   ) : (
                       <>
-                        {/* Points configuration for the selected questions. */}
-                        <div className="rounded-xl border p-4">
-                          <h4 className="text-sm font-semibold">
-                            Question points
-                          </h4>
-
-                          <RadioGroup
-                              value={pointsMode}
-                              onValueChange={handlePointsModeChange}
-                              className="mt-3 gap-2"
-                          >
-                            <label className="flex items-center gap-2 text-sm">
-                              <RadioGroupItem value="SAME" />
-                              Same points for all questions
-                            </label>
-
-                            <label className="flex items-center gap-2 text-sm">
-                              <RadioGroupItem value="INDIVIDUAL" />
-                              Configure points for each question
-                            </label>
-                          </RadioGroup>
-
-                          {pointsMode === "SAME" ? (
-                              <div className="mt-3 flex items-end gap-2">
-                                <div className="space-y-1">
-                                  <Label
-                                      htmlFor="assessment-same-points"
-                                      className="text-xs"
-                                  >
-                                    Points per question
-                                  </Label>
-
-                                  <Input
-                                      id="assessment-same-points"
-                                      type="number"
-                                      min="0.01"
-                                      step="0.5"
-                                      value={samePoints}
-                                      onChange={(event) => {
-                                        const next = event.target.value
-                                        setSamePoints(next)
-                                        if (isValidPoints(next)) {
-                                          applySamePoints(Number(next))
-                                        }
-                                      }}
-                                      className="h-9 w-28"
-                                      aria-invalid={!isValidPoints(samePoints)}
-                                  />
-                                </div>
-
-                                {!isValidPoints(samePoints) ? (
-                                    <p className="pb-1 text-xs text-destructive">
-                                      Points must be greater than zero.
-                                    </p>
-                                ) : null}
-                              </div>
-                          ) : (
-                              <p className="mt-3 text-xs text-muted-foreground">
-                                Set a point value for each question below. The
-                                total score updates automatically.
-                              </p>
-                          )}
-                        </div>
-
                         <ul className="space-y-2">
                           {selectedQuestions.map((question, index) => {
-                            const pointsValue = pointsById[question.questionId]
-                            const invalidPoints = !isValidPoints(pointsValue)
-
                             return (
                                 <li
                                     key={question.questionId}
@@ -1030,24 +844,6 @@ export default function AssessmentDialog({
                                   </div>
 
                                   <div className="flex shrink-0 items-center gap-1">
-                                    <Input
-                                        type="number"
-                                        min="0.01"
-                                        step="0.5"
-                                        value={pointsValue ?? ""}
-                                        onChange={(event) =>
-                                            setOnePoint(
-                                                question.questionId,
-                                                event.target.value
-                                            )
-                                        }
-                                        readOnly={pointsMode === "SAME"}
-                                        disabled={pointsMode === "SAME"}
-                                        className="h-8 w-20"
-                                        aria-label={`Points for question ${index + 1}`}
-                                        aria-invalid={invalidPoints}
-                                    />
-
                                     <Button
                                         type="button"
                                         variant="ghost"
@@ -1085,12 +881,6 @@ export default function AssessmentDialog({
                           })}
                         </ul>
 
-                        {unconfiguredCount > 0 ? (
-                            <p className="text-xs text-destructive">
-                              {unconfiguredCount} question(s) need a point value
-                              greater than zero.
-                            </p>
-                        ) : null}
                       </>
                   )}
                 </section>
@@ -1129,25 +919,6 @@ export default function AssessmentDialog({
                       <dd className="font-medium">{selectedQuestions.length}</dd>
                     </div>
 
-                    <div className="flex justify-between gap-2">
-                      <dt className="text-muted-foreground">Total score</dt>
-
-                      <dd className="font-medium tabular-nums">
-                        {totalScore} point{totalScore === 1 ? "" : "s"}
-                      </dd>
-                    </div>
-
-                    {requiredToPass != null ? (
-                        <div className="flex justify-between gap-2">
-                          <dt className="text-muted-foreground">
-                            Points to pass
-                          </dt>
-
-                          <dd className="font-medium tabular-nums">
-                            {requiredToPass}
-                          </dd>
-                        </div>
-                    ) : null}
 
                     <div className="flex justify-between gap-2">
                       <dt className="text-muted-foreground">Duration</dt>

@@ -130,6 +130,66 @@ function ScoreDial({ percentage, passingScore, passed }) {
   )
 }
 
+/**
+ * What an adaptive attempt measured, as the teacher writes it: the
+ * Proficiency Rating out of 100 circled in pen, with its tier underneath.
+ * The rating is ability on the IRT scale rescaled to 0..100, so it says how
+ * hard the questions were that the learner could answer -- not how many of
+ * them there were. The raw count sits beside it (see RealScore) so the two
+ * are never confused.
+ */
+const PROFICIENCY_TONE = {
+  Advanced: "is-pass",
+  Proficient: "is-pass",
+  Developing: "is-fail",
+  Novice: "is-fail",
+}
+
+function ProficiencyDial({ rating, label }) {
+  return (
+    <div className={cn("rb-grade-score", PROFICIENCY_TONE[label] ?? "is-fail")}>
+      <PenCircle />
+      <span className="rb-grade-score-value">{rating.toFixed(0)}</span>
+      <span className="rb-grade-score-note">{label.toLowerCase()}</span>
+      <span className="rb-grade-score-mark">proficiency out of 100</span>
+    </div>
+  )
+}
+
+/** The tiers, so a learner can see where the next one starts. */
+const PROFICIENCY_TIERS = [
+  { label: "Novice", from: 0 },
+  { label: "Developing", from: 25 },
+  { label: "Proficient", from: 50 },
+  { label: "Advanced", from: 75 },
+]
+
+function ProficiencyScale({ rating }) {
+  return (
+    <ol className="mt-3 grid grid-cols-4 gap-1" aria-label="Proficiency tiers">
+      {PROFICIENCY_TIERS.map((tier, index) => {
+        const to = PROFICIENCY_TIERS[index + 1]?.from ?? 100
+        const active = rating >= tier.from && (index === PROFICIENCY_TIERS.length - 1 ? rating <= to : rating < to)
+        return (
+          <li
+            key={tier.label}
+            className={cn(
+              "rounded-rb-tile border-2 px-2 py-1.5 text-center",
+              active ? "border-rb-eel bg-rb-snow font-bold text-rb-eel" : "border-rb-swan text-rb-wolf"
+            )}
+            aria-current={active ? "true" : undefined}
+          >
+            <span className="block text-xs uppercase tracking-wide">{tier.label}</span>
+            <span className="rb-numeric block text-xs">
+              {tier.from}–{to === 100 ? 100 : to - 1}
+            </span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
 /* Written out rather than interpolated: Tailwind scans source text for class
    names, and `sm:grid-cols-${n}` is not a string it can find. */
 const STAT_COLUMNS = {
@@ -199,7 +259,11 @@ export default function LearnerAssessmentResultPage() {
     if (marking) wasMarkingRef.current = true
     else if (wasMarkingRef.current && result) {
       wasMarkingRef.current = false
-      toast.success(`All marked — final score ${Number(result.percentage ?? 0).toFixed(0)}%`)
+      toast.success(
+        result.proficiency
+          ? `All marked — proficiency ${Number(result.proficiency.rating).toFixed(0)} / 100, ${result.correctCount} of ${result.correctCount + result.incorrectCount} right`
+          : `All marked — final score ${Number(result.percentage ?? 0).toFixed(0)}%`
+      )
     }
   }, [marking, result])
   const answers = useMemo(() => result?.answers ?? [], [result])
@@ -253,8 +317,16 @@ export default function LearnerAssessmentResultPage() {
   const passingScore =
     result.passingScore != null && Number.isFinite(rawPassingScore) ? rawPassingScore : null
 
-  const earnedPoints = toNumber(result.earnedPoints)
-  const totalPoints = toNumber(result.totalPoints)
+  /* An adaptive attempt measured ability; a fixed paper only counted. The
+     headline follows: Proficiency Rating for the one, the percentage for the
+     other. The Real Score -- right answers over items answered -- is shown on
+     both, and is what the pass mark is applied to. */
+  const proficiency = result.proficiency ?? null
+  const proficiencyRating = proficiency ? toNumber(proficiency.rating) : null
+  const correctCount = Number(result.correctCount ?? 0)
+  const answeredCount =
+    Number(result.correctCount ?? 0) + Number(result.incorrectCount ?? 0) + Number(result.pendingCount ?? 0)
+  const itemCount = answeredCount + Number(result.unansweredCount ?? 0)
 
   const statTiles = [
     { label: "Correct", value: result.correctCount, tone: "leaf" },
@@ -305,44 +377,82 @@ export default function LearnerAssessmentResultPage() {
           <h1 className="rb-display rb-display-md mt-4 pr-28 sm:pr-36">{result.assessmentTitle}</h1>
 
           <div className="mt-7 flex flex-col items-center gap-7 sm:flex-row sm:items-start">
-            <ScoreDial
-              percentage={percentage}
-              passingScore={passingScore}
-              passed={Boolean(result.passed)}
-            />
+            {proficiencyRating != null ? (
+              <ProficiencyDial rating={proficiencyRating} label={proficiency.label} />
+            ) : (
+              <ScoreDial
+                percentage={percentage}
+                passingScore={passingScore}
+                passed={Boolean(result.passed)}
+              />
+            )}
 
             <div className="min-w-0 flex-1 space-y-5">
-              <div>
-                {/* The gap in words, since the dial already carries it as a
-                    shape. Stated in percentage points and named as such: this
-                    assessment also has real points, and calling both "points"
-                    is how "70 points short" ends up next to "0 / 10 pts". */}
-                {passingScore != null ? (
-                  <>
-                    <p className="rb-display rb-display-sm">
-                      {result.passed
-                        ? `Cleared the ${passingScore.toFixed(0)}% mark`
-                        : `${(passingScore - percentage).toFixed(0)}% short of the ${passingScore.toFixed(0)}% mark`}
-                    </p>
+              {proficiencyRating != null ? (
+                <div>
+                  {/* The rating is the headline; the count is the evidence.
+                      Both are stated so neither is mistaken for the other: a
+                      rating of 70 is not "70% right". */}
+                  <p className="rb-display rb-display-sm">
+                    {proficiency.label} — proficiency {proficiencyRating.toFixed(0)} out of 100
+                  </p>
+                  <p className="rb-caption mt-1">
+                    Your rating comes from how hard the questions were that you could answer, not from how many you
+                    were asked. It moved with every answer, starting from 50.
+                    {marking ? " It is provisional while the last answers are marked." : ""}
+                  </p>
+                  <ProficiencyScale rating={proficiencyRating} />
+
+                  <p className="mt-4 text-sm font-bold text-rb-eel" data-testid="real-score">
+                    <span className="rb-eyebrow block">real score</span>
+                    <span className="rb-numeric text-lg">{correctCount}</span>
+                    <span className="text-rb-wolf"> of {answeredCount} answered correct</span>
+                    {itemCount !== answeredCount ? (
+                      <span className="text-rb-wolf"> · {itemCount} asked</span>
+                    ) : null}
+                    <span className="text-rb-wolf"> · {percentage.toFixed(0)}%</span>
+                  </p>
+                  {passingScore != null ? (
                     <p className="rb-caption mt-1">
                       {result.passed
-                        ? `You scored ${percentage.toFixed(0)}%, ${(percentage - passingScore).toFixed(0)} percentage points above the passing score.`
-                        : `You scored ${percentage.toFixed(0)}%. The pass mark is written under the score.`}
+                        ? `Cleared the ${passingScore.toFixed(0)}% pass mark on the real score.`
+                        : `${(passingScore - percentage).toFixed(0)}% short of the ${passingScore.toFixed(0)}% pass mark on the real score.`}
                     </p>
-                  </>
-                ) : (
-                  <p className="rb-caption">
-                    This assessment has no passing score set.
+                  ) : null}
+                </div>
+              ) : (
+                <div>
+                  {/* The gap in words, since the dial already carries it as a
+                      shape. */}
+                  {passingScore != null ? (
+                    <>
+                      <p className="rb-display rb-display-sm">
+                        {result.passed
+                          ? `Cleared the ${passingScore.toFixed(0)}% mark`
+                          : `${(passingScore - percentage).toFixed(0)}% short of the ${passingScore.toFixed(0)}% mark`}
+                      </p>
+                      <p className="rb-caption mt-1">
+                        {result.passed
+                          ? `You scored ${percentage.toFixed(0)}%, ${(percentage - passingScore).toFixed(0)} percentage points above the passing score.`
+                          : `You scored ${percentage.toFixed(0)}%. The pass mark is written under the score.`}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="rb-caption">
+                      This assessment has no passing score set.
+                    </p>
+                  )}
+                  <p className="mt-2 text-sm font-bold text-rb-eel" data-testid="real-score">
+                    <span className="rb-numeric">{correctCount}</span>
+                    <span className="text-rb-wolf"> of {itemCount} correct</span>
+                    {result.totalPoints != null && result.earnedPoints != null ? (
+                      <span className="text-rb-wolf">
+                        {" "}· <span className="rb-numeric text-rb-eel">{Number(result.earnedPoints)}</span> / {Number(result.totalPoints)} points
+                      </span>
+                    ) : null}
                   </p>
-                )}
-
-                {earnedPoints != null && totalPoints != null ? (
-                  <p className="mt-2 text-sm font-bold text-rb-eel">
-                    <span className="rb-numeric">{earnedPoints}</span>
-                    <span className="text-rb-wolf"> / {totalPoints} points</span>
-                  </p>
-                ) : null}
-              </div>
+                </div>
+              )}
 
               {/* One row, however many tiles there are. A fixed three-column
                   grid left a fourth tile stranded on a line of its own. */}
@@ -515,9 +625,13 @@ export default function LearnerAssessmentResultPage() {
                           />
                           <span className="rb-pen">{state === "pending" && marking ? "Marking…" : STATE_LABEL[state]}</span>
                         </span>
-                        {answer.points != null && answer.earnedPoints != null ? (
+                        {answer.points != null && answer.credit != null ? (
                           <span className="rb-pen rb-graded-points">
-                            {Number(answer.earnedPoints)} / {Number(answer.points)} pts
+                            {Number((Number(answer.credit) * Number(answer.points)).toFixed(2))} / {Number(answer.points)} pts
+                          </span>
+                        ) : answer.credit != null && state !== "correct" && state !== "pending" && Number(answer.credit) > 0 ? (
+                          <span className="rb-pen rb-graded-points" title="Partial credit from the grader">
+                            {Math.round(Number(answer.credit) * 100)}% credit
                           </span>
                         ) : null}
                       </div>
@@ -566,9 +680,9 @@ export default function LearnerAssessmentResultPage() {
                                 ? sub.learnerAnswer
                                 : "No answer submitted."}
                             </p>
-                            {sub.earnedPoints != null && sub.maxPoints != null ? (
+                            {sub.earnedPoints != null && sub.maxPoints != null && Number(sub.maxPoints) > 0 ? (
                               <p className="rb-numeric mt-1.5 text-xs text-rb-wolf">
-                                {Number(sub.earnedPoints)} / {Number(sub.maxPoints)} pts
+                                {Math.round((Number(sub.earnedPoints) / Number(sub.maxPoints)) * 100)}% credit for this part
                               </p>
                             ) : null}
                             {sub.feedback ? (
@@ -780,8 +894,8 @@ export default function LearnerAssessmentResultPage() {
                                   {element.matched
                                     ? `You drew: ${element.learnerDescription}`
                                     : "Missing from your diagram"}
-                                  {element.earnedPoints != null && element.maxPoints != null
-                                    ? ` · ${Number(element.earnedPoints)} / ${Number(element.maxPoints)} pts`
+                                  {element.earnedPoints != null && element.maxPoints != null && Number(element.maxPoints) > 0
+                                    ? ` · ${Math.round((Number(element.earnedPoints) / Number(element.maxPoints)) * 100)}% credit`
                                     : ""}
                                 </p>
 

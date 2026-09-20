@@ -149,7 +149,6 @@ def _persist_one_question(session: Session, question: dict[str, Any]) -> int:
             question_type=sub_type,
             difficulty=question.get("difficulty", "AVERAGE"),
             question_text=sub.get("question", ""),
-            total_points=float(sub.get("points") or 1.0),
             parent_question_id=question_id,
         )
         # The expected answer, so the grader has something to mark against.

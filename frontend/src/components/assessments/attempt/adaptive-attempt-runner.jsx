@@ -377,11 +377,6 @@ export function AdaptiveAttemptRunner({
                 <span className="rounded-full bg-rb-feather-wash px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-rb-feather-ink">
                   {typeLabel(current)}
                 </span>
-                {current.points != null ? (
-                  <span className="text-xs font-semibold text-rb-wolf">
-                    {Number(current.points)} {Number(current.points) === 1 ? "point" : "points"}
-                  </span>
-                ) : null}
               </div>
 
               <p className="whitespace-pre-wrap text-xl font-medium leading-9 sm:text-2xl sm:leading-10 text-rb-eel">{current.question}</p>
@@ -551,7 +546,7 @@ function FinalRoundFooter({ onSubmit, busy, last }) {
 
 function VerdictPanel({ verdict }) {
   const correct = verdict.isCorrect === true
-  const partial = !correct && Number(verdict.earnedPoints ?? 0) > 0
+  const partial = !correct && Number(verdict.credit ?? 0) > 0
   return (
     <div
       role="status"
@@ -563,9 +558,9 @@ function VerdictPanel({ verdict }) {
       <p className={cn("flex items-center gap-2 text-base font-bold", correct ? "text-rb-leaf-lip" : partial ? "text-amber-800" : "text-rb-cardinal-lip")}>
         {correct ? <CheckCircle2 className="size-5" aria-hidden="true" /> : <XCircle className="size-5" aria-hidden="true" />}
         {correct ? "Correct!" : partial ? "Partly right" : "Not quite"}
-        {verdict.earnedPoints != null && verdict.points != null ? (
+        {partial ? (
           <span className="ml-auto text-xs font-semibold text-rb-wolf">
-            {Number(verdict.earnedPoints)} / {Number(verdict.points)} pts
+            {Math.round(Number(verdict.credit) * 100)}% credit
           </span>
         ) : null}
       </p>
@@ -587,7 +582,7 @@ function VerdictPanel({ verdict }) {
             <li key={sub.subQuestionId} className="flex items-baseline justify-between gap-3">
               <span className="text-rb-wolf">{sub.questionText}</span>
               <span className="font-semibold text-rb-eel">
-                {sub.learnerAnswer || "—"} · {Number(sub.earnedPoints ?? 0)}/{Number(sub.maxPoints ?? 0)}
+                {sub.learnerAnswer || "—"} · {Number(sub.maxPoints) > 0 ? `${Math.round((Number(sub.earnedPoints ?? 0) / Number(sub.maxPoints)) * 100)}%` : "—"}
               </span>
             </li>
           ))}
@@ -642,8 +637,7 @@ function localVerdict(question, answerDraft, isMultipleChoice) {
     const correct = answerDraft?.selectedChoiceId === key.correctChoiceId
     return {
       isCorrect: correct,
-      earnedPoints: correct ? question.points : 0,
-      points: question.points,
+      credit: correct ? 1 : 0,
       correctChoiceId: key.correctChoiceId,
       correctChoiceText: key.correctChoiceText,
       explanation: key.explanation,
@@ -655,8 +649,7 @@ function localVerdict(question, answerDraft, isMultipleChoice) {
   const correct = given.length > 0 && key.acceptedAnswers.map(norm).includes(given)
   return {
     isCorrect: correct,
-    earnedPoints: correct ? question.points : 0,
-    points: question.points,
+    credit: correct ? 1 : 0,
     acceptedAnswer: key.acceptedAnswers[0],
     explanation: key.explanation,
   }

@@ -431,7 +431,6 @@ class LessonKnowledgeCheckServiceTest {
             @Override public String getQuestionText() { return "Q" + questionId; }
             @Override public Long getOwnerGroupId() { return ownerGroupId; }
             @Override public String getQuestionType() { return "MULTIPLE_CHOICE"; }
-            @Override public java.math.BigDecimal getTotalPoints() { return java.math.BigDecimal.ONE; }
         };
     }
 }

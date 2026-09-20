@@ -7,19 +7,41 @@ import java.util.List;
  *
  * <p>Pure functions over doubles. Nothing here knows about questions, learners
  * or the database -- it is the mathematics that turns a run of right and wrong
- * answers on items of known difficulty into an ability estimate, and an
- * ability estimate into "which item would tell us most".
+ * answers on items of known difficulty into an ability estimate, an ability
+ * estimate into "which item would tell us most", and finally into the
+ * proficiency rating the learner sees.
+ *
+ * <p>Two things are deliberately simple, because the platform is small:
+ * <ul>
+ *   <li>An item's difficulty comes from its authored level alone -- EASY,
+ *       AVERAGE or HARD map to fixed points on the ability scale. There is no
+ *       per-item calibration and no online drift: the bank is too thinly
+ *       answered for either to mean anything, and a fixed map keeps every
+ *       learner measured against the same ruler.</li>
+ *   <li>Ability moves by a step after every answer -- up when right, down
+ *       when wrong, scaled by how surprising the answer was -- from a
+ *       baseline of zero. A step rule is the standard cold-start estimator:
+ *       it needs no prior, settles in a handful of items, and every learner
+ *       can see why their rating moved.</li>
+ * </ul>
  */
 public final class IrtModel {
 
     private IrtModel() {
     }
 
-    /** Ability grid the posterior is integrated over: -4 .. +4 in steps of 0.1. */
-    static final double GRID_MIN = -4.0;
-    static final double GRID_MAX = 4.0;
-    static final double GRID_STEP = 0.1;
-    static final int GRID_SIZE = (int) Math.round((GRID_MAX - GRID_MIN) / GRID_STEP) + 1;
+    /** The ability scale the learner-facing rating is drawn on. */
+    public static final double THETA_MIN = -3.0;
+    public static final double THETA_MAX = 3.0;
+    /** Where every learner starts. */
+    public static final double THETA_BASELINE = 0.0;
+    /** How far one answer moves the estimate. */
+    public static final double DEFAULT_STEP = 0.6;
+
+    /** Where each authored difficulty level sits on the ability scale. */
+    public static final double DIFFICULTY_EASY = -1.5;
+    public static final double DIFFICULTY_AVERAGE = 0.0;
+    public static final double DIFFICULTY_HARD = 1.5;
 
     /** a = discrimination, b = difficulty, c = pseudo-guessing. */
     public record ItemParams(double a, double b, double c) {
@@ -58,71 +80,75 @@ public final class IrtModel {
     }
 
     /**
-     * Expected a posteriori estimate of ability given every response so far,
-     * under a normal prior N(mu0, sigma0^2). Integrated numerically over the
-     * grid in log space, so a long run of responses cannot underflow.
+     * The step rule: ability after one more answer. The estimate moves by
+     * {@code step} scaled by how surprising the response was -- {@code u - P},
+     * where u is 1 for right and 0 for wrong and P the probability of a
+     * right answer at the current ability. A right answer on a hard item
+     * (P small) moves it most of a step up; a right answer on an item the
+     * learner "should" get moves it little. The estimate never leaves the
+     * scale.
      */
-    public static Estimate estimateEap(double mu0, double sigma0, List<Response> responses) {
-        double sigma = Math.max(sigma0, 1e-3);
-        double[] logWeights = new double[GRID_SIZE];
-        double maxLog = Double.NEGATIVE_INFINITY;
-        for (int k = 0; k < GRID_SIZE; k++) {
-            double theta = GRID_MIN + k * GRID_STEP;
-            double z = (theta - mu0) / sigma;
-            double logW = -0.5 * z * z;
-            for (Response response : responses) {
-                double p = probability(theta, response.item());
-                p = clamp(p, 1e-9, 1 - 1e-9);
-                logW += response.correct() ? Math.log(p) : Math.log(1.0 - p);
-            }
-            logWeights[k] = logW;
-            if (logW > maxLog) {
-                maxLog = logW;
-            }
-        }
-        double total = 0.0;
-        double mean = 0.0;
-        for (int k = 0; k < GRID_SIZE; k++) {
-            double w = Math.exp(logWeights[k] - maxLog);
-            logWeights[k] = w;
-            total += w;
-            mean += w * (GRID_MIN + k * GRID_STEP);
-        }
-        mean /= total;
-        double variance = 0.0;
-        for (int k = 0; k < GRID_SIZE; k++) {
-            double d = (GRID_MIN + k * GRID_STEP) - mean;
-            variance += logWeights[k] * d * d;
-        }
-        variance /= total;
-        return new Estimate(mean, Math.sqrt(Math.max(variance, 0.0)));
+    public static double step(double theta, ItemParams item, boolean correct, double step) {
+        double p = probability(theta, item);
+        double u = correct ? 1.0 : 0.0;
+        return clamp(theta + step * (u - p), THETA_MIN, THETA_MAX);
     }
 
     /**
-     * Online difficulty update, Elo style: an item answered correctly by a
-     * learner who "should" have missed it gets easier, and vice versa. The
-     * step is scaled by how surprising the response was.
+     * Standard error of the estimate at {@code theta} given the items
+     * answered so far: one over the root of the information they carried.
+     * With nothing answered yet the estimate is as uncertain as the scale
+     * is wide.
      */
-    public static ItemParams updateDifficulty(ItemParams item, double thetaBefore, boolean correct, double k) {
-        double p = probability(thetaBefore, item);
-        double u = correct ? 1.0 : 0.0;
-        double b = item.b() - k * (u - p);
-        return new ItemParams(item.a(), clamp(b, -3.0, 3.0), item.c());
+    public static double standardError(double theta, List<Response> responses) {
+        double total = 0.0;
+        for (Response response : responses) {
+            total += information(theta, response.item());
+        }
+        if (total <= 0) {
+            return THETA_MAX - THETA_MIN;
+        }
+        return 1.0 / Math.sqrt(total);
     }
 
-    /** Starting parameters for an item that has never been calibrated. */
+    /** Parameters for an item, from its authored difficulty level alone. */
     public static ItemParams defaultParams(String difficultyLevel, boolean multipleChoice, int choiceCount) {
-        double b = switch (difficultyLevel == null ? "" : difficultyLevel.trim().toUpperCase()) {
-            case "EASY" -> -1.0;
-            case "HARD" -> 1.0;
-            default -> 0.0;
-        };
         double c = 0.0;
         if (multipleChoice) {
             c = choiceCount >= 2 ? 1.0 / choiceCount : 0.25;
             c = Math.max(c, 0.2);
         }
-        return new ItemParams(1.0, b, c);
+        return new ItemParams(1.0, difficultyOf(difficultyLevel), c);
+    }
+
+    /** EASY -1.5, AVERAGE 0, HARD (and anything harder) +1.5. Unknown levels are average. */
+    public static double difficultyOf(String difficultyLevel) {
+        return switch (difficultyLevel == null ? "" : difficultyLevel.trim().toUpperCase()) {
+            case "EASY" -> DIFFICULTY_EASY;
+            case "HARD", "DIFFICULT" -> DIFFICULTY_HARD;
+            default -> DIFFICULTY_AVERAGE;
+        };
+    }
+
+    // ------------------------------------------------------------------
+    // Proficiency: what the learner sees
+    // ------------------------------------------------------------------
+
+    /**
+     * Ability translated onto 0..100: {@code ((theta + 3) / 6) * 100}, so the
+     * baseline reads 50 and the ends of the scale read 0 and 100.
+     */
+    public static double proficiencyRating(double theta) {
+        double rating = ((theta - THETA_MIN) / (THETA_MAX - THETA_MIN)) * 100.0;
+        return clamp(rating, 0.0, 100.0);
+    }
+
+    /** Novice below 25, Developing to 49, Proficient to 74, Advanced from 75. */
+    public static String proficiencyLabel(double rating) {
+        if (rating >= 75.0) return "Advanced";
+        if (rating >= 50.0) return "Proficient";
+        if (rating >= 25.0) return "Developing";
+        return "Novice";
     }
 
     public static double logit(double p) {

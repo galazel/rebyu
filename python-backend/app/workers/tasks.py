@@ -33,11 +33,3 @@ def schedule_weekly_training() -> dict:
             "model_run_id": run.model_run_id,
             "celery_task_id": task.id,
         }
-
-
-@celery_app.task(name="app.workers.tasks.calibrate_irt")
-def calibrate_irt(min_responses_per_item: int = 20, min_items_per_person: int = 3) -> dict:
-    from app.services.irt_calibration_service import calibrate
-
-    with SessionLocal() as session:
-        return calibrate(session, min_responses_per_item, min_items_per_person)

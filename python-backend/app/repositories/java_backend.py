@@ -347,7 +347,6 @@ def insert_question(
     question_type: str,
     difficulty: str,
     question_text: str,
-    total_points: float = 1.0,
     parent_question_id: int | None = None,
 ) -> int:
     """Writes one question row.
@@ -363,7 +362,6 @@ def insert_question(
             question_type=question_type,
             difficulty_level=difficulty,
             question_text=question_text,
-            total_points=total_points,
             parent_question_id=parent_question_id,
             created_at=datetime.now(timezone.utc),
         )

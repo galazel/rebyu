@@ -25,7 +25,7 @@ public class ExamQuestionDto {
     @Min(1)
     private Integer displayOrder;
 
-    // Optional per-assessment point value; null means use the question's default.
+    /** Optional weight on this assessment (institution papers); null counts as one. */
     @DecimalMin("0.0")
     private BigDecimal points;
 }

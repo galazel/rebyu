@@ -59,8 +59,15 @@ public class AssessmentAttemptAnswer {
     @Column(name = "is_correct")
     private Boolean isCorrect;
 
-    @Column(name = "earned_points", precision = 5, scale = 2)
-    private BigDecimal earnedPoints;
+    /**
+     * The share of this item the answer earned, 0..1. Right answers earn 1,
+     * wrong ones 0; the AI, diagram and code graders award a fraction. Every
+     * item is worth the same one observation -- there are no per-question
+     * points -- so this is a grading outcome, not a weight. Null until
+     * scored.
+     */
+    @Column(name = "credit", precision = 5, scale = 4)
+    private BigDecimal credit;
 
     @Column(name = "pending_manual_evaluation", nullable = false)
     private boolean pendingManualEvaluation = false;

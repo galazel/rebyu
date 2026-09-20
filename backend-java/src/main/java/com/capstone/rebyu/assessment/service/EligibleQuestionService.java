@@ -124,7 +124,6 @@ public class EligibleQuestionService {
                 lesson != null ? lesson.getLessonId() : null,
                 lesson != null ? lesson.getName() : null,
                 middle != null ? middle.getTitle() : null,
-                major != null ? major.getTitle() : null,
-                question.getTotalPoints());
+                major != null ? major.getTitle() : null);
     }
 }

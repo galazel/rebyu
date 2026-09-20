@@ -168,7 +168,6 @@ questions = Table(
     # bank) therefore have to resolve each question to a specific lesson --
     # see app/domain/persistence/questions.py.
     Column("lesson_id", BigInteger, nullable=False),
-    Column("total_points", Numeric(5, 2), nullable=False),
     # Set on the parts of a critical-thinking item, pointing at the parent
     # question they belong to. NULL for every ordinary question. Java reads
     # the set back by this column and grades it as one; without it declared
@@ -238,7 +237,6 @@ exam_questions = Table(
     Column("exam_id", BigInteger, nullable=False),
     Column("question_id", BigInteger, nullable=False),
     Column("display_order", Integer, nullable=False),
-    Column("points", Numeric(5, 2)),
 )
 
 assessment_attempts = Table(
@@ -251,8 +249,9 @@ assessment_attempts = Table(
     Column("status", String(20), nullable=False),
     Column("percentage", Numeric(5, 2)),
     Column("passed", Boolean),
-    Column("total_points", Numeric(8, 2)),
-    Column("earned_points", Numeric(8, 2)),
+    Column("item_count", Integer),
+    Column("answered_count", Integer),
+    Column("correct_count", Integer),
 )
 
 notifications = Table(

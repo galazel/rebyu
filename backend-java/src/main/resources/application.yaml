@@ -262,7 +262,6 @@ adaptive:
   final-round-max: ${ADAPTIVE_FINAL_ROUND_MAX:2}
   randomesque-top-k: ${ADAPTIVE_RANDOMESQUE_TOP_K:3}
   min-bank-multiplier: ${ADAPTIVE_MIN_BANK_MULTIPLIER:1.5}
-  irt-service-url: ${ADAPTIVE_IRT_SERVICE_URL:http://localhost:8000/api/v1/irt}
 
 # Assessment access rules.
 #

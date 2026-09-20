@@ -78,7 +78,6 @@ function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, gro
   const [questionType, setQuestionType] = useState("MCQ")
   const [difficultyLevel, setDifficultyLevel] = useState("average")
   const [questionText, setQuestionText] = useState("")
-  const [totalPoints, setTotalPoints] = useState("1")
   const [choices, setChoices] = useState([emptyChoice(), emptyChoice()])
   const [error, setError] = useState("")
 
@@ -86,7 +85,6 @@ function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, gro
     setQuestionType("MCQ")
     setDifficultyLevel("average")
     setQuestionText("")
-    setTotalPoints("1")
     setChoices([emptyChoice(), emptyChoice()])
     setError("")
   }
@@ -97,7 +95,6 @@ function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, gro
       setQuestionType(editingQuestion.questionType ?? "MCQ")
       setDifficultyLevel(editingQuestion.difficultyLevel ?? "average")
       setQuestionText(editingQuestion.questionText ?? "")
-      setTotalPoints(String(editingQuestion.totalPoints ?? "1"))
       setChoices(
         editingQuestion.choices?.length
           ? editingQuestion.choices.map((c) => ({
@@ -118,7 +115,6 @@ function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, gro
         difficultyLevel,
         questionText: questionText.trim(),
         lessonId,
-        totalPoints: Number(totalPoints) || 1,
         choices: questionType === "MCQ" ? choices.filter((c) => c.choiceText.trim()) : [],
       }
       return isEditing
@@ -219,19 +215,6 @@ function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, gro
               onChange={(e) => setQuestionText(e.target.value)}
               rows={3}
               placeholder="What does..."
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="question-points">Points</Label>
-            <Input
-              id="question-points"
-              type="number"
-              min="0.5"
-              step="0.5"
-              className="w-28"
-              value={totalPoints}
-              onChange={(e) => setTotalPoints(e.target.value)}
             />
           </div>
 
@@ -546,7 +529,6 @@ export function InstitutionQuestionBankPanel({
                             {DIFFICULTIES.find((d) => d.value === question.difficultyLevel)
                               ?.label ?? question.difficultyLevel}
                           </Badge>
-                          <span>{question.totalPoints} pt(s)</span>
                           <span>
                             · {question.createdByEmail
                               ? `Added by ${question.createdByEmail}`

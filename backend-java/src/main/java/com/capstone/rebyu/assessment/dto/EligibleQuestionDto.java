@@ -15,7 +15,6 @@ public record EligibleQuestionDto(
         Long lessonId,
         String lessonTitle,
         String middleTitle,
-        String majorTitle,
-        BigDecimal defaultPoints
+        String majorTitle
 ) {
 }

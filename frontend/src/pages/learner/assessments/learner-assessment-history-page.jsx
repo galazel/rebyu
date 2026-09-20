@@ -174,9 +174,17 @@ function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
             {formatDate(attempt.startedAt)}
             {!inProgress ? ` · took ${formatDuration(attempt.durationSeconds)}` : null}
           </p>
-          {attempt.earnedPoints != null && attempt.totalPoints != null ? (
+          {attempt.proficiency != null ? (
             <p className="rb-pen text-lg text-[#6b706c]">
-              {Number(attempt.earnedPoints)} / {Number(attempt.totalPoints)} points
+              proficiency {Number(attempt.proficiency.rating).toFixed(0)} / 100 · {attempt.proficiency.label}
+            </p>
+          ) : null}
+          {attempt.correctCount != null && attempt.itemCount != null ? (
+            <p className="rb-pen text-lg text-[#6b706c]">
+              {Number(attempt.correctCount)} of {Number(attempt.answeredCount ?? attempt.itemCount)} answered correct
+              {attempt.totalPoints != null && attempt.earnedPoints != null
+                ? ` · ${Number(attempt.earnedPoints)} / ${Number(attempt.totalPoints)} points`
+                : ""}
             </p>
           ) : null}
         </div>

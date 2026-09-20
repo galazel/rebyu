@@ -144,7 +144,6 @@ public class QuestionService {
         entity.setDifficultyLevel(dto.getDifficultyLevel());
         entity.setQuestionText(dto.getQuestionText());
         entity.setImageKey(dto.getImageKey());
-        entity.setTotalPoints(dto.getTotalPoints());
         entity.setLesson(lessonRepository.getReferenceById(dto.getLessonId()));
         resolveParent(entity, dto.getParentQuestionId());
         QuestionDto result = questionMapper.toDto(questionRepository.save(entity));

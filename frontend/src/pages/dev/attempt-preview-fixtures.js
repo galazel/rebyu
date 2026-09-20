@@ -49,7 +49,6 @@ function fillerQuestion(id, promptIndex) {
     attemptQuestionId: id,
     questionType: "MULTIPLE_CHOICE",
     question: FILLER_PROMPTS[promptIndex % FILLER_PROMPTS.length],
-    points: 2,
     choices: FILLER_CHOICES.map((choiceText, choiceIndex) => ({
       choiceId: id * 10 + choiceIndex,
       choiceText,
@@ -64,7 +63,6 @@ const MCQ = {
   attemptQuestionId: 1200,
   questionType: "MULTIPLE_CHOICE",
   question: "Which statement describes Second Normal Form?",
-  points: 2,
   choices: [
     { choiceId: 12001, choiceText: "It removes transitive dependencies" },
     { choiceId: 12002, choiceText: "It removes partial dependencies on a composite key" },
@@ -78,7 +76,6 @@ const SHORT_ANSWER = {
   attemptQuestionId: 1300,
   questionType: "SHORT_ANSWER",
   question: "Name the normal form that removes partial dependencies on a composite key.",
-  points: 3,
   subQuestions: [],
 }
 
@@ -87,7 +84,6 @@ const DESCRIPTIVE = {
   questionType: "DESCRIPTIVE",
   question:
     "Explain why a table with a composite primary key can sit in First Normal Form but not Second Normal Form.",
-  points: 8,
   subQuestions: [],
 }
 
@@ -97,7 +93,6 @@ const PROGRAMMING = {
   criticalThinkingType: "PROGRAMMING",
   title: "Prime check under a time limit",
   difficultyLevel: "average",
-  points: 12,
   question:
     "A number is prime when it has exactly two distinct divisors: 1 and itself.\n\nImplement is_prime(n) so it returns True only for prime numbers. Your function is called once per test case and must handle inputs up to one million within the time limit.",
   instructions:
@@ -122,7 +117,6 @@ const DIAGRAM = {
   title: "Students and courses",
   difficultyLevel: "average",
   diagramType: "ERD",
-  points: 10,
   question:
     "A student enrols in many courses, and a course holds many students.\n\nModel this relationship without a many-to-many edge directly between the two entities.",
   instructions:

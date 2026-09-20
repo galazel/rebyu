@@ -89,7 +89,7 @@ public class BktEventFactory {
             return null; // cannot attribute evidence without a lesson mapping
         }
 
-        boolean correct = resolveCorrectness(answer, question.getPoints());
+        boolean correct = resolveCorrectness(answer);
         String occurredAt = (answer.getAnsweredAt() != null
                 ? answer.getAnsweredAt() : LocalDateTime.now()).toString();
 
@@ -180,16 +180,12 @@ public class BktEventFactory {
      * answers convert via the configurable awarded/max threshold. Never divides
      * by zero.
      */
-    private boolean resolveCorrectness(AssessmentAttemptAnswer answer, BigDecimal maxPoints) {
+    private boolean resolveCorrectness(AssessmentAttemptAnswer answer) {
         if (answer.getIsCorrect() != null) {
             return Boolean.TRUE.equals(answer.getIsCorrect());
         }
-        BigDecimal earned = answer.getEarnedPoints();
-        if (earned == null || maxPoints == null || maxPoints.signum() <= 0) {
-            return false;
-        }
-        double ratio = earned.doubleValue() / maxPoints.doubleValue();
-        return ratio >= properties.getPartialCreditCorrectThreshold();
+        BigDecimal credit = answer.getCredit();
+        return credit != null && credit.doubleValue() >= properties.getPartialCreditCorrectThreshold();
     }
 
     /**

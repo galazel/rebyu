@@ -228,7 +228,6 @@ public class GeneratedAssessmentService {
                 .questionType(questionType)
                 .difficultyLevel(difficulty)
                 .questionText(item.questionText().trim())
-                .totalPoints(BigDecimal.ONE)
                 .createdAt(LocalDateTime.now())
                 .build();
     }

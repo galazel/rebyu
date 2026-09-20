@@ -57,6 +57,7 @@ public final class LearnerAttemptDtos {
             String diagramType,
             String instructions,
             List<LearnerSubQuestionDto> subQuestions,
+            /** The item's weight on an institution paper; null on official assessments. */
             BigDecimal points,
             List<ProgrammingAttemptDtos.LearnerTestCaseDto> testCases,
             List<DiagramAttemptDtos.RubricCriterionDto> rubric,
@@ -128,8 +129,8 @@ public final class LearnerAttemptDtos {
      */
     public record AdaptiveVerdictDto(
             Boolean isCorrect,
-            BigDecimal earnedPoints,
-            BigDecimal points,
+            /** Share of the item earned, 0..1; partial credit from the AI, diagram and code graders. */
+            BigDecimal credit,
             Long correctChoiceId,
             String correctChoiceText,
             String acceptedAnswer,
@@ -277,7 +278,9 @@ public final class LearnerAttemptDtos {
             String question,
             Boolean isCorrect,
             boolean pendingManualEvaluation,
-            BigDecimal earnedPoints,
+            /** Share of the item earned, 0..1. */
+            BigDecimal credit,
+            /** The item's weight on an institution paper; null on official assessments. */
             BigDecimal points,
             String learnerAnswer,
             Long selectedChoiceId,
@@ -303,10 +306,23 @@ public final class LearnerAttemptDtos {
     public record LessonPerformanceDto(
             Long lessonId,
             String lessonTitle,
-            BigDecimal possiblePoints,
-            BigDecimal earnedPoints,
+            Integer itemCount,
+            Integer correctCount,
             BigDecimal percentage,
             Integer pendingCount
+    ) {
+    }
+
+    /**
+     * What an adaptive attempt measured: ability on the IRT scale, and that
+     * ability translated onto 0..100 with its tier -- {@code ((theta + 3) / 6) * 100},
+     * Novice below 25, Developing to 49, Proficient to 74, Advanced from 75.
+     */
+    public record ProficiencyDto(
+            BigDecimal rating,
+            String label,
+            BigDecimal theta,
+            BigDecimal standardError
     ) {
     }
 
@@ -318,15 +334,19 @@ public final class LearnerAttemptDtos {
             Integer attemptNumber,
             LocalDateTime submittedAt,
             Integer durationSeconds,
+            /** The Real Score: right answers as a share of the items served. */
             BigDecimal percentage,
             Boolean passed,
             BigDecimal passingScore,
-            BigDecimal totalPoints,
-            BigDecimal earnedPoints,
             Integer correctCount,
             Integer incorrectCount,
             Integer pendingCount,
             Integer unansweredCount,
+            /** The headline of an adaptive attempt; null on a fixed paper. */
+            ProficiencyDto proficiency,
+            /** Weighted totals of an institution paper; null when items all count the same. */
+            BigDecimal totalPoints,
+            BigDecimal earnedPoints,
             List<AttemptAnswerReviewDto> answers,
             List<LessonPerformanceDto> lessonBreakdown,
             Long certificationId,
@@ -349,10 +369,14 @@ public final class LearnerAttemptDtos {
             LocalDateTime startedAt,
             LocalDateTime submittedAt,
             Integer durationSeconds,
-            BigDecimal totalPoints,
-            BigDecimal earnedPoints,
             BigDecimal percentage,
-            Boolean passed
+            Boolean passed,
+            Integer correctCount,
+            Integer answeredCount,
+            Integer itemCount,
+            ProficiencyDto proficiency,
+            BigDecimal totalPoints,
+            BigDecimal earnedPoints
     ) {
     }
 }

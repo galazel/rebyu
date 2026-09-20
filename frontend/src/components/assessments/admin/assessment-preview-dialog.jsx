@@ -29,11 +29,7 @@ export default function AssessmentPreviewDialog({
 
           if (!question) return null
 
-          return {
-            examQuestion,
-            question,
-            points: examQuestion.points ?? null,
-          }
+          return { examQuestion, question }
         })
         .filter(Boolean)
   }, [exam, examQuestions, questionById])
@@ -41,12 +37,6 @@ export default function AssessmentPreviewDialog({
   if (!exam) return null
 
   const typeText = examTypeByIdText.get(exam.examTypeId)
-
-  const totalPoints = orderedQuestions.reduce((sum, item) => {
-    return sum + Number(item.points ?? 0)
-  }, 0)
-
-  const hasPoints = orderedQuestions.some((item) => item.points != null)
 
   return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -63,8 +53,6 @@ export default function AssessmentPreviewDialog({
                 </Badge>
 
                 <span>{orderedQuestions.length} question(s)</span>
-
-                {hasPoints ? <span>· {totalPoints} total point(s)</span> : null}
 
                 {exam.durationMinutes ? (
                     <span>· {exam.durationMinutes} min</span>
@@ -83,7 +71,7 @@ export default function AssessmentPreviewDialog({
                   </p>
               ) : (
                   <ol className="space-y-3">
-                    {orderedQuestions.map(({ question, points }, index) => (
+                    {orderedQuestions.map(({ question }, index) => (
                         <li
                             key={question.questionId}
                             className="rounded-xl border p-4"
@@ -98,17 +86,6 @@ export default function AssessmentPreviewDialog({
                                 <p className="min-w-0 text-sm font-medium">
                                   {question.questionText}
                                 </p>
-
-                                <Badge
-                                    variant={points != null ? "default" : "outline"}
-                                    className="shrink-0 text-[10px]"
-                                >
-                                  {points != null
-                                      ? `${Number(points)} point${
-                                          Number(points) === 1 ? "" : "s"
-                                      }`
-                                      : "No points"}
-                                </Badge>
                               </div>
 
                               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">

@@ -82,6 +82,20 @@ public class AssessmentAttempt {
 
     private Boolean passed;
 
+    /** Items served on this attempt, and how many of them were answered and answered right. */
+    @Column(name = "item_count")
+    private Integer itemCount;
+
+    @Column(name = "answered_count")
+    private Integer answeredCount;
+
+    @Column(name = "correct_count")
+    private Integer correctCount;
+
+    /**
+     * Weighted totals of an institution paper whose questions carry points.
+     * Null on an official assessment, which is scored by count.
+     */
     @Column(name = "total_points", precision = 8, scale = 2)
     private BigDecimal totalPoints;
 

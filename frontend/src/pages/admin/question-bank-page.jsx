@@ -2878,7 +2878,6 @@ function QuestionBank({
             questionText: question.questionText ?? "",
             imageKey: question.imageKey ?? null,
             lessonId: String(question.lessonId ?? ""),
-            totalPoints: question.totalPoints ?? 1,
         });
     }
 
@@ -2929,7 +2928,6 @@ function QuestionBank({
                 questionText: questionForm.questionText,
                 imageKey: questionForm.imageKey,
                 lessonId: Number(questionForm.lessonId),
-                totalPoints: Number(questionForm.totalPoints || 1),
             });
 
             await refetchQuestions();
@@ -3099,7 +3097,6 @@ function QuestionBank({
                         imageKey: question.data.imageKey ?? null,
                         lessonId: Number(lessonId),
                         certificationId,
-                        totalPoints: 1,
                     });
 
                     for (const choice of question.data.choices) {
@@ -3121,7 +3118,6 @@ function QuestionBank({
                         imageKey: question.data.imageKey ?? null,
                         lessonId: Number(lessonId),
                         certificationId,
-                        totalPoints: 1,
                     });
                     await saveTextQuestion({
                         questionId: savedShortAnswer.questionId,
@@ -3141,7 +3137,6 @@ function QuestionBank({
                         imageKey: question.data.imageKey ?? null,
                         lessonId: Number(lessonId),
                         certificationId,
-                        totalPoints: 1,
                     });
                     await saveTextQuestion({
                         questionId: savedDescriptive.questionId,
@@ -3158,7 +3153,6 @@ function QuestionBank({
                         imageKey: question.data.imageKey ?? null,
                         lessonId: Number(lessonId),
                         certificationId,
-                        totalPoints: 1,
                     });
                     await saveProgrammingQuestion({
                         questionId: savedProgramming.questionId,
@@ -3176,7 +3170,6 @@ function QuestionBank({
                             difficultyLevel: question.data.difficulty,
                             questionText: subQuestion.question,
                             lessonId: Number(lessonId),
-                            totalPoints: 1,
                         });
                         await saveTextQuestion({
                             questionId: savedSub.questionId,
@@ -3194,7 +3187,6 @@ function QuestionBank({
                         imageKey: question.data.imageKey ?? null,
                         lessonId: Number(lessonId),
                         certificationId,
-                        totalPoints: 1,
                     });
                     await saveDiagramQuestion({
                         questionId: savedDiagram.questionId,
@@ -3214,7 +3206,6 @@ function QuestionBank({
                             difficultyLevel: question.data.difficulty,
                             questionText: subQuestion.question,
                             lessonId: Number(lessonId),
-                            totalPoints: 1,
                         });
                         await saveTextQuestion({
                             questionId: savedSub.questionId,

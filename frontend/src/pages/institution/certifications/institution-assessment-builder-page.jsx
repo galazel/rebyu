@@ -567,7 +567,6 @@ export default function InstitutionAssessmentBuilderPage() {
           {
             lessonId: Number(scopeLessonId),
             certificationId: certification.certificationId,
-            totalPoints: points,
             ownerGroupId: id,
           },
           QUESTION_API

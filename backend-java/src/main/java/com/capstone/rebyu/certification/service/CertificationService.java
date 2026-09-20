@@ -853,26 +853,19 @@ public class CertificationService {
                 continue;
             }
             List<Long> badPoints = new ArrayList<>();
-            BigDecimal total = BigDecimal.ZERO;
             for (ExamQuestion examQuestion : examQuestions) {
-                BigDecimal points = effectivePoints(examQuestion);
-                if (points.signum() <= 0) {
+                if (examQuestion.getPoints() != null && examQuestion.getPoints().signum() <= 0) {
                     badPoints.add(examQuestion.getQuestion().getQuestionId());
-                } else {
-                    total = total.add(points);
                 }
             }
             if (!badPoints.isEmpty()) {
                 invalid.add(new InvalidRequirementDto(
                         exam.getExamId(), exam.getTitle(), "QUESTION_POINTS_REQUIRED", badPoints));
-            } else if (total.signum() <= 0) {
-                invalid.add(new InvalidRequirementDto(
-                        exam.getExamId(), exam.getTitle(), "ASSESSMENT_TOTAL_POINTS_INVALID", List.of()));
             }
             BigDecimal passing = exam.getPassingScore();
             if (passing != null && (passing.signum() < 0 || passing.compareTo(new BigDecimal("100")) > 0)) {
                 invalid.add(new InvalidRequirementDto(
-                        exam.getExamId(), exam.getTitle(), "PASSING_SCORE_EXCEEDS_TOTAL_POINTS", List.of()));
+                        exam.getExamId(), exam.getTitle(), "PASSING_SCORE_OUT_OF_RANGE", List.of()));
             }
         }
 
@@ -886,15 +879,6 @@ public class CertificationService {
     private boolean hasLessonContent(Lesson lesson) {
         String structure = lesson.getLessonComponentStructure();
         return structure != null && !structure.isBlank() && !"[]".equals(structure.trim());
-    }
-
-    private BigDecimal effectivePoints(ExamQuestion examQuestion) {
-        if (examQuestion.getPoints() != null) {
-            return examQuestion.getPoints();
-        }
-        BigDecimal fallback = examQuestion.getQuestion() == null
-                ? null : examQuestion.getQuestion().getTotalPoints();
-        return fallback == null ? BigDecimal.ZERO : fallback;
     }
 
     private String summarize(CertificationPublishRequirementsDto requirements) {

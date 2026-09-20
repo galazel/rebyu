@@ -58,6 +58,7 @@ public class AssessmentAttemptQuestion {
     @Column(name = "display_order", nullable = false)
     private Integer displayOrder;
 
+    /** The question's weight on this paper, snapshotted from ExamQuestion; null means one. */
     @Column(precision = 5, scale = 2)
     private BigDecimal points;
 

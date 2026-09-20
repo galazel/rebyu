@@ -1195,14 +1195,14 @@ export function QuestionTypeButton({ questionType, onAdd, disabled }) {
 /**
  * Persists one authored question with the same per-type backend calls the
  * admin builder uses (saveQuestion + saveChoices/saveTextQuestion/
- * saveProgrammingQuestion/saveDiagramQuestion), parametrized by totalPoints
- * (admin hardcodes 1; callers configuring points per-question pass their
- * own) and ownerGroupId (undefined for official/admin-authored questions,
- * a group id to author the question as that Institution group's own).
+ * saveProgrammingQuestion/saveDiagramQuestion), parametrized by ownerGroupId
+ * (undefined for official/admin-authored questions, a group id to author the
+ * question as that Institution group's own). Every question is worth one
+ * observation; there are no per-question points.
  */
 export async function saveAuthoredQuestion(
   question,
-  { lessonId, certificationId, totalPoints = 1, ownerGroupId } = {},
+  { lessonId, certificationId, ownerGroupId } = {},
   api
 ) {
   const { saveQuestion, saveChoices, saveTextQuestion, saveProgrammingQuestion, saveDiagramQuestion } = api
@@ -1217,7 +1217,6 @@ export async function saveAuthoredQuestion(
           imageKey: question.data.imageKey ?? null,
           lessonId: Number(lessonId),
           certificationId,
-          totalPoints,
         },
         ownerGroupId
       )
@@ -1242,7 +1241,6 @@ export async function saveAuthoredQuestion(
           imageKey: question.data.imageKey ?? null,
           lessonId: Number(lessonId),
           certificationId,
-          totalPoints,
         },
         ownerGroupId
       )
@@ -1272,7 +1270,6 @@ export async function saveAuthoredQuestion(
             questionText: blank.question,
             lessonId: Number(lessonId),
             certificationId,
-            totalPoints: Number(blank.points) || 1,
           },
           ownerGroupId
         )
@@ -1293,7 +1290,6 @@ export async function saveAuthoredQuestion(
           imageKey: question.data.imageKey ?? null,
           lessonId: Number(lessonId),
           certificationId,
-          totalPoints,
         },
         ownerGroupId
       )
@@ -1313,7 +1309,6 @@ export async function saveAuthoredQuestion(
           imageKey: question.data.imageKey ?? null,
           lessonId: Number(lessonId),
           certificationId,
-          totalPoints,
         },
         ownerGroupId
       )
@@ -1334,7 +1329,6 @@ export async function saveAuthoredQuestion(
             difficultyLevel: question.data.difficulty,
             questionText: subQuestion.question,
             lessonId: Number(lessonId),
-            totalPoints: 1,
           },
           ownerGroupId
         )
@@ -1355,7 +1349,6 @@ export async function saveAuthoredQuestion(
           imageKey: question.data.imageKey ?? null,
           lessonId: Number(lessonId),
           certificationId,
-          totalPoints,
         },
         ownerGroupId
       )
@@ -1378,7 +1371,6 @@ export async function saveAuthoredQuestion(
             difficultyLevel: question.data.difficulty,
             questionText: subQuestion.question,
             lessonId: Number(lessonId),
-            totalPoints: 1,
           },
           ownerGroupId
         )

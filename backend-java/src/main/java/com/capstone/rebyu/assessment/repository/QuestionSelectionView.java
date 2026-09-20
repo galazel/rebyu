@@ -36,5 +36,4 @@ public interface QuestionSelectionView {
     /** MULTIPLE_CHOICE, SHORT_ANSWER, DESCRIPTIVE, CRITICAL_THINKING, PROGRAMMING, DIAGRAM... */
     String getQuestionType();
 
-    java.math.BigDecimal getTotalPoints();
 }

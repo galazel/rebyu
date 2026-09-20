@@ -40,12 +40,3 @@ if settings.model_training_enabled and settings.scheduled_retraining_enabled:
             ),
         }
     }
-
-if settings.model_training_enabled and settings.scheduled_irt_calibration_enabled:
-    celery_app.conf.beat_schedule = {
-        **(celery_app.conf.beat_schedule or {}),
-        "weekly-rebyu-irt-calibration": {
-            "task": "app.workers.tasks.calibrate_irt",
-            "schedule": crontab(minute=30, hour=3, day_of_week="sunday"),
-        },
-    }

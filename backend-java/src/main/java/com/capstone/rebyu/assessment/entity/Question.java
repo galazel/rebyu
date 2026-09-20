@@ -68,10 +68,6 @@ public class Question {
     @EqualsAndHashCode.Exclude
     private Lesson lesson;
 
-    @ToString.Include
-    @Column(name = "total_points", nullable = false, precision = 5, scale = 2)
-    private BigDecimal totalPoints = BigDecimal.ONE;
-
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     @EqualsAndHashCode.Exclude

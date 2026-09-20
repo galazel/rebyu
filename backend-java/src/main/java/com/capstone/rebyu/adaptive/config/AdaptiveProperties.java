@@ -38,12 +38,8 @@ public class AdaptiveProperties {
 
     /** Weight of BKT uncertainty (p(1-p)) against coverage when choosing the next lesson. */
     private double lessonExplorationWeight = 1.0;
-
-    /** Learning rate for online difficulty updates on items never calibrated. */
-    private double onlineKDifficulty = 0.30;
-
-    /** Learning rate for online difficulty updates on calibrated items. */
-    private double calibratedKDifficulty = 0.075;
+    /** How far one answer can move the ability estimate (scaled by surprise). */
+    private double abilityStep = 0.6;
 
     /** A scope's bank must hold this many times the item count before the assessment can publish. */
     private double minBankMultiplier = 1.5;
@@ -56,7 +52,4 @@ public class AdaptiveProperties {
 
     /** How long a lesson's BKT parameters fetched from the model service are kept. */
     private int bktParamsCacheMinutes = 10;
-
-    /** The calibration service (FastAPI) base URL for the IRT routes. */
-    private String irtServiceUrl = "http://localhost:8000/api/v1/irt";
 }

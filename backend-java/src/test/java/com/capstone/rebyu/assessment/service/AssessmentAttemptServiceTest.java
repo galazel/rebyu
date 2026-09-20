@@ -42,6 +42,7 @@ import static org.mockito.Mockito.*;
 class AssessmentAttemptServiceTest {
 
     @Mock private ExamRepository examRepository;
+    private final com.capstone.rebyu.bkt.config.BktProperties bktProperties = new com.capstone.rebyu.bkt.config.BktProperties();
     @Mock private ExamQuestionRepository examQuestionRepository;
     @Mock private QuestionRepository questionRepository;
     @Mock private TextQuestionConfigRepository textQuestionConfigRepository;
@@ -80,7 +81,7 @@ class AssessmentAttemptServiceTest {
     @BeforeEach
     void setUp() {
         service = new AssessmentAttemptService(
-                examRepository, examQuestionRepository, questionRepository,
+                examRepository, bktProperties, examQuestionRepository, questionRepository,
                 textQuestionConfigRepository, programmingQuestionConfigRepository,
                 diagramQuestionConfigRepository, attemptRepository,
                 attemptQuestionRepository, attemptAnswerRepository,
@@ -121,7 +122,6 @@ class AssessmentAttemptServiceTest {
         mcqQuestion.setDifficultyLevel("EASY");
         mcqQuestion.setQuestionText("What does PDCA stand for?");
         mcqQuestion.setLesson(lesson);
-        mcqQuestion.setTotalPoints(BigDecimal.ONE);
         Choice correct = new Choice();
         correct.setChoiceId(1000L);
         correct.setChoiceText("Plan Do Check Act");
@@ -290,8 +290,9 @@ class AssessmentAttemptServiceTest {
                 .status(AssessmentAttempt.Status.SUBMITTED)
                 .startedAt(LocalDateTime.now().minusMinutes(5))
                 .submittedAt(LocalDateTime.now())
-                .totalPoints(BigDecimal.ONE)
-                .earnedPoints(BigDecimal.ONE)
+                .itemCount(1)
+                .answeredCount(1)
+                .correctCount(1)
                 .percentage(new BigDecimal("100.00"))
                 .passed(true)
                 .build();
@@ -322,7 +323,7 @@ class AssessmentAttemptServiceTest {
                 .attemptQuestion(snapshot)
                 .selectedChoiceId(1000L)
                 .isCorrect(true)
-                .earnedPoints(BigDecimal.ONE)
+                .credit(BigDecimal.ONE)
                 .pendingManualEvaluation(false)
                 .build();
         when(attemptAnswerRepository.findByAttempt_AssessmentAttemptId(82L))
@@ -567,7 +568,7 @@ class AssessmentAttemptServiceTest {
 
         // A run is never a verdict: no score, no stored result on the answer.
         AssessmentAttemptAnswer saved = answers.get(0);
-        assertNull(saved.getEarnedPoints());
+        assertNull(saved.getCredit());
         assertNull(saved.getIsCorrect());
         assertNull(saved.getExecutionResult());
         verify(aiAnswerGradingService, never()).grade(any());
@@ -812,7 +813,7 @@ class AssessmentAttemptServiceTest {
                 .attemptQuestion(snapshot)
                 .submittedCode("old code")
                 .executionResult("{\"status\":\"COMPLETED\"}")
-                .earnedPoints(new BigDecimal("10.00"))
+                .credit(BigDecimal.ONE)
                 .isCorrect(true)
                 .pendingManualEvaluation(false)
                 .build();
@@ -825,7 +826,7 @@ class AssessmentAttemptServiceTest {
                 new AttemptAnswerDraftDto(4L, null, null, "new code", "Python", null))));
 
         assertNull(existing.getExecutionResult());
-        assertNull(existing.getEarnedPoints());
+        assertNull(existing.getCredit());
         assertNull(existing.getIsCorrect());
         assertTrue(existing.isPendingManualEvaluation());
     }
@@ -926,7 +927,7 @@ class AssessmentAttemptServiceTest {
                 .submittedCode(submittedCode)
                 .programmingLanguage("Python")
                 .isCorrect(true)
-                .earnedPoints(new BigDecimal("10.00"))
+                .credit(BigDecimal.ONE)
                 .pendingManualEvaluation(false)
                 .executionResult("{\"codeHash\":\"" + gradedCodeHash + "\",\"mode\":\"CHECK\","
                         + "\"status\":\"COMPLETED\",\"passedTests\":2,\"totalTests\":2,"
@@ -979,9 +980,9 @@ class AssessmentAttemptServiceTest {
                 "hash-of-code-the-learner-has-since-replaced", "print('new and broken')", rerun);
 
         verify(codeExecutionService, atLeastOnce()).execute(any());
-        // Half the tests on a 10-point item -- the re-run's verdict, not the
-        // stored 10.00 from the version that passed everything.
-        assertEquals(0, new BigDecimal("5.00").compareTo(answer.getEarnedPoints()));
+        // Half the tests passed -- the re-run's verdict, not the stored full
+        // credit from the version that passed everything.
+        assertEquals(0, new BigDecimal("0.5000").compareTo(answer.getCredit()));
         assertFalse(answer.getIsCorrect());
         assertFalse(answer.isPendingManualEvaluation());
     }
@@ -996,7 +997,7 @@ class AssessmentAttemptServiceTest {
                 submitProgrammingWithStoredVerdict(codeHash(code), code, null);
 
         verify(codeExecutionService, never()).execute(any());
-        assertEquals(0, new BigDecimal("10.00").compareTo(answer.getEarnedPoints()));
+        assertEquals(0, BigDecimal.ONE.compareTo(answer.getCredit()));
         assertTrue(answer.getIsCorrect());
     }
 

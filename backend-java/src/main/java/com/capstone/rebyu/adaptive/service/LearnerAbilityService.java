@@ -90,24 +90,14 @@ public class LearnerAbilityService {
             pKnown.put(lessonId, p != null ? p : params.get(lessonId).prior());
         }
 
-        double thetaBkt = 0.0;
-        if (anyEvidence) {
-            double weighted = 0.0;
-            double weight = 0.0;
-            for (Map.Entry<Long, Integer> entry : poolCountByLesson.entrySet()) {
-                double w = Math.max(1, entry.getValue());
-                weighted += w * pKnown.get(entry.getKey());
-                weight += w;
-            }
-            thetaBkt = IrtModel.clamp(IrtModel.logit(weighted / weight), -2.0, 2.0);
-        }
-
-        LearnerAbility ability = abilityRepository
-                .findByLearnerIdAndScopeKey(learnerId, scopeKey(certificationId)).orElse(null);
-        double w = ability == null ? 0.0
-                : ability.getResponseCount() / (ability.getResponseCount() + STORED_WEIGHT_HALF_LIFE);
-        double mu0 = ability == null ? thetaBkt : w * ability.getTheta() + (1 - w) * thetaBkt;
-        double sigma0 = ability == null ? 1.0 : Math.max(0.5, w * ability.getStandardError() + (1 - w) * 1.0);
+        /* Every attempt starts at the baseline. A head start from an earlier
+           attempt or from BKT mastery made ratings incomparable between
+           learners on the strength of very little evidence; the step rule
+           reaches the learner's level within a handful of items anyway. The
+           stored ability is kept for the record (see persistAbility), not
+           read here. */
+        double mu0 = IrtModel.THETA_BASELINE;
+        double sigma0 = IrtModel.standardError(mu0, List.of());
         return new Seed(mu0, sigma0, pKnown, params);
     }
 
