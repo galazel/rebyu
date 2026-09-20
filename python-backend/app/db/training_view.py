@@ -15,8 +15,9 @@ Two properties make running this at startup safe:
 
 *   It is `CREATE OR REPLACE`, so applying it on every boot is a no-op once the
     view matches, and an automatic repair when the definition has changed.
-*   It reads tables owned by the Java backend (`learner_exam_details`,
-    `exam_questions`, `questions`, `exams`, `exam_types`), which Hibernate
+*   It reads tables owned by the Java backend (`assessment_attempts`,
+    `assessment_attempt_questions`, `assessment_attempt_answers`, `questions`,
+    `exams`, `exam_types`), which Hibernate
     creates with `ddl-auto: update`. On a freshly wiped database this service
     can easily start first, so a failure here is expected rather than
     exceptional: it is logged and swallowed, and the next restart -- or the

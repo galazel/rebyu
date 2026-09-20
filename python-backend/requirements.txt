@@ -30,7 +30,10 @@ pyBKT==1.4.1
 
 scikit-learn==1.6.1
 pandas>=2.2,<3.0
-numpy>=1.26,<3.0
+# NumPy 1.x only: pyBKT's compiled extension is built against the 1.x C API
+# and fails to import on 2.x ("_ARRAY_API not found"), which made every
+# training candidate fail. Everything else here supports both.
+numpy>=1.26,<2.0
 matplotlib>=3.8,<4.0
 joblib>=1.4,<2.0
 
