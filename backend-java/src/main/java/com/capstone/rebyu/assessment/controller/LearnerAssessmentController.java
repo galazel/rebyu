@@ -49,7 +49,7 @@ public class LearnerAssessmentController {
     private final AdaptiveAttemptService adaptiveAttemptService;
     private final CognitoAuthService auth;
     private final com.capstone.rebyu.assessment.repository.ExamRepository examRepository;
-    private final com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAssigneeRepository groupAssignees;
+    private final com.capstone.rebyu.department.repository.DepartmentLearnerRepository groupAssignees;
 
     /**
      * A group's own assessment is for that group's learners. Nothing checked
@@ -57,10 +57,10 @@ public class LearnerAssessmentController {
      */
     private void requireClassMemberIfGroupExam(Long assessmentId, Long learnerId) {
         examRepository.findById(assessmentId).ifPresent(exam -> {
-            if (exam.getOwnerGroup() != null && !groupAssignees
-                    .existsByInstitutionGroup_InstitutionGroupIdAndInstitutionCertLearner_Learner_LearnerIdAndStatus(
-                            exam.getOwnerGroup().getInstitutionGroupId(), learnerId,
-                            com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAssignee.Status.active)) {
+            if (exam.getOwnerDepartment() != null && !groupAssignees
+                    .existsByDepartment_DepartmentIdAndInstitutionCertLearner_Learner_LearnerIdAndStatus(
+                            exam.getOwnerDepartment().getDepartmentId(), learnerId,
+                            com.capstone.rebyu.department.entity.DepartmentLearner.Status.active)) {
                 throw new jakarta.persistence.EntityNotFoundException("Assessment not found: " + assessmentId);
             }
         });

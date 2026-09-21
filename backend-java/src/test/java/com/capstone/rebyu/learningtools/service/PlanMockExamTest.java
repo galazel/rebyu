@@ -110,7 +110,7 @@ class PlanMockExamTest {
   private static QuestionSelectionView view(long id) {
     QuestionSelectionView view = mock(QuestionSelectionView.class);
     when(view.getQuestionId()).thenReturn(id);
-    when(view.getOwnerGroupId()).thenReturn(null); // Mockito would otherwise answer 0L, a "private group"
+    when(view.getOwnerDepartmentId()).thenReturn(null); // Mockito would otherwise answer 0L, a "private group"
     when(view.getQuestionText()).thenReturn("Distinct question number " + id + " about topic " + (id * 7919));
     return view;
   }

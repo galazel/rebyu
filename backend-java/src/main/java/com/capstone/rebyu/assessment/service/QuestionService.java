@@ -15,7 +15,7 @@ import com.capstone.rebyu.certification.entity.MajorCategory;
 import com.capstone.rebyu.certification.entity.MiddleCategory;
 import com.capstone.rebyu.certification.repository.LessonRepository;
 import com.capstone.rebyu.common.BusinessRuleException;
-import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
+import com.capstone.rebyu.department.entity.Department;
 import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import com.capstone.rebyu.user.entity.User;
 import jakarta.persistence.EntityNotFoundException;
@@ -44,16 +44,16 @@ public class QuestionService {
     private final InstitutionCertificateRepository institutionCertificateRepository;
 
     /**
-     * includeGroupId is the same opt-in scoping used for the curriculum tree
+     * includeDepartmentId is the same opt-in scoping used for the curriculum tree
      * and exams: omitted, only official (admin-authored) questions are
      * returned -- identical to before group ownership existed, since no
      * question has ever had a non-null owner group. Passed, that group's own
      * questions are mixed in; another group's questions are never visible.
      */
-    public List<QuestionDto> getAll(Long includeGroupId) {
-        log.debug("Fetching all questions (includeGroupId={})", includeGroupId);
+    public List<QuestionDto> getAll(Long includeDepartmentId) {
+        log.debug("Fetching all questions (includeDepartmentId={})", includeDepartmentId);
         return questionRepository.findAll().stream()
-                .filter(question -> isVisible(question, includeGroupId))
+                .filter(question -> isVisible(question, includeDepartmentId))
                 .map(questionMapper::toDto).toList();
     }
 
@@ -62,33 +62,33 @@ public class QuestionService {
      * the narrowing happens in the query rather than in the caller -- see
      * {@link QuestionRepository#findBankByCertificationId} for what that saves.
      */
-    public List<QuestionDto> getByCertificationId(Long certificationId, Long includeGroupId) {
+    public List<QuestionDto> getByCertificationId(Long certificationId, Long includeDepartmentId) {
         log.debug("Fetching questions for certification id: {}", certificationId);
         return questionRepository.findBankByCertificationId(certificationId).stream()
-                .filter(question -> isVisible(question, includeGroupId))
+                .filter(question -> isVisible(question, includeDepartmentId))
                 .map(questionMapper::toDto).toList();
     }
 
-    public List<QuestionDto> getByLessonId(Long lessonId, Long includeGroupId) {
+    public List<QuestionDto> getByLessonId(Long lessonId, Long includeDepartmentId) {
         log.debug("Fetching questions for lesson id: {}", lessonId);
         return questionRepository.findByLesson_LessonId(lessonId).stream()
-                .filter(question -> isVisible(question, includeGroupId))
+                .filter(question -> isVisible(question, includeDepartmentId))
                 .map(questionMapper::toDto).toList();
     }
 
-    public QuestionDto getById(Long id, Long includeGroupId) {
+    public QuestionDto getById(Long id, Long includeDepartmentId) {
         log.debug("Fetching question id: {}", id);
         Question entity = findEntity(id);
-        if (!isVisible(entity, includeGroupId)) {
+        if (!isVisible(entity, includeDepartmentId)) {
             throw new EntityNotFoundException("Question not found: " + id);
         }
         return questionMapper.toDto(entity);
     }
 
     /** Official questions are visible to everyone; group-owned only to that group. */
-    private boolean isVisible(Question question, Long includeGroupId) {
-        return question.getOwnerGroup() == null
-                || question.getOwnerGroup().getInstitutionGroupId().equals(includeGroupId);
+    private boolean isVisible(Question question, Long includeDepartmentId) {
+        return question.getOwnerDepartment() == null
+                || question.getOwnerDepartment().getDepartmentId().equals(includeDepartmentId);
     }
 
     /**
@@ -99,9 +99,9 @@ public class QuestionService {
      *                             access to. Null for an ADMIN caller (no restriction).
      */
     public QuestionDto create(
-            QuestionDto dto, Long creatorUserId, Long restrictToInstitutionId, InstitutionGroup ownerGroup) {
-        log.info("Creating new question (ownerGroup={})",
-                ownerGroup == null ? null : ownerGroup.getInstitutionGroupId());
+            QuestionDto dto, Long creatorUserId, Long restrictToInstitutionId, Department ownerDepartment) {
+        log.info("Creating new question (ownerDepartment={})",
+                ownerDepartment == null ? null : ownerDepartment.getDepartmentId());
         validateLesson(dto, restrictToInstitutionId);
         if (dto.getParentQuestionId() == null && dto.getQuestionText() != null) {
             // The same words, or the same words lightly edited: what the
@@ -118,7 +118,7 @@ public class QuestionService {
         entity.setQuestionId(null);
         entity.setCreatedBy(User.builder().userId(creatorUserId).build());
         entity.setCreatedAt(LocalDateTime.now());
-        entity.setOwnerGroup(ownerGroup);
+        entity.setOwnerDepartment(ownerDepartment);
         resolveParent(entity, dto.getParentQuestionId());
         QuestionDto result = questionMapper.toDto(questionRepository.save(entity));
         log.info("Question created with id: {} by userId={}", result.getQuestionId(), creatorUserId);

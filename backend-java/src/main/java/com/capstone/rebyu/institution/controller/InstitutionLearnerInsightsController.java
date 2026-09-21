@@ -3,7 +3,7 @@ package com.capstone.rebyu.institution.controller;
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
 import com.capstone.rebyu.institution.service.InstitutionLearnerInsightsService;
-import com.capstone.rebyu.institution.service.InstitutionLearnerInsightsService.GroupLearnerRow;
+import com.capstone.rebyu.institution.service.InstitutionLearnerInsightsService.DepartmentLearnerRow;
 import com.capstone.rebyu.progress.analytics.dto.ProgressAnalyticsDtos.ProgressAnalyticsResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,7 +27,7 @@ import java.util.List;
  * service re-checks group membership on every call rather than trusting it.
  */
 @RestController
-@RequestMapping("/api/institution/me/groups")
+@RequestMapping("/api/institution/me/departments")
 @RequiredArgsConstructor
 public class InstitutionLearnerInsightsController {
 
@@ -35,35 +35,35 @@ public class InstitutionLearnerInsightsController {
     private final CognitoAuthService auth;
 
     /** The group's active learners, with the summary figures the table shows. */
-    @GetMapping("/{groupId}/learners")
-    public List<GroupLearnerRow> roster(
-            @AuthenticationPrincipal Jwt jwt, @PathVariable Long groupId) {
+    @GetMapping("/{departmentId}/learners")
+    public List<DepartmentLearnerRow> roster(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long departmentId) {
         CurrentUserDto user = requireInstitution(jwt);
         return insightsService.groupRoster(
-                groupId, user.institutionId(), user.userId(), isOwner(user));
+                departmentId, user.institutionId(), user.userId(), isOwner(user));
     }
 
     /** Weak topics, curriculum progress, readiness and confidence for one learner. */
-    @GetMapping("/{groupId}/learners/{learnerId}/analytics")
+    @GetMapping("/{departmentId}/learners/{learnerId}/analytics")
     public ProgressAnalyticsResponse analytics(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable Long groupId,
+            @PathVariable Long departmentId,
             @PathVariable Long learnerId) {
         CurrentUserDto user = requireInstitution(jwt);
         return insightsService.learnerAnalytics(
-                groupId, learnerId, user.institutionId(), user.userId(), isOwner(user));
+                departmentId, learnerId, user.institutionId(), user.userId(), isOwner(user));
     }
 
     /** Unassigns the learner from this group; their account and progress remain. */
-    @DeleteMapping("/{groupId}/learners/{learnerId}")
+    @DeleteMapping("/{departmentId}/learners/{learnerId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeFromGroup(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable Long groupId,
+            @PathVariable Long departmentId,
             @PathVariable Long learnerId) {
         CurrentUserDto user = requireInstitution(jwt);
         insightsService.removeFromGroup(
-                groupId, learnerId, user.institutionId(), user.userId(), isOwner(user));
+                departmentId, learnerId, user.institutionId(), user.userId(), isOwner(user));
     }
 
     private CurrentUserDto requireInstitution(Jwt jwt) {
@@ -78,6 +78,6 @@ public class InstitutionLearnerInsightsController {
     }
 
     private boolean isOwner(CurrentUserDto user) {
-        return "owner".equalsIgnoreCase(user.institutionMemberRole());
+        return "owner".equalsIgnoreCase(user.departmentHeadRole());
     }
 }

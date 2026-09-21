@@ -17,8 +17,8 @@ import java.util.List;
 
 /**
  * Reads stay public (browsed platform-wide). WRITES had no auth at all --
- * now either ADMIN (official content, ownerGroupId omitted) or an Institution
- * Member acting on their own group's content (ownerGroupId required, checked
+ * now either ADMIN (official content, ownerDepartmentId omitted) or an Institution
+ * Member acting on their own group's content (ownerDepartmentId required, checked
  * against the caller's own group access -- see MajorCategoryService).
  */
 @RestController
@@ -43,11 +43,11 @@ public class MajorCategoryController {
     public MajorCategoryDto create(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody MajorCategoryDto dto,
-            @RequestParam(required = false) Long ownerGroupId) {
+            @RequestParam(required = false) Long ownerDepartmentId) {
         CurrentUserDto user = requireAdminOrInstitution(jwt);
         boolean isAdmin = isAdmin(user);
         return majorCategoryService.create(
-                dto, isAdmin, user.institutionId(), user.userId(), isOwner(user), ownerGroupId);
+                dto, isAdmin, user.institutionId(), user.userId(), isOwner(user), ownerDepartmentId);
     }
 
     @PutMapping("/{id}")
@@ -82,6 +82,6 @@ public class MajorCategoryController {
     }
 
     private boolean isOwner(CurrentUserDto user) {
-        return "owner".equalsIgnoreCase(user.institutionMemberRole());
+        return "owner".equalsIgnoreCase(user.departmentHeadRole());
     }
 }

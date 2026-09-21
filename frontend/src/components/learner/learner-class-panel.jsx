@@ -44,7 +44,7 @@ export function ClassHeader({ group }) {
           Your class{group.institutionName ? ` · ${group.institutionName}` : ""}
         </span>
         <span className="block truncate font-rb-display text-base font-extrabold text-rb-eel">
-          {group.groupName}
+          {group.departmentName}
         </span>
       </span>
     </div>
@@ -60,8 +60,8 @@ export function ClassBody({ group }) {
 
   return (
     <div className="space-y-4">
-      {group.groupDescription ? (
-        <p className="text-sm leading-5 text-rb-wolf">{group.groupDescription}</p>
+      {group.departmentDescription ? (
+        <p className="text-sm leading-5 text-rb-wolf">{group.departmentDescription}</p>
       ) : null}
 
       <div>
@@ -79,7 +79,7 @@ export function ClassBody({ group }) {
         ) : (
           <ul className="mt-2 space-y-2">
             {visible.map((item) => (
-              <li key={item.groupAnnouncementId} className="rounded-xl bg-rb-polar px-3 py-2.5">
+              <li key={item.departmentAnnouncementId} className="rounded-xl bg-rb-polar px-3 py-2.5">
                 <p className="flex items-start gap-1.5 text-sm font-bold leading-5 text-rb-eel">
                   {item.pinned ? (
                     <PinIcon className="mt-1 size-3 shrink-0 text-rb-macaw-lip" aria-label="Pinned" />
@@ -166,7 +166,7 @@ export function LearnerClassPanel({ certificationId, variant = "rail" }) {
       <aside className="space-y-4" aria-label="Your class">
         {classes.map((group) => (
           <section
-            key={group.groupId}
+            key={group.departmentId}
             className="rounded-rb-card border-2 border-rb-swan bg-rb-snow p-4 shadow-[var(--comic-shadow-sm)]"
           >
             <ClassHeader group={group} />
@@ -183,7 +183,7 @@ export function LearnerClassPanel({ certificationId, variant = "rail" }) {
   return (
     <div className="space-y-3" aria-label="Your class">
       {classes.map((group, index) => (
-        <section key={group.groupId} className="rounded-rb-card border-2 border-rb-swan bg-rb-snow">
+        <section key={group.departmentId} className="rounded-rb-card border-2 border-rb-swan bg-rb-snow">
           <button
             type="button"
             onClick={() => setOpen((value) => (value === index ? false : index))}

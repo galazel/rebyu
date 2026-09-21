@@ -1,10 +1,10 @@
 package com.capstone.rebyu.partnership.service;
 
 import com.capstone.rebyu.common.BusinessRuleException;
-import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
-import com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAuthority;
-import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAuthorityRepository;
-import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupRepository;
+import com.capstone.rebyu.department.entity.Department;
+import com.capstone.rebyu.department.entity.DepartmentHeadAssignment;
+import com.capstone.rebyu.department.repository.DepartmentHeadAssignmentRepository;
+import com.capstone.rebyu.department.repository.DepartmentRepository;
 import com.capstone.rebyu.notification.entity.LearnerInvitation;
 import com.capstone.rebyu.notification.repository.LearnerInvitationRepository;
 import com.capstone.rebyu.notification.service.EmailService;
@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
  * group, against the group's certification allocation slots.
  *
  * The institution account itself does not send invitations -- only the leader
- * (an active InstitutionGroupAuthority) of the target group may. The owner
+ * (an active DepartmentHeadAssignment) of the target group may. The owner
  * retains read-only visibility via {@link #listInvitations} and
  * {@link #certificationAccess}.
  *
@@ -54,11 +54,11 @@ public class InstitutionInvitationService {
     private final LearnerInvitationRepository invitationRepository;
     private final EmailService emailService;
     private final com.capstone.rebyu.notification.service.InvitationTokenService invitationTokenService;
-    private final InstitutionGroupRepository institutionGroupRepository;
-    private final InstitutionGroupAuthorityRepository institutionGroupAuthorityRepository;
+    private final DepartmentRepository departmentRepository;
+    private final DepartmentHeadAssignmentRepository departmentHeadAssignmentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
-    private final com.capstone.rebyu.institutiongroup.repository.InstitutionSectionRepository sectionRepository;
+    private final com.capstone.rebyu.department.repository.InstitutionSectionRepository sectionRepository;
 
 
     @Transactional(readOnly = true)
@@ -87,7 +87,7 @@ public class InstitutionInvitationService {
                 InstitutionCertificate institutionCert = invitation.getInstitutionCert();
                 institutionCert.setUsedSlots(Math.max(0, institutionCert.getUsedSlots() - 1));
                 institutionCertificateRepository.save(institutionCert);
-                restoreGroupSlot(invitation.getInstitutionGroup());
+                restoreDepartmentSlot(invitation.getDepartment());
                 log.info("Invitation {} expired; 1 slot restored on institutionCert {}",
                         invitation.getInvitationId(), institutionCert.getInstitutionCertId());
             }
@@ -98,14 +98,14 @@ public class InstitutionInvitationService {
 
     @Transactional
     public SendInvitationsResponse sendInvitations(SendInvitationsRequest request) throws Exception {
-        InstitutionGroup group = institutionGroupRepository.findById(request.institutionGroupId())
+        Department group = departmentRepository.findById(request.departmentId())
                 .orElseThrow(() -> new EntityNotFoundException(
-                        "Group not found: " + request.institutionGroupId()));
+                        "Group not found: " + request.departmentId()));
 
         // Ownership: the group must belong to the caller's institution.
         if (group.getInstitution() == null
                 || !group.getInstitution().getInstitutionId().equals(request.institutionId())) {
-            throw new EntityNotFoundException("Group not found: " + request.institutionGroupId());
+            throw new EntityNotFoundException("Group not found: " + request.departmentId());
         }
         requireActiveLeader(group, request.invitedByUserId());
 
@@ -162,11 +162,11 @@ public class InstitutionInvitationService {
 
         // The section, if asked for, must be a live one inside this very group --
         // an id from another department is refused rather than silently dropped.
-        com.capstone.rebyu.institutiongroup.entity.InstitutionSection section = null;
+        com.capstone.rebyu.department.entity.InstitutionSection section = null;
         if (request.sectionId() != null) {
             section = sectionRepository
-                    .findBySectionIdAndInstitutionGroup_InstitutionGroupId(request.sectionId(), group.getInstitutionGroupId())
-                    .filter(s -> s.getStatus() == com.capstone.rebyu.institutiongroup.entity.InstitutionSection.Status.active)
+                    .findBySectionIdAndDepartment_DepartmentId(request.sectionId(), group.getDepartmentId())
+                    .filter(s -> s.getStatus() == com.capstone.rebyu.department.entity.InstitutionSection.Status.active)
                     .orElseThrow(() -> new IllegalArgumentException("That section does not belong to this department."));
         }
 
@@ -181,7 +181,7 @@ public class InstitutionInvitationService {
 
             LearnerInvitation invitation = LearnerInvitation.builder()
                     .institutionCert(institutionCert)
-                    .institutionGroup(group)
+                    .department(group)
                     .section(section)
                     .invitedBy(User.builder().userId(request.invitedByUserId()).build())
                     .email(email)
@@ -227,7 +227,7 @@ public class InstitutionInvitationService {
         institutionCert.setUsedSlots(institutionCert.getUsedSlots() + toInvite.size());
         institutionCertificateRepository.save(institutionCert);
         group.setUsedSlots(group.getUsedSlots() + toInvite.size());
-        institutionGroupRepository.save(group);
+        departmentRepository.save(group);
 
         log.info("Institution {} sent {} invitation(s) for institutionCert {} ({} skipped)",
                 request.institutionId(), created.size(), institutionCert.getInstitutionCertId(), skipped.size());
@@ -244,7 +244,7 @@ public class InstitutionInvitationService {
         if (!institutionCert.getInstitution().getInstitutionId().equals(institutionId)) {
             throw new EntityNotFoundException("Invitation not found: " + invitationId);
         }
-        InstitutionGroup group = invitation.getInstitutionGroup();
+        Department group = invitation.getDepartment();
         if (group == null) {
             // Pre-group-scoping invitation; no leader to attribute cancellation to.
             throw new BusinessRuleException.InvalidPartnershipRequestException(
@@ -259,7 +259,7 @@ public class InstitutionInvitationService {
             invitationRepository.save(invitation);
             institutionCert.setUsedSlots(Math.max(0, institutionCert.getUsedSlots() - 1));
             institutionCertificateRepository.save(institutionCert);
-            restoreGroupSlot(group);
+            restoreDepartmentSlot(group);
             log.info("Invitation {} cancelled; 1 slot restored on institutionCert {}",
                     invitationId, institutionCert.getInstitutionCertId());
         } else {
@@ -279,19 +279,19 @@ public class InstitutionInvitationService {
     }
 
     /** Restores exactly one reserved slot on the group; used_slots never goes negative. */
-    private void restoreGroupSlot(InstitutionGroup group) {
+    private void restoreDepartmentSlot(Department group) {
         if (group == null) {
             return;
         }
         group.setUsedSlots(Math.max(0, group.getUsedSlots() - 1));
-        institutionGroupRepository.save(group);
+        departmentRepository.save(group);
     }
 
     /** Only an active authority (leader) of this group may send/cancel its invitations. */
-    private void requireActiveLeader(InstitutionGroup group, Long userId) {
-        if (userId == null || !institutionGroupAuthorityRepository.existsByInstitutionGroupAndUserAndStatus(
-                group, User.builder().userId(userId).build(), InstitutionGroupAuthority.Status.active)) {
-            throw new BusinessRuleException.InstitutionGroupRuleException(
+    private void requireActiveLeader(Department group, Long userId) {
+        if (userId == null || !departmentHeadAssignmentRepository.existsByDepartmentAndUserAndStatus(
+                group, User.builder().userId(userId).build(), DepartmentHeadAssignment.Status.active)) {
+            throw new BusinessRuleException.DepartmentRuleException(
                     "Only this group's leader can manage its invitations.");
         }
     }
@@ -311,14 +311,14 @@ public class InstitutionInvitationService {
 
     private InvitationDto toInvitationDto(LearnerInvitation invitation) {
         InstitutionCertificate institutionCert = invitation.getInstitutionCert();
-        InstitutionGroup group = invitation.getInstitutionGroup();
+        Department group = invitation.getDepartment();
         return new InvitationDto(
                 invitation.getInvitationId(),
                 institutionCert.getInstitutionCertId(),
                 institutionCert.getCertification().getCertificationId(),
                 institutionCert.getCertification().getTitle(),
-                group != null ? group.getInstitutionGroupId() : null,
-                group != null ? group.getGroupName() : null,
+                group != null ? group.getDepartmentId() : null,
+                group != null ? group.getDepartmentName() : null,
                 invitation.getEmail(),
                 invitation.getFirstName(),
                 invitation.getLastName(),

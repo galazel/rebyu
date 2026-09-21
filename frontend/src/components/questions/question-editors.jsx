@@ -1195,14 +1195,14 @@ export function QuestionTypeButton({ questionType, onAdd, disabled }) {
 /**
  * Persists one authored question with the same per-type backend calls the
  * admin builder uses (saveQuestion + saveChoices/saveTextQuestion/
- * saveProgrammingQuestion/saveDiagramQuestion), parametrized by ownerGroupId
+ * saveProgrammingQuestion/saveDiagramQuestion), parametrized by ownerDepartmentId
  * (undefined for official/admin-authored questions, a group id to author the
  * question as that Institution group's own). Every question is worth one
  * observation; there are no per-question points.
  */
 export async function saveAuthoredQuestion(
   question,
-  { lessonId, certificationId, ownerGroupId } = {},
+  { lessonId, certificationId, ownerDepartmentId } = {},
   api
 ) {
   const { saveQuestion, saveChoices, saveTextQuestion, saveProgrammingQuestion, saveDiagramQuestion } = api
@@ -1218,7 +1218,7 @@ export async function saveAuthoredQuestion(
           lessonId: Number(lessonId),
           certificationId,
         },
-        ownerGroupId
+        ownerDepartmentId
       )
 
       for (const choice of question.data.choices) {
@@ -1242,7 +1242,7 @@ export async function saveAuthoredQuestion(
           lessonId: Number(lessonId),
           certificationId,
         },
-        ownerGroupId
+        ownerDepartmentId
       )
       await saveTextQuestion({
         questionId: savedShortAnswer.questionId,
@@ -1271,7 +1271,7 @@ export async function saveAuthoredQuestion(
             lessonId: Number(lessonId),
             certificationId,
           },
-          ownerGroupId
+          ownerDepartmentId
         )
         await saveTextQuestion({
           questionId: savedBlank.questionId,
@@ -1291,7 +1291,7 @@ export async function saveAuthoredQuestion(
           lessonId: Number(lessonId),
           certificationId,
         },
-        ownerGroupId
+        ownerDepartmentId
       )
       await saveTextQuestion({
         questionId: savedDescriptive.questionId,
@@ -1310,7 +1310,7 @@ export async function saveAuthoredQuestion(
           lessonId: Number(lessonId),
           certificationId,
         },
-        ownerGroupId
+        ownerDepartmentId
       )
       await saveProgrammingQuestion({
         questionId: savedProgramming.questionId,
@@ -1330,7 +1330,7 @@ export async function saveAuthoredQuestion(
             questionText: subQuestion.question,
             lessonId: Number(lessonId),
           },
-          ownerGroupId
+          ownerDepartmentId
         )
         await saveTextQuestion({
           questionId: savedSub.questionId,
@@ -1350,7 +1350,7 @@ export async function saveAuthoredQuestion(
           lessonId: Number(lessonId),
           certificationId,
         },
-        ownerGroupId
+        ownerDepartmentId
       )
       await saveDiagramQuestion({
         questionId: savedDiagram.questionId,
@@ -1372,7 +1372,7 @@ export async function saveAuthoredQuestion(
             questionText: subQuestion.question,
             lessonId: Number(lessonId),
           },
-          ownerGroupId
+          ownerDepartmentId
         )
         await saveTextQuestion({
           questionId: savedSub.questionId,

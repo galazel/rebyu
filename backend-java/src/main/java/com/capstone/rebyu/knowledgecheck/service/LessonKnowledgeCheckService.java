@@ -357,7 +357,7 @@ public class LessonKnowledgeCheckService {
         if (currentLessonOnly) {
             List<Long> questionIds = eligibleQuestions
                     .resolveScopeViews(null, null, null, trigger.getLessonId()).stream()
-                    .filter(view -> view.getOwnerGroupId() == null)
+                    .filter(view -> view.getOwnerDepartmentId() == null)
                     .map(QuestionSelectionView::getQuestionId)
                     .filter(questionId -> questions.findById(questionId)
                             .map(question -> QUICK_TYPES.contains(question.getQuestionType()))
@@ -399,7 +399,7 @@ public class LessonKnowledgeCheckService {
                     // eligible here: the check is assembled for the learner,
                     // with no group context to check them against. The same
                     // rule the recall session applies.
-                    .filter(view -> view.getOwnerGroupId() == null)
+                    .filter(view -> view.getOwnerDepartmentId() == null)
                     .map(QuestionSelectionView::getQuestionId)
                     .toList();
 

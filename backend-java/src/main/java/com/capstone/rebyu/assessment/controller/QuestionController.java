@@ -6,9 +6,9 @@ import com.capstone.rebyu.assessment.service.EligibleQuestionService;
 import com.capstone.rebyu.assessment.service.QuestionService;
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
-import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
-import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupRepository;
-import com.capstone.rebyu.institutiongroup.service.InstitutionGroupService;
+import com.capstone.rebyu.department.entity.Department;
+import com.capstone.rebyu.department.repository.DepartmentRepository;
+import com.capstone.rebyu.department.service.DepartmentService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,8 +32,8 @@ import java.util.List;
 public class QuestionController {
     private final QuestionService questionService;
     private final EligibleQuestionService eligibleQuestionService;
-    private final InstitutionGroupService institutionGroupService;
-    private final InstitutionGroupRepository institutionGroupRepository;
+    private final DepartmentService departmentService;
+    private final DepartmentRepository departmentRepository;
     private final CognitoAuthService auth;
 
     /**
@@ -45,18 +45,18 @@ public class QuestionController {
     public List<QuestionDto> getAll(
             @RequestParam(required = false) Long lessonId,
             @RequestParam(required = false) Long certificationId,
-            @RequestParam(required = false) Long includeGroupId,
+            @RequestParam(required = false) Long includeDepartmentId,
             @AuthenticationPrincipal Jwt jwt) {
         CurrentUserDto caller = requireAdminOrInstitution(jwt);
-        requireGroupAccessIfRequested(caller, includeGroupId);
+        requireDepartmentAccessIfRequested(caller, includeDepartmentId);
         if (lessonId != null) {
-            return questionService.getByLessonId(lessonId, includeGroupId);
+            return questionService.getByLessonId(lessonId, includeDepartmentId);
         }
         if (certificationId != null) {
-            return questionService.getByCertificationId(certificationId, includeGroupId);
+            return questionService.getByCertificationId(certificationId, includeDepartmentId);
         }
 
-        return questionService.getAll(includeGroupId);
+        return questionService.getAll(includeDepartmentId);
     }
 
     /**
@@ -71,42 +71,42 @@ public class QuestionController {
             @RequestParam(required = false) Long middleId,
             @RequestParam(required = false) Long lessonId,
             @RequestParam(required = false) Long examId,
-            @RequestParam(required = false) Long includeGroupId,
+            @RequestParam(required = false) Long includeDepartmentId,
             @AuthenticationPrincipal Jwt jwt) {
         CurrentUserDto caller = requireAdminOrInstitution(jwt);
-        requireGroupAccessIfRequested(caller, includeGroupId);
+        requireDepartmentAccessIfRequested(caller, includeDepartmentId);
         return eligibleQuestionService.getEligible(
-                certificationId, majorId, middleId, lessonId, examId, includeGroupId);
+                certificationId, majorId, middleId, lessonId, examId, includeDepartmentId);
     }
 
     @GetMapping("/{id}")
     public QuestionDto getById(
             @PathVariable Long id,
-            @RequestParam(required = false) Long includeGroupId,
+            @RequestParam(required = false) Long includeDepartmentId,
             @AuthenticationPrincipal Jwt jwt) {
         CurrentUserDto caller = requireAdminOrInstitution(jwt);
-        requireGroupAccessIfRequested(caller, includeGroupId);
-        return questionService.getById(id, includeGroupId);
+        requireDepartmentAccessIfRequested(caller, includeDepartmentId);
+        return questionService.getById(id, includeDepartmentId);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public QuestionDto create(
             @Valid @RequestBody QuestionDto dto,
-            @RequestParam(required = false) Long ownerGroupId,
+            @RequestParam(required = false) Long ownerDepartmentId,
             @AuthenticationPrincipal Jwt jwt) {
         CurrentUserDto caller = requireAdminOrInstitution(jwt);
         boolean isAdmin = "ADMIN".equalsIgnoreCase(caller.role());
-        // ownerGroupId marks this as the group's own question. The caller must
+        // ownerDepartmentId marks this as the group's own question. The caller must
         // actually be able to act on that group (owner or its active leader).
-        InstitutionGroup ownerGroup = null;
-        if (ownerGroupId != null) {
-            requireGroupAccessIfRequested(caller, ownerGroupId);
-            ownerGroup = institutionGroupRepository.findById(ownerGroupId)
-                    .orElseThrow(() -> new EntityNotFoundException("Group not found: " + ownerGroupId));
+        Department ownerDepartment = null;
+        if (ownerDepartmentId != null) {
+            requireDepartmentAccessIfRequested(caller, ownerDepartmentId);
+            ownerDepartment = departmentRepository.findById(ownerDepartmentId)
+                    .orElseThrow(() -> new EntityNotFoundException("Group not found: " + ownerDepartmentId));
         }
         return questionService.create(
-                dto, caller.userId(), isAdmin ? null : caller.institutionId(), ownerGroup);
+                dto, caller.userId(), isAdmin ? null : caller.institutionId(), ownerDepartment);
     }
 
     @PutMapping("/{id}")
@@ -142,14 +142,14 @@ public class QuestionController {
      * owner) -- so a group's private questions can't be read, or written to,
      * by guessing a group id. Reuses the same check as the rest of the app.
      */
-    private void requireGroupAccessIfRequested(CurrentUserDto caller, Long groupId) {
-        if (groupId == null) {
+    private void requireDepartmentAccessIfRequested(CurrentUserDto caller, Long departmentId) {
+        if (departmentId == null) {
             return;
         }
         if (caller.institutionId() == null) {
             throw new IllegalArgumentException("An institution account is required");
         }
-        boolean owner = "owner".equalsIgnoreCase(caller.institutionMemberRole());
-        institutionGroupService.getAccessibleById(groupId, caller.institutionId(), caller.userId(), owner);
+        boolean owner = "owner".equalsIgnoreCase(caller.departmentHeadRole());
+        departmentService.getAccessibleById(departmentId, caller.institutionId(), caller.userId(), owner);
     }
 }

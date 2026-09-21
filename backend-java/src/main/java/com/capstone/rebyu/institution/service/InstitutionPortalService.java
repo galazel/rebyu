@@ -10,7 +10,7 @@ import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerR
 import com.capstone.rebyu.institution.dto.InstitutionPortalDtos.GroupMembershipDto;
 import com.capstone.rebyu.institution.dto.InstitutionPortalDtos.LearnerSummaryDto;
 import com.capstone.rebyu.institution.dto.InstitutionPortalDtos.OverviewDto;
-import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAssigneeRepository;
+import com.capstone.rebyu.department.repository.DepartmentLearnerRepository;
 import jakarta.persistence.EntityNotFoundException;
 import com.capstone.rebyu.institution.dto.InstitutionCertificateDto;
 import com.capstone.rebyu.institution.mapper.InstitutionCertificateMapper;
@@ -41,7 +41,7 @@ public class InstitutionPortalService {
     private final InstitutionCertificationLearnerMapper institutionCertLearnerMapper;
     private final LearnerRepository learnerRepository;
     private final InstitutionInvitationService invitationService;
-    private final InstitutionGroupAssigneeRepository groupAssigneeRepository;
+    private final DepartmentLearnerRepository groupAssigneeRepository;
     private final ExamResultRepository examResultRepository;
     private final ExamResultMapper examResultMapper;
 
@@ -70,7 +70,7 @@ public class InstitutionPortalService {
         List<GroupMembershipDto> groupMemberships =
                 groupAssigneeRepository.assignmentGroupsByInstitution(institutionId).stream()
                         .map(row -> new GroupMembershipDto(
-                                row.getInstitutionCertLearnerId(), row.getInstitutionGroupId(), row.getGroupName()))
+                                row.getInstitutionCertLearnerId(), row.getDepartmentId(), row.getDepartmentName()))
                         .toList();
 
         return new OverviewDto(institutionCerts, assignments, learners,

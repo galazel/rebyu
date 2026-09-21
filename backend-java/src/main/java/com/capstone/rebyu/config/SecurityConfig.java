@@ -60,9 +60,9 @@ public class SecurityConfig {
                         // token — never from client-supplied institutionId/
                         // createdBy/assignedBy fields.
                         .requestMatchers("/api/admin/partnership-requests/**").authenticated()
-                        .requestMatchers("/api/institution-groups/**").authenticated()
-                        .requestMatchers("/api/institution-group-authorities/**").authenticated()
-                        .requestMatchers("/api/institution-group-assignees/**").authenticated()
+                        .requestMatchers("/api/departments/**").authenticated()
+                        .requestMatchers("/api/department-head-assignments/**").authenticated()
+                        .requestMatchers("/api/department-learners/**").authenticated()
                         .requestMatchers("/api/institution/invitations/**").authenticated()
                         .requestMatchers("/api/institution/certification-access").authenticated()
                         .requestMatchers("/api/institution/partnership-requests/**").authenticated()
@@ -99,7 +99,7 @@ public class SecurityConfig {
                         // block anonymous access here too.
                         .requestMatchers("/api/learners", "/api/learners/*").authenticated()
                         .requestMatchers("/api/institutions/**").authenticated()
-                        .requestMatchers("/api/institution-members/**").authenticated()
+                        .requestMatchers("/api/department-heads/**").authenticated()
                         // A user's own in-app notifications -- never public.
                         .requestMatchers("/api/notifications/**").authenticated()
                         // Achievements: /me is JWT-derived, the rest is admin-only at the

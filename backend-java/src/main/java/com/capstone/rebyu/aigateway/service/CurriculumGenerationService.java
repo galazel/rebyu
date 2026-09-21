@@ -231,7 +231,7 @@ public class CurriculumGenerationService {
     @Transactional(readOnly = true)
     public void assertStructureReplaceable(Long certificationId) {
         List<Lesson> lessons = lessonRepository
-                .findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerGroupIsNull(
+                .findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(
                         certificationId);
 
         for (Lesson lesson : lessons) {
@@ -290,7 +290,7 @@ public class CurriculumGenerationService {
     public List<LessonCtx> loadLessonContexts(Long certificationId) {
         List<LessonCtx> contexts = new ArrayList<>();
         for (Lesson lesson : lessonRepository
-                .findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerGroupIsNull(
+                .findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(
                         certificationId)) {
             String structure = lesson.getLessonComponentStructure();
             boolean isEmpty = structure == null || structure.isBlank() || "[]".equals(structure.trim());

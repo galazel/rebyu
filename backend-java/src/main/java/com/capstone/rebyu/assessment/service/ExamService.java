@@ -21,7 +21,7 @@ import com.capstone.rebyu.certification.repository.MajorCategoryRepository;
 import com.capstone.rebyu.certification.repository.MiddleCategoryRepository;
 import com.capstone.rebyu.certification.service.MajorCategoryService;
 import com.capstone.rebyu.common.BusinessRuleException;
-import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
+import com.capstone.rebyu.department.entity.Department;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -58,9 +58,9 @@ public class ExamService {
     private final com.capstone.rebyu.adaptive.service.QuestionBankSizeService questionBankSize;
 
     /**
-     * includeGroupId is the same opt-in mechanism used for the curriculum
+     * includeDepartmentId is the same opt-in mechanism used for the curriculum
      * tree (see CertificationService): omitted (every existing caller),
-     * official exams only, byte-for-byte identical to before ownerGroup
+     * official exams only, byte-for-byte identical to before ownerDepartment
      * existed. Passed, it additionally mixes in that group's own exams --
      * the controller has already checked the caller can act on that group.
      *
@@ -68,14 +68,14 @@ public class ExamService {
      * the response is every exam on the platform, as before -- callers that
      * fetch the whole table and filter it client-side still work unchanged.
      */
-    public List<ExamDto> getAll(Long includeGroupId, Long certificationId, Long viewerLearnerId) {
-        log.debug("Fetching exams (includeGroupId={}, certificationId={})", includeGroupId, certificationId);
+    public List<ExamDto> getAll(Long includeDepartmentId, Long certificationId, Long viewerLearnerId) {
+        log.debug("Fetching exams (includeDepartmentId={}, certificationId={})", includeDepartmentId, certificationId);
         List<Exam> exams = (certificationId == null
                 ? examRepository.findAll()
                 : examRepository.findByCertification_CertificationId(certificationId))
                 .stream()
-                .filter(exam -> exam.getOwnerGroup() == null
-                        || exam.getOwnerGroup().getInstitutionGroupId().equals(includeGroupId))
+                .filter(exam -> exam.getOwnerDepartment() == null
+                        || exam.getOwnerDepartment().getDepartmentId().equals(includeDepartmentId))
                 // A practice exam generated for one learner (recall, knowledge
                 // check, study-plan mock) is theirs alone. The list used to hand
                 // everyone's to every caller, so an institution's certification
@@ -108,12 +108,12 @@ public class ExamService {
                                 Collectors.toList())));
     }
 
-    /** Same includeGroupId contract as {@link #getAll}, applied to a single exam. */
-    public ExamDto getById(Long id, Long includeGroupId) {
+    /** Same includeDepartmentId contract as {@link #getAll}, applied to a single exam. */
+    public ExamDto getById(Long id, Long includeDepartmentId) {
         log.debug("Fetching exam id: {}", id);
         Exam exam = findEntity(id);
-        if (exam.getOwnerGroup() != null
-                && !exam.getOwnerGroup().getInstitutionGroupId().equals(includeGroupId)) {
+        if (exam.getOwnerDepartment() != null
+                && !exam.getOwnerDepartment().getDepartmentId().equals(includeDepartmentId)) {
             throw new EntityNotFoundException("Exam not found: " + id);
         }
         return toDtoWithQuestions(exam);
@@ -121,13 +121,13 @@ public class ExamService {
 
     public ExamDto create(
             ExamDto dto, boolean isAdmin,
-            Long callerInstitutionId, Long callerUserId, boolean callerIsOwner, Long ownerGroupId) {
-        log.info("Creating new exam (ownerGroupId={})", ownerGroupId);
-        enforceUniqueness(dto, ownerGroupId);
+            Long callerInstitutionId, Long callerUserId, boolean callerIsOwner, Long ownerDepartmentId) {
+        log.info("Creating new exam (ownerDepartmentId={})", ownerDepartmentId);
+        enforceUniqueness(dto, ownerDepartmentId);
         Exam entity = examMapper.toEntity(dto);
         entity.setExamId(null);
-        entity.setOwnerGroup(majorCategoryService.resolveAndAuthorizeOwnerGroup(
-                isAdmin, callerInstitutionId, callerUserId, callerIsOwner, ownerGroupId, dto.getCertificationId()));
+        entity.setOwnerDepartment(majorCategoryService.resolveAndAuthorizeOwnerDepartment(
+                isAdmin, callerInstitutionId, callerUserId, callerIsOwner, ownerDepartmentId, dto.getCertificationId()));
         normalizeForSave(entity, dto);
         if (entity.getStatus() == null) {
             entity.setStatus(Exam.Status.DRAFT);
@@ -149,10 +149,10 @@ public class ExamService {
         log.info("Updating exam id: {}", id);
         Exam existing = findEntity(id);
         majorCategoryService.requireCanActOn(
-                existing.getOwnerGroup(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
+                existing.getOwnerDepartment(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
         Exam entity = examMapper.toEntity(dto);
         entity.setExamId(id);
-        entity.setOwnerGroup(existing.getOwnerGroup());
+        entity.setOwnerDepartment(existing.getOwnerDepartment());
         normalizeForSave(entity, dto);
         // Lifecycle fields are managed via publish/archive, not the edit form.
         if (entity.getStatus() == null) {
@@ -175,7 +175,7 @@ public class ExamService {
             Long id, boolean isAdmin, Long callerInstitutionId, Long callerUserId, boolean callerIsOwner) {
         Exam exam = findEntity(id);
         majorCategoryService.requireCanActOn(
-                exam.getOwnerGroup(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
+                exam.getOwnerDepartment(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
 
         if (exam.getTitle() == null || exam.getTitle().isBlank()) {
             throw new BusinessRuleException.InvalidAssessmentSubmissionException(
@@ -225,7 +225,7 @@ public class ExamService {
         log.info("Deleting exam id: {}", id);
         Exam exam = findEntity(id);
         majorCategoryService.requireCanActOn(
-                exam.getOwnerGroup(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
+                exam.getOwnerDepartment(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
         // The exam_questions join rows aren't cascade-deleted by the FK, so they
         // must be cleared first or the exam delete fails with a constraint violation.
         examQuestionRepository.deleteByExam_ExamId(id);
@@ -238,7 +238,7 @@ public class ExamService {
             Long id, boolean isAdmin, Long callerInstitutionId, Long callerUserId, boolean callerIsOwner) {
         Exam exam = findEntity(id);
         majorCategoryService.requireCanActOn(
-                exam.getOwnerGroup(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
+                exam.getOwnerDepartment(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
         exam.setStatus(Exam.Status.ARCHIVED);
         exam.setUpdatedAt(LocalDateTime.now());
         log.info("Exam id: {} archived", id);
@@ -255,7 +255,7 @@ public class ExamService {
             boolean isAdmin, Long callerInstitutionId, Long callerUserId, boolean callerIsOwner) {
         Exam exam = findEntity(examId);
         majorCategoryService.requireCanActOn(
-                exam.getOwnerGroup(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
+                exam.getOwnerDepartment(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
 
         Set<Long> requestedIds = new LinkedHashSet<>();
         for (AddExamQuestionsRequest.Item item : request.questions()) {
@@ -321,12 +321,12 @@ public class ExamService {
      * quiz, a middle one middle exam, a major one major exam, and a certification
      * one diagnostic + one mock. Enforced only on create; edits keep their scope.
      */
-    private void enforceUniqueness(ExamDto dto, Long ownerGroupId) {
+    private void enforceUniqueness(ExamDto dto, Long ownerDepartmentId) {
         // These are rules for the OFFICIAL curriculum (one quiz per lesson,
         // one diagnostic per certification, ...). A group's own assessments are
         // separate content and aren't bound by them -- a group may author as
         // many as it likes without colliding with the official set.
-        if (ownerGroupId != null) {
+        if (ownerDepartmentId != null) {
             return;
         }
         String scope = dto.getTargetScope();

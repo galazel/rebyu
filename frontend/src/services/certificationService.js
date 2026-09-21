@@ -1,10 +1,10 @@
 import { API, base } from "./base"
 
-// Omit includeGroupId for the official curriculum only (what every existing
+// Omit includeDepartmentId for the official curriculum only (what every existing
 // caller does). Pass a group id to also mix in that group's own
 // Institution-Member-authored content -- the caller must be able to act on
 // that group (its leader, or the institution owner), enforced server-side.
-export async function getAllCertifications(includeGroupId) {
+export async function getAllCertifications(includeDepartmentId) {
     /* Only a real id is forwarded.
      *
      * React Query calls `queryFn` with a context object, so `queryFn:
@@ -21,9 +21,9 @@ export async function getAllCertifications(includeGroupId) {
      * invisible at the call site (it looks like every other queryFn) and the
      * blast radius is a 500 on a page that then shows nothing.
      */
-    const groupId = Number(includeGroupId)
-    const query = Number.isFinite(groupId) && includeGroupId != null
-        ? `?includeGroupId=${groupId}`
+    const departmentId = Number(includeDepartmentId)
+    const query = Number.isFinite(departmentId) && includeDepartmentId != null
+        ? `?includeDepartmentId=${departmentId}`
         : ""
     return await base(`certifications${query}`)
 }

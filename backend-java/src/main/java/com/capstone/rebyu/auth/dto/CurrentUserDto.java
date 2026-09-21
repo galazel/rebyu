@@ -14,7 +14,7 @@ public record CurrentUserDto(
         // The frontend uses this to tell the org owner's dashboard apart from a
         // group leader's (owner sees billing/org settings/partnership/member
         // management; a leader sees only their own assigned groups/learners).
-        String institutionMemberRole,
+        String departmentHeadRole,
         String firstName,
         String lastName,
         String displayName

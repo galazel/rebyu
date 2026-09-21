@@ -4,7 +4,7 @@ import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.mapper.InstitutionCertificationLearnerMapper;
 import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.institution.dto.InstitutionPortalDtos.OverviewDto;
-import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAssigneeRepository;
+import com.capstone.rebyu.department.repository.DepartmentLearnerRepository;
 import com.capstone.rebyu.institution.mapper.InstitutionCertificateMapper;
 import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import com.capstone.rebyu.partnership.service.InstitutionInvitationService;
@@ -35,7 +35,7 @@ class InstitutionPortalServiceTest {
     private InstitutionCertificationLearnerMapper institutionCertLearnerMapper;
     private LearnerRepository learnerRepository;
     private InstitutionInvitationService invitationService;
-    private InstitutionGroupAssigneeRepository groupAssigneeRepository;
+    private DepartmentLearnerRepository groupAssigneeRepository;
     private com.capstone.rebyu.assessment.repository.ExamResultRepository examResultRepository;
     private InstitutionPortalService service;
 
@@ -46,7 +46,7 @@ class InstitutionPortalServiceTest {
         institutionCertLearnerMapper = mock(InstitutionCertificationLearnerMapper.class);
         learnerRepository = mock(LearnerRepository.class);
         invitationService = mock(InstitutionInvitationService.class);
-        groupAssigneeRepository = mock(InstitutionGroupAssigneeRepository.class);
+        groupAssigneeRepository = mock(DepartmentLearnerRepository.class);
         examResultRepository = mock(com.capstone.rebyu.assessment.repository.ExamResultRepository.class);
         service = new InstitutionPortalService(institutionCertRepository, mock(InstitutionCertificateMapper.class),
                 institutionCertLearnerRepository, institutionCertLearnerMapper,

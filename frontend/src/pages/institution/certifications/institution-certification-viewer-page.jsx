@@ -50,7 +50,7 @@ export default function InstitutionCertificationViewerPage() {
   const [searchParams] = useSearchParams()
   // Optional group context: when present, the member's own group content is
   // mixed in too (server-authorized), otherwise just the official curriculum.
-  const groupId = searchParams.get("groupId") ? Number(searchParams.get("groupId")) : undefined
+  const departmentId = searchParams.get("departmentId") ? Number(searchParams.get("departmentId")) : undefined
 
   const [outlineQuery, setOutlineQuery] = useState("")
   const [collapsedMajors, setCollapsedMajors] = useState(() => new Set())
@@ -60,8 +60,8 @@ export default function InstitutionCertificationViewerPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const certificationsQuery = useQuery({
-    queryKey: ["certifications", "group", groupId ?? null],
-    queryFn: () => getAllCertifications(groupId),
+    queryKey: ["certifications", "group", departmentId ?? null],
+    queryFn: () => getAllCertifications(departmentId),
     staleTime: 5 * 60_000,
   })
 
@@ -116,7 +116,7 @@ export default function InstitutionCertificationViewerPage() {
           {sidebarOpen ? <X className="size-5" /> : <BookOpen className="size-5" />}
         </Button>
         <Link
-          to={groupId ? `/institution/groups/${groupId}` : "/institution/certifications"}
+          to={departmentId ? `/institution/departments/${departmentId}` : "/institution/certifications"}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeftIcon className="size-4" />

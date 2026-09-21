@@ -85,7 +85,7 @@ export function CurriculumDock({ certificationId, progress, showCalendar }) {
           <div className="max-h-[min(60dvh,32rem)] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto rounded-rb-card border-2 border-rb-swan bg-rb-snow p-4 shadow-xl">
             <div className="space-y-5">
               {classes.map((group) => (
-                <section key={group.groupId}>
+                <section key={group.departmentId}>
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
                       <ClassHeader group={group} />

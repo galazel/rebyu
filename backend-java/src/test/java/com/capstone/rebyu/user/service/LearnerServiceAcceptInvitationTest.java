@@ -5,8 +5,8 @@ import com.capstone.rebyu.common.InvitationAcceptanceException;
 import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
 import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
-import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAssigneeRepository;
-import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupRepository;
+import com.capstone.rebyu.department.repository.DepartmentLearnerRepository;
+import com.capstone.rebyu.department.repository.DepartmentRepository;
 import com.capstone.rebyu.notification.entity.LearnerInvitation;
 import com.capstone.rebyu.notification.repository.LearnerInvitationRepository;
 import com.capstone.rebyu.notification.service.InvitationTokenService;
@@ -54,9 +54,9 @@ class LearnerServiceAcceptInvitationTest {
                 enrollmentRepository, institutionCertRepository,
                 mock(LearnerCertificationRepository.class),
                 new InvitationTokenService(),
-                mock(InstitutionGroupAssigneeRepository.class),
+                mock(DepartmentLearnerRepository.class),
                 mock(AccountDeletionService.class),
-                mock(InstitutionGroupRepository.class),
+                mock(DepartmentRepository.class),
                 mock(NotificationService.class),
                 mock(com.capstone.rebyu.enrollment.service.OrgEnrollmentProgressService.class));
     }

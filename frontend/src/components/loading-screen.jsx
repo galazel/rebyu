@@ -36,7 +36,7 @@ export const INSTITUTION_MESSAGES = [
   { tag: "groups", text: "Lining up your groups...", tone: "fox" },
 ]
 
-export const INSTITUTION_MEMBER_MESSAGES = [
+export const DEPARTMENT_HEAD_MESSAGES = [
   { tag: "class", text: "Opening your class...", tone: "macaw" },
   { tag: "roster", text: "Taking attendance...", tone: "beetle" },
   { tag: "assessments", text: "Stacking your assessments...", tone: "bee" },
@@ -62,9 +62,9 @@ export function messagesForUser(user) {
   const role = String(user?.role ?? "").toUpperCase()
   if (!role) return GUEST_MESSAGES
   if (role === "ADMIN") return ADMIN_MESSAGES
-  if (role === "INSTITUTION_MEMBER"
-      || (role === "INSTITUTION" && user?.institutionMemberRole && user.institutionMemberRole !== "owner")) {
-    return INSTITUTION_MEMBER_MESSAGES
+  if (role === "DEPARTMENT_HEAD"
+      || (role === "INSTITUTION" && user?.departmentHeadRole && user.departmentHeadRole !== "owner")) {
+    return DEPARTMENT_HEAD_MESSAGES
   }
   if (role === "INSTITUTION") return INSTITUTION_MESSAGES
   return MESSAGES

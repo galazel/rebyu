@@ -244,7 +244,7 @@ public class AchievementAwardService {
         }
         for (Long certificationId : certificationIds) {
             List<Lesson> lessons = lessonRepository
-                    .findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerGroupIsNull(
+                    .findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(
                             certificationId);
             if (lessons.isEmpty()) {
                 // A certification with no lessons is not "finished" -- it is empty.

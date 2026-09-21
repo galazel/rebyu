@@ -2643,7 +2643,7 @@ function QuestionBank({
         refetch: refetchQuestions,
     } = useQuery({
         /* "certification" is in the key, not just the id: the assessment
-           question picker already caches under ["questions", <groupId>], and a
+           question picker already caches under ["questions", <departmentId>], and a
            bare id here would collide with a group id that happened to match --
            two different reads quietly sharing one cache entry. */
         queryKey: ["questions", "certification", lockedCertificationId || null],

@@ -47,14 +47,14 @@ export function getInstitutionCertificationAccess(institutionId) {
   return base(`institution/certification-access?institutionId=${institutionId}`)
 }
 
-// Sent by a group's leader only -- institutionGroupId is required; the
+// Sent by a group's leader only -- departmentId is required; the
 // certification/slots are derived server-side from the group. `learners` is a
 // list of { firstName, lastName, email } (name optional, email required).
 // sectionId is optional: when given, accepted learners land in that section.
-export function sendInstitutionInvitations({ institutionGroupId, learners, sectionId = null }) {
+export function sendInstitutionInvitations({ departmentId, learners, sectionId = null }) {
   return base("institution/invitations", {
     method: "POST",
-    data: { institutionGroupId, learners, sectionId },
+    data: { departmentId, learners, sectionId },
   })
 }
 

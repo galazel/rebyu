@@ -58,15 +58,15 @@ const LearnerFlashcardAttemptPage = lazyRoute(() => import("./pages/learner/prac
 const LearnerPracticeHistoryPage = lazyRoute(() => import("./pages/learner/practice/learner-practice-history-page.jsx"))
 const LearnerPracticeReviewPage = lazyRoute(() => import("./pages/learner/practice/learner-practice-review-page.jsx"))
 const InstitutionDashboardPage = lazyRoute(() => import("./pages/institution/dashboard/institution-dashboard-page.jsx"))
-const InstitutionMemberDashboardPage = lazyRoute(() => import("./pages/institution/dashboard/institution-member-dashboard-page.jsx"))
-const InstitutionGroupWorkspacePage = lazyRoute(() => import("./pages/institution/groups/institution-group-workspace-page.jsx"))
-const InstitutionGroupLearnerPage = lazyRoute(() => import("./pages/institution/groups/institution-group-learner-page.jsx"))
-const InstitutionLearnersPage = lazyRoute(() => import("./pages/institution/groups/institution-learners-page.jsx"))
+const DepartmentHeadDashboardPage = lazyRoute(() => import("./pages/institution/dashboard/department-head-dashboard-page.jsx"))
+const InstitutionDepartmentWorkspacePage = lazyRoute(() => import("./pages/institution/departments/institution-department-workspace-page.jsx"))
+const InstitutionDepartmentLearnerPage = lazyRoute(() => import("./pages/institution/departments/institution-department-learner-page.jsx"))
+const InstitutionLearnersPage = lazyRoute(() => import("./pages/institution/departments/institution-learners-page.jsx"))
 const InstitutionCertificationsPage = lazyRoute(() => import("./pages/institution/certifications/institution-certifications-page.jsx"))
 const InstitutionCertificationDetailPage = lazyRoute(() => import("./pages/institution/certifications/institution-certification-detail-page.jsx"))
 const InstitutionCertificationViewerPage = lazyRoute(() => import("./pages/institution/certifications/institution-certification-viewer-page.jsx"))
 const InstitutionAssessmentBuilderPage = lazyRoute(() => import("./pages/institution/certifications/institution-assessment-builder-page.jsx"))
-const InstitutionGroupsPage = lazyRoute(() => import("./pages/institution/groups/institution-groups-page.jsx"))
+const DepartmentsPage = lazyRoute(() => import("./pages/institution/departments/institution-departments-page.jsx"))
 // Profile, Partnership, License, Billing and Files are one tabbed page --
 // see institution-account-page.jsx. The five paths are kept so existing links
 // still resolve; each one opens its own tab.
@@ -95,7 +95,7 @@ const ForbiddenPage = lazyRoute(() => import("./pages/public/forbidden-page.jsx"
 // institution-wide dashboard.
 function InstitutionHome() {
     const { user } = useAuth()
-    const target = user?.institutionMemberRole === "owner" ? "dashboard" : "member"
+    const target = user?.departmentHeadRole === "owner" ? "dashboard" : "head"
     return <Navigate to={target} replace />
 }
 
@@ -115,9 +115,9 @@ function GuestOnlyRoute({ children }) {
 
 function InstitutionDashboardEntry() {
     const { user } = useAuth()
-    return user?.institutionMemberRole === "owner"
+    return user?.departmentHeadRole === "owner"
         ? <InstitutionDashboardPage />
-        : <InstitutionMemberDashboardPage />
+        : <DepartmentHeadDashboardPage />
 }
 
 /**
@@ -448,13 +448,13 @@ export function App() {
                 />
             </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={["INSTITUTION", "INSTITUTION_MEMBER"]} />}>
+            <Route element={<ProtectedRoute allowedRoles={["INSTITUTION", "DEPARTMENT_HEAD"]} />}>
                 <Route path="/institution" element={<InstitutionLayout />}>
                     <Route index element={<InstitutionHome />} />
                     <Route path="dashboard" element={<InstitutionDashboardEntry />} />
                     {/* Institution Member (group leader) home; the per-group
                         workspace route is defined alongside the groups routes below. */}
-                    <Route path="member" element={<InstitutionMemberDashboardPage />} />
+                    <Route path="head" element={<DepartmentHeadDashboardPage />} />
                     {/* The roster only. Its per-learner detail page was reached
                         from a "View" action that no longer exists -- an
                         institution sees who is on a certification and which
@@ -477,24 +477,24 @@ export function App() {
                         Certifications page (?institutionCertId=...) -- groups are
                         always created/viewed in the context of one
                         certification allocation. */}
-                    <Route path="groups" element={<InstitutionGroupsPage />} />
-                    <Route path="groups/:groupId" element={<InstitutionGroupWorkspacePage />} />
+                    <Route path="departments" element={<DepartmentsPage />} />
+                    <Route path="departments/:departmentId" element={<InstitutionDepartmentWorkspacePage />} />
                     <Route
-                        path="groups/:groupId/learners/:learnerId"
-                        element={<InstitutionGroupLearnerPage />}
+                        path="departments/:departmentId/learners/:learnerId"
+                        element={<InstitutionDepartmentLearnerPage />}
                     />
                     {/* Full-page assessment builder (details + question builder),
                         replacing the old modal. Edit reuses the same page. */}
                     <Route
-                        path="groups/:groupId/assessments/new"
+                        path="departments/:departmentId/assessments/new"
                         element={<InstitutionAssessmentBuilderPage />}
                     />
                     <Route
-                        path="groups/:groupId/assessments/:examId/edit"
+                        path="departments/:departmentId/assessments/:examId/edit"
                         element={<InstitutionAssessmentBuilderPage />}
                     />
                     {/* Read-only Cisco-style two-pane content reader (outline +
-                        lesson body). ?groupId= mixes in the group's own content. */}
+                        lesson body). ?departmentId= mixes in the group's own content. */}
                     <Route
                         path="certifications/:certificationId/view"
                         element={<InstitutionCertificationViewerPage />}
@@ -525,7 +525,7 @@ export function App() {
             <Route
                 element={
                     <ProtectedRoute
-                        allowedRoles={["ADMIN", "INSTITUTION", "INSTITUTION_MEMBER", "LEARNER"]}
+                        allowedRoles={["ADMIN", "INSTITUTION", "DEPARTMENT_HEAD", "LEARNER"]}
                     />
                 }
             >

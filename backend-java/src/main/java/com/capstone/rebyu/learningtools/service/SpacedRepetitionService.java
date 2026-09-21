@@ -262,7 +262,7 @@ public class SpacedRepetitionService {
 
   private List<Long> scopeQuestionIds(Long lessonId) {
     return eligibleQuestions.resolveScopeViews(null, null, null, lessonId).stream()
-        .filter(view -> view.getOwnerGroupId() == null)
+        .filter(view -> view.getOwnerDepartmentId() == null)
         .map(QuestionSelectionView::getQuestionId)
         .toList();
   }

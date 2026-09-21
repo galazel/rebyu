@@ -2,7 +2,7 @@ package com.capstone.rebyu.assessment.entity;
 
 
 import com.capstone.rebyu.certification.entity.Lesson;
-import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
+import com.capstone.rebyu.department.entity.Department;
 import com.capstone.rebyu.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -96,10 +96,10 @@ public class Question {
 
     // NULL = official, platform-wide question (admin-authored, unchanged).
     // Set = authored by one Institution group; only that group sees and can
-    // use it. Mirrors MajorCategory.ownerGroup / Exam.ownerGroup.
+    // use it. Mirrors MajorCategory.ownerDepartment / Exam.ownerDepartment.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "owner_group_id")
+    @JoinColumn(name = "owner_department_id")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private InstitutionGroup ownerGroup;
+    private Department ownerDepartment;
 }

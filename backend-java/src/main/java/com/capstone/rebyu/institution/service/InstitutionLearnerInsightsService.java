@@ -2,11 +2,11 @@ package com.capstone.rebyu.institution.service;
 
 import com.capstone.rebyu.certification.repository.LessonRepository;
 import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
-import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
-import com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAssignee;
-import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAssigneeRepository;
-import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupRepository;
-import com.capstone.rebyu.institutiongroup.service.InstitutionGroupService;
+import com.capstone.rebyu.department.entity.Department;
+import com.capstone.rebyu.department.entity.DepartmentLearner;
+import com.capstone.rebyu.department.repository.DepartmentLearnerRepository;
+import com.capstone.rebyu.department.repository.DepartmentRepository;
+import com.capstone.rebyu.department.service.DepartmentService;
 import com.capstone.rebyu.progress.repository.LearnerCompletedLessonRepository;
 import com.capstone.rebyu.progress.analytics.dto.ProgressAnalyticsDtos.ProgressAnalyticsResponse;
 import com.capstone.rebyu.progress.analytics.service.ProgressAnalyticsService;
@@ -29,7 +29,7 @@ import java.util.List;
  * own token, so none of them can answer "how is one of my learners doing".
  * These methods take a learner id explicitly and gate it on the caller
  * genuinely leading a group that learner belongs to -- reusing
- * {@link InstitutionGroupService#getAccessibleById} for the tenant + owner-or-
+ * {@link DepartmentService#getAccessibleById} for the tenant + owner-or-
  * active-leader check rather than re-implementing it, so this surface can never
  * drift from the one the rest of the group endpoints enforce.
  */
@@ -48,8 +48,8 @@ public class InstitutionLearnerInsightsService {
      * failing" instead of "not measured". Readiness and confidence appear on
      * the per-learner page, where ProgressAnalyticsService computes them live.
      */
-    public record GroupLearnerRow(
-            Long institutionGroupAssigneeId,
+    public record DepartmentLearnerRow(
+            Long departmentLearnerId,
             Long learnerId,
             Long institutionCertLearnerId,
             String name,
@@ -64,9 +64,9 @@ public class InstitutionLearnerInsightsService {
             String sectionName
     ) {}
 
-    private final InstitutionGroupRepository institutionGroupRepository;
-    private final InstitutionGroupAssigneeRepository institutionGroupAssigneeRepository;
-    private final InstitutionGroupService institutionGroupService;
+    private final DepartmentRepository departmentRepository;
+    private final DepartmentLearnerRepository departmentLearnerRepository;
+    private final DepartmentService departmentService;
     private final ProgressAnalyticsService progressAnalyticsService;
     private final LessonRepository lessonRepository;
     private final LearnerCompletedLessonRepository learnerCompletedLessonRepository;
@@ -77,9 +77,9 @@ public class InstitutionLearnerInsightsService {
      * per learner and is far too heavy to fan out across a whole roster.
      */
     @Transactional(readOnly = true)
-    public List<GroupLearnerRow> groupRoster(
-            Long groupId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
-        InstitutionGroup group = requireGroupAccess(groupId, institutionId, callerUserId, callerIsOwner);
+    public List<DepartmentLearnerRow> groupRoster(
+            Long departmentId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
+        Department group = requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
 
         // Counted once for the whole roster rather than per learner.
         Long certificationId = certificationIdOf(group);
@@ -87,12 +87,12 @@ public class InstitutionLearnerInsightsService {
                 .findByMiddleCategory_MajorCategory_Certification_CertificationId(certificationId)
                 .size();
 
-        return institutionGroupAssigneeRepository
-                .findByInstitutionGroup_InstitutionGroupId(groupId).stream()
-                .filter(assignee -> assignee.getStatus() == InstitutionGroupAssignee.Status.active)
+        return departmentLearnerRepository
+                .findByDepartment_DepartmentId(departmentId).stream()
+                .filter(assignee -> assignee.getStatus() == DepartmentLearner.Status.active)
                 .map(assignee -> toRow(assignee, certificationId, totalLessons))
                 .sorted(Comparator.comparing(
-                        GroupLearnerRow::name, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                        DepartmentLearnerRow::name, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
     }
 
@@ -104,14 +104,14 @@ public class InstitutionLearnerInsightsService {
      */
     @Transactional(readOnly = true)
     public ProgressAnalyticsResponse learnerAnalytics(
-            Long groupId, Long learnerId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
-        InstitutionGroup group = requireGroupAccess(groupId, institutionId, callerUserId, callerIsOwner);
-        requireAssignedToGroup(groupId, learnerId);
+            Long departmentId, Long learnerId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
+        Department group = requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
+        requireAssignedToGroup(departmentId, learnerId);
 
         Long certificationId = certificationIdOf(group);
         if (certificationId == null) {
             throw new EntityNotFoundException(
-                    "This group has no certification allocation: " + groupId);
+                    "This group has no certification allocation: " + departmentId);
         }
         return progressAnalyticsService.getProgressAnalytics(learnerId, certificationId);
     }
@@ -124,23 +124,23 @@ public class InstitutionLearnerInsightsService {
      */
     @Transactional
     public void removeFromGroup(
-            Long groupId, Long learnerId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
-        InstitutionGroup group = requireGroupAccess(groupId, institutionId, callerUserId, callerIsOwner);
+            Long departmentId, Long learnerId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
+        Department group = requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
 
-        InstitutionGroupAssignee assignee = activeAssignee(groupId, learnerId)
+        DepartmentLearner assignee = activeAssignee(departmentId, learnerId)
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Learner not assigned to this group: " + learnerId));
 
-        assignee.setStatus(InstitutionGroupAssignee.Status.archived);
+        assignee.setStatus(DepartmentLearner.Status.archived);
         assignee.setRemovedAt(LocalDateTime.now());
-        institutionGroupAssigneeRepository.save(assignee);
+        departmentLearnerRepository.save(assignee);
 
         // Mirrors how a cancelled invitation restores its slot; never negative.
         group.setUsedSlots(Math.max(0, group.getUsedSlots() - 1));
-        institutionGroupRepository.save(group);
+        departmentRepository.save(group);
 
         log.info("Learner {} removed from group {} by userId={}; 1 slot restored",
-                learnerId, groupId, callerUserId);
+                learnerId, departmentId, callerUserId);
     }
 
     /**
@@ -148,24 +148,24 @@ public class InstitutionLearnerInsightsService {
      * actively leads this group -- reported as "not found" so a caller can't
      * probe which group ids exist in other tenants.
      */
-    private InstitutionGroup requireGroupAccess(
-            Long groupId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
-        institutionGroupService.getAccessibleById(groupId, institutionId, callerUserId, callerIsOwner);
-        return institutionGroupRepository.findById(groupId)
-                .orElseThrow(() -> new EntityNotFoundException("InstitutionGroup not found: " + groupId));
+    private Department requireDepartmentAccess(
+            Long departmentId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
+        departmentService.getAccessibleById(departmentId, institutionId, callerUserId, callerIsOwner);
+        return departmentRepository.findById(departmentId)
+                .orElseThrow(() -> new EntityNotFoundException("Department not found: " + departmentId));
     }
 
     /** A leader may only read learners actually assigned to the group they lead. */
-    private void requireAssignedToGroup(Long groupId, Long learnerId) {
-        if (activeAssignee(groupId, learnerId).isEmpty()) {
+    private void requireAssignedToGroup(Long departmentId, Long learnerId) {
+        if (activeAssignee(departmentId, learnerId).isEmpty()) {
             throw new EntityNotFoundException("Learner not assigned to this group: " + learnerId);
         }
     }
 
-    private java.util.Optional<InstitutionGroupAssignee> activeAssignee(Long groupId, Long learnerId) {
-        return institutionGroupAssigneeRepository
-                .findByInstitutionGroup_InstitutionGroupId(groupId).stream()
-                .filter(assignee -> assignee.getStatus() == InstitutionGroupAssignee.Status.active)
+    private java.util.Optional<DepartmentLearner> activeAssignee(Long departmentId, Long learnerId) {
+        return departmentLearnerRepository
+                .findByDepartment_DepartmentId(departmentId).stream()
+                .filter(assignee -> assignee.getStatus() == DepartmentLearner.Status.active)
                 .filter(assignee -> {
                     Learner learner = learnerOf(assignee);
                     return learner != null && learner.getLearnerId().equals(learnerId);
@@ -173,8 +173,8 @@ public class InstitutionLearnerInsightsService {
                 .findFirst();
     }
 
-    private GroupLearnerRow toRow(
-            InstitutionGroupAssignee assignee, Long certificationId, int totalLessons) {
+    private DepartmentLearnerRow toRow(
+            DepartmentLearner assignee, Long certificationId, int totalLessons) {
         InstitutionCertificationLearner enrollment = assignee.getInstitutionCertLearner();
         Learner learner = learnerOf(assignee);
 
@@ -189,8 +189,8 @@ public class InstitutionLearnerInsightsService {
                 ? (completedLessons * 100.0) / totalLessons
                 : null;
 
-        return new GroupLearnerRow(
-                assignee.getInstitutionGroupAssigneeId(),
+        return new DepartmentLearnerRow(
+                assignee.getDepartmentLearnerId(),
                 learner != null ? learner.getLearnerId() : null,
                 enrollment != null ? enrollment.getInstitutionCertLearnerId() : null,
                 displayName(learner),
@@ -222,11 +222,11 @@ public class InstitutionLearnerInsightsService {
                 : "Unknown learner";
     }
 
-    private Learner learnerOf(InstitutionGroupAssignee assignee) {
+    private Learner learnerOf(DepartmentLearner assignee) {
         return assignee.getInstitutionCertLearner() != null ? assignee.getInstitutionCertLearner().getLearner() : null;
     }
 
-    private Long certificationIdOf(InstitutionGroup group) {
+    private Long certificationIdOf(Department group) {
         if (group.getInstitutionCert() == null || group.getInstitutionCert().getCertification() == null) {
             return null;
         }

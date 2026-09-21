@@ -369,7 +369,7 @@ public class RecallExamService {
         // Another institution group's private questions are never eligible
         // here: this paper is assembled for the learner, with no group context
         // to check them against.
-        .filter(view -> view.getOwnerGroupId() == null)
+        .filter(view -> view.getOwnerDepartmentId() == null)
         .map(QuestionSelectionView::getQuestionId)
         .toList();
   }
@@ -439,7 +439,7 @@ public class RecallExamService {
   /** Whole-certification candidates as views, so a top-up can compare stems. */
   private List<QuestionSelectionView> certificationCandidates(Long certificationId) {
     return eligibleQuestions.resolveScopeViews(certificationId, null, null, null).stream()
-        .filter(view -> view.getOwnerGroupId() == null)
+        .filter(view -> view.getOwnerDepartmentId() == null)
         .toList();
   }
 

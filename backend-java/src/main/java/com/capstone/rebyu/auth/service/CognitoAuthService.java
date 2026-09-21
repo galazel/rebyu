@@ -2,7 +2,7 @@ package com.capstone.rebyu.auth.service;
 
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.institution.entity.Institution;
-import com.capstone.rebyu.institution.entity.InstitutionMember;
+import com.capstone.rebyu.institution.entity.DepartmentHead;
 import com.capstone.rebyu.institution.repository.InstitutionRepository;
 import com.capstone.rebyu.user.entity.Learner;
 import com.capstone.rebyu.user.entity.User;
@@ -47,7 +47,7 @@ public class CognitoAuthService {
      * co-admin) rather than the institution account itself. Carries the same
      * permissions as INSTITUTION; it exists so the two can be told apart.
      */
-    public static final String INSTITUTION_MEMBER_USER_TYPE = "INSTITUTION_MEMBER";
+    public static final String DEPARTMENT_HEAD_USER_TYPE = "DEPARTMENT_HEAD";
 
     /**
      * True for either institution-side role. Every permission check that used to
@@ -56,13 +56,13 @@ public class CognitoAuthService {
      */
     public static boolean isInstitutionRole(String role) {
         return INSTITUTION_USER_TYPE.equalsIgnoreCase(role)
-                || INSTITUTION_MEMBER_USER_TYPE.equalsIgnoreCase(role);
+                || DEPARTMENT_HEAD_USER_TYPE.equalsIgnoreCase(role);
     }
 
     private final UserRepository userRepository;
     private final UserTypeRepository userTypeRepository;
     private final LearnerRepository learnerRepository;
-    private final com.capstone.rebyu.institution.repository.InstitutionMemberRepository institutionMemberRepository;
+    private final com.capstone.rebyu.institution.repository.DepartmentHeadRepository departmentHeadRepository;
     private final InstitutionRepository institutionRepository;
     private final com.capstone.rebyu.bkt.client.BktClient bktClient;
 
@@ -317,7 +317,7 @@ public class CognitoAuthService {
      *
      * Without this, the first sign-in of an approved institution contact falls
      * through {@link #linkOrProvision} and is provisioned as a plain LEARNER with
-     * no InstitutionMember row — so institutionId never resolves and the institution
+     * no DepartmentHead row — so institutionId never resolves and the institution
      * portal shows "Unable to load your institution". This runs on every sync,
      * so it also repairs accounts that were already mis-provisioned.
      */
@@ -333,7 +333,7 @@ public class CognitoAuthService {
         }
 
         // 1) Ensure the account is typed INSTITUTION so role resolution returns
-        //    INSTITUTION instead of the default LEARNER. INSTITUTION_MEMBER counts
+        //    INSTITUTION instead of the default LEARNER. DEPARTMENT_HEAD counts
         //    as already-typed: this repair runs on every sync, and rewriting it
         //    to INSTITUTION would undo a group leader's role on their next
         //    sign-in for anyone who is both a primary contact and a member.
@@ -350,21 +350,21 @@ public class CognitoAuthService {
             userRepository.save(user);
         }
 
-        // 2) Ensure an owner InstitutionMember link exists so the portal can scope
+        // 2) Ensure an owner DepartmentHead link exists so the portal can scope
         //    to this institution.
-        boolean alreadyLinked = !institutionMemberRepository
+        boolean alreadyLinked = !departmentHeadRepository
                 .findByInstitution_InstitutionIdAndUser_UserId(
                         institution.getInstitutionId(), user.getUserId())
                 .isEmpty();
         if (!alreadyLinked) {
-            InstitutionMember member = InstitutionMember.builder()
+            DepartmentHead member = DepartmentHead.builder()
                     .institution(institution)
                     .user(user)
-                    .memberRole(InstitutionMember.MemberRole.owner)
+                    .headRole(DepartmentHead.HeadRole.owner)
                     .isPrimaryContact(true)
                     .joinedAt(LocalDateTime.now())
                     .build();
-            institutionMemberRepository.save(member);
+            departmentHeadRepository.save(member);
             log.info("Linked institution account {} to institution {} (id={}) on sign-in",
                     user.getEmail(), institution.getInstitutionName(), institution.getInstitutionId());
         }
@@ -398,12 +398,12 @@ public class CognitoAuthService {
 
         // Institution members carry their institution so the portal can scope
         // to it; their role comes from the INSTITUTION user type.
-        InstitutionMember membership = institutionMemberRepository.findByUser_UserId(user.getUserId())
+        DepartmentHead membership = departmentHeadRepository.findByUser_UserId(user.getUserId())
                 .stream()
                 .findFirst()
                 .orElse(null);
         Long institutionId = membership != null ? membership.getInstitution().getInstitutionId() : null;
-        String institutionMemberRole = membership != null ? membership.getMemberRole().name() : null;
+        String departmentHeadRole = membership != null ? membership.getHeadRole().name() : null;
 
         return new CurrentUserDto(
                 user.getUserId(),
@@ -411,7 +411,7 @@ public class CognitoAuthService {
                 user.getUserType() != null ? user.getUserType().getUserTypeText() : LEARNER_USER_TYPE,
                 learner != null ? learner.getLearnerId() : null,
                 institutionId,
-                institutionMemberRole,
+                departmentHeadRole,
                 firstName,
                 lastName,
                 displayName

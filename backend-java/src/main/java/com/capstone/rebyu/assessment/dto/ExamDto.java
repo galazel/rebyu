@@ -65,9 +65,9 @@ public class ExamDto {
     private Boolean releaseAnswersAfterSubmit;
 
     // NULL = official exam. Read-only here -- ownership is set exclusively
-    // via the create endpoint's ownerGroupId query param, never accepted
+    // via the create endpoint's ownerDepartmentId query param, never accepted
     // directly from this DTO's create/update body. See MajorCategoryDto.
-    private Long ownerGroupId;
+    private Long ownerDepartmentId;
 
     /**
      * Ordered list of the questions the admin selected, with the per-question

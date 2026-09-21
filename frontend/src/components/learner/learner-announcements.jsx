@@ -58,7 +58,7 @@ export function LearnerAnnouncements({ certificationId }) {
       <div className="space-y-3">
         {announcements.map((announcement) => (
           <Card
-            key={announcement.groupAnnouncementId}
+            key={announcement.departmentAnnouncementId}
             className={announcement.pinned ? "border-primary/40 bg-primary/5" : undefined}
           >
             <CardContent className="p-5">
@@ -78,7 +78,7 @@ export function LearnerAnnouncements({ certificationId }) {
 
               <p className="mt-3 text-xs text-muted-foreground">
                 {announcement.authorName}
-                {announcement.groupName ? ` · ${announcement.groupName}` : ""}
+                {announcement.departmentName ? ` · ${announcement.departmentName}` : ""}
                 {announcement.createdAt ? ` · ${formatWhen(announcement.createdAt)}` : ""}
               </p>
             </CardContent>

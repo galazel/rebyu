@@ -54,7 +54,7 @@ class UserTypeSeederTest {
         seeder.run(null);
 
         assertEquals(
-                Set.of("LEARNER", "INSTITUTION", "INSTITUTION_MEMBER", "ADMIN"),
+                Set.of("LEARNER", "INSTITUTION", "DEPARTMENT_HEAD", "ADMIN"),
                 savedTypes());
     }
 
@@ -65,7 +65,7 @@ class UserTypeSeederTest {
 
         seeder.run(null);
 
-        assertEquals(Set.of("INSTITUTION_MEMBER", "ADMIN"), savedTypes());
+        assertEquals(Set.of("DEPARTMENT_HEAD", "ADMIN"), savedTypes());
     }
 
     /** Re-running on a seeded database writes nothing at all. */
@@ -73,7 +73,7 @@ class UserTypeSeederTest {
     void isANoOpWhenEveryRoleAlreadyExists() {
         when(repository.findAll()).thenReturn(List.of(
                 type("LEARNER"), type("INSTITUTION"),
-                type("INSTITUTION_MEMBER"), type("ADMIN")));
+                type("DEPARTMENT_HEAD"), type("ADMIN")));
 
         seeder.run(null);
 

@@ -30,7 +30,7 @@ import {
   validateQuestionData,
 } from "@/components/questions/question-editors.jsx"
 import { getAllCertifications } from "@/services/certificationService.js"
-import { getInstitutionGroupById } from "@/services/institutionService.js"
+import { getDepartmentById } from "@/services/institutionService.js"
 import {
   getQuestions,
   saveChoices,
@@ -80,14 +80,14 @@ function isValidPoints(value) {
  * tree, split into the group's own content and the official curriculum -- a
  * group may build assessments over either. Ownership is decided at the major
  * category level and inherited by everything under it. The assessment and
- * its questions stay the group's own either way (ownerGroupId); nothing is
+ * its questions stay the group's own either way (ownerDepartmentId); nothing is
  * written back into the official curriculum.
  */
-function buildCurriculumTree(certification, groupId) {
+function buildCurriculumTree(certification, departmentId) {
   const own = []
   const official = []
   for (const major of certification?.majorCategory ?? []) {
-    const bucket = major.ownerGroupId === groupId ? own : official
+    const bucket = major.ownerDepartmentId === departmentId ? own : official
     bucket.push({
       majorCategoryId: major.majorCategoryId,
       title: major.title,
@@ -260,8 +260,8 @@ async function reconstructQuestionData(question, allQuestions) {
  * regardless of exam type.
  */
 export default function InstitutionAssessmentBuilderPage() {
-  const { groupId, examId } = useParams()
-  const id = Number(groupId)
+  const { departmentId, examId } = useParams()
+  const id = Number(departmentId)
   const editingExamId = examId ? Number(examId) : null
   const isEdit = Number.isFinite(editingExamId)
   const navigate = useNavigate()
@@ -289,9 +289,9 @@ export default function InstitutionAssessmentBuilderPage() {
   const [hydrated, setHydrated] = useState(false)
   const [questionsHydrated, setQuestionsHydrated] = useState(false)
 
-  const groupQuery = useQuery({
-    queryKey: ["institution-group", id],
-    queryFn: () => getInstitutionGroupById(id),
+  const departmentQuery = useQuery({
+    queryKey: ["department", id],
+    queryFn: () => getDepartmentById(id),
     enabled: Number.isFinite(id),
   })
 
@@ -357,7 +357,7 @@ export default function InstitutionAssessmentBuilderPage() {
     enabled: isEdit && Array.isArray(examQuestionsQuery.data) && Array.isArray(groupQuestionsQuery.data),
   })
 
-  const group = groupQuery.data
+  const group = departmentQuery.data
   const certification = (certificationsQuery.data ?? []).find(
     (item) =>
       item.certificationId === group?.certificationId ||
@@ -567,7 +567,7 @@ export default function InstitutionAssessmentBuilderPage() {
           {
             lessonId: Number(scopeLessonId),
             certificationId: certification.certificationId,
-            ownerGroupId: id,
+            ownerDepartmentId: id,
           },
           QUESTION_API
         )
@@ -598,7 +598,7 @@ export default function InstitutionAssessmentBuilderPage() {
       queryClient.invalidateQueries({ queryKey: ["exams"] })
       queryClient.invalidateQueries({ queryKey: ["exam-questions"] })
       toast.success(isEdit ? "Assessment updated." : "Assessment created.")
-      navigate(`/institution/groups/${id}?tab=assessments`)
+      navigate(`/institution/departments/${id}?tab=assessments`)
     },
     onError: (err) => {
       const message = backendMessage(err, "Unable to save this assessment.")
@@ -619,14 +619,14 @@ export default function InstitutionAssessmentBuilderPage() {
   }
 
   if (
-    groupQuery.isLoading ||
+    departmentQuery.isLoading ||
     certificationsQuery.isLoading ||
     (isEdit && (examQuery.isLoading || examTypesQuery.isLoading || !questionsHydrated))
   ) {
     return <InstitutionLoadingSkeleton />
   }
-  if (groupQuery.isError) {
-    return <InstitutionErrorState title="Unable to load this department" onRetry={groupQuery.refetch} />
+  if (departmentQuery.isError) {
+    return <InstitutionErrorState title="Unable to load this department" onRetry={departmentQuery.refetch} />
   }
 
   const scopeHint =
@@ -644,7 +644,7 @@ export default function InstitutionAssessmentBuilderPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate(`/institution/groups/${id}?tab=assessments`)}
+            onClick={() => navigate(`/institution/departments/${id}?tab=assessments`)}
           >
             <ArrowLeftIcon className="size-4" />
             Cancel

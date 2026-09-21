@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
  * <p>These were previously created lazily, each by whichever service first
  * needed it -- {@code CognitoAuthService} makes LEARNER on a learner's first
  * login and INSTITUTION on an institution's, {@code
- * InstitutionMemberProvisioningService} makes INSTITUTION_MEMBER when a member
+ * DepartmentHeadProvisioningService} makes DEPARTMENT_HEAD when a member
  * is invited. That works, but it means the table only ever holds the roles
  * that happen to have been exercised: a fresh database shows one row, and the
  * rest appear at unpredictable moments.
@@ -63,7 +63,7 @@ public class UserTypeSeeder implements ApplicationRunner {
 
             "INSTITUTION",
 
-            "INSTITUTION_MEMBER",
+            "DEPARTMENT_HEAD",
 
             "ADMIN");
 

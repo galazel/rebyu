@@ -18,10 +18,10 @@ public final class InstitutionPortalDtos {
      * Which group an assignment sits in, keyed by the assignment row the portal
      * already holds. Kept as its own list rather than a field on the assignment
      * DTO: that DTO is the enrollment record, and group membership belongs to
-     * the institutiongroup package -- folding one into the other would put a
+     * the department package -- folding one into the other would put a
      * grouping concern into the enrollment mapper.
      */
-    public record GroupMembershipDto(Long institutionCertLearnerId, Long institutionGroupId, String groupName) {}
+    public record GroupMembershipDto(Long institutionCertLearnerId, Long departmentId, String departmentName) {}
 
     public record OverviewDto(
             List<InstitutionCertificateDto> institutionCerts,

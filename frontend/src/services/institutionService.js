@@ -32,23 +32,23 @@ export function updateInstitution(institutionId, institution) {
 }
 
 // Admin-only (kept for the admin org-detail view). The institution portal must
-// use getMyInstitutionMembers below instead -- this one 403s for a real
+// use getMyDepartmentHeads below instead -- this one 403s for a real
 // institution caller.
-export function getInstitutionMembers(institutionId) {
-  return base(`institution-members/institution/${institutionId}`)
+export function getDepartmentHeads(institutionId) {
+  return base(`department-heads/institution/${institutionId}`)
 }
 
 // Every member of the caller's OWN institution, scoped to the JWT.
-export function getMyInstitutionMembers() {
+export function getMyDepartmentHeads() {
   return base("institution/me/members")
 }
 
 // Creates a brand-new login account for someone to manage on the org's
 // behalf (e.g. a group leader). Cognito emails them their credentials.
-export function inviteInstitutionMember({ firstName, lastName, email, memberRole }) {
+export function inviteDepartmentHead({ firstName, lastName, email, headRole }) {
   return base("institution/me/members", {
     method: "POST",
-    data: { firstName, lastName, email, memberRole },
+    data: { firstName, lastName, email, headRole },
   })
 }
 
@@ -70,94 +70,94 @@ export function getLearnerInvitations() {
 
 // Group-owned announcements. The backend scopes these to the caller's own
 // group (owner or assigned leader); a member can only reach their groups.
-export function getGroupAnnouncements(groupId) {
-  return base(`institution-groups/${groupId}/announcements`)
+export function getDepartmentAnnouncements(departmentId) {
+  return base(`departments/${departmentId}/announcements`)
 }
 
-export function createGroupAnnouncement(groupId, { title, body, pinned }) {
-  return base(`institution-groups/${groupId}/announcements`, {
+export function createDepartmentAnnouncement(departmentId, { title, body, pinned }) {
+  return base(`departments/${departmentId}/announcements`, {
     method: "POST",
     data: { title, body, pinned },
   })
 }
 
-export function updateGroupAnnouncement(groupId, announcementId, { title, body, pinned }) {
-  return base(`institution-groups/${groupId}/announcements/${announcementId}`, {
+export function updateDepartmentAnnouncement(departmentId, announcementId, { title, body, pinned }) {
+  return base(`departments/${departmentId}/announcements/${announcementId}`, {
     method: "PUT",
     data: { title, body, pinned },
   })
 }
 
-export function archiveGroupAnnouncement(groupId, announcementId) {
-  return base(`institution-groups/${groupId}/announcements/${announcementId}`, {
+export function archiveDepartmentAnnouncement(departmentId, announcementId) {
+  return base(`departments/${departmentId}/announcements/${announcementId}`, {
     method: "DELETE",
   })
 }
 
 // Institution learner groups (per certification allocation)
-export function getInstitutionGroups({ institutionId, institutionCertId } = {}) {
+export function getDepartments({ institutionId, institutionCertId } = {}) {
   const params = new URLSearchParams()
   if (institutionId != null) params.set("institutionId", institutionId)
   if (institutionCertId != null) params.set("institutionCertId", institutionCertId)
   const query = params.toString()
-  return base(`institution-groups${query ? `?${query}` : ""}`)
+  return base(`departments${query ? `?${query}` : ""}`)
 }
 
-export function getInstitutionGroupById(groupId) {
-  return base(`institution-groups/${groupId}`)
+export function getDepartmentById(departmentId) {
+  return base(`departments/${departmentId}`)
 }
 
-export function createInstitutionGroup(group) {
-  return base("institution-groups", { method: "POST", data: group })
+export function createDepartment(group) {
+  return base("departments", { method: "POST", data: group })
 }
 
-export function updateInstitutionGroup(groupId, group) {
-  return base(`institution-groups/${groupId}`, { method: "PUT", data: group })
+export function updateDepartment(departmentId, group) {
+  return base(`departments/${departmentId}`, { method: "PUT", data: group })
 }
 
-export function archiveInstitutionGroup(groupId) {
-  return base(`institution-groups/${groupId}`, { method: "DELETE" })
+export function archiveDepartment(departmentId) {
+  return base(`departments/${departmentId}`, { method: "DELETE" })
 }
 
 // Group authorities (teacher / co-admin assigned by the institution to a group)
-export function getInstitutionGroupAuthorities({ groupId, userId } = {}) {
+export function getDepartmentHeadAssignments({ departmentId, userId } = {}) {
   const params = new URLSearchParams()
-  if (groupId != null) params.set("groupId", groupId)
+  if (departmentId != null) params.set("departmentId", departmentId)
   if (userId != null) params.set("userId", userId)
   const query = params.toString()
-  return base(`institution-group-authorities${query ? `?${query}` : ""}`)
+  return base(`department-head-assignments${query ? `?${query}` : ""}`)
 }
 
-export function assignInstitutionGroupAuthority(authority) {
-  return base("institution-group-authorities", {
+export function assignDepartmentHeadAssignment(authority) {
+  return base("department-head-assignments", {
     method: "POST",
     data: authority,
   })
 }
 
-export function removeInstitutionGroupAuthority(authorityId) {
-  return base(`institution-group-authorities/${authorityId}`, {
+export function removeDepartmentHeadAssignment(authorityId) {
+  return base(`department-head-assignments/${authorityId}`, {
     method: "DELETE",
   })
 }
 
 // Group assignees (learners added to a group by its assigned authority)
-export function getInstitutionGroupAssignees({ groupId } = {}) {
-  const query = groupId != null ? `?groupId=${groupId}` : ""
-  return base(`institution-group-assignees${query}`)
+export function getDepartmentLearners({ departmentId } = {}) {
+  const query = departmentId != null ? `?departmentId=${departmentId}` : ""
+  return base(`department-learners${query}`)
 }
 
-export function addInstitutionGroupAssignee(assignee) {
-  return base("institution-group-assignees", { method: "POST", data: assignee })
+export function addDepartmentLearner(assignee) {
+  return base("department-learners", { method: "POST", data: assignee })
 }
 
-export function removeInstitutionGroupAssignee(assigneeId) {
-  return base(`institution-group-assignees/${assigneeId}`, { method: "DELETE" })
+export function removeDepartmentLearner(assigneeId) {
+  return base(`department-learners/${assigneeId}`, { method: "DELETE" })
 }
 
 // role: "lead" | "member" -- peer-leader distinction within the group.
-export function changeInstitutionGroupAssigneeRole(assigneeId, role) {
-  return base(`institution-group-assignees/${assigneeId}/role`, {
+export function changeDepartmentLearnerRole(assigneeId, role) {
+  return base(`department-learners/${assigneeId}/role`, {
     method: "PATCH",
     data: { role },
   })
@@ -187,18 +187,18 @@ export function deleteInstitutionFile(id) { return base(`institution/files/${id}
 // the caller actually leads (or owns) -- enforced server-side, never here.
 
 /** The group's active learners with summary progress figures, for the table. */
-export function getGroupLearnerRoster(groupId) {
-  return base(`institution/me/groups/${groupId}/learners`)
+export function getGroupLearnerRoster(departmentId) {
+  return base(`institution/me/departments/${departmentId}/learners`)
 }
 
 /** Full statistics for one learner: weak topics, curriculum progress, readiness. */
-export function getGroupLearnerAnalytics(groupId, learnerId) {
-  return base(`institution/me/groups/${groupId}/learners/${learnerId}/analytics`)
+export function getGroupLearnerAnalytics(departmentId, learnerId) {
+  return base(`institution/me/departments/${departmentId}/learners/${learnerId}/analytics`)
 }
 
 /** Unassigns the learner from the group. Account, enrollment and progress remain. */
-export function removeLearnerFromGroup(groupId, learnerId) {
-  return base(`institution/me/groups/${groupId}/learners/${learnerId}`, { method: "DELETE" })
+export function removeLearnerFromGroup(departmentId, learnerId) {
+  return base(`institution/me/departments/${departmentId}/learners/${learnerId}`, { method: "DELETE" })
 }
 
 /**
@@ -213,31 +213,31 @@ export function getMyAnnouncements(certificationId) {
 
 /* ---- Sections: a department head's subdivisions of one department ---- */
 
-export function getGroupSections(groupId) {
-  return base(`institution-groups/${groupId}/sections`)
+export function getGroupSections(departmentId) {
+  return base(`departments/${departmentId}/sections`)
 }
 
-export function createGroupSection(groupId, { sectionName, description }) {
-  return base(`institution-groups/${groupId}/sections`, {
+export function createGroupSection(departmentId, { sectionName, description }) {
+  return base(`departments/${departmentId}/sections`, {
     method: "POST",
     data: { sectionName, description },
   })
 }
 
-export function updateGroupSection(groupId, sectionId, { sectionName, description }) {
-  return base(`institution-groups/${groupId}/sections/${sectionId}`, {
+export function updateGroupSection(departmentId, sectionId, { sectionName, description }) {
+  return base(`departments/${departmentId}/sections/${sectionId}`, {
     method: "PUT",
     data: { sectionName, description },
   })
 }
 
-export function archiveGroupSection(groupId, sectionId) {
-  return base(`institution-groups/${groupId}/sections/${sectionId}`, { method: "DELETE" })
+export function archiveGroupSection(departmentId, sectionId) {
+  return base(`departments/${departmentId}/sections/${sectionId}`, { method: "DELETE" })
 }
 
 /** Move a learner (by assignee id) into a section; null takes them out of every section. */
-export function moveLearnerToSection(groupId, assigneeId, sectionId) {
-  return base(`institution-groups/${groupId}/sections/assignees/${assigneeId}`, {
+export function moveLearnerToSection(departmentId, assigneeId, sectionId) {
+  return base(`departments/${departmentId}/sections/assignees/${assigneeId}`, {
     method: "PATCH",
     data: { sectionId },
   })

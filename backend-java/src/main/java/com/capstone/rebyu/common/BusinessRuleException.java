@@ -82,8 +82,8 @@ public abstract class BusinessRuleException extends RuntimeException {
         }
     }
 
-    public static class InstitutionGroupRuleException extends BusinessRuleException {
-        public InstitutionGroupRuleException(String message) {
+    public static class DepartmentRuleException extends BusinessRuleException {
+        public DepartmentRuleException(String message) {
             super(message);
         }
     }

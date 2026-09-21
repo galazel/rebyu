@@ -21,7 +21,7 @@ export async function getAllLessons(){
   })
 }
 
-// ownerGroupId is resolved server-side from the lesson's ancestor
+// ownerDepartmentId is resolved server-side from the lesson's ancestor
 // MajorCategory -- this call itself only needs middleCategoryId.
 export async function createLesson(data) {
   return await base("lessons", {

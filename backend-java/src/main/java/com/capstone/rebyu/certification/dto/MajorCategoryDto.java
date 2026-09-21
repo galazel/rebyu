@@ -26,9 +26,9 @@ public class MajorCategoryDto {
     private String title;
 
     // NULL = official, platform-wide content. Read-only here -- ownership is
-    // set exclusively via the create endpoint's ownerGroupId query param,
+    // set exclusively via the create endpoint's ownerDepartmentId query param,
     // never accepted directly from this DTO's create/update body.
-    private Long ownerGroupId;
+    private Long ownerDepartmentId;
 
     private List<MiddleCategoryDto> middleCategory;
 

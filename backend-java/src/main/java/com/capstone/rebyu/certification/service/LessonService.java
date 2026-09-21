@@ -59,7 +59,7 @@ public class LessonService {
             LessonDto dto, boolean isAdmin, Long callerInstitutionId, Long callerUserId, boolean callerIsOwner) {
         MiddleCategory middleCategory = findMiddleCategory(dto.getMiddleCategoryId());
         majorCategoryService.requireCanActOn(
-                middleCategory.getMajorCategory().getOwnerGroup(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
+                middleCategory.getMajorCategory().getOwnerDepartment(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
 
         Lesson entity = lessonMapper.toEntity(dto);
         entity.setLessonId(null);
@@ -75,12 +75,12 @@ public class LessonService {
             Long id, LessonDto dto, boolean isAdmin, Long callerInstitutionId, Long callerUserId, boolean callerIsOwner) {
         Lesson existing = findEntity(id);
         majorCategoryService.requireCanActOn(
-                existing.getMiddleCategory().getMajorCategory().getOwnerGroup(),
+                existing.getMiddleCategory().getMajorCategory().getOwnerDepartment(),
                 isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
 
         MiddleCategory targetMiddleCategory = findMiddleCategory(dto.getMiddleCategoryId());
-        if (!Objects.equals(ownerGroupId(existing.getMiddleCategory()), ownerGroupId(targetMiddleCategory))) {
-            throw new BusinessRuleException.InstitutionGroupRuleException(
+        if (!Objects.equals(ownerDepartmentId(existing.getMiddleCategory()), ownerDepartmentId(targetMiddleCategory))) {
+            throw new BusinessRuleException.DepartmentRuleException(
                     "This lesson can't be moved to a module owned by someone else.");
         }
 
@@ -99,7 +99,7 @@ public class LessonService {
     public void delete(Long id, boolean isAdmin, Long callerInstitutionId, Long callerUserId, boolean callerIsOwner) {
         Lesson existing = findEntity(id);
         majorCategoryService.requireCanActOn(
-                existing.getMiddleCategory().getMajorCategory().getOwnerGroup(),
+                existing.getMiddleCategory().getMajorCategory().getOwnerDepartment(),
                 isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
 
         // A generated lesson owns a quiz and its questions, and nothing in the
@@ -115,7 +115,7 @@ public class LessonService {
             boolean isAdmin, Long callerInstitutionId, Long callerUserId, boolean callerIsOwner) {
         Lesson lesson = findEntity(id);
         majorCategoryService.requireCanActOn(
-                lesson.getMiddleCategory().getMajorCategory().getOwnerGroup(),
+                lesson.getMiddleCategory().getMajorCategory().getOwnerDepartment(),
                 isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
 
         String structure = lessonDto.getLessonComponentStructure();
@@ -151,9 +151,9 @@ public class LessonService {
         return structure == null || structure.isBlank() ? "[]" : structure;
     }
 
-    private Long ownerGroupId(MiddleCategory middleCategory) {
-        return middleCategory.getMajorCategory().getOwnerGroup() != null
-                ? middleCategory.getMajorCategory().getOwnerGroup().getInstitutionGroupId() : null;
+    private Long ownerDepartmentId(MiddleCategory middleCategory) {
+        return middleCategory.getMajorCategory().getOwnerDepartment() != null
+                ? middleCategory.getMajorCategory().getOwnerDepartment().getDepartmentId() : null;
     }
 
     private MiddleCategory findMiddleCategory(Long middleCategoryId) {

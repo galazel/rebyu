@@ -3,8 +3,8 @@ package com.capstone.rebyu.partnership.service;
 import com.capstone.rebyu.auth.service.CognitoAdminService;
 import com.capstone.rebyu.notification.service.NotificationService;
 import com.capstone.rebyu.institution.entity.Institution;
-import com.capstone.rebyu.institution.entity.InstitutionMember;
-import com.capstone.rebyu.institution.repository.InstitutionMemberRepository;
+import com.capstone.rebyu.institution.entity.DepartmentHead;
+import com.capstone.rebyu.institution.repository.DepartmentHeadRepository;
 import com.capstone.rebyu.institution.repository.InstitutionRepository;
 import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import com.capstone.rebyu.partnership.dto.AdminPartnershipDtos.PartnershipRequestDetailDto;
@@ -44,7 +44,7 @@ class AdminPartnershipServiceTest {
     private PartnershipRequestItemRepository itemRepository;
     private InstitutionRepository institutionRepository;
     private InstitutionCertificateRepository institutionCertificateRepository;
-    private InstitutionMemberRepository institutionMemberRepository;
+    private DepartmentHeadRepository departmentHeadRepository;
     private UserRepository userRepository;
     private UserTypeRepository userTypeRepository;
     private CognitoAdminService cognitoAdminService;
@@ -58,16 +58,26 @@ class AdminPartnershipServiceTest {
         itemRepository = mock(PartnershipRequestItemRepository.class);
         institutionRepository = mock(InstitutionRepository.class);
         institutionCertificateRepository = mock(InstitutionCertificateRepository.class);
-        institutionMemberRepository = mock(InstitutionMemberRepository.class);
+        departmentHeadRepository = mock(DepartmentHeadRepository.class);
         userRepository = mock(UserRepository.class);
         userTypeRepository = mock(UserTypeRepository.class);
         cognitoAdminService = mock(CognitoAdminService.class);
         notificationService = mock(NotificationService.class);
 
+        var invoiceService = mock(com.capstone.rebyu.billing.service.InstitutionInvoiceService.class);
+        var emailService = mock(com.capstone.rebyu.notification.service.EmailService.class);
+        var accessGrantService = mock(InstitutionAccessGrantService.class);
+        // approve() bills and emails after provisioning; a stub invoice keeps that path quiet.
+        when(invoiceService.issueForApprovedRequest(any(), any(), any())).thenReturn(
+                com.capstone.rebyu.billing.entity.InstitutionInvoice.builder()
+                        .institutionInvoiceId(1L).invoiceNumber("REBYU-INV-TEST-000001")
+                        .totalAmount(java.math.BigDecimal.ZERO).build());
+
         service = new AdminPartnershipService(
                 requestRepository, itemRepository, institutionRepository,
-                institutionCertificateRepository, institutionMemberRepository,
-                userRepository, userTypeRepository, cognitoAdminService, notificationService);
+                institutionCertificateRepository, departmentHeadRepository,
+                userRepository, userTypeRepository, cognitoAdminService, notificationService,
+                invoiceService, emailService, accessGrantService);
 
         // Common approve() plumbing: no certificate items to process, request save is a no-op passthrough.
         when(itemRepository.findByPartnershipRequest_RequestId(REQUEST_ID)).thenReturn(List.of());
@@ -115,7 +125,7 @@ class AdminPartnershipServiceTest {
         when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
         when(institutionRepository.findByPrimaryContactEmailIgnoreCase(ORG_EMAIL))
                 .thenReturn(Optional.of(existingInstitution("A Totally Different Org")));
-        when(institutionMemberRepository.findByInstitution_InstitutionId(any())).thenReturn(List.of());
+        when(departmentHeadRepository.findByInstitution_InstitutionId(any())).thenReturn(List.of());
         when(cognitoAdminService.createInstitutionAccount(anyString(), anyString(), anyString()))
                 .thenReturn(new CognitoAdminService.ProvisionResult(true, "sub-123", "emailed"));
         when(userTypeRepository.findByUserTypeText("INSTITUTION"))
@@ -138,7 +148,7 @@ class AdminPartnershipServiceTest {
         when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
         when(institutionRepository.findByPrimaryContactEmailIgnoreCase(ORG_EMAIL))
                 .thenReturn(Optional.of(existingInstitution(ORG_NAME)));
-        when(institutionMemberRepository.findByInstitution_InstitutionId(EXISTING_INSTITUTION_ID))
+        when(departmentHeadRepository.findByInstitution_InstitutionId(EXISTING_INSTITUTION_ID))
                 .thenReturn(List.of()); // no owner linked yet
         when(cognitoAdminService.createInstitutionAccount(anyString(), anyString(), anyString()))
                 .thenReturn(new CognitoAdminService.ProvisionResult(true, "sub-123", "emailed"));
@@ -161,7 +171,7 @@ class AdminPartnershipServiceTest {
         when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
         when(institutionRepository.findByPrimaryContactEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.empty());
         when(institutionRepository.findByInstitutionNameIgnoreCase(ORG_NAME)).thenReturn(Optional.empty());
-        when(institutionMemberRepository.findByInstitution_InstitutionId(any())).thenReturn(List.of());
+        when(departmentHeadRepository.findByInstitution_InstitutionId(any())).thenReturn(List.of());
         when(cognitoAdminService.createInstitutionAccount(anyString(), anyString(), anyString()))
                 .thenReturn(new CognitoAdminService.ProvisionResult(false, null, "already exists"));
 
@@ -170,24 +180,24 @@ class AdminPartnershipServiceTest {
                 .email(ORG_EMAIL)
                 .build();
         when(userRepository.findByEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.of(existingUser));
-        when(institutionMemberRepository.save(any(InstitutionMember.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(departmentHeadRepository.save(any(DepartmentHead.class))).thenAnswer(inv -> inv.getArgument(0));
 
         service.approve(REQUEST_ID, "ok", "admin");
 
-        verify(institutionMemberRepository, times(1)).save(any(InstitutionMember.class));
+        verify(departmentHeadRepository, times(1)).save(any(DepartmentHead.class));
         // The user-type lookup / new-user creation path (only used when a Cognito identity exists) is skipped.
         verify(userTypeRepository, never()).findByUserTypeText(anyString());
         verify(userRepository, never()).save(any(User.class));
     }
 
-    // ---- 4: Cognito UsernameExistsException path, no local User -> no InstitutionMember, no exception ----
+    // ---- 4: Cognito UsernameExistsException path, no local User -> no DepartmentHead, no exception ----
     @Test
     void provisionInstitutionAccount_usernameExists_noLocalUser_skipsLinkingWithoutError() {
         PartnershipRequest request = pendingRequest();
         when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
         when(institutionRepository.findByPrimaryContactEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.empty());
         when(institutionRepository.findByInstitutionNameIgnoreCase(ORG_NAME)).thenReturn(Optional.empty());
-        when(institutionMemberRepository.findByInstitution_InstitutionId(any())).thenReturn(List.of());
+        when(departmentHeadRepository.findByInstitution_InstitutionId(any())).thenReturn(List.of());
         when(cognitoAdminService.createInstitutionAccount(anyString(), anyString(), anyString()))
                 .thenReturn(new CognitoAdminService.ProvisionResult(false, null, "already exists"));
         when(userRepository.findByEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.empty());
@@ -195,7 +205,7 @@ class AdminPartnershipServiceTest {
         PartnershipRequestDetailDto result = service.approve(REQUEST_ID, "ok", "admin");
 
         assertNotNull(result);
-        verify(institutionMemberRepository, never()).save(any(InstitutionMember.class));
+        verify(departmentHeadRepository, never()).save(any(DepartmentHead.class));
         verify(userRepository, never()).save(any(User.class));
     }
 }

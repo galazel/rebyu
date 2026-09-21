@@ -19,7 +19,7 @@ import java.util.List;
  * Reads stay public (browsed platform-wide). WRITES had no auth at all --
  * now either ADMIN (official content) or an Institution Member acting on
  * their own group's content, authorized by walking up to the parent
- * MajorCategory's ownerGroup -- see MiddleCategoryService.
+ * MajorCategory's ownerDepartment -- see MiddleCategoryService.
  */
 @RestController
 @RequestMapping("/api/middle-categories")
@@ -78,6 +78,6 @@ public class MiddleCategoryController {
     }
 
     private boolean isOwner(CurrentUserDto user) {
-        return "owner".equalsIgnoreCase(user.institutionMemberRole());
+        return "owner".equalsIgnoreCase(user.departmentHeadRole());
     }
 }

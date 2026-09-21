@@ -1178,7 +1178,7 @@ public class AssessmentAttemptService {
            left alone. The submitted-attempt check goes first because it is one
            cheap EXISTS, and most opens are a first sitting. */
         if (RETAKE_GATED_TYPES.contains(type)
-                && exam.getOwnerGroup() == null
+                && exam.getOwnerDepartment() == null
                 && attemptRepository.existsByExam_ExamIdAndLearnerIdAndStatus(
                         exam.getExamId(), learnerId, AssessmentAttempt.Status.SUBMITTED)
                 && !learnerEntitlementService.hasLearnerEntitlement(
@@ -1235,7 +1235,7 @@ public class AssessmentAttemptService {
     /**
      * Only the OFFICIAL diagnostic gates the curriculum. A group's own
      * assessment is its own content and must never gate learners outside (or
-     * inside) that group -- which is the {@code ownerGroup IS NULL} in the
+     * inside) that group -- which is the {@code ownerDepartment IS NULL} in the
      * query this delegates to.
      */
     private boolean publishedDiagnosticExists(Long certificationId) {

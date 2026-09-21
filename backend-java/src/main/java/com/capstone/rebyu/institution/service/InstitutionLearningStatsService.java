@@ -6,8 +6,8 @@ import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository.Lear
 import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.InstitutionLearningStatsDto;
-import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.GroupProgressDto;
-import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAssigneeRepository;
+import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.DepartmentProgressDto;
+import com.capstone.rebyu.department.repository.DepartmentLearnerRepository;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.LearningStatsSummaryDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.MemberLearningStatsDto;
 import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
@@ -52,7 +52,7 @@ public class InstitutionLearningStatsService {
     private final AssessmentAttemptRepository attemptRepository;
     private final LearnerCompletedLessonRepository completedLessonRepository;
     private final LearnerRepository learnerRepository;
-    private final InstitutionGroupAssigneeRepository groupAssigneeRepository;
+    private final DepartmentLearnerRepository groupAssigneeRepository;
 
     public InstitutionLearningStatsDto learningStats(Long institutionId) {
         List<InstitutionCertificationLearner> assignments =
@@ -120,11 +120,11 @@ public class InstitutionLearningStatsService {
      * null: the rows exist and their progress genuinely is zero, which is a
      * different situation from a group nobody has been assigned to.
      */
-    public List<GroupProgressDto> groupProgress(Long institutionId) {
+    public List<DepartmentProgressDto> groupProgress(Long institutionId) {
         return groupAssigneeRepository.groupProgressByInstitution(institutionId).stream()
-                .map(row -> new GroupProgressDto(
-                        row.getInstitutionGroupId(),
-                        row.getGroupName(),
+                .map(row -> new DepartmentProgressDto(
+                        row.getDepartmentId(),
+                        row.getDepartmentName(),
                         row.getLearners(),
                         row.getAverageProgress() == null
                                 ? BigDecimal.ZERO

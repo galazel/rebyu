@@ -11,10 +11,10 @@ import com.capstone.rebyu.billing.repository.InstitutionalLicenseRepository;
 import com.capstone.rebyu.billing.repository.PlanEntitlementRepository;
 import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
-import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
-import com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAuthority;
-import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAuthorityRepository;
-import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupRepository;
+import com.capstone.rebyu.department.entity.Department;
+import com.capstone.rebyu.department.entity.DepartmentHeadAssignment;
+import com.capstone.rebyu.department.repository.DepartmentHeadAssignmentRepository;
+import com.capstone.rebyu.department.repository.DepartmentRepository;
 import com.capstone.rebyu.institution.entity.InstitutionCertificate;
 import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import lombok.RequiredArgsConstructor;
@@ -42,8 +42,8 @@ public class InstitutionalEntitlementService {
     private final PlanEntitlementRepository planEntitlementRepository;
     private final InstitutionCertificationLearnerRepository institutionCertLearnerRepository;
     private final InstitutionCertificateRepository institutionCertificateRepository;
-    private final InstitutionGroupRepository groupRepository;
-    private final InstitutionGroupAuthorityRepository authorityRepository;
+    private final DepartmentRepository groupRepository;
+    private final DepartmentHeadAssignmentRepository authorityRepository;
 
     @Transactional(readOnly = true)
     public Optional<InstitutionalLicense> getCurrentInstitutionalLicense(Long institutionId) {
@@ -167,12 +167,12 @@ public class InstitutionalEntitlementService {
 
     private int groupsUsed(Long institutionId) {
         return (int) groupRepository.countByInstitution_InstitutionIdAndStatus(
-                institutionId, InstitutionGroup.Status.active);
+                institutionId, Department.Status.active);
     }
 
     private int authoritiesUsed(Long institutionId) {
         return (int) authorityRepository.countDistinctActiveAuthorities(
-                institutionId, InstitutionGroupAuthority.Status.active);
+                institutionId, DepartmentHeadAssignment.Status.active);
     }
 
     private int certificationsUsed(Long institutionId) {

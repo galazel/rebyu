@@ -378,7 +378,7 @@ public class ProgressAnalyticsService {
         // move whenever an unrelated group authored content the learner cannot
         // see, let alone complete.
         List<Lesson> certLessons = lessonRepository
-                .findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerGroupIsNull(
+                .findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(
                         certificationId);
         int totalLessonCount = certLessons.size();
         Map<Long, Lesson> lessonById = certLessons.stream()

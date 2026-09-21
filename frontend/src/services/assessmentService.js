@@ -17,30 +17,30 @@ export async function ensureExamType(examTypeText) {
   return createExamType(examTypeText)
 }
 
-// Omit includeGroupId for official exams only (what every existing caller
+// Omit includeDepartmentId for official exams only (what every existing caller
 // does). Pass a group id to also mix in that group's own exams -- the
 // caller must be able to act on that group, enforced server-side.
 //
 // certificationId narrows the read to one certification. Omitted, this is the
 // whole-table read every existing caller makes; passed, the server does the
 // filtering the caller would otherwise do over every exam on the platform.
-export function getExams(includeGroupId, certificationId) {
+export function getExams(includeDepartmentId, certificationId) {
   const params = new URLSearchParams()
-  if (includeGroupId != null) params.set("includeGroupId", includeGroupId)
+  if (includeDepartmentId != null) params.set("includeDepartmentId", includeDepartmentId)
   if (certificationId != null) params.set("certificationId", certificationId)
   const query = params.toString()
   return base(`exams${query ? `?${query}` : ""}`)
 }
 
-export function getExamById(examId, includeGroupId) {
-  const query = includeGroupId != null ? `?includeGroupId=${includeGroupId}` : ""
+export function getExamById(examId, includeDepartmentId) {
+  const query = includeDepartmentId != null ? `?includeDepartmentId=${includeDepartmentId}` : ""
   return base(`exams/${examId}${query}`)
 }
 
-// ownerGroupId is required for an Institution Member creating their own
+// ownerDepartmentId is required for an Institution Member creating their own
 // exam; omitted, the backend requires ADMIN and creates an official exam.
-export function createExam(exam, ownerGroupId) {
-  const query = ownerGroupId != null ? `?ownerGroupId=${ownerGroupId}` : ""
+export function createExam(exam, ownerDepartmentId) {
+  const query = ownerDepartmentId != null ? `?ownerDepartmentId=${ownerDepartmentId}` : ""
   return base(`exams${query}`, { method: "POST", data: exam })
 }
 

@@ -5,7 +5,7 @@ import com.capstone.rebyu.assessment.dto.ExamDto;
 import com.capstone.rebyu.assessment.service.ExamService;
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
-import com.capstone.rebyu.institutiongroup.service.InstitutionGroupService;
+import com.capstone.rebyu.department.service.DepartmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -18,13 +18,13 @@ import java.util.List;
 /**
  * Exam (assessment) management. Reads stay open because learners discover
  * available assessments through GET here; WRITES require either ADMIN
- * (official content, ownerGroupId omitted) or an Institution Member acting on
- * their own group's exam (ownerGroupId required on create, checked against
+ * (official content, ownerDepartmentId omitted) or an Institution Member acting on
+ * their own group's exam (ownerDepartmentId required on create, checked against
  * the caller's own group access -- see ExamService/MajorCategoryService).
  *
- * includeGroupId is the opt-in read filter that mixes a group's own exams
+ * includeDepartmentId is the opt-in read filter that mixes a group's own exams
  * into the list/by-id responses -- omitted (every existing caller), the
- * response is unchanged from before ownerGroup existed, since no exam has
+ * response is unchanged from before ownerDepartment existed, since no exam has
  * ever had a non-null owner group.
  */
 @RestController
@@ -32,7 +32,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ExamController {
     private final ExamService examService;
-    private final InstitutionGroupService institutionGroupService;
+    private final DepartmentService departmentService;
     private final CognitoAuthService auth;
 
     /**
@@ -43,19 +43,19 @@ public class ExamController {
     @GetMapping
     public List<ExamDto> getAll(
             @AuthenticationPrincipal Jwt jwt,
-            @RequestParam(required = false) Long includeGroupId,
+            @RequestParam(required = false) Long includeDepartmentId,
             @RequestParam(required = false) Long certificationId) {
-        requireGroupAccessIfRequested(jwt, includeGroupId);
-        return examService.getAll(includeGroupId, certificationId, viewerLearnerId(jwt));
+        requireDepartmentAccessIfRequested(jwt, includeDepartmentId);
+        return examService.getAll(includeDepartmentId, certificationId, viewerLearnerId(jwt));
     }
 
     @GetMapping("/{id}")
     public ExamDto getById(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long id,
-            @RequestParam(required = false) Long includeGroupId) {
-        requireGroupAccessIfRequested(jwt, includeGroupId);
-        return examService.getById(id, includeGroupId);
+            @RequestParam(required = false) Long includeDepartmentId) {
+        requireDepartmentAccessIfRequested(jwt, includeDepartmentId);
+        return examService.getById(id, includeDepartmentId);
     }
 
     @PostMapping
@@ -63,11 +63,11 @@ public class ExamController {
     public ExamDto create(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody ExamDto dto,
-            @RequestParam(required = false) Long ownerGroupId) {
+            @RequestParam(required = false) Long ownerDepartmentId) {
         CurrentUserDto user = requireAdminOrInstitution(jwt);
         boolean isAdmin = isAdmin(user);
         return examService.create(
-                dto, isAdmin, user.institutionId(), user.userId(), isOwner(user), ownerGroupId);
+                dto, isAdmin, user.institutionId(), user.userId(), isOwner(user), ownerDepartmentId);
     }
 
     @PutMapping("/{id}")
@@ -131,13 +131,13 @@ public class ExamController {
     }
 
     /**
-     * No-op when includeGroupId is omitted. When supplied, the caller must be
+     * No-op when includeDepartmentId is omitted. When supplied, the caller must be
      * authenticated and able to act on that specific group (owner or that
-     * group's active leader) -- same check InstitutionGroupController already
+     * group's active leader) -- same check DepartmentController already
      * relies on -- so a group's own exams can't be read by guessing its id.
      */
-    private void requireGroupAccessIfRequested(Jwt jwt, Long includeGroupId) {
-        if (includeGroupId == null) {
+    private void requireDepartmentAccessIfRequested(Jwt jwt, Long includeDepartmentId) {
+        if (includeDepartmentId == null) {
             return;
         }
         if (jwt == null) {
@@ -147,8 +147,8 @@ public class ExamController {
         if (user.institutionId() == null) {
             throw new IllegalArgumentException("An institution account is required");
         }
-        boolean owner = "owner".equalsIgnoreCase(user.institutionMemberRole());
-        institutionGroupService.getAccessibleById(includeGroupId, user.institutionId(), user.userId(), owner);
+        boolean owner = "owner".equalsIgnoreCase(user.departmentHeadRole());
+        departmentService.getAccessibleById(includeDepartmentId, user.institutionId(), user.userId(), owner);
     }
 
     private boolean isAdmin(CurrentUserDto user) {
@@ -156,6 +156,6 @@ public class ExamController {
     }
 
     private boolean isOwner(CurrentUserDto user) {
-        return "owner".equalsIgnoreCase(user.institutionMemberRole());
+        return "owner".equalsIgnoreCase(user.departmentHeadRole());
     }
 }

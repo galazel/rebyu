@@ -71,7 +71,7 @@ function emptyChoice() {
   return { choiceText: "", correct: false, explanation: "" }
 }
 
-function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, groupId }) {
+function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, departmentId }) {
   const queryClient = useQueryClient()
   const isEditing = editingQuestion != null
 
@@ -121,10 +121,10 @@ function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, gro
         ? updateQuestion(editingQuestion.questionId, payload)
         // Authored for this group when opened in a group context, so it stays
         // private to them rather than joining the official question bank.
-        : saveQuestion(payload, groupId)
+        : saveQuestion(payload, departmentId)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["institution-questions", lessonId, groupId ?? null] })
+      queryClient.invalidateQueries({ queryKey: ["institution-questions", lessonId, departmentId ?? null] })
       toast.success(isEditing ? "Question updated." : "Question added.")
       reset()
       onOpenChange(false)
@@ -324,7 +324,7 @@ export function InstitutionQuestionBankPanel({
   initialCertificationId = "",
   initialLessonId = "",
   autoOpenAdd = false,
-  groupId,
+  departmentId,
 }) {
   const { institution } = useOutletContext()
   const { user } = useAuth()
@@ -398,8 +398,8 @@ export function InstitutionQuestionBankPanel({
   }, [accessibleCertifications, selectedCertId])
 
   const questionsQuery = useQuery({
-    queryKey: ["institution-questions", selectedLessonId, groupId ?? null],
-    queryFn: () => getQuestionsByLesson(selectedLessonId, groupId),
+    queryKey: ["institution-questions", selectedLessonId, departmentId ?? null],
+    queryFn: () => getQuestionsByLesson(selectedLessonId, departmentId),
     enabled: !!selectedLessonId,
   })
 
@@ -409,7 +409,7 @@ export function InstitutionQuestionBankPanel({
     mutationFn: (questionId) => deleteQuestion(questionId),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["institution-questions", selectedLessonId, groupId ?? null],
+        queryKey: ["institution-questions", selectedLessonId, departmentId ?? null],
       })
       toast.success("Question deleted.")
       setDeleteTarget(null)
@@ -590,7 +590,7 @@ export function InstitutionQuestionBankPanel({
         onOpenChange={setFormOpen}
         lessonId={Number(selectedLessonId) || null}
         editingQuestion={editingQuestion}
-        groupId={groupId}
+        departmentId={departmentId}
       />
 
       <AlertDialog

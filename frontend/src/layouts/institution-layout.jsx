@@ -68,11 +68,11 @@ export default function InstitutionLayout() {
   const orgName = institution?.institutionName ?? "Institution"
   // An institution member (group leader) has no Institution page; their
   // groups are in the header navigation instead.
-  const isInstitutionMember = user?.institutionMemberRole && user.institutionMemberRole !== "owner"
+  const isDepartmentHead = user?.departmentHeadRole && user.departmentHeadRole !== "owner"
   // Pass the account's real role through so the header can tell the
   // institution's own account apart from one it created for a member.
-  const portalRole = (user?.role ?? "").toUpperCase() === "INSTITUTION_MEMBER"
-    ? "INSTITUTION_MEMBER"
+  const portalRole = (user?.role ?? "").toUpperCase() === "DEPARTMENT_HEAD"
+    ? "DEPARTMENT_HEAD"
     : "INSTITUTION"
   const notifications = useNotifications()
 
@@ -85,7 +85,7 @@ export default function InstitutionLayout() {
 
   return (
     <div className="netacad-portal institution-portal flex min-h-screen flex-col">
-      <PortalTopNavigation role={portalRole} institutionName={orgName} institutionMemberRole={user?.institutionMemberRole} actions={<>
+      <PortalTopNavigation role={portalRole} institutionName={orgName} departmentHeadRole={user?.departmentHeadRole} actions={<>
             <NotificationBell
               items={notifications.items}
               unreadCount={notifications.unreadCount}
@@ -124,7 +124,7 @@ export default function InstitutionLayout() {
                {/* One entry. "Profile" and "Settings" were two items onto what
                    is now one tabbed page -- and /institution/settings had no
                    route behind it at all, so it fell through to the 404. */}
-               {isInstitutionMember ? null : (
+               {isDepartmentHead ? null : (
                  <>
                    <DropdownMenuItem onClick={() => navigate("/institution/profile")}>
                      <SettingsIcon />

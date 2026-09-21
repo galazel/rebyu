@@ -1,7 +1,7 @@
 package com.capstone.rebyu.notification.entity;
 
 
-import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
+import com.capstone.rebyu.department.entity.Department;
 import com.capstone.rebyu.institution.entity.InstitutionCertificate;
 import com.capstone.rebyu.user.entity.Learner;
 import com.capstone.rebyu.user.entity.User;
@@ -41,11 +41,11 @@ public class LearnerInvitation {
     // only for invitations sent before groups scoped this flow; every new
     // invitation is sent by (and requires) a group leader.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "institution_group_id")
-    private InstitutionGroup institutionGroup;
+    @JoinColumn(name = "department_id")
+    private Department department;
 
     // The group leader who sent this invitation -- used to attribute the
-    // resulting InstitutionGroupAssignee row on acceptance.
+    // resulting DepartmentLearner row on acceptance.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invited_by")
     private User invitedBy;
@@ -77,7 +77,7 @@ public class LearnerInvitation {
     /** Section the learner is placed into on acceptance, when the invite was sent for one. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "section_id")
-    private com.capstone.rebyu.institutiongroup.entity.InstitutionSection section;
+    private com.capstone.rebyu.department.entity.InstitutionSection section;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

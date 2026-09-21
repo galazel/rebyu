@@ -6,7 +6,7 @@ import com.capstone.rebyu.auth.service.CognitoAuthService;
 import com.capstone.rebyu.certification.dto.CertificationDto;
 import com.capstone.rebyu.certification.service.CertificationBadgeService;
 import com.capstone.rebyu.certification.service.CertificationService;
-import com.capstone.rebyu.institutiongroup.service.InstitutionGroupService;
+import com.capstone.rebyu.department.service.DepartmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +28,7 @@ import java.util.List;
  * every signed-in role. WRITES had no authentication at all (anyone could
  * create/edit/delete/publish any certification); now admin-only.
  *
- * includeGroupId is the opt-in mechanism that lets a group's own curriculum
+ * includeDepartmentId is the opt-in mechanism that lets a group's own curriculum
  * view mix in that group's Institution-Member-authored content: omitted (the
  * default, and the only thing every existing caller does), the response is
  * identical to before this parameter existed -- official content only, since
@@ -45,24 +45,24 @@ public class CertificationController {
 
     private final CertificationService certificationService;
     private final CurriculumGenerationService curriculumGenerationService;
-    private final InstitutionGroupService institutionGroupService;
+    private final DepartmentService departmentService;
     private final CognitoAuthService auth;
     private final CertificationBadgeService badgeService;
 
     @GetMapping
     public List<CertificationDto> getAll(
-            @AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) Long includeGroupId) {
-        requireGroupAccessIfRequested(jwt, includeGroupId);
-        return certificationService.getAll(includeGroupId);
+            @AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) Long includeDepartmentId) {
+        requireDepartmentAccessIfRequested(jwt, includeDepartmentId);
+        return certificationService.getAll(includeDepartmentId);
     }
 
     @GetMapping("/{id}")
     public CertificationDto getById(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long id,
-            @RequestParam(required = false) Long includeGroupId) {
-        requireGroupAccessIfRequested(jwt, includeGroupId);
-        return certificationService.getById(id, includeGroupId);
+            @RequestParam(required = false) Long includeDepartmentId) {
+        requireDepartmentAccessIfRequested(jwt, includeDepartmentId);
+        return certificationService.getById(id, includeDepartmentId);
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -199,15 +199,15 @@ public class CertificationController {
     }
 
     /**
-     * No-op when includeGroupId is omitted -- the request stays fully public,
+     * No-op when includeDepartmentId is omitted -- the request stays fully public,
      * exactly as before this parameter existed. When supplied, the caller must
      * be authenticated and able to act on that specific group (the institution
      * owner, or that group's active leader) -- reusing the same access check
-     * InstitutionGroupController already relies on -- so group-owned content
+     * DepartmentController already relies on -- so group-owned content
      * can't be read by guessing a group id.
      */
-    private void requireGroupAccessIfRequested(Jwt jwt, Long includeGroupId) {
-        if (includeGroupId == null) {
+    private void requireDepartmentAccessIfRequested(Jwt jwt, Long includeDepartmentId) {
+        if (includeDepartmentId == null) {
             return;
         }
         if (jwt == null) {
@@ -217,9 +217,9 @@ public class CertificationController {
         if (user.institutionId() == null) {
             throw new IllegalArgumentException("An institution account is required");
         }
-        boolean owner = "owner".equalsIgnoreCase(user.institutionMemberRole());
+        boolean owner = "owner".equalsIgnoreCase(user.departmentHeadRole());
         // Throws EntityNotFoundException (-> 404/400 via the global handler) if
         // the caller can't actually act on this group.
-        institutionGroupService.getAccessibleById(includeGroupId, user.institutionId(), user.userId(), owner);
+        departmentService.getAccessibleById(includeDepartmentId, user.institutionId(), user.userId(), owner);
     }
 }

@@ -49,9 +49,9 @@ public final class InstitutionLearningStatsDtos {
             int seatsTotal,
             int seatsUsed) {}
 
-    public record GroupProgressDto(
-            Long institutionGroupId,
-            String groupName,
+    public record DepartmentProgressDto(
+            Long departmentId,
+            String departmentName,
             long learners,
             BigDecimal averageProgress,
             long completedLearners) {}

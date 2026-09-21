@@ -33,7 +33,7 @@ public final class InstitutionInvitationDtos {
     // the service, so they must stay nullable here -- the client never supplies
     // them. Invitations are sent by a group's leader, not the institution at
     // large, so the group (and the certification/slots it belongs to) is
-    // derived from institutionGroupId rather than an org-cert-wide picker.
+    // derived from departmentId rather than an org-cert-wide picker.
     /** One invited learner: email required, first/last name optional (NetAcad-style). */
     public record InvitedLearner(
             @Size(max = 100) String firstName,
@@ -45,7 +45,7 @@ public final class InstitutionInvitationDtos {
     public record SendInvitationsRequest(
             Long institutionId,
             Long invitedByUserId,
-            @NotNull Long institutionGroupId,
+            @NotNull Long departmentId,
             @NotEmpty List<@Valid InvitedLearner> learners,
             /* Optional: the section (within the group) the learners join on acceptance. */
             Long sectionId
@@ -57,8 +57,8 @@ public final class InstitutionInvitationDtos {
             Long institutionCertId,
             Long certificationId,
             String certificationTitle,
-            Long institutionGroupId,
-            String groupName,
+            Long departmentId,
+            String departmentName,
             String email,
             String firstName,
             String lastName,

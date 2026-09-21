@@ -23,7 +23,7 @@ public abstract class QuestionMapper {
     @Mapping(source = "parentQuestion.questionId", target = "parentQuestionId")
     @Mapping(source = "createdBy.userId", target = "createdByUserId")
     @Mapping(source = "createdBy.email", target = "createdByEmail")
-    @Mapping(source = "ownerGroup.institutionGroupId", target = "ownerGroupId")
+    @Mapping(source = "ownerDepartment.departmentId", target = "ownerDepartmentId")
     // Derived below rather than mapped: it has no column of its own.
     @Mapping(target = "criticalThinkingType", ignore = true)
     public abstract QuestionDto toDto(Question entity);
@@ -53,7 +53,7 @@ public abstract class QuestionMapper {
     @Mapping(target = "choices", ignore = true)
     @Mapping(target = "createdBy", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "ownerGroup", ignore = true)
+    @Mapping(target = "ownerDepartment", ignore = true)
     public abstract Question toEntity(QuestionDto dto);
 
     @AfterMapping

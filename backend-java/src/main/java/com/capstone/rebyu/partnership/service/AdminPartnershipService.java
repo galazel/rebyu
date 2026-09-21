@@ -3,9 +3,9 @@ package com.capstone.rebyu.partnership.service;
 import com.capstone.rebyu.auth.service.CognitoAdminService;
 import com.capstone.rebyu.common.BusinessRuleException;
 import com.capstone.rebyu.institution.entity.Institution;
-import com.capstone.rebyu.institution.entity.InstitutionMember;
+import com.capstone.rebyu.institution.entity.DepartmentHead;
 import com.capstone.rebyu.institution.entity.InstitutionCertificate;
-import com.capstone.rebyu.institution.repository.InstitutionMemberRepository;
+import com.capstone.rebyu.institution.repository.DepartmentHeadRepository;
 import com.capstone.rebyu.institution.repository.InstitutionRepository;
 import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import com.capstone.rebyu.notification.service.NotificationService;
@@ -50,7 +50,7 @@ public class AdminPartnershipService {
     private final PartnershipRequestItemRepository itemRepository;
     private final InstitutionRepository institutionRepository;
     private final InstitutionCertificateRepository institutionCertificateRepository;
-    private final InstitutionMemberRepository institutionMemberRepository;
+    private final DepartmentHeadRepository departmentHeadRepository;
     private final UserRepository userRepository;
     private final UserTypeRepository userTypeRepository;
     private final CognitoAdminService cognitoAdminService;
@@ -133,13 +133,13 @@ public class AdminPartnershipService {
 
     /**
      * Creates the institution's login account (Cognito emails the credentials)
-     * and links a primary-contact InstitutionMember. Best-effort: if the
+     * and links a primary-contact DepartmentHead. Best-effort: if the
      * account was already provisioned, or Cognito is unavailable, approval
      * still stands and a note explains what happened.
      */
     private CognitoAdminService.ProvisionResult provisionInstitutionAccount(
             Institution institution, PartnershipRequest request) {
-        boolean alreadyLinked = !institutionMemberRepository
+        boolean alreadyLinked = !departmentHeadRepository
                 .findByInstitution_InstitutionId(institution.getInstitutionId()).isEmpty();
         if (alreadyLinked) {
             return new CognitoAdminService.ProvisionResult(false, null,
@@ -176,14 +176,14 @@ public class AdminPartnershipService {
             }
             user = userRepository.save(user);
 
-            InstitutionMember member = InstitutionMember.builder()
+            DepartmentHead member = DepartmentHead.builder()
                     .institution(institution)
                     .user(user)
-                    .memberRole(InstitutionMember.MemberRole.owner)
+                    .headRole(DepartmentHead.HeadRole.owner)
                     .isPrimaryContact(true)
                     .joinedAt(LocalDateTime.now())
                     .build();
-            institutionMemberRepository.save(member);
+            departmentHeadRepository.save(member);
         } else {
             // Cognito reported the account already exists (UsernameExistsException
             // was caught upstream: no new sub was minted and nothing was emailed).
@@ -195,14 +195,14 @@ public class AdminPartnershipService {
             User existingUser = userRepository.findByEmailIgnoreCase(request.getInstitutionEmail())
                     .orElse(null);
             if (existingUser != null) {
-                InstitutionMember member = InstitutionMember.builder()
+                DepartmentHead member = DepartmentHead.builder()
                         .institution(institution)
                         .user(existingUser)
-                        .memberRole(InstitutionMember.MemberRole.owner)
+                        .headRole(DepartmentHead.HeadRole.owner)
                         .isPrimaryContact(true)
                         .joinedAt(LocalDateTime.now())
                         .build();
-                institutionMemberRepository.save(member);
+                departmentHeadRepository.save(member);
             } else {
                 log.warn("Cognito account already exists for {} but no local User is linked to it; "
                                 + "institution {} was created with no owner and requires manual linking.",
@@ -253,9 +253,9 @@ public class AdminPartnershipService {
 
     /** Notifies every owner/primary-contact User linked to this institution. */
     private void notifyInstitutionOwners(Institution institution, String title, String body, String href) {
-        institutionMemberRepository.findByInstitution_InstitutionId(institution.getInstitutionId()).stream()
-                .filter(member -> member.isPrimaryContact() || member.getMemberRole() == InstitutionMember.MemberRole.owner)
-                .map(InstitutionMember::getUser)
+        departmentHeadRepository.findByInstitution_InstitutionId(institution.getInstitutionId()).stream()
+                .filter(member -> member.isPrimaryContact() || member.getHeadRole() == DepartmentHead.HeadRole.owner)
+                .map(DepartmentHead::getUser)
                 .distinct()
                 .forEach(user -> notificationService.notify(user, title, body, href));
     }

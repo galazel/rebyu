@@ -32,7 +32,7 @@ import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearr
 import { useDashboardLayout } from "@/hooks/use-dashboard-layout.js"
 import { useInstitutionData } from "@/hooks/use-institution-data.js"
 import {
-  getInstitutionGroupStats,
+  getDepartmentStats,
   getInstitutionLearningStats,
 } from "@/services/institutionLearningStatsService.js"
 import {
@@ -122,9 +122,9 @@ export default function InstitutionDashboardPage() {
     retry: 1,
   })
 
-  const groupStatsQuery = useQuery({
+  const departmentStatsQuery = useQuery({
     queryKey: ["institution-group-stats"],
-    queryFn: getInstitutionGroupStats,
+    queryFn: getDepartmentStats,
     enabled: institution?.institutionId != null,
     retry: 1,
   })
@@ -136,8 +136,8 @@ export default function InstitutionDashboardPage() {
   )
 
   const groupStats = useMemo(
-    () => (Array.isArray(groupStatsQuery.data) ? groupStatsQuery.data : []),
-    [groupStatsQuery.data]
+    () => (Array.isArray(departmentStatsQuery.data) ? departmentStatsQuery.data : []),
+    [departmentStatsQuery.data]
   )
 
   /* The cohort shape the Analytics page used to draw, over the same roster the
@@ -373,14 +373,14 @@ export default function InstitutionDashboardPage() {
               title="Completion by department"
               hint="Average progress across each department's active learners"
             />
-            {groupStatsQuery.isError ? (
+            {departmentStatsQuery.isError ? (
               <p className="mt-4 text-sm text-muted-foreground">
                 Department completion could not be loaded.
               </p>
             ) : (
               <BarBreakdownChart
                 data={groupStats.map((group) => ({
-                  group: group.groupName,
+                  group: group.departmentName,
                   completion: Number(group.averageProgress ?? 0),
                 }))}
                 categoryKey="group"
@@ -586,7 +586,7 @@ export default function InstitutionDashboardPage() {
   }, [
     chartTheme,
     statsQuery.isError,
-    groupStatsQuery.isError,
+    departmentStatsQuery.isError,
     summary,
     members,
     cohort,

@@ -25,8 +25,8 @@ public class QuestionDto {
     private LocalDateTime createdAt;
 
     // NULL = official question. Read-only here -- ownership is set exclusively
-    // via the create endpoint's ownerGroupId query param, never from this body.
-    private Long ownerGroupId;
+    // via the create endpoint's ownerDepartmentId query param, never from this body.
+    private Long ownerDepartmentId;
 
     private Long parentQuestionId;
 

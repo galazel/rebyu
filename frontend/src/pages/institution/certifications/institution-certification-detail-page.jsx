@@ -36,7 +36,7 @@ import {
 import { useInstitutionData } from "@/hooks/use-institution-data.js"
 import { getExamTypes, getExams } from "@/services/assessmentService.js"
 import { getAllCertifications } from "@/services/certificationService.js"
-import { getInstitutionGroups } from "@/services/institutionService.js"
+import { getDepartments } from "@/services/institutionService.js"
 
 function asArray(value) {
   return Array.isArray(value) ? value : []
@@ -215,13 +215,13 @@ export default function InstitutionCertificationDetailPage() {
 
   const institutionCert = data.institutionCertById.get(numericInstitutionCertId)
 
-  const groupsQuery = useQuery({
-    queryKey: ["institution-groups", institutionId],
-    queryFn: () => getInstitutionGroups({ institutionId }),
+  const departmentsQuery = useQuery({
+    queryKey: ["departments", institutionId],
+    queryFn: () => getDepartments({ institutionId }),
     enabled: institutionId != null,
   })
 
-  const groups = asArray(groupsQuery.data).filter(
+  const groups = asArray(departmentsQuery.data).filter(
     (group) => group.institutionCertId === numericInstitutionCertId && group.status === "active"
   )
 
@@ -270,9 +270,9 @@ export default function InstitutionCertificationDetailPage() {
   }
   const certificationWideExams = [...examsByScope.certification].sort((a, b) => scopeRank(a) - scopeRank(b))
 
-  const groupInvitations = useMemo(() => {
-    const groupIds = new Set(groups.map((g) => g.institutionGroupId))
-    return asArray(data.invitations).filter((inv) => groupIds.has(inv.institutionGroupId))
+  const departmentInvitations = useMemo(() => {
+    const departmentIds = new Set(groups.map((g) => g.departmentId))
+    return asArray(data.invitations).filter((inv) => departmentIds.has(inv.departmentId))
   }, [data.invitations, groups])
 
   const certification = useMemo(
@@ -287,7 +287,7 @@ export default function InstitutionCertificationDetailPage() {
     institutionLoading ||
     (institution && data.isLoading) ||
     certificationsQuery.isLoading ||
-    groupsQuery.isLoading ||
+    departmentsQuery.isLoading ||
     examsQuery.isLoading ||
     examTypesQuery.isLoading
 
@@ -453,11 +453,11 @@ export default function InstitutionCertificationDetailPage() {
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {groups.map((group) => (
-                <Card key={group.institutionGroupId}>
+                <Card key={group.departmentId}>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">{group.groupName}</CardTitle>
+                    <CardTitle className="text-sm">{group.departmentName}</CardTitle>
                     <CardDescription>
-                      {group.groupDescription || "No description."}
+                      {group.departmentDescription || "No description."}
                     </CardDescription>
                     <p className="text-xs text-muted-foreground">
                       {group.usedSlots ?? 0} / {group.totalSlots ?? 0} slot
@@ -471,7 +471,7 @@ export default function InstitutionCertificationDetailPage() {
         </TabsContent>
 
         <TabsContent value="invitations" className="space-y-4">
-          {groupInvitations.length === 0 ? (
+          {departmentInvitations.length === 0 ? (
             <InstitutionEmptyState
               icon={MailIcon}
               title="No invitations yet"
@@ -479,7 +479,7 @@ export default function InstitutionCertificationDetailPage() {
             />
           ) : (
             <div className="divide-y rounded-lg border">
-              {groupInvitations.map((inv) => (
+              {departmentInvitations.map((inv) => (
                 <div
                   key={inv.invitationId}
                   className="flex items-center justify-between gap-2 px-4 py-2.5 text-sm"
@@ -487,7 +487,7 @@ export default function InstitutionCertificationDetailPage() {
                   <div>
                     <p className="font-medium">{inv.email}</p>
                     <p className="text-xs text-muted-foreground">
-                      {inv.groupName} · {formatDate(inv.sentAt)}
+                      {inv.departmentName} · {formatDate(inv.sentAt)}
                     </p>
                   </div>
                   <InstitutionStatusBadge status={inv.status} />

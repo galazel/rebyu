@@ -130,16 +130,16 @@ const adminGroups = [
 /* An institution member (group leader) works only inside their own groups, so
    their header carries just that workspace.
    It used to be empty, with a one-link strip repeated at the top of each page. */
-const institutionMemberGroups = [
+const departmentHeadGroups = [
   {
     label: "My departments",
     icon: UsersRound,
     items: [
       {
         label: "My departments",
-        href: "/institution/member",
+        href: "/institution/head",
         icon: UsersRound,
-        match: ["/institution/member", "/institution/groups", "/institution/certifications"],
+        match: ["/institution/head", "/institution/departments", "/institution/certifications"],
       },
     ],
   },
@@ -149,7 +149,7 @@ const institutionMemberGroups = [
 // certification it belongs to), so there's no standalone "Groups" nav item.
 // Items flagged ownerOnly are hidden for a group leader / other institution
 // member -- only the institution owner sees them.
-const institutionGroups = [
+const departments = [
   {
     label: "Overview",
     icon: LayoutDashboard,
@@ -198,11 +198,11 @@ const institutionGroups = [
 
 /**
  * Both institution-side roles: INSTITUTION is the institution's own (owner)
- * account, INSTITUTION_MEMBER is someone it created an account for. They share
+ * account, DEPARTMENT_HEAD is someone it created an account for. They share
  * the same portal and permissions -- see CognitoAuthService.isInstitutionRole.
  */
 export function isInstitutionRole(role) {
-  return role === "INSTITUTION" || role === "INSTITUTION_MEMBER"
+  return role === "INSTITUTION" || role === "DEPARTMENT_HEAD"
 }
 
 function pathMatches(pathname, item) {
@@ -239,7 +239,7 @@ function Brand({ role, institutionName }) {
             {label}
           </span>
           <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            REBYU · {role === "INSTITUTION_MEMBER" ? "Department workspace" : "Institution"}
+            REBYU · {role === "DEPARTMENT_HEAD" ? "Department workspace" : "Institution"}
           </span>
         </span>
       </NavLink>
@@ -351,29 +351,29 @@ export function CommandPalette({ open, onOpenChange, items }) {
   )
 }
 
-export function PortalTopNavigation({ role, actions, institutionName, institutionMemberRole }) {
+export function PortalTopNavigation({ role, actions, institutionName, departmentHeadRole }) {
   const location = useLocation()
   const [commandOpen, setCommandOpen] = useState(false)
-  const isInstitutionOwner = institutionMemberRole === "owner"
+  const isInstitutionOwner = departmentHeadRole === "owner"
   // An Institution Member (group leader, non-owner) only ever acts within
   // their own assigned groups' workspace pages -- that navigation lives on
-  // the page itself now (see institution-member-dashboard-page.jsx /
-  // institution-group-workspace-page.jsx), not in this header, and the
+  // the page itself now (see department-head-dashboard-page.jsx /
+  // institution-department-workspace-page.jsx), not in this header, and the
   // command-K search bar is hidden for them too since there's nothing
   // institution-wide left for it to search.
   // The explicit role is authoritative; the owner check still covers accounts
-  // that predate INSTITUTION_MEMBER and have not been migrated yet.
-  const isInstitutionMember =
-    role === "INSTITUTION_MEMBER" || (role === "INSTITUTION" && !isInstitutionOwner)
+  // that predate DEPARTMENT_HEAD and have not been migrated yet.
+  const isDepartmentHead =
+    role === "DEPARTMENT_HEAD" || (role === "INSTITUTION" && !isInstitutionOwner)
   /* A learner has no groups at all. The ternary used to be ADMIN-or-else,
-     which handed `institutionGroups` to the learner portal as well -- harmless
+     which handed `departments` to the learner portal as well -- harmless
      only because every read of `groups` was guarded by a `role === "LEARNER"`
      branch that used the learner list instead. Naming the empty case here
      means those guards are no longer load-bearing: the mobile menu below is
      driven by `groups.length` alone, and with the old fallback it would have
      offered a learner the institution's own navigation. */
-  const allGroups = role === "ADMIN" ? adminGroups : role === "LEARNER" ? [] : institutionGroups
-  const groups = isInstitutionMember ? institutionMemberGroups : allGroups
+  const allGroups = role === "ADMIN" ? adminGroups : role === "LEARNER" ? [] : departments
+  const groups = isDepartmentHead ? departmentHeadGroups : allGroups
   /* The palette searches every learner destination, so it uses the longer of
      the two lists -- a search box that cannot find a page the app has is worse
      than useless. */

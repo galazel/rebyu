@@ -244,7 +244,7 @@ export function roleHomePath(role) {
     // An account the institution created for one of its people (a group
     // leader). Same portal as the institution's own account -- the dashboard
     // itself branches on whether they are the owner.
-    case "INSTITUTION_MEMBER":
+    case "DEPARTMENT_HEAD":
       return "/institution/dashboard"
     default:
       return "/learner/analytics"

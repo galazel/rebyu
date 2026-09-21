@@ -17,7 +17,7 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
      * under its own major categories. Admin-side flows (AI generation, publish
      * validation) must never read or write a group's own content.
      */
-    List<Lesson> findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerGroupIsNull(
+    List<Lesson> findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(
             Long certificationId);
 
     /**
@@ -31,7 +31,7 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
             + "JOIN l.middleCategory mc "
             + "JOIN mc.majorCategory maj "
             + "WHERE maj.certification.certificationId = :certificationId "
-            + "AND maj.ownerGroup IS NULL")
+            + "AND maj.ownerDepartment IS NULL")
     List<CurriculumLessonIdView> findOfficialLessonIdsByCertificationId(
             @Param("certificationId") Long certificationId);
 

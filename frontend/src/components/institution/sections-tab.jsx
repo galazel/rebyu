@@ -214,7 +214,7 @@ function downloadSampleCsv() {
 /* Add learners dialog: manual list + file import                      */
 /* ------------------------------------------------------------------ */
 
-function AddLearnersDialog({ open, onOpenChange, groupId, group, section }) {
+function AddLearnersDialog({ open, onOpenChange, departmentId, group, section }) {
   const queryClient = useQueryClient()
   const fileRef = useRef(null)
   const [mode, setMode] = useState("manual")
@@ -285,14 +285,14 @@ function AddLearnersDialog({ open, onOpenChange, groupId, group, section }) {
   const send = useMutation({
     mutationFn: () =>
       sendInstitutionInvitations({
-        institutionGroupId: groupId,
+        departmentId: departmentId,
         learners: staged,
         sectionId: section?.sectionId ?? null,
       }),
     onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ["group-invitations", groupId] })
-      queryClient.invalidateQueries({ queryKey: ["group-sections", groupId] })
-      queryClient.invalidateQueries({ queryKey: ["institution-group", groupId] })
+      queryClient.invalidateQueries({ queryKey: ["department-invitations", departmentId] })
+      queryClient.invalidateQueries({ queryKey: ["department-sections", departmentId] })
+      queryClient.invalidateQueries({ queryKey: ["department", departmentId] })
       toast.success(
         `${response.created} learner(s) invited${section ? ` to ${section.sectionName}` : ""}.` +
           (response.skipped?.length ? ` ${response.skipped.length} skipped.` : "")
@@ -476,7 +476,7 @@ function AddLearnersDialog({ open, onOpenChange, groupId, group, section }) {
 /* Section create / rename dialog                                      */
 /* ------------------------------------------------------------------ */
 
-function SectionDialog({ open, onOpenChange, groupId, section }) {
+function SectionDialog({ open, onOpenChange, departmentId, section }) {
   const queryClient = useQueryClient()
   const [name, setName] = useState(section?.sectionName ?? "")
   const [description, setDescription] = useState(section?.description ?? "")
@@ -485,10 +485,10 @@ function SectionDialog({ open, onOpenChange, groupId, section }) {
   const save = useMutation({
     mutationFn: () =>
       section
-        ? updateGroupSection(groupId, section.sectionId, { sectionName: name.trim(), description })
-        : createGroupSection(groupId, { sectionName: name.trim(), description }),
+        ? updateGroupSection(departmentId, section.sectionId, { sectionName: name.trim(), description })
+        : createGroupSection(departmentId, { sectionName: name.trim(), description }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["group-sections", groupId] })
+      queryClient.invalidateQueries({ queryKey: ["department-sections", departmentId] })
       toast.success(section ? "Section updated." : "Section created.")
       onOpenChange(false)
     },
@@ -570,7 +570,7 @@ function LessonProgressCell({ completed, total, percentage }) {
 }
 
 function SectionPanel({
-  groupId,
+  departmentId,
   group,
   section,
   sections,
@@ -587,14 +587,14 @@ function SectionPanel({
   const [removeTarget, setRemoveTarget] = useState(null)
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["group-learner-roster", groupId] })
-    queryClient.invalidateQueries({ queryKey: ["group-sections", groupId] })
-    queryClient.invalidateQueries({ queryKey: ["group-invitations", groupId] })
-    queryClient.invalidateQueries({ queryKey: ["institution-group", groupId] })
+    queryClient.invalidateQueries({ queryKey: ["department-learner-roster", departmentId] })
+    queryClient.invalidateQueries({ queryKey: ["department-sections", departmentId] })
+    queryClient.invalidateQueries({ queryKey: ["department-invitations", departmentId] })
+    queryClient.invalidateQueries({ queryKey: ["department", departmentId] })
   }
 
   const move = useMutation({
-    mutationFn: ({ assigneeId, sectionId }) => moveLearnerToSection(groupId, assigneeId, sectionId),
+    mutationFn: ({ assigneeId, sectionId }) => moveLearnerToSection(departmentId, assigneeId, sectionId),
     onSuccess: (_, variables) => {
       const target = sections.find((s) => s.sectionId === variables.sectionId)
       toast.success(target ? `Moved to ${target.sectionName}.` : "Removed from section.")
@@ -604,7 +604,7 @@ function SectionPanel({
   })
 
   const remove = useMutation({
-    mutationFn: (learnerId) => removeLearnerFromGroup(groupId, learnerId),
+    mutationFn: (learnerId) => removeLearnerFromGroup(departmentId, learnerId),
     onSuccess: () => {
       toast.success("Learner removed from this department. Their account and progress are unchanged.")
       setRemoveTarget(null)
@@ -728,10 +728,10 @@ function SectionPanel({
                 </TableHeader>
                 <TableBody>
                   {learners.map((row) => (
-                    <TableRow key={row.institutionGroupAssigneeId}>
+                    <TableRow key={row.departmentLearnerId}>
                       <TableCell
                         className="cursor-pointer"
-                        onClick={() => navigate(`/institution/groups/${groupId}/learners/${row.learnerId}`)}
+                        onClick={() => navigate(`/institution/departments/${departmentId}/learners/${row.learnerId}`)}
                       >
                         <p className="font-medium text-foreground">{row.name}</p>
                         <p className="text-xs text-muted-foreground">{row.email ?? (row.username ? `@${row.username}` : "")}</p>
@@ -748,7 +748,7 @@ function SectionPanel({
                           value={row.sectionId != null ? String(row.sectionId) : NO_SECTION}
                           onValueChange={(value) =>
                             move.mutate({
-                              assigneeId: row.institutionGroupAssigneeId,
+                              assigneeId: row.departmentLearnerId,
                               sectionId: value === NO_SECTION ? null : Number(value),
                             })
                           }
@@ -788,7 +788,7 @@ function SectionPanel({
       ) : null}
 
       {addOpen ? (
-        <AddLearnersDialog open={addOpen} onOpenChange={setAddOpen} groupId={groupId} group={group} section={section} />
+        <AddLearnersDialog open={addOpen} onOpenChange={setAddOpen} departmentId={departmentId} group={group} section={section} />
       ) : null}
 
       <AlertDialog open={removeTarget != null} onOpenChange={(open) => !open && setRemoveTarget(null)}>
@@ -816,30 +816,30 @@ function SectionPanel({
 /* The tab                                                             */
 /* ------------------------------------------------------------------ */
 
-export function SectionsTab({ groupId, group }) {
+export function SectionsTab({ departmentId, group }) {
   const queryClient = useQueryClient()
   const [dialog, setDialog] = useState(null) // { section } | null
   const [archiveTarget, setArchiveTarget] = useState(null)
 
   const sectionsQuery = useQuery({
-    queryKey: ["group-sections", groupId],
-    queryFn: () => getGroupSections(groupId),
-    enabled: Number.isFinite(groupId),
+    queryKey: ["department-sections", departmentId],
+    queryFn: () => getGroupSections(departmentId),
+    enabled: Number.isFinite(departmentId),
   })
   const rosterQuery = useQuery({
-    queryKey: ["group-learner-roster", groupId],
-    queryFn: () => getGroupLearnerRoster(groupId),
-    enabled: Number.isFinite(groupId),
+    queryKey: ["department-learner-roster", departmentId],
+    queryFn: () => getGroupLearnerRoster(departmentId),
+    enabled: Number.isFinite(departmentId),
   })
   const invitationsQuery = useQuery({
-    queryKey: ["group-invitations", groupId],
+    queryKey: ["department-invitations", departmentId],
     queryFn: () => getInstitutionInvitations(),
-    enabled: Number.isFinite(groupId),
+    enabled: Number.isFinite(departmentId),
   })
 
   const sections = asArray(sectionsQuery.data)
   const roster = asArray(rosterQuery.data).filter((row) => row.status === "active")
-  const invitations = asArray(invitationsQuery.data).filter((inv) => inv.institutionGroupId === groupId)
+  const invitations = asArray(invitationsQuery.data).filter((inv) => inv.departmentId === departmentId)
 
   const bySection = useMemo(() => {
     const map = new Map()
@@ -859,11 +859,11 @@ export function SectionsTab({ groupId, group }) {
   }, [invitations])
 
   const archive = useMutation({
-    mutationFn: (sectionId) => archiveGroupSection(groupId, sectionId),
+    mutationFn: (sectionId) => archiveGroupSection(departmentId, sectionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["group-sections", groupId] })
-      queryClient.invalidateQueries({ queryKey: ["group-learner-roster", groupId] })
-      queryClient.invalidateQueries({ queryKey: ["group-invitations", groupId] })
+      queryClient.invalidateQueries({ queryKey: ["department-sections", departmentId] })
+      queryClient.invalidateQueries({ queryKey: ["department-learner-roster", departmentId] })
+      queryClient.invalidateQueries({ queryKey: ["department-invitations", departmentId] })
       toast.success("Section archived. Its learners stay in the department.")
       setArchiveTarget(null)
     },
@@ -920,7 +920,7 @@ export function SectionsTab({ groupId, group }) {
           {sections.map((section, index) => (
             <SectionPanel
               key={section.sectionId}
-              groupId={groupId}
+              departmentId={departmentId}
               group={group}
               section={section}
               sections={sections}
@@ -933,7 +933,7 @@ export function SectionsTab({ groupId, group }) {
           ))}
           {unsectioned.length > 0 || unsectionedInvites.length > 0 ? (
             <SectionPanel
-              groupId={groupId}
+              departmentId={departmentId}
               group={group}
               section={null}
               sections={sections}
@@ -952,7 +952,7 @@ export function SectionsTab({ groupId, group }) {
           key={dialog.section?.sectionId ?? "new"}
           open
           onOpenChange={(open) => !open && setDialog(null)}
-          groupId={groupId}
+          departmentId={departmentId}
           section={dialog.section}
         />
       ) : null}

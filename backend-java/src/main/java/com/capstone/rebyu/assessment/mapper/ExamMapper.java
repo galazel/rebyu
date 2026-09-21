@@ -16,7 +16,7 @@ public interface ExamMapper {
     @Mapping(source = "middleCategory.middleCategoryId", target = "middleCategoryId")
     @Mapping(source = "majorCategory.majorCategoryId", target = "majorCategoryId")
     @Mapping(source = "entity", target = "status", qualifiedByName = "effectiveStatus")
-    @Mapping(source = "ownerGroup.institutionGroupId", target = "ownerGroupId")
+    @Mapping(source = "ownerDepartment.departmentId", target = "ownerDepartmentId")
     ExamDto toDto(Exam entity);
 
     @Mapping(source = "certificationId", target = "certification.certificationId")
@@ -25,7 +25,7 @@ public interface ExamMapper {
     @Mapping(source = "middleCategoryId", target = "middleCategory", qualifiedByName = "middleCategoryFromId")
     @Mapping(source = "majorCategoryId", target = "majorCategory", qualifiedByName = "majorCategoryFromId")
     @Mapping(source = "status", target = "status", qualifiedByName = "statusFromString")
-    @Mapping(target = "ownerGroup", ignore = true)
+    @Mapping(target = "ownerDepartment", ignore = true)
     Exam toEntity(ExamDto dto);
 
     @Named("effectiveStatus")

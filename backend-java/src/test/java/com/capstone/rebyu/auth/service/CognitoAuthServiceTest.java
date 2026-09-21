@@ -29,7 +29,7 @@ class CognitoAuthServiceTest {
     private UserRepository userRepository;
     private UserTypeRepository userTypeRepository;
     private LearnerRepository learnerRepository;
-    private com.capstone.rebyu.institution.repository.InstitutionMemberRepository institutionMemberRepository;
+    private com.capstone.rebyu.institution.repository.DepartmentHeadRepository departmentHeadRepository;
     private com.capstone.rebyu.institution.repository.InstitutionRepository institutionRepository;
     private com.capstone.rebyu.bkt.client.BktClient bktClient;
     private CognitoAuthService service;
@@ -41,10 +41,10 @@ class CognitoAuthServiceTest {
         userRepository = mock(UserRepository.class);
         userTypeRepository = mock(UserTypeRepository.class);
         learnerRepository = mock(LearnerRepository.class);
-        institutionMemberRepository =
-                mock(com.capstone.rebyu.institution.repository.InstitutionMemberRepository.class);
+        departmentHeadRepository =
+                mock(com.capstone.rebyu.institution.repository.DepartmentHeadRepository.class);
         institutionRepository = mock(com.capstone.rebyu.institution.repository.InstitutionRepository.class);
-        when(institutionMemberRepository.findByUser_UserId(org.mockito.ArgumentMatchers.anyLong()))
+        when(departmentHeadRepository.findByUser_UserId(org.mockito.ArgumentMatchers.anyLong()))
                 .thenReturn(java.util.List.of());
         // None of these test accounts are institution contacts -- ensureInstitutionLinkage
         // must be a no-op for them.
@@ -62,7 +62,7 @@ class CognitoAuthServiceTest {
 
         service = new CognitoAuthService(
                 userRepository, userTypeRepository, learnerRepository,
-                institutionMemberRepository, institutionRepository,
+                departmentHeadRepository, institutionRepository,
                 bktClient, self);
     }
 

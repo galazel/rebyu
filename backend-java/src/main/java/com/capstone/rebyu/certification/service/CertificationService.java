@@ -53,28 +53,28 @@ public class CertificationService {
     private final com.capstone.rebyu.adaptive.service.QuestionBankSizeService questionBankSize;
 
     /**
-     * @param includeGroupId when null, only official (platform-wide) content is
+     * @param includeDepartmentId when null, only official (platform-wide) content is
      *                       returned at every level of the curriculum tree --
      *                       today's exact behavior, since no row has a non-null
-     *                       ownerGroup yet. When set, content owned by that
+     *                       ownerDepartment yet. When set, content owned by that
      *                       specific group is ALSO included (mixed in alongside
      *                       the official curriculum). The caller (controller) is
      *                       responsible for verifying the requester may actually
      *                       act on that group before passing it here.
      */
     @Transactional(readOnly = true)
-    public List<CertificationDto> getAll(Long includeGroupId) {
+    public List<CertificationDto> getAll(Long includeDepartmentId) {
         return certificationRepository.findAll()
                 .stream()
-                .map(certification -> toFilteredDto(certification, includeGroupId))
+                .map(certification -> toFilteredDto(certification, includeDepartmentId))
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public CertificationDto getById(Long id, Long includeGroupId) {
+    public CertificationDto getById(Long id, Long includeDepartmentId) {
         Certification certification = certificationRepository.findByIdWithFullTree(id)
                 .orElseThrow(() -> new EntityNotFoundException("Certification not found with ID: " + id));
-        return toFilteredDto(certification, includeGroupId);
+        return toFilteredDto(certification, includeDepartmentId);
     }
 
     /**
@@ -83,17 +83,17 @@ public class CertificationService {
      * is the ONLY place member-authored content is prevented from leaking
      * into every other institution's view of a certification.
      */
-    private CertificationDto toFilteredDto(Certification certification, Long includeGroupId) {
+    private CertificationDto toFilteredDto(Certification certification, Long includeDepartmentId) {
         CertificationDto dto = certificationMapper.toDto(certification);
         if (dto.getMajorCategory() != null) {
             dto.setMajorCategory(
                     dto.getMajorCategory().stream()
-                            .filter(major -> major.getOwnerGroupId() == null
-                                    || major.getOwnerGroupId().equals(includeGroupId))
+                            .filter(major -> major.getOwnerDepartmentId() == null
+                                    || major.getOwnerDepartmentId().equals(includeDepartmentId))
                             .toList()
             );
         }
-        attachExamSummaries(dto, certification.getCertificationId(), includeGroupId);
+        attachExamSummaries(dto, certification.getCertificationId(), includeDepartmentId);
         return dto;
     }
 
@@ -104,7 +104,7 @@ public class CertificationService {
      * frontend can display them without a separate, unlinked call to the
      * flat {@code /api/exams} list.
      */
-    private void attachExamSummaries(CertificationDto dto, Long certificationId, Long includeGroupId) {
+    private void attachExamSummaries(CertificationDto dto, Long certificationId, Long includeDepartmentId) {
         List<Exam> exams = examRepository.findByCertification_CertificationId(certificationId);
 
         Map<Long, MajorCategoryDto> majorsById = new HashMap<>();
@@ -126,9 +126,9 @@ public class CertificationService {
 
         List<ExamSummaryDto> certificationLevelExams = new ArrayList<>();
         for (Exam exam : exams) {
-            if (exam.getOwnerGroup() != null
-                    && (includeGroupId == null
-                        || !exam.getOwnerGroup().getInstitutionGroupId().equals(includeGroupId))) {
+            if (exam.getOwnerDepartment() != null
+                    && (includeDepartmentId == null
+                        || !exam.getOwnerDepartment().getDepartmentId().equals(includeDepartmentId))) {
                 continue; // group-owned exam not visible to this caller
             }
             ExamSummaryDto summary = toExamSummary(exam);
@@ -722,7 +722,7 @@ public class CertificationService {
         // Official exams only -- a group's own assessments are separate content
         // and are neither validated nor published by the admin's publish action.
         List<Exam> exams = examRepository.findByCertification_CertificationId(id).stream()
-                .filter(exam -> exam.getOwnerGroup() == null)
+                .filter(exam -> exam.getOwnerDepartment() == null)
                 .toList();
 
         CertificationPublishRequirementsDto requirements = buildPublishRequirements(certification, exams);
@@ -770,7 +770,7 @@ public class CertificationService {
         // those are separate content and must never add requirements to (or
         // satisfy requirements of) the admin's publish checklist.
         List<Exam> exams = allExams.stream()
-                .filter(exam -> exam.getOwnerGroup() == null)
+                .filter(exam -> exam.getOwnerDepartment() == null)
                 .toList();
 
         String certTitle = StringUtils.hasText(certification.getTitle())
@@ -778,7 +778,7 @@ public class CertificationService {
         List<MajorCategory> majors = certification.getMajorCategory() == null
                 ? List.of()
                 : certification.getMajorCategory().stream()
-                        .filter(major -> major.getOwnerGroup() == null)
+                        .filter(major -> major.getOwnerDepartment() == null)
                         .toList();
 
         // Certification-wide required assessments.

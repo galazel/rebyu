@@ -66,9 +66,9 @@ export default function InstitutionAccountPage() {
   // A group leader has no business with the institution's plan or
   // partnership record -- Files is the only one of these they are sent to (from
   // the account menu), so it is the only one they get.
-  const isInstitutionMember =
-    Boolean(user?.institutionMemberRole) && user.institutionMemberRole !== "owner"
-  const tabs = isInstitutionMember ? TABS.filter((tab) => tab.value === "files") : TABS
+  const isDepartmentHead =
+    Boolean(user?.departmentHeadRole) && user.departmentHeadRole !== "owner"
+  const tabs = isDepartmentHead ? TABS.filter((tab) => tab.value === "files") : TABS
 
   const active =
     tabs.find((tab) => location.pathname.startsWith(tab.path))?.value ?? tabs[0].value

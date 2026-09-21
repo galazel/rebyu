@@ -2,10 +2,10 @@ import { base } from "./base"
 
 export const DEFAULT_GENERATION_TARGET = 100
 
-// Pass ownerGroupId to author a question that belongs to one Institution group
+// Pass ownerDepartmentId to author a question that belongs to one Institution group
 // (only that group sees/uses it). Omit it for official, platform-wide questions.
-export async function saveQuestion(question, ownerGroupId) {
-    const query = ownerGroupId != null ? `?ownerGroupId=${ownerGroupId}` : ""
+export async function saveQuestion(question, ownerDepartmentId) {
+    const query = ownerDepartmentId != null ? `?ownerDepartmentId=${ownerDepartmentId}` : ""
     return await base(`questions${query}`, {
         method: "POST",
         data: question,
@@ -25,14 +25,14 @@ export async function deleteQuestion(questionId) {
     })
 }
 
-export async function getQuestionsByLesson(lessonId, includeGroupId) {
-    const group = includeGroupId != null ? `&includeGroupId=${includeGroupId}` : ""
+export async function getQuestionsByLesson(lessonId, includeDepartmentId) {
+    const group = includeDepartmentId != null ? `&includeDepartmentId=${includeDepartmentId}` : ""
     return await base(`questions?lessonId=${lessonId}${group}`, {
         method: "GET",
     })
 }
 
-// Omit includeGroupId for official questions only (what every existing caller
+// Omit includeDepartmentId for official questions only (what every existing caller
 // does). Pass a group id to also include that group's own questions -- the
 // caller must be able to act on that group, enforced server-side.
 //
@@ -40,9 +40,9 @@ export async function getQuestionsByLesson(lessonId, includeGroupId) {
 // this is the whole-bank read every existing caller makes; passed, the server
 // does the narrowing the caller would otherwise do over every question on the
 // platform.
-export async function getQuestions(includeGroupId, certificationId) {
+export async function getQuestions(includeDepartmentId, certificationId) {
     const params = new URLSearchParams()
-    if (includeGroupId != null) params.set("includeGroupId", includeGroupId)
+    if (includeDepartmentId != null) params.set("includeDepartmentId", includeDepartmentId)
     if (certificationId != null) params.set("certificationId", certificationId)
     const query = params.toString()
     return await base(`questions${query ? `?${query}` : ""}`, {
@@ -61,7 +61,7 @@ export async function getEligibleQuestions({
     middleId,
     lessonId,
     examId,
-    includeGroupId,
+    includeDepartmentId,
 } = {}) {
     const params = new URLSearchParams()
     if (certificationId != null) params.set("certificationId", certificationId)
@@ -69,7 +69,7 @@ export async function getEligibleQuestions({
     if (middleId != null) params.set("middleId", middleId)
     if (lessonId != null) params.set("lessonId", lessonId)
     if (examId != null) params.set("examId", examId)
-    if (includeGroupId != null) params.set("includeGroupId", includeGroupId)
+    if (includeDepartmentId != null) params.set("includeDepartmentId", includeDepartmentId)
     return await base(`questions/eligible?${params.toString()}`, { method: "GET" })
 }
 

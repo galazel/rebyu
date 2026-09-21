@@ -16,9 +16,9 @@ export function getInstitutionLearningStats() {
 /**
  * Completion per learning group for the caller's own institution.
  *
- * Shape: [{ institutionGroupId, groupName, learners, averageProgress,
+ * Shape: [{ departmentId, departmentName, learners, averageProgress,
  * completedLearners }] — one row per active group with active assignees.
  */
-export function getInstitutionGroupStats() {
+export function getDepartmentStats() {
   return base("institution/me/group-stats")
 }

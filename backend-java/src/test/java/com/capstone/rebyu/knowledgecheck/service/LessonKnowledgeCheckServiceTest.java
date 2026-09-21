@@ -257,7 +257,7 @@ class LessonKnowledgeCheckServiceTest {
 
     /** Another group's private questions are never eligible for a learner's check. */
     @Test
-    void excludesInstitutionGroupOwnedQuestions() {
+    void excludesDepartmentOwnedQuestions() {
         givenCompletedLessons(DONE_LESSON_A);
 
         List<QuestionSelectionView> views = new ArrayList<>();
@@ -419,13 +419,13 @@ class LessonKnowledgeCheckServiceTest {
         return lesson;
     }
 
-    private static QuestionSelectionView view(Long questionId, Long lessonId, Long ownerGroupId) {
+    private static QuestionSelectionView view(Long questionId, Long lessonId, Long ownerDepartmentId) {
         return new QuestionSelectionView() {
             @Override public Long getQuestionId() { return questionId; }
             @Override public Long getLessonId() { return lessonId; }
             @Override public String getDifficultyLevel() { return "MEDIUM"; }
             @Override public String getQuestionText() { return "Q" + questionId; }
-            @Override public Long getOwnerGroupId() { return ownerGroupId; }
+            @Override public Long getOwnerDepartmentId() { return ownerDepartmentId; }
             @Override public String getQuestionType() { return "MULTIPLE_CHOICE"; }
         };
     }

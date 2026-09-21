@@ -50,7 +50,7 @@ public class MiddleCategoryService {
             MiddleCategoryDto dto, boolean isAdmin, Long callerInstitutionId, Long callerUserId, boolean callerIsOwner) {
         log.info("Creating new middle category under majorCategoryId={}", dto.getMajorCategoryId());
         MajorCategory parent = findParent(dto.getMajorCategoryId());
-        majorCategoryService.requireCanActOn(parent.getOwnerGroup(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
+        majorCategoryService.requireCanActOn(parent.getOwnerDepartment(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
 
         MiddleCategory entity = middleCategoryMapper.toEntity(dto);
         entity.setMiddleCategoryId(null);
@@ -66,13 +66,13 @@ public class MiddleCategoryService {
         log.info("Updating middle category id: {}", id);
         MiddleCategory existing = findEntity(id);
         majorCategoryService.requireCanActOn(
-                existing.getMajorCategory().getOwnerGroup(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
+                existing.getMajorCategory().getOwnerDepartment(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
 
         // A middle category can't be moved to a major category with a
         // DIFFERENT owner -- that would silently change who owns it.
         MajorCategory targetParent = findParent(dto.getMajorCategoryId());
-        if (!Objects.equals(ownerGroupId(existing.getMajorCategory()), ownerGroupId(targetParent))) {
-            throw new BusinessRuleException.InstitutionGroupRuleException(
+        if (!Objects.equals(ownerDepartmentId(existing.getMajorCategory()), ownerDepartmentId(targetParent))) {
+            throw new BusinessRuleException.DepartmentRuleException(
                     "This content can't be moved to a major category owned by someone else.");
         }
 
@@ -88,7 +88,7 @@ public class MiddleCategoryService {
         log.info("Deleting middle category id: {}", id);
         MiddleCategory existing = findEntity(id);
         majorCategoryService.requireCanActOn(
-                existing.getMajorCategory().getOwnerGroup(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
+                existing.getMajorCategory().getOwnerDepartment(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
 
         // The module's own assessment and every lesson quiz beneath it, first:
         // JPA cascades the lessons but nothing cascades what points at them.
@@ -97,8 +97,8 @@ public class MiddleCategoryService {
         log.info("MiddleCategory id: {} deleted", id);
     }
 
-    private Long ownerGroupId(MajorCategory major) {
-        return major.getOwnerGroup() != null ? major.getOwnerGroup().getInstitutionGroupId() : null;
+    private Long ownerDepartmentId(MajorCategory major) {
+        return major.getOwnerDepartment() != null ? major.getOwnerDepartment().getDepartmentId() : null;
     }
 
     private MajorCategory findParent(Long majorCategoryId) {

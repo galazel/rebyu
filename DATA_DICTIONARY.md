@@ -686,18 +686,18 @@ The INSTITUTIONAL_LICENSES table stores an institution's (B2B) license to an ins
 
 The INSTITUTIONS table stores partner organizations. One institution owns members, verification documents, certificates (slot allocations), groups, invoices, and licenses.
 
-### DATA DICTIONARY OF INSTITUTION_MEMBERS
+### DATA DICTIONARY OF DEPARTMENT_HEADS
 
 | Field Name | Constraints | Data Type | Allow Nulls | Description |
 |---|---|---|---|---|
-| institution_member_id | PK, identity | BIGINT | No | Unique identifier for a membership. |
+| department_head_id | PK, identity | BIGINT | No | Unique identifier for a membership. |
 | institution_id | FK → INSTITUTIONS, NOT NULL, UNIQUE(institution_id, user_id) | BIGINT | No | Institution the member belongs to. |
 | user_id | FK → USERS, NOT NULL | BIGINT | No | User account of the member. |
-| member_role | NOT NULL | VARCHAR(20) | No | Role in the organization: owner, manager, or staff. Defaults to manager. |
+| head_role | NOT NULL | VARCHAR(20) | No | Role in the organization: owner, manager, or staff. Defaults to manager. |
 | is_primary_contact | NOT NULL | BOOLEAN | No | Whether this member is the primary contact. Defaults to false. |
 | joined_at | NOT NULL | TIMESTAMP | No | Date and time the member joined the institution. |
 
-The INSTITUTION_MEMBERS table links user accounts to institutions with a role. A user can belong to an institution only once.
+The DEPARTMENT_HEADS table links user accounts to institutions with a role. A user can belong to an institution only once.
 
 ### DATA DICTIONARY OF INSTITUTION_VERIFICATION_DOCUMENTS
 
@@ -847,48 +847,48 @@ The LEARNER_INVITATIONS table stores invitations sent by organizations to enroll
 
 ## 10. INSTITUTION GROUPS
 
-### DATA DICTIONARY OF INSTITUTION_GROUPS
+### DATA DICTIONARY OF DEPARTMENTS
 
 | Field Name | Constraints | Data Type | Allow Nulls | Description |
 |---|---|---|---|---|
-| institution_group_id | PK, identity | BIGINT | No | Unique identifier for a group. |
+| department_id | PK, identity | BIGINT | No | Unique identifier for a group. |
 | institution_id | FK → INSTITUTIONS, NOT NULL | BIGINT | No | Institution that owns the group. |
 | org_cert_id | FK → ORGANIZATION_CERTIFICATES, NOT NULL | BIGINT | No | Certification allocation the group is scoped to. |
-| group_name | NOT NULL | VARCHAR(150) | No | Name of the group. |
-| group_description | — | VARCHAR(500) | Yes | Description of the group. |
+| department_name | NOT NULL | VARCHAR(150) | No | Name of the group. |
+| department_description | — | VARCHAR(500) | Yes | Description of the group. |
 | created_by | FK → USERS, NOT NULL | BIGINT | No | User who created the group. |
 | created_at | NOT NULL | TIMESTAMP | No | Date and time the group was created. |
 | status | NOT NULL | VARCHAR(20) | No | Group state: active or archived. Defaults to active. |
 
-The INSTITUTION_GROUPS table stores learner groupings inside an institution's certification allocation. One group has many authorities and many assignees.
+The DEPARTMENTS table stores learner groupings inside an institution's certification allocation. One group has many authorities and many assignees.
 
-### DATA DICTIONARY OF INSTITUTION_GROUP_AUTHORITIES
+### DATA DICTIONARY OF DEPARTMENT_HEAD_ASSIGNMENTS
 
 | Field Name | Constraints | Data Type | Allow Nulls | Description |
 |---|---|---|---|---|
-| institution_group_authority_id | PK, identity | BIGINT | No | Unique identifier for an authority assignment. |
-| institution_group_id | FK → INSTITUTION_GROUPS, NOT NULL, UNIQUE(institution_group_id, user_id) | BIGINT | No | Group being managed. |
+| department_head_assignment_id | PK, identity | BIGINT | No | Unique identifier for an authority assignment. |
+| department_id | FK → DEPARTMENTS, NOT NULL, UNIQUE(department_id, user_id) | BIGINT | No | Group being managed. |
 | user_id | FK → USERS, NOT NULL | BIGINT | No | User granted authority over the group. |
 | assigned_by | FK → USERS, NOT NULL | BIGINT | No | User who granted the authority. |
 | assigned_at | NOT NULL | TIMESTAMP | No | Date and time the authority was granted. |
 | status | NOT NULL | VARCHAR(20) | No | Assignment state: active or archived. Defaults to active. |
 | removed_at | — | TIMESTAMP | Yes | Date and time the authority was removed. |
 
-The INSTITUTION_GROUP_AUTHORITIES table stores the users (e.g. instructors) authorized to manage a group. A user can be an authority of a group only once.
+The DEPARTMENT_HEAD_ASSIGNMENTS table stores the users (e.g. instructors) authorized to manage a group. A user can be an authority of a group only once.
 
-### DATA DICTIONARY OF INSTITUTION_GROUP_ASSIGNEES
+### DATA DICTIONARY OF DEPARTMENT_LEARNERS
 
 | Field Name | Constraints | Data Type | Allow Nulls | Description |
 |---|---|---|---|---|
-| institution_group_assignee_id | PK, identity | BIGINT | No | Unique identifier for a group membership. |
-| institution_group_id | FK → INSTITUTION_GROUPS, NOT NULL, UNIQUE(institution_group_id, org_cert_learner_id) | BIGINT | No | Group the learner is assigned to. |
+| department_learner_id | PK, identity | BIGINT | No | Unique identifier for a group membership. |
+| department_id | FK → DEPARTMENTS, NOT NULL, UNIQUE(department_id, org_cert_learner_id) | BIGINT | No | Group the learner is assigned to. |
 | org_cert_learner_id | FK → ORGANIZATION_CERTIFICATION_LEARNERS, NOT NULL | BIGINT | No | Sponsored enrollment placed in the group. |
 | assigned_by | FK → USERS, NOT NULL | BIGINT | No | User who assigned the learner. |
 | assigned_at | NOT NULL | TIMESTAMP | No | Date and time the learner was assigned. |
 | status | NOT NULL | VARCHAR(20) | No | Membership state: active or archived. Defaults to active. |
 | removed_at | — | TIMESTAMP | Yes | Date and time the learner was removed from the group. |
 
-The INSTITUTION_GROUP_ASSIGNEES table places sponsored learners into institution groups. A sponsored enrollment can appear in a group only once.
+The DEPARTMENT_LEARNERS table places sponsored learners into institution groups. A sponsored enrollment can appear in a group only once.
 
 ---
 

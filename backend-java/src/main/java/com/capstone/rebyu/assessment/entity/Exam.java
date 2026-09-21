@@ -5,7 +5,7 @@ import com.capstone.rebyu.certification.entity.Certification;
 import com.capstone.rebyu.certification.entity.Lesson;
 import com.capstone.rebyu.certification.entity.MajorCategory;
 import com.capstone.rebyu.certification.entity.MiddleCategory;
-import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
+import com.capstone.rebyu.department.entity.Department;
 import com.capstone.rebyu.user.entity.Learner;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -103,10 +103,10 @@ public class Exam {
 
     // NULL = official, platform-wide exam (admin-authored, unchanged
     // behavior). Set = one Institution Member's own assessment, scoped to
-    // their group -- mirrors MajorCategory.ownerGroup.
+    // their group -- mirrors MajorCategory.ownerDepartment.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "owner_group_id")
-    private InstitutionGroup ownerGroup;
+    @JoinColumn(name = "owner_department_id")
+    private Department ownerDepartment;
 
     // NULL for every admin-authored exam (the overwhelming majority). Set
     // only on GENERATED_QUIZ/GENERATED_FLASHCARD exams -- the learner whose

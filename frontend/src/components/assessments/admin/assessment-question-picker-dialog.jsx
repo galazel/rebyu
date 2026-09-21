@@ -65,7 +65,7 @@ export default function AssessmentQuestionPickerDialog({
                                                          initialMajorCategoryId = null,
                                                          // When set, this group's own questions are
                                                          // offered alongside the official ones.
-                                                         ownerGroupId = null,
+                                                         ownerDepartmentId = null,
                                                        }) {
   const [search, setSearch] = useState("")
   const [difficultyFilter, setDifficultyFilter] = useState("all")
@@ -88,8 +88,8 @@ export default function AssessmentQuestionPickerDialog({
   }, [open, initialMiddleCategoryId])
 
   const questionsQuery = useQuery({
-    queryKey: ["questions", ownerGroupId ?? null],
-    queryFn: () => getQuestions(ownerGroupId ?? undefined),
+    queryKey: ["questions", ownerDepartmentId ?? null],
+    queryFn: () => getQuestions(ownerDepartmentId ?? undefined),
     enabled: open,
   })
 

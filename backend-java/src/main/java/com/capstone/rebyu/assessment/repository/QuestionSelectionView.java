@@ -31,7 +31,7 @@ public interface QuestionSelectionView {
     String getQuestionText();
 
     /** Null for official, platform-wide questions. */
-    Long getOwnerGroupId();
+    Long getOwnerDepartmentId();
 
     /** MULTIPLE_CHOICE, SHORT_ANSWER, DESCRIPTIVE, CRITICAL_THINKING, PROGRAMMING, DIAGRAM... */
     String getQuestionType();

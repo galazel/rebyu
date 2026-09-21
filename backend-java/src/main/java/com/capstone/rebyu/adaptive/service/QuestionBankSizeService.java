@@ -32,7 +32,7 @@ public class QuestionBankSizeService {
     /** Every top-level question in the exam's scope that this exam may serve. */
     @Transactional(readOnly = true)
     public List<QuestionSelectionView> pool(Exam exam) {
-        Long ownerGroupId = exam.getOwnerGroup() == null ? null : exam.getOwnerGroup().getInstitutionGroupId();
+        Long ownerDepartmentId = exam.getOwnerDepartment() == null ? null : exam.getOwnerDepartment().getDepartmentId();
         List<QuestionSelectionView> views = eligibleQuestions.resolveScopeViews(
                 exam.getCertification() == null ? null : exam.getCertification().getCertificationId(),
                 exam.getMajorCategory() == null ? null : exam.getMajorCategory().getMajorCategoryId(),
@@ -40,7 +40,7 @@ public class QuestionBankSizeService {
                 exam.getLesson() == null ? null : exam.getLesson().getLessonId());
         boolean quickOnly = !AdaptivePolicy.allowsFinalRound(exam.getExamType().getExamTypeText());
         return views.stream()
-                .filter(q -> q.getOwnerGroupId() == null || Objects.equals(q.getOwnerGroupId(), ownerGroupId))
+                .filter(q -> q.getOwnerDepartmentId() == null || Objects.equals(q.getOwnerDepartmentId(), ownerDepartmentId))
                 .filter(q -> AdaptivePolicy.isServable(q.getQuestionType()))
                 .filter(q -> !quickOnly || !AdaptivePolicy.isWorkspaceType(q.getQuestionType()))
                 .toList();

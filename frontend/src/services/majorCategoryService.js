@@ -1,9 +1,9 @@
 import { base } from "./base.js"
 
-// ownerGroupId is required for an Institution Member creating their own
+// ownerDepartmentId is required for an Institution Member creating their own
 // content; omitted, the backend requires ADMIN and creates official content.
-export async function createMajorCategory(data, ownerGroupId) {
-  const query = ownerGroupId != null ? `?ownerGroupId=${ownerGroupId}` : ""
+export async function createMajorCategory(data, ownerDepartmentId) {
+  const query = ownerDepartmentId != null ? `?ownerDepartmentId=${ownerDepartmentId}` : ""
   return await base(`major-categories${query}`, {
     method: "POST",
     data,

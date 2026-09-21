@@ -3,19 +3,19 @@ package com.capstone.rebyu.institution.controller;
 import com.capstone.rebyu.assessment.dto.ExamResultDto;
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
-import com.capstone.rebyu.institution.service.InstitutionMemberProvisioningService;
-import com.capstone.rebyu.institution.service.InstitutionMemberProvisioningService.InviteResult;
+import com.capstone.rebyu.institution.service.DepartmentHeadProvisioningService;
+import com.capstone.rebyu.institution.service.DepartmentHeadProvisioningService.InviteResult;
 import com.capstone.rebyu.institution.service.InstitutionLearningStatsService;
 import com.capstone.rebyu.institution.service.InstitutionPortalService;
-import com.capstone.rebyu.institution.dto.InstitutionMemberInviteRequestDto;
+import com.capstone.rebyu.institution.dto.DepartmentHeadInviteRequestDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.InstitutionLearningStatsDto;
-import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.GroupProgressDto;
+import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.DepartmentProgressDto;
 import com.capstone.rebyu.institution.dto.InstitutionPortalDtos.OverviewDto;
 import com.capstone.rebyu.institution.dto.InstitutionDto;
-import com.capstone.rebyu.institution.dto.InstitutionMemberDto;
+import com.capstone.rebyu.institution.dto.DepartmentHeadDto;
 import com.capstone.rebyu.institution.entity.Institution;
 import com.capstone.rebyu.institution.repository.InstitutionRepository;
-import com.capstone.rebyu.institution.service.InstitutionMemberService;
+import com.capstone.rebyu.institution.service.DepartmentHeadService;
 import com.capstone.rebyu.institution.service.InstitutionService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
@@ -43,8 +43,8 @@ public class InstitutionPortalController {
     private final com.capstone.rebyu.billing.service.InstitutionInvoiceService invoiceService;
     private final InstitutionLearningStatsService learningStatsService;
     private final InstitutionService institutionService;
-    private final InstitutionMemberService institutionMemberService;
-    private final InstitutionMemberProvisioningService institutionMemberProvisioningService;
+    private final DepartmentHeadService departmentHeadService;
+    private final DepartmentHeadProvisioningService departmentHeadProvisioningService;
     private final InstitutionRepository institutionRepository;
     private final CognitoAuthService auth;
 
@@ -71,14 +71,14 @@ public class InstitutionPortalController {
 
     /** Completion per learning group, for the group-analytics panels. */
     @GetMapping("/group-stats")
-    public List<GroupProgressDto> groupStats(@AuthenticationPrincipal Jwt jwt) {
+    public List<DepartmentProgressDto> groupStats(@AuthenticationPrincipal Jwt jwt) {
         return learningStatsService.groupProgress(myInstitutionId(jwt));
     }
 
     /** Every member of the caller's own institution (owners, managers, staff). */
     @GetMapping("/members")
-    public List<InstitutionMemberDto> members(@AuthenticationPrincipal Jwt jwt) {
-        return institutionMemberService.getByInstitutionId(myInstitutionId(jwt));
+    public List<DepartmentHeadDto> members(@AuthenticationPrincipal Jwt jwt) {
+        return departmentHeadService.getByInstitutionId(myInstitutionId(jwt));
     }
 
     /**
@@ -91,11 +91,11 @@ public class InstitutionPortalController {
     @ResponseStatus(HttpStatus.CREATED)
     public InviteResult inviteMember(
             @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody InstitutionMemberInviteRequestDto request) {
+            @Valid @RequestBody DepartmentHeadInviteRequestDto request) {
         Long institutionId = myInstitutionId(jwt);
         Institution institution = institutionRepository.findById(institutionId)
                 .orElseThrow(() -> new EntityNotFoundException("Institution not found: " + institutionId));
-        return institutionMemberProvisioningService.inviteMember(institution, request);
+        return departmentHeadProvisioningService.inviteMember(institution, request);
     }
 
     /** Exam results for one of the caller's own learners; 404 for learners outside the tenant. */

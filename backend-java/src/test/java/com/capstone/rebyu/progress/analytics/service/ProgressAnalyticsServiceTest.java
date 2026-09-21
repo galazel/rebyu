@@ -125,7 +125,7 @@ class ProgressAnalyticsServiceTest {
         when(examRepository.findByCertification_CertificationId(CERT_ID)).thenReturn(List.of());
         when(streakService.getStreak(LEARNER_ID))
                 .thenReturn(new StreakService.StreakView(0, 0, null, null));
-        when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerGroupIsNull(CERT_ID)).thenReturn(List.of());
+        when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(CERT_ID)).thenReturn(List.of());
         when(learnerCompletedLessonRepository
                 .findByLearner_LearnerIdAndLesson_MiddleCategory_MajorCategory_Certification_CertificationId(
                         LEARNER_ID, CERT_ID)).thenReturn(List.of());
@@ -229,7 +229,7 @@ class ProgressAnalyticsServiceTest {
             @Override public Long getLessonId() { return null; }
             @Override public String getDifficultyLevel() { return difficulty; }
             @Override public String getQuestionText() { return "q"; }
-            @Override public Long getOwnerGroupId() { return null; }
+            @Override public Long getOwnerDepartmentId() { return null; }
             @Override public String getQuestionType() { return "MULTIPLE_CHOICE"; }
         };
     }
@@ -312,7 +312,7 @@ class ProgressAnalyticsServiceTest {
         MiddleCategory middle = middleCategory(1L, "Middle", major);
         Lesson lessonA = lesson(10L, "Lesson A", middle);
         Lesson lessonB = lesson(11L, "Lesson B", middle);
-        when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerGroupIsNull(CERT_ID)).thenReturn(List.of(lessonA, lessonB));
+        when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(CERT_ID)).thenReturn(List.of(lessonA, lessonB));
         when(learnerMasteryService.getLessonPrioritiesForAnalytics(LEARNER_ID, CERT_ID))
                 .thenReturn(new LearnerMasteryService.LessonPrioritiesResult(
                         List.of(priority(10L, "Lesson A", 0.9, "STRONG", 5)), true));
@@ -330,7 +330,7 @@ class ProgressAnalyticsServiceTest {
         MajorCategory major = majorCategory(1L, "Major");
         MiddleCategory middle = middleCategory(1L, "Middle", major);
         Lesson onlyLesson = lesson(20L, "Untouched", middle);
-        when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerGroupIsNull(CERT_ID)).thenReturn(List.of(onlyLesson));
+        when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(CERT_ID)).thenReturn(List.of(onlyLesson));
         when(learnerMasteryService.getLessonPrioritiesForAnalytics(LEARNER_ID, CERT_ID))
                 .thenReturn(new LearnerMasteryService.LessonPrioritiesResult(List.of(), true));
 
@@ -358,7 +358,7 @@ class ProgressAnalyticsServiceTest {
         when(examRepository.findByCertification_CertificationId(CERT_ID)).thenReturn(List.of());
         when(streakService.getStreak(LEARNER_ID))
                 .thenReturn(new StreakService.StreakView(0, 0, null, null));
-        when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerGroupIsNull(otherCertId)).thenReturn(List.of());
+        when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(otherCertId)).thenReturn(List.of());
         when(learnerCompletedLessonRepository
                 .findByLearner_LearnerIdAndLesson_MiddleCategory_MajorCategory_Certification_CertificationId(
                         LEARNER_ID, otherCertId)).thenReturn(List.of());
@@ -385,7 +385,7 @@ class ProgressAnalyticsServiceTest {
         MiddleCategory middle = middleCategory(1L, "Middle", major);
         Lesson assessed = lesson(30L, "Assessed", middle);
         Lesson unassessed = lesson(31L, "Unassessed", middle);
-        when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerGroupIsNull(CERT_ID)).thenReturn(List.of(assessed, unassessed));
+        when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(CERT_ID)).thenReturn(List.of(assessed, unassessed));
         when(learnerMasteryService.getLessonPrioritiesForAnalytics(LEARNER_ID, CERT_ID))
                 .thenReturn(new LearnerMasteryService.LessonPrioritiesResult(
                         List.of(priority(30L, "Assessed", 0.6, "MEDIUM_PRIORITY", 3)), true));

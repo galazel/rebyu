@@ -4,10 +4,10 @@ import com.capstone.rebyu.common.InvitationAcceptanceException;
 import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
 import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
-import com.capstone.rebyu.institutiongroup.entity.InstitutionGroup;
-import com.capstone.rebyu.institutiongroup.entity.InstitutionGroupAssignee;
-import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupAssigneeRepository;
-import com.capstone.rebyu.institutiongroup.repository.InstitutionGroupRepository;
+import com.capstone.rebyu.department.entity.Department;
+import com.capstone.rebyu.department.entity.DepartmentLearner;
+import com.capstone.rebyu.department.repository.DepartmentLearnerRepository;
+import com.capstone.rebyu.department.repository.DepartmentRepository;
 import com.capstone.rebyu.notification.entity.LearnerInvitation;
 import com.capstone.rebyu.notification.repository.LearnerInvitationRepository;
 import com.capstone.rebyu.notification.service.InvitationTokenService;
@@ -46,9 +46,9 @@ public class LearnerService {
     private final InstitutionCertificateRepository institutionCertificateRepository;
     private final LearnerCertificationRepository learnerCertificationRepository;
     private final InvitationTokenService invitationTokenService;
-    private final InstitutionGroupAssigneeRepository institutionGroupAssigneeRepository;
+    private final DepartmentLearnerRepository departmentLearnerRepository;
     private final AccountDeletionService accountDeletionService;
-    private final InstitutionGroupRepository institutionGroupRepository;
+    private final DepartmentRepository departmentRepository;
     private final NotificationService notificationService;
     private final com.capstone.rebyu.enrollment.service.OrgEnrollmentProgressService orgEnrollmentProgressService;
 
@@ -224,7 +224,7 @@ public class LearnerService {
             invitation.setStatus(LearnerInvitation.Status.EXPIRED);
             learnerInvitationRepository.save(invitation);
             restoreSlot(invitation.getInstitutionCert());
-            restoreGroupSlot(invitation.getInstitutionGroup());
+            restoreDepartmentSlot(invitation.getDepartment());
             throw new InvitationAcceptanceException(
                     InvitationAcceptanceException.Code.INVITATION_EXPIRED,
                     "This invitation has expired.");
@@ -282,29 +282,29 @@ public class LearnerService {
         // The invitation was sent by a group leader for a specific group --
         // place the newly-enrolled learner directly into it, so no separate
         // "add to group" step is needed.
-        InstitutionGroup group = invitation.getInstitutionGroup();
+        Department group = invitation.getDepartment();
         if (group != null && invitation.getInvitedBy() != null) {
-            InstitutionGroupAssignee assignee = InstitutionGroupAssignee.builder()
-                    .institutionGroup(group)
+            DepartmentLearner assignee = DepartmentLearner.builder()
+                    .department(group)
                     .institutionCertLearner(enrollment)
                     .assignedBy(invitation.getInvitedBy())
                     .assignedAt(LocalDateTime.now())
-                    .status(InstitutionGroupAssignee.Status.active)
-                    .role(InstitutionGroupAssignee.Role.member)
+                    .status(DepartmentLearner.Status.active)
+                    .role(DepartmentLearner.Role.member)
                     .section(invitation.getSection())
                     .build();
-            institutionGroupAssigneeRepository.save(assignee);
+            departmentLearnerRepository.save(assignee);
             log.info("Learner {} placed into group {} via invitation {}",
-                    learner.getLearnerId(), group.getInstitutionGroupId(), invitation.getInvitationId());
+                    learner.getLearnerId(), group.getDepartmentId(), invitation.getInvitationId());
 
             notificationService.notify(
                     invitation.getInvitedBy(),
                     "Invitation accepted",
                     displayNameFor(learner, invitation)
-                            + " accepted your invitation to " + group.getGroupName() + ".",
+                            + " accepted your invitation to " + group.getDepartmentName() + ".",
                     // Straight to the group's learners tab -- the leader opens
                     // this to look at who just joined.
-                    "/institution/groups/" + group.getInstitutionGroupId() + "?tab=learners");
+                    "/institution/departments/" + group.getDepartmentId() + "?tab=learners");
         }
 
         // Backfill the learner's profile name from the invitation when the
@@ -344,12 +344,12 @@ public class LearnerService {
     }
 
     /** Restores exactly one reserved slot on the group; used_slots never goes negative. */
-    private void restoreGroupSlot(InstitutionGroup group) {
+    private void restoreDepartmentSlot(Department group) {
         if (group == null) {
             return;
         }
         group.setUsedSlots(Math.max(0, group.getUsedSlots() - 1));
-        institutionGroupRepository.save(group);
+        departmentRepository.save(group);
     }
 
     private boolean isBlank(String value) {

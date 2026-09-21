@@ -8,7 +8,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface ExamRepository extends JpaRepository<Exam, Long> {
-    List<Exam> findByOwnerGroup_InstitutionGroupId(Long institutionGroupId);
+    List<Exam> findByOwnerGroup_DepartmentId(Long departmentId);
 
     List<Exam> findByCertification_CertificationId(Long certificationId);
 
@@ -36,14 +36,14 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
      * <p>The gate that asks this used to read every exam on the platform back
      * as entities and filter them in Java, on every assessment page load and
      * every attempt start. The predicate is three columns wide and belongs in
-     * SQL: {@code ownerGroup IS NULL} is what "official" means (a group's own
+     * SQL: {@code ownerDepartment IS NULL} is what "official" means (a group's own
      * assessment must never gate learners outside -- or inside -- that group),
      * and a null status is DRAFT, matching {@code Exam.effectiveStatus()}.
      */
     @Query("""
             SELECT COUNT(e) > 0 FROM Exam e
             WHERE e.certification.certificationId = :certificationId
-              AND e.ownerGroup IS NULL
+              AND e.ownerDepartment IS NULL
               AND e.examType.examTypeText = :examTypeText
               AND e.status = :status
             """)
@@ -66,7 +66,7 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
             WHERE a.learnerId = :learnerId
               AND a.exam.certification.certificationId = :certificationId
               AND a.status = :attemptStatus
-              AND a.exam.ownerGroup IS NULL
+              AND a.exam.ownerDepartment IS NULL
               AND a.exam.examType.examTypeText = :examTypeText
             """)
     boolean existsSubmittedAttemptOfOfficialType(

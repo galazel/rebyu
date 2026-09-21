@@ -217,7 +217,7 @@ export default function AssessmentDialog({
                                            // When set, a newly created exam is owned by this
                                            // Institution group (member-authored) instead of being
                                            // official, platform-wide content. See ExamController.
-                                           ownerGroupId = null,
+                                           ownerDepartmentId = null,
                                          }) {
   const queryClient = useQueryClient()
   const isEdit = mode === "edit"
@@ -390,7 +390,7 @@ export default function AssessmentDialog({
             ...payload,
             examId: exam.examId,
           })
-          : await createExam(payload, ownerGroupId)
+          : await createExam(payload, ownerDepartmentId)
 
       return {
         savedExam,
@@ -984,7 +984,7 @@ export default function AssessmentDialog({
                 createTypeConfig.scope === "MAJOR_CATEGORY" ? targetId : null
               }
               onAddQuestions={handleAddQuestions}
-              ownerGroupId={ownerGroupId}
+              ownerDepartmentId={ownerDepartmentId}
           />
         </DialogContent>
       </Dialog>

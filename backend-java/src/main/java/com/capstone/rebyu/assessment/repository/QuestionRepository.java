@@ -53,15 +53,15 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     // Selection projections
     // Same four scopes as above, as flat projections. See QuestionSelectionView
     // for why loading these as entities costs 1 + 3N queries instead of 1.
-    // ownerGroup is LEFT JOINed: official questions have none, and an inner
+    // ownerDepartment is LEFT JOINed: official questions have none, and an inner
     // join would silently drop every one of them from the candidate pool.
 
     @Query("""
             SELECT q.questionId AS questionId, l.lessonId AS lessonId,
                    q.difficultyLevel AS difficultyLevel, q.questionText AS questionText,
-                   og.institutionGroupId AS ownerGroupId,
+                   og.departmentId AS ownerDepartmentId,
                    q.questionType AS questionType
-            FROM Question q JOIN q.lesson l LEFT JOIN q.ownerGroup og
+            FROM Question q JOIN q.lesson l LEFT JOIN q.ownerDepartment og
             WHERE q.parentQuestion IS NULL AND l.lessonId = :lessonId
             ORDER BY q.questionId ASC
             """)
@@ -70,9 +70,9 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     @Query("""
             SELECT q.questionId AS questionId, l.lessonId AS lessonId,
                    q.difficultyLevel AS difficultyLevel, q.questionText AS questionText,
-                   og.institutionGroupId AS ownerGroupId,
+                   og.departmentId AS ownerDepartmentId,
                    q.questionType AS questionType
-            FROM Question q JOIN q.lesson l LEFT JOIN q.ownerGroup og
+            FROM Question q JOIN q.lesson l LEFT JOIN q.ownerDepartment og
             WHERE q.parentQuestion IS NULL AND l.middleCategory.middleCategoryId = :middleCategoryId
             ORDER BY q.questionId ASC
             """)
@@ -82,9 +82,9 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     @Query("""
             SELECT q.questionId AS questionId, l.lessonId AS lessonId,
                    q.difficultyLevel AS difficultyLevel, q.questionText AS questionText,
-                   og.institutionGroupId AS ownerGroupId,
+                   og.departmentId AS ownerDepartmentId,
                    q.questionType AS questionType
-            FROM Question q JOIN q.lesson l LEFT JOIN q.ownerGroup og
+            FROM Question q JOIN q.lesson l LEFT JOIN q.ownerDepartment og
             WHERE q.parentQuestion IS NULL
               AND l.middleCategory.majorCategory.majorCategoryId = :majorCategoryId
             ORDER BY q.questionId ASC
@@ -95,9 +95,9 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     @Query("""
             SELECT q.questionId AS questionId, l.lessonId AS lessonId,
                    q.difficultyLevel AS difficultyLevel, q.questionText AS questionText,
-                   og.institutionGroupId AS ownerGroupId,
+                   og.departmentId AS ownerDepartmentId,
                    q.questionType AS questionType
-            FROM Question q JOIN q.lesson l LEFT JOIN q.ownerGroup og
+            FROM Question q JOIN q.lesson l LEFT JOIN q.ownerDepartment og
             WHERE q.parentQuestion IS NULL
               AND l.middleCategory.majorCategory.certification.certificationId = :certificationId
             ORDER BY q.questionId ASC
@@ -108,9 +108,9 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     @Query("""
             SELECT q.questionId AS questionId, l.lessonId AS lessonId,
                    q.difficultyLevel AS difficultyLevel, q.questionText AS questionText,
-                   og.institutionGroupId AS ownerGroupId,
+                   og.departmentId AS ownerDepartmentId,
                    q.questionType AS questionType
-            FROM Question q JOIN q.lesson l LEFT JOIN q.ownerGroup og
+            FROM Question q JOIN q.lesson l LEFT JOIN q.ownerDepartment og
             WHERE q.questionId IN :ids
             """)
     List<QuestionSelectionView> findSelectionViewsByIdIn(@Param("ids") Collection<Long> ids);
@@ -146,7 +146,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
      * replaces -- the bank lists them.
      */
     @EntityGraph(attributePaths = {
-            "choices", "createdBy", "ownerGroup",
+            "choices", "createdBy", "ownerDepartment",
             "diagramQuestionConfig", "programmingQuestionConfig", "textQuestionConfig"})
     @Query("""
             SELECT DISTINCT q FROM Question q
