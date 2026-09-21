@@ -103,7 +103,7 @@ public class LearnerClassController {
                 .map(a -> new ClassAnnouncement(a.getDepartmentAnnouncementId(), a.getTitle(), a.getBody(),
                         a.isPinned(), a.getCreatedAt()))
                 .toList();
-        List<ClassAssessment> published = exams.findByOwnerGroup_DepartmentId(departmentId).stream()
+        List<ClassAssessment> published = exams.findByOwnerDepartment_DepartmentId(departmentId).stream()
                 .filter(exam -> exam.effectiveStatus() == Exam.Status.PUBLISHED)
                 .map(exam -> new ClassAssessment(exam.getExamId(), exam.getTitle(),
                         exam.getExamType() == null ? null : exam.getExamType().getExamTypeText(),
