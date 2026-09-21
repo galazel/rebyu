@@ -92,3 +92,12 @@ export function rejectSubscription(id, note) {
 export function revokeSubscription(id) {
   return base(`admin/subscriptions/${id}/revoke`, { method: "POST" })
 }
+
+/**
+ * Everyone who has paid, from both tables: completed certification orders
+ * (LEARNER_ORDERS) and paid Pro subscriptions (LEARNER_SUBSCRIPTIONS).
+ * Shape: { payers, certificationOrders, proPayments, certificationRevenue, proRevenue, payments[] }.
+ */
+export function getAdminPayments() {
+  return base("admin/payments")
+}

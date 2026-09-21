@@ -648,11 +648,9 @@ export default function AdminDashboard() {
                 title="Learners who paid"
                 hint="Latest certification purchases and Pro subscriptions (PayMongo test mode)."
                 action={
-                  pro?.awaitingApproval ? (
-                    <Link to="/admin/subscriptions" className="text-xs font-bold text-rb-feather-lip underline">
-                      Review {pro.awaitingApproval} waiting
-                    </Link>
-                  ) : null
+                  <Link to="/admin/payments" className="text-xs font-bold text-rb-feather-lip underline">
+                    {pro?.awaitingApproval ? `Review ${pro.awaitingApproval} waiting` : "View all"}
+                  </Link>
                 }
               />
 

@@ -322,6 +322,8 @@ export function App() {
                     />
                     <Route path="partnership-requests" element={<PartnershipRequests />} />
                     <Route path="subscriptions" element={<AdminSubscriptions />} />
+                    {/* Same page: the Pro queue and the full payment ledger live together. */}
+                    <Route path="payments" element={<AdminSubscriptions />} />
                     <Route path="community" element={<CommunityModeration />} />
                     {/* BKT delivery status is withdrawn from the admin portal.
                         The page and its service still exist -- re-register this

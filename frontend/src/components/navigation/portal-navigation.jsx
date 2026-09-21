@@ -110,8 +110,14 @@ const adminGroups = [
     items: [
       { label: "Institutions", href: "/admin/institutions", icon: Building2 },
       { label: "Partnership requests", href: "/admin/partnership-requests", icon: Handshake },
-      // Test-mode PayMongo payments wait here for an admin to approve Pro.
-      { label: "Pro subscriptions", href: "/admin/subscriptions", icon: CreditCard },
+      // Who has paid (certification orders and Pro subscriptions), and the
+      // test-mode PayMongo queue where an admin approves Pro.
+      {
+        label: "Payments",
+        href: "/admin/subscriptions",
+        icon: CreditCard,
+        match: ["/admin/subscriptions", "/admin/payments"],
+      },
       // No BKT delivery or Gamification entries: both are withdrawn from the
       // admin portal. Their pages and services still exist -- re-register the
       // routes in App.jsx and add the entries back here to bring them back.
