@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { Link, useParams, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   BookOpen,
@@ -8,13 +8,10 @@ import {
   ClipboardCheckIcon,
   Layers3,
   Loader2,
-  MailIcon,
   MegaphoneIcon,
   PinIcon,
   Plus,
   Trash2,
-  UserPlusIcon,
-  UsersIcon,
 } from "@/components/icons"
 import { toast } from "sonner"
 
@@ -37,12 +34,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -65,20 +56,14 @@ import { getQuestions } from "@/services/questionService.js"
 import { InstitutionQuestionBankPanel } from "@/pages/institution/certifications/institution-question-bank-page.jsx"
 import AssessmentPreviewDialog from "@/components/assessments/admin/assessment-preview-dialog.jsx"
 import { getAllCertifications } from "@/services/certificationService.js"
+import { SectionsTab } from "@/components/institution/sections-tab.jsx"
 import {
   archiveGroupAnnouncement,
   createGroupAnnouncement,
   getInstitutionGroupAssignees,
   getInstitutionGroupById,
   getGroupAnnouncements,
-  getGroupLearnerRoster,
-  removeLearnerFromGroup,
 } from "@/services/institutionService.js"
-import {
-  cancelInstitutionInvitation,
-  getInstitutionInvitations,
-  sendInstitutionInvitations,
-} from "@/services/partnershipService.js"
 
 function asArray(value) {
   return Array.isArray(value) ? value : []
@@ -240,7 +225,7 @@ function AnnouncementsTab({ groupId }) {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Post an announcement</CardTitle>
-          <CardDescription>Share updates, deadlines, or reminders with this group.</CardDescription>
+          <CardDescription>Share updates, deadlines, or reminders with this department.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-1.5">
@@ -301,7 +286,7 @@ function AnnouncementsTab({ groupId }) {
         <InstitutionEmptyState
           icon={MegaphoneIcon}
           title="No announcements yet"
-          description="Your first announcement to this group will appear here."
+          description="Your first announcement to this department will appear here."
         />
       ) : (
         <div className="space-y-3">
@@ -380,374 +365,6 @@ function InlineNameInput({ placeholder, onSubmit, onCancel, isPending, className
     />
   )
 }
-
-function LearnersTab({ groupId, group }) {
-  const queryClient = useQueryClient()
-  const [inviteOpen, setInviteOpen] = useState(false)
-  const [draft, setDraft] = useState({ firstName: "", lastName: "", email: "" })
-  // Each staged learner: { firstName, lastName, email }.
-  const [invitees, setInvitees] = useState([])
-  const [error, setError] = useState("")
-
-  const invitationsQuery = useQuery({
-    queryKey: ["group-invitations", groupId],
-    queryFn: () => getInstitutionInvitations(),
-    enabled: Number.isFinite(groupId),
-  })
-  const groupInvitations = (
-    Array.isArray(invitationsQuery.data) ? invitationsQuery.data : []
-  ).filter((inv) => inv.institutionGroupId === groupId)
-  const pendingInvitations = groupInvitations.filter((inv) => inv.status === "PENDING")
-
-  const remainingSlots = Math.max(0, (group.totalSlots ?? 0) - (group.usedSlots ?? 0))
-
-  const resetForm = () => {
-    setDraft({ firstName: "", lastName: "", email: "" })
-    setInvitees([])
-    setError("")
-  }
-
-  const addInvitee = () => {
-    const email = draft.email.trim().toLowerCase()
-    const firstName = draft.firstName.trim()
-    const lastName = draft.lastName.trim()
-    if (!email) {
-      setError("Enter the learner's email.")
-      return
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError(`"${email}" is not a valid email.`)
-      return
-    }
-    if (invitees.some((inv) => inv.email === email)) {
-      setError("That email is already in the list.")
-      return
-    }
-    if (invitees.length >= remainingSlots) {
-      setError(`Only ${remainingSlots} slot(s) remaining in this group.`)
-      return
-    }
-    setInvitees((current) => [...current, { firstName, lastName, email }])
-    setDraft({ firstName: "", lastName: "", email: "" })
-    setError("")
-  }
-
-  const inviteMutation = useMutation({
-    mutationFn: () => sendInstitutionInvitations({ institutionGroupId: groupId, learners: invitees }),
-    onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ["group-invitations", groupId] })
-      queryClient.invalidateQueries({ queryKey: ["institution-group", groupId] })
-      toast.success(
-        `${response.created} invitation(s) sent.` +
-          (response.skipped?.length ? ` ${response.skipped.length} skipped.` : "")
-      )
-      resetForm()
-      setInviteOpen(false)
-    },
-    onError: (err) => toast.error(backendMessage(err, "Unable to send invitations.")),
-  })
-
-  const cancelMutation = useMutation({
-    mutationFn: (invitationId) => cancelInstitutionInvitation(invitationId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["group-invitations", groupId] })
-      queryClient.invalidateQueries({ queryKey: ["institution-group", groupId] })
-      toast.success("Invitation cancelled. Slot restored.")
-    },
-    onError: (err) => toast.error(backendMessage(err, "Unable to cancel this invitation.")),
-  })
-
-  return (
-    <div className="space-y-5">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-3">
-          <div>
-            <CardTitle className="text-base">Invite learners</CardTitle>
-            <CardDescription>
-              {remainingSlots} of {group.totalSlots ?? 0} slot(s) remaining in this group.
-            </CardDescription>
-          </div>
-          <Button
-            size="sm"
-            onClick={() => setInviteOpen((prev) => !prev)}
-            disabled={remainingSlots <= 0}
-          >
-            <UserPlusIcon className="size-4" aria-hidden="true" />
-            {inviteOpen ? "Cancel" : "Invite"}
-          </Button>
-        </CardHeader>
-        {inviteOpen ? (
-          <CardContent className="space-y-3">
-            <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1.4fr_auto]">
-              <Input
-                value={draft.firstName}
-                onChange={(e) => setDraft((d) => ({ ...d, firstName: e.target.value }))}
-                placeholder="First name"
-              />
-              <Input
-                value={draft.lastName}
-                onChange={(e) => setDraft((d) => ({ ...d, lastName: e.target.value }))}
-                placeholder="Last name"
-              />
-              <Input
-                type="email"
-                value={draft.email}
-                onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault()
-                    addInvitee()
-                  }
-                }}
-                placeholder="learner@example.com"
-              />
-              <Button type="button" variant="outline" onClick={addInvitee}>
-                Add
-              </Button>
-            </div>
-            {invitees.length > 0 ? (
-              <div className="divide-y rounded-lg border">
-                {invitees.map((inv) => (
-                  <div
-                    key={inv.email}
-                    className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
-                  >
-                    <div className="min-w-0">
-                      <span className="font-medium">
-                        {[inv.firstName, inv.lastName].filter(Boolean).join(" ") || "—"}
-                      </span>
-                      <span className="ml-2 text-muted-foreground">{inv.email}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setInvitees((current) => current.filter((c) => c.email !== inv.email))
-                      }
-                      aria-label={`Remove ${inv.email}`}
-                      className="rounded-full px-1 text-muted-foreground outline-none hover:text-destructive"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            {error ? (
-              <p className="text-sm text-destructive" role="alert">
-                {error}
-              </p>
-            ) : null}
-            <Button
-              onClick={() => inviteMutation.mutate()}
-              disabled={invitees.length === 0 || inviteMutation.isPending}
-            >
-              {inviteMutation.isPending ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                  Sending...
-                </>
-              ) : (
-                `Send ${invitees.length || ""} invitation${invitees.length === 1 ? "" : "s"}`
-              )}
-            </Button>
-          </CardContent>
-        ) : null}
-      </Card>
-
-      {pendingInvitations.length > 0 ? (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Pending invitations</CardTitle>
-          </CardHeader>
-          <CardContent className="divide-y p-0">
-            {pendingInvitations.map((inv) => (
-              <div
-                key={inv.invitationId}
-                className="flex items-center justify-between gap-2 px-4 py-2.5"
-              >
-                <div className="flex items-center gap-2 text-sm">
-                  <MailIcon className="size-4 text-muted-foreground" aria-hidden="true" />
-                  <span>
-                    {[inv.firstName, inv.lastName].filter(Boolean).join(" ") ? (
-                      <span className="font-medium">
-                        {[inv.firstName, inv.lastName].filter(Boolean).join(" ")}{" "}
-                      </span>
-                    ) : null}
-                    <span className="text-muted-foreground">{inv.email}</span>
-                  </span>
-                  <InstitutionStatusBadge status={inv.status} />
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => cancelMutation.mutate(inv.invitationId)}
-                  disabled={cancelMutation.isPending}
-                >
-                  <Trash2 className="size-4" aria-hidden="true" />
-                  Cancel
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <GroupLearnerTable groupId={groupId} hasPendingInvitations={pendingInvitations.length > 0} />
-    </div>
-  )
-}
-
-function LessonProgressCell({ completed, total, percentage }) {
-  if (!total) {
-    return <span className="text-sm text-muted-foreground">No lessons yet</span>
-  }
-  const shown = Number.isFinite(Number(percentage)) ? Number(percentage) : 0
-  return (
-    <div className="flex items-center gap-2">
-      <Progress value={Math.min(100, Math.max(0, shown))} className="h-1.5 w-16" />
-      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-        {completed}/{total}
-      </span>
-    </div>
-  )
-}
-
-/**
- * The group's learners with the figures a leader monitors, each row opening
- * that learner's full statistics. Reads the leader-scoped roster endpoint --
- * the group assignee list alone carries no names or progress.
- */
-function GroupLearnerTable({ groupId, hasPendingInvitations }) {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const [removeTarget, setRemoveTarget] = useState(null)
-
-  const rosterQuery = useQuery({
-    queryKey: ["group-learner-roster", groupId],
-    queryFn: () => getGroupLearnerRoster(groupId),
-    enabled: Number.isFinite(groupId),
-  })
-
-  const removeMutation = useMutation({
-    mutationFn: (learnerId) => removeLearnerFromGroup(groupId, learnerId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["group-learner-roster", groupId] })
-      queryClient.invalidateQueries({ queryKey: ["institution-group-assignees", groupId] })
-      queryClient.invalidateQueries({ queryKey: ["institution-group", groupId] })
-      toast.success("Learner removed from this group. Their account and progress are unchanged.")
-      setRemoveTarget(null)
-    },
-    onError: (err) => toast.error(backendMessage(err, "Unable to remove this learner.")),
-  })
-
-  const rows = asArray(rosterQuery.data)
-
-  if (rosterQuery.isLoading) {
-    return <InstitutionLoadingSkeleton rows={3} />
-  }
-  if (rosterQuery.isError) {
-    return (
-      <InstitutionErrorState
-        title="Unable to load this group's learners"
-        onRetry={rosterQuery.refetch}
-      />
-    )
-  }
-  if (rows.length === 0) {
-    return hasPendingInvitations ? null : (
-      <InstitutionEmptyState
-        icon={UsersIcon}
-        title="No learners yet"
-        description="Invite your first learner into this group above."
-      />
-    )
-  }
-
-  return (
-    <>
-      <Card className={`overflow-hidden py-0 ${TABLE_SURFACE}`}>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Learner</TableHead>
-              <TableHead className="w-48">Lessons completed</TableHead>
-              <TableHead className="w-28">Joined</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow
-                key={row.institutionGroupAssigneeId}
-                onClick={() => navigate(`/institution/groups/${groupId}/learners/${row.learnerId}`)}
-                className="cursor-pointer"
-              >
-                <TableCell>
-                  <p className="font-medium text-foreground">{row.name}</p>
-                  {row.username ? (
-                    <p className="text-xs text-muted-foreground">@{row.username}</p>
-                  ) : null}
-                </TableCell>
-                <TableCell>
-                  <LessonProgressCell
-                    completed={row.completedLessonCount}
-                    total={row.totalLessonCount}
-                    percentage={row.completionPercentage}
-                  />
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {row.assignedAt ? new Date(row.assignedAt).toLocaleDateString() : "—"}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Remove ${row.name} from this group`}
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      setRemoveTarget(row)
-                    }}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
-
-      <AlertDialog
-        open={removeTarget != null}
-        onOpenChange={(open) => {
-          if (!open) setRemoveTarget(null)
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove this learner from the group?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {removeTarget?.name} will be unassigned from this group and the slot returned.
-              Their account, enrolment, and progress are kept, so they can be added back later.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => removeMutation.mutate(removeTarget.learnerId)}
-              disabled={removeMutation.isPending}
-            >
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
-  )
-}
-
-const VALID_TABS = ["curriculum", "assessments", "question-bank", "learners", "announcements"]
 
 export default function InstitutionGroupWorkspacePage() {
   const { groupId } = useParams()
@@ -840,7 +457,7 @@ export default function InstitutionGroupWorkspacePage() {
   if (groupQuery.isError) {
     return (
       <InstitutionErrorState
-        title="Unable to load this group"
+        title="Unable to load this department"
         onRetry={groupQuery.refetch}
       />
     )
@@ -850,8 +467,8 @@ export default function InstitutionGroupWorkspacePage() {
   if (!group) {
     return (
       <InstitutionEmptyState
-        title="Group not found"
-        description="This group is unavailable or you no longer have access to it."
+        title="Department not found"
+        description="This department is unavailable or you no longer have access to it."
       />
     )
   }
@@ -899,7 +516,7 @@ export default function InstitutionGroupWorkspacePage() {
       <InstitutionPageHeader
         title={group.groupName}
         subtitle={group.groupDescription || "Your assigned group workspace."}
-        actions={<Badge>Assigned group</Badge>}
+        actions={<Badge>Assigned department</Badge>}
       />
       <Tabs
         value={activeTab}
@@ -913,7 +530,7 @@ export default function InstitutionGroupWorkspacePage() {
           <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
           <TabsTrigger value="assessments">Assessments</TabsTrigger>
           <TabsTrigger value="question-bank">Question Bank</TabsTrigger>
-          <TabsTrigger value="learners">Learners ({learners.length})</TabsTrigger>
+          <TabsTrigger value="learners">Sections ({learners.length})</TabsTrigger>
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
         </TabsList>
 
@@ -1016,7 +633,7 @@ export default function InstitutionGroupWorkspacePage() {
               </p>
             </div>
             <Button asChild disabled={!certification}>
-              <Link to={`/institution/groups/${id}/assessments/new`}>
+              <Link to={`/institution/departments/${id}/assessments/new`}>
                 <Plus className="size-4" aria-hidden="true" />
                 Create Assessment
               </Link>
@@ -1058,7 +675,7 @@ export default function InstitutionGroupWorkspacePage() {
                       </Button>
                     ) : null}
                     <Button asChild variant="ghost" size="sm">
-                      <Link to={`/institution/groups/${id}/assessments/${exam.examId}/edit`}>
+                      <Link to={`/institution/departments/${id}/assessments/${exam.examId}/edit`}>
                         Edit
                       </Link>
                     </Button>
@@ -1083,14 +700,15 @@ export default function InstitutionGroupWorkspacePage() {
               />
               <p className="mt-3 text-sm font-medium text-foreground">No assessments yet</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Create your group's first assessment to see it listed here.
+                Create your department's first assessment to see it listed here.
               </p>
             </div>
           )}
         </TabsContent>
 
+        {/* Kept at value="learners" so existing ?tab=learners links still open it. */}
         <TabsContent value="learners" className="mt-5">
-          <LearnersTab groupId={id} group={group} />
+          <SectionsTab groupId={id} group={group} />
         </TabsContent>
 
         {/* Moved here from the institution account: writing questions is the

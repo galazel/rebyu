@@ -90,6 +90,10 @@ const NAV_ITEMS = [
      naming each one turned a five-item bar into a table of contents for a page
      the visitor is going to scroll anyway. */
   { label: "features", href: "#features" },
+  /* The one off-page entry: a school or training centre asking for
+     institutional access. It is a route, not an anchor, and a plain <a> gets
+     there fine -- the request page is its own full load anyway. */
+  { label: "get access", href: "/institution/request-access" },
 ];
 
 const HOW_IT_WORKS = [

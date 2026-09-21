@@ -116,12 +116,12 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["institution-groups"] })
-      toast.success("Group created.")
+      toast.success("Department created.")
       reset()
       onOpenChange(false)
     },
     onError: (err) => {
-      const message = backendMessage(err, "Unable to create the group.")
+      const message = backendMessage(err, "Unable to create the department.")
       setError(message)
       toast.error(message)
     },
@@ -134,7 +134,7 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
       return
     }
     if (!groupName.trim()) {
-      setError("Enter a group name.")
+      setError("Enter a department name.")
       return
     }
     const slots = Number(totalSlots)
@@ -161,10 +161,10 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
     >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create group</DialogTitle>
+          <DialogTitle>Create department</DialogTitle>
           <DialogDescription>
-            Groups organize learners under one certification allocation. Assign an
-            authority afterwards to let them manage the group's learners.
+            Departments organize learners under one certification allocation. Assign an
+            department head afterwards to let them manage the department's learners.
           </DialogDescription>
         </DialogHeader>
 
@@ -191,7 +191,7 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="group-name">Group name</Label>
+            <Label htmlFor="group-name">Department name</Label>
             <Input
               id="group-name"
               value={groupName}
@@ -207,7 +207,7 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
               id="group-description"
               value={groupDescription}
               onChange={(e) => setGroupDescription(e.target.value)}
-              placeholder="What is this group for?"
+              placeholder="What is this department for?"
               maxLength={500}
               rows={3}
             />
@@ -379,11 +379,11 @@ function ManageGroupDialog({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["institution-group-authorities", groupId] })
-      toast.success("Authority assigned.")
+      toast.success("Department head assigned.")
       setAuthorityUserId("")
     },
     onError: (err) =>
-      toast.error(backendMessage(err, "Unable to assign this authority.")),
+      toast.error(backendMessage(err, "Unable to assign this department head.")),
   })
 
   const inviteMemberMutation = useMutation({
@@ -449,9 +449,9 @@ function ManageGroupDialog({
     mutationFn: (authorityId) => removeInstitutionGroupAuthority(authorityId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["institution-group-authorities", groupId] })
-      toast.success("Authority removed.")
+      toast.success("Department head removed.")
     },
-    onError: (err) => toast.error(backendMessage(err, "Unable to remove authority.")),
+    onError: (err) => toast.error(backendMessage(err, "Unable to remove department head.")),
   })
 
   const addLearnerMutation = useMutation({
@@ -462,7 +462,7 @@ function ManageGroupDialog({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["institution-group-assignees", groupId] })
-      toast.success("Learner added to group.")
+      toast.success("Learner added to department.")
       setInstitutionCertLearnerId("")
     },
     onError: (err) => toast.error(backendMessage(err, "Unable to add this learner.")),
@@ -472,7 +472,7 @@ function ManageGroupDialog({
     mutationFn: (assigneeId) => removeInstitutionGroupAssignee(assigneeId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["institution-group-assignees", groupId] })
-      toast.success("Learner removed from group.")
+      toast.success("Learner removed from department.")
     },
     onError: (err) => toast.error(backendMessage(err, "Unable to remove learner.")),
   })
@@ -517,7 +517,7 @@ function ManageGroupDialog({
                 {groupUsedSlots} / {groupTotalSlots} slot{groupTotalSlots === 1 ? "" : "s"} used
               </p>
               <p className="text-xs text-muted-foreground">
-                Caps how many learners this group's leader can invite.
+                Caps how many learners this department's head can invite.
               </p>
             </div>
             {isOwner ? (
@@ -568,7 +568,7 @@ function ManageGroupDialog({
                 <div className="flex gap-2">
                   <Select value={authorityUserId} onValueChange={setAuthorityUserId}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select an institution member" />
+                      <SelectValue placeholder="Select a department head" />
                     </SelectTrigger>
                     <SelectContent>
                       {members.length === 0 ? (
@@ -609,7 +609,7 @@ function ManageGroupDialog({
                 {showInviteForm ? (
                   <div className="space-y-3 rounded-lg border p-3">
                     <p className="text-xs text-muted-foreground">
-                      Create a new login account for a group leader. They'll receive their
+                      Create a new login account for a department head. They'll receive their
                       username and a temporary password by email.
                     </p>
                     <div className="grid grid-cols-2 gap-2">
@@ -639,7 +639,7 @@ function ManageGroupDialog({
                         type="email"
                         value={inviteEmail}
                         onChange={(e) => setInviteEmail(e.target.value)}
-                        placeholder="leader@example.com"
+                        placeholder="head@example.com"
                       />
                     </div>
                     <Button
@@ -666,16 +666,16 @@ function ManageGroupDialog({
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Only the institution owner can assign this group's leader.
+                Only the institution owner can assign this department's head.
               </p>
             )}
 
             {authoritiesQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading authorities...</p>
+              <p className="text-sm text-muted-foreground">Loading department heads...</p>
             ) : activeAuthorities.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No authority assigned yet. The institution assigns an authority who then
-                manages this group's learners.
+                No department head assigned yet. The institution assigns a department head who then
+                manages this department's learners.
               </p>
             ) : (
               <ul className="divide-y rounded-lg border">
@@ -750,7 +750,7 @@ function ManageGroupDialog({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Only this group's leader can invite learners.
+                Only this department's head can invite learners.
               </p>
             )}
 
@@ -828,7 +828,7 @@ function ManageGroupDialog({
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Only this group's leader manages its learner roster.
+                Only this department's head manages its learner roster.
               </p>
             )}
 
@@ -836,7 +836,7 @@ function ManageGroupDialog({
               <p className="text-sm text-muted-foreground">Loading learners...</p>
             ) : activeAssignees.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No learners in this group yet.
+                No learners in this department yet.
               </p>
             ) : (
               <ul className="divide-y rounded-lg border">
@@ -950,7 +950,7 @@ export default function InstitutionGroupsPage() {
     return (
       <InstitutionEmptyState
         title="No institution found"
-        description="Learner groups appear here once your institution is registered."
+        description="Learner departments appear here once your institution is registered."
       />
     )
   }
@@ -971,11 +971,11 @@ export default function InstitutionGroupsPage() {
 
       <InstitutionPageHeader
         title={scopedCertification ? `Groups — ${scopedCertification.title}` : "Groups"}
-        subtitle="Organize learners into groups under a certification allocation and delegate management to an authority."
+        subtitle="Organize learners into departments under a certification allocation and delegate management to a department head."
         actions={
           <Button onClick={() => setCreateOpen(true)} disabled={!hasAllocations}>
             <Plus aria-hidden="true" />
-            Create group
+            Create department
           </Button>
         }
       />
@@ -986,13 +986,13 @@ export default function InstitutionGroupsPage() {
         <InstitutionEmptyState
           icon={UsersRound}
           title="No certification allocations yet"
-          description="Once your institution has a certification allocation, you can create groups under it."
+          description="Once your institution has a certification allocation, you can create departments under it."
         />
       ) : groups.length === 0 ? (
         <InstitutionEmptyState
           icon={UsersRound}
-          title="No groups yet"
-          description="Create a group to start organizing your learners."
+          title="No departments yet"
+          description="Create a department to start organizing your learners."
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

@@ -16,7 +16,8 @@ import {
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
   InstitutionPageHeader,
-  InstitutionStatusBadge,
+  AccessWindowBadge,
+  accessWindowStatus,
   formatDate,
 } from "@/components/institution/institution-ui.jsx"
 import { useInstitutionData } from "@/hooks/use-institution-data.js"
@@ -80,11 +81,14 @@ export default function InstitutionCertificationsPage() {
                       {certification?.title ??
                         `Certification #${institutionCert.certificationId}`}
                     </CardTitle>
-                    <InstitutionStatusBadge status={institutionCert.status} />
+                    <AccessWindowBadge allocation={institutionCert} />
                   </div>
                   <CardDescription>
                     Access {formatDate(institutionCert.accessStartDate)} –{" "}
                     {formatDate(institutionCert.accessExpiryDate)}
+                    {accessWindowStatus(institutionCert).detail ? (
+                      <span className="text-muted-foreground"> · {accessWindowStatus(institutionCert).detail}</span>
+                    ) : null}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 space-y-3">

@@ -71,6 +71,7 @@ const InstitutionGroupsPage = lazyRoute(() => import("./pages/institution/groups
 // see institution-account-page.jsx. The five paths are kept so existing links
 // still resolve; each one opens its own tab.
 const InstitutionAccountPage = lazyRoute(() => import("./pages/institution/account/institution-account-page.jsx"))
+const InstitutionInvoicesPage = lazyRoute(() => import("./pages/institution/account/institution-invoices-page.jsx"))
 const InstitutionRequestAccessPage = lazyRoute(() => import("./pages/public/institution-request-access-page.jsx"))
 const CompilerArea = lazyRoute(() => import("./pages/challenges/compiler-area-page.jsx"))
 const CodeStrikePage = lazyRoute(() => import("./pages/learner/challenges/codestrike-page.jsx"))
@@ -512,6 +513,9 @@ export function App() {
                     <Route path="partnership" element={<InstitutionAccountPage />} />
                     <Route path="billing" element={<Navigate to="/institution/license" replace />} />
                     <Route path="files" element={<InstitutionAccountPage />} />
+                    {/* Invoices: the list, and the one the approval email links to. */}
+                    <Route path="invoices" element={<InstitutionInvoicesPage />} />
+                    <Route path="invoices/:invoiceId" element={<InstitutionInvoicesPage />} />
                     <Route path="institution" element={<InstitutionAccountPage />} />
                 </Route>
             </Route>

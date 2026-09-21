@@ -392,7 +392,7 @@ export default function PartnershipRequests() {
                   {(detail.items ?? []).map((item) => (
                     <li
                       key={item.partnershipRequestItemId}
-                      className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+                      className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
                     >
                       <span className="min-w-0">
                         <span className="block truncate font-medium text-foreground">
@@ -401,29 +401,50 @@ export default function PartnershipRequests() {
                         <span className="block text-xs text-muted-foreground">
                           {item.requestedAccessStartDate && item.requestedAccessEndDate
                             ? `${formatDate(item.requestedAccessStartDate)} – ${formatDate(item.requestedAccessEndDate)}`
-                            : "No dates requested"}
+                            : "Access window: 1 year from approval"}
                         </span>
                       </span>
-                      <span className="shrink-0 tabular-nums text-muted-foreground">
-                        {item.requestedSlots} slot(s)
+                      <span className="shrink-0 text-right tabular-nums">
+                        <span className="block font-semibold text-foreground">
+                          {money(item.lineTotal ?? (item.requestedSlots ?? 0) * (detail.pricePerSlot ?? 149), detail.currency)}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {item.requestedSlots} slot(s) × {money(item.unitPrice ?? detail.pricePerSlot ?? 149, detail.currency)}
+                        </span>
                       </span>
                     </li>
                   ))}
                 </ul>
+                <div className="flex items-baseline justify-between gap-3 px-1 pt-1 text-sm">
+                  <span className="text-muted-foreground">
+                    {(detail.items ?? []).reduce((sum, item) => sum + Number(item.requestedSlots ?? 0), 0)} slot(s) total
+                    · {money(detail.pricePerSlot ?? 149, detail.currency)} per slot
+                  </span>
+                  <span className="text-base font-bold tabular-nums text-foreground">
+                    Total {money(
+                      detail.totalAmount ??
+                        (detail.items ?? []).reduce(
+                          (sum, item) => sum + Number(item.requestedSlots ?? 0) * Number(detail.pricePerSlot ?? 149),
+                          0
+                        ),
+                      detail.currency
+                    )}
+                  </span>
+                </div>
+                {detail.invoiceNumber ? (
+                  <p className="px-1 text-xs text-muted-foreground">
+                    Invoice <span className="font-mono font-semibold text-foreground">{detail.invoiceNumber}</span> ·{" "}
+                    <span className="capitalize">{String(detail.invoiceStatus ?? "").replaceAll("_", " ")}</span>
+                  </p>
+                ) : null}
               </section>
 
               {canReview ? (
                 <section className="space-y-2">
-                  <Label htmlFor="admin-remarks" className="text-sm text-[var(--rb-chalk)]">
-                    Remarks (optional)
-                  </Label>
-                  <Textarea
-                    id="admin-remarks"
-                    rows={2}
-                    value={remarks}
-                    onChange={(e) => setRemarks(e.target.value)}
-                    placeholder="Notes shared with the institution."
-                  />
+                  <p className="text-xs text-muted-foreground">
+                    Approving grants the access above, issues the invoice, and emails the institution a welcome
+                    message with a link to view it.
+                  </p>
                   <div className="flex gap-2">
                     <Button
                       className="flex-1"
@@ -468,10 +489,22 @@ export default function PartnershipRequests() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirm?.action === "approve"
-                ? "The institution will receive certification access and learner slots."
+                ? "The institution receives certification access and learner slots, an invoice is issued, and a welcome email with a link to view the invoice is sent."
                 : "The institution will be notified that the request was rejected. No access is granted."}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {confirm?.action === "reject" ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="reject-reason">Reason (shared with the institution)</Label>
+              <Textarea
+                id="reject-reason"
+                rows={2}
+                value={remarks}
+                onChange={(e) => setRemarks(e.target.value)}
+                placeholder="Why this request is not being approved."
+              />
+            </div>
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={reviewMutation.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -499,6 +532,11 @@ export default function PartnershipRequests() {
       </AlertDialog>
     </div>
   )
+}
+
+function money(value, currency = "PHP") {
+  if (value == null) return "—"
+  return Number(value).toLocaleString("en-PH", { style: "currency", currency, maximumFractionDigits: 2 })
 }
 
 function SummaryCard({ icon: Icon, label, value }) {

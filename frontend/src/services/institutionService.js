@@ -210,3 +210,45 @@ export function getMyAnnouncements(certificationId) {
   const query = certificationId != null ? `?certificationId=${certificationId}` : ""
   return base(`learners/me/announcements${query}`)
 }
+
+/* ---- Sections: a department head's subdivisions of one department ---- */
+
+export function getGroupSections(groupId) {
+  return base(`institution-groups/${groupId}/sections`)
+}
+
+export function createGroupSection(groupId, { sectionName, description }) {
+  return base(`institution-groups/${groupId}/sections`, {
+    method: "POST",
+    data: { sectionName, description },
+  })
+}
+
+export function updateGroupSection(groupId, sectionId, { sectionName, description }) {
+  return base(`institution-groups/${groupId}/sections/${sectionId}`, {
+    method: "PUT",
+    data: { sectionName, description },
+  })
+}
+
+export function archiveGroupSection(groupId, sectionId) {
+  return base(`institution-groups/${groupId}/sections/${sectionId}`, { method: "DELETE" })
+}
+
+/** Move a learner (by assignee id) into a section; null takes them out of every section. */
+export function moveLearnerToSection(groupId, assigneeId, sectionId) {
+  return base(`institution-groups/${groupId}/sections/assignees/${assigneeId}`, {
+    method: "PATCH",
+    data: { sectionId },
+  })
+}
+
+/* ---- Invoices issued to the caller's institution ---- */
+
+export function getMyInstitutionInvoices() {
+  return base("institution/me/invoices")
+}
+
+export function getMyInstitutionInvoice(invoiceId) {
+  return base(`institution/me/invoices/${invoiceId}`)
+}

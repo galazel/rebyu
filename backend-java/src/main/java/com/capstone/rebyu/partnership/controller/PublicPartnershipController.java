@@ -8,6 +8,7 @@ import com.capstone.rebyu.partnership.service.PublicPartnershipService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,6 +25,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class PublicPartnershipController {
 
     private final PublicPartnershipService publicPartnershipService;
+
+    /** The per-slot rate the request form quotes, so the form and the invoice never disagree. */
+    @GetMapping("/pricing")
+    public java.util.Map<String, Object> pricing() {
+        return java.util.Map.of(
+                "pricePerSlot", com.capstone.rebyu.billing.service.InstitutionInvoiceService.PRICE_PER_SLOT,
+                "currency", com.capstone.rebyu.billing.service.InstitutionInvoiceService.CURRENCY);
+    }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)

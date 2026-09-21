@@ -6,6 +6,11 @@ export function submitPublicPartnershipRequest(payload) {
   return base("public/partnership-requests", { method: "POST", data: payload })
 }
 
+/** { pricePerSlot, currency } -- the flat per-slot rate the invoice will use. */
+export function getPartnershipPricing() {
+  return base("public/partnership-requests/pricing")
+}
+
 export function getPublicPartnershipStatus({ referenceNumber, institutionEmail }) {
   return base("public/partnership-requests/status", {
     method: "POST",
@@ -45,10 +50,11 @@ export function getInstitutionCertificationAccess(institutionId) {
 // Sent by a group's leader only -- institutionGroupId is required; the
 // certification/slots are derived server-side from the group. `learners` is a
 // list of { firstName, lastName, email } (name optional, email required).
-export function sendInstitutionInvitations({ institutionGroupId, learners }) {
+// sectionId is optional: when given, accepted learners land in that section.
+export function sendInstitutionInvitations({ institutionGroupId, learners, sectionId = null }) {
   return base("institution/invitations", {
     method: "POST",
-    data: { institutionGroupId, learners },
+    data: { institutionGroupId, learners, sectionId },
   })
 }
 

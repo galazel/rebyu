@@ -291,6 +291,7 @@ public class LearnerService {
                     .assignedAt(LocalDateTime.now())
                     .status(InstitutionGroupAssignee.Status.active)
                     .role(InstitutionGroupAssignee.Role.member)
+                    .section(invitation.getSection())
                     .build();
             institutionGroupAssigneeRepository.save(assignee);
             log.info("Learner {} placed into group {} via invitation {}",

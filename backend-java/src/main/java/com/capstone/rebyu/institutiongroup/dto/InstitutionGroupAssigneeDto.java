@@ -38,4 +38,7 @@ public class InstitutionGroupAssigneeDto {
     private InstitutionGroupAssignee.Role role = InstitutionGroupAssignee.Role.member;
 
     private LocalDateTime removedAt;
+
+    private Long sectionId;
+    private String sectionName;
 }

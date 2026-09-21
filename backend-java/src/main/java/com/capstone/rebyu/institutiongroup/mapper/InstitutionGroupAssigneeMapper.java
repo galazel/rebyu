@@ -12,6 +12,8 @@ public interface InstitutionGroupAssigneeMapper {
     @Mapping(source = "institutionCertLearner.institutionCert.institutionCertId", target = "institutionCertId")
     @Mapping(source = "institutionCertLearner.learner.learnerId", target = "learnerId")
     @Mapping(source = "assignedBy.userId", target = "assignedBy")
+    @Mapping(source = "section.sectionId", target = "sectionId")
+    @Mapping(source = "section.sectionName", target = "sectionName")
     InstitutionGroupAssigneeDto toDto(InstitutionGroupAssignee entity);
 
     @Mapping(source = "institutionGroupId", target = "institutionGroup.institutionGroupId")

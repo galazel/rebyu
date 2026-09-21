@@ -40,6 +40,7 @@ import java.util.List;
 public class InstitutionPortalController {
 
     private final InstitutionPortalService portalService;
+    private final com.capstone.rebyu.billing.service.InstitutionInvoiceService invoiceService;
     private final InstitutionLearningStatsService learningStatsService;
     private final InstitutionService institutionService;
     private final InstitutionMemberService institutionMemberService;
@@ -102,6 +103,18 @@ public class InstitutionPortalController {
     public List<ExamResultDto> learnerExamResults(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long learnerId) {
         return portalService.learnerExamResults(myInstitutionId(jwt), learnerId);
+    }
+
+    @GetMapping("/invoices")
+    public java.util.List<com.capstone.rebyu.billing.service.InstitutionInvoiceService.InvoiceDto> invoices(
+            @AuthenticationPrincipal Jwt jwt) {
+        return invoiceService.listForInstitution(myInstitutionId(jwt));
+    }
+
+    @GetMapping("/invoices/{invoiceId}")
+    public com.capstone.rebyu.billing.service.InstitutionInvoiceService.InvoiceDto invoice(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long invoiceId) {
+        return invoiceService.getForInstitution(myInstitutionId(jwt), invoiceId);
     }
 
     private Long myInstitutionId(Jwt jwt) {

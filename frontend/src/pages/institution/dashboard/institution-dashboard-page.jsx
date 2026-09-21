@@ -23,6 +23,7 @@ import {
   InstitutionLoadingSkeleton,
   InstitutionPageHeader,
   InstitutionStatusBadge,
+  accessWindowStatus,
   formatDateTime,
 } from "@/components/institution/institution-ui.jsx"
 import { BentoHeading, BentoStat, BentoTile } from "@/components/commons/bento.jsx"
@@ -323,7 +324,11 @@ export default function InstitutionDashboardPage() {
               <Figure
                 icon={GraduationCapIcon}
                 label="Active certifications"
-                value={data.institutionCerts.filter((cert) => cert.status === "active").length}
+                value={
+                  data.institutionCerts.filter((cert) =>
+                    ["active", "expiring_soon"].includes(accessWindowStatus(cert).status)
+                  ).length
+                }
               />
               <Figure
                 icon={BarChart3Icon}
@@ -365,12 +370,12 @@ export default function InstitutionDashboardPage() {
         element: (
           <BentoTile col={3} row={2}>
             <BentoHeading
-              title="Completion by group"
-              hint="Average progress across each group's active learners"
+              title="Completion by department"
+              hint="Average progress across each department's active learners"
             />
             {groupStatsQuery.isError ? (
               <p className="mt-4 text-sm text-muted-foreground">
-                Group completion could not be loaded.
+                Department completion could not be loaded.
               </p>
             ) : (
               <BarBreakdownChart

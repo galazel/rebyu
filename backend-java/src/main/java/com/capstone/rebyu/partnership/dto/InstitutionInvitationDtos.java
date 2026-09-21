@@ -46,7 +46,9 @@ public final class InstitutionInvitationDtos {
             Long institutionId,
             Long invitedByUserId,
             @NotNull Long institutionGroupId,
-            @NotEmpty List<@Valid InvitedLearner> learners
+            @NotEmpty List<@Valid InvitedLearner> learners,
+            /* Optional: the section (within the group) the learners join on acceptance. */
+            Long sectionId
     ) {
     }
 
@@ -62,7 +64,9 @@ public final class InstitutionInvitationDtos {
             String lastName,
             String status,
             LocalDateTime sentAt,
-            LocalDateTime expiresAt
+            LocalDateTime expiresAt,
+            Long sectionId,
+            String sectionName
     ) {
     }
 

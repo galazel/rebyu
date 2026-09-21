@@ -132,11 +132,11 @@ const adminGroups = [
    It used to be empty, with a one-link strip repeated at the top of each page. */
 const institutionMemberGroups = [
   {
-    label: "My groups",
+    label: "My departments",
     icon: UsersRound,
     items: [
       {
-        label: "My groups",
+        label: "My departments",
         href: "/institution/member",
         icon: UsersRound,
         match: ["/institution/member", "/institution/groups", "/institution/certifications"],
@@ -189,6 +189,7 @@ const institutionGroups = [
           "/institution/partnership",
           "/institution/license",
           "/institution/files",
+          "/institution/invoices",
         ],
       },
     ],
@@ -238,7 +239,7 @@ function Brand({ role, institutionName }) {
             {label}
           </span>
           <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            REBYU · {role === "INSTITUTION_MEMBER" ? "Group workspace" : "Institution"}
+            REBYU · {role === "INSTITUTION_MEMBER" ? "Department workspace" : "Institution"}
           </span>
         </span>
       </NavLink>

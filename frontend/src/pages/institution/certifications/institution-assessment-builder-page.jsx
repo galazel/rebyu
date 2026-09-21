@@ -626,7 +626,7 @@ export default function InstitutionAssessmentBuilderPage() {
     return <InstitutionLoadingSkeleton />
   }
   if (groupQuery.isError) {
-    return <InstitutionErrorState title="Unable to load this group" onRetry={groupQuery.refetch} />
+    return <InstitutionErrorState title="Unable to load this department" onRetry={groupQuery.refetch} />
   }
 
   const scopeHint =
@@ -725,7 +725,7 @@ export default function InstitutionAssessmentBuilderPage() {
             <p className="text-xs text-muted-foreground">
               No categories available yet — add your own in the{" "}
               <Link
-                to={`/institution/groups/${id}?tab=content`}
+                to={`/institution/departments/${id}?tab=content`}
                 className="font-medium text-primary hover:underline"
               >
                 Content tab

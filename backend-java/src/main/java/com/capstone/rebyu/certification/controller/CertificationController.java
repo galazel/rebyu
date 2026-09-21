@@ -4,12 +4,15 @@ import com.capstone.rebyu.aigateway.service.CurriculumGenerationService;
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
 import com.capstone.rebyu.certification.dto.CertificationDto;
+import com.capstone.rebyu.certification.service.CertificationBadgeService;
 import com.capstone.rebyu.certification.service.CertificationService;
 import com.capstone.rebyu.institutiongroup.service.InstitutionGroupService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -44,6 +47,7 @@ public class CertificationController {
     private final CurriculumGenerationService curriculumGenerationService;
     private final InstitutionGroupService institutionGroupService;
     private final CognitoAuthService auth;
+    private final CertificationBadgeService badgeService;
 
     @GetMapping
     public List<CertificationDto> getAll(
@@ -75,6 +79,10 @@ public class CertificationController {
             @AuthenticationPrincipal Jwt jwt,
             @RequestPart("data") @Valid CertificationDto dto,
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
+            /* The badge artwork, optional. Saved once the certification row
+               exists so it has an id to hang off; a bad image fails the whole
+               request before any generation is queued. */
+            @RequestPart(value = "badge", required = false) MultipartFile badge,
             @RequestParam(value = "additionalInstructions", required = false) String additionalInstructions,
             /* "guided" (default) pauses for admin review at every checkpoint;
                "auto" generates the whole certification without stopping. */
@@ -88,9 +96,40 @@ public class CertificationController {
         CurrentUserDto user = requireAdmin(jwt);
         log.info("AI certification creation requested for '{}' (reviewMode={}, questionTypes={})",
                 dto.getTitle(), reviewMode, questionTypes);
-        return curriculumGenerationService.generateForNewCertification(
+        CertificationDto created = curriculumGenerationService.generateForNewCertification(
                 dto, files, additionalInstructions, user.userId(), reviewMode, questionTypes
         );
+        if (badge != null && !badge.isEmpty()) {
+            created.setBadgeImageKey(badgeService.replace(created.getCertificationId(), badge));
+        }
+        return created;
+    }
+
+    /** The badge image itself. Public, like the catalog it decorates. */
+    @GetMapping("/{id}/badge")
+    public ResponseEntity<byte[]> badge(@PathVariable Long id) {
+        CertificationBadgeService.Badge badge = badgeService.read(id);
+        if (badge == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(badge.contentType()))
+                .cacheControl(CacheControl.maxAge(java.time.Duration.ofMinutes(10)))
+                .body(badge.bytes());
+    }
+
+    @PutMapping(value = "/{id}/badge", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public java.util.Map<String, String> setBadge(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long id,
+            @RequestPart("badge") MultipartFile badge) {
+        requireAdmin(jwt);
+        return java.util.Map.of("badgeImageKey", badgeService.replace(id, badge));
+    }
+
+    @DeleteMapping("/{id}/badge")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeBadge(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        requireAdmin(jwt);
+        badgeService.remove(id);
     }
 
     /**

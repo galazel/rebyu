@@ -43,7 +43,8 @@ public class InstitutionInvitationController {
             @Valid @RequestBody SendInvitationsRequest request) throws Exception {
         CurrentUserDto caller = currentUser(jwt);
         SendInvitationsRequest trusted = new SendInvitationsRequest(
-                requireInstitutionId(caller), caller.userId(), request.institutionGroupId(), request.learners());
+                requireInstitutionId(caller), caller.userId(), request.institutionGroupId(), request.learners(),
+                request.sectionId());
         return invitationService.sendInvitations(trusted);
     }
 

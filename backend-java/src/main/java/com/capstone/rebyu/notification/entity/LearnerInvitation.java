@@ -74,6 +74,11 @@ public class LearnerInvitation {
     @Column(name = "accepted_at")
     private LocalDateTime acceptedAt;
 
+    /** Section the learner is placed into on acceptance, when the invite was sent for one. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "section_id")
+    private com.capstone.rebyu.institutiongroup.entity.InstitutionSection section;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Status status = Status.PENDING;

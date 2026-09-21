@@ -171,11 +171,11 @@ export default function InstitutionGroupLearnerPage() {
       <div className="space-y-4">
         <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate(backToGroup)}>
           <ArrowLeftIcon className="size-4" aria-hidden="true" />
-          Back to group
+          Back to department
         </Button>
         <InstitutionErrorState
           title="Unable to load this learner's statistics"
-          description="They may no longer be assigned to this group."
+          description="They may no longer be assigned to this department."
           onRetry={analyticsQuery.refetch}
         />
       </div>
@@ -195,7 +195,7 @@ export default function InstitutionGroupLearnerPage() {
       <div>
         <Button variant="ghost" size="sm" className="-ml-2 mb-1" onClick={() => navigate(backToGroup)}>
           <ArrowLeftIcon className="size-4" aria-hidden="true" />
-          Back to group
+          Back to department
         </Button>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">

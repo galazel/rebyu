@@ -1,5 +1,6 @@
 package com.capstone.rebyu.partnership.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,7 +17,9 @@ public final class AdminPartnershipDtos {
             String certificationTitle,
             Integer requestedSlots,
             LocalDate requestedAccessStartDate,
-            LocalDate requestedAccessEndDate
+            LocalDate requestedAccessEndDate,
+            BigDecimal unitPrice,
+            BigDecimal lineTotal
     ) {
     }
 
@@ -53,7 +56,16 @@ public final class AdminPartnershipDtos {
             // Populated on the approve response so the admin sees whether the
             // institution's login credentials were emailed. Null on list/detail.
             Boolean institutionAccountEmailed,
-            String institutionAccountNote
+            String institutionAccountNote,
+            // Pricing: flat per-slot rate and the request's total, so the admin
+            // sees what approving will bill before approving it.
+            BigDecimal pricePerSlot,
+            String currency,
+            BigDecimal totalAmount,
+            // The invoice, once approved.
+            Long invoiceId,
+            String invoiceNumber,
+            String invoiceStatus
     ) {
     }
 

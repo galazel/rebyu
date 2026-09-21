@@ -138,6 +138,7 @@ const STATUS_BADGE_VARIANTS = {
   CANCELLED: "outline",
   // invoice / allocation (lowercase enums in backend)
   issued: "secondary",
+  payment_submitted: "secondary",
   paid: "default",
   overdue: "destructive",
   cancelled: "outline",
@@ -146,6 +147,9 @@ const STATUS_BADGE_VARIANTS = {
   expired: "outline",
   pending: "secondary",
   suspended: "destructive",
+  // access-window states derived on the client (see accessWindowStatus)
+  upcoming: "secondary",
+  expiring_soon: "secondary",
 }
 
 export function InstitutionStatusBadge({ status }) {
@@ -157,6 +161,57 @@ export function InstitutionStatusBadge({ status }) {
       {label}
     </Badge>
   )
+}
+
+/** Days from today (local midnight) to a yyyy-mm-dd date; negative when past. */
+function daysUntil(value) {
+  if (!value) return null
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.round((date - today) / 86_400_000)
+}
+
+/**
+ * What an allocation's access window says about it today.
+ *
+ * The row's stored `status` never flips on its own: an allocation approved
+ * for a year still reads "active" the day after it ends. Access is not cut
+ * off -- learners keep what they enrolled in -- but the institution should
+ * see that the window it asked for has closed. So the label is worked out
+ * from the dates here, and only overrides "active"; a suspended or cancelled
+ * allocation keeps saying so whatever the calendar says.
+ *
+ * Returns { status, detail }: status is one of upcoming | active |
+ * expiring_soon | expired (or the stored one), detail a short human line.
+ */
+export function accessWindowStatus(allocation, { soonDays = 30 } = {}) {
+  const stored = allocation?.status ?? null
+  if (stored && stored !== "active") return { status: stored, detail: null }
+
+  const toStart = daysUntil(allocation?.accessStartDate)
+  const toEnd = daysUntil(allocation?.accessExpiryDate ?? allocation?.accessEndDate)
+
+  if (toStart != null && toStart > 0) {
+    return { status: "upcoming", detail: `Starts in ${toStart} day${toStart === 1 ? "" : "s"}` }
+  }
+  if (toEnd != null && toEnd < 0) {
+    const ago = -toEnd
+    return { status: "expired", detail: `Ended ${ago} day${ago === 1 ? "" : "s"} ago` }
+  }
+  if (toEnd != null && toEnd <= soonDays) {
+    return {
+      status: "expiring_soon",
+      detail: toEnd === 0 ? "Ends today" : `Ends in ${toEnd} day${toEnd === 1 ? "" : "s"}`,
+    }
+  }
+  return { status: stored ?? "active", detail: toEnd != null ? `${toEnd} days left` : null }
+}
+
+/** The allocation badge, labelled by its access window rather than its stored status. */
+export function AccessWindowBadge({ allocation }) {
+  return <InstitutionStatusBadge status={accessWindowStatus(allocation).status} />
 }
 
 export function formatDate(value) {

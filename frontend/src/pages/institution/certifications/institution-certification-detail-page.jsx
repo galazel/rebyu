@@ -29,6 +29,7 @@ import {
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
   InstitutionPageHeader,
+  AccessWindowBadge,
   InstitutionStatusBadge,
   formatDate,
 } from "@/components/institution/institution-ui.jsx"
@@ -41,12 +42,28 @@ function asArray(value) {
   return Array.isArray(value) ? value : []
 }
 
-function MiddleCategoryRow({ middleCategory, onAddQuestion }) {
-  const [isOpen, setIsOpen] = useState(false)
-  const lessons = middleCategory.lessons ?? []
-
+/** One published assessment, wherever it sits in the tree. */
+function ExamRow({ exam, label, className = "" }) {
   return (
-    <div className="overflow-hidden rounded-xl border">
+    <div
+      className={`flex items-center justify-between gap-3 rounded-lg border border-dashed bg-background px-3 py-2 ${className}`}
+    >
+      <span className="flex min-w-0 items-center gap-2 text-sm">
+        <ClipboardCheckIcon className="size-4 shrink-0 text-primary" aria-hidden="true" />
+        <span className="truncate font-medium">{exam.title}</span>
+      </span>
+      <Badge variant="outline" className="shrink-0 capitalize">
+        {String(label ?? "Assessment").replaceAll("_", " ").toLowerCase()}
+      </Badge>
+    </div>
+  )
+}
+
+/** A collapsible row: header on the left, chevron on the right, children when open. */
+function AccordionRow({ title, meta, defaultOpen = false, level = 0, children }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+  return (
+    <div className={`overflow-hidden rounded-xl border ${level === 0 ? "bg-background" : ""}`}>
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
@@ -54,10 +71,8 @@ function MiddleCategoryRow({ middleCategory, onAddQuestion }) {
         className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-muted/50"
       >
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{middleCategory.title}</p>
-          <p className="text-xs text-muted-foreground">
-            {lessons.length} lesson{lessons.length === 1 ? "" : "s"}
-          </p>
+          <p className={`truncate ${level === 0 ? "text-sm font-bold" : "text-sm font-semibold"}`}>{title}</p>
+          {meta ? <p className="text-xs text-muted-foreground">{meta}</p> : null}
         </div>
         {isOpen ? (
           <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -65,36 +80,122 @@ function MiddleCategoryRow({ middleCategory, onAddQuestion }) {
           <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         )}
       </button>
+      {isOpen ? <div className="space-y-2 border-t bg-muted/20 p-3">{children}</div> : null}
+    </div>
+  )
+}
 
-      {isOpen ? (
-        <div className="space-y-1.5 border-t bg-muted/20 p-3">
-          {lessons.length === 0 ? (
-            <p className="px-2 py-2 text-sm text-muted-foreground">
-              No lessons in this module yet.
-            </p>
-          ) : (
-            lessons.map((lesson, index) => (
-              <div
-                key={lesson.lessonId ?? index}
-                className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2"
-              >
-                <span className="truncate text-sm">{lesson.name}</span>
+function countLabel(count, noun) {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`
+}
+
+/**
+ * The curriculum with its assessments in place: each lesson quiz under its
+ * lesson, each module exam under its module, each major exam under its major,
+ * and the certification-wide ones (diagnostic, mock) as the last section.
+ *
+ * It used to be a flat "Certification assessments" list under the tree, which
+ * put a lesson quiz next to the mock exam with nothing saying where in the
+ * course either belonged.
+ */
+function MiddleCategoryRow({ middleCategory, examsFor, typeLabel, onAddQuestion }) {
+  const lessons = middleCategory.lessons ?? []
+  const middleExams = examsFor("middle", middleCategory.middleCategoryId)
+  const lessonExamCount = lessons.reduce(
+    (total, lesson) => total + examsFor("lesson", lesson.lessonId).length,
+    0
+  )
+  const assessmentCount = middleExams.length + lessonExamCount
+
+  return (
+    <AccordionRow
+      level={1}
+      title={middleCategory.title}
+      meta={[countLabel(lessons.length, "lesson"), assessmentCount ? countLabel(assessmentCount, "assessment") : null]
+        .filter(Boolean)
+        .join(" · ")}
+    >
+      {lessons.length === 0 ? (
+        <p className="px-2 py-2 text-sm text-muted-foreground">No lessons in this module yet.</p>
+      ) : (
+        lessons.map((lesson, index) => {
+          const lessonExams = examsFor("lesson", lesson.lessonId)
+          return (
+            <div key={lesson.lessonId ?? index} className="space-y-1.5">
+              <div className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2">
+                <span className="flex min-w-0 items-center gap-2 text-sm">
+                  <BookOpenIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <span className="truncate">{lesson.name}</span>
+                </span>
                 {onAddQuestion ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onAddQuestion(lesson.lessonId)}
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => onAddQuestion(lesson.lessonId)}>
                     <FileQuestionIcon className="size-4" aria-hidden="true" />
                     Add Question
                   </Button>
                 ) : null}
               </div>
-            ))
-          )}
+              {lessonExams.map((exam) => (
+                <ExamRow key={exam.examId} exam={exam} label={typeLabel(exam)} className="ml-6" />
+              ))}
+            </div>
+          )
+        })
+      )}
+      {middleExams.length ? (
+        <div className="space-y-1.5 border-t pt-2">
+          <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Module assessments
+          </p>
+          {middleExams.map((exam) => (
+            <ExamRow key={exam.examId} exam={exam} label={typeLabel(exam)} />
+          ))}
         </div>
       ) : null}
-    </div>
+    </AccordionRow>
+  )
+}
+
+function MajorCategoryRow({ major, index, examsFor, typeLabel }) {
+  const middles = major.middleCategory ?? []
+  const majorExams = examsFor("major", major.majorCategoryId)
+  const lessonCount = middles.reduce((total, middle) => total + (middle.lessons?.length ?? 0), 0)
+
+  return (
+    <AccordionRow
+      level={0}
+      defaultOpen={index === 0}
+      title={
+        <>
+          <span className="text-primary">Major Category {index + 1}:</span> {major.title}
+        </>
+      }
+      meta={[
+        countLabel(middles.length, "module"),
+        countLabel(lessonCount, "lesson"),
+        majorExams.length ? countLabel(majorExams.length, "major exam") : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")}
+    >
+      {middles.map((middle, middleIndex) => (
+        <MiddleCategoryRow
+          key={middle.middleCategoryId ?? middleIndex}
+          middleCategory={middle}
+          examsFor={examsFor}
+          typeLabel={typeLabel}
+        />
+      ))}
+      {majorExams.length ? (
+        <div className="space-y-1.5 border-t pt-2">
+          <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Major assessments
+          </p>
+          {majorExams.map((exam) => (
+            <ExamRow key={exam.examId} exam={exam} label={typeLabel(exam)} />
+          ))}
+        </div>
+      ) : null}
+    </AccordionRow>
   )
 }
 
@@ -144,6 +245,30 @@ export default function InstitutionCertificationDetailPage() {
   const certificationExams = asArray(examsQuery.data).filter(
     (exam) => exam.certificationId === institutionCert?.certificationId && exam.status === "PUBLISHED"
   )
+  /* Exams keyed by where they sit. Scope is decided by the most specific id
+     the exam carries: a lesson quiz also names its module and major, and must
+     only show under the lesson. Anything with no id at all is
+     certification-wide -- the diagnostic and the mock exam. */
+  const examsByScope = useMemo(() => {
+    const index = { lesson: new Map(), middle: new Map(), major: new Map(), certification: [] }
+    const push = (map, key, exam) => map.set(key, [...(map.get(key) ?? []), exam])
+    for (const exam of certificationExams) {
+      if (exam.lessonId != null) push(index.lesson, exam.lessonId, exam)
+      else if (exam.middleCategoryId != null) push(index.middle, exam.middleCategoryId, exam)
+      else if (exam.majorCategoryId != null) push(index.major, exam.majorCategoryId, exam)
+      else index.certification.push(exam)
+    }
+    return index
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [examsQuery.data, institutionCert?.certificationId])
+  const examsFor = (scope, id) => examsByScope[scope].get(id) ?? []
+  const typeLabel = (exam) => examTypeById.get(exam.examTypeId) ?? "Assessment"
+  /* Diagnostic first (it is sat before studying), mock exam last. */
+  const scopeRank = (exam) => {
+    const label = String(typeLabel(exam)).toUpperCase()
+    return label.includes("DIAGNOSTIC") ? 0 : label.includes("MOCK") ? 2 : 1
+  }
+  const certificationWideExams = [...examsByScope.certification].sort((a, b) => scopeRank(a) - scopeRank(b))
 
   const groupInvitations = useMemo(() => {
     const groupIds = new Set(groups.map((g) => g.institutionGroupId))
@@ -212,7 +337,7 @@ export default function InstitutionCertificationDetailPage() {
       <InstitutionPageHeader
         title={certification.title}
         subtitle={certification.description || "No description available."}
-        actions={<InstitutionStatusBadge status={institutionCert.status} />}
+        actions={<AccessWindowBadge allocation={institutionCert} />}
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -261,87 +386,66 @@ export default function InstitutionCertificationDetailPage() {
         </TabsList>
 
         <TabsContent value="curriculum" className="space-y-4">
-          {majorCategories.length === 0 ? (
+          {majorCategories.length === 0 && certificationWideExams.length === 0 ? (
             <InstitutionEmptyState
               icon={Layers3Icon}
               title="No content yet"
               description="This certification has no categories or lessons yet."
             />
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-3">
               {majorCategories.map((major, majorIndex) => (
-                <section key={major.majorCategoryId ?? majorIndex} className="space-y-2">
-                  <p className="text-sm font-semibold">
-                    <span className="text-primary">
-                      Major Category {majorIndex + 1}:
-                    </span>{" "}
-                    {major.title}
-                  </p>
-                  <div className="space-y-2">
-                    {(major.middleCategory ?? []).map((middle, middleIndex) => (
-                      <MiddleCategoryRow
-                        key={middle.middleCategoryId ?? middleIndex}
-                        middleCategory={middle}
-                      />
-                    ))}
-                  </div>
-                </section>
+                <MajorCategoryRow
+                  key={major.majorCategoryId ?? majorIndex}
+                  major={major}
+                  index={majorIndex}
+                  examsFor={examsFor}
+                  typeLabel={typeLabel}
+                />
               ))}
+
+              {/* The certification-wide exams close the accordion the way
+                  they close the course: a diagnostic before you start and the
+                  mock exam at the end. */}
+              {certificationWideExams.length ? (
+                <AccordionRow
+                  level={0}
+                  defaultOpen={majorCategories.length === 0}
+                  title={
+                    <span className="flex items-center gap-2">
+                      <ClipboardCheckIcon className="size-4 text-primary" aria-hidden="true" />
+                      Certification assessments
+                    </span>
+                  }
+                  meta={`${countLabel(certificationWideExams.length, "assessment")} · diagnostic and mock exams for the whole certification`}
+                >
+                  {certificationWideExams.map((exam) => (
+                    <ExamRow key={exam.examId} exam={exam} label={typeLabel(exam)} />
+                  ))}
+                </AccordionRow>
+              ) : null}
             </div>
           )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ClipboardCheckIcon className="size-4 text-primary" aria-hidden="true" />
-                Certification assessments
-              </CardTitle>
-              <CardDescription>
-                Diagnostics, mock exams, and other published assessments for this certification.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {certificationExams.length ? (
-                <ul className="divide-y rounded-lg border">
-                  {certificationExams.map((exam) => (
-                    <li
-                      key={exam.examId}
-                      className="flex items-center justify-between gap-2 px-3 py-2.5"
-                    >
-                      <span className="text-sm font-medium">{exam.title}</span>
-                      <Badge variant="outline">
-                        {examTypeById.get(exam.examTypeId) ?? "Assessment"}
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No published assessments for this certification yet.
-                </p>
-              )}
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="groups" className="space-y-4">
           <div className="flex justify-end">
             <Button asChild size="sm">
-              <Link to={`/institution/groups?institutionCertId=${numericInstitutionCertId}`}>
+              <Link to={`/institution/departments?institutionCertId=${numericInstitutionCertId}`}>
                 <UsersRoundIcon className="size-4" aria-hidden="true" />
-                Manage groups
+                Manage departments
               </Link>
             </Button>
           </div>
           {groups.length === 0 ? (
             <InstitutionEmptyState
               icon={UsersRoundIcon}
-              title="No groups yet"
-              description="Create a group under this certification to assign a leader and start inviting learners."
+              title="No departments yet"
+              description="Create a department under this certification to assign a department head and start inviting learners."
               action={
                 <Button asChild size="sm">
-                  <Link to={`/institution/groups?institutionCertId=${numericInstitutionCertId}`}>
-                    Create group
+                  <Link to={`/institution/departments?institutionCertId=${numericInstitutionCertId}`}>
+                    Create department
                   </Link>
                 </Button>
               }
@@ -371,7 +475,7 @@ export default function InstitutionCertificationDetailPage() {
             <InstitutionEmptyState
               icon={MailIcon}
               title="No invitations yet"
-              description="Invitations are sent by each group's leader, from within the group."
+              description="Invitations are sent by each department head, from within their department."
             />
           ) : (
             <div className="divide-y rounded-lg border">

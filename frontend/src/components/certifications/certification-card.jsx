@@ -26,6 +26,7 @@ import { generationErrorOf, generationStatusOf } from "@/hooks/use-active-genera
 import { retryWorkflowRun } from "@/services/aiWorkflowService"
 import CertificationCover from "@/components/certifications/certification-cover.jsx"
 import {
+  certificationBadgeUrl,
   deleteCertification,
   publishCertification,
 } from "@/services/certificationService.js"
@@ -171,6 +172,8 @@ function CertificationCard({ item, certification, generationRun = null }) {
 
   const certificationTitle =
       currentCertification?.title ?? item?.title ?? "Untitled Certification"
+
+  const badgeImageKey = currentCertification?.badgeImageKey ?? item?.badgeImageKey ?? null
 
   const certificationDescription =
       currentCertification?.description ??
@@ -436,6 +439,18 @@ function CertificationCard({ item, certification, generationRun = null }) {
                 title={certificationTitle}
                 className="h-full w-full"
             />
+
+            {badgeImageKey ? (
+                /* The earned emblem, pinned bottom-left over the wordmark the
+                   way Credly shows a badge on its issuer's colour. The key is
+                   part of the src so a replaced badge is never served from the
+                   browser's cache of the old one. */
+                <img
+                    src={`${certificationBadgeUrl(certificationId)}?v=${encodeURIComponent(badgeImageKey)}`}
+                    alt=""
+                    className="absolute bottom-3 left-3 size-16 rounded-full border-4 border-white/90 bg-white object-cover shadow-md"
+                />
+            ) : null}
 
             {isEmpty && !isGenerating ? (
                 /* A wanted-poster stamp: rotated hard, outlined, and centred

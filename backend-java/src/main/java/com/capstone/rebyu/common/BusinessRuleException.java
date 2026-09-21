@@ -99,4 +99,11 @@ public abstract class BusinessRuleException extends RuntimeException {
             super(message);
         }
     }
+
+    /** A certification badge upload that is missing, too large, or not an image. */
+    public static class InvalidBadgeImageException extends BusinessRuleException {
+        public InvalidBadgeImageException(String message) {
+            super(message);
+        }
+    }
 }

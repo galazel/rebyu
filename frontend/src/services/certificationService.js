@@ -1,4 +1,4 @@
-import { base } from "./base"
+import { API, base } from "./base"
 
 // Omit includeGroupId for the official curriculum only (what every existing
 // caller does). Pass a group id to also mix in that group's own
@@ -146,7 +146,8 @@ export async function addCertificationWithAi(
     files,
     onUploadProgress,
     reviewMode = "guided",
-    questionTypes = []
+    questionTypes = [],
+    badge = null
 ) {
     const formData = new FormData()
 
@@ -158,6 +159,10 @@ export async function addCertificationWithAi(
     files.forEach((file) => {
         formData.append("files", file)
     })
+
+    // The badge artwork, when one was chosen. Its own part name so the server
+    // never mistakes it for a source document.
+    if (badge) formData.append("badge", badge)
 
     const params = new URLSearchParams({ reviewMode })
     // Repeated key so Spring binds it as List<String>; see the append call.
@@ -214,4 +219,18 @@ export async function appendToCertificationWithAi(
         `certifications/${certificationId}/generate/append?${params.toString()}`,
         { method: "POST", data: formData, onUploadProgress }
     )
+}
+/** Where a certification's badge image is served from; 404 when it has none. */
+export function certificationBadgeUrl(certificationId) {
+    return `${API}/certifications/${certificationId}/badge`
+}
+
+export function setCertificationBadge(certificationId, file) {
+    const formData = new FormData()
+    formData.append("badge", file)
+    return base(`certifications/${certificationId}/badge`, { method: "PUT", data: formData })
+}
+
+export function removeCertificationBadge(certificationId) {
+    return base(`certifications/${certificationId}/badge`, { method: "DELETE" })
 }

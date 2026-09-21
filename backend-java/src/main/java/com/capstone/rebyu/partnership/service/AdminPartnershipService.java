@@ -57,6 +57,8 @@ public class AdminPartnershipService {
     private final UserTypeRepository userTypeRepository;
     private final CognitoAdminService cognitoAdminService;
     private final NotificationService notificationService;
+    private final com.capstone.rebyu.billing.service.InstitutionInvoiceService invoiceService;
+    private final com.capstone.rebyu.notification.service.EmailService emailService;
 
     @Transactional(readOnly = true)
     public List<PartnershipRequestSummaryDto> list(String statusFilter) {
@@ -132,6 +134,30 @@ public class AdminPartnershipService {
 
         // Provision the institution login account and email their credentials.
         CognitoAdminService.ProvisionResult provision = provisionInstitutionAccount(institution, request);
+
+        // Bill it: one invoice for the slots just granted, then the welcome
+        // email pointing at it. Email failure must not roll back an approval.
+        java.util.List<PartnershipRequestItem> billedItems = itemRepository.findByPartnershipRequest_RequestId(requestId);
+        com.capstone.rebyu.billing.entity.InstitutionInvoice invoice =
+                invoiceService.issueForApprovedRequest(request, institution, billedItems);
+        try {
+            java.util.List<String> lines = billedItems.stream()
+                    .map(item -> item.getCertification().getTitle() + " - " + item.getSlots() + " learner slot(s)"
+                            + (item.getRequestedAccessStartDate() != null && item.getRequestedAccessEndDate() != null
+                                    ? " (" + item.getRequestedAccessStartDate() + " to " + item.getRequestedAccessEndDate() + ")"
+                                    : ""))
+                    .toList();
+            emailService.sendPartnershipWelcome(
+                    request.getInstitutionEmail(),
+                    request.getInstitutionName(),
+                    request.getReferenceNumber(),
+                    invoice.getInvoiceNumber(),
+                    formatMoney(invoice.getTotalAmount()),
+                    "/institution/invoices/" + invoice.getInstitutionInvoiceId(),
+                    lines);
+        } catch (RuntimeException e) {
+            log.warn("Welcome email for request {} could not be sent: {}", request.getReferenceNumber(), e.getMessage());
+        }
 
         log.info("Partnership request {} APPROVED (institution {}); account emailed={}",
                 request.getReferenceNumber(), institution.getInstitutionId(), provision.emailed());
@@ -223,6 +249,11 @@ public class AdminPartnershipService {
             }
         }
         return result;
+    }
+
+    private static String formatMoney(java.math.BigDecimal amount) {
+        return "PHP " + java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(
+                amount == null ? java.math.BigDecimal.ZERO : amount.setScale(2, java.math.RoundingMode.HALF_UP));
     }
 
     private String[] splitName(String fullName) {
@@ -360,8 +391,14 @@ public class AdminPartnershipService {
                         item.getCertification().getTitle(),
                         item.getSlots(),
                         item.getRequestedAccessStartDate(),
-                        item.getRequestedAccessEndDate()))
+                        item.getRequestedAccessEndDate(),
+                        com.capstone.rebyu.billing.service.InstitutionInvoiceService.PRICE_PER_SLOT,
+                        com.capstone.rebyu.billing.service.InstitutionInvoiceService.lineTotal(item.getSlots())))
                 .toList();
+        java.math.BigDecimal total = items.stream().map(PartnershipItemDetailDto::lineTotal)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        com.capstone.rebyu.billing.service.InstitutionInvoiceService.InvoiceDto invoice =
+                invoiceService.findForRequest(request.getRequestId());
         return new PartnershipRequestDetailDto(
                 request.getRequestId(),
                 request.getReferenceNumber(),
@@ -379,7 +416,13 @@ public class AdminPartnershipService {
                 request.getInstitution() != null ? request.getInstitution().getInstitutionId() : null,
                 items,
                 accountEmailed,
-                accountNote
+                accountNote,
+                com.capstone.rebyu.billing.service.InstitutionInvoiceService.PRICE_PER_SLOT,
+                com.capstone.rebyu.billing.service.InstitutionInvoiceService.CURRENCY,
+                total,
+                invoice != null ? invoice.institutionInvoiceId() : null,
+                invoice != null ? invoice.invoiceNumber() : null,
+                invoice != null ? invoice.status() : null
         );
     }
 }

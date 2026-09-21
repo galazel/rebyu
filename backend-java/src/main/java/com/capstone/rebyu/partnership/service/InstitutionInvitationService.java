@@ -58,6 +58,7 @@ public class InstitutionInvitationService {
     private final InstitutionGroupAuthorityRepository institutionGroupAuthorityRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final com.capstone.rebyu.institutiongroup.repository.InstitutionSectionRepository sectionRepository;
 
 
     @Transactional(readOnly = true)
@@ -159,6 +160,16 @@ public class InstitutionInvitationService {
                             + remainingInGroup + " slot(s) remaining in this group.");
         }
 
+        // The section, if asked for, must be a live one inside this very group --
+        // an id from another department is refused rather than silently dropped.
+        com.capstone.rebyu.institutiongroup.entity.InstitutionSection section = null;
+        if (request.sectionId() != null) {
+            section = sectionRepository
+                    .findBySectionIdAndInstitutionGroup_InstitutionGroupId(request.sectionId(), group.getInstitutionGroupId())
+                    .filter(s -> s.getStatus() == com.capstone.rebyu.institutiongroup.entity.InstitutionSection.Status.active)
+                    .orElseThrow(() -> new IllegalArgumentException("That section does not belong to this department."));
+        }
+
         LocalDateTime now = LocalDateTime.now();
         List<InvitationDto> created = new ArrayList<>();
         for (InvitedLearner entry : toInvite.values()) {
@@ -171,6 +182,7 @@ public class InstitutionInvitationService {
             LearnerInvitation invitation = LearnerInvitation.builder()
                     .institutionCert(institutionCert)
                     .institutionGroup(group)
+                    .section(section)
                     .invitedBy(User.builder().userId(request.invitedByUserId()).build())
                     .email(email)
                     .firstName(entry.firstName())
@@ -312,7 +324,9 @@ public class InstitutionInvitationService {
                 invitation.getLastName(),
                 invitation.getStatus().name(),
                 invitation.getSentAt(),
-                invitation.getExpiresAt()
+                invitation.getExpiresAt(),
+                invitation.getSection() != null ? invitation.getSection().getSectionId() : null,
+                invitation.getSection() != null ? invitation.getSection().getSectionName() : null
         );
     }
 }

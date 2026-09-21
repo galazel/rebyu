@@ -65,6 +65,13 @@ public class Certification {
     @Column(name = "exam_structure")
     private String examStructure;
 
+    /**
+     * S3 key of the badge artwork (the Credly-style emblem shown on the card
+     * and on a learner's earned certificate). Null until an admin uploads one.
+     */
+    @Column(name = "badge_image_key", length = 500)
+    private String badgeImageKey;
+
     public enum CertificationStatus{
         PUBLISHED, DRAFT
     }

@@ -245,7 +245,7 @@ export default function InstitutionLearnersPage() {
                           they are taught in -- not a performance report. */}
                       <TableHead>Learner</TableHead>
                       <TableHead>Certification</TableHead>
-                      <TableHead>Group</TableHead>
+                      <TableHead>Department</TableHead>
                       <TableHead>Assigned</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
@@ -273,7 +273,7 @@ export default function InstitutionLearnersPage() {
                               row.group.groupName
                             ) : (
                               <span className="text-sm text-muted-foreground">
-                                Not in a group
+                                Not in a department
                               </span>
                             )}
                           </TableCell>

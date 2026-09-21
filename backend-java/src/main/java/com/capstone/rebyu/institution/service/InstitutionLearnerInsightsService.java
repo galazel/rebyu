@@ -59,7 +59,9 @@ public class InstitutionLearnerInsightsService {
             LocalDateTime assignedAt,
             int completedLessonCount,
             int totalLessonCount,
-            Double completionPercentage
+            Double completionPercentage,
+            Long sectionId,
+            String sectionName
     ) {}
 
     private final InstitutionGroupRepository institutionGroupRepository;
@@ -198,7 +200,9 @@ public class InstitutionLearnerInsightsService {
                 assignee.getAssignedAt(),
                 completedLessons,
                 totalLessons,
-                completionPercentage
+                completionPercentage,
+                assignee.getSection() != null ? assignee.getSection().getSectionId() : null,
+                assignee.getSection() != null ? assignee.getSection().getSectionName() : null
         );
     }
 

@@ -21,7 +21,7 @@ export default function InstitutionMemberDashboardPage() {
 
   if (groupsQuery.isLoading) return <InstitutionLoadingSkeleton />
   if (groupsQuery.isError)
-    return <InstitutionErrorState title="Unable to load your groups" onRetry={groupsQuery.refetch} />
+    return <InstitutionErrorState title="Unable to load your departments" onRetry={groupsQuery.refetch} />
 
   const groups = (groupsQuery.data ?? []).filter((group) => group.status === "active")
 
@@ -41,17 +41,17 @@ export default function InstitutionMemberDashboardPage() {
           this file. */}
       <section className="space-y-4">
         <div>
-          <h2 className="font-rb-display text-xl font-extrabold lowercase">your groups</h2>
+          <h2 className="font-rb-display text-xl font-extrabold lowercase">your departments</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Choose a group to view its curriculum, instructional content, and learners.
+            Choose a department to view its curriculum, instructional content, and learners.
           </p>
         </div>
 
         {groups.length === 0 ? (
           <InstitutionEmptyState
             icon={UsersRoundIcon}
-            title="No groups assigned"
-            description="Ask your Institution Administrator to assign you as a group authority."
+            title="No departments assigned"
+            description="Ask your Institution Administrator to assign you as a department department head."
           />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -66,7 +66,7 @@ export default function InstitutionMemberDashboardPage() {
                 title={group.groupName}
                 footer={
                   <Button asChild className="w-full">
-                    <Link to={`/institution/groups/${group.institutionGroupId}`}>
+                    <Link to={`/institution/departments/${department.institutionGroupId}`}>
                       <BookOpenIcon className="size-4" />
                       Open workspace
                     </Link>

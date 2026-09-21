@@ -229,6 +229,8 @@ public class CertificationService {
          */
         updatedCertification.setStatus(existingCertification.getStatus());
         updatedCertification.setExamStructure(existingCertification.getExamStructure());
+        // The badge is changed through its own endpoint, never through the edit form.
+        updatedCertification.setBadgeImageKey(existingCertification.getBadgeImageKey());
 
         updatedCertification.setDateUpdated(LocalDateTime.now());
 

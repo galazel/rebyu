@@ -66,6 +66,55 @@ public class EmailService {
         sendHtml(recipientEmail, subject, text, html);
     }
 
+    /**
+     * The welcome sent when a partnership request is approved: what was
+     * granted, what it costs, and a button to the invoice. Sign-in details
+     * arrive separately (see sendTemporaryPassword / Cognito).
+     */
+    public void sendPartnershipWelcome(
+            String recipientEmail,
+            String institutionName,
+            String referenceNumber,
+            String invoiceNumber,
+            String amountDue,
+            String invoicePath,
+            java.util.List<String> lineSummaries
+    ) {
+        String base = frontendUrl.replaceAll("/+$", "");
+        String invoiceUrl = base + invoicePath;
+        String subject = "Welcome to REBYU, " + institutionName + " - your partnership is approved";
+        StringBuilder textLines = new StringBuilder();
+        StringBuilder htmlLines = new StringBuilder();
+        for (String line : lineSummaries) {
+            textLines.append("  - ").append(line).append('\n');
+            htmlLines.append("<li>").append(escape(line)).append("</li>");
+        }
+        String text = """
+                Hello %s,
+
+                Welcome to REBYU! Your partnership request (%s) has been approved and your institution account is ready.
+
+                Certification access granted:
+                %s
+                Invoice %s - amount due: %s
+
+                View your invoice here:
+                %s
+
+                Your sign-in details are sent in a separate email. Once you are in, head to Certifications to create departments and invite your learners.
+
+                REBYU Team
+                """.formatted(institutionName, referenceNumber, textLines, invoiceNumber, amountDue, invoiceUrl);
+        String html = frame("<p>Hello <b>" + escape(institutionName) + "</b>,</p>"
+                + "<p>Welcome to REBYU! Your partnership request <b>" + escape(referenceNumber)
+                + "</b> has been approved and your institution account is ready.</p>"
+                + "<p style=\"margin-bottom:4px\"><b>Certification access granted</b></p><ul style=\"margin-top:0\">" + htmlLines + "</ul>"
+                + "<p>Invoice <b>" + escape(invoiceNumber) + "</b> &middot; amount due <b>" + escape(amountDue) + "</b></p>"
+                + "<p><a href=\"" + invoiceUrl + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;display:inline-block\">View invoice</a></p>"
+                + "<p style=\"font-size:12px;color:#6b706c\">Your sign-in details arrive in a separate email. Once you are in, open Certifications to create departments and invite learners.</p>");
+        sendHtml(recipientEmail, subject, text, html);
+    }
+
     /** First sign-in details for an account REBYU created, as the Cognito email used to send. */
     public void sendTemporaryPassword(String recipientEmail, String temporaryPassword, String signInUrl) {
         String text = """

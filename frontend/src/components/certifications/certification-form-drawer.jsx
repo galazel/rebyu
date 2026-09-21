@@ -10,6 +10,7 @@ import { formatLocalDateTime, validateCertificationDetails } from "@/utils/certi
 
 import CertificationDetails from "@/components/certifications/certification-details"
 import { DocumentUploadStep } from "@/components/certifications/document-upload-step.jsx"
+import { BadgeUploadStep } from "@/components/certifications/badge-upload-step.jsx"
 import { QuestionTypeChoice } from "@/components/certifications/question-type-choice.jsx"
 
 import { Button } from "@/components/ui/button"
@@ -159,6 +160,9 @@ export default function CertificationFormDrawer({
     const [submissionError, setSubmissionError] = useState("")
 
     const [sourceDocuments, setSourceDocuments] = useState([])
+    /* The badge artwork, or null. Sent along with the documents so a
+       certification is born with its emblem rather than picking one up later. */
+    const [badgeImage, setBadgeImage] = useState(null)
     const [uploadPercent, setUploadPercent] = useState(0)
     /* Seconds since the upload finished and the server started reading the
        documents. The only thing this screen can honestly report about that
@@ -173,7 +177,7 @@ export default function CertificationFormDrawer({
         mutateAsync: createWithAi,
         isPending: isBusy,
     } = useMutation({
-        mutationFn: ({ payload, documents, mode, questionTypes: chosenTypes }) =>
+        mutationFn: ({ payload, documents, mode, questionTypes: chosenTypes, badge }) =>
             addCertificationWithAi(
                 payload,
                 documents,
@@ -184,7 +188,8 @@ export default function CertificationFormDrawer({
                             : 0
                     ),
                 mode,
-                chosenTypes
+                chosenTypes,
+                badge
             ),
     })
 
@@ -207,6 +212,7 @@ export default function CertificationFormDrawer({
     function resetForm() {
         setCertificationDetails(getEmptyDetails())
         setSourceDocuments([])
+        setBadgeImage(null)
         setUploadPercent(0)
         setReviewMode("auto")
         setDetailsErrors({})
@@ -287,6 +293,7 @@ export default function CertificationFormDrawer({
                 documents: sourceDocuments,
                 mode: reviewMode,
                 questionTypes,
+                badge: badgeImage,
             })
 
             await onSaved?.(savedCertification)
@@ -407,6 +414,17 @@ export default function CertificationFormDrawer({
                             errors={detailsErrors}
                             disabled={isBusy}
                         />
+
+                        {/* The badge comes right after the identity fields: it
+                            is part of what the certification is, not part of
+                            how it is built. */}
+                        <div className="border-t border-border pt-8">
+                            <BadgeUploadStep
+                                value={badgeImage}
+                                onChange={setBadgeImage}
+                                disabled={isBusy}
+                            />
+                        </div>
 
                         <div className="border-t border-border pt-8">
                             <DocumentUploadStep

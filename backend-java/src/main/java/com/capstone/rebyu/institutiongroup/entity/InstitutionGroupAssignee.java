@@ -60,4 +60,9 @@ public class InstitutionGroupAssignee {
 
     @Column(name = "removed_at")
     private LocalDateTime removedAt;
+
+    /** The section within the department this learner sits in; null = unsectioned. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "section_id")
+    private InstitutionSection section;
 }

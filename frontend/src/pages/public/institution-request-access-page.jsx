@@ -21,7 +21,7 @@ import {
 } from "@/components/rebyu/rebyu-ui.jsx"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getAllCertifications } from "@/services/certificationService.js"
-import { submitPublicPartnershipRequest } from "@/services/partnershipService.js"
+import { getPartnershipPricing, submitPublicPartnershipRequest } from "@/services/partnershipService.js"
 import { TraySupplies } from "@/components/classroom/tray-supplies.jsx"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -124,6 +124,16 @@ export default function InstitutionRequestAccessPage() {
   const [error, setError] = useState("")
   const [confirmation, setConfirmation] = useState(null)
 
+  /* The per-slot rate comes from the server so this quote and the invoice
+     never drift apart; 149 is the fallback while it loads. */
+  const pricingQuery = useQuery({
+    queryKey: ["partnership-pricing"],
+    queryFn: getPartnershipPricing,
+    staleTime: 60 * 60 * 1000,
+  })
+  const pricePerSlot = Number(pricingQuery.data?.pricePerSlot ?? 149)
+  const currency = pricingQuery.data?.currency ?? "PHP"
+
   const certificationsQuery = useQuery({
     queryKey: ["certifications"],
     queryFn: () => getAllCertifications(),
@@ -193,6 +203,7 @@ export default function InstitutionRequestAccessPage() {
     (sum, item) => sum + (Number.isFinite(item.requestedSlots) ? item.requestedSlots : 0),
     0
   )
+  const totalAmount = totalSlots * pricePerSlot
 
   const submitMutation = useMutation({
     mutationFn: () =>
@@ -206,6 +217,8 @@ export default function InstitutionRequestAccessPage() {
         items: selectedItems.map((item) => ({
           certificationId: item.certificationId,
           requestedSlots: item.requestedSlots,
+          requestedAccessStartDate: item.start,
+          requestedAccessEndDate: item.end,
         })),
       }),
     onSuccess: (response) => {
@@ -241,6 +254,12 @@ export default function InstitutionRequestAccessPage() {
       )
     )
       return "Each selected certification needs at least 1 learner slot."
+    if (selectedItems.some((item) => !item.start || !item.end))
+      return "Pick an access start and end date for each selected certification."
+    if (selectedItems.some((item) => item.start < isoDate(0)))
+      return "An access start date cannot be in the past."
+    if (selectedItems.some((item) => item.end <= item.start))
+      return "Each access end date must be after its start date."
     return ""
   }
 
@@ -473,17 +492,35 @@ export default function InstitutionRequestAccessPage() {
                         {item.certification?.title ??
                           `Certification #${item.certificationId}`}
                       </span>
-                      <span className="rb-numeric shrink-0 text-sm text-rb-wolf">
-                        {Number.isFinite(item.requestedSlots) ? item.requestedSlots : 0}
+                      <span className="rb-numeric shrink-0 text-sm text-rb-eel">
+                        {formatMoney((Number.isFinite(item.requestedSlots) ? item.requestedSlots : 0) * pricePerSlot, currency)}
+                      </span>
+                      <span className="rb-caption w-full text-xs text-rb-wolf">
+                        {Number.isFinite(item.requestedSlots) ? item.requestedSlots : 0} slot(s) ×{" "}
+                        {formatMoney(pricePerSlot, currency)}
+                        {item.start && item.end
+                          ? ` · ${formatShortDate(item.start)} – ${formatShortDate(item.end)}`
+                          : ""}
                       </span>
                     </li>
                   ))}
                 </ul>
-                <div className="mt-4 flex items-baseline justify-between gap-3 border-t-2 border-rb-swan pt-4">
-                  <span className="text-sm font-bold text-rb-eel">
-                    Total learner slots
-                  </span>
-                  <span className="rb-numeric text-xl">{totalSlots}</span>
+                <div className="mt-4 space-y-1.5 border-t-2 border-rb-swan pt-4">
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="text-rb-wolf">Learner slots</span>
+                    <span className="rb-numeric text-rb-eel">{totalSlots}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="text-rb-wolf">Price per slot</span>
+                    <span className="rb-numeric text-rb-eel">{formatMoney(pricePerSlot, currency)}</span>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-3 pt-1">
+                    <span className="text-sm font-bold text-rb-eel">Total amount</span>
+                    <span className="rb-numeric text-xl text-rb-eel">{formatMoney(totalAmount, currency)}</span>
+                  </div>
+                  <p className="rb-caption text-xs text-rb-wolf">
+                    Billed on approval. You receive an invoice by email; access starts on the dates you chose.
+                  </p>
                 </div>
               </>
             )}
@@ -553,6 +590,10 @@ function isoDate(months) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
+function formatMoney(value, currency = "PHP") {
+  return Number(value ?? 0).toLocaleString("en-PH", { style: "currency", currency, maximumFractionDigits: 0 })
+}
+
 function formatShortDate(value) {
   const date = new Date(`${value}T00:00:00`)
   return Number.isNaN(date.getTime())
@@ -620,6 +661,38 @@ function CertificationRow({ certification, selected, slots, start, end, onToggle
             <StepperKey label="Add one learner slot" onClick={() => onNudge(1)}>
               +
             </StepperKey>
+          </div>
+
+          {/* The access window sits under the slots: how many learners, and
+              for how long. It defaults to a year from today; approval keeps
+              whatever the institution asked for here. */}
+          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={`start-${id}`} className="text-sm font-bold text-rb-eel">
+                Access start date
+              </label>
+              <input
+                id={`start-${id}`}
+                type="date"
+                value={start}
+                min={isoDate(0)}
+                onChange={(event) => onDate("start", event.target.value)}
+                className="rb-input bg-rb-snow font-bold"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={`end-${id}`} className="text-sm font-bold text-rb-eel">
+                Access end date
+              </label>
+              <input
+                id={`end-${id}`}
+                type="date"
+                value={end}
+                min={start || isoDate(0)}
+                onChange={(event) => onDate("end", event.target.value)}
+                className="rb-input bg-rb-snow font-bold"
+              />
+            </div>
           </div>
         </div>
       ) : null}

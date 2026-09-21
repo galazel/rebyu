@@ -26,6 +26,7 @@ import {
   InstitutionLoadingSkeleton,
   InstitutionPageHeader,
   InstitutionStatCard,
+  AccessWindowBadge,
   InstitutionStatusBadge,
   formatDate,
 } from "@/components/institution/institution-ui.jsx"
@@ -234,7 +235,7 @@ export default function AdminInstitutionDetail() {
                         {formatDate(institutionCert.accessExpiryDate)}
                       </TableCell>
                       <TableCell>
-                        <InstitutionStatusBadge status={institutionCert.status} />
+                        <AccessWindowBadge allocation={institutionCert} />
                       </TableCell>
                     </TableRow>
                   )
