@@ -986,7 +986,8 @@ public class AssessmentAttemptService {
                     buildDiagramElementReviews(answer, releaseAnswers),
                     buildProgrammingTestReviews(attemptQuestion, answer, source, releaseAnswers),
                     programOutputFor(answer),
-                    programErrorFor(answer)
+                    programErrorFor(answer),
+                    source == null ? null : source.getDifficultyLevel()
             ));
         }
 

@@ -208,6 +208,31 @@ function StatTile({ label, value, tone }) {
   )
 }
 
+/* The item's authored difficulty beside its stem: green / amber / red, the
+   scale the question bank uses, so a learner can see whether the ones they
+   missed were the hard ones. */
+const DIFFICULTY_TONES = {
+  EASY: "border-rb-feather/50 bg-rb-feather-wash text-rb-feather-lip",
+  MEDIUM: "border-rb-bee/60 bg-rb-bee-wash text-rb-eel",
+  HARD: "border-rb-cardinal/50 bg-rb-cardinal-wash text-rb-cardinal-lip",
+}
+
+function DifficultyChip({ level }) {
+  const key = String(level ?? "").trim().toUpperCase()
+  if (!key) return null
+  const tone = DIFFICULTY_TONES[key] ?? "border-rb-swan bg-rb-snow text-rb-wolf"
+  return (
+    <span
+      className={cn(
+        "ml-2 inline-block rounded-full border px-2 py-0.5 align-middle text-[10px] font-bold uppercase tracking-wide",
+        tone
+      )}
+    >
+      {key.charAt(0) + key.slice(1).toLowerCase()}
+    </span>
+  )
+}
+
 export default function LearnerAssessmentResultPage() {
   // Route param carries the server attempt id.
   const { examResultId: attemptId } = useParams()
@@ -614,7 +639,12 @@ export default function LearnerAssessmentResultPage() {
                         <span className="rb-numeric grid size-7 shrink-0 place-items-center rounded-rb-tile border-2 border-rb-swan bg-rb-snow text-xs text-rb-wolf">
                           {answer.displayOrder}
                         </span>
-                        <span className="min-w-0">{answer.question}</span>
+                        <span className="min-w-0">
+                          {answer.question}
+                          {answer.difficultyLevel ? (
+                            <DifficultyChip level={answer.difficultyLevel} />
+                          ) : null}
+                        </span>
                       </p>
                       <div className="flex shrink-0 flex-col items-end gap-1">
                         {/* The teacher's mark: a tick, a cross, a squiggle for
