@@ -112,6 +112,8 @@ export default function InstitutionDrilldownStatsCard({
   // Interactive Hover state for Dual Rings
   const [hoveredDept, setHoveredDept] = useState(null)
   const [hoveredCert, setHoveredCert] = useState(null)
+  const [hoveredStatDept, setHoveredStatDept] = useState(null)
+  const [hoveredStatCert, setHoveredStatCert] = useState(null)
 
   // Fast lookups
   const membersMap = useMemo(() => {
@@ -242,49 +244,69 @@ export default function InstitutionDrilldownStatsCard({
       : 0
   }, [totalLevel1Slots, totalLevel1Enrolled])
 
-  // Outer indicator reach data exclusive to each department's inner slice
+  // Outer indicator reach data exclusive to hovered department's inner slice
+  // Only appears if the text on the Stats is hovered
   const level1OuterData = useMemo(() => {
+    if (!hoveredStatDept) return []
+
     const segments = []
     level1Data.forEach((dept) => {
       const slots = dept.allottedSlots
-      const enrolled = Math.min(dept.enrolled, slots)
-      const remaining = Math.max(slots - enrolled, 0)
-      const isHovered = hoveredDept ? hoveredDept.id === dept.id : true
+      const isTarget = dept.id === hoveredStatDept.id
 
-      // Enrolled arc segment (exclusive to this department)
-      if (enrolled > 0) {
+      if (!isTarget) {
+        // Transparent placeholder to preserve exact angular alignment
         segments.push({
           id: dept.id,
-          name: dept.name,
+          name: `${dept.name} Placeholder`,
           deptName: dept.name,
           allottedSlots: slots,
           enrolled: dept.enrolled,
           reachPct: dept.reachPct,
-          value: enrolled,
-          isRemaining: false,
-          fill: hoveredDept && !isHovered ? "rgba(2, 132, 199, 0.4)" : REACH_COLOR,
-          deptFill: dept.fill,
-        })
-      }
-
-      // Unfilled remaining slots segment (transparent, reserving department's angle)
-      if (remaining > 0) {
-        segments.push({
-          id: dept.id,
-          name: `${dept.name} Remaining`,
-          deptName: dept.name,
-          allottedSlots: slots,
-          enrolled: dept.enrolled,
-          reachPct: dept.reachPct,
-          value: remaining,
+          value: slots,
           isRemaining: true,
           fill: "transparent",
           deptFill: dept.fill,
         })
+      } else {
+        const enrolled = Math.min(dept.enrolled, slots)
+        const remaining = Math.max(slots - enrolled, 0)
+
+        // Enrolled arc segment (exclusive to this hovered department)
+        if (enrolled > 0) {
+          segments.push({
+            id: dept.id,
+            name: dept.name,
+            deptName: dept.name,
+            allottedSlots: slots,
+            enrolled: dept.enrolled,
+            reachPct: dept.reachPct,
+            value: enrolled,
+            isRemaining: false,
+            fill: REACH_COLOR,
+            deptFill: dept.fill,
+          })
+        }
+
+        // Unfilled remaining slots segment (faint track showing total slot allotment)
+        if (remaining > 0) {
+          segments.push({
+            id: dept.id,
+            name: `${dept.name} Remaining`,
+            deptName: dept.name,
+            allottedSlots: slots,
+            enrolled: dept.enrolled,
+            reachPct: dept.reachPct,
+            value: remaining,
+            isRemaining: true,
+            fill: "rgba(2, 132, 199, 0.18)",
+            deptFill: dept.fill,
+          })
+        }
       }
     })
     return segments
-  }, [level1Data, hoveredDept])
+  }, [level1Data, hoveredStatDept])
 
   // Center display values
   const activeLevel1ReachPct = hoveredDept
@@ -293,6 +315,9 @@ export default function InstitutionDrilldownStatsCard({
   const activeLevel1Slots = hoveredDept
     ? hoveredDept.allottedSlots
     : totalLevel1Slots
+  const activeLevel1Enrolled = hoveredDept
+    ? hoveredDept.enrolled
+    : totalLevel1Enrolled
 
   // -------------------------------------------------------------------------
   // LEVEL 2: Certifications in the Selected Department
@@ -386,49 +411,69 @@ export default function InstitutionDrilldownStatsCard({
       : 0
   }, [totalLevel2Slots, totalLevel2Enrolled])
 
-  // Outer indicator reach data exclusive to each certification's inner slice
+  // Outer indicator reach data exclusive to hovered certification's inner slice
+  // Only appears if the text on the Stats is hovered
   const level2OuterData = useMemo(() => {
+    if (!hoveredStatCert) return []
+
     const segments = []
     level2Data.forEach((cert) => {
       const slots = cert.allottedSlots
-      const enrolled = Math.min(cert.enrolled, slots)
-      const remaining = Math.max(slots - enrolled, 0)
-      const isHovered = hoveredCert
-        ? hoveredCert.institutionCertId === cert.institutionCertId
-        : true
+      const isTarget =
+        (hoveredStatCert.institutionCertId || hoveredStatCert.certificationId) ===
+        (cert.institutionCertId || cert.certificationId)
 
-      if (enrolled > 0) {
+      if (!isTarget) {
+        // Transparent placeholder to preserve exact angular alignment
         segments.push({
           id: cert.institutionCertId || cert.certificationId,
-          name: cert.name,
+          name: `${cert.name} Placeholder`,
           certTitle: cert.name,
           allottedSlots: slots,
           enrolled: cert.enrolled,
           reachPct: cert.reachPct,
-          value: enrolled,
-          isRemaining: false,
-          fill: hoveredCert && !isHovered ? "rgba(2, 132, 199, 0.4)" : REACH_COLOR,
-          certFill: cert.fill,
-        })
-      }
-
-      if (remaining > 0) {
-        segments.push({
-          id: cert.institutionCertId || cert.certificationId,
-          name: `${cert.name} Remaining`,
-          certTitle: cert.name,
-          allottedSlots: slots,
-          enrolled: cert.enrolled,
-          reachPct: cert.reachPct,
-          value: remaining,
+          value: slots,
           isRemaining: true,
           fill: "transparent",
           certFill: cert.fill,
         })
+      } else {
+        const enrolled = Math.min(cert.enrolled, slots)
+        const remaining = Math.max(slots - enrolled, 0)
+
+        if (enrolled > 0) {
+          segments.push({
+            id: cert.institutionCertId || cert.certificationId,
+            name: cert.name,
+            certTitle: cert.name,
+            allottedSlots: slots,
+            enrolled: cert.enrolled,
+            reachPct: cert.reachPct,
+            value: enrolled,
+            isRemaining: false,
+            fill: REACH_COLOR,
+            certFill: cert.fill,
+          })
+        }
+
+        if (remaining > 0) {
+          segments.push({
+            id: cert.institutionCertId || cert.certificationId,
+            name: `${cert.name} Remaining`,
+            certTitle: cert.name,
+            allottedSlots: slots,
+            enrolled: cert.enrolled,
+            reachPct: cert.reachPct,
+            value: remaining,
+            isRemaining: true,
+            fill: "rgba(2, 132, 199, 0.18)",
+            certFill: cert.fill,
+          })
+        }
       }
     })
     return segments
-  }, [level2Data, hoveredCert])
+  }, [level2Data, hoveredStatCert])
 
   const activeLevel2ReachPct = hoveredCert
     ? hoveredCert.reachPct
@@ -436,6 +481,9 @@ export default function InstitutionDrilldownStatsCard({
   const activeLevel2Slots = hoveredCert
     ? hoveredCert.allottedSlots
     : totalLevel2Slots
+  const activeLevel2Enrolled = hoveredCert
+    ? hoveredCert.enrolled
+    : totalLevel2Enrolled
 
   // -------------------------------------------------------------------------
   // LEVEL 3 & 4: Selected Certification Stats & Learners
@@ -667,12 +715,14 @@ export default function InstitutionDrilldownStatsCard({
   const handleSelectDepartment = (dept) => {
     setSelectedDepartment(dept)
     setHoveredDept(null)
+    setHoveredStatDept(null)
     setCurrentLevel(2)
   }
 
   const handleSelectCertification = (cert) => {
     setSelectedCertification(cert)
     setHoveredCert(null)
+    setHoveredStatCert(null)
     setCurrentLevel(3)
   }
 
@@ -682,6 +732,7 @@ export default function InstitutionDrilldownStatsCard({
     else if (currentLevel === 2) {
       setSelectedDepartment(null)
       setHoveredDept(null)
+      setHoveredStatDept(null)
       setCurrentLevel(1)
     }
   }
@@ -691,6 +742,8 @@ export default function InstitutionDrilldownStatsCard({
     setSelectedCertification(null)
     setHoveredDept(null)
     setHoveredCert(null)
+    setHoveredStatDept(null)
+    setHoveredStatCert(null)
     setCurrentLevel(1)
   }
 
@@ -836,43 +889,28 @@ export default function InstitutionDrilldownStatsCard({
                     <PieChart>
                       <Tooltip content={<CustomDualPieTooltip />} />
 
-                      {/* Outer Indicator Pie (Exclusive to each department's inner slice) */}
-                      <Pie
-                        data={level1OuterData}
-                        dataKey="value"
-                        startAngle={90}
-                        endAngle={-270}
-                        innerRadius="80%"
-                        outerRadius="96%"
-                        stroke="none"
-                        isAnimationActive={true}
-                        className="outline-none"
-                        onClick={(entry) => {
-                          if (!entry.isRemaining) {
-                            const dept = level1Data.find((d) => d.id === entry.id)
-                            if (dept) handleSelectDepartment(dept)
-                          }
-                        }}
-                        onMouseEnter={(entry) => {
-                          if (!entry.isRemaining) {
-                            const dept = level1Data.find((d) => d.id === entry.id)
-                            if (dept) setHoveredDept(dept)
-                          }
-                        }}
-                        onMouseLeave={() => setHoveredDept(null)}
-                      >
-                        {level1OuterData.map((entry, idx) => (
-                          <Cell
-                            key={`outer-l1-${entry.name}-${idx}`}
-                            fill={entry.fill}
-                            className={
-                              entry.isRemaining
-                                ? "pointer-events-none"
-                                : "cursor-pointer transition-opacity hover:opacity-85"
-                            }
-                          />
-                        ))}
-                      </Pie>
+                      {/* Outer Indicator Pie (Only appears if the text on Stats is hovered) */}
+                      {level1OuterData.length > 0 && (
+                        <Pie
+                          data={level1OuterData}
+                          dataKey="value"
+                          startAngle={90}
+                          endAngle={-270}
+                          innerRadius="80%"
+                          outerRadius="96%"
+                          stroke="none"
+                          isAnimationActive={false}
+                          className="pointer-events-none outline-none"
+                        >
+                          {level1OuterData.map((entry, idx) => (
+                            <Cell
+                              key={`outer-l1-${entry.name}-${idx}`}
+                              fill={entry.fill}
+                              className="pointer-events-none"
+                            />
+                          ))}
+                        </Pie>
+                      )}
 
                       {/* Inner Pie: Total Slots Allotted to Departments */}
                       <Pie
@@ -907,18 +945,14 @@ export default function InstitutionDrilldownStatsCard({
                     </PieChart>
                   </ResponsiveContainer>
 
-                  {/* Donut Center Count & Reach Indicator */}
+                  {/* Donut Center: Percentage & Slots filled */}
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-1 text-center">
-                    <span className="font-rb-display text-3xl font-black leading-none tabular-nums tracking-tight text-foreground sm:text-4xl">
-                      {activeLevel1Slots}
+                    <span className="font-rb-display text-4xl font-black leading-none tabular-nums tracking-tight text-foreground sm:text-5xl">
+                      {activeLevel1ReachPct}%
                     </span>
-                    <span className="mt-1 max-w-[95px] text-center text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground sm:text-[11px]">
-                      {hoveredDept ? "Allotted Slots" : "Total Slots"}
+                    <span className="mt-1.5 max-w-[110px] truncate text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground sm:text-[11px]">
+                      {hoveredDept ? hoveredDept.name : "Slots filled"}
                     </span>
-                    <div className="mt-1.5 flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-bold text-sky-600 dark:text-sky-400">
-                      <span className="size-1.5 rounded-full bg-[#0284c7]" />
-                      <span>{activeLevel1ReachPct}% reach</span>
-                    </div>
                   </div>
                 </div>
 
@@ -933,26 +967,57 @@ export default function InstitutionDrilldownStatsCard({
 
                   {/* Departments List (Number on Left, Name on Right) */}
                   <div className="max-h-[130px] space-y-1.5 overflow-y-auto pr-1">
-                    {level1Data.map((item) => (
-                      <button
-                        key={item.name}
-                        type="button"
-                        onClick={() => handleSelectDepartment(item)}
-                        onMouseEnter={() => setHoveredDept(item)}
-                        onMouseLeave={() => setHoveredDept(null)}
-                        className="group flex w-full items-center justify-between text-left text-xs transition hover:text-primary"
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <span className="w-10 text-left font-black tabular-nums text-foreground group-hover:text-primary">
-                            {item.enrolled}
-                          </span>
-                          <span className="truncate font-semibold text-foreground/90 group-hover:text-primary">
-                            {item.name}
-                          </span>
-                        </div>
-                        <ChevronRight className="size-3 text-muted-foreground opacity-0 transition group-hover:opacity-100 group-hover:translate-x-0.5" />
-                      </button>
-                    ))}
+                    {level1Data.map((item) => {
+                      const isHovered = hoveredDept?.id === item.id
+                      return (
+                        <button
+                          key={item.name}
+                          type="button"
+                          onClick={() => handleSelectDepartment(item)}
+                          onMouseEnter={() => {
+                            setHoveredStatDept(item)
+                            setHoveredDept(item)
+                          }}
+                          onMouseLeave={() => {
+                            setHoveredStatDept(null)
+                            setHoveredDept(null)
+                          }}
+                          className={`group flex w-full items-center justify-between rounded px-1.5 py-0.5 text-left text-xs transition ${
+                            isHovered
+                              ? "bg-primary/10 font-bold text-primary"
+                              : "text-foreground hover:bg-muted/50 hover:text-primary"
+                          }`}
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span
+                              className={`w-10 text-left tabular-nums transition-colors ${
+                                isHovered
+                                  ? "font-black text-primary"
+                                  : "font-black text-foreground group-hover:text-primary"
+                              }`}
+                            >
+                              {item.enrolled}
+                            </span>
+                            <span
+                              className={`truncate transition-colors ${
+                                isHovered
+                                  ? "font-bold text-primary"
+                                  : "font-semibold text-foreground/90 group-hover:text-primary"
+                              }`}
+                            >
+                              {item.name}
+                            </span>
+                          </div>
+                          <ChevronRight
+                            className={`size-3 transition ${
+                              isHovered
+                                ? "translate-x-0.5 text-primary opacity-100"
+                                : "text-muted-foreground opacity-0 group-hover:translate-x-0.5 group-hover:opacity-100"
+                            }`}
+                          />
+                        </button>
+                      )
+                    })}
                   </div>
 
                   {/* Divider */}
@@ -1017,51 +1082,28 @@ export default function InstitutionDrilldownStatsCard({
                     <PieChart>
                       <Tooltip content={<CustomDualPieTooltip />} />
 
-                      {/* Outer Indicator Pie (Exclusive to each certification's inner slice) */}
-                      <Pie
-                        data={level2OuterData}
-                        dataKey="value"
-                        startAngle={90}
-                        endAngle={-270}
-                        innerRadius="80%"
-                        outerRadius="96%"
-                        stroke="none"
-                        isAnimationActive={true}
-                        className="outline-none"
-                        onClick={(entry) => {
-                          if (!entry.isRemaining) {
-                            const cert = level2Data.find(
-                              (c) =>
-                                (c.institutionCertId || c.certificationId) ===
-                                entry.id
-                            )
-                            if (cert) handleSelectCertification(cert)
-                          }
-                        }}
-                        onMouseEnter={(entry) => {
-                          if (!entry.isRemaining) {
-                            const cert = level2Data.find(
-                              (c) =>
-                                (c.institutionCertId || c.certificationId) ===
-                                entry.id
-                            )
-                            if (cert) setHoveredCert(cert)
-                          }
-                        }}
-                        onMouseLeave={() => setHoveredCert(null)}
-                      >
-                        {level2OuterData.map((entry, idx) => (
-                          <Cell
-                            key={`outer-l2-${entry.name}-${idx}`}
-                            fill={entry.fill}
-                            className={
-                              entry.isRemaining
-                                ? "pointer-events-none"
-                                : "cursor-pointer transition-opacity hover:opacity-85"
-                            }
-                          />
-                        ))}
-                      </Pie>
+                      {/* Outer Indicator Pie (Only appears if the text on Stats is hovered) */}
+                      {level2OuterData.length > 0 && (
+                        <Pie
+                          data={level2OuterData}
+                          dataKey="value"
+                          startAngle={90}
+                          endAngle={-270}
+                          innerRadius="80%"
+                          outerRadius="96%"
+                          stroke="none"
+                          isAnimationActive={false}
+                          className="pointer-events-none outline-none"
+                        >
+                          {level2OuterData.map((entry, idx) => (
+                            <Cell
+                              key={`outer-l2-${entry.name}-${idx}`}
+                              fill={entry.fill}
+                              className="pointer-events-none"
+                            />
+                          ))}
+                        </Pie>
+                      )}
 
                       {/* Inner Pie: Allotted Slots per Certification */}
                       <Pie
@@ -1098,18 +1140,14 @@ export default function InstitutionDrilldownStatsCard({
                     </PieChart>
                   </ResponsiveContainer>
 
-                  {/* Donut Center Count & Reach Indicator */}
+                  {/* Donut Center: Percentage & Slots filled */}
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-1 text-center">
-                    <span className="font-rb-display text-3xl font-black leading-none tabular-nums tracking-tight text-foreground sm:text-4xl">
-                      {activeLevel2Slots}
+                    <span className="font-rb-display text-4xl font-black leading-none tabular-nums tracking-tight text-foreground sm:text-5xl">
+                      {activeLevel2ReachPct}%
                     </span>
-                    <span className="mt-1 max-w-[95px] text-center text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground sm:text-[11px]">
-                      {hoveredCert ? "Cert Slots" : "Dept Slots"}
+                    <span className="mt-1.5 max-w-[110px] truncate text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground sm:text-[11px]">
+                      {hoveredCert ? hoveredCert.name : "Slots filled"}
                     </span>
-                    <div className="mt-1.5 flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-bold text-sky-600 dark:text-sky-400">
-                      <span className="size-1.5 rounded-full bg-[#0284c7]" />
-                      <span>{activeLevel2ReachPct}% reach</span>
-                    </div>
                   </div>
                 </div>
 
@@ -1124,26 +1162,60 @@ export default function InstitutionDrilldownStatsCard({
 
                   {/* Certifications List (Number on Left, Name on Right) */}
                   <div className="max-h-[130px] space-y-1.5 overflow-y-auto pr-1">
-                    {level2Data.map((item) => (
-                      <button
-                        key={item.name}
-                        type="button"
-                        onClick={() => handleSelectCertification(item)}
-                        onMouseEnter={() => setHoveredCert(item)}
-                        onMouseLeave={() => setHoveredCert(null)}
-                        className="group flex w-full items-center justify-between text-left text-xs transition hover:text-primary"
-                      >
-                        <div className="flex min-w-0 items-center gap-3">
-                          <span className="w-10 text-left font-black tabular-nums text-foreground group-hover:text-primary">
-                            {item.enrolled}
-                          </span>
-                          <span className="truncate font-semibold text-foreground/90 group-hover:text-primary">
-                            {item.name}
-                          </span>
-                        </div>
-                        <ChevronRight className="size-3 text-muted-foreground opacity-0 transition group-hover:opacity-100 group-hover:translate-x-0.5" />
-                      </button>
-                    ))}
+                    {level2Data.map((item) => {
+                      const isHovered =
+                        (hoveredCert?.institutionCertId ||
+                          hoveredCert?.certificationId) ===
+                        (item.institutionCertId || item.certificationId)
+                      return (
+                        <button
+                          key={item.name}
+                          type="button"
+                          onClick={() => handleSelectCertification(item)}
+                          onMouseEnter={() => {
+                            setHoveredStatCert(item)
+                            setHoveredCert(item)
+                          }}
+                          onMouseLeave={() => {
+                            setHoveredStatCert(null)
+                            setHoveredCert(null)
+                          }}
+                          className={`group flex w-full items-center justify-between rounded px-1.5 py-0.5 text-left text-xs transition ${
+                            isHovered
+                              ? "bg-primary/10 font-bold text-primary"
+                              : "text-foreground hover:bg-muted/50 hover:text-primary"
+                          }`}
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span
+                              className={`w-10 text-left tabular-nums transition-colors ${
+                                isHovered
+                                  ? "font-black text-primary"
+                                  : "font-black text-foreground group-hover:text-primary"
+                              }`}
+                            >
+                              {item.enrolled}
+                            </span>
+                            <span
+                              className={`truncate transition-colors ${
+                                isHovered
+                                  ? "font-bold text-primary"
+                                  : "font-semibold text-foreground/90 group-hover:text-primary"
+                              }`}
+                            >
+                              {item.name}
+                            </span>
+                          </div>
+                          <ChevronRight
+                            className={`size-3 transition ${
+                              isHovered
+                                ? "translate-x-0.5 text-primary opacity-100"
+                                : "text-muted-foreground opacity-0 group-hover:translate-x-0.5 group-hover:opacity-100"
+                            }`}
+                          />
+                        </button>
+                      )
+                    })}
                   </div>
 
                   {/* Divider */}
