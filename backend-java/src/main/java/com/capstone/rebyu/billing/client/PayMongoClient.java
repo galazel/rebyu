@@ -124,6 +124,57 @@ public class PayMongoClient {
         }
     }
 
+    /** A created hosted checkout: where to send the payer, and the session to verify afterwards. */
+    public record HostedCheckout(String sessionId, String checkoutUrl) {}
+
+    /**
+     * Hosted Checkout for an institution invoice. Same session shape as the
+     * Pro checkout, but keyed by invoice rather than learner, and it returns
+     * the session id so the caller can store it on the invoice.
+     */
+    public HostedCheckout createInvoiceCheckout(
+            String invoiceNumber, long amountCents, String description, String billingEmail,
+            String successUrl, String cancelUrl, Map<String, String> metadata) {
+        if (!isEnabled()) {
+            log.warn("PayMongo is disabled; cannot create invoice checkout");
+            return null;
+        }
+        try {
+            Map<String, Object> lineItem = new HashMap<>();
+            lineItem.put("currency", "PHP");
+            lineItem.put("amount", amountCents);
+            lineItem.put("description", description);
+            lineItem.put("quantity", 1);
+            lineItem.put("name", "Invoice " + invoiceNumber);
+
+            Map<String, Object> attributes = new HashMap<>();
+            attributes.put("line_items", new Object[]{lineItem});
+            attributes.put("payment_method_types", new String[]{"card", "gcash"});
+            attributes.put("billing_name_required", true);
+            attributes.put("send_email_receipt", true);
+            attributes.put("description", "REBYU invoice " + invoiceNumber + " (test mode)");
+            attributes.put("reference_number", invoiceNumber);
+            attributes.put("success_url", successUrl);
+            attributes.put("cancel_url", cancelUrl);
+            attributes.put("metadata", metadata);
+            if (billingEmail != null && !billingEmail.isBlank()) {
+                attributes.put("billing", Map.of("email", billingEmail));
+            }
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("data", Map.of("attributes", attributes));
+
+            JsonNode root = objectMapper.readTree(postRequest("/checkout_sessions", body));
+            String checkoutUrl = root.path("data").path("attributes").path("checkout_url").asText();
+            String sessionId = root.path("data").path("id").asText();
+            log.info("Created PayMongo invoice checkout: sessionId={}, invoice={}", sessionId, invoiceNumber);
+            return new HostedCheckout(sessionId, checkoutUrl);
+        } catch (Exception e) {
+            log.error("Failed to create PayMongo invoice checkout: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+
     /**
      * Retrieve a checkout session from PayMongo.
      */

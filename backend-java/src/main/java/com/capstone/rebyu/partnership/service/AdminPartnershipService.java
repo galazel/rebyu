@@ -44,8 +44,6 @@ import java.util.Locale;
 @Service
 @RequiredArgsConstructor
 public class AdminPartnershipService {
-
-    private static final int DEFAULT_ACCESS_MONTHS = 12;
     private static final String INSTITUTION_USER_TYPE = "INSTITUTION";
 
     private final PartnershipRequestRepository requestRepository;
@@ -59,6 +57,7 @@ public class AdminPartnershipService {
     private final NotificationService notificationService;
     private final com.capstone.rebyu.billing.service.InstitutionInvoiceService invoiceService;
     private final com.capstone.rebyu.notification.service.EmailService emailService;
+    private final InstitutionAccessGrantService accessGrantService;
 
     @Transactional(readOnly = true)
     public List<PartnershipRequestSummaryDto> list(String statusFilter) {
@@ -81,49 +80,10 @@ public class AdminPartnershipService {
         requireReviewable(request);
 
         Institution institution = resolveOrCreateInstitution(request);
-        LocalDate today = LocalDate.now();
 
-        for (PartnershipRequestItem item : itemRepository
-                .findByPartnershipRequest_RequestId(requestId)) {
-            int requestedSlots = item.getSlots() == null ? 0 : item.getSlots();
-            // The window the institution asked for; older requests without one
-            // get the default year from today.
-            LocalDate start = item.getRequestedAccessStartDate() != null
-                    ? item.getRequestedAccessStartDate() : today;
-            LocalDate end = item.getRequestedAccessEndDate() != null
-                    ? item.getRequestedAccessEndDate() : start.plusMonths(DEFAULT_ACCESS_MONTHS);
-            InstitutionCertificate existing = institutionCertificateRepository
-                    .findByInstitution_InstitutionIdAndCertification_CertificationId(
-                            institution.getInstitutionId(),
-                            item.getCertification().getCertificationId())
-                    .orElse(null);
-
-            if (existing == null) {
-                InstitutionCertificate access = InstitutionCertificate.builder()
-                        .institution(institution)
-                        .certification(item.getCertification())
-                        .totalSlots(requestedSlots)
-                        .usedSlots(0)
-                        .accessStartDate(start)
-                        .accessExpiryDate(end)
-                        .status(InstitutionCertificate.Status.active)
-                        .build();
-                institutionCertificateRepository.save(access);
-            } else {
-                // Top up the existing allocation; never overwrite. remaining_slots
-                // is a DB-computed column, so only total_slots changes here.
-                existing.setTotalSlots(existing.getTotalSlots() + requestedSlots);
-                // Widen the window to cover the new request; never shorten it.
-                if (existing.getAccessStartDate() == null || start.isBefore(existing.getAccessStartDate())) {
-                    existing.setAccessStartDate(start);
-                }
-                if (existing.getAccessExpiryDate() == null || end.isAfter(existing.getAccessExpiryDate())) {
-                    existing.setAccessExpiryDate(end);
-                }
-                existing.setStatus(InstitutionCertificate.Status.active);
-                institutionCertificateRepository.save(existing);
-            }
-        }
+        // Pay before access: the allocations are written as pending now and
+        // switched on when the invoice below is paid (InstitutionAccessGrantService).
+        accessGrantService.reserve(institution, itemRepository.findByPartnershipRequest_RequestId(requestId));
 
         request.setInstitution(institution);
         request.setStatus(PartnershipRequest.Status.APPROVED);
@@ -164,8 +124,9 @@ public class AdminPartnershipService {
 
         notifyInstitutionOwners(institution,
                 "Partnership request approved",
-                "Your partnership request (" + request.getReferenceNumber() + ") was approved.",
-                "/institution/dashboard");
+                "Your partnership request (" + request.getReferenceNumber() + ") was approved. "
+                        + "Pay invoice " + invoice.getInvoiceNumber() + " to activate access.",
+                "/institution/invoices/" + invoice.getInstitutionInvoiceId());
 
         return toDetail(request, provision.emailed(), provision.note());
     }

@@ -94,24 +94,24 @@ public class EmailService {
 
                 Welcome to REBYU! Your partnership request (%s) has been approved and your institution account is ready.
 
-                Certification access granted:
+                Certification access approved (activates once the invoice is paid):
                 %s
                 Invoice %s - amount due: %s
 
-                View your invoice here:
+                View and pay your invoice online (card or GCash via PayMongo):
                 %s
 
-                Your sign-in details are sent in a separate email. Once you are in, head to Certifications to create departments and invite your learners.
+                Your sign-in details are sent in a separate email. Once the invoice is paid, head to Certifications to create departments and invite your learners.
 
                 REBYU Team
                 """.formatted(institutionName, referenceNumber, textLines, invoiceNumber, amountDue, invoiceUrl);
         String html = frame("<p>Hello <b>" + escape(institutionName) + "</b>,</p>"
                 + "<p>Welcome to REBYU! Your partnership request <b>" + escape(referenceNumber)
                 + "</b> has been approved and your institution account is ready.</p>"
-                + "<p style=\"margin-bottom:4px\"><b>Certification access granted</b></p><ul style=\"margin-top:0\">" + htmlLines + "</ul>"
+                + "<p style=\"margin-bottom:4px\"><b>Certification access approved</b> <span style=\"color:#6b706c\">(activates once the invoice is paid)</span></p><ul style=\"margin-top:0\">" + htmlLines + "</ul>"
                 + "<p>Invoice <b>" + escape(invoiceNumber) + "</b> &middot; amount due <b>" + escape(amountDue) + "</b></p>"
-                + "<p><a href=\"" + invoiceUrl + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;display:inline-block\">View invoice</a></p>"
-                + "<p style=\"font-size:12px;color:#6b706c\">Your sign-in details arrive in a separate email. Once you are in, open Certifications to create departments and invite learners.</p>");
+                + "<p><a href=\"" + invoiceUrl + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;display:inline-block\">View and pay invoice</a></p>"
+                + "<p style=\"font-size:12px;color:#6b706c\">Pay by card or GCash through PayMongo from the invoice page; access switches on as soon as payment is confirmed. Your sign-in details arrive in a separate email. Once you are in, open Certifications to create departments and invite learners.</p>");
         sendHtml(recipientEmail, subject, text, html);
     }
 

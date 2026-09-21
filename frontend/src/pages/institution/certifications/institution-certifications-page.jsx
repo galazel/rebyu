@@ -89,6 +89,14 @@ export default function InstitutionCertificationsPage() {
                     {accessWindowStatus(institutionCert).detail ? (
                       <span className="text-muted-foreground"> · {accessWindowStatus(institutionCert).detail}</span>
                     ) : null}
+                    {institutionCert.status === "pending" ? (
+                      <>
+                        {" "}
+                        <Link to="/institution/invoices" className="font-semibold text-primary underline-offset-2 hover:underline">
+                          Open invoices
+                        </Link>
+                      </>
+                    ) : null}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 space-y-3">

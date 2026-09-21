@@ -111,6 +111,20 @@ public class InstitutionPortalController {
         return invoiceService.listForInstitution(myInstitutionId(jwt));
     }
 
+    /** Opens PayMongo Hosted Checkout for the invoice; the browser is sent to the returned URL. */
+    @PostMapping("/invoices/{invoiceId}/checkout")
+    public com.capstone.rebyu.billing.service.InstitutionInvoiceService.CheckoutDto invoiceCheckout(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long invoiceId) {
+        return invoiceService.startCheckout(myInstitutionId(jwt), invoiceId);
+    }
+
+    /** Called from the invoice page after PayMongo redirects back; marks the invoice paid if it is. */
+    @PostMapping("/invoices/{invoiceId}/verify")
+    public com.capstone.rebyu.billing.service.InstitutionInvoiceService.InvoiceDto invoiceVerify(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long invoiceId) {
+        return invoiceService.verifyPayment(myInstitutionId(jwt), invoiceId);
+    }
+
     @GetMapping("/invoices/{invoiceId}")
     public com.capstone.rebyu.billing.service.InstitutionInvoiceService.InvoiceDto invoice(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long invoiceId) {

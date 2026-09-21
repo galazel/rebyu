@@ -150,6 +150,7 @@ const STATUS_BADGE_VARIANTS = {
   // access-window states derived on the client (see accessWindowStatus)
   upcoming: "secondary",
   expiring_soon: "secondary",
+  awaiting_payment: "destructive",
 }
 
 export function InstitutionStatusBadge({ status }) {
@@ -188,6 +189,7 @@ function daysUntil(value) {
  */
 export function accessWindowStatus(allocation, { soonDays = 30 } = {}) {
   const stored = allocation?.status ?? null
+  if (stored === "pending") return { status: "awaiting_payment", detail: "Pay the invoice to activate" }
   if (stored && stored !== "active") return { status: stored, detail: null }
 
   const toStart = daysUntil(allocation?.accessStartDate)

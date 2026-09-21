@@ -252,3 +252,13 @@ export function getMyInstitutionInvoices() {
 export function getMyInstitutionInvoice(invoiceId) {
   return base(`institution/me/invoices/${invoiceId}`)
 }
+
+/** { checkoutUrl, sessionId } -- send the browser to checkoutUrl. */
+export function startInvoiceCheckout(invoiceId) {
+  return base(`institution/me/invoices/${invoiceId}/checkout`, { method: "POST" })
+}
+
+/** Ask the server to confirm the PayMongo payment; returns the (possibly now paid) invoice. */
+export function verifyInvoicePayment(invoiceId) {
+  return base(`institution/me/invoices/${invoiceId}/verify`, { method: "POST" })
+}

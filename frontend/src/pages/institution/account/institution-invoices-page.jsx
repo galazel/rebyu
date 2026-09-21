@@ -1,7 +1,9 @@
-import { Link, useParams } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
+import { useEffect, useState } from "react"
+import { Link, useParams, useSearchParams } from "react-router-dom"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 
-import { ArrowLeftIcon, CreditCard, Download } from "@/components/icons"
+import { ArrowLeftIcon, CreditCard, Download, Loader2 } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -14,7 +16,12 @@ import {
   formatDate,
   formatDateTime,
 } from "@/components/institution/institution-ui.jsx"
-import { getMyInstitutionInvoice, getMyInstitutionInvoices } from "@/services/institutionService.js"
+import {
+  getMyInstitutionInvoice,
+  getMyInstitutionInvoices,
+  startInvoiceCheckout,
+  verifyInvoicePayment,
+} from "@/services/institutionService.js"
 
 /**
  * The institution's invoices: the list at /institution/invoices and one
@@ -33,9 +40,45 @@ function apiMessage(error, fallback) {
 }
 
 function InvoiceDetail({ invoiceId }) {
+  const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [verifying, setVerifying] = useState(searchParams.get("payment") === "success")
   const query = useQuery({
     queryKey: ["institution-invoice", invoiceId],
     queryFn: () => getMyInstitutionInvoice(invoiceId),
+  })
+
+  /* Back from PayMongo. The redirect carries no proof of payment, so the
+     server is asked to check the session; the URL flag is cleared either way
+     so a refresh does not re-run it. */
+  useEffect(() => {
+    const outcome = searchParams.get("payment")
+    if (!outcome) return
+    if (outcome === "success") {
+      verifyInvoicePayment(invoiceId)
+        .then((invoice) => {
+          queryClient.setQueryData(["institution-invoice", invoiceId], invoice)
+          queryClient.invalidateQueries({ queryKey: ["institution-invoices"] })
+          if (invoice.status === "paid") toast.success("Payment received. Thank you!")
+          else toast.info("Payment not confirmed yet. If you completed it, refresh in a moment.")
+        })
+        .catch(() => toast.error("Could not confirm the payment. Please refresh."))
+        .finally(() => setVerifying(false))
+    } else if (outcome === "cancelled") {
+      toast.info("Payment cancelled. You can pay whenever you are ready.")
+    }
+    const next = new URLSearchParams(searchParams)
+    next.delete("payment")
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const checkout = useMutation({
+    mutationFn: () => startInvoiceCheckout(invoiceId),
+    onSuccess: ({ checkoutUrl }) => {
+      window.location.assign(checkoutUrl)
+    },
+    onError: (error) => toast.error(apiMessage(error, "Could not open PayMongo checkout.")),
   })
 
   if (query.isLoading) return <InstitutionLoadingSkeleton />
@@ -98,12 +141,31 @@ function InvoiceDetail({ invoiceId }) {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold tabular-nums">{money(invoice.totalAmount, invoice.currency)}</p>
-            {invoice.paidAt ? (
-              <p className="mt-1 text-xs text-muted-foreground">Paid {formatDateTime(invoice.paidAt)}</p>
-            ) : (
+            {invoice.status === "paid" ? (
               <p className="mt-1 text-xs text-muted-foreground">
-                Payment instructions are sent by the REBYU team. Quote the invoice number when you pay.
+                Paid {formatDateTime(invoice.paidAt)}
+                {invoice.paymentReference ? ` · ref ${invoice.paymentReference}` : ""}
               </p>
+            ) : (
+              <div className="mt-3 space-y-2 print:hidden">
+                <Button
+                  onClick={() => checkout.mutate()}
+                  disabled={!invoice.payable || checkout.isPending || verifying}
+                  className="w-full sm:w-auto"
+                >
+                  {checkout.isPending || verifying ? (
+                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <CreditCard className="size-4" aria-hidden="true" />
+                  )}
+                  {verifying ? "Confirming payment…" : `Pay ${money(invoice.totalAmount, invoice.currency)} with PayMongo`}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  {invoice.payable
+                    ? "Card or GCash, on PayMongo's secure checkout (test mode). Certification access activates the moment payment is confirmed."
+                    : invoice.paymentUnavailableReason ?? "Online payment is not available for this invoice."}
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>

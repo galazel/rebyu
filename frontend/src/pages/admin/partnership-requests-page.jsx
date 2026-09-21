@@ -442,8 +442,8 @@ export default function PartnershipRequests() {
               {canReview ? (
                 <section className="space-y-2">
                   <p className="text-xs text-muted-foreground">
-                    Approving grants the access above, issues the invoice, and emails the institution a welcome
-                    message with a link to view it.
+                    Approving issues the invoice and emails the institution a welcome message with a link to pay it.
+                    The access above activates once the invoice is paid.
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -489,7 +489,7 @@ export default function PartnershipRequests() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirm?.action === "approve"
-                ? "The institution receives certification access and learner slots, an invoice is issued, and a welcome email with a link to view the invoice is sent."
+                ? "An invoice is issued and a welcome email with a link to pay it is sent. Certification access and learner slots activate once the invoice is paid."
                 : "The institution will be notified that the request was rejected. No access is granted."}
             </AlertDialogDescription>
           </AlertDialogHeader>

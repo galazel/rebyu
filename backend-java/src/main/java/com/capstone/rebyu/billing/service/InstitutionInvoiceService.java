@@ -35,6 +35,11 @@ public class InstitutionInvoiceService {
     private static final int DUE_DAYS = 30;
 
     private final InstitutionInvoiceRepository invoices;
+    private final com.capstone.rebyu.billing.client.PayMongoClient payMongoClient;
+    private final com.capstone.rebyu.partnership.service.InstitutionAccessGrantService accessGrantService;
+
+    @org.springframework.beans.factory.annotation.Value("${app.frontend-url}")
+    private String frontendUrl;
 
     public record InvoiceItemDto(
             Long institutionInvoiceItemId,
@@ -67,7 +72,76 @@ public class InstitutionInvoiceService {
             LocalDateTime paidAt,
             String paymentReference,
             String status,
-            List<InvoiceItemDto> items) {}
+            List<InvoiceItemDto> items,
+            /* Whether "Pay now" can be offered: PayMongo configured and nothing paid yet. */
+            boolean payable,
+            String paymentUnavailableReason) {}
+
+    public record CheckoutDto(String checkoutUrl, String sessionId) {}
+
+    /**
+     * Starts (or resumes) PayMongo Hosted Checkout for an unpaid invoice.
+     * An open session is reused so two clicks do not make two sessions.
+     */
+    @Transactional
+    public CheckoutDto startCheckout(Long institutionId, Long invoiceId) {
+        InstitutionInvoice invoice = invoices.findByInstitutionInvoiceIdAndInstitution_InstitutionId(invoiceId, institutionId)
+                .orElseThrow(() -> new EntityNotFoundException("Invoice not found"));
+        if (invoice.getStatus() == InstitutionInvoice.Status.paid) {
+            throw new IllegalStateException("This invoice is already paid.");
+        }
+        if (invoice.getStatus() == InstitutionInvoice.Status.cancelled) {
+            throw new IllegalStateException("This invoice was cancelled.");
+        }
+        if (!payMongoClient.isEnabled()) {
+            throw new IllegalStateException(payMongoClient.disabledReason());
+        }
+        if (invoice.getCheckoutUrl() != null && invoice.getCheckoutSessionId() != null) {
+            return new CheckoutDto(invoice.getCheckoutUrl(), invoice.getCheckoutSessionId());
+        }
+        String base = frontendUrl.replaceAll("/+$", "");
+        String page = base + "/institution/invoices/" + invoice.getInstitutionInvoiceId();
+        long cents = invoice.getTotalAmount().movePointRight(2).setScale(0, java.math.RoundingMode.HALF_UP).longValueExact();
+        var checkout = payMongoClient.createInvoiceCheckout(
+                invoice.getInvoiceNumber(), cents,
+                "Certification access for " + invoice.getInstitution().getInstitutionName(),
+                invoice.getBillToEmail(),
+                page + "?payment=success", page + "?payment=cancelled",
+                java.util.Map.of("invoiceId", String.valueOf(invoice.getInstitutionInvoiceId()),
+                        "invoiceNumber", invoice.getInvoiceNumber(),
+                        "institutionId", String.valueOf(institutionId)));
+        if (checkout == null || checkout.checkoutUrl() == null || checkout.checkoutUrl().isBlank()) {
+            throw new IllegalStateException("PayMongo could not open a checkout session. Try again in a moment.");
+        }
+        invoice.setCheckoutSessionId(checkout.sessionId());
+        invoice.setCheckoutUrl(checkout.checkoutUrl());
+        invoices.save(invoice);
+        return new CheckoutDto(checkout.checkoutUrl(), checkout.sessionId());
+    }
+
+    /**
+     * Asks PayMongo whether the invoice's session was paid and, if so, marks
+     * the invoice paid. Safe to call repeatedly (success page, refreshes).
+     */
+    @Transactional
+    public InvoiceDto verifyPayment(Long institutionId, Long invoiceId) {
+        InstitutionInvoice invoice = invoices.findByInstitutionInvoiceIdAndInstitution_InstitutionId(invoiceId, institutionId)
+                .orElseThrow(() -> new EntityNotFoundException("Invoice not found"));
+        if (invoice.getStatus() != InstitutionInvoice.Status.paid && invoice.getCheckoutSessionId() != null
+                && payMongoClient.isPaymentSuccessful(invoice.getCheckoutSessionId())) {
+            invoice.setStatus(InstitutionInvoice.Status.paid);
+            invoice.setPaidAt(LocalDateTime.now());
+            invoice.setProviderPaymentId(payMongoClient.paymentIdForSession(invoice.getCheckoutSessionId()));
+            invoice.setPaymentReference(invoice.getProviderPaymentId() != null
+                    ? invoice.getProviderPaymentId() : invoice.getCheckoutSessionId());
+            invoice.setCheckoutUrl(null);
+            invoices.save(invoice);
+            log.info("Invoice {} paid via PayMongo ({})", invoice.getInvoiceNumber(), invoice.getPaymentReference());
+            // Paid: now the institution gets in.
+            accessGrantService.activateForInvoice(invoice);
+        }
+        return toDto(invoice);
+    }
 
     /** What one request would cost, before or after approval. */
     public static BigDecimal quote(List<PartnershipRequestItem> items) {
@@ -177,7 +251,15 @@ public class InstitutionInvoiceService {
                 i.getPaidAt(),
                 i.getPaymentReference(),
                 i.getStatus().name(),
-                i.getItems().stream().map(item -> new InvoiceItemDto(
+                itemDtos(i),
+                i.getStatus() != InstitutionInvoice.Status.paid
+                        && i.getStatus() != InstitutionInvoice.Status.cancelled
+                        && payMongoClient.isEnabled(),
+                payMongoClient.isEnabled() ? null : payMongoClient.disabledReason());
+    }
+
+    private static List<InvoiceItemDto> itemDtos(InstitutionInvoice i) {
+        return i.getItems().stream().map(item -> new InvoiceItemDto(
                         item.getInstitutionInvoiceItemId(),
                         item.getCertificationId(),
                         item.getCertificationTitle(),
@@ -185,7 +267,7 @@ public class InstitutionInvoiceService {
                         item.getUnitPrice(),
                         item.getLineTotal(),
                         item.getAccessStartDate(),
-                        item.getAccessEndDate())).toList());
+                        item.getAccessEndDate())).toList();
     }
 
     /** REBYU-INV-202609-000042: sortable, and says what it is. */

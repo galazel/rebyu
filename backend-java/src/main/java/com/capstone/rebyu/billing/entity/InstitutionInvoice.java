@@ -93,6 +93,16 @@ public class InstitutionInvoice {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    /** PayMongo hosted checkout for this invoice, once the institution starts paying. */
+    @Column(name = "checkout_session_id", length = 100)
+    private String checkoutSessionId;
+
+    @Column(name = "checkout_url", columnDefinition = "TEXT")
+    private String checkoutUrl;
+
+    @Column(name = "provider_payment_id", length = 100)
+    private String providerPaymentId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     @Builder.Default
