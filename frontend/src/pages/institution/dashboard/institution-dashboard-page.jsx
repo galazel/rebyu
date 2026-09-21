@@ -35,6 +35,7 @@ import {
   getDepartmentStats,
   getInstitutionLearningStats,
 } from "@/services/institutionLearningStatsService.js"
+import { getDepartments } from "@/services/institutionService.js"
 import {
   BarBreakdownChart,
   DonutChart,
@@ -43,6 +44,7 @@ import {
   readinessInk,
   useChartTheme,
 } from "@/components/charts/rebyu-charts.jsx"
+import InstitutionDrilldownStatsCard from "@/components/institution/institution-drilldown-stats-card.jsx"
 
 const PROGRESS_BUCKETS = [
   { label: "0-25%", min: 0, max: 25 },
@@ -129,6 +131,13 @@ export default function InstitutionDashboardPage() {
     retry: 1,
   })
 
+  const departmentsQuery = useQuery({
+    queryKey: ["departments", institution?.institutionId],
+    queryFn: () => getDepartments({ institutionId: institution?.institutionId }),
+    enabled: institution?.institutionId != null,
+    retry: 1,
+  })
+
   const summary = statsQuery.data?.summary ?? {}
   const members = useMemo(
     () => (Array.isArray(statsQuery.data?.members) ? statsQuery.data.members : []),
@@ -138,6 +147,11 @@ export default function InstitutionDashboardPage() {
   const groupStats = useMemo(
     () => (Array.isArray(departmentStatsQuery.data) ? departmentStatsQuery.data : []),
     [departmentStatsQuery.data]
+  )
+
+  const departments = useMemo(
+    () => (Array.isArray(departmentsQuery.data) ? departmentsQuery.data : []),
+    [departmentsQuery.data]
   )
 
   /* The cohort shape the Analytics page used to draw, over the same roster the
@@ -186,104 +200,131 @@ export default function InstitutionDashboardPage() {
 
     return [
       {
-        id: "ent-seats",
-        col: 2,
-        row: 2,
+        id: "ent-members",
+        col: 3,
+        row: 3,
+        x: 0,
+        y: 0,
         element: (
-          /* A two-row tile carrying one number left most of its height empty.
-             Seat utilisation is a proportion, and a proportion is the one thing
-             a number alone reads worst: "3 / 20" needs arithmetic before it
-             means anything, where an arc is read at a glance. The number is
-             kept -- the gauge tells you how full, the number tells you how
-             many, and a manager buying seats needs both. */
-          <BentoStat
-            tone="bee"
-            col={2}
-            row={2}
-            icon={TicketIcon}
-            label="Learner slots"
-            value={failed ? "—" : `${seatsUsed} / ${seatsTotal}`}
-            hint={
-              failed
-                ? "Could not be loaded"
-                : `${Math.max(seatsTotal - seatsUsed, 0)} slot(s) remaining`
-            }
-          >
-            {!failed && seatsTotal > 0 ? (
-              <RadialGauge
-                value={(seatsUsed / seatsTotal) * 100}
-                label="filled"
-                height={132}
-              />
-            ) : null}
-          </BentoStat>
+          <BentoTile tone="plain" col={3} row={3}>
+            <InstitutionDrilldownStatsCard
+              data={data}
+              groupStats={groupStats}
+              departments={departments}
+              members={members}
+              summary={summary}
+              failed={failed}
+            />
+          </BentoTile>
         ),
       },
       {
-        id: "ent-members",
-        col: 2,
-        row: 2,
+        id: "ent-seats",
+        col: 3,
+        row: 1,
+        x: 3,
+        y: 0,
         element: (
-          <BentoStat
-            tone="bee"
-            col={2}
-            row={2}
-            icon={UsersIcon}
-            label="Members"
-            value={failed ? "—" : count(summary.members)}
-            // "Active" here means they have actually done something -- a graded
-            // attempt or a finished lesson -- not merely that a seat was assigned.
-            hint={
-              failed
-                ? "Could not be loaded"
-                : `${count(summary.activeMembers)} active · ${count(summary.membersNotStarted)} not started`
-            }
-          >
-            {/* Started vs not started, because that split is the one a manager
-                acts on: a member who has never opened anything is a chase-up,
-                and a headline count of members hides them entirely. Drawn only
-                when there is a roster -- an empty donut asserts a shape that
-                does not exist yet. */}
-            {!failed && summary.members > 0 ? (
-              <DonutChart
-                data={[
-                  { name: "Started", value: summary.activeMembers ?? 0 },
-                  { name: "Not started", value: summary.membersNotStarted ?? 0 },
-                ]}
-                height={132}
-              />
-            ) : null}
-          </BentoStat>
+          <BentoTile tone="bee" col={3} row={1}>
+            <div className="flex h-full flex-col justify-between">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-rb-bee-lip">
+                    Learner slots
+                  </p>
+                  <p className="truncate text-[11px] text-muted-foreground">
+                    {failed
+                      ? "Could not be loaded"
+                      : `${Math.max(seatsTotal - seatsUsed, 0)} slot(s) remaining`}
+                  </p>
+                </div>
+                <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-white/60 text-rb-eel dark:bg-white/10 dark:text-rb-snow">
+                  <TicketIcon className="size-4" aria-hidden="true" />
+                </span>
+              </div>
+
+              <div className="flex items-end justify-between gap-2 pt-1">
+                <div className="min-w-0">
+                  <div className="font-rb-display text-2xl font-black leading-none tracking-tight tabular-nums text-foreground sm:text-3xl">
+                    {failed ? "—" : `${seatsUsed} / ${seatsTotal}`}
+                  </div>
+                  <div className="mt-1 truncate text-[11px] font-semibold text-muted-foreground">
+                    {seatsTotal > 0
+                      ? `${Math.round((seatsUsed / seatsTotal) * 100)}% capacity utilized`
+                      : "No slots allocated"}
+                  </div>
+                </div>
+
+                {!failed && seatsTotal > 0 ? (
+                  <div className="size-[72px] shrink-0">
+                    <RadialGauge
+                      value={(seatsUsed / seatsTotal) * 100}
+                      label="filled"
+                      height={72}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </BentoTile>
         ),
       },
       {
         id: "ent-progress",
-        col: 2,
+        col: 3,
         row: 2,
+        x: 3,
+        y: 1,
         element: (
-          <BentoStat
-            tone="feather"
-            col={2}
-            row={2}
-            icon={TargetIcon}
-            label="Average progress"
-            value={failed ? "—" : percent(summary.averageProgress, 1)}
-            hint={failed ? "Could not be loaded" : "Across every assignment"}
-          >
-            {/* Banded with the shared readiness scale rather than a flat accent,
-                so 30% and 80% are not the same colour on a board a manager
-                scans rather than reads. Null progress means nothing has been
-                measured -- that is not 0%, and it must not be drawn as one. */}
-            {!failed && summary.averageProgress != null ? (
-              <RadialGauge
-                value={Number(summary.averageProgress)}
-                label="complete"
-                height={132}
-                color={readinessColor(chartTheme, Number(summary.averageProgress))}
-                valueInk={readinessInk(chartTheme, Number(summary.averageProgress))}
-              />
-            ) : null}
-          </BentoStat>
+          <BentoTile tone="feather" col={3} row={2}>
+            <div className="flex h-full flex-col justify-between">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-rb-feather-lip">
+                    Average progress
+                  </p>
+                  <p className="truncate text-[11px] text-muted-foreground">
+                    {failed ? "Could not be loaded" : "Across every assignment"}
+                  </p>
+                </div>
+                <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-white/60 text-rb-eel dark:bg-white/10 dark:text-rb-snow">
+                  <TargetIcon className="size-4" aria-hidden="true" />
+                </span>
+              </div>
+
+              <div className="my-auto flex items-center justify-between gap-4 py-2">
+                <div className="min-w-0 space-y-1.5">
+                  <div className="font-rb-display text-3xl font-black leading-none tracking-tight tabular-nums text-foreground sm:text-4xl">
+                    {failed ? "—" : percent(summary.averageProgress, 1)}
+                  </div>
+                  <div className="text-xs font-semibold text-muted-foreground">
+                    Overall completion rate
+                  </div>
+                </div>
+
+                {!failed && summary.averageProgress != null ? (
+                  <div className="size-[96px] shrink-0">
+                    <RadialGauge
+                      value={Number(summary.averageProgress)}
+                      label="complete"
+                      height={96}
+                      color={readinessColor(chartTheme, Number(summary.averageProgress))}
+                      valueInk={readinessInk(chartTheme, Number(summary.averageProgress))}
+                    />
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Supporting Progress Bar & Summary */}
+              <div className="space-y-1.5 border-t border-border/40 pt-2.5">
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-muted-foreground">Pass rate: <strong className="text-foreground">{percent(summary.passRate)}</strong></span>
+                  <span className="text-muted-foreground">Avg score: <strong className="text-foreground">{percent(summary.averageScore)}</strong></span>
+                </div>
+                <Progress value={Number(summary.averageProgress ?? 0)} className="h-2" />
+              </div>
+            </div>
+          </BentoTile>
         ),
       },
       {
@@ -297,6 +338,8 @@ export default function InstitutionDashboardPage() {
         id: "ent-key-figures",
         col: 6,
         row: 1,
+        x: 0,
+        y: 3,
         element: (
           <BentoTile col={6} row={1}>
             <BentoHeading
@@ -348,6 +391,8 @@ export default function InstitutionDashboardPage() {
         id: "ent-completion-distribution",
         col: 3,
         row: 2,
+        x: 0,
+        y: 4,
         element: (
           <BentoTile col={3} row={2}>
             <BentoHeading
@@ -367,6 +412,8 @@ export default function InstitutionDashboardPage() {
         id: "ent-group-completion",
         col: 3,
         row: 2,
+        x: 3,
+        y: 4,
         element: (
           <BentoTile col={3} row={2}>
             <BentoHeading
@@ -398,6 +445,8 @@ export default function InstitutionDashboardPage() {
         id: "ent-member-table",
         col: 6,
         row: 3,
+        x: 0,
+        y: 6,
         element: (
           <BentoTile col={6} row={3} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -484,6 +533,8 @@ export default function InstitutionDashboardPage() {
         id: "ent-invitations",
         col: 3,
         row: 2,
+        x: 0,
+        y: 9,
         element: (
           <BentoTile col={3} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -537,6 +588,8 @@ export default function InstitutionDashboardPage() {
         id: "ent-allocations",
         col: 3,
         row: 2,
+        x: 3,
+        y: 9,
         element: (
           <BentoTile col={3} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -591,8 +644,12 @@ export default function InstitutionDashboardPage() {
     members,
     cohort,
     groupStats,
+    data,
     data.institutionCerts,
     data.certificationById,
+    data.assignments,
+    data.groupByInstitutionCertLearnerId,
+    data.learnerById,
     recentInvitations,
     pendingInvitations,
   ])
