@@ -45,6 +45,7 @@ import {
   useChartTheme,
 } from "@/components/charts/rebyu-charts.jsx"
 import InstitutionDrilldownStatsCard from "@/components/institution/institution-drilldown-stats-card.jsx"
+import { DateRangeNavigator } from "@/components/commons/date-range-navigator.jsx"
 
 const PROGRESS_BUCKETS = [
   { label: "0-25%", min: 0, max: 25 },
@@ -699,14 +700,21 @@ export default function InstitutionDashboardPage() {
         <InstitutionErrorState onRetry={data.refetchAll} />
       ) : (
         <>
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <DashboardRearrangeControls
-              rearranging={layout.rearranging}
-              onStart={layout.startRearranging}
-              onFinish={layout.finishRearranging}
-              onCancel={layout.cancelRearranging}
-              onReset={layout.resetLayout}
-            />
+          {/* Toolbar row: Date range navigator directly above the big card, rearrange controls on the right */}
+          <div className="flex flex-wrap items-center justify-between gap-4 -mb-1.5">
+            <div className="w-full md:w-[calc(50%-10px)]">
+              <DateRangeNavigator className="w-full" />
+            </div>
+
+            <div className="ml-auto flex items-center gap-3">
+              <DashboardRearrangeControls
+                rearranging={layout.rearranging}
+                onStart={layout.startRearranging}
+                onFinish={layout.finishRearranging}
+                onCancel={layout.cancelRearranging}
+                onReset={layout.resetLayout}
+              />
+            </div>
           </div>
 
           {/* The four chart panels that used to sit here were fed from
