@@ -208,8 +208,6 @@ public class LearnerEntitlementService {
         }
     }
 
-    // ----- internals -----
-
     /**
      * Institution-sponsored features for this learner. Coverage requires an
      * active org-cert-learner assignment whose institution holds an active

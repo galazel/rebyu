@@ -18,9 +18,7 @@ from figures import fig
 MAJOR = "Basic Theory"
 MIDDLE = "Algorithm and Programming"
 
-# ==========================================================================
 # Lesson 1: Data structures
-# ==========================================================================
 
 _ds_sections = [
     ("Why the Structure Decides the Speed", [
@@ -897,9 +895,7 @@ LESSON_DATA_STRUCTURES = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 2: Algorithms
-# ==========================================================================
 
 _algo_sections = [
     ("What Makes an Algorithm", [

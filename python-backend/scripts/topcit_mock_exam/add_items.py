@@ -70,7 +70,7 @@ def programming(lesson, difficulty, question, starter, tests):
 
 
 ITEMS = [
-    # ---------------------------------------------- Software Development (+7)
+    # Software Development (+7)
     mcq(
         363, "AVERAGE",
         "A stakeholder tells the analyst: \"The system must be fast.\" The "
@@ -254,7 +254,7 @@ ITEMS = [
          "unidirectional dependency"],
     ),
 
-    # ----------------------------------------------- Understanding of Network (+4)
+    # Understanding of Network (+4)
     mcq(
         379, "AVERAGE",
         "A switch receives a frame whose destination MAC address is not in "
@@ -342,7 +342,7 @@ ITEMS = [
         ],
     ),
 
-    # --------------------------------------------- Technical Communications (+2)
+    # Technical Communications (+2)
     mcq(
         394, "AVERAGE",
         "A buyer knows it needs a document management system but does not yet "
@@ -389,7 +389,7 @@ ITEMS = [
         "documents labelled \"report\" that are really instructions.",
     ),
 
-    # -------------------------------------- Database Construction and Management (+1)
+    # Database Construction and Management (+1)
     mcq(
         377, "HARD",
         "A retail warehouse stores a product's category on the sales fact "
@@ -416,7 +416,7 @@ ITEMS = [
         "figures still add up, which is what makes the error hard to notice.",
     ),
 
-    # ------------------------------------------- Understanding of Security (+1)
+    # Understanding of Security (+1)
     mcq(
         385, "HARD",
         "A risk has a single loss expectancy of 40,000 and an annual rate of "

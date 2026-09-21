@@ -44,8 +44,6 @@ public class StudyDeskService {
 
     public record NoteDto(Long noteId, String body, boolean done, OffsetDateTime createdAt) {}
 
-    // ------------------------------------------------------------------ notes
-
     @Transactional(readOnly = true)
     public List<NoteDto> notes(Long learnerId, Long certificationId) {
         return noteRepository
@@ -88,7 +86,7 @@ public class StudyDeskService {
                 : noteRepository.deleteAllForLearnerAndCertification(learnerId, certificationId);
     }
 
-    // ------------------------------------------------------- dashboard layout
+    // dashboard layout
 
     /**
      * One tile's place on the board: its column/row origin and how many columns
@@ -160,8 +158,6 @@ public class StudyDeskService {
             throw new IllegalArgumentException("The layout could not be stored: " + e.getMessage());
         }
     }
-
-    // ---------------------------------------------------------------- helpers
 
     private String requireBody(String body) {
         String text = body == null ? "" : body.trim();

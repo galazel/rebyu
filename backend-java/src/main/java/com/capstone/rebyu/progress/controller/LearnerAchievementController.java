@@ -50,7 +50,6 @@ public class LearnerAchievementController {
         return new MyRewardsDto(rewardService.balance(learnerId).xp(), achievementAwardService.catalogFor(learnerId));
     }
 
-    // ------------------------------------------------------------------
     // Admin-only maintenance. Achievements are awarded server-side by
     // AchievementAwardService as learners earn them; these endpoints exist to
     // correct data, never as the way a badge is normally granted. An open POST
@@ -61,7 +60,6 @@ public class LearnerAchievementController {
     // uses (CertificationController, ExamController, ...) rather than
     // @PreAuthorize: method security is not enabled in SecurityConfig, so the
     // annotation would look like a guard while enforcing nothing.
-    // ------------------------------------------------------------------
 
     @GetMapping
     public List<LearnerAchievementDto> getAll(@AuthenticationPrincipal Jwt jwt) {

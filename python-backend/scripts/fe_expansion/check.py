@@ -79,8 +79,6 @@ def _norm(text):
     return set(_WORDS.findall((text or "").lower()))
 
 
-# ------------------------------------------------------------------ lesson
-
 def check_structure(module_name, lesson):
     name = lesson["name"]
     structure = lesson["structure"]
@@ -151,7 +149,7 @@ def check_structure(module_name, lesson):
             "words": words, "kinds": kinds}
 
 
-# --------------------------------------------------------------- questions
+# questions
 
 def check_quiz(module_name, lesson):
     name = lesson["name"]
@@ -248,8 +246,6 @@ def check_duplicates(all_questions):
                 fail("bank", "near-duplicate (%.2f):\n    %s\n    %s"
                      % (similarity, a[1][:70], b[1][:70]))
 
-
-# -------------------------------------------------------------------- main
 
 def main_for(names):
     """The gate, runnable from `seed.py` as well as from the command line.

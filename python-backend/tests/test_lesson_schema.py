@@ -41,7 +41,7 @@ def _lesson(**overrides) -> GeneratedLesson:
     return GeneratedLesson(**base)
 
 
-# --- schema enforcement (raises -> retry policy regenerates) --------------
+# schema enforcement (raises -> retry policy regenerates)
 
 def test_valid_lesson_is_accepted():
     assert _lesson().title == "Database Indexing"
@@ -77,7 +77,7 @@ def test_nonpositive_study_time_is_rejected():
         _lesson(estimated_minutes=0)
 
 
-# --- block rendering ------------------------------------------------------
+# block rendering
 
 def test_blocks_render_the_full_anatomy_in_reading_order():
     blocks = lesson_to_blocks(_lesson())
@@ -124,7 +124,7 @@ def test_rendering_accepts_a_plain_dict():
     assert any(b["type"] == "heading" for b in blocks)
 
 
-# --- advisory quality report ---------------------------------------------
+# advisory quality report
 
 def test_healthy_lesson_scores_well():
     report = validate_lesson(_lesson())
@@ -187,7 +187,7 @@ def test_aggregate_report_on_no_lessons_is_an_error():
     assert report.issues[0].code == "NO_LESSONS"
 
 
-# --- block normalisation --------------------------------------------------
+# block normalisation
 #
 # The eighteen lesson-builder tools were pure shape constructors, so binding
 # them to the agent added no capability -- only a two-phase protocol it got

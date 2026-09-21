@@ -17,8 +17,6 @@ def session(db):
     return db
 
 
-# --- run lifecycle --------------------------------------------------------
-
 def test_start_run_registers_and_emits_started_event(session):
     run = registry.start_run(
         session, thread_id="t-1", kind="CERTIFICATION",
@@ -123,7 +121,7 @@ def test_transition_on_unknown_thread_returns_none_rather_than_inventing_a_run(s
     assert registry.mark_completed(session, "never-registered") is None
 
 
-# --- event sequence / replay ---------------------------------------------
+# event sequence / replay
 
 def test_seq_is_monotonic_and_gapless(session):
     run = registry.start_run(session, thread_id="t-6", kind="CERTIFICATION")
@@ -176,7 +174,7 @@ def test_two_runs_have_independent_sequences(session):
     assert [e.seq for e in registry.list_events(session, b.run_id)] == [1]
 
 
-# --- listing / filtering --------------------------------------------------
+# listing / filtering
 
 def test_list_filters_by_status_and_certification(session):
     registry.start_run(session, thread_id="f-1", kind="CERTIFICATION", certification_id=1)
@@ -195,7 +193,7 @@ def test_list_is_newest_first(session):
     assert set(threads) == {"o-1", "o-2"}
 
 
-# --- concurrent emitters --------------------------------------------------
+# concurrent emitters
 
 def test_two_sessions_that_both_loaded_the_run_get_distinct_seqs(session_factory):
     """The live 500: a Retry click landed while a resume was mid-flight

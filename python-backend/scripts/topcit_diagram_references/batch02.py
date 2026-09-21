@@ -24,7 +24,7 @@ PROCESS_LEGEND = [
 ]
 
 
-# ------------------------------------------------ cfg 8, ACTIVITY (redo)
+# cfg 8, ACTIVITY (redo)
 def expense_approval():
     d = Diagram("Helios Expense Management - Claim Approval",
                 "UML activity diagram (model answer)")
@@ -93,7 +93,7 @@ would model it incorrectly.
 two-approval path the exception rather than the default."""
 
 
-# ----------------------------------------------------- cfg 11, UML_CLASS
+# cfg 11, UML_CLASS
 def learning_platform():
     d = Diagram("Lumen Learning Platform - Class Model",
                 "UML class diagram (model answer)")
@@ -177,7 +177,7 @@ Instructor-Course is only aggregation.
 sentence in requirement (a) tells you so?"""
 
 
-# ----------------------------------------------------- cfg 12, UML_CLASS
+# cfg 12, UML_CLASS
 def payment_layers():
     d = Diagram("Arcus Payments - Layered Architecture Class Model",
                 "UML class diagram (model answer)")
@@ -261,7 +261,7 @@ Merchant-Payment is only aggregation.
 break in requirement (a) if the service layer depended on CardGateway directly?"""
 
 
-# ------------------------------------------------------ cfg 13, FLOWCHART
+# cfg 13, FLOWCHART
 def code_review_flow():
     d = Diagram("Meridian Logistics - Code Review and Merge Process",
                 "Flowchart (model answer)")
@@ -333,7 +333,7 @@ review would be wrong.
 always-executed step, and state what the guard is."""
 
 
-# ------------------------------------------------------ cfg 14, FLOWCHART
+# cfg 14, FLOWCHART
 def sdlc_testing():
     d = Diagram("SDLC with Verification Points",
                 "Flowchart (model answer)")
@@ -406,7 +406,7 @@ returning to the correct step.
 sentence what each level can find that the one before it cannot."""
 
 
-# ------------------------------------------------------ cfg 15, FLOWCHART
+# cfg 15, FLOWCHART
 def adaptive_maintenance():
     d = Diagram("Accounting System - Platform Upgrade Response",
                 "Flowchart (model answer)")
@@ -488,7 +488,7 @@ one sentence why duplicating it would be a modelling error.
 one sentence why that single fact is what separates adaptive from perfective."""
 
 
-# ----------------------------------------------------------- cfg 16, ERD
+# cfg 16, ERD
 def hospital_admissions():
     d = Diagram("St Aidan's Hospital - Admissions Domain Model",
                 "Entity-relationship diagram (model answer)")
@@ -561,7 +561,7 @@ State what that fixes about the cardinality on the Patient end of Admission, \
 and why."""
 
 
-# ------------------------------------------------------ cfg 17, FLOWCHART
+# cfg 17, FLOWCHART
 def re_process():
     d = Diagram("Requirements Engineering Process",
                 "Flowchart (model answer)")

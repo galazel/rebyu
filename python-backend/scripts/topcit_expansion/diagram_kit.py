@@ -159,9 +159,7 @@ def render(height, body, title, caption=None):
     )
 
 
-# --------------------------------------------------------------------------
 # Archetypes
-# --------------------------------------------------------------------------
 
 def stack(title, layers, caption=None, numbered=True, right_note=None):
     """Vertical layered model -- OSI, a policy hierarchy, architecture tiers."""

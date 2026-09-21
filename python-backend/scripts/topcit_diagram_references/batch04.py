@@ -15,7 +15,7 @@ COMPONENT_LEGEND = [
 ]
 
 
-# ------------------------------------------------------ cfg 26, UML_CLASS
+# cfg 26, UML_CLASS
 def data_link_frames():
     d = Diagram("Data Link Layer - Frame and Protocol Class Model",
                 "UML class diagram (model answer)")
@@ -113,7 +113,7 @@ that makes each one abstract, and state what would go wrong if go-back-N did \
 not override transmit()."""
 
 
-# -------------------------------------------------- cfg 27, UML_COMPONENT
+# cfg 27, UML_COMPONENT
 def dns_dhcp_services():
     d = Diagram("Halden Campus - Core Network Service Architecture",
                 "UML component diagram (model answer)")
@@ -189,7 +189,7 @@ architectural property it protects, and name the single component whose failure 
 would prevent a new client from obtaining an address at all."""
 
 
-# -------------------------------------------------- cfg 28, UML_COMPONENT
+# cfg 28, UML_COMPONENT
 def m2m_telemetry():
     d = Diagram("Fenland Water - M2M Telemetry Architecture",
                 "UML component diagram (model answer)")
@@ -262,7 +262,7 @@ NAT, and identify the one component in your diagram that becomes a single point 
 of failure for all telemetry."""
 
 
-# ------------------------------------------------------------ cfg 29, ERD
+# cfg 29, ERD
 def library_requirements():
     d = Diagram("Wren Public Library - Lending Domain Model",
                 "Entity-relationship diagram (model answer)")
@@ -342,7 +342,7 @@ what that means for the column's nullability, and name one query the librarians 
 can answer from that single nullable column."""
 
 
-# ----------------------------------------------- cfg 30, ACTIVITY_DIAGRAM
+# cfg 30, ACTIVITY_DIAGRAM
 def requirements_gathering_activity():
     d = Diagram("Database Requirements Collection - Process",
                 "UML activity diagram (model answer)")
@@ -420,7 +420,7 @@ one sentence why a rejected model must not send the team back to interviewing \
 stakeholders."""
 
 
-# ------------------------------------------------------------ cfg 31, ERD
+# cfg 31, ERD
 def qos_architecture():
     d = Diagram("Halden Campus - Network Service Quality Model",
                 "Entity-relationship diagram (model answer)")
@@ -501,7 +501,7 @@ one sentence why a breach hangs off a measurement rather than off the service \
 level directly."""
 
 
-# ------------------------------------------------------------ cfg 32, ERD
+# cfg 32, ERD
 def addressing_plan():
     d = Diagram("Halden Campus - Addressing and Routing Model",
                 "Entity-relationship diagram (model answer)")
@@ -585,7 +585,7 @@ routes. State in one sentence what integrity rule the database cannot express \
 here, and where it would have to be enforced instead."""
 
 
-# ------------------------------------------------------------ cfg 33, ERD
+# cfg 33, ERD
 def requirements_traceability():
     d = Diagram("Vantage Systems - Requirements Traceability Model",
                 "Entity-relationship diagram (model answer)")
@@ -667,7 +667,7 @@ answerable, and what you would have had to change if requirement (g) had said \
 "exactly one" instead."""
 
 
-# ----------------------------------------------- cfg 34, ACTIVITY_DIAGRAM
+# cfg 34, ACTIVITY_DIAGRAM
 def design_process_activity():
     d = Diagram("Software Design Process - Architecture to Detail",
                 "UML activity diagram (model answer)")
@@ -746,7 +746,7 @@ sentence which of the two branches is the expensive one and why, and what \
 requirement (b) is trying to do about it."""
 
 
-# -------------------------------------------------- cfg 35, UML_COMPONENT
+# cfg 35, UML_COMPONENT
 def hexagonal_components():
     d = Diagram("Arcus Payments - Ports and Adapters Component View",
                 "UML component diagram (model answer)")

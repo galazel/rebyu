@@ -272,7 +272,7 @@ export function readinessInk(theme, value) {
   }
 }
 
-/* ------------------------------------------------------------------- shell */
+/* shell */
 
 export function ChartPanel({
   title,
@@ -391,7 +391,7 @@ function axisProps(theme) {
   }
 }
 
-/* -------------------------------------------------------------------- line */
+/* line */
 
 /**
  * Change over time. `series` is [{ key, name }] — colour comes from position,
@@ -470,7 +470,7 @@ export function TrendLineChart({
   )
 }
 
-/* -------------------------------------------------------------------- area */
+/* area */
 
 /** Volume over time. Stacked segments keep a 2px surface gap between fills. */
 export function TrendAreaChart({
@@ -551,7 +551,7 @@ export function TrendAreaChart({
   )
 }
 
-/* --------------------------------------------------------------------- bar */
+/* bar */
 
 /**
  * Magnitude across categories. Two states, not a value ramp: at-or-above the
@@ -708,7 +708,7 @@ export function BarBreakdownChart({
   )
 }
 
-/* ------------------------------------------------------------------- donut */
+/* donut */
 
 /** Parts of a whole — at most four named slices, the tail folded into Other. */
 export function DonutChart({
@@ -780,7 +780,7 @@ export function DonutChart({
   )
 }
 
-/* ------------------------------------------------------------------- gauge */
+/* gauge */
 
 /** A single headline that happens to have a ceiling — one number, one arc. */
 /**
@@ -841,7 +841,7 @@ export function RadialGauge({
   )
 }
 
-/* ------------------------------------------------------------ compact mark */
+/* compact mark */
 
 /** Inline trend for a stat tile. Decorative — the tile carries the number. */
 export function Sparkline({ data, dataKey = "value", height = 44 }) {

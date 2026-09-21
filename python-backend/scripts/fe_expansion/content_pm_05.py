@@ -16,9 +16,7 @@ from figures import fig
 MAJOR = "Project Management"
 MIDDLE = "Project Management"
 
-# ==========================================================================
 # Lesson 10: Procurement management
-# ==========================================================================
 
 _proc_sections = [
     ("Buying Rather Than Building", [
@@ -698,9 +696,7 @@ LESSON_PM_PROC = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 11: Communications management
-# ==========================================================================
 
 _comm_sections = [
     ("Most of the Job", [

@@ -28,7 +28,6 @@ export function MasteryTrendChart({ certificationId, className = '' }) {
     )
   }
 
-  // Transform data for chart
   const chartData = history.map((item, index) => ({
     index: index + 1,
     date: new Date(item.created_at).toLocaleDateString('en-US', {

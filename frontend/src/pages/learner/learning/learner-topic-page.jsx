@@ -86,7 +86,7 @@ import {
  * assessment is a track entry of its own.
  */
 
-/* --------------------------------------------------------------------- data */
+/* data */
 
 function useIsXl() {
   const [isXl, setIsXl] = useState(
@@ -169,7 +169,7 @@ function readSectionsOf(structure) {
   return merged
 }
 
-/* ------------------------------------------------------------------- outline */
+/* outline */
 
 const ROW_ICON = { lesson: BookOpen, assessment: ClipboardCheck }
 
@@ -479,7 +479,7 @@ function Outline({
   )
 }
 
-/* ------------------------------------------------------------------- centre */
+/* centre */
 
 /**
  * A section's tick. Scrolling past the end of a section ticks it; the tick is
@@ -784,7 +784,6 @@ function LessonView({
     onReadLesson()
   }, [sections, readSections, quizPending, onReadLesson, lessonItem.quiz])
 
-
   return (
     <article
       ref={articleRef}
@@ -839,7 +838,6 @@ function LessonView({
           ) : null}
         </div>
       </div>
-
 
       {/* Full width, not capped. The cap moved down onto the things inside it,
           because the section bands have to reach the column's edges while
@@ -1159,7 +1157,6 @@ function AssessmentView({ exam, position, total, backTo, taken, onOpenOutline })
 
       </div>
 
-
       <div className="px-5 py-16 sm:px-10 lg:px-14">
       <Reveal
         variants={popIn}
@@ -1225,7 +1222,7 @@ function AssessmentView({ exam, position, total, backTo, taken, onOpenOutline })
   )
 }
 
-/* --------------------------------------------------------------------- page */
+/* page */
 
 /* One grey block, one pulse, everywhere on this page. Two loading states drawn
    at two different rhythms read as two different things happening. */

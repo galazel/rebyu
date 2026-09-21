@@ -68,7 +68,7 @@ def _minutes(items):
     return 2 * items + 5
 
 
-# ------------------------------------------------------------------ reading
+# reading
 
 def certification_id(db):
     found = db.execute(text(
@@ -111,7 +111,7 @@ def questions_by_lesson(db, lesson_ids):
     return grouped
 
 
-# ---------------------------------------------------------------- selecting
+# selecting
 
 def spread(pools, wanted, seed):
     """Take `wanted` ids round-robin across `pools`, a list of id lists.
@@ -151,7 +151,7 @@ def spread(pools, wanted, seed):
     return picked
 
 
-# ----------------------------------------------------------------- writing
+# writing
 
 def upsert_exam(db, cert_id, title, exam_type_id, target_scope, question_ids,
                 duration_minutes=None, description=None,
@@ -223,8 +223,6 @@ def upsert_exam(db, cert_id, title, exam_type_id, target_scope, question_ids,
     return exam_id, mark
 
 
-# -------------------------------------------------------------------- main
-
 def main():
     rebuild = "--rebuild" in sys.argv
     report_only = "--report" in sys.argv
@@ -256,7 +254,6 @@ def main():
         db.close()
         return 0
 
-    # --- middle exams --------------------------------------------------
     print("Middle exams")
     for (major_id, middle_id, title), lessons in sorted(middles.items()):
         pools = [banks.get(l, []) for l in lessons]
@@ -277,7 +274,6 @@ def main():
         print("  %s %-46s %2d item(s) from %d lesson(s)"
               % (mark, exam_title[:46], len(picked), len(lessons)))
 
-    # --- major exams ---------------------------------------------------
     print("\nMajor exams")
     for (major_id, title), lessons in sorted(majors.items()):
         pools = [banks.get(l, []) for l in lessons]
@@ -294,7 +290,7 @@ def main():
         print("  %s %-46s %2d item(s) from %d lesson(s)"
               % (mark, exam_title[:46], len(picked), len(lessons)))
 
-    # --- diagnostic ----------------------------------------------------
+    # diagnostic
     # One item per lesson, so a learner's first sitting produces a signal for
     # every lesson in the curriculum rather than a deep reading of a few. That
     # is what the adaptive engine needs from it.
@@ -312,7 +308,7 @@ def main():
         print("  %s %-46s %2d item(s), one per lesson"
               % (mark, diagnostic_title, len(picked)))
 
-    # --- mock exam -----------------------------------------------------
+    # mock exam
     # Shaped like the real paper rather than like the curriculum. Subject A
     # samples the whole syllabus; Subject B is concentrated on Algorithm and
     # Programming with a security component, which is what the published

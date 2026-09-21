@@ -617,7 +617,7 @@ async def execute(context: RunContext, graph_input: Any) -> dict[str, Any]:
     return outcome
 
 
-# --- recovery -------------------------------------------------------------
+# recovery
 
 #: Statuses a run can always be retried or restarted from.
 RECOVERABLE_STATUSES = {registry.FAILED}

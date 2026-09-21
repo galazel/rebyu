@@ -36,7 +36,7 @@ def _id():
     return str(uuid.uuid4())
 
 
-# ------------------------------------------------------------------ prose
+# prose
 
 def desc(text):
     """A paragraph. The spine of every lesson."""
@@ -99,7 +99,7 @@ def table(columns, rows, small_header=None, description=None, caption=None,
                               for row in rows]}}
 
 
-# ----------------------------------------------------------------- figures
+# figures
 
 def image(url, source_url=None, source_name=None):
     """A standalone figure.
@@ -166,7 +166,7 @@ def video(video_key):
     return {"type": "video", "data": {"file": None, "videoKey": video_key}}
 
 
-# -------------------------------------------------------------- disclosure
+# disclosure
 
 def accordion(pairs):
     """pairs: [(title, body)] -- collapsed rows the learner opens on demand.
@@ -211,7 +211,7 @@ def content_tabs(small_header, description, triples):
                                for lb, ti, bo in triples]}}
 
 
-# ------------------------------------------------------------------ grids
+# grids
 
 def compare_grid(small_header, description, pairs, image_key=None):
     """pairs: [(title, body)] as a grid of cards, optionally under a figure.
@@ -258,8 +258,6 @@ def review_cards(small_header, description, triples):
                                 "backTitle": b, "description": d}
                                for f, b, d in triples]}}
 
-
-# ----------------------------------------------------------------- lesson
 
 def lesson_structure(name, intro, objectives, minutes, sections,
                      key_terms, summary, exam_notes=None):
@@ -308,7 +306,7 @@ def lesson_structure(name, intro, objectives, minutes, sections,
     return structure
 
 
-# --------------------------------------------------------------- questions
+# questions
 
 #: The three values `questions.difficulty_level` actually carries across the
 #: whole bank. Anything else is silently unfilterable in the practice engine.

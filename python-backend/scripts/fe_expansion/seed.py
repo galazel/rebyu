@@ -60,7 +60,7 @@ QUIZ_PASSING_SCORE = 70
 VARIATION_SEPARATOR = "\n"
 
 
-# ------------------------------------------------------------------ skeleton
+# skeleton
 
 def ensure_certification(db):
     existing = db.execute(text(
@@ -189,7 +189,7 @@ def middle_index(db):
     return {(major, middle): middle_id for major, middle, middle_id in rows}
 
 
-# ----------------------------------------------------------------- questions
+# questions
 
 def insert_question(db, lesson_id, item):
     question_id = db.execute(text("""
@@ -242,7 +242,7 @@ def insert_question(db, lesson_id, item):
     return question_id
 
 
-# ------------------------------------------------------------------- lessons
+# lessons
 
 def _without_ids(value):
     """The same structure with every `id` removed, at any depth.

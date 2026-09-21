@@ -16,7 +16,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # --- learner_lesson_mastery: evidence counters + curriculum path ---------
+    # learner_lesson_mastery: evidence counters + curriculum path
     op.add_column(
         "learner_lesson_mastery",
         sa.Column("correct_count", sa.Integer(), nullable=False, server_default="0"),
@@ -38,7 +38,7 @@ def upgrade() -> None:
         ["learner_id", "certification_id"],
     )
 
-    # --- idempotency ledger --------------------------------------------------
+    # idempotency ledger
     op.create_table(
         "bkt_processed_events",
         sa.Column("processed_event_id", sa.String(36), primary_key=True),
@@ -57,7 +57,7 @@ def upgrade() -> None:
         "ix_bkt_processed_events_event_id", "bkt_processed_events", ["event_id"], unique=True
     )
 
-    # --- mastery history -----------------------------------------------------
+    # mastery history
     op.create_table(
         "learner_lesson_mastery_history",
         sa.Column("mastery_history_id", sa.String(36), primary_key=True),
@@ -86,7 +86,7 @@ def upgrade() -> None:
         ["learner_id", "lesson_id", "created_at"],
     )
 
-    # --- current category priorities ----------------------------------------
+    # current category priorities
     op.create_table(
         "learner_category_priorities",
         sa.Column("learner_category_priority_id", sa.String(36), primary_key=True),
@@ -125,7 +125,7 @@ def upgrade() -> None:
     op.create_index("ix_category_priority_tag", "learner_category_priorities", ["priority_tag"])
     op.create_index("ix_category_priority_score", "learner_category_priorities", ["priority_score"])
 
-    # --- priority history ----------------------------------------------------
+    # priority history
     op.create_table(
         "learner_category_priority_history",
         sa.Column("priority_history_id", sa.String(36), primary_key=True),

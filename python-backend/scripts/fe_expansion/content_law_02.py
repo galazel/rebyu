@@ -17,9 +17,7 @@ MAJOR = "Corporate and Legal Affairs"
 MIDDLE = "Legal Affairs"
 
 
-# ==========================================================================
 # Lesson 1: Laws on labour and commercial transactions
-# ==========================================================================
 
 _lab_sections = [
     ("How IT Work Is Actually Staffed", [
@@ -758,9 +756,7 @@ LESSON_LAB = lesson(
     ))
 
 
-# ==========================================================================
 # Lesson 2: Other laws, guidelines and engineer ethics
-# ==========================================================================
 
 _eth_sections = [
     ("What an Engineer Owes", [

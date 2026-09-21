@@ -67,7 +67,7 @@ def isolated_index_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(get_settings(), "rag_index_dir", tmp_path / "faiss_db", raising=False)
 
 
-# --- phase helpers (pure) -------------------------------------------------
+# phase helpers (pure)
 
 def test_major_phase_iterates_majors():
     assert [m["name"] for m in cert_nodes.MAJOR_PHASE.items_of(CURRICULUM)] == ["Major A", "Major B"]
@@ -100,7 +100,7 @@ def test_current_item_past_the_end_is_none():
     assert current_item(state, cert_nodes.MAJOR_PHASE) is None
 
 
-# --- driving the real graph ----------------------------------------------
+# driving the real graph
 
 def _question(text: str = "Q?") -> QuestionDraft:
     return QuestionDraft(
@@ -316,7 +316,7 @@ async def test_validation_report_accompanies_every_review(graph_env):
     assert result["__interrupt__"][0].value["validation_report"] is not None
 
 
-# --- Edit / Improve with AI / version history ----------------------------
+# Edit / Improve with AI / version history
 
 async def test_improve_passes_the_reviewers_feedback_to_the_generator(graph_env):
     """The only thing separating Improve from Regenerate: the admin's

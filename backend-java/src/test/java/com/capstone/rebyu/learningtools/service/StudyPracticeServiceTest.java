@@ -100,7 +100,7 @@ class StudyPracticeServiceTest {
                 .build();
     }
 
-    // ---- submitAnswer ----
+    // submitAnswer
 
     @Test
     void submitAnswer_correctChoice_upsertsWithIsCorrectTrue() {
@@ -148,7 +148,7 @@ class StudyPracticeServiceTest {
                 () -> service.submitAnswer(LEARNER_ID, ATTEMPT_ID, ITEM_ID, "4", null));
     }
 
-    // ---- completeAttempt ----
+    // completeAttempt
 
     @Test
     void completeAttempt_allCorrect_scoresFullMarksAndAwardsReward() {
@@ -204,7 +204,7 @@ class StudyPracticeServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.completeAttempt(LEARNER_ID, ATTEMPT_ID));
     }
 
-    // ---- startAttempt: what a shared study set needs, and what it must not ----
+    // startAttempt: what a shared study set needs, and what it must not
 
     private GeneratedStudySet studySetEntity(String source, String studyType) {
         Certification certification = new Certification();

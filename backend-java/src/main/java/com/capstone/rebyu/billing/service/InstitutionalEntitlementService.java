@@ -109,7 +109,7 @@ public class InstitutionalEntitlementService {
                 usage);
     }
 
-    // ----- capacity checks (throw on limit reached) -----
+    // capacity checks (throw on limit reached)
 
     @Transactional(readOnly = true)
     public void requireAvailableLearnerSeat(Long institutionId) {
@@ -143,8 +143,6 @@ public class InstitutionalEntitlementService {
         checkCapacity("CERTIFICATION_ALLOCATION_LIMIT_REACHED", certificationsUsed(institutionId), limit,
                 "The institutional certification-allocation limit has been reached.");
     }
-
-    // ----- internals -----
 
     private InstitutionalLicense requireActiveLicense(Long institutionId) {
         return getActiveLicense(institutionId).orElseThrow(() ->

@@ -30,7 +30,7 @@ def _none_to_empty(value: Any) -> Any:
     return [] if value is None else value
 
 
-# --- wire: request ---------------------------------------------------------
+# wire: request
 
 
 class RubricCriterion(BaseModel):
@@ -73,7 +73,7 @@ class AnswerGradingRequest(BaseModel):
     _empty_subs = field_validator("subQuestions", mode="before")(_none_to_empty)
 
 
-# --- wire: response --------------------------------------------------------
+# wire: response
 
 
 class SubAnswerGrade(BaseModel):
@@ -97,7 +97,7 @@ class AnswerGradingResult(BaseModel):
     subScores: list[SubAnswerGrade] = Field(default_factory=list)
 
 
-# --- what the model returns ------------------------------------------------
+# what the model returns
 
 
 def _coerce_percent(value: Any) -> Any:

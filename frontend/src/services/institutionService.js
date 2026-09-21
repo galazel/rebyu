@@ -183,10 +183,8 @@ export function getInstitutionFileDownloadUrl(id) { return base(`institution/fil
 export function uploadInstitutionFile(file) { const formData = new FormData(); formData.append("file", file); return base("institution/files", { method: "POST", data: formData }) }
 export function deleteInstitutionFile(id) { return base(`institution/files/${id}`, { method: "DELETE" }) }
 
-// ---------------------------------------------------------------------------
 // A group leader monitoring their own learners. All three are scoped to a group
 // the caller actually leads (or owns) -- enforced server-side, never here.
-// ---------------------------------------------------------------------------
 
 /** The group's active learners with summary progress figures, for the table. */
 export function getGroupLearnerRoster(groupId) {

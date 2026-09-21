@@ -32,7 +32,7 @@ def _response(*contents):
     return {"messages": [_Message(content) for content in contents]}
 
 
-# --- reading the answer out of the run --------------------------------------
+# reading the answer out of the run
 
 
 def test_the_answer_is_the_last_message_of_the_run():
@@ -57,7 +57,7 @@ def test_an_empty_run_is_a_valueerror_so_it_gets_resampled(response):
         final_message_text(response)
 
 
-# --- prose and fences around the object -------------------------------------
+# prose and fences around the object
 
 
 def test_a_preamble_before_the_object_is_ignored():
@@ -73,7 +73,7 @@ def test_trailing_commentary_after_the_object_is_ignored():
     assert extract_json_object('{"a": 1}\n\nLet me know if you want more detail.') == {"a": 1}
 
 
-# --- the live failure -------------------------------------------------------
+# the live failure
 
 
 def _truncated() -> str:
@@ -120,7 +120,7 @@ def test_an_escaped_quote_does_not_end_the_string():
     }
 
 
-# --- what is not guessed at --------------------------------------------------
+# what is not guessed at
 
 
 @pytest.mark.parametrize(

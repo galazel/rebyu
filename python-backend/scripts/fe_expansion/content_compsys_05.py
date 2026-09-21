@@ -18,9 +18,7 @@ from figures import fig
 MAJOR = "Computer System"
 MIDDLE = "System Component"
 
-# ==========================================================================
 # Lesson 1: System configuration
-# ==========================================================================
 
 _config_sections = [
     ("Why More Than One Machine", [
@@ -868,9 +866,7 @@ LESSON_CONFIG = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 2: System evaluation indexes
-# ==========================================================================
 
 _eval_sections = [
     ("Measuring a System Rather Than Guessing", [

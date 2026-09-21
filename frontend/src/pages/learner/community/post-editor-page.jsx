@@ -27,14 +27,12 @@ export default function PostEditorPage() {
     if (!postId) return
 
     await editPost(postId, title, body)
-    // Redirect to post view
     window.location.href = `/community/posts/${postId}`
   }
 
   const handleDelete = async () => {
     if (!postId) return
     await deletePost(postId)
-    // Redirect to community feed
     window.location.href = '/community'
   }
 

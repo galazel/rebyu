@@ -154,7 +154,7 @@ async def test_the_result_is_never_longer_than_requested(recorder):
     assert len(batch.questions) == size + 1
 
 
-# --- mock exam fallback ----------------------------------------------------
+# mock exam fallback
 #
 # The mock exam normally imitates the real paper the planner researched
 # (TOPCIT: 100 items across five question types). When that research came back

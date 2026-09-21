@@ -67,8 +67,6 @@ REAL = {"url": "https://upload.wikimedia.org/diagram.svg",
         "sourceName": "Wikimedia Commons"}
 
 
-# --- Serper first ---------------------------------------------------------
-
 def _serper_hit(url, title="requirement management diagram", link="https://reference.example/article"):
     return {"imageUrl": url, "link": link, "title": title, "source": "Reference Example"}
 
@@ -132,7 +130,7 @@ def test_a_serper_failure_falls_through_instead_of_raising(monkeypatch, media):
     assert block["data"]["imageKey"] == "lesson-figures/1.svg"
 
 
-# --- then Wikimedia -------------------------------------------------------
+# then Wikimedia
 
 def test_a_relevant_wikimedia_image_is_used_with_its_credit(media):
     media["found"]["binary search"] = REAL
@@ -145,7 +143,7 @@ def test_a_relevant_wikimedia_image_is_used_with_its_credit(media):
     assert media["figures"] == [], "no figure is drawn when a real image exists"
 
 
-# --- a drawn figure when there is none ------------------------------------
+# a drawn figure when there is none
 
 def test_a_block_with_no_real_image_gets_a_drawn_figure(media):
     block = resolve_media([_image_block("capacity planning horizon")])[0]
@@ -201,7 +199,7 @@ def test_a_figure_that_could_not_be_drawn_leaves_the_key_blank(monkeypatch, medi
     assert resolve_media([_image_block()])[0]["data"]["imageKey"] == ""
 
 
-# --- videos, dedupe and pass-through --------------------------------------
+# videos, dedupe and pass-through
 
 def test_a_video_request_becomes_a_watch_url_with_its_channel(media):
     block = resolve_media([{"type": "video", "data": {"videoQuery": "requirements tutorial"}}])[0]
@@ -269,7 +267,7 @@ def test_malformed_blocks_are_left_for_the_schema_to_judge(media):
     assert resolve_media([{"type": "heading"}, "not a block"]) == [{"type": "heading"}, "not a block"]
 
 
-# --- choosing among Wikimedia candidates, offline ---------------------------
+# choosing among Wikimedia candidates, offline
 
 def _page(title):
     return {"title": title, "imageinfo": [{"thumburl": f"https://upload.wikimedia.org/{title}.png",
@@ -298,7 +296,7 @@ def test_a_query_with_no_real_words_is_not_searched():
     assert wikimedia_images.find_image("the diagram of an") is None
 
 
-# --- the prompt must not ask for what it cannot produce -------------------
+# the prompt must not ask for what it cannot produce
 
 def test_the_prompt_never_asks_the_model_for_a_media_url():
     """The regression guard: reintroducing `imageKey` to the block catalogue

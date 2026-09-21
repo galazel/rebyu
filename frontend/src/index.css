@@ -1,4 +1,3 @@
-
 @import url("https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,400..700&family=JetBrains+Mono:wght@400;500&display=swap");
 /* REBYU design system faces. The licensed pair is Feather Bold (display) and
    DIN Next Rounded (body); these two are the shipping fallbacks that match
@@ -1164,7 +1163,6 @@ body.netacad-overlay-theme {
     font-size: 0.8125rem;
 }
 
-
 /* ===========================================================================
    REBYU TACTILE LAYER (global)
    ---------------------------------------------------------------------------
@@ -1181,7 +1179,7 @@ body.netacad-overlay-theme {
    which ties that specificity and wins on source order. Keep the prefix when
    adding rules; raising specificity further starts an arms race. */
 
-/* --- Shared tactile tokens ------------------------------------------------- */
+/* Shared tactile tokens */
 /* `.rebyu-ds` declares these for the marketing surface. Hoisting them to the
    root gives the app shell the same press depth and spacing scale — and fixes
    the auth-shell rules at the foot of this file, which already referenced
@@ -1231,7 +1229,7 @@ body.netacad-overlay-theme {
     --rb-primary-lip: #235f9f;
 }
 
-/* --- Buttons --------------------------------------------------------------- */
+/* Buttons */
 :root [data-slot="button"] {
     border-radius: var(--radius-rb-control);
     font-weight: 700;
@@ -1291,7 +1289,7 @@ body.netacad-overlay-theme {
     border-radius: var(--radius-rb-control);
 }
 
-/* --- Surfaces -------------------------------------------------------------- */
+/* Surfaces */
 /* Overrides the portal's flattened card treatment further up this file. */
 .netacad-portal [data-slot="card"],
 :is(.admin-portal, .institution-portal)
@@ -1311,7 +1309,7 @@ body.netacad-overlay-theme {
     background: var(--muted);
 }
 
-/* --- Inputs ---------------------------------------------------------------- */
+/* Inputs */
 /* Was scoped to the portal and auth shells; now global, so a field on a public
    page and a field in an admin drawer are the same object. Heights stay on the
    component so dense admin forms keep their density. */
@@ -1347,7 +1345,7 @@ body.netacad-overlay-theme {
     font-weight: 700;
 }
 
-/* --- Choice controls ------------------------------------------------------- */
+/* Choice controls */
 /* Checkbox, radio and switch share one press behaviour so a settings panel of
    mixed controls feels like one surface. Geometry lives on the components. */
 :root :is([data-slot="checkbox"], [data-slot="radio-group-item"], [data-slot="switch"]) {
@@ -1367,7 +1365,7 @@ body.netacad-overlay-theme {
     box-shadow: none;
 }
 
-/* --- Menus, selects and popovers ------------------------------------------- */
+/* Menus, selects and popovers */
 :root :is(
     [data-slot="dropdown-menu-content"],
     [data-slot="select-content"],
@@ -1396,7 +1394,7 @@ body.netacad-overlay-theme {
     font-weight: 700;
 }
 
-/* --- Tabs ------------------------------------------------------------------ */
+/* Tabs */
 /* A segmented pill rather than an underline: the active tab is a physical
    piece that moved, which is the same metaphor the buttons use. */
 :root [data-slot="tabs-list"]:not([data-variant="line"]) {
@@ -1440,7 +1438,7 @@ body.netacad-overlay-theme {
     border-radius: 3px 3px 0 0;
 }
 
-/* --- Tables ---------------------------------------------------------------- */
+/* Tables */
 :root [data-slot="table-container"] {
     border-radius: var(--radius-rb-card);
     border: 2px solid var(--border);
@@ -1460,7 +1458,7 @@ body.netacad-overlay-theme {
     background: var(--accent);
 }
 
-/* --- Alerts ---------------------------------------------------------------- */
+/* Alerts */
 /* Full 2px outline and a tile radius instead of the thin left rule — an alert
    is a card that is saying something, not a quoted paragraph. */
 :root [data-slot="alert"] {
@@ -1479,7 +1477,7 @@ body.netacad-overlay-theme {
     font-weight: 800;
 }
 
-/* --- Dialogs, sheets and drawers ------------------------------------------- */
+/* Dialogs, sheets and drawers */
 :root :is([data-slot="dialog-content"], [data-slot="alert-dialog-content"]) {
     border-width: 2px;
     border-color: var(--border);
@@ -1498,7 +1496,7 @@ body.netacad-overlay-theme {
     background: rgb(75 75 75 / 0.45); /* Eel, never pure black */
 }
 
-/* --- Accordion ------------------------------------------------------------- */
+/* Accordion */
 :root [data-slot="accordion-item"] {
     border-bottom-width: 2px;
     border-color: var(--border);
@@ -1512,14 +1510,14 @@ body.netacad-overlay-theme {
     outline-offset: 2px;
 }
 
-/* --- Tooltip --------------------------------------------------------------- */
+/* Tooltip */
 :root [data-slot="tooltip-content"] {
     border-radius: var(--radius-rb-control);
     font-weight: 600;
     padding: 6px 10px;
 }
 
-/* --- Badges & chips -------------------------------------------------------- */
+/* Badges & chips */
 :root [data-slot="badge"] {
     border-radius: var(--radius-rb-control);
     font-weight: 700;
@@ -1529,7 +1527,7 @@ body.netacad-overlay-theme {
     border-width: 2px;
 }
 
-/* --- Progress -------------------------------------------------------------- */
+/* Progress */
 /* The inner top highlight is what makes the fill read as a filled tube rather
    than a painted rectangle. Height stays on the component so a caller passing
    `h-1.5` still gets a thin bar. */
@@ -1543,7 +1541,7 @@ body.netacad-overlay-theme {
     box-shadow: inset 0 3px 0 rgb(255 255 255 / 0.3);
 }
 
-/* --- Avatars, separators, skeletons ---------------------------------------- */
+/* Avatars, separators, skeletons */
 :root [data-slot="avatar"] {
     border: 2px solid var(--border);
 }
@@ -1555,7 +1553,7 @@ body.netacad-overlay-theme {
     background: var(--muted);
 }
 
-/* --- Chat surfaces --------------------------------------------------------- */
+/* Chat surfaces */
 /* Tile radius brings conversational surfaces in line with cards and inputs, so
    they don't read as a chat widget bolted onto the product. No lip: a speech
    bubble is a surface, not a key, and giving it press depth would imply it is
@@ -1585,7 +1583,7 @@ body.netacad-overlay-theme {
     border: 2px solid var(--border);
 }
 
-/* --- Sidebar navigation ---------------------------------------------------- */
+/* Sidebar navigation */
 /* Nav items are pressed more than any other control in the product, so they
    take the travel. Radius only steps up to the tile — these sit in a narrow
    rail where a full pill would waste the horizontal space. */
@@ -1613,7 +1611,7 @@ body.netacad-overlay-theme {
     border-radius: var(--radius-rb-control);
 }
 
-/* --- Scroll areas ---------------------------------------------------------- */
+/* Scroll areas */
 /* Only applies where a ScrollArea is used deliberately; the bars inside modals
    stay hidden by the rule at the foot of this file. */
 :root [data-slot="scroll-area-thumb"] {
@@ -1624,7 +1622,7 @@ body.netacad-overlay-theme {
     background: var(--color-rb-wolf);
 }
 
-/* --- Field text ------------------------------------------------------------ */
+/* Field text */
 /* `field-label` is already handled above with the other labels. These are its
    two supporting lines: help text sits back, the error leans in. */
 :root [data-slot="field-description"] {
@@ -1635,7 +1633,7 @@ body.netacad-overlay-theme {
     font-weight: 600;
 }
 
-/* --- Avatars --------------------------------------------------------------- */
+/* Avatars */
 /* Initials are display type in this system — they are a graphic element, not a
    sentence. */
 :root [data-slot="avatar-fallback"] {
@@ -1644,12 +1642,12 @@ body.netacad-overlay-theme {
     letter-spacing: 0.01em;
 }
 
-/* --- Collapsibles ---------------------------------------------------------- */
+/* Collapsibles */
 :root [data-slot="collapsible-trigger"]:active:not(:disabled) {
     transform: translateY(1px);
 }
 
-/* --- Auth shell ------------------------------------------------------------ */
+/* Auth shell */
 /* Overrides the compact defaults declared near the top of this file: auth is a
    low-density, high-intent surface, so it takes the full tactile sizing — the
    same 56px key height the design system uses. The corner is the shared control

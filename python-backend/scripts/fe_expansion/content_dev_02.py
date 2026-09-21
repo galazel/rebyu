@@ -16,9 +16,7 @@ from figures import fig
 MAJOR = "Development Technology"
 MIDDLE = "System Development Technology"
 
-# ==========================================================================
 # Lesson 3: Software requirements definition
-# ==========================================================================
 
 _sreq_sections = [
     ("What the Software Must Do", [
@@ -711,9 +709,7 @@ LESSON_DEV_SREQ = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 4: Software design
-# ==========================================================================
 
 _design_sections = [
     ("From What to How", [

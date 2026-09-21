@@ -16,7 +16,7 @@ def register(lesson_id, section, slug, svg):
     DIAGRAMS[(lesson_id, section)] = (slug, svg)
 
 
-# -- 405  Protocols and the OSI Reference Model ----------------------------
+# -- 405  Protocols and the OSI Reference Model
 register(405, "The OSI Reference Model", "osi-reference-model", stack(
     "The OSI Reference Model",
     [("Application", "HTTP, SMTP, DNS"),
@@ -38,7 +38,7 @@ register(405, "Encapsulation", "encapsulation", flow(
     caption="Each layer wraps the unit above it in its own header; the receiver unwraps in reverse.",
     note="The receiver strips exactly one header per layer, which is why a layer never needs to understand the layers above it."))
 
-# -- 406  Internet Address Structure ---------------------------------------
+# -- 406  Internet Address Structure
 register(406, "MAC Address Structure", "mac-address-structure", fields(
     "MAC address: 48 bits in two halves",
     [("OUI - assigned to the vendor", "00:1A:2B", 1, DEEP),
@@ -58,7 +58,7 @@ register(406, "The Historical Address Classes", "ipv4-address-classes", table(
     caption="Classful addressing fixed the network/host split by the first bits of the address.",
     footer="Classes wasted addresses badly - a site needing 300 hosts had to take a whole Class B. CIDR replaced them."))
 
-# -- 407  Internet Standards and IEEE 802 ----------------------------------
+# -- 407  Internet Standards and IEEE 802
 register(407, "The IEEE 802 Family", "ieee-802-family", table(
     "The IEEE 802 family",
     ["Standard", "Covers", "Where you meet it"],
@@ -81,7 +81,7 @@ register(407, "CSMA/CD on Wired Networks", "csma-cd", flow(
     caption="Carrier Sense Multiple Access with Collision Detection.",
     note="Full-duplex switched Ethernet has no collision domain to arbitrate, so CSMA/CD is effectively disabled on modern links."))
 
-# -- 408  Network Layer Devices --------------------------------------------
+# -- 408  Network Layer Devices
 register(408, "Classifying Devices by Layer", "devices-by-layer", table(
     "Network devices by the layer they act on",
     ["Device", "Layer", "Forwards on", "Effect on domains"],
@@ -103,7 +103,7 @@ register(408, "VLANs: Separating Networks Without Separating Cables",
     caption="Ports are assigned to VLANs; frames carry an 802.1Q tag on the trunk.",
     footer="Traffic between VLANs must pass the router, which is exactly where policy can be applied."))
 
-# -- 409  IPv4 Addressing, Subnetting, CIDR --------------------------------
+# -- 409  IPv4 Addressing, Subnetting, CIDR
 register(409, "The Subnet Mask", "subnet-mask", fields(
     "192.168.10.130 /26 split by its mask",
     [("Network - 26 bits", "192.168.10.128", 26, DEEP),
@@ -125,7 +125,7 @@ register(409, "The Block Size Shortcut", "cidr-block-sizes", table(
     caption="Block size is 256 minus the last non-zero mask octet; subnets start at multiples of it.",
     footer="Usable hosts is always block size minus two - the network address and the broadcast address."))
 
-# -- 410  Routing Protocols -------------------------------------------------
+# -- 410  Routing Protocols
 register(410, "Distance Vector: Routing by Rumour", "distance-vector", flow(
     "Distance vector: routing by rumour",
     [("Know", "only directly connected links"),
@@ -144,7 +144,7 @@ register(410, "What Link State Costs, and How Areas Pay for It", "link-state-are
     caption="Every router floods link state and runs Dijkstra over an identical database.",
     footer="Full knowledge costs CPU and memory, so areas limit how far a flood travels and summarise at the border."))
 
-# -- 411  SDN and NFV -------------------------------------------------------
+# -- 411  SDN and NFV
 register(411, "The Central Idea", "sdn-central-idea", split_planes(
     "The central idea: separating control from forwarding",
     ("Traditional", "Every device decides for itself",
@@ -169,7 +169,7 @@ register(411, "Network Function Virtualization", "nfv", compare(
     caption="NFV runs network functions as software on general-purpose servers.",
     footer="SDN changes who decides; NFV changes what the function runs on. They are complementary, not the same idea."))
 
-# -- 412  Cloud and Data Centre Networking ---------------------------------
+# -- 412  Cloud and Data Centre Networking
 register(412, "Leaf-Spine Fabric", "leaf-spine", tiers(
     "Leaf-spine fabric",
     [("Spine", ["Spine 1", "Spine 2", "Spine 3"]),
@@ -185,7 +185,7 @@ register(412, "VXLAN", "vxlan", fields(
     caption="A VTEP wraps a layer 2 frame in a layer 3 packet so it can cross a routed fabric.",
     footer="24 bits of VNI allows ~16 million segments, against 4,094 usable VLANs - which is why VXLAN exists."))
 
-# -- 413  Mobile Network Evolution -----------------------------------------
+# -- 413  Mobile Network Evolution
 register(413, "The 4G Core in Four Elements", "4g-core", flow(
     "The 4G core in four elements",
     [("eNodeB", "the radio access network"),
@@ -206,7 +206,7 @@ register(413, "Network Slicing", "network-slicing", compare(
     caption="Each slice is an isolated end-to-end network with its own guarantees.",
     footer="Slices share the same hardware; what differs is the resource guarantee, not the equipment."))
 
-# -- 414  Cryptography Fundamentals ----------------------------------------
+# -- 414  Cryptography Fundamentals
 register(414, "Symmetric Encryption", "symmetric-encryption", flow(
     "Symmetric encryption: one shared key",
     [("Plaintext", "the message"),
@@ -228,7 +228,7 @@ register(414, "Asymmetric Encryption", "asymmetric-encryption", compare(
     caption="What one key does, only the other can undo.",
     footer="Asymmetric work is far slower, so it is used to exchange a symmetric key - not to encrypt the bulk traffic."))
 
-# -- 415  Hash Functions ----------------------------------------------------
+# -- 415  Hash Functions
 register(415, "What a Hash Function Is", "hash-function", flow(
     "A hash function is one-way and fixed-length",
     [("Input", "any size at all"),
@@ -238,7 +238,7 @@ register(415, "What a Hash Function Is", "hash-function", flow(
     caption="Deterministic, fixed-length, and infeasible to reverse.",
     note="Change one bit of the input and roughly half the output bits change - the avalanche effect, which is what makes tampering detectable."))
 
-# -- 416  Authentication, Digital Signatures, PKI --------------------------
+# -- 416  Authentication, Digital Signatures, PKI
 register(416, "How a Digital Signature Works", "digital-signature", flow(
     "How a digital signature works",
     [("Hash the message", "produce a digest"),
@@ -259,7 +259,7 @@ register(416, "The Problem PKI Solves", "pki-trust-chain", stack(
     caption="A public key alone proves nothing about who owns it. PKI binds key to identity.",
     right_note="Validation walks the chain upward until it reaches a root the client already trusts."))
 
-# -- 417  Access Control Models --------------------------------------------
+# -- 417  Access Control Models
 register(417, "The Four Models", "access-control-models", table(
     "The four access control models",
     ["Model", "Who decides", "Basis of the decision", "Typical use"],
@@ -271,7 +271,7 @@ register(417, "The Four Models", "access-control-models", table(
     caption="The models differ chiefly in who is permitted to change a permission.",
     footer="RBAC scales administratively because permissions attach to roles, not to individual people."))
 
-# -- 418  Threat Modelling --------------------------------------------------
+# -- 418  Threat Modelling
 register(418, "STRIDE", "stride", table(
     "STRIDE: six threats, six properties",
     ["Threat", "Violates", "Example", "Typical control"],
@@ -297,7 +297,7 @@ register(418, "The Attack Chain", "attack-chain", flow(
     caption="An intrusion is a sequence, not a single event.",
     note="The defender only has to break the chain once - which is why detection early in the chain is worth far more than detection at the end."))
 
-# -- 419  Vulnerability Management ------------------------------------------
+# -- 419  Vulnerability Management
 register(419, "The Vulnerability Management Cycle", "vulnerability-cycle", cycle(
     "The vulnerability management cycle",
     [("Discover", "assets and flaws"),
@@ -308,7 +308,7 @@ register(419, "The Vulnerability Management Cycle", "vulnerability-cycle", cycle
     centre="continuous, not a project",
     caption="A scan is a snapshot; management is the loop around it."))
 
-# -- 420  Business Continuity and Disaster Recovery ------------------------
+# -- 420  Business Continuity and Disaster Recovery
 register(420, "RTO and RPO", "rto-rpo", timeline(
     "RTO and RPO measure different losses",
     ("RPO", "how much data you can afford to lose"),
@@ -326,7 +326,7 @@ register(420, "Backup Strategies", "backup-strategies", table(
     caption="The three strategies trade backup cost against restore cost.",
     footer="Incremental restores need the full plus every increment since - one missing increment breaks the chain."))
 
-# -- 421  Security Policies -------------------------------------------------
+# -- 421  Security Policies
 register(421, "Why the Hierarchy Exists", "policy-hierarchy", stack(
     "The security document hierarchy",
     [("Policy", "what and why - mandatory, stable"),
@@ -337,7 +337,7 @@ register(421, "Why the Hierarchy Exists", "policy-hierarchy", stack(
     caption="Each level translates the one above it into something more concrete.",
     right_note="Policy changes rarely and needs board approval; procedures change often and do not."))
 
-# -- 422  Security Auditing and Incident Response --------------------------
+# -- 422  Security Auditing and Incident Response
 register(422, "SIEM", "siem", hub_spoke(
     "SIEM: collect, correlate, alert",
     "SIEM",
@@ -357,7 +357,7 @@ register(422, "The Incident Response Lifecycle", "incident-response", cycle(
     centre="the loop closes",
     caption="Lessons learned is not paperwork - it is the input to the next preparation phase."))
 
-# -- 423  Enterprise Solutions ---------------------------------------------
+# -- 423  Enterprise Solutions
 register(423, "ERP and the Single Shared Database", "erp-shared-database", hub_spoke(
     "ERP: one shared database, many modules",
     "Single shared database",
@@ -376,7 +376,7 @@ register(423, "Supply Chain Management", "supply-chain", flow(
     caption="SCM plans and tracks the flow of goods, information and money along this chain.",
     note="Demand information travels back up the chain; distortion as it travels is the bullwhip effect."))
 
-# -- 424  IT Strategy Planning ----------------------------------------------
+# -- 424  IT Strategy Planning
 register(424, "Enterprise Architecture", "enterprise-architecture", stack(
     "The four enterprise architecture layers",
     [("Business architecture", "processes, functions, organisation"),
@@ -387,7 +387,7 @@ register(424, "Enterprise Architecture", "enterprise-architecture", stack(
     caption="Each layer is justified by the one above it.",
     right_note="Read downward it is traceability; read upward it is the business case for every component."))
 
-# -- 425  IT Business Adoption ----------------------------------------------
+# -- 425  IT Business Adoption
 register(425, "Total Cost of Ownership", "total-cost-of-ownership", compare(
     "Total cost of ownership: what the sticker price omits",
     [("Build in-house", "development owned end to end",
@@ -399,7 +399,7 @@ register(425, "Total Cost of Ownership", "total-cost-of-ownership", compare(
     caption="TCO compares lifetime cost, not purchase price.",
     footer="Heavy customisation is where a package quietly acquires the cost profile of in-house development."))
 
-# -- 426  IT Outsourcing ----------------------------------------------------
+# -- 426  IT Outsourcing
 register(426, "Why Organisations Outsource", "outsourcing-drivers", compare(
     "Why organisations outsource - and what it costs them",
     [("Drivers", "the reasons given",

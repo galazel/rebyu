@@ -21,7 +21,7 @@ SEQUENCE_LEGEND = [
 ]
 
 
-# ------------------------------------------------------------ cfg 46, ERD
+# cfg 46, ERD
 def bill_of_materials():
     d = Diagram("Fairmont Engineering - Bill of Materials Model",
                 "Entity-relationship diagram (model answer)")
@@ -110,7 +110,7 @@ would compute the total quantity required, and why that query is recursive \
 rather than a fixed number of joins."""
 
 
-# ----------------------------------------------- cfg 47, SEQUENCE_DIAGRAM
+# cfg 47, SEQUENCE_DIAGRAM
 def etl_sequence():
     d = Diagram("Corvus Analytics - Nightly Warehouse Load",
                 "UML sequence diagram (model answer)")
@@ -178,7 +178,7 @@ staging intact on failure. State in one sentence what each of those two rules \
 protects, and what would break if either were reversed."""
 
 
-# ------------------------------------------------------ cfg 48, UML_CLASS
+# cfg 48, UML_CLASS
 def iot_device_model():
     d = Diagram("Fenland Water - IoT Device Class Model",
                 "UML class diagram (model answer)")
@@ -270,7 +270,7 @@ abstract, and state what would go wrong if MqttProtocol did not override \
 encode()."""
 
 
-# -------------------------------------------------- cfg 49, UML_COMPONENT
+# cfg 49, UML_COMPONENT
 def security_components():
     d = Diagram("Arcus Payments - Security Component Architecture",
                 "UML component diagram (model answer)")
@@ -348,7 +348,7 @@ sentence what each is protecting against, and identify which single component \
 becomes the highest-value target in this architecture."""
 
 
-# ------------------------------------------------------------ cfg 50, ERD
+# cfg 50, ERD
 def risk_assessment_model():
     d = Diagram("Sentinel Insurance - Risk Assessment Records",
                 "Entity-relationship diagram (model answer)")
@@ -437,7 +437,7 @@ question that answers, and how you would find the score that currently stands.
 justifies the associative entity rather than a plain foreign key."""
 
 
-# ------------------------------------------------------------ cfg 51, ERD
+# cfg 51, ERD
 def quantitative_risk():
     d = Diagram("Sentinel Insurance - Quantitative Risk Analysis",
                 "Entity-relationship diagram (model answer)")
@@ -524,7 +524,7 @@ sentence why assumptions belong on the ESTIMATE rather than on the scenario, \
 and what a re-estimate next year would do to the old assumptions."""
 
 
-# -------------------------------------------------- cfg 52, UML_COMPONENT
+# cfg 52, UML_COMPONENT
 def isms_tooling():
     d = Diagram("Sentinel Insurance - ISMS Tooling Architecture",
                 "UML component diagram (model answer)")
@@ -599,7 +599,7 @@ evidence that a control is operating, naming every component crossed. State \
 which single component's failure would break that trace."""
 
 
-# ------------------------------------------------------------ cfg 53, ERD
+# cfg 53, ERD
 def isms_operation():
     d = Diagram("Sentinel Insurance - ISMS Operating Records",
                 "Entity-relationship diagram (model answer)")
@@ -687,7 +687,7 @@ evidence, naming every entity crossed. State in one sentence what an auditor \
 concludes when that path exists but the implementation status is still "planned"."""
 
 
-# ----------------------------------------------- cfg 54, ACTIVITY_DIAGRAM
+# cfg 54, ACTIVITY_DIAGRAM
 def isms_pdca():
     d = Diagram("ISMS Monitoring and Continual Improvement",
                 "UML activity diagram (model answer)")
@@ -771,7 +771,7 @@ to raising another action. Explain in one sentence why, and name the two phases 
 of the plan-do-check-act cycle that this diagram covers."""
 
 
-# -------------------------------------------------- cfg 55, UML_COMPONENT
+# cfg 55, UML_COMPONENT
 def itsm_components():
     d = Diagram("Brightwell Group - IT Service Management Architecture",
                 "UML component diagram (model answer)")
@@ -849,7 +849,7 @@ every component crossed, and state in one sentence what distinguishes an \
 incident from a problem in this design."""
 
 
-# ------------------------------------------------------------ cfg 56, ERD
+# cfg 56, ERD
 def kpi_scorecard():
     d = Diagram("Brightwell Group - Performance Measurement Model",
                 "Entity-relationship diagram (model answer)")
@@ -935,7 +935,7 @@ State in one sentence what report that makes possible, and what a missing \
 measurement would look like if periods were only created when a value arrived."""
 
 
-# ------------------------------------------------------ cfg 57, UML_CLASS
+# cfg 57, UML_CLASS
 def problem_solving_model():
     d = Diagram("Brightwell Group - Structured Problem Solving",
                 "UML class diagram (model answer)")

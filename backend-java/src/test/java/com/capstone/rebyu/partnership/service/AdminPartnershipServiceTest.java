@@ -131,7 +131,7 @@ class AdminPartnershipServiceTest {
         verify(institutionRepository, never()).save(any(Institution.class));
     }
 
-    // ---- 2: email AND name both match -> the existing Institution is reused ----
+    // 2: email AND name both match -> the existing Institution is reused
     @Test
     void approve_emailAndNameMatch_reusesExistingInstitution() {
         PartnershipRequest request = pendingRequest();

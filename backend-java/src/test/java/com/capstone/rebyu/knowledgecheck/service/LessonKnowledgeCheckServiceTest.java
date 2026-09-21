@@ -276,9 +276,7 @@ class LessonKnowledgeCheckServiceTest {
         assertEquals("not-enough-completed-lessons", offer.reason());
     }
 
-    // ------------------------------------------------------------------
     // Selection: mistakes first, bank as filler
-    // ------------------------------------------------------------------
 
     /**
      * The point of the feature: stop the learner on what they got WRONG.
@@ -362,9 +360,7 @@ class LessonKnowledgeCheckServiceTest {
         verify(questions, times(5)).getReferenceById(anyLong());
     }
 
-    // ------------------------------------------------------------------
     // Fixtures
-    // ------------------------------------------------------------------
 
     /** Completed lessons on the certification the learner is currently reading. */
     private void givenCompletedLessons(Long... lessonIds) {

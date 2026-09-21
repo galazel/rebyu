@@ -31,7 +31,6 @@ export function MasterySummaryCard({ className = '' }) {
   const avgMastery = mastery.average_mastery_probability
   const avgPercent = Math.round(avgMastery * 100)
 
-  // Count items by level
   const levelCounts = {
     mastered: 0,
     good: 0,

@@ -52,7 +52,7 @@ def _q(**overrides):
     return base
 
 
-# --- lesson resolution (the questions.lesson_id NOT NULL problem) ---------
+# lesson resolution (the questions.lesson_id NOT NULL problem)
 
 def test_lesson_index_normalizes_names():
     index = build_lesson_index(LESSONS)
@@ -197,7 +197,7 @@ def test_checking_method_differs_by_question_type():
     assert checking_method_for("DESCRIPTIVE") == "AI_SEMANTIC"
 
 
-# --- schema-level structural enforcement ----------------------------------
+# schema-level structural enforcement
 
 def test_mcq_with_wrong_choice_count_is_rejected():
     with pytest.raises(ValueError, match="exactly 4 choices"):
@@ -237,7 +237,7 @@ def test_valid_question_passes():
     assert draft.bloom_level == "UNDERSTAND"
 
 
-# --- batch validation -----------------------------------------------------
+# batch validation
 
 def test_duplicate_detection_catches_rephrasings():
     a = _q(question="What is the primary purpose of a database index?")

@@ -17,9 +17,7 @@ from figures import fig
 MAJOR = "Computer System"
 MIDDLE = "Computer Component"
 
-# ==========================================================================
 # Lesson 1: The processor
-# ==========================================================================
 
 _cpu_sections = [
     ("What a Processor Actually Does", [

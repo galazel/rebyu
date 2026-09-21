@@ -15,9 +15,7 @@ from figures import fig
 MAJOR = "Computer System"
 MIDDLE = "Software"
 
-# ==========================================================================
 # Lesson 4: Development tools
-# ==========================================================================
 
 _tools_sections = [
     ("What a Toolchain Is For", [
@@ -826,9 +824,7 @@ LESSON_TOOLS = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 5: Open source software
-# ==========================================================================
 
 _oss_sections = [
     ("What Open Source Actually Means", [

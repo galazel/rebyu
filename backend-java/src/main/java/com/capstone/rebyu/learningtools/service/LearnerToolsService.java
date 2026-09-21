@@ -53,10 +53,6 @@ public class LearnerToolsService {
             String correctAnswer, String explanation, long mistakeCount, String masteryStatus,
             boolean reviewed, OffsetDateTime lastMistakeAt) {}
 
-    // ------------------------------------------------------------------
-    // Library
-    // ------------------------------------------------------------------
-
     public List<LibraryItem> library(Long learnerId) {
         List<LibraryItem> items = new java.util.ArrayList<>(jdbc.query("""
                 SELECT i.*, c.title certification_title, l.name lesson_title
@@ -132,10 +128,6 @@ public class LearnerToolsService {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Mistakes bank
-    // ------------------------------------------------------------------
-
     public List<Mistake> mistakes(Long learnerId) {
         return jdbc.query("""
                 SELECT aq.source_question_id question_id, min(aq.attempt_question_id) mistake_id,
@@ -177,9 +169,7 @@ public class LearnerToolsService {
         }
     }
 
-    // ------------------------------------------------------------------
     // Mapping / helpers
-    // ------------------------------------------------------------------
 
     /**
      * "file" items store a raw S3 key in {@code resourceUrl}/{@code route} —

@@ -6,7 +6,7 @@ class QuestionBankState(TypedDict, total=False):
     # LangGraph thread id, so nodes can write versions to the run registry.
     thread_id: str
 
-    # --- Request / scope ---------------------------------------------------
+    # Request / scope
     # Scopes retrieval to this certification's own FAISS index.
     certification_id: int
     certification_name: str
@@ -25,7 +25,7 @@ class QuestionBankState(TypedDict, total=False):
 
     reference_context: str  # resolved once at the start: uploaded-file text and/or retrieved knowledge
 
-    # --- Batch loop state ----------------------------------------------
+    # Batch loop state
     current_batch: List[Dict]
     generated_count: int
 

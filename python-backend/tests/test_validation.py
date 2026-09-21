@@ -68,9 +68,7 @@ def codes(report) -> set[str]:
     return {issue.code for issue in report.issues}
 
 
-# =========================================================================
 # Structural enforcement (raises -> triggers retry)
-# =========================================================================
 
 def test_mcq_requires_exactly_four_choices():
     with pytest.raises(ValidationError, match="exactly 4 choices"):
@@ -216,9 +214,7 @@ def test_defaults_keep_generation_working_without_new_metadata():
     assert q.source_chunk_ids == []
 
 
-# =========================================================================
 # Quality reporting (advisory)
-# =========================================================================
 
 def test_empty_batch_is_an_error():
     report = validate_question_batch([])

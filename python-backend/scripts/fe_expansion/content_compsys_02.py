@@ -18,9 +18,7 @@ from figures import fig
 MAJOR = "Computer System"
 MIDDLE = "Computer Component"
 
-# ==========================================================================
 # Lesson 2: Memory
-# ==========================================================================
 
 _mem_sections = [
     ("Why Memory Is a Hierarchy", [

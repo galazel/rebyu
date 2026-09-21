@@ -16,9 +16,7 @@ from figures import fig
 MAJOR = "Technology Element"
 MIDDLE = "Security"
 
-# ==========================================================================
 # Lesson 1: Threats, attacks and vulnerabilities
-# ==========================================================================
 
 _threat_sections = [
     ("What Security Actually Protects", [
@@ -777,9 +775,7 @@ LESSON_SEC_THREATS = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 2: Cryptography and authentication
-# ==========================================================================
 
 _crypto_sections = [
     ("Matching the Tool to the Property", [

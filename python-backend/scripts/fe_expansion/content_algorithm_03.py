@@ -19,9 +19,7 @@ from figures import fig
 MAJOR = "Basic Theory"
 MIDDLE = "Algorithm and Programming"
 
-# ==========================================================================
 # Lesson 4: Programming languages
-# ==========================================================================
 
 _lang_sections = [
     ("Why Languages Differ At All", [
@@ -893,9 +891,7 @@ LESSON_LANGUAGES = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 5: Markup and other languages
-# ==========================================================================
 
 _markup_sections = [
     ("Languages That Describe Rather Than Compute", [

@@ -916,13 +916,11 @@ def await_question_bank_review_node(state: CertificationState):
     return _await_review(state, "QUESTION_BANK", state.get("question_bank", []))
 
 
-# ==========================================================================
 # Per-item review loop nodes (Phase 2b step 12)
 #
 # One item at a time, so an admin can approve category 1 and reject category
 # 2. Categories generate only a quiz -- per Q2 they are organizational and
 # carry no instructional content; only lessons are authored.
-# ==========================================================================
 
 from app.domain.validation import validate_lesson, validate_question_batch  # noqa: E402
 from app.graphs.certification.review_loop import (  # noqa: E402
@@ -949,7 +947,7 @@ MIDDLE_PHASE = LoopPhase(
 )
 
 
-# --- nested traversal ------------------------------------------------------
+# nested traversal
 #
 # The walk is bottom-up and interleaved:
 #
@@ -996,7 +994,7 @@ def route_after_major_advance(state: CertificationState) -> str:
     return "exams"
 
 
-# --- lesson content as quiz context ---------------------------------------
+# lesson content as quiz context
 #
 # Category quizzes are generated *after* the lessons beneath them, and are
 # built from what those lessons actually say rather than from the category's
@@ -1656,7 +1654,7 @@ def _nth_entry(items: list | None, index: int):
     return items[index] if index < len(items) else None
 
 
-# --- applying a reviewer's manual edit -----------------------------------
+# applying a reviewer's manual edit
 # Each phase writes its artifact to a different state key, so the loop is
 # told how to apply an edit rather than guessing.
 

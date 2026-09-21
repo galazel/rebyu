@@ -89,8 +89,6 @@ def ns(monkeypatch):
             pass
 
 
-# --- chunking -------------------------------------------------------------
-
 def test_chunking_respects_boundaries_and_stamps_metadata():
     text = ". ".join(f"Sentence number {i} about networking concepts" for i in range(60))
     documents = [Document(page_content=text, metadata={"page": 3, "source_file": "net.pdf"})]
@@ -115,7 +113,7 @@ def test_chunking_empty_input_returns_empty():
     assert chunk_documents([]) == []
 
 
-# --- namespacing ----------------------------------------------------------
+# namespacing
 
 def test_namespace_prefers_id_and_slugifies_name():
     assert namespace_for(certification_id=12) == "cert_12"
@@ -123,7 +121,7 @@ def test_namespace_prefers_id_and_slugifies_name():
     assert namespace_for() == "cert-unknown"
 
 
-# --- store ----------------------------------------------------------------
+# store
 
 def test_add_documents_creates_then_appends(stub, ns):
     ns = ns(1)
@@ -164,7 +162,7 @@ def test_delete_index(stub, ns):
     assert delete_index(ns) is False
 
 
-# --- retrieval ------------------------------------------------------------
+# retrieval
 
 def test_retrieve_returns_scoped_results(stub, monkeypatch, ns):
     monkeypatch.setattr(get_settings(), "rag_rerank_enabled", False, raising=False)

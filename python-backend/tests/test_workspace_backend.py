@@ -20,7 +20,7 @@ from app.graphs.certification import review_loop
 from app.services import workflow_registry as registry
 
 
-# --- the review vocabulary ------------------------------------------------
+# the review vocabulary
 
 def test_resume_request_carries_instructions_and_payload():
     """The regression that made Improve and Edit unreachable: a bare string
@@ -62,7 +62,7 @@ def test_missing_action_defaults_to_approve():
     assert review_loop.normalize_action(None) == review_loop.APPROVE
 
 
-# --- cancellation ---------------------------------------------------------
+# cancellation
 
 def test_cancel_marks_the_run_and_emits_a_cancelled_event(db, monkeypatch):
     from app.api.routes import workflows as workflow_routes
@@ -190,7 +190,7 @@ def test_gate_router_proceeds_when_not_cancelled(monkeypatch):
     assert route(state) == "generate"
 
 
-# --- version history with artifacts --------------------------------------
+# version history with artifacts
 
 def test_versions_endpoint_returns_artifacts_not_just_refs(db):
     """The step-14 regression this closes: graph state keeps refs only, so an
@@ -298,8 +298,6 @@ def test_a_hand_edit_is_still_a_manual_edit():
     assert result["status"] == "MAJOR_EDITED"
 
 
-# --- SSE framing ----------------------------------------------------------
-
 def test_sse_frame_carries_the_seq_as_the_event_id():
     """`id:` is what makes Last-Event-ID replay work, and it must be the event
     seq -- the same cursor the REST and websocket paths use."""
@@ -334,7 +332,7 @@ def test_sse_data_is_always_a_single_line():
     assert len([l for l in frame.strip().splitlines() if l.startswith("data: ")]) == 1
 
 
-# --- one stream implementation, two transports ---------------------------
+# one stream implementation, two transports
 
 async def test_sse_and_websocket_yield_the_same_messages(db, monkeypatch):
     """The reason stream_events exists: if the two transports were written
@@ -382,7 +380,7 @@ class _NoClose:
         return False
 
 
-# --- node instrumentation -------------------------------------------------
+# node instrumentation
 # This wraps every generating node, so its failure modes are generation's
 # failure modes. What matters is that it stays invisible: same signature, same
 # sync/async nature, same exceptions, and no ability to fail a node.
@@ -502,8 +500,6 @@ def test_an_unregistered_run_is_simply_not_recorded(db, monkeypatch):
     monkeypatch.setattr("app.db.session.SessionLocal", lambda: _NoClose(db))
     assert instrumentation.instrument(lambda s: {"x": 1}, "stage")({"thread_id": "ghost"}) == {"x": 1}
 
-
-# --- schema qualification -------------------------------------------------
 
 def test_tables_are_schema_qualified_on_postgres():
     """Queries must name the schema rather than lean on `search_path`.

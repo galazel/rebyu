@@ -38,7 +38,6 @@ export default function AssessmentAttemptPage() {
   const handleSubmit = async () => {
     if (attempt) {
       await submitAttempt(attempt.attemptId)
-      // Redirect to results
       window.location.href = `/assessment/${attempt.attemptId}/results`
     }
   }

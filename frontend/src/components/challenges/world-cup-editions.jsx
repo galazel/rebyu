@@ -289,7 +289,7 @@ export default function WorldCupEditions({ arena }) {
     })()
   }
 
-  /* ------------------------------------------------------------- one edition */
+  /* one edition */
 
   if (openEdition) {
     const stageCounts = arena.stages.map((stage) => ({
@@ -380,7 +380,7 @@ export default function WorldCupEditions({ arena }) {
     )
   }
 
-  /* ------------------------------------------------------------ edition list */
+  /* edition list */
 
   return (
     <div className="space-y-5">

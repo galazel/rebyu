@@ -39,9 +39,7 @@ public class BktOutboxService {
     private final BktProperties properties;
     private final ObjectMapper objectMapper;
 
-    // ------------------------------------------------------------------
     // Producer side — inside the submission transaction
-    // ------------------------------------------------------------------
 
     /**
      * Creates one PENDING event per final, graded, lesson-mapped answer. Idempotent
@@ -173,9 +171,7 @@ public class BktOutboxService {
         return reset;
     }
 
-    // ------------------------------------------------------------------
     // Consumer side — own transactions, called by the dispatcher
-    // ------------------------------------------------------------------
 
     /**
      * Atomically claims up to {@code limit} deliverable rows using SKIP LOCKED and

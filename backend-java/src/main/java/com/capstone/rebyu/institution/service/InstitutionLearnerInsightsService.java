@@ -141,8 +141,6 @@ public class InstitutionLearnerInsightsService {
                 learnerId, groupId, callerUserId);
     }
 
-    // ------------------------------------------------------------------------
-
     /**
      * Throws EntityNotFoundException unless the caller owns this institution or
      * actively leads this group -- reported as "not found" so a caller can't

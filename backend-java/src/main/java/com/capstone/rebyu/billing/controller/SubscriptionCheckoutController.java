@@ -70,7 +70,6 @@ public class SubscriptionCheckoutController {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", message, "message", message));
         }
 
-        // Create hosted checkout
         String checkoutUrl = payMongoClient.createHostedCheckout(
                 user.learnerId(),
                 planId,

@@ -43,7 +43,7 @@ def _lesson_schema() -> dict:
     return schema["properties"]["lessons"]["items"]
 
 
-# --- the outline contract ---------------------------------------------------
+# the outline contract
 
 
 def test_the_curriculum_is_the_tool_schema_root():
@@ -105,7 +105,7 @@ def test_non_string_scalars_are_still_rejected():
         Lesson(name="n", key_topics=42)
 
 
-# --- Mis-nested categories --------------------------------------------------
+# Mis-nested categories
 #
 # A live TOPCIT run failed all five attempts with the same `tool_use_failed`
 # 400: every sample put the second *major* category inside the first one's
@@ -228,7 +228,7 @@ def test_an_explicitly_empty_curriculum_is_still_allowed():
     assert Curriculum(majorCategories=[]).majorCategories == []
 
 
-# --- the misplaced exam structure ------------------------------------------
+# the misplaced exam structure
 #
 # `exam_structure` is the last thing the prompt asks for and the last thing
 # the model writes, so it lands inside whichever major category it happened to
@@ -266,7 +266,7 @@ def test_a_correctly_placed_exam_structure_wins_over_a_stray_one(shipped_default
     assert Curriculum(**payload).exam_structure.total_items == 100
 
 
-# --- breadth ---------------------------------------------------------------
+# breadth
 #
 # A live TOPCIT run produced one major category, two middles and two lessons
 # for a whole certification. Structurally valid, useless as a syllabus, and it
@@ -341,7 +341,7 @@ def test_the_prompt_no_longer_asks_for_a_per_lesson_instruction_object():
     assert "key_topics" in prompt
 
 
-# --- configurable size ------------------------------------------------------
+# configurable size
 #
 # The whole workflow has to be runnable on a small AI budget: one major, one
 # middle, one lesson, with the review checkpoints and assessments still in
@@ -466,9 +466,7 @@ def test_lesson_depth_is_independent_of_curriculum_size(tiny_curriculum_settings
     )
 
 
-# ---------------------------------------------------------------------------
 # Autosize: the planner sizes the syllabus from the uploaded document.
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture

@@ -41,7 +41,7 @@ def _failed_run(session, thread_id="t-fail", *, stage="plan_curriculum", **kwarg
     return run
 
 
-# --- registry transitions -------------------------------------------------
+# registry transitions
 
 def test_failed_run_reports_the_stage_it_died_on(session):
     """`current_stage` cannot answer this: node instrumentation records the
@@ -101,7 +101,7 @@ def test_attempt_number_counts_fresh_starts_not_retries(session):
     assert registry.attempt_number(session, run.run_id) == 2
 
 
-# --- guards ---------------------------------------------------------------
+# guards
 
 @pytest.mark.parametrize(
     "status", [registry.RUNNING, registry.WAITING_FOR_REVIEW, registry.COMPLETED]
@@ -141,7 +141,7 @@ async def test_completed_run_cannot_be_restarted():
         await certification_run.prepare_restart(run)
 
 
-# --- retry targets the pending step --------------------------------------
+# retry targets the pending step
 
 class _Snapshot:
     def __init__(self, values, next_):
@@ -229,7 +229,7 @@ async def test_retry_resumes_with_none_so_only_the_failed_step_reruns(fake_graph
     assert graph.invoked_with == [None]
 
 
-# --- restart rebuilds inputs ---------------------------------------------
+# restart rebuilds inputs
 
 async def test_restart_refuses_a_direct_upload_run_whose_bytes_are_gone(fake_graph):
     """`uploaded_files` is cleared once ingested, so a run past that point no
@@ -271,7 +271,7 @@ async def test_restart_rebuilds_the_seed_from_a_surviving_checkpoint(fake_graph)
     assert "curriculum" not in seed, "a restart must not carry the failed attempt's output forward"
 
 
-# --- endpoints ------------------------------------------------------------
+# endpoints
 
 @pytest.fixture()
 def routes():
@@ -396,7 +396,7 @@ def test_document_refs_carry_pointers_not_bytes():
     assert refs == [{"s3_key": "a", "filename": "a.pdf", "content_type": "application/pdf"}]
 
 
-# --- a resumed run reports its outcome ------------------------------------
+# a resumed run reports its outcome
 #
 # A live run paused for review, was resumed over HTTP, and the lesson node
 # raised. The registry kept saying WAITING_FOR_REVIEW while the checkpoint had
@@ -469,7 +469,7 @@ async def test_a_successful_advance_finalises_rather_than_dropping_the_output(
     assert len(finalised) == 1
 
 
-# --- reconciling a stranded run -------------------------------------------
+# reconciling a stranded run
 #
 # The registry is written *after* the graph, so anything that interrupts the
 # handoff leaves a run claiming WAITING_FOR_REVIEW while its thread has moved
@@ -657,7 +657,7 @@ async def test_the_review_endpoint_repairs_a_stranded_run_and_reports_it(
     )
 
 
-# --- a resumed run must stop reading as paused ----------------------------
+# a resumed run must stop reading as paused
 
 async def test_resuming_leaves_waiting_for_review_before_the_work_starts(
     session, session_factory, monkeypatch
@@ -807,7 +807,7 @@ async def test_a_long_idle_run_is_still_repaired(fake_graph, captured_outcome):
     assert captured_outcome["status"] == registry.FAILED
 
 
-# --- a run that saved nothing is not a success ----------------------------
+# a run that saved nothing is not a success
 
 def test_generated_but_unstored_output_fails_the_run():
     """The live case: seven assessments generated, `exam_types` unseeded, zero
@@ -845,7 +845,7 @@ def test_every_kind_is_reported_not_just_the_first():
     assert len(stranded) == 3
 
 
-# --- cancellation reaches every node --------------------------------------
+# cancellation reaches every node
 
 def _instrumented(stage, calls):
     from app.graphs.instrumentation import instrument
@@ -913,7 +913,7 @@ async def test_a_cancelled_run_is_not_relabelled_as_failed(fake_graph, captured_
     assert captured_outcome == {}, "must not overwrite the status with FAILED"
 
 
-# --- cancellation survives redelivery -------------------------------------
+# cancellation survives redelivery
 #
 # Cancellation is cooperative: the graph notices the flag between nodes and
 # unwinds, which leaves the RabbitMQ message unacked -- so the broker
@@ -962,7 +962,7 @@ def test_a_failed_run_can_still_be_restarted(session):
     assert run.status == registry.RUNNING
 
 
-# --- deleting a certification ---------------------------------------------
+# deleting a certification
 #
 # Deleting one mid-generation used to leave the run untouched on the Python
 # side: it carried on authoring lessons and questions against rows that no

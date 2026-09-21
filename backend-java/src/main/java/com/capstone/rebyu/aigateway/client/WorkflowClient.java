@@ -170,8 +170,6 @@ public class WorkflowClient {
         return request.retrieve().bodyToFlux(SSE);
     }
 
-    // --- plumbing ---------------------------------------------------------
-
     private static final ParameterizedTypeReference<Map<String, Object>> MAP =
             new ParameterizedTypeReference<>() {};
 

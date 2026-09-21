@@ -21,9 +21,7 @@ MID_SEC_FUNDAMENTALS = 123
 SIGNATURE_DIAGRAM = "/lesson-media/digital-signature.svg"
 PKI_DIAGRAM = "/lesson-media/pki-trust-chain.svg"
 AC_DIAGRAM = "/lesson-media/access-control-models.svg"
-# ===========================================================================
 # Authentication, Digital Signatures, and PKI
-# ===========================================================================
 
 _auth_sections = [
     ("Identification, Authentication, Authorisation", [
@@ -802,9 +800,7 @@ LESSON_AUTH = {
 }
 
 
-# ===========================================================================
 # Access Control Models
-# ===========================================================================
 
 _ac_sections = [
     ("What Access Control Decides", [

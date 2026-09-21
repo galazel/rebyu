@@ -45,13 +45,11 @@ public class LearnerProfileService {
             throw new IllegalStateException("Learner has no associated user account");
         }
 
-        // Validate email format
         if (email != null && !email.isBlank()) {
             if (!EMAIL_PATTERN.matcher(email).matches()) {
                 throw new IllegalArgumentException("Invalid email format");
             }
 
-            // Check if email is already in use by another user
             if (!email.equalsIgnoreCase(user.getEmail())) {
                 boolean emailExists = userRepository.existsByEmailIgnoreCase(email);
                 if (emailExists) {
@@ -62,7 +60,6 @@ public class LearnerProfileService {
             user.setEmail(email);
         }
 
-        // Update learner profile
         if (firstName != null && !firstName.isBlank()) {
             learner.setFirstName(firstName.trim());
         }
@@ -89,12 +86,10 @@ public class LearnerProfileService {
             throw new IllegalStateException("Learner has no associated user account");
         }
 
-        // Verify old password
         if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
             throw new IllegalArgumentException("Current password is incorrect");
         }
 
-        // Validate new password
         if (newPassword == null || newPassword.length() < 8) {
             throw new IllegalArgumentException("New password must be at least 8 characters long");
         }
@@ -103,7 +98,6 @@ public class LearnerProfileService {
             throw new IllegalArgumentException("New password must be different from current password");
         }
 
-        // Update password
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 
@@ -122,7 +116,6 @@ public class LearnerProfileService {
             throw new IllegalStateException("Learner has no associated user account");
         }
 
-        // Verify password
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             throw new IllegalArgumentException("Password is incorrect");
         }

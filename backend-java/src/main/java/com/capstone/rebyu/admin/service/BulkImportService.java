@@ -50,7 +50,6 @@ public class BulkImportService {
             row.put(headers[i].trim(), i < values.length ? values[i].trim() : "");
           }
 
-          // Validate required fields
           String email = row.getOrDefault("email", "");
           String firstName = row.getOrDefault("firstName", "");
           if (email.isEmpty() || firstName.isEmpty()) {

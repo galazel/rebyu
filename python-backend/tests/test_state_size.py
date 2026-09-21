@@ -36,7 +36,7 @@ def _size(obj) -> int:
     return len(pickle.dumps(obj))
 
 
-# --- ref resolution -------------------------------------------------------
+# ref resolution
 
 def test_refs_are_orders_of_magnitude_smaller_than_inline_bytes():
     inline = [{"filename": "a.pdf", "type": "application/pdf", "content": ONE_MB}]
@@ -87,7 +87,7 @@ def test_load_document_refs_skips_a_failing_ref(monkeypatch):
     assert len(docs) == 1
 
 
-# --- nodes drop inline bytes once consumed --------------------------------
+# nodes drop inline bytes once consumed
 
 async def test_ingestion_clears_inline_bytes_from_state(monkeypatch):
     monkeypatch.setattr(
@@ -121,7 +121,7 @@ async def test_resolve_scope_clears_inline_bytes_from_state(monkeypatch):
     assert _size(result) < 10_000
 
 
-# --- end-to-end: checkpoints stay small across a full paused run ----------
+# end-to-end: checkpoints stay small across a full paused run
 
 async def _run_question_bank(monkeypatch, initial_state, thread_id):
     from app.graphs.question_bank.workflow import build_question_bank_graph

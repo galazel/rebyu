@@ -53,7 +53,7 @@ class _StubAgent:
         return {"structured_response": self._batch}
 
 
-# --- import-time purity (the step-3 regression guard) ---------------------
+# import-time purity (the step-3 regression guard)
 
 def test_graphs_compile_without_database_or_api_key():
     """If this fails, something reintroduced import-time or compile-time
@@ -93,7 +93,7 @@ def test_certification_graph_has_expected_nodes():
     assert "lesson_generate" not in names, "lessons use a two-step generation chain"
 
 
-# --- routing functions ----------------------------------------------------
+# routing functions
 
 @pytest.mark.parametrize(
     "status,expected",
@@ -134,7 +134,7 @@ def test_route_after_commit(generated, target, expected):
     assert qb_nodes.route_after_commit(state) == expected
 
 
-# --- state reducers -------------------------------------------------------
+# state reducers
 
 def test_merge_lessons_upserts_by_name_instead_of_appending():
     """A selective lesson retry must *replace* the failed attempt, not append
@@ -165,7 +165,7 @@ def test_merge_handles_empty_sides():
     assert _merge_lessons(None, [{"name": "A"}]) == [{"name": "A"}]
 
 
-# --- node behaviour with stubbed agents -----------------------------------
+# node behaviour with stubbed agents
 
 async def test_validate_documents_node_passes(monkeypatch):
     class Audit:
@@ -221,7 +221,7 @@ def test_commit_batch_caps_overshoot_at_target():
     assert result["generated_count"] == 10
 
 
-# --- full graph run: HITL pause -> resume -> complete ---------------------
+# full graph run: HITL pause -> resume -> complete
 
 async def test_question_bank_graph_pauses_for_review_then_completes(monkeypatch):
     stub = _StubAgent([_draft("Q1"), _draft("Q2")])

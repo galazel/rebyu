@@ -51,8 +51,6 @@ def run(db):
     return created
 
 
-# --- broadcaster ----------------------------------------------------------
-
 async def test_broadcaster_delivers_to_every_subscriber():
     broadcaster = EventBroadcaster()
     a = broadcaster.subscribe("r1")
@@ -99,8 +97,6 @@ async def test_publish_to_nobody_is_a_noop():
     EventBroadcaster().publish("nobody-listening", {"seq": 1})
 
 
-# --- registry publishes after commit -------------------------------------
-
 def test_registry_publishes_transitions_to_subscribers(db):
     broadcaster = get_broadcaster()
     registry.start_run(db, thread_id="pub-1", kind="CERTIFICATION")
@@ -133,8 +129,6 @@ def test_event_wire_form_carries_what_the_timeline_renders(db):
     assert wire["duration_ms"] == 1500
     assert wire["retry_count"] == 1
 
-
-# --- the socket -----------------------------------------------------------
 
 def test_socket_sends_a_snapshot_first(client, run):
     with client.websocket_connect(f"/ws/workflows/{run.run_id}") as ws:
@@ -309,8 +303,6 @@ class _NoAuth:
 
     service_api_key = ""
 
-
-# --- frame size -----------------------------------------------------------
 
 def test_no_sse_frame_grows_with_the_length_of_the_run(db):
     """The bug this guards: the snapshot embedded the whole event history in

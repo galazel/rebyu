@@ -16,9 +16,7 @@ from figures import fig
 MAJOR = "Development Technology"
 MIDDLE = "System Development Technology"
 
-# ==========================================================================
 # Lesson 1: System requirements definition
-# ==========================================================================
 
 _reqs_sections = [
     ("Where a System Begins", [
@@ -726,9 +724,7 @@ LESSON_DEV_REQS = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 2: System architecture design
-# ==========================================================================
 
 _arch_sections = [
     ("Deciding the Shape Before the Detail", [

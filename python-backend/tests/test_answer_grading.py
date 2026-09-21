@@ -58,7 +58,7 @@ def _request(**overrides) -> AnswerGradingRequest:
     return AnswerGradingRequest.model_validate(payload)
 
 
-# --- scoring ---------------------------------------------------------------
+# scoring
 
 
 @pytest.mark.parametrize(
@@ -91,7 +91,7 @@ def test_percentage_is_coerced_from_the_ways_a_model_writes_it():
     assert AnswerVerdict.model_validate({"scorePercent": None}).scorePercent == 0.0
 
 
-# --- single answers --------------------------------------------------------
+# single answers
 
 
 async def test_single_answer_is_scored_against_its_max_points(graded):
@@ -135,7 +135,7 @@ async def test_a_failed_judgement_is_raised_not_scored_as_zero(monkeypatch):
         await grade_answer(_request())
 
 
-# --- sub-questions ---------------------------------------------------------
+# sub-questions
 
 
 def _critical_thinking_request() -> AnswerGradingRequest:
@@ -275,7 +275,7 @@ async def test_extra_sub_scores_are_ignored_rather_than_failing():
     assert len(verdict.subScores) == 3
 
 
-# --- prompt ----------------------------------------------------------------
+# prompt
 
 
 def test_learner_text_cannot_close_its_own_block():
@@ -328,7 +328,7 @@ def test_every_sub_question_is_numbered_for_the_model():
     assert "501" not in prompt
 
 
-# --- the route -------------------------------------------------------------
+# the route
 
 
 def test_route_returns_the_shape_backend_java_binds(client, monkeypatch):

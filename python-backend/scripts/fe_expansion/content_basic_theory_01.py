@@ -23,7 +23,6 @@ from figures import fig
 MAJOR = "Basic Theory"
 MIDDLE = "Basic Theory"
 
-# ---------------------------------------------------------------- sections
 
 _sections = [
     ("Why a Computer Counts in Twos", [
@@ -986,7 +985,6 @@ _summary = (
     "compound condition."
 )
 
-# ------------------------------------------------------------------- quiz
 
 _quiz = [
     mcq("EASY",
@@ -1158,7 +1156,6 @@ _quiz = [
         "BCD that keep one tenth exact."),
 ]
 
-# ----------------------------------------------------------------- lesson
 
 LESSON_DISCRETE_MATHS = lesson(
     MAJOR, MIDDLE,

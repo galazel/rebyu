@@ -882,7 +882,7 @@ class AssessmentAttemptServiceTest {
                         new SubmitAssessmentAttemptRequestDto(999L, List.of())));
     }
 
-    // ---- what "already checked" is allowed to mean at submit ----
+    // what "already checked" is allowed to mean at submit
 
     /** The review returned by the most recent {@link #submitProgrammingWithStoredVerdict}. */
     private AssessmentAttemptResultDto lastProgrammingResult;
@@ -1114,7 +1114,6 @@ class AssessmentAttemptServiceTest {
         assertEquals(0, result.pendingCount());
         assertEquals(3, result.answers().get(0).diagramElements().size());
     }
-
 
     /**
      * A wrong program has to say which case it broke on. Sample cases show what

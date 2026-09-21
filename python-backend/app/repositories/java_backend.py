@@ -232,7 +232,7 @@ def insert_notification(session: Session, user_id: int, title: str, body: str, h
     session.commit()
 
 
-# --- assessment persistence (Phase 2b) -----------------------------------
+# assessment persistence (Phase 2b)
 # Everything generated -- curriculum, questions, and the exams that group
 # them -- is written back into Java's schema so it is usable by the learner
 # app, the adaptive retake selector, and BKT, rather than living only in a

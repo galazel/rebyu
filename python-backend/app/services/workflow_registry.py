@@ -23,7 +23,7 @@ from app.db.models import WorkflowEvent, WorkflowRun
 logger = logging.getLogger(__name__)
 
 
-# --- run statuses ---------------------------------------------------------
+# run statuses
 RUNNING = "RUNNING"
 WAITING_FOR_REVIEW = "WAITING_FOR_REVIEW"
 COMPLETED = "COMPLETED"
@@ -45,7 +45,7 @@ class RunAlreadyCancelled(Exception):
         super().__init__(f"Run {thread_id} was cancelled; not restarting it.")
         self.thread_id = thread_id
 
-# --- event types (the workspace timeline renders these) -------------------
+# event types (the workspace timeline renders these)
 EVT_WORKFLOW_STARTED = "workflow.started"
 EVT_NODE_STARTED = "node.started"
 EVT_NODE_COMPLETED = "node.completed"
@@ -67,7 +67,7 @@ EVT_WORKFLOW_CANCELLED = "workflow.cancelled"
 #: Event types after which no further events can arrive, so a stream can close.
 TERMINAL_EVENTS = {EVT_WORKFLOW_COMPLETED, EVT_WORKFLOW_FAILED, EVT_WORKFLOW_CANCELLED}
 
-# --- per-task statuses the workspace shows --------------------------------
+# per-task statuses the workspace shows
 TASK_PENDING = "PENDING"
 TASK_RUNNING = "RUNNING"
 TASK_COMPLETED = "COMPLETED"
@@ -425,7 +425,7 @@ def mark_cancelled(session: Session, thread_id: str) -> WorkflowRun | None:
     )
 
 
-# --- reads ----------------------------------------------------------------
+# reads
 
 def list_runs(
     session: Session,
@@ -554,7 +554,7 @@ def list_events(
     )
 
 
-# --- artifact version history --------------------------------------------
+# artifact version history
 # Versions live in the event log, not in LangGraph state. Keeping the full
 # artifact in state meant every regeneration grew a blob that was then
 # re-serialized into every subsequent checkpoint -- the same write

@@ -16,9 +16,7 @@ from figures import fig
 MAJOR = "Business Strategy"
 MIDDLE = "Technological Strategy Management"
 
-# ==========================================================================
 # Lesson 1: Planning a technology strategy
-# ==========================================================================
 
 _tech_sections = [
     ("Deciding What to Be Good At", [
@@ -695,9 +693,7 @@ LESSON_BIZ_TECH = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 2: Development plans and innovation
-# ==========================================================================
 
 _inno_sections = [
     ("Invention and Innovation", [

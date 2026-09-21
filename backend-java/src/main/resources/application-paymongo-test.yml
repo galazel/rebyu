@@ -22,8 +22,6 @@ judge0:
   base-url: https://ce.judge0.com
   cpu-time-limit-seconds: 5
   memory-limit-kb: 128000
-
-# Spring security config
 spring:
   security:
     oauth2:

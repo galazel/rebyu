@@ -26,7 +26,7 @@ public interface InstitutionGroupAssigneeRepository extends JpaRepository<Instit
     Optional<InstitutionGroupAssignee> findByInstitutionGroupAndInstitutionCertLearner(
             InstitutionGroup institutionGroup, InstitutionCertificationLearner institutionCertLearner);
 
-    // --- Per-group rollups (institution member dashboard) -------------------
+    // Per-group rollups (institution member dashboard)
 
     interface GroupProgress {
         Long getInstitutionGroupId();
@@ -61,7 +61,7 @@ public interface InstitutionGroupAssigneeRepository extends JpaRepository<Instit
     List<GroupProgress> groupProgressByInstitution(
             @org.springframework.data.repository.query.Param("institutionId") Long institutionId);
 
-    // --- Group membership per assignment (institution learner roster) --------
+    // Group membership per assignment (institution learner roster)
 
     interface AssignmentGroup {
         Long getInstitutionCertLearnerId();

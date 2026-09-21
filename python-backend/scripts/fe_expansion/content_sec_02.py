@@ -16,9 +16,7 @@ from figures import fig
 MAJOR = "Technology Element"
 MIDDLE = "Security"
 
-# ==========================================================================
 # Lesson 3: Information security management
-# ==========================================================================
 
 _isms_sections = [
     ("Security as a Management System", [
@@ -784,9 +782,7 @@ LESSON_SEC_ISMS = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 4: Evaluation and certification schemes
-# ==========================================================================
 
 _eval_sections = [
     ("Why Independent Evaluation Exists", [

@@ -532,9 +532,7 @@ export default function LearnerAssessmentAttemptPage() {
   const warnedRef = useRef({ ten: false, one: false })
   const autoSubmittedRef = useRef(false)
 
-  // ---------------------------------------------------------------
   // Start / resume the attempt on the server
-  // ---------------------------------------------------------------
   useEffect(() => {
     if (learnerId == null || startedRef.current) return
     startedRef.current = true
@@ -603,9 +601,7 @@ export default function LearnerAssessmentAttemptPage() {
     return () => document.body.classList.remove("rb-attempt-lock")
   }, [])
 
-  // ---------------------------------------------------------------
   // Debounced autosave of dirty answers
-  // ---------------------------------------------------------------
   useEffect(() => {
     if (!attempt) return
     const interval = setInterval(() => {
@@ -639,9 +635,7 @@ export default function LearnerAssessmentAttemptPage() {
     dirtyRef.current.add(attemptQuestionId)
   }, [])
 
-  // ---------------------------------------------------------------
   // Timer from the server-issued expiry
-  // ---------------------------------------------------------------
   useEffect(() => {
     if (!attempt?.expiresAt) return
     const endAt = new Date(attempt.expiresAt).getTime()
@@ -848,9 +842,7 @@ export default function LearnerAssessmentAttemptPage() {
     }
   }, [timeUp, attempt, submitMutation])
 
-  // ---------------------------------------------------------------
   // Render states
-  // ---------------------------------------------------------------
 
   /* Submission grades the whole attempt server-side before it answers: string
      and structural marking, an AI pass over any written answers, and Judge0

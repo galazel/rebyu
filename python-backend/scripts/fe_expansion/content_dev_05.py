@@ -16,9 +16,7 @@ from figures import fig
 MAJOR = "Development Technology"
 MIDDLE = "System Development Technology"
 
-# ==========================================================================
 # Lesson 9: Acceptance support and handover
-# ==========================================================================
 
 _acc_sections = [
     ("The Customer's Own Test", [
@@ -720,9 +718,7 @@ LESSON_DEV_ACC = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 10: Maintenance, evolution and disposal
-# ==========================================================================
 
 _maint_sections = [
     ("Where the Money Actually Goes", [

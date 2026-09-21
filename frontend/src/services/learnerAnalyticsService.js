@@ -47,10 +47,8 @@ export function progressAnalyticsQueryKey(certificationId) {
 /** How long an analytics response stays fresh, for both readers above. */
 export const PROGRESS_ANALYTICS_STALE_TIME = 30_000
 
-// ---------------------------------------------------------------------------
 // BKT analytics. The browser only ever calls Spring Boot; Spring Boot proxies
 // the internal FastAPI BKT service.
-// ---------------------------------------------------------------------------
 
 /** All lesson mastery for a learner, optionally filtered to specific lessons. */
 export async function getLearnerMastery(learnerId, lessonIds) {
@@ -107,10 +105,8 @@ export async function getMyConfidence(certificationId) {
   return base(`bkt/me/confidence/${certificationId}`)
 }
 
-// ---------------------------------------------------------------------------
 // Shared priority-tag presentation metadata. Text labels are always shown, so
 // meaning never depends on color alone (accessibility).
-// ---------------------------------------------------------------------------
 
 export const PRIORITY_META = {
   CRITICAL_PRIORITY: { label: "Critical Priority", tone: "critical", rank: 7 },

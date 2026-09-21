@@ -268,8 +268,6 @@ public class AdminPartnershipService {
                 .forEach(user -> notificationService.notify(user, title, body, href));
     }
 
-    // ------------------------------------------------------------------------
-
     private PartnershipRequest loadRequest(Long requestId) {
         return requestRepository.findById(requestId)
                 .orElseThrow(() -> new EntityNotFoundException(

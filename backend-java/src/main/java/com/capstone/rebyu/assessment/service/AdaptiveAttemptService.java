@@ -131,9 +131,7 @@ public class AdaptiveAttemptService {
     private static final java.time.Duration POOL_TTL = java.time.Duration.ofMinutes(5);
     private final Map<Long, CachedPool> poolCache = new java.util.concurrent.ConcurrentHashMap<>();
 
-    // ------------------------------------------------------------------
     // Start
-    // ------------------------------------------------------------------
 
     @Transactional
     public AssessmentAttempt start(Exam exam, Long learnerId, int attemptNumber, String idempotencyKey) {
@@ -278,9 +276,7 @@ public class AdaptiveAttemptService {
         return fresh;
     }
 
-    // ------------------------------------------------------------------
     // Answer
-    // ------------------------------------------------------------------
 
     @Transactional
     public AdaptiveAnswerResponseDto answer(Long attemptId, Long learnerId, AttemptAnswerDraftDto draft) {
@@ -486,7 +482,7 @@ public class AdaptiveAttemptService {
         double score = attempts.scoreOf(item, answer);
         boolean correct = attempts.countsAsCorrect(answer);
 
-        // --- IRT: ability -------------------------------------------------
+        // IRT: ability
         ItemParams params = itemParamsOf(attempt.getExam(), source);
         state.getResponses().add(new AdaptiveSessionState.ResponseRecord(
                 source.getQuestionId(), item.getLessonId(), params, correct, score));
@@ -499,7 +495,7 @@ public class AdaptiveAttemptService {
         attempt.setThetaCurrent(theta);
         attempt.setThetaSe(se);
 
-        // --- BKT: knowledge of this lesson --------------------------------
+        // BKT: knowledge of this lesson
         Long lessonId = item.getLessonId();
         if (lessonId != null) {
             BktModel.Params bkt = state.getParamsByLesson().getOrDefault(lessonId, defaultBkt());
@@ -593,9 +589,7 @@ public class AdaptiveAttemptService {
                 correctChoiceId, correctChoiceText, acceptedAnswer, explanation, answer.getFeedback(), subReviews);
     }
 
-    // ------------------------------------------------------------------
     // Selection
-    // ------------------------------------------------------------------
 
     /**
      * Picks and snapshots the next item. Returns null when the pool for the
@@ -742,9 +736,7 @@ public class AdaptiveAttemptService {
         return out;
     }
 
-    // ------------------------------------------------------------------
     // Item parameters: from the authored difficulty level alone
-    // ------------------------------------------------------------------
 
     private ItemParams itemParamsOf(Exam exam, Question source) {
         Candidate cached = cachedPool(exam).candidates().get(source.getQuestionId());
@@ -756,10 +748,6 @@ public class AdaptiveAttemptService {
         return new BktModel.Params(properties.getDefaultPrior(), properties.getDefaultLearn(),
                 properties.getDefaultGuess(), properties.getDefaultSlip());
     }
-
-    // ------------------------------------------------------------------
-    // End of session
-    // ------------------------------------------------------------------
 
     private void finish(AssessmentAttempt attempt, AdaptiveSessionState state) {
         state.setStage(AdaptiveSessionState.STAGE_DONE);
@@ -790,10 +778,6 @@ public class AdaptiveAttemptService {
             saveState(attempt, state);
         }
     }
-
-    // ------------------------------------------------------------------
-    // Progress / state
-    // ------------------------------------------------------------------
 
     public AdaptiveProgressDto progressOf(AssessmentAttempt attempt) {
         return progressOf(attempt, loadState(attempt));

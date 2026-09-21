@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://redis:6379/0"
     timezone: str = "Asia/Manila"
 
-    # --- OpenRouter -----------------------------------------------------------
+    # OpenRouter
     # Every agent talks to OpenRouter's OpenAI-compatible endpoint rather than
     # to one vendor directly, which is what makes the per-task model table below
     # possible: a lesson can be written by Claude and a document audit answered
@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     openrouter_site_url: str = "https://rebyu.app"
     openrouter_app_name: str = "REBYU"
 
-    # --- Per-task AI models ---------------------------------------------------
+    # Per-task AI models
     # One model per task, not one model per "tier". These jobs differ by more
     # than an order of magnitude in size and in what they demand:
     #
@@ -173,7 +173,7 @@ class Settings(BaseSettings):
     #: so the whole reference was discarded.
     ai_diagram_max_tokens: int = 10000
 
-    # --- Judge0 (running generated reference solutions) ----------------------
+    # Judge0 (running generated reference solutions)
     # Generation runs each coding question's reference solution on Judge0,
     # through the same harness the Java grader uses, and stores what it prints
     # as the tests' expected outputs -- see `app.ai.programming_verification`.
@@ -240,7 +240,7 @@ class Settings(BaseSettings):
     ai_document_audit_max_tokens: int = 512
     ai_document_audit_temperature: float = 0.0
 
-    # --- Curriculum size ------------------------------------------------------
+    # Curriculum size
     # What the planner is *asked* for. Lower all six to run the whole workflow
     # end-to-end on a small AI budget: setting every min/max to 1 yields a
     # one-major/one-middle/one-lesson certification that still exercises every
@@ -337,7 +337,7 @@ class Settings(BaseSettings):
     #: and anything written ahead of them could be stale.
     lesson_concurrency: int = 4
 
-    # --- Assessment size ------------------------------------------------------
+    # Assessment size
     # Questions per assessment. Generation and validation read the same value,
     # so lowering one lowers the ask and the expected count together.
     #
@@ -412,7 +412,7 @@ class Settings(BaseSettings):
     #: discarding the rest of the researched structure. 0 means no ceiling.
     mock_exam_max_questions: int = 0
 
-    # --- Model fallback on quota exhaustion -----------------------------------
+    # Model fallback on quota exhaustion
     # The per-task `*_fallbacks` lists above are walked when a model is rate
     # limited or its upstream provider is down. They are ordered most-capable
     # first: a fallback trades output quality for availability, so it is a last
@@ -430,7 +430,6 @@ class Settings(BaseSettings):
 
     training_view_name: str = "rebyu_bkt_training_data_v"
     max_upload_mb: int = 100
-
 
     # Used for every lesson until the model is trained -- and with no training
     # run yet, that is every lesson. They are not a formality.
@@ -470,7 +469,7 @@ class Settings(BaseSettings):
     good_threshold: float = 0.70
     mastered_threshold: float = 0.85
 
-    # --- Accuracy guard -----------------------------------------------------
+    # Accuracy guard
     # BKT is a recency-weighted estimate: it answers "what is the chance they
     # know this now", not "how have they done overall". Those come apart badly
     # when a learner has a long poor record and a short good run, and the
@@ -513,7 +512,7 @@ class Settings(BaseSettings):
     # Consistency is evidence of effort, not of knowing the material.
     readiness_streak_weight: float = 0.02
 
-    # --- Priority scoring (lesson component weights; normalized at use) -------
+    # Priority scoring (lesson component weights; normalized at use)
     priority_weight_mastery: float = 0.45
     priority_weight_incorrect: float = 0.20
     priority_weight_mock: float = 0.10
@@ -537,7 +536,7 @@ class Settings(BaseSettings):
     priority_worsen_margin: float = 5.0
     priority_improve_margin: float = 8.0
 
-    # --- RAG / retrieval (Phase 2a) -------------------------------------------
+    # RAG / retrieval (Phase 2a)
     # Replaces the previous 256-dim SHA-256 token-hashing "embeddings", which
     # had no semantic capability at all. Kept behind settings so the model can
     # be swapped (e.g. to BAAI/bge-base-en-v1.5) without touching rag/ code.
@@ -548,7 +547,7 @@ class Settings(BaseSettings):
     #: any more -- vectors live in Qdrant.
     rag_index_dir: Path = Path("faiss_db")
 
-    # --- Qdrant ------------------------------------------------------------
+    # Qdrant
     # Run it with:  docker run -p 6333:6333 -p 6334:6334 \
     #                 -v qdrant_storage:/qdrant/storage qdrant/qdrant
     # One collection per certification (see `app.rag.store.namespace_for`), so
@@ -570,7 +569,7 @@ class Settings(BaseSettings):
     # Hard ceiling on assembled context handed to a generation agent.
     rag_max_context_chars: int = 160000
 
-    # --- RabbitMQ (Phase 6 consumers) ----------------------------------------
+    # RabbitMQ (Phase 6 consumers)
     # Same broker/topology the Java backend's producers publish to
     # (see backend-java RabbitMqConfig): topic exchange + per-queue DLX/DLQ.
     rabbitmq_host: str = "localhost"
@@ -580,7 +579,7 @@ class Settings(BaseSettings):
     rabbitmq_exchange: str = "rebyu.exchange"
     rabbitmq_dead_letter_exchange: str = "rebyu.dlx"
 
-    # --- AWS S3 (Phase 6: read knowledge_documents uploaded by Java) ---------
+    # AWS S3 (Phase 6: read knowledge_documents uploaded by Java)
     # Any S3-compatible store. Empty endpoint = AWS S3. For Cloudflare R2 set
     # AWS_S3_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com,
     # AWS_S3_REGION=auto, and the R2 API token's keys below. Must match Java's

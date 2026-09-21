@@ -63,7 +63,7 @@ public class RabbitMqConfig {
         return new TopicExchange(DEAD_LETTER_EXCHANGE);
     }
 
-    // --- Certification generation ---------------------------------------
+    // Certification generation
 
     @Bean
     public Queue certificationGenerationQueue() {
@@ -87,7 +87,7 @@ public class RabbitMqConfig {
                 .to(rebyuDeadLetterExchange()).with(deadLetterRoutingKey(CERTIFICATION_GENERATION_QUEUE));
     }
 
-    // --- Question generation ----------------------------------------------
+    // Question generation
 
     @Bean
     public Queue questionGenerationQueue() {
@@ -111,7 +111,7 @@ public class RabbitMqConfig {
                 .to(rebyuDeadLetterExchange()).with(deadLetterRoutingKey(QUESTION_GENERATION_QUEUE));
     }
 
-    // --- Assessment submitted ----------------------------------------------
+    // Assessment submitted
 
     @Bean
     public Queue assessmentSubmittedQueue() {
@@ -135,7 +135,7 @@ public class RabbitMqConfig {
                 .to(rebyuDeadLetterExchange()).with(deadLetterRoutingKey(ASSESSMENT_SUBMITTED_QUEUE));
     }
 
-    // --- Assessment retake ---------------------------------------------
+    // Assessment retake
 
     @Bean
     public Queue assessmentRetakeQueue() {
@@ -158,8 +158,6 @@ public class RabbitMqConfig {
         return BindingBuilder.bind(assessmentRetakeDeadLetterQueue())
                 .to(rebyuDeadLetterExchange()).with(deadLetterRoutingKey(ASSESSMENT_RETAKE_QUEUE));
     }
-
-    // ------------------------------------------------------------------
 
     private static Queue dlqBackedQueue(String name) {
         return QueueBuilder.durable(name)

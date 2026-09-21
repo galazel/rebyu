@@ -26,14 +26,12 @@ public class EntitlementService {
      * Returns true if they have an active subscription that grants the entitlement.
      */
     public boolean hasAccess(Long learnerId, String entitlementCode) {
-        // Get all active subscriptions for this learner
         List<com.capstone.rebyu.billing.entity.LearnerSubscription> subs =
                 learnerSubscriptionRepository.findByLearner_LearnerId(learnerId);
 
         for (var sub : subs) {
             if (!sub.isCurrentlyActive()) continue;
 
-            // Check if this plan grants the entitlement
             var entitlements = planEntitlementRepository
                     .findBySubscriptionPlan_SubscriptionPlanIdAndEntitlementCode(
                             sub.getSubscriptionPlan().getSubscriptionPlanId(),

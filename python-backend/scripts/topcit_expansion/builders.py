@@ -19,7 +19,7 @@ def _id():
     return str(uuid.uuid4())
 
 
-# ---------------------------------------------------------------- blocks
+# blocks
 
 def desc(text):
     return {"type": "description", "data": {"text": text}}
@@ -111,8 +111,6 @@ def grid(small_header, description, pairs):
     return blocks
 
 
-# ---------------------------------------------------------------- lesson
-
 def lesson_structure(name, intro, objectives, minutes, sections,
                      key_terms, summary):
     """Assembles the section list in the order every existing lesson uses.
@@ -146,7 +144,7 @@ def lesson_structure(name, intro, objectives, minutes, sections,
     return structure
 
 
-# ---------------------------------------------------------------- questions
+# questions
 
 def mcq(difficulty, question, choices, explanation):
     """choices: [(text, is_correct)] with exactly one correct."""

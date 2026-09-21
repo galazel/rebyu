@@ -19,9 +19,7 @@ SDN_DIAGRAM = "/lesson-media/sdn-central-idea.svg"
 NFV_DIAGRAM = "/lesson-media/nfv.svg"
 LEAFSPINE_DIAGRAM = "/lesson-media/leaf-spine.svg"
 VXLAN_DIAGRAM = "/lesson-media/vxlan.svg"
-# ===========================================================================
 # Software-Defined Networking and Network Function Virtualization
-# ===========================================================================
 
 _sdn_sections = [
     ("The Problem SDN Was Invented to Solve", [
@@ -741,9 +739,7 @@ LESSON_SDN = {
 }
 
 
-# ===========================================================================
 # Cloud and Data Centre Networking
-# ===========================================================================
 
 _dc_sections = [
     ("The Traffic Pattern Changed", [

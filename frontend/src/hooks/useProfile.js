@@ -48,7 +48,6 @@ export function useProfile() {
       setError(null)
       await profileService.deleteAccount(password)
       toast.success('Account deleted')
-      // Redirect to login
       window.location.href = '/login'
     } catch (err) {
       const message = err.message || 'Failed to delete account'

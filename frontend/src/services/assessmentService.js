@@ -102,9 +102,7 @@ export function getProgrammingQuestionConfig(questionId) {
   return base(`programming-question-configs/by-question/${questionId}`)
 }
 
-// ---------------------------------------------------------------------------
 // Learner-safe attempt transaction API (server-side snapshots and scoring)
-// ---------------------------------------------------------------------------
 
 export function getLearnerAssessment(assessmentId, learnerId) {
   return base(`learner/assessments/${assessmentId}?learnerId=${learnerId}`)
@@ -208,9 +206,7 @@ export function getAssessmentAttempts(assessmentId, learnerId) {
   return base(`learner/assessments/${assessmentId}/attempts?learnerId=${learnerId}`)
 }
 
-// ---------------------------------------------------------------------------
 // Enrollment / purchase transaction API
-// ---------------------------------------------------------------------------
 
 export function purchaseCertification(certificationId, learnerId, idempotencyKey) {
   return base(`learner/certifications/${certificationId}/purchase`, {

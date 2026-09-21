@@ -16,9 +16,7 @@ from figures import fig
 MAJOR = "Service Management"
 MIDDLE = "Service Management"
 
-# ==========================================================================
 # Lesson 3: The operational processes
-# ==========================================================================
 
 _proc_sections = [
     ("Four Processes, Four Questions", [
@@ -707,9 +705,7 @@ LESSON_SVC_PROC = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 4: Service operation and the service desk
-# ==========================================================================
 
 _ops_sections = [
     ("Running the Service", [

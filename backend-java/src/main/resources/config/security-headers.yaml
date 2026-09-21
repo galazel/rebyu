@@ -2,14 +2,11 @@
 
 security:
   headers:
-    # Strict Transport Security
     hsts:
       enabled: true
       max-age: 31536000  # 1 year
       include-subdomains: true
       preload: true
-
-    # Content Security Policy
     csp:
       enabled: true
       directives:
@@ -29,17 +26,9 @@ security:
 
     # X-Content-Type-Options (MIME sniffing protection)
     x-content-type-options: nosniff
-
-    # X-XSS-Protection
     x-xss-protection: "1; mode=block"
-
-    # Referrer-Policy
     referrer-policy: "strict-origin-when-cross-origin"
-
-    # Permissions-Policy
     permissions-policy: "geolocation=(), microphone=(), camera=()"
-
-# CORS Configuration
 cors:
   allowed-origins:
     - "https://rebyu.com"
@@ -50,8 +39,6 @@ cors:
   expose-headers: ["X-Total-Count", "X-Page-Number"]
   max-age: 3600
   allow-credentials: true
-
-# Rate Limiting
 rate-limiting:
   enabled: true
   default-limit: 100  # per minute
@@ -66,8 +53,6 @@ rate-limiting:
     /api/assessments/*/submit:
       limit: 10
       window: 60s
-
-# Encryption
 encryption:
   at-rest:
     enabled: true
@@ -77,8 +62,6 @@ encryption:
     cipher-suites:
       - "TLS_AES_256_GCM_SHA384"
       - "TLS_CHACHA20_POLY1305_SHA256"
-
-# Audit Logging
 audit:
   enabled: true
   log-all-mutations: true

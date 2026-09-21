@@ -45,7 +45,7 @@ export const EASE = [0.22, 1, 0.36, 1]
 /** Overshoot, for things that should feel physical: ticks, medals, badges. */
 export const SPRING = { type: "spring", stiffness: 520, damping: 26, mass: 0.7 }
 
-/* ------------------------------------------------------------------ variants */
+/* variants */
 
 export const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -70,7 +70,7 @@ export function staggerParent(stagger = 0.07, delayChildren = 0) {
   }
 }
 
-/* ---------------------------------------------------------------- components */
+/* components */
 
 /**
  * Reveals its children the first time they scroll into view.
@@ -279,7 +279,7 @@ export function HoverLift({ children, lift = -6, scale = 1.015, as = "div", ...p
   )
 }
 
-/* ----------------------------------------------------------------- lettering */
+/* lettering */
 
 /**
  * Types a line out one character at a time when it scrolls into view.

@@ -14,7 +14,7 @@ COMPONENT_LEGEND = [
 ]
 
 
-# -------------------------------------------------- cfg 71, UML_COMPONENT
+# cfg 71, UML_COMPONENT
 def physical_layer_components():
     d = Diagram("Halden Campus - Physical Layer Component View",
                 "UML component diagram (model answer)")
@@ -87,7 +87,7 @@ diagram, and state in one sentence why keeping test equipment out of the traffic
 path matters at the physical layer."""
 
 
-# -------------------------------------------------- cfg 72, UML_COMPONENT
+# cfg 72, UML_COMPONENT
 def iot_standards_stack():
     d = Diagram("Fenland Water - IoT Standards Stack",
                 "UML component diagram (model answer)")
@@ -160,7 +160,7 @@ what 6LoWPAN does to make IPv6 fit, and what the opening paragraph's \
 "individually addressable" requirement would cost without it."""
 
 
-# -------------------------------------------------- cfg 73, UML_COMPONENT
+# cfg 73, UML_COMPONENT
 def m2m_edge_pipeline():
     d = Diagram("Calder Industrial - Edge Analytics Pipeline",
                 "UML component diagram (model answer)")
@@ -231,7 +231,7 @@ what the ring buffer does when it fills before the link returns, and what design
 decision that forces."""
 
 
-# -------------------------------------------------- cfg 74, UML_COMPONENT
+# cfg 74, UML_COMPONENT
 def load_balanced_service():
     d = Diagram("Halden Campus - Highly Available Service Architecture",
                 "UML component diagram (model answer)")
@@ -308,7 +308,7 @@ site A fails. State which component detects each, and what the client \
 experiences in each case."""
 
 
-# -------------------------------------------------- cfg 75, UML_COMPONENT
+# cfg 75, UML_COMPONENT
 def device_provisioning():
     d = Diagram("Fenland Water - Device Provisioning and Lifecycle",
                 "UML component diagram (model answer)")
@@ -384,7 +384,7 @@ what happens when a stolen device is revoked, naming every component involved, \
 and state which single component stops its telemetry."""
 
 
-# ------------------------------------------------------------ cfg 76, ERD
+# cfg 76, ERD
 def iot_platform_records():
     d = Diagram("Fenland Water - IoT Platform Records",
                 "Entity-relationship diagram (model answer)")
@@ -472,7 +472,7 @@ them. State in one sentence what question that answers, and how you would find \
 the certificate that is currently valid."""
 
 
-# ------------------------------------------------------------ cfg 77, ERD
+# cfg 77, ERD
 def threat_modelling_records():
     d = Diagram("Pellworth Bank - Threat Modelling Records",
                 "Entity-relationship diagram (model answer)")
@@ -567,7 +567,7 @@ belongs to a threat rather than to a data flow, and how you would find the \
 rating that currently stands."""
 
 
-# -------------------------------------------------- cfg 78, UML_COMPONENT
+# cfg 78, UML_COMPONENT
 def grc_platform():
     d = Diagram("Pellworth Bank - Governance, Risk and Compliance Platform",
                 "UML component diagram (model answer)")
@@ -645,7 +645,7 @@ have to change to add a fourth standard, and what you would have to change in \
 the risk module -- then say what that answer tells you about the design."""
 
 
-# ----------------------------------------------- cfg 79, ACTIVITY_DIAGRAM
+# cfg 79, ACTIVITY_DIAGRAM
 def internal_audit_activity():
     d = Diagram("ISMS Internal Audit",
                 "UML activity diagram (model answer)")
@@ -734,7 +734,7 @@ sentence why independence is confirmed BEFORE any evidence is gathered, and what
 an external assessor would conclude if it were confirmed afterwards."""
 
 
-# ------------------------------------------------------ cfg 80, UML_CLASS
+# cfg 80, UML_CLASS
 def security_principles_model():
     d = Diagram("Pellworth Bank - Security Principles Class Model",
                 "UML class diagram (model answer)")
@@ -838,7 +838,7 @@ abstract, and explain in one sentence how requirement (b) lets the access check 
 in the opening paragraph be written once instead of three times."""
 
 
-# ------------------------------------------------------------ cfg 81, ERD
+# cfg 81, ERD
 def classification_handling():
     d = Diagram("Pellworth Bank - Information Classification and Handling",
                 "Entity-relationship diagram (model answer)")
@@ -932,7 +932,7 @@ medium. Explain in one sentence why the rule cannot hang off the classification 
 alone."""
 
 
-# -------------------------------------------------- cfg 82, UML_COMPONENT
+# cfg 82, UML_COMPONENT
 def certification_toolchain():
     d = Diagram("Pellworth Bank - Certification Readiness Toolchain",
                 "UML component diagram (model answer)")

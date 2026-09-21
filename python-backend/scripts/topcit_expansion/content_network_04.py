@@ -18,9 +18,7 @@ SUBNET_DIAGRAM = "/lesson-media/subnet-mask.svg"
 MASK_DIAGRAM = "/lesson-media/cidr-block-sizes.svg"
 ROUTING_DIAGRAM = "/lesson-media/distance-vector.svg"
 OSPF_DIAGRAM = "/lesson-media/link-state-areas.svg"
-# ===========================================================================
 # IPv4 Addressing, Subnetting, and CIDR
-# ===========================================================================
 
 _sub_sections = [
     ("Why an Address Alone Is Not Enough", [
@@ -772,9 +770,7 @@ LESSON_SUBNETTING = {
 }
 
 
-# ===========================================================================
 # Routing Protocols and Algorithms
-# ===========================================================================
 
 _rt_sections = [
     ("Routing Versus Forwarding", [

@@ -34,7 +34,6 @@ public class ExamCertificationIntegrityTest {
 
     @Test
     void mockExamsAreCorrectlyAssignedToCertifications() {
-        // Fetch all mock exams and group by title
         List<Exam> allMocks = examRepository.findByCertification_CertificationId(null).stream()
                 // (Overload doesn't exist yet; this test will drive the implementation)
                 // For now, we'll fetch all exams and filter manually
@@ -42,7 +41,6 @@ public class ExamCertificationIntegrityTest {
                         (e.getExamType() != null) ? e.getExamType().getExamTypeText() : null))
                 .collect(Collectors.toList());
 
-        // Group exams by their title to detect duplicates
         Map<String, List<Exam>> byTitle = allMocks.stream()
                 .collect(Collectors.groupingBy(Exam::getTitle));
 
@@ -50,7 +48,6 @@ public class ExamCertificationIntegrityTest {
         for (String title : byTitle.keySet()) {
             List<Exam> examsWithTitle = byTitle.get(title);
             if (examsWithTitle.size() > 1) {
-                // Collect the certification IDs for reporting
                 String certIds = examsWithTitle.stream()
                         .map(e -> String.format("%d", e.getCertification().getCertificationId()))
                         .collect(Collectors.joining(", "));

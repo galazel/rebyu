@@ -19,9 +19,7 @@ IEEE802_DIAGRAM = "/lesson-media/ieee-802-family.svg"
 CSMA_DIAGRAM = "/lesson-media/csma-cd.svg"
 DEVICES_DIAGRAM = "/lesson-media/devices-by-layer.svg"
 VLAN_DIAGRAM = "/lesson-media/vlan-segmentation.svg"
-# ===========================================================================
 # Internet Standards and the IEEE 802 Family
-# ===========================================================================
 
 _std_sections = [
     ("Why Standards Decide What Gets Built", [
@@ -737,9 +735,7 @@ LESSON_STANDARDS = {
 }
 
 
-# ===========================================================================
 # Network Layer Devices: Routers, Switches, and VLANs
-# ===========================================================================
 
 _dev_sections = [
     ("What the Network Layer Is For", [

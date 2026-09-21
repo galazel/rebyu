@@ -255,7 +255,6 @@ export default function InstitutionRequestAccessPage() {
     submitMutation.mutate()
   }
 
-  // --- Confirmation screen ---------------------------------------------------
   if (confirmation) {
     return (
       <main className="rebyu-ds rb-light-only flex min-h-dvh flex-col bg-rb-polar text-rb-eel">
@@ -292,7 +291,6 @@ export default function InstitutionRequestAccessPage() {
     )
   }
 
-  // --- Request form ----------------------------------------------------------
   return (
     <main className="rebyu-ds rb-light-only min-h-dvh bg-rb-polar text-rb-eel">
       <PublicHeader />
@@ -524,7 +522,7 @@ export default function InstitutionRequestAccessPage() {
   )
 }
 
-/* --- pieces ---------------------------------------------------------------- */
+/* pieces */
 
 function PublicHeader() {
   return (

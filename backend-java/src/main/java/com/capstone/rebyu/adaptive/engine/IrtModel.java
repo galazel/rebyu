@@ -148,9 +148,7 @@ public final class IrtModel {
         };
     }
 
-    // ------------------------------------------------------------------
     // Proficiency: what the learner sees
-    // ------------------------------------------------------------------
 
     /**
      * Ability translated onto 0..100: {@code ((theta + 3) / 6) * 100}, so the

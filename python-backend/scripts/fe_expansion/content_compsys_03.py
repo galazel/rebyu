@@ -19,9 +19,7 @@ from figures import fig
 MAJOR = "Computer System"
 MIDDLE = "Computer Component"
 
-# ==========================================================================
 # Lesson 3: Buses and interconnects
-# ==========================================================================
 
 _bus_sections = [
     ("What a Bus Is For", [
@@ -767,9 +765,7 @@ LESSON_BUS = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 4: Input/output interfaces and device control
-# ==========================================================================
 
 _io_sections = [
     ("The Problem an Interface Solves", [

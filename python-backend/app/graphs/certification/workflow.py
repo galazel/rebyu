@@ -92,7 +92,6 @@ def build_certification_graph(checkpointer):
     """
     workflow = StateGraph(CertificationState)
 
-    # --- Documents ---------------------------------------------------------
     workflow.add_node("validate_documents", instrument(validate_documents_node, "validate_documents"))
     workflow.add_node(
         "capture_document_visuals", instrument(capture_document_visuals_node, "capture_document_visuals")
@@ -122,7 +121,7 @@ def build_certification_graph(checkpointer):
         {"approve": LESSON_PHASE.gate, "regenerate": "plan_curriculum"},
     )
 
-    # --- Per-item loops ----------------------------------------------------
+    # Per-item loops
     # Lessons are the only phase with a two-step generation: author the
     # content, then build its quiz from that content. The phase stops at each
     # middle-category boundary (`in_scope`) and hands over to that category's
@@ -162,7 +161,7 @@ def build_certification_graph(checkpointer):
         advance_targets={"lessons": LESSON_PHASE.gate, "exams": CERTIFICATION_ASSESSMENTS_GATE},
     )
 
-    # --- What follows the curriculum ---------------------------------------
+    # What follows the curriculum
     # A full build goes on to the mock exam, then the diagnostic, then the
     # bank. A run that is ADDING to a certification skips the first two and
     # goes straight to the bank.
@@ -186,7 +185,7 @@ def build_certification_graph(checkpointer):
         {"full": "generate_mock_exam", "append": "generate_question_bank"},
     )
 
-    # --- Certification-wide assessments ------------------------------------
+    # Certification-wide assessments
     workflow.add_node("generate_diagnostic_exam", instrument(generate_diagnostic_exam_node, "generate_diagnostic_exam"))
     workflow.add_node("await_diagnostic_exam_review", await_diagnostic_exam_review_node)
     workflow.add_node("generate_mock_exam", instrument(generate_mock_exam_node, "generate_mock_exam"))

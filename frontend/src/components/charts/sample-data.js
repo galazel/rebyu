@@ -7,7 +7,7 @@
  * measurement, and each block names the endpoint that will replace it.
  */
 
-/* ------------------------------------------------------------------ learner */
+/* learner */
 
 // replace with: GET /api/learners/me/analytics/xp-history
 export const LEARNER_XP_TREND = [
@@ -60,7 +60,7 @@ export const LEARNER_MASTERY_TREND = [
   { week: "W6", databases: 38, programming: 79 },
 ]
 
-/* -------------------------------------------------------------- challenges */
+/* challenges */
 
 // replace with: GET /api/challenges/me/score-history
 export const CHALLENGE_SCORE_TREND = [
@@ -79,7 +79,7 @@ export const CHALLENGE_ARENA_MIX = [
   { name: "World Cup", value: 4 },
 ]
 
-/* ----------------------------------------------------------------- admin */
+/* admin */
 
 // replace with: GET /api/admin/analytics/growth
 export const ADMIN_GROWTH_TREND = [
@@ -117,7 +117,7 @@ export const ADMIN_PASS_RATE_BY_CERT = [
   { certification: "AP Exam", passRate: 44 },
 ]
 
-/* ------------------------------------------------------------- institution */
+/* institution */
 
 // replace with: GET /api/institution/me/analytics/seat-usage
 export const INSTITUTION_SEAT_TREND = [

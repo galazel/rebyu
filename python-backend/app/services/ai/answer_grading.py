@@ -81,7 +81,7 @@ class IncompleteGrading(ValueError):
     """
 
 
-# --- scoring ---------------------------------------------------------------
+# scoring
 
 
 def _points(value: Decimal | float | int | None) -> Decimal:
@@ -126,7 +126,7 @@ def _feedback_or_default(text: str | None, default: str = _NO_FEEDBACK) -> str:
     return _clean(text) or default
 
 
-# --- prompt ----------------------------------------------------------------
+# prompt
 
 
 def _plain(points: Decimal) -> str:
@@ -225,7 +225,7 @@ def build_sub_question_prompt(
     return "\n\n".join(parts)
 
 
-# --- invocation ------------------------------------------------------------
+# invocation
 
 
 class _CompletenessChecked:
@@ -278,7 +278,7 @@ async def _invoke(build_agent, prompt: str) -> AnswerVerdict:
     )
 
 
-# --- entry point -----------------------------------------------------------
+# entry point
 
 
 async def grade_answer(request: AnswerGradingRequest) -> AnswerGradingResult:

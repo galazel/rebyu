@@ -35,7 +35,7 @@ export function buildProblems(count, titles, solvedCount) {
   }))
 }
 
-/* ------------------------------------------------------------------ geometry */
+/* geometry */
 
 /* The roadmap is drawn at its intrinsic pixel size rather than scaled to fit:
    one SVG user unit is one CSS pixel, so the HTML node buttons can be placed at
@@ -109,7 +109,7 @@ function roadPath(points) {
   return d
 }
 
-/* --------------------------------------------------------------------- paint */
+/* paint */
 
 /** Stroke colour for a node's stem and its marker on the road. */
 const DIFFICULTY_STROKE = {

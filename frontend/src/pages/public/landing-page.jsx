@@ -301,7 +301,7 @@ function BrandMark({ light = false }) {
   );
 }
 
-/* ---------------------------------------------------------------- navigation */
+/* navigation */
 
 function LandingNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -536,7 +536,7 @@ function HeroSection() {
   );
 }
 
-/* ------------------------------------------------------------------- what it is */
+/* what it is */
 
 function AboutSection() {
   return (
@@ -584,7 +584,7 @@ function AboutSection() {
   );
 }
 
-/* --------------------------------------------------------------------- problem */
+/* problem */
 
 function ProblemSection() {
   return (
@@ -646,7 +646,7 @@ function ProblemSection() {
   );
 }
 
-/* -------------------------------------------------------------------- solution */
+/* solution */
 
 function SolutionSection() {
   return (
@@ -710,7 +710,7 @@ function SolutionSection() {
   );
 }
 
-/* --------------------------------------------------------------- how it works */
+/* how it works */
 
 function HowItWorksSection() {
   const TONE_CLASSES = {
@@ -839,7 +839,7 @@ function HowItWorksSection() {
   );
 }
 
-/* ------------------------------------------------------------- certifications */
+/* certifications */
 
 function CertificationSection() {
   /* A showcase, not a comparison: full-width bands that put each certification's
@@ -932,8 +932,8 @@ function CertificationSection() {
   );
 }
 
-/* -------------------------------------------------------------------- roadmap */
-/* ----------------------------------------------------------------- olympics */
+/* roadmap */
+/* olympics */
 
 function OlympicsSection() {
   /* The same mode-select carousel the signed-in challenge hub uses: one arena
@@ -1167,7 +1167,7 @@ function OlympicsSection() {
   );
 }
 
-/* --------------------------------------------------------------------- ai lab */
+/* ai lab */
 
 /**
  * The scripted exchange the tutor preview plays.
@@ -1517,7 +1517,7 @@ function AiTutorSection() {
   );
 }
 
-/* --------------------------------------------------------------- gamification */
+/* gamification */
 
 /* What the mastery service actually returns per topic: an estimate, and a
    confidence in that estimate driven by how much evidence sits behind it. Both
@@ -1586,7 +1586,7 @@ function WeaknessSection() {
   );
 }
 
-/* ------------------------------------------------------------------ community */
+/* community */
 
 function CommunitySection() {
   return (
@@ -1689,7 +1689,7 @@ function CommunitySection() {
   );
 }
 
-/* --------------------------------------------------------------------- access */
+/* access */
 
 function AccessCard({ icon: Icon, title, description, points, cta, to, tone }) {
   return (
@@ -1763,7 +1763,7 @@ function AccessSection() {
   );
 }
 
-/* --------------------------------------------------------------------- footer */
+/* footer */
 
 function Footer() {
   const footerRef = useRef(null);
@@ -1869,7 +1869,7 @@ function Footer() {
   );
 }
 
-/* ----------------------------------------------------------------------- page */
+/* page */
 
 export default function LandingPage() {
   const rootRef = useRef(null);

@@ -153,7 +153,7 @@ export function planStudy({
     detail: "The day of your certification exam. Rest well the night before -- no new studying today.",
   }
 
-  /* ---- what to study ------------------------------------------------------ */
+  /* what to study */
   const source = Array.isArray(curriculum) && curriculum.length > 0 ? curriculum : priorityTopics ?? []
   const seen = new Set()
   const lessons = []
@@ -194,7 +194,7 @@ export function planStudy({
     }
   }
 
-  /* ---- which days are study days (same rule the main loop uses) ------------ */
+  /* which days are study days (same rule the main loop uses) */
   const studyFlags = []
   {
     const cursor = new Date(startDate)
@@ -209,7 +209,7 @@ export function planStudy({
     }
   }
 
-  /* ---- the pace ----------------------------------------------------------- */
+  /* the pace */
   // Consolidation gets the readiness days, but never more than 40% of the plan.
   const consolidationDays = Math.min(READINESS_DAYS[readiness] ?? 7, Math.floor(totalDays * 0.4))
   const learningEndIndex = Math.max(1, totalDays - consolidationDays)
@@ -226,7 +226,7 @@ export function planStudy({
       ? `${toStudy.length} lessons do not fit before your readiness date even at ${MAX_LESSONS_PER_DAY} a day, so some run into review time. Add study days or choose a later exam date.`
       : null
 
-  /* ---- the days ----------------------------------------------------------- */
+  /* the days */
   const events = []
   const base = (date) => ({ dateKey: dayKey(date), time: timeLabel, at, technique })
   const lessonFields = (lesson) => ({

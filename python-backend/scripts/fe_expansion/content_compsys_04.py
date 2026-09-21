@@ -18,9 +18,7 @@ from figures import fig
 
 MAJOR = "Computer System"
 
-# ==========================================================================
 # Lesson 5: Input/output devices
-# ==========================================================================
 
 _dev_sections = [
     ("Devices as Categories, Not as a List", [

@@ -99,7 +99,7 @@ class InstitutionGroupAssigneeServiceTest {
         return dto;
     }
 
-    // ---- 1: cross-tenant group access is rejected ----
+    // 1: cross-tenant group access is rejected
     @Test
     void create_groupBelongsToDifferentInstitution_throwsNotFound() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(OTHER_INSTITUTION_ID)));
@@ -108,7 +108,7 @@ class InstitutionGroupAssigneeServiceTest {
                 () -> service.create(dto(), CALLER_INSTITUTION_ID));
     }
 
-    // ---- 2: learner from a different certification allocation is rejected ----
+    // 2: learner from a different certification allocation is rejected
     @Test
     void create_learnerBelongsToDifferentInstitutionCert_throwsBusinessRuleException() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(CALLER_INSTITUTION_ID)));
@@ -119,7 +119,7 @@ class InstitutionGroupAssigneeServiceTest {
                 () -> service.create(dto(), CALLER_INSTITUTION_ID));
     }
 
-    // ---- 3: brand new assignment succeeds, defaults to member role ----
+    // 3: brand new assignment succeeds, defaults to member role
     @Test
     void create_newAssignment_defaultsToMemberRole() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(CALLER_INSTITUTION_ID)));
@@ -136,7 +136,7 @@ class InstitutionGroupAssigneeServiceTest {
         assertEquals(InstitutionGroupAssignee.Status.active, result.getStatus());
     }
 
-    // ---- 4: duplicate ACTIVE assignment is rejected ----
+    // 4: duplicate ACTIVE assignment is rejected
     @Test
     void create_alreadyActiveAssignment_throwsBusinessRuleException() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(CALLER_INSTITUTION_ID)));
@@ -154,7 +154,7 @@ class InstitutionGroupAssigneeServiceTest {
         verify(assigneeRepository, times(0)).save(any());
     }
 
-    // ---- 5: re-adding a previously removed (archived) learner reactivates the row ----
+    // 5: re-adding a previously removed (archived) learner reactivates the row
     @Test
     void create_archivedAssignment_reactivatesInsteadOfInserting() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(CALLER_INSTITUTION_ID)));
@@ -178,7 +178,7 @@ class InstitutionGroupAssigneeServiceTest {
         assertEquals(InstitutionGroupAssignee.Role.member, result.getRole()); // dto had no role -> defaults
     }
 
-    // ---- 6: delete rejects cross-tenant access ----
+    // 6: delete rejects cross-tenant access
     @Test
     void delete_differentInstitution_throwsNotFound() {
         InstitutionGroupAssignee row = InstitutionGroupAssignee.builder()
@@ -192,7 +192,7 @@ class InstitutionGroupAssigneeServiceTest {
                 () -> service.delete(ASSIGNEE_ID, CALLER_INSTITUTION_ID));
     }
 
-    // ---- 7: delete archives the row (soft-remove) ----
+    // 7: delete archives the row (soft-remove)
     @Test
     void delete_sameInstitution_archivesRow() {
         InstitutionGroupAssignee row = InstitutionGroupAssignee.builder()
@@ -210,7 +210,7 @@ class InstitutionGroupAssigneeServiceTest {
         org.junit.jupiter.api.Assertions.assertTrue(row.getRemovedAt() != null);
     }
 
-    // ---- 8: role change ----
+    // 8: role change
     @Test
     void changeRole_sameInstitution_updatesRole() {
         InstitutionGroupAssignee row = InstitutionGroupAssignee.builder()

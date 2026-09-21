@@ -25,7 +25,7 @@ from app.graphs.certification.review_mode import (
 from tests.test_review_loop import CURRICULUM, graph_env, isolated_index_dir  # noqa: F401
 
 
-# --- the flag itself ------------------------------------------------------
+# the flag itself
 
 @pytest.mark.parametrize("raw", ["auto", "AUTO", " Auto ", "unattended", True])
 def test_unattended_spellings_are_recognised(raw):
@@ -52,7 +52,7 @@ def test_unattended_covers_every_scope():
     assert auto_approving(state, "MIDDLE")
 
 
-# --- driving the real graph ----------------------------------------------
+# driving the real graph
 
 async def test_an_unattended_run_never_pauses(graph_env):  # noqa: F811
     """The whole point: one invocation, no interrupts, output for every

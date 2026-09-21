@@ -16,9 +16,7 @@ from figures import fig
 MAJOR = "Business Strategy"
 MIDDLE = "Business Industry"
 
-# ==========================================================================
 # Lesson 1: e-Business
-# ==========================================================================
 
 _ec_sections = [
     ("Trading Electronically", [
@@ -680,9 +678,7 @@ LESSON_BIZ_EC = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 2: Consumer appliances and embedded systems
-# ==========================================================================
 
 _emb_sections = [
     ("Computers Inside Other Things", [

@@ -19,10 +19,8 @@ export async function getMyChallengeRecord() {
   return base("challenges/me/record")
 }
 
-// ---------------------------------------------------------------------------
 // Arenas. An arena's problems are a CHALLENGE exam, so configuring one is
 // admin work and running one is an ordinary attempt.
-// ---------------------------------------------------------------------------
 
 export const CHALLENGE_ARENAS_KEY = "challenge-arenas"
 

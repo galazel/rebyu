@@ -69,7 +69,7 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
     List<AssessmentAttempt> findByExam_ExamIdAndLearnerIdAndStatus(
             Long examId, Long learnerId, AssessmentAttempt.Status status);
 
-    // --- Platform aggregates (admin dashboard) -----------------------------
+    // Platform aggregates (admin dashboard)
 
     long countByStatus(AssessmentAttempt.Status status);
 
@@ -86,7 +86,7 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
     long countByStatusAndSubmittedAtGreaterThanEqual(
             AssessmentAttempt.Status status, java.time.LocalDateTime since);
 
-    // --- Per-learner rollups (institution dashboard) ------------------------
+    // Per-learner rollups (institution dashboard)
 
     /** One row per learner. Projection interface so the rollup stays in SQL. */
     interface LearnerAttemptStats {

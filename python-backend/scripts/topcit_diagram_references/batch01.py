@@ -21,7 +21,7 @@ from app.domain.diagrams.mxgraph import Diagram, ERD_LEGEND, UML_LEGEND
 MARKER = "\n\nTasks\n"
 
 
-# ---------------------------------------------------------------- cfg 6, ERD
+# cfg 6, ERD
 def warehouse_inventory():
     d = Diagram("Northwind Logistics - Inventory Domain Model",
                 "Entity-relationship diagram (model answer)")
@@ -93,7 +93,7 @@ while Staff-InventoryCount is not.
 cascading, and what does that tell you about the relationship?"""
 
 
-# ---------------------------------------------------------------- cfg 7, ERD
+# cfg 7, ERD
 def library_static():
     d = Diagram("Meridian University Library - Static Structure",
                 "Entity-relationship diagram (model answer)")
@@ -166,7 +166,7 @@ rather than Title.
 existence-dependent, while Publisher-Title is not."""
 
 
-# ------------------------------------------------- cfg 8, ACTIVITY_DIAGRAM
+# cfg 8, ACTIVITY_DIAGRAM
 def expense_approval():
     d = Diagram("Helios Expense Management - Claim Approval",
                 "UML activity diagram (model answer)")
@@ -238,7 +238,7 @@ decision node would model it incorrectly.
 makes the two-approval path the exception rather than the default."""
 
 
-# ---------------------------------------------------------- cfg 9, UML_CLASS
+# cfg 9, UML_CLASS
 def review_workflow():
     d = Diagram("Vantage Requirements Review - Class Model",
                 "UML class diagram (model answer)")
@@ -317,7 +317,7 @@ composition, but Session-Reviewer is only aggregation.
 requirement (c) tells you so?"""
 
 
-# --------------------------------------------------------------- cfg 10, ERD
+# cfg 10, ERD
 def wms_requirements():
     d = Diagram("Cascade WMS - Requirements Traceability Model",
                 "Entity-relationship diagram (model answer)")

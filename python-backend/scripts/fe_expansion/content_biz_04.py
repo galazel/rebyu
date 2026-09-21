@@ -16,9 +16,7 @@ from figures import fig
 MAJOR = "Business Strategy"
 MIDDLE = "Business Industry"
 
-# ==========================================================================
 # Lesson 1: Business and administrative systems
-# ==========================================================================
 
 _admin_sections = [
     ("Systems That Run an Organisation", [
@@ -683,9 +681,7 @@ LESSON_BIZ_ADMIN = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 2: Engineering and production systems
-# ==========================================================================
 
 _prod_sections = [
     ("Systems That Make Things", [

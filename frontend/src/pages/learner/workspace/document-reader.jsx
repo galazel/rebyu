@@ -90,7 +90,7 @@ function useElementWidth(ref) {
   return width
 }
 
-/* ------------------------------------------------------------------ PDF --- */
+/* PDF */
 
 /**
  * Opens a PDF with pdf.js. The URL is tried first so a large file streams in
@@ -230,7 +230,7 @@ function PdfPage({ doc, number, width, ratio, rootRef }) {
   )
 }
 
-/* ------------------------------------------------------- Word and text --- */
+/* Word and text */
 
 /**
  * Packs a document's blocks onto sheets. Each top-level block is measured in an
@@ -295,7 +295,7 @@ function useSheets(html) {
   return { sheets, measurer }
 }
 
-/* -------------------------------------------------------------- reader --- */
+/* reader */
 
 /**
  * `previewPages` turns the reader into a preview, the way Scribd shows a
@@ -341,7 +341,7 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
   const [fullscreen, setFullscreen] = useState(false)
   const zoom = ZOOM_STEPS[zoomIndex]
 
-  /* ---- content */
+  /* content */
   const pdf = usePdfDocument(file, isPdf)
   const [html, setHtml] = useState(null)
   const [flowError, setFlowError] = useState(null)
@@ -384,13 +384,13 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
       ? sheets.length
       : null
 
-  /* ---- sizing: fit the room, then zoom */
+  /* sizing: fit the room, then zoom */
   const gutter = roomWidth < 640 ? 24 : 64
   const available = Math.max(roomWidth - gutter, 200)
   const pdfWidth = Math.round(Math.min(available, PDF_MAX_WIDTH) * zoom)
   const sheetScale = Math.min(1, available / SHEET_WIDTH) * zoom
 
-  /* ---- paging */
+  /* paging */
   const updateCurrentPage = useCallback(() => {
     const room = scrollRef.current
     if (!room) return
@@ -433,7 +433,7 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
     [pageCount]
   )
 
-  /* ---- zoom keeps the page you were on */
+  /* zoom keeps the page you were on */
   const keepPageRef = useRef(null)
   const zoomTo = (index) => {
     keepPageRef.current = page
@@ -448,7 +448,7 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
     if (slot) scrollRef.current.scrollTop = slot.offsetTop - 20
   }, [zoomIndex])
 
-  /* ---- fullscreen follows the document, which Escape can also leave */
+  /* fullscreen follows the document, which Escape can also leave */
   useEffect(() => {
     const sync = () => setFullscreen(document.fullscreenElement === frameRef.current)
     document.addEventListener("fullscreenchange", sync)

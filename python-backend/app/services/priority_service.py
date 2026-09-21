@@ -19,7 +19,7 @@ from app.db.models import (
     LearnerLessonMastery,
 )
 
-# --- Tags -------------------------------------------------------------------
+# Tags
 CRITICAL = "CRITICAL_PRIORITY"
 HIGH = "HIGH_PRIORITY"
 MEDIUM = "MEDIUM_PRIORITY"

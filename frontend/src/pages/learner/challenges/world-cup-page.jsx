@@ -78,7 +78,7 @@ const STANDINGS = [
   { name: "Jed R.", solved: 8, accuracy: 81, avg: "1:20" },
 ]
 
-/* --------------------------------------------------------------- lobby line-up */
+/* lobby line-up */
 
 function Standee({ player, index }) {
   if (!player) {
@@ -121,7 +121,7 @@ function Standee({ player, index }) {
   )
 }
 
-/* ------------------------------------------------------------------- bracket */
+/* bracket */
 
 /* Bracket geometry, in pixels. The elbow connectors are drawn with borders
    rather than SVG, so every one of these numbers has to agree with the seat
@@ -241,7 +241,7 @@ function Bracket() {
   )
 }
 
-/* ---------------------------------------------------------------------- page */
+/* page */
 
 export default function WorldCupPage() {
   const navigate = useNavigate()

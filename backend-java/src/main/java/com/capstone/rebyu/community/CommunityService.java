@@ -110,10 +110,6 @@ public class CommunityService {
             Long commentId, Long postId, Long parentCommentId, String authorName,
             String initials, String body, OffsetDateTime createdAt, boolean ownedByMe) {}
 
-    // ------------------------------------------------------------------
-    // Posts
-    // ------------------------------------------------------------------
-
     public List<Post> posts(Long learnerId, String type, String search, boolean savedOnly) {
         String normalizedType = normalizeFilter(type, "for-you");
         String normalizedSearch = normalizeFilter(search, null);
@@ -409,9 +405,7 @@ public class CommunityService {
         }
     }
 
-    // ------------------------------------------------------------------
     // Upvotes / saves
-    // ------------------------------------------------------------------
 
     /** Counts shown under a post, recomputed after the viewer changes one of them. */
     public record PostCounts(long reactions, long saves, boolean active) {}
@@ -445,9 +439,7 @@ public class CommunityService {
         return counts(postId, true);
     }
 
-    // ------------------------------------------------------------------
     // Comments
-    // ------------------------------------------------------------------
 
     /** Read-only transaction: mapComment reads each author's name through a lazy proxy. */
     @Transactional(readOnly = true)
@@ -481,9 +473,7 @@ public class CommunityService {
         return saved;
     }
 
-    // ------------------------------------------------------------------
     // Author notifications
-    // ------------------------------------------------------------------
 
     /**
      * Tells a post's author that someone engaged with it. Silent when the actor
@@ -514,10 +504,6 @@ public class CommunityService {
                 .map(CommunityService::fullName)
                 .orElse("A learner");
     }
-
-    // ------------------------------------------------------------------
-    // Circles
-    // ------------------------------------------------------------------
 
     public List<Circle> circles(Long learnerId) {
         return circleRepository.feed(learnerId).stream().map(CommunityService::mapCircleRow).toList();
@@ -597,9 +583,7 @@ public class CommunityService {
         }
     }
 
-    // ------------------------------------------------------------------
     // Mapping / helpers
-    // ------------------------------------------------------------------
 
     private static Post mapPostRow(CommunityPostRow row) {
         return new Post(row.getPostId(), row.getAuthorName(), initials(row.getAuthorName()), row.getCommunity(),

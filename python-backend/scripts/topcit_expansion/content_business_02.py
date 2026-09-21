@@ -21,9 +21,7 @@ MID_BIZ_FUNDAMENTALS = 126
 
 SDLC_DIAGRAM = "/lesson-media/total-cost-of-ownership.svg"
 OUTSOURCE_DIAGRAM = "/lesson-media/outsourcing-drivers.svg"
-# ===========================================================================
 # IT Business Adoption: In-House Development versus Packages
-# ===========================================================================
 
 _adopt_sections = [
     ("The Decision Before Every Other Decision", [
@@ -738,9 +736,7 @@ LESSON_ADOPTION = {
 }
 
 
-# ===========================================================================
 # IT Outsourcing and Sourcing Models
-# ===========================================================================
 
 _out_sections = [
     ("Deciding Who Does the Work", [

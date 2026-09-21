@@ -113,8 +113,7 @@ function getTopicTitle(topic, fallback = "Untitled Topic") {
   )
 }
 
-/* ------------------------------------------------------------------ pieces */
-
+/* pieces */
 
 /* "Score across retakes" shows the ten most retaken assessments, so it needs
    ten hues that stay apart on a line chart: greens, golds, oranges, reds and
@@ -481,7 +480,7 @@ function AnalyticsLoadingSkeleton() {
   )
 }
 
-/* -------------------------------------------------------------------- page */
+/* page */
 
 export default function LearnerProgressPage() {
   const navigate = useNavigate()
@@ -1536,7 +1535,7 @@ export default function LearnerProgressPage() {
     },
   ]
 
-  // ------------------------------------------------------------ tile layout
+  // tile layout
   // The learner's own arrangement of the tiles above, saved per learner rather
   // than per certification: it is a preference about how they read the page,
   // and having it change when they switch certification would read as the page

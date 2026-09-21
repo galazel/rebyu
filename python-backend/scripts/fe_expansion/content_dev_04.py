@@ -16,9 +16,7 @@ from figures import fig
 MAJOR = "Development Technology"
 MIDDLE = "System Development Technology"
 
-# ==========================================================================
 # Lesson 7: Software integration and qualification testing
-# ==========================================================================
 
 _int_sections = [
     ("Putting the Parts Together", [
@@ -740,9 +738,7 @@ LESSON_DEV_INT = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 8: System integration, system testing and installation
-# ==========================================================================
 
 _sys_sections = [
     ("The Whole System", [

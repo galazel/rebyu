@@ -118,7 +118,7 @@ class CertificationState(TypedDict, total=False):
     # regenerating replaces it wholesale instead of accumulating duplicates.
     question_bank: List[Dict]
 
-    # --- per-item review loop (Phase 2b step 12) -------------------------
+    # per-item review loop (Phase 2b step 12)
     # Position within each phase. The graph walks majors, then middles, then
     # lessons one at a time so an admin can approve item 1 and reject item 2 --
     # previously every item fanned out in parallel and a single review covered

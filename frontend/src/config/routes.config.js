@@ -34,13 +34,11 @@ export const ROUTES = {
   CHECKOUT_SUCCESS: '/subscription/success',
   CHECKOUT_CANCEL: '/subscription/cancel',
 
-  // Community
   COMMUNITY: '/community',
   COMMUNITY_POST_VIEW: '/community/posts/:id',
   COMMUNITY_POST_EDIT: '/community/posts/:id/edit',
   COMMUNITY_POST_CREATE: '/community/posts/new',
 
-  // Admin
   ADMIN_DASHBOARD: '/admin/dashboard',
   ADMIN_REVENUE: '/admin/revenue',
   ADMIN_USERS: '/admin/users',

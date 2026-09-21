@@ -106,9 +106,7 @@ public final class LearnerAttemptDtos {
     ) {
     }
 
-    // ------------------------------------------------------------------
     // Adaptive (IRT + BKT) session
-    // ------------------------------------------------------------------
 
     public record AdaptiveProgressDto(
             int answered,

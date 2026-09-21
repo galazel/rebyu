@@ -232,7 +232,7 @@ def test_a_directive_opening_a_clause_is_still_an_instruction(question):
     assert draft.question_type == "DESCRIPTIVE", question
 
 
-# --- explanations ----------------------------------------------------------
+# explanations
 #
 # What a learner sees after getting an item wrong. The `choices` table has
 # carried a per-choice `explanation` column all along, but only the correct
@@ -326,7 +326,7 @@ def test_each_choices_own_explanation_is_persisted_to_that_choice():
     assert [row[1] for row in written] == [False, False, True, False]
 
 
-# --- exam structure persistence -------------------------------------------
+# exam structure persistence
 
 
 def test_the_researched_exam_structure_is_written_to_the_certification():
@@ -417,7 +417,6 @@ def test_an_unknown_exam_structure_is_not_written_over_a_known_one():
         @staticmethod
         def list_certification_lessons(session, certification_id):
             return []
-
 
     class _Session:
         def __enter__(self):

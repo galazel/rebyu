@@ -98,7 +98,7 @@ function ChartTooltip({ active, payload, label, suffix = "%" }) {
   )
 }
 
-/* ------------------------------------------------------------------ problem */
+/* problem */
 
 // Ebbinghaus-shaped retention. Two series, one axis, both direct-labelled at
 // their endpoint so the gap reads without matching colours to a key.
@@ -162,7 +162,7 @@ export function RetentionChart() {
   )
 }
 
-/* ----------------------------------------------------------------- solution */
+/* solution */
 
 export const MASTERY = [
   { week: "W1", databases: 22, networks: 30, os: 41, programming: 55 },
@@ -225,7 +225,7 @@ export function MasteryChart() {
   )
 }
 
-/* ----------------------------------------------------------------- features */
+/* features */
 
 // Two states, not a value ramp: at-or-above target vs below. Ordering carries
 // priority; colour only says whether the bar has cleared the line.
@@ -304,7 +304,7 @@ export function DomainMasteryChart() {
   )
 }
 
-/* -------------------------------------------------- score across retakes */
+/* score across retakes */
 
 /**
  * The dashboard's "score across retakes" tile, on the landing page.

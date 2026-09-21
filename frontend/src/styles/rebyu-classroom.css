@@ -25,7 +25,7 @@
     font-display: swap;
 }
 
-/* --- Tokens ---------------------------------------------------------------- */
+/* Tokens */
 :root {
     --rb-board: #0b6b45;
     --rb-board-deep: #064d32;
@@ -207,7 +207,7 @@ body.netacad-overlay-theme {
     --rb-lip-lg: 0px;
 }
 
-/* --- Type -------------------------------------------------------------------- */
+/* Type */
 .font-rb-display,
 .rebyu-ds .rb-display,
 .rebyu-ds .rb-numeric,
@@ -234,7 +234,7 @@ body.netacad-overlay-theme {
     color: var(--color-rb-feather);
 }
 
-/* --- Buttons ----------------------------------------------------------------- */
+/* Buttons */
 :root [data-slot="button"] {
     border-radius: var(--radius-rb-control);
     font-weight: 700;
@@ -300,7 +300,7 @@ body.netacad-overlay-theme {
     color: var(--color-rb-eel);
 }
 
-/* --- Surfaces ------------------------------------------------------------------ */
+/* Surfaces */
 .rebyu-ds .rb-card {
     background: #ffffff;
     border: 1px solid var(--rb-line);
@@ -372,7 +372,7 @@ body.netacad-overlay-theme {
     border-bottom: 6px solid var(--rb-wood);
 }
 
-/* --- Learning controls ----------------------------------------------------------- */
+/* Learning controls */
 .rebyu-ds .rb-answer {
     border: 1.5px solid var(--rb-line);
     background: #ffffff;
@@ -431,7 +431,7 @@ body.netacad-overlay-theme {
     background: var(--color-rb-feather);
 }
 
-/* --- Shared primitives: hairlines and soft light ------------------------------------ */
+/* Shared primitives: hairlines and soft light */
 :root :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"]) {
     border-width: 1px;
     border-color: var(--input);
@@ -475,7 +475,7 @@ body.netacad-overlay-theme {
     box-shadow: var(--rb-elev-popover);
 }
 
-/* --- Classroom surfaces -------------------------------------------------------------- */
+/* Classroom surfaces */
 .rb-classroom-photo {
     background:
         linear-gradient(180deg, rgb(28 20 12 / 0.2), rgb(28 20 12 / 0.45)),
@@ -573,7 +573,7 @@ body.netacad-overlay-theme {
     filter: drop-shadow(0 6px 10px rgb(20 14 8 / 0.35));
 }
 
-/* --- Landing ------------------------------------------------------------------------- */
+/* Landing */
 .rb-classroom-landing [data-landing-reveal] > .rb-eyebrow {
     display: inline-flex;
     width: fit-content;
@@ -589,7 +589,7 @@ body.netacad-overlay-theme {
     border-top: 1px solid var(--rb-line);
 }
 
-/* --- Auth ---------------------------------------------------------------------------- */
+/* Auth */
 .rb-auth-card {
     position: relative;
     background: var(--rb-paper);
@@ -630,7 +630,7 @@ body.netacad-overlay-theme {
     font-weight: 600;
 }
 
-/* --- Loading note (page skeletons) --------------------------------------------------- */
+/* Loading note (page skeletons) */
 .rb-loading-note {
     display: inline-flex;
     align-items: center;
@@ -712,7 +712,7 @@ body.netacad-overlay-theme {
     background-position: 0 14px;
 }
 
-/* --- Clipboard ------------------------------------------------------------------ */
+/* Clipboard */
 .rb-clipboard {
     position: relative;
     padding: 18px 10px 10px;
@@ -752,7 +752,7 @@ body.netacad-overlay-theme {
     box-shadow: 0 1px 3px rgb(20 14 8 / 0.25);
 }
 
-/* --- Folders -------------------------------------------------------------------- */
+/* Folders */
 .rb-folder-shelf {
     display: grid;
     gap: 2rem 1.5rem;
@@ -848,7 +848,7 @@ body.netacad-overlay-theme {
     color: #6b5330;
 }
 
-/* --- The open folder: a two-page spread ----------------------------------------- */
+/* The open folder: a two-page spread */
 .rb-spread {
     position: relative;
     margin-top: 2.5rem;
@@ -1842,7 +1842,7 @@ body.netacad-overlay-theme {
     }
 }
 
-/* --- IT Olympics arenas: icons with labels, no cards ---------------------------- */
+/* IT Olympics arenas: icons with labels, no cards */
 .rb-olympic {
     display: flex;
     flex-direction: column;
@@ -1900,7 +1900,7 @@ body.netacad-overlay-theme {
     text-underline-offset: 4px;
 }
 
-/* --- The teacher's stamp on the graded notebook --------------------------------- */
+/* The teacher's stamp on the graded notebook */
 .rb-nb-left {
     padding-bottom: 170px;
 }
@@ -1962,7 +1962,7 @@ body.netacad-overlay-theme {
     letter-spacing: 0.05em;
 }
 
-/* --- IT Olympics: a big trophy with the three challenges around it -------------- */
+/* IT Olympics: a big trophy with the three challenges around it */
 .rb-trophy-stage {
     display: grid;
     gap: 2.5rem;
@@ -2039,7 +2039,7 @@ body.netacad-overlay-theme {
     }
 }
 
-/* --- The stamping hand ----------------------------------------------------------- */
+/* The stamping hand */
 .rb-nb-stamper {
     position: absolute;
     right: calc(2.25rem - 9px);
@@ -3086,7 +3086,7 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
     color-scheme: light;
 }
 
-/* --- Index cards (certifications on the partnership request form) --------------- */
+/* Index cards (certifications on the partnership request form) */
 .rb-index-card {
     border-radius: 4px;
     background-color: #ffffff;

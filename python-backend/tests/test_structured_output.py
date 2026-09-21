@@ -44,7 +44,7 @@ def _factory(agent):
     return build
 
 
-# --- extraction -----------------------------------------------------------
+# extraction
 
 async def test_the_structured_response_is_returned_unwrapped():
     agent = _Agent([{"structured_response": {"title": "Lesson 1"}}])
@@ -82,7 +82,7 @@ async def test_a_non_dict_result_fails_the_same_way_rather_than_raising_TypeErro
         await structured(_factory(agent))().ainvoke({})
 
 
-# --- it is inside the retried region --------------------------------------
+# it is inside the retried region
 
 async def test_a_missing_response_is_resampled_instead_of_killing_the_run(monkeypatch):
     """End to end through `invoke_agent`: the first sample answers in prose,

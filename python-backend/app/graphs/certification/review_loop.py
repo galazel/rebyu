@@ -423,7 +423,7 @@ def register_phase(
         workflow.add_edge(phase.advance, phase.gate)
 
 
-# --- version history -----------------------------------------------------
+# version history
 # Versions are written to `workflow_events`, not carried in graph state.
 # Holding each artifact in state meant every regeneration added a blob that
 # LangGraph then re-serialized into every later checkpoint -- the same write

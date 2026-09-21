@@ -17,9 +17,7 @@ from figures import fig
 MAJOR = "Technology Element"
 MIDDLE = "Database"
 
-# ==========================================================================
 # Lesson 3: Data manipulation
-# ==========================================================================
 
 _sql_sections = [
     ("Saying What, Not How", [
@@ -764,9 +762,7 @@ LESSON_DB_SQL = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 4: Transaction processing
-# ==========================================================================
 
 _txn_sections = [
     ("Why Transactions Exist", [

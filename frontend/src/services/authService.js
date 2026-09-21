@@ -2,11 +2,9 @@ import { supabase } from "@/lib/supabase.js"
 
 import { API, base } from "./base"
 
-// ---------------------------------------------------------------------------
 // Supabase auth wrapper. Every provider error is turned into one of the error
 // names below before it leaves this file, so the pages keep reading
 // `err.name` the way they always have and no raw provider text reaches the UI.
-// ---------------------------------------------------------------------------
 
 const ERROR_MESSAGES = {
   UsernameExistsException: "This email may already be registered.",

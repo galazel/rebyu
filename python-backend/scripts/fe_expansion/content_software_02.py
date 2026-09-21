@@ -17,9 +17,7 @@ from figures import fig
 MAJOR = "Computer System"
 MIDDLE = "Software"
 
-# ==========================================================================
 # Lesson 2: Middleware
-# ==========================================================================
 
 _mw_sections = [
     ("The Layer Between", [
@@ -835,9 +833,7 @@ LESSON_MIDDLEWARE = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 3: File systems
-# ==========================================================================
 
 _fs_sections = [
     ("What a File System Provides", [

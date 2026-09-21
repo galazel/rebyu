@@ -17,9 +17,7 @@ from figures import fig
 MAJOR = "Development Technology"
 MIDDLE = "Software Development Management Techniques"
 
-# ==========================================================================
 # Lesson 1: Development processes and methods
-# ==========================================================================
 
 _proc_sections = [
     ("Arranging the Work", [
@@ -723,9 +721,7 @@ LESSON_DEV_PROC = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 2: Intellectual property
-# ==========================================================================
 
 _ip_sections = [
     ("What Can Be Owned", [

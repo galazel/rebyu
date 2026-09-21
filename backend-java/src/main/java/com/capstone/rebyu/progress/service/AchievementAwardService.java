@@ -164,9 +164,7 @@ public class AchievementAwardService {
         return catalog;
     }
 
-    // ------------------------------------------------------------------
     // Criteria
-    // ------------------------------------------------------------------
 
     /** Everything the criteria below need, read once per evaluation. */
     private record Progress(
@@ -272,9 +270,7 @@ public class AchievementAwardService {
                         && entry.xp() >= TOP_ACHIEVER_MIN_XP);
     }
 
-    // ------------------------------------------------------------------
     // Awarding
-    // ------------------------------------------------------------------
 
     private Set<AchievementCatalog> earnedCatalogEntries(Long learnerId) {
         Set<AchievementCatalog> earned = EnumSet.noneOf(AchievementCatalog.class);

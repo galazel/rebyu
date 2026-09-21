@@ -115,7 +115,7 @@ def test_varied_openings_are_not_flagged():
     assert "REPETITIVE_QUESTION_OPENINGS" not in _codes([_mcq(i, correct=i % 4) for i in range(12)])
 
 
-# --- programming and diagram tasks ---------------------------------------
+# programming and diagram tasks
 
 
 def _programming(text: str, test_cases: int) -> dict:
@@ -183,7 +183,7 @@ def test_a_diagram_question_with_a_real_scenario_is_not_flagged():
     assert "THIN_DIAGRAM_TASK" not in _codes(batch)
 
 
-# --- the schema floor -----------------------------------------------------
+# the schema floor
 
 
 def test_the_schema_rejects_a_programming_question_with_one_test_case():
@@ -202,9 +202,7 @@ def test_the_schema_rejects_a_programming_question_with_one_test_case():
         )
 
 
-# ---------------------------------------------------------------------------
 # The question bank must read like a professional certification paper.
-# ---------------------------------------------------------------------------
 
 
 def test_the_prompt_demands_hard_scenario_questions_not_definitions():

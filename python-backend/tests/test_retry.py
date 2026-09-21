@@ -37,7 +37,7 @@ class _Boom(Exception):
     pass
 
 
-# --- policy membership ----------------------------------------------------
+# policy membership
 
 @pytest.mark.parametrize(
     "error",
@@ -60,7 +60,7 @@ def test_deterministic_errors_are_not_retryable(error):
     assert not issubclass(error, RETRYABLE_ERRORS)
 
 
-# --- tool_use_failed ------------------------------------------------------
+# tool_use_failed
 #
 # Some providers schema-check tool-call arguments server-side and reject a
 # mismatch with a 400. The status code blames the request, but the request was
@@ -126,7 +126,7 @@ def test_other_bad_requests_are_still_not_retryable(body):
     assert not is_retryable(_bad_request(body))
 
 
-# --- OpenRouter-specific failures -----------------------------------------
+# OpenRouter-specific failures
 #
 # Routing through OpenRouter adds two failures a single-vendor client never
 # sees. Both are 4xx/5xx shapes the SDK maps to types listed in
@@ -200,7 +200,7 @@ async def test_tool_use_failure_is_resampled():
     assert attempts["n"] == 3
 
 
-# --- actual retry behaviour -----------------------------------------------
+# actual retry behaviour
 
 async def test_retries_then_succeeds():
     attempts = {"n": 0}

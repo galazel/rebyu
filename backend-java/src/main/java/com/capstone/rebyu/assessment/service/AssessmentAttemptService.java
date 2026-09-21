@@ -184,9 +184,7 @@ public class AssessmentAttemptService {
     @Value("${rebyu.assessment.mock-exam-requires-entitlement:false}")
     private boolean mockExamRequiresEntitlement;
 
-    // ------------------------------------------------------------------
     // Learner-safe assessment listing
-    // ------------------------------------------------------------------
 
     @Transactional(readOnly = true)
     public LearnerAssessmentDto getLearnerAssessment(Long examId, Long learnerId) {
@@ -214,9 +212,7 @@ public class AssessmentAttemptService {
         );
     }
 
-    // ------------------------------------------------------------------
     // Start
-    // ------------------------------------------------------------------
 
     @Transactional
     public AssessmentAttemptStartResponseDto startAttempt(
@@ -411,9 +407,7 @@ public class AssessmentAttemptService {
         return response;
     }
 
-    // ------------------------------------------------------------------
     // Autosave
-    // ------------------------------------------------------------------
 
     @Transactional
     public void autosaveAnswers(Long attemptId, AutosaveAnswersRequestDto request) {
@@ -422,9 +416,7 @@ public class AssessmentAttemptService {
         upsertAnswers(attempt, request.answers());
     }
 
-    // ------------------------------------------------------------------
     // Per-item learner actions: flag, skip, current item
-    // ------------------------------------------------------------------
 
     @Transactional
     public void setFlag(Long attemptId, Long attemptQuestionId, Long learnerId, boolean flagged) {
@@ -477,9 +469,7 @@ public class AssessmentAttemptService {
         }
     }
 
-    // ------------------------------------------------------------------
     // Submit
-    // ------------------------------------------------------------------
 
     @Transactional
     public AssessmentAttemptResultDto submitAttempt(
@@ -815,9 +805,7 @@ public class AssessmentAttemptService {
         }
     }
 
-    // ------------------------------------------------------------------
     // Result
-    // ------------------------------------------------------------------
 
     @Transactional(readOnly = true)
     public AssessmentAttemptResultDto getResult(Long attemptId, Long learnerId) {
@@ -1081,9 +1069,7 @@ public class AssessmentAttemptService {
         return summaries;
     }
 
-    // ------------------------------------------------------------------
     // Internals
-    // ------------------------------------------------------------------
 
     /**
      * The learner-facing rating of an adaptive attempt: ability translated
@@ -2879,12 +2865,10 @@ public class AssessmentAttemptService {
         );
     }
 
-    // ------------------------------------------------------------------
     // Diagram Check — saves the current diagram and previews the rubric.
     // The actual structural grade (DiagramGradingService, see scoreAnswer /
     // gradeDiagramAnswer) is computed once, definitively, at submit time —
     // Check never scores, so re-checking a diagram is always safe.
-    // ------------------------------------------------------------------
 
     @Transactional
     public DiagramCheckResultDto checkDiagram(
@@ -2944,11 +2928,9 @@ public class AssessmentAttemptService {
         return rubric;
     }
 
-    // ------------------------------------------------------------------
     // Programming Run / Check — deterministic Judge0 execution, no AI.
     // Run grades against sample tests only (quick feedback); Check grades
     // against every configured test case and finalizes the answer's score.
-    // ------------------------------------------------------------------
 
     @Transactional
     public ExecutionResultDto runProgramming(

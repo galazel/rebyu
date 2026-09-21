@@ -341,7 +341,7 @@ class QuestionDraft(BaseModel):
         upper = value.strip().upper()
         return DIFFICULTY_ALIASES.get(upper, upper)
 
-    # --- pedagogical metadata (Phase 2b step 10) --------------------------
+    # pedagogical metadata (Phase 2b step 10)
     # Needed for the validation layer to reason about cognitive balance and
     # objective coverage, and for adaptive selection to target a learner's
     # actual gap rather than just a topic.
@@ -610,7 +610,6 @@ class QuestionDraft(BaseModel):
             raise ValueError("estimated_seconds must be positive")
 
         return self
-
 
     @model_validator(mode="after")
     def _require_an_explanation(self) -> "QuestionDraft":

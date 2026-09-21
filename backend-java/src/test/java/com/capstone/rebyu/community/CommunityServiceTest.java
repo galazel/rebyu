@@ -103,7 +103,7 @@ class CommunityServiceTest {
         return sharedQuizPost("VISIBLE");
     }
 
-    // ---- createPost: several images in one post ----
+    // createPost: several images in one post
 
     private static CommunityService.PostRequest reviewerRequest(List<CommunityService.Attachment> files) {
         CommunityService.Attachment first = files.isEmpty() ? null : files.get(0);
@@ -169,7 +169,7 @@ class CommunityServiceTest {
         assertTrue(CommunityService.readAttachments("not json").isEmpty());
     }
 
-    // ---- hidePost ----
+    // hidePost
 
     @Test
     void hidePost_setsModerationStatusAndNotifiesAuthor() {
@@ -192,8 +192,8 @@ class CommunityServiceTest {
         assertThrows(EntityNotFoundException.class, () -> service.hidePost(POST_ID));
     }
 
-    // ---- sharedStudyTarget: the moderation bypass, and the route shapes
-    //      the two generation paths actually write ----
+    // sharedStudyTarget: the moderation bypass, and the route shapes
+    // the two generation paths actually write
 
     @Test
     void sharedStudyTarget_hiddenPost_throwsInsteadOfReturningStudySet() {
@@ -250,7 +250,7 @@ class CommunityServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.sharedStudyTarget(POST_ID));
     }
 
-    // ---- like/save toggle ----
+    // like/save toggle
 
     @Test
     void toggleLike_notPreviouslyLiked_addsLikeAndReturnsTrue() {
@@ -278,7 +278,7 @@ class CommunityServiceTest {
         verify(postLikeRepository, never()).addLike(any(), any());
     }
 
-    // ---- deletePost / reportPost guards ----
+    // deletePost / reportPost guards
 
     /*
      * deletePost stopped expressing "not yours" as a zero-row delete and now
@@ -330,7 +330,7 @@ class CommunityServiceTest {
                 () -> service.reportPost(LEARNER_ID, POST_ID, new CommunityService.ReportRequest("SPAM", null)));
     }
 
-    // ---- recordView: how many learners opened what a post shares ----
+    // recordView: how many learners opened what a post shares
 
     @Test
     void recordView_otherLearner_recordsTheViewAndReturnsTheCount() {

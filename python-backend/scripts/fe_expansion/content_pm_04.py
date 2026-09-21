@@ -15,9 +15,7 @@ from figures import fig
 MAJOR = "Project Management"
 MIDDLE = "Project Management"
 
-# ==========================================================================
 # Lesson 8: Risk management
-# ==========================================================================
 
 _risk_sections = [
     ("Uncertainty With Consequences", [
@@ -700,9 +698,7 @@ LESSON_PM_RISK = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 9: Quality management
-# ==========================================================================
 
 _qual_sections = [
     ("What Quality Means Here", [

@@ -50,9 +50,7 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     List<Question> findByParentQuestionIsNullAndLesson_MiddleCategory_MajorCategory_Certification_CertificationIdOrderByQuestionIdAsc(
             Long certificationId);
 
-    // ------------------------------------------------------------------
     // Selection projections
-    // ------------------------------------------------------------------
     // Same four scopes as above, as flat projections. See QuestionSelectionView
     // for why loading these as entities costs 1 + 3N queries instead of 1.
     // ownerGroup is LEFT JOINed: official questions have none, and an inner

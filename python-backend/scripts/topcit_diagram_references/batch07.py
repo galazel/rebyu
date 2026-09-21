@@ -14,7 +14,7 @@ COMPONENT_LEGEND = [
 ]
 
 
-# ------------------------------------------------------ cfg 58, FLOWCHART
+# cfg 58, FLOWCHART
 def document_lifecycle():
     d = Diagram("Thornbury Engineering - Technical Document Lifecycle",
                 "Flowchart (model answer)")
@@ -100,7 +100,7 @@ which step makes two versions distinguishable, and which step removes the old \
 one from circulation."""
 
 
-# ------------------------------------------------------------ cfg 59, ERD
+# cfg 59, ERD
 def m2m_fleet_records():
     d = Diagram("Fenland Water - Device Fleet and Telemetry Records",
                 "Entity-relationship diagram (model answer)")
@@ -198,7 +198,7 @@ acknowledges. State what that means for the column's nullability, and one \
 operational report you can write from that single column."""
 
 
-# -------------------------------------------------- cfg 60, UML_COMPONENT
+# cfg 60, UML_COMPONENT
 def scada_components():
     d = Diagram("Calder Industrial - SCADA Component Architecture",
                 "UML component diagram (model answer)")
@@ -271,7 +271,7 @@ sentence what property the one-way gateway enforces, and name the one thing \
 enterprise reporting can never do as a result."""
 
 
-# ------------------------------------------------------------ cfg 61, ERD
+# cfg 61, ERD
 def access_control_model():
     d = Diagram("Pellworth Bank - Access Control and Classification",
                 "Entity-relationship diagram (model answer)")
@@ -356,7 +356,7 @@ rows are never deleted. State in one sentence what each rule protects, and why \
 requirement (b) separates the account from the person."""
 
 
-# -------------------------------------------------- cfg 62, UML_COMPONENT
+# cfg 62, UML_COMPONENT
 def defence_in_depth():
     d = Diagram("Pellworth Bank - Defence in Depth Zones",
                 "UML component diagram (model answer)")
@@ -431,7 +431,7 @@ Explain in one sentence what attack that closes, and name the principle that \
 requirement (h) is implementing."""
 
 
-# ----------------------------------------------- cfg 63, ACTIVITY_DIAGRAM
+# cfg 63, ACTIVITY_DIAGRAM
 def control_implementation():
     d = Diagram("ISMS Control Implementation",
                 "UML activity diagram (model answer)")
@@ -519,7 +519,7 @@ in one sentence what separates them, and why the two are sent to different \
 places in the process."""
 
 
-# ------------------------------------------------------ cfg 64, FLOWCHART
+# cfg 64, FLOWCHART
 def incident_response():
     d = Diagram("Pellworth Bank - Security Incident Response",
                 "Flowchart (model answer)")
@@ -602,7 +602,7 @@ in one sentence what goes wrong if eradication is attempted before containment, 
 and why requirement (g) returns to recovery rather than to eradication."""
 
 
-# -------------------------------------------------- cfg 65, UML_COMPONENT
+# cfg 65, UML_COMPONENT
 def erp_integration():
     d = Diagram("Larkspur Foods - ERP Integration Architecture",
                 "UML component diagram (model answer)")
@@ -673,7 +673,7 @@ sentence why the ledger lives in one module, and what would go wrong in the \
 accounts if each module posted its own."""
 
 
-# ------------------------------------------------------------ cfg 66, ERD
+# cfg 66, ERD
 def procure_to_pay():
     d = Diagram("Larkspur Foods - Procure to Pay",
                 "Entity-relationship diagram (model answer)")
@@ -777,7 +777,7 @@ sentence what real situation that models, and what query would detect the \
 double payment described in the opening paragraph."""
 
 
-# ------------------------------------------------------------ cfg 67, ERD
+# cfg 67, ERD
 def capacity_cost_model():
     d = Diagram("Skelton Datacentre - Cost and Capacity Records",
                 "Entity-relationship diagram (model answer)")
@@ -867,7 +867,7 @@ State in one sentence what report that makes possible, and what a month with no 
 cost records would look like without it."""
 
 
-# ------------------------------------------------------ cfg 68, FLOWCHART
+# cfg 68, FLOWCHART
 def kpi_reporting_cycle():
     d = Diagram("Skelton Datacentre - Monthly KPI Reporting",
                 "Flowchart (model answer)")
@@ -951,7 +951,7 @@ converging on one activity rather than duplicating the steps that follow, and \
 state which single decision turns a noted variance into an acted-on one."""
 
 
-# ------------------------------------------------------------ cfg 69, ERD
+# cfg 69, ERD
 def improvement_programme():
     d = Diagram("Oakhaven Manufacturing - Continuous Improvement Records",
                 "Entity-relationship diagram (model answer)")
@@ -1043,7 +1043,7 @@ initiative back to the problem it was meant to fix, and name the two attributes 
 you would compare to see whether the promised benefit arrived."""
 
 
-# ----------------------------------------------- cfg 70, ACTIVITY_DIAGRAM
+# cfg 70, ACTIVITY_DIAGRAM
 def dmaic_activity():
     d = Diagram("Oakhaven Manufacturing - DMAIC Improvement Cycle",
                 "UML activity diagram (model answer)")

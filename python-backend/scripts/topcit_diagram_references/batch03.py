@@ -22,7 +22,7 @@ SEQUENCE_LEGEND = [
 ]
 
 
-# ------------------------------------------------- cfg 18, UML_COMPONENT
+# cfg 18, UML_COMPONENT
 def storefront_components():
     d = Diagram("Kestrel Retail - Storefront Component Architecture",
                 "UML component diagram (model answer)")
@@ -95,7 +95,7 @@ architectural property they are protecting, and identify which single component 
 would become a bottleneck if requirement (g) were relaxed."""
 
 
-# ----------------------------------------------- cfg 19, SEQUENCE_DIAGRAM
+# cfg 19, SEQUENCE_DIAGRAM
 def checkout_sequence():
     d = Diagram("Kestrel Retail - Place Order Interaction",
                 "UML sequence diagram (model answer)")
@@ -162,7 +162,7 @@ where it belongs, and state what would go wrong in the warehouse if it were \
 placed only on the payment-failure branch."""
 
 
-# ------------------------------------------------------------ cfg 20, ERD
+# cfg 20, ERD
 def knowledge_base():
     d = Diagram("Corvus Analytics - Knowledge Base Domain Model",
                 "Entity-relationship diagram (model answer)")
@@ -234,7 +234,7 @@ about the foreign key on Dataset, and name the referential action the database \
 should take when a source is deleted."""
 
 
-# ------------------------------------------------------------ cfg 21, ERD
+# cfg 21, ERD
 def gym_requirements():
     d = Diagram("Ironside Gyms - Membership Domain Model",
                 "Entity-relationship diagram (model answer)")
@@ -312,7 +312,7 @@ sentence why that is a business rule your ERD cannot express, and where it \
 would have to be enforced instead."""
 
 
-# ------------------------------------------------------------ cfg 22, ERD
+# cfg 22, ERD
 def conference_conceptual():
     d = Diagram("Aurora Conference - Conceptual Data Model",
                 "Entity-relationship diagram (model answer)")
@@ -394,7 +394,7 @@ you had not.
 one sentence what distinguishes the two at the conceptual level."""
 
 
-# ------------------------------------------------------------ cfg 23, ERD
+# cfg 23, ERD
 def supply_chain_model():
     d = Diagram("Northwind Supply - Order Fulfilment Data Model",
                 "Entity-relationship diagram (model answer)")
@@ -478,7 +478,7 @@ question becomes unanswerable if you instead put a single shipmentId directly \
 on OrderLine."""
 
 
-# ------------------------------------------------------------ cfg 24, ERD
+# cfg 24, ERD
 def insurance_subtypes():
     d = Diagram("Sentinel Insurance - Policy Model with Subtypes",
                 "Entity-relationship diagram (model answer)")
@@ -565,7 +565,7 @@ would be wrong given requirements (b) and (g) together.
 Policy-CoverItem is an identifying relationship but Agent-Placement is not."""
 
 
-# ------------------------------------------------------------ cfg 25, ERD
+# cfg 25, ERD
 def cabling_plant():
     d = Diagram("Halden Campus - Physical Network Plant Model",
                 "Entity-relationship diagram (model answer)")

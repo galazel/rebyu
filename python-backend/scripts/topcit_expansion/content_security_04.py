@@ -23,9 +23,7 @@ MID_ISMS = 125
 RTO_DIAGRAM = "/lesson-media/rto-rpo.svg"
 BACKUP_DIAGRAM = "/lesson-media/backup-strategies.svg"
 POLICY_DIAGRAM = "/lesson-media/policy-hierarchy.svg"
-# ===========================================================================
 # Business Continuity and Disaster Recovery Planning
-# ===========================================================================
 
 _bcp_sections = [
     ("Planning for Failure Rather Than Against It", [
@@ -691,9 +689,7 @@ LESSON_BCP = {
 }
 
 
-# ===========================================================================
 # Security Policies, Standards, and Procedures
-# ===========================================================================
 
 _pol_sections = [
     ("The Documents an ISMS Is Made Of", [

@@ -96,7 +96,7 @@ class ProgressAnalyticsAssessmentCountTest {
                 exam, OFFICIAL_LESSONS, OFFICIAL_MIDDLES, OFFICIAL_MAJORS);
     }
 
-    // --- the live certification ---------------------------------------------
+    // the live certification
 
     @Test
     void countsTheLessonQuiz() {
@@ -143,7 +143,7 @@ class ProgressAnalyticsAssessmentCountTest {
         assertEquals(3, counted);
     }
 
-    // --- the rules that legitimately exclude ---------------------------------
+    // the rules that legitimately exclude
 
     @Test
     void excludesAnExamWhoseStatusColumnIsNull() {

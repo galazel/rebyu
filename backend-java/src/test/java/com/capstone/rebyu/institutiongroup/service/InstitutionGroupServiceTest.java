@@ -105,8 +105,6 @@ class InstitutionGroupServiceTest {
         return dto;
     }
 
-    // ---- create() ----
-
     @Test
     void create_institutionCertBelongsToDifferentInstitution_throwsNotFound() {
         when(institutionCertRepository.findById(INSTITUTION_CERT_ID)).thenReturn(Optional.of(institutionCert(OTHER_INSTITUTION_ID)));
@@ -131,8 +129,6 @@ class InstitutionGroupServiceTest {
         assertEquals(GROUP_ID, result.getInstitutionGroupId());
         assertEquals("New Group", result.getGroupName());
     }
-
-    // ---- update() ----
 
     @Test
     void update_differentInstitution_throwsNotFoundAndDoesNotSave() {
@@ -165,8 +161,6 @@ class InstitutionGroupServiceTest {
         assertEquals("Updated Name", existing.getGroupName());
         assertEquals("Updated Description", existing.getGroupDescription());
     }
-
-    // ---- delete() ----
 
     @Test
     void delete_differentInstitution_throwsNotFoundAndDoesNotSave() {

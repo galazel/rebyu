@@ -6,17 +6,14 @@ import { User, Lock, Trash2 } from "@/components/icons"
 export default function ProfileSettingsPage() {
   const { updateProfile, changePassword, deleteAccount, loading } = useProfile()
 
-  // Profile form
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
 
-  // Password form
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
-  // Delete form
   const [deletePassword, setDeletePassword] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 

@@ -16,9 +16,7 @@ from figures import fig
 MAJOR = "Business Strategy"
 MIDDLE = "Business Strategy Management"
 
-# ==========================================================================
 # Lesson 1: Strategy techniques
-# ==========================================================================
 
 _strat_sections = [
     ("What a Strategy Decides", [
@@ -680,9 +678,7 @@ LESSON_BIZ_STRAT = lesson(
         ],
     ))
 
-# ==========================================================================
 # Lesson 2: Marketing
-# ==========================================================================
 
 _mkt_sections = [
     ("Understanding the Buyer", [

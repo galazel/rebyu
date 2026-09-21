@@ -137,7 +137,7 @@ def test_matching_ignores_case_and_spacing(curriculum_repo):
     assert len(curriculum_repo.lessons) == 2
 
 
-# --- assessments ----------------------------------------------------------
+# assessments
 
 
 class _FakeAssessmentRepo:
@@ -288,7 +288,7 @@ def test_the_second_save_adds_what_the_first_run_had_not_generated(assessment_re
     assert "Second bank question?" in [q["question_text"] for q in assessment_repo.questions]
 
 
-# --- the rescue itself ----------------------------------------------------
+# the rescue itself
 
 
 async def test_a_failed_run_saves_what_it_had(monkeypatch):

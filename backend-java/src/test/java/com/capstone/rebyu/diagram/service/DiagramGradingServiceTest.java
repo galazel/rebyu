@@ -111,7 +111,7 @@ class DiagramGradingServiceTest {
                 "wrong cardinality should score lower than an exact cardinality match");
     }
 
-    // ---- matching rules: one learner element answers one required element ----
+    // matching rules: one learner element answers one required element
 
     private static String nodesOnlyDiagram(String... labels) {
         StringBuilder xml = new StringBuilder("<mxGraphModel><root>"
@@ -216,8 +216,7 @@ class DiagramGradingServiceTest {
                 .allMatch(DiagramGradingResultDto.ElementResultDto::matched));
     }
 
-
-    // ---- every element says why it scored what it did ----
+    // every element says why it scored what it did
 
     @Test
     void aMissingElementSaysItWasNotFound() {

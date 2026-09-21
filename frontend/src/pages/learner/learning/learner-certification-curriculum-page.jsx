@@ -154,7 +154,7 @@ const TONE = {
   },
 }
 
-/* ------------------------------------------------------------------- pieces */
+/* pieces */
 
 /** One row inside an opened topic. Not a control — the icon and the label say
  *  what the item is, and the topic above it is what the learner acts on.
@@ -197,7 +197,7 @@ function XpPill({ amount, earned, upTo = false }) {
   )
 }
 
-/* ---------------------------------------------------------------- the path */
+/* the path */
 
 /**
  * The trail's geometry.
@@ -287,7 +287,7 @@ function stretchHeight(nodes, narrow = false) {
    nodes on the same side with their labels overlapping. */
 const PATH_OFFSETS = [104, -104]
 
-/* ------------------------------------------------- the same road, on a phone */
+/* the same road, on a phone */
 
 /**
  * The road's second layout, for screens too narrow to stand a name beside a
@@ -1203,7 +1203,7 @@ function unitNodes(major, takenExamIds, attemptsByExamId) {
   return nodes
 }
 
-/* --------------------------------------------------------------------- page */
+/* page */
 
 /**
  * The curriculum while it loads.
@@ -1495,7 +1495,7 @@ export default function LearnerCertificationCurriculumPage() {
   const masteryReady =
     !diagnosticDone || skippedMasteryWait || masteryQuery.data?.bktAvailable === true
 
-  // --------------------------------------------------------------- study plan
+  // study plan
   // Read-only here. The plan is built on My Learning, at the click that starts
   // the studying; this page only needs to know whether one exists so it can
   // offer the way through to the calendar.
