@@ -114,6 +114,7 @@ export default function InstitutionDrilldownStatsCard({
   const [hoveredCert, setHoveredCert] = useState(null)
   const [hoveredStatDept, setHoveredStatDept] = useState(null)
   const [hoveredStatCert, setHoveredStatCert] = useState(null)
+  const [hoveredStatMetric, setHoveredStatMetric] = useState(null)
 
   // Fast lookups
   const membersMap = useMemo(() => {
@@ -208,6 +209,36 @@ export default function InstitutionDrilldownStatsCard({
         const reachPct =
           slots > 0 ? Math.min(Math.round((enrolled / slots) * 100), 100) : 0
 
+        const deptLearnerIds = entry.learnerIds
+        const deptMembers = members.filter((m) => deptLearnerIds.has(m.learnerId))
+
+        const certified = deptMembers.filter(
+          (m) =>
+            Number(m.completedCertifications ?? 0) > 0 ||
+            Number(m.averageProgress ?? 0) >= 100
+        ).length
+
+        const inProgress = deptMembers.filter(
+          (m) =>
+            Number(m.averageProgress ?? 0) > 0 &&
+            Number(m.averageProgress ?? 0) < 100
+        ).length
+
+        const avgScoreVal =
+          deptMembers.length > 0
+            ? Math.round(
+                deptMembers.reduce(
+                  (sum, m) =>
+                    sum + Number(m.averageProgress ?? m.score ?? 0),
+                  0
+                ) / deptMembers.length
+              )
+            : summary?.averageScore != null
+            ? Math.round(Number(summary.averageScore))
+            : summary?.averageProgress != null
+            ? Math.round(Number(summary.averageProgress))
+            : 0
+
         return {
           id: entry.id,
           name: entry.name,
@@ -215,6 +246,9 @@ export default function InstitutionDrilldownStatsCard({
           allottedSlots: slots,
           enrolled,
           reachPct,
+          certified,
+          inProgress,
+          avgScore: avgScoreVal,
           assignmentCount: entry.assignmentCount,
           fill: SLOTS_PALETTE[index % SLOTS_PALETTE.length],
         }
@@ -228,6 +262,9 @@ export default function InstitutionDrilldownStatsCard({
     data?.groupByInstitutionCertLearnerId,
     summary?.seatsTotal,
     summary?.seatsUsed,
+    members,
+    summary?.averageScore,
+    summary?.averageProgress,
   ])
 
   const totalLevel1Slots = useMemo(() => {
@@ -245,68 +282,141 @@ export default function InstitutionDrilldownStatsCard({
   }, [totalLevel1Slots, totalLevel1Enrolled])
 
   // Outer indicator reach data exclusive to hovered department's inner slice
-  // Only appears if the text on the Stats is hovered
+  // OR displays outer arcs across ALL departments when hovering an average metric (e.g. Avg Enrollees)
   const level1OuterData = useMemo(() => {
-    if (!hoveredStatDept) return []
+    // Case 1: Hovering an average metric (Avg Enrollees, Avg Certified, Avg In-Progress, Avg Score)
+    if (hoveredStatMetric) {
+      const segments = []
+      let fillColor = REACH_COLOR
+      let trackColor = "rgba(2, 132, 199, 0.18)"
 
-    const segments = []
-    level1Data.forEach((dept) => {
-      const slots = dept.allottedSlots
-      const isTarget = dept.id === hoveredStatDept.id
+      if (hoveredStatMetric === "certified") {
+        fillColor = "#10b981"
+        trackColor = "rgba(16, 185, 129, 0.18)"
+      } else if (hoveredStatMetric === "inProgress") {
+        fillColor = "#f59e0b"
+        trackColor = "rgba(245, 158, 11, 0.18)"
+      } else if (hoveredStatMetric === "score") {
+        fillColor = "#8b5cf6"
+        trackColor = "rgba(139, 92, 246, 0.18)"
+      }
 
-      if (!isTarget) {
-        // Transparent placeholder to preserve exact angular alignment
-        segments.push({
-          id: dept.id,
-          name: `${dept.name} Placeholder`,
-          deptName: dept.name,
-          allottedSlots: slots,
-          enrolled: dept.enrolled,
-          reachPct: dept.reachPct,
-          value: slots,
-          isRemaining: true,
-          fill: "transparent",
-          deptFill: dept.fill,
-        })
-      } else {
-        const enrolled = Math.min(dept.enrolled, slots)
-        const remaining = Math.max(slots - enrolled, 0)
+      level1Data.forEach((dept) => {
+        const slots = dept.allottedSlots
+        let fillValue = 0
 
-        // Enrolled arc segment (exclusive to this hovered department)
-        if (enrolled > 0) {
+        if (hoveredStatMetric === "enrollees") {
+          fillValue = Math.min(dept.enrolled, slots)
+        } else if (hoveredStatMetric === "certified") {
+          fillValue = Math.min(dept.certified, slots)
+        } else if (hoveredStatMetric === "inProgress") {
+          fillValue = Math.min(dept.inProgress, slots)
+        } else if (hoveredStatMetric === "score") {
+          fillValue = Math.min(
+            Math.round(slots * (Math.min(dept.avgScore, 100) / 100)),
+            slots
+          )
+        }
+
+        const remaining = Math.max(slots - fillValue, 0)
+
+        if (fillValue > 0) {
           segments.push({
             id: dept.id,
-            name: dept.name,
+            name: `${dept.name} Metric Fill`,
             deptName: dept.name,
             allottedSlots: slots,
             enrolled: dept.enrolled,
             reachPct: dept.reachPct,
-            value: enrolled,
+            value: fillValue,
             isRemaining: false,
-            fill: REACH_COLOR,
+            fill: fillColor,
             deptFill: dept.fill,
           })
         }
 
-        // Unfilled remaining slots segment (faint track showing total slot allotment)
         if (remaining > 0) {
           segments.push({
             id: dept.id,
-            name: `${dept.name} Remaining`,
+            name: `${dept.name} Metric Remaining`,
             deptName: dept.name,
             allottedSlots: slots,
             enrolled: dept.enrolled,
             reachPct: dept.reachPct,
             value: remaining,
             isRemaining: true,
-            fill: "rgba(2, 132, 199, 0.18)",
+            fill: trackColor,
             deptFill: dept.fill,
           })
         }
-      }
-    })
-    return segments
-  }, [level1Data, hoveredStatDept])
+      })
+      return segments
+    }
+
+    // Case 2: Hovering an individual department row in Stats
+    if (hoveredStatDept) {
+      const segments = []
+      level1Data.forEach((dept) => {
+        const slots = dept.allottedSlots
+        const isTarget = dept.id === hoveredStatDept.id
+
+        if (!isTarget) {
+          // Transparent placeholder to preserve exact angular alignment
+          segments.push({
+            id: dept.id,
+            name: `${dept.name} Placeholder`,
+            deptName: dept.name,
+            allottedSlots: slots,
+            enrolled: dept.enrolled,
+            reachPct: dept.reachPct,
+            value: slots,
+            isRemaining: true,
+            fill: "transparent",
+            deptFill: dept.fill,
+          })
+        } else {
+          const enrolled = Math.min(dept.enrolled, slots)
+          const remaining = Math.max(slots - enrolled, 0)
+
+          // Enrolled arc segment (exclusive to this hovered department)
+          if (enrolled > 0) {
+            segments.push({
+              id: dept.id,
+              name: dept.name,
+              deptName: dept.name,
+              allottedSlots: slots,
+              enrolled: dept.enrolled,
+              reachPct: dept.reachPct,
+              value: enrolled,
+              isRemaining: false,
+              fill: REACH_COLOR,
+              deptFill: dept.fill,
+            })
+          }
+
+          // Unfilled remaining slots segment (faint track showing total slot allotment)
+          if (remaining > 0) {
+            segments.push({
+              id: dept.id,
+              name: `${dept.name} Remaining`,
+              deptName: dept.name,
+              allottedSlots: slots,
+              enrolled: dept.enrolled,
+              reachPct: dept.reachPct,
+              value: remaining,
+              isRemaining: true,
+              fill: "rgba(2, 132, 199, 0.18)",
+              deptFill: dept.fill,
+            })
+          }
+        }
+      })
+      return segments
+    }
+
+    // Case 3: Idle state (nothing hovered)
+    return []
+  }, [level1Data, hoveredStatDept, hoveredStatMetric])
 
   // Center display values
   const activeLevel1ReachPct = hoveredDept
@@ -377,6 +487,30 @@ export default function InstitutionDrilldownStatsCard({
         const reachPct =
           slots > 0 ? Math.min(Math.round((enrolled / slots) * 100), 100) : 0
 
+        const certMembers = members.filter((m) => entry.learnerIds.has(m.learnerId))
+
+        const certified = certMembers.filter(
+          (m) =>
+            Number(m.completedCertifications ?? 0) > 0 ||
+            Number(m.averageProgress ?? 0) >= 100
+        ).length
+
+        const inProgress = certMembers.filter(
+          (m) =>
+            Number(m.averageProgress ?? 0) > 0 &&
+            Number(m.averageProgress ?? 0) < 100
+        ).length
+
+        const avgProgressVal =
+          certMembers.length > 0
+            ? Math.round(
+                certMembers.reduce(
+                  (sum, m) => sum + Number(m.averageProgress ?? 0),
+                  0
+                ) / certMembers.length
+              )
+            : 0
+
         return {
           ...entry,
           name: entry.title,
@@ -384,6 +518,9 @@ export default function InstitutionDrilldownStatsCard({
           allottedSlots: slots,
           enrolled,
           reachPct,
+          certified,
+          inProgress,
+          avgProgress: avgProgressVal,
           fill: SLOTS_PALETTE[(index + 1) % SLOTS_PALETTE.length],
         }
       })
@@ -395,6 +532,7 @@ export default function InstitutionDrilldownStatsCard({
     data?.groupByInstitutionCertLearnerId,
     data?.institutionCertById,
     data?.certificationById,
+    members,
   ])
 
   const totalLevel2Slots = useMemo(() => {
@@ -412,46 +550,55 @@ export default function InstitutionDrilldownStatsCard({
   }, [totalLevel2Slots, totalLevel2Enrolled])
 
   // Outer indicator reach data exclusive to hovered certification's inner slice
-  // Only appears if the text on the Stats is hovered
+  // OR displays outer arcs across ALL certifications when hovering an average metric (e.g. Avg Enrollees)
   const level2OuterData = useMemo(() => {
-    if (!hoveredStatCert) return []
+    // Case 1: Hovering an average metric in Level 2
+    if (hoveredStatMetric) {
+      const segments = []
+      let fillColor = REACH_COLOR
+      let trackColor = "rgba(2, 132, 199, 0.18)"
 
-    const segments = []
-    level2Data.forEach((cert) => {
-      const slots = cert.allottedSlots
-      const isTarget =
-        (hoveredStatCert.institutionCertId || hoveredStatCert.certificationId) ===
-        (cert.institutionCertId || cert.certificationId)
+      if (hoveredStatMetric === "certified") {
+        fillColor = "#10b981"
+        trackColor = "rgba(16, 185, 129, 0.18)"
+      } else if (hoveredStatMetric === "inProgress") {
+        fillColor = "#f59e0b"
+        trackColor = "rgba(245, 158, 11, 0.18)"
+      } else if (hoveredStatMetric === "progress" || hoveredStatMetric === "score") {
+        fillColor = "#8b5cf6"
+        trackColor = "rgba(139, 92, 246, 0.18)"
+      }
 
-      if (!isTarget) {
-        // Transparent placeholder to preserve exact angular alignment
-        segments.push({
-          id: cert.institutionCertId || cert.certificationId,
-          name: `${cert.name} Placeholder`,
-          certTitle: cert.name,
-          allottedSlots: slots,
-          enrolled: cert.enrolled,
-          reachPct: cert.reachPct,
-          value: slots,
-          isRemaining: true,
-          fill: "transparent",
-          certFill: cert.fill,
-        })
-      } else {
-        const enrolled = Math.min(cert.enrolled, slots)
-        const remaining = Math.max(slots - enrolled, 0)
+      level2Data.forEach((cert) => {
+        const slots = cert.allottedSlots
+        let fillValue = 0
 
-        if (enrolled > 0) {
+        if (hoveredStatMetric === "enrollees") {
+          fillValue = Math.min(cert.enrolled, slots)
+        } else if (hoveredStatMetric === "certified") {
+          fillValue = Math.min(cert.certified, slots)
+        } else if (hoveredStatMetric === "inProgress") {
+          fillValue = Math.min(cert.inProgress, slots)
+        } else if (hoveredStatMetric === "progress" || hoveredStatMetric === "score") {
+          fillValue = Math.min(
+            Math.round(slots * (Math.min(cert.avgProgress, 100) / 100)),
+            slots
+          )
+        }
+
+        const remaining = Math.max(slots - fillValue, 0)
+
+        if (fillValue > 0) {
           segments.push({
             id: cert.institutionCertId || cert.certificationId,
-            name: cert.name,
+            name: `${cert.name} Metric Fill`,
             certTitle: cert.name,
             allottedSlots: slots,
             enrolled: cert.enrolled,
             reachPct: cert.reachPct,
-            value: enrolled,
+            value: fillValue,
             isRemaining: false,
-            fill: REACH_COLOR,
+            fill: fillColor,
             certFill: cert.fill,
           })
         }
@@ -459,21 +606,85 @@ export default function InstitutionDrilldownStatsCard({
         if (remaining > 0) {
           segments.push({
             id: cert.institutionCertId || cert.certificationId,
-            name: `${cert.name} Remaining`,
+            name: `${cert.name} Metric Remaining`,
             certTitle: cert.name,
             allottedSlots: slots,
             enrolled: cert.enrolled,
             reachPct: cert.reachPct,
             value: remaining,
             isRemaining: true,
-            fill: "rgba(2, 132, 199, 0.18)",
+            fill: trackColor,
             certFill: cert.fill,
           })
         }
-      }
-    })
-    return segments
-  }, [level2Data, hoveredStatCert])
+      })
+      return segments
+    }
+
+    // Case 2: Hovering an individual certification row in Level 2 Stats
+    if (hoveredStatCert) {
+      const segments = []
+      level2Data.forEach((cert) => {
+        const slots = cert.allottedSlots
+        const isTarget =
+          (hoveredStatCert.institutionCertId || hoveredStatCert.certificationId) ===
+          (cert.institutionCertId || cert.certificationId)
+
+        if (!isTarget) {
+          // Transparent placeholder to preserve exact angular alignment
+          segments.push({
+            id: cert.institutionCertId || cert.certificationId,
+            name: `${cert.name} Placeholder`,
+            certTitle: cert.name,
+            allottedSlots: slots,
+            enrolled: cert.enrolled,
+            reachPct: cert.reachPct,
+            value: slots,
+            isRemaining: true,
+            fill: "transparent",
+            certFill: cert.fill,
+          })
+        } else {
+          const enrolled = Math.min(cert.enrolled, slots)
+          const remaining = Math.max(slots - enrolled, 0)
+
+          if (enrolled > 0) {
+            segments.push({
+              id: cert.institutionCertId || cert.certificationId,
+              name: cert.name,
+              certTitle: cert.name,
+              allottedSlots: slots,
+              enrolled: cert.enrolled,
+              reachPct: cert.reachPct,
+              value: enrolled,
+              isRemaining: false,
+              fill: REACH_COLOR,
+              certFill: cert.fill,
+            })
+          }
+
+          if (remaining > 0) {
+            segments.push({
+              id: cert.institutionCertId || cert.certificationId,
+              name: `${cert.name} Remaining`,
+              certTitle: cert.name,
+              allottedSlots: slots,
+              enrolled: cert.enrolled,
+              reachPct: cert.reachPct,
+              value: remaining,
+              isRemaining: true,
+              fill: "rgba(2, 132, 199, 0.18)",
+              certFill: cert.fill,
+            })
+          }
+        }
+      })
+      return segments
+    }
+
+    // Case 3: Idle
+    return []
+  }, [level2Data, hoveredStatCert, hoveredStatMetric])
 
   const activeLevel2ReachPct = hoveredCert
     ? hoveredCert.reachPct
@@ -567,6 +778,7 @@ export default function InstitutionDrilldownStatsCard({
   }, [level4Learners])
 
   // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
   // Summary Stats for Level 1 (Original Mockup Metrics)
   // -------------------------------------------------------------------------
   const level1SummaryStats = useMemo(() => {
@@ -580,6 +792,10 @@ export default function InstitutionDrilldownStatsCard({
         Number(m.averageProgress ?? 0) >= 100
     ).length
     const avgCertified = Math.round(certifiedCount / deptCount)
+    const certifiedPct =
+      totalLevel1Slots > 0
+        ? Math.min(Math.round((certifiedCount / totalLevel1Slots) * 100), 100)
+        : 0
 
     // In-progress learners: 0 < progress < 100%
     const inProgressCount = members.filter(
@@ -587,6 +803,10 @@ export default function InstitutionDrilldownStatsCard({
         Number(m.averageProgress ?? 0) > 0 && Number(m.averageProgress ?? 0) < 100
     ).length
     const avgInProgress = Math.round(inProgressCount / deptCount)
+    const inProgressPct =
+      totalLevel1Slots > 0
+        ? Math.min(Math.round((inProgressCount / totalLevel1Slots) * 100), 100)
+        : 0
 
     const avgScore =
       summary?.averageScore != null
@@ -598,10 +818,12 @@ export default function InstitutionDrilldownStatsCard({
     return {
       avgEnrollees,
       avgCertified,
+      certifiedPct,
       avgInProgress,
+      inProgressPct,
       avgScore,
     }
-  }, [level1Data, totalLevel1Enrolled, members, summary])
+  }, [level1Data, totalLevel1Enrolled, totalLevel1Slots, members, summary])
 
   // -------------------------------------------------------------------------
   // Summary Stats for Level 2 (Original Certifications & Dept Averages)
@@ -611,7 +833,9 @@ export default function InstitutionDrilldownStatsCard({
       return {
         avgEnrollees: 0,
         certified: 0,
+        certifiedPct: 0,
         inProgress: 0,
+        inProgressPct: 0,
         avgProgress: "—",
       }
     }
@@ -635,6 +859,15 @@ export default function InstitutionDrilldownStatsCard({
         Number(m.averageProgress ?? 0) > 0 && Number(m.averageProgress ?? 0) < 100
     ).length
 
+    const certifiedPct =
+      totalLevel2Slots > 0
+        ? Math.min(Math.round((certified / totalLevel2Slots) * 100), 100)
+        : 0
+    const inProgressPct =
+      totalLevel2Slots > 0
+        ? Math.min(Math.round((inProgress / totalLevel2Slots) * 100), 100)
+        : 0
+
     const avgProgressVal =
       deptMembers.length > 0
         ? Math.round(
@@ -648,10 +881,12 @@ export default function InstitutionDrilldownStatsCard({
     return {
       avgEnrollees,
       certified,
+      certifiedPct,
       inProgress,
+      inProgressPct,
       avgProgress: `${avgProgressVal}%`,
     }
-  }, [level2Data, members])
+  }, [level2Data, totalLevel2Slots, members])
 
   // -------------------------------------------------------------------------
   // Dynamic Remarks Content per Level (Original Narrative)
@@ -716,6 +951,7 @@ export default function InstitutionDrilldownStatsCard({
     setSelectedDepartment(dept)
     setHoveredDept(null)
     setHoveredStatDept(null)
+    setHoveredStatMetric(null)
     setCurrentLevel(2)
   }
 
@@ -723,6 +959,7 @@ export default function InstitutionDrilldownStatsCard({
     setSelectedCertification(cert)
     setHoveredCert(null)
     setHoveredStatCert(null)
+    setHoveredStatMetric(null)
     setCurrentLevel(3)
   }
 
@@ -733,6 +970,7 @@ export default function InstitutionDrilldownStatsCard({
       setSelectedDepartment(null)
       setHoveredDept(null)
       setHoveredStatDept(null)
+      setHoveredStatMetric(null)
       setCurrentLevel(1)
     }
   }
@@ -744,6 +982,7 @@ export default function InstitutionDrilldownStatsCard({
     setHoveredCert(null)
     setHoveredStatDept(null)
     setHoveredStatCert(null)
+    setHoveredStatMetric(null)
     setCurrentLevel(1)
   }
 
@@ -932,11 +1171,16 @@ export default function InstitutionDrilldownStatsCard({
                           const isHovered = hoveredDept
                             ? hoveredDept.id === entry.id
                             : true
+                          const sliceOpacity = hoveredStatMetric
+                            ? 1
+                            : hoveredDept && !isHovered
+                            ? 0.55
+                            : 1
                           return (
                             <Cell
                               key={entry.name}
                               fill={entry.fill}
-                              opacity={hoveredDept && !isHovered ? 0.55 : 1}
+                              opacity={sliceOpacity}
                               className="transition-all duration-200 hover:opacity-90"
                             />
                           )
@@ -945,13 +1189,31 @@ export default function InstitutionDrilldownStatsCard({
                     </PieChart>
                   </ResponsiveContainer>
 
-                  {/* Donut Center: Percentage & Slots filled */}
+                  {/* Donut Center: Percentage & Slots filled / Metric */}
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-1 text-center">
                     <span className="font-rb-display text-4xl font-black leading-none tabular-nums tracking-tight text-foreground sm:text-5xl">
-                      {activeLevel1ReachPct}%
+                      {hoveredStatMetric === "enrollees"
+                        ? `${overallLevel1ReachPct}%`
+                        : hoveredStatMetric === "certified"
+                        ? `${level1SummaryStats.certifiedPct}%`
+                        : hoveredStatMetric === "inProgress"
+                        ? `${level1SummaryStats.inProgressPct}%`
+                        : hoveredStatMetric === "score"
+                        ? level1SummaryStats.avgScore
+                        : `${activeLevel1ReachPct}%`}
                     </span>
-                    <span className="mt-1.5 max-w-[110px] truncate text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground sm:text-[11px]">
-                      {hoveredDept ? hoveredDept.name : "Slots filled"}
+                    <span className="mt-1.5 max-w-[120px] truncate text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground sm:text-[11px]">
+                      {hoveredStatMetric === "enrollees"
+                        ? "Avg Enrollees"
+                        : hoveredStatMetric === "certified"
+                        ? "Avg Certified"
+                        : hoveredStatMetric === "inProgress"
+                        ? "Avg In-Progress"
+                        : hoveredStatMetric === "score"
+                        ? "Avg Score"
+                        : hoveredDept
+                        ? hoveredDept.name
+                        : "Slots filled"}
                     </span>
                   </div>
                 </div>
@@ -1023,32 +1285,92 @@ export default function InstitutionDrilldownStatsCard({
                   {/* Divider */}
                   <div className="my-2.5 border-t border-border/50" />
 
-                  {/* Averages Section */}
-                  <div className="space-y-1.5 text-xs">
-                    <div className="flex items-center gap-3">
-                      <span className="w-10 text-left font-black tabular-nums text-foreground">
+                  {/* Averages Section (Interactive Metric Hover) */}
+                  <div className="space-y-1 text-xs">
+                    <button
+                      type="button"
+                      onMouseEnter={() => setHoveredStatMetric("enrollees")}
+                      onMouseLeave={() => setHoveredStatMetric(null)}
+                      className={`flex w-full items-center gap-3 rounded px-1.5 py-0.5 text-left transition cursor-pointer ${
+                        hoveredStatMetric === "enrollees"
+                          ? "bg-sky-500/10 font-bold text-sky-600 dark:text-sky-400"
+                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      }`}
+                    >
+                      <span
+                        className={`w-10 text-left tabular-nums ${
+                          hoveredStatMetric === "enrollees"
+                            ? "font-black text-sky-600 dark:text-sky-400"
+                            : "font-black text-foreground"
+                        }`}
+                      >
                         {level1SummaryStats.avgEnrollees}
                       </span>
-                      <span className="text-muted-foreground">Avg Enrollees</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="w-10 text-left font-black tabular-nums text-foreground">
+                      <span>Avg Enrollees</span>
+                    </button>
+                    <button
+                      type="button"
+                      onMouseEnter={() => setHoveredStatMetric("certified")}
+                      onMouseLeave={() => setHoveredStatMetric(null)}
+                      className={`flex w-full items-center gap-3 rounded px-1.5 py-0.5 text-left transition cursor-pointer ${
+                        hoveredStatMetric === "certified"
+                          ? "bg-emerald-500/10 font-bold text-emerald-600 dark:text-emerald-400"
+                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      }`}
+                    >
+                      <span
+                        className={`w-10 text-left tabular-nums ${
+                          hoveredStatMetric === "certified"
+                            ? "font-black text-emerald-600 dark:text-emerald-400"
+                            : "font-black text-foreground"
+                        }`}
+                      >
                         {level1SummaryStats.avgCertified}
                       </span>
-                      <span className="text-muted-foreground">Avg Certified</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="w-10 text-left font-black tabular-nums text-foreground">
+                      <span>Avg Certified</span>
+                    </button>
+                    <button
+                      type="button"
+                      onMouseEnter={() => setHoveredStatMetric("inProgress")}
+                      onMouseLeave={() => setHoveredStatMetric(null)}
+                      className={`flex w-full items-center gap-3 rounded px-1.5 py-0.5 text-left transition cursor-pointer ${
+                        hoveredStatMetric === "inProgress"
+                          ? "bg-amber-500/10 font-bold text-amber-600 dark:text-amber-400"
+                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      }`}
+                    >
+                      <span
+                        className={`w-10 text-left tabular-nums ${
+                          hoveredStatMetric === "inProgress"
+                            ? "font-black text-amber-600 dark:text-amber-400"
+                            : "font-black text-foreground"
+                        }`}
+                      >
                         {level1SummaryStats.avgInProgress}
                       </span>
-                      <span className="text-muted-foreground">Avg In-Progress</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="w-10 text-left font-black tabular-nums text-foreground">
+                      <span>Avg In-Progress</span>
+                    </button>
+                    <button
+                      type="button"
+                      onMouseEnter={() => setHoveredStatMetric("score")}
+                      onMouseLeave={() => setHoveredStatMetric(null)}
+                      className={`flex w-full items-center gap-3 rounded px-1.5 py-0.5 text-left transition cursor-pointer ${
+                        hoveredStatMetric === "score"
+                          ? "bg-purple-500/10 font-bold text-purple-600 dark:text-purple-400"
+                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      }`}
+                    >
+                      <span
+                        className={`w-10 text-left tabular-nums ${
+                          hoveredStatMetric === "score"
+                            ? "font-black text-purple-600 dark:text-purple-400"
+                            : "font-black text-foreground"
+                        }`}
+                      >
                         {level1SummaryStats.avgScore}
                       </span>
-                      <span className="text-muted-foreground">Avg Score</span>
-                    </div>
+                      <span>Avg Score</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1127,11 +1449,16 @@ export default function InstitutionDrilldownStatsCard({
                                 hoveredCert.certificationId) ===
                               (entry.institutionCertId || entry.certificationId)
                             : true
+                          const sliceOpacity = hoveredStatMetric
+                            ? 1
+                            : hoveredCert && !isHovered
+                            ? 0.55
+                            : 1
                           return (
                             <Cell
                               key={entry.name}
                               fill={entry.fill}
-                              opacity={hoveredCert && !isHovered ? 0.55 : 1}
+                              opacity={sliceOpacity}
                               className="transition-all duration-200 hover:opacity-90"
                             />
                           )
@@ -1140,13 +1467,31 @@ export default function InstitutionDrilldownStatsCard({
                     </PieChart>
                   </ResponsiveContainer>
 
-                  {/* Donut Center: Percentage & Slots filled */}
+                  {/* Donut Center: Percentage & Slots filled / Metric */}
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-1 text-center">
                     <span className="font-rb-display text-4xl font-black leading-none tabular-nums tracking-tight text-foreground sm:text-5xl">
-                      {activeLevel2ReachPct}%
+                      {hoveredStatMetric === "enrollees"
+                        ? `${overallLevel2ReachPct}%`
+                        : hoveredStatMetric === "certified"
+                        ? `${level2SummaryStats.certifiedPct}%`
+                        : hoveredStatMetric === "inProgress"
+                        ? `${level2SummaryStats.inProgressPct}%`
+                        : hoveredStatMetric === "progress" || hoveredStatMetric === "score"
+                        ? level2SummaryStats.avgProgress
+                        : `${activeLevel2ReachPct}%`}
                     </span>
-                    <span className="mt-1.5 max-w-[110px] truncate text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground sm:text-[11px]">
-                      {hoveredCert ? hoveredCert.name : "Slots filled"}
+                    <span className="mt-1.5 max-w-[120px] truncate text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground sm:text-[11px]">
+                      {hoveredStatMetric === "enrollees"
+                        ? "Avg Enrollees"
+                        : hoveredStatMetric === "certified"
+                        ? "Avg Certified"
+                        : hoveredStatMetric === "inProgress"
+                        ? "Avg In-Progress"
+                        : hoveredStatMetric === "progress" || hoveredStatMetric === "score"
+                        ? "Avg Progress"
+                        : hoveredCert
+                        ? hoveredCert.name
+                        : "Slots filled"}
                     </span>
                   </div>
                 </div>
@@ -1221,32 +1566,92 @@ export default function InstitutionDrilldownStatsCard({
                   {/* Divider */}
                   <div className="my-2.5 border-t border-border/50" />
 
-                  {/* Dept Averages */}
-                  <div className="space-y-1.5 text-xs">
-                    <div className="flex items-center gap-3">
-                      <span className="w-10 text-left font-black tabular-nums text-foreground">
+                  {/* Dept Averages (Interactive Metric Hover) */}
+                  <div className="space-y-1 text-xs">
+                    <button
+                      type="button"
+                      onMouseEnter={() => setHoveredStatMetric("enrollees")}
+                      onMouseLeave={() => setHoveredStatMetric(null)}
+                      className={`flex w-full items-center gap-3 rounded px-1.5 py-0.5 text-left transition cursor-pointer ${
+                        hoveredStatMetric === "enrollees"
+                          ? "bg-sky-500/10 font-bold text-sky-600 dark:text-sky-400"
+                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      }`}
+                    >
+                      <span
+                        className={`w-10 text-left tabular-nums ${
+                          hoveredStatMetric === "enrollees"
+                            ? "font-black text-sky-600 dark:text-sky-400"
+                            : "font-black text-foreground"
+                        }`}
+                      >
                         {level2SummaryStats.avgEnrollees}
                       </span>
-                      <span className="text-muted-foreground">Avg Enrollees</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="w-10 text-left font-black tabular-nums text-foreground">
+                      <span>Avg Enrollees</span>
+                    </button>
+                    <button
+                      type="button"
+                      onMouseEnter={() => setHoveredStatMetric("certified")}
+                      onMouseLeave={() => setHoveredStatMetric(null)}
+                      className={`flex w-full items-center gap-3 rounded px-1.5 py-0.5 text-left transition cursor-pointer ${
+                        hoveredStatMetric === "certified"
+                          ? "bg-emerald-500/10 font-bold text-emerald-600 dark:text-emerald-400"
+                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      }`}
+                    >
+                      <span
+                        className={`w-10 text-left tabular-nums ${
+                          hoveredStatMetric === "certified"
+                            ? "font-black text-emerald-600 dark:text-emerald-400"
+                            : "font-black text-foreground"
+                        }`}
+                      >
                         {level2SummaryStats.certified}
                       </span>
-                      <span className="text-muted-foreground">Avg Certified</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="w-10 text-left font-black tabular-nums text-foreground">
+                      <span>Avg Certified</span>
+                    </button>
+                    <button
+                      type="button"
+                      onMouseEnter={() => setHoveredStatMetric("inProgress")}
+                      onMouseLeave={() => setHoveredStatMetric(null)}
+                      className={`flex w-full items-center gap-3 rounded px-1.5 py-0.5 text-left transition cursor-pointer ${
+                        hoveredStatMetric === "inProgress"
+                          ? "bg-amber-500/10 font-bold text-amber-600 dark:text-amber-400"
+                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      }`}
+                    >
+                      <span
+                        className={`w-10 text-left tabular-nums ${
+                          hoveredStatMetric === "inProgress"
+                            ? "font-black text-amber-600 dark:text-amber-400"
+                            : "font-black text-foreground"
+                        }`}
+                      >
                         {level2SummaryStats.inProgress}
                       </span>
-                      <span className="text-muted-foreground">Avg In-Progress</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="w-10 text-left font-black tabular-nums text-foreground">
+                      <span>Avg In-Progress</span>
+                    </button>
+                    <button
+                      type="button"
+                      onMouseEnter={() => setHoveredStatMetric("progress")}
+                      onMouseLeave={() => setHoveredStatMetric(null)}
+                      className={`flex w-full items-center gap-3 rounded px-1.5 py-0.5 text-left transition cursor-pointer ${
+                        hoveredStatMetric === "progress"
+                          ? "bg-purple-500/10 font-bold text-purple-600 dark:text-purple-400"
+                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      }`}
+                    >
+                      <span
+                        className={`w-10 text-left tabular-nums ${
+                          hoveredStatMetric === "progress"
+                            ? "font-black text-purple-600 dark:text-purple-400"
+                            : "font-black text-foreground"
+                        }`}
+                      >
                         {level2SummaryStats.avgProgress}
                       </span>
-                      <span className="text-muted-foreground">Avg Progress</span>
-                    </div>
+                      <span>Avg Progress</span>
+                    </button>
                   </div>
                 </div>
               </div>
