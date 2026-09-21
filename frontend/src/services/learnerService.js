@@ -51,6 +51,11 @@ export function markLessonComplete(data) {
  * "award me this" call from the browser to make.
  */
 /** The learner's institution classes (groups): announcements and class assessments. */
+/** Badges and certificates the signed-in learner has earned, one row per certification. */
+export function getMyAwards() {
+  return base("learners/me/awards")
+}
+
 export function getMyClasses(certificationId) {
   const query = certificationId != null ? `?certificationId=${encodeURIComponent(certificationId)}` : ""
   return base(`learners/me/classes${query}`)

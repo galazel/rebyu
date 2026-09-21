@@ -112,6 +112,7 @@ public class AssessmentAttemptService {
     private final org.springframework.beans.factory.ObjectProvider<AdaptiveAttemptService> adaptiveAttemptService;
     private final org.springframework.beans.factory.ObjectProvider<AdaptiveGradingService> adaptiveGradingService;
     private final com.capstone.rebyu.adaptive.service.AdaptivePolicy adaptivePolicy;
+    private final com.capstone.rebyu.enrollment.service.CertificationAwardService certificationAwardService;
     private final AssessmentEventProducer assessmentEventProducer;
     private final RewardService rewardService;
     private final StreakService streakService;
@@ -292,7 +293,24 @@ public class AssessmentAttemptService {
         /* Adaptive assessments have no paper to snapshot: the engine serves
            one question at a time from the scope's bank, choosing each from
            what the learner has answered so far. */
-        if (adaptivePolicy.isAdaptive(exam)) {
+        /* The mock exam: picked by the engine, sat as a paper. Falls through
+           to buildStartResponse like a fixed paper because, to the client,
+           that is what it is. */
+        if (adaptivePolicy.isAssembledPaper(exam)) {
+            AssessmentAttempt attempt = adaptiveAttemptService.getObject()
+                    .startAssembledPaper(exam, learnerId, nextAttemptNumber, idempotencyKey);
+            PhaseTimer.mark(timer, "assembled start");
+            if (nextAttemptNumber > 1) {
+                assessmentEventProducer.publishAssessmentRetakeRequested(attempt.getAssessmentAttemptId());
+            }
+            log.info("Started assembled attempt {} (#{}) of exam {} for learner {}",
+                    attempt.getAssessmentAttemptId(), nextAttemptNumber, examId, learnerId);
+            AssessmentAttemptStartResponseDto response = buildStartResponse(attempt, false);
+            PhaseTimer.finish(timer);
+            return response;
+        }
+
+        if (adaptivePolicy.isLiveAdaptive(exam)) {
             AssessmentAttempt attempt = adaptiveAttemptService.getObject()
                     .start(exam, learnerId, nextAttemptNumber, idempotencyKey);
             PhaseTimer.mark(timer, "adaptive start");
@@ -617,6 +635,12 @@ public class AssessmentAttemptService {
         if (attempt.isAdaptive()) {
             adaptiveAttemptService.getObject().onSubmitted(attempt);
             PhaseTimer.mark(timer, "adaptive close");
+        } else if (attempt.getAdaptiveStateJson() != null) {
+            /* An assembled paper: the engine picked it, so the engine learns
+               from it -- ability and per-lesson knowledge from every mark, in
+               paper order, now that the whole paper is scored. */
+            adaptiveAttemptService.getObject().onAssembledPaperSubmitted(attempt, questions, answersByQuestion);
+            PhaseTimer.mark(timer, "assembled close");
         }
         streakService.recordActivity(attempt.getLearnerId());
         PhaseTimer.mark(timer, "streak");
@@ -762,6 +786,9 @@ public class AssessmentAttemptService {
         achievementAwardService.evaluate(attempt.getLearnerId());
         recordLegacyExamResult(attempt);
         completeDiagnosticGateIfApplicable(attempt);
+        // A passed mock exam earns the certification's badge and a certificate
+        // of completion (once each; see CertificationAwardService).
+        certificationAwardService.awardForAttempt(attempt);
         // Transactional outbox: enqueue final, lesson-mapped BKT evidence in the
         // SAME commit as the result. Dispatched to FastAPI asynchronously; an
         // unavailable BKT service can never fail or roll back this submission.

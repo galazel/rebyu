@@ -46,6 +46,27 @@ public class AdaptivePolicy {
         return properties.isEnabled() && examTypeText != null && ADAPTIVE_TYPES.contains(examTypeText);
     }
 
+    /**
+     * Engine-picked, but sat as a formal paper. The mock exam stands in for
+     * the real certification exam, so it is delivered the way that exam is:
+     * every item on the table at once, with item navigation, flags and
+     * review. The engine still chooses the items -- by the learner's ability,
+     * avoiding what they have seen, a fresh set on every retake -- it just
+     * chooses them all up front instead of one answer at a time.
+     */
+    public static final Set<String> ASSEMBLED_PAPER_TYPES = Set.of("MOCK_EXAM");
+
+    /** Engine-picked and delivered whole (see ASSEMBLED_PAPER_TYPES). */
+    public boolean isAssembledPaper(Exam exam) {
+        if (exam == null || exam.getExamType() == null) return false;
+        return properties.isEnabled() && ASSEMBLED_PAPER_TYPES.contains(exam.getExamType().getExamTypeText());
+    }
+
+    /** Engine-picked and served one item at a time: adaptive, and not an assembled paper. */
+    public boolean isLiveAdaptive(Exam exam) {
+        return isAdaptive(exam) && !isAssembledPaper(exam);
+    }
+
     /** Whether this exam is run by the engine: its type is, or it is a lesson-scoped knowledge check. */
     public boolean isAdaptive(Exam exam) {
         if (exam == null || exam.getExamType() == null) return false;

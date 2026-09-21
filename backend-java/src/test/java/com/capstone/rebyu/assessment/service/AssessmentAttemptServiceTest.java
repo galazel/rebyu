@@ -93,8 +93,9 @@ class AssessmentAttemptServiceTest {
                 new ObjectMapper(), aiAnswerGradingService, codeExecutionService,
                 new DiagramGradingService(new DiagramGraphExtractor()),
                 new AttemptGradingBatchService(8, 4, 4),
-                adaptiveAttemptService, adaptiveGradingService, adaptivePolicy, assessmentEventProducer,
-                rewardService, streakService, achievementAwardService);
+                adaptiveAttemptService, adaptiveGradingService, adaptivePolicy,
+                mock(com.capstone.rebyu.enrollment.service.CertificationAwardService.class),
+                assessmentEventProducer, rewardService, streakService, achievementAwardService);
 
         Certification certification = new Certification();
         certification.setCertificationId(1L);

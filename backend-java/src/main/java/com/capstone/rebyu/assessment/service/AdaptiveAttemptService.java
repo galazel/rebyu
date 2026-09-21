@@ -134,7 +134,12 @@ public class AdaptiveAttemptService {
     // Start
 
     @Transactional
-    public AssessmentAttempt start(Exam exam, Long learnerId, int attemptNumber, String idempotencyKey) {
+    /** Everything a session needs before its first item: pool, seed, exposure, targets. */
+    private record Session(com.capstone.rebyu.common.PhaseTimer timer, AdaptiveSessionState state,
+                           QuestionBankSizeService.BankSize size, LearnerAbilityService.Seed seed,
+                           int target, int finalRound) {}
+
+    private Session prepareSession(Exam exam, Long learnerId) {
         com.capstone.rebyu.common.PhaseTimer timer = com.capstone.rebyu.common.PhaseTimer.start("adaptive start exam=" + exam.getExamId(), log);
         List<QuestionSelectionView> pool = cachedPool(exam).views();
         com.capstone.rebyu.common.PhaseTimer.mark(timer, "pool");
@@ -220,6 +225,19 @@ public class AdaptiveAttemptService {
         state.setThisExamQuestionIds(new LinkedHashSet<>(
                 attemptQuestionRepository.findSourceQuestionIdsServedOnExam(learnerId, exam.getExamId())));
         com.capstone.rebyu.common.PhaseTimer.mark(timer, "seed + exposure");
+        return new Session(timer, state, size, seed, target, finalRound);
+    }
+
+
+
+    public AssessmentAttempt start(Exam exam, Long learnerId, int attemptNumber, String idempotencyKey) {
+        Session session = prepareSession(exam, learnerId);
+        com.capstone.rebyu.common.PhaseTimer timer = session.timer();
+        AdaptiveSessionState state = session.state();
+        QuestionBankSizeService.BankSize size = session.size();
+        LearnerAbilityService.Seed seed = session.seed();
+        int target = session.target();
+        int finalRound = session.finalRound();
 
         LocalDateTime now = LocalDateTime.now();
         AssessmentAttempt attempt = AssessmentAttempt.builder()
@@ -261,6 +279,102 @@ public class AdaptiveAttemptService {
         com.capstone.rebyu.common.PhaseTimer.mark(timer, "serve first + reserve");
         com.capstone.rebyu.common.PhaseTimer.finish(timer);
         return attempt;
+    }
+
+    /**
+     * The mock exam: the engine picks the whole paper now, the learner sits
+     * it as a formal paper (item navigation, flags, review) and it is marked
+     * at submit like any fixed paper. Same seed, same exposure tiers, same
+     * selector as the live session -- so a retake is a fresh set chosen for
+     * where the learner is now -- but every pick is made before the first
+     * answer, at the seeded ability.
+     */
+    public AssessmentAttempt startAssembledPaper(Exam exam, Long learnerId, int attemptNumber, String idempotencyKey) {
+        Session session = prepareSession(exam, learnerId);
+        AdaptiveSessionState state = session.state();
+
+        LocalDateTime now = LocalDateTime.now();
+        AssessmentAttempt attempt = AssessmentAttempt.builder()
+                .exam(exam)
+                .learnerId(learnerId)
+                .enrollmentId(attempts.findEnrollmentId(exam, learnerId))
+                .attemptNumber(attemptNumber)
+                .status(AssessmentAttempt.Status.IN_PROGRESS)
+                .startedAt(now)
+                .expiresAt(exam.getDurationMinutes() != null ? now.plusMinutes(exam.getDurationMinutes()) : null)
+                .idempotencyKey(idempotencyKey != null && !idempotencyKey.isBlank()
+                        ? idempotencyKey : UUID.randomUUID().toString())
+                /* Not adaptive to the client: no one-at-a-time runner, no
+                   per-answer marking. The engine's state is kept on the row
+                   so submit can update the learner model from the marks. */
+                .adaptive(false)
+                .thetaStart(session.seed().mu0())
+                .thetaCurrent(session.seed().mu0())
+                .thetaSe(session.seed().sigma0())
+                .targetQuestionCount(session.target())
+                .finalRoundCount(session.finalRound())
+                .build();
+        attempt = attemptRepository.save(attempt);
+
+        List<LearnerAttemptQuestionDto> served = serveMany(attempt, state, session.target());
+        if (served.isEmpty()) {
+            throw new BusinessRuleException.InvalidAssessmentSubmissionException(
+                    bankSize.shortfallMessage(exam, session.size()));
+        }
+        state.setStage(AdaptiveSessionState.STAGE_MAIN);
+        saveState(attempt, state);
+        com.capstone.rebyu.common.PhaseTimer.mark(session.timer(), "assemble " + served.size() + " items");
+        com.capstone.rebyu.common.PhaseTimer.finish(session.timer());
+        return attempt;
+    }
+
+    /**
+     * Learner-model update for an assembled paper, once submit has marked it:
+     * the same IRT step and BKT update the live session applies per answer,
+     * replayed over the paper in display order. Unanswered items count as
+     * wrong, as they do on the score.
+     */
+    @Transactional
+    public void onAssembledPaperSubmitted(AssessmentAttempt attempt,
+                                          List<AssessmentAttemptQuestion> items,
+                                          Map<Long, AssessmentAttemptAnswer> answersByQuestion) {
+        AdaptiveSessionState state = loadState(attempt);
+        if (state.done()) return;
+        for (AssessmentAttemptQuestion item : items) {
+            AssessmentAttemptAnswer answer = answersByQuestion.get(item.getAttemptQuestionId());
+            double score = answer == null ? 0.0 : attempts.scoreOf(item, answer);
+            boolean correct = answer != null && attempts.countsAsCorrect(answer);
+
+            ItemParams params = itemParamsOf(attempt.getExam(), item.getSourceQuestionId());
+            state.getResponses().add(new AdaptiveSessionState.ResponseRecord(
+                    item.getSourceQuestionId(), item.getLessonId(), params, correct, score));
+            double theta = IrtModel.step(state.getTheta(), params, score, properties.getAbilityStep());
+            state.setTheta(theta);
+            state.setSe(IrtModel.standardError(theta, state.irtResponses()));
+            item.setThetaAfter(theta);
+            attemptQuestionRepository.save(item);
+
+            Long lessonId = item.getLessonId();
+            if (lessonId != null) {
+                BktModel.Params bkt = state.getParamsByLesson().getOrDefault(lessonId, defaultBkt());
+                double p = state.getPKnownByLesson().getOrDefault(lessonId, bkt.prior());
+                state.getPKnownByLesson().put(lessonId, BktModel.update(p, correct, bkt));
+            }
+            state.setAnsweredCount(state.getAnsweredCount() + 1);
+        }
+        attempt.setThetaCurrent(state.getTheta());
+        attempt.setThetaSe(state.getSe());
+        state.setStage(AdaptiveSessionState.STAGE_DONE);
+        attempt.setPhase(AdaptiveSessionState.STAGE_DONE);
+        persistLearner(attempt, state);
+        saveState(attempt, state);
+    }
+
+    private ItemParams itemParamsOf(Exam exam, Long questionId) {
+        Candidate cached = cachedPool(exam).candidates().get(questionId);
+        if (cached != null) return cached.params();
+        Question source = loadQuestion(questionId);
+        return source == null ? IrtModel.defaultParams(null) : IrtModel.defaultParams(source.getDifficultyLevel());
     }
 
     private CachedPool cachedPool(Exam exam) {

@@ -115,6 +115,72 @@ public class EmailService {
         sendHtml(recipientEmail, subject, text, html);
     }
 
+    /** Sent when a learner passes a certification's mock exam: the badge is theirs. */
+    public void sendBadgeEarned(String recipientEmail, String learnerName, String certificationTitle,
+                                String score, boolean hasBadgeImage) {
+        String base = frontendUrl.replaceAll("/+$", "");
+        String link = base + "/learner/certifications";
+        String subject = "You earned the " + certificationTitle + " badge on REBYU";
+        String scoreLine = score == null || score.isBlank() ? "" : " with a score of " + score;
+        String text = """
+                Congratulations %s!
+
+                You passed the %s mock exam%s and earned its badge.
+                %s
+
+                See it on your certification card:
+                %s
+
+                REBYU Team
+                """.formatted(learnerName, certificationTitle, scoreLine,
+                hasBadgeImage ? "The badge now shows on your certification card." : "Your badge is recorded on your certification card.",
+                link);
+        String html = frame("<p>Congratulations <b>" + escape(learnerName) + "</b>!</p>"
+                + "<p>You passed the <b>" + escape(certificationTitle) + "</b> mock exam" + escape(scoreLine)
+                + " and earned its badge.</p>"
+                + "<p><a href=\"" + link + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;display:inline-block\">See your badge</a></p>"
+                + "<p style=\"font-size:12px;color:#6b706c\">Your certificate of completion arrives in a separate email.</p>");
+        sendHtml(recipientEmail, subject, text, html);
+    }
+
+    /** Sent alongside the badge email, separately: the numbered certificate of completion. */
+    public void sendCertificateIssued(String recipientEmail, String learnerName, String certificationTitle,
+                                      String certificateNumber, String score, java.time.LocalDateTime issuedAt,
+                                      Attachment certificatePdf) {
+        String base = frontendUrl.replaceAll("/+$", "");
+        String link = base + "/learner/certifications";
+        String date = issuedAt.toLocalDate().format(java.time.format.DateTimeFormatter.ofPattern("MMMM d, yyyy"));
+        String subject = "Your certificate of completion for " + certificationTitle;
+        String text = """
+                Congratulations %s!
+
+                You completed the %s review on REBYU and passed its mock exam%s. Your certificate of completion is attached to this email as a PDF.
+
+                Certificate number: %s
+                Issued: %s
+
+                The certificate is also shown on your certification card:
+                %s
+
+                REBYU Team
+                """.formatted(learnerName, certificationTitle,
+                score == null || score.isBlank() ? "" : " with a score of " + score,
+                certificateNumber, date, link);
+        String html = frame("<p>Congratulations <b>" + escape(learnerName) + "</b>!</p>"
+                + "<p>You completed the <b>" + escape(certificationTitle) + "</b> review and passed its mock exam. "
+                + "Your certificate of completion is attached as a PDF.</p>"
+                + "<div style=\"border:2px solid #2f6b4f;border-radius:12px;padding:20px 24px;margin:12px 0;text-align:center\">"
+                + "<p style=\"margin:0;font-size:11px;letter-spacing:0.16em;color:#6b706c\">CERTIFICATE OF COMPLETION</p>"
+                + "<p style=\"margin:8px 0 0;font-size:22px;font-weight:bold\">" + escape(learnerName) + "</p>"
+                + "<p style=\"margin:6px 0 0\">completed the <b>" + escape(certificationTitle) + "</b> review and passed its mock exam"
+                + (score == null || score.isBlank() ? "" : " with <b>" + escape(score) + "</b>") + ".</p>"
+                + "<p style=\"margin:12px 0 0;font-family:monospace\">" + escape(certificateNumber) + "</p>"
+                + "<p style=\"margin:2px 0 0;font-size:12px;color:#6b706c\">Issued " + escape(date) + "</p>"
+                + "</div>"
+                + "<p><a href=\"" + link + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;display:inline-block\">View on REBYU</a></p>");
+        sendHtmlWithAttachment(recipientEmail, subject, text, html, certificatePdf);
+    }
+
     /** First sign-in details for an account REBYU created, as the Cognito email used to send. */
     public void sendTemporaryPassword(String recipientEmail, String temporaryPassword, String signInUrl) {
         String text = """
@@ -159,6 +225,46 @@ public class EmailService {
     }
 
     /** An HTML email with a plain-text fallback (the text alone over SMTP). */
+    /** One file riding on an email: its name, MIME type and bytes. */
+    public record Attachment(String filename, String contentType, byte[] bytes) {}
+
+    /**
+     * Like {@link #sendHtml} with a file attached. Resend takes attachments
+     * as base64 in the same JSON; SMTP needs a MIME multipart message.
+     */
+    public void sendHtmlWithAttachment(String to, String subject, String text, String html, Attachment attachment) {
+        if (attachment == null) {
+            sendHtml(to, subject, text, html);
+            return;
+        }
+        String base64 = java.util.Base64.getEncoder().encodeToString(attachment.bytes());
+        if (resendApiKey == null || resendApiKey.isBlank()) {
+            try {
+                jakarta.mail.internet.MimeMessage message = mailSender.createMimeMessage();
+                org.springframework.mail.javamail.MimeMessageHelper helper =
+                        new org.springframework.mail.javamail.MimeMessageHelper(message, true, "UTF-8");
+                helper.setFrom(mailFrom);
+                helper.setTo(to);
+                helper.setSubject(subject);
+                helper.setText(text, html);
+                helper.addAttachment(attachment.filename(),
+                        new org.springframework.core.io.ByteArrayResource(attachment.bytes()), attachment.contentType());
+                mailSender.send(message);
+            } catch (jakarta.mail.MessagingException e) {
+                throw new IllegalStateException("Could not build the email with its attachment", e);
+            }
+            return;
+        }
+        post("{\"from\":" + json(mailFrom)
+                + ",\"to\":[" + json(to) + "]"
+                + ",\"subject\":" + json(subject)
+                + ",\"text\":" + json(text)
+                + ",\"html\":" + json(html)
+                + ",\"attachments\":[{\"filename\":" + json(attachment.filename())
+                + ",\"content\":" + json(base64)
+                + ",\"content_type\":" + json(attachment.contentType()) + "}]}");
+    }
+
     public void sendHtml(String to, String subject, String text, String html) {
         if (resendApiKey == null || resendApiKey.isBlank()) {
             SimpleMailMessage message = new SimpleMailMessage();

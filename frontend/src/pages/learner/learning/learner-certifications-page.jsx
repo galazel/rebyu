@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react"
 import { useNavigate, useOutletContext } from "react-router-dom"
+import { useQuery } from "@tanstack/react-query"
 import { Award, BookOpen, GraduationCap, Layers3 } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { BUBBLE_TONES, BubbleCard } from "@/components/commons/bubble-card.jsx"
 import { LearnerEmptyState, toneForCertification } from "@/components/learner/learner-ui.jsx"
-import { getCertificationModules } from "@/services/learnerService.js"
+import { getCertificationModules, getMyAwards } from "@/services/learnerService.js"
+import { certificationBadgeUrl } from "@/services/certificationService.js"
 
 const INITIAL_VISIBLE_COUNT = 8
 const LOAD_MORE_COUNT = 8
@@ -60,9 +62,48 @@ function getCertificationDescription(certification) {
    own study, which My Learning is the page for. Carrying a percentage here
    also meant a second surface to keep in step with the analytics board every
    time the definition of "done" moved. */
+/**
+ * What the learner has earned on this certification, over the card body.
+ * The badge is the admin's uploaded artwork when there is one, else the
+ * award mark; the certificate is named by its number so the card matches
+ * the email that carried it.
+ */
+function EarnedStrip({ certificationId, award }) {
+  if (!award) return null
+  const hasBadge = award.badgeAwardedAt != null
+  const hasCertificate = award.certificateAwardedAt != null
+  if (!hasBadge && !hasCertificate) return null
+  return (
+      <div className="mt-3 flex items-center gap-3 rounded-xl border-2 border-rb-bee/50 bg-rb-bee-wash px-3 py-2">
+        {hasBadge ? (
+            award.hasBadgeImage ? (
+                <img
+                    src={`${certificationBadgeUrl(certificationId)}?v=${encodeURIComponent(award.badgeAwardedAt)}`}
+                    alt="Badge earned"
+                    className="size-12 shrink-0 rounded-full border-2 border-white bg-white object-cover shadow-sm"
+                />
+            ) : (
+                <span className="grid size-12 shrink-0 place-items-center rounded-full bg-rb-bee text-white shadow-sm">
+                  <Award className="size-6" aria-hidden="true" />
+                </span>
+            )
+        ) : null}
+        <div className="min-w-0 text-xs leading-5">
+          {hasBadge ? <p className="font-bold text-rb-eel">Badge earned</p> : null}
+          {hasCertificate ? (
+              <p className="truncate text-rb-wolf">
+                Certificate <span className="font-mono font-semibold">{award.certificateNumber}</span>
+              </p>
+          ) : null}
+        </div>
+      </div>
+  )
+}
+
 function CertificationCard({
                              certification,
                              enrolled,
+                             award,
                              onOpen,
                              onAction,
                            }) {
@@ -93,7 +134,10 @@ function CertificationCard({
               {getCertificationTitle(certification)}
             </button>
           }
-          chips={[{ label: enrolled ? "Enrolled" : "Free to study" }]}
+          chips={[
+            { label: enrolled ? "Enrolled" : "Free to study" },
+            ...(award?.badgeAwardedAt ? [{ label: "Badge earned", side: "right" }] : []),
+          ]}
           footer={
             <Button
                 /* 12px corners, not a pill: the system puts every rectangular
@@ -114,6 +158,8 @@ function CertificationCard({
         <p className="mt-2 line-clamp-3 min-h-[60px] break-words text-sm leading-6 text-muted-foreground">
           {getCertificationDescription(certification)}
         </p>
+
+        <EarnedStrip certificationId={getCertificationId(certification)} award={award} />
 
         {/* How big it is, in the words its own page uses. Hidden entirely when
             the payload carries no curriculum rather than printing "0 lessons"
@@ -214,6 +260,18 @@ export default function LearnerCertificationsPage() {
 
   const certifications = data.certifications ?? []
   const enrolledCertifications = data.enrolledCertifications ?? []
+
+  /* Earned badges/certificates, keyed by certification. Its own query: it is
+     small, changes only when a mock exam is passed, and the layout's payload
+     should not grow for a strip most cards never show. */
+  const awardsQuery = useQuery({ queryKey: ["learner-awards"], queryFn: getMyAwards, staleTime: 0, retry: 1 })
+  const awardByCertification = useMemo(() => {
+    const map = new Map()
+    for (const award of Array.isArray(awardsQuery.data) ? awardsQuery.data : []) {
+      map.set(String(award.certificationId), award)
+    }
+    return map
+  }, [awardsQuery.data])
 
   const [selectedCategories, setSelectedCategories] = useState(new Set())
   const [sortBy, setSortBy] = useState("popular")
@@ -454,6 +512,7 @@ export default function LearnerCertificationsPage() {
                               key={certificationId}
                               certification={certification}
                               enrolled={enrolled}
+                              award={awardByCertification.get(String(certificationId))}
                               onOpen={() => openCertification(certification)}
                               onAction={() => handleCertificationAction(certification)}
                           />
