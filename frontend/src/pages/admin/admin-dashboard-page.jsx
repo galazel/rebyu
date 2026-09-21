@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import {
   CreditCard,
   DollarSign,
+  Download,
   GraduationCapIcon,
   UsersIcon,
 } from "@/components/icons"
@@ -26,6 +27,8 @@ import { Link } from "react-router-dom"
 import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
 import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
 import { useDashboardLayout } from "@/hooks/use-dashboard-layout.js"
+import { Button } from "@/components/ui/button"
+import { downloadCsv, timestampedFilename, toCsv } from "@/lib/csv.js"
 import { getPlatformMetrics } from "@/services/adminMetricsService.js"
 import { base } from "@/services/base"
 
@@ -171,6 +174,113 @@ export default function AdminDashboard() {
         .slice(0, 5),
     }
   }, [partnershipsQuery.data])
+
+  /**
+   * The screen, as a spreadsheet.
+   *
+   * Every section here is a tile above, in the order the tiles read, so an
+   * admin who exports can point at a row and find the chart it came from. The
+   * feeds are exported at the length they are shown rather than in full: the
+   * button says "export this dashboard", and quietly returning a different,
+   * longer set of payments than the eight on screen would be a different
+   * report wearing this one's label.
+   *
+   * Numbers go out bare -- no peso sign, no thousands separator -- because a
+   * formatted figure lands in a spreadsheet as text and will not sum.
+   */
+  const buildCsv = () =>
+    toCsv([
+      {
+        title: "REBYU platform dashboard",
+        columns: ["Exported", new Date().toISOString()],
+      },
+      {
+        title: "Summary",
+        columns: ["Metric", "Value"],
+        rows: [
+          ["Total users", people.totalUsers],
+          ["Active users", people.activeUsers],
+          ["Learners", people.learners],
+          ["Learners in a certification", people.learnersInCertification],
+          ["Active enrollments", people.activeEnrollments],
+          ["Certifications", catalog.certifications],
+          ["Published certifications", catalog.publishedCertifications],
+          ["Institutions onboarded", catalog.institutions],
+          ["Partnership requests pending", catalog.pendingPartnerships],
+          ["Gross sales (PHP)", sales.grossSales],
+          ["Sales last 30 days (PHP)", sales.salesLast30Days],
+          ["Paid orders", sales.paidOrders],
+          ["Pending orders", sales.pendingOrders],
+          ["Active subscriptions", sales.activeSubscriptions],
+          ["Active licences", sales.activeLicenses],
+          ["Graded attempts", assessments.gradedAttempts],
+          ["Average score (%)", assessments.averageScore],
+          ["Pass rate (%)", assessments.passRate],
+          ["Pro revenue approved (PHP)", pro?.approvedRevenue],
+          ["Pro revenue last 30 days (PHP)", pro?.approvedRevenueLast30Days],
+          ["Learners on Pro", pro?.activePro],
+          ["Pro awaiting approval", pro?.awaitingApproval],
+          ["Pro awaiting revenue (PHP)", pro?.awaitingRevenue],
+        ],
+      },
+      {
+        title: "Platform activity (last six months)",
+        columns: [
+          "Month",
+          "New accounts",
+          "Assessment attempts",
+          "Pass rate (%)",
+          "Certification sales (PHP)",
+          "Pro revenue (PHP)",
+          "Pro approvals",
+        ],
+        rows: trends.map((row) => [
+          row.month,
+          row.users,
+          row.attempts,
+          row.passRate,
+          row.sales,
+          row.pro,
+          row.approvals,
+        ]),
+      },
+      {
+        title: "Learner plans",
+        columns: ["Plan", "Learners"],
+        rows: planSlices.map((slice) => [slice.name, slice.value]),
+      },
+      {
+        title: "Certification catalog",
+        columns: ["Status", "Certifications"],
+        rows: catalogMix.map((slice) => [slice.name, slice.value]),
+      },
+      {
+        title: "Learners per certification",
+        columns: ["Certification", "Learners"],
+        rows: learnersPerCertification.map((row) => [row.title, row.learners]),
+      },
+      {
+        title: "Learners who paid",
+        columns: ["Learner", "Type", "Reference", "Amount (PHP)", "Paid at", "Status"],
+        rows: recentPayments.map((payment) => [
+          payment.name,
+          payment.kind,
+          payment.reference,
+          payment.amount,
+          payment.paidAt,
+          payment.status,
+        ]),
+      },
+      {
+        title: "Recent partnership requests",
+        columns: ["Request", "Status", "Submitted at"],
+        rows: feeds.recentPartnerships.map((request) => [
+          `Request #${request.requestId}`,
+          request.status,
+          request.submittedAt,
+        ]),
+      },
+    ])
 
   const tiles = useMemo(() => {
     const failed = metricsQuery.isError
@@ -646,6 +756,20 @@ export default function AdminDashboard() {
       />
 
       <div className="flex flex-wrap items-center justify-end gap-3">
+        {/* Disabled until the numbers are actually in hand: a CSV exported
+            mid-load would be a file full of blanks that reads like a platform
+            with nothing on it. */}
+        <Button
+          variant="outline"
+          onClick={() =>
+            downloadCsv(timestampedFilename("rebyu-admin-dashboard"), buildCsv())
+          }
+          disabled={metricsQuery.isLoading || metricsQuery.isError}
+        >
+          <Download className="size-4" aria-hidden="true" />
+          Export CSV
+        </Button>
+
         <DashboardRearrangeControls
           rearranging={layout.rearranging}
           onStart={layout.startRearranging}
