@@ -22,16 +22,19 @@ import { Progress } from "@/components/ui/progress"
 import { useChartTheme } from "@/components/charts/rebyu-charts.jsx"
 import { getLearnerDisplayName } from "@/hooks/use-institution-data.js"
 
-const PALETTE = [
-  "#1e5631", // Deep Pine Green (matching user mockup)
-  "#2f6b4f", // Leaf Green
-  "#00A896", // Teal
-  "#3d8b63", // Emerald
-  "#c9962b", // Bee Amber
-  "#3B82F6", // Azure Blue
-  "#8b5f7d", // Plum Violet
-  "#c8553d", // Fox Coral
+// Slots Allotted Palette (Navy / Slate palette matching user's reference)
+const SLOTS_PALETTE = [
+  "#1e3a5f", // Deep Navy Blue
+  "#204b77", // Marine Slate
+  "#28536b", // Deep Cerulean
+  "#1b4965", // Ocean Navy
+  "#2b4162", // Indigo Slate
+  "#385070", // Midnight Steel
+  "#1e5631", // Deep Pine Green
+  "#334155", // Slate 700
 ]
+
+const REACH_COLOR = "#0284c7" // Vibrant Sky / Cyan Blue (exclusive reach arc)
 
 function getInitials(name = "") {
   return (
@@ -45,23 +48,46 @@ function getInitials(name = "") {
   )
 }
 
-function CustomPieTooltip({ active, payload }) {
+function CustomDualPieTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
-  const data = payload[0].payload
+  const item = payload[0].payload
+  if (!item || item.isRemaining) return null
+
   return (
-    <div className="rounded-xl border border-border bg-popover/95 px-3 py-2 text-popover-foreground shadow-lg backdrop-blur-md">
-      <div className="text-xs font-bold text-foreground">{data.name}</div>
-      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-        <span
-          className="size-2 rounded-full"
-          style={{ backgroundColor: data.fill }}
-        />
-        <span>{data.tooltipLabel || "Enrolled Learners"}:</span>
-        <span className="font-bold tabular-nums text-foreground">
-          {data.value}
-        </span>
+    <div className="rounded-xl border border-border bg-popover/95 px-3.5 py-2.5 text-popover-foreground shadow-lg backdrop-blur-md">
+      <div className="max-w-[220px] truncate text-xs font-bold text-foreground">
+        {item.deptName || item.certTitle || item.name}
       </div>
-      <div className="mt-1 text-[10px] text-muted-foreground/80">
+      <div className="mt-1.5 space-y-1 text-xs">
+        <div className="flex items-center justify-between gap-3 text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span
+              className="size-2 rounded-full"
+              style={{ backgroundColor: item.deptFill || item.certFill || item.fill || "#1e3a5f" }}
+            />
+            Allotted Slots:
+          </span>
+          <span className="font-bold tabular-nums text-foreground">
+            {item.allottedSlots ?? item.value}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3 text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="size-2 rounded-full bg-[#0284c7]" />
+            Enrolled Learners:
+          </span>
+          <span className="font-bold tabular-nums text-foreground">
+            {item.enrolled ?? 0}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3 text-muted-foreground">
+          <span>Capacity Reach:</span>
+          <span className="font-extrabold tabular-nums text-[#0284c7]">
+            {item.reachPct ?? 0}%
+          </span>
+        </div>
+      </div>
+      <div className="mt-2 border-t border-border/60 pt-1 text-[10px] font-medium text-muted-foreground/80">
         Click to drill down →
       </div>
     </div>
@@ -71,6 +97,7 @@ function CustomPieTooltip({ active, payload }) {
 export default function InstitutionDrilldownStatsCard({
   data,
   groupStats = [],
+  departments = [],
   members = [],
   summary = {},
   failed = false,
@@ -82,33 +109,55 @@ export default function InstitutionDrilldownStatsCard({
   const [selectedDepartment, setSelectedDepartment] = useState(null)
   const [selectedCertification, setSelectedCertification] = useState(null)
 
+  // Interactive Hover state for Dual Rings
+  const [hoveredDept, setHoveredDept] = useState(null)
+  const [hoveredCert, setHoveredCert] = useState(null)
+
   // Fast lookups
   const membersMap = useMemo(() => {
     return new Map((members || []).map((m) => [m.learnerId, m]))
   }, [members])
 
   // -------------------------------------------------------------------------
-  // LEVEL 1: Aggregated Learners per Department
+  // LEVEL 1: Aggregated Slots & Enrolled Learners per Department
+  // Inner Pie = Total Slots Allotted | Outer Ring = Enrolled Reach % exclusive to each dept
   // -------------------------------------------------------------------------
   const level1Data = useMemo(() => {
-    if (!data?.assignments?.length) return []
-
     const deptMap = new Map()
 
-    // Initialize departments known from groupStats
+    // 1. Seed from departments prop
+    departments.forEach((dept) => {
+      const deptId = String(dept.departmentId ?? dept.id ?? "")
+      if (!deptId) return
+      deptMap.set(deptId, {
+        id: dept.departmentId ?? dept.id,
+        name: dept.departmentName || dept.name || `Department #${deptId}`,
+        allottedSlots: Number(dept.totalSlots ?? 0),
+        usedSlots: Number(dept.usedSlots ?? 0),
+        learnerIds: new Set(),
+        assignmentCount: 0,
+      })
+    })
+
+    // 2. Seed from groupStats
     groupStats.forEach((group) => {
       if (group?.departmentId != null) {
-        deptMap.set(String(group.departmentId), {
-          id: group.departmentId,
-          name: group.departmentName || `Department #${group.departmentId}`,
-          learnerIds: new Set(),
-          assignmentCount: 0,
-        })
+        const deptId = String(group.departmentId)
+        if (!deptMap.has(deptId)) {
+          deptMap.set(deptId, {
+            id: group.departmentId,
+            name: group.departmentName || `Department #${group.departmentId}`,
+            allottedSlots: 0,
+            usedSlots: Number(group.learners ?? 0),
+            learnerIds: new Set(),
+            assignmentCount: 0,
+          })
+        }
       }
     })
 
-    // Map each assignment to its department
-    data.assignments.forEach((assignment) => {
+    // 3. Map assignments to find enrolled learners per department
+    data?.assignments?.forEach((assignment) => {
       const membership = data.groupByInstitutionCertLearnerId?.get(
         assignment.institutionCertLearnerId
       )
@@ -122,6 +171,8 @@ export default function InstitutionDrilldownStatsCard({
         deptMap.set(deptId, {
           id: deptId === "unassigned" ? null : membership.departmentId,
           name: deptName,
+          allottedSlots: 0,
+          usedSlots: 0,
           learnerIds: new Set(),
           assignmentCount: 0,
         })
@@ -132,22 +183,116 @@ export default function InstitutionDrilldownStatsCard({
       entry.assignmentCount += 1
     })
 
+    // Fallback if no departments existed yet but summary/assignments exist
+    if (deptMap.size === 0 && (summary?.seatsTotal || data?.assignments?.length)) {
+      deptMap.set("general", {
+        id: null,
+        name: "General",
+        allottedSlots: Number(summary?.seatsTotal ?? 10),
+        usedSlots: Number(summary?.seatsUsed ?? data?.assignments?.length ?? 0),
+        learnerIds: new Set((data?.assignments || []).map((a) => a.learnerId)),
+        assignmentCount: data?.assignments?.length ?? 0,
+      })
+    }
+
     return Array.from(deptMap.values())
-      .map((entry, index) => ({
-        id: entry.id,
-        name: entry.name,
-        value: entry.learnerIds.size,
-        assignmentCount: entry.assignmentCount,
-        fill: PALETTE[index % PALETTE.length],
-        tooltipLabel: "Enrolled Learners",
-      }))
+      .map((entry, index) => {
+        const enrolled = entry.learnerIds.size || entry.usedSlots || 0
+        let slots = entry.allottedSlots
+        if (!slots || slots <= 0) {
+          slots = enrolled > 0 ? Math.max(enrolled, 10) : (entry.id ? 10 : 0)
+        }
+
+        const reachPct =
+          slots > 0 ? Math.min(Math.round((enrolled / slots) * 100), 100) : 0
+
+        return {
+          id: entry.id,
+          name: entry.name,
+          value: slots, // Inner pie slice size = allotted slots!
+          allottedSlots: slots,
+          enrolled,
+          reachPct,
+          assignmentCount: entry.assignmentCount,
+          fill: SLOTS_PALETTE[index % SLOTS_PALETTE.length],
+        }
+      })
       .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value)
-  }, [data?.assignments, data?.groupByInstitutionCertLearnerId, groupStats])
+  }, [
+    departments,
+    groupStats,
+    data?.assignments,
+    data?.groupByInstitutionCertLearnerId,
+    summary?.seatsTotal,
+    summary?.seatsUsed,
+  ])
 
-  const totalLevel1Learners = useMemo(() => {
-    return level1Data.reduce((sum, item) => sum + item.value, 0)
+  const totalLevel1Slots = useMemo(() => {
+    return level1Data.reduce((sum, item) => sum + item.allottedSlots, 0)
   }, [level1Data])
+
+  const totalLevel1Enrolled = useMemo(() => {
+    return level1Data.reduce((sum, item) => sum + item.enrolled, 0)
+  }, [level1Data])
+
+  const overallLevel1ReachPct = useMemo(() => {
+    return totalLevel1Slots > 0
+      ? Math.min(Math.round((totalLevel1Enrolled / totalLevel1Slots) * 100), 100)
+      : 0
+  }, [totalLevel1Slots, totalLevel1Enrolled])
+
+  // Outer indicator reach data exclusive to each department's inner slice
+  const level1OuterData = useMemo(() => {
+    const segments = []
+    level1Data.forEach((dept) => {
+      const slots = dept.allottedSlots
+      const enrolled = Math.min(dept.enrolled, slots)
+      const remaining = Math.max(slots - enrolled, 0)
+      const isHovered = hoveredDept ? hoveredDept.id === dept.id : true
+
+      // Enrolled arc segment (exclusive to this department)
+      if (enrolled > 0) {
+        segments.push({
+          id: dept.id,
+          name: dept.name,
+          deptName: dept.name,
+          allottedSlots: slots,
+          enrolled: dept.enrolled,
+          reachPct: dept.reachPct,
+          value: enrolled,
+          isRemaining: false,
+          fill: hoveredDept && !isHovered ? "rgba(2, 132, 199, 0.4)" : REACH_COLOR,
+          deptFill: dept.fill,
+        })
+      }
+
+      // Unfilled remaining slots segment (transparent, reserving department's angle)
+      if (remaining > 0) {
+        segments.push({
+          id: dept.id,
+          name: `${dept.name} Remaining`,
+          deptName: dept.name,
+          allottedSlots: slots,
+          enrolled: dept.enrolled,
+          reachPct: dept.reachPct,
+          value: remaining,
+          isRemaining: true,
+          fill: "transparent",
+          deptFill: dept.fill,
+        })
+      }
+    })
+    return segments
+  }, [level1Data, hoveredDept])
+
+  // Center display values
+  const activeLevel1ReachPct = hoveredDept
+    ? hoveredDept.reachPct
+    : overallLevel1ReachPct
+  const activeLevel1Slots = hoveredDept
+    ? hoveredDept.allottedSlots
+    : totalLevel1Slots
 
   // -------------------------------------------------------------------------
   // LEVEL 2: Certifications in the Selected Department
@@ -198,13 +343,25 @@ export default function InstitutionDrilldownStatsCard({
     })
 
     return Array.from(certMap.values())
-      .map((entry, index) => ({
-        ...entry,
-        name: entry.title,
-        value: entry.learnerIds.size,
-        fill: PALETTE[(index + 1) % PALETTE.length],
-        tooltipLabel: "Enrolled Learners",
-      }))
+      .map((entry, index) => {
+        const enrolled = entry.learnerIds.size
+        let slots = entry.totalSlots
+        if (!slots || slots <= 0) {
+          slots = Math.max(enrolled, 10)
+        }
+        const reachPct =
+          slots > 0 ? Math.min(Math.round((enrolled / slots) * 100), 100) : 0
+
+        return {
+          ...entry,
+          name: entry.title,
+          value: slots, // Slices represent allotted slots!
+          allottedSlots: slots,
+          enrolled,
+          reachPct,
+          fill: SLOTS_PALETTE[(index + 1) % SLOTS_PALETTE.length],
+        }
+      })
       .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value)
   }, [
@@ -215,14 +372,81 @@ export default function InstitutionDrilldownStatsCard({
     data?.certificationById,
   ])
 
+  const totalLevel2Slots = useMemo(() => {
+    return level2Data.reduce((sum, c) => sum + c.allottedSlots, 0)
+  }, [level2Data])
+
+  const totalLevel2Enrolled = useMemo(() => {
+    return level2Data.reduce((sum, c) => sum + c.enrolled, 0)
+  }, [level2Data])
+
+  const overallLevel2ReachPct = useMemo(() => {
+    return totalLevel2Slots > 0
+      ? Math.min(Math.round((totalLevel2Enrolled / totalLevel2Slots) * 100), 100)
+      : 0
+  }, [totalLevel2Slots, totalLevel2Enrolled])
+
+  // Outer indicator reach data exclusive to each certification's inner slice
+  const level2OuterData = useMemo(() => {
+    const segments = []
+    level2Data.forEach((cert) => {
+      const slots = cert.allottedSlots
+      const enrolled = Math.min(cert.enrolled, slots)
+      const remaining = Math.max(slots - enrolled, 0)
+      const isHovered = hoveredCert
+        ? hoveredCert.institutionCertId === cert.institutionCertId
+        : true
+
+      if (enrolled > 0) {
+        segments.push({
+          id: cert.institutionCertId || cert.certificationId,
+          name: cert.name,
+          certTitle: cert.name,
+          allottedSlots: slots,
+          enrolled: cert.enrolled,
+          reachPct: cert.reachPct,
+          value: enrolled,
+          isRemaining: false,
+          fill: hoveredCert && !isHovered ? "rgba(2, 132, 199, 0.4)" : REACH_COLOR,
+          certFill: cert.fill,
+        })
+      }
+
+      if (remaining > 0) {
+        segments.push({
+          id: cert.institutionCertId || cert.certificationId,
+          name: `${cert.name} Remaining`,
+          certTitle: cert.name,
+          allottedSlots: slots,
+          enrolled: cert.enrolled,
+          reachPct: cert.reachPct,
+          value: remaining,
+          isRemaining: true,
+          fill: "transparent",
+          certFill: cert.fill,
+        })
+      }
+    })
+    return segments
+  }, [level2Data, hoveredCert])
+
+  const activeLevel2ReachPct = hoveredCert
+    ? hoveredCert.reachPct
+    : overallLevel2ReachPct
+  const activeLevel2Slots = hoveredCert
+    ? hoveredCert.allottedSlots
+    : totalLevel2Slots
+
   // -------------------------------------------------------------------------
   // LEVEL 3 & 4: Selected Certification Stats & Learners
   // -------------------------------------------------------------------------
   const level3Data = useMemo(() => {
     if (!selectedCertification) return null
-    const totalSlots = Number(selectedCertification.totalSlots ?? 0)
+    const totalSlots = Number(
+      selectedCertification.allottedSlots ?? selectedCertification.totalSlots ?? 0
+    )
     const enrolledInDept = Number(
-      selectedCertification.value ??
+      selectedCertification.enrolled ??
         selectedCertification.assignments?.length ??
         0
     )
@@ -250,7 +474,6 @@ export default function InstitutionDrilldownStatsCard({
         const name = getLearnerDisplayName(learner)
         const email = learner?.email || learner?.username || ""
 
-        // Progress value fallback: assignment progressPercentage or member averageProgress
         let progress = Number(
           assignment.progressPercentage ?? member?.averageProgress ?? 0
         )
@@ -296,11 +519,11 @@ export default function InstitutionDrilldownStatsCard({
   }, [level4Learners])
 
   // -------------------------------------------------------------------------
-  // Summary Stats for Level 1 (matching user mockup)
+  // Summary Stats for Level 1 (Original Mockup Metrics)
   // -------------------------------------------------------------------------
   const level1SummaryStats = useMemo(() => {
     const deptCount = level1Data.length || 1
-    const avgEnrollees = Math.round(totalLevel1Learners / deptCount)
+    const avgEnrollees = Math.round(totalLevel1Enrolled / deptCount)
 
     // Certified learners: completed certifications > 0 or progress >= 100%
     const certifiedCount = members.filter(
@@ -317,7 +540,6 @@ export default function InstitutionDrilldownStatsCard({
     ).length
     const avgInProgress = Math.round(inProgressCount / deptCount)
 
-    // Average score or progress
     const avgScore =
       summary?.averageScore != null
         ? `${Math.round(Number(summary.averageScore))}%`
@@ -331,10 +553,10 @@ export default function InstitutionDrilldownStatsCard({
       avgInProgress,
       avgScore,
     }
-  }, [level1Data, totalLevel1Learners, members, summary])
+  }, [level1Data, totalLevel1Enrolled, members, summary])
 
   // -------------------------------------------------------------------------
-  // Summary Stats for Level 2 (Certifications in selected department)
+  // Summary Stats for Level 2 (Original Certifications & Dept Averages)
   // -------------------------------------------------------------------------
   const level2SummaryStats = useMemo(() => {
     if (!level2Data.length) {
@@ -346,10 +568,9 @@ export default function InstitutionDrilldownStatsCard({
       }
     }
     const certCount = level2Data.length || 1
-    const deptTotalLearners = level2Data.reduce((sum, c) => sum + c.value, 0)
+    const deptTotalLearners = level2Data.reduce((sum, c) => sum + c.enrolled, 0)
     const avgEnrollees = Math.round(deptTotalLearners / certCount)
 
-    // Filter assignments for selected department
     const deptLearnerIds = new Set()
     level2Data.forEach((c) => {
       c.learnerIds?.forEach((id) => deptLearnerIds.add(id))
@@ -385,7 +606,7 @@ export default function InstitutionDrilldownStatsCard({
   }, [level2Data, members])
 
   // -------------------------------------------------------------------------
-  // Dynamic Remarks Content per Level (matching user mockup banner)
+  // Dynamic Remarks Content per Level (Original Narrative)
   // -------------------------------------------------------------------------
   const remarksText = useMemo(() => {
     if (currentLevel === 1) {
@@ -394,13 +615,13 @@ export default function InstitutionDrilldownStatsCard({
       }
       const topDept = level1Data[0]
       const topPct =
-        totalLevel1Learners > 0
-          ? Math.round((topDept.value / totalLevel1Learners) * 100)
+        totalLevel1Enrolled > 0
+          ? Math.round((topDept.enrolled / totalLevel1Enrolled) * 100)
           : 0
       if (level1Data.length === 1) {
-        return `${topDept.name} holds 100% of currently enrolled learners (${topDept.value} enrollees). Institutional average progress is ${level1SummaryStats.avgScore} across active curriculum.`
+        return `${topDept.name} holds 100% of currently enrolled learners (${topDept.enrolled} enrollees). Institutional average progress is ${level1SummaryStats.avgScore} across active curriculum.`
       }
-      return `${topDept.name} leads institutional enrollment with ${topDept.value} learners (${topPct}% of total). An average of ${level1SummaryStats.avgEnrollees} learners are enrolled per department across ${level1Data.length} departments.`
+      return `${topDept.name} leads institutional enrollment with ${topDept.enrolled} learners (${topPct}% of total). An average of ${level1SummaryStats.avgEnrollees} learners are enrolled per department across ${level1Data.length} departments.`
     }
 
     if (currentLevel === 2) {
@@ -408,10 +629,10 @@ export default function InstitutionDrilldownStatsCard({
         return `No active certification assignments found for ${selectedDepartment?.name || "this department"}.`
       }
       const topCert = level2Data[0]
-      const deptTotal = level2Data.reduce((sum, c) => sum + c.value, 0)
+      const deptTotal = level2Data.reduce((sum, c) => sum + c.enrolled, 0)
       const topPct =
-        deptTotal > 0 ? Math.round((topCert.value / deptTotal) * 100) : 0
-      return `${topCert.name} represents ${topPct}% of certifications in ${selectedDepartment?.name} with ${topCert.value} learner(s). Click any certification to inspect slots capacity.`
+        deptTotal > 0 ? Math.round((topCert.enrolled / deptTotal) * 100) : 0
+      return `${topCert.name} represents ${topPct}% of certifications in ${selectedDepartment?.name} with ${topCert.enrolled} learner(s). Click any certification to inspect slots capacity.`
     }
 
     if (currentLevel === 3) {
@@ -430,7 +651,7 @@ export default function InstitutionDrilldownStatsCard({
   }, [
     currentLevel,
     level1Data,
-    totalLevel1Learners,
+    totalLevel1Enrolled,
     level1SummaryStats,
     level2Data,
     selectedDepartment,
@@ -445,11 +666,13 @@ export default function InstitutionDrilldownStatsCard({
   // -------------------------------------------------------------------------
   const handleSelectDepartment = (dept) => {
     setSelectedDepartment(dept)
+    setHoveredDept(null)
     setCurrentLevel(2)
   }
 
   const handleSelectCertification = (cert) => {
     setSelectedCertification(cert)
+    setHoveredCert(null)
     setCurrentLevel(3)
   }
 
@@ -458,6 +681,7 @@ export default function InstitutionDrilldownStatsCard({
     else if (currentLevel === 3) setCurrentLevel(2)
     else if (currentLevel === 2) {
       setSelectedDepartment(null)
+      setHoveredDept(null)
       setCurrentLevel(1)
     }
   }
@@ -465,6 +689,8 @@ export default function InstitutionDrilldownStatsCard({
   const handleReset = () => {
     setSelectedDepartment(null)
     setSelectedCertification(null)
+    setHoveredDept(null)
+    setHoveredCert(null)
     setCurrentLevel(1)
   }
 
@@ -474,7 +700,7 @@ export default function InstitutionDrilldownStatsCard({
       <div className="space-y-1.5 border-b border-border/60 pb-2.5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="grid size-7 place-items-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+            <span className="grid size-7 place-items-center rounded-lg bg-sky-500/15 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
               <Building2 className="size-4" />
             </span>
             <div>
@@ -482,7 +708,7 @@ export default function InstitutionDrilldownStatsCard({
                 Learner Statistics
               </h3>
               <p className="text-xs font-extrabold leading-snug text-foreground sm:text-sm">
-                {currentLevel === 1 && "Department Enrollment"}
+                {currentLevel === 1 && "Department Enrollment & Slots"}
                 {currentLevel === 2 &&
                   `${selectedDepartment?.name || "Department"} Certifications`}
                 {currentLevel === 3 && "Slots vs. Enrolled Learners"}
@@ -592,59 +818,112 @@ export default function InstitutionDrilldownStatsCard({
           </div>
         ) : currentLevel === 1 ? (
           /* ========================================================= */
-          /* LEVEL 1: Departments Pie Chart + Stats (Matching Mockup)  */
+          /* LEVEL 1: Dual-Ring Concentric Pie (Slots + Enrolled Reach) */
           /* ========================================================= */
           <div className="flex h-full flex-col justify-center">
             {level1Data.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-center">
                 <Users className="mb-2 size-8 text-muted-foreground/40" />
                 <p className="text-xs font-medium text-muted-foreground">
-                  No learners currently enrolled in departments.
+                  No departments or learner slots recorded yet.
                 </p>
               </div>
             ) : (
-              <div className="grid h-full grid-cols-1 items-center gap-4 sm:grid-cols-12">
-                {/* Left Column: Donut Chart */}
-                <div className="relative flex h-[190px] w-full shrink-0 items-center justify-center sm:col-span-6">
+              <div className="grid h-full grid-cols-1 items-center gap-5 sm:grid-cols-12">
+                {/* Left Column: Concentric Dual-Ring Chart (Prominent Centerpiece) */}
+                <div className="relative flex h-[255px] w-full shrink-0 items-center justify-center sm:h-[275px] sm:col-span-7">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Tooltip content={<CustomPieTooltip />} />
+                      <Tooltip content={<CustomDualPieTooltip />} />
+
+                      {/* Outer Indicator Pie (Exclusive to each department's inner slice) */}
+                      <Pie
+                        data={level1OuterData}
+                        dataKey="value"
+                        startAngle={90}
+                        endAngle={-270}
+                        innerRadius="80%"
+                        outerRadius="96%"
+                        stroke="none"
+                        isAnimationActive={true}
+                        className="outline-none"
+                        onClick={(entry) => {
+                          if (!entry.isRemaining) {
+                            const dept = level1Data.find((d) => d.id === entry.id)
+                            if (dept) handleSelectDepartment(dept)
+                          }
+                        }}
+                        onMouseEnter={(entry) => {
+                          if (!entry.isRemaining) {
+                            const dept = level1Data.find((d) => d.id === entry.id)
+                            if (dept) setHoveredDept(dept)
+                          }
+                        }}
+                        onMouseLeave={() => setHoveredDept(null)}
+                      >
+                        {level1OuterData.map((entry, idx) => (
+                          <Cell
+                            key={`outer-l1-${entry.name}-${idx}`}
+                            fill={entry.fill}
+                            className={
+                              entry.isRemaining
+                                ? "pointer-events-none"
+                                : "cursor-pointer transition-opacity hover:opacity-85"
+                            }
+                          />
+                        ))}
+                      </Pie>
+
+                      {/* Inner Pie: Total Slots Allotted to Departments */}
                       <Pie
                         data={level1Data}
                         dataKey="value"
                         nameKey="name"
-                        innerRadius="60%"
-                        outerRadius="88%"
-                        paddingAngle={level1Data.length > 1 ? 3 : 0}
+                        startAngle={90}
+                        endAngle={-270}
+                        innerRadius="48%"
+                        outerRadius="75%"
                         stroke={chartTheme.surface}
                         strokeWidth={2}
                         className="cursor-pointer outline-none"
                         onClick={(entry) => handleSelectDepartment(entry)}
+                        onMouseEnter={(entry) => setHoveredDept(entry)}
+                        onMouseLeave={() => setHoveredDept(null)}
                       >
-                        {level1Data.map((entry) => (
-                          <Cell
-                            key={entry.name}
-                            fill={entry.fill}
-                            className="transition-opacity duration-200 hover:opacity-85"
-                          />
-                        ))}
+                        {level1Data.map((entry) => {
+                          const isHovered = hoveredDept
+                            ? hoveredDept.id === entry.id
+                            : true
+                          return (
+                            <Cell
+                              key={entry.name}
+                              fill={entry.fill}
+                              opacity={hoveredDept && !isHovered ? 0.55 : 1}
+                              className="transition-all duration-200 hover:opacity-90"
+                            />
+                          )
+                        })}
                       </Pie>
                     </PieChart>
                   </ResponsiveContainer>
 
-                  {/* Donut Center Count */}
+                  {/* Donut Center Count & Reach Indicator */}
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-1 text-center">
                     <span className="font-rb-display text-3xl font-black leading-none tabular-nums tracking-tight text-foreground sm:text-4xl">
-                      {totalLevel1Learners}
+                      {activeLevel1Slots}
                     </span>
-                    <span className="mt-1.5 max-w-[90px] text-center text-[10px] font-bold uppercase leading-tight tracking-wider text-muted-foreground sm:text-[11px]">
-                      Total Learners
+                    <span className="mt-1 max-w-[95px] text-center text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground sm:text-[11px]">
+                      {hoveredDept ? "Allotted Slots" : "Total Slots"}
                     </span>
+                    <div className="mt-1.5 flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-bold text-sky-600 dark:text-sky-400">
+                      <span className="size-1.5 rounded-full bg-[#0284c7]" />
+                      <span>{activeLevel1ReachPct}% reach</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Right Column: Stats (Enrolled per Dept + Averages) */}
-                <div className="flex flex-col justify-center sm:col-span-6">
+                {/* Right Column: Original Stats Layout (Enrolled per Dept + Averages) */}
+                <div className="flex flex-col justify-center pl-1 sm:col-span-5">
                   <h4 className="font-rb-display text-base font-bold text-foreground">
                     Stats
                   </h4>
@@ -652,18 +931,20 @@ export default function InstitutionDrilldownStatsCard({
                     Enrolled per Department
                   </p>
 
-                  {/* Departments List */}
-                  <div className="max-h-[110px] space-y-1.5 overflow-y-auto pr-1">
+                  {/* Departments List (Number on Left, Name on Right) */}
+                  <div className="max-h-[130px] space-y-1.5 overflow-y-auto pr-1">
                     {level1Data.map((item) => (
                       <button
                         key={item.name}
                         type="button"
                         onClick={() => handleSelectDepartment(item)}
+                        onMouseEnter={() => setHoveredDept(item)}
+                        onMouseLeave={() => setHoveredDept(null)}
                         className="group flex w-full items-center justify-between text-left text-xs transition hover:text-primary"
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="w-10 text-left font-black tabular-nums text-foreground group-hover:text-primary">
-                            {item.value}
+                            {item.enrolled}
                           </span>
                           <span className="truncate font-semibold text-foreground/90 group-hover:text-primary">
                             {item.name}
@@ -710,7 +991,7 @@ export default function InstitutionDrilldownStatsCard({
           </div>
         ) : currentLevel === 2 ? (
           /* ========================================================= */
-          /* LEVEL 2: Department Certifications Pie Chart + Stats      */
+          /* LEVEL 2: Department Certifications Dual-Ring Chart        */
           /* ========================================================= */
           <div className="flex h-full flex-col justify-center">
             {level2Data.length === 0 ? (
@@ -729,48 +1010,111 @@ export default function InstitutionDrilldownStatsCard({
                 </Button>
               </div>
             ) : (
-              <div className="grid h-full grid-cols-1 items-center gap-4 sm:grid-cols-12">
-                {/* Left Column: Donut Chart */}
-                <div className="relative flex h-[190px] w-full shrink-0 items-center justify-center sm:col-span-6">
+              <div className="grid h-full grid-cols-1 items-center gap-5 sm:grid-cols-12">
+                {/* Left Column: Concentric Dual-Ring Chart (Prominent Centerpiece) */}
+                <div className="relative flex h-[255px] w-full shrink-0 items-center justify-center sm:h-[275px] sm:col-span-7">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Tooltip content={<CustomPieTooltip />} />
+                      <Tooltip content={<CustomDualPieTooltip />} />
+
+                      {/* Outer Indicator Pie (Exclusive to each certification's inner slice) */}
+                      <Pie
+                        data={level2OuterData}
+                        dataKey="value"
+                        startAngle={90}
+                        endAngle={-270}
+                        innerRadius="80%"
+                        outerRadius="96%"
+                        stroke="none"
+                        isAnimationActive={true}
+                        className="outline-none"
+                        onClick={(entry) => {
+                          if (!entry.isRemaining) {
+                            const cert = level2Data.find(
+                              (c) =>
+                                (c.institutionCertId || c.certificationId) ===
+                                entry.id
+                            )
+                            if (cert) handleSelectCertification(cert)
+                          }
+                        }}
+                        onMouseEnter={(entry) => {
+                          if (!entry.isRemaining) {
+                            const cert = level2Data.find(
+                              (c) =>
+                                (c.institutionCertId || c.certificationId) ===
+                                entry.id
+                            )
+                            if (cert) setHoveredCert(cert)
+                          }
+                        }}
+                        onMouseLeave={() => setHoveredCert(null)}
+                      >
+                        {level2OuterData.map((entry, idx) => (
+                          <Cell
+                            key={`outer-l2-${entry.name}-${idx}`}
+                            fill={entry.fill}
+                            className={
+                              entry.isRemaining
+                                ? "pointer-events-none"
+                                : "cursor-pointer transition-opacity hover:opacity-85"
+                            }
+                          />
+                        ))}
+                      </Pie>
+
+                      {/* Inner Pie: Allotted Slots per Certification */}
                       <Pie
                         data={level2Data}
                         dataKey="value"
                         nameKey="name"
-                        innerRadius="60%"
-                        outerRadius="88%"
-                        paddingAngle={level2Data.length > 1 ? 3 : 0}
+                        startAngle={90}
+                        endAngle={-270}
+                        innerRadius="48%"
+                        outerRadius="75%"
                         stroke={chartTheme.surface}
                         strokeWidth={2}
                         className="cursor-pointer outline-none"
                         onClick={(entry) => handleSelectCertification(entry)}
+                        onMouseEnter={(entry) => setHoveredCert(entry)}
+                        onMouseLeave={() => setHoveredCert(null)}
                       >
-                        {level2Data.map((entry) => (
-                          <Cell
-                            key={entry.name}
-                            fill={entry.fill}
-                            className="transition-opacity duration-200 hover:opacity-85"
-                          />
-                        ))}
+                        {level2Data.map((entry) => {
+                          const isHovered = hoveredCert
+                            ? (hoveredCert.institutionCertId ||
+                                hoveredCert.certificationId) ===
+                              (entry.institutionCertId || entry.certificationId)
+                            : true
+                          return (
+                            <Cell
+                              key={entry.name}
+                              fill={entry.fill}
+                              opacity={hoveredCert && !isHovered ? 0.55 : 1}
+                              className="transition-all duration-200 hover:opacity-90"
+                            />
+                          )
+                        })}
                       </Pie>
                     </PieChart>
                   </ResponsiveContainer>
 
-                  {/* Donut Center Count */}
+                  {/* Donut Center Count & Reach Indicator */}
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-1 text-center">
                     <span className="font-rb-display text-3xl font-black leading-none tabular-nums tracking-tight text-foreground sm:text-4xl">
-                      {level2Data.reduce((sum, c) => sum + c.value, 0)}
+                      {activeLevel2Slots}
                     </span>
-                    <span className="mt-1.5 max-w-[90px] text-center text-[10px] font-bold uppercase leading-tight tracking-wider text-muted-foreground sm:text-[11px]">
-                      Dept Learners
+                    <span className="mt-1 max-w-[95px] text-center text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground sm:text-[11px]">
+                      {hoveredCert ? "Cert Slots" : "Dept Slots"}
                     </span>
+                    <div className="mt-1.5 flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-bold text-sky-600 dark:text-sky-400">
+                      <span className="size-1.5 rounded-full bg-[#0284c7]" />
+                      <span>{activeLevel2ReachPct}% reach</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Right Column: Stats (Enrolled per Cert + Dept Averages) */}
-                <div className="flex flex-col justify-center sm:col-span-6">
+                {/* Right Column: Original Stats Layout (Enrolled per Cert + Dept Averages) */}
+                <div className="flex flex-col justify-center pl-1 sm:col-span-5">
                   <h4 className="font-rb-display text-base font-bold text-foreground">
                     Stats
                   </h4>
@@ -778,18 +1122,20 @@ export default function InstitutionDrilldownStatsCard({
                     Enrolled per Certification
                   </p>
 
-                  {/* Certifications List */}
-                  <div className="max-h-[110px] space-y-1.5 overflow-y-auto pr-1">
+                  {/* Certifications List (Number on Left, Name on Right) */}
+                  <div className="max-h-[130px] space-y-1.5 overflow-y-auto pr-1">
                     {level2Data.map((item) => (
                       <button
                         key={item.name}
                         type="button"
                         onClick={() => handleSelectCertification(item)}
+                        onMouseEnter={() => setHoveredCert(item)}
+                        onMouseLeave={() => setHoveredCert(null)}
                         className="group flex w-full items-center justify-between text-left text-xs transition hover:text-primary"
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="w-10 text-left font-black tabular-nums text-foreground group-hover:text-primary">
-                            {item.value}
+                            {item.enrolled}
                           </span>
                           <span className="truncate font-semibold text-foreground/90 group-hover:text-primary">
                             {item.name}
@@ -1006,7 +1352,7 @@ export default function InstitutionDrilldownStatsCard({
               </div>
             </div>
 
-            {/* Scrollable Learner Roster expanded for taller layout */}
+            {/* Scrollable Learner Roster */}
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
               {level4Learners.length === 0 ? (
                 <p className="py-6 text-center text-xs text-muted-foreground">
