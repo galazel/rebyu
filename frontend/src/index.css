@@ -3,6 +3,7 @@
    DIN Next Rounded (body); these two are the shipping fallbacks that match
    their rounded-terminal geometry until the licensed files are self-hosted. */
 @import url("https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Nunito+Sans:opsz,wght@6..12,400..800&family=Patrick+Hand&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Antonio:wght@600;700&family=Bebas+Neue&family=Oswald:wght@500;600;700&family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap");
 @import "tailwindcss";
 @import "flowbite-react/plugin/tailwindcss";
 @source "../.flowbite-react/class-list.json";
@@ -1900,3 +1901,68 @@ body.rb-attempt-lock {
 .rb-docx th { font-weight: 700; background: var(--muted); }
 .rb-docx img { max-width: 100%; height: auto; }
 .rb-docx hr { margin: 1.5em 0; border: 0; border-top: 2px solid var(--border); }
+
+/* ==========================================================================
+   INSTITUTION PORTAL TYPOGRAPHY
+   Display: Champion Gothic Featherweight (Hoefler&Co) with Antonio / Bebas Neue / Oswald fallbacks
+   Body: Poppins Regular (Google Fonts)
+   ========================================================================== */
+@font-face {
+  font-family: "Champion Gothic Featherweight";
+  src: local("Champion Gothic Featherweight"),
+       local("ChampionGothic-Featherweight"),
+       local("Champion Gothic"),
+       local("Champion-Gothic"),
+       local("ChampionGothic");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+.institution-portal {
+  --font-institution-display: "Champion Gothic Featherweight", "Champion Gothic", "ChampionGothic-Featherweight", "Antonio", "Bebas Neue", "Oswald", sans-serif;
+  --font-institution-body: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  --font-rb-display: var(--font-institution-display);
+  --font-rb-body: var(--font-institution-body);
+  --font-display: var(--font-institution-display);
+  --font-body: var(--font-institution-body);
+  --font-heading: var(--font-institution-display);
+
+  font-family: var(--font-institution-body);
+}
+
+/* Headings, KPI metrics, titles, and display elements */
+.institution-portal h1,
+.institution-portal h2,
+.institution-portal h3,
+.institution-portal h4,
+.institution-portal h5,
+.institution-portal h6,
+.institution-portal .font-rb-display,
+.institution-portal .font-display,
+.institution-portal .font-heading,
+.institution-portal .rb-display {
+  font-family: var(--font-institution-display) !important;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+/* All body copy, controls, buttons, tables, badges, descriptions */
+.institution-portal,
+.institution-portal p,
+.institution-portal span:not(.font-rb-display):not(.font-display):not(.font-heading),
+.institution-portal button,
+.institution-portal a,
+.institution-portal input,
+.institution-portal select,
+.institution-portal textarea,
+.institution-portal label,
+.institution-portal table,
+.institution-portal th,
+.institution-portal td,
+.institution-portal tr,
+.institution-portal .font-rb-body,
+.institution-portal .font-body {
+  font-family: var(--font-institution-body);
+}

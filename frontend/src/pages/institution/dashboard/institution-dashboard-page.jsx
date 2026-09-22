@@ -58,6 +58,7 @@ import {
   useChartTheme,
 } from "@/components/charts/rebyu-charts.jsx"
 import InstitutionDrilldownStatsCard from "@/components/institution/institution-drilldown-stats-card.jsx"
+import { getDepartmentColor, getDepartmentAbbreviation } from "@/constants/departments.js"
 import { DateRangeNavigator } from "@/components/commons/date-range-navigator.jsx"
 
 const PROGRESS_BUCKETS = [
@@ -904,13 +905,19 @@ export default function InstitutionDashboardPage() {
                         .map((row) => (
                         <tr
                           key={row.id}
-                          className="border-b border-transparent hover:bg-muted/30 transition-colors"
+                          className="border-b border-border/40 hover:bg-muted/40 transition-colors duration-150"
                         >
-                          {/* Department name */}
+                          {/* Department name with open-ring badge */}
                           <td className="py-2.5 pl-2 pr-3">
                             <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="grid size-6 shrink-0 place-items-center rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
-                                <Building2 className="size-3.5" />
+                              <span
+                                className="grid size-6 shrink-0 place-items-center rounded-md border-2 bg-transparent text-[9.5px] font-black tabular-nums transition-transform hover:scale-105"
+                                style={{
+                                  borderColor: getDepartmentColor(row.name),
+                                  color: getDepartmentColor(row.name),
+                                }}
+                              >
+                                {getDepartmentAbbreviation(row.name)}
                               </span>
                               <span className="truncate font-bold text-foreground text-xs" title={row.name}>
                                 {row.name}

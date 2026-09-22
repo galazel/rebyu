@@ -26,23 +26,23 @@ import { getLearnerDisplayName } from "@/hooks/use-institution-data.js"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { getDepartmentAbbreviation } from "@/constants/departments.js"
 
-// Earth Tone Palette for Departments & Certifications (sophisticated, warm & grounded)
+// Warm & natural Earth Tone Palette
 const EARTH_TONE_PALETTE = [
-  "#2f6b4f", // Deep Forest / Moss Green
-  "#c8553d", // Warm Terracotta / Burnt Clay
-  "#c9962b", // Harvest Gold / Warm Ochre
-  "#8b5f7d", // Dusty Plum / Earth Heather
-  "#4a7c59", // Sage / Fern Green
-  "#b06d3b", // Warm Sienna / Caramel
-  "#5c6b73", // River Slate / Stone
-  "#bc4749", // Rust Red / Muted Crimson
+  "#2f6b4f", // Deep Forest Green
+  "#c8553d", // Rust Terracotta
+  "#c9962b", // Warm Ochre Amber
+  "#8b5f7d", // Muted Plum / Earth Violet
+  "#4a7c59", // Moss Green
+  "#b06d3b", // Warm Clay
+  "#5c6b73", // Slate Mineral Grey
+  "#bc4749", // Brick Red
   "#606c38", // Olive Earth
-  "#b08968", // Warm Sandstone / Taupe
+  "#b08968", // Sand Taupe
 ]
 
 const DEPARTMENT_PALETTE = EARTH_TONE_PALETTE
 const SLOTS_PALETTE = EARTH_TONE_PALETTE
-const REACH_COLOR = "#2f6b4f" // Forest Green base for reach arc
+const REACH_COLOR = "#2f6b4f" // Earth forest green base
 
 // Smooth directional slide & cross-fade variants for drill-down levels
 const levelVariants = {
@@ -1000,10 +1000,10 @@ export default function InstitutionDrilldownStatsCard({
   // Distribution buckets for Level 4
   const progressBuckets = useMemo(() => {
     const buckets = [
-      { label: "0–25%", min: 0, max: 25, color: "#c8553d", count: 0 },
-      { label: "26–50%", min: 26, max: 50, color: "#c9962b", count: 0 },
-      { label: "51–75%", min: 51, max: 75, color: "#3B82F6", count: 0 },
-      { label: "76–100%", min: 76, max: 100, color: "#2f6b4f", count: 0 },
+      { label: "0–25%", min: 0, max: 25, color: "#eb6b56", count: 0 },
+      { label: "26–50%", min: 26, max: 50, color: "#f5a623", count: 0 },
+      { label: "51–75%", min: 51, max: 75, color: "#3898c6", count: 0 },
+      { label: "76–100%", min: 76, max: 100, color: "#3caea3", count: 0 },
     ]
 
     level4Learners.forEach((l) => {
@@ -1565,7 +1565,7 @@ export default function InstitutionDrilldownStatsCard({
                         </Pie>
                       )}
 
-                      {/* Inner Pie: Total Slots Allotted to Departments */}
+                      {/* Inner Pie: Total Slots Allotted to Departments (No outline, no outer shadow) */}
                       <Pie
                         data={level1Data}
                         dataKey="value"
@@ -1574,10 +1574,11 @@ export default function InstitutionDrilldownStatsCard({
                         endAngle={-270}
                         cx="63%"
                         cy="50%"
-                        innerRadius="56%"
-                        outerRadius="82%"
-                        stroke={chartTheme.surface}
-                        strokeWidth={2}
+                        innerRadius="54%"
+                        outerRadius="80%"
+                        paddingAngle={3.5}
+                        stroke="none"
+                        strokeWidth={0}
                         className="cursor-pointer outline-none"
                         onClick={(entry) => handleSelectDepartment(entry)}
                         onMouseEnter={(entry) => handleDeptMouseEnter(entry)}
@@ -1605,7 +1606,7 @@ export default function InstitutionDrilldownStatsCard({
                     </PieChart>
                   </ResponsiveContainer>
 
-                  {/* Donut Center: Percentage & Slots filled / Metric */}
+                  {/* Donut Center: Inner Shadow Circular Plate Filling Inner Space */}
                   <div
                     className="pointer-events-none absolute flex flex-col items-center justify-center px-1 text-center"
                     style={{
@@ -1614,30 +1615,34 @@ export default function InstitutionDrilldownStatsCard({
                       transform: "translate(-50%, -50%)",
                     }}
                   >
-                    <span className="font-rb-display text-4xl font-black leading-none tabular-nums tracking-tight text-foreground sm:text-5xl">
-                      {hoveredStatMetric === "enrollees"
-                        ? `${overallLevel1ReachPct}%`
-                        : hoveredStatMetric === "certified"
-                        ? `${level1SummaryStats.certifiedPct}%`
-                        : hoveredStatMetric === "inProgress"
-                        ? `${level1SummaryStats.inProgressPct}%`
-                        : hoveredStatMetric === "score"
-                        ? level1SummaryStats.avgScore
-                        : `${activeLevel1ReachPct}%`}
-                    </span>
-                    <span className="mt-1.5 max-w-[120px] truncate text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground sm:text-[11px]">
-                      {hoveredStatMetric === "enrollees"
-                        ? "Avg Enrollees"
-                        : hoveredStatMetric === "certified"
-                        ? "Avg Certified"
-                        : hoveredStatMetric === "inProgress"
-                        ? "Avg In-Progress"
-                        : hoveredStatMetric === "score"
-                        ? "Avg Score"
-                        : hoveredDept
-                        ? (getDepartmentAbbreviation(hoveredDept.name) || hoveredDept.name)
-                        : "Slots filled"}
-                    </span>
+                    <div className="relative flex size-[154px] sm:size-[165px] flex-col items-center justify-center rounded-full bg-card shadow-[inset_0_4px_12px_rgba(0,0,0,0.14),inset_0_1px_3px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_4px_14px_rgba(0,0,0,0.6),inset_0_1px_4px_rgba(0,0,0,0.4)]">
+                      <div className="relative z-10 flex flex-col items-center justify-center px-1">
+                        <span className="font-rb-display text-3xl sm:text-4xl font-black leading-none tabular-nums tracking-tight text-foreground">
+                          {hoveredStatMetric === "enrollees"
+                            ? `${overallLevel1ReachPct}%`
+                            : hoveredStatMetric === "certified"
+                            ? `${level1SummaryStats.certifiedPct}%`
+                            : hoveredStatMetric === "inProgress"
+                            ? `${level1SummaryStats.inProgressPct}%`
+                            : hoveredStatMetric === "score"
+                            ? level1SummaryStats.avgScore
+                            : `${activeLevel1ReachPct}%`}
+                        </span>
+                        <span className="mt-1 max-w-[85px] sm:max-w-[95px] truncate text-[9px] sm:text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground">
+                          {hoveredStatMetric === "enrollees"
+                            ? "Avg Enrollees"
+                            : hoveredStatMetric === "certified"
+                            ? "Avg Certified"
+                            : hoveredStatMetric === "inProgress"
+                            ? "Avg In-Progress"
+                            : hoveredStatMetric === "score"
+                            ? "Avg Score"
+                            : hoveredDept
+                            ? (getDepartmentAbbreviation(hoveredDept.name) || hoveredDept.name)
+                            : "Slots filled"}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Fixed Details Card (Positioned to the left of the donut circle with zero overlap) */}
@@ -1709,9 +1714,10 @@ export default function InstitutionDrilldownStatsCard({
                           >
                             {item.enrolled}
                           </span>
+                          {/* Reference Infographic Open-Ring Marker */}
                           <span
-                            className="size-2 shrink-0 rounded-full ring-1 ring-background"
-                            style={{ backgroundColor: item.fill }}
+                            className="size-2.5 shrink-0 rounded-full border-2 bg-transparent transition-transform group-hover:scale-125"
+                            style={{ borderColor: item.fill }}
                           />
                           <span
                             className={`truncate transition-colors ${
@@ -1882,7 +1888,7 @@ export default function InstitutionDrilldownStatsCard({
                         </Pie>
                       )}
 
-                      {/* Inner Pie: Allotted Slots per Certification */}
+                      {/* Inner Pie: Allotted Slots per Certification (No outline, no outer shadow) */}
                       <Pie
                         data={level2Data}
                         dataKey="value"
@@ -1891,10 +1897,11 @@ export default function InstitutionDrilldownStatsCard({
                         endAngle={-270}
                         cx="63%"
                         cy="50%"
-                        innerRadius="56%"
-                        outerRadius="82%"
-                        stroke={chartTheme.surface}
-                        strokeWidth={2}
+                        innerRadius="54%"
+                        outerRadius="80%"
+                        paddingAngle={3.5}
+                        stroke="none"
+                        strokeWidth={0}
                         className="cursor-pointer outline-none"
                         onClick={(entry) => handleSelectCertification(entry)}
                         onMouseEnter={(entry) => handleCertMouseEnter(entry)}
@@ -1924,7 +1931,7 @@ export default function InstitutionDrilldownStatsCard({
                     </PieChart>
                   </ResponsiveContainer>
 
-                  {/* Donut Center: Percentage & Slots filled / Metric */}
+                  {/* Donut Center: Inner Shadow Circular Plate Filling Inner Space */}
                   <div
                     className="pointer-events-none absolute flex flex-col items-center justify-center px-1 text-center"
                     style={{
@@ -1933,30 +1940,34 @@ export default function InstitutionDrilldownStatsCard({
                       transform: "translate(-50%, -50%)",
                     }}
                   >
-                    <span className="font-rb-display text-4xl font-black leading-none tabular-nums tracking-tight text-foreground sm:text-5xl">
-                      {hoveredStatMetric === "enrollees"
-                        ? `${overallLevel2ReachPct}%`
-                        : hoveredStatMetric === "certified"
-                        ? `${level2SummaryStats.certifiedPct}%`
-                        : hoveredStatMetric === "inProgress"
-                        ? `${level2SummaryStats.inProgressPct}%`
-                        : hoveredStatMetric === "progress" || hoveredStatMetric === "score"
-                        ? level2SummaryStats.avgProgress
-                        : `${activeLevel2ReachPct}%`}
-                    </span>
-                    <span className="mt-1.5 max-w-[120px] truncate text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground sm:text-[11px]">
-                      {hoveredStatMetric === "enrollees"
-                        ? "Avg Enrollees"
-                        : hoveredStatMetric === "certified"
-                        ? "Avg Certified"
-                        : hoveredStatMetric === "inProgress"
-                        ? "Avg In-Progress"
-                        : hoveredStatMetric === "progress" || hoveredStatMetric === "score"
-                        ? "Avg Progress"
-                        : hoveredCert
-                        ? hoveredCert.name
-                        : "Slots filled"}
-                    </span>
+                    <div className="relative flex size-[154px] sm:size-[165px] flex-col items-center justify-center rounded-full bg-card shadow-[inset_0_4px_12px_rgba(0,0,0,0.14),inset_0_1px_3px_rgba(0,0,0,0.08)] dark:shadow-[inset_0_4px_14px_rgba(0,0,0,0.6),inset_0_1px_4px_rgba(0,0,0,0.4)]">
+                      <div className="relative z-10 flex flex-col items-center justify-center px-1">
+                        <span className="font-rb-display text-3xl sm:text-4xl font-black leading-none tabular-nums tracking-tight text-foreground">
+                          {hoveredStatMetric === "enrollees"
+                            ? `${overallLevel2ReachPct}%`
+                            : hoveredStatMetric === "certified"
+                            ? `${level2SummaryStats.certifiedPct}%`
+                            : hoveredStatMetric === "inProgress"
+                            ? `${level2SummaryStats.inProgressPct}%`
+                            : hoveredStatMetric === "progress" || hoveredStatMetric === "score"
+                            ? level2SummaryStats.avgProgress
+                            : `${activeLevel2ReachPct}%`}
+                        </span>
+                        <span className="mt-1 max-w-[85px] sm:max-w-[95px] truncate text-[9px] sm:text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground">
+                          {hoveredStatMetric === "enrollees"
+                            ? "Avg Enrollees"
+                            : hoveredStatMetric === "certified"
+                            ? "Avg Certified"
+                            : hoveredStatMetric === "inProgress"
+                            ? "Avg In-Progress"
+                            : hoveredStatMetric === "progress" || hoveredStatMetric === "score"
+                            ? "Avg Progress"
+                            : hoveredCert
+                            ? hoveredCert.name
+                            : "Slots filled"}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Fixed Details Card (Positioned to the left of the donut circle with zero overlap) */}
@@ -2031,9 +2042,10 @@ export default function InstitutionDrilldownStatsCard({
                           >
                             {item.enrolled}
                           </span>
+                          {/* Reference Infographic Open-Ring Marker */}
                           <span
-                            className="size-2 shrink-0 rounded-full ring-1 ring-background"
-                            style={{ backgroundColor: item.fill }}
+                            className="size-2.5 shrink-0 rounded-full border-2 bg-transparent transition-transform group-hover:scale-125"
+                            style={{ borderColor: item.fill }}
                           />
                           <span
                             className={`whitespace-nowrap truncate transition-colors ${
@@ -2253,25 +2265,25 @@ export default function InstitutionDrilldownStatsCard({
                       </span>
                     </div>
 
-                    <div className="flex h-3.5 w-full overflow-hidden rounded-full bg-muted/80 p-0.5 ring-1 ring-border/50">
+                    <div className="flex h-3.5 w-full overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-800 p-0.5 ring-1 ring-border/50">
                       {completedPct > 0 && (
                         <div
                           style={{ width: `${completedPct}%` }}
-                          className="h-full first:rounded-l-full last:rounded-r-full bg-[#2f6b4f] transition-all duration-500"
+                          className="h-full first:rounded-l-full last:rounded-r-full bg-[#3caea3] transition-all duration-500"
                           title={`Completed: ${completedCount} learner(s)`}
                         />
                       )}
                       {inProgressPct > 0 && (
                         <div
                           style={{ width: `${inProgressPct}%` }}
-                          className="h-full first:rounded-l-full last:rounded-r-full bg-[#c9962b] transition-all duration-500"
+                          className="h-full first:rounded-l-full last:rounded-r-full bg-[#f5a623] transition-all duration-500"
                           title={`In Progress: ${inProgressCount} learner(s)`}
                         />
                       )}
                       {notStartedPct > 0 && (
                         <div
                           style={{ width: `${notStartedPct}%` }}
-                          className="h-full first:rounded-l-full last:rounded-r-full bg-[#c8553d] transition-all duration-500"
+                          className="h-full first:rounded-l-full last:rounded-r-full bg-[#eb6b56] transition-all duration-500"
                           title={`Not Started: ${notStartedCount} learner(s)`}
                         />
                       )}
@@ -2288,17 +2300,17 @@ export default function InstitutionDrilldownStatsCard({
                   {/* Legend & Breakdown */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-border/50 text-[10px]">
                     <div className="flex items-center gap-1.5">
-                      <span className="size-2 shrink-0 rounded-full bg-[#2f6b4f]" />
+                      <span className="size-2 shrink-0 rounded-full bg-[#3caea3]" />
                       <span className="text-muted-foreground">Completed:</span>
                       <strong className="font-bold text-foreground tabular-nums">{completedCount}</strong>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="size-2 shrink-0 rounded-full bg-[#c9962b]" />
+                      <span className="size-2 shrink-0 rounded-full bg-[#f5a623]" />
                       <span className="text-muted-foreground">In Progress:</span>
                       <strong className="font-bold text-foreground tabular-nums">{inProgressCount}</strong>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="size-2 shrink-0 rounded-full bg-[#c8553d]" />
+                      <span className="size-2 shrink-0 rounded-full bg-[#eb6b56]" />
                       <span className="text-muted-foreground">Not Started:</span>
                       <strong className="font-bold text-foreground tabular-nums">{notStartedCount}</strong>
                     </div>

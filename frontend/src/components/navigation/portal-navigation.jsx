@@ -234,16 +234,35 @@ function Brand({ role, institutionName }) {
      the one thing on the bar that tells a member whose workspace they are in.
      The navigation moved to the right beside the account menu to make room. */
   if (isInstitution) {
+    const scopeLabel = role === "DEPARTMENT_HEAD" ? "DEPARTMENT" : "INSTITUTION"
     return (
-      <NavLink to={home} className="flex min-w-0 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`${label} home`}>
+      <NavLink
+        to={home}
+        className="flex min-w-0 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={`${institutionName || "Institution"} - REBYU home`}
+      >
         <BrandLogo className="size-8 shrink-0" />
-        <span className="min-w-0 leading-none">
-          <span className="block truncate font-heading text-[15px] font-bold tracking-tight sm:text-base" title={label}>
-            {label}
+        <span className="min-w-0 flex flex-col justify-center leading-none">
+          {/* Top Line: REBYU INSTITUTION */}
+          <span className="flex items-baseline gap-1 sm:gap-1.5 leading-none">
+            <span className="font-heading text-lg font-bold tracking-tight text-white sm:text-xl">
+              REBYU
+            </span>
+            <span className="font-heading text-xs font-semibold uppercase tracking-wider text-slate-300/80 sm:text-sm">
+              {scopeLabel}
+            </span>
           </span>
-          <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            REBYU · {role === "DEPARTMENT_HEAD" ? "Department workspace" : "Institution"}
-          </span>
+
+          {/* Bottom Line: Institution Name all caps */}
+          {institutionName ? (
+            <span
+              className="mt-[1px] block max-w-[200px] truncate text-[11px] font-medium uppercase tracking-wide leading-none text-[#f5a623] sm:max-w-xs sm:text-xs md:max-w-md"
+              style={{ fontFamily: "var(--font-institution-body, 'Poppins', sans-serif)" }}
+              title={institutionName}
+            >
+              {institutionName}
+            </span>
+          ) : null}
         </span>
       </NavLink>
     )

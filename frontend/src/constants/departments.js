@@ -226,3 +226,42 @@ export function getDepartmentAbbreviation(name) {
 
   return trimmed
 }
+
+export const departmentEarthColors = {
+  CME: "#2f6b4f", // Deep Forest Green
+  COE: "#5c6b73", // Slate Mineral Grey
+  CBA: "#c9962b", // Warm Ochre
+  CCS: "#4a7c59", // Moss Green
+  CCJ: "#8b5f7d", // Muted Plum
+  CoN: "#606c38", // Olive Earth
+  CHTM: "#b06d3b", // Warm Clay
+  CTE: "#c8553d", // Rust Terracotta
+  CCA: "#bc4749", // Brick Red
+}
+
+export const departmentInfographicColors = departmentEarthColors
+
+export const EARTH_TONE_FALLBACKS = [
+  "#2f6b4f",
+  "#c8553d",
+  "#c9962b",
+  "#8b5f7d",
+  "#4a7c59",
+  "#b06d3b",
+  "#5c6b73",
+  "#bc4749",
+  "#606c38",
+  "#b08968",
+]
+
+export const VIBRANT_INFOGRAPHIC_FALLBACKS = EARTH_TONE_FALLBACKS
+
+export function getDepartmentColor(name = "", fallbackIndex = 0) {
+  const abbr = getDepartmentAbbreviation(name)
+  if (abbr && departmentEarthColors[abbr]) {
+    return departmentEarthColors[abbr]
+  }
+  return EARTH_TONE_FALLBACKS[
+    Math.abs(fallbackIndex) % EARTH_TONE_FALLBACKS.length
+  ]
+}
