@@ -68,11 +68,11 @@ import java.util.stream.Collectors;
  * (IRT), the knowledge-state update (BKT), the item's own learning (online
  * difficulty), and the choice of what to ask next.
  *
- * <p>Main-round items are marked as they are answered. Final-round items
- * (programming, diagram, critical thinking) are saved as they are answered
- * and marked together at submit, where the graders run concurrently -- a
- * learner should not sit through a test-runner and a diagram comparison
- * between every problem, and nothing after the final round depends on them.
+ * <p>Every item is marked as it is answered, final-round items (programming,
+ * diagram, critical thinking) included: the learner waits on the grader and
+ * sees the verdict, and the ability estimate moves before the next problem
+ * is chosen, so the paper adapts to its last item. Submit only closes the
+ * session; the background marker remains for anything a grader left pending.
  */
 @Slf4j
 @Service
@@ -549,9 +549,15 @@ public class AdaptiveAttemptService {
             answer.setLastSavedAt(savedAt);
             answer = attemptAnswerRepository.save(answer);
 
-            if (!finalRound) {
-                verdicts.put(item.getAttemptQuestionId(), gradeNow(attempt, item, answer, state));
-            }
+            /* Final-round items are marked here too, the moment they are
+               answered -- the written, coded or drawn answer goes to its
+               grader, the learner sees the verdict, and the ability moves
+               before the next problem is chosen. They used to be saved and
+               marked together at submit, which kept the learner from waiting
+               on a grader between problems but also kept the paper from
+               adapting through its last stretch. The wait is the price of a
+               paper that adapts to the end, and the learner sees "Marking". */
+            verdicts.put(item.getAttemptQuestionId(), gradeNow(attempt, item, answer, state));
             state.setAnsweredCount(state.getAnsweredCount() + 1);
 
             /* What comes next is chosen now, from an ability that includes
