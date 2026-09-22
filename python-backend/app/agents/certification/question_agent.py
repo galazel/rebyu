@@ -512,6 +512,18 @@ because of how they are constructed. Reproduce that construction:
   the textbook answer that ignores a constraint the scenario stated. A
   learner who half-knows the material should be drawn to it.
 
+- STEM LENGTH. An AVERAGE or HARD stem is a short case, never a single
+  sentence: two to five sentences (roughly 40-120 words) that set the
+  scene, give the facts, and only then ask the question. Open on the
+  situation, close on the ask. "What is the primary purpose of an AUP?" is a
+  flashcard; a board item reads: "A regional bank has issued laptops to 300
+  remote staff. During an internal review, auditors find that several
+  employees have installed personal file-sharing tools and used the devices
+  for a side business, yet no policy was violated because none existed.
+  Management asks which document should be written FIRST to address this.
+  Which of the following is the MOST appropriate?" Only EASY items may be a
+  single sentence, and they are one in ten.
+
 - THE LOADED SCENARIO. Stems carry specifics that matter and at least one that
   does not. State facts the learner must weigh (a constraint, a symptom, a
   prior action already taken, a value to compare against a threshold) and a
@@ -527,6 +539,25 @@ because of how they are constructed. Reproduce that construction:
 - EXCEPT / NOT items are allowed, sparingly (at most one in ten), always with
   the negative capitalised, and only where the three true options are each
   worth knowing.
+
+- MAKE IT TRICKY, LEGITIMATELY. The learner's first instinct should be wrong
+  for a reason they can learn from. Techniques, use at least one per AVERAGE
+  or HARD item:
+    * the obvious answer is defeated by ONE detail in the stem (a prior step
+      already done, a constraint stated in passing, a value just past a
+      threshold) -- the learner who skims picks it;
+    * the case LOOKS like one topic and IS another (reads like a network
+      fault, is a certificate expiry; reads like a technical control, is a
+      policy gap);
+    * two options differ by a single decisive word (encrypt at rest vs. in
+      transit; detect vs. prevent; approve vs. review);
+    * the qualifier flips the answer -- the same options with FIRST instead
+      of MOST EFFECTIVE have a different key, and the stem makes clear which
+      is being asked;
+    * the textbook-correct answer is present but wrong HERE because the
+      scenario has ruled it out.
+  The key must still be defensible from the reference material by a careful
+  reader, and the explanation must name exactly which detail decided it.
 
 - THE PRACTITIONER TEST. Before finalising each AVERAGE or HARD item, ask: would
   a practitioner who passed this exam last year have to stop and think? If the
