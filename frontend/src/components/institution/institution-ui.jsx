@@ -249,3 +249,5 @@ export function formatMoney(value) {
     maximumFractionDigits: 2,
   })
 }
+
+export { InstitutionVerifiedBadge } from "./institution-verified-badge.jsx"

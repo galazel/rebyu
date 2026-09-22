@@ -2,7 +2,6 @@ import { Fragment, useMemo, useState } from "react"
 import { Link, useOutletContext } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
-  BadgeCheckIcon,
   BarChart3Icon,
   BookOpenCheckIcon,
   Building2,
@@ -36,6 +35,7 @@ import {
   InstitutionLoadingSkeleton,
   InstitutionPageHeader,
   InstitutionStatusBadge,
+  InstitutionVerifiedBadge,
   accessWindowStatus,
   formatDateTime,
 } from "@/components/institution/institution-ui.jsx"
@@ -51,6 +51,7 @@ import {
 import { getDepartments } from "@/services/institutionService.js"
 import {
   BarBreakdownChart,
+  BeadedRadialGauge,
   DonutChart,
   RadialGauge,
   readinessColor,
@@ -567,20 +568,34 @@ export default function InstitutionDashboardPage() {
         x: 3,
         y: 0,
         element: (
-          <BentoTile tone="plain" col={3} row={1}>
-            <div className="flex h-full flex-col justify-between">
-              <DashboardCardHeader
-                icon={TicketIcon}
-                kicker="Capacity & Licensing"
-                title="Learner Slots & Capacity"
-              />
+          <BentoTile
+            tone="plain"
+            col={3}
+            row={1}
+            className="relative overflow-hidden border border-teal-500/35 bg-cover bg-center shadow-xs text-white"
+            style={{ backgroundImage: "url('/images/cards/learner-capacity-card-bg.jpg')" }}
+          >
+            {/* Left-side scrim overlay for clear text contrast */}
+            <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent pointer-events-none" />
+
+            <div className="relative z-10 flex h-full flex-col justify-between">
+              <div className="flex items-start justify-between gap-2 border-b border-white/20 pb-2 mb-2">
+                <div className="min-w-0">
+                  <h3 className="text-[10px] font-bold uppercase leading-tight tracking-wider text-teal-200 drop-shadow-xs">
+                    Capacity & Licensing
+                  </h3>
+                  <p className="truncate text-xs font-extrabold leading-snug text-white sm:text-sm font-rb-display drop-shadow-xs">
+                    Learner Slots & Capacity
+                  </p>
+                </div>
+              </div>
 
               <div className="flex items-end justify-between gap-2 pt-1">
-                <div className="min-w-0">
-                  <div className="font-rb-display text-2xl font-black leading-none tracking-tight tabular-nums text-foreground sm:text-3xl">
+                <div className="min-w-0 max-w-[62%]">
+                  <div className="font-rb-display text-2xl font-black leading-none tracking-tight tabular-nums text-white sm:text-3xl drop-shadow-md">
                     {failed ? "—" : `${seatsUsed} / ${seatsTotal}`}
                   </div>
-                  <div className="mt-1 truncate text-[11px] font-semibold text-muted-foreground">
+                  <div className="mt-1.5 truncate text-[11px] font-semibold text-emerald-100 drop-shadow-xs">
                     {seatsTotal > 0
                       ? `${Math.round((seatsUsed / seatsTotal) * 100)}% capacity utilized`
                       : "No slots allocated"}
@@ -588,11 +603,15 @@ export default function InstitutionDashboardPage() {
                 </div>
 
                 {!failed && seatsTotal > 0 ? (
-                  <div className="size-[72px] shrink-0">
+                  <div className="size-[72px] shrink-0 rounded-full bg-slate-900/60 p-1 backdrop-blur-md border border-white/25 shadow-md ring-1 ring-white/10">
                     <RadialGauge
                       value={(seatsUsed / seatsTotal) * 100}
                       label="filled"
-                      height={72}
+                      height={64}
+                      color="#2dd4bf"
+                      trackColor="rgba(255, 255, 255, 0.22)"
+                      valueInk="#ffffff"
+                      labelColor="#e2e8f0"
                     />
                   </div>
                 ) : null}
@@ -618,32 +637,12 @@ export default function InstitutionDashboardPage() {
 
               {/* Main Content: Left Hero (Radial Gauge + Big %) & Right 2x2 Metric Grid */}
               <div className="my-auto grid grid-cols-1 items-center gap-4 sm:grid-cols-12 py-1">
-                {/* Left Column (5 cols): Radial Gauge & Big Stat Hero */}
-                <div className="flex items-center gap-3 sm:col-span-5">
-                  {!failed && summary.averageProgress != null ? (
-                    <div className="size-[84px] shrink-0">
-                      <RadialGauge
-                        value={Number(summary.averageProgress)}
-                        label="complete"
-                        height={84}
-                        color={readinessColor(chartTheme, Number(summary.averageProgress))}
-                        valueInk={readinessInk(chartTheme, Number(summary.averageProgress))}
-                      />
-                    </div>
-                  ) : null}
-
-                  <div className="min-w-0">
-                    <div className="font-rb-display text-2xl font-black leading-none tracking-tight tabular-nums text-foreground sm:text-3xl">
-                      {failed ? "—" : percent(summary.averageProgress, 1)}
-                    </div>
-                    <div className="mt-1 text-xs font-semibold text-muted-foreground">
-                      Overall completion
-                    </div>
-                    <div className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
-                      <TrendingUp className="size-3.5" />
-                      <span>{cohortStats.total} learners</span>
-                    </div>
-                  </div>
+                {/* Left Column (5 cols): Beaded Ring Gauge & Stat Hero (styled like reference) */}
+                <div className="sm:col-span-5 flex items-center justify-center pl-4 min-w-0">
+                  <BeadedRadialGauge
+                    value={failed ? 0 : Number(summary.averageProgress) || 0}
+                    label="Overall Completion"
+                  />
                 </div>
 
                 {/* Right Column (7 cols): 2x2 Grid of Key Learning Metrics */}
@@ -1153,14 +1152,7 @@ export default function InstitutionDashboardPage() {
         subtitle="How your members are progressing across their assigned certifications."
         actions={
           <div className="flex items-center gap-2">
-            {institution.isVerified ? (
-              <Badge variant="default" className="gap-1">
-                <BadgeCheckIcon className="size-3.5" aria-hidden="true" />
-                Verified
-              </Badge>
-            ) : (
-              <Badge variant="secondary">Verification pending</Badge>
-            )}
+            <InstitutionVerifiedBadge verified={institution.isVerified} />
           </div>
         }
       />

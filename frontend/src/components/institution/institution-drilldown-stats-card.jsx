@@ -91,6 +91,14 @@ function getInitials(name = "") {
   )
 }
 
+function getProgressTierColor(val) {
+  const p = Number(val) || 0
+  if (p <= 25) return "#eb6b56" // Coral Red for 0–25%
+  if (p <= 50) return "#f5a623" // Amber for 26–50%
+  if (p <= 75) return "#3898c6" // Blue for 51–75%
+  return "#3caea3" // Emerald/Teal for 76–100%
+}
+
 function DepartmentDetailsFixedCard({ item, onClick, onMouseEnter, onMouseLeave }) {
   if (!item) return null
 
@@ -2182,57 +2190,60 @@ export default function InstitutionDrilldownStatsCard({
                     exit="exit"
                     className="flex h-full flex-col justify-between space-y-3"
                   >
-                {/* Overview Stats Row (Analytical Telemetry - No duplicate click targets) */}
+                {/* Overview Stats Row (Analytical Telemetry with 3D Object Image Backgrounds) */}
                 <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
-                  {/* Total Seat Pool */}
-                  <div className="flex items-center gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/5 p-2.5">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                      <TicketIcon className="size-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  {/* Total Seat Pool (Auditorium seat object on right, warm amber gradient waves) */}
+                  <div
+                    className="relative overflow-hidden rounded-xl border border-amber-500/35 bg-cover bg-right p-2.5 sm:p-3 shadow-xs transition-transform hover:scale-[1.02]"
+                    style={{ backgroundImage: "url('/images/cards/seat-pool-card-bg.jpg')" }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent pointer-events-none" />
+                    <div className="relative z-10 flex h-full flex-col justify-between max-w-[62%] min-w-0 text-white">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-amber-200 drop-shadow-xs">
                         Total Seat Pool
                       </div>
-                      <div className="text-lg font-black tabular-nums text-foreground leading-none mt-0.5">
+                      <div className="text-xl sm:text-2xl font-black tabular-nums text-white leading-none my-0.5 drop-shadow-sm font-rb-display">
                         {total}
                       </div>
-                      <div className="text-[9px] text-muted-foreground truncate mt-0.5">
+                      <div className="text-[9px] font-medium text-white/90 truncate drop-shadow-xs">
                         Institutional quota
                       </div>
                     </div>
                   </div>
 
-                  {/* Department Enrolled */}
-                  <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-2.5">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
-                      <Users className="size-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                  {/* Department Enrolled (Student character on right, emerald green gradient waves) */}
+                  <div
+                    className="relative overflow-hidden rounded-xl border border-emerald-500/35 bg-cover bg-right p-2.5 sm:p-3 shadow-xs transition-transform hover:scale-[1.02]"
+                    style={{ backgroundImage: "url('/images/cards/dept-enrolled-card-bg.jpg')" }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent pointer-events-none" />
+                    <div className="relative z-10 flex h-full flex-col justify-between max-w-[62%] min-w-0 text-white">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-200 drop-shadow-xs">
                         Dept Enrolled
                       </div>
-                      <div className="text-lg font-black tabular-nums text-foreground leading-none mt-0.5">
+                      <div className="text-xl sm:text-2xl font-black tabular-nums text-white leading-none my-0.5 drop-shadow-sm font-rb-display">
                         {enrolled}
                       </div>
-                      <div className="text-[9px] text-muted-foreground truncate mt-0.5">
+                      <div className="text-[9px] font-medium text-white/90 truncate drop-shadow-xs">
                         {level3Data?.percentFilled ?? 0}% capacity claimed
                       </div>
                     </div>
                   </div>
 
-                  {/* Unclaimed Pool Remaining */}
-                  <div className="flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 p-2.5">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-500/15 text-slate-600 dark:text-slate-300">
-                      <Building2 className="size-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  {/* Unclaimed Pool Remaining (Vacant seat & golden pass on right, royal blue gradient waves) */}
+                  <div
+                    className="relative overflow-hidden rounded-xl border border-blue-500/35 bg-cover bg-right p-2.5 sm:p-3 shadow-xs transition-transform hover:scale-[1.02]"
+                    style={{ backgroundImage: "url('/images/cards/unclaimed-seats-card-bg.jpg')" }}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent pointer-events-none" />
+                    <div className="relative z-10 flex h-full flex-col justify-between max-w-[62%] min-w-0 text-white">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-blue-200 drop-shadow-xs">
                         Unclaimed Seats
                       </div>
-                      <div className="text-lg font-black tabular-nums text-foreground leading-none mt-0.5">
+                      <div className="text-xl sm:text-2xl font-black tabular-nums text-white leading-none my-0.5 drop-shadow-sm font-rb-display">
                         {unclaimedCount}
                       </div>
-                      <div className="text-[9px] text-muted-foreground truncate mt-0.5">
+                      <div className="text-[9px] font-medium text-white/90 truncate drop-shadow-xs">
                         {Math.max(100 - (level3Data?.percentFilled ?? 0), 0)}% available
                       </div>
                     </div>
@@ -2374,37 +2385,38 @@ export default function InstitutionDrilldownStatsCard({
                 </span>
               </div>
 
-              {/* Segmented Distribution Bar */}
-              <div className="mt-2 flex h-2.5 w-full overflow-hidden rounded-full bg-muted">
-                {progressBuckets.map((bucket) => {
-                  const pct =
-                    level4Learners.length > 0
-                      ? (bucket.count / level4Learners.length) * 100
-                      : 0
-                  if (pct === 0) return null
-                  return (
-                    <div
-                      key={bucket.label}
-                      style={{
-                        width: `${pct}%`,
-                        backgroundColor: bucket.color,
-                      }}
-                      className="h-full transition-all duration-300 first:rounded-l-full last:rounded-r-full"
-                      title={`${bucket.label}: ${bucket.count} learner(s)`}
-                    />
-                  )
-                })}
+              {/* Cohort Average Progress Bar */}
+              <div className="relative mt-2 h-2.5 w-full overflow-hidden rounded-full bg-muted/80 ring-1 ring-border/50">
+                <div
+                  style={{
+                    width: `${Math.min(Math.max(avgLearnerProgress, 0), 100)}%`,
+                    backgroundColor: getProgressTierColor(avgLearnerProgress),
+                  }}
+                  className="h-full rounded-full transition-all duration-500 shadow-xs"
+                />
+                {/* Milestone quadrant divider guides at 25%, 50%, 75% */}
+                <div className="absolute inset-y-0 left-1/4 w-[1px] bg-background/70 pointer-events-none" />
+                <div className="absolute inset-y-0 left-2/4 w-[1px] bg-background/70 pointer-events-none" />
+                <div className="absolute inset-y-0 left-3/4 w-[1px] bg-background/70 pointer-events-none" />
               </div>
 
               {/* Distribution Legend */}
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[10px] text-muted-foreground">
+              <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1.5 text-[10px] text-muted-foreground">
                 {progressBuckets.map((b) => (
-                  <span key={b.label} className="flex items-center gap-1 font-medium">
+                  <span
+                    key={b.label}
+                    className={`flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-medium transition ${
+                      b.count > 0
+                        ? "bg-card border border-border/80 text-foreground font-semibold shadow-2xs"
+                        : "opacity-60"
+                    }`}
+                  >
                     <span
-                      className="size-2 rounded-full"
+                      className="size-2 shrink-0 rounded-full"
                       style={{ backgroundColor: b.color }}
                     />
-                    {b.label}: <strong className="text-foreground">{b.count}</strong>
+                    <span>{b.label}:</span>
+                    <strong className="font-bold tabular-nums text-foreground">{b.count}</strong>
                   </span>
                 ))}
               </div>
@@ -2440,8 +2452,14 @@ export default function InstitutionDrilldownStatsCard({
                       </div>
 
                       <div className="ml-3 flex shrink-0 items-center gap-2">
-                        <div className="w-20">
-                          <Progress value={learner.progress} className="h-1.5" />
+                        <div className="relative h-1.5 w-20 overflow-hidden rounded-full bg-muted/80 ring-1 ring-border/40">
+                          <div
+                            className="h-full rounded-full transition-all duration-300"
+                            style={{
+                              width: `${Math.min(Math.max(learner.progress, 0), 100)}%`,
+                              backgroundColor: getProgressTierColor(learner.progress),
+                            }}
+                          />
                         </div>
                         <span className="w-8 text-right text-xs font-bold tabular-nums text-foreground">
                           {learner.progress}%
@@ -2452,18 +2470,6 @@ export default function InstitutionDrilldownStatsCard({
                 </div>
               )}
             </div>
-
-            {/* Bottom Navigation Back to Level 3 */}
-            <div className="flex items-center justify-between pt-1.5 border-t border-border/40 text-[11px] text-muted-foreground">
-              <span>Cohort enrollment roster</span>
-              <button
-                type="button"
-                onClick={handleGoBack}
-                className="text-primary hover:underline font-semibold cursor-pointer"
-              >
-                ← Back to Capacity & Allocation
-              </button>
-            </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -2471,32 +2477,31 @@ export default function InstitutionDrilldownStatsCard({
       </div>
 
       {/* ----------------- Remarks Box (Executive Diagnostic Intelligence) ----------------- */}
-      <div className="mt-1.5 rounded-lg border border-amber-500/35 bg-amber-500/[0.08] px-3 py-1.5 text-[11px] shadow-xs dark:border-amber-500/30 dark:bg-amber-950/30">
-        <div className="flex items-start gap-2">
-          <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-md bg-amber-500/20 text-amber-800 dark:bg-amber-400/25 dark:text-amber-300">
-            <Sparkles className="size-2.5" />
-          </span>
-          <div className="min-w-0 flex-1 leading-snug">
-            <div className="flex flex-wrap items-center gap-1.5 pb-0.5">
-              <span className="font-bold uppercase tracking-wider text-[9px] text-amber-800 dark:text-amber-300">
-                Diagnostic Analysis
-              </span>
-              <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[8.5px] font-bold text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/50 dark:text-amber-200">
-                {remarksData.tag}
-              </span>
-            </div>
-            <p className="text-foreground/90 text-[11px] leading-snug">
-              {remarksData.diagnosis}
-            </p>
-            {remarksData.recommendation && (
-              <p className="mt-0.5 text-[10px] text-amber-900/90 dark:text-amber-200/90 leading-snug">
-                <strong className="font-bold text-amber-950 dark:text-amber-100">Recommendation: </strong>
-                {remarksData.recommendation}
+      {currentLevel !== 4 && (
+        <div className="mt-1.5 rounded-lg border border-amber-500/35 bg-amber-500/[0.08] px-3 py-1.5 text-[11px] shadow-xs dark:border-amber-500/30 dark:bg-amber-950/30">
+          <div className="flex items-start gap-2">
+            <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-md bg-amber-500/20 text-amber-800 dark:bg-amber-400/25 dark:text-amber-300">
+              <Sparkles className="size-2.5" />
+            </span>
+            <div className="min-w-0 flex-1 leading-snug">
+              <div className="flex items-center gap-1.5 pb-0.5">
+                <span className="font-bold uppercase tracking-wider text-[9px] text-amber-800 dark:text-amber-300">
+                  Diagnostic Analysis
+                </span>
+              </div>
+              <p className="text-foreground/90 text-[11px] leading-snug">
+                {remarksData.diagnosis}
               </p>
-            )}
+              {remarksData.recommendation && (
+                <p className="mt-0.5 text-[10px] text-amber-900/90 dark:text-amber-200/90 leading-snug">
+                  <strong className="font-bold text-amber-950 dark:text-amber-100">Recommendation: </strong>
+                  {remarksData.recommendation}
+                </p>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Area,
   AreaChart,
@@ -797,6 +797,8 @@ export function RadialGauge({
   max = 100,
   color,
   valueInk,
+  trackColor,
+  labelColor,
 }) {
   const theme = useChartTheme()
   const bounded = Math.max(0, Math.min(max, Number(value) || 0))
@@ -816,7 +818,7 @@ export function RadialGauge({
           >
             <PolarAngleAxis type="number" domain={[0, max]} angleAxisId={0} tick={false} />
             <RadialBar
-              background={{ fill: theme.track }}
+              background={{ fill: trackColor ?? theme.track }}
               dataKey="value"
               cornerRadius={8}
               fill={color ?? seriesColor(theme, 0)}
@@ -847,6 +849,7 @@ export function RadialGauge({
                     ? "mt-1 text-[10px] leading-none tracking-tight"
                     : "mt-0.5 text-[0.6875rem]"
               }`}
+              style={labelColor ? { color: labelColor } : undefined}
             >
               {label}
             </div>
@@ -877,6 +880,135 @@ export function Sparkline({ data, dataKey = "value", height = 44 }) {
           />
         </LineChart>
       </ResponsiveContainer>
+    </div>
+  )
+}
+
+/**
+ * BeadedRadialGauge - 10-dot C-shaped arc gauge.
+ * Layout: left-side C-arc with the % number INSIDE the arc opening,
+ * and label/sublabel sitting below the number outside the arc.
+ * Matches the reference image exactly.
+ */
+export function BeadedRadialGauge({
+  value = 0,
+  max = 100,
+  color,
+  label,
+  sublabel,
+  valueInk,
+  className = "",
+}) {
+  const bounded = Math.max(0, Math.min(max, Number(value) || 0))
+  const pct = max > 0 ? (bounded / max) * 100 : 0
+
+  // Tier color based on percentage ranges
+  const activeColor =
+    color ||
+    (pct >= 75
+      ? "#009688"   // Teal   — 76-100%
+      : pct >= 50
+      ? "#3b82f6"   // Blue   — 51-75%
+      : pct >= 25
+      ? "#f59e0b"   // Amber  — 26-50%
+      : "#eb6b56")  // Coral  —  0-25%
+
+  // ── Arc geometry ──────────────────────────────────────────────────────────
+  // The C-arc is a left-facing semicircle (opens to the right).
+  // i=0  → 270° → BOTTOM (x=CX, y=CY+R)  ← fills first at low %
+  // i=9  → 90°  → TOP    (x=CX, y=CY-R)  ← fills last
+  // i=5  → 180° → LEFTMOST (x=CX-R, y=CY)
+  const COUNT = 10
+  const CX = 72         // arc centre-x; top & bottom dots sit at x=CX
+  const CY = 80         // arc centre-y; arc spans CY±R vertically
+  const R = 64          // radius — bigger arc
+  const DOT_R = 9       // dot circle radius
+  const STROKE_W = 3.5  // dot stroke width
+
+  // SVG is trimmed to exactly CX pixels wide.
+  // The top & bottom dots (x=CX) render AT the right edge of the SVG.
+  // Because overflow:visible is set, the right-half of those edge dots
+  // renders outside the SVG box — creating the visual "inside the arc" look
+  // when the text block begins right at x=CX.
+  const SVG_W = CX      // 62px — trimmed at the arc's open mouth
+  const SVG_H = CY * 2  // 140px — full arc height
+
+  const dots = useMemo(() => {
+    const list = []
+    const activeCount = pct > 0 ? Math.max(1, Math.round((pct / 100) * COUNT)) : 0
+
+    for (let i = 0; i < COUNT; i++) {
+      const t = COUNT > 1 ? i / (COUNT - 1) : 0
+      const angleDeg = 270 - t * 180   // 270° → 90° (CCW through left)
+      const angleRad = (angleDeg * Math.PI) / 180
+      const x = CX + R * Math.cos(angleRad)
+      const y = CY - R * Math.sin(angleRad)
+      // i=0 is BOTTOM → fills first for low percentages
+      const isFilled = i < activeCount
+
+      list.push({
+        id: i,
+        x: Number(x.toFixed(2)),
+        y: Number(y.toFixed(2)),
+        isFilled,
+      })
+    }
+    return list
+  }, [pct])
+
+  return (
+    <div
+      className={`inline-flex items-center min-w-0 ${className}`}
+      style={{ height: `${SVG_H}px` }}
+    >
+      {/* ── Left: C-shaped arc (SVG trimmed to the arc mouth at x=CX) ── */}
+      <svg
+        viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+        style={{ height: `${SVG_H}px`, width: `${SVG_W}px`, flexShrink: 0 }}
+        className="overflow-visible"
+        aria-hidden="true"
+      >
+        <defs>
+          <filter id="bead-shadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" floodOpacity="0.2" />
+          </filter>
+        </defs>
+        {dots.map((d) => (
+          <circle
+            key={d.id}
+            cx={d.x}
+            cy={d.y}
+            r={DOT_R}
+            fill="var(--background)"
+            stroke={d.isFilled ? activeColor : "#c8d4e3"}
+            strokeWidth={STROKE_W}
+            filter={d.isFilled ? "url(#bead-shadow)" : undefined}
+            className="transition-colors duration-300"
+          />
+        ))}
+      </svg>
+
+      {/* ── Centre: large % number inside the arc, label below ── */}
+      <div
+        className="flex flex-col justify-end min-w-0"
+        style={{ marginLeft: '-18px' }}
+      >
+        <div
+          className="font-rb-display text-7xl font-black leading-none tracking-tight tabular-nums shrink-0"
+          style={{ color: valueInk || activeColor }}
+        >
+          {Math.round(bounded)}%
+        </div>
+
+        {/* ── Label sits below the % number ── */}
+        {label && (
+          <div
+            className="mt-1 text-xs font-bold leading-tight text-slate-600 dark:text-slate-300"
+          >
+            {label}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

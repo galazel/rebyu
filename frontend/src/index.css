@@ -1966,3 +1966,12 @@ body.rb-attempt-lock {
 .institution-portal .font-body {
   font-family: var(--font-institution-body);
 }
+
+@keyframes badge-sheen {
+  0% {
+    transform: translateX(-100%);
+  }
+  30%, 100% {
+    transform: translateX(220%);
+  }
+}

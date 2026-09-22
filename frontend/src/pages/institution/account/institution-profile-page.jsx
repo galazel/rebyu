@@ -21,6 +21,7 @@ import {
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
   InstitutionPageHeader,
+  InstitutionVerifiedBadge,
   formatDate,
 } from "@/components/institution/institution-ui.jsx"
 import { updateInstitution } from "@/services/institutionService.js"
@@ -117,11 +118,7 @@ export default function InstitutionProfilePage() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Verification</span>
-              {institution.isVerified ? (
-                <Badge>Verified</Badge>
-              ) : (
-                <Badge variant="secondary">Pending</Badge>
-              )}
+              <InstitutionVerifiedBadge verified={institution.isVerified} />
             </div>
           </CardContent>
         </Card>
