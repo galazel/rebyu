@@ -800,6 +800,8 @@ export function RadialGauge({
 }) {
   const theme = useChartTheme()
   const bounded = Math.max(0, Math.min(max, Number(value) || 0))
+  const isCompact = height <= 110
+  const isMini = height <= 76
 
   return (
     <figure className="w-full min-w-0">
@@ -807,7 +809,7 @@ export function RadialGauge({
         <ResponsiveContainer width="100%" height="100%">
           <RadialBarChart
             data={[{ name: label, value: bounded }]}
-            innerRadius="70%"
+            innerRadius={isMini ? "66%" : isCompact ? "68%" : "70%"}
             outerRadius="100%"
             startAngle={90}
             endAngle={-270}
@@ -824,14 +826,28 @@ export function RadialGauge({
 
         <div className="pointer-events-none absolute inset-0 grid place-content-center text-center">
           <div
-            className="font-rb-display text-3xl font-extrabold tabular-nums text-foreground"
+            className={`font-rb-display tabular-nums text-foreground ${
+              isMini
+                ? "text-base font-extrabold leading-none"
+                : isCompact
+                  ? "text-xl font-extrabold leading-none"
+                  : "text-3xl font-extrabold"
+            }`}
             style={valueInk ? { color: valueInk } : undefined}
           >
             {Math.round(bounded)}
             {unit}
           </div>
           {label ? (
-            <div className="mt-0.5 text-[0.6875rem] font-semibold text-muted-foreground">
+            <div
+              className={`font-semibold text-muted-foreground ${
+                isMini
+                  ? "mt-0.5 text-[9px] leading-none tracking-tight"
+                  : isCompact
+                    ? "mt-1 text-[10px] leading-none tracking-tight"
+                    : "mt-0.5 text-[0.6875rem]"
+              }`}
+            >
               {label}
             </div>
           ) : null}

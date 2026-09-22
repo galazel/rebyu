@@ -45,16 +45,17 @@ export function DashboardRearrangeControls({
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            variant={rearranging ? "default" : "outline"}
-            size="icon"
+            variant={rearranging ? "default" : "ghost"}
+            size="icon-xs"
+            className={`size-7 transition ${rearranging ? "" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
             aria-pressed={rearranging}
             aria-label={rearranging ? "Keep this arrangement" : "Rearrange tiles"}
             onClick={rearranging ? onFinish : onStart}
           >
             {rearranging ? (
-              <Check className="size-4" aria-hidden="true" />
+              <Check className="size-3.5" aria-hidden="true" />
             ) : (
-              <GripHorizontal className="size-4" aria-hidden="true" />
+              <GripHorizontal className="size-3.5" aria-hidden="true" />
             )}
           </Button>
         </TooltipTrigger>
