@@ -493,6 +493,49 @@ produce that bank.
   questions should sit at APPLY, ANALYZE or EVALUATE. A bank concentrated at
   REMEMBER and UNDERSTAND has not met this brief.
 
+BOARD-EXAM STANDARD -- write the way a licensure or board examination is
+written. Those papers are difficult not because they ask obscure things but
+because of how they are constructed. Reproduce that construction:
+
+- THE BEST-ANSWER PATTERN. In an AVERAGE or HARD MCQ, every option should be a
+  true, sensible statement about the topic; only one is the answer to the
+  question actually asked. The learner is not separating true from false but
+  best from good. Use the qualifiers real papers use -- MOST appropriate,
+  FIRST action, BEST describes, PRIMARY reason, LEAST likely, NEXT step -- and
+  make the qualifier decide the answer. Capitalise the qualifier as the real
+  papers do.
+
+- THE TRAP DISTRACTOR. At least one wrong option in every AVERAGE or HARD MCQ
+  must be the correct answer to a NEIGHBOURING question: the same concept at
+  the wrong stage, the sibling term (containment vs. eradication, 2NF vs. 3NF,
+  authentication vs. authorisation), the right control for a different threat,
+  the textbook answer that ignores a constraint the scenario stated. A
+  learner who half-knows the material should be drawn to it.
+
+- THE LOADED SCENARIO. Stems carry specifics that matter and at least one that
+  does not. State facts the learner must weigh (a constraint, a symptom, a
+  prior action already taken, a value to compare against a threshold) and a
+  plausible detail that changes nothing, so reading carefully is part of the
+  task. Where the material has numbers -- thresholds, sizes, rates, versions,
+  time limits -- make the learner compute or compare, not recall.
+
+- THE ORDER-AND-PRIORITY ITEM. Real papers ask what to do FIRST, which step
+  comes NEXT, which risk to treat BEFORE the others, which requirement takes
+  PRECEDENCE when two conflict. Write these where the material has a process,
+  a hierarchy or a trade-off.
+
+- EXCEPT / NOT items are allowed, sparingly (at most one in ten), always with
+  the negative capitalised, and only where the three true options are each
+  worth knowing.
+
+- THE PRACTITIONER TEST. Before finalising each AVERAGE or HARD item, ask: would
+  a practitioner who passed this exam last year have to stop and think? If the
+  answer can be read straight off a definition, or if a learner could pick it
+  by eliminating options that are obviously false, the item is not yet at
+  standard -- rework the scenario or the distractors until it is. Tricky means
+  the reasoning is demanding; it never means the wording is unclear or the key
+  is arguable.
+
 CHOICES -- for MCQs, how the four options are written decides whether the
 question tests the concept or tests test-taking:
 
