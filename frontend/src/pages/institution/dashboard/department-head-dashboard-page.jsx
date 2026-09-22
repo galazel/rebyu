@@ -15,7 +15,7 @@ import { getDepartments } from "@/services/institutionService.js"
 export default function DepartmentHeadDashboardPage() {
   const departmentsQuery = useQuery({
     queryKey: ["my-institution-groups"],
-    queryFn: getDepartments,
+    queryFn: () => getDepartments(),
     retry: 1,
   })
 
@@ -23,7 +23,16 @@ export default function DepartmentHeadDashboardPage() {
   if (departmentsQuery.isError)
     return <InstitutionErrorState title="Unable to load your departments" onRetry={departmentsQuery.refetch} />
 
-  const groups = (departmentsQuery.data ?? []).filter((group) => group.status === "active")
+  const raw = departmentsQuery.data
+  const list = Array.isArray(raw)
+    ? raw
+    : Array.isArray(raw?.departments)
+      ? raw.departments
+      : Array.isArray(raw?.content)
+        ? raw.content
+        : []
+
+  const groups = list.filter((group) => (group?.status ?? "active").toLowerCase() === "active")
 
   return (
     <div className="space-y-6">
@@ -57,27 +66,31 @@ export default function DepartmentHeadDashboardPage() {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {/* Same bubble card as the challenge arenas — a group is an entity you
                 pick from a shelf, which is exactly what that card is for. */}
-            {groups.map((group, index) => (
-              <BubbleCard
-                key={group.departmentId}
-                tone={toneForIndex(index)}
-                icon={UsersRoundIcon}
-                eyebrow="Learning group"
-                title={group.departmentName}
-                footer={
-                  <Button asChild className="w-full">
-                    <Link to={`/institution/departments/${department.departmentId}`}>
-                      <BookOpenIcon className="size-4" />
-                      Open workspace
-                    </Link>
-                  </Button>
-                }
-              >
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {group.departmentDescription || "Assigned learning group"}
-                </p>
-              </BubbleCard>
-            ))}
+            {groups.map((group, index) => {
+              const deptId = group.departmentId ?? group.id
+              const deptName = group.departmentName || group.name || "Learning group"
+              return (
+                <BubbleCard
+                  key={deptId ?? index}
+                  tone={toneForIndex(index)}
+                  icon={UsersRoundIcon}
+                  eyebrow="Learning group"
+                  title={deptName}
+                  footer={
+                    <Button asChild className="w-full">
+                      <Link to={`/institution/departments/${deptId}`}>
+                        <BookOpenIcon className="size-4" />
+                        Open workspace
+                      </Link>
+                    </Button>
+                  }
+                >
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    {group.departmentDescription || group.description || "Assigned learning group"}
+                  </p>
+                </BubbleCard>
+              )
+            })}
           </div>
         )}
       </section>
