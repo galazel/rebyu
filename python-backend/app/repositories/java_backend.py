@@ -545,3 +545,144 @@ def update_lesson_content(session: Session, lesson_id: int, blocks: Any) -> None
         .where(lessons.c.lesson_id == lesson_id)
         .values(lesson_component_structure=blocks)
     )
+
+
+def list_certification_questions_for_audit(
+    session: Session, certification_id: int
+) -> list[dict[str, Any]]:
+    """Every stored top-level question of the certification with what the
+    duplicate audit needs: its lesson, its type and its correct answer.
+
+    The answer is a choice's text for MCQ, the model answer for a typed item,
+    and absent for open (rubric, coded, drawn) items -- for those the stem
+    alone has to carry the comparison.
+    """
+    rows = session.execute(
+        select(
+            questions.c.question_id,
+            questions.c.question_text,
+            questions.c.question_type,
+            questions.c.lesson_id,
+            lessons.c.name.label("lesson_name"),
+        )
+        .select_from(
+            questions.join(lessons, lessons.c.lesson_id == questions.c.lesson_id)
+            .join(
+                middle_categories,
+                middle_categories.c.middle_category_id == lessons.c.middle_category_id,
+            )
+            .join(
+                major_categories,
+                major_categories.c.major_category_id == middle_categories.c.major_category_id,
+            )
+        )
+        .where(major_categories.c.certification_id == certification_id)
+        .where(questions.c.parent_question_id.is_(None))
+    ).all()
+    if not rows:
+        return []
+    ids = [row.question_id for row in rows]
+    answers: dict[int, str] = {}
+    for qid, choice_text in session.execute(
+        select(choices.c.question_id, choices.c.choice_text)
+        .where(choices.c.question_id.in_(ids))
+        .where(choices.c.is_correct.is_(True))
+    ).all():
+        answers.setdefault(qid, choice_text or "")
+    for qid, answer in session.execute(
+        select(text_question_configs.c.question_id, text_question_configs.c.correct_answer)
+        .where(text_question_configs.c.question_id.in_(ids))
+    ).all():
+        answers.setdefault(qid, answer or "")
+    return [
+        {
+            "question_id": row.question_id,
+            "question_text": row.question_text or "",
+            "question_type": row.question_type,
+            "lesson_id": row.lesson_id,
+            "lesson_name": row.lesson_name or "",
+            "answer": answers.get(row.question_id),
+        }
+        for row in rows
+    ]
+
+
+def delete_question_if_unused(session: Session, question_id: int) -> bool:
+    """Removes a stored question the audit found to be a duplicate, with its
+    choices, configs and exam links -- unless a learner has met it.
+
+    A question that appears on any attempt is evidence: results pages,
+    mastery and the adaptive engine's no-repeat tiers all refer to it by id,
+    so it is left in place and reported instead. Everything runs inside a
+    savepoint so a constraint this module does not know about (a table added
+    on the Java side) rolls back this one question and not the run's whole
+    persist.
+    """
+    referenced = session.execute(
+        text(
+            "SELECT 1 FROM assessment_attempt_questions "
+            "WHERE source_question_id = :id LIMIT 1"
+        ),
+        {"id": question_id},
+    ).first()
+    if referenced:
+        return False
+    try:
+        with session.begin_nested():
+            session.execute(
+                text("DELETE FROM exam_questions WHERE question_id = :id"), {"id": question_id}
+            )
+            session.execute(
+                text("DELETE FROM choices WHERE question_id = :id"), {"id": question_id}
+            )
+            session.execute(
+                text("DELETE FROM text_question_configs WHERE question_id = :id"),
+                {"id": question_id},
+            )
+            session.execute(
+                text(
+                    "DELETE FROM programming_test_cases WHERE programming_question_config_id IN "
+                    "(SELECT programming_question_config_id FROM programming_question_configs "
+                    "WHERE question_id = :id)"
+                ),
+                {"id": question_id},
+            )
+            session.execute(
+                text("DELETE FROM programming_question_configs WHERE question_id = :id"),
+                {"id": question_id},
+            )
+            session.execute(
+                text("DELETE FROM diagram_question_configs WHERE question_id = :id"),
+                {"id": question_id},
+            )
+            session.execute(
+                text("DELETE FROM question_rubric_criteria WHERE question_id = :id"),
+                {"id": question_id},
+            )
+            # The parts of a critical-thinking item, then the item.
+            for child in session.execute(
+                select(questions.c.question_id).where(questions.c.parent_question_id == question_id)
+            ).scalars():
+                session.execute(
+                    text("DELETE FROM choices WHERE question_id = :id"), {"id": child}
+                )
+                session.execute(
+                    text("DELETE FROM text_question_configs WHERE question_id = :id"),
+                    {"id": child},
+                )
+                session.execute(
+                    text("DELETE FROM question_rubric_criteria WHERE question_id = :id"),
+                    {"id": child},
+                )
+                session.execute(
+                    text("DELETE FROM questions WHERE question_id = :id"), {"id": child}
+                )
+            session.execute(
+                text("DELETE FROM questions WHERE question_id = :id"), {"id": question_id}
+            )
+        return True
+    except Exception:
+        logger.warning(
+            "Could not delete duplicate question %s; leaving it stored", question_id, exc_info=True
+        )
+        return False

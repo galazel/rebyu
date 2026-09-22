@@ -232,6 +232,7 @@ const STAGE_FAMILIES = {
   generate_mock_exam: "mock_exam",
   MOCK_EXAM: "mock_exam",
   generate_question_bank: "question_bank",
+  audit_questions: "question_bank",
   QUESTION_BANK: "question_bank",
   resolve_scope: "scope",
   generate_batch: "question_batch",

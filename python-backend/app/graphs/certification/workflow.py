@@ -34,6 +34,7 @@ from .nodes import (
     await_question_bank_review_node,
 )
 from app.graphs.instrumentation import instrument
+from .question_audit import audit_questions_node
 from .review_loop import register_phase
 from .state import CertificationState
 
@@ -67,7 +68,7 @@ def build_certification_graph(checkpointer):
                 FOR EACH lesson under it: content -> quiz -> validate -> [review]
                 middle quiz (from those lessons) -> validate -> [review]
             major quiz (from every lesson under it) -> validate -> [review]
-        mock -> [review] -> diagnostic -> [review] -> bank -> [review] -> END
+        mock -> [review] -> diagnostic -> [review] -> bank -> audit -> [review] -> END
 
     Bottom-up and interleaved, because every assessment is generated *from the
     content it tests*. The previous shape ran three flat passes -- all majors,
@@ -191,6 +192,7 @@ def build_certification_graph(checkpointer):
     workflow.add_node("generate_mock_exam", instrument(generate_mock_exam_node, "generate_mock_exam"))
     workflow.add_node("await_mock_exam_review", await_mock_exam_review_node)
     workflow.add_node("generate_question_bank", instrument(generate_question_bank_node, "generate_question_bank"))
+    workflow.add_node("audit_questions", instrument(audit_questions_node, "audit_questions"))
     workflow.add_node("await_question_bank_review", await_question_bank_review_node)
 
     # Mock before diagnostic: the mock exam is the one that has to imitate the
@@ -209,7 +211,12 @@ def build_certification_graph(checkpointer):
         route_after_review,
         {"approve": "generate_question_bank", "regenerate": "generate_diagnostic_exam"},
     )
-    workflow.add_edge("generate_question_bank", "await_question_bank_review")
+    # The bank is the last thing written, so once it exists every question of
+    # the run exists: the duplicate audit runs here, over all of them, and the
+    # reviewer sees the bank as it will be stored. A regenerated bank is
+    # audited again.
+    workflow.add_edge("generate_question_bank", "audit_questions")
+    workflow.add_edge("audit_questions", "await_question_bank_review")
     workflow.add_conditional_edges(
         "await_question_bank_review",
         route_after_review,

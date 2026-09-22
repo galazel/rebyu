@@ -110,3 +110,30 @@ Generated Lessons:
 Determine whether every generated lesson follows the curriculum,
 its learning objective, and its key topics.
 """.strip()
+
+
+def build_question_audit_prompt(certification_name: str, lesson_name: str, items: list[dict]) -> str:
+    """One lesson's questions, labelled, for the duplicate audit. `items` are
+    `{label, type, question, answer}`; the answer is shown because two stems
+    worded apart can still be the same question, and the answer is what gives
+    that away."""
+    lines = []
+    for item in items:
+        answer = item.get("answer") or "(open answer)"
+        lines.append(
+            f"[{item['label']}] ({item.get('type') or 'QUESTION'}) {item['question']}\n"
+            f"    answer: {answer}"
+        )
+    listed = "\n".join(lines)
+    return f"""
+Find the duplicate questions among these.
+
+Certification: {certification_name}
+Lesson: {lesson_name}
+
+Questions ({len(items)}):
+{listed}
+
+Group every set of questions that test the same thing; name the one to keep in
+each group and the labels of its duplicates. Use only the labels shown.
+""".strip()

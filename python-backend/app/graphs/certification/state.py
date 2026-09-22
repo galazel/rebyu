@@ -169,6 +169,9 @@ class CertificationState(TypedDict, total=False):
     review_restored_from: Optional[int]
 
     audit_result: Optional[Dict]
+    # What the duplicate audit did after the bank was written: groups found,
+    # items dropped and replaced, stored rows deleted. See question_audit.py.
+    question_audit: Optional[Dict]
     # Deterministic quality report shown alongside the artifact at review.
     validation_report: Optional[Dict]
     review_decision: Optional[str]
