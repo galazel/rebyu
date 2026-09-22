@@ -26,7 +26,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
-import { updateMyProfile } from "@/services/learnerService.js"
+import { getMyAwards, updateMyProfile } from "@/services/learnerService.js"
+import { certificationBadgeUrl } from "@/services/certificationService.js"
 import { achievementBadge } from "@/lib/achievements.js"
 import {
   getMyRewardBalance,
@@ -87,6 +88,35 @@ function achievementTitle(achievement) {
 
 function achievementDescription(achievement) {
   return achievement?.description ?? achievement?.achievementDescription ?? "Learning milestone earned in REBYU."
+}
+
+/**
+ * One certification badge: the image the admin uploaded for the
+ * certification, earned by passing its mock exam, with the certificate number
+ * beneath when one was issued. Rendered the way the certifications page
+ * renders it, so the badge looks the same wherever the learner meets it.
+ */
+function CertificationBadgeMark({ award }) {
+  const earnedAt = award.badgeAwardedAt ?? award.certificateAwardedAt
+  return (
+    <div className="group min-w-0 text-center" title={`${award.certificationTitle}: passed the mock exam${award.scorePercentage != null ? ` at ${Math.round(Number(award.scorePercentage))}%` : ""}`}>
+      <div className="mx-auto flex size-14 items-center justify-center overflow-hidden rounded-full border-2 border-rb-bee/60 bg-rb-bee-wash shadow-sm transition group-hover:-translate-y-0.5 group-hover:shadow-md sm:size-20">
+        {award.hasBadgeImage ? (
+          <img
+            src={`${certificationBadgeUrl(award.certificationId)}?v=${encodeURIComponent(earnedAt ?? "")}`}
+            alt=""
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <Award className="size-7 text-rb-bee sm:size-9" aria-hidden="true" />
+        )}
+      </div>
+      <p className="mt-1.5 truncate text-[11px] font-medium text-foreground sm:mt-2 sm:text-xs">{award.certificationTitle}</p>
+      {earnedAt ? <p className="mt-0.5 text-[11px] text-muted-foreground">{new Date(earnedAt).toLocaleDateString()}</p> : null}
+      {award.certificateNumber ? <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">{award.certificateNumber}</p> : null}
+    </div>
+  )
 }
 
 function AchievementMark({ achievement }) {
@@ -221,6 +251,13 @@ export default function LearnerAccountPage() {
   // The whole catalog, earned first -- the count beside the header is the
   // earned ones, not the size of the catalog.
   const achievements = Array.isArray(data?.achievements) ? data.achievements : []
+  // Badges earned by passing a certification's mock exam. Their own row above
+  // the milestone achievements: a certification badge is the thing a learner
+  // set out to earn, not one milestone among eight.
+  const awardsQuery = useQuery({ queryKey: ["learner-awards"], queryFn: getMyAwards, staleTime: 60_000, retry: 1 })
+  const certificationBadges = (Array.isArray(awardsQuery.data) ? awardsQuery.data : [])
+    .filter((award) => award.badgeAwardedAt != null || award.certificateAwardedAt != null)
+    .sort((a, b) => new Date(b.badgeAwardedAt ?? b.certificateAwardedAt) - new Date(a.badgeAwardedAt ?? a.certificateAwardedAt))
   const earnedAchievements = achievements.filter((achievement) => achievement.earned)
   const orderedAchievements = [
     ...earnedAchievements,
@@ -357,7 +394,18 @@ export default function LearnerAccountPage() {
         >
           <SectionHeader title="Profile details" description="Update how your learner identity appears across REBYU." />
           <div className="p-4 sm:p-6">
-            <section className="border-b border-border/70 pb-5 sm:pb-6">
+            {certificationBadges.length ? (
+              <section className="border-b border-border/70 pb-5 sm:pb-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0"><h3 className="text-[15px] font-semibold sm:text-base">Certification badges</h3><p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">Earned by passing a certification's mock exam.</p></div>
+                  <span className="shrink-0 rounded-full bg-rb-bee/15 px-2.5 py-1 text-xs font-semibold text-rb-eel">{certificationBadges.length} earned</span>
+                </div>
+                <div className="mt-4 grid grid-cols-4 gap-x-2 gap-y-4 sm:mt-5 sm:grid-cols-5 sm:gap-5 lg:grid-cols-8">
+                  {certificationBadges.map((award) => <CertificationBadgeMark key={award.certificationId} award={award} />)}
+                </div>
+              </section>
+            ) : null}
+            <section className={`border-b border-border/70 pb-5 sm:pb-6 ${certificationBadges.length ? "mt-5 sm:mt-6" : ""}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0"><h3 className="text-[15px] font-semibold sm:text-base">Achievements</h3><p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">Milestones earned through lessons, assessments, and learning streaks.</p></div>
                 <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">{earnedAchievements.length}/{achievements.length} earned</span>

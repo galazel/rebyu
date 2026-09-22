@@ -111,6 +111,7 @@ async def handle_question_generation_requested(payload: dict) -> None:
             logger.info("Ignoring redelivered message for cancelled run %s", thread_id)
             return
 
+    graph = None
     try:
         graph = await get_question_bank_graph()
         result = await graph.ainvoke(
@@ -124,17 +125,29 @@ async def handle_question_generation_requested(payload: dict) -> None:
                 "target_total": target_total,
                 "batch_size": DEFAULT_BATCH_SIZE,
                 "type_distribution": question_counts,
+                # A bank top-up the adaptive engine asked for: one level,
+                # nobody reviewing. See Java's BankReplenishmentService.
+                "difficulty_focus": params.get("difficultyFocus"),
+                "auto_approve": bool(params.get("autoApprove")),
             },
             config=_thread_config(thread_id),
         )
     except Exception as error:
         logger.exception("Question generation failed for request %s", generation_request_id)
+        # Batches approved before the failure are real output -- a run that
+        # died on its second batch for want of credit had already paid for
+        # and audited its first. Keep them.
+        kept = await _rescue_approved(graph, thread_id, certification_id)
         with SessionLocal() as session:
-            repo.mark_generation_request_failed(session, generation_request_id, str(error))
+            repo.mark_generation_request_failed(
+                session, generation_request_id,
+                f"{error}" + (f" ({kept} question(s) from earlier batches were kept)" if kept else ""),
+            )
             registry.mark_failed(session, thread_id, error=str(error))
         _notify(
             generation_request, f"Generation failed: {certification['title']}",
-            f"Question generation for {certification['title']} failed: {error}",
+            f"Question generation for {certification['title']} failed: {error}"
+            + (f" {kept} question(s) generated before the failure were saved." if kept else ""),
         )
         return
 
@@ -217,3 +230,30 @@ async def handle_question_generation_requested(payload: dict) -> None:
         "Question generation %s completed; %d questions saved for certification %s",
         generation_request_id, len(approved_questions), certification_id,
     )
+
+
+async def _rescue_approved(graph, thread_id: str, certification_id: int) -> int:
+    """Persists the batches a failed run had already approved. Returns how
+    many questions were written; never raises."""
+    if graph is None:
+        return 0
+    try:
+        snapshot = await graph.aget_state(_thread_config(thread_id))
+        approved = (snapshot.values or {}).get("approved_questions") or []
+        if not approved:
+            return 0
+        with SessionLocal() as session:
+            lessons = repo.list_certification_lessons(session, certification_id)
+            if not lessons:
+                return 0
+            question_ids, warnings = persist_questions(
+                session, approved, build_lesson_index(lessons), fallback_lesson_id=lessons[0]["lesson_id"],
+            )
+            session.commit()
+        for warning in warnings:
+            logger.warning("Question persistence (rescue): %s", warning)
+        logger.info("Kept %d question(s) approved before the failure of run %s", len(question_ids), thread_id)
+        return len(question_ids)
+    except Exception:
+        logger.warning("Could not keep the approved batches of failed run %s", thread_id, exc_info=True)
+        return 0

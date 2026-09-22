@@ -77,14 +77,40 @@ async def generate_batch_node(state: QuestionBankState):
         + (f" Distribute types approximately as: {distribution}." if distribution else
            " Mix MCQ, SHORT_ANSWER, DESCRIPTIVE, PROGRAMMING, and DIAGRAM types.")
     )
+    focus = (state.get("difficulty_focus") or "").strip().upper()
+    if focus:
+        # A top-up for one level of the adaptive bank. The difficulty mix the
+        # agent normally aims for would put most of the batch at the levels
+        # that are not short.
+        base_instructions += (
+            f" EVERY question in this batch must be {focus} difficulty and set `difficulty` "
+            f"to {focus}; the adaptive bank has run low at that level and the other levels "
+            "are not wanted here. Spread the batch across the certification's lessons and "
+            "set lesson_ref on each question."
+        )
     if is_improvement:
         base_instructions += f"\n\nAdmin feedback on the previous version of this batch — apply it: {instructions}"
 
+    # What the certification already stores, so a top-up does not rewrite the
+    # bank it is topping up: shown to the model, and twins dropped on return.
+    stored = _stored_questions(state.get("certification_id"))
     batch = await invoke_question_agent(
         _scope_description(state), state.get("reference_context", ""), base_instructions,
         count=count,
+        existing_stems=[row["question_text"] for row in stored]
+        + [q.get("question") for q in state.get("approved_questions") or [] if isinstance(q, dict)],
     )
     questions = questions_as_dicts(batch)
+    if focus:
+        questions = [dict(q, difficulty=focus) for q in questions]
+    # Unattended runs get the same auditor the certification run ends with,
+    # for the stems the token check let through that still ask what a stored
+    # question asks. A reviewed run has the validation report and a person.
+    if state.get("auto_approve"):
+        questions = await prune_duplicates_against_stored(
+            state.get("certification_name") or "", questions, stored,
+            state.get("approved_questions") or [],
+        )
 
     return {
         "current_batch": questions,
@@ -136,13 +162,20 @@ async def validate_batch_node(state: QuestionBankState):
 
 
 def await_batch_review_node(state: QuestionBankState):
-    """HITL checkpoint after every batch. Resume with:
+    """HITL checkpoint after every batch. An unattended run (a bank top-up
+    the engine asked for) approves its own batch here and goes on. Resume with:
     Command(resume={"action": "approve"}) — continue to the next batch
     Command(resume={"action": "edit", "questions": [...]}) — replace with admin edits, then continue
     Command(resume={"action": "improve", "instructions": "..."}) — regenerate this batch with guidance
     Command(resume={"action": "regenerate"}) — regenerate this batch, no guidance
     Command(resume={"action": "reject"}) — discard this batch, pause again for the next decision
     """
+    if state.get("auto_approve"):
+        logger.info("Auto-approving question batch: unattended bank top-up")
+        return {"review_action": "approve", "review_instructions": None,
+                "review_edited_questions": None, "review_restored_from": None,
+                "status": "BATCH_AUTO_APPROVED"}
+
     decision = interrupt({
         "stage": "QUESTION_BATCH",
         "batch": state.get("current_batch", []),
@@ -232,3 +265,43 @@ def route_after_commit(state: QuestionBankState) -> str:
     if state.get("generated_count", 0) >= state.get("target_total", 0):
         return "done"
     return "continue"
+
+
+def _stored_questions(certification_id) -> list[dict]:
+    """The certification's stored questions, for the avoid list and the audit."""
+    if certification_id is None:
+        return []
+    try:
+        from app.db.session import SessionLocal
+        from app.repositories import java_backend as repo
+
+        with SessionLocal() as session:
+            return repo.list_certification_questions_for_audit(session, certification_id)
+    except Exception:
+        logger.warning("Could not read stored questions of certification %s; generating without them",
+                       certification_id, exc_info=True)
+        return []
+
+
+async def prune_duplicates_against_stored(
+    certification_name: str, questions: list[dict], stored: list[dict], approved: list[dict]
+) -> list[dict]:
+    """Drops from `questions` whatever the duplicate auditor says repeats a
+    stored question, an approved earlier batch, or another item in the batch.
+    Keeps the batch as it was if the auditor cannot be reached."""
+    from app.graphs.certification import question_audit as audit
+
+    if not questions:
+        return questions
+    state = {"question_bank": list(approved) + list(questions)}
+    try:
+        items = audit.collect_items(state, stored)
+        resolution = await audit.find_duplicates(certification_name, items)
+    except Exception:
+        logger.warning("Duplicate audit of a question batch failed; keeping the batch", exc_info=True)
+        return questions
+    offset = len(approved)
+    gone = {i.index - offset for i in resolution.dropped if i.source == audit.BANK and i.index >= offset}
+    if gone:
+        logger.info("Question batch: dropped %d duplicate(s) of %d after audit", len(gone), len(questions))
+    return [q for n, q in enumerate(questions) if n not in gone]

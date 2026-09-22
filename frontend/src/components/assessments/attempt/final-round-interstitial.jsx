@@ -68,8 +68,8 @@ export function FinalRoundInterstitial({ open, onContinue, count }) {
               </h2>
               <p className="mt-4 text-base text-white/80">
                 {count === 1
-                  ? "One hands-on problem to finish. Take your time — it is marked with the whole paper."
-                  : `${count} hands-on problems to finish. Take your time — they are marked with the whole paper.`}
+                  ? "One hands-on problem to finish. Take your time — it is marked as soon as you submit it."
+                  : `${count} hands-on problems to finish. Take your time — each is marked as soon as you submit it.`}
               </p>
               <p className="mt-8 text-xs font-semibold uppercase tracking-[0.2em] text-white/60">
                 Click anywhere to begin

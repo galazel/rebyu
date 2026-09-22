@@ -122,13 +122,6 @@ export default function InstitutionCertificationsPage() {
                       View certification
                     </Link>
                   </Button>
-                  <Button asChild variant="outline" size="sm">
-                    <Link
-                      to={`/institution/learners?certification=${institutionCert.certificationId}`}
-                    >
-                      View learners
-                    </Link>
-                  </Button>
                 </CardFooter>
               </Card>
             )

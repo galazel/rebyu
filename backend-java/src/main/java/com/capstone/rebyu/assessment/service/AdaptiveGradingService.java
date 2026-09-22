@@ -195,7 +195,7 @@ public class AdaptiveGradingService {
                              Map<Long, AssessmentAttemptAnswer> answersByQuestion, Set<Long> justMarked,
                              Map<Long, Question> sources) {
         double theta = attempt.getThetaCurrent() == null ? IrtModel.THETA_BASELINE : attempt.getThetaCurrent();
-        List<IrtModel.Response> responses = new ArrayList<>();
+        double se = attempt.getThetaSe() == null ? IrtModel.PRIOR_SIGMA : attempt.getThetaSe();
         Map<Long, Question> all = questionRepository.findForAttemptByIdIn(questions.stream()
                         .map(AssessmentAttemptQuestion::getSourceQuestionId).filter(Objects::nonNull).distinct().toList())
                 .stream().collect(Collectors.toMap(Question::getQuestionId, q -> q, (a, b) -> a));
@@ -205,16 +205,17 @@ public class AdaptiveGradingService {
             if (source == null || answer == null || answer.isPendingManualEvaluation()) continue;
             IrtModel.ItemParams params = IrtModel.defaultParams(source.getDifficultyLevel());
             double score = attempts.scoreOf(question, answer);
-            responses.add(new IrtModel.Response(params, score));
             if (justMarked.contains(question.getAttemptQuestionId())) {
                 question.setThetaBefore(theta);
-                theta = IrtModel.step(theta, params, score, adaptiveProperties.getAbilityStep());
+                IrtModel.Estimate estimate = IrtModel.update(theta, se, params, score);
+                theta = estimate.theta();
+                se = estimate.standardError();
                 question.setThetaAfter(theta);
                 attemptQuestionRepository.save(question);
             }
         }
         attempt.setThetaCurrent(theta);
-        attempt.setThetaSe(IrtModel.standardError(theta, responses));
+        attempt.setThetaSe(se);
     }
 
     private void tellLearner(Outcome outcome) {

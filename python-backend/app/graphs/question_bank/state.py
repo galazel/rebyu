@@ -20,6 +20,11 @@ class QuestionBankState(TypedDict, total=False):
     uploaded_files: List[Dict]
 
     target_total: int
+    # Set by the bank-replenishment path (Java's BankReplenishmentService):
+    # every question at this authored level, and no reviewer -- the run
+    # approves its own batches. Absent for an admin-started run.
+    difficulty_focus: Optional[str]
+    auto_approve: bool
     batch_size: int
     type_distribution: Optional[Dict[str, int]]  # e.g. {"MCQ": 40, "PROGRAMMING": 10}, optional
 

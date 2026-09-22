@@ -1,0 +1,1240 @@
+{
+ "4": [
+  {
+   "id": 1,
+   "lesson": "Management Principles and Organizational Structures",
+   "middle": "Business Management Fundamentals",
+   "major": "Corporate and Legal Affairs",
+   "q": 52
+  },
+  {
+   "id": 2,
+   "lesson": "Business Management Systems and Strategies",
+   "middle": "Business Management Fundamentals",
+   "major": "Corporate and Legal Affairs",
+   "q": 58
+  },
+  {
+   "id": 3,
+   "lesson": "Standardization and Compliance Frameworks",
+   "middle": "Legal and Standardization",
+   "major": "Corporate and Legal Affairs",
+   "q": 63
+  },
+  {
+   "id": 4,
+   "lesson": "Engineering and Manufacturing Systems",
+   "middle": "Industry-Specific IT Systems",
+   "major": "Business Strategy and Industry Applications",
+   "q": 56
+  },
+  {
+   "id": 5,
+   "lesson": "E-Business and Electronic Commerce",
+   "middle": "Industry-Specific IT Systems",
+   "major": "Business Strategy and Industry Applications",
+   "q": 42
+  },
+  {
+   "id": 6,
+   "lesson": "IT Utilization for Business Improvement",
+   "middle": "System Utilization and Communication",
+   "major": "Business Strategy and Industry Applications",
+   "q": 57
+  },
+  {
+   "id": 7,
+   "lesson": "System Development Process and Requirements Definition",
+   "middle": "System Development Lifecycle",
+   "major": "System Development and Management",
+   "q": 44
+  },
+  {
+   "id": 8,
+   "lesson": "Development Methods and Project Planning",
+   "middle": "System Development Lifecycle",
+   "major": "System Development and Management",
+   "q": 46
+  },
+  {
+   "id": 9,
+   "lesson": "Service Management Frameworks and SLA",
+   "middle": "IT Service Management",
+   "major": "Service Management",
+   "q": 42
+  },
+  {
+   "id": 10,
+   "lesson": "Service Support and Desk Operations",
+   "middle": "IT Service Management",
+   "major": "Service Management",
+   "q": 31
+  },
+  {
+   "id": 11,
+   "lesson": "Information Security Measures and Technologies",
+   "middle": "Security Management and Implementation",
+   "major": "Information Security",
+   "q": 69
+  },
+  {
+   "id": 12,
+   "lesson": "Security Operations and Incident Response",
+   "middle": "Security Management and Implementation",
+   "major": "Information Security",
+   "q": 31
+  }
+ ],
+ "13": [
+  {
+   "id": 363,
+   "lesson": "Introduction to Requirements Engineering",
+   "middle": "Software Requirements Engineering",
+   "major": "Software Development",
+   "q": 19
+  },
+  {
+   "id": 364,
+   "lesson": "Requirements Collection and Analysis",
+   "middle": "Software Requirements Engineering",
+   "major": "Software Development",
+   "q": 24
+  },
+  {
+   "id": 365,
+   "lesson": "Requirements Specification",
+   "middle": "Software Requirements Engineering",
+   "major": "Software Development",
+   "q": 28
+  },
+  {
+   "id": 366,
+   "lesson": "Requirements Verification and Validation",
+   "middle": "Software Requirements Engineering",
+   "major": "Software Development",
+   "q": 20
+  },
+  {
+   "id": 367,
+   "lesson": "Requirements Management and Change Control",
+   "middle": "Software Requirements Engineering",
+   "major": "Software Development",
+   "q": 28
+  },
+  {
+   "id": 368,
+   "lesson": "Software Design Fundamentals",
+   "middle": "Software Design and Architecture",
+   "major": "Software Development",
+   "q": 30
+  },
+  {
+   "id": 369,
+   "lesson": "Software Architecture and Patterns",
+   "middle": "Software Design and Architecture",
+   "major": "Software Development",
+   "q": 27
+  },
+  {
+   "id": 370,
+   "lesson": "Software Implementation Practices",
+   "middle": "Software Implementation and Testing",
+   "major": "Software Development",
+   "q": 16
+  },
+  {
+   "id": 371,
+   "lesson": "Software Testing and Quality Assurance",
+   "middle": "Software Implementation and Testing",
+   "major": "Software Development",
+   "q": 14
+  },
+  {
+   "id": 372,
+   "lesson": "Software Maintenance Strategies",
+   "middle": "Software Maintenance and Evolution",
+   "major": "Software Development",
+   "q": 21
+  },
+  {
+   "id": 373,
+   "lesson": "Data, Information, and Knowledge",
+   "middle": "Database Fundamentals",
+   "major": "Database Construction and Management",
+   "q": 20
+  },
+  {
+   "id": 374,
+   "lesson": "Database Requirements Collection",
+   "middle": "Database Requirements and Analysis",
+   "major": "Database Construction and Management",
+   "q": 24
+  },
+  {
+   "id": 375,
+   "lesson": "Conceptual Database Design",
+   "middle": "Database Design",
+   "major": "Database Construction and Management",
+   "q": 21
+  },
+  {
+   "id": 376,
+   "lesson": "Data Modeling Techniques",
+   "middle": "Database Design",
+   "major": "Database Construction and Management",
+   "q": 20
+  },
+  {
+   "id": 377,
+   "lesson": "Advanced Data Modeling",
+   "middle": "Database Design",
+   "major": "Database Construction and Management",
+   "q": 22
+  },
+  {
+   "id": 378,
+   "lesson": "Physical Layer and Media",
+   "middle": "Network Fundamentals and OSI Model",
+   "major": "Understanding of Network",
+   "q": 26
+  },
+  {
+   "id": 379,
+   "lesson": "Data Link Layer",
+   "middle": "Network Fundamentals and OSI Model",
+   "major": "Understanding of Network",
+   "q": 21
+  },
+  {
+   "id": 405,
+   "lesson": "Protocols and the OSI Reference Model",
+   "middle": "Network Fundamentals and OSI Model",
+   "major": "Understanding of Network",
+   "q": 10
+  },
+  {
+   "id": 406,
+   "lesson": "Internet Address Structure: MAC, IP, and Port Numbers",
+   "middle": "Network Fundamentals and OSI Model",
+   "major": "Understanding of Network",
+   "q": 10
+  },
+  {
+   "id": 407,
+   "lesson": "Internet Standards and the IEEE 802 Family",
+   "middle": "Network Fundamentals and OSI Model",
+   "major": "Understanding of Network",
+   "q": 10
+  },
+  {
+   "id": 380,
+   "lesson": "Network Service Architecture",
+   "middle": "Network Protocols and Services",
+   "major": "Understanding of Network",
+   "q": 42
+  },
+  {
+   "id": 408,
+   "lesson": "Network Layer Devices: Routers, Switches, and VLANs",
+   "middle": "Network Protocols and Services",
+   "major": "Understanding of Network",
+   "q": 10
+  },
+  {
+   "id": 409,
+   "lesson": "IPv4 Addressing, Subnetting, and CIDR",
+   "middle": "Network Protocols and Services",
+   "major": "Understanding of Network",
+   "q": 10
+  },
+  {
+   "id": 410,
+   "lesson": "Routing Protocols and Algorithms",
+   "middle": "Network Protocols and Services",
+   "major": "Understanding of Network",
+   "q": 10
+  },
+  {
+   "id": 381,
+   "lesson": "Machine-to-Machine Communications",
+   "middle": "Emerging Network Technologies",
+   "major": "Understanding of Network",
+   "q": 35
+  },
+  {
+   "id": 382,
+   "lesson": "Internet of Things Standards",
+   "middle": "Emerging Network Technologies",
+   "major": "Understanding of Network",
+   "q": 31
+  },
+  {
+   "id": 411,
+   "lesson": "Software-Defined Networking and Network Function Virtualization",
+   "middle": "Emerging Network Technologies",
+   "major": "Understanding of Network",
+   "q": 10
+  },
+  {
+   "id": 412,
+   "lesson": "Cloud and Data Centre Networking",
+   "middle": "Emerging Network Technologies",
+   "major": "Understanding of Network",
+   "q": 10
+  },
+  {
+   "id": 413,
+   "lesson": "Mobile Network Evolution: 4G, 5G, and Edge Computing",
+   "middle": "Emerging Network Technologies",
+   "major": "Understanding of Network",
+   "q": 10
+  },
+  {
+   "id": 383,
+   "lesson": "Information Security Principles",
+   "middle": "Information Security Fundamentals",
+   "major": "Understanding of Security",
+   "q": 56
+  },
+  {
+   "id": 414,
+   "lesson": "Cryptography Fundamentals: Symmetric and Asymmetric Encryption",
+   "middle": "Information Security Fundamentals",
+   "major": "Understanding of Security",
+   "q": 10
+  },
+  {
+   "id": 415,
+   "lesson": "Hash Functions and Message Integrity",
+   "middle": "Information Security Fundamentals",
+   "major": "Understanding of Security",
+   "q": 10
+  },
+  {
+   "id": 416,
+   "lesson": "Authentication, Digital Signatures, and PKI",
+   "middle": "Information Security Fundamentals",
+   "major": "Understanding of Security",
+   "q": 10
+  },
+  {
+   "id": 417,
+   "lesson": "Access Control Models",
+   "middle": "Information Security Fundamentals",
+   "major": "Understanding of Security",
+   "q": 10
+  },
+  {
+   "id": 384,
+   "lesson": "Risk Assessment Methodologies",
+   "middle": "Risk Management and Assessment",
+   "major": "Understanding of Security",
+   "q": 13
+  },
+  {
+   "id": 385,
+   "lesson": "Security Risk Analysis",
+   "middle": "Risk Management and Assessment",
+   "major": "Understanding of Security",
+   "q": 21
+  },
+  {
+   "id": 418,
+   "lesson": "Threat Modelling and Attack Surface Analysis",
+   "middle": "Risk Management and Assessment",
+   "major": "Understanding of Security",
+   "q": 10
+  },
+  {
+   "id": 419,
+   "lesson": "Vulnerability Management and Penetration Testing",
+   "middle": "Risk Management and Assessment",
+   "major": "Understanding of Security",
+   "q": 10
+  },
+  {
+   "id": 420,
+   "lesson": "Business Continuity and Disaster Recovery Planning",
+   "middle": "Risk Management and Assessment",
+   "major": "Understanding of Security",
+   "q": 10
+  },
+  {
+   "id": 386,
+   "lesson": "ISMS Frameworks and Standards",
+   "middle": "Information Security Management Systems",
+   "major": "Understanding of Security",
+   "q": 24
+  },
+  {
+   "id": 387,
+   "lesson": "ISMS Implementation and Operation",
+   "middle": "Information Security Management Systems",
+   "major": "Understanding of Security",
+   "q": 24
+  },
+  {
+   "id": 388,
+   "lesson": "ISMS Monitoring and Improvement",
+   "middle": "Information Security Management Systems",
+   "major": "Understanding of Security",
+   "q": 26
+  },
+  {
+   "id": 421,
+   "lesson": "Security Policies, Standards, and Procedures",
+   "middle": "Information Security Management Systems",
+   "major": "Understanding of Security",
+   "q": 10
+  },
+  {
+   "id": 422,
+   "lesson": "Security Auditing, Logging, and Incident Response",
+   "middle": "Information Security Management Systems",
+   "major": "Understanding of Security",
+   "q": 10
+  },
+  {
+   "id": 389,
+   "lesson": "IT Business Operations",
+   "middle": "IT Business Fundamentals",
+   "major": "Understanding of IT Business",
+   "q": 59
+  },
+  {
+   "id": 423,
+   "lesson": "Enterprise Solutions: ERP, SCM, and CRM",
+   "middle": "IT Business Fundamentals",
+   "major": "Understanding of IT Business",
+   "q": 10
+  },
+  {
+   "id": 424,
+   "lesson": "IT Strategy Planning: ISP, ISMP, and Enterprise Architecture",
+   "middle": "IT Business Fundamentals",
+   "major": "Understanding of IT Business",
+   "q": 10
+  },
+  {
+   "id": 425,
+   "lesson": "IT Business Adoption: In-House Development versus Packages",
+   "middle": "IT Business Fundamentals",
+   "major": "Understanding of IT Business",
+   "q": 10
+  },
+  {
+   "id": 426,
+   "lesson": "IT Outsourcing and Sourcing Models",
+   "middle": "IT Business Fundamentals",
+   "major": "Understanding of IT Business",
+   "q": 10
+  },
+  {
+   "id": 390,
+   "lesson": "Key Performance Indicators",
+   "middle": "Performance Management",
+   "major": "Understanding of IT Business",
+   "q": 45
+  },
+  {
+   "id": 391,
+   "lesson": "Business Problem Solving",
+   "middle": "Business Analysis and Strategy",
+   "major": "Understanding of IT Business",
+   "q": 41
+  },
+  {
+   "id": 392,
+   "lesson": "Technical Document Types and Processes",
+   "middle": "Technical Documentation",
+   "major": "Technical Communications",
+   "q": 35
+  },
+  {
+   "id": 393,
+   "lesson": "Requirements Documentation",
+   "middle": "Technical Documentation",
+   "major": "Technical Communications",
+   "q": 38
+  },
+  {
+   "id": 394,
+   "lesson": "Request for Information (RFI)",
+   "middle": "Business Proposals and RFI/RFP",
+   "major": "Technical Communications",
+   "q": 25
+  },
+  {
+   "id": 395,
+   "lesson": "Business Plan Development",
+   "middle": "Business Proposals and RFI/RFP",
+   "major": "Technical Communications",
+   "q": 19
+  },
+  {
+   "id": 396,
+   "lesson": "Technical Presentations",
+   "middle": "Professional Presentations",
+   "major": "Technical Communications",
+   "q": 20
+  },
+  {
+   "id": 397,
+   "lesson": "Project Management Fundamentals",
+   "middle": "Project Planning and Strategy",
+   "major": "Project Management",
+   "q": 24
+  },
+  {
+   "id": 398,
+   "lesson": "Project Scheduling and Resources",
+   "middle": "Project Planning and Strategy",
+   "major": "Project Management",
+   "q": 27
+  },
+  {
+   "id": 399,
+   "lesson": "System Requirements Management",
+   "middle": "Requirements and System Specifications",
+   "major": "Project Management",
+   "q": 26
+  },
+  {
+   "id": 400,
+   "lesson": "Performance and Quality Requirements",
+   "middle": "Requirements and System Specifications",
+   "major": "Project Management",
+   "q": 22
+  },
+  {
+   "id": 401,
+   "lesson": "Project Quality Management and Control",
+   "middle": "Project Quality and Support",
+   "major": "Project Management",
+   "q": 10
+  },
+  {
+   "id": 402,
+   "lesson": "Project Support Services",
+   "middle": "Project Quality and Support",
+   "major": "Project Management",
+   "q": 10
+  },
+  {
+   "id": 403,
+   "lesson": "Technical Proposal Evaluation",
+   "middle": "Vendor Management and Evaluation",
+   "major": "Project Management",
+   "q": 10
+  },
+  {
+   "id": 404,
+   "lesson": "Partnership and Subcontract Management",
+   "middle": "Vendor Management and Evaluation",
+   "major": "Project Management",
+   "q": 10
+  }
+ ],
+ "14": [
+  {
+   "id": 427,
+   "lesson": "Discrete Mathematics: Radix, Numeric Representation and Precision",
+   "middle": "Basic Theory",
+   "major": "Basic Theory",
+   "q": 10
+  },
+  {
+   "id": 428,
+   "lesson": "Applied Mathematics: Probability, Statistics and Optimisation",
+   "middle": "Basic Theory",
+   "major": "Basic Theory",
+   "q": 10
+  },
+  {
+   "id": 429,
+   "lesson": "Theory of Information, Coding and Automata",
+   "middle": "Basic Theory",
+   "major": "Basic Theory",
+   "q": 10
+  },
+  {
+   "id": 430,
+   "lesson": "Theory of Communications: Transmission, Modulation and Error Control",
+   "middle": "Basic Theory",
+   "major": "Basic Theory",
+   "q": 10
+  },
+  {
+   "id": 431,
+   "lesson": "Theory of Measurement and Control Systems",
+   "middle": "Basic Theory",
+   "major": "Basic Theory",
+   "q": 10
+  },
+  {
+   "id": 432,
+   "lesson": "Data Structures: Arrays, Lists, Stacks, Queues, Trees and Hashes",
+   "middle": "Algorithm and Programming",
+   "major": "Basic Theory",
+   "q": 10
+  },
+  {
+   "id": 433,
+   "lesson": "Algorithms: Searching, Sorting, Recursion and Complexity",
+   "middle": "Algorithm and Programming",
+   "major": "Basic Theory",
+   "q": 10
+  },
+  {
+   "id": 434,
+   "lesson": "Programming: Structure, Style, Data Types and Program Behaviour",
+   "middle": "Algorithm and Programming",
+   "major": "Basic Theory",
+   "q": 10
+  },
+  {
+   "id": 435,
+   "lesson": "Programming Languages: Compilation, Paradigms and Language Families",
+   "middle": "Algorithm and Programming",
+   "major": "Basic Theory",
+   "q": 10
+  },
+  {
+   "id": 436,
+   "lesson": "Markup and Other Languages: HTML, XML, JSON and Notation",
+   "middle": "Algorithm and Programming",
+   "major": "Basic Theory",
+   "q": 10
+  },
+  {
+   "id": 437,
+   "lesson": "The Processor: Architecture, Instruction Execution and Performance",
+   "middle": "Computer Component",
+   "major": "Computer System",
+   "q": 10
+  },
+  {
+   "id": 438,
+   "lesson": "Memory: Hierarchy, Cache, Main Memory and Storage Devices",
+   "middle": "Computer Component",
+   "major": "Computer System",
+   "q": 10
+  },
+  {
+   "id": 439,
+   "lesson": "Buses and Interconnects",
+   "middle": "Computer Component",
+   "major": "Computer System",
+   "q": 10
+  },
+  {
+   "id": 440,
+   "lesson": "Input/Output Interfaces and Device Control",
+   "middle": "Computer Component",
+   "major": "Computer System",
+   "q": 10
+  },
+  {
+   "id": 441,
+   "lesson": "Input/Output Devices and Peripherals",
+   "middle": "Computer Component",
+   "major": "Computer System",
+   "q": 10
+  },
+  {
+   "id": 442,
+   "lesson": "System Configuration: Redundancy, Clustering and Processing Modes",
+   "middle": "System Component",
+   "major": "Computer System",
+   "q": 10
+  },
+  {
+   "id": 443,
+   "lesson": "System Evaluation Indexes: Performance, Reliability and Economics",
+   "middle": "System Component",
+   "major": "Computer System",
+   "q": 10
+  },
+  {
+   "id": 444,
+   "lesson": "Operating Systems: Processes, Scheduling and Memory Management",
+   "middle": "Software",
+   "major": "Computer System",
+   "q": 10
+  },
+  {
+   "id": 445,
+   "lesson": "Middleware, Runtimes and Shared Services",
+   "middle": "Software",
+   "major": "Computer System",
+   "q": 10
+  },
+  {
+   "id": 446,
+   "lesson": "File Systems, Directories and Backup",
+   "middle": "Software",
+   "major": "Computer System",
+   "q": 10
+  },
+  {
+   "id": 447,
+   "lesson": "Development Tools, Build Chains and Testing Environments",
+   "middle": "Software",
+   "major": "Computer System",
+   "q": 10
+  },
+  {
+   "id": 448,
+   "lesson": "Open Source Software, Licensing and Adoption",
+   "middle": "Software",
+   "major": "Computer System",
+   "q": 10
+  },
+  {
+   "id": 449,
+   "lesson": "Hardware: Logic Circuits, Semiconductors and Physical Design",
+   "middle": "Hardware",
+   "major": "Computer System",
+   "q": 10
+  },
+  {
+   "id": 450,
+   "lesson": "Human Interface Technology and Interaction Models",
+   "middle": "Human Interface",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 451,
+   "lesson": "Interface Design, Screen Design and Accessibility",
+   "middle": "Human Interface",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 452,
+   "lesson": "Multimedia Technology: Encoding, Compression and Formats",
+   "middle": "Multimedia",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 453,
+   "lesson": "Multimedia Applications: Graphics, Audio, Video and VR",
+   "middle": "Multimedia",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 454,
+   "lesson": "Database Architecture, Models and the Three-Schema Approach",
+   "middle": "Database",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 455,
+   "lesson": "Database Design: E-R Modelling, Normalisation and Keys",
+   "middle": "Database",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 456,
+   "lesson": "Data Manipulation: Relational Algebra and SQL",
+   "middle": "Database",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 457,
+   "lesson": "Transaction Processing: ACID, Concurrency and Recovery",
+   "middle": "Database",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 458,
+   "lesson": "Database Applications: Distribution, Warehousing and NoSQL",
+   "middle": "Database",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 459,
+   "lesson": "Network Architecture: LAN, WAN, Topologies and Devices",
+   "middle": "Network",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 460,
+   "lesson": "Data Communication and Control: Encoding, Multiplexing and Switching",
+   "middle": "Network",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 461,
+   "lesson": "Communications Protocols: TCP/IP, Addressing and Routing",
+   "middle": "Network",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 462,
+   "lesson": "Network Management, Monitoring and Troubleshooting",
+   "middle": "Network",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 463,
+   "lesson": "Network Applications: DNS, Mail, Web and Distributed Services",
+   "middle": "Network",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 464,
+   "lesson": "Information Security: Threats, Attacks and Vulnerabilities",
+   "middle": "Security",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 465,
+   "lesson": "Cryptography, Authentication and Digital Signatures",
+   "middle": "Security",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 466,
+   "lesson": "Information Security Management: ISMS, Risk and Policy",
+   "middle": "Security",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 467,
+   "lesson": "Security Technology Evaluation and Certification Schemes",
+   "middle": "Security",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 468,
+   "lesson": "Information Security Measures and Implementation Technology",
+   "middle": "Security",
+   "major": "Technology Element",
+   "q": 10
+  },
+  {
+   "id": 469,
+   "lesson": "System Requirements Definition and Stakeholder Needs",
+   "middle": "System Development Technology",
+   "major": "Development Technology",
+   "q": 10
+  },
+  {
+   "id": 470,
+   "lesson": "Systems Architecture Design and Hardware/Software Allocation",
+   "middle": "System Development Technology",
+   "major": "Development Technology",
+   "q": 10
+  },
+  {
+   "id": 471,
+   "lesson": "Software Requirements Definition and Specification",
+   "middle": "System Development Technology",
+   "major": "Development Technology",
+   "q": 10
+  },
+  {
+   "id": 472,
+   "lesson": "Software Architecture Design and Detailed Design",
+   "middle": "System Development Technology",
+   "major": "Development Technology",
+   "q": 10
+  },
+  {
+   "id": 473,
+   "lesson": "Object-Oriented Design and UML Modelling",
+   "middle": "System Development Technology",
+   "major": "Development Technology",
+   "q": 10
+  },
+  {
+   "id": 474,
+   "lesson": "Software Construction: Coding, Review and Unit Testing",
+   "middle": "System Development Technology",
+   "major": "Development Technology",
+   "q": 10
+  },
+  {
+   "id": 475,
+   "lesson": "Software Integration and Qualification Testing",
+   "middle": "System Development Technology",
+   "major": "Development Technology",
+   "q": 10
+  },
+  {
+   "id": 476,
+   "lesson": "System Integration, System Testing and Installation",
+   "middle": "System Development Technology",
+   "major": "Development Technology",
+   "q": 10
+  },
+  {
+   "id": 477,
+   "lesson": "Acceptance Support and Handover",
+   "middle": "System Development Technology",
+   "major": "Development Technology",
+   "q": 10
+  },
+  {
+   "id": 478,
+   "lesson": "Maintenance, Evolution and Disposal",
+   "middle": "System Development Technology",
+   "major": "Development Technology",
+   "q": 10
+  },
+  {
+   "id": 479,
+   "lesson": "Development Processes and Methods: Waterfall, Agile and Beyond",
+   "middle": "Software Development Management Techniques",
+   "major": "Development Technology",
+   "q": 10
+  },
+  {
+   "id": 480,
+   "lesson": "Intellectual Property in Software Development",
+   "middle": "Software Development Management Techniques",
+   "major": "Development Technology",
+   "q": 10
+  },
+  {
+   "id": 481,
+   "lesson": "Development Environment Management",
+   "middle": "Software Development Management Techniques",
+   "major": "Development Technology",
+   "q": 10
+  },
+  {
+   "id": 482,
+   "lesson": "Configuration Management and Change Control",
+   "middle": "Software Development Management Techniques",
+   "major": "Development Technology",
+   "q": 10
+  },
+  {
+   "id": 483,
+   "lesson": "Project Management Foundations: Processes and Process Groups",
+   "middle": "Project Management",
+   "major": "Project Management",
+   "q": 10
+  },
+  {
+   "id": 484,
+   "lesson": "Project Integration Management",
+   "middle": "Project Management",
+   "major": "Project Management",
+   "q": 10
+  },
+  {
+   "id": 485,
+   "lesson": "Project Stakeholder Management",
+   "middle": "Project Management",
+   "major": "Project Management",
+   "q": 10
+  },
+  {
+   "id": 486,
+   "lesson": "Project Scope Management and the WBS",
+   "middle": "Project Management",
+   "major": "Project Management",
+   "q": 10
+  },
+  {
+   "id": 487,
+   "lesson": "Project Resource Management",
+   "middle": "Project Management",
+   "major": "Project Management",
+   "q": 10
+  },
+  {
+   "id": 488,
+   "lesson": "Project Time Management: Scheduling, Critical Path and PERT",
+   "middle": "Project Management",
+   "major": "Project Management",
+   "q": 10
+  },
+  {
+   "id": 489,
+   "lesson": "Project Cost Management and Earned Value",
+   "middle": "Project Management",
+   "major": "Project Management",
+   "q": 10
+  },
+  {
+   "id": 490,
+   "lesson": "Project Risk Management",
+   "middle": "Project Management",
+   "major": "Project Management",
+   "q": 10
+  },
+  {
+   "id": 491,
+   "lesson": "Project Quality Management",
+   "middle": "Project Management",
+   "major": "Project Management",
+   "q": 10
+  },
+  {
+   "id": 492,
+   "lesson": "Project Procurement Management",
+   "middle": "Project Management",
+   "major": "Project Management",
+   "q": 10
+  },
+  {
+   "id": 493,
+   "lesson": "Project Communications Management",
+   "middle": "Project Management",
+   "major": "Project Management",
+   "q": 10
+  },
+  {
+   "id": 494,
+   "lesson": "Service Management Foundations and the Service Lifecycle",
+   "middle": "Service Management",
+   "major": "Service Management",
+   "q": 10
+  },
+  {
+   "id": 495,
+   "lesson": "Service Design and Service Transition",
+   "middle": "Service Management",
+   "major": "Service Management",
+   "q": 10
+  },
+  {
+   "id": 496,
+   "lesson": "Service Management Processes: Incident, Problem, Change and SLA",
+   "middle": "Service Management",
+   "major": "Service Management",
+   "q": 10
+  },
+  {
+   "id": 497,
+   "lesson": "Service Operation, Service Desk and Support",
+   "middle": "Service Management",
+   "major": "Service Management",
+   "q": 10
+  },
+  {
+   "id": 498,
+   "lesson": "Facility Management and Data Centre Infrastructure",
+   "middle": "Service Management",
+   "major": "Service Management",
+   "q": 10
+  },
+  {
+   "id": 499,
+   "lesson": "System Audit: Purpose, Process and Evidence",
+   "middle": "System Audit",
+   "major": "Service Management",
+   "q": 10
+  },
+  {
+   "id": 500,
+   "lesson": "Internal Control and IT Governance",
+   "middle": "System Audit",
+   "major": "Service Management",
+   "q": 10
+  },
+  {
+   "id": 501,
+   "lesson": "Information Systems Strategy and Enterprise Architecture",
+   "middle": "System Strategy",
+   "major": "System Strategy",
+   "q": 10
+  },
+  {
+   "id": 502,
+   "lesson": "Business Process Analysis and Modelling",
+   "middle": "System Strategy",
+   "major": "System Strategy",
+   "q": 10
+  },
+  {
+   "id": 503,
+   "lesson": "Solution Business: Cloud, Outsourcing and Service Models",
+   "middle": "System Strategy",
+   "major": "System Strategy",
+   "q": 10
+  },
+  {
+   "id": 504,
+   "lesson": "System Utilisation Promotion and Evaluation",
+   "middle": "System Strategy",
+   "major": "System Strategy",
+   "q": 10
+  },
+  {
+   "id": 505,
+   "lesson": "Computerisation Planning and Investment Appraisal",
+   "middle": "System Planning",
+   "major": "System Strategy",
+   "q": 10
+  },
+  {
+   "id": 506,
+   "lesson": "Requirements Definition from the Client Side",
+   "middle": "System Planning",
+   "major": "System Strategy",
+   "q": 10
+  },
+  {
+   "id": 507,
+   "lesson": "Procurement Planning: RFI, RFP and Supplier Selection",
+   "middle": "System Planning",
+   "major": "System Strategy",
+   "q": 10
+  },
+  {
+   "id": 508,
+   "lesson": "Business Strategy Techniques and Competitive Analysis",
+   "middle": "Business Strategy Management",
+   "major": "Business Strategy",
+   "q": 10
+  },
+  {
+   "id": 509,
+   "lesson": "Marketing: Segmentation, Mix and Pricing",
+   "middle": "Business Strategy Management",
+   "major": "Business Strategy",
+   "q": 10
+  },
+  {
+   "id": 510,
+   "lesson": "Business Strategy Goals and Evaluation",
+   "middle": "Business Strategy Management",
+   "major": "Business Strategy",
+   "q": 10
+  },
+  {
+   "id": 511,
+   "lesson": "Business Management Systems: ERP, SCM, CRM and BI",
+   "middle": "Business Strategy Management",
+   "major": "Business Strategy",
+   "q": 10
+  },
+  {
+   "id": 512,
+   "lesson": "Planning a Technology Development Strategy",
+   "middle": "Technological Strategy Management",
+   "major": "Business Strategy",
+   "q": 10
+  },
+  {
+   "id": 513,
+   "lesson": "Technology Development Plans and Innovation Management",
+   "middle": "Technological Strategy Management",
+   "major": "Business Strategy",
+   "q": 10
+  },
+  {
+   "id": 514,
+   "lesson": "Business Systems and Administrative Applications",
+   "middle": "Business Industry",
+   "major": "Business Strategy",
+   "q": 10
+  },
+  {
+   "id": 515,
+   "lesson": "Engineering Systems and Production Management",
+   "middle": "Business Industry",
+   "major": "Business Strategy",
+   "q": 10
+  },
+  {
+   "id": 516,
+   "lesson": "e-Business: EC, Electronic Payment and Digital Marketing",
+   "middle": "Business Industry",
+   "major": "Business Strategy",
+   "q": 10
+  },
+  {
+   "id": 517,
+   "lesson": "Consumer Appliances and Embedded Consumer Systems",
+   "middle": "Business Industry",
+   "major": "Business Strategy",
+   "q": 10
+  },
+  {
+   "id": 518,
+   "lesson": "Industrial Devices, IoT and Control Equipment",
+   "middle": "Business Industry",
+   "major": "Business Strategy",
+   "q": 10
+  },
+  {
+   "id": 519,
+   "lesson": "Management and Organisation Theory",
+   "middle": "Corporate Activities",
+   "major": "Corporate and Legal Affairs",
+   "q": 10
+  },
+  {
+   "id": 520,
+   "lesson": "Operations Research and Industrial Engineering",
+   "middle": "Corporate Activities",
+   "major": "Corporate and Legal Affairs",
+   "q": 10
+  },
+  {
+   "id": 521,
+   "lesson": "Accounting and Financial Affairs for Engineers",
+   "middle": "Corporate Activities",
+   "major": "Corporate and Legal Affairs",
+   "q": 10
+  },
+  {
+   "id": 522,
+   "lesson": "Intellectual Property Rights in IT",
+   "middle": "Legal Affairs",
+   "major": "Corporate and Legal Affairs",
+   "q": 10
+  },
+  {
+   "id": 523,
+   "lesson": "Laws on Information Security and Cybercrime",
+   "middle": "Legal Affairs",
+   "major": "Corporate and Legal Affairs",
+   "q": 10
+  },
+  {
+   "id": 524,
+   "lesson": "Laws on Labour and Commercial Transactions",
+   "middle": "Legal Affairs",
+   "major": "Corporate and Legal Affairs",
+   "q": 10
+  },
+  {
+   "id": 525,
+   "lesson": "Other Laws, Guidelines and Engineer Ethics",
+   "middle": "Legal Affairs",
+   "major": "Corporate and Legal Affairs",
+   "q": 10
+  },
+  {
+   "id": 526,
+   "lesson": "Standardisation and Standards Bodies",
+   "middle": "Legal Affairs",
+   "major": "Corporate and Legal Affairs",
+   "q": 10
+  }
+ ]
+}

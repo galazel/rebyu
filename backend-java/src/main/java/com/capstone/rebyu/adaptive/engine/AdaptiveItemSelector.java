@@ -13,10 +13,16 @@ import java.util.Random;
 import java.util.Set;
 
 /**
- * Chooses the next item. Two decisions, both made from the state and the pool
- * and nothing else:
+ * Chooses the next item. Three decisions, all made from the state and the
+ * pool and nothing else:
  *
  * <ol>
+ *   <li><b>Which level, then which tier</b> -- the authored difficulty
+ *       nearest the current ability, which is what makes the paper adaptive;
+ *       and within that level the freshest items: never seen, then not seen
+ *       this pass over the bank, then seen this pass, then the last attempt's
+ *       own. A retake is a fresh set because the pass rolls over when the
+ *       fresh pool cannot fill a paper.</li>
  *   <li><b>Which lesson</b> -- the one the assessment still owes coverage to,
  *       tempered by how uncertain the learner's knowledge of it is (BKT's
  *       p(1-p) is largest at 0.5, where one more answer tells us most).</li>
@@ -38,11 +44,15 @@ public final class AdaptiveItemSelector {
      * last attempt of this exam. A retake of the same exam repeats a question
      * only once every question the bank holds for it has been used.
      */
+    /** Never met by this learner, in any assessment. */
     public static final String TIER_UNSEEN = "UNSEEN";
-    public static final String TIER_OLDER = "OLDER";
-    public static final String TIER_EARLIER_ATTEMPT = "EARLIER_ATTEMPT";
+    /** Met in an earlier pass over the bank, not yet in this one. */
+    public static final String TIER_NEW_THIS_CYCLE = "NEW_THIS_CYCLE";
+    /** Met already in this pass: only when the pass cannot fill the paper. */
+    public static final String TIER_SEEN_THIS_CYCLE = "SEEN_THIS_CYCLE";
+    /** On the learner's last attempt of this exam: last of all. */
     public static final String TIER_REPEAT = "REPEAT";
-    static final List<String> TIERS = List.of(TIER_UNSEEN, TIER_OLDER, TIER_EARLIER_ATTEMPT, TIER_REPEAT);
+    static final List<String> TIERS = List.of(TIER_UNSEEN, TIER_NEW_THIS_CYCLE, TIER_SEEN_THIS_CYCLE, TIER_REPEAT);
 
     public record Candidate(
             Long questionId,
@@ -80,11 +90,45 @@ public final class AdaptiveItemSelector {
                 .map(QuestionStem::tokens)
                 .toList();
 
-        /* Candidates still open this session, grouped by lesson and by tier. */
-        Map<Long, Map<String, List<Candidate>>> byLessonAndTier = new LinkedHashMap<>();
+        /* Candidates still open this session. */
+        List<Candidate> open = new ArrayList<>();
         for (Candidate candidate : pool) {
             if (served.contains(candidate.questionId())) continue;
             if (isTwinOfServed(candidate, servedTokens, state.getServedStems())) continue;
+            open.add(candidate);
+        }
+
+        /* Level first, then freshness. The level the ability calls for is
+           the whole point of the paper; a question at the wrong level tells
+           the engine little, however fresh. So: of the items nearest the
+           ability, the freshest tier -- never met, then met in an earlier
+           pass, then met this pass, and the last attempt's own items last.
+           A learner at the floor whose fresh EASY items have run out is
+           handed an EASY item they have met, not a fresh AVERAGE one. The
+           pass rolls over before a session when the fresh pool cannot fill
+           the paper (see AdaptiveAttemptService), so within a pass the
+           lower tiers are reached only when one level runs dry. For the
+           first item the ability is the prior, so this is also the soft
+           start. */
+        {
+            final double theta = state.getTheta();
+            double nearest = open.stream()
+                    .mapToDouble(c -> Math.abs(c.params().b() - theta))
+                    .min().orElse(0.0);
+            List<Candidate> atLevel = open.stream()
+                    .filter(c -> Math.abs(c.params().b() - theta) - nearest < 0.75)
+                    .toList();
+            if (!atLevel.isEmpty()) open = atLevel;
+        }
+        int bestRank = Integer.MAX_VALUE;
+        for (Candidate c : open) bestRank = Math.min(bestRank, tierRank(tierOf(c, state)));
+        if (bestRank == Integer.MAX_VALUE) return Optional.empty();
+        final int rankInPlay = bestRank;
+        open = open.stream().filter(c -> tierRank(tierOf(c, state)) == rankInPlay).toList();
+
+        /* Grouped by lesson and by tier. */
+        Map<Long, Map<String, List<Candidate>>> byLessonAndTier = new LinkedHashMap<>();
+        for (Candidate candidate : open) {
             String tier = tierOf(candidate, state);
             byLessonAndTier
                     .computeIfAbsent(candidate.lessonId(), l -> new LinkedHashMap<>())
@@ -121,12 +165,23 @@ public final class AdaptiveItemSelector {
         return Optional.empty();
     }
 
+    /** Never seen, then new this cycle, then seen this cycle, then the last attempt's items. */
+    static int tierRank(String tier) {
+        return switch (tier) {
+            case TIER_UNSEEN -> 0;
+            case TIER_NEW_THIS_CYCLE -> 1;
+            case TIER_SEEN_THIS_CYCLE -> 2;
+            default -> 3;
+        };
+    }
+
     private static String tierOf(Candidate candidate, AdaptiveSessionState state) {
         Long id = candidate.questionId();
         if (!state.getSeenQuestionIds().contains(id)) return TIER_UNSEEN;
+        Set<Long> cycleSeen = state.getCycleSeenQuestionIds();
+        if (cycleSeen == null || !cycleSeen.contains(id)) return TIER_NEW_THIS_CYCLE;
         if (state.getLastAttemptQuestionIds().contains(id)) return TIER_REPEAT;
-        if (state.getThisExamQuestionIds() != null && state.getThisExamQuestionIds().contains(id)) return TIER_EARLIER_ATTEMPT;
-        return TIER_OLDER;
+        return TIER_SEEN_THIS_CYCLE;
     }
 
     static double typeWeight(String questionType, AdaptiveSessionState state) {

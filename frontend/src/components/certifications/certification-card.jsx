@@ -98,6 +98,7 @@ function stageLabel(stage) {
     generate_mock_exam: "Building the mock exam",
     generate_diagnostic_exam: "Building the diagnostic exam",
     generate_question_bank: "Building the question bank",
+    audit_questions: "Checking every question for duplicates",
   }
   return labels[stage] ?? null
 }

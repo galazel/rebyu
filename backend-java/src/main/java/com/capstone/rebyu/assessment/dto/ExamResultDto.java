@@ -38,4 +38,7 @@ public class ExamResultDto {
 
     @NotNull
     private Boolean isPassed;
+
+    /** Proficiency measured by an adaptive sitting, 0..100; null when not measured. */
+    private BigDecimal rating;
 }

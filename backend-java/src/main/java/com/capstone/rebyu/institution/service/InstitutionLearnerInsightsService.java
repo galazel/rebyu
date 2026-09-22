@@ -1,5 +1,6 @@
 package com.capstone.rebyu.institution.service;
 
+import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository;
 import com.capstone.rebyu.certification.repository.LessonRepository;
 import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.department.entity.Department;
@@ -21,6 +22,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Lets a group's leader monitor the learners assigned to that group.
@@ -60,6 +64,12 @@ public class InstitutionLearnerInsightsService {
             int completedLessonCount,
             int totalLessonCount,
             Double completionPercentage,
+            // Whether this learner has passed a mock exam on the group's own
+            // certification, and the best score they passed with. Null score
+            // with a false flag = never passed one.
+            boolean mockExamPassed,
+            Double bestMockExamScore,
+            LocalDateTime mockExamPassedAt,
             Long sectionId,
             String sectionName
     ) {}
@@ -70,6 +80,7 @@ public class InstitutionLearnerInsightsService {
     private final ProgressAnalyticsService progressAnalyticsService;
     private final LessonRepository lessonRepository;
     private final LearnerCompletedLessonRepository learnerCompletedLessonRepository;
+    private final AssessmentAttemptRepository assessmentAttemptRepository;
 
     /**
      * The group's active learners with the cheap per-learner figures the table
@@ -87,10 +98,29 @@ public class InstitutionLearnerInsightsService {
                 .findByMiddleCategory_MajorCategory_Certification_CertificationId(certificationId)
                 .size();
 
-        return departmentLearnerRepository
+        List<DepartmentLearner> active = departmentLearnerRepository
                 .findByDepartment_DepartmentId(departmentId).stream()
                 .filter(assignee -> assignee.getStatus() == DepartmentLearner.Status.active)
-                .map(assignee -> toRow(assignee, certificationId, totalLessons))
+                .toList();
+
+        // One query for the whole roster rather than one per learner.
+        List<Long> learnerIds = active.stream()
+                .map(this::learnerOf)
+                .filter(java.util.Objects::nonNull)
+                .map(Learner::getLearnerId)
+                .toList();
+        Map<Long, AssessmentAttemptRepository.LearnerMockExamResult> mockPasses =
+                (learnerIds.isEmpty() || certificationId == null)
+                        ? Map.of()
+                        : assessmentAttemptRepository
+                                .passedMockExamsByLearnerIds(learnerIds, certificationId).stream()
+                                .collect(Collectors.toMap(
+                                        AssessmentAttemptRepository.LearnerMockExamResult::getLearnerId,
+                                        Function.identity(),
+                                        (first, second) -> first));
+
+        return active.stream()
+                .map(assignee -> toRow(assignee, certificationId, totalLessons, mockPasses))
                 .sorted(Comparator.comparing(
                         DepartmentLearnerRow::name, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
@@ -174,7 +204,8 @@ public class InstitutionLearnerInsightsService {
     }
 
     private DepartmentLearnerRow toRow(
-            DepartmentLearner assignee, Long certificationId, int totalLessons) {
+            DepartmentLearner assignee, Long certificationId, int totalLessons,
+            Map<Long, AssessmentAttemptRepository.LearnerMockExamResult> mockPasses) {
         InstitutionCertificationLearner enrollment = assignee.getInstitutionCertLearner();
         Learner learner = learnerOf(assignee);
 
@@ -189,6 +220,9 @@ public class InstitutionLearnerInsightsService {
                 ? (completedLessons * 100.0) / totalLessons
                 : null;
 
+        AssessmentAttemptRepository.LearnerMockExamResult mockPass =
+                learner == null ? null : mockPasses.get(learner.getLearnerId());
+
         return new DepartmentLearnerRow(
                 assignee.getDepartmentLearnerId(),
                 learner != null ? learner.getLearnerId() : null,
@@ -201,6 +235,9 @@ public class InstitutionLearnerInsightsService {
                 completedLessons,
                 totalLessons,
                 completionPercentage,
+                mockPass != null,
+                mockPass == null ? null : mockPass.getBestScore(),
+                mockPass == null ? null : mockPass.getPassedAt(),
                 assignee.getSection() != null ? assignee.getSection().getSectionId() : null,
                 assignee.getSection() != null ? assignee.getSection().getSectionName() : null
         );

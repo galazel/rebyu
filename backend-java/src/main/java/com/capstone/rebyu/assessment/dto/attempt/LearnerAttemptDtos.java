@@ -297,7 +297,9 @@ public final class LearnerAttemptDtos {
                cases only, by the same rule as ProgrammingTestReviewDto: output
                produced from a hidden input describes that input. */
             String programOutput,
-            String programError
+            String programError,
+            /** The item's authored difficulty (EASY / MEDIUM / HARD), for the review list. */
+            String difficultyLevel
     ) {
     }
 

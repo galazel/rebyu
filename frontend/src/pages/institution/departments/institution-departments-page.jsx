@@ -51,12 +51,14 @@ import {
   InstitutionStatusBadge,
 } from "@/components/institution/institution-ui.jsx"
 import { useAuth } from "@/context/auth-context.jsx"
+import { REFERENCE_DEPARTMENT, useReferenceOptions } from "@/services/referenceService.js"
 import {
   getLearnerDisplayName,
   useInstitutionData,
 } from "@/hooks/use-institution-data.js"
 import {
   addDepartmentLearner,
+  archiveDepartment,
   assignDepartmentHeadAssignment,
   changeDepartmentLearnerRole,
   createDepartment,
@@ -78,10 +80,18 @@ function backendMessage(error, fallback) {
   return error?.response?.data?.message ?? fallback
 }
 
-function CreateGroupDialog({ open, onOpenChange, institutionCerts, certificationById, lockedInstitutionCertId }) {
+const OTHER_DEPARTMENT = "__other__"
+
+function CreateGroupDialog({ open, onOpenChange, institutionCerts, certificationById, lockedInstitutionCertId, departments = [] }) {
+  /* The department names on offer come from the stored list an admin keeps,
+     not a free text box: one vocabulary across every institution, and no
+     "CCS" beside "College of Computer Studies". */
+  const { options: departmentOptions } = useReferenceOptions(REFERENCE_DEPARTMENT)
   const queryClient = useQueryClient()
   const [institutionCertId, setInstitutionCertId] = useState("")
   const [departmentName, setDepartmentName] = useState("")
+  /* "Other" in the select opens a text box; the typed name is what is sent. */
+  const [departmentChoice, setDepartmentChoice] = useState("")
   const [departmentDescription, setDepartmentDescription] = useState("")
   const [totalSlots, setTotalSlots] = useState("")
   const [error, setError] = useState("")
@@ -101,10 +111,22 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
   const reset = () => {
     setInstitutionCertId(lockedInstitutionCertId != null ? String(lockedInstitutionCertId) : "")
     setDepartmentName("")
+    setDepartmentChoice("")
     setDepartmentDescription("")
     setTotalSlots("")
     setError("")
   }
+
+  /* What this allocation still has to give: its total less what the
+     departments already under it were given. The field is capped at that,
+     and opens on it, so an institution sees at a glance how much is left
+     rather than the allocation's whole size. */
+  const allocatedSlots = departments
+    .filter((group) => String(group.institutionCertId) === String(institutionCertId))
+    .reduce((sum, group) => sum + Number(group.totalSlots ?? 0), 0)
+  const remainingSlots = selectedInstitutionCert
+    ? Math.max(0, Number(selectedInstitutionCert.totalSlots ?? 0) - allocatedSlots)
+    : null
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -142,9 +164,11 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
       setError("Enter a number of slots (at least 1).")
       return
     }
-    if (selectedInstitutionCert && slots > selectedInstitutionCert.totalSlots) {
+    if (remainingSlots != null && slots > remainingSlots) {
       setError(
-        `This group can have at most ${selectedInstitutionCert.totalSlots} slot(s) -- the certification's own allocation limit.`
+        remainingSlots === 0
+          ? "This allocation has no slots left for a new department."
+          : `Only ${remainingSlots} slot(s) are left on this allocation; the other departments hold the rest.`
       )
       return
     }
@@ -191,14 +215,36 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="group-name">Department name</Label>
-            <Input
-              id="group-name"
-              value={departmentName}
-              onChange={(e) => setDepartmentName(e.target.value)}
-              placeholder="e.g. Batch 2026-A"
-              maxLength={150}
-            />
+            <Label htmlFor="group-name">Department</Label>
+            <Select
+              value={departmentChoice}
+              onValueChange={(value) => {
+                setDepartmentChoice(value)
+                setDepartmentName(value === OTHER_DEPARTMENT ? "" : value)
+              }}
+            >
+              <SelectTrigger id="group-name" className="w-full">
+                <SelectValue placeholder="Select a department" />
+              </SelectTrigger>
+              <SelectContent>
+                {departmentOptions.filter((name) => name !== "Other").map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))}
+                <SelectItem value={OTHER_DEPARTMENT}>Other (type a name)</SelectItem>
+              </SelectContent>
+            </Select>
+            {departmentChoice === OTHER_DEPARTMENT ? (
+              <Input
+                id="group-name-other"
+                autoFocus
+                value={departmentName}
+                onChange={(e) => setDepartmentName(e.target.value)}
+                placeholder="Department name"
+                maxLength={150}
+              />
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -219,14 +265,16 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
               id="department-slots"
               type="number"
               min={1}
-              max={selectedInstitutionCert?.totalSlots}
+              max={remainingSlots ?? undefined}
               value={totalSlots}
               onChange={(e) => setTotalSlots(e.target.value)}
-              placeholder="e.g. 30"
+              placeholder={remainingSlots != null ? String(remainingSlots) : "e.g. 30"}
             />
             {selectedInstitutionCert ? (
-              <p className="text-xs text-muted-foreground">
-                Up to {selectedInstitutionCert.totalSlots} slot(s) available on this certification allocation.
+              <p className={`text-xs ${remainingSlots === 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                {remainingSlots === 0
+                  ? `No slots left: all ${selectedInstitutionCert.totalSlots} on this allocation are already given to departments.`
+                  : `${remainingSlots} of ${selectedInstitutionCert.totalSlots} slot(s) still available on this certification allocation.`}
               </p>
             ) : null}
           </div>
@@ -256,7 +304,7 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
                   Creating...
                 </>
               ) : (
-                "Create group"
+                "Create department"
               )}
             </Button>
           </DialogFooter>
@@ -291,13 +339,58 @@ function ManageGroupDialog({
   const [learnerInviteLast, setLearnerInviteLast] = useState("")
   const [editingSlots, setEditingSlots] = useState(false)
   const [slotsInput, setSlotsInput] = useState("")
+  /* Name and description, edited in place. The name is picked from the
+     stored department list like it was at creation, with "Other" for a name
+     the list does not hold. */
+  const [editingDetails, setEditingDetails] = useState(false)
+  const [nameChoice, setNameChoice] = useState("")
+  const [nameInput, setNameInput] = useState("")
+  const [descriptionInput, setDescriptionInput] = useState("")
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const { options: departmentOptions } = useReferenceOptions(REFERENCE_DEPARTMENT)
 
   useEffect(() => {
     if (open && group) {
       setSlotsInput(String(group.totalSlots ?? 0))
       setEditingSlots(false)
+      setEditingDetails(false)
+      setConfirmDelete(false)
+      setNameInput(group.departmentName ?? "")
+      setDescriptionInput(group.departmentDescription ?? "")
     }
   }, [open, group])
+
+  useEffect(() => {
+    if (!open || !group) return
+    const listed = departmentOptions.includes(group.departmentName)
+    setNameChoice(listed ? group.departmentName : OTHER_DEPARTMENT)
+  }, [open, group, departmentOptions])
+
+  const updateDetailsMutation = useMutation({
+    mutationFn: () =>
+      updateDepartment(departmentId, {
+        departmentName: nameInput.trim(),
+        departmentDescription: descriptionInput.trim() || null,
+        totalSlots: group.totalSlots,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["departments"] })
+      toast.success("Department updated.")
+      setEditingDetails(false)
+    },
+    onError: (err) => toast.error(backendMessage(err, "Unable to update the department.")),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => archiveDepartment(departmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["departments"] })
+      toast.success("Department deleted.")
+      setConfirmDelete(false)
+      onOpenChange(false)
+    },
+    onError: (err) => toast.error(backendMessage(err, "Unable to delete the department.")),
+  })
 
   const updateSlotsMutation = useMutation({
     mutationFn: (nextTotalSlots) =>
@@ -504,12 +597,97 @@ function ManageGroupDialog({
         <DialogHeader>
           <DialogTitle>{group.departmentName}</DialogTitle>
           <DialogDescription>
-            Assign an authority (teacher / co-admin) and manage the learners in this
-            group.
+            Assign a department head and manage the learners in this department.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Name and description */}
+          {isOwner ? (
+            <section className="rounded-lg border p-3">
+              {editingDetails ? (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-department-name">Department</Label>
+                    <Select
+                      value={nameChoice}
+                      onValueChange={(value) => {
+                        setNameChoice(value)
+                        setNameInput(value === OTHER_DEPARTMENT ? "" : value)
+                      }}
+                    >
+                      <SelectTrigger id="edit-department-name" className="w-full">
+                        <SelectValue placeholder="Select a department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departmentOptions.filter((name) => name !== "Other").map((name) => (
+                          <SelectItem key={name} value={name}>
+                            {name}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value={OTHER_DEPARTMENT}>Other (type a name)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {nameChoice === OTHER_DEPARTMENT ? (
+                      <Input
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        placeholder="Department name"
+                        maxLength={150}
+                      />
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-department-description">Description (optional)</Label>
+                    <Textarea
+                      id="edit-department-description"
+                      value={descriptionInput}
+                      onChange={(e) => setDescriptionInput(e.target.value)}
+                      maxLength={500}
+                      rows={2}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setEditingDetails(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => updateDetailsMutation.mutate()}
+                      disabled={!nameInput.trim() || updateDetailsMutation.isPending}
+                    >
+                      {updateDetailsMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" aria-hidden="true" /> : null}
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{group.departmentName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {group.departmentDescription?.trim() || "No description."}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setEditingDetails(true)}>
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => setConfirmDelete(true)}
+                    >
+                      <Trash2 className="mr-1.5 size-4" aria-hidden="true" />
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </section>
+          ) : null}
+
           {/* Slots */}
           <section className="flex items-center justify-between gap-3 rounded-lg border p-3">
             <div>
@@ -887,6 +1065,36 @@ function ManageGroupDialog({
           </section>
         </div>
       </DialogContent>
+
+      {/* Deleting archives the department: its rows stay for the record,
+          the learners in it lose the grouping, and it leaves this list. */}
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {group.departmentName}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {groupUsedSlots > 0
+                ? `${groupUsedSlots} learner${groupUsedSlots === 1 ? "" : "s"} in this department will lose the grouping; their enrollments and progress are kept. `
+                : ""}
+              The department's {groupTotalSlots} slot{groupTotalSlots === 1 ? "" : "s"} return to the certification allocation. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault()
+                deleteMutation.mutate()
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" aria-hidden="true" /> : null}
+              Delete department
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }
@@ -970,7 +1178,7 @@ export default function DepartmentsPage() {
       ) : null}
 
       <InstitutionPageHeader
-        title={scopedCertification ? `Groups — ${scopedCertification.title}` : "Groups"}
+        title={scopedCertification ? `Departments — ${scopedCertification.title}` : "Departments"}
         subtitle="Organize learners into departments under a certification allocation and delegate management to a department head."
         actions={
           <Button onClick={() => setCreateOpen(true)} disabled={!hasAllocations}>
@@ -1044,6 +1252,7 @@ export default function DepartmentsPage() {
         institutionCerts={data.institutionCerts}
         certificationById={data.certificationById}
         lockedInstitutionCertId={scopedInstitutionCertId}
+        departments={Array.isArray(departmentsQuery.data) ? departmentsQuery.data : []}
       />
 
       <ManageGroupDialog

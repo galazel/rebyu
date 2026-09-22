@@ -587,7 +587,7 @@ public class CommunityService {
 
     private static Post mapPostRow(CommunityPostRow row) {
         return new Post(row.getPostId(), row.getAuthorName(), initials(row.getAuthorName()), row.getCommunity(),
-                row.getCreatedAt() == null ? null : row.getCreatedAt().atOffset(ZoneOffset.UTC),
+                row.getCreatedAt() == null ? null : row.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
                 row.getTitle(), row.getBody(), row.getPostType(), row.getCircleId(),
                 row.getAttachmentName(), row.getAttachmentType(), row.getAttachmentKey(), row.getAttachmentSize(),
                 readAttachments(row.getAttachmentsJson()),

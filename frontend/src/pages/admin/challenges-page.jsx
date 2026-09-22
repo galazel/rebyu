@@ -12,7 +12,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
-import { industries } from "@/constants/industries.js"
+import { REFERENCE_INDUSTRY, useReferenceOptions } from "@/services/referenceService.js"
 
 import {
   CHALLENGE_ARENAS_KEY,
@@ -44,7 +44,6 @@ import { BubbleCard } from "@/components/commons/bubble-card.jsx"
    "Information Technology" could never line up with a certification in
    "Information and Communications Technology (ICT)", so gating a learner on it
    would have hidden every arena from everybody. One vocabulary, shared. */
-const INDUSTRIES = industries
 
 /* The IT Olympics, and only the IT Olympics — the same three arenas the
    landing page sells and the learner can actually enter. QueryRealm, Sprint
@@ -119,8 +118,10 @@ const INITIAL_CHALLENGES = [
 
 export default function Challenges({
                                      initialChallenges = INITIAL_CHALLENGES,
-                                     industries = INDUSTRIES,
+                                     industries: industriesProp,
                                    }) {
+  const { options: storedIndustries } = useReferenceOptions(REFERENCE_INDUSTRY)
+  const industries = industriesProp ?? storedIndustries
   const [challenges, setChallenges] = useState(initialChallenges)
   const [saving, setSaving] = useState(false)
   const queryClient = useQueryClient()

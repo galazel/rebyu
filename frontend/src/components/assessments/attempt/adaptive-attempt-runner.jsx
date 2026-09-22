@@ -35,9 +35,9 @@ import { FinalRoundInterstitial } from "./final-round-interstitial.jsx"
  *                                    -> FINAL_INTRO -> ANSWERING (final) ...
  *                                    -> COMPLETED -> the page submits.
  *
- * Final-round items (programming, diagram, critical thinking) are saved as
- * they are answered and marked together at submit, so there is no verdict
- * between them -- "Submit answer" simply moves on.
+ * Final-round items (programming, diagram, critical thinking) are marked on
+ * submit like every other item -- the grader runs while the learner waits,
+ * the verdict shows, and the paper keeps adapting through the last problem.
  */
 export function AdaptiveAttemptRunner({
   attempt,
@@ -179,15 +179,8 @@ export function AdaptiveAttemptRunner({
   async function check(override) {
     if (!current || phase !== "ANSWERING") return
     const answerDraft = override ?? draft ?? {}
-    if (!isAnswered(current, answerDraft, isMultipleChoice) && !finalItem) return
+    if (!isAnswered(current, answerDraft, isMultipleChoice)) return
     const item = current
-
-    if (finalItem) {
-      /* Saved, not marked: on to the next problem at once. */
-      record(item, answerDraft)
-      advance()
-      return
-    }
 
     const local = localVerdict(item, answerDraft, isMultipleChoice)
     if (local) {
@@ -360,14 +353,14 @@ export function AdaptiveAttemptRunner({
               />
             )}
           </div>
-          <FinalRoundFooter onSubmit={() => check()} busy={grading || awaitingServer} last={answeredCount + 1 >= total} />
+          <FinalRoundFooter onSubmit={() => check()} onNext={() => next()} busy={grading || awaitingServer} revealed={revealed} verdict={verdict} last={answeredCount + 1 >= total} />
         </div>
       ) : current && isWorkspace ? (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-4">
           <div className="min-h-0 flex-1 overflow-hidden">
             <WorkspaceQuestionPanel question={current} index={answeredCount} answer={draft} onAnswer={setAnswer} />
           </div>
-          <FinalRoundFooter onSubmit={() => check()} busy={grading || awaitingServer} last={answeredCount + 1 >= total} />
+          <FinalRoundFooter onSubmit={() => check()} onNext={() => next()} busy={grading || awaitingServer} revealed={revealed} verdict={verdict} last={answeredCount + 1 >= total} />
         </div>
       ) : current ? (
         <main className="min-h-0 flex-1 overflow-y-auto">
@@ -486,7 +479,7 @@ export function AdaptiveAttemptRunner({
 
               <div className="mt-6 flex items-center justify-between gap-3">
                 <span className="text-xs text-rb-wolf">
-                  {revealed ? "Marked. Ready for the next one?" : grading ? (finalItem ? "Saving…" : "Marking…") : finalItem ? "Final round: marked with the whole paper when you finish." : "Pick or type an answer, then check."}
+                  {revealed ? "Marked. Ready for the next one?" : grading ? (finalItem ? "Marking your work — this can take a moment…" : "Marking…") : finalItem ? "Final round: submit your work and it is marked right away." : "Pick or type an answer, then check."}
                 </span>
                 <Button onClick={() => (revealed ? next() : check())} disabled={(!answered && !revealed) || grading || awaitingServer} className="gap-2">
                   {awaitingServer ? (
@@ -500,7 +493,7 @@ export function AdaptiveAttemptRunner({
                       Checking
                     </>
                   ) : !revealed ? (
-                    finalItem ? (answeredCount + 1 >= total ? "Finish and see results" : "Submit answer") : "Check"
+                    finalItem ? "Submit and mark" : "Check"
                   ) : answeredCount + 1 >= total ? (
                     <>
                       <Sparkles className="size-4" aria-hidden="true" />
@@ -532,14 +525,21 @@ export function AdaptiveAttemptRunner({
   )
 }
 
-function FinalRoundFooter({ onSubmit, busy, last }) {
+/* The workspace items' footer. Marked on submit like every other item: the
+   verdict shows here, and the button then moves on. */
+function FinalRoundFooter({ onSubmit, onNext, busy, revealed, verdict, last }) {
   return (
-    <div className="mt-3 flex shrink-0 items-center justify-between gap-3 rounded-2xl border-2 border-rb-swan bg-rb-snow px-4 py-3">
-      <span className="text-xs text-rb-wolf">Final round: this problem is marked with the whole paper when you finish.</span>
-      <Button onClick={onSubmit} disabled={busy} className="gap-2">
-        {busy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
-        {last ? "Finish and see results" : "Submit answer"}
-      </Button>
+    <div className="mt-3 shrink-0 rounded-2xl border-2 border-rb-swan bg-rb-snow px-4 py-3">
+      {revealed && verdict ? <VerdictPanel verdict={verdict} /> : null}
+      <div className={`flex items-center justify-between gap-3 ${revealed && verdict ? "mt-3" : ""}`}>
+        <span className="text-xs text-rb-wolf">
+          {revealed ? "Marked. Ready for the next one?" : busy ? "Marking your work — this can take a moment…" : "Final round: submit your work and it is marked right away."}
+        </span>
+        <Button onClick={revealed ? onNext : onSubmit} disabled={busy} className="gap-2">
+          {busy ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
+          {revealed ? (last ? "See my results" : "Next problem") : "Submit and mark"}
+        </Button>
+      </div>
     </div>
   )
 }

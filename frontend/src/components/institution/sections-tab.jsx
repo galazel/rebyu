@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import {
+  AwardIcon,
   ChevronDown,
   ChevronRight,
   Layers,
@@ -26,6 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -43,13 +45,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  formatDate,
   InstitutionEmptyState,
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
   InstitutionStatusBadge,
 } from "@/components/institution/institution-ui.jsx"
 import {
-  archiveGroupSection,
+  deleteGroupSection,
   createGroupSection,
   getGroupLearnerRoster,
   getGroupSections,
@@ -569,6 +572,23 @@ function LessonProgressCell({ completed, total, percentage }) {
   )
 }
 
+/**
+ * The one achievement a department head asks about first: has this learner
+ * sat the certification's mock exam and passed it. Shown only on a real pass
+ * -- an absent badge means "not yet", which is also what a learner with no
+ * attempt at all should read as, so there is no "failed" variant here.
+ */
+function MockExamBadge({ passed, score }) {
+  if (!passed) return null
+  const rounded = Number.isFinite(Number(score)) ? Math.round(Number(score)) : null
+  return (
+    <Badge variant="default" className="gap-1" title="Passed the mock exam for this certification">
+      <AwardIcon className="size-3.5" aria-hidden="true" />
+      Mock exam passed{rounded == null ? "" : ` · ${rounded}%`}
+    </Badge>
+  )
+}
+
 function SectionPanel({
   departmentId,
   group,
@@ -578,7 +598,7 @@ function SectionPanel({
   invitations,
   defaultOpen,
   onEdit,
-  onArchive,
+  onDelete,
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -663,7 +683,7 @@ function SectionPanel({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground">
               {isUnsectioned
-                ? "Learners who joined before sections existed, or whose section was archived. Move them into a section from the row."
+                ? "Learners who joined before sections existed, or whose section was deleted. Move them into a section from the row."
                 : "Add learners by typing them in or uploading a class list."}
             </p>
             <div className="flex gap-2">
@@ -673,9 +693,9 @@ function SectionPanel({
                     <PencilIcon className="size-4" aria-hidden="true" />
                     Rename
                   </Button>
-                  <Button size="sm" variant="outline" onClick={() => onArchive(section)}>
+                  <Button size="sm" variant="outline" onClick={() => onDelete(section)}>
                     <Trash2 className="size-4" aria-hidden="true" />
-                    Archive
+                    Delete
                   </Button>
                 </>
               ) : null}
@@ -721,6 +741,7 @@ function SectionPanel({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Learner</TableHead>
+                    <TableHead className="w-32">Joined</TableHead>
                     <TableHead className="w-44">Lessons completed</TableHead>
                     <TableHead className="w-44">Section</TableHead>
                     <TableHead className="w-12" />
@@ -733,8 +754,14 @@ function SectionPanel({
                         className="cursor-pointer"
                         onClick={() => navigate(`/institution/departments/${departmentId}/learners/${row.learnerId}`)}
                       >
-                        <p className="font-medium text-foreground">{row.name}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium text-foreground hover:underline">{row.name}</p>
+                          <MockExamBadge passed={row.mockExamPassed} score={row.bestMockExamScore} />
+                        </div>
                         <p className="text-xs text-muted-foreground">{row.email ?? (row.username ? `@${row.username}` : "")}</p>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDate(row.assignedAt)}
                       </TableCell>
                       <TableCell>
                         <LessonProgressCell
@@ -819,7 +846,7 @@ function SectionPanel({
 export function SectionsTab({ departmentId, group }) {
   const queryClient = useQueryClient()
   const [dialog, setDialog] = useState(null) // { section } | null
-  const [archiveTarget, setArchiveTarget] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   const sectionsQuery = useQuery({
     queryKey: ["department-sections", departmentId],
@@ -858,16 +885,16 @@ export function SectionsTab({ departmentId, group }) {
     return map
   }, [invitations])
 
-  const archive = useMutation({
-    mutationFn: (sectionId) => archiveGroupSection(departmentId, sectionId),
+  const removeSection = useMutation({
+    mutationFn: (sectionId) => deleteGroupSection(departmentId, sectionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["department-sections", departmentId] })
       queryClient.invalidateQueries({ queryKey: ["department-learner-roster", departmentId] })
       queryClient.invalidateQueries({ queryKey: ["department-invitations", departmentId] })
-      toast.success("Section archived. Its learners stay in the department.")
-      setArchiveTarget(null)
+      toast.success("Section deleted. Its learners stay in the department.")
+      setDeleteTarget(null)
     },
-    onError: (err) => toast.error(backendMessage(err, "Unable to archive this section.")),
+    onError: (err) => toast.error(backendMessage(err, "Unable to delete this section.")),
   })
 
   if (sectionsQuery.isLoading || rosterQuery.isLoading) return <InstitutionLoadingSkeleton rows={3} />
@@ -928,7 +955,7 @@ export function SectionsTab({ departmentId, group }) {
               invitations={invitationsBySection.get(section.sectionId) ?? []}
               defaultOpen={index === 0}
               onEdit={(s) => setDialog({ section: s })}
-              onArchive={(s) => setArchiveTarget(s)}
+              onDelete={(s) => setDeleteTarget(s)}
             />
           ))}
           {unsectioned.length > 0 || unsectionedInvites.length > 0 ? (
@@ -941,7 +968,7 @@ export function SectionsTab({ departmentId, group }) {
               invitations={unsectionedInvites}
               defaultOpen={sections.length === 0}
               onEdit={() => {}}
-              onArchive={() => {}}
+              onDelete={() => {}}
             />
           ) : null}
         </div>
@@ -957,19 +984,19 @@ export function SectionsTab({ departmentId, group }) {
         />
       ) : null}
 
-      <AlertDialog open={archiveTarget != null} onOpenChange={(open) => !open && setArchiveTarget(null)}>
+      <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive “{archiveTarget?.sectionName}”?</AlertDialogTitle>
+            <AlertDialogTitle>Delete “{deleteTarget?.sectionName}”?</AlertDialogTitle>
             <AlertDialogDescription>
-              Its {archiveTarget?.learnerCount ?? 0} learner(s) stay in the department under “Not in a section”, and any
+              Its {deleteTarget?.learnerCount ?? 0} learner(s) stay in the department under “Not in a section”, and any
               pending invitations still bring learners into the department. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep section</AlertDialogCancel>
-            <AlertDialogAction onClick={() => archive.mutate(archiveTarget.sectionId)} disabled={archive.isPending}>
-              Archive
+            <AlertDialogAction onClick={() => removeSection.mutate(deleteTarget.sectionId)} disabled={removeSection.isPending}>
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -66,6 +66,9 @@ public class AdaptiveSessionState {
 
     /** Questions this learner had met in any attempt when the session began. */
     private Set<Long> seenQuestionIds = new LinkedHashSet<>();
+    /** Of those, the ones met in the current pass over the bank (see LearnerBankCycle). */
+    private Set<Long> cycleSeenQuestionIds = new LinkedHashSet<>();
+    private int bankCycle = 1;
     /** Questions served on any earlier attempt of this exam, so a retake never repeats one while it can help it. */
     private Set<Long> thisExamQuestionIds = new LinkedHashSet<>();
     /** Questions on the learner's most recent submitted attempt of this exam. */
@@ -77,15 +80,17 @@ public class AdaptiveSessionState {
     /** Items served behind the current one (attempt-question ids), in paper order. */
     private List<Long> queuedAttemptQuestionIds = new ArrayList<>();
 
-    /** How many items are kept served ahead of the one being asked. */
-    public static final int RESERVE_DEPTH = 5;
-
     /**
-     * How many are served ahead at the start, before the first answer tops
-     * the reserve up to RESERVE_DEPTH: each item served is an insert on the
-     * learner's clock, and the start is already the longest wait.
+     * How many items are kept served ahead of the one being asked. Zero: an
+     * item served ahead is chosen without the answer before it, and on a
+     * paper of thirty that lag is what the learner notices ("I got it right
+     * and the next one was no harder"). The next item is chosen after each
+     * answer is marked, in the same request that records it.
      */
-    public static final int START_RESERVE = 3;
+    public static final int RESERVE_DEPTH = 0;
+
+    /** How many are served ahead at the start, beyond the first item. */
+    public static final int START_RESERVE = 0;
 
     public Long getQueuedAttemptQuestionId() {
         return queuedAttemptQuestionIds.isEmpty() ? null : queuedAttemptQuestionIds.get(0);

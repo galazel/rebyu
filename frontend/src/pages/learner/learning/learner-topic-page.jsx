@@ -22,6 +22,7 @@ import {
   Circle,
   CircleHelp,
   Clock,
+  Lock,
   Loader2,
   PanelLeft,
   Sparkles,
@@ -61,7 +62,7 @@ import {
 } from "@/services/learnerService.js"
 import { getExams, getExamTypes } from "@/services/assessmentService.js"
 import { getProgressAnalytics } from "@/services/learnerAnalyticsService.js"
-import { buildCurriculum, findMiddle } from "./curriculum-model.js"
+import { buildCurriculum, examStanding, findMiddle } from "./curriculum-model.js"
 import {
   SectionStackSkeleton,
   TopicPageSkeleton,
@@ -185,6 +186,7 @@ function OutlineRow({
   sections,
   readSections,
   done,
+  locked,
 }) {
   const Icon = ROW_ICON[item.kind] ?? BookOpen
   // A lesson opens to what is inside it: its sections, then its quick check.
@@ -239,6 +241,8 @@ function OutlineRow({
           >
             {done ? (
               <Check className="size-4" aria-hidden="true" />
+            ) : locked ? (
+              <Lock className="size-4" aria-hidden="true" />
             ) : (
               <Icon className="size-4" aria-hidden="true" />
             )}
@@ -248,7 +252,7 @@ function OutlineRow({
             <span className="min-w-0 flex-1">
               <span
                 className={`line-clamp-2 text-sm leading-snug ${
-                  active ? "font-extrabold text-rb-macaw-lip" : "font-bold text-rb-eel"
+                  active ? "font-extrabold text-rb-macaw-lip" : locked ? "font-bold text-rb-hare" : "font-bold text-rb-eel"
                 }`}
                 title={item.name}
               >
@@ -368,6 +372,7 @@ function Outline({
   activeSections,
   readSections,
   isDone,
+  isLocked,
 }) {
   const [expanded, setExpanded] = useState(() => new Set([track[0]?.id]))
 
@@ -470,6 +475,7 @@ function Outline({
                 mastery={masteryByLessonId?.get(String(item.id))}
                 readSections={readSections}
                 done={item.kind === "lesson" && isDone(item.id)}
+                locked={Boolean(isLocked?.(item))}
               />
             )
           })}
@@ -660,6 +666,7 @@ function LessonView({
   backTo,
   takenExamIds,
   quizPending,
+  quizStanding,
 }) {
   const articleRef = useRef(null)
   const headerRef = useRef(null)
@@ -946,6 +953,7 @@ function LessonView({
           <QuizBand
             quiz={lessonItem.quiz}
             taken={Boolean(takenExamIds?.has(String(lessonItem.quiz.examId)))}
+            standing={quizStanding}
           />
         </div>
       ) : null}
@@ -1030,7 +1038,7 @@ function LessonView({
  * is what the attempt engine already does. Rendering our own radio buttons here
  * would produce a score the backend never sees.
  */
-function QuizBand({ quiz, taken }) {
+function QuizBand({ quiz, taken, standing }) {
   /* Where the quiz hands the learner back. They are part-way through this
      topic, so finishing sends them here rather than to the certification's
      roadmap. */
@@ -1054,6 +1062,13 @@ function QuizBand({ quiz, taken }) {
             {quiz.description ??
               "A short check on what this lesson covered. Answer it while the lesson is fresh — it is scored, and you can retake it."}
           </p>
+          {/* Why the lesson is still open after a sitting: the quiz has to be
+              passed at a proficient level before the next lesson opens. */}
+          {standing?.taken && !standing.cleared ? (
+            <p className="mt-3 rounded-rb-control border-2 border-rb-fox/40 bg-rb-fox-wash px-3 py-2 text-sm font-bold text-rb-eel">
+              Quiz {standing.reason}. Retake it to open the next lesson.
+            </p>
+          ) : null}
 
           <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
@@ -1399,6 +1414,30 @@ export default function LearnerTopicPage() {
   // section that is already marked read.
   const persistedReadRef = useRef(new Set())
 
+  /* The lessons are walked in order. A lesson is shut until the one before it
+     is done -- read, and its quiz cleared -- and the topic's own exam until
+     every lesson is. `lockedBy` names the item holding it shut. Defined after
+     `isDone`; a function declaration is hoisted, the values are read at call
+     time. */
+  function lockedBy(item) {
+    const position = track.findIndex((entry) => entry.id === item.id)
+    if (position <= 0) return null
+    if (item.kind === "assessment") {
+      return track.find((entry) => entry.kind === "lesson" && !isDone(entry.id)) ?? null
+    }
+    const before = track[position - 1]
+    return before.kind === "lesson" && !isDone(before.id) ? before : null
+  }
+
+  function explainLock(item) {
+    const gate = lockedBy(item)
+    if (!gate) return false
+    const quiz = gate.quiz ? examStanding(data?.examResults, gate.quiz.examId) : null
+    const why = quiz && quiz.taken && !quiz.cleared ? ` Its quiz: ${quiz.reason}.` : ""
+    toast.warning(`${gate.name} comes first.${why}`)
+    return true
+  }
+
   const isDone = useCallback(
     (lessonId) => locallyDone.has(lessonId) || Boolean(lessonById.get(lessonId)?.completed),
     [locallyDone, lessonById],
@@ -1579,7 +1618,13 @@ export default function LearnerTopicPage() {
      the curriculum page reads the same way, so the two screens cannot disagree
      about whether something has been sat. */
   const activeQuiz = active?.kind === "lesson" ? active.quiz : null
-  const quizPending = Boolean(activeQuiz) && !takenExamIds.has(String(activeQuiz.examId))
+  /* Pending until CLEARED -- passed, and at a proficient level when the
+     sitting measured one -- not merely sat. A quiz failed, or passed at a
+     low rating, leaves the lesson unfinished and the next lesson shut; the
+     launcher offers the retake. `takenExamIds` still decides first go vs
+     retake. */
+  const quizStanding = activeQuiz ? examStanding(data?.examResults, activeQuiz.examId) : null
+  const quizPending = Boolean(activeQuiz) && !quizStanding?.cleared
 
   // Two entry points, deliberately different: the scroll check only ever
   // *sets* (reaching the end twice must not re-post), the button is what a
@@ -1682,6 +1727,7 @@ export default function LearnerTopicPage() {
       collapsed={outlineCollapsed}
       onCollapse={() => setOutlineCollapsed((value) => !value)}
       onSelect={(item) => {
+        if (explainLock(item)) return
         setActiveId(item.id)
         setRailOpen(false)
         window.scrollTo({ top: 0 })
@@ -1689,6 +1735,7 @@ export default function LearnerTopicPage() {
       activeSections={sections}
       readSections={readSections}
       isDone={isDone}
+      isLocked={(item) => lockedBy(item) != null}
     />
   )
 
@@ -1735,6 +1782,7 @@ export default function LearnerTopicPage() {
               onToggleLesson={readLesson}
               takenExamIds={takenExamIds}
               quizPending={quizPending}
+              quizStanding={quizStanding}
               onPrev={
                 prev
                   ? () => {
@@ -1746,6 +1794,7 @@ export default function LearnerTopicPage() {
               onNext={
                 next
                   ? () => {
+                      if (explainLock(next)) return
                       setActiveId(next.id)
                       window.scrollTo({ top: 0 })
                     }

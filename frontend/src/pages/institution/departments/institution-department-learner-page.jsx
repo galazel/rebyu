@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
   ArrowLeftIcon,
+  AwardIcon,
   BookOpen,
   ClipboardListIcon,
   GaugeIcon,
@@ -207,9 +208,22 @@ export default function InstitutionDepartmentLearnerPage() {
               {learner?.username ? ` · @${learner.username}` : ""}
             </p>
           </div>
-          {analytics?.bktAvailable === false ? (
-            <Badge variant="outline">Mastery data unavailable</Badge>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* The roster already carries this learner's mock-exam result, so
+                the badge costs no extra call. */}
+            {learner?.mockExamPassed ? (
+              <Badge className="gap-1">
+                <AwardIcon className="size-3.5" aria-hidden="true" />
+                Mock exam passed
+                {Number.isFinite(Number(learner.bestMockExamScore))
+                  ? ` · ${Math.round(Number(learner.bestMockExamScore))}%`
+                  : ""}
+              </Badge>
+            ) : null}
+            {analytics?.bktAvailable === false ? (
+              <Badge variant="outline">Mastery data unavailable</Badge>
+            ) : null}
+          </div>
         </div>
       </div>
 

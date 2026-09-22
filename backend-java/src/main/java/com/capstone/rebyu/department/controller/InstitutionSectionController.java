@@ -118,13 +118,18 @@ public class InstitutionSectionController {
     }
 
     /**
-     * Archives the section. Its learners stay in the department, unsectioned;
-     * pending invitations sent for it still land the learner in the department.
+     * Deletes the section outright. Its learners stay in the department,
+     * unsectioned; pending invitations sent for it still land the learner in
+     * the department.
+     *
+     * The two updates are not optional bookkeeping -- department_learners and
+     * learner_invitations are the only two tables holding a section_id, and
+     * both must be detached before the row goes or the FK refuses the delete.
      */
     @DeleteMapping("/{sectionId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Transactional
-    public void archive(@AuthenticationPrincipal Jwt jwt, @PathVariable Long departmentId, @PathVariable Long sectionId) {
+    public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable Long departmentId, @PathVariable Long sectionId) {
         requireDepartmentAccess(jwt, departmentId);
         InstitutionSection section = find(departmentId, sectionId);
         entityManager.createQuery(
@@ -133,8 +138,8 @@ public class InstitutionSectionController {
         entityManager.createQuery(
                         "update LearnerInvitation i set i.section = null where i.section.sectionId = :id")
                 .setParameter("id", sectionId).executeUpdate();
-        section.setStatus(InstitutionSection.Status.archived);
-        sections.save(section);
+        entityManager.flush();
+        sections.delete(section);
     }
 
     /** Moves one learner (by assignee id) into a section, or out of all sections with a null id. */

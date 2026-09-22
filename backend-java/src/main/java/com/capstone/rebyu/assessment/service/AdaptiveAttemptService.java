@@ -7,8 +7,10 @@ import com.capstone.rebyu.adaptive.engine.AdaptiveItemSelector.Selection;
 import com.capstone.rebyu.adaptive.engine.AdaptiveSessionState;
 import com.capstone.rebyu.adaptive.engine.BktModel;
 import com.capstone.rebyu.adaptive.engine.IrtModel;
+import com.capstone.rebyu.adaptive.entity.LearnerBankCycle;
 import com.capstone.rebyu.adaptive.engine.IrtModel.ItemParams;
 import com.capstone.rebyu.adaptive.service.AdaptivePolicy;
+import com.capstone.rebyu.adaptive.service.BankReplenishmentService;
 import com.capstone.rebyu.adaptive.service.LearnerAbilityService;
 import com.capstone.rebyu.adaptive.service.QuestionBankSizeService;
 import com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.AdaptiveAnswerResponseDto;
@@ -49,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -65,11 +68,11 @@ import java.util.stream.Collectors;
  * (IRT), the knowledge-state update (BKT), the item's own learning (online
  * difficulty), and the choice of what to ask next.
  *
- * <p>Main-round items are marked as they are answered. Final-round items
- * (programming, diagram, critical thinking) are saved as they are answered
- * and marked together at submit, where the graders run concurrently -- a
- * learner should not sit through a test-runner and a diagram comparison
- * between every problem, and nothing after the final round depends on them.
+ * <p>Every item is marked as it is answered, final-round items (programming,
+ * diagram, critical thinking) included: the learner waits on the grader and
+ * sees the verdict, and the ability estimate moves before the next problem
+ * is chosen, so the paper adapts to its last item. Submit only closes the
+ * session; the background marker remains for anything a grader left pending.
  */
 @Slf4j
 @Service
@@ -82,6 +85,8 @@ public class AdaptiveAttemptService {
     private final BktProperties bktProperties;
     private final QuestionBankSizeService bankSize;
     private final LearnerAbilityService abilities;
+    private final BankReplenishmentService replenishment;
+    private final com.capstone.rebyu.adaptive.repository.LearnerBankCycleRepository bankCycles;
     private final QuestionRepository questionRepository;
     private final ExamQuestionRepository examQuestionRepository;
     private final AssessmentAttemptRepository attemptRepository;
@@ -209,9 +214,36 @@ public class AdaptiveAttemptService {
                 .map(AssessmentAttempt::getAssessmentAttemptId)
                 .orElse(null);
         Set<Long> lastAttemptIds = new LinkedHashSet<>();
+        /* The pass over the bank this learner is on. Questions served since
+           it began are "seen this cycle"; if what is left cannot fill this
+           paper's main round, the pass rolls over here and the whole bank is
+           fresh again -- nothing is repeated within a pass while the bank
+           can help it, and the paper still fills. */
+        LearnerBankCycle cycle = bankCycles.findByLearnerIdAndCertificationId(learnerId, certificationId)
+                .orElseGet(() -> LearnerBankCycle.builder()
+                        .learnerId(learnerId).certificationId(certificationId)
+                        .cycleNo(1).startedAt(LocalDateTime.of(2000, 1, 1, 0, 0)).build());
+        Set<Long> cycleSeen = new LinkedHashSet<>();
         if (!poolIds.isEmpty()) {
             for (var row : attemptQuestionRepository.findExposure(learnerId, poolIds)) {
                 seen.add(row.getSourceQuestionId());
+                if (row.getLastSeenAt() != null && !row.getLastSeenAt().isBefore(cycle.getStartedAt())) {
+                    cycleSeen.add(row.getSourceQuestionId());
+                }
+            }
+            long freshMain = pool.stream()
+                    .filter(v -> !AdaptivePolicy.isWorkspaceType(v.getQuestionType()))
+                    .filter(v -> !cycleSeen.contains(v.getQuestionId()))
+                    .count();
+            if (!cycleSeen.isEmpty() && freshMain < mainTarget) {
+                cycle.setCycleNo(cycle.getCycleNo() + 1);
+                cycle.setStartedAt(LocalDateTime.now());
+                log.info("Learner {} has used up pass {} over the bank of certification {} ({} fresh of {} needed): starting pass {}",
+                        learnerId, cycle.getCycleNo() - 1, certificationId, freshMain, mainTarget, cycle.getCycleNo());
+                cycleSeen.clear();
+            }
+            if (cycle.getLearnerBankCycleId() == null || cycleSeen.isEmpty()) {
+                cycle = bankCycles.save(cycle);
             }
             if (lastAttemptId != null) {
                 for (AssessmentAttemptQuestion q : attemptQuestionRepository
@@ -221,6 +253,8 @@ public class AdaptiveAttemptService {
             }
         }
         state.setSeenQuestionIds(seen);
+        state.setCycleSeenQuestionIds(cycleSeen);
+        state.setBankCycle(cycle.getCycleNo());
         state.setLastAttemptQuestionIds(lastAttemptIds);
         state.setThisExamQuestionIds(new LinkedHashSet<>(
                 attemptQuestionRepository.findSourceQuestionIdsServedOnExam(learnerId, exam.getExamId())));
@@ -256,16 +290,13 @@ public class AdaptiveAttemptService {
                 .thetaSe(seed.sigma0())
                 .targetQuestionCount(target)
                 .finalRoundCount(finalRound)
+                .bankCycle(state.getBankCycle())
                 .phase(AdaptiveSessionState.STAGE_MAIN)
                 .build();
         attempt = attemptRepository.save(attempt);
 
-        /* Two items at once: the one being asked and the one behind it. The
-           client shows the reserve the moment the first is answered and the
-           server catches up in the background, so the learner never waits on
-           a round trip between questions. The reserve is chosen from all
-           answers but the very latest -- one step of lag, on a paper of ten
-           to sixty items. */
+        /* Only the first item: every later one is chosen after the answer
+           before it is marked (see answer). */
         List<LearnerAttemptQuestionDto> served = serveMany(attempt, state, 1 + AdaptiveSessionState.START_RESERVE);
         if (served.isEmpty()) {
             throw new BusinessRuleException.InvalidAssessmentSubmissionException(
@@ -313,6 +344,7 @@ public class AdaptiveAttemptService {
                 .thetaSe(session.seed().sigma0())
                 .targetQuestionCount(session.target())
                 .finalRoundCount(session.finalRound())
+                .bankCycle(state.getBankCycle())
                 .build();
         attempt = attemptRepository.save(attempt);
 
@@ -348,9 +380,10 @@ public class AdaptiveAttemptService {
             ItemParams params = itemParamsOf(attempt.getExam(), item.getSourceQuestionId());
             state.getResponses().add(new AdaptiveSessionState.ResponseRecord(
                     item.getSourceQuestionId(), item.getLessonId(), params, correct, score));
-            double theta = IrtModel.step(state.getTheta(), params, score, properties.getAbilityStep());
+            IrtModel.Estimate estimate = IrtModel.update(state.getTheta(), state.getSe(), params, score);
+            double theta = estimate.theta();
             state.setTheta(theta);
-            state.setSe(IrtModel.standardError(theta, state.irtResponses()));
+            state.setSe(estimate.standardError());
             item.setThetaAfter(theta);
             attemptQuestionRepository.save(item);
 
@@ -387,7 +420,42 @@ public class AdaptiveAttemptService {
         for (Candidate c : toCandidates(views)) candidates.put(c.questionId(), c);
         CachedPool fresh = new CachedPool(views, candidates, java.time.Instant.now());
         poolCache.put(exam.getExamId(), fresh);
+        warmPool(exam.getExamId(), new ArrayList<>(candidates.keySet()));
         return fresh;
+    }
+
+    /*
+     * Loads the pool's questions, whole, into the question and parts caches
+     * off the request thread. The next item is chosen only after the answer
+     * before it is marked, in the request that records that answer, so
+     * serving it must be cheap: with the pool warm it is one insert instead
+     * of one insert and two reads against a database in another region.
+     * One warm at a time; a pool already warm costs nothing.
+     */
+    private final java.util.concurrent.ExecutorService warmer = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "adaptive-pool-warmer");
+        t.setDaemon(true);
+        return t;
+    });
+    private static final int WARM_CHUNK = 200;
+
+    private void warmPool(Long examId, List<Long> questionIds) {
+        List<Long> cold = questionIds.stream().filter(id -> !questionCache.containsKey(id)).toList();
+        if (cold.isEmpty()) return;
+        warmer.execute(() -> {
+            long started = System.currentTimeMillis();
+            try {
+                for (int from = 0; from < cold.size(); from += WARM_CHUNK) {
+                    List<Long> chunk = cold.subList(from, Math.min(cold.size(), from + WARM_CHUNK));
+                    Map<Long, Question> loaded = loadQuestions(chunk);
+                    contextOf(new ArrayList<>(loaded.values()));
+                }
+                log.debug("[perf] adaptive pool exam={} warmed {} question(s) in {}ms",
+                        examId, cold.size(), System.currentTimeMillis() - started);
+            } catch (Exception e) {
+                log.warn("Adaptive pool exam={} warm-up stopped: {}", examId, e.getMessage());
+            }
+        });
     }
 
     // Answer
@@ -481,27 +549,37 @@ public class AdaptiveAttemptService {
             answer.setLastSavedAt(savedAt);
             answer = attemptAnswerRepository.save(answer);
 
-            if (!finalRound) {
-                verdicts.put(item.getAttemptQuestionId(), gradeNow(attempt, item, answer, state));
-            }
+            /* Final-round items are marked here too, the moment they are
+               answered -- the written, coded or drawn answer goes to its
+               grader, the learner sees the verdict, and the ability moves
+               before the next problem is chosen. They used to be saved and
+               marked together at submit, which kept the learner from waiting
+               on a grader between problems but also kept the paper from
+               adapting through its last stretch. The wait is the price of a
+               paper that adapts to the end, and the learner sees "Marking". */
+            verdicts.put(item.getAttemptQuestionId(), gradeNow(attempt, item, answer, state));
             state.setAnsweredCount(state.getAnsweredCount() + 1);
 
-            /* What comes next: the reserve becomes the question being asked. */
+            /* What comes next is chosen now, from an ability that includes
+               the answer just marked: this is the adaptive step. A reserve
+               served earlier (a session started under the old look-ahead)
+               is used up first. */
             next = null;
             if (!state.getQueuedAttemptQuestionIds().isEmpty()) {
-                Long nextId = state.getQueuedAttemptQuestionIds().remove(0);
-                next = servedDto(attempt, nextId);
-                if (next != null) {
-                    attempt.setCurrentQuestionId(nextId);
-                    boolean nowFinal = AdaptiveSessionState.STAGE_FINAL.equals(next.stage());
-                    if (nowFinal && !state.inFinalRound()) {
-                        state.setStage(AdaptiveSessionState.STAGE_FINAL);
-                        attempt.setPhase(AdaptiveSessionState.STAGE_FINAL);
-                        enteringFinal = true;
-                    }
-                }
+                next = servedDto(attempt, state.getQueuedAttemptQuestionIds().remove(0));
+            } else if (state.getServedCount() < state.getTargetCount()) {
+                List<LearnerAttemptQuestionDto> fresh = serveMany(attempt, state, 1);
+                next = fresh.isEmpty() ? null : fresh.get(0);
             }
-            if (next == null) {
+            if (next != null) {
+                attempt.setCurrentQuestionId(next.attemptQuestionId());
+                boolean nowFinal = AdaptiveSessionState.STAGE_FINAL.equals(next.stage());
+                if (nowFinal && !state.inFinalRound()) {
+                    state.setStage(AdaptiveSessionState.STAGE_FINAL);
+                    attempt.setPhase(AdaptiveSessionState.STAGE_FINAL);
+                    enteringFinal = true;
+                }
+            } else {
                 attempt.setCurrentQuestionId(null);
             }
         }
@@ -600,8 +678,9 @@ public class AdaptiveAttemptService {
         ItemParams params = itemParamsOf(attempt.getExam(), source);
         state.getResponses().add(new AdaptiveSessionState.ResponseRecord(
                 source.getQuestionId(), item.getLessonId(), params, correct, score));
-        double theta = IrtModel.step(state.getTheta(), params, score, properties.getAbilityStep());
-        double se = IrtModel.standardError(theta, state.irtResponses());
+        IrtModel.Estimate estimate = IrtModel.update(state.getTheta(), state.getSe(), params, score);
+        double theta = estimate.theta();
+        double se = estimate.standardError();
         state.setTheta(theta);
         state.setSe(se);
         item.setThetaAfter(theta);
@@ -737,6 +816,16 @@ public class AdaptiveAttemptService {
                 break;
             }
             Candidate chosen = selection.get().candidate();
+            if (log.isDebugEnabled()) {
+                AdaptiveItemSelector.Reason why = selection.get().reason();
+                log.debug("[pick] attempt={} cycle={} #{} theta={} -> b={} ({}) tier={} lesson={} {} of {} lesson(s), {} candidate(s), open levels {}",
+                        attempt.getAssessmentAttemptId(), state.getBankCycle(), state.getServedCount() + 1,
+                        String.format("%.2f", state.getTheta()), chosen.params().b(),
+                        finalRound ? "final" : "main", why.tier(), why.lessonId(), why.focus(),
+                        why.lessonsConsidered(), why.candidatesConsidered(),
+                        candidates.stream().filter(c -> !state.getServedQuestionIds().contains(c.questionId()))
+                                .collect(java.util.stream.Collectors.groupingBy(c -> c.params().b(), java.util.TreeMap::new, java.util.stream.Collectors.counting())));
+            }
             state.setServedCount(state.getServedCount() + 1);
             state.getServedQuestionIds().add(chosen.questionId());
             state.getServedStems().add(QuestionStem.of(chosen.questionText()));
@@ -890,6 +979,30 @@ public class AdaptiveAttemptService {
             attempt.setCurrentQuestionId(null);
             persistLearner(attempt, state);
             saveState(attempt, state);
+        }
+        scheduleReplenishment(attempt, state);
+    }
+
+    /**
+     * After a session: if this learner has now met most of a level's pool,
+     * ask for more at that level. Off the request thread and in its own
+     * transaction -- the learner's result page does not wait on it, and a
+     * failure to ask changes nothing about the exam.
+     */
+    private void scheduleReplenishment(AssessmentAttempt attempt, AdaptiveSessionState state) {
+        try {
+            Exam exam = attempt.getExam();
+            if (exam == null || exam.getCertification() == null) return;
+            Long certificationId = exam.getCertification().getCertificationId();
+            String title = exam.getCertification().getTitle();
+            Set<Long> seen = new HashSet<>(state.getSeenQuestionIds());
+            seen.addAll(state.getServedQuestionIds());
+            int paperLength = Math.max(1, state.getMainCount());
+            Map<String, BankReplenishmentService.LevelUse> usage = BankReplenishmentService.usage(
+                    cachedPool(exam).candidates().values(), seen, paperLength);
+            warmer.execute(() -> replenishment.replenishIfDepleted(certificationId, title, usage));
+        } catch (Exception e) {
+            log.debug("Replenishment check skipped for attempt {}: {}", attempt.getAssessmentAttemptId(), e.getMessage());
         }
     }
 

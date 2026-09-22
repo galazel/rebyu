@@ -23,6 +23,7 @@ const ViewCertificationAdmin = lazyRoute(() => import("./pages/admin/view-certif
 const AdminDashboard = lazyRoute(() => import("./pages/admin/admin-dashboard-page.jsx"))
 const PartnershipRequests = lazyRoute(() => import("./pages/admin/partnership-requests-page.jsx"))
 const AdminSubscriptions = lazyRoute(() => import("./pages/admin/subscriptions-page.jsx"))
+const ReferenceLists = lazyRoute(() => import("./pages/admin/reference-lists-page.jsx"))
 const CommunityModeration = lazyRoute(() => import("./pages/admin/community-moderation-page.jsx"))
 const AcceptInstitutionInvitationPage = lazyRoute(() => import("./pages/admin/accept-institution-invitation-page.jsx"))
 const LandingPage = lazyRoute(() => import("./pages/public/landing-page.jsx"))
@@ -326,6 +327,7 @@ export function App() {
                     {/* Same page: the Pro queue and the full payment ledger live together. */}
                     <Route path="payments" element={<AdminSubscriptions />} />
                     <Route path="community" element={<CommunityModeration />} />
+                    <Route path="reference-lists" element={<ReferenceLists />} />
                     {/* BKT delivery status is withdrawn from the admin portal.
                         The page and its service still exist -- re-register this
                         route to bring it back. */}
@@ -502,6 +504,7 @@ export function App() {
                     {/* The question bank belongs to institution members, inside their
                         group workspace; the institution account no longer has one. */}
                     <Route path="question-bank" element={<Navigate to="/institution/certifications" replace />} />
+                    <Route path="profile" element={<InstitutionAccountPage />} />
                     <Route path="license" element={<InstitutionAccountPage />} />
                     {/* Analytics is not a second page. It was a separate route
                         that recomputed the same cohort figures from a second read

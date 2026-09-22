@@ -163,6 +163,7 @@ public class SecurityConfig {
                         // had no auth at all (neither here nor in the controller) -- anyone
                         // on the public internet could force-retry or reconcile mastery events.
                         .requestMatchers("/api/admin/bkt/**", "/api/admin/adaptive/**").authenticated()
+                        .requestMatchers("/api/admin/reference/**").authenticated()
                         .requestMatchers("/api/admin/community/reports/**").authenticated()
                         // The learner-facing community fell through to permitAll and was
                         // held shut only by every handler remembering to call me(jwt).

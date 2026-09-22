@@ -986,7 +986,8 @@ public class AssessmentAttemptService {
                     buildDiagramElementReviews(answer, releaseAnswers),
                     buildProgrammingTestReviews(attemptQuestion, answer, source, releaseAnswers),
                     programOutputFor(answer),
-                    programErrorFor(answer)
+                    programErrorFor(answer),
+                    source == null ? null : source.getDifficultyLevel()
             ));
         }
 
@@ -1324,6 +1325,10 @@ public class AssessmentAttemptService {
                     .durationSeconds(attempt.getDurationSeconds() == null
                             ? 0 : attempt.getDurationSeconds())
                     .isPassed(Boolean.TRUE.equals(attempt.getPassed()))
+                    .rating(attempt.getThetaCurrent() == null ? null
+                            : java.math.BigDecimal.valueOf(
+                                    com.capstone.rebyu.adaptive.engine.IrtModel.proficiencyRating(attempt.getThetaCurrent()))
+                                    .setScale(2, java.math.RoundingMode.HALF_UP))
                     .build());
         } catch (Exception e) {
             // Analytics sync must not fail the submission transaction result.
@@ -2659,10 +2664,14 @@ public class AssessmentAttemptService {
                 exam.getTitle(),
                 exam.getExamType().getExamTypeText(),
                 attempt.getAttemptNumber(),
+                /* The entity's LocalDateTimes are wall-clock in the JVM's zone
+                   (Asia/Manila, set in RebyuApplication). Stamping them UTC put
+                   the deadline eight hours out: a thirty-minute exam showed a
+                   509-minute clock. */
                 attempt.getStartedAt() == null
-                        ? null : attempt.getStartedAt().atOffset(ZoneOffset.UTC),
+                        ? null : attempt.getStartedAt().atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
                 attempt.getExpiresAt() == null
-                        ? null : attempt.getExpiresAt().atOffset(ZoneOffset.UTC),
+                        ? null : attempt.getExpiresAt().atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
                 resumed,
                 questionDtos,
                 savedAnswers,

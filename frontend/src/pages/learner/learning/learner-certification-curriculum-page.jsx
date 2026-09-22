@@ -53,7 +53,7 @@ import {
 } from "@/lib/certification-progress.js"
 import { getExams, getExamTypes } from "@/services/assessmentService.js"
 import { getProgressAnalytics } from "@/services/learnerAnalyticsService.js"
-import { buildCurriculum, hasSatDiagnostic } from "./curriculum-model.js"
+import { PROFICIENT_RATING, buildCurriculum, examStanding, hasSatDiagnostic } from "./curriculum-model.js"
 import { LoadingSignal } from "@/components/loading-overlay.jsx"
 
 /**
@@ -1155,7 +1155,14 @@ function attemptsSuffix(attemptsByExamId, examId) {
   return ` · ${count} ${count === 1 ? "attempt" : "attempts"}`
 }
 
-function unitNodes(major, takenExamIds, attemptsByExamId) {
+/** " · not passed yet" / " · proficiency 42, need 50" under an exam that was sat but did not clear. */
+function standingSuffix(standing) {
+  if (!standing?.taken || standing.cleared) return ""
+  if (!standing.passed) return " · not passed yet"
+  return ` · proficiency ${Math.round(standing.rating)}, need ${PROFICIENT_RATING}`
+}
+
+function unitNodes(major, takenExamIds, attemptsByExamId, examResults) {
   const nodes = major.middles.map((middle, index) => {
     const total = middle.lessons.length
     const done = total > 0 && middle.done === total
@@ -1194,9 +1201,13 @@ function unitNodes(major, takenExamIds, attemptsByExamId) {
       meta: `unit exam · ${major.assessment.totalQuestions} questions${attemptsSuffix(
         attemptsByExamId,
         major.assessment.examId,
-      )}`,
+      )}${standingSuffix(examStanding(examResults, major.assessment.examId))}`,
       xp: ASSESSMENT_MAX_XP,
-      done: Boolean(takenExamIds?.has(String(major.assessment.examId))),
+      /* Done is CLEARED -- passed at a proficient level -- not merely sat.
+         A unit whose exam was failed, or passed at a low rating, is not
+         finished, and the next unit stays shut until a retake clears it. */
+      done: examStanding(examResults, major.assessment.examId).cleared,
+      standing: examStanding(examResults, major.assessment.examId),
     })
   }
 
@@ -1246,7 +1257,8 @@ export default function LearnerCertificationCurriculumPage() {
   const [lock, setLock] = useState(null)
 
   function openLock(node) {
-    setLock(node?.blockedBy ? { kind: "unit", unit: node.blockedBy } : { kind: "diagnostic" })
+    if (node?.blockedByNode) setLock({ kind: "node", node: node.blockedByNode, target: node })
+    else setLock(node?.blockedBy ? { kind: "unit", unit: node.blockedBy } : { kind: "diagnostic" })
   }
 
   const certification = (data?.enrolledCertifications ?? []).find(
@@ -1401,7 +1413,7 @@ export default function LearnerCertificationCurriculumPage() {
   const { sections, finalNode, finalIndex } = useMemo(() => {
     const built = (curriculum?.majors ?? []).map((major) => ({
       major,
-      nodes: unitNodes(major, takenExamIds, attemptsByExamId),
+      nodes: unitNodes(major, takenExamIds, attemptsByExamId, data?.examResults),
     }))
 
     const mock = curriculum?.mockExam
@@ -1439,6 +1451,11 @@ export default function LearnerCertificationCurriculumPage() {
       section.locked = !diagnosticDone || !previousUnitsComplete
       section.blockedBy = blocker
 
+      /* Inside a unit the road is walked in order too: a topic opens once
+         the topic before it is finished (every lesson read and its quiz
+         cleared), and the unit exam once every topic is. `blockedByNode`
+         names the stop holding this one shut. */
+      let previousNode = null
       for (const node of section.nodes) {
         if (section.locked) {
           node.state = "locked"
@@ -1447,8 +1464,19 @@ export default function LearnerCertificationCurriculumPage() {
         }
         if (node.done) {
           node.state = "done"
+          previousNode = node
           continue
         }
+        const gate = node.kind === "exam"
+            ? section.nodes.find((other) => other.kind === "topic" && !other.done && !other.empty) ?? null
+            : previousNode && !previousNode.done && !previousNode.empty ? previousNode : null
+        if (gate) {
+          node.state = "locked"
+          node.blockedByNode = gate
+          previousNode = node
+          continue
+        }
+        previousNode = node
         // An empty topic cannot be the stop you are on -- there is nothing in
         // it to do, so marking it current would strand the learner on a dead
         // end.
@@ -1858,7 +1886,38 @@ export default function LearnerCertificationCurriculumPage() {
         {/* `rebyu-ds` on the content itself: the dialog portals to <body>, so
             without it the `rb-btn` footer keys resolve to unstyled buttons. */}
         <DialogContent className="rebyu-ds sm:max-w-md">
-          {lock?.kind === "unit" ? (
+          {lock?.kind === "node" ? (
+            <>
+              <DialogHeader>
+                <div className="mb-2 grid size-14 place-items-center rounded-2xl bg-rb-swan text-rb-wolf">
+                  <Lock className="size-7" aria-hidden="true" />
+                </div>
+
+                <DialogTitle>{lock.node.label} comes first</DialogTitle>
+
+                <DialogDescription>
+                  {lock.node.kind === "exam"
+                    ? `Every topic in this unit opens the unit exam, and the exam has to be passed at a proficient level (${PROFICIENT_RATING}+) before the next unit opens.`
+                    : lock.target?.kind === "exam"
+                      ? `Finish every topic in this unit — read each lesson and clear its quiz — and the unit exam opens.`
+                      : `Finish ${lock.node.label} — read every lesson in it and pass each quiz at a proficient level — and ${lock.target?.label ?? "the next topic"} opens on its own.`}
+                </DialogDescription>
+              </DialogHeader>
+
+              {lock.node.kind === "topic" && lock.node.meta ? (
+                <p className="text-sm font-bold text-rb-eel">{lock.node.meta} in that topic.</p>
+              ) : null}
+              {lock.node.kind === "exam" && lock.node.standing?.reason ? (
+                <p className="text-sm font-bold text-rb-eel">Unit exam: {lock.node.standing.reason}.</p>
+              ) : null}
+
+              <DialogFooter>
+                <TactileButton variant="ghost" size="sm" onClick={() => setLock(null)}>
+                  close
+                </TactileButton>
+              </DialogFooter>
+            </>
+          ) : lock?.kind === "unit" ? (
             <>
               <DialogHeader>
                 <div className="mb-2 grid size-14 place-items-center rounded-2xl bg-rb-swan text-rb-wolf">
@@ -1869,7 +1928,7 @@ export default function LearnerCertificationCurriculumPage() {
 
                 <DialogDescription>
                   The road is walked in order. Finish {lock.unit.name} — every topic in it, and
-                  its unit exam — and the next unit opens on its own.
+                  its unit exam passed at a proficient level — and the next unit opens on its own.
                 </DialogDescription>
               </DialogHeader>
 
