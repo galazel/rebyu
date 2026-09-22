@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-import { industries } from "@/constants/industries.js"
+import { REFERENCE_INDUSTRY, useReferenceOptions } from "@/services/referenceService.js"
 
 /* From the shared rulebook, not redeclared here. This file's own copy had
    drifted to a 300-character description while `validateCertificationDetails`
@@ -43,6 +43,7 @@ import {
  * they thought they had replaced.
  */
 function CertificationDetails({ value, onChange, errors = {}, disabled = false }) {
+  const { options: industries } = useReferenceOptions(REFERENCE_INDUSTRY)
   function updateField(fieldName, fieldValue) {
     onChange({
       ...value,

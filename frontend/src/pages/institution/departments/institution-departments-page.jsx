@@ -51,6 +51,7 @@ import {
   InstitutionStatusBadge,
 } from "@/components/institution/institution-ui.jsx"
 import { useAuth } from "@/context/auth-context.jsx"
+import { REFERENCE_DEPARTMENT, useReferenceOptions } from "@/services/referenceService.js"
 import {
   getLearnerDisplayName,
   useInstitutionData,
@@ -79,6 +80,10 @@ function backendMessage(error, fallback) {
 }
 
 function CreateGroupDialog({ open, onOpenChange, institutionCerts, certificationById, lockedInstitutionCertId }) {
+  /* The department names on offer come from the stored list an admin keeps,
+     not a free text box: one vocabulary across every institution, and no
+     "CCS" beside "College of Computer Studies". */
+  const { options: departmentOptions } = useReferenceOptions(REFERENCE_DEPARTMENT)
   const queryClient = useQueryClient()
   const [institutionCertId, setInstitutionCertId] = useState("")
   const [departmentName, setDepartmentName] = useState("")
@@ -191,14 +196,22 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="group-name">Department name</Label>
-            <Input
-              id="group-name"
-              value={departmentName}
-              onChange={(e) => setDepartmentName(e.target.value)}
-              placeholder="e.g. Batch 2026-A"
-              maxLength={150}
-            />
+            <Label htmlFor="group-name">Department</Label>
+            <Select value={departmentName} onValueChange={setDepartmentName}>
+              <SelectTrigger id="group-name" className="w-full">
+                <SelectValue placeholder="Select a department" />
+              </SelectTrigger>
+              <SelectContent>
+                {departmentOptions.map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {departmentOptions.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No departments have been set up yet. Ask an administrator to add them.</p>
+            ) : null}
           </div>
 
           <div className="space-y-2">

@@ -21,6 +21,7 @@ import {
   Users,
   UsersRound,
   X,
+  ListChecks,
 } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
@@ -123,6 +124,8 @@ const adminGroups = [
       // routes in App.jsx and add the entries back here to bring them back.
       { label: "Learners", href: "/admin/learners", icon: Users },
       { label: "Community", href: "/admin/community", icon: UsersRound },
+      // The stored pick-lists (industries, department names) every select reads.
+      { label: "Reference lists", href: "/admin/reference-lists", icon: ListChecks },
     ],
   },
 ]

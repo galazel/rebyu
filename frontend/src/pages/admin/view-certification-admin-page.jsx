@@ -29,7 +29,7 @@ import {
   updateCertification,
 } from "@/services/certificationService.js"
 import { apiMessage } from "@/services/base"
-import { industries } from "@/constants/industries.js"
+import { REFERENCE_INDUSTRY, useReferenceOptions } from "@/services/referenceService.js"
 import { InlineAdd, InlineEditable } from "@/components/certifications/inline-editable.jsx"
 import {
   toCertificationUpdatePayload,
@@ -93,6 +93,7 @@ function getLessonTitle(lesson) {
 
 export default function ViewCertificationAdmin() {
   const location = useLocation()
+  const { options: industries } = useReferenceOptions(REFERENCE_INDUSTRY)
   const navigate = useNavigate()
   const { id: routeCertificationId } = useParams()
   const pageRef = useRef(null)

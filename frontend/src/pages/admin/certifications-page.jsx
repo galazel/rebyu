@@ -19,10 +19,11 @@ import {
 } from "@/components/ui/select"
 
 import { CertificationSkeletonCard } from "../../components/certifications/certification-skeleton-card"
-import { industries } from "@/constants/industries.js"
+import { REFERENCE_INDUSTRY, useReferenceOptions } from "@/services/referenceService.js"
 
 function Certifications() {
   const queryClient = useQueryClient()
+  const { options: industries } = useReferenceOptions(REFERENCE_INDUSTRY)
 
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false)
   const [chosenIndustry, setChosenIndustry] = useState("all")
