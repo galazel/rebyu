@@ -31,8 +31,8 @@ import sys
 
 import pymupdf
 
-PDF_DIR = "/app/scripts/fe_papers/pdf/"
-OUT_DIR = "/app/scripts/fe_papers/parsed/"
+PDF_DIR = os.environ.get("PAPERS_PDF_DIR", "/app/scripts/fe_papers/pdf/")
+OUT_DIR = os.environ.get("PAPERS_PARSED_DIR", "/app/scripts/fe_papers/parsed/")
 
 #: Drawings smaller than this in either dimension are page furniture -- rule
 #: lines under headers, underscores marking a blank, the box around a letter.

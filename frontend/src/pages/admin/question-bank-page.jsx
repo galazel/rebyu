@@ -85,6 +85,7 @@ import {
     saveTextQuestion,
     updateQuestion,
 } from "../../services/questionService.js";
+import ImportPastPaperDialog from "@/components/question-bank/import-past-paper-dialog.jsx";
 
 function getBackendErrorMessage(error, fallbackMessage) {
     const responseData = error?.response?.data;
@@ -2589,6 +2590,7 @@ function QuestionBank({
 
     const [isSavingQuestions, setIsSavingQuestions] = useState(false);
 
+    const [isPastPaperImportOpen, setIsPastPaperImportOpen] = useState(false);
     const [isQuestionFileGeneratorOpen, setIsQuestionFileGeneratorOpen] =
         useState(false);
 
@@ -3491,6 +3493,19 @@ OUTPUT RULES:
                                 >
                                     <UploadIcon className="mr-2 h-4 w-4" />
                                     Generate Questions
+                                </Button>
+                            )}
+
+                            {builderMode === "generate" && (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={!selectedCertification || isSavingQuestions}
+                                    onClick={() => setIsPastPaperImportOpen(true)}
+                                >
+                                    <FileText className="mr-2 h-4 w-4" />
+                                    Import Past Paper
                                 </Button>
                             )}
 
@@ -4720,6 +4735,17 @@ OUTPUT RULES:
                     )}
                 </DialogContent>
             </Dialog>
+
+            <ImportPastPaperDialog
+                open={isPastPaperImportOpen}
+                onOpenChange={setIsPastPaperImportOpen}
+                certificationId={
+                    selectedCertification?.certificationId ?? selectedCertification?.id ?? null
+                }
+                // Same refetch every other write on this page uses, so
+                // imported questions appear without a reload.
+                onImported={() => refetchQuestions()}
+            />
 
             <QuestionFileGeneratorDialog
                 open={isQuestionFileGeneratorOpen}

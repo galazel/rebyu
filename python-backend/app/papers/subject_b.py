@@ -30,9 +30,7 @@ import sys
 
 import pymupdf
 
-sys.path.insert(0, "/app/scripts/fe_papers")
-
-from parse_subject_a import (  # noqa: E402
+from app.papers.subject_a import (  # noqa: E402
     FIGURE_PAD, OUT_DIR, PDF_DIR, answer_key, figure_rects, page_lines,
 )
 

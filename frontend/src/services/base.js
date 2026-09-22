@@ -103,6 +103,11 @@ async function request(endpoint, options = {}) {
       // this a large multipart POST is indistinguishable from a hung request,
       // which is what forced the old generation UI to fake progress on a timer.
       onUploadProgress: options.onUploadProgress,
+      // Forwarded so a caller can raise it for work that is legitimately
+      // slow -- parsing a past paper renders every figure in it and takes
+      // minutes. Omitted, axios waits indefinitely, which is the existing
+      // behaviour for every caller that does not set one.
+      timeout: options.timeout,
     })
 
     return response.data

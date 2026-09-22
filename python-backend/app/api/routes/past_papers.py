@@ -1,0 +1,191 @@
+"""Import an official past paper into a certification's question bank.
+
+Two steps, deliberately separate:
+
+    POST /past-papers/parse    upload the paper and its answer key, get
+                               drafts back -- nothing is written
+    POST /past-papers/import   write the drafts the admin approved
+
+They are separate because the parse is the part that can be wrong in ways
+only a person notices. Lesson assignment is an embedding match that agrees
+with a careful reading about eight times in ten, and a handful of questions
+per paper do not survive the PDF text layer at all. A single "upload and
+import" call would bury both behind a success message.
+
+The parse is synchronous. A paper takes tens of seconds, which is slow for a
+request and much simpler than a job queue for something an admin does twice a
+year per certification; if that stops being true it belongs in the workflow
+registry alongside generation.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from typing import Annotated, Literal
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from pydantic import BaseModel, Field
+from sqlalchemy import text
+
+from app.core.security import require_service_key
+from app.db.session import SessionLocal
+from app.papers.importer import parse_upload
+
+router = APIRouter(
+    prefix="/past-papers",
+    tags=["past-papers"],
+    dependencies=[Depends(require_service_key)],
+)
+
+logger = logging.getLogger(__name__)
+
+MAX_PDF_BYTES = 40 * 1024 * 1024
+
+#: The citation is built from this, so it is validated rather than trusted:
+#: a wrong label produces a wrong attribution on every question in the paper.
+PAPER_NAME_RE = re.compile(r"^\d{4}[ASas]_(FE-[AB]|FE_(AM|PM)|IP)$")
+
+
+class DraftChoice(BaseModel):
+    letter: str
+    text: str = ""
+    imageKey: str | None = None
+
+
+class ApprovedQuestion(BaseModel):
+    stem: str
+    citation: str
+    answer: str
+    lessonId: int
+    choices: list[DraftChoice]
+    imageKey: str | None = None
+    difficulty: Literal["EASY", "MEDIUM", "HARD"] = "MEDIUM"
+
+
+class ImportRequest(BaseModel):
+    certificationId: int
+    questions: list[ApprovedQuestion] = Field(default_factory=list)
+
+
+async def _read(upload: UploadFile) -> bytes:
+    data = await upload.read()
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            f"{upload.filename or 'file'} is empty.")
+    if len(data) > MAX_PDF_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                            f"{upload.filename or 'file'} exceeds 40MB.")
+    if not data.startswith(b"%PDF"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            f"{upload.filename or 'file'} is not a PDF.")
+    return data
+
+
+@router.post("/parse")
+async def parse_paper(
+    certification_id: Annotated[int, Form()],
+    paper_name: Annotated[str, Form()],
+    kind: Annotated[str, Form()] = "subject_a",
+    questions: UploadFile = File(...),
+    answers: UploadFile = File(...),
+):
+    """Parses an uploaded paper and returns drafts for review."""
+    if not PAPER_NAME_RE.match(paper_name):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "paper_name must look like 2025A_FE-A, 2023S_FE_AM or 2024A_IP -- "
+            "it is what the required source citation is built from.")
+    if kind not in ("subject_a", "subject_b"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "kind must be subject_a or subject_b.")
+
+    questions_pdf = await _read(questions)
+    answers_pdf = await _read(answers)
+
+    try:
+        drafts = parse_upload(paper_name, questions_pdf, answers_pdf,
+                              certification_id, kind=kind)
+    except Exception as error:  # noqa: BLE001 -- surfaced to the admin as-is
+        logger.exception("Past-paper parse failed for %s", paper_name)
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            f"Could not parse this paper: {error}") from error
+
+    importable = [d for d in drafts if d.importable]
+    return {
+        "paperName": paper_name,
+        "certificationId": certification_id,
+        "total": len(drafts),
+        "importable": len(importable),
+        "needsAttention": len(drafts) - len(importable),
+        "weakMatches": sum(1 for d in importable if d.lesson_score < 0.3),
+        "questions": [d.as_dict() for d in drafts],
+    }
+
+
+@router.post("/import")
+def import_questions(request: ImportRequest):
+    """Writes the approved drafts. Idempotent on (lesson, question text)."""
+    if not request.questions:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "No questions were approved for import.")
+
+    added = skipped = 0
+    session = SessionLocal()
+    try:
+        for item in request.questions:
+            letters = {choice.letter for choice in item.choices}
+            if item.answer not in letters:
+                raise HTTPException(
+                    status.HTTP_400_BAD_REQUEST,
+                    f"Answer '{item.answer}' is not one of the options provided.")
+
+            # The citation is appended here rather than trusted from the
+            # client, so an edited draft cannot arrive without one.
+            stem = item.stem.strip()
+            if item.citation and item.citation not in stem:
+                stem = stem + "\n\n" + item.citation.strip()
+
+            exists = session.execute(text("""
+                select 1 from questions
+                 where lesson_id = :lesson and question_text = :stem limit 1"""),
+                {"lesson": item.lessonId, "stem": stem}).first()
+            if exists:
+                skipped += 1
+                continue
+
+            question_id = session.execute(text("""
+                insert into public.questions
+                    (question_text, question_type, difficulty_level, lesson_id,
+                     image_key, created_at)
+                values (:stem, 'MCQ', :difficulty, :lesson, :image, now())
+                returning question_id"""), {
+                "stem": stem, "difficulty": item.difficulty,
+                "lesson": item.lessonId, "image": item.imageKey,
+            }).scalar()
+
+            for choice in item.choices:
+                session.execute(text("""
+                    insert into public.choices
+                        (choice_text, is_correct, explanation, image_key, question_id)
+                    values (:text, :correct, null, :image, :question)"""), {
+                    "text": choice.text or "",
+                    "correct": choice.letter == item.answer,
+                    "image": choice.imageKey,
+                    "question": question_id,
+                })
+            added += 1
+
+        session.commit()
+    except HTTPException:
+        session.rollback()
+        raise
+    except Exception as error:  # noqa: BLE001
+        session.rollback()
+        logger.exception("Past-paper import failed")
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            f"Import failed and nothing was written: {error}") from error
+    finally:
+        session.close()
+
+    return {"added": added, "alreadyPresent": skipped}

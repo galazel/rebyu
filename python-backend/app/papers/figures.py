@@ -31,9 +31,9 @@ import pymupdf
 
 sys.path.insert(0, "/app")
 
-PDF_DIR = "/app/scripts/fe_papers/pdf/"
-PARSED_DIR = "/app/scripts/fe_papers/parsed/"
-RENDER_DIR = "/app/scripts/fe_papers/rendered/"
+PDF_DIR = os.environ.get("PAPERS_PDF_DIR", "/app/scripts/fe_papers/pdf/")
+PARSED_DIR = os.environ.get("PAPERS_PARSED_DIR", "/app/scripts/fe_papers/parsed/")
+RENDER_DIR = os.environ.get("PAPERS_RENDER_DIR", "/app/scripts/fe_papers/rendered/")
 
 ZOOM = 3.0
 GAP = 18  # white space between stacked figures in a composite

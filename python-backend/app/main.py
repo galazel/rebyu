@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import api_router
 from app.api.routes import assessments as assessment_routes
 from app.api.routes import certification as certification_routes
+from app.api.routes import past_papers as past_paper_routes
 from app.api.routes import question_bank as question_bank_routes
 from app.api.routes import study_aids as study_aid_routes
 from app.api.routes import tutor as tutor_routes
@@ -94,6 +95,7 @@ def create_app() -> FastAPI:
     # than a queued run.
     app.include_router(assessment_routes.router, prefix="/api/v1/ai")
     app.include_router(certification_routes.router, prefix="/api/v1/ai")
+    app.include_router(past_paper_routes.router, prefix="/api/v1/ai")
     app.include_router(question_bank_routes.router, prefix="/api/v1/ai")
     app.include_router(study_aid_routes.router, prefix="/api/v1/ai")
     app.include_router(tutor_routes.router, prefix="/api/v1/ai")

@@ -33,7 +33,7 @@ from sqlalchemy import text
 
 from dbsession import open_session
 
-PARSED_DIR = "/app/scripts/fe_papers/parsed/"
+PARSED_DIR = os.environ.get("PAPERS_PARSED_DIR", "/app/scripts/fe_papers/parsed/")
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 #: How many of a lesson's existing questions contribute to its profile. Enough
@@ -80,9 +80,12 @@ def lesson_texts(db, certification_id):
     return lessons
 
 
-def main():
-    certification_id = int(sys.argv[1])
-    names = [a for a in sys.argv[2:] if not a.startswith("--")]
+def main_for(certification_id, names=None, *, quiet=False):
+    """Maps the named papers onto a certification's lessons.
+
+    Split out from `main` so the import service can call it directly:
+    a request has its own scratch directory and no argv to speak of.
+    """
     if not names:
         names = [os.path.basename(p)[:-5]
                  for p in sorted(glob.glob(PARSED_DIR + "*.json"))]
@@ -149,6 +152,12 @@ def main():
                                         "#" * min(60, count * 60 // max(total, 1))))
     print("lessons receiving nothing: %d of %d"
           % (len(lessons) - len(per_lesson), len(lessons)))
+
+
+def main():
+    certification_id = int(sys.argv[1])
+    names = [a for a in sys.argv[2:] if not a.startswith("--")]
+    main_for(certification_id, names)
 
 
 if __name__ == "__main__":
