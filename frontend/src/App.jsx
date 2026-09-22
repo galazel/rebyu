@@ -504,6 +504,7 @@ export function App() {
                     {/* The question bank belongs to institution members, inside their
                         group workspace; the institution account no longer has one. */}
                     <Route path="question-bank" element={<Navigate to="/institution/certifications" replace />} />
+                    <Route path="profile" element={<InstitutionAccountPage />} />
                     <Route path="license" element={<InstitutionAccountPage />} />
                     {/* Analytics is not a second page. It was a separate route
                         that recomputed the same cohort figures from a second read
