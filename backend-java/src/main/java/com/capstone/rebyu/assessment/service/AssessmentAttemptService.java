@@ -2664,10 +2664,14 @@ public class AssessmentAttemptService {
                 exam.getTitle(),
                 exam.getExamType().getExamTypeText(),
                 attempt.getAttemptNumber(),
+                /* The entity's LocalDateTimes are wall-clock in the JVM's zone
+                   (Asia/Manila, set in RebyuApplication). Stamping them UTC put
+                   the deadline eight hours out: a thirty-minute exam showed a
+                   509-minute clock. */
                 attempt.getStartedAt() == null
-                        ? null : attempt.getStartedAt().atOffset(ZoneOffset.UTC),
+                        ? null : attempt.getStartedAt().atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
                 attempt.getExpiresAt() == null
-                        ? null : attempt.getExpiresAt().atOffset(ZoneOffset.UTC),
+                        ? null : attempt.getExpiresAt().atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
                 resumed,
                 questionDtos,
                 savedAnswers,
