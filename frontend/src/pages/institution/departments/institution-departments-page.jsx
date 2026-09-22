@@ -79,7 +79,9 @@ function backendMessage(error, fallback) {
   return error?.response?.data?.message ?? fallback
 }
 
-function CreateGroupDialog({ open, onOpenChange, institutionCerts, certificationById, lockedInstitutionCertId }) {
+const OTHER_DEPARTMENT = "__other__"
+
+function CreateGroupDialog({ open, onOpenChange, institutionCerts, certificationById, lockedInstitutionCertId, departments = [] }) {
   /* The department names on offer come from the stored list an admin keeps,
      not a free text box: one vocabulary across every institution, and no
      "CCS" beside "College of Computer Studies". */
@@ -87,6 +89,8 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
   const queryClient = useQueryClient()
   const [institutionCertId, setInstitutionCertId] = useState("")
   const [departmentName, setDepartmentName] = useState("")
+  /* "Other" in the select opens a text box; the typed name is what is sent. */
+  const [departmentChoice, setDepartmentChoice] = useState("")
   const [departmentDescription, setDepartmentDescription] = useState("")
   const [totalSlots, setTotalSlots] = useState("")
   const [error, setError] = useState("")
@@ -106,10 +110,22 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
   const reset = () => {
     setInstitutionCertId(lockedInstitutionCertId != null ? String(lockedInstitutionCertId) : "")
     setDepartmentName("")
+    setDepartmentChoice("")
     setDepartmentDescription("")
     setTotalSlots("")
     setError("")
   }
+
+  /* What this allocation still has to give: its total less what the
+     departments already under it were given. The field is capped at that,
+     and opens on it, so an institution sees at a glance how much is left
+     rather than the allocation's whole size. */
+  const allocatedSlots = departments
+    .filter((group) => String(group.institutionCertId) === String(institutionCertId))
+    .reduce((sum, group) => sum + Number(group.totalSlots ?? 0), 0)
+  const remainingSlots = selectedInstitutionCert
+    ? Math.max(0, Number(selectedInstitutionCert.totalSlots ?? 0) - allocatedSlots)
+    : null
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -147,9 +163,11 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
       setError("Enter a number of slots (at least 1).")
       return
     }
-    if (selectedInstitutionCert && slots > selectedInstitutionCert.totalSlots) {
+    if (remainingSlots != null && slots > remainingSlots) {
       setError(
-        `This group can have at most ${selectedInstitutionCert.totalSlots} slot(s) -- the certification's own allocation limit.`
+        remainingSlots === 0
+          ? "This allocation has no slots left for a new department."
+          : `Only ${remainingSlots} slot(s) are left on this allocation; the other departments hold the rest.`
       )
       return
     }
@@ -197,20 +215,34 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
 
           <div className="space-y-2">
             <Label htmlFor="group-name">Department</Label>
-            <Select value={departmentName} onValueChange={setDepartmentName}>
+            <Select
+              value={departmentChoice}
+              onValueChange={(value) => {
+                setDepartmentChoice(value)
+                setDepartmentName(value === OTHER_DEPARTMENT ? "" : value)
+              }}
+            >
               <SelectTrigger id="group-name" className="w-full">
                 <SelectValue placeholder="Select a department" />
               </SelectTrigger>
               <SelectContent>
-                {departmentOptions.map((name) => (
+                {departmentOptions.filter((name) => name !== "Other").map((name) => (
                   <SelectItem key={name} value={name}>
                     {name}
                   </SelectItem>
                 ))}
+                <SelectItem value={OTHER_DEPARTMENT}>Other (type a name)</SelectItem>
               </SelectContent>
             </Select>
-            {departmentOptions.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No departments have been set up yet. Ask an administrator to add them.</p>
+            {departmentChoice === OTHER_DEPARTMENT ? (
+              <Input
+                id="group-name-other"
+                autoFocus
+                value={departmentName}
+                onChange={(e) => setDepartmentName(e.target.value)}
+                placeholder="Department name"
+                maxLength={150}
+              />
             ) : null}
           </div>
 
@@ -232,14 +264,16 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
               id="department-slots"
               type="number"
               min={1}
-              max={selectedInstitutionCert?.totalSlots}
+              max={remainingSlots ?? undefined}
               value={totalSlots}
               onChange={(e) => setTotalSlots(e.target.value)}
-              placeholder="e.g. 30"
+              placeholder={remainingSlots != null ? String(remainingSlots) : "e.g. 30"}
             />
             {selectedInstitutionCert ? (
-              <p className="text-xs text-muted-foreground">
-                Up to {selectedInstitutionCert.totalSlots} slot(s) available on this certification allocation.
+              <p className={`text-xs ${remainingSlots === 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                {remainingSlots === 0
+                  ? `No slots left: all ${selectedInstitutionCert.totalSlots} on this allocation are already given to departments.`
+                  : `${remainingSlots} of ${selectedInstitutionCert.totalSlots} slot(s) still available on this certification allocation.`}
               </p>
             ) : null}
           </div>
@@ -1057,6 +1091,7 @@ export default function DepartmentsPage() {
         institutionCerts={data.institutionCerts}
         certificationById={data.certificationById}
         lockedInstitutionCertId={scopedInstitutionCertId}
+        departments={Array.isArray(departmentsQuery.data) ? departmentsQuery.data : []}
       />
 
       <ManageGroupDialog
