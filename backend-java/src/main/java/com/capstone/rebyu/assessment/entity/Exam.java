@@ -50,8 +50,39 @@ public class Exam {
     @Column(name = "is_generated", nullable = false)
     private boolean isGenerated = false;
 
+    /**
+     * Minutes allowed, as set on the exam. Read it through
+     * {@link #getDurationMinutes()}, which supplies the fixed clock for a
+     * quiz or category exam when none is set.
+     */
     @Column(name = "duration_minutes")
     private Integer durationMinutes;
+
+    /** The system's clocks for the unit assessments, by exam type. */
+    public static final int LESSON_QUIZ_MINUTES = 10;
+    public static final int MIDDLE_EXAM_MINUTES = 20;
+    public static final int MAJOR_EXAM_MINUTES = 30;
+
+    /**
+     * The clock this exam runs under: what was set on it, else the system's
+     * fixed clock for its type -- 10 minutes for a lesson quiz, 20 for a
+     * middle exam, 30 for a major exam. A mock or diagnostic exam has no
+     * default: it imitates the real paper, whose duration the curriculum
+     * planner records when it finds it, and is untimed otherwise. An
+     * explicit value on the exam always wins, so an admin can lengthen or
+     * shorten any paper.
+     */
+    public Integer getDurationMinutes() {
+        if (durationMinutes != null) return durationMinutes;
+        String type = examType == null ? null : examType.getExamTypeText();
+        if (type == null) return null;
+        return switch (type) {
+            case "LESSON_QUIZ" -> LESSON_QUIZ_MINUTES;
+            case "MIDDLE_EXAM" -> MIDDLE_EXAM_MINUTES;
+            case "MAJOR_EXAM" -> MAJOR_EXAM_MINUTES;
+            default -> null;
+        };
+    }
 
     @Column(name = "total_questions", nullable = false)
     private Integer totalQuestions;

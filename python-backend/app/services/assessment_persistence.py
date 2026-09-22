@@ -410,21 +410,18 @@ def persist_generated_assessments(
     real_total_items = int(exam_structure.get("total_items") or 0) or None
     real_passing = float(exam_structure.get("passing_score") or 0) or None
 
-    def _timed(question_count: int) -> int | None:
-        """Minutes for an exam of this size, at the real paper's pace.
+    #: Fixed clocks for the unit assessments. Scaling the real paper's pace
+    #: down to a ten-question quiz gave a twenty-question quiz on a fast
+    #: paper twelve minutes and, where the planner found no real figures,
+    #: none at all -- a learner could not tell how long a quiz was meant to
+    #: take from one exam to the next. A fixed clock per scope is what a
+    #: learner expects of a quiz, a unit exam and a category exam; only the
+    #: mock and diagnostic imitate the real paper's clock, and stay untimed
+    #: when the planner could not find it.
+    FIXED_MINUTES = {"LESSON": 10, "MIDDLE": 20, "MAJOR": 30}
 
-        A twenty-question unit exam is not a two-hour paper, so the real
-        duration is scaled by size rather than copied: the pace is what
-        transfers, not the total. Untimed when the planner could not find the
-        real figures -- a made-up clock is worse than none, because a learner
-        pacing themselves against it is being told something false.
-        """
-        if not real_duration or not real_total_items or question_count <= 0:
-            return None
-        per_question = real_duration / real_total_items
-        # Never under five minutes: a ten-question quiz on a fast paper can
-        # scale to two, which is a clock nobody can sit.
-        return max(5, round(question_count * per_question))
+    def _timed(scope: str) -> int | None:
+        return FIXED_MINUTES.get(scope)
 
     def _store_exam(*, scope: str, title: str, **kwargs) -> None:
         """Persists one exam unless an exam of that scope and title is
@@ -477,7 +474,7 @@ def persist_generated_assessments(
             scope="LESSON", title=f"{lesson_name} Quiz",
             questions=lesson_questions,
             lesson_index=lesson_index, fallback_lesson_id=resolved, lesson_id=resolved,
-            duration_minutes=_timed(len(lesson_questions)),
+            duration_minutes=_timed("LESSON"),
             passing_score=real_passing,
         )
 
@@ -495,7 +492,7 @@ def persist_generated_assessments(
             questions=middle_questions,
             lesson_index=lesson_index, fallback_lesson_id=default_lesson_id,
             middle_category_id=middle_category_id,
-            duration_minutes=_timed(len(middle_questions)),
+            duration_minutes=_timed("MIDDLE"),
             passing_score=real_passing,
         )
 
@@ -513,7 +510,7 @@ def persist_generated_assessments(
             questions=major_questions,
             lesson_index=lesson_index, fallback_lesson_id=default_lesson_id,
             major_category_id=major_category_id,
-            duration_minutes=_timed(len(major_questions)),
+            duration_minutes=_timed("MAJOR"),
             passing_score=real_passing,
         )
 
