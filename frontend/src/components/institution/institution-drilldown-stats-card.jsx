@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import {
   Cell,
   Pie,
@@ -43,6 +44,30 @@ const DEPARTMENT_PALETTE = EARTH_TONE_PALETTE
 const SLOTS_PALETTE = EARTH_TONE_PALETTE
 const REACH_COLOR = "#2f6b4f" // Forest Green base for reach arc
 
+// Smooth directional slide & cross-fade variants for drill-down levels
+const levelVariants = {
+  enter: (dir = 1) => ({
+    opacity: 0,
+    x: dir > 0 ? 20 : -20,
+  }),
+  center: {
+    opacity: 1,
+    x: 0,
+    transition: {
+      duration: 0.26,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+  exit: (dir = 1) => ({
+    opacity: 0,
+    x: dir > 0 ? -20 : 20,
+    transition: {
+      duration: 0.16,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  }),
+}
+
 function hexToRgba(hex, alpha = 0.18) {
   if (!hex || typeof hex !== "string" || !hex.startsWith("#")) {
     return `rgba(47, 107, 79, ${alpha})`
@@ -69,9 +94,12 @@ function getInitials(name = "") {
 function DepartmentDetailsFixedCard({ item, onClick, onMouseEnter, onMouseLeave }) {
   if (!item) return null
 
-  const title = (item.deptName || item.certTitle || item.name || "")
+  const rawTitle = (item.deptName || item.certTitle || item.name || "")
     .replace(/\s+/g, " ")
     .trim()
+
+  // Remove "College of " prefix to maximize space for the department name
+  const title = rawTitle.replace(/^College of\s+/i, "")
 
   const sliceFill = item.fill || item.deptFill || item.certFill || "#2f6b4f"
 
@@ -81,35 +109,35 @@ function DepartmentDetailsFixedCard({ item, onClick, onMouseEnter, onMouseLeave 
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className="group flex w-[165px] sm:w-[172px] flex-col rounded-2xl border border-border/70 bg-card/95 p-3 text-left shadow-xs backdrop-blur-sm transition-all duration-200 hover:border-primary/40 hover:shadow-md cursor-pointer"
+      className="group flex w-[142px] sm:w-[150px] flex-col rounded-xl border border-border/70 bg-card/95 p-2 sm:p-2.5 text-left shadow-md backdrop-blur-sm transition-all duration-200 hover:border-primary/40 hover:shadow-lg cursor-pointer"
     >
-      <div className="flex w-full items-center gap-2 border-b border-border/50 pb-2">
+      <div className="flex w-full items-center gap-1.5 border-b border-border/50 pb-1.5">
         <span
-          className="size-2.5 shrink-0 rounded-full ring-1 ring-background"
+          className="size-2 shrink-0 rounded-full ring-1 ring-background"
           style={{ backgroundColor: sliceFill }}
         />
         <span
-          className="truncate text-xs font-bold text-foreground transition-colors group-hover:text-primary"
-          title={title}
+          className="line-clamp-2 text-[11px] font-bold leading-tight text-foreground transition-colors group-hover:text-primary"
+          title={rawTitle}
         >
           {title}
         </span>
       </div>
-      <div className="mt-2 w-full space-y-1.5 text-xs">
-        <div className="flex items-center justify-between gap-2 text-muted-foreground">
-          <span>Allotted Slots:</span>
+      <div className="mt-1.5 w-full space-y-1 text-[11px]">
+        <div className="flex items-center justify-between gap-1 text-muted-foreground">
+          <span className="text-[10px]">Allotted Slots:</span>
           <span className="font-bold tabular-nums text-foreground">
             {item.allottedSlots ?? item.value ?? 0}
           </span>
         </div>
-        <div className="flex items-center justify-between gap-2 text-muted-foreground">
-          <span>Enrolled:</span>
+        <div className="flex items-center justify-between gap-1 text-muted-foreground">
+          <span className="text-[10px]">Enrolled:</span>
           <span className="font-bold tabular-nums text-foreground">
             {item.enrolled ?? 0}
           </span>
         </div>
-        <div className="flex items-center justify-between gap-2 text-muted-foreground">
-          <span>Capacity Reach:</span>
+        <div className="flex items-center justify-between gap-1 text-muted-foreground">
+          <span className="text-[10px]">Capacity Reach:</span>
           <span
             className="font-extrabold tabular-nums"
             style={{ color: sliceFill }}
@@ -118,9 +146,9 @@ function DepartmentDetailsFixedCard({ item, onClick, onMouseEnter, onMouseLeave 
           </span>
         </div>
       </div>
-      <div className="mt-2.5 flex w-full items-center justify-between border-t border-border/50 pt-1.5 text-[10px] font-medium text-muted-foreground/80 transition-colors group-hover:text-primary">
+      <div className="mt-1.5 flex w-full items-center justify-between border-t border-border/50 pt-1 text-[9px] font-medium text-muted-foreground/80 transition-colors group-hover:text-primary">
         <span>Click to drill down</span>
-        <ChevronRight className="size-3 transition-transform group-hover:translate-x-0.5" />
+        <ChevronRight className="size-2.5 transition-transform group-hover:translate-x-0.5" />
       </div>
     </button>
   )
@@ -139,6 +167,13 @@ export default function InstitutionDrilldownStatsCard({
 
   // Navigation state: Level 1 (Departments) -> 2 (Certifications) -> 3 (Slots vs Enrolled) -> 4 (Learner Progress)
   const [currentLevel, setCurrentLevel] = useState(1)
+  const prevLevelRef = useRef(1)
+  const direction = currentLevel >= prevLevelRef.current ? 1 : -1
+
+  useEffect(() => {
+    prevLevelRef.current = currentLevel
+  }, [currentLevel])
+
   const [selectedDepartment, setSelectedDepartment] = useState(null)
   const [selectedCertification, setSelectedCertification] = useState(null)
 
@@ -1468,18 +1503,28 @@ export default function InstitutionDrilldownStatsCard({
       </div>
 
       {/* ----------------- Body Content Per Level ----------------- */}
-      <div className="min-h-0 flex-1 py-2">
+      <div className="relative min-h-0 flex-1 overflow-hidden py-2">
         {failed ? (
           <div className="flex h-full flex-col items-center justify-center p-4 text-center">
             <p className="text-xs text-muted-foreground">
               Could not load department statistics.
             </p>
           </div>
-        ) : currentLevel === 1 ? (
-          /* ========================================================= */
-          /* LEVEL 1: Dual-Ring Concentric Pie (Slots + Enrolled Reach) */
-          /* ========================================================= */
-          <div className="flex h-full flex-col justify-center">
+        ) : (
+          <AnimatePresence mode="wait" custom={direction}>
+            {currentLevel === 1 ? (
+              /* ========================================================= */
+              /* LEVEL 1: Dual-Ring Concentric Pie (Slots + Enrolled Reach) */
+              /* ========================================================= */
+              <motion.div
+                key="level-1"
+                custom={direction}
+                variants={levelVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="flex h-full flex-col justify-center"
+              >
             {level1Data.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-center">
                 <Users className="mb-2 size-8 text-muted-foreground/40" />
@@ -1502,10 +1547,10 @@ export default function InstitutionDrilldownStatsCard({
                           dataKey="value"
                           startAngle={90}
                           endAngle={-270}
-                          cx="50%"
+                          cx="63%"
                           cy="50%"
-                          innerRadius="88%"
-                          outerRadius="94%"
+                          innerRadius="85%"
+                          outerRadius="91%"
                           stroke="none"
                           isAnimationActive={false}
                           className="pointer-events-none outline-none"
@@ -1527,10 +1572,10 @@ export default function InstitutionDrilldownStatsCard({
                         nameKey="name"
                         startAngle={90}
                         endAngle={-270}
-                        cx="50%"
+                        cx="63%"
                         cy="50%"
-                        innerRadius="58%"
-                        outerRadius="84%"
+                        innerRadius="56%"
+                        outerRadius="82%"
                         stroke={chartTheme.surface}
                         strokeWidth={2}
                         className="cursor-pointer outline-none"
@@ -1564,7 +1609,7 @@ export default function InstitutionDrilldownStatsCard({
                   <div
                     className="pointer-events-none absolute flex flex-col items-center justify-center px-1 text-center"
                     style={{
-                      left: "50%",
+                      left: "63%",
                       top: "50%",
                       transform: "translate(-50%, -50%)",
                     }}
@@ -1595,14 +1640,13 @@ export default function InstitutionDrilldownStatsCard({
                     </span>
                   </div>
 
-                  {/* Fixed Details Card (Moved completely to the right of the donut circle with zero overlap) */}
+                  {/* Fixed Details Card (Positioned to the left of the donut circle with zero overlap) */}
                   <div
-                    className={`absolute top-1 sm:top-2 z-20 hidden sm:block transition-all duration-500 ease-in-out ${
+                    className={`absolute top-1 sm:top-2 left-1 sm:left-1.5 z-20 hidden sm:block transition-all duration-300 ease-in-out ${
                       isLevel1PanelVisible
                         ? "opacity-100 scale-100 pointer-events-auto"
                         : "opacity-0 scale-95 pointer-events-none"
                     }`}
-                    style={{ left: "calc(50% + 134px)" }}
                   >
                     <DepartmentDetailsFixedCard
                       item={displayLevel1Item}
@@ -1629,14 +1673,8 @@ export default function InstitutionDrilldownStatsCard({
                   />
                 </div>
 
-                {/* Right Column: Stats Layout (Resting at original distance; slides with an appropriate, balanced gap on hover) */}
-                <div
-                  className={`flex flex-col justify-center pl-1 sm:col-span-5 transition-transform duration-500 ease-in-out ${
-                    isLevel1PanelVisible
-                      ? "sm:translate-x-16 lg:translate-x-20"
-                      : "sm:translate-x-0"
-                  }`}
-                >
+                {/* Right Column: Stats Layout */}
+                <div className="flex flex-col justify-center pl-1 sm:col-span-5">
                   <h4 className="font-rb-display text-base font-bold text-foreground">
                     Stats
                   </h4>
@@ -1644,8 +1682,8 @@ export default function InstitutionDrilldownStatsCard({
                     Enrolled per Department
                   </p>
 
-                  {/* Departments List (Number on Left, Name on Right) */}
-                  <div className="max-h-[130px] space-y-1 overflow-y-auto pr-1">
+                  {/* Departments List: 5 rows x 2 cols (No scrollbar) */}
+                  <div className="grid grid-flow-col grid-rows-5 gap-x-2 gap-y-1 w-[220px] sm:w-[230px]">
                     {level1Data.map((item) => {
                       const isHovered = hoveredDept?.id === item.id
                       return (
@@ -1656,14 +1694,14 @@ export default function InstitutionDrilldownStatsCard({
                           onMouseEnter={() => handleDeptMouseEnter(item)}
                           onMouseLeave={handleDeptMouseLeave}
                           title={`${item.name} — ${item.enrolled} enrolled / ${item.allottedSlots} slots (${item.reachPct}% reach)`}
-                          className={`group flex w-[160px] items-center gap-2 rounded px-2 py-1 text-left text-xs transition cursor-pointer ${
+                          className={`group flex w-[105px] sm:w-[110px] items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-xs transition cursor-pointer min-w-0 ${
                             isHovered
                               ? "bg-primary/10 font-bold text-primary"
                               : "text-foreground hover:bg-muted/50 hover:text-primary"
                           }`}
                         >
                           <span
-                            className={`w-6 shrink-0 text-left tabular-nums transition-colors ${
+                            className={`w-4 shrink-0 text-left tabular-nums transition-colors ${
                               isHovered
                                 ? "font-black text-primary"
                                 : "font-black text-foreground group-hover:text-primary"
@@ -1676,7 +1714,7 @@ export default function InstitutionDrilldownStatsCard({
                             style={{ backgroundColor: item.fill }}
                           />
                           <span
-                            className={`transition-colors ${
+                            className={`truncate transition-colors ${
                               isHovered
                                 ? "font-bold text-primary"
                                 : "font-semibold text-foreground/90 group-hover:text-primary"
@@ -1690,7 +1728,7 @@ export default function InstitutionDrilldownStatsCard({
                   </div>
 
                   {/* Divider */}
-                  <div className="my-2 w-[160px] border-t border-border/50" />
+                  <div className="my-2 w-[220px] sm:w-[230px] border-t border-border/50" />
 
                   {/* Averages Section (Interactive Metric Hover) */}
                   <div className="space-y-1 text-xs">
@@ -1782,12 +1820,20 @@ export default function InstitutionDrilldownStatsCard({
                 </div>
               </div>
             )}
-          </div>
-        ) : currentLevel === 2 ? (
-          /* ========================================================= */
-          /* LEVEL 2: Department Certifications Dual-Ring Chart        */
-          /* ========================================================= */
-          <div className="flex h-full flex-col justify-center">
+              </motion.div>
+            ) : currentLevel === 2 ? (
+              /* ========================================================= */
+              /* LEVEL 2: Department Certifications Dual-Ring Chart        */
+              /* ========================================================= */
+              <motion.div
+                key="level-2"
+                custom={direction}
+                variants={levelVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="flex h-full flex-col justify-center"
+              >
             {level2Data.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-center">
                 <BookOpen className="mb-2 size-8 text-muted-foreground/40" />
@@ -1818,10 +1864,10 @@ export default function InstitutionDrilldownStatsCard({
                           dataKey="value"
                           startAngle={90}
                           endAngle={-270}
-                          cx="50%"
+                          cx="63%"
                           cy="50%"
-                          innerRadius="88%"
-                          outerRadius="94%"
+                          innerRadius="85%"
+                          outerRadius="91%"
                           stroke="none"
                           isAnimationActive={false}
                           className="pointer-events-none outline-none"
@@ -1843,10 +1889,10 @@ export default function InstitutionDrilldownStatsCard({
                         nameKey="name"
                         startAngle={90}
                         endAngle={-270}
-                        cx="50%"
+                        cx="63%"
                         cy="50%"
-                        innerRadius="58%"
-                        outerRadius="84%"
+                        innerRadius="56%"
+                        outerRadius="82%"
                         stroke={chartTheme.surface}
                         strokeWidth={2}
                         className="cursor-pointer outline-none"
@@ -1882,7 +1928,7 @@ export default function InstitutionDrilldownStatsCard({
                   <div
                     className="pointer-events-none absolute flex flex-col items-center justify-center px-1 text-center"
                     style={{
-                      left: "50%",
+                      left: "63%",
                       top: "50%",
                       transform: "translate(-50%, -50%)",
                     }}
@@ -1913,14 +1959,13 @@ export default function InstitutionDrilldownStatsCard({
                     </span>
                   </div>
 
-                  {/* Fixed Details Card (Moved completely to the right of the donut circle with zero overlap) */}
+                  {/* Fixed Details Card (Positioned to the left of the donut circle with zero overlap) */}
                   <div
-                    className={`absolute top-1 sm:top-2 z-20 hidden sm:block transition-all duration-500 ease-in-out ${
+                    className={`absolute top-1 sm:top-2 left-1 sm:left-1.5 z-20 hidden sm:block transition-all duration-300 ease-in-out ${
                       isLevel2PanelVisible
                         ? "opacity-100 scale-100 pointer-events-auto"
                         : "opacity-0 scale-95 pointer-events-none"
                     }`}
-                    style={{ left: "calc(50% + 134px)" }}
                   >
                     <DepartmentDetailsFixedCard
                       item={displayLevel2Item}
@@ -1947,14 +1992,8 @@ export default function InstitutionDrilldownStatsCard({
                   />
                 </div>
 
-                {/* Right Column: Stats Layout (Resting at original distance; slides with an appropriate, balanced gap on hover) */}
-                <div
-                  className={`flex flex-col justify-center pl-1 sm:col-span-5 transition-transform duration-500 ease-in-out ${
-                    isLevel2PanelVisible
-                      ? "sm:translate-x-16 lg:translate-x-20"
-                      : "sm:translate-x-0"
-                  }`}
-                >
+                {/* Right Column: Certifications Layout */}
+                <div className="flex flex-col justify-center pl-1 sm:col-span-5">
                   <h4 className="font-rb-display text-base font-bold text-foreground">
                     Stats
                   </h4>
@@ -1977,7 +2016,7 @@ export default function InstitutionDrilldownStatsCard({
                           onMouseEnter={() => handleCertMouseEnter(item)}
                           onMouseLeave={handleCertMouseLeave}
                           title={`${item.name} — ${item.enrolled} enrolled / ${item.allottedSlots} slots (${item.reachPct}% reach)`}
-                          className={`group flex w-[160px] items-center gap-2 rounded px-2 py-1 text-left text-xs transition cursor-pointer ${
+                          className={`group flex w-[220px] sm:w-[240px] items-center gap-2 rounded px-2 py-1 text-left text-xs transition cursor-pointer ${
                             isHovered
                               ? "bg-primary/10 font-bold text-primary"
                               : "text-foreground hover:bg-muted/50 hover:text-primary"
@@ -1997,7 +2036,7 @@ export default function InstitutionDrilldownStatsCard({
                             style={{ backgroundColor: item.fill }}
                           />
                           <span
-                            className={`transition-colors ${
+                            className={`whitespace-nowrap truncate transition-colors ${
                               isHovered
                                 ? "font-bold text-primary"
                                 : "font-semibold text-foreground/90 group-hover:text-primary"
@@ -2011,7 +2050,7 @@ export default function InstitutionDrilldownStatsCard({
                   </div>
 
                   {/* Divider */}
-                  <div className="my-2 w-[160px] border-t border-border/50" />
+                  <div className="my-2 w-[220px] sm:w-[240px] border-t border-border/50" />
 
                   {/* Dept Averages (Interactive Metric Hover) */}
                   <div className="space-y-1 text-xs">
@@ -2103,26 +2142,34 @@ export default function InstitutionDrilldownStatsCard({
                 </div>
               </div>
             )}
-          </div>
-        ) : currentLevel === 3 ? (
-          /* ========================================================= */
-          /* LEVEL 3: Capacity & Utilization Analytics Command Center   */
-          /* ========================================================= */
-          (() => {
-            const total = level3Data?.totalSlots || 0
-            const enrolled = level3Data?.enrolledInDept || 0
-            const completedCount = level3Data?.completed || 0
-            const inProgressCount = level3Data?.inProgress || 0
-            const notStartedCount = level3Data?.notStarted || 0
-            const unclaimedCount = level3Data?.remainingSlots || 0
+              </motion.div>
+            ) : currentLevel === 3 ? (
+              /* ========================================================= */
+              /* LEVEL 3: Capacity & Utilization Analytics Command Center   */
+              /* ========================================================= */
+              (() => {
+                const total = level3Data?.totalSlots || 0
+                const enrolled = level3Data?.enrolledInDept || 0
+                const completedCount = level3Data?.completed || 0
+                const inProgressCount = level3Data?.inProgress || 0
+                const notStartedCount = level3Data?.notStarted || 0
+                const unclaimedCount = level3Data?.remainingSlots || 0
 
-            const completedPct = total > 0 ? (completedCount / total) * 100 : 0
-            const inProgressPct = total > 0 ? (inProgressCount / total) * 100 : 0
-            const notStartedPct = total > 0 ? (notStartedCount / total) * 100 : 0
-            const unclaimedPct = total > 0 ? (unclaimedCount / total) * 100 : 0
+                const completedPct = total > 0 ? (completedCount / total) * 100 : 0
+                const inProgressPct = total > 0 ? (inProgressCount / total) * 100 : 0
+                const notStartedPct = total > 0 ? (notStartedCount / total) * 100 : 0
+                const unclaimedPct = total > 0 ? (unclaimedCount / total) * 100 : 0
 
-            return (
-              <div className="flex h-full flex-col justify-between space-y-3">
+                return (
+                  <motion.div
+                    key="level-3"
+                    custom={direction}
+                    variants={levelVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    className="flex h-full flex-col justify-between space-y-3"
+                  >
                 {/* Overview Stats Row (Analytical Telemetry - No duplicate click targets) */}
                 <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
                   {/* Total Seat Pool */}
@@ -2288,14 +2335,22 @@ export default function InstitutionDrilldownStatsCard({
                   <span>Inspect Learner Roster & Detailed Progress ({enrolled} Learners)</span>
                   <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-1" />
                 </Button>
-              </div>
-            )
-          })()
-        ) : (
-          /* ========================================================= */
-          /* LEVEL 4: Learner Progress Breakdown                       */
-          /* ========================================================= */
-          <div className="flex h-full flex-col justify-between space-y-2.5">
+                  </motion.div>
+                )
+              })()
+            ) : (
+              /* ========================================================= */
+              /* LEVEL 4: Learner Progress Breakdown                       */
+              /* ========================================================= */
+              <motion.div
+                key="level-4"
+                custom={direction}
+                variants={levelVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                className="flex h-full flex-col justify-between space-y-2.5"
+              >
             {/* Top Summary: Segmented Distribution Bar */}
             <div className="rounded-xl border border-border bg-muted/40 p-2.5">
               <div className="flex items-center justify-between text-xs">
@@ -2397,7 +2452,9 @@ export default function InstitutionDrilldownStatsCard({
                 ← Back to Capacity & Allocation
               </button>
             </div>
-          </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         )}
       </div>
 
