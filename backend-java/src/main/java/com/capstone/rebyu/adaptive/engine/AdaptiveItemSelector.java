@@ -93,30 +93,31 @@ public final class AdaptiveItemSelector {
         }
 
         /* Never repeat while the bank still has questions the learner has
-           not met: the best no-repeat tier open anywhere is the only tier in
-           play. A retake is a fresh set; only once every question in scope
-           has been seen does the paper draw on seen ones again -- and then
-           the least recently seen first. */
-        String bestTier = null;
-        for (String tier : TIERS) {
-            if (open.stream().anyMatch(c -> tier.equals(tierOf(c, state)))) {
-                bestTier = tier;
-                break;
-            }
-        }
-        if (bestTier == null) return Optional.empty();
-        final String tierInPlay = bestTier;
-        open = open.stream().filter(c -> tierInPlay.equals(tierOf(c, state))).toList();
+           not met: a retake is a fresh set. Once every question in scope has
+           been seen, any seen question is fair game except the ones on the
+           learner's last attempt, which come back last of all. Two steps, not
+           four: "seen in another assessment" against "seen in this exam" is
+           a finer distinction than a learner would ask for, and honouring it
+           before difficulty once served twelve HARD items to a learner at
+           the baseline because that was all the finer tier held. */
+        int bestRank = Integer.MAX_VALUE;
+        for (Candidate c : open) bestRank = Math.min(bestRank, tierRank(tierOf(c, state)));
+        if (bestRank == Integer.MAX_VALUE) return Optional.empty();
+        final int rankInPlay = bestRank;
+        open = open.stream().filter(c -> tierRank(tierOf(c, state)) == rankInPlay).toList();
 
-        /* Within that tier, the level the ability calls for. Difficulty is
-           three fixed points, so "most informative" is "the level nearest
-           theta"; only a level with nothing left in the tier widens to the
-           rest of it. For the first item the ability is the prior, so this
+        /* Within that, the level the ability calls for. Difficulty is three
+           fixed points, so "most informative" is "the level nearest theta";
+           a level with nothing left gives way to the next nearest, never to
+           the farthest. For the first item the ability is the prior, so this
            is also the soft start: the paper opens at the prior's level. */
         {
-            double target = nearestLevel(state.getTheta());
+            final double theta = state.getTheta();
+            double nearest = open.stream()
+                    .mapToDouble(c -> Math.abs(c.params().b() - theta))
+                    .min().orElse(0.0);
             List<Candidate> atLevel = open.stream()
-                    .filter(c -> Math.abs(c.params().b() - target) < 0.75)
+                    .filter(c -> Math.abs(c.params().b() - theta) - nearest < 0.75)
                     .toList();
             if (!atLevel.isEmpty()) open = atLevel;
         }
@@ -160,13 +161,13 @@ public final class AdaptiveItemSelector {
         return Optional.empty();
     }
 
-    /** The authored level (EASY, AVERAGE, HARD on the ability scale) nearest an ability. */
-    static double nearestLevel(double theta) {
-        double best = IrtModel.DIFFICULTY_AVERAGE;
-        for (double level : new double[] {IrtModel.DIFFICULTY_EASY, IrtModel.DIFFICULTY_AVERAGE, IrtModel.DIFFICULTY_HARD}) {
-            if (Math.abs(theta - level) < Math.abs(theta - best)) best = level;
-        }
-        return best;
+    /** UNSEEN first; anything seen next; the last attempt's own items last. */
+    static int tierRank(String tier) {
+        return switch (tier) {
+            case TIER_UNSEEN -> 0;
+            case TIER_REPEAT -> 2;
+            default -> 1;
+        };
     }
 
     private static String tierOf(Candidate candidate, AdaptiveSessionState state) {
