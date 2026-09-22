@@ -124,6 +124,10 @@ async def handle_question_generation_requested(payload: dict) -> None:
                 "target_total": target_total,
                 "batch_size": DEFAULT_BATCH_SIZE,
                 "type_distribution": question_counts,
+                # A bank top-up the adaptive engine asked for: one level,
+                # nobody reviewing. See Java's BankReplenishmentService.
+                "difficulty_focus": params.get("difficultyFocus"),
+                "auto_approve": bool(params.get("autoApprove")),
             },
             config=_thread_config(thread_id),
         )

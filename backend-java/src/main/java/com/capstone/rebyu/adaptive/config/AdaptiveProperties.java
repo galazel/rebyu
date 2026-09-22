@@ -33,6 +33,18 @@ public class AdaptiveProperties {
     /** At most this many programming/diagram items, served last as the final round. */
     private int finalRoundMax = 2;
 
+    /**
+     * Bank replenishment: when a learner has met this share of a level's
+     * pool, ask the AI pipeline for another batch at that level (see
+     * BankReplenishmentService). Best effort; off leaves the bank as authored.
+     */
+    private boolean replenishEnabled = true;
+    private double replenishSeenShare = 0.7;
+    /** No second request for the same certification and level within this many hours. */
+    private int replenishCooldownHours = 24;
+    /** A top-up is at least this many questions, and at least one paper's worth. */
+    private int replenishMinBatch = 20;
+
     /** The next item is drawn at random from this many most-informative candidates. */
     private int randomesqueTopK = 3;
 

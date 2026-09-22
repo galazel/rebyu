@@ -9,6 +9,7 @@ import com.capstone.rebyu.adaptive.engine.BktModel;
 import com.capstone.rebyu.adaptive.engine.IrtModel;
 import com.capstone.rebyu.adaptive.engine.IrtModel.ItemParams;
 import com.capstone.rebyu.adaptive.service.AdaptivePolicy;
+import com.capstone.rebyu.adaptive.service.BankReplenishmentService;
 import com.capstone.rebyu.adaptive.service.LearnerAbilityService;
 import com.capstone.rebyu.adaptive.service.QuestionBankSizeService;
 import com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.AdaptiveAnswerResponseDto;
@@ -49,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -82,6 +84,7 @@ public class AdaptiveAttemptService {
     private final BktProperties bktProperties;
     private final QuestionBankSizeService bankSize;
     private final LearnerAbilityService abilities;
+    private final BankReplenishmentService replenishment;
     private final QuestionRepository questionRepository;
     private final ExamQuestionRepository examQuestionRepository;
     private final AssessmentAttemptRepository attemptRepository;
@@ -937,6 +940,30 @@ public class AdaptiveAttemptService {
             attempt.setCurrentQuestionId(null);
             persistLearner(attempt, state);
             saveState(attempt, state);
+        }
+        scheduleReplenishment(attempt, state);
+    }
+
+    /**
+     * After a session: if this learner has now met most of a level's pool,
+     * ask for more at that level. Off the request thread and in its own
+     * transaction -- the learner's result page does not wait on it, and a
+     * failure to ask changes nothing about the exam.
+     */
+    private void scheduleReplenishment(AssessmentAttempt attempt, AdaptiveSessionState state) {
+        try {
+            Exam exam = attempt.getExam();
+            if (exam == null || exam.getCertification() == null) return;
+            Long certificationId = exam.getCertification().getCertificationId();
+            String title = exam.getCertification().getTitle();
+            Set<Long> seen = new HashSet<>(state.getSeenQuestionIds());
+            seen.addAll(state.getServedQuestionIds());
+            int paperLength = Math.max(1, state.getMainCount());
+            Map<String, BankReplenishmentService.LevelUse> usage = BankReplenishmentService.usage(
+                    cachedPool(exam).candidates().values(), seen, paperLength);
+            warmer.execute(() -> replenishment.replenishIfDepleted(certificationId, title, usage));
+        } catch (Exception e) {
+            log.debug("Replenishment check skipped for attempt {}: {}", attempt.getAssessmentAttemptId(), e.getMessage());
         }
     }
 
