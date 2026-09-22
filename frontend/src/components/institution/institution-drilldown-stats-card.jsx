@@ -12,6 +12,7 @@ import {
   ChevronRight,
   GraduationCap,
   RotateCcw,
+  Sparkles,
   TicketIcon,
   Users,
   BookOpen,
@@ -816,18 +817,104 @@ export default function InstitutionDrilldownStatsCard({
         ? Math.min(Math.round((enrolledInDept / totalSlots) * 100), 100)
         : 0
 
+    const certId =
+      selectedCertification.institutionCertId ||
+      selectedCertification.certificationId
+
+    const deptLearnerAssignments = (data?.assignments || []).filter((assignment) => {
+      const matchCert =
+        assignment.institutionCertId === certId ||
+        assignment.certificationId === certId ||
+        (selectedCertification.certificationId &&
+          assignment.certificationId === selectedCertification.certificationId)
+      if (!matchCert) return false
+
+      if (!selectedDepartment?.id) return true
+      const membership = data.groupByInstitutionCertLearnerId?.get(
+        assignment.institutionCertLearnerId
+      )
+      return (
+        membership?.departmentId != null &&
+        String(membership.departmentId) === String(selectedDepartment.id)
+      )
+    })
+
+    let completed = 0
+    let inProgress = 0
+    let notStarted = 0
+
+    deptLearnerAssignments.forEach((assignment) => {
+      const member = membersMap.get(assignment.learnerId)
+      let prog = Number(
+        assignment.progressPercentage ?? member?.averageProgress ?? 0
+      )
+      if (isNaN(prog)) prog = 0
+      if (prog >= 100 || Number(member?.completedCertifications ?? 0) > 0) {
+        completed += 1
+      } else if (prog > 0) {
+        inProgress += 1
+      } else {
+        notStarted += 1
+      }
+    })
+
+    // If no direct assignments found, fallback to counts from selectedCertification
+    if (deptLearnerAssignments.length === 0 && enrolledInDept > 0) {
+      completed = selectedCertification.certified || 0
+      inProgress =
+        selectedCertification.inProgress ||
+        Math.max(enrolledInDept - completed, 0)
+      notStarted = Math.max(enrolledInDept - completed - inProgress, 0)
+    }
+
     return {
       totalSlots,
       enrolledInDept,
       remainingSlots,
       percentFilled,
+      completed,
+      inProgress,
+      notStarted,
     }
-  }, [selectedCertification])
+  }, [
+    selectedCertification,
+    selectedDepartment,
+    data?.assignments,
+    data?.groupByInstitutionCertLearnerId,
+    membersMap,
+  ])
 
   const level4Learners = useMemo(() => {
-    if (!selectedCertification?.assignments?.length) return []
+    if (!selectedCertification) return []
 
-    return selectedCertification.assignments
+    const certId =
+      selectedCertification.institutionCertId ||
+      selectedCertification.certificationId
+
+    const deptLearnerAssignments = (data?.assignments || []).filter((assignment) => {
+      const matchCert =
+        assignment.institutionCertId === certId ||
+        assignment.certificationId === certId ||
+        (selectedCertification.certificationId &&
+          assignment.certificationId === selectedCertification.certificationId)
+      if (!matchCert) return false
+
+      if (!selectedDepartment?.id) return true
+      const membership = data.groupByInstitutionCertLearnerId?.get(
+        assignment.institutionCertLearnerId
+      )
+      return (
+        membership?.departmentId != null &&
+        String(membership.departmentId) === String(selectedDepartment.id)
+      )
+    })
+
+    const assignmentsToUse =
+      deptLearnerAssignments.length > 0
+        ? deptLearnerAssignments
+        : selectedCertification.assignments || []
+
+    return assignmentsToUse
       .map((assignment) => {
         const learner = data.learnerById?.get(assignment.learnerId)
         const member = membersMap.get(assignment.learnerId)
@@ -850,9 +937,16 @@ export default function InstitutionDrilldownStatsCard({
         }
       })
       .sort((a, b) => b.progress - a.progress)
-  }, [selectedCertification, data.learnerById, membersMap])
+  }, [
+    selectedCertification,
+    selectedDepartment,
+    data?.assignments,
+    data?.groupByInstitutionCertLearnerId,
+    data.learnerById,
+    membersMap,
+  ])
 
-  // Distribution buckets for Option C (Level 4)
+  // Distribution buckets for Level 4
   const progressBuckets = useMemo(() => {
     const buckets = [
       { label: "0–25%", min: 0, max: 25, color: "#c8553d", count: 0 },
@@ -879,11 +973,11 @@ export default function InstitutionDrilldownStatsCard({
   }, [level4Learners])
 
   // -------------------------------------------------------------------------
-  // -------------------------------------------------------------------------
   // Summary Stats for Level 1 (Original Mockup Metrics)
   // -------------------------------------------------------------------------
   const level1SummaryStats = useMemo(() => {
     const deptCount = level1Data.length || 1
+    const totalEnrolled = totalLevel1Enrolled
     const avgEnrollees = Math.round(totalLevel1Enrolled / deptCount)
 
     // Certified learners: completed certifications > 0 or progress >= 100%
@@ -923,6 +1017,11 @@ export default function InstitutionDrilldownStatsCard({
       avgInProgress,
       inProgressPct,
       avgScore,
+      // Totals retained for remarks calculation & aliases
+      totalEnrolled,
+      totalCompleted: certifiedCount,
+      totalInProgress: inProgressCount,
+      completedPct: certifiedPct,
     }
   }, [level1Data, totalLevel1Enrolled, totalLevel1Slots, members, summary])
 
@@ -941,46 +1040,55 @@ export default function InstitutionDrilldownStatsCard({
   const displayLevel1Item = currentActiveDept || lastActiveDept || level1Data[0]
 
   // -------------------------------------------------------------------------
-  // Summary Stats for Level 2 (Original Certifications & Dept Averages)
+  // Summary Stats for Level 2 (Certification Level)
   // -------------------------------------------------------------------------
   const level2SummaryStats = useMemo(() => {
     if (!level2Data.length) {
       return {
         avgEnrollees: 0,
+        avgCertified: 0,
         certified: 0,
         certifiedPct: 0,
+        avgInProgress: 0,
         inProgress: 0,
         inProgressPct: 0,
         avgProgress: "—",
+        totalEnrolled: 0,
+        totalCompleted: 0,
+        totalInProgress: 0,
       }
     }
+
     const certCount = level2Data.length || 1
-    const deptTotalLearners = level2Data.reduce((sum, c) => sum + c.enrolled, 0)
-    const avgEnrollees = Math.round(deptTotalLearners / certCount)
+    const totalEnrolled = level2Data.reduce((sum, c) => sum + c.enrolled, 0)
+    const avgEnrollees = Math.round(totalEnrolled / certCount)
 
     const deptLearnerIds = new Set()
     level2Data.forEach((c) => {
       c.learnerIds?.forEach((id) => deptLearnerIds.add(id))
     })
-
     const deptMembers = members.filter((m) => deptLearnerIds.has(m.learnerId))
-    const certified = deptMembers.filter(
+
+    const certifiedCount = deptMembers.filter(
       (m) =>
         Number(m.completedCertifications ?? 0) > 0 ||
         Number(m.averageProgress ?? 0) >= 100
     ).length
-    const inProgress = deptMembers.filter(
+    const avgCertified = Math.round(certifiedCount / certCount)
+
+    const inProgressCount = deptMembers.filter(
       (m) =>
         Number(m.averageProgress ?? 0) > 0 && Number(m.averageProgress ?? 0) < 100
     ).length
+    const avgInProgress = Math.round(inProgressCount / certCount)
 
     const certifiedPct =
       totalLevel2Slots > 0
-        ? Math.min(Math.round((certified / totalLevel2Slots) * 100), 100)
+        ? Math.min(Math.round((certifiedCount / totalLevel2Slots) * 100), 100)
         : 0
     const inProgressPct =
       totalLevel2Slots > 0
-        ? Math.min(Math.round((inProgress / totalLevel2Slots) * 100), 100)
+        ? Math.min(Math.round((inProgressCount / totalLevel2Slots) * 100), 100)
         : 0
 
     const avgProgressVal =
@@ -995,11 +1103,18 @@ export default function InstitutionDrilldownStatsCard({
 
     return {
       avgEnrollees,
-      certified,
+      avgCertified,
+      certified: avgCertified,
       certifiedPct,
-      inProgress,
+      avgInProgress,
+      inProgress: avgInProgress,
       inProgressPct,
       avgProgress: `${avgProgressVal}%`,
+      // Totals retained for remarks calculation
+      totalEnrolled,
+      totalCompleted: certifiedCount,
+      totalInProgress: inProgressCount,
+      completedPct: certifiedPct,
     }
   }, [level2Data, totalLevel2Slots, members])
 
@@ -1018,59 +1133,148 @@ export default function InstitutionDrilldownStatsCard({
   const displayLevel2Item = currentActiveCert || lastActiveCert || level2Data[0]
 
   // -------------------------------------------------------------------------
-  // Dynamic Remarks Content per Level (Original Narrative)
+  // Dynamic Remarks Content per Level (Executive Diagnostic Intelligence)
   // -------------------------------------------------------------------------
-  const remarksText = useMemo(() => {
+  const remarksData = useMemo(() => {
     if (currentLevel === 1) {
-      if (!level1Data.length) {
-        return "No learner enrollments have been recorded across departments yet."
+      if (!level1Data.length || totalLevel1Enrolled === 0) {
+        return {
+          tag: "Critical Inactivity",
+          diagnosis: `Allocated capacity is 100% idle (${totalLevel1Enrolled} of ${totalLevel1Slots} seats used, ${overallLevel1ReachPct}% capacity). All department tracks report zero active learner participation.`,
+          recommendation: "Activate department cohorts immediately by assigning designated certification tracks and onboarding students.",
+        }
       }
-      const topDept = level1Data[0]
-      const topPct =
-        totalLevel1Enrolled > 0
-          ? Math.round((topDept.enrolled / totalLevel1Enrolled) * 100)
-          : 0
-      if (level1Data.length === 1) {
-        return `${topDept.name} holds 100% of currently enrolled learners (${topDept.enrolled} enrollees). Institutional average progress is ${level1SummaryStats.avgScore} across active curriculum.`
+
+      const emptyDepts = level1Data.filter((d) => d.enrolled === 0).length
+
+      if (overallLevel1ReachPct < 50) {
+        return {
+          tag: "Severe Underutilization",
+          diagnosis: `Allotted seats are critically under-utilized at only ${overallLevel1ReachPct}% capacity (${totalLevel1Enrolled} of ${totalLevel1Slots} seats taken)${
+            emptyDepts > 0 ? `, with ${emptyDepts} department(s) recording zero active enrollees` : ""
+          }. Student achievement remains lagging with an institutional average progress score of ${level1SummaryStats.avgScore}.`,
+          recommendation: "Reallocate vacant seat licenses from dormant departments to active cohorts and mandate refresher reviews.",
+        }
       }
-      return `${topDept.name} leads institutional enrollment with ${topDept.enrolled} learners (${topPct}% of total). An average of ${level1SummaryStats.avgEnrollees} learners are enrolled per department across ${level1Data.length} departments.`
+
+      if (overallLevel1ReachPct < 80) {
+        return {
+          tag: "Moderate Throughput",
+          diagnosis: `Seat occupancy is moderate at ${overallLevel1ReachPct}% (${totalLevel1Enrolled} of ${totalLevel1Slots} seats occupied), yet average student performance score stands at ${level1SummaryStats.avgScore}. The persistent gap between seat reservations and completed reviews indicates significant learner drop-off.`,
+          recommendation: "Introduce milestone checkpoints and automated reminder nudges to push in-progress learners toward mock exams.",
+        }
+      }
+
+      return {
+        tag: "High Engagement",
+        diagnosis: `Seat allocation is robust at ${overallLevel1ReachPct}% capacity (${totalLevel1Enrolled} of ${totalLevel1Slots} seats filled). However, overall average performance of ${level1SummaryStats.avgScore} reflects room for higher curriculum mastery.`,
+        recommendation: "Conduct targeted mock assessment clinics to transition active enrollees into completed certifications.",
+      }
     }
 
     if (currentLevel === 2) {
       if (!level2Data.length) {
-        return `No active certification assignments found for ${selectedDepartment?.name || "this department"}.`
+        return {
+          tag: "Zero Allocation",
+          diagnosis: `No active certification tracks are currently provisioned for ${selectedDepartment?.name || "this department"}, leaving allocated capacity unassigned.`,
+          recommendation: "Assign relevant industry certifications to this department's study plan to begin onboarding students.",
+        }
       }
-      const topCert = level2Data[0]
-      const deptTotal = level2Data.reduce((sum, c) => sum + c.enrolled, 0)
-      const topPct =
-        deptTotal > 0 ? Math.round((topCert.enrolled / deptTotal) * 100) : 0
-      return `${topCert.name} represents ${topPct}% of certifications in ${selectedDepartment?.name} with ${topCert.enrolled} learner(s). Click any certification to inspect slots capacity.`
+      const deptTotalEnrolled = level2Data.reduce((sum, c) => sum + c.enrolled, 0)
+      const reachPct =
+        totalLevel2Slots > 0
+          ? Math.round((deptTotalEnrolled / totalLevel2Slots) * 100)
+          : 0
+      const unassignedCerts = level2Data.filter((c) => c.enrolled === 0).length
+
+      return {
+        tag: reachPct < 50 ? "Low Department Uptake" : "Department In-Progress",
+        diagnosis: `In ${selectedDepartment?.name || "this department"}, seat utilization is at ${reachPct}% (${deptTotalEnrolled} of ${totalLevel2Slots} seats filled)${
+          unassignedCerts > 0 ? `, with ${unassignedCerts} certification path(s) completely untouched` : ""
+        }. Average cohort progress (${level2SummaryStats.avgProgress}) underscores sluggish skill attainment.`,
+        recommendation: "Encourage department faculty leads to set weekly completion goals and review mock exam readiness reports.",
+      }
     }
 
     if (currentLevel === 3) {
-      if (!level3Data) return "No slot allocation details available."
-      return `${selectedDepartment?.name || "Department"} has utilized ${level3Data.percentFilled}% of the total certification slot pool (${level3Data.enrolledInDept} of ${level3Data.totalSlots} slots). Click the enrolled bar to view learner progress.`
+      if (!level3Data) {
+        return {
+          tag: "Data Pending",
+          diagnosis: "Slot utilization metrics are currently loading or unavailable.",
+          recommendation: "Refresh the data or verify assigned licenses for this certification.",
+        }
+      }
+
+      if (level3Data.percentFilled === 0) {
+        return {
+          tag: "Zero Uptake",
+          diagnosis: `None of the ${level3Data.totalSlots} provisioned slots for this track have been claimed by learners in ${selectedDepartment?.name || "this department"}. Allocated capacity is completely idle.`,
+          recommendation: "Distribute access links and enroll candidates in this track to begin certification prep.",
+        }
+      }
+
+      if (level3Data.percentFilled < 50) {
+        return {
+          tag: "Underutilized Allocation",
+          diagnosis: `Only ${level3Data.percentFilled}% of allocated capacity is utilized (${level3Data.enrolledInDept} of ${level3Data.totalSlots} seats). With ${level3Data.remainingSlots} seats remaining idle, this department is trailing its target enrollment schedule.`,
+          recommendation: "Review pending cohort invitations and onboard eligible candidates to prevent slot wastage.",
+        }
+      }
+
+      if (level3Data.percentFilled < 90) {
+        return {
+          tag: "Healthy Utilization",
+          diagnosis: `Slot uptake is healthy at ${level3Data.percentFilled}% capacity (${level3Data.enrolledInDept} of ${level3Data.totalSlots} seats filled, with ${level3Data.remainingSlots} remaining). Average learner progress across this cohort is ${avgLearnerProgress}%.`,
+          recommendation: "Monitor learner progression through milestone check-ins to ensure on-time mock exam readiness.",
+        }
+      }
+
+      return {
+        tag: "Near Full Capacity",
+        diagnosis: `This certification track has achieved ${level3Data.percentFilled}% capacity (${level3Data.enrolledInDept} of ${level3Data.totalSlots} seats active). Available seat pool is nearly exhausted.`,
+        recommendation: "Request additional seat quotas from the institutional pool if more department learners need enrollment.",
+      }
     }
 
     if (currentLevel === 4) {
-      const completedCount = level4Learners.filter(
-        (l) => l.progress === 100
-      ).length
-      return `Cohort average progress for ${selectedCertification?.title || "Certification"} is ${avgLearnerProgress}%. ${completedCount} of ${level4Learners.length} learner(s) have reached 100% completion.`
+      if (!level4Learners.length) {
+        return {
+          tag: "No Enrollees",
+          diagnosis: `No learners are currently assigned to ${selectedCertification?.title || "this certification"} in ${selectedDepartment?.name || "this department"}.`,
+          recommendation: "Assign learners to begin tracking individual completion milestones.",
+        }
+      }
+
+      const readyCount = level4Learners.filter((l) => l.progress >= 75).length
+      const laggingCount = level4Learners.filter((l) => l.progress < 25).length
+
+      return {
+        tag: readyCount > 0 ? "Readiness Tracking" : "Cohort In-Progress",
+        diagnosis: `Tracking ${level4Learners.length} student(s) in ${selectedCertification?.title}. ${readyCount} learner(s) have reached mock-exam threshold (>=75% progress), while ${laggingCount} student(s) remain below 25%.`,
+        recommendation: "Prioritize 1-on-1 tutoring sessions for students below 25% progress to prevent cohort attrition.",
+      }
     }
 
-    return "All department statistics are current."
+    return {
+      tag: "Analytics Current",
+      diagnosis: "All departmental and curriculum metrics are synchronized with current institutional records.",
+      recommendation: "Continue regular performance monitoring.",
+    }
   }, [
     currentLevel,
     level1Data,
     totalLevel1Enrolled,
+    totalLevel1Slots,
+    overallLevel1ReachPct,
     level1SummaryStats,
     level2Data,
+    totalLevel2Slots,
+    level2SummaryStats,
     selectedDepartment,
     level3Data,
     level4Learners,
-    selectedCertification,
     avgLearnerProgress,
+    selectedCertification,
   ])
 
   // -------------------------------------------------------------------------
@@ -1118,34 +1322,45 @@ export default function InstitutionDrilldownStatsCard({
   return (
     <div className="flex h-full min-h-[320px] w-full flex-col justify-between">
       {/* ----------------- Header & Breadcrumbs ----------------- */}
-      <div className="space-y-1.5 border-b border-border/60 pb-2.5">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="grid size-7 place-items-center rounded-lg bg-sky-500/15 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">
-              <Building2 className="size-4" />
+      <div className="space-y-2 border-b border-border/60 pb-2.5 mb-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
+              <Building2 className="size-4" aria-hidden="true" />
             </span>
-            <div>
-              <h3 className="text-[10px] font-bold uppercase leading-tight tracking-wider text-muted-foreground">
-                Learner Statistics
+            <div className="min-w-0">
+              <h3 className="text-[10px] font-bold uppercase leading-tight tracking-wider text-emerald-700 dark:text-emerald-400">
+                {currentLevel === 1 && "Department Analytics"}
+                {currentLevel === 2 && "Department Certifications"}
+                {currentLevel === 3 && "Department Capacity & Utilization"}
+                {currentLevel === 4 && "Learner Progress & Roster"}
               </h3>
-              <p className="text-xs font-extrabold leading-snug text-foreground sm:text-sm">
+              <p className="truncate text-xs font-extrabold leading-snug text-foreground sm:text-sm">
                 {currentLevel === 1 && "Department Enrollment & Slots"}
                 {currentLevel === 2 &&
                   `${selectedDepartment?.name || "Department"} Certifications`}
-                {currentLevel === 3 && "Slots vs. Enrolled Learners"}
-                {currentLevel === 4 && "Learner Progress Breakdown"}
+                {currentLevel === 3 &&
+                  `${selectedCertification?.title || "Certification"} — Capacity & Allocation`}
+                {currentLevel === 4 &&
+                  `${selectedCertification?.title || "Certification"} — Individual Learners`}
+              </p>
+              <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">
+                {currentLevel === 1 && "Interactive departmental drill-down & slot distribution"}
+                {currentLevel === 2 && "Click any certification to inspect slots & uptake"}
+                {currentLevel === 3 && "Seat allocation anatomy, cohort progress distribution & telemetry"}
+                {currentLevel === 4 && "Detailed progress and milestone tracking for cohort enrollees"}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5">
             {currentLevel > 1 && (
               <>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleGoBack}
-                  className="h-7 px-2 text-xs font-medium hover:bg-muted"
+                  className="h-7 px-2 text-xs font-medium hover:bg-muted cursor-pointer"
                   title="Go back one step"
                 >
                   <ArrowLeft className="mr-1 size-3.5" /> Back
@@ -1154,7 +1369,7 @@ export default function InstitutionDrilldownStatsCard({
                   variant="ghost"
                   size="sm"
                   onClick={handleReset}
-                  className="h-7 px-2 text-xs text-muted-foreground hover:bg-muted"
+                  className="h-7 px-2 text-xs text-muted-foreground hover:bg-muted cursor-pointer"
                   title="Reset to Departments"
                 >
                   <RotateCcw className="size-3" />
@@ -1162,8 +1377,8 @@ export default function InstitutionDrilldownStatsCard({
               </>
             )}
             <Badge
-              variant="outline"
-              className="bg-background/80 px-2 py-0.5 text-[10px] font-bold"
+              variant="secondary"
+              className="border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 px-2 py-0.5 text-[10px] font-bold"
             >
               L{currentLevel}/4
             </Badge>
@@ -1171,11 +1386,11 @@ export default function InstitutionDrilldownStatsCard({
         </div>
 
         {/* Breadcrumb Trail */}
-        <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+        <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground pt-1 border-t border-border/40">
           <button
             type="button"
             onClick={handleReset}
-            className={`transition hover:text-foreground ${
+            className={`transition hover:text-foreground cursor-pointer ${
               currentLevel === 1
                 ? "font-bold text-foreground"
                 : "underline-offset-2 hover:underline"
@@ -1190,7 +1405,7 @@ export default function InstitutionDrilldownStatsCard({
               <button
                 type="button"
                 onClick={() => setCurrentLevel(2)}
-                className={`max-w-[120px] truncate transition hover:text-foreground ${
+                className={`max-w-[120px] truncate transition hover:text-foreground cursor-pointer ${
                   currentLevel === 2
                     ? "font-bold text-foreground"
                     : "underline-offset-2 hover:underline"
@@ -1205,25 +1420,32 @@ export default function InstitutionDrilldownStatsCard({
           {currentLevel >= 3 && selectedCertification && (
             <>
               <ChevronRight className="size-3 shrink-0 text-muted-foreground/60" />
-              <button
-                type="button"
-                onClick={() => setCurrentLevel(3)}
-                className={`max-w-[120px] truncate transition hover:text-foreground ${
-                  currentLevel === 3
-                    ? "font-bold text-foreground"
-                    : "underline-offset-2 hover:underline"
-                }`}
-                title={selectedCertification.title}
-              >
-                {selectedCertification.title}
-              </button>
+              {currentLevel === 3 ? (
+                <span
+                  className="font-bold text-foreground max-w-[160px] truncate"
+                  title={selectedCertification.title}
+                >
+                  {selectedCertification.title}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setCurrentLevel(3)}
+                  className="max-w-[160px] truncate transition hover:text-foreground cursor-pointer underline-offset-2 hover:underline"
+                  title={selectedCertification.title}
+                >
+                  {selectedCertification.title}
+                </button>
+              )}
             </>
           )}
 
           {currentLevel === 4 && (
             <>
               <ChevronRight className="size-3 shrink-0 text-muted-foreground/60" />
-              <span className="font-bold text-foreground">Learners</span>
+              <span className="font-bold text-foreground">
+                Learners
+              </span>
             </>
           )}
         </div>
@@ -1815,7 +2037,7 @@ export default function InstitutionDrilldownStatsCard({
                             : "font-black text-foreground"
                         }`}
                       >
-                        {level2SummaryStats.certified}
+                        {level2SummaryStats.avgCertified ?? level2SummaryStats.certified}
                       </span>
                       <span>Avg Certified</span>
                     </button>
@@ -1836,7 +2058,7 @@ export default function InstitutionDrilldownStatsCard({
                             : "font-black text-foreground"
                         }`}
                       >
-                        {level2SummaryStats.inProgress}
+                        {level2SummaryStats.avgInProgress ?? level2SummaryStats.inProgress}
                       </span>
                       <span>Avg In-Progress</span>
                     </button>
@@ -1868,127 +2090,194 @@ export default function InstitutionDrilldownStatsCard({
           </div>
         ) : currentLevel === 3 ? (
           /* ========================================================= */
-          /* LEVEL 3: Slots Allocated vs. Enrolled Learners Bar Graph  */
+          /* LEVEL 3: Capacity & Utilization Analytics Command Center   */
           /* ========================================================= */
-          <div className="flex h-full flex-col justify-between space-y-3">
-            {/* Overview Stats Row */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 p-2.5">
-                <span className="grid size-8 place-items-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                  <TicketIcon className="size-4" />
-                </span>
-                <div>
-                  <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                    Slots Pool
+          (() => {
+            const total = level3Data?.totalSlots || 0
+            const enrolled = level3Data?.enrolledInDept || 0
+            const completedCount = level3Data?.completed || 0
+            const inProgressCount = level3Data?.inProgress || 0
+            const notStartedCount = level3Data?.notStarted || 0
+            const unclaimedCount = level3Data?.remainingSlots || 0
+
+            const completedPct = total > 0 ? (completedCount / total) * 100 : 0
+            const inProgressPct = total > 0 ? (inProgressCount / total) * 100 : 0
+            const notStartedPct = total > 0 ? (notStartedCount / total) * 100 : 0
+            const unclaimedPct = total > 0 ? (unclaimedCount / total) * 100 : 0
+
+            return (
+              <div className="flex h-full flex-col justify-between space-y-3">
+                {/* Overview Stats Row (Analytical Telemetry - No duplicate click targets) */}
+                <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+                  {/* Total Seat Pool */}
+                  <div className="flex items-center gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/5 p-2.5">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                      <TicketIcon className="size-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Total Seat Pool
+                      </div>
+                      <div className="text-lg font-black tabular-nums text-foreground leading-none mt-0.5">
+                        {total}
+                      </div>
+                      <div className="text-[9px] text-muted-foreground truncate mt-0.5">
+                        Institutional quota
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-lg font-black tabular-nums text-foreground">
-                    {level3Data?.totalSlots ?? 0}
+
+                  {/* Department Enrolled */}
+                  <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-2.5">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                      <Users className="size-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                        Dept Enrolled
+                      </div>
+                      <div className="text-lg font-black tabular-nums text-foreground leading-none mt-0.5">
+                        {enrolled}
+                      </div>
+                      <div className="text-[9px] text-muted-foreground truncate mt-0.5">
+                        {level3Data?.percentFilled ?? 0}% capacity claimed
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Unclaimed Pool Remaining */}
+                  <div className="flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 p-2.5">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-slate-500/15 text-slate-600 dark:text-slate-300">
+                      <Building2 className="size-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Unclaimed Seats
+                      </div>
+                      <div className="text-lg font-black tabular-nums text-foreground leading-none mt-0.5">
+                        {unclaimedCount}
+                      </div>
+                      <div className="text-[9px] text-muted-foreground truncate mt-0.5">
+                        {Math.max(100 - (level3Data?.percentFilled ?? 0), 0)}% available
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div
-                onClick={() => setCurrentLevel(4)}
-                className="group flex cursor-pointer items-center gap-2.5 rounded-xl border border-primary/30 bg-primary/5 p-2.5 transition hover:border-primary hover:bg-primary/10"
-              >
-                <span className="grid size-8 place-items-center rounded-lg bg-primary/20 text-primary">
+                {/* Visual Capacity & Cohort Readiness Panel */}
+                <div className="rounded-2xl border border-border/80 bg-card/90 p-3.5 shadow-xs space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-xs font-extrabold text-foreground">
+                        Capacity Utilization & Cohort Readiness
+                      </span>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="border-emerald-600/30 bg-emerald-500/10 text-emerald-800 px-2 py-0.5 text-[10px] font-bold dark:border-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    >
+                      {level3Data?.percentFilled ?? 0}% Allocated
+                    </Badge>
+                  </div>
+
+                  {/* Segmented Capacity Stacked Bar */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
+                      <span>Seat Allocation Anatomy</span>
+                      <span className="font-bold text-foreground">
+                        {enrolled} / {total} Seats
+                      </span>
+                    </div>
+
+                    <div className="flex h-3.5 w-full overflow-hidden rounded-full bg-muted/80 p-0.5 ring-1 ring-border/50">
+                      {completedPct > 0 && (
+                        <div
+                          style={{ width: `${completedPct}%` }}
+                          className="h-full first:rounded-l-full last:rounded-r-full bg-[#2f6b4f] transition-all duration-500"
+                          title={`Completed: ${completedCount} learner(s)`}
+                        />
+                      )}
+                      {inProgressPct > 0 && (
+                        <div
+                          style={{ width: `${inProgressPct}%` }}
+                          className="h-full first:rounded-l-full last:rounded-r-full bg-[#c9962b] transition-all duration-500"
+                          title={`In Progress: ${inProgressCount} learner(s)`}
+                        />
+                      )}
+                      {notStartedPct > 0 && (
+                        <div
+                          style={{ width: `${notStartedPct}%` }}
+                          className="h-full first:rounded-l-full last:rounded-r-full bg-[#c8553d] transition-all duration-500"
+                          title={`Not Started: ${notStartedCount} learner(s)`}
+                        />
+                      )}
+                      {unclaimedPct > 0 && (
+                        <div
+                          style={{ width: `${unclaimedPct}%` }}
+                          className="h-full first:rounded-l-full last:rounded-r-full bg-muted/50 transition-all duration-500"
+                          title={`Unclaimed: ${unclaimedCount} slot(s)`}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Legend & Breakdown */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-border/50 text-[10px]">
+                    <div className="flex items-center gap-1.5">
+                      <span className="size-2 shrink-0 rounded-full bg-[#2f6b4f]" />
+                      <span className="text-muted-foreground">Completed:</span>
+                      <strong className="font-bold text-foreground tabular-nums">{completedCount}</strong>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="size-2 shrink-0 rounded-full bg-[#c9962b]" />
+                      <span className="text-muted-foreground">In Progress:</span>
+                      <strong className="font-bold text-foreground tabular-nums">{inProgressCount}</strong>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="size-2 shrink-0 rounded-full bg-[#c8553d]" />
+                      <span className="text-muted-foreground">Not Started:</span>
+                      <strong className="font-bold text-foreground tabular-nums">{notStartedCount}</strong>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="size-2 shrink-0 rounded-full bg-muted-foreground/30" />
+                      <span className="text-muted-foreground">Unclaimed:</span>
+                      <strong className="font-bold text-foreground tabular-nums">{unclaimedCount}</strong>
+                    </div>
+                  </div>
+
+                  {/* Cohort Performance Telemetry Strip */}
+                  <div className="flex items-center justify-between rounded-lg bg-muted/40 px-2.5 py-1.5 text-xs">
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-[11px] font-medium text-muted-foreground">Cohort Avg Progress:</span>
+                      <span className="font-black text-foreground tabular-nums">{avgLearnerProgress}%</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[11px]">
+                      <span className="text-muted-foreground">Readiness:</span>
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                        {completedCount} of {enrolled} Ready
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Single Dedicated Primary Action Button */}
+                <Button
+                  type="button"
+                  onClick={() => setCurrentLevel(4)}
+                  className="w-full h-9 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 group transition cursor-pointer"
+                >
                   <Users className="size-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[10px] font-bold uppercase tracking-wide text-primary">
-                    Dept Enrolled
-                  </div>
-                  <div className="text-lg font-black tabular-nums text-foreground">
-                    {level3Data?.enrolledInDept ?? 0}
-                  </div>
-                </div>
-                <ChevronRight className="size-4 text-primary transition group-hover:translate-x-0.5" />
+                  <span>Inspect Learner Roster & Detailed Progress ({enrolled} Learners)</span>
+                  <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-1" />
+                </Button>
               </div>
-
-              <div className="flex items-center gap-2.5 rounded-xl border border-border bg-muted/40 p-2.5">
-                <span className="grid size-8 place-items-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-                  <GraduationCap className="size-4" />
-                </span>
-                <div>
-                  <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                    Pool Remaining
-                  </div>
-                  <div className="text-lg font-black tabular-nums text-foreground">
-                    {level3Data?.remainingSlots ?? 0}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Interactive Visual Bar Comparison */}
-            <div className="space-y-3 rounded-xl border border-border bg-card/70 p-3.5">
-              {/* Allocated Slots Bar */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="flex items-center gap-2 font-semibold text-muted-foreground">
-                    <span className="size-2.5 rounded-full bg-amber-500" />
-                    Allocated Slots (Overall Institution Pool)
-                  </span>
-                  <span className="font-bold tabular-nums text-foreground">
-                    {level3Data?.totalSlots ?? 0} slots
-                  </span>
-                </div>
-                <div className="h-3.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-amber-500 transition-all duration-500"
-                    style={{ width: "100%" }}
-                  />
-                </div>
-              </div>
-
-              {/* Enrolled Students Bar (Interactive) */}
-              <button
-                type="button"
-                onClick={() => setCurrentLevel(4)}
-                className="group block w-full text-left transition"
-              >
-                <div className="flex justify-between text-xs">
-                  <span className="flex items-center gap-2 font-bold text-primary group-hover:underline">
-                    <span className="size-2.5 rounded-full bg-primary" />
-                    Enrolled by {selectedDepartment?.name} (Click to view progress) →
-                  </span>
-                  <span className="font-extrabold tabular-nums text-foreground">
-                    {level3Data?.enrolledInDept ?? 0} learners ({level3Data?.percentFilled}%)
-                  </span>
-                </div>
-                <div className="mt-1 h-3.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all duration-500 group-hover:bg-primary/90"
-                    style={{
-                      width: `${Math.max(
-                        Math.min(
-                          level3Data?.totalSlots
-                            ? (level3Data.enrolledInDept / level3Data.totalSlots) * 100
-                            : 100,
-                          100
-                        ),
-                        6
-                      )}%`,
-                    }}
-                  />
-                </div>
-              </button>
-            </div>
-
-            {/* Action CTA */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentLevel(4)}
-              className="w-full justify-center text-xs font-bold text-primary hover:bg-primary/10"
-            >
-              <GraduationCap className="mr-1.5 size-4" />
-              View Learner Progress ({level3Data?.enrolledInDept ?? 0}) →
-            </Button>
-          </div>
+            )
+          })()
         ) : (
           /* ========================================================= */
-          /* LEVEL 4: Learner Progress Breakdown (Option C)            */
+          /* LEVEL 4: Learner Progress Breakdown                       */
           /* ========================================================= */
           <div className="flex h-full flex-col justify-between space-y-2.5">
             {/* Top Summary: Segmented Distribution Bar */}
@@ -2080,16 +2369,48 @@ export default function InstitutionDrilldownStatsCard({
                 </div>
               )}
             </div>
+
+            {/* Bottom Navigation Back to Level 3 */}
+            <div className="flex items-center justify-between pt-1.5 border-t border-border/40 text-[11px] text-muted-foreground">
+              <span>Cohort enrollment roster</span>
+              <button
+                type="button"
+                onClick={handleGoBack}
+                className="text-primary hover:underline font-semibold cursor-pointer"
+              >
+                ← Back to Capacity & Allocation
+              </button>
+            </div>
           </div>
         )}
       </div>
 
-      {/* ----------------- Remarks Box (Matching User Mockup) ----------------- */}
-      <div className="mt-2.5 rounded-2xl border border-[#c7dcb8] bg-[#e3ecda] px-3.5 py-2.5 text-xs shadow-xs dark:border-[#2f5e3e] dark:bg-[#1a3826]/50">
-        <span className="font-bold text-[#1b4329] dark:text-[#a8e6b8]">Remarks: </span>
-        <span className="text-[#2a5c37] dark:text-emerald-100/90 leading-relaxed">
-          {remarksText}
-        </span>
+      {/* ----------------- Remarks Box (Executive Diagnostic Intelligence) ----------------- */}
+      <div className="mt-1.5 rounded-lg border border-amber-500/35 bg-amber-500/[0.08] px-3 py-1.5 text-[11px] shadow-xs dark:border-amber-500/30 dark:bg-amber-950/30">
+        <div className="flex items-start gap-2">
+          <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-md bg-amber-500/20 text-amber-800 dark:bg-amber-400/25 dark:text-amber-300">
+            <Sparkles className="size-2.5" />
+          </span>
+          <div className="min-w-0 flex-1 leading-snug">
+            <div className="flex flex-wrap items-center gap-1.5 pb-0.5">
+              <span className="font-bold uppercase tracking-wider text-[9px] text-amber-800 dark:text-amber-300">
+                Diagnostic Analysis
+              </span>
+              <span className="inline-flex items-center rounded border border-amber-500/30 bg-amber-500/15 px-1.5 py-0 text-[8.5px] font-bold text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/50 dark:text-amber-200">
+                {remarksData.tag}
+              </span>
+            </div>
+            <p className="text-foreground/90 text-[11px] leading-snug">
+              {remarksData.diagnosis}
+            </p>
+            {remarksData.recommendation && (
+              <p className="mt-0.5 text-[10px] text-amber-900/90 dark:text-amber-200/90 leading-snug">
+                <strong className="font-bold text-amber-950 dark:text-amber-100">Recommendation: </strong>
+                {remarksData.recommendation}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

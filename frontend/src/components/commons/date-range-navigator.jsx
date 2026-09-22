@@ -78,11 +78,26 @@ function Picker({ mode, cursor, onSelect, onClose }) {
   const pickerRef = useRef(null)
   const today = useMemo(() => new Date(), [])
 
+  // Navigation view: "days" | "months" | "years"
+  const [view, setView] = useState(() => {
+    if (mode === "yearly") return "years"
+    if (mode === "monthly") return "months"
+    return "days"
+  })
+
   // Internal navigation state (separate from the main cursor)
   const [pickerYear,  setPickerYear]  = useState(cursor.getFullYear())
   const [pickerMonth, setPickerMonth] = useState(cursor.getMonth())
   const [decadeStart, setDecadeStart] = useState(Math.floor(cursor.getFullYear() / 12) * 12)
   const [hoveredWeek, setHoveredWeek] = useState(null)
+
+  // Reset view when mode or cursor changes
+  useEffect(() => {
+    setView(mode === "yearly" ? "years" : mode === "monthly" ? "months" : "days")
+    setPickerYear(cursor.getFullYear())
+    setPickerMonth(cursor.getMonth())
+    setDecadeStart(Math.floor(cursor.getFullYear() / 12) * 12)
+  }, [mode, cursor])
 
   // Close on Escape
   useEffect(() => {
@@ -118,23 +133,41 @@ function Picker({ mode, cursor, onSelect, onClose }) {
 
     return (
       <div className="w-[248px]">
-        {/* Month header */}
+        {/* Month & Year header */}
         <div className="mb-3 flex items-center justify-between">
           <button
             type="button"
             onClick={prevMonth}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground cursor-pointer select-none"
           >
             <ChevronLeft className="size-3.5" />
           </button>
-          <span className="text-[13px] font-semibold text-foreground">
-            {MONTHS_FULL[pickerMonth]} {pickerYear}
-          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setView("months")}
+              className="rounded-md px-1.5 py-0.5 text-[13px] font-semibold text-foreground transition hover:bg-muted hover:text-primary cursor-pointer select-none"
+              title="Click to jump to another month"
+            >
+              {MONTHS_FULL[pickerMonth]}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDecadeStart(Math.floor(pickerYear / 12) * 12)
+                setView("years")
+              }}
+              className="rounded-md px-1.5 py-0.5 text-[13px] font-semibold text-foreground transition hover:bg-muted hover:text-primary cursor-pointer select-none"
+              title="Click to jump to another year"
+            >
+              {pickerYear}
+            </button>
+          </div>
           <button
             type="button"
             onClick={nextMonth}
             disabled={!canNextMonth}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30 cursor-pointer select-none"
           >
             <ChevronRight className="size-3.5" />
           </button>
@@ -164,7 +197,7 @@ function Picker({ mode, cursor, onSelect, onClose }) {
                   disabled={future}
                   onClick={() => onSelect(date)}
                   className={[
-                    "flex h-8 w-full items-center justify-center rounded-md text-[12px] transition",
+                    "flex h-8 w-full items-center justify-center rounded-md text-[12px] transition cursor-pointer select-none",
                     future
                       ? "cursor-not-allowed text-muted-foreground/30"
                       : selected
@@ -198,7 +231,7 @@ function Picker({ mode, cursor, onSelect, onClose }) {
                 onMouseEnter={() => !wFuture && setHoveredWeek(wStart)}
                 onMouseLeave={() => setHoveredWeek(null)}
                 className={[
-                  "flex h-8 w-full items-center justify-center text-[12px] transition",
+                  "flex h-8 w-full items-center justify-center text-[12px] transition cursor-pointer select-none",
                   wFuture
                     ? "cursor-not-allowed text-muted-foreground/30"
                     : inSelected
@@ -236,16 +269,26 @@ function Picker({ mode, cursor, onSelect, onClose }) {
           <button
             type="button"
             onClick={() => setPickerYear(y => y - 1)}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground cursor-pointer select-none"
           >
             <ChevronLeft className="size-3.5" />
           </button>
-          <span className="text-[13px] font-semibold text-foreground">{pickerYear}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setDecadeStart(Math.floor(pickerYear / 12) * 12)
+              setView("years")
+            }}
+            className="rounded-md px-2 py-0.5 text-[13px] font-semibold text-foreground transition hover:bg-muted hover:text-primary cursor-pointer select-none"
+            title="Click to jump to another year"
+          >
+            {pickerYear}
+          </button>
           <button
             type="button"
             onClick={() => setPickerYear(y => y + 1)}
             disabled={!canNext}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30 cursor-pointer select-none"
           >
             <ChevronRight className="size-3.5" />
           </button>
@@ -260,9 +303,16 @@ function Picker({ mode, cursor, onSelect, onClose }) {
                 key={name}
                 type="button"
                 disabled={future}
-                onClick={() => onSelect(new Date(pickerYear, m, 1))}
+                onClick={() => {
+                  setPickerMonth(m)
+                  if (mode === "monthly") {
+                    onSelect(new Date(pickerYear, m, 1))
+                  } else {
+                    setView("days")
+                  }
+                }}
                 className={[
-                  "h-9 rounded-md text-[12px] font-medium transition",
+                  "h-9 rounded-md text-[12px] font-medium transition cursor-pointer select-none",
                   future
                     ? "cursor-not-allowed text-muted-foreground/30"
                     : selected
@@ -292,7 +342,7 @@ function Picker({ mode, cursor, onSelect, onClose }) {
           <button
             type="button"
             onClick={() => setDecadeStart(d => d - 12)}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground cursor-pointer select-none"
           >
             <ChevronLeft className="size-3.5" />
           </button>
@@ -301,7 +351,7 @@ function Picker({ mode, cursor, onSelect, onClose }) {
             type="button"
             onClick={() => setDecadeStart(d => d + 12)}
             disabled={!canNextDecade}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30 cursor-pointer select-none"
           >
             <ChevronRight className="size-3.5" />
           </button>
@@ -309,15 +359,28 @@ function Picker({ mode, cursor, onSelect, onClose }) {
         <div className="grid grid-cols-3 gap-1.5">
           {years.map(year => {
             const future   = year > today.getFullYear()
-            const selected = year === cursor.getFullYear()
+            const selected = year === pickerYear
             return (
               <button
                 key={year}
                 type="button"
                 disabled={future}
-                onClick={() => onSelect(new Date(year, 0, 1))}
+                onClick={() => {
+                  setPickerYear(year)
+                  if (mode === "yearly") {
+                    onSelect(new Date(year, 0, 1))
+                  } else if (mode === "monthly") {
+                    setView("months")
+                  } else {
+                    // daily or weekly
+                    if (year === today.getFullYear() && pickerMonth > today.getMonth()) {
+                      setPickerMonth(today.getMonth())
+                    }
+                    setView("days")
+                  }
+                }}
                 className={[
-                  "h-9 rounded-md text-[12px] font-medium transition",
+                  "h-9 rounded-md text-[12px] font-medium transition cursor-pointer select-none",
                   future
                     ? "cursor-not-allowed text-muted-foreground/30"
                     : selected
@@ -337,9 +400,9 @@ function Picker({ mode, cursor, onSelect, onClose }) {
   }
 
   const pickerContent = (() => {
-    if (mode === "daily"  || mode === "weekly")  return <CalendarPicker />
-    if (mode === "monthly") return <MonthPicker />
-    return <YearPicker />
+    if (view === "years") return <YearPicker />
+    if (view === "months") return <MonthPicker />
+    return <CalendarPicker />
   })()
 
   return (
@@ -442,10 +505,15 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
           type="button"
           id="date-range-mode-trigger"
           onClick={() => { setModeOpen(o => !o); setPickerOpen(false) }}
-          className="flex h-7 items-center gap-1.5 rounded-md border border-border/60 bg-muted/40 px-2.5 text-[11px] font-semibold text-foreground transition hover:bg-muted hover:border-border"
+          className={[
+            "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-semibold transition cursor-pointer select-none",
+            modeOpen
+              ? "bg-primary/10 text-primary"
+              : "text-foreground hover:bg-muted",
+          ].join(" ")}
         >
           {MODE_LABELS[mode]}
-          <ChevronDown className={`size-3 text-muted-foreground transition-transform duration-200 ${modeOpen ? "rotate-180" : ""}`} />
+          <ChevronDown className={`size-3 transition-transform duration-200 ${modeOpen ? "rotate-180 text-primary" : "text-muted-foreground"}`} />
         </button>
 
         {modeOpen && (
@@ -479,7 +547,7 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
           type="button"
           id="date-range-prev"
           onClick={() => navigate(-1)}
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground cursor-pointer select-none"
           title="Previous period"
         >
           <ChevronLeft className="size-3.5" />
@@ -492,7 +560,7 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
             id="date-range-label"
             onClick={() => { setPickerOpen(o => !o); setModeOpen(false) }}
             className={[
-              "h-7 min-w-[110px] rounded-md px-2.5 text-[12px] font-semibold transition",
+              "h-7 min-w-[110px] rounded-md px-2.5 text-[12px] font-semibold transition cursor-pointer select-none",
               pickerOpen
                 ? "bg-primary/10 text-primary"
                 : "text-foreground hover:bg-muted",
@@ -518,7 +586,7 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
           id="date-range-next"
           onClick={() => canGoForward && navigate(1)}
           disabled={!canGoForward}
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+          className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30 cursor-pointer select-none"
           title="Next period"
         >
           <ChevronRight className="size-3.5" />

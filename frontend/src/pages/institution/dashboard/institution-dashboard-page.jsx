@@ -1,22 +1,35 @@
-import { useMemo } from "react"
+import { Fragment, useMemo, useState } from "react"
 import { Link, useOutletContext } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
   BadgeCheckIcon,
   BarChart3Icon,
   BookOpenCheckIcon,
+  Building2,
+  CheckCheck,
+  CircleDotIcon,
   ClipboardListIcon,
+  GraduationCap,
   GraduationCapIcon,
   MailPlusIcon,
   TargetIcon,
   TicketIcon,
+  TrendingUp,
   UserCheck,
+  Users,
   UsersIcon,
 } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   InstitutionEmptyState,
   InstitutionErrorState,
@@ -26,7 +39,7 @@ import {
   accessWindowStatus,
   formatDateTime,
 } from "@/components/institution/institution-ui.jsx"
-import { BentoHeading, BentoStat, BentoTile } from "@/components/commons/bento.jsx"
+import { BentoTile } from "@/components/commons/bento.jsx"
 import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
 import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
 import { useDashboardLayout } from "@/hooks/use-dashboard-layout.js"
@@ -67,6 +80,55 @@ function percent(value, digits = 0) {
 function lastActive(value) {
   if (!value) return "No activity yet"
   return `Last active ${formatDateTime(value)}`
+}
+
+/**
+ * Standardized premium card header matching the institution analytics standard:
+ * Icon badge (rounded-lg with emerald tint) + uppercase kicker + bold title + hint/chips.
+ */
+function DashboardCardHeader({
+  icon: Icon,
+  kicker,
+  title,
+  hint,
+  chip,
+  action,
+  className = "",
+}) {
+  return (
+    <div
+      className={`flex items-start justify-between gap-2 border-b border-border/60 pb-2.5 mb-3 ${className}`}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        {Icon ? (
+          <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
+            <Icon className="size-4" aria-hidden="true" />
+          </span>
+        ) : null}
+        <div className="min-w-0">
+          {kicker ? (
+            <h3 className="text-[10px] font-bold uppercase leading-tight tracking-wider text-emerald-700 dark:text-emerald-400">
+              {kicker}
+            </h3>
+          ) : null}
+          <p className="truncate text-xs font-extrabold leading-snug text-foreground sm:text-sm">
+            {title}
+          </p>
+          {hint ? (
+            <p className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">
+              {hint}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      {(chip || action) && (
+        <div className="flex shrink-0 items-center gap-2">
+          {chip}
+          {action}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /**
@@ -155,6 +217,228 @@ export default function InstitutionDashboardPage() {
     [departmentsQuery.data]
   )
 
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState("all")
+
+  // Map each member to their designated department
+  const membersWithDepartment = useMemo(() => {
+    const deptLookup = new Map() // learnerId -> { departmentId, departmentName }
+
+    // Seed from assignments and group memberships
+    data.assignments?.forEach((assignment) => {
+      const membership = data.groupByInstitutionCertLearnerId?.get(
+        assignment.institutionCertLearnerId
+      )
+      if (membership?.departmentId != null) {
+        const dId = String(membership.departmentId)
+        const dName =
+          membership.departmentName ||
+          departments.find((d) => String(d.departmentId ?? d.id) === dId)?.departmentName ||
+          `Department #${dId}`
+        deptLookup.set(assignment.learnerId, {
+          departmentId: dId,
+          departmentName: dName,
+        })
+      }
+    })
+
+    return members.map((member) => {
+      const dept = deptLookup.get(member.learnerId)
+      return {
+        ...member,
+        departmentId: dept?.departmentId ?? "unassigned",
+        departmentName: dept?.departmentName ?? "General / Unassigned",
+      }
+    })
+  }, [members, data.assignments, data.groupByInstitutionCertLearnerId, departments])
+
+  // Available departments for the filter dropdown
+  const availableDepartments = useMemo(() => {
+    const map = new Map()
+
+    // 1. Registered departments
+    departments.forEach((dept) => {
+      const id = String(dept.departmentId ?? dept.id ?? "")
+      if (id) {
+        map.set(id, {
+          id,
+          name: dept.departmentName || dept.name || `Department #${id}`,
+          count: 0,
+        })
+      }
+    })
+
+    // 2. Group stats
+    groupStats.forEach((group) => {
+      if (group?.departmentId != null) {
+        const id = String(group.departmentId)
+        if (!map.has(id)) {
+          map.set(id, {
+            id,
+            name: group.departmentName || `Department #${id}`,
+            count: Number(group.learners ?? 0),
+          })
+        }
+      }
+    })
+
+    // 3. Count member associations
+    membersWithDepartment.forEach((member) => {
+      if (member.departmentId !== "unassigned") {
+        if (map.has(member.departmentId)) {
+          const entry = map.get(member.departmentId)
+          entry.count = (entry.count || 0) + 1
+        } else {
+          map.set(member.departmentId, {
+            id: member.departmentId,
+            name: member.departmentName,
+            count: 1,
+          })
+        }
+      }
+    })
+
+    const unassignedCount = membersWithDepartment.filter(
+      (m) => m.departmentId === "unassigned"
+    ).length
+
+    return {
+      list: Array.from(map.values()),
+      unassignedCount,
+    }
+  }, [departments, groupStats, membersWithDepartment])
+
+  // Filtered members according to department selection
+  const filteredMembers = useMemo(() => {
+    if (selectedDepartmentId === "all") return membersWithDepartment
+    return membersWithDepartment.filter(
+      (m) => m.departmentId === selectedDepartmentId
+    )
+  }, [membersWithDepartment, selectedDepartmentId])
+
+  // Grouped members for sectioned table presentation
+  const departmentGroups = useMemo(() => {
+    if (selectedDepartmentId !== "all") {
+      const selectedDept =
+        availableDepartments.list.find((d) => d.id === selectedDepartmentId) || {
+          id: selectedDepartmentId,
+          name:
+            selectedDepartmentId === "unassigned"
+              ? "General / Unassigned"
+              : "Department",
+        }
+      return [
+        {
+          id: selectedDepartmentId,
+          name: selectedDept.name,
+          members: filteredMembers,
+        },
+      ]
+    }
+
+    const groups = new Map()
+    membersWithDepartment.forEach((m) => {
+      if (!groups.has(m.departmentId)) {
+        groups.set(m.departmentId, {
+          id: m.departmentId,
+          name: m.departmentName,
+          members: [],
+        })
+      }
+      groups.get(m.departmentId).members.push(m)
+    })
+
+    return Array.from(groups.values())
+  }, [selectedDepartmentId, filteredMembers, membersWithDepartment, availableDepartments])
+
+  // Department-level aggregated summary rows for the stats table
+  // Starts from ALL registered departments (not just those with active members)
+  // so zero-enrolled departments still appear as rows.
+  const departmentSummaryRows = useMemo(() => {
+    // Index groupStats by departmentId
+    const statsByDeptId = new Map()
+    groupStats.forEach((g) => {
+      if (g?.departmentId != null) {
+        statsByDeptId.set(String(g.departmentId), g)
+      }
+    })
+
+    // Index member lists by departmentId from departmentGroups
+    const membersByDeptId = new Map()
+    departmentGroups.forEach((group) => {
+      membersByDeptId.set(String(group.id), group.members)
+    })
+
+    // Collect all departments: registered ones + any in membersWithDepartment
+    const allDepts = new Map()
+
+    // 1. All registered departments (even with 0 members)
+    availableDepartments.list.forEach((dept) => {
+      allDepts.set(String(dept.id), { id: String(dept.id), name: dept.name })
+    })
+
+    // 2. Unassigned bucket if it exists
+    if (availableDepartments.unassignedCount > 0) {
+      allDepts.set("unassigned", { id: "unassigned", name: "General / Unassigned" })
+    }
+
+    // 3. Any extra departments surfaced by member data
+    membersWithDepartment.forEach((m) => {
+      if (!allDepts.has(String(m.departmentId))) {
+        allDepts.set(String(m.departmentId), { id: String(m.departmentId), name: m.departmentName })
+      }
+    })
+
+    return Array.from(allDepts.values()).map(({ id, name }) => {
+      const apiStat = statsByDeptId.get(id) ?? null
+      const mems = membersByDeptId.get(id) ?? []
+      const memberCount = mems.length
+
+      const avgProgress =
+        apiStat?.averageProgress != null
+          ? Number(apiStat.averageProgress)
+          : memberCount > 0
+          ? Math.round(mems.reduce((s, m) => s + Number(m.averageProgress ?? 0), 0) / memberCount)
+          : 0
+      const lessonsCompleted =
+        apiStat?.lessonsCompleted != null
+          ? Number(apiStat.lessonsCompleted)
+          : mems.reduce((s, m) => s + Number(m.lessonsCompleted ?? 0), 0)
+      const gradedAttempts =
+        apiStat?.gradedAttempts != null
+          ? Number(apiStat.gradedAttempts)
+          : mems.reduce((s, m) => s + Number(m.gradedAttempts ?? 0), 0)
+      const passRate =
+        apiStat?.passRate != null
+          ? Number(apiStat.passRate)
+          : memberCount > 0
+          ? Math.round(mems.reduce((s, m) => s + Number(m.passRate ?? 0), 0) / memberCount)
+          : null
+      const averageScore =
+        apiStat?.averageScore != null
+          ? Number(apiStat.averageScore)
+          : memberCount > 0
+          ? Math.round(mems.reduce((s, m) => s + Number(m.averageScore ?? 0), 0) / memberCount)
+          : null
+      const completed = mems.filter((m) => Number(m.averageProgress ?? 0) >= 100).length
+      const inProgress = mems.filter(
+        (m) => Number(m.averageProgress ?? 0) > 0 && Number(m.averageProgress ?? 0) < 100
+      ).length
+
+      return {
+        id,
+        name,
+        memberCount,
+        avgProgress,
+        lessonsCompleted,
+        gradedAttempts,
+        passRate,
+        averageScore,
+        completed,
+        inProgress,
+      }
+    })
+  }, [departmentGroups, groupStats, availableDepartments, membersWithDepartment])
+
   /* The cohort shape the Analytics page used to draw, over the same roster the
      members table below uses -- so the two can never disagree, which is what
      happens when a second page recomputes the same thing from a different read. */
@@ -194,6 +478,65 @@ export default function InstitutionDashboardPage() {
   // the tiles are built inside a useMemo callback, which is not a component.
   const chartTheme = useChartTheme()
 
+  const cohortStats = useMemo(() => {
+    const total = members.length
+    const completed = members.filter(
+      (m) => Number(m.averageProgress ?? 0) >= 100
+    ).length
+    const inProgress = members.filter(
+      (m) =>
+        Number(m.averageProgress ?? 0) >= 25 &&
+        Number(m.averageProgress ?? 0) < 100
+    ).length
+    const stalled = members.filter(
+      (m) => Number(m.averageProgress ?? 0) < 25
+    ).length
+
+    const pctCompleted = total > 0 ? Math.round((completed / total) * 100) : 0
+    const pctInProgress = total > 0 ? Math.round((inProgress / total) * 100) : 0
+    const pctStalled =
+      total > 0 ? Math.max(100 - pctCompleted - pctInProgress, 0) : 0
+
+    return {
+      total,
+      completed,
+      inProgress,
+      stalled,
+      pctCompleted,
+      pctInProgress,
+      pctStalled,
+    }
+  }, [members])
+
+  const healthBadge = useMemo(() => {
+    const avgScore = Number(summary.averageScore ?? 0)
+    if (avgScore === 0) {
+      return {
+        label: "No Activity",
+        classes: "border-border bg-muted text-muted-foreground",
+      }
+    }
+    if (avgScore < 40) {
+      return {
+        label: "Needs Focus",
+        classes:
+          "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:border-amber-500/20 dark:bg-amber-950/40 dark:text-amber-400",
+      }
+    }
+    if (avgScore < 70) {
+      return {
+        label: "Moderate",
+        classes:
+          "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:border-sky-500/20 dark:bg-sky-950/40 dark:text-sky-400",
+      }
+    }
+    return {
+      label: "On Track",
+      classes:
+        "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-950/40 dark:text-emerald-400",
+    }
+  }, [summary.averageScore])
+
   const tiles = useMemo(() => {
     const failed = statsQuery.isError
     const seatsTotal = summary.seatsTotal ?? 0
@@ -226,23 +569,13 @@ export default function InstitutionDashboardPage() {
         x: 3,
         y: 0,
         element: (
-          <BentoTile tone="bee" col={3} row={1}>
+          <BentoTile tone="plain" col={3} row={1}>
             <div className="flex h-full flex-col justify-between">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-wider text-rb-bee-lip">
-                    Learner slots
-                  </p>
-                  <p className="truncate text-[11px] text-muted-foreground">
-                    {failed
-                      ? "Could not be loaded"
-                      : `${Math.max(seatsTotal - seatsUsed, 0)} slot(s) remaining`}
-                  </p>
-                </div>
-                <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-white/60 text-rb-eel dark:bg-white/10 dark:text-rb-snow">
-                  <TicketIcon className="size-4" aria-hidden="true" />
-                </span>
-              </div>
+              <DashboardCardHeader
+                icon={TicketIcon}
+                kicker="Capacity & Licensing"
+                title="Learner Slots & Capacity"
+              />
 
               <div className="flex items-end justify-between gap-2 pt-1">
                 <div className="min-w-0">
@@ -277,52 +610,106 @@ export default function InstitutionDashboardPage() {
         x: 3,
         y: 1,
         element: (
-          <BentoTile tone="feather" col={3} row={2}>
-            <div className="flex h-full flex-col justify-between">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-wider text-rb-feather-lip">
-                    Average progress
-                  </p>
-                  <p className="truncate text-[11px] text-muted-foreground">
-                    {failed ? "Could not be loaded" : "Across every assignment"}
-                  </p>
+          <BentoTile tone="plain" col={3} row={2}>
+            <div className="flex h-full flex-col justify-between gap-3">
+              <DashboardCardHeader
+                icon={TargetIcon}
+                kicker="Academic Performance"
+                title="Institutional Average Progress"
+              />
+
+              {/* Main Content: Left Hero (Radial Gauge + Big %) & Right 2x2 Metric Grid */}
+              <div className="my-auto grid grid-cols-1 items-center gap-4 sm:grid-cols-12 py-1">
+                {/* Left Column (5 cols): Radial Gauge & Big Stat Hero */}
+                <div className="flex items-center gap-3 sm:col-span-5">
+                  {!failed && summary.averageProgress != null ? (
+                    <div className="size-[84px] shrink-0">
+                      <RadialGauge
+                        value={Number(summary.averageProgress)}
+                        label="complete"
+                        height={84}
+                        color={readinessColor(chartTheme, Number(summary.averageProgress))}
+                        valueInk={readinessInk(chartTheme, Number(summary.averageProgress))}
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className="min-w-0">
+                    <div className="font-rb-display text-2xl font-black leading-none tracking-tight tabular-nums text-foreground sm:text-3xl">
+                      {failed ? "—" : percent(summary.averageProgress, 1)}
+                    </div>
+                    <div className="mt-1 text-xs font-semibold text-muted-foreground">
+                      Overall completion
+                    </div>
+                    <div className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                      <TrendingUp className="size-3.5" />
+                      <span>{cohortStats.total} learners</span>
+                    </div>
+                  </div>
                 </div>
-                <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-white/60 text-rb-eel dark:bg-white/10 dark:text-rb-snow">
-                  <TargetIcon className="size-4" aria-hidden="true" />
-                </span>
+
+                {/* Right Column (7 cols): 2x2 Grid of Key Learning Metrics */}
+                <div className="grid grid-cols-2 gap-2 sm:col-span-7">
+                  <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
+                    <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <span>Pass Rate</span>
+                      <CheckCheck className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div className="mt-1.5 font-rb-display text-lg font-bold tabular-nums text-foreground">
+                      {failed ? "—" : percent(summary.passRate)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
+                    <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <span>Avg Score</span>
+                      <TargetIcon className="size-3.5 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="mt-1.5 font-rb-display text-lg font-bold tabular-nums text-foreground">
+                      {failed ? "—" : percent(summary.averageScore)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
+                    <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <span>Attempts</span>
+                      <ClipboardListIcon className="size-3.5 text-sky-600 dark:text-sky-400" />
+                    </div>
+                    <div className="mt-1.5 font-rb-display text-lg font-bold tabular-nums text-foreground">
+                      {failed ? "—" : count(summary.gradedAttempts)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
+                    <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <span>Lessons Done</span>
+                      <BookOpenCheckIcon className="size-3.5 text-violet-600 dark:text-violet-400" />
+                    </div>
+                    <div className="mt-1.5 font-rb-display text-lg font-bold tabular-nums text-foreground">
+                      {failed ? "—" : count(summary.lessonsCompleted)}
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="my-auto flex items-center justify-between gap-4 py-2">
-                <div className="min-w-0 space-y-1.5">
-                  <div className="font-rb-display text-3xl font-black leading-none tracking-tight tabular-nums text-foreground sm:text-4xl">
-                    {failed ? "—" : percent(summary.averageProgress, 1)}
-                  </div>
-                  <div className="text-xs font-semibold text-muted-foreground">
-                    Overall completion rate
-                  </div>
+              {/* Bottom Cohort Status Summary */}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
+                <div className="flex items-center gap-3">
+                  <span className="flex items-center gap-1.5">
+                    <span className="size-2 rounded-full bg-emerald-600 dark:bg-emerald-400" />
+                    <span>Completed: <strong className="text-foreground">{cohortStats.completed}</strong></span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="size-2 rounded-full bg-amber-500" />
+                    <span>In Progress: <strong className="text-foreground">{cohortStats.inProgress}</strong></span>
+                  </span>
                 </div>
-
-                {!failed && summary.averageProgress != null ? (
-                  <div className="size-[96px] shrink-0">
-                    <RadialGauge
-                      value={Number(summary.averageProgress)}
-                      label="complete"
-                      height={96}
-                      color={readinessColor(chartTheme, Number(summary.averageProgress))}
-                      valueInk={readinessInk(chartTheme, Number(summary.averageProgress))}
-                    />
-                  </div>
+                {cohortStats.stalled > 0 ? (
+                  <span className="flex items-center gap-1.5">
+                    <span className="size-2 rounded-full bg-slate-400" />
+                    <span>Needs Support: <strong className="text-foreground">{cohortStats.stalled}</strong></span>
+                  </span>
                 ) : null}
-              </div>
-
-              {/* Supporting Progress Bar & Summary */}
-              <div className="space-y-1.5 border-t border-border/40 pt-2.5">
-                <div className="flex justify-between text-[11px]">
-                  <span className="text-muted-foreground">Pass rate: <strong className="text-foreground">{percent(summary.passRate)}</strong></span>
-                  <span className="text-muted-foreground">Avg score: <strong className="text-foreground">{percent(summary.averageScore)}</strong></span>
-                </div>
-                <Progress value={Number(summary.averageProgress ?? 0)} className="h-2" />
               </div>
             </div>
           </BentoTile>
@@ -343,8 +730,10 @@ export default function InstitutionDashboardPage() {
         y: 3,
         element: (
           <BentoTile col={6} row={1}>
-            <BentoHeading
-              title="At a glance"
+            <DashboardCardHeader
+              icon={BarChart3Icon}
+              kicker="Executive Summary"
+              title="Institutional Activity at a Glance"
               hint="Learning activity across the whole institution."
             />
             <dl className="grid flex-1 grid-cols-2 items-center gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -396,8 +785,10 @@ export default function InstitutionDashboardPage() {
         y: 4,
         element: (
           <BentoTile col={3} row={2}>
-            <BentoHeading
-              title="Completion distribution"
+            <DashboardCardHeader
+              icon={CircleDotIcon}
+              kicker="Progress Milestones"
+              title="Learner Completion Distribution"
               hint="How member progress is spread across the roster"
             />
             <DonutChart
@@ -417,8 +808,10 @@ export default function InstitutionDashboardPage() {
         y: 4,
         element: (
           <BentoTile col={3} row={2}>
-            <BentoHeading
-              title="Completion by department"
+            <DashboardCardHeader
+              icon={Building2}
+              kicker="Department Benchmark"
+              title="Completion by Department"
               hint="Average progress across each department's active learners"
             />
             {departmentStatsQuery.isError ? (
@@ -451,74 +844,134 @@ export default function InstitutionDashboardPage() {
         element: (
           <BentoTile col={6} row={3} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
-              <BentoHeading
-                title="Members"
-                hint="Least progress first — the people most likely to need a nudge."
+              <DashboardCardHeader
+                icon={Building2}
+                kicker="Department Analytics"
+                title="Performance by Department"
+                hint="Aggregated learning metrics across all departments — ranked by avg progress."
+                chip={
+                  departmentSummaryRows.length > 0 ? (
+                    <Badge
+                      variant="secondary"
+                      className="border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    >
+                      {departmentSummaryRows.length}{" "}
+                      {departmentSummaryRows.length === 1 ? "department" : "departments"}
+                    </Badge>
+                  ) : null
+                }
               />
 
               {statsQuery.isError ? (
                 <p className="text-sm text-muted-foreground">
                   Learning statistics could not be loaded.
                 </p>
-              ) : members.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  No learners assigned yet.
+              ) : departmentSummaryRows.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center text-sm text-muted-foreground">
+                  <Building2 className="mb-2 size-8 text-muted-foreground/40" />
+                  <p>No departments with active learners yet.</p>
                   <div className="mt-3">
-                    <Button asChild size="sm" variant="outline" >
-                      <Link to="/institution/certifications">Assign a learner</Link>
+                    <Button asChild size="sm" variant="outline">
+                      <Link to="/institution/departments">Manage departments</Link>
                     </Button>
                   </div>
                 </div>
               ) : (
-                /* Its own horizontal scroll container: a six-column table inside
-                   a tile must never be what makes the page scroll sideways. */
-                <div className="-mr-2 min-h-0 flex-1 overflow-auto pr-2">
-                  <table className="w-full min-w-[640px] border-collapse text-sm">
-                    <thead className="sticky top-0 bg-background">
-                      <tr className="border-b-2 border-border text-left text-xs text-muted-foreground">
-                        <th className="py-2 pr-3 font-bold">Member</th>
-                        <th className="py-2 pr-3 font-bold">Progress</th>
-                        <th className="py-2 pr-3 text-right font-bold">Lessons</th>
-                        <th className="py-2 pr-3 text-right font-bold">Attempts</th>
-                        <th className="py-2 pr-3 text-right font-bold">Pass rate</th>
-                        <th className="py-2 text-right font-bold">Avg score</th>
+                <div className="min-h-0 flex-1 overflow-x-auto [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] md:[mask-image:none]">
+                  <table className="w-full text-sm" style={{ minWidth: 680 }}>
+                    <colgroup>
+                      <col style={{ width: "22%" }} />   {/* Department */}
+                      <col style={{ width: "10%" }} />   {/* Learners */}
+                      <col style={{ width: "18%" }} />   {/* Avg Progress */}
+                      <col style={{ width: "10%" }} />   {/* Completed */}
+                      <col style={{ width: "10%" }} />   {/* In Progress */}
+                      <col style={{ width: "10%" }} />   {/* Lessons */}
+                      <col style={{ width: "10%" }} />   {/* Attempts */}
+                      <col style={{ width: "10%" }} />   {/* Avg Score */}
+                    </colgroup>
+                    <thead className="sticky top-0 bg-background z-10">
+                      <tr className="border-b border-transparent text-xs font-semibold text-muted-foreground">
+                        <th className="py-2.5 pl-2 pr-3 text-left">Department</th>
+                        <th className="py-2.5 px-2 text-center">Learners</th>
+                        <th className="py-2.5 px-3 text-left">Avg Progress</th>
+                        <th className="py-2.5 px-2 text-center">Completed</th>
+                        <th className="py-2.5 px-2 text-center">In Progress</th>
+                        <th className="py-2.5 px-2 text-center">Lessons</th>
+                        <th className="py-2.5 px-2 text-center">Attempts</th>
+                        <th className="py-2.5 px-2 text-center">Avg Score</th>
                       </tr>
                     </thead>
-
                     <tbody>
-                      {members.map((member) => (
-                        <tr key={member.learnerId} className="border-b border-border">
-                          <td className="py-2.5 pr-3">
-                            <p className="truncate font-bold">{member.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {lastActive(member.lastActivityAt)}
-                            </p>
-                          </td>
-
-                          <td className="py-2.5 pr-3">
-                            <div className="flex min-w-[120px] items-center gap-2">
-                              <Progress
-                                value={Number(member.averageProgress ?? 0)}
-                                aria-label={`${member.name} progress`}
-                                className="min-w-[70px]"
-                              />
-                              <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
-                                {percent(member.averageProgress)}
+                      {[...departmentSummaryRows]
+                        .sort((a, b) => b.avgProgress - a.avgProgress)
+                        .map((row) => (
+                        <tr
+                          key={row.id}
+                          className="border-b border-transparent hover:bg-muted/30 transition-colors"
+                        >
+                          {/* Department name */}
+                          <td className="py-2.5 pl-2 pr-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="grid size-6 shrink-0 place-items-center rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
+                                <Building2 className="size-3.5" />
+                              </span>
+                              <span className="truncate font-bold text-foreground text-xs" title={row.name}>
+                                {row.name}
                               </span>
                             </div>
                           </td>
 
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
-                            {count(member.lessonsCompleted)}
+                          {/* Learner count - centered */}
+                          <td className="py-2.5 px-2 text-center">
+                            <div className="flex justify-center">
+                              <span className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-muted/30 px-2 py-0.5 text-xs font-semibold tabular-nums">
+                                <UsersIcon className="size-3 text-muted-foreground" />
+                                {row.memberCount}
+                              </span>
+                            </div>
                           </td>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
-                            {count(member.gradedAttempts)}
+
+                          {/* Avg progress bar — smooth rounded ends */}
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-2 max-w-[130px]">
+                              <Progress
+                                value={row.avgProgress}
+                                aria-label={`${row.name} avg progress`}
+                                className="h-2 flex-1 rounded-full bg-muted/60 [&>[data-slot=progress-indicator]]:rounded-full"
+                              />
+                              <span className="shrink-0 tabular-nums text-xs font-bold text-foreground w-8 text-right">
+                                {percent(row.avgProgress)}
+                              </span>
+                            </div>
                           </td>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
-                            {percent(member.passRate)}
+
+                          {/* Completed - centered */}
+                          <td className="py-2.5 px-2 text-center tabular-nums text-xs">
+                            <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                              {count(row.completed)}
+                            </span>
                           </td>
-                          <td className="py-2.5 text-right tabular-nums">
-                            {percent(member.averageScore)}
+
+                          {/* In progress - centered */}
+                          <td className="py-2.5 px-2 text-center tabular-nums text-xs">
+                            <span className={`font-semibold ${row.inProgress > 0 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`}>
+                              {count(row.inProgress)}
+                            </span>
+                          </td>
+
+                          {/* Lessons - centered */}
+                          <td className="py-2.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
+                            {count(row.lessonsCompleted)}
+                          </td>
+
+                          {/* Attempts - centered */}
+                          <td className="py-2.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
+                            {count(row.gradedAttempts)}
+                          </td>
+
+                          {/* Avg score - centered */}
+                          <td className="py-2.5 px-2 text-center tabular-nums text-xs font-semibold text-foreground">
+                            {percent(row.averageScore)}
                           </td>
                         </tr>
                       ))}
@@ -539,14 +992,17 @@ export default function InstitutionDashboardPage() {
         element: (
           <BentoTile col={3} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
-              <BentoHeading
-                title="Recent invitations"
+              <DashboardCardHeader
+                icon={MailPlusIcon}
+                kicker="Onboarding & Access"
+                title="Recent Learner Invitations"
                 hint="The latest learner invitations sent."
-                /* The pending count used to be a stat box of its own. It is a
-                   property of this list, so it rides on this list's heading. */
                 chip={
                   pendingInvitations > 0 ? (
-                    <Badge variant="secondary" className="gap-1">
+                    <Badge
+                      variant="secondary"
+                      className="gap-1 border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    >
                       <MailPlusIcon className="size-3" aria-hidden="true" />
                       {pendingInvitations} pending
                     </Badge>
@@ -594,12 +1050,19 @@ export default function InstitutionDashboardPage() {
         element: (
           <BentoTile col={3} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
-              <BentoHeading
-                title="Certification allocations"
+              <DashboardCardHeader
+                icon={GraduationCap}
+                kicker="Certification Inventory"
+                title="Program Slot Allocations"
                 hint="Slot usage per certification your institution has access to."
                 chip={
                   data.institutionCerts.length > 0 ? (
-                    <Badge variant="secondary">{data.institutionCerts.length}</Badge>
+                    <Badge
+                      variant="secondary"
+                      className="border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    >
+                      {data.institutionCerts.length} active
+                    </Badge>
                   ) : null
                 }
               />
@@ -645,6 +1108,8 @@ export default function InstitutionDashboardPage() {
     members,
     cohort,
     groupStats,
+    departments,
+    departmentSummaryRows,
     data,
     data.institutionCerts,
     data.certificationById,
@@ -701,7 +1166,7 @@ export default function InstitutionDashboardPage() {
       ) : (
         <>
           {/* Toolbar row: Date range navigator directly above the big card, rearrange controls on the right */}
-          <div className="flex flex-wrap items-center justify-between gap-4 -mb-1.5">
+          <div className="relative z-30 flex flex-wrap items-center justify-between gap-4 mb-2.5">
             <div className="w-full md:w-[calc(50%-10px)]">
               <DateRangeNavigator className="w-full" />
             </div>
