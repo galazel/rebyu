@@ -52,6 +52,7 @@ import {
 } from "@/components/institution/institution-ui.jsx"
 import { useAuth } from "@/context/auth-context.jsx"
 import { REFERENCE_DEPARTMENT, useReferenceOptions } from "@/services/referenceService.js"
+import { departmentDescriptions } from "@/constants/departments.js"
 import {
   getLearnerDisplayName,
   useInstitutionData,
@@ -138,6 +139,9 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["departments"] })
+      queryClient.invalidateQueries({ queryKey: ["institution-group-stats"] })
+      queryClient.invalidateQueries({ queryKey: ["institution-learning-stats"] })
+      queryClient.invalidateQueries({ queryKey: ["institution-portal-overview"] })
       toast.success("Department created.")
       reset()
       onOpenChange(false)
@@ -221,6 +225,9 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
               onValueChange={(value) => {
                 setDepartmentChoice(value)
                 setDepartmentName(value === OTHER_DEPARTMENT ? "" : value)
+                if (value !== OTHER_DEPARTMENT && !departmentDescription && departmentDescriptions[value]) {
+                  setDepartmentDescription(departmentDescriptions[value])
+                }
               }}
             >
               <SelectTrigger id="group-name" className="w-full">
@@ -362,8 +369,13 @@ function ManageGroupDialog({
 
   useEffect(() => {
     if (!open || !group) return
-    const listed = departmentOptions.includes(group.departmentName)
-    setNameChoice(listed ? group.departmentName : OTHER_DEPARTMENT)
+    const matching = departmentOptions.find(
+      (opt) =>
+        opt === group.departmentName ||
+        opt.replace(/\s*\([^)]*\)$/, "").trim() === group.departmentName?.trim() ||
+        group.departmentName?.replace(/\s*\([^)]*\)$/, "").trim() === opt.trim()
+    )
+    setNameChoice(matching || OTHER_DEPARTMENT)
   }, [open, group, departmentOptions])
 
   const updateDetailsMutation = useMutation({
@@ -375,6 +387,9 @@ function ManageGroupDialog({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["departments"] })
+      queryClient.invalidateQueries({ queryKey: ["institution-group-stats"] })
+      queryClient.invalidateQueries({ queryKey: ["institution-learning-stats"] })
+      queryClient.invalidateQueries({ queryKey: ["institution-portal-overview"] })
       toast.success("Department updated.")
       setEditingDetails(false)
     },
@@ -385,6 +400,9 @@ function ManageGroupDialog({
     mutationFn: () => archiveDepartment(departmentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["departments"] })
+      queryClient.invalidateQueries({ queryKey: ["institution-group-stats"] })
+      queryClient.invalidateQueries({ queryKey: ["institution-learning-stats"] })
+      queryClient.invalidateQueries({ queryKey: ["institution-portal-overview"] })
       toast.success("Department deleted.")
       setConfirmDelete(false)
       onOpenChange(false)
@@ -401,6 +419,9 @@ function ManageGroupDialog({
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["departments"] })
+      queryClient.invalidateQueries({ queryKey: ["institution-group-stats"] })
+      queryClient.invalidateQueries({ queryKey: ["institution-learning-stats"] })
+      queryClient.invalidateQueries({ queryKey: ["institution-portal-overview"] })
       toast.success("Slot limit updated.")
       setEditingSlots(false)
     },
@@ -614,6 +635,9 @@ function ManageGroupDialog({
                       onValueChange={(value) => {
                         setNameChoice(value)
                         setNameInput(value === OTHER_DEPARTMENT ? "" : value)
+                        if (value !== OTHER_DEPARTMENT && !descriptionInput && departmentDescriptions[value]) {
+                          setDescriptionInput(departmentDescriptions[value])
+                        }
                       }}
                     >
                       <SelectTrigger id="edit-department-name" className="w-full">

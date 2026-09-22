@@ -23,6 +23,7 @@ import { Progress } from "@/components/ui/progress"
 import { useChartTheme } from "@/components/charts/rebyu-charts.jsx"
 import { getLearnerDisplayName } from "@/hooks/use-institution-data.js"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { getDepartmentAbbreviation } from "@/constants/departments.js"
 
 // Earth Tone Palette for Departments & Certifications (sophisticated, warm & grounded)
 const EARTH_TONE_PALETTE = [
@@ -212,8 +213,20 @@ export default function InstitutionDrilldownStatsCard({
   const level1Data = useMemo(() => {
     const deptMap = new Map()
 
-    // 1. Seed from departments prop
-    departments.forEach((dept) => {
+    // 0. Only consider active, non-archived departments
+    const activeDepartments = (departments || []).filter((dept) => {
+      const status = (dept?.status || "active").toLowerCase()
+      return status === "active"
+    })
+
+    const activeDeptIdSet = new Set(
+      activeDepartments
+        .map((dept) => String(dept.departmentId ?? dept.id ?? ""))
+        .filter(Boolean)
+    )
+
+    // 1. Seed from active departments prop
+    activeDepartments.forEach((dept) => {
       const deptId = String(dept.departmentId ?? dept.id ?? "")
       if (!deptId) return
       deptMap.set(deptId, {
@@ -226,10 +239,18 @@ export default function InstitutionDrilldownStatsCard({
       })
     })
 
-    // 2. Seed from groupStats
+    // 2. Seed from groupStats - ONLY if active and not archived
     groupStats.forEach((group) => {
+      const status = (group?.status || "active").toLowerCase()
+      if (status !== "active") return
+
       if (group?.departmentId != null) {
         const deptId = String(group.departmentId)
+        // If we have registered active departments, don't resurrect unlisted/deleted ones
+        if (activeDeptIdSet.size > 0 && !activeDeptIdSet.has(deptId)) {
+          return
+        }
+
         if (!deptMap.has(deptId)) {
           deptMap.set(deptId, {
             id: group.departmentId,
@@ -252,22 +273,17 @@ export default function InstitutionDrilldownStatsCard({
         membership?.departmentId != null
           ? String(membership.departmentId)
           : "unassigned"
-      const deptName = membership?.departmentName || "General / Unassigned"
 
-      if (!deptMap.has(deptId)) {
-        deptMap.set(deptId, {
-          id: deptId === "unassigned" ? null : membership.departmentId,
-          name: deptName,
-          allottedSlots: 0,
-          usedSlots: 0,
-          learnerIds: new Set(),
-          assignmentCount: 0,
-        })
+      // Do NOT resurrect archived / deleted departments
+      if (deptId !== "unassigned" && activeDeptIdSet.size > 0 && !activeDeptIdSet.has(deptId)) {
+        return
       }
 
-      const entry = deptMap.get(deptId)
-      entry.learnerIds.add(assignment.learnerId)
-      entry.assignmentCount += 1
+      if (deptMap.has(deptId)) {
+        const entry = deptMap.get(deptId)
+        entry.learnerIds.add(assignment.learnerId)
+        entry.assignmentCount += 1
+      }
     })
 
     // Fallback if no departments existed yet but summary/assignments exist
@@ -1412,7 +1428,7 @@ export default function InstitutionDrilldownStatsCard({
                 }`}
                 title={selectedDepartment.name}
               >
-                {selectedDepartment.name}
+                {getDepartmentAbbreviation(selectedDepartment.name) || selectedDepartment.name}
               </button>
             </>
           )}
@@ -1574,7 +1590,7 @@ export default function InstitutionDrilldownStatsCard({
                         : hoveredStatMetric === "score"
                         ? "Avg Score"
                         : hoveredDept
-                        ? hoveredDept.name
+                        ? (getDepartmentAbbreviation(hoveredDept.name) || hoveredDept.name)
                         : "Slots filled"}
                     </span>
                   </div>
@@ -1666,7 +1682,7 @@ export default function InstitutionDrilldownStatsCard({
                                 : "font-semibold text-foreground/90 group-hover:text-primary"
                             }`}
                           >
-                            {item.name}
+                            {getDepartmentAbbreviation(item.name)}
                           </span>
                         </button>
                       )

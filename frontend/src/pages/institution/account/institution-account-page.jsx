@@ -1,28 +1,19 @@
 import { useLocation, useNavigate } from "react-router-dom"
 import {
   Building2Icon,
-  FilesIcon,
   HandshakeIcon,
-  SparklesIcon,
 } from "@/components/icons"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/context/auth-context.jsx"
 
-import InstitutionFilesPage from "./institution-files-page.jsx"
-import InstitutionLicensePage from "./institution-license-page.jsx"
 import InstitutionProfilePage from "./institution-profile-page.jsx"
 import InstitutionPartnershipPage from "./institution-partnership-page.jsx"
 
 /**
  * The institution's own account, as one page.
  *
- * Profile, Partnership, License and Files were separate routes behind a
- * dropdown, and every one of them was a short read: a contact form,
- * a request status, a plan card, a file list. Nothing on any
- * of them was long enough to be a destination, and telling them apart from
- * their labels was guesswork.
- *
+ * Profile and Partnership are now tabs under the Institution section.
  * They keep their own URLs, so an existing link or bookmark still lands where
  * it did; the tab is derived from the path rather than from state, and picking
  * a tab navigates. The header nav collapses to a single "Institution" entry.
@@ -42,20 +33,6 @@ const TABS = [
     icon: HandshakeIcon,
     Panel: InstitutionPartnershipPage,
   },
-  {
-    value: "license",
-    path: "/institution/license",
-    label: "License",
-    icon: SparklesIcon,
-    Panel: InstitutionLicensePage,
-  },
-  {
-    value: "files",
-    path: "/institution/files",
-    label: "Files",
-    icon: FilesIcon,
-    Panel: InstitutionFilesPage,
-  },
 ]
 
 export default function InstitutionAccountPage() {
@@ -63,12 +40,10 @@ export default function InstitutionAccountPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  // A group leader has no business with the institution's plan or
-  // partnership record -- Files is the only one of these they are sent to (from
-  // the account menu), so it is the only one they get.
+  // A department head only gets access to the profile tab, whereas the owner has access to partnership as well.
   const isDepartmentHead =
     Boolean(user?.departmentHeadRole) && user.departmentHeadRole !== "owner"
-  const tabs = isDepartmentHead ? TABS.filter((tab) => tab.value === "files") : TABS
+  const tabs = isDepartmentHead ? TABS.filter((tab) => tab.value === "profile") : TABS
 
   const active =
     tabs.find((tab) => location.pathname.startsWith(tab.path))?.value ?? tabs[0].value

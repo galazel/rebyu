@@ -208,12 +208,20 @@ export default function InstitutionDashboardPage() {
   )
 
   const groupStats = useMemo(
-    () => (Array.isArray(departmentStatsQuery.data) ? departmentStatsQuery.data : []),
+    () =>
+      (Array.isArray(departmentStatsQuery.data)
+        ? departmentStatsQuery.data
+        : []
+      ).filter((g) => (g?.status ?? "active").toLowerCase() === "active"),
     [departmentStatsQuery.data]
   )
 
   const departments = useMemo(
-    () => (Array.isArray(departmentsQuery.data) ? departmentsQuery.data : []),
+    () =>
+      (Array.isArray(departmentsQuery.data)
+        ? departmentsQuery.data
+        : []
+      ).filter((d) => (d.status ?? "active").toLowerCase() === "active"),
     [departmentsQuery.data]
   )
 
@@ -230,14 +238,19 @@ export default function InstitutionDashboardPage() {
       )
       if (membership?.departmentId != null) {
         const dId = String(membership.departmentId)
-        const dName =
-          membership.departmentName ||
-          departments.find((d) => String(d.departmentId ?? d.id) === dId)?.departmentName ||
-          `Department #${dId}`
-        deptLookup.set(assignment.learnerId, {
-          departmentId: dId,
-          departmentName: dName,
-        })
+        const activeDept = departments.find(
+          (d) => String(d.departmentId ?? d.id) === dId
+        )
+        if (activeDept) {
+          const dName =
+            membership.departmentName ||
+            activeDept.departmentName ||
+            `Department #${dId}`
+          deptLookup.set(assignment.learnerId, {
+            departmentId: dId,
+            departmentName: dName,
+          })
+        }
       }
     })
 
@@ -267,16 +280,13 @@ export default function InstitutionDashboardPage() {
       }
     })
 
-    // 2. Group stats
+    // 2. Group stats for registered active departments
     groupStats.forEach((group) => {
       if (group?.departmentId != null) {
         const id = String(group.departmentId)
-        if (!map.has(id)) {
-          map.set(id, {
-            id,
-            name: group.departmentName || `Department #${id}`,
-            count: Number(group.learners ?? 0),
-          })
+        if (map.has(id)) {
+          const entry = map.get(id)
+          entry.count = Math.max(entry.count, Number(group.learners ?? 0))
         }
       }
     })
@@ -287,12 +297,6 @@ export default function InstitutionDashboardPage() {
         if (map.has(member.departmentId)) {
           const entry = map.get(member.departmentId)
           entry.count = (entry.count || 0) + 1
-        } else {
-          map.set(member.departmentId, {
-            id: member.departmentId,
-            name: member.departmentName,
-            count: 1,
-          })
         }
       }
     })
@@ -380,13 +384,6 @@ export default function InstitutionDashboardPage() {
     if (availableDepartments.unassignedCount > 0) {
       allDepts.set("unassigned", { id: "unassigned", name: "General / Unassigned" })
     }
-
-    // 3. Any extra departments surfaced by member data
-    membersWithDepartment.forEach((m) => {
-      if (!allDepts.has(String(m.departmentId))) {
-        allDepts.set(String(m.departmentId), { id: String(m.departmentId), name: m.departmentName })
-      }
-    })
 
     return Array.from(allDepts.values()).map(({ id, name }) => {
       const apiStat = statsByDeptId.get(id) ?? null
