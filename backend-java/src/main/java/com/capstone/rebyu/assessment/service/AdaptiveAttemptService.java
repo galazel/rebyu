@@ -7,6 +7,7 @@ import com.capstone.rebyu.adaptive.engine.AdaptiveItemSelector.Selection;
 import com.capstone.rebyu.adaptive.engine.AdaptiveSessionState;
 import com.capstone.rebyu.adaptive.engine.BktModel;
 import com.capstone.rebyu.adaptive.engine.IrtModel;
+import com.capstone.rebyu.adaptive.entity.LearnerBankCycle;
 import com.capstone.rebyu.adaptive.engine.IrtModel.ItemParams;
 import com.capstone.rebyu.adaptive.service.AdaptivePolicy;
 import com.capstone.rebyu.adaptive.service.BankReplenishmentService;
@@ -85,6 +86,7 @@ public class AdaptiveAttemptService {
     private final QuestionBankSizeService bankSize;
     private final LearnerAbilityService abilities;
     private final BankReplenishmentService replenishment;
+    private final com.capstone.rebyu.adaptive.repository.LearnerBankCycleRepository bankCycles;
     private final QuestionRepository questionRepository;
     private final ExamQuestionRepository examQuestionRepository;
     private final AssessmentAttemptRepository attemptRepository;
@@ -212,9 +214,36 @@ public class AdaptiveAttemptService {
                 .map(AssessmentAttempt::getAssessmentAttemptId)
                 .orElse(null);
         Set<Long> lastAttemptIds = new LinkedHashSet<>();
+        /* The pass over the bank this learner is on. Questions served since
+           it began are "seen this cycle"; if what is left cannot fill this
+           paper's main round, the pass rolls over here and the whole bank is
+           fresh again -- nothing is repeated within a pass while the bank
+           can help it, and the paper still fills. */
+        LearnerBankCycle cycle = bankCycles.findByLearnerIdAndCertificationId(learnerId, certificationId)
+                .orElseGet(() -> LearnerBankCycle.builder()
+                        .learnerId(learnerId).certificationId(certificationId)
+                        .cycleNo(1).startedAt(LocalDateTime.of(2000, 1, 1, 0, 0)).build());
+        Set<Long> cycleSeen = new LinkedHashSet<>();
         if (!poolIds.isEmpty()) {
             for (var row : attemptQuestionRepository.findExposure(learnerId, poolIds)) {
                 seen.add(row.getSourceQuestionId());
+                if (row.getLastSeenAt() != null && !row.getLastSeenAt().isBefore(cycle.getStartedAt())) {
+                    cycleSeen.add(row.getSourceQuestionId());
+                }
+            }
+            long freshMain = pool.stream()
+                    .filter(v -> !AdaptivePolicy.isWorkspaceType(v.getQuestionType()))
+                    .filter(v -> !cycleSeen.contains(v.getQuestionId()))
+                    .count();
+            if (!cycleSeen.isEmpty() && freshMain < mainTarget) {
+                cycle.setCycleNo(cycle.getCycleNo() + 1);
+                cycle.setStartedAt(LocalDateTime.now());
+                log.info("Learner {} has used up pass {} over the bank of certification {} ({} fresh of {} needed): starting pass {}",
+                        learnerId, cycle.getCycleNo() - 1, certificationId, freshMain, mainTarget, cycle.getCycleNo());
+                cycleSeen.clear();
+            }
+            if (cycle.getLearnerBankCycleId() == null || cycleSeen.isEmpty()) {
+                cycle = bankCycles.save(cycle);
             }
             if (lastAttemptId != null) {
                 for (AssessmentAttemptQuestion q : attemptQuestionRepository
@@ -224,6 +253,8 @@ public class AdaptiveAttemptService {
             }
         }
         state.setSeenQuestionIds(seen);
+        state.setCycleSeenQuestionIds(cycleSeen);
+        state.setBankCycle(cycle.getCycleNo());
         state.setLastAttemptQuestionIds(lastAttemptIds);
         state.setThisExamQuestionIds(new LinkedHashSet<>(
                 attemptQuestionRepository.findSourceQuestionIdsServedOnExam(learnerId, exam.getExamId())));
@@ -259,6 +290,7 @@ public class AdaptiveAttemptService {
                 .thetaSe(seed.sigma0())
                 .targetQuestionCount(target)
                 .finalRoundCount(finalRound)
+                .bankCycle(state.getBankCycle())
                 .phase(AdaptiveSessionState.STAGE_MAIN)
                 .build();
         attempt = attemptRepository.save(attempt);
@@ -312,6 +344,7 @@ public class AdaptiveAttemptService {
                 .thetaSe(session.seed().sigma0())
                 .targetQuestionCount(session.target())
                 .finalRoundCount(session.finalRound())
+                .bankCycle(state.getBankCycle())
                 .build();
         attempt = attemptRepository.save(attempt);
 
@@ -779,8 +812,8 @@ public class AdaptiveAttemptService {
             Candidate chosen = selection.get().candidate();
             if (log.isDebugEnabled()) {
                 AdaptiveItemSelector.Reason why = selection.get().reason();
-                log.debug("[pick] attempt={} #{} theta={} -> b={} ({}) tier={} lesson={} {} of {} lesson(s), {} candidate(s), open levels {}",
-                        attempt.getAssessmentAttemptId(), state.getServedCount() + 1,
+                log.debug("[pick] attempt={} cycle={} #{} theta={} -> b={} ({}) tier={} lesson={} {} of {} lesson(s), {} candidate(s), open levels {}",
+                        attempt.getAssessmentAttemptId(), state.getBankCycle(), state.getServedCount() + 1,
                         String.format("%.2f", state.getTheta()), chosen.params().b(),
                         finalRound ? "final" : "main", why.tier(), why.lessonId(), why.focus(),
                         why.lessonsConsidered(), why.candidatesConsidered(),

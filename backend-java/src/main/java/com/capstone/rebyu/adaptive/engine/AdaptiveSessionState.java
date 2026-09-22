@@ -66,6 +66,9 @@ public class AdaptiveSessionState {
 
     /** Questions this learner had met in any attempt when the session began. */
     private Set<Long> seenQuestionIds = new LinkedHashSet<>();
+    /** Of those, the ones met in the current pass over the bank (see LearnerBankCycle). */
+    private Set<Long> cycleSeenQuestionIds = new LinkedHashSet<>();
+    private int bankCycle = 1;
     /** Questions served on any earlier attempt of this exam, so a retake never repeats one while it can help it. */
     private Set<Long> thisExamQuestionIds = new LinkedHashSet<>();
     /** Questions on the learner's most recent submitted attempt of this exam. */

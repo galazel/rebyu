@@ -134,6 +134,10 @@ public class AssessmentAttempt {
     @Column(name = "target_question_count")
     private Integer targetQuestionCount;
 
+    /** The pass over the certification's bank this session drew from (see LearnerBankCycle). */
+    @Column(name = "bank_cycle")
+    private Integer bankCycle;
+
     @Column(name = "final_round_count")
     private Integer finalRoundCount;
 

@@ -42,11 +42,15 @@ public final class AdaptiveItemSelector {
      * last attempt of this exam. A retake of the same exam repeats a question
      * only once every question the bank holds for it has been used.
      */
+    /** Never met by this learner, in any assessment. */
     public static final String TIER_UNSEEN = "UNSEEN";
-    public static final String TIER_OLDER = "OLDER";
-    public static final String TIER_EARLIER_ATTEMPT = "EARLIER_ATTEMPT";
+    /** Met in an earlier pass over the bank, not yet in this one. */
+    public static final String TIER_NEW_THIS_CYCLE = "NEW_THIS_CYCLE";
+    /** Met already in this pass: only when the pass cannot fill the paper. */
+    public static final String TIER_SEEN_THIS_CYCLE = "SEEN_THIS_CYCLE";
+    /** On the learner's last attempt of this exam: last of all. */
     public static final String TIER_REPEAT = "REPEAT";
-    static final List<String> TIERS = List.of(TIER_UNSEEN, TIER_OLDER, TIER_EARLIER_ATTEMPT, TIER_REPEAT);
+    static final List<String> TIERS = List.of(TIER_UNSEEN, TIER_NEW_THIS_CYCLE, TIER_SEEN_THIS_CYCLE, TIER_REPEAT);
 
     public record Candidate(
             Long questionId,
@@ -93,13 +97,12 @@ public final class AdaptiveItemSelector {
         }
 
         /* Never repeat while the bank still has questions the learner has
-           not met: a retake is a fresh set. Once every question in scope has
-           been seen, any seen question is fair game except the ones on the
-           learner's last attempt, which come back last of all. Two steps, not
-           four: "seen in another assessment" against "seen in this exam" is
-           a finer distinction than a learner would ask for, and honouring it
-           before difficulty once served twelve HARD items to a learner at
-           the baseline because that was all the finer tier held. */
+           not met in this pass over it: a retake is a fresh set. A pass that
+           cannot fill a paper is rolled over before the session starts (see
+           AdaptiveAttemptService), so within a session the tiers below the
+           first two are only reached when the whole bank is smaller than the
+           paper. Questions never met at all come before ones met in an
+           earlier pass, and the last attempt's own items come last. */
         int bestRank = Integer.MAX_VALUE;
         for (Candidate c : open) bestRank = Math.min(bestRank, tierRank(tierOf(c, state)));
         if (bestRank == Integer.MAX_VALUE) return Optional.empty();
@@ -161,21 +164,23 @@ public final class AdaptiveItemSelector {
         return Optional.empty();
     }
 
-    /** UNSEEN first; anything seen next; the last attempt's own items last. */
+    /** Never seen, then new this cycle, then seen this cycle, then the last attempt's items. */
     static int tierRank(String tier) {
         return switch (tier) {
             case TIER_UNSEEN -> 0;
-            case TIER_REPEAT -> 2;
-            default -> 1;
+            case TIER_NEW_THIS_CYCLE -> 1;
+            case TIER_SEEN_THIS_CYCLE -> 2;
+            default -> 3;
         };
     }
 
     private static String tierOf(Candidate candidate, AdaptiveSessionState state) {
         Long id = candidate.questionId();
         if (!state.getSeenQuestionIds().contains(id)) return TIER_UNSEEN;
+        Set<Long> cycleSeen = state.getCycleSeenQuestionIds();
+        if (cycleSeen == null || !cycleSeen.contains(id)) return TIER_NEW_THIS_CYCLE;
         if (state.getLastAttemptQuestionIds().contains(id)) return TIER_REPEAT;
-        if (state.getThisExamQuestionIds() != null && state.getThisExamQuestionIds().contains(id)) return TIER_EARLIER_ATTEMPT;
-        return TIER_OLDER;
+        return TIER_SEEN_THIS_CYCLE;
     }
 
     static double typeWeight(String questionType, AdaptiveSessionState state) {
