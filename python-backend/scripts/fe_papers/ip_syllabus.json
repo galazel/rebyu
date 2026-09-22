@@ -1,0 +1,446 @@
+[
+ {
+  "number": 1,
+  "title": "Corporate And Legal Affairs",
+  "middles": [
+   {
+    "number": 1,
+    "title": "Corporate Activities",
+    "topics": [
+     {
+      "number": 1,
+      "title": "Management and organization theory"
+     },
+     {
+      "number": 2,
+      "title": "OR and IE"
+     },
+     {
+      "number": 3,
+      "title": "Accounting and financial affairs"
+     }
+    ]
+   },
+   {
+    "number": 2,
+    "title": "Legal Affairs",
+    "topics": [
+     {
+      "number": 4,
+      "title": "Intellectual property rights"
+     },
+     {
+      "number": 5,
+      "title": "Laws on security"
+     },
+     {
+      "number": 6,
+      "title": "Laws on labor and transaction"
+     },
+     {
+      "number": 7,
+      "title": "Other laws, guidelines, and engineer ethics"
+     },
+     {
+      "number": 8,
+      "title": "Standardization"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "number": 2,
+  "title": "Business Strategy",
+  "middles": [
+   {
+    "number": 3,
+    "title": "Business Strategy Management",
+    "topics": [
+     {
+      "number": 9,
+      "title": "Business strategy techniques"
+     },
+     {
+      "number": 10,
+      "title": "Marketing"
+     },
+     {
+      "number": 11,
+      "title": "Business strategy and goal/evaluation"
+     },
+     {
+      "number": 12,
+      "title": "Business management system"
+     }
+    ]
+   },
+   {
+    "number": 4,
+    "title": "Technological Strategy Management",
+    "topics": [
+     {
+      "number": 13,
+      "title": "Planning of technology development strategy and technology"
+     }
+    ]
+   },
+   {
+    "number": 5,
+    "title": "Business Industry",
+    "topics": [
+     {
+      "number": 14,
+      "title": "Business system"
+     },
+     {
+      "number": 15,
+      "title": "Engineering system"
+     },
+     {
+      "number": 16,
+      "title": "e-business"
+     },
+     {
+      "number": 17,
+      "title": "Consumer appliances and industrial devices"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "number": 3,
+  "title": "System Strategy",
+  "middles": [
+   {
+    "number": 6,
+    "title": "System Strategy",
+    "topics": [
+     {
+      "number": 18,
+      "title": "Information systems strategy"
+     },
+     {
+      "number": 19,
+      "title": "Business process"
+     },
+     {
+      "number": 20,
+      "title": "Solution business"
+     },
+     {
+      "number": 21,
+      "title": "System utilization promotion and evaluation"
+     }
+    ]
+   },
+   {
+    "number": 7,
+    "title": "System Planning",
+    "topics": [
+     {
+      "number": 22,
+      "title": "Computerization planning"
+     },
+     {
+      "number": 23,
+      "title": "Requirements definition"
+     },
+     {
+      "number": 24,
+      "title": "Procurement planning and implementation"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "number": 4,
+  "title": "Development Technology",
+  "middles": [
+   {
+    "number": 8,
+    "title": "System Development Technology",
+    "topics": [
+     {
+      "number": 25,
+      "title": "System development technology"
+     }
+    ]
+   },
+   {
+    "number": 9,
+    "title": "Software Development Management Techniques",
+    "topics": [
+     {
+      "number": 26,
+      "title": "Development process and methods"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "number": 5,
+  "title": "Project Management",
+  "middles": [
+   {
+    "number": 10,
+    "title": "Project Management",
+    "topics": [
+     {
+      "number": 27,
+      "title": "Project management"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "number": 6,
+  "title": "Service Management",
+  "middles": [
+   {
+    "number": 11,
+    "title": "Service Management",
+    "topics": [
+     {
+      "number": 28,
+      "title": "Service management"
+     },
+     {
+      "number": 29,
+      "title": "Service support"
+     },
+     {
+      "number": 30,
+      "title": "Facility management"
+     }
+    ]
+   },
+   {
+    "number": 12,
+    "title": "System Audit",
+    "topics": [
+     {
+      "number": 31,
+      "title": "System audit"
+     },
+     {
+      "number": 32,
+      "title": "Internal control"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "number": 7,
+  "title": "Basic Theory",
+  "middles": [
+   {
+    "number": 13,
+    "title": "Basic Theory",
+    "topics": [
+     {
+      "number": 33,
+      "title": "Discrete mathematics"
+     },
+     {
+      "number": 34,
+      "title": "Applied mathematics"
+     },
+     {
+      "number": 35,
+      "title": "Theory of information"
+     }
+    ]
+   },
+   {
+    "number": 14,
+    "title": "Algorithm And Programming",
+    "topics": [
+     {
+      "number": 36,
+      "title": "Data structure"
+     },
+     {
+      "number": 37,
+      "title": "Algorithm"
+     },
+     {
+      "number": 38,
+      "title": "Programming and programming languages"
+     },
+     {
+      "number": 39,
+      "title": "Other languages"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "number": 8,
+  "title": "Computer System",
+  "middles": [
+   {
+    "number": 15,
+    "title": "Computer Component",
+    "topics": [
+     {
+      "number": 40,
+      "title": "Processor"
+     },
+     {
+      "number": 41,
+      "title": "Memory"
+     },
+     {
+      "number": 42,
+      "title": "Input/output devices"
+     }
+    ]
+   },
+   {
+    "number": 16,
+    "title": "System Component",
+    "topics": [
+     {
+      "number": 43,
+      "title": "System configuration"
+     },
+     {
+      "number": 44,
+      "title": "System evaluation indexes"
+     }
+    ]
+   },
+   {
+    "number": 17,
+    "title": "Software",
+    "topics": [
+     {
+      "number": 45,
+      "title": "Operating system"
+     },
+     {
+      "number": 46,
+      "title": "File system"
+     },
+     {
+      "number": 47,
+      "title": "Development tools"
+     },
+     {
+      "number": 48,
+      "title": "Open source software"
+     }
+    ]
+   },
+   {
+    "number": 18,
+    "title": "Hardware",
+    "topics": [
+     {
+      "number": 49,
+      "title": "Hardware (computer and I/O device)"
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "number": 9,
+  "title": "Technology Element",
+  "middles": [
+   {
+    "number": 19,
+    "title": "Human Interface",
+    "topics": [
+     {
+      "number": 50,
+      "title": "Human interface technology"
+     },
+     {
+      "number": 51,
+      "title": "Interface design"
+     }
+    ]
+   },
+   {
+    "number": 20,
+    "title": "Multimedia",
+    "topics": [
+     {
+      "number": 52,
+      "title": "Multimedia technology"
+     },
+     {
+      "number": 53,
+      "title": "Multimedia application"
+     }
+    ]
+   },
+   {
+    "number": 21,
+    "title": "Database",
+    "topics": [
+     {
+      "number": 54,
+      "title": "Database architecture"
+     },
+     {
+      "number": 55,
+      "title": "Database design"
+     },
+     {
+      "number": 56,
+      "title": "Data manipulation"
+     },
+     {
+      "number": 57,
+      "title": "Transaction processing"
+     }
+    ]
+   },
+   {
+    "number": 22,
+    "title": "Network",
+    "topics": [
+     {
+      "number": 58,
+      "title": "Network architecture"
+     },
+     {
+      "number": 59,
+      "title": "Communications protocol"
+     },
+     {
+      "number": 60,
+      "title": "Network application"
+     }
+    ]
+   },
+   {
+    "number": 23,
+    "title": "Security",
+    "topics": [
+     {
+      "number": 61,
+      "title": "Information security"
+     },
+     {
+      "number": 62,
+      "title": "Information security management"
+     },
+     {
+      "number": 63,
+      "title": "Information security measures and information security implementation"
+     }
+    ]
+   }
+  ]
+ }
+]

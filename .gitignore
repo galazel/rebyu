@@ -9,3 +9,12 @@ db-backup-*/
 # Local database backups (BKT purge snapshots, etc). Large and
 # environment-specific: useful on the machine that made them, noise in git.
 backups/
+
+# Past-paper source PDFs and the artefacts derived from them. The PDFs are
+# IPA/ITPEC copyright -- reusable for teaching, but not ours to redistribute
+# in a repository. The rendered crops and parsed JSON are reproducible from
+# them by the scripts in python-backend/scripts/fe_papers.
+python-backend/scripts/fe_papers/pdf/
+python-backend/scripts/fe_papers/rendered/
+python-backend/scripts/fe_papers/parsed/
+python-backend/scripts/fe_papers/parsed_quarantine/
