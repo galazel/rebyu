@@ -24,11 +24,14 @@ import java.util.List;
  *       per-item calibration and no online drift: the bank is too thinly
  *       answered for either to mean anything, and a fixed map keeps every
  *       learner measured against the same ruler.</li>
- *   <li>Ability moves by a step after every answer -- up when right, down
- *       when wrong, scaled by how surprising the answer was -- from a
- *       baseline of zero. A step rule is the standard cold-start estimator:
- *       it needs no prior, settles in a handful of items, and every learner
- *       can see why their rating moved.</li>
+ *   <li>Ability is a Gaussian belief -- a mean and a standard error --
+ *       updated after every answer from a baseline of zero. Each answer
+ *       moves the mean by the surprise (right or wrong against what the
+ *       belief predicted) scaled by the belief's own uncertainty, and
+ *       narrows the uncertainty by the information the item carried. This
+ *       is the one-step Newton form of the Bayesian (EAP) estimate: the
+ *       first answers move the estimate a whole level, the tenth barely
+ *       nudges it, and no answer is ever weighed alone.</li>
  * </ul>
  */
 public final class IrtModel {
@@ -41,8 +44,18 @@ public final class IrtModel {
     public static final double THETA_MAX = 3.0;
     /** Where every learner starts. */
     public static final double THETA_BASELINE = 0.0;
-    /** How far one answer moves the estimate. */
-    public static final double DEFAULT_STEP = 0.6;
+    /**
+     * How uncertain the baseline is: the prior standard deviation. Set to the
+     * spacing between adjacent difficulty levels, so one confident answer on
+     * a level-matched item moves the estimate about one level.
+     */
+    public static final double PRIOR_SIGMA = 1.7;
+    /**
+     * The estimate never becomes so sure that a run of surprises cannot move
+     * it: the standard error floors here, half a level. At the floor a run
+     * of about five surprising answers crosses one level; one does not.
+     */
+    public static final double MIN_SIGMA = 0.75;
 
     /** Where each authored difficulty level sits on the ability scale. */
     public static final double DIFFICULTY_EASY = -1.5;
@@ -89,46 +102,50 @@ public final class IrtModel {
     }
 
     /**
-     * The step rule: ability after one more answer. The estimate moves by
-     * {@code step} scaled by how surprising the response was -- {@code u - P},
-     * where u is the score earned (1 for right, 0 for wrong) and P the
-     * probability of a right answer at the current ability. A right answer
-     * on a hard item (P small) moves it most of a step up; a right answer on
-     * an item the learner "should" get moves it little. The estimate never
-     * leaves the scale.
+     * The ability belief after one response: mean and standard error.
+     *
+     * <p>The prior is N(theta, se^2). A right answer on an item the learner
+     * was unlikely to get moves the mean most; one they "should" have got
+     * moves it little; and the whole move is scaled by the prior variance --
+     * a wide belief moves freely, a narrow one resists. The posterior
+     * variance is the prior's narrowed by the item's information, so each
+     * answer makes the next one count for less. Objective items respond 1 or
+     * 0; a written, coded or drawn answer responds with the share it earned,
+     * and since P is also the expected share, {@code score - P} is still the
+     * surprise. The mean never leaves the scale; the standard error never
+     * drops below {@link #MIN_SIGMA}.
      */
-    public static double step(double theta, ItemParams item, boolean correct, double step) {
-        return step(theta, item, correct ? 1.0 : 0.0, step);
-    }
-
-    /**
-     * The partial-score form of the step rule. A written, coded or drawn
-     * answer is marked on a scale, and the share earned is the response:
-     * P is also the expected share at this ability, so {@code score - P}
-     * is the surprise. Half credit on an item the learner had a coin-flip
-     * chance at moves nothing; the objective items still send 0 or 1.
-     */
-    public static double step(double theta, ItemParams item, double score, double step) {
+    public static Estimate update(double theta, double se, ItemParams item, double score) {
         double p = probability(theta, item);
         double u = clamp(score, 0.0, 1.0);
-        return clamp(theta + step * (u - p), THETA_MIN, THETA_MAX);
+        double sigma = Double.isNaN(se) || se <= 0 ? PRIOR_SIGMA : Math.max(se, MIN_SIGMA);
+        double variance = sigma * sigma;
+        double info = information(theta, item);
+        /* Gradient of the log-likelihood in theta, in the 3PL general form;
+           with c = 0 it is a(u - p). */
+        double gradient = item.a() * (u - p) * (p - item.c()) / (p * (1.0 - item.c()));
+        double gain = variance / (1.0 + variance * info);
+        double posteriorTheta = clamp(theta + gain * gradient, THETA_MIN, THETA_MAX);
+        double posteriorSigma = Math.max(MIN_SIGMA, Math.sqrt(1.0 / (1.0 / variance + info)));
+        return new Estimate(posteriorTheta, posteriorSigma);
+    }
+
+    /** {@link #update(double, double, ItemParams, double)} for a right-or-wrong response. */
+    public static Estimate update(double theta, double se, ItemParams item, boolean correct) {
+        return update(theta, se, item, correct ? 1.0 : 0.0);
     }
 
     /**
      * Standard error of the estimate at {@code theta} given the items
-     * answered so far: one over the root of the information they carried.
-     * With nothing answered yet the estimate is as uncertain as the scale
-     * is wide.
+     * answered so far: the prior's precision plus the information they
+     * carried, inverted. With nothing answered yet it is the prior's.
      */
     public static double standardError(double theta, List<Response> responses) {
-        double total = 0.0;
+        double total = 1.0 / (PRIOR_SIGMA * PRIOR_SIGMA);
         for (Response response : responses) {
             total += information(theta, response.item());
         }
-        if (total <= 0) {
-            return THETA_MAX - THETA_MIN;
-        }
-        return 1.0 / Math.sqrt(total);
+        return Math.max(MIN_SIGMA, 1.0 / Math.sqrt(total));
     }
 
     /**

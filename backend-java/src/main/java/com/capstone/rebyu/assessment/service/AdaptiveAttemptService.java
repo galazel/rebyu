@@ -260,12 +260,8 @@ public class AdaptiveAttemptService {
                 .build();
         attempt = attemptRepository.save(attempt);
 
-        /* Two items at once: the one being asked and the one behind it. The
-           client shows the reserve the moment the first is answered and the
-           server catches up in the background, so the learner never waits on
-           a round trip between questions. The reserve is chosen from all
-           answers but the very latest -- one step of lag, on a paper of ten
-           to sixty items. */
+        /* Only the first item: every later one is chosen after the answer
+           before it is marked (see answer). */
         List<LearnerAttemptQuestionDto> served = serveMany(attempt, state, 1 + AdaptiveSessionState.START_RESERVE);
         if (served.isEmpty()) {
             throw new BusinessRuleException.InvalidAssessmentSubmissionException(
@@ -348,9 +344,10 @@ public class AdaptiveAttemptService {
             ItemParams params = itemParamsOf(attempt.getExam(), item.getSourceQuestionId());
             state.getResponses().add(new AdaptiveSessionState.ResponseRecord(
                     item.getSourceQuestionId(), item.getLessonId(), params, correct, score));
-            double theta = IrtModel.step(state.getTheta(), params, score, properties.getAbilityStep());
+            IrtModel.Estimate estimate = IrtModel.update(state.getTheta(), state.getSe(), params, score);
+            double theta = estimate.theta();
             state.setTheta(theta);
-            state.setSe(IrtModel.standardError(theta, state.irtResponses()));
+            state.setSe(estimate.standardError());
             item.setThetaAfter(theta);
             attemptQuestionRepository.save(item);
 
@@ -387,7 +384,42 @@ public class AdaptiveAttemptService {
         for (Candidate c : toCandidates(views)) candidates.put(c.questionId(), c);
         CachedPool fresh = new CachedPool(views, candidates, java.time.Instant.now());
         poolCache.put(exam.getExamId(), fresh);
+        warmPool(exam.getExamId(), new ArrayList<>(candidates.keySet()));
         return fresh;
+    }
+
+    /*
+     * Loads the pool's questions, whole, into the question and parts caches
+     * off the request thread. The next item is chosen only after the answer
+     * before it is marked, in the request that records that answer, so
+     * serving it must be cheap: with the pool warm it is one insert instead
+     * of one insert and two reads against a database in another region.
+     * One warm at a time; a pool already warm costs nothing.
+     */
+    private final java.util.concurrent.ExecutorService warmer = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "adaptive-pool-warmer");
+        t.setDaemon(true);
+        return t;
+    });
+    private static final int WARM_CHUNK = 200;
+
+    private void warmPool(Long examId, List<Long> questionIds) {
+        List<Long> cold = questionIds.stream().filter(id -> !questionCache.containsKey(id)).toList();
+        if (cold.isEmpty()) return;
+        warmer.execute(() -> {
+            long started = System.currentTimeMillis();
+            try {
+                for (int from = 0; from < cold.size(); from += WARM_CHUNK) {
+                    List<Long> chunk = cold.subList(from, Math.min(cold.size(), from + WARM_CHUNK));
+                    Map<Long, Question> loaded = loadQuestions(chunk);
+                    contextOf(new ArrayList<>(loaded.values()));
+                }
+                log.debug("[perf] adaptive pool exam={} warmed {} question(s) in {}ms",
+                        examId, cold.size(), System.currentTimeMillis() - started);
+            } catch (Exception e) {
+                log.warn("Adaptive pool exam={} warm-up stopped: {}", examId, e.getMessage());
+            }
+        });
     }
 
     // Answer
@@ -486,22 +518,26 @@ public class AdaptiveAttemptService {
             }
             state.setAnsweredCount(state.getAnsweredCount() + 1);
 
-            /* What comes next: the reserve becomes the question being asked. */
+            /* What comes next is chosen now, from an ability that includes
+               the answer just marked: this is the adaptive step. A reserve
+               served earlier (a session started under the old look-ahead)
+               is used up first. */
             next = null;
             if (!state.getQueuedAttemptQuestionIds().isEmpty()) {
-                Long nextId = state.getQueuedAttemptQuestionIds().remove(0);
-                next = servedDto(attempt, nextId);
-                if (next != null) {
-                    attempt.setCurrentQuestionId(nextId);
-                    boolean nowFinal = AdaptiveSessionState.STAGE_FINAL.equals(next.stage());
-                    if (nowFinal && !state.inFinalRound()) {
-                        state.setStage(AdaptiveSessionState.STAGE_FINAL);
-                        attempt.setPhase(AdaptiveSessionState.STAGE_FINAL);
-                        enteringFinal = true;
-                    }
-                }
+                next = servedDto(attempt, state.getQueuedAttemptQuestionIds().remove(0));
+            } else if (state.getServedCount() < state.getTargetCount()) {
+                List<LearnerAttemptQuestionDto> fresh = serveMany(attempt, state, 1);
+                next = fresh.isEmpty() ? null : fresh.get(0);
             }
-            if (next == null) {
+            if (next != null) {
+                attempt.setCurrentQuestionId(next.attemptQuestionId());
+                boolean nowFinal = AdaptiveSessionState.STAGE_FINAL.equals(next.stage());
+                if (nowFinal && !state.inFinalRound()) {
+                    state.setStage(AdaptiveSessionState.STAGE_FINAL);
+                    attempt.setPhase(AdaptiveSessionState.STAGE_FINAL);
+                    enteringFinal = true;
+                }
+            } else {
                 attempt.setCurrentQuestionId(null);
             }
         }
@@ -600,8 +636,9 @@ public class AdaptiveAttemptService {
         ItemParams params = itemParamsOf(attempt.getExam(), source);
         state.getResponses().add(new AdaptiveSessionState.ResponseRecord(
                 source.getQuestionId(), item.getLessonId(), params, correct, score));
-        double theta = IrtModel.step(state.getTheta(), params, score, properties.getAbilityStep());
-        double se = IrtModel.standardError(theta, state.irtResponses());
+        IrtModel.Estimate estimate = IrtModel.update(state.getTheta(), state.getSe(), params, score);
+        double theta = estimate.theta();
+        double se = estimate.standardError();
         state.setTheta(theta);
         state.setSe(se);
         item.setThetaAfter(theta);
@@ -737,6 +774,16 @@ public class AdaptiveAttemptService {
                 break;
             }
             Candidate chosen = selection.get().candidate();
+            if (log.isDebugEnabled()) {
+                AdaptiveItemSelector.Reason why = selection.get().reason();
+                log.debug("[pick] attempt={} #{} theta={} -> b={} ({}) tier={} lesson={} {} of {} lesson(s), {} candidate(s), open levels {}",
+                        attempt.getAssessmentAttemptId(), state.getServedCount() + 1,
+                        String.format("%.2f", state.getTheta()), chosen.params().b(),
+                        finalRound ? "final" : "main", why.tier(), why.lessonId(), why.focus(),
+                        why.lessonsConsidered(), why.candidatesConsidered(),
+                        candidates.stream().filter(c -> !state.getServedQuestionIds().contains(c.questionId()))
+                                .collect(java.util.stream.Collectors.groupingBy(c -> c.params().b(), java.util.TreeMap::new, java.util.stream.Collectors.counting())));
+            }
             state.setServedCount(state.getServedCount() + 1);
             state.getServedQuestionIds().add(chosen.questionId());
             state.getServedStems().add(QuestionStem.of(chosen.questionText()));

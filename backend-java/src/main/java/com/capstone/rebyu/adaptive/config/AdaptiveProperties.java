@@ -38,8 +38,6 @@ public class AdaptiveProperties {
 
     /** Weight of BKT uncertainty (p(1-p)) against coverage when choosing the next lesson. */
     private double lessonExplorationWeight = 1.0;
-    /** How far one answer can move the ability estimate (scaled by surprise). */
-    private double abilityStep = 0.6;
 
     /**
      * On a middle or major exam, this share of the items is drawn from the
