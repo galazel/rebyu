@@ -11,9 +11,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Fills each pick-list on first boot with what the frontend used to carry
- * as constants, and leaves a list alone once it has any rows: an admin's
- * edits are never overwritten by a restart.
+ * Fills each pick-list with the seed entries it does not yet hold. A label
+ * already present -- active or retired -- is left exactly as the admin left
+ * it, so a restart never undoes an edit; only entries new to this release
+ * are added, at the end of the list.
  */
 @Slf4j
 @Component
@@ -72,10 +73,15 @@ public class ReferenceOptionSeeder implements ApplicationRunner {
             "College of Computer Studies",
             "College of Information Technology",
             "College of Engineering",
+            "College of Business Administration",
             "College of Business and Accountancy",
+            "College of Customs Administration",
+            "College of Teacher Education",
             "College of Education",
             "College of Arts and Sciences",
+            "College of Nursing",
             "College of Nursing and Allied Health Sciences",
+            "College of Maritime Studies",
             "College of Criminology",
             "College of Hospitality and Tourism Management",
             "College of Law",
@@ -98,13 +104,15 @@ public class ReferenceOptionSeeder implements ApplicationRunner {
         for (Map.Entry<String, List<String>> list : Map.of(
                 ReferenceOption.KIND_INDUSTRY, INDUSTRIES,
                 ReferenceOption.KIND_DEPARTMENT, DEPARTMENTS).entrySet()) {
-            if (options.countByKind(list.getKey()) > 0) continue;
-            int order = 0;
+            int order = (int) options.countByKind(list.getKey());
+            int added = 0;
             for (String label : list.getValue()) {
+                if (options.findByKindAndLabelIgnoreCase(list.getKey(), label).isPresent()) continue;
                 options.save(ReferenceOption.builder()
                         .kind(list.getKey()).label(label).sortOrder(++order).active(true).build());
+                added++;
             }
-            log.info("Seeded {} {} option(s)", list.getValue().size(), list.getKey());
+            if (added > 0) log.info("Seeded {} new {} option(s)", added, list.getKey());
         }
     }
 }
