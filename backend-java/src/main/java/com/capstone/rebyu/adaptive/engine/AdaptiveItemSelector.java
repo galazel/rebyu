@@ -17,10 +17,12 @@ import java.util.Set;
  * pool and nothing else:
  *
  * <ol>
- *   <li><b>Which tier, then which level</b> -- never-seen items while any
- *       remain (a retake is a fresh set), then the least recently seen; and
- *       within that tier the authored difficulty nearest the current
- *       ability, which is what makes the paper adaptive.</li>
+ *   <li><b>Which level, then which tier</b> -- the authored difficulty
+ *       nearest the current ability, which is what makes the paper adaptive;
+ *       and within that level the freshest items: never seen, then not seen
+ *       this pass over the bank, then seen this pass, then the last attempt's
+ *       own. A retake is a fresh set because the pass rolls over when the
+ *       fresh pool cannot fill a paper.</li>
  *   <li><b>Which lesson</b> -- the one the assessment still owes coverage to,
  *       tempered by how uncertain the learner's knowledge of it is (BKT's
  *       p(1-p) is largest at 0.5, where one more answer tells us most).</li>
@@ -96,24 +98,18 @@ public final class AdaptiveItemSelector {
             open.add(candidate);
         }
 
-        /* Never repeat while the bank still has questions the learner has
-           not met in this pass over it: a retake is a fresh set. A pass that
-           cannot fill a paper is rolled over before the session starts (see
-           AdaptiveAttemptService), so within a session the tiers below the
-           first two are only reached when the whole bank is smaller than the
-           paper. Questions never met at all come before ones met in an
-           earlier pass, and the last attempt's own items come last. */
-        int bestRank = Integer.MAX_VALUE;
-        for (Candidate c : open) bestRank = Math.min(bestRank, tierRank(tierOf(c, state)));
-        if (bestRank == Integer.MAX_VALUE) return Optional.empty();
-        final int rankInPlay = bestRank;
-        open = open.stream().filter(c -> tierRank(tierOf(c, state)) == rankInPlay).toList();
-
-        /* Within that, the level the ability calls for. Difficulty is three
-           fixed points, so "most informative" is "the level nearest theta";
-           a level with nothing left gives way to the next nearest, never to
-           the farthest. For the first item the ability is the prior, so this
-           is also the soft start: the paper opens at the prior's level. */
+        /* Level first, then freshness. The level the ability calls for is
+           the whole point of the paper; a question at the wrong level tells
+           the engine little, however fresh. So: of the items nearest the
+           ability, the freshest tier -- never met, then met in an earlier
+           pass, then met this pass, and the last attempt's own items last.
+           A learner at the floor whose fresh EASY items have run out is
+           handed an EASY item they have met, not a fresh AVERAGE one. The
+           pass rolls over before a session when the fresh pool cannot fill
+           the paper (see AdaptiveAttemptService), so within a pass the
+           lower tiers are reached only when one level runs dry. For the
+           first item the ability is the prior, so this is also the soft
+           start. */
         {
             final double theta = state.getTheta();
             double nearest = open.stream()
@@ -124,6 +120,11 @@ public final class AdaptiveItemSelector {
                     .toList();
             if (!atLevel.isEmpty()) open = atLevel;
         }
+        int bestRank = Integer.MAX_VALUE;
+        for (Candidate c : open) bestRank = Math.min(bestRank, tierRank(tierOf(c, state)));
+        if (bestRank == Integer.MAX_VALUE) return Optional.empty();
+        final int rankInPlay = bestRank;
+        open = open.stream().filter(c -> tierRank(tierOf(c, state)) == rankInPlay).toList();
 
         /* Grouped by lesson and by tier. */
         Map<Long, Map<String, List<Candidate>>> byLessonAndTier = new LinkedHashMap<>();
