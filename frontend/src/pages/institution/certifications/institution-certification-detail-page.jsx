@@ -9,7 +9,6 @@ import {
   ClipboardCheckIcon,
   FileQuestionIcon,
   Layers3Icon,
-  MailIcon,
   UsersRoundIcon,
 } from "@/components/icons"
 
@@ -270,11 +269,6 @@ export default function InstitutionCertificationDetailPage() {
   }
   const certificationWideExams = [...examsByScope.certification].sort((a, b) => scopeRank(a) - scopeRank(b))
 
-  const departmentInvitations = useMemo(() => {
-    const departmentIds = new Set(groups.map((g) => g.departmentId))
-    return asArray(data.invitations).filter((inv) => departmentIds.has(inv.departmentId))
-  }, [data.invitations, groups])
-
   const certification = useMemo(
     () =>
       asArray(certificationsQuery.data).find(
@@ -381,8 +375,7 @@ export default function InstitutionCertificationDetailPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
-          <TabsTrigger value="groups">Groups ({groups.length})</TabsTrigger>
-          <TabsTrigger value="invitations">Invitations</TabsTrigger>
+          <TabsTrigger value="groups">Departments ({groups.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="curriculum" className="space-y-4">
@@ -470,32 +463,6 @@ export default function InstitutionCertificationDetailPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="invitations" className="space-y-4">
-          {departmentInvitations.length === 0 ? (
-            <InstitutionEmptyState
-              icon={MailIcon}
-              title="No invitations yet"
-              description="Invitations are sent by each department head, from within their department."
-            />
-          ) : (
-            <div className="divide-y rounded-lg border">
-              {departmentInvitations.map((inv) => (
-                <div
-                  key={inv.invitationId}
-                  className="flex items-center justify-between gap-2 px-4 py-2.5 text-sm"
-                >
-                  <div>
-                    <p className="font-medium">{inv.email}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {inv.departmentName} · {formatDate(inv.sentAt)}
-                    </p>
-                  </div>
-                  <InstitutionStatusBadge status={inv.status} />
-                </div>
-              ))}
-            </div>
-          )}
-        </TabsContent>
       </Tabs>
     </div>
   )

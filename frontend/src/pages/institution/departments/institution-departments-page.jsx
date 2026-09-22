@@ -304,7 +304,7 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
                   Creating...
                 </>
               ) : (
-                "Create group"
+                "Create department"
               )}
             </Button>
           </DialogFooter>
@@ -597,8 +597,7 @@ function ManageGroupDialog({
         <DialogHeader>
           <DialogTitle>{group.departmentName}</DialogTitle>
           <DialogDescription>
-            Assign an authority (teacher / co-admin) and manage the learners in this
-            group.
+            Assign a department head and manage the learners in this department.
           </DialogDescription>
         </DialogHeader>
 
@@ -1179,7 +1178,7 @@ export default function DepartmentsPage() {
       ) : null}
 
       <InstitutionPageHeader
-        title={scopedCertification ? `Groups — ${scopedCertification.title}` : "Groups"}
+        title={scopedCertification ? `Departments — ${scopedCertification.title}` : "Departments"}
         subtitle="Organize learners into departments under a certification allocation and delegate management to a department head."
         actions={
           <Button onClick={() => setCreateOpen(true)} disabled={!hasAllocations}>
