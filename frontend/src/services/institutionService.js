@@ -44,7 +44,7 @@ export function getMyDepartmentHeads() {
 }
 
 // Creates a brand-new login account for someone to manage on the org's
-// behalf (e.g. a group leader). Cognito emails them their credentials.
+// behalf (e.g. a department head). Cognito emails them their credentials.
 export function inviteDepartmentHead({ firstName, lastName, email, headRole }) {
   return base("institution/me/members", {
     method: "POST",
@@ -183,7 +183,7 @@ export function getInstitutionFileDownloadUrl(id) { return base(`institution/fil
 export function uploadInstitutionFile(file) { const formData = new FormData(); formData.append("file", file); return base("institution/files", { method: "POST", data: formData }) }
 export function deleteInstitutionFile(id) { return base(`institution/files/${id}`, { method: "DELETE" }) }
 
-// A group leader monitoring their own learners. All three are scoped to a group
+// A department head monitoring their own learners. All three are scoped to a department
 // the caller actually leads (or owns) -- enforced server-side, never here.
 
 /** The group's active learners with summary progress figures, for the table. */
@@ -231,7 +231,7 @@ export function updateGroupSection(departmentId, sectionId, { sectionName, descr
   })
 }
 
-export function archiveGroupSection(departmentId, sectionId) {
+export function deleteGroupSection(departmentId, sectionId) {
   return base(`departments/${departmentId}/sections/${sectionId}`, { method: "DELETE" })
 }
 

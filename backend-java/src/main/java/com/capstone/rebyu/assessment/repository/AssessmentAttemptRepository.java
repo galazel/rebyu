@@ -118,6 +118,37 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
             @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds,
             @org.springframework.data.repository.query.Param("status") AssessmentAttempt.Status status);
 
+    /** One row per learner who has ever passed a mock exam on a certification. */
+    interface LearnerMockExamResult {
+        Long getLearnerId();
+        Double getBestScore();
+        java.time.LocalDateTime getPassedAt();
+    }
+
+    /**
+     * Best passing mock-exam result per learner, for a whole roster in one
+     * query -- same batching reason as {@link #statsByLearnerIds}: the section
+     * roster renders a row per learner, and asking per learner is an N+1.
+     *
+     * Restricted to MOCK_EXAM attempts on the group's own certification, so a
+     * pass on some other certification's paper can never light up this badge.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT a.learnerId AS learnerId,
+                   MAX(a.percentage) AS bestScore,
+                   MAX(a.submittedAt) AS passedAt
+            FROM AssessmentAttempt a
+            WHERE a.learnerId IN :learnerIds
+              AND a.status = com.capstone.rebyu.assessment.entity.AssessmentAttempt.Status.SUBMITTED
+              AND a.passed = TRUE
+              AND a.exam.examType.examTypeText = 'MOCK_EXAM'
+              AND a.exam.certification.certificationId = :certificationId
+            GROUP BY a.learnerId
+            """)
+    List<LearnerMockExamResult> passedMockExamsByLearnerIds(
+            @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds,
+            @org.springframework.data.repository.query.Param("certificationId") Long certificationId);
+
     /** Submitted attempts whose background marking has not finished -- the sweep's worklist. */
     List<AssessmentAttempt> findByStatusAndGradingPendingTrueAndSubmittedAtBefore(
             AssessmentAttempt.Status status, java.time.LocalDateTime before);

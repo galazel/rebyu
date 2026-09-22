@@ -14,7 +14,6 @@ import {
   Cpu,
   FileText,
   Gift,
-  GraduationCap,
   Heart,
   Layers,
   Lock,
@@ -231,17 +230,6 @@ const OLYMPICS_MODES = [
     points: ["Live elimination bracket", "Timed final round", "Readiness score at the end"],
     to: "/learner/challenges/world-cup",
   },
-];
-
-/* Priority is derived, not chosen: it ranks how weak the learner is against how
-   heavily the exam weights that domain. Shared by the roadmap path and the
-   module list so one concept never wears two different looks. Labels stay plain
-   words — a learner should never have to decode a badge. */
-const LEARNER_POINTS = [
-  "Browse certifications and study every lesson free",
-  "Unlock analytics, weakness reports, and study plans",
-  "Practice with mock exams and learner challenges",
-  "Join certification discussions and study circles",
 ];
 
 const INSTITUTION_POINTS = [
@@ -1738,20 +1726,11 @@ function AccessSection() {
           <WordReveal
             as="h2"
             className="rb-display rb-display-lg mt-3"
-            text="start on your own, or bring your school."
+            text="bring your school onto rebyu."
           />
         </div>
 
-        <PinBoard className="mt-12 grid gap-12 lg:grid-cols-2">
-          <AccessCard
-            icon={GraduationCap}
-            title="for learners"
-            description="Study every lesson free. Upgrade when you want mock exams, analytics, and study plans."
-            points={LEARNER_POINTS}
-            cta="start reviewing"
-            to="/register"
-            tone="feather"
-          />
+        <PinBoard className="mt-12 grid gap-12">
           <AccessCard
             icon={Building2}
             title="for institutions"
