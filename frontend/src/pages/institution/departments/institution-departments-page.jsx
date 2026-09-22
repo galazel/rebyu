@@ -58,6 +58,7 @@ import {
 } from "@/hooks/use-institution-data.js"
 import {
   addDepartmentLearner,
+  archiveDepartment,
   assignDepartmentHeadAssignment,
   changeDepartmentLearnerRole,
   createDepartment,
@@ -338,13 +339,58 @@ function ManageGroupDialog({
   const [learnerInviteLast, setLearnerInviteLast] = useState("")
   const [editingSlots, setEditingSlots] = useState(false)
   const [slotsInput, setSlotsInput] = useState("")
+  /* Name and description, edited in place. The name is picked from the
+     stored department list like it was at creation, with "Other" for a name
+     the list does not hold. */
+  const [editingDetails, setEditingDetails] = useState(false)
+  const [nameChoice, setNameChoice] = useState("")
+  const [nameInput, setNameInput] = useState("")
+  const [descriptionInput, setDescriptionInput] = useState("")
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const { options: departmentOptions } = useReferenceOptions(REFERENCE_DEPARTMENT)
 
   useEffect(() => {
     if (open && group) {
       setSlotsInput(String(group.totalSlots ?? 0))
       setEditingSlots(false)
+      setEditingDetails(false)
+      setConfirmDelete(false)
+      setNameInput(group.departmentName ?? "")
+      setDescriptionInput(group.departmentDescription ?? "")
     }
   }, [open, group])
+
+  useEffect(() => {
+    if (!open || !group) return
+    const listed = departmentOptions.includes(group.departmentName)
+    setNameChoice(listed ? group.departmentName : OTHER_DEPARTMENT)
+  }, [open, group, departmentOptions])
+
+  const updateDetailsMutation = useMutation({
+    mutationFn: () =>
+      updateDepartment(departmentId, {
+        departmentName: nameInput.trim(),
+        departmentDescription: descriptionInput.trim() || null,
+        totalSlots: group.totalSlots,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["departments"] })
+      toast.success("Department updated.")
+      setEditingDetails(false)
+    },
+    onError: (err) => toast.error(backendMessage(err, "Unable to update the department.")),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => archiveDepartment(departmentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["departments"] })
+      toast.success("Department deleted.")
+      setConfirmDelete(false)
+      onOpenChange(false)
+    },
+    onError: (err) => toast.error(backendMessage(err, "Unable to delete the department.")),
+  })
 
   const updateSlotsMutation = useMutation({
     mutationFn: (nextTotalSlots) =>
@@ -557,6 +603,92 @@ function ManageGroupDialog({
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Name and description */}
+          {isOwner ? (
+            <section className="rounded-lg border p-3">
+              {editingDetails ? (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-department-name">Department</Label>
+                    <Select
+                      value={nameChoice}
+                      onValueChange={(value) => {
+                        setNameChoice(value)
+                        setNameInput(value === OTHER_DEPARTMENT ? "" : value)
+                      }}
+                    >
+                      <SelectTrigger id="edit-department-name" className="w-full">
+                        <SelectValue placeholder="Select a department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departmentOptions.filter((name) => name !== "Other").map((name) => (
+                          <SelectItem key={name} value={name}>
+                            {name}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value={OTHER_DEPARTMENT}>Other (type a name)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {nameChoice === OTHER_DEPARTMENT ? (
+                      <Input
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        placeholder="Department name"
+                        maxLength={150}
+                      />
+                    ) : null}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-department-description">Description (optional)</Label>
+                    <Textarea
+                      id="edit-department-description"
+                      value={descriptionInput}
+                      onChange={(e) => setDescriptionInput(e.target.value)}
+                      maxLength={500}
+                      rows={2}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setEditingDetails(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => updateDetailsMutation.mutate()}
+                      disabled={!nameInput.trim() || updateDetailsMutation.isPending}
+                    >
+                      {updateDetailsMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" aria-hidden="true" /> : null}
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{group.departmentName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {group.departmentDescription?.trim() || "No description."}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setEditingDetails(true)}>
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => setConfirmDelete(true)}
+                    >
+                      <Trash2 className="mr-1.5 size-4" aria-hidden="true" />
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </section>
+          ) : null}
+
           {/* Slots */}
           <section className="flex items-center justify-between gap-3 rounded-lg border p-3">
             <div>
@@ -934,6 +1066,36 @@ function ManageGroupDialog({
           </section>
         </div>
       </DialogContent>
+
+      {/* Deleting archives the department: its rows stay for the record,
+          the learners in it lose the grouping, and it leaves this list. */}
+      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {group.departmentName}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {groupUsedSlots > 0
+                ? `${groupUsedSlots} learner${groupUsedSlots === 1 ? "" : "s"} in this department will lose the grouping; their enrollments and progress are kept. `
+                : ""}
+              The department's {groupTotalSlots} slot{groupTotalSlots === 1 ? "" : "s"} return to the certification allocation. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault()
+                deleteMutation.mutate()
+              }}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" aria-hidden="true" /> : null}
+              Delete department
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }
