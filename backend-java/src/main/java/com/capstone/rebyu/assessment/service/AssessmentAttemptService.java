@@ -1325,6 +1325,10 @@ public class AssessmentAttemptService {
                     .durationSeconds(attempt.getDurationSeconds() == null
                             ? 0 : attempt.getDurationSeconds())
                     .isPassed(Boolean.TRUE.equals(attempt.getPassed()))
+                    .rating(attempt.getThetaCurrent() == null ? null
+                            : java.math.BigDecimal.valueOf(
+                                    com.capstone.rebyu.adaptive.engine.IrtModel.proficiencyRating(attempt.getThetaCurrent()))
+                                    .setScale(2, java.math.RoundingMode.HALF_UP))
                     .build());
         } catch (Exception e) {
             // Analytics sync must not fail the submission transaction result.

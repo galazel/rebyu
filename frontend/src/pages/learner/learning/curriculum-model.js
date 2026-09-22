@@ -279,3 +279,66 @@ export function hasSatDiagnostic({ diagnostic, examResults = [], certificationId
     )
   })
 }
+
+/* ------------------------------------------------------------- clearing
+ *
+ * What it takes for a quiz or exam to open the road past it. Sitting it is
+ * not enough: it has to be PASSED, and -- when the sitting was adaptive and
+ * measured a proficiency -- that proficiency has to be at least Proficient.
+ * A pass at a Developing rating is a pass on the day, not a reason to move
+ * the learner on to material that builds on this; the next stop stays shut
+ * until a retake shows the level. Older rows with no rating clear on the pass
+ * alone, so nothing already earned is taken away.
+ */
+
+/** The 0..100 rating from which a sitting counts as Proficient (see IrtModel). */
+export const PROFICIENT_RATING = 50
+
+/**
+ * The learner's standing on one exam, from every result row for it: the best
+ * sitting counts, so a bad retake never re-locks what a good one opened.
+ *   taken   -- sat at least once
+ *   passed  -- passed at least once
+ *   rating  -- the best proficiency measured, or null when none was
+ *   cleared -- passed at a proficient level: the gate the road reads
+ *   reason  -- why it is not cleared, in the learner's terms; null when it is
+ */
+export function examStanding(examResults, examId) {
+  const rows = (examResults ?? []).filter((row) => idOf(row?.examId) === idOf(examId))
+  if (rows.length === 0) {
+    return { taken: false, passed: false, rating: null, cleared: false, reason: "not sat yet" }
+  }
+  const passedRows = rows.filter((row) => row?.isPassed === true || row?.passed === true)
+  const ratingOf = (row) => (row?.rating == null ? null : Number(row.rating))
+  const best = (list) =>
+    list.reduce((top, row) => {
+      const value = ratingOf(row)
+      return value == null ? top : top == null ? value : Math.max(top, value)
+    }, null)
+  const rating = best(rows)
+  if (passedRows.length === 0) {
+    return { taken: true, passed: false, rating, cleared: false, reason: "not passed yet" }
+  }
+  const passedRating = best(passedRows)
+  if (passedRating != null && passedRating < PROFICIENT_RATING) {
+    return {
+      taken: true,
+      passed: true,
+      rating: passedRating,
+      cleared: false,
+      reason: `passed, but proficiency is ${Math.round(passedRating)} — reach ${PROFICIENT_RATING} (Proficient) to continue`,
+    }
+  }
+  return { taken: true, passed: true, rating: passedRating ?? rating, cleared: true, reason: null }
+}
+
+/** Ids of every exam the learner has cleared, as strings. */
+export function clearedExamIds(examResults) {
+  const ids = new Set()
+  for (const row of examResults ?? []) {
+    const id = idOf(row?.examId)
+    if (!id || ids.has(id)) continue
+    if (examStanding(examResults, id).cleared) ids.add(id)
+  }
+  return ids
+}

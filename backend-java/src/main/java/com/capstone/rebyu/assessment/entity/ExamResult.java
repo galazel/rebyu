@@ -42,4 +42,13 @@ public class ExamResult {
 
     @Column(name = "is_passed", nullable = false)
     private boolean isPassed;
+
+    /**
+     * The proficiency an adaptive sitting measured, 0..100 (see
+     * IrtModel.rating). Null for a fixed paper and for rows written before
+     * this was recorded. The learning road reads it: a pass at a low rating
+     * does not open the next stop.
+     */
+    @Column(name = "rating", precision = 5, scale = 2)
+    private BigDecimal rating;
 }
