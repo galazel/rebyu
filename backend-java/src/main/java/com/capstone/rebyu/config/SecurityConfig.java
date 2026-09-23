@@ -172,6 +172,13 @@ public class SecurityConfig {
                         .requestMatchers("/api/community/**").authenticated()
                         // The AI tutor is Pro and costs money per call; it was public.
                         .requestMatchers("/api/ai/tutor", "/api/ai/tutor/**").authenticated()
+                        // Past-paper import writes questions into a certification's
+                        // bank. Listed here rather than left to @PreAuthorize on the
+                        // controller: this application never enables method security,
+                        // so those annotations do nothing, and `anyRequest().permitAll()`
+                        // below would otherwise leave these endpoints open. The
+                        // controller additionally checks for the ADMIN role.
+                        .requestMatchers("/api/ai/past-papers/**").authenticated()
                         .requestMatchers("/api/admin/subscriptions/**", "/api/admin/subscriptions").authenticated()
                         // The question bank (including choices/correct answers) had no
                         // auth at all -- anyone could read, create, edit, or delete any

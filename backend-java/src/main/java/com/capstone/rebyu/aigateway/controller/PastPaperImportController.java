@@ -1,16 +1,22 @@
 package com.capstone.rebyu.aigateway.controller;
 
 import com.capstone.rebyu.aigateway.service.PastPaperImportService;
+import com.capstone.rebyu.auth.dto.CurrentUserDto;
+import com.capstone.rebyu.auth.service.CognitoAuthService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -22,9 +28,14 @@ import java.util.Map;
  * text layer. {@code /parse} writes nothing and returns drafts with their
  * problems named; {@code /import} writes the ones that were approved.
  *
- * <p>Admin-only. These papers are published under terms that permit
- * educational reuse while requiring attribution, so importing them is a
- * curation decision about the whole bank rather than routine authoring.
+ * <p>ADMIN ONLY, AND CHECKED IN CODE. {@code @PreAuthorize} is NOT relied on
+ * here: this application never enables method security, so every
+ * {@code @PreAuthorize} in the codebase is inert. Combined with
+ * {@code anyRequest().permitAll()} in the security configuration, an endpoint
+ * whose only protection was that annotation would be completely open --
+ * which these were, briefly, before this check was added. The role is
+ * therefore resolved from the caller's token and compared here, and the paths
+ * are additionally listed as authenticated in SecurityConfig.
  */
 @RestController
 @RequestMapping("/api/ai/past-papers")
@@ -32,10 +43,11 @@ import java.util.Map;
 public class PastPaperImportController {
 
     private final PastPaperImportService pastPaperImportService;
+    private final CognitoAuthService auth;
 
     @PostMapping(value = "/parse", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('ADMIN')")
     public Map<String, Object> parse(
+            @AuthenticationPrincipal Jwt jwt,
             @RequestParam("certificationId") Long certificationId,
             // What the required source citation is built from -- "2025A_FE-A",
             // "2024S_IP". Collected rather than guessed from the filename: a
@@ -44,12 +56,35 @@ public class PastPaperImportController {
             @RequestParam(value = "kind", required = false) String kind,
             @RequestParam("questions") MultipartFile questions,
             @RequestParam("answers") MultipartFile answers) {
+        requireAdmin(jwt);
         return pastPaperImportService.parse(certificationId, paperName, kind, questions, answers);
     }
 
     @PostMapping(value = "/import", consumes = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize("hasRole('ADMIN')")
-    public Map<String, Object> importApproved(@RequestBody Map<String, Object> request) {
+    public Map<String, Object> importApproved(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody Map<String, Object> request) {
+        requireAdmin(jwt);
         return pastPaperImportService.importApproved(request);
+    }
+
+    /**
+     * Resolves the caller and refuses anyone who is not an administrator.
+     *
+     * <p>A missing token is rejected before the role is read, so an
+     * unauthenticated request cannot reach the AI service at all.
+     */
+    private void requireAdmin(Jwt jwt) {
+        if (jwt == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                    "Authentication is required.");
+        }
+        CurrentUserDto user = auth.syncCurrentUser(jwt, jwt.getTokenValue());
+        String role = user == null || user.role() == null
+                ? "" : user.role().trim().toUpperCase(Locale.ROOT);
+        if (!role.contains("ADMIN")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Importing past papers is restricted to administrators.");
+        }
     }
 }
