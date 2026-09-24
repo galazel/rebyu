@@ -59,6 +59,7 @@ public class AdaptivePolicy {
     /** Engine-picked and delivered whole (see ASSEMBLED_PAPER_TYPES). */
     public boolean isAssembledPaper(Exam exam) {
         if (exam == null || exam.getExamType() == null) return false;
+        if (exam.getOwnerDepartment() != null) return false;
         return properties.isEnabled() && ASSEMBLED_PAPER_TYPES.contains(exam.getExamType().getExamTypeText());
     }
 
@@ -67,9 +68,21 @@ public class AdaptivePolicy {
         return isAdaptive(exam) && !isAssembledPaper(exam);
     }
 
-    /** Whether this exam is run by the engine: its type is, or it is a lesson-scoped knowledge check. */
+    /**
+     * Whether this exam is run by the engine: its type is, or it is a
+     * lesson-scoped knowledge check.
+     *
+     * <p>A department's own assessment never is, whatever its type. The head
+     * wrote its questions themselves and the list they wrote IS the paper; run
+     * through the engine it would ignore that list and serve the official bank
+     * instead -- a class sitting a quiz the head never set. A department mock
+     * exam was doing exactly that, and was additionally refused for want of
+     * the Pro mock-exam entitlement on a paper the institution already paid
+     * for.
+     */
     public boolean isAdaptive(Exam exam) {
         if (exam == null || exam.getExamType() == null) return false;
+        if (exam.getOwnerDepartment() != null) return false;
         String type = exam.getExamType().getExamTypeText();
         if (isAdaptiveType(type)) return true;
         return properties.isEnabled() && KNOWLEDGE_CHECK.equals(type) && exam.getLesson() != null;
@@ -89,6 +102,22 @@ public class AdaptivePolicy {
     public int targetCount(String examTypeText) {
         Integer configured = properties.getItemCounts().get(examTypeText);
         return configured == null || configured <= 0 ? 10 : configured;
+    }
+
+    /**
+     * How many items this type should end its final round on.
+     *
+     * <p>Zero for the types that never have one (see
+     * {@link #allowsFinalRound}), so callers can use this without repeating
+     * that test.
+     */
+    public int finalRoundCount(String examTypeText) {
+        if (!allowsFinalRound(examTypeText)) {
+            return 0;
+        }
+        Integer configured = properties.getFinalRoundCounts().get(examTypeText);
+        return configured == null || configured < 0
+                ? properties.getFinalRoundMax() : configured;
     }
 
     public static boolean isWorkspaceType(String questionType) {

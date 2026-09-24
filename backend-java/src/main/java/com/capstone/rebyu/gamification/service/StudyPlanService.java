@@ -195,30 +195,33 @@ public class StudyPlanService {
       throw new EntityNotFoundException("Study plan not found: " + planId);
     }
 
-    StudyPlanTaskStatus row = taskStatusRepository
-        .findByPlan_PlanIdAndEventId(planId, eventId)
-        .orElseGet(() -> {
-          StudyPlanTaskStatus created = new StudyPlanTaskStatus();
-          created.setPlan(plan);
-          created.setLearner(plan.getLearner());
-          created.setEventId(eventId);
-          return created;
-        });
-
     LocalDateTime now = LocalDateTime.now();
-    row.setStatus(normalised);
-    row.setUpdatedAt(now);
 
-    // Kept from the first start rather than overwritten, so a resumed session
-    // still reports when the learner actually began it.
-    if (StudyPlanTaskStatus.IN_PROGRESS.equals(normalised) && row.getStartedAt() == null) {
-      row.setStartedAt(now);
-    }
-    if (StudyPlanTaskStatus.COMPLETED.equals(normalised)) {
-      row.setCompletedAt(now);
-    }
+    /* Upserted in one statement rather than read-then-save.
+     *
+     * The host reports IN_PROGRESS as the activity opens and COMPLETED as it
+     * finishes, and a remount fires that pair again -- so two writers routinely
+     * arrive for the same (plan, event) at once, both find no row, and the
+     * second dies on `uk_study_plan_task_plan_event`. The casualty was usually
+     * the COMPLETED write, which left the task unfinished and the scheduler
+     * offering it again no matter how many times the learner had done it.
+     * Letting the database resolve the conflict is what makes the two
+     * converge. See `upsertStatus` for how the timestamps are preserved. */
+    taskStatusRepository.upsertStatus(
+        planId,
+        plan.getLearner().getLearnerId(),
+        eventId,
+        normalised,
+        StudyPlanTaskStatus.IN_PROGRESS.equals(normalised) ? now : null,
+        StudyPlanTaskStatus.COMPLETED.equals(normalised) ? now : null,
+        now);
 
-    StudyPlanTaskStatus saved = taskStatusRepository.save(row);
+    // Read back rather than assumed: the row that exists now is the merge of
+    // this write and whatever else got there first.
+    StudyPlanTaskStatus saved = taskStatusRepository
+        .findByPlan_PlanIdAndEventId(planId, eventId)
+        .orElseThrow(() -> new IllegalStateException(
+            "Task status vanished after upsert: plan " + planId + ", event " + eventId));
     return new TaskStatusDto(planId, saved.getEventId(), saved.getStatus(),
         saved.getStartedAt(), saved.getCompletedAt());
   }

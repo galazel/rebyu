@@ -30,8 +30,38 @@ public class AdaptiveProperties {
             "DIAGNOSTIC", 20,
             "KNOWLEDGE_CHECK", 5));
 
-    /** At most this many programming/diagram items, served last as the final round. */
-    private int finalRoundMax = 2;
+    /**
+     * How many items each adaptive type ends on as its final round.
+     *
+     * <p>The final round is the written, coded and drawn work -- the part that
+     * cannot be marked the instant it is answered, so it is served last and
+     * graded with the paper. It used to be one number for every assessment,
+     * which made a unit exam end on the same two items as a lesson quiz: the
+     * bigger the assessment, the smaller the share of it that asked for
+     * anything beyond picking an option.
+     *
+     * <p>Sized to the assessment instead: a quiz closes on 2, a topic exam on
+     * 5, a unit exam on 10. Anything not listed falls back to
+     * {@link #finalRoundMax}. A type is still capped by what its bank actually
+     * holds -- see {@code AdaptiveAttemptService}, which takes the smaller of
+     * this and the workspace items available.
+     */
+    private Map<String, Integer> finalRoundCounts = new LinkedHashMap<>(Map.of(
+            "LESSON_QUIZ", 0,
+            "MIDDLE_EXAM", 0,
+            "MAJOR_EXAM", 0));
+
+    /**
+     * The final-round size for a type with no entry above.
+     *
+     * <p>Zero everywhere by decision (2026-09-23): every assessment is now
+     * answered and marked in one pass. The trade is real and worth knowing --
+     * a final round is the ONLY way a workspace item reaches a learner, so
+     * with these at zero the written and critical-thinking questions in the
+     * bank are never served. Raise the entry for a type to bring them back;
+     * nothing else has to change.
+     */
+    private int finalRoundMax = 0;
 
     /**
      * Bank replenishment: when a learner has met this share of a level's

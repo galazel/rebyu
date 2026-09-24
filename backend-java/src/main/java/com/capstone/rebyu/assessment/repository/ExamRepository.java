@@ -88,4 +88,76 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
             """)
     java.time.LocalDateTime findLastServedAt(
             @Param("learnerId") Long learnerId, @Param("examTypeText") String examTypeText);
+
+    /* Curriculum progression.
+     *
+     * Each of these counts the prerequisites the learner has NOT yet passed,
+     * so a result of zero means the gate is open. Institution-owned papers are
+     * excluded throughout: a class's assessments are the institution's to
+     * sequence, the same exemption the retake gate makes.
+     *
+     * CLEARED, not merely passed -- the same rule the learning road applies in
+     * `curriculum-model.js`: where the sitting measured a proficiency, that
+     * proficiency reaching Proficient is the whole test, and the pass mark
+     * does not enter into it. An adaptive paper keeps serving harder items
+     * until it finds the edge of what the learner knows, so a raw percentage
+     * under the pass mark is the normal shape of a sitting that measured a
+     * real level -- gating on it as well locked out learners the engine had
+     * just rated Proficient.
+     *
+     * Read from `exam_results` rather than `assessment_attempts` so the server
+     * and the screen answer from the same rows: `rating` lives only here.
+     * A row with no rating (a fixed paper, or one written before ratings were
+     * recorded) clears on the pass alone, so nothing already earned is taken
+     * away. */
+
+    /** Earlier lessons in this topic whose quiz the learner has not passed. */
+    @Query("""
+            SELECT COUNT(e) FROM Exam e
+             WHERE e.examType.examTypeText = 'LESSON_QUIZ'
+               AND e.ownerDepartment IS NULL
+               AND e.lesson.middleCategory.middleCategoryId = :middleCategoryId
+               AND e.lesson.lessonId < :lessonId
+               AND NOT EXISTS (SELECT 1 FROM ExamResult r
+                                WHERE r.exam = e AND r.learner.learnerId = :learnerId
+                                  AND ((r.rating IS NOT NULL AND r.rating >= :proficient)
+                                     OR (r.rating IS NULL AND r.isPassed = TRUE)))
+            """)
+    long countUnpassedEarlierLessonQuizzes(
+            @Param("middleCategoryId") Long middleCategoryId,
+            @Param("lessonId") Long lessonId,
+            @Param("learnerId") Long learnerId,
+            @Param("proficient") java.math.BigDecimal proficient);
+
+    /** Lessons in this topic whose quiz the learner has not passed. */
+    @Query("""
+            SELECT COUNT(e) FROM Exam e
+             WHERE e.examType.examTypeText = 'LESSON_QUIZ'
+               AND e.ownerDepartment IS NULL
+               AND e.lesson.middleCategory.middleCategoryId = :middleCategoryId
+               AND NOT EXISTS (SELECT 1 FROM ExamResult r
+                                WHERE r.exam = e AND r.learner.learnerId = :learnerId
+                                  AND ((r.rating IS NOT NULL AND r.rating >= :proficient)
+                                     OR (r.rating IS NULL AND r.isPassed = TRUE)))
+            """)
+    long countUnpassedLessonQuizzesInMiddle(
+            @Param("middleCategoryId") Long middleCategoryId,
+            @Param("learnerId") Long learnerId,
+            @Param("proficient") java.math.BigDecimal proficient);
+
+    /** Topics in this unit whose module exam the learner has not passed. */
+    @Query("""
+            SELECT COUNT(e) FROM Exam e
+             WHERE e.examType.examTypeText = 'MIDDLE_EXAM'
+               AND e.ownerDepartment IS NULL
+               AND e.middleCategory.majorCategory.majorCategoryId = :majorCategoryId
+               AND NOT EXISTS (SELECT 1 FROM ExamResult r
+                                WHERE r.exam = e AND r.learner.learnerId = :learnerId
+                                  AND ((r.rating IS NOT NULL AND r.rating >= :proficient)
+                                     OR (r.rating IS NULL AND r.isPassed = TRUE)))
+            """)
+    long countUnpassedMiddleExamsInMajor(
+            @Param("majorCategoryId") Long majorCategoryId,
+            @Param("learnerId") Long learnerId,
+            @Param("proficient") java.math.BigDecimal proficient);
 }

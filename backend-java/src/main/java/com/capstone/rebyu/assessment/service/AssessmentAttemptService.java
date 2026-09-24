@@ -74,6 +74,15 @@ import java.util.stream.Collectors;
 public class AssessmentAttemptService {
 
     private static final Duration SUBMIT_GRACE = Duration.ofSeconds(30);
+    /**
+     * The 0..100 proficiency from which a sitting counts as Proficient.
+     *
+     * Must stay equal to PROFICIENT_RATING in `curriculum-model.js`: the road
+     * draws its locks from that constant and this gate enforces them, so a
+     * difference between the two shows up as a lesson the learner can see is
+     * open and cannot start.
+     */
+    private static final BigDecimal PROFICIENT_RATING = new BigDecimal("50");
     private static final String TYPE_DIAGNOSTIC = "DIAGNOSTIC";
     private static final String TYPE_QUIZ = "QUIZ";
     private static final String TYPE_MOCK = "MOCK_EXAM";
@@ -259,7 +268,8 @@ public class AssessmentAttemptService {
         // Mock exams are a premium feature: require personal Pro or an
         // institution-sponsored MOCK_EXAM_ACCESS entitlement for this
         // certification before an attempt can be created (structured 403).
-        if (TYPE_MOCK.equals(exam.getExamType().getExamTypeText())) {
+        if (TYPE_MOCK.equals(exam.getExamType().getExamTypeText())
+                && exam.getOwnerDepartment() == null) {
             learnerEntitlementService.requireLearnerEntitlement(
                     learnerId, Entitlements.MOCK_EXAM_ACCESS,
                     exam.getCertification().getCertificationId());
@@ -987,7 +997,18 @@ public class AssessmentAttemptService {
                     buildProgrammingTestReviews(attemptQuestion, answer, source, releaseAnswers),
                     programOutputFor(answer),
                     programErrorFor(answer),
-                    source == null ? null : source.getDifficultyLevel()
+                    source == null ? null : source.getDifficultyLevel(),
+                    /* The figures the item was asked with. Past papers carry a
+                       great many -- a stem reading "refer to the diagram" is
+                       not reviewable without it, and the review is the only
+                       place the learner sees the question again. */
+                    source == null ? null : source.getImageKey(),
+                    source == null || !isMultipleChoice(source.getQuestionType())
+                            ? List.of()
+                            : source.getChoices().stream()
+                                    .filter(c -> c.getImageKey() != null && !c.getImageKey().isBlank())
+                                    .map(c -> new ReviewChoiceImageDto(c.getChoiceId(), c.getImageKey()))
+                                    .toList()
             ));
         }
 
@@ -1190,6 +1211,7 @@ public class AssessmentAttemptService {
         // an eligible institution-sponsored entitlement (shown as locked upfront;
         // startAttempt also hard-blocks with a structured 403).
         if (TYPE_MOCK.equals(type)
+                && exam.getOwnerDepartment() == null
                 && !learnerEntitlementService.hasLearnerEntitlement(
                         learnerId, Entitlements.MOCK_EXAM_ACCESS, certificationId)) {
             return "Mock exams are part of REBYU Pro. Upgrade to take this mock exam.";
@@ -1218,7 +1240,78 @@ public class AssessmentAttemptService {
                 && publishedDiagnosticExists(certificationId)) {
             return "Complete the diagnostic assessment before studying lessons.";
         }
-        return null;
+        return progressionLockReason(exam, type, learnerId);
+    }
+
+    /**
+     * Why the curriculum is not open here yet, or null when it is.
+     *
+     * <p>The curriculum is walked in order: a lesson's quiz must be passed
+     * before the next lesson's, every quiz in a topic before that topic's
+     * module exam, and every module exam in a unit before the unit exam. The
+     * learner is told this on screen ("Retake it to open the next lesson"), and
+     * until now that was the only place it was true -- the rule lived in the
+     * browser, so anyone calling the API directly, or simply visiting a later
+     * lesson's URL, walked straight past it.
+     *
+     * <p>Deliberately narrow, because this gate can lock out learners who have
+     * done nothing wrong:
+     * <ul>
+     *   <li>only the three curriculum types are gated. The diagnostic, mock
+     *       exams, challenges, recall sessions and tutor-generated practice are
+     *       not part of the sequence and are left alone;</li>
+     *   <li>institution-owned papers are exempt, matching the retake gate: a
+     *       class's assessments are the institution's to sequence;</li>
+     *   <li>the test is CLEARED, the same rule the learning road applies: passed,
+     *       and -- when the sitting measured a proficiency -- at Proficient or
+     *       better. The two must agree, or the screen and the server disagree
+     *       about whether a learner may go on. A sitting with no rating clears
+     *       on the pass alone;</li>
+     *   <li>a prerequisite that does not exist cannot block anything -- the
+     *       queries count only real, published-curriculum exams, so a lesson
+     *       with no quiz is not a barrier.</li>
+     * </ul>
+     *
+     * <p>One query, and only for the three gated types.
+     */
+    private String progressionLockReason(Exam exam, String type, Long learnerId) {
+        if (exam.getOwnerDepartment() != null) {
+            return null;
+        }
+        switch (type == null ? "" : type) {
+            case "LESSON_QUIZ" -> {
+                Lesson lesson = exam.getLesson();
+                if (lesson == null || lesson.getMiddleCategory() == null) {
+                    return null;
+                }
+                long blocking = examRepository.countUnpassedEarlierLessonQuizzes(
+                        lesson.getMiddleCategory().getMiddleCategoryId(),
+                        lesson.getLessonId(), learnerId, PROFICIENT_RATING);
+                return blocking == 0 ? null
+                        : "Clear the previous lesson's quiz before taking this one.";
+            }
+            case "MIDDLE_EXAM" -> {
+                if (exam.getMiddleCategory() == null) {
+                    return null;
+                }
+                long blocking = examRepository.countUnpassedLessonQuizzesInMiddle(
+                        exam.getMiddleCategory().getMiddleCategoryId(), learnerId, PROFICIENT_RATING);
+                return blocking == 0 ? null
+                        : "Clear every lesson quiz in this topic before taking its exam.";
+            }
+            case "MAJOR_EXAM" -> {
+                if (exam.getMajorCategory() == null) {
+                    return null;
+                }
+                long blocking = examRepository.countUnpassedMiddleExamsInMajor(
+                        exam.getMajorCategory().getMajorCategoryId(), learnerId, PROFICIENT_RATING);
+                return blocking == 0 ? null
+                        : "Clear every topic exam in this unit before taking the unit exam.";
+            }
+            default -> {
+                return null;
+            }
+        }
     }
 
     /**

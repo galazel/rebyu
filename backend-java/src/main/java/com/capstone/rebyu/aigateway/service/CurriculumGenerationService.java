@@ -91,7 +91,13 @@ public class CurriculumGenerationService {
             String additionalInstructions,
             Long triggeredByUserId,
             String reviewMode,
-            List<String> questionTypes
+            List<String> questionTypes,
+            /* How many question-bank items to author, or null to keep the
+               configured size. */
+            Integer questionBankSize,
+            /* How many lessons the curriculum should hold in total, or null
+               to keep the configured per-category ranges. */
+            Integer lessonCount
     ) throws IOException {
         aiUploadValidator.validate(files);
 
@@ -103,7 +109,8 @@ public class CurriculumGenerationService {
 
         GenerationRequest request = recordGenerationRequest(
                 certificationId, GenerationRequest.RequestType.CERTIFICATION, additionalInstructions,
-                triggeredByUserId, reviewMode, MODE_REPLACE, questionTypes);
+                triggeredByUserId, reviewMode, MODE_REPLACE, questionTypes, questionBankSize,
+                lessonCount);
         publishAfterCommit(request.getGenerationRequestId(), certificationId);
 
         // Ingest the source so the async consumer (and later, per-lesson
@@ -171,7 +178,13 @@ public class CurriculumGenerationService {
             String additionalInstructions,
             Long triggeredByUserId,
             String reviewMode,
-            List<String> questionTypes
+            List<String> questionTypes,
+            /* How many question-bank items to author, or null to keep the
+               configured size. */
+            Integer questionBankSize,
+            /* How many lessons the curriculum should hold in total, or null
+               to keep the configured per-category ranges. */
+            Integer lessonCount
     ) throws IOException {
         aiUploadValidator.validate(files);
 
@@ -180,7 +193,8 @@ public class CurriculumGenerationService {
 
         GenerationRequest request = recordGenerationRequest(
                 certificationId, GenerationRequest.RequestType.CERTIFICATION, additionalInstructions,
-                triggeredByUserId, reviewMode, MODE_APPEND, questionTypes);
+                triggeredByUserId, reviewMode, MODE_APPEND, questionTypes, questionBankSize,
+                lessonCount);
         publishAfterCommit(request.getGenerationRequestId(), certificationId);
 
         ingestFiles(files, certificationId);
@@ -324,14 +338,15 @@ public class CurriculumGenerationService {
             Long triggeredByUserId, String reviewMode) {
         return recordGenerationRequest(
                 certificationId, type, additionalInstructions, triggeredByUserId, reviewMode,
-                MODE_REPLACE, null);
+                MODE_REPLACE, null, null, null);
     }
 
     private GenerationRequest recordGenerationRequest(
             Long certificationId, GenerationRequest.RequestType type, String additionalInstructions,
             Long triggeredByUserId, String reviewMode, String mode) {
         return recordGenerationRequest(
-                certificationId, type, additionalInstructions, triggeredByUserId, reviewMode, mode, null);
+                certificationId, type, additionalInstructions, triggeredByUserId, reviewMode, mode,
+                null, null, null);
     }
 
     /** Build the whole curriculum from scratch. */
@@ -359,7 +374,8 @@ public class CurriculumGenerationService {
      */
     private GenerationRequest recordGenerationRequest(
             Long certificationId, GenerationRequest.RequestType type, String additionalInstructions,
-            Long triggeredByUserId, String reviewMode, String mode, List<String> questionTypes) {
+            Long triggeredByUserId, String reviewMode, String mode, List<String> questionTypes,
+            Integer questionBankSize, Integer lessonCount) {
         String paramsJson;
         try {
             paramsJson = objectMapper.writeValueAsString(Map.of(
@@ -373,7 +389,19 @@ public class CurriculumGenerationService {
                     "mode", mode,
                     // Empty list = "the planner decides", which is what every
                     // run did before this was offered.
-                    "questionTypes", questionTypes == null ? List.of() : questionTypes));
+                    "questionTypes", questionTypes == null ? List.of() : questionTypes,
+                    // How many bank questions this run should author. Empty
+                    // string = "use the configured size", which is what every
+                    // run did before the create form offered the number. The
+                    // bank is the most expensive artefact a run produces and
+                    // its size was previously only changeable by editing .env
+                    // and restarting, so it was effectively fixed for everyone.
+                    "questionBankSize", questionBankSize == null ? "" : questionBankSize,
+                    // How many lessons the whole curriculum should hold. Empty
+                    // string = keep the configured per-level ranges, which
+                    // MULTIPLY out to a total no admin could predict from the
+                    // form.
+                    "lessonCount", lessonCount == null ? "" : lessonCount));
         } catch (Exception e) {
             paramsJson = null;
         }

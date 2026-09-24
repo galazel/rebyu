@@ -298,8 +298,21 @@ public final class LearnerAttemptDtos {
                produced from a hidden input describes that input. */
             String programOutput,
             String programError,
-            /** The item's authored difficulty (EASY / MEDIUM / HARD), for the review list. */
-            String difficultyLevel
+            /** The item's authored difficulty (EASY / AVERAGE / HARD), for the review list. */
+            String difficultyLevel,
+            /* The figure the item was asked with, and the one on each choice.
+               The review showed neither, so a past-paper question whose stem
+               says "refer to the diagram" was reviewed with no diagram -- the
+               learner could see they got it wrong and not see what it asked. */
+            String questionImageKey,
+            List<ReviewChoiceImageDto> choiceImages
+    ) {
+    }
+
+    /** A choice's figure in the review list, keyed by the choice it belongs to. */
+    public record ReviewChoiceImageDto(
+            Long choiceId,
+            String imageKey
     ) {
     }
 

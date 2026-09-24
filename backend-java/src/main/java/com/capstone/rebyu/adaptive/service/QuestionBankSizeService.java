@@ -57,8 +57,7 @@ public class QuestionBankSizeService {
         String type = exam.getExamType().getExamTypeText();
         int target = policy.targetCount(type);
         int required = (int) Math.ceil(target * properties.getMinBankMultiplier());
-        int finalRoundMax = AdaptivePolicy.allowsFinalRound(type) ? properties.getFinalRoundMax() : 0;
-        int requiredMain = Math.max(1, target - finalRoundMax);
+        int requiredMain = Math.max(1, target - policy.finalRoundCount(type));
         return new BankSize(pool.size(), main, workspace, required, requiredMain);
     }
 

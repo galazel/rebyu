@@ -186,7 +186,7 @@ public class ExamService {
                 examQuestionRepository.findByExam_ExamIdOrderByDisplayOrderAsc(id);
         /* An adaptive assessment draws from the scope's bank, so what has to
            exist is the bank, not an assigned list -- any list is a seed. */
-        boolean adaptive = adaptivePolicy.isAdaptiveType(exam.getExamType().getExamTypeText());
+        boolean adaptive = adaptivePolicy.isAdaptive(exam);
         if (adaptive) {
             var size = questionBankSize.measure(exam);
             if (!size.sufficient()) {
