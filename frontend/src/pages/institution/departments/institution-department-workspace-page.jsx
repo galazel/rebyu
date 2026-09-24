@@ -67,7 +67,11 @@ import {
 } from "@/services/institutionService.js"
 
 function asArray(value) {
-  return Array.isArray(value) ? value : []
+  if (Array.isArray(value)) return value
+  if (Array.isArray(value?.content)) return value.content
+  if (Array.isArray(value?.departments)) return value.departments
+  if (Array.isArray(value?.data)) return value.data
+  return []
 }
 
 function backendMessage(error, fallback) {
@@ -87,7 +91,7 @@ function lessonTitle(lesson) {
  */
 function OfficialMiddleCard({ middleCategory, buildLessonHref }) {
   const [isOpen, setIsOpen] = useState(false)
-  const lessons = middleCategory.lessons ?? []
+  const lessons = asArray(middleCategory?.lessons)
 
   return (
     <article className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
@@ -153,7 +157,7 @@ function OfficialMiddleCard({ middleCategory, buildLessonHref }) {
 }
 
 function OfficialMajorSection({ majorCategory, majorIndex, buildLessonHref }) {
-  const middleCategories = majorCategory.middleCategory ?? []
+  const middleCategories = asArray(majorCategory?.middleCategory)
 
   return (
     <section className="space-y-4">
@@ -496,49 +500,50 @@ export default function InstitutionDepartmentWorkspacePage() {
     )
   }
 
-  const certification = (certificationsQuery.data ?? []).find(
+  const certification = asArray(certificationsQuery.data).find(
     (item) =>
-      item.certificationId === group.certificationId ||
-      item.certificationId === group.institutionCert?.certificationId
+      item?.certificationId === group?.certificationId ||
+      item?.certificationId === group?.institutionCert?.certificationId ||
+      item?.certificationId === group?.institutionCertId
   )
-  const learners = (assigneesQuery.data ?? []).filter((item) => item.status === "active")
+  const learners = asArray(assigneesQuery.data).filter((item) => item?.status === "active")
   // The official curriculum tree excludes this group's own authored content
   // (that lives in the Content tab); only platform-wide majors appear here.
-  const officialMajors = (certification?.majorCategory ?? []).filter(
-    (major) => major.ownerDepartmentId == null
+  const officialMajors = asArray(certification?.majorCategory).filter(
+    (major) => major && major.ownerDepartmentId == null
   )
   const officialLessonCount = officialMajors.reduce(
     (total, major) =>
       total +
-      (major.middleCategory ?? []).reduce(
-        (moduleTotal, module) => moduleTotal + (module.lessons?.length ?? 0),
+      asArray(major?.middleCategory).reduce(
+        (moduleTotal, module) => moduleTotal + asArray(module?.lessons).length,
         0
       ),
     0
   )
 
   const examTypeById = new Map(
-    asArray(examTypesQuery.data).map((type) => [type.examTypeId, type.examTypeText])
+    asArray(examTypesQuery.data).map((type) => [type?.examTypeId, type?.examTypeText])
   )
   const questionById = new Map(
-    asArray(questionsQuery.data).map((question) => [question.questionId, question])
+    asArray(questionsQuery.data).map((question) => [question?.questionId, question])
   )
   const examQuestions = asArray(examQuestionsQuery.data)
   // Official assessments for this certification -- diagnostics, mock exams,
   // and other exam types the admin published. Read-only here, same as the
   // rest of the official curriculum.
   const certificationExams = asArray(examsQuery.data).filter(
-    (exam) => exam.certificationId === certification?.certificationId && exam.status === "PUBLISHED"
+    (exam) => exam && exam.certificationId === certification?.certificationId && exam.status === "PUBLISHED"
   )
   // This group's own exams -- kept separate from the official list above,
   // visible only within this workspace.
-  const ownGroupExams = asArray(examsQuery.data).filter((exam) => exam.ownerDepartmentId === id)
+  const ownGroupExams = asArray(examsQuery.data).filter((exam) => exam && exam.ownerDepartmentId === id)
 
   return (
     <div className="space-y-6">
       <InstitutionPageHeader
-        title={group.departmentName}
-        subtitle={group.departmentDescription || "Your assigned department workspace."}
+        title={group?.departmentName || group?.name || "Department Workspace"}
+        subtitle={group?.departmentDescription || group?.description || "Your assigned group workspace."}
         actions={<Badge>Assigned department</Badge>}
       />
       <Tabs
@@ -603,7 +608,9 @@ export default function InstitutionDepartmentWorkspacePage() {
                   majorCategory={majorCategory}
                   majorIndex={majorIndex}
                   buildLessonHref={(lessonId) =>
-                    `/institution/certifications/${certification.certificationId}/view?departmentId=${id}&lessonId=${lessonId}`
+                    certification?.certificationId
+                      ? `/institution/certifications/${certification.certificationId}/view?departmentId=${id}&lessonId=${lessonId}`
+                      : "#"
                   }
                 />
               ))}

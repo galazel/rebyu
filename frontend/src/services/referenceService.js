@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { base } from "./base.js"
 import { industries as INDUSTRY_FALLBACK } from "@/constants/industries.js"
+import { departments as DEPARTMENT_FALLBACK } from "@/constants/departments.js"
 
 /**
  * The stored pick-lists -- industries, department names -- that used to be
@@ -14,7 +15,7 @@ export const REFERENCE_DEPARTMENT = "DEPARTMENT"
 
 const FALLBACK = {
   [REFERENCE_INDUSTRY]: INDUSTRY_FALLBACK,
-  [REFERENCE_DEPARTMENT]: [],
+  [REFERENCE_DEPARTMENT]: DEPARTMENT_FALLBACK,
 }
 
 /** The active labels of one list, in display order. */
@@ -47,6 +48,8 @@ export function useReferenceOptions(kind) {
     staleTime: 5 * 60_000,
     retry: 1,
   })
-  const options = Array.isArray(query.data) && query.data.length > 0 ? query.data : FALLBACK[kind] ?? []
+  const baseFallback = FALLBACK[kind] ?? []
+  const fetched = Array.isArray(query.data) && query.data.length > 0 ? query.data : []
+  const options = Array.from(new Set([...baseFallback, ...fetched]))
   return { options, isLoading: query.isLoading, error: query.error }
 }
