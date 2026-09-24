@@ -162,6 +162,29 @@ public class SecurityConfig {
                         // BKT outbox retry/reconcile trigger real backend side effects and
                         // had no auth at all (neither here nor in the controller) -- anyone
                         // on the public internet could force-retry or reconcile mastery events.
+                        /*
+                         * The WHOLE admin subtree, not a list of the parts of it
+                         * somebody remembered.
+                         *
+                         * Only specific children were listed, so AdminController
+                         * itself -- mounted on the bare /api/admin prefix -- fell
+                         * through to the permitAll default. It carried
+                         * @PreAuthorize("hasRole('ADMIN')") at class level, which
+                         * does nothing here because method security is not enabled,
+                         * so both of its endpoints answered 200 to anyone:
+                         *
+                         *   /api/admin/metrics  -- every platform counter: user and
+                         *     learner totals, enrollments, institutions, attempt and
+                         *     pass rates, gross sales.
+                         *   /api/admin/payments -- the payments ledger, with each
+                         *     paying learner's NAME, EMAIL, payment reference and
+                         *     amount.
+                         *
+                         * Matching the subtree rather than its members means a new
+                         * admin controller is covered the day it is written instead
+                         * of the day someone notices.
+                         */
+                        .requestMatchers("/api/admin/**").authenticated()
                         .requestMatchers("/api/admin/bkt/**", "/api/admin/adaptive/**").authenticated()
                         .requestMatchers("/api/admin/reference/**").authenticated()
                         .requestMatchers("/api/admin/community/reports/**").authenticated()
@@ -179,6 +202,88 @@ public class SecurityConfig {
                         // below would otherwise leave these endpoints open. The
                         // controller additionally checks for the ADMIN role.
                         .requestMatchers("/api/ai/past-papers/**").authenticated()
+                        /*
+                         * Workflow runs drive the AI generation pipeline: listing
+                         * runs, streaming their output, and cancelling, retrying or
+                         * restarting them. Restarting spends money on the provider,
+                         * and the run payloads are unreleased certification content.
+                         * Only /api/ai/tutor and /api/ai/past-papers were listed, so
+                         * this controller -- ADMIN-only by intent, via an inert
+                         * class-level @PreAuthorize -- was fully public.
+                         */
+                        .requestMatchers("/api/ai/workflows/**").authenticated()
+                        /*
+                         * A learner's own mastery, streak and notification settings.
+                         * All three controllers relied solely on @PreAuthorize
+                         * ("hasRole('LEARNER')") and were never listed here, so they
+                         * fell through to permitAll. They answered 500 rather than
+                         * 401 to an anonymous caller -- the handler ran and
+                         * dereferenced a null Jwt -- which is reachability, not
+                         * protection.
+                         */
+                        .requestMatchers("/api/bkt/**").authenticated()
+                        .requestMatchers("/api/streaks/**").authenticated()
+                        .requestMatchers("/api/notification-preferences/**").authenticated()
+                        /*
+                         * The WHOLE AI subtree. Only /tutor, /past-papers and
+                         * /workflows had been listed, so the generation endpoints
+                         * -- /api/ai/curriculum/generate, /api/ai/lessons/generate,
+                         * /api/ai/questions/generate and the /api/ai/documents
+                         * corpus (upload and DELETE included) -- were public. Each
+                         * generate call spends money with the model provider and
+                         * writes curriculum. Two of those controllers did not take
+                         * a Jwt at all. Matching the subtree also means the next AI
+                         * controller is covered before it is written.
+                         */
+                        .requestMatchers("/api/ai/**").authenticated()
+                        /*
+                         * Generic scaffolding CRUD that never had authentication of
+                         * any kind -- no matcher here, no check in the controller,
+                         * no identity resolved from the token. Each exposes GET,
+                         * POST, PUT and DELETE over whole tables:
+                         *
+                         *   /api/learner-orders, /api/learner-order-details -- every
+                         *     learner's purchase records, readable AND writable.
+                         *   /api/learner-completed-lessons -- progress, with the
+                         *     learner named in the path: anyone could mark any
+                         *     lesson complete for anyone.
+                         *   /api/exam-questions -- the question list of any exam.
+                         *   /api/learner-invitations -- every institution's
+                         *     outstanding invitations.
+                         *   /api/achievements, /api/exam-types, /api/leaderboards --
+                         *     catalogue and ranking data, writable by anyone.
+                         *
+                         * Authentication is the floor, not the finished job: these
+                         * still take a learner id from the client rather than the
+                         * token, so a signed-in learner can still address another
+                         * learner's row. That is tenant scoping and is tracked
+                         * separately; blocking anonymous access is what closes the
+                         * hole that is open to the whole internet.
+                         */
+                        .requestMatchers("/api/learner-orders/**", "/api/learner-order-details/**").authenticated()
+                        .requestMatchers("/api/learner-completed-lessons/**").authenticated()
+                        .requestMatchers("/api/learner-invitations/**").authenticated()
+                        .requestMatchers("/api/exam-questions/**", "/api/exam-types/**").authenticated()
+                        .requestMatchers("/api/achievements/**", "/api/leaderboards/**").authenticated()
+                        /*
+                         * Learner-owned tooling and state that already resolves the
+                         * learner from the token in every handler, but was never
+                         * listed here -- so the protection was one forgotten me(jwt)
+                         * away, and anonymous callers reached the handlers (answering
+                         * 500 on a null Jwt rather than 401). /api/learner-tools
+                         * includes library file upload and delete; /api/subscription
+                         * includes checkout and cancel.
+                         */
+                        .requestMatchers("/api/learner-practice/**", "/api/learner-tools/**").authenticated()
+                        .requestMatchers("/api/dashboard-layout/**", "/api/gamification/**").authenticated()
+                        .requestMatchers("/api/subscription/**").authenticated()
+                        .requestMatchers("/api/institution/files/**").authenticated()
+                        /*
+                         * /api/subscription-plans is deliberately NOT listed. It
+                         * serves the individual and institutional price lists to the
+                         * signed-out pricing page, reads no identity and returns no
+                         * per-customer data.
+                         */
                         .requestMatchers("/api/admin/subscriptions/**", "/api/admin/subscriptions").authenticated()
                         // The question bank (including choices/correct answers) had no
                         // auth at all -- anyone could read, create, edit, or delete any

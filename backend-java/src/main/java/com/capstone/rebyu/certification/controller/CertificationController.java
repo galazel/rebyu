@@ -91,13 +91,22 @@ public class CertificationController {
                DESCRIPTIVE, CRITICAL_THINKING. Omitted, the planner researches
                them -- which is the behaviour every run had before the create
                form offered the choice. */
-            @RequestParam(value = "questionTypes", required = false) List<String> questionTypes
+            @RequestParam(value = "questionTypes", required = false) List<String> questionTypes,
+            /* How many question-bank items this run should author. Omitted,
+               the configured size is used -- the behaviour every run had
+               before the create form offered the number. Clamped to a sane
+               range on the Python side, which is where it is spent. */
+            @RequestParam(value = "questionBankSize", required = false) Integer questionBankSize,
+            /* How many lessons the curriculum should hold in total. Omitted,
+               the configured per-level ranges decide. */
+            @RequestParam(value = "lessonCount", required = false) Integer lessonCount
     ) throws IOException {
         CurrentUserDto user = requireAdmin(jwt);
-        log.info("AI certification creation requested for '{}' (reviewMode={}, questionTypes={})",
-                dto.getTitle(), reviewMode, questionTypes);
+        log.info("AI certification creation requested for '{}' (reviewMode={}, questionTypes={}, bankSize={})",
+                dto.getTitle(), reviewMode, questionTypes, questionBankSize);
         CertificationDto created = curriculumGenerationService.generateForNewCertification(
-                dto, files, additionalInstructions, user.userId(), reviewMode, questionTypes
+                dto, files, additionalInstructions, user.userId(), reviewMode, questionTypes,
+                questionBankSize, lessonCount
         );
         if (badge != null && !badge.isEmpty()) {
             created.setBadgeImageKey(badgeService.replace(created.getCertificationId(), badge));
@@ -148,13 +157,22 @@ public class CertificationController {
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @RequestParam(value = "additionalInstructions", required = false) String additionalInstructions,
             @RequestParam(value = "reviewMode", required = false) String reviewMode,
-            @RequestParam(value = "questionTypes", required = false) List<String> questionTypes
+            @RequestParam(value = "questionTypes", required = false) List<String> questionTypes,
+            /* How many question-bank items this run should author. Omitted,
+               the configured size is used -- the behaviour every run had
+               before the create form offered the number. Clamped to a sane
+               range on the Python side, which is where it is spent. */
+            @RequestParam(value = "questionBankSize", required = false) Integer questionBankSize,
+            /* How many lessons the curriculum should hold in total. Omitted,
+               the configured per-level ranges decide. */
+            @RequestParam(value = "lessonCount", required = false) Integer lessonCount
     ) throws IOException {
         CurrentUserDto user = requireAdmin(jwt);
-        log.info("AI append requested for certification {} (reviewMode={}, questionTypes={})",
-                id, reviewMode, questionTypes);
+        log.info("AI append requested for certification {} (reviewMode={}, questionTypes={}, bankSize={})",
+                id, reviewMode, questionTypes, questionBankSize);
         return curriculumGenerationService.appendToExistingCertification(
-                id, files, additionalInstructions, user.userId(), reviewMode, questionTypes
+                id, files, additionalInstructions, user.userId(), reviewMode, questionTypes,
+                questionBankSize, lessonCount
         );
     }
 

@@ -1,13 +1,12 @@
 package com.capstone.rebyu.gamification.controller;
 
-import com.capstone.rebyu.auth.service.CognitoAuthService;
+import com.capstone.rebyu.auth.security.RoleGuard;
 import com.capstone.rebyu.gamification.entity.NotificationPreference;
 import com.capstone.rebyu.gamification.repository.NotificationPreferenceRepository;
 import com.capstone.rebyu.user.entity.Learner;
 import com.capstone.rebyu.user.repository.LearnerRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -17,13 +16,12 @@ import org.springframework.web.bind.annotation.*;
 public class NotificationPreferenceController {
   @Autowired private NotificationPreferenceRepository prefRepository;
   @Autowired private LearnerRepository learnerRepository;
-  @Autowired private CognitoAuthService auth;
+  @Autowired private RoleGuard guard;
 
   @GetMapping("/me")
-  @PreAuthorize("hasRole('LEARNER')")
   public ResponseEntity<NotificationPreference> getPreferences(
       @AuthenticationPrincipal Jwt jwt) {
-    var currentUser = auth.syncCurrentUser(jwt, jwt.getTokenValue());
+    var currentUser = guard.requireLearner(jwt);
     var pref = prefRepository.findByLearner_LearnerId(currentUser.getLearnerId())
         .orElseGet(() -> {
           Learner learner = learnerRepository.findById(currentUser.getLearnerId()).orElseThrow();
@@ -35,11 +33,10 @@ public class NotificationPreferenceController {
   }
 
   @PutMapping("/me")
-  @PreAuthorize("hasRole('LEARNER')")
   public ResponseEntity<NotificationPreference> updatePreferences(
       @RequestBody NotificationPreference request,
       @AuthenticationPrincipal Jwt jwt) {
-    var currentUser = auth.syncCurrentUser(jwt, jwt.getTokenValue());
+    var currentUser = guard.requireLearner(jwt);
     var pref = prefRepository.findByLearner_LearnerId(currentUser.getLearnerId())
         .orElseGet(() -> {
           Learner learner = learnerRepository.findById(currentUser.getLearnerId()).orElseThrow();

@@ -20,7 +20,9 @@ import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -398,10 +400,23 @@ public class CognitoAuthService {
 
         // Institution members carry their institution so the portal can scope
         // to it; their role comes from the INSTITUTION user type.
-        DepartmentHead membership = departmentHeadRepository.findByUser_UserId(user.getUserId())
-                .stream()
-                .findFirst()
-                .orElse(null);
+        //
+        // One person can hold a membership in more than one institution, and
+        // the portal decides an owner-wide or department-scoped view from the
+        // single role reported here -- so the row is chosen, not taken at
+        // random. A DEPARTMENT_HEAD account is never an owner: its own owner
+        // row (if it has one, in some other institution) must not be what the
+        // portal sees, or it lands on the institution-wide dashboard.
+        boolean departmentHeadAccount = user.getUserType() != null
+                && DEPARTMENT_HEAD_USER_TYPE.equalsIgnoreCase(user.getUserType().getUserTypeText());
+        List<DepartmentHead> memberships = departmentHeadRepository.findByUser_UserId(user.getUserId());
+        DepartmentHead membership = memberships.stream()
+                .filter(row -> !departmentHeadAccount
+                        || row.getHeadRole() != DepartmentHead.HeadRole.owner)
+                .min(Comparator.comparing(DepartmentHead::getDepartmentHeadId))
+                .orElseGet(() -> memberships.stream()
+                        .min(Comparator.comparing(DepartmentHead::getDepartmentHeadId))
+                        .orElse(null));
         Long institutionId = membership != null ? membership.getInstitution().getInstitutionId() : null;
         String departmentHeadRole = membership != null ? membership.getHeadRole().name() : null;
 

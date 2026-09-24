@@ -51,7 +51,7 @@ public class AdaptiveAdminController {
         String type = exam.getExamType().getExamTypeText();
         QuestionBankSizeService.BankSize size = bankSize.measure(exam);
         return new BankSizeDto(examId, type, policy.isAdaptiveType(type), policy.targetCount(type),
-                properties.getFinalRoundMax(), size.total(), size.main(), size.workspace(),
+                policy.finalRoundCount(type), size.total(), size.main(), size.workspace(),
                 size.required(), size.requiredMain(), size.sufficient());
     }
 

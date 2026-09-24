@@ -2,9 +2,12 @@ package com.capstone.rebyu.aigateway.controller;
 
 import com.capstone.rebyu.aigateway.client.WorkflowClient;
 import com.capstone.rebyu.aigateway.service.WorkflowStreamRelayService;
+import com.capstone.rebyu.auth.security.RoleGuard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,15 +29,39 @@ import java.util.Map;
  * it has no way to tell an admin from a learner. Keeping Cognito role checks on
  * this side means there is exactly one place where "who may drive a generation
  * run" is decided.
+ *
+ * <p>That gate used to be {@code @PreAuthorize("hasRole('ADMIN')")} on this
+ * class, which did nothing: method security is not enabled in this application,
+ * and {@code /api/ai/workflows} was not listed among the authenticated paths in
+ * the security configuration either. Every endpoint below -- including the ones
+ * that cancel, retry and RESTART a generation run, which spends money with the
+ * model provider -- was reachable by anyone on the internet, and the run
+ * payloads are unreleased certification content. It is now enforced by
+ * {@link #requireAdmin}.
  */
 @RestController
 @RequestMapping("/api/ai/workflows")
-@PreAuthorize("hasRole('ADMIN')")
 @RequiredArgsConstructor
 public class WorkflowGatewayController {
 
     private final WorkflowClient workflowClient;
     private final WorkflowStreamRelayService relayService;
+    private final RoleGuard guard;
+
+    /**
+     * Admits only administrators, to every handler on this controller.
+     *
+     * <p>A {@code @ModelAttribute} method runs before each handler in its own
+     * controller, so this is the class-level gate the annotation was meant to
+     * be -- and, unlike a {@code guard.requireAdmin(jwt)} line repeated in
+     * eleven methods, it covers the twelfth the day someone adds it. Forgetting
+     * to protect a new endpoint is the exact failure this controller is being
+     * repaired from; a gate that has to be remembered would reproduce it.
+     */
+    @ModelAttribute
+    void requireAdmin(@AuthenticationPrincipal Jwt jwt) {
+        guard.requireAdmin(jwt);
+    }
 
     @GetMapping
     public Map<String, Object> listRuns(

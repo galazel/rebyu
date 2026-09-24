@@ -423,7 +423,7 @@ class LessonKnowledgeCheckServiceTest {
         return new QuestionSelectionView() {
             @Override public Long getQuestionId() { return questionId; }
             @Override public Long getLessonId() { return lessonId; }
-            @Override public String getDifficultyLevel() { return "MEDIUM"; }
+            @Override public String getDifficultyLevel() { return "AVERAGE"; }
             @Override public String getQuestionText() { return "Q" + questionId; }
             @Override public Long getOwnerDepartmentId() { return ownerDepartmentId; }
             @Override public String getQuestionType() { return "MULTIPLE_CHOICE"; }

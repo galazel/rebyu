@@ -1,6 +1,6 @@
 package com.capstone.rebyu.bkt.controller;
 
-import com.capstone.rebyu.auth.service.CognitoAuthService;
+import com.capstone.rebyu.auth.security.RoleGuard;
 import com.capstone.rebyu.bkt.dto.ConfidenceView;
 import com.capstone.rebyu.bkt.dto.LearnerMasteryView;
 import com.capstone.rebyu.bkt.dto.LessonPriorityView;
@@ -8,7 +8,6 @@ import com.capstone.rebyu.bkt.dto.MasteryHistoryView;
 import com.capstone.rebyu.bkt.service.LearnerMasteryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -28,18 +27,17 @@ import java.util.Map;
 public class BKTController {
 
   private final LearnerMasteryService learnerMasteryService;
-  private final CognitoAuthService auth;
+  private final RoleGuard guard;
 
   /**
    * Get learner's overall confidence/mastery in a certification
    * (aggregated across all lessons)
    */
   @GetMapping("/me/confidence/{certificationId}")
-  @PreAuthorize("hasRole('LEARNER')")
   public ResponseEntity<ConfidenceView> getMyConfidence(
       @PathVariable Long certificationId,
       @AuthenticationPrincipal Jwt jwt) {
-    var currentUser = auth.syncCurrentUser(jwt, jwt.getTokenValue());
+    var currentUser = guard.requireLearner(jwt);
     var result = learnerMasteryService.getConfidenceForAnalytics(currentUser.getLearnerId(), certificationId);
     return result.available() && result.confidence() != null
         ? ResponseEntity.ok(result.confidence())
@@ -51,11 +49,10 @@ public class BKTController {
    * with priority/focus recommendations
    */
   @GetMapping("/me/lessons/{certificationId}")
-  @PreAuthorize("hasRole('LEARNER')")
   public ResponseEntity<List<LessonPriorityView>> getMyLessonPriorities(
       @PathVariable Long certificationId,
       @AuthenticationPrincipal Jwt jwt) {
-    var currentUser = auth.syncCurrentUser(jwt, jwt.getTokenValue());
+    var currentUser = guard.requireLearner(jwt);
     var result = learnerMasteryService.getLessonPrioritiesForAnalytics(currentUser.getLearnerId(), certificationId);
     return ResponseEntity.ok(result.lessons());
   }
@@ -65,11 +62,10 @@ public class BKTController {
    * for a learner-certification pair
    */
   @GetMapping("/me/history/{certificationId}")
-  @PreAuthorize("hasRole('LEARNER')")
   public ResponseEntity<List<MasteryHistoryView>> getMyMasteryHistory(
       @PathVariable Long certificationId,
       @AuthenticationPrincipal Jwt jwt) {
-    var currentUser = auth.syncCurrentUser(jwt, jwt.getTokenValue());
+    var currentUser = guard.requireLearner(jwt);
     var result = learnerMasteryService.getMasteryHistoryForAnalytics(currentUser.getLearnerId(), certificationId);
     return ResponseEntity.ok(result.history());
   }
@@ -78,11 +74,10 @@ public class BKTController {
    * Get learner's overall mastery across all lessons (optional filtering)
    */
   @GetMapping("/me/mastery")
-  @PreAuthorize("hasRole('LEARNER')")
   public ResponseEntity<LearnerMasteryView> getMyMastery(
       @RequestParam(required = false) List<Long> lessonIds,
       @AuthenticationPrincipal Jwt jwt) {
-    var currentUser = auth.syncCurrentUser(jwt, jwt.getTokenValue());
+    var currentUser = guard.requireLearner(jwt);
     LearnerMasteryView mastery = learnerMasteryService.getMastery(currentUser.getLearnerId(), lessonIds);
     return mastery.items().isEmpty()
         ? ResponseEntity.noContent().build()
@@ -93,11 +88,10 @@ public class BKTController {
    * Get generic confidence map for a learner-certification pair
    */
   @GetMapping("/me/confidence-map/{certificationId}")
-  @PreAuthorize("hasRole('LEARNER')")
   public ResponseEntity<Map<String, Object>> getMyConfidenceMap(
       @PathVariable Long certificationId,
       @AuthenticationPrincipal Jwt jwt) {
-    var currentUser = auth.syncCurrentUser(jwt, jwt.getTokenValue());
+    var currentUser = guard.requireLearner(jwt);
     Map<String, Object> confidenceMap = learnerMasteryService.getConfidence(currentUser.getLearnerId(), certificationId);
     return ResponseEntity.ok(confidenceMap);
   }
