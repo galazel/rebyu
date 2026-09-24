@@ -142,8 +142,15 @@ GRADING = "grading"
 #: the geometric splitter could not confidently classify.
 FIGURE = "figure"
 
+#: Filing imported exam questions under a lesson and rating their difficulty.
+#:
+#: Its own task because it runs in batches over a whole paper while an admin
+#: waits, so it wants a fast provider, and because a wrong answer here is cheap
+#: to correct -- the reviewer sees every tag before anything is saved.
+TAGGING = "tagging"
+
 TASKS = (LESSON, CURRICULUM, QUESTION, TUTOR, LESSON_AUDIT, DOCUMENT_AUDIT, DIAGRAM,
-         GRADING, FIGURE)
+         GRADING, FIGURE, TAGGING)
 
 #: Older call sites (and any caller that only knows the coarse distinction)
 #: pass the two names this module replaced. They resolve to the task that most

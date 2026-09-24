@@ -68,7 +68,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useQuery } from "@tanstack/react-query";
 
 import { getAllCertifications } from "../../services/certificationService.js";
-import { getFileViewUrl } from "../../services/fileService.js";
+import { getFileViewUrl, uploadQuestionImage } from "../../services/fileService.js";
 import DiagramArea from "../../components/challenges/diagram-area.jsx";
 import BigDialog from "../../components/commons/dialog.jsx";
 import AiGenerationProgress from "../../components/commons/ai-generation-progress.jsx";
@@ -85,7 +85,6 @@ import {
     saveTextQuestion,
     updateQuestion,
 } from "../../services/questionService.js";
-import ImportPastPaperDialog from "@/components/question-bank/import-past-paper-dialog.jsx";
 
 function getBackendErrorMessage(error, fallbackMessage) {
     const responseData = error?.response?.data;
@@ -460,6 +459,30 @@ function updateDataAtPath(data, path, value) {
     return update(data, 0);
 }
 
+/**
+ * A draft with its chosen images stored and their keys filled in.
+ *
+ * The builder keeps a picked image as a File in `image`, but the save only
+ * ever sent `imageKey` -- so a figure attached in the builder was dropped
+ * without a word. Uploaded here, before the question is written.
+ */
+async function withUploadedImages(data) {
+    const next = { ...data };
+    if (data.image) {
+        next.imageKey = await uploadQuestionImage(data.image);
+    }
+    if (Array.isArray(data.choices)) {
+        next.choices = await Promise.all(
+            data.choices.map(async (choice) =>
+                choice.image
+                    ? { ...choice, imageKey: await uploadQuestionImage(choice.image) }
+                    : choice,
+            ),
+        );
+    }
+    return next;
+}
+
 function validateOptionalImage(file, label) {
     if (!file) {
         return "";
@@ -522,7 +545,8 @@ function validateQuestionData(typeId, data) {
         choices.forEach((choice, index) => {
             const letter = String.fromCharCode(65 + index);
 
-            if (isBlank(choice.choiceText)) {
+            // A pictured choice -- a graph, a circuit -- is its image.
+            if (isBlank(choice.choiceText) && !choice.image && !choice.imageKey) {
                 errors[`choices.${index}.choiceText`] = `Choice ${letter} is required.`;
             }
 
@@ -1881,13 +1905,16 @@ function QuestionFileGeneratorDialog({
     const maxSize = maxSizeMB * 1024 * 1024;
 
     const [submitError, setSubmitError] = useState("");
-    const [generationOptions, setGenerationOptions] = useState({
+    /* No setup here: this dialog only takes previous exams. The count, type
+       and difficulty split are fixed -- the AI picks the types the papers
+       support, and the default target is split evenly across the levels. */
+    const generationOptions = {
         total: DEFAULT_GENERATION_TARGET,
         questionType: "AUTO",
         easy: Math.floor(DEFAULT_GENERATION_TARGET / 3),
         average: DEFAULT_GENERATION_TARGET - 2 * Math.floor(DEFAULT_GENERATION_TARGET / 3),
         hard: Math.floor(DEFAULT_GENERATION_TARGET / 3),
-    });
+    };
 
     const [
         { files, isDragging, errors },
@@ -1945,20 +1972,13 @@ function QuestionFileGeneratorDialog({
     }
 
     async function handleGenerate() {
-        // Files are optional: with none, the AI generates from the
-        // certification's indexed knowledge (embeddings). With files, it uses
-        // the uploaded material. The backend resolves the source mode.
+        // Previous exams are the whole input here, so at least one is required.
         const selectedDocuments = files.map((item) => item.file);
 
         setSubmitError("");
 
-        const difficultyTotal = generationOptions.easy + generationOptions.average + generationOptions.hard;
-        if (generationOptions.total < 1 || generationOptions.total > 100) {
-            setSubmitError("Number of items must be between 1 and 100.");
-            return;
-        }
-        if (difficultyTotal !== generationOptions.total) {
-            setSubmitError("Easy, average, and hard counts must equal the total number of items.");
+        if (selectedDocuments.length === 0) {
+            setSubmitError("Upload at least one previous exam.");
             return;
         }
 
@@ -1986,183 +2006,19 @@ function QuestionFileGeneratorDialog({
                         <span className="font-medium text-foreground">
                             {getCertificationTitle(selectedCertification)}
                         </span>
-                        . Uploading files is optional — leave it empty to
-                        generate from the certification's existing knowledge, or
-                        add files to ground generation in specific material.
+                        . Upload previous exams and REBYU drafts questions from them.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-5">
-                    <section className="space-y-4 rounded-xl border p-4">
-                        <div>
-                            <h3 className="text-sm font-semibold text-foreground">Question setup</h3>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                Choose the number, type, and exact difficulty distribution.
-                            </p>
-                        </div>
-
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-2">
-                                <Label htmlFor="ai-question-total">Number of items</Label>
-                                <Input
-                                    id="ai-question-total"
-                                    type="number"
-                                    min="1"
-                                    max="100"
-                                    value={generationOptions.total}
-                                    disabled={isGenerating}
-                                    onChange={(event) => setGenerationOptions((current) => ({
-                                        ...current,
-                                        total: Number(event.target.value) || 0,
-                                    }))}
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Question type</Label>
-                                <Select
-                                    value={generationOptions.questionType}
-                                    disabled={isGenerating}
-                                    onValueChange={(questionType) => setGenerationOptions((current) => ({
-                                        ...current,
-                                        questionType,
-                                    }))}
-                                >
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="AUTO">AI-selected mix</SelectItem>
-                                        <SelectItem value="MCQ">Multiple Choice</SelectItem>
-                                        <SelectItem value="SHORT_ANSWER">Short Answer</SelectItem>
-                                        <SelectItem value="DESCRIPTIVE">Descriptive</SelectItem>
-                                        <SelectItem value="PROGRAMMING">Programming</SelectItem>
-                                        <SelectItem value="DIAGRAM">Diagram</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        <div className="grid gap-3 sm:grid-cols-3">
-                            {[
-                                ["easy", "Easy"],
-                                ["average", "Average"],
-                                ["hard", "Hard"],
-                            ].map(([field, label]) => (
-                                <div key={field} className="space-y-2">
-                                    <Label htmlFor={`ai-question-${field}`}>{label}</Label>
-                                    <Input
-                                        id={`ai-question-${field}`}
-                                        type="number"
-                                        min="0"
-                                        max="50"
-                                        value={generationOptions[field]}
-                                        disabled={isGenerating}
-                                        onChange={(event) => setGenerationOptions((current) => ({
-                                            ...current,
-                                            [field]: Math.max(0, Number(event.target.value) || 0),
-                                        }))}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-
-                        <p className={`text-xs ${
-                            generationOptions.easy + generationOptions.average + generationOptions.hard === generationOptions.total
-                                ? "text-muted-foreground"
-                                : "font-medium text-destructive"
-                        }`}>
-                            Difficulty total: {generationOptions.easy + generationOptions.average + generationOptions.hard} of {generationOptions.total} items
-                        </p>
-                    </section>
-
-                    <section className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-                        <div className="flex items-start gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                <Sparkles className="h-5 w-5" />
-                            </div>
-
-                            <div className="min-w-0">
-                                <h3 className="text-sm font-semibold text-foreground">
-                                    AI-selected question types
-                                </h3>
-
-                                <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                                    You do not need to choose MCQ, short answer,
-                                    descriptive, programming, or diagram manually.
-                                    REBYU analyzes the uploaded content first and creates
-                                    only the question types supported by the material.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                            <div className="rounded-lg border border-border bg-background p-3">
-                                <div className="flex items-center gap-2">
-                                    <ListChecks className="h-4 w-4 text-primary" />
-                                    <p className="text-sm font-medium text-foreground">
-                                        Concepts and terminology
-                                    </p>
-                                </div>
-
-                                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                    Definitions, processes, classifications, and rules may
-                                    become MCQ, short-answer, or descriptive drafts.
-                                </p>
-                            </div>
-
-                            <div className="rounded-lg border border-border bg-background p-3">
-                                <div className="flex items-center gap-2">
-                                    <Code2 className="h-4 w-4 text-primary" />
-                                    <p className="text-sm font-medium text-foreground">
-                                        Programming material
-                                    </p>
-                                </div>
-
-                                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                    Programming questions appear only when REBYU detects
-                                    code, algorithms, pseudocode, or coding lessons.
-                                </p>
-                            </div>
-
-                            <div className="rounded-lg border border-border bg-background p-3">
-                                <div className="flex items-center gap-2">
-                                    <Workflow className="h-4 w-4 text-primary" />
-                                    <p className="text-sm font-medium text-foreground">
-                                        Diagram material
-                                    </p>
-                                </div>
-
-                                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                    Diagram questions appear only when the material supports
-                                    activity diagrams, class diagrams, component diagrams, ER diagrams, flowcharts, sequence diagrams, UI designs, or use case diagrams.
-                                </p>
-                            </div>
-
-                            <div className="rounded-lg border border-border bg-background p-3">
-                                <div className="flex items-center gap-2">
-                                    <Pencil className="h-4 w-4 text-primary" />
-                                    <p className="text-sm font-medium text-foreground">
-                                        Author review
-                                    </p>
-                                </div>
-
-                                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                    Questions are editable drafts. Authors still create
-                                    reference diagrams manually before saving.
-                                </p>
-                            </div>
-                        </div>
-                    </section>
-
                     <section className="space-y-3">
                         <div>
                             <h3 className="text-sm font-semibold text-foreground">
-                                Source files (optional)
+                                Previous exams
                             </h3>
 
                             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                Optionally upload modules, reviewer notes, or reference
-                                documents to ground the drafts. Leave empty to generate
-                                from the certification's existing indexed knowledge.
+                                Past papers or earlier exam sets for this certification.
                             </p>
                         </div>
 
@@ -2177,7 +2033,7 @@ function QuestionFileGeneratorDialog({
                         >
                             <input
                                 {...getInputProps()}
-                                aria-label="Upload source documents for AI question generation"
+                                aria-label="Upload previous exams for AI question generation"
                                 className="sr-only"
                             />
 
@@ -2187,7 +2043,7 @@ function QuestionFileGeneratorDialog({
                                 </div>
 
                                 <p className="text-sm font-semibold text-foreground">
-                                    Upload learning materials
+                                    Upload previous exams
                                 </p>
 
                                 <p className="mt-1 max-w-md text-xs leading-5 text-muted-foreground">
@@ -2356,14 +2212,10 @@ function QuestionFileGeneratorDialog({
                     <Button
                         type="button"
                         onClick={handleGenerate}
-                        disabled={isGenerating}
+                        disabled={isGenerating || files.length === 0}
                     >
                         <Sparkles className="mr-2 h-4 w-4" />
-                        {isGenerating
-                            ? "Generating Drafts..."
-                            : files.length > 0
-                                ? "Generate from Files"
-                                : "Generate from Certification Knowledge"}
+                        {isGenerating ? "Generating Drafts..." : "Generate from Previous Exams"}
                     </Button>
                 </div>
             </DialogContent>
@@ -2590,7 +2442,6 @@ function QuestionBank({
 
     const [isSavingQuestions, setIsSavingQuestions] = useState(false);
 
-    const [isPastPaperImportOpen, setIsPastPaperImportOpen] = useState(false);
     const [isQuestionFileGeneratorOpen, setIsQuestionFileGeneratorOpen] =
         useState(false);
 
@@ -3080,11 +2931,17 @@ function QuestionBank({
         });
     }
 
+    // The PDF import page belongs to one certification: this bank's own, or
+    // the one picked in the builder.
+    const importCertificationId =
+        lockedCertificationId || selectedCertification?.certificationId || "";
+
     const submitQuestions = async () => {
         // Sent with each save so the backend verifies the lesson belongs to this
         // certification before persisting the question.
         const certificationId = selectedCertification?.certificationId ?? null;
-        for (const question of questions) {
+        for (const draft of questions) {
+            const question = { ...draft, data: await withUploadedImages(draft.data) };
             const lessonId = question.data.lessonId || selectedLesson?.id;
             if (!lessonId) {
                 throw new Error("Each draft needs a lesson before it can be saved.");
@@ -3457,25 +3314,6 @@ OUTPUT RULES:
                             Question Builder
                         </Button>
 
-                        {/* Only inside the builder. Over the library it was an
-                            action about a screen you were not on -- and the
-                            library's own job is reviewing what already exists,
-                            not adding to it. */}
-                        {activeTab === "question-builder" ? (
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant={
-                                    builderMode === "generate" ? "default" : "outline"
-                                }
-                                onClick={() => {
-                                    setActiveTab("question-builder");
-                                    setBuilderMode("generate");
-                                }}
-                            >
-                                Generate with AI
-                            </Button>
-                        ) : null}
                     </div>
 
                     {activeTab === "question-builder" && builderMode !== "" && (
@@ -3496,18 +3334,17 @@ OUTPUT RULES:
                                 </Button>
                             )}
 
-                            {builderMode === "generate" && (
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={!selectedCertification || isSavingQuestions}
-                                    onClick={() => setIsPastPaperImportOpen(true)}
-                                >
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    Import Past Paper
-                                </Button>
-                            )}
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={!importCertificationId}
+                                title={importCertificationId ? "Import questions from exam paper PDFs" : "Choose a certification first"}
+                                onClick={() => navigate(`/admin/certification/${importCertificationId}/question-bank/import`)}
+                            >
+                                <UploadIcon className="mr-2 h-4 w-4" />
+                                Upload PDF
+                            </Button>
 
                             <Button
                                 type="button"
@@ -4735,17 +4572,6 @@ OUTPUT RULES:
                     )}
                 </DialogContent>
             </Dialog>
-
-            <ImportPastPaperDialog
-                open={isPastPaperImportOpen}
-                onOpenChange={setIsPastPaperImportOpen}
-                certificationId={
-                    selectedCertification?.certificationId ?? selectedCertification?.id ?? null
-                }
-                // Same refetch every other write on this page uses, so
-                // imported questions appear without a reload.
-                onImported={() => refetchQuestions()}
-            />
 
             <QuestionFileGeneratorDialog
                 open={isQuestionFileGeneratorOpen}

@@ -449,7 +449,9 @@ export function AdaptiveAttemptRunner({
                           </span>
                           <span className="flex-1">
                             {choice.choiceText}
-                            <AuthedImage imageKey={choice.imageKey} zoomable className="mt-2 max-h-28 w-auto rounded-lg object-contain" placeholderClassName="mt-2 h-16 w-full max-w-[10rem]" />
+                            {/* Not zoomable: the enlarge control is a button, and inside the choice
+                                button one click both answered and zoomed. */}
+                            <AuthedImage imageKey={choice.imageKey} className="mt-2 max-h-32 w-auto rounded-lg object-contain mix-blend-multiply" placeholderClassName="mt-2 h-16 w-full max-w-[10rem]" />
                           </span>
                         </button>
                       )

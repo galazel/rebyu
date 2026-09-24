@@ -85,6 +85,46 @@ public class FileController {
                 .body(key);
     }
 
+    /** Largest question or choice image accepted by {@link #uploadQuestionImage}. */
+    private static final long MAX_QUESTION_IMAGE_BYTES = 5L * 1024 * 1024;
+
+    /**
+     * A question's or a choice's image: a figure the admin attached in the
+     * builder, or one cropped out of an uploaded exam paper.
+     *
+     * <p>{@link #upload} cannot take these -- it is tied to a lesson section
+     * and records the key as that section's media -- so a picture chosen in
+     * the builder had nowhere to go and was dropped on save. Returns the S3
+     * key; the caller stores it as {@code imageKey}.
+     */
+    @PostMapping(
+            value = "/upload/question-image",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            produces = MediaType.TEXT_PLAIN_VALUE
+    )
+    public ResponseEntity<String> uploadQuestionImage(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @AuthenticationPrincipal Jwt jwt
+    ) throws Exception {
+        requireAdmin(jwt);
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "An image file is required.");
+        }
+        if (file.getSize() > MAX_QUESTION_IMAGE_BYTES) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Question images must be 5 MB or smaller.");
+        }
+        String contentType = file.getContentType() == null ? "" : file.getContentType().toLowerCase(Locale.ROOT);
+        if (!contentType.equals("image/png") && !contentType.equals("image/jpeg")
+                && !contentType.equals("image/webp") && !contentType.equals("image/gif")) {
+            throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Question images must be PNG, JPEG, WebP or GIF.");
+        }
+
+        String key = s3StorageService.uploadFile(file, "question-images");
+        return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_PLAIN)
+                .body(key);
+    }
+
     /**
      * Largest object {@link #viewFile} will buffer through the application.
      *

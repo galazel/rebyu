@@ -25,6 +25,7 @@ image is scaled down into the attempt runner's 40-unit-high box.
 import io
 import json
 import os
+import re
 import sys
 
 import pymupdf
@@ -108,6 +109,235 @@ def split_figures(record):
         if uniform and min(widths) >= 60 and min(heights) >= 60:
             return figures[:-len(letters)], dict(zip(letters, tail))
     return figures, {}
+
+
+#: A section banner -- "Answer questions Q66 through Q100 concerning
+#: strategy." -- is a ruled box, so it clusters as a figure, and it sits
+#: between two questions, so the one before it claims it.
+BANNER_RE = re.compile(r"Answer (?:the )?questions? Q\d+ through Q\d+ concerning", re.I)
+
+#: An option letter as the paper prints it beside a picture or in a list.
+OPTION_LABEL_RE = re.compile(r"^\(?([a-h])\)$")
+
+
+def _figure_text(page, rect):
+    return page.get_text(clip=pymupdf.Rect(rect)).strip()
+
+
+def _label_words(page, clip, letters):
+    """(letter, rect) of every printed option letter inside `clip`."""
+    out = []
+    for word in page.get_text("words", clip=clip):
+        match = OPTION_LABEL_RE.match(word[4].strip())
+        if match and match.group(1) in letters:
+            out.append((match.group(1), pymupdf.Rect(word[:4])))
+    return out
+
+
+def _bands(values, tolerance=6.0):
+    """Starts of the distinct rows (or columns) a set of coordinates falls in."""
+    starts = []
+    for value in sorted(values):
+        if not starts or value - starts[-1] > tolerance:
+            starts.append(value)
+    return starts
+
+
+def _marks_without_labels(page, region, letters):
+    """Strokes, images and WORDS in `region`, less the printed option letters.
+
+    Words, not the text lines `_ink_rects` reports: a line runs from its
+    first glyph to its last, so "b)" and the "TMP <- A" box beside it come
+    back as one line and the letter cannot be left out on its own.
+    """
+    marks = _ink_rects(page, region, with_text=False)
+    for word in page.get_text("words", clip=region):
+        match = OPTION_LABEL_RE.match(word[4].strip())
+        if match and match.group(1) in letters:
+            continue
+        rect = pymupdf.Rect(word[:4]) & region
+        if not rect.is_empty:
+            marks.append(rect)
+    return marks
+
+
+def label_cut(page, region, letters):
+    """{letter: rect} of each option picture, cut at its printed letter.
+
+    The paper sets each option's letter at the top-left of its picture, so
+    the letters ARE the grid: an option runs from its own letter to the next
+    letter along its row, and down to the next row of letters. Unlike a
+    whitespace cut this cannot put a) under the letter b), and it needs no
+    gutter -- the failure on 2011A Q8, where dashed gridlines left no blank
+    band to cut along.
+
+    The letter itself is left OUT of the crop. The attempt runner shuffles
+    choices, so a picture captioned "c)" on the button lettered A is a
+    contradiction the learner has to resolve on a timed paper.
+
+    None unless every letter appears exactly once.
+    """
+    search = pymupdf.Rect(region.x0 - 20, region.y0 - 20,
+                          region.x1 + 20, region.y1 + 20) & page.rect
+    words = _label_words(page, search, letters)
+    labels = dict(words)
+    if len(words) != len(letters) or set(labels) != set(letters):
+        return None
+
+    rows = _bands([rect.y0 for rect in labels.values()])
+    columns = _bands([rect.x0 for rect in labels.values()])
+
+    def next_start(starts, value, limit):
+        later = [start for start in starts if start > value + 6]
+        return (min(later) - 3) if later else limit
+
+    ink = _marks_without_labels(page, search, letters)
+    options = {}
+    for letter, label in labels.items():
+        cell = pymupdf.Rect(
+            label.x0 - 3,
+            label.y0 - 3,
+            next_start(columns, label.x0, search.x1),
+            next_start(rows, label.y0, search.y1),
+        )
+        marks = [mark & cell for mark in ink if not (mark & cell).is_empty]
+        marks = [m for m in marks if m.width >= MIN_INK or m.height >= MIN_INK]
+        if not marks:
+            return None
+        bounds = marks[0]
+        for mark in marks[1:]:
+            bounds = bounds | mark
+        options[letter] = pymupdf.Rect(bounds.x0 - 2, bounds.y0 - 2,
+                                       bounds.x1 + 2, bounds.y1 + 2)
+    return options
+
+
+#: What is left of a stem figure once its answer rows are cut away, below
+#: which there is nothing of it to show.
+MIN_STEM_HEIGHT = 12
+
+
+def _stem_regions(doc, stem_figures, letters, options_top=None):
+    """The stem's figures as one crop per page, answer lists cut away.
+
+    One crop of the whole region, not each figure stacked under the last:
+    a diagram the clustering split in two -- a LAN whose server and printer
+    are separate clusters -- comes back from a vertical stack as a column of
+    boxes that is not the diagram at all (2011A Q27). The page's own layout
+    is the diagram.
+
+    `options_top` is where picture options begin on that page, when they
+    do: the stem ends above them.
+    """
+    by_page = {}
+    for figure in stem_figures:
+        by_page.setdefault(figure["page"], []).append(pymupdf.Rect(figure["rect"]))
+
+    out = []
+    for page_index, rects in by_page.items():  # reading order, as parsed
+        page = doc[page_index]
+        region = rects[0]
+        for rect in rects[1:]:
+            region = region | rect
+
+        top = None
+        # Looked for a little outside the figure too: a cluster often ends
+        # partway through the answer rows or just right of the letters, and
+        # with only one letter inside it the list was not recognised
+        # (2010S Q42 kept "a) A->C->E->G  b) A->D->H" under its network).
+        around = pymupdf.Rect(region.x0 - 25, region.y0, region.x1, region.y1 + 40) & page.rect
+        labels = [label for _, label in _label_words(page, around, letters)
+                  if label.y0 < region.y1]
+        if len(labels) >= 2:
+            top = min(label.y0 for label in labels)
+        if options_top and options_top.get(page_index) is not None:
+            bound = options_top[page_index]
+            top = bound if top is None else min(top, bound)
+        if top is not None and region.y0 < top < region.y1:
+            # Above the first lettered answer. An answer TABLE keeps its
+            # header row this way, and should: the choices are its rows
+            # joined with "|", and the header is what says which column is
+            # which ("Source (From) | Destination (To)").
+            region = pymupdf.Rect(region.x0, region.y0, region.x1, top - 3)
+        elif top is not None and top <= region.y0:
+            continue
+
+        ink = _ink_rects(page, region)
+        if not ink:
+            continue
+        bounds = ink[0]
+        for mark in ink[1:]:
+            bounds = bounds | mark
+        # Nothing of substance left: it was only ever the answer list.
+        if bounds.height < MIN_STEM_HEIGHT:
+            continue
+        out.append({"page": page_index, "rect": list(region)})
+    return out
+
+
+def _overlap(first, second):
+    """Whether two figure rects share more than a hairline of paper."""
+    a, b = first["rect"], second["rect"]
+    if first["page"] != second["page"]:
+        return False
+    width = min(a[2], b[2]) - max(a[0], b[0])
+    height = min(a[3], b[3]) - max(a[1], b[1])
+    return width > 5 and height > 5
+
+
+def split_figures_on_page(doc, record):
+    """`split_figures`, corrected against the page itself.
+
+    Faults the rect arithmetic cannot see, all found on imported items:
+
+    * a section banner stored as the preceding question's figure;
+    * the paper's printed answer list inside a stem figure -- which the
+      runner's shuffled buttons then contradict;
+    * a stem diagram split into clusters and re-stacked as a column;
+    * option pictures cut from stroke clusters that each straddle two
+      diagrams of a 2x2 grid -- similar in size, so `split_figures` accepted
+      them, and every option image showed halves of two graphs. 22 of the
+      first 35 picture-option questions were cut this way.
+
+    Option pictures are cut at their printed letters (`label_cut`), then by
+    whitespace (`xy_cut`) where the letters cannot be found. If neither
+    divides the grid the options are dropped and the grid stays whole with
+    the stem: one honest composite rather than crops that answer the wrong
+    question.
+    """
+    letters = [letter for letter in "abcdefgh" if letter in record.get("choices", {})]
+    figures = [
+        f for f in record.get("figures") or []
+        if not BANNER_RE.search(_figure_text(doc[f["page"]], f["rect"]))
+    ]
+    stem_figures, choice_figures = split_figures({**record, "figures": figures})
+    if not choice_figures:
+        return _stem_regions(doc, stem_figures, letters), {}
+
+    options = list(choice_figures.values())
+    page_index = options[0]["page"]
+    if any(f["page"] != page_index for f in options):
+        return _stem_regions(doc, figures, []), {}
+    region = pymupdf.Rect(options[0]["rect"])
+    for figure in options[1:]:
+        region = region | pymupdf.Rect(figure["rect"])
+    page = doc[page_index]
+
+    cut = label_cut(page, region, list(choice_figures))
+    if cut is None:
+        parts = xy_cut(page, region, len(options))
+        if not parts:
+            return _stem_regions(doc, figures, []), {}
+        cut = dict(zip(choice_figures, parts))
+
+    labels = _label_words(page, pymupdf.Rect(region.x0 - 20, region.y0 - 20,
+                                             region.x1 + 20, region.y1 + 20),
+                          list(choice_figures))
+    tops = [label.y0 for _, label in labels] + [rect.y0 for rect in cut.values()]
+    stem = _stem_regions(doc, stem_figures, [], {page_index: min(tops)})
+    return stem, {
+        letter: {"page": page_index, "rect": list(rect)} for letter, rect in cut.items()
+    }
 
 
 #: Zoom for the page image the vision agent reads. Lower than the 3x used for
@@ -250,7 +480,35 @@ def _best_cut(page, region):
         gap, cut = _widest_gap(spans)
         if gap >= MIN_CUT_GAP and (best is None or gap > best[0]):
             best = (gap, axis, cut)
-    return None if best is None else (best[1], best[2])
+    if best is None:
+        return None
+    gap, axis, cut = best
+    return axis, _clear_of_text(page, region, axis, cut - gap / 2, cut + gap / 2, cut)
+
+
+def _clear_of_text(page, region, axis, low, high, cut):
+    """Where inside the gutter [low, high] to cut so no label is sliced.
+
+    The gutter is measured without text (see `_ink_rects`), and its middle is
+    often exactly where the next option's letter sits: a) above its graph,
+    c) above the one below, the cut through "c)". The middle of the widest
+    text-free run INSIDE the gutter is used instead, and the plain middle
+    only when text fills the gutter wall to wall.
+    """
+    from app.papers.subject_a import page_lines
+
+    spans = []
+    for _, rect in page_lines(page):
+        clipped = rect & region
+        if clipped.is_empty:
+            continue
+        span = (clipped.x0, clipped.x1) if axis == "x" else (clipped.y0, clipped.y1)
+        if span[1] > low and span[0] < high:
+            spans.append((max(span[0], low), min(span[1], high)))
+    if not spans:
+        return cut
+    gap, position = _widest_gap([(low, low)] + spans + [(high, high)])
+    return position if gap > 0 else cut
 
 
 def _halves(region, axis, cut):
@@ -332,7 +590,7 @@ async def split_figures_assisted(doc, record):
     """
     from app.papers.figure_agent import FigureVerdict, read_question_figures
 
-    stem_figures, choice_figures = split_figures(record)
+    stem_figures, choice_figures = split_figures_on_page(doc, record)
     if choice_figures:
         return stem_figures, choice_figures, FigureVerdict.unknown()
 
@@ -371,7 +629,13 @@ async def split_figures_assisted(doc, record):
     for figure in on_page[1:]:
         region = region | pymupdf.Rect(figure["rect"])
 
-    parts = xy_cut(doc[page_index], region, count)
+    # The printed letters first -- they say which picture is which -- and
+    # the whitespace only where they cannot be found.
+    labelled = label_cut(doc[page_index], region, letters[:count])
+    if labelled:
+        parts = [labelled[letter] for letter in letters[:count]]
+    else:
+        parts = xy_cut(doc[page_index], region, count)
     if not parts:
         # It would not divide cleanly. Keeping the composite is honest; four
         # crops at guessed boundaries are not.
@@ -417,7 +681,7 @@ async def run_assisted(name, upload, use_agent=True):
             if choice_figures and not split_figures(record)[1]:
                 agent_recovered += 1
         else:
-            stem_figures, choice_figures = split_figures(record)
+            stem_figures, choice_figures = split_figures_on_page(doc, record)
         record["choice_images"] = {}
 
         if stem_figures:
@@ -467,7 +731,7 @@ def run(name, upload):
 
     question_images = choice_images = 0
     for record in records:
-        stem_figures, choice_figures = split_figures(record)
+        stem_figures, choice_figures = split_figures_on_page(doc, record)
         record["choice_images"] = {}
 
         if stem_figures:

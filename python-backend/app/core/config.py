@@ -264,6 +264,19 @@ class Settings(BaseSettings):
     ai_figure_max_tokens: int = 700
     ai_figure_temperature: float = 0.0
 
+    #: Filing imported past-paper questions under a lesson and rating their
+    #: difficulty, from the PDF import page's "Tag with AI". Text only, and a
+    #: plain JSON reply rather than tool calling. Grok first; the fallbacks are
+    #: OpenRouter's free models, so tagging still works with no credit left.
+    ai_tagging_provider: str = "openrouter"
+    ai_tagging_model: str = "x-ai/grok-4.7"
+    ai_tagging_fallbacks: str = (
+        "qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free,"
+        "nvidia/nemotron-3-super-120b-a12b:free"
+    )
+    ai_tagging_max_tokens: int = 1000  # ~30 tokens a question, 12 a batch
+    ai_tagging_temperature: float = 0.0
+
     # Curriculum size
     # What the planner is *asked* for. Lower all six to run the whole workflow
     # end-to-end on a small AI budget: setting every min/max to 1 yields a

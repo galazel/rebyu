@@ -61,6 +61,7 @@ def lesson_texts(db, certification_id):
     for lesson_id, name, middle, major in rows:
         lessons[lesson_id] = {
             "name": name,
+            "category": "%s / %s" % (major, middle),
             "texts": ["%s. %s. %s" % (name, middle, major)],
         }
 
@@ -78,6 +79,70 @@ def lesson_texts(db, certification_id):
         if lesson_id in lessons and stem:
             lessons[lesson_id]["texts"].append(stem[:400])
     return lessons
+
+
+_model = None
+
+
+def _load_model():
+    """The embedding model, loaded once per process -- it takes seconds."""
+    global _model
+    if _model is None:
+        from sentence_transformers import SentenceTransformer
+
+        _model = SentenceTransformer(MODEL_NAME)
+    return _model
+
+
+def suggest_lessons(db, certification_id, questions):
+    """The best lesson for each question text, with its score.
+
+    Returns `(suggestions, lessons)`: one `{lessonId, lessonName, score}` per
+    question, in order, and every lesson of the certification so a reviewer
+    can pick a different one. Scores are cosine similarities; under about 0.3
+    the match is weak enough that a person should look.
+    """
+    import numpy as np
+
+    lessons = lesson_texts(db, certification_id)
+    if not lessons:
+        return [], []
+
+    model = _load_model()
+    flat, owner = [], []
+    for lesson_id, lesson in lessons.items():
+        for value in lesson["texts"]:
+            flat.append(value)
+            owner.append(lesson_id)
+    lesson_matrix = model.encode(flat, batch_size=128, normalize_embeddings=True,
+                                 show_progress_bar=False)
+    owner = np.array(owner)
+    lesson_ids = sorted(lessons)
+
+    suggestions = []
+    if questions:
+        query_matrix = model.encode([q[:500] for q in questions], batch_size=128,
+                                    normalize_embeddings=True, show_progress_bar=False)
+        similarity = query_matrix @ lesson_matrix.T
+        for row in similarity:
+            best_id, best_score = None, -1.0
+            for lesson_id in lesson_ids:
+                values = row[owner == lesson_id]
+                if values.size == 0:
+                    continue
+                score = float(np.sort(values)[-min(TOP_K, values.size):].mean())
+                if score > best_score:
+                    best_id, best_score = lesson_id, score
+            suggestions.append({
+                "lessonId": int(best_id),
+                "lessonName": lessons[best_id]["name"],
+                "score": round(best_score, 4),
+            })
+
+    catalogue = [{"lessonId": int(lesson_id), "name": lessons[lesson_id]["name"],
+                  "category": lessons[lesson_id]["category"]}
+                 for lesson_id in lesson_ids]
+    return suggestions, catalogue
 
 
 def main_for(certification_id, names=None, *, quiet=False):

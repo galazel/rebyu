@@ -69,6 +69,31 @@ public class PastPaperImportController {
     }
 
     /**
+     * A lesson and a difficulty for each question, from the TAGGING model
+     * (Grok, free models as fallbacks), for the PDF import page's "Tag with
+     * AI". Writes nothing.
+     */
+    @PostMapping(value = "/tag", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> tag(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody Map<String, Object> request) {
+        requireAdmin(jwt);
+        return pastPaperImportService.forward("/past-papers/tag", request, "Questions could not be tagged");
+    }
+
+    /**
+     * The lesson each question most likely belongs to, for the PDF import
+     * page's "Tag lessons with AI". Writes nothing.
+     */
+    @PostMapping(value = "/suggest-lessons", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> suggestLessons(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody Map<String, Object> request) {
+        requireAdmin(jwt);
+        return pastPaperImportService.suggestLessons(request);
+    }
+
+    /**
      * Resolves the caller and refuses anyone who is not an administrator.
      *
      * <p>A missing token is rejected before the role is read, so an

@@ -74,6 +74,31 @@ public class PastPaperImportService {
         }
     }
 
+    public Map<String, Object> suggestLessons(Map<String, Object> request) {
+        return forward("/past-papers/suggest-lessons", request, "Lessons could not be suggested");
+    }
+
+    /** A JSON POST to the AI service, its reply returned as-is. */
+    public Map<String, Object> forward(String path, Map<String, Object> request, String failure) {
+        try {
+            return aiWebClient.post()
+                    .uri(path)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {})
+                    // Tagging a paper is several model calls; the first
+                    // suggestion loads the embedding model.
+                    .block(Duration.ofMinutes(4));
+        } catch (ResponseStatusException error) {
+            throw error;
+        } catch (RuntimeException error) {
+            log.error("{} ({})", failure, path, error);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    failure + ": " + error.getMessage());
+        }
+    }
+
     public Map<String, Object> importApproved(Map<String, Object> request) {
         try {
             return aiWebClient.post()

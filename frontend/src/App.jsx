@@ -86,6 +86,7 @@ const LearnerTopicPage = lazyRoute(() => import("./pages/learner/learning/learne
 const ArenaConfig = lazyRoute(() => import("./pages/admin/arena-config-page.jsx"))
 const ArenaDetail = lazyRoute(() => import("./pages/admin/arena-detail-page.jsx"))
 const CertificationQuestionBank = lazyRoute(() => import("./pages/admin/certification-question-bank-page.jsx"))
+const CertificationPdfImport = lazyRoute(() => import("./pages/admin/certification-pdf-import-page.jsx"))
 const CertificationAssessments = lazyRoute(() => import("./pages/admin/certification-assessments-page.jsx"))
 const NotificationsPage = lazyRoute(() => import("./pages/notifications-page.jsx"))
 const NotFoundPage = lazyRoute(() => import("./pages/public/not-found-page.jsx"))
@@ -289,6 +290,14 @@ export function App() {
                 <Route
                     path="/admin/certification/:id/question-bank"
                     element={<CertificationQuestionBank />}
+                />
+
+                {/* Importing questions from exam paper PDFs: a page of its own,
+                    because reviewing a hundred read-back questions is its own
+                    job, apart from writing one by hand in the builder. */}
+                <Route
+                    path="/admin/certification/:id/question-bank/import"
+                    element={<CertificationPdfImport />}
                 />
 
                 {/* The assessments, out here for the same reason again: a

@@ -452,6 +452,11 @@ def parse(name):
             empty cells of a choice that is really a picture.
             """
             value = re.sub(r"^Q\d+\.\s*", "", value)
+            # The section banner printed between two questions ("Answer
+            # questions Q66 through Q100 concerning strategy.") reads as the
+            # tail of the last choice before it.
+            value = re.sub(r"\s*Answer (?:the )?questions? Q\d+ through Q\d+ "
+                           r"concerning [\w ]+\.?\s*$", "", value, flags=re.I)
             value = re.sub(r"\s*\|\s*", " | ", value)
             value = re.sub(r"(?:\|\s*)+\|", "|", value)
             value = re.sub(r"^\s*\|\s*|\s*\|\s*$", "", value)

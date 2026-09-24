@@ -325,7 +325,8 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.DELETE,
                                 "/api/files").authenticated()
                         .requestMatchers(org.springframework.http.HttpMethod.POST,
-                                "/api/files/upload", "/api/files/upload/certification").authenticated()
+                                "/api/files/upload", "/api/files/upload/certification",
+                                "/api/files/upload/question-image").authenticated()
                         // The challenge board names other learners, and the
                         // record is the caller's own: both require a real token
                         // rather than falling through to the permitAll default.

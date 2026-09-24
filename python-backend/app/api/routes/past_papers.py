@@ -68,6 +68,11 @@ class ImportRequest(BaseModel):
     questions: list[ApprovedQuestion] = Field(default_factory=list)
 
 
+class SuggestLessonsRequest(BaseModel):
+    certificationId: int
+    questions: list[str] = Field(default_factory=list, max_length=500)
+
+
 async def _read(upload: UploadFile) -> bytes:
     data = await upload.read()
     if not data:
@@ -123,6 +128,50 @@ async def parse_paper(
     }
 
 
+@router.post("/tag")
+async def tag_questions_route(request: SuggestLessonsRequest):
+    """A lesson and a difficulty for each question, for review before saving.
+
+    The TAGGING model (Grok, with free fallbacks) decides; any question it
+    could not answer is filed by the local embedding match instead, with its
+    difficulty left for the reviewer.
+    """
+    from app.papers.tagger import tag_questions
+
+    session = SessionLocal()
+    try:
+        tags, lessons = await tag_questions(
+            session, request.certificationId, request.questions)
+    finally:
+        session.close()
+    if not lessons:
+        raise HTTPException(status.HTTP_404_NOT_FOUND,
+                            "This certification has no lessons to file questions under.")
+    return {"tags": tags, "lessons": lessons}
+
+
+@router.post("/suggest-lessons")
+def suggest_lessons_route(request: SuggestLessonsRequest):
+    """The lesson each question most likely belongs to, for review.
+
+    The same local embedding match the paper import files questions with --
+    no paid model. It agrees with a careful reading about eight times in ten,
+    so the scores go back with the suggestions and the reviewer decides.
+    """
+    from app.papers.mapping import suggest_lessons
+
+    session = SessionLocal()
+    try:
+        suggestions, lessons = suggest_lessons(
+            session, request.certificationId, request.questions)
+    finally:
+        session.close()
+    if not lessons:
+        raise HTTPException(status.HTTP_404_NOT_FOUND,
+                            "This certification has no lessons to file questions under.")
+    return {"suggestions": suggestions, "lessons": lessons}
+
+
 @router.post("/import")
 def import_questions(request: ImportRequest):
     """Writes the approved drafts. Idempotent on (lesson, question text)."""
@@ -133,6 +182,19 @@ def import_questions(request: ImportRequest):
     added = skipped = 0
     session = SessionLocal()
     try:
+        # Every lesson must belong to the certification being imported into;
+        # a draft edited in the browser is not trusted to say so.
+        allowed = {row[0] for row in session.execute(text("""
+            select l.lesson_id from lessons l
+              join middle_categories mc on mc.middle_category_id = l.middle_category_id
+              join major_categories m on m.major_category_id = mc.major_category_id
+             where m.certification_id = :c"""), {"c": request.certificationId})}
+        stray = sorted({q.lessonId for q in request.questions} - allowed)
+        if stray:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"Lessons {stray} do not belong to certification {request.certificationId}.")
+
         for item in request.questions:
             letters = {choice.letter for choice in item.choices}
             if item.answer not in letters:

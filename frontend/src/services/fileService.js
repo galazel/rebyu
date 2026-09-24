@@ -26,6 +26,18 @@ export function savePhotoCertification(file) {
   })
 }
 
+/** Stores a question's or a choice's image; resolves to its S3 key. */
+export function uploadQuestionImage(file) {
+  const formData = new FormData()
+
+  formData.append("file", file)
+
+  return base("files/upload/question-image", {
+    method: "POST",
+    data: formData,
+  })
+}
+
 export function getFileViewUrl(key) {
   return `${API}/files/view?key=${encodeURIComponent(key)}`
 }

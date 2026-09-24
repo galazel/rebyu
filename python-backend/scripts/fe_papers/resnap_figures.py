@@ -34,7 +34,7 @@ sys.path.insert(0, "/app")
 
 import pymupdf
 
-from app.papers.figures import _pixmap, _s3, _stack, split_figures
+from app.papers.figures import _pixmap, _s3, _stack, split_figures_on_page
 from app.papers.subject_a import PDF_DIR, _whole_lines_only, page_lines
 
 PARSED_DIR = os.environ.get("PAPERS_PARSED_DIR", "/app/scripts/fe_papers/parsed/")
@@ -96,7 +96,7 @@ def run(name, commit):
 
         # Re-render exactly the way the original render split them, so a
         # question whose options are pictures keeps its per-choice keys.
-        stem_figures, choice_figures = split_figures(record)
+        stem_figures, choice_figures = split_figures_on_page(doc, record)
 
         if stem_figures and record.get("image_key"):
             data = _stack([_pixmap(doc, f) for f in stem_figures])
