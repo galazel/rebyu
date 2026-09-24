@@ -127,7 +127,7 @@ def main():
 
     print("\n-- difficulty mix --")
     difficulty = Counter(item["difficulty"] for _, item in new_items)
-    for level in ("EASY", "MEDIUM", "HARD"):
+    for level in ("EASY", "AVERAGE", "HARD"):
         count = difficulty.get(level, 0)
         print("  %-7s %3d  (%.0f%%)" % (level, count, 100.0 * count / len(new_items)))
 

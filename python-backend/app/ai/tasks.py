@@ -134,7 +134,16 @@ DIAGRAM = "diagram"
 #: rubric points) does not need the thinking budget.
 GRADING = "grading"
 
-TASKS = (LESSON, CURRICULUM, QUESTION, TUTOR, LESSON_AUDIT, DOCUMENT_AUDIT, DIAGRAM, GRADING)
+#: Reading a rendered exam page as a PICTURE, to decide what its figures are.
+#:
+#: Its own task because it is the only one that needs a vision model, and
+#: because what it costs and how often it runs are unrelated to any other:
+#: it is called during a past-paper import, on the questions whose figures
+#: the geometric splitter could not confidently classify.
+FIGURE = "figure"
+
+TASKS = (LESSON, CURRICULUM, QUESTION, TUTOR, LESSON_AUDIT, DOCUMENT_AUDIT, DIAGRAM,
+         GRADING, FIGURE)
 
 #: Older call sites (and any caller that only knows the coarse distinction)
 #: pass the two names this module replaced. They resolve to the task that most

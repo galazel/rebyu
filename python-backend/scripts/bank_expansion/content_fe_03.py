@@ -17,7 +17,7 @@ QUESTIONS = {
 
     # 469 -- System Requirements Definition and Stakeholder Needs
     469: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the main purpose of stakeholder identification during requirements definition?",
             [("To ensure the needs of everyone affected are represented before design begins", True),
              ("To decide who will pay for the system", False),
@@ -35,7 +35,7 @@ QUESTIONS = {
 
     # 470 -- Systems Architecture Design and Hardware/Software Allocation
     470: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does hardware/software allocation decide during architecture design?",
             [("Which required functions are realized in hardware and which in software", True),
              ("Which vendor supplies the development tools", False),
@@ -53,7 +53,7 @@ QUESTIONS = {
 
     # 471 -- Software Requirements Definition and Specification
     471: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which statement describes a well-formed software requirement?",
             [("It is unambiguous, verifiable, and states a need rather than a solution", True),
              ("It names the algorithm the developer must use", False),
@@ -78,7 +78,7 @@ QUESTIONS = {
              ("A large number of public methods", False),
              ("A small number of source lines", False)],
             "Locality of change is the practical benefit these two measures predict. Size alone predicts nothing -- a small module with many dependencies is still fragile."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the purpose of a module interface specification?",
             [("To define what callers may rely on, independently of how it is implemented", True),
              ("To document the internal algorithm in detail", False),
@@ -96,7 +96,7 @@ QUESTIONS = {
              ("Generalization: one class inherits from the other", False),
              ("Dependency: one class merely uses the other", False)],
             "A filled diamond is composition, so destroying the whole destroys the parts. A hollow diamond is aggregation, where the part outlives the container."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does the Liskov substitution principle require of a subclass?",
             [("It must be usable anywhere its superclass is expected, without breaking correctness", True),
              ("It must override every method of the superclass", False),
@@ -114,7 +114,7 @@ QUESTIONS = {
              ("Only 1 and 100", False),
              ("Only 50", False)],
             "Boundary value analysis tests each boundary and the values immediately either side, including the invalid ones just outside the range -- which is where off-by-one errors live."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the purpose of a stub in unit testing?",
             [("To stand in for a module the unit under test calls, returning controlled results", True),
              ("To call the unit under test from above", False),
@@ -132,7 +132,7 @@ QUESTIONS = {
              ("Neither stubs nor drivers", False),
              ("A complete production database", False)],
             "Top-down starts at the top so what is missing is below -- hence stubs. Bottom-up starts at the leaves so what is missing is above, and needs drivers."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does a regression test suite verify during integration?",
             [("That previously working behaviour still works after new modules are added", True),
              ("That the new module meets its performance target", False),
@@ -143,7 +143,7 @@ QUESTIONS = {
 
     # 476 -- System Integration, System Testing and Installation
     476: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What distinguishes system testing from integration testing?",
             [("System testing verifies the complete system against its specified requirements", True),
              ("System testing examines individual functions in isolation", False),
@@ -161,7 +161,7 @@ QUESTIONS = {
 
     # 477 -- Acceptance Support and Handover
     477: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Who decides whether acceptance criteria have been met?",
             [("The customer or their designated representative", True),
              ("The development team's technical lead", False),
@@ -179,7 +179,7 @@ QUESTIONS = {
 
     # 478 -- Maintenance, Evolution and Disposal
     478: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What must be considered when a system is disposed of at end of life?",
             [("Secure destruction of data and any retention obligations that survive the system", True),
              ("Only the resale value of the hardware", False),
@@ -204,7 +204,7 @@ QUESTIONS = {
              ("A stable and well-understood problem domain", False),
              ("A contract requiring documented phase sign-off", False)],
             "Waterfall's sequence depends on each phase's output being settled. Where it cannot be, the model's discipline becomes its liability."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the purpose of a daily stand-up in an agile team?",
             [("To synchronize on progress and surface impediments quickly", True),
              ("To report status formally to management", False),
@@ -222,7 +222,7 @@ QUESTIONS = {
              ("The client automatically owns all rights regardless", False),
              ("Neither party may use the software", False)],
             "Unlike employment, contracting does not generally vest rights in the paying party by default. Silence is resolved by law rather than by intention, often not in the client's favour."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which protection applies to the source code of a program as written?",
             [("Copyright, as a work of expression", True),
              ("Patent, automatically on creation", False),
@@ -233,7 +233,7 @@ QUESTIONS = {
 
     # 481 -- Development Environment Management
     481: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Why should development, test and production environments be kept separate?",
             [("Untested change and real data must not meet in the same place", True),
              ("Separate environments run faster individually", False),
@@ -258,7 +258,7 @@ QUESTIONS = {
              ("The minimum hardware specification for the system", False),
              ("The initial estimate of project cost", False)],
             "The baseline is what a change is a change to. Without it, 'the current version' means something different to each person who says it."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Why should build artefacts be traceable to the exact source revision that produced them?",
             [("A defect in a release can then be investigated against the code actually shipped", True),
              ("It reduces the size of the build output", False),
@@ -269,7 +269,7 @@ QUESTIONS = {
 
     # 483 -- Project Management Foundations
     483: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which characteristic distinguishes a project from routine operations?",
             [("It is temporary and produces a unique result", True),
              ("It always involves more than ten people", False),
@@ -287,7 +287,7 @@ QUESTIONS = {
 
     # 484 -- Project Integration Management
     484: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does integrated change control ensure?",
             [("A change is assessed for its effect across every project dimension before approval", True),
              ("Changes are implemented as soon as they are requested", False),
@@ -312,7 +312,7 @@ QUESTIONS = {
              ("Ignore them entirely to save effort", False),
              ("Escalate every decision to them for approval", False)],
             "The power-interest grid matches effort to position: manage closely for high-high, keep satisfied for high power and low interest, keep informed for the reverse."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Why is stakeholder analysis repeated during a project rather than done once?",
             [("Interest and influence change as the project progresses and people move roles", True),
              ("The initial analysis is always deliberately incomplete", False),
@@ -330,7 +330,7 @@ QUESTIONS = {
              ("The WBS must have exactly 100 elements", False),
              ("All work must be completed before decomposition ends", False)],
             "The rule is what makes the WBS an exhaustive and non-overlapping decomposition, so that estimates roll up correctly and nothing is silently omitted."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the purpose of a scope statement?",
             [("To record what is included and explicitly excluded from the project", True),
              ("To list the project's staff assignments", False),
@@ -341,7 +341,7 @@ QUESTIONS = {
 
     # 487 -- Project Resource Management
     487: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does a RACI matrix clarify?",
             [("Who is responsible, accountable, consulted and informed for each activity", True),
              ("The sequence in which activities are performed", False),
@@ -366,7 +366,7 @@ QUESTIONS = {
              ("9 days", False),
              ("10 days", False)],
             "PERT weights the most likely estimate four times: (4 + 4x7 + 16) / 6 = 48 / 6 = 8. The pessimistic tail pulls the expectation above the most likely value."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does zero total float on an activity indicate?",
             [("It lies on the critical path, so any delay delays the project", True),
              ("It can be delayed indefinitely without effect", False),
@@ -384,7 +384,7 @@ QUESTIONS = {
              ("On schedule but over budget", False),
              ("Behind schedule but under budget", False)],
             "SV = EV - PV = -20,000 and CV = EV - AC = -10,000. Less value earned than planned and more spent than earned, so both indices are below one."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does a cost performance index of 0.8 mean?",
             [("The project earns 80 cents of value for each dollar spent", True),
              ("The project is 80% complete", False),
@@ -395,7 +395,7 @@ QUESTIONS = {
 
     # 490 -- Project Risk Management
     490: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the purpose of a risk register?",
             [("To record identified risks with their assessment, owner and planned response", True),
              ("To record incidents after they have occurred", False),
@@ -413,7 +413,7 @@ QUESTIONS = {
 
     # 491 -- Project Quality Management
     491: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What distinguishes prevention costs from appraisal costs?",
             [("Prevention stops defects arising; appraisal detects those that have", True),
              ("Prevention occurs after delivery and appraisal before", False),
@@ -438,7 +438,7 @@ QUESTIONS = {
              ("Cost plus incentive fee", False),
              ("Time and materials", False)],
             "Under fixed price the seller absorbs any overrun, which is why the price includes a risk premium. Cost-reimbursable contracts move that risk to the buyer."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "When is a time and materials contract most appropriate?",
             [("When the scope cannot be defined precisely in advance", True),
              ("When the deliverable is completely specified", False),
@@ -456,7 +456,7 @@ QUESTIONS = {
              ("From 10 to 20", False),
              ("From 25 to 100", False)],
             "Channels are n(n-1)/2, so 10 becomes 45. Doubling the team more than quadruples the communication paths, which is why large teams need explicit structure."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What should a communications plan specify?",
             [("Who needs what information, in what form, how often, and from whom", True),
              ("The technical architecture of the system", False),
@@ -467,7 +467,7 @@ QUESTIONS = {
 
     # 494 -- Service Management Foundations and the Service Lifecycle
     494: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What defines a service in service management terms?",
             [("A means of delivering value to customers without them owning the specific costs and risks", True),
              ("Any piece of software the organization operates", False),
@@ -485,7 +485,7 @@ QUESTIONS = {
 
     # 495 -- Service Design and Service Transition
     495: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does availability management design for beyond uptime percentage?",
             [("Reliability, maintainability, serviceability and the recovery of the service", True),
              ("The purchase price of the hardware", False),
@@ -510,7 +510,7 @@ QUESTIONS = {
              ("Capacity management, to add more resource", False),
              ("Release management, to redeploy the service", False)],
             "Repeated incidents with a known workaround is the definition of a known error awaiting a permanent fix, which is problem management's work."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the primary objective of incident management?",
             [("To restore normal service as quickly as possible within agreed levels", True),
              ("To determine the root cause of every failure", False),
@@ -521,7 +521,7 @@ QUESTIONS = {
 
     # 497 -- Service Operation, Service Desk and Support
     497: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "How are incident priority levels usually derived?",
             [("From the combination of impact and urgency", True),
              ("From the seniority of the person reporting", False),
@@ -546,7 +546,7 @@ QUESTIONS = {
              ("Protection against physical intrusion", False),
              ("Cooling for the equipment racks", False)],
             "The two are complementary: the UPS bridges the gap and conditions the supply, while the generator sustains the load once running."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does the PUE metric measure in a data centre?",
             [("Total facility energy divided by the energy delivered to IT equipment", True),
              ("The proportion of servers currently powered on", False),
@@ -564,7 +564,7 @@ QUESTIONS = {
              ("Only external parties may read system documentation", False),
              ("Independence removes the need to gather evidence", False)],
             "Independence is what gives the opinion value. An auditor who designed or operates the control has an interest in its assessment."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What characterizes sufficient audit evidence?",
             [("It is relevant, reliable and enough in quantity to support the conclusion drawn", True),
              ("It consists only of interviews with staff", False),
@@ -575,7 +575,7 @@ QUESTIONS = {
 
     # 500 -- Internal Control and IT Governance
     500: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the purpose of segregation of duties as an internal control?",
             [("To ensure no individual can both initiate and approve a sensitive transaction", True),
              ("To prevent employees from working in more than one department", False),

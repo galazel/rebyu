@@ -228,7 +228,65 @@ def figure_rects(page, lines=None):
                     group = grown
                     changed = True
             groups[index] = group
-    return groups
+
+    return [_whole_lines_only(group, lines) for group in groups]
+
+
+#: A text line counts as "part of the figure" once this much of its height is
+#: inside the crop. Below it the line is the stem's, and the crop is pulled
+#: back off it instead.
+LINE_KEEP_SHARE = 0.5
+
+#: How far real ink can fall outside a reported line bbox, in points. Ascenders
+#: and descenders routinely do; without this margin a crop that clears every
+#: bbox still shaves the tops or bottoms off the row beyond it.
+LINE_INK_SLACK = 3.0
+
+
+def _whole_lines_only(group, lines):
+    """Moves a crop edge off any text line it would cut through.
+
+    The growth loop above absorbs a caption only when the whole line fits
+    inside the cap. A line that does not fit is left where it is -- and the
+    crop boundary then lands wherever the cap put it, which is routinely in
+    the middle of the row of text just above or below the figure. The result
+    is a scan with a band of half-glyphs along one edge: the reader sees the
+    bottom halves of letters and cannot tell whether they were part of the
+    diagram.
+
+    So every line the crop merely OVERLAPS is resolved one way or the other.
+    Mostly inside, it is taken in whole; mostly outside, the edge retreats to
+    clear it. Either way the crop never bisects a line, and it can only move
+    by the height of one line, so a table cannot ratchet out over the stem.
+    """
+    # Tested against a slightly grown box, and the edge moved slightly past
+    # the line it clears. A reported line bbox is tight to the glyph boxes the
+    # font declares, and real ink -- an ascender, a descender, an italic tail
+    # -- lands a point or two outside it. Testing on the exact rect therefore
+    # leaves a line whose bbox sits just clear of the crop while its ink does
+    # not, which renders as a strip of glyph tops or bottoms along the edge:
+    # the crop looks cut even though no bbox was crossed.
+    probe = pymupdf.Rect(group.x0, group.y0 - LINE_INK_SLACK,
+                         group.x1, group.y1 + LINE_INK_SLACK)
+    for _, rect in lines:
+        if rect in group or not probe.intersects(rect):
+            continue
+        overlap = min(group.y1, rect.y1) - max(group.y0, rect.y0)
+        if rect.height > 0 and overlap / rect.height >= LINE_KEEP_SHARE:
+            # Only the edge the line actually lies beyond moves. Slackening
+            # both would undo a retreat already made at the other end, and
+            # hand the crop straight back the line it had just cleared.
+            if rect.y0 < group.y0:
+                group.y0 = rect.y0 - LINE_INK_SLACK
+            if rect.y1 > group.y1:
+                group.y1 = rect.y1 + LINE_INK_SLACK
+            group.x0 = min(group.x0, rect.x0)
+            group.x1 = max(group.x1, rect.x1)
+        elif rect.y1 <= group.y1 and rect.y1 - group.y0 > -LINE_INK_SLACK:
+            group.y0 = rect.y1 + LINE_INK_SLACK   # clear the line above
+        elif rect.y0 >= group.y0 and group.y1 - rect.y0 > -LINE_INK_SLACK:
+            group.y1 = rect.y0 - LINE_INK_SLACK   # stop short of the line below
+    return group
 
 
 def parse(name):

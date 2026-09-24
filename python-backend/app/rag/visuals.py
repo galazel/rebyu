@@ -59,10 +59,50 @@ _MIN_IMAGE_PIXELS = 120 * 120
 #: cut off.
 _CROP_PADDING = 12
 
+#: How far above and below a figure to read text for its context, in points.
+#: A figure's caption sits directly under it and the paragraph that introduces
+#: it directly above, so a band either side catches what the figure is OF.
+_CONTEXT_REACH = 90
+
+#: How much of that text to keep. It exists to be keyword-matched against a
+#: lesson's image request, not to be read, and a whole page of prose matches
+#: everything.
+_CONTEXT_CHARS = 400
+
 #: Render resolution multiplier over the PDF's native 72 DPI. 2x keeps
 #: screenshots legible for diagrams with small embedded labels without
 #: producing multi-megabyte PNGs for every figure.
 _RENDER_ZOOM = 2.0
+
+
+def _figure_regions(page) -> list:
+    """Every figure on the page, however it was drawn.
+
+    This used to be `page.get_images()`, which finds EMBEDDED RASTERS only --
+    photographs and scans. Almost no figure in a real syllabus or exam paper
+    is one. A flowchart, an ER diagram, a table, a graph: all of them are
+    vector strokes, and `get_images()` cannot see any of them. Measured on a
+    real IT Passport paper, a document full of diagrams and tables: ONE
+    figure captured.
+
+    `app.papers.subject_a` already solved this for the past-paper importer --
+    its own module docstring says it, at line 19: "Figures are vector
+    drawings, not embedded images, so `get_images()`..." -- by clustering the
+    drawing strokes instead. Reusing `figure_rects` means this path also gets
+    that module's label-growing and whole-line snapping rather than a second,
+    worse copy of the same idea.
+
+    Raster images are still included: `figure_rects` gathers those too, so a
+    document that really does embed a photograph does not lose it.
+    """
+    from app.papers.subject_a import figure_rects
+
+    try:
+        return list(figure_rects(page))
+    except Exception:
+        # Never lose a whole document's figures to one unusual page.
+        logger.exception("Figure detection failed on a page; skipping it")
+        return []
 
 
 def _capture_page_images(
@@ -71,15 +111,11 @@ def _capture_page_images(
     page = doc[page_index]
     captures = []
 
-    for image_index, image in enumerate(page.get_images(full=True)):
-        xref = image[0]
-        rects = page.get_image_rects(xref)
-        if not rects:
-            continue
-        rect = rects[0]
-        crop = rect + (-_CROP_PADDING, -_CROP_PADDING, _CROP_PADDING, _CROP_PADDING)
-        crop = crop & page.rect  # clamp to page bounds
+    for image_index, crop in enumerate(_figure_regions(page)):
 
+        crop = crop & page.rect
+        if crop.is_empty:
+            continue
         pixmap = page.get_pixmap(matrix=fitz.Matrix(_RENDER_ZOOM, _RENDER_ZOOM), clip=crop)
         if pixmap.width * pixmap.height < _MIN_IMAGE_PIXELS:
             continue
@@ -94,10 +130,34 @@ def _capture_page_images(
                 "bbox": [crop.x0, crop.y0, crop.x1, crop.y1],
                 "width": pixmap.width,
                 "height": pixmap.height,
+                # What this figure is a picture OF, in the document's own
+                # words. Everything else here locates the figure; only this
+                # says what it shows, and without it a captured figure can
+                # never be matched to the lesson that wants it.
+                "context": _text_around(page, crop),
             }
         )
 
     return captures
+
+
+def _text_around(page, crop) -> str:
+    """The document's own words immediately above and below a figure.
+
+    A caption sits under the figure and the sentence that introduces it above,
+    so a band either side is where the words that describe it live. Read as
+    plain text and trimmed: this is matched against a lesson's image request
+    by keyword, never shown to anyone.
+    """
+    try:
+        band = fitz.Rect(
+            page.rect.x0, crop.y0 - _CONTEXT_REACH,
+            page.rect.x1, crop.y1 + _CONTEXT_REACH,
+        ) & page.rect
+        text = page.get_text("text", clip=band) or ""
+    except Exception:
+        return ""
+    return " ".join(text.split())[:_CONTEXT_CHARS]
 
 
 def capture_pdf_visuals(content: bytes, source_name: str) -> list[dict[str, Any]]:

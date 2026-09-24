@@ -14,7 +14,7 @@ round-robin across a batch, which makes the spread exact rather than merely
 likely.
 """
 
-DIFFICULTIES = ("EASY", "MEDIUM", "HARD")
+DIFFICULTIES = ("EASY", "AVERAGE", "HARD")
 
 
 def mcq(difficulty, question, choices, explanation):

@@ -150,8 +150,75 @@ _EMPTY_RESULT = {"url": "", "sourceUrl": "", "sourceName": ""}
 _CONTEXT_FIELDS = ("title", "description", "smallHeader", "supportingTitle", "supportingDescription")
 
 
+#: The share of a request's words a captured figure's surrounding text must
+#: contain before it counts as a picture of that thing. Low enough that
+#: "requirement management process diagram" matches a figure captioned
+#: "Figure 3.2 The requirements management process", high enough that a
+#: figure sharing one common word does not.
+_DOCUMENT_MATCH_SHARE = 0.5
+
+#: Words too common in a request to be evidence of anything.
+_MATCH_STOPWORDS = frozenset({
+    "a", "an", "the", "of", "for", "and", "or", "to", "in", "on", "with",
+    "diagram", "chart", "figure", "illustration", "image", "picture",
+    "example", "overview", "process",
+})
+
+
+def _match_document_visual(query: str, visuals: list[dict] | None) -> dict | None:
+    """The uploaded document's own figure for this request, if it has one.
+
+    Tried BEFORE the web, and that order is the whole point. An admin uploads
+    the official exam guide so the course is built from it; illustrating that
+    course with the best-ranking stock photo of the day, while the guide's own
+    diagram of the very same process sits captured in S3, is the wrong
+    picture from the wrong source -- and on a licensed syllabus, sometimes
+    the wrong thing legally too.
+
+    Matched on the words around the figure in the document, which is why
+    `capture_document_visuals` records them.
+    """
+    if not visuals:
+        return None
+
+    wanted = {word for word in _keywords(query) if word not in _MATCH_STOPWORDS}
+    if not wanted:
+        return None
+
+    best = None
+    for visual in visuals:
+        key = visual.get("s3_key")
+        if not key:
+            continue
+        context = visual.get("context") or ""
+        if not context:
+            continue
+        hits = len(wanted & _keywords(context))
+        share = hits / len(wanted)
+        if share >= _DOCUMENT_MATCH_SHARE and (best is None or share > best[0]):
+            best = (share, visual)
+
+    if best is None:
+        return None
+
+    _, visual = best
+    logger.info("Using the uploaded document's own figure for %r (from %s p%s)",
+                query, visual.get("source_file"), visual.get("page"))
+    return {
+        "url": visual["s3_key"],
+        "sourceUrl": "",
+        # Credited to the document it came from, so an admin reviewing the
+        # lesson can see the picture is the source material's own.
+        "sourceName": visual.get("source_file") or "Uploaded document",
+    }
+
+
 def _search_image(query: str, context: dict | None = None) -> dict:
-    """Serper first, then Wikimedia, and a drawn figure when neither has one."""
+    """The uploaded documents first, then Serper, then Wikimedia, then drawn."""
+    from_document = _match_document_visual(query, (context or {}).get("_documentVisuals"))
+    if from_document:
+        return from_document
+
     found = _search_serper_image(query) or find_wikimedia_image(query)
     if found:
         return {"url": found["url"], "sourceUrl": found["sourceUrl"], "sourceName": found["sourceName"]}
@@ -266,7 +333,7 @@ def _collect_requests(sections: list[dict]) -> dict[tuple[str, str], dict]:
     return wanted
 
 
-def resolve_media(sections: list[dict]) -> list[dict]:
+def resolve_media(sections: list[dict], document_visuals: list[dict] | None = None) -> list[dict]:
     """Replaces each block's media *request* with a real URL, plus who it
     came from.
 
@@ -281,6 +348,15 @@ def resolve_media(sections: list[dict]) -> list[dict]:
     """
     wanted = _collect_requests(sections)
     resolved: dict[tuple[str, str], dict] = {}
+
+    # Carried on each request's context rather than as a parameter through
+    # every searcher: the searchers are looked up by name out of _SEARCHERS
+    # and share one signature, and widening that signature for one source
+    # would touch the video path too, which has no use for it.
+    if document_visuals:
+        for context in wanted.values():
+            if isinstance(context, dict):
+                context["_documentVisuals"] = document_visuals
 
     if wanted:
         with ThreadPoolExecutor(max_workers=min(_MEDIA_WORKERS, len(wanted))) as pool:

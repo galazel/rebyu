@@ -60,7 +60,7 @@ class ApprovedQuestion(BaseModel):
     lessonId: int
     choices: list[DraftChoice]
     imageKey: str | None = None
-    difficulty: Literal["EASY", "MEDIUM", "HARD"] = "MEDIUM"
+    difficulty: Literal["EASY", "AVERAGE", "HARD"] = "AVERAGE"
 
 
 class ImportRequest(BaseModel):
@@ -104,8 +104,8 @@ async def parse_paper(
     answers_pdf = await _read(answers)
 
     try:
-        drafts = parse_upload(paper_name, questions_pdf, answers_pdf,
-                              certification_id, kind=kind)
+        drafts = await parse_upload(paper_name, questions_pdf, answers_pdf,
+                                    certification_id, kind=kind)
     except Exception as error:  # noqa: BLE001 -- surfaced to the admin as-is
         logger.exception("Past-paper parse failed for %s", paper_name)
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,

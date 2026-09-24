@@ -60,8 +60,69 @@ def _load_context(generation_request_id: int, certification_id: int):
 #: passed through -- an unrecognised value reaching the prompt would ask the
 #: generator for a format that does not exist.
 _ALLOWED_QUESTION_TYPE_CHOICES = {
-    "MCQ", "SHORT_ANSWER", "DESCRIPTIVE", "CRITICAL_THINKING",
+    "MCQ", "SHORT_ANSWER", "FILL_IN_BLANK", "DESCRIPTIVE", "CRITICAL_THINKING",
 }
+
+
+#: Bounds on the admin's bank size. Below the floor the bank cannot cover a
+#: syllabus; above the ceiling one run would author more questions than any
+#: certification has ever needed, at roughly a cent each.
+_BANK_SIZE_MIN = 10
+_BANK_SIZE_MAX = 5000
+
+
+def _requested_bank_size(params: dict) -> int | None:
+    """How many bank questions the admin asked this run to author.
+
+    None when they left the field empty, which keeps the configured default
+    (`question_bank_questions`, or the per-lesson rate when one is set). The
+    bank is the single most expensive artefact a run produces, and until now
+    its size could only be changed by editing .env and restarting -- so the
+    number was effectively fixed for everyone building a certification.
+    """
+    raw = params.get("questionBankSize")
+    if raw in (None, ""):
+        return None
+    try:
+        size = int(str(raw).strip())
+    except (TypeError, ValueError):
+        logger.warning("Ignoring unreadable questionBankSize: %r", raw)
+        return None
+    clamped = max(_BANK_SIZE_MIN, min(_BANK_SIZE_MAX, size))
+    if clamped != size:
+        logger.warning("questionBankSize %d out of range; using %d", size, clamped)
+    logger.info("Admin asked for a question bank of %d", clamped)
+    return clamped
+
+
+#: Bounds on the admin's lesson count. One lesson is a valid tiny course; the
+#: ceiling matches `curriculum_autosize_max_lessons`, above which a plan stops
+#: being a syllabus and starts being a runaway.
+_LESSON_COUNT_MIN = 1
+_LESSON_COUNT_MAX = 300
+
+
+def _requested_lesson_count(params: dict) -> int | None:
+    """How many lessons the admin asked this curriculum to contain.
+
+    None when the field was left empty, which keeps the configured per-level
+    ranges (`curriculum_min_lessons` x `curriculum_min_middles` x ...) -- knobs
+    that MULTIPLY, so the resulting total was never something an admin could
+    predict from the form.
+    """
+    raw = params.get("lessonCount")
+    if raw in (None, ""):
+        return None
+    try:
+        count = int(str(raw).strip())
+    except (TypeError, ValueError):
+        logger.warning("Ignoring unreadable lessonCount: %r", raw)
+        return None
+    clamped = max(_LESSON_COUNT_MIN, min(_LESSON_COUNT_MAX, count))
+    if clamped != count:
+        logger.warning("lessonCount %d out of range; using %d", count, clamped)
+    logger.info("Admin asked for a curriculum of %d lessons", clamped)
+    return clamped
 
 
 def _requested_question_types(params: dict) -> list[str]:
@@ -211,6 +272,10 @@ async def handle_certification_generation_requested(payload: dict) -> None:
         # The admin's own answer to "what does this exam contain", ticked on
         # the create form. Empty when they left it to the planner.
         "requested_question_types": _requested_question_types(params),
+        # The admin's own bank size for this run, or None to keep the default.
+        "requested_bank_size": _requested_bank_size(params),
+        # The admin's own lesson total for this run, or None for the defaults.
+        "requested_lesson_count": _requested_lesson_count(params),
         # What the certification already contains, when this run is adding to
         # it rather than building it. Empty for an ordinary run.
         #

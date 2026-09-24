@@ -91,8 +91,14 @@ def mock_exam_count() -> int:
     return get_settings().mock_exam_questions
 
 
-def question_bank_count(curriculum: dict | None = None) -> int:
+def question_bank_count(curriculum: dict | None = None, requested: int | None = None) -> int:
     """How many bank questions to author.
+
+    `requested` is the admin's own number for this run, typed on the create
+    form. It wins outright when given -- including over the per-lesson rate,
+    because someone who typed a total meant that total -- and is still held to
+    the one-question-per-lesson floor below, which exists for correctness
+    rather than taste.
 
     Per-lesson when `question_bank_questions_per_lesson` is set, so every
     lesson gets its own pool rather than sharing one flat certification-wide
@@ -101,6 +107,9 @@ def question_bank_count(curriculum: dict | None = None) -> int:
     state still gets a sane number instead of zero.
     """
     settings = get_settings()
+    lessons_for_floor = len(_flatten_lessons(curriculum or {}))
+    if requested is not None and requested > 0:
+        return max(requested, lessons_for_floor)
     per_lesson = settings.question_bank_questions_per_lesson
     lessons = len(_flatten_lessons(curriculum or {}))
 
@@ -267,7 +276,8 @@ async def _invoke_curriculum_agent(state: CertificationState, context: str) -> C
     return await invoke_json_agent(
         get_curriculum_agent,
         build_curriculum_prompt(
-            state["certification_name"], state["certification_description"], context
+            state["certification_name"], state["certification_description"], context,
+            total_lessons=state.get("requested_lesson_count"),
         ),
         Curriculum,
         task=tasks.CURRICULUM,
@@ -430,11 +440,57 @@ def _flatten_middles(curriculum: dict) -> list[tuple[dict, dict]]:
     return pairs
 
 
+#: How much retrieved source material one lesson prompt carries. Large enough
+#: to hold the passages a lesson is actually about, small enough to leave the
+#: lesson agent its output budget.
+LESSON_CONTEXT_CHARS = 12000
+
+
+def _lesson_source_material(state: CertificationState) -> str:
+    """What the uploaded documents say about THIS lesson.
+
+    The lesson stage used to be handed nothing but the lesson's name,
+    objective and topic list. Everything the admin uploaded was parsed,
+    chunked and indexed by `document_ingestion_node` -- and then read by the
+    curriculum stage alone. By the time lessons were written, the only route
+    back to that material was `search_more_lesson_info`, which is a WEB
+    search: the lesson was taught from whatever the open internet returned,
+    while the syllabus the admin actually supplied sat unread in FAISS.
+
+    That is the wrong way round, and it shows: a certification generated from
+    an official exam guide could still teach a topic the way some blog frames
+    it, with terminology the real paper does not use.
+
+    Retrieved per lesson rather than once for the run, because "what does this
+    corpus say about file systems" and "...about project scheduling" are
+    different questions and the whole corpus does not fit in a prompt.
+    """
+    query = " ".join(filter(None, (
+        state["lesson"].get("name", ""),
+        state["lesson"].get("learning_objective", ""),
+        state["middle"].get("name", ""),
+    )))
+    context = retrieve_context(
+        _namespace(state), query, max_chars=LESSON_CONTEXT_CHARS
+    )
+    if not context:
+        logger.info(
+            "No indexed source material for lesson '%s'; it will be written "
+            "from the agent's own knowledge and its research tool",
+            state["lesson"].get("name", ""),
+        )
+    return context
+
+
 async def _invoke_lesson_agent(state: CertificationState) -> GeneratedLesson:
+    # Off the event loop: retrieval embeds the query and searches FAISS, both
+    # CPU-bound, and several lessons are generated concurrently.
+    source_material = await asyncio.to_thread(_lesson_source_material, state)
     return await invoke_agent(
         get_lesson_generation_agent,
         build_lesson_prompt(
-            state["certification_name"], state["major"], state["middle"], state["lesson"]
+            state["certification_name"], state["major"], state["middle"], state["lesson"],
+            source_material=source_material,
         ),
         task=tasks.LESSON,
     )
@@ -483,9 +539,14 @@ async def generate_diagnostic_exam_node(state: CertificationState):
             "begin studying. Use the same question types and layout as the real exam "
             f"described above: {researched_question_types(state, UNKNOWN_EXAM_QUESTION_TYPES)}."
             f"{performance_quota(researched_question_types(state, UNKNOWN_EXAM_QUESTION_TYPES), DIAGNOSTIC_EXAM_ITEMS)}"
+            f"{blank_format_rule(state)}"
             f"{SUB_QUESTION_RULE} "
-            "Favor EASY and AVERAGE difficulty -- this is sat before any teaching has "
-            "happened. Set lesson_ref on each question to the lesson it tests.",
+            # An even spread, not an easy-weighted one. The diagnostic exists
+            # to locate a learner on the scale before teaching, and a paper
+            # with no HARD items cannot tell an Advanced learner from a
+            # Proficient one -- it just marks them both correct.
+            + difficulty_quota_rule(DIAGNOSTIC_EXAM_ITEMS)
+            + " Set lesson_ref on each question to the lesson it tests.",
         ),
         count=DIAGNOSTIC_EXAM_ITEMS,
         existing_stems=written_stems(state),
@@ -566,9 +627,51 @@ def _with_exam_structure(context: str, state: CertificationState) -> str:
 QUESTION_TYPE_CHOICES = {
     "MCQ": ["MCQ"],
     "SHORT_ANSWER": ["SHORT_ANSWER"],
+    # A fill-in-the-blank item IS a SHORT_ANSWER once stored -- each blank is
+    # marked by exact string match, which is what SHORT_ANSWER means here. The
+    # difference is the shape of the stem, which `blank_format_rule` asks for.
+    "FILL_IN_BLANK": ["SHORT_ANSWER"],
     "DESCRIPTIVE": ["DESCRIPTIVE"],
     "CRITICAL_THINKING": ["PROGRAMMING", "DIAGRAM"],
 }
+
+
+def blank_format_rule(state: CertificationState) -> str:
+    """Asks for fill-in-the-blank items when the admin ticked that format.
+
+    The question agent already knows the shape (TERM PLACEMENT in its system
+    prompt): a passage with its terms blanked as (A), (B), (C), a candidate
+    list holding the answers plus same-family distractors, and one
+    sub_question per blank. What it does not know is whether this
+    certification wants them -- left to itself it writes short answers as
+    single-term recall, which is the format an admin who ticks this box is
+    asking for something else than.
+
+    Empty unless the box was ticked, so nothing changes for a run that did
+    not ask for blanks.
+    """
+    chosen = {str(choice).strip().upper() for choice in (state.get("requested_question_types") or [])}
+    if "FILL_IN_BLANK" not in chosen:
+        return ""
+    if "SHORT_ANSWER" in chosen:
+        # Both ticked: the paper has plain short answers as well, so this is a
+        # share rather than a rule about every one of them.
+        return (
+            " FILL-IN-THE-BLANK REQUIRED: at least half of the SHORT_ANSWER items must be "
+            "TERM PLACEMENT items -- a short passage that defines two to four concepts "
+            "without naming them, each name blanked as (A), (B), (C), with a candidate "
+            "list underneath holding those answers plus same-family distractors, and one "
+            "sub_question per blank whose rubric_answer is copied verbatim from the list. "
+            "The rest may be single-term recall. "
+        )
+    return (
+        " FILL-IN-THE-BLANK REQUIRED: every SHORT_ANSWER item must be a TERM PLACEMENT "
+        "item -- a short passage that defines two to four concepts without naming them, "
+        "each name blanked as (A), (B), (C), with a candidate list underneath holding "
+        "those answers plus same-family distractors, and one sub_question per blank whose "
+        "rubric_answer is copied verbatim from the list. Never a single-term recall "
+        "question. "
+    )
 
 
 def requested_question_types(state: CertificationState) -> str:
@@ -672,11 +775,7 @@ async def generate_mock_exam_node(state: CertificationState):
         else "covering EVERY lesson in the certification, spread evenly so no lesson is "
         "left out and none dominates"
     )
-    difficulty = (
-        " and simulating the real exam's difficulty"
-        if known
-        else ". Mix EASY, AVERAGE and HARD items"
-    )
+    difficulty = " and simulating the real exam's difficulty" if known else ""
 
     batch = await invoke_question_agent(
         scope, context,
@@ -685,6 +784,8 @@ async def generate_mock_exam_node(state: CertificationState):
             f"Generate exactly {count} questions {coverage}, drawn from the lesson content "
             f"above{difficulty}. This exam uses these question types ONLY: {types}. "
             f"Do not use a type that is not listed.{performance_quota(types, count)}"
+            f"{difficulty_quota_rule(count)}"
+            f"{blank_format_rule(state)}"
             f"{SUB_QUESTION_RULE} "
             "Set lesson_ref on each question to the lesson it tests.",
         ),
@@ -720,6 +821,58 @@ PERFORMANCE_ITEM_SHARE = 0.20
 
 #: Types that need the quota above; the rest are cheap enough to write freely.
 PERFORMANCE_TYPES = ("PROGRAMMING", "DIAGRAM")
+
+
+#: The three levels the adaptive engine understands. IrtModel maps them to
+#: b = -1.5 / 0.0 / +1.5, so these labels ARE the item difficulty parameter --
+#: not a tag on the side of one.
+DIFFICULTY_LEVELS = ("EASY", "AVERAGE", "HARD")
+
+
+def difficulty_quota(total: int) -> dict[str, int]:
+    """An even split of `total` across the three levels, remainder to AVERAGE."""
+    if total <= 0:
+        return {level: 0 for level in DIFFICULTY_LEVELS}
+    base, extra = divmod(total, 3)
+    quota = {level: base for level in DIFFICULTY_LEVELS}
+    # One or two spares go to AVERAGE first, then EASY -- never twice to the
+    # same level, which would hand a paper of 2 both spares and ask for no
+    # EASY and no HARD at all.
+    for level in ("AVERAGE", "EASY")[:extra]:
+        quota[level] += 1
+    return quota
+
+
+def difficulty_quota_rule(total: int) -> str:
+    """The difficulty split as a counted requirement.
+
+    The same failure `performance_quota` exists to fix, one field over.
+    "Spanning EASY, AVERAGE and HARD" is permission, and a model handed
+    permission writes the middle: the IT Passport bank came out 86% AVERAGE,
+    8.8% EASY, 5.4% HARD, with 43 of 63 lessons holding nothing but AVERAGE.
+
+    That is not cosmetic. Those labels are the IRT difficulty parameter, so a
+    bank of one level gives the engine one point on the scale and no way to
+    tell a Novice from an Advanced learner -- every sitting then measures
+    roughly the same thing, whoever sits it.
+
+    Exact numbers are what changes the output, and the levels are defined
+    rather than named so "HARD" does not come back as an AVERAGE question
+    with a longer stem.
+    """
+    if total <= 0:
+        return ""
+    quota = difficulty_quota(total)
+    spread = ", ".join(f"{quota[level]} {level}" for level in DIFFICULTY_LEVELS if quota[level])
+    return (
+        f" DIFFICULTY IS A COUNTED QUOTA, not a suggestion: exactly {spread}. "
+        "Set `difficulty` explicitly on EVERY question -- one left unset is "
+        "stored as AVERAGE. EASY = a single recalled fact, term or definition. "
+        "AVERAGE = applying one idea to a short scenario. HARD = combining two "
+        "or more ideas, a multi-step calculation, or reasoning about a "
+        "trade-off. Write genuinely easier and genuinely harder questions; do "
+        "not relabel mid-level ones to fill the quota."
+    )
 
 
 def performance_quota(types: str, total: int) -> str:
@@ -841,8 +994,13 @@ async def generate_question_bank_node(state: CertificationState):
     context = _with_exam_structure(_curriculum_outline(curriculum), state)
 
     settings = get_settings()
-    total = question_bank_count(curriculum)
-    per_lesson = settings.question_bank_questions_per_lesson
+    requested = state.get("requested_bank_size")
+    total = question_bank_count(curriculum, requested)
+    # An admin-typed total replaces the per-lesson RATE as well as the size.
+    # Left in, the prompt below would say "generate exactly 120 questions: 5
+    # for every one of the 63 lessons" -- two numbers that cannot both be
+    # satisfied, and the model picks one.
+    per_lesson = 0 if requested else settings.question_bank_questions_per_lesson
     lessons = len(_flatten_lessons(curriculum))
 
     if per_lesson > 0 and lessons > 0:
@@ -891,8 +1049,10 @@ async def generate_question_bank_node(state: CertificationState):
         _with_improvement(
             state,
             spread
-            + f"Use these question types: {bank_types}, spanning EASY, AVERAGE, and HARD."
+            + f"Use these question types: {bank_types}."
             + performance_quota(bank_types, total)
+            + difficulty_quota_rule(total)
+            + blank_format_rule(state)
             + " This bank is the primary source for "
             "future adaptive assessments, remediation, and practice, so cover the curriculum "
             "broadly rather than deeply on any one topic.",
@@ -1168,7 +1328,9 @@ async def major_generate_node(state: CertificationState):
             "proportionally. Test only material the lessons actually teach. Use these "
             f"question types: "
             f"{researched_question_types(state, 'MCQ, SHORT_ANSWER, DESCRIPTIVE')}."
-            f"{performance_quota(researched_question_types(state, 'MCQ, SHORT_ANSWER, DESCRIPTIVE'), major_quiz_count())} "
+            f"{performance_quota(researched_question_types(state, 'MCQ, SHORT_ANSWER, DESCRIPTIVE'), major_quiz_count())}"
+            f"{difficulty_quota_rule(major_quiz_count())}"
+            f"{blank_format_rule(state)} "
             "Set lesson_ref on each question to the lesson it tests.",
         ),
         count=major_quiz_count(),
@@ -1202,7 +1364,9 @@ async def middle_generate_node(state: CertificationState):
             "content above, covering every lesson under this middle category. Test only "
             "material the lessons actually teach. Use these question types: "
             f"{researched_question_types(state, 'MCQ, SHORT_ANSWER, DESCRIPTIVE')}."
-            f"{performance_quota(researched_question_types(state, 'MCQ, SHORT_ANSWER, DESCRIPTIVE'), middle_quiz_count())} "
+            f"{performance_quota(researched_question_types(state, 'MCQ, SHORT_ANSWER, DESCRIPTIVE'), middle_quiz_count())}"
+            f"{difficulty_quota_rule(middle_quiz_count())}"
+            f"{blank_format_rule(state)} "
             "Set lesson_ref on each question to the lesson it tests.",
         ),
         count=middle_quiz_count(),
@@ -1245,7 +1409,14 @@ async def _author_lesson(
     # The model states what each picture should show; the searches run here,
     # off the event loop, where a failed lookup costs an illustration rather
     # than the lesson. See `app.domain.lesson_media`.
-    result.sections = await asyncio.to_thread(resolve_media, result.sections)
+    # The figures captured from the uploaded documents are offered first, so
+    # a lesson is illustrated by its own source material where that material
+    # has a picture of the thing. `capture_document_visuals_node` has been
+    # capturing and uploading these since it was written; until now nothing
+    # read them back, so every one was paid for and discarded.
+    result.sections = await asyncio.to_thread(
+        resolve_media, result.sections, state.get("document_visuals")
+    )
 
     return {
         "name": lesson.get("name"),
@@ -1274,8 +1445,10 @@ async def _quiz_for(state: CertificationState, lesson: dict) -> dict:
             f"Generate exactly {lesson_quiz_count()} questions that test this lesson's "
             f"content directly, using these question types: "
             f"{researched_question_types(state, 'MCQ, SHORT_ANSWER')}. "
+            + blank_format_rule(state)
             + _lesson_performance_rule(state)
-            + f"Set lesson_ref to '{name}'.",
+            + difficulty_quota_rule(lesson_quiz_count())
+            + f" Set lesson_ref to '{name}'.",
         ),
         count=lesson_quiz_count(),
         existing_stems=written_stems(state),

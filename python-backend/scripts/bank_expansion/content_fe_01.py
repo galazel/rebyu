@@ -17,7 +17,7 @@ QUESTIONS = {
 
     # 427 -- Discrete Mathematics: Radix, Numeric Representation and Precision
     427: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the decimal value of the 8-bit two's complement number 11110110?",
             [("-10", True),
              ("246", False),
@@ -35,7 +35,7 @@ QUESTIONS = {
 
     # 428 -- Applied Mathematics: Probability, Statistics and Optimisation
     428: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Two fair dice are thrown. What is the probability that the total is 7?",
             [("6/36", True),
              ("5/36", False),
@@ -53,7 +53,7 @@ QUESTIONS = {
 
     # 429 -- Theory of Information, Coding and Automata
     429: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "How many distinct symbols can be represented using 7 bits?",
             [("128", True),
              ("127", False),
@@ -71,7 +71,7 @@ QUESTIONS = {
 
     # 430 -- Theory of Communications
     430: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "A parity bit can detect which kind of error?",
             [("An odd number of bit errors in the protected unit", True),
              ("Any number of bit errors, and correct them", False),
@@ -89,7 +89,7 @@ QUESTIONS = {
 
     # 431 -- Theory of Measurement and Control Systems
     431: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What characterizes feedback control as distinct from feedforward control?",
             [("The measured output is compared with the target and the difference drives the correction", True),
              ("Disturbances are measured before they affect the output", False),
@@ -107,7 +107,7 @@ QUESTIONS = {
 
     # 432 -- Data Structures
     432: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which operation is O(1) on a singly linked list but O(n) on an array?",
             [("Inserting an element after a node already held", True),
              ("Accessing the element at a given index", False),
@@ -125,7 +125,7 @@ QUESTIONS = {
 
     # 433 -- Algorithms
     433: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the worst-case time complexity of binary search on a sorted array of n elements?",
             [("O(log n)", True),
              ("O(n)", False),
@@ -143,7 +143,7 @@ QUESTIONS = {
 
     # 434 -- Programming: Structure, Style, Data Types
     434: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does passing an argument by reference allow that passing by value does not?",
             [("The called function can modify the caller's variable", True),
              ("The argument is copied before the call", False),
@@ -161,7 +161,7 @@ QUESTIONS = {
 
     # 435 -- Programming Languages: Compilation and Paradigms
     435: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which phase of compilation detects that a variable is used before it is declared?",
             [("Semantic analysis", True),
              ("Lexical analysis", False),
@@ -179,7 +179,7 @@ QUESTIONS = {
 
     # 436 -- Markup and Other Languages
     436: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which statement about XML and JSON is correct?",
             [("XML supports attributes and namespaces; JSON has a simpler value-oriented model", True),
              ("JSON supports schemas while XML does not", False),
@@ -197,7 +197,7 @@ QUESTIONS = {
 
     # 437 -- The Processor
     437: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "A 5-stage pipeline with no stalls processes instructions at what steady-state rate?",
             [("One instruction completed per clock cycle", True),
              ("One instruction completed every five cycles", False),
@@ -222,7 +222,7 @@ QUESTIONS = {
              ("2 ns", False),
              ("100 ns", False)],
             "Average = 2 + 0.05 x 100 = 7 ns. The miss penalty dominates even at a high hit rate, which is why the last few percentage points of hit rate matter so much."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Why does a memory hierarchy improve average performance?",
             [("Programs exhibit locality, so a small fast level serves most accesses", True),
              ("The slowest level is never accessed after startup", False),
@@ -233,7 +233,7 @@ QUESTIONS = {
 
     # 439 -- Buses and Interconnects
     439: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does bus arbitration resolve?",
             [("Which of several devices may drive the shared bus at a given moment", True),
              ("How wide each data transfer must be", False),
@@ -251,7 +251,7 @@ QUESTIONS = {
 
     # 440 -- Input/Output Interfaces and Device Control
     440: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What advantage does DMA provide over programmed I/O?",
             [("Data moves between device and memory without the processor handling each word", True),
              ("Transfers no longer require any memory bandwidth", False),
@@ -269,7 +269,7 @@ QUESTIONS = {
 
     # 441 -- Input/Output Devices and Peripherals
     441: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which characteristic distinguishes an SSD from a hard disk drive in performance terms?",
             [("No seek time, so random access is dramatically faster", True),
              ("Higher capacity per device in every case", False),
@@ -294,7 +294,7 @@ QUESTIONS = {
              ("0.98", False),
              ("1.98", False)],
             "Both must fail for the service to fail: 1 - (0.01 x 0.01) = 0.9999. This assumes the failures are independent, which shared power or a shared switch would break."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What distinguishes a hot standby from a cold standby configuration?",
             [("A hot standby runs continuously and can take over immediately", True),
              ("A cold standby processes half the workload at all times", False),
@@ -312,7 +312,7 @@ QUESTIONS = {
              ("94%", False),
              ("24%", False)],
             "Availability = MTBF / (MTBF + MTTR) = 480 / 500 = 0.96. Halving repair time raises availability as effectively as doubling time between failures."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does throughput measure in system evaluation?",
             [("The amount of work completed per unit of time", True),
              ("The delay experienced by a single request", False),
@@ -330,7 +330,7 @@ QUESTIONS = {
              ("4 units", False),
              ("10 units", False)],
             "SJF runs them in the order 2, 4, 6, 8. The waits are 0, 2, 6 and 12, summing to 20 over four processes, so the average is 5. First-come-first-served on the original order would give 8.5."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What condition must hold for a deadlock to be possible?",
             [("Mutual exclusion, hold and wait, no preemption, and circular wait together", True),
              ("Only that two processes share a resource", False),
@@ -341,7 +341,7 @@ QUESTIONS = {
 
     # 445 -- Middleware, Runtimes and Shared Services
     445: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What problem does message-oriented middleware primarily solve?",
             [("Decoupling sender and receiver in time and availability", True),
              ("Reducing the size of transmitted messages", False),
@@ -366,7 +366,7 @@ QUESTIONS = {
              ("Only the last full backup", False),
              ("The last full backup plus Thursday's incremental only", False)],
             "Each incremental holds only what changed since the previous backup, so the chain must be replayed in order. Differential backups would need only the full plus Thursday's."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does journaling provide in a file system?",
             [("A record of pending changes so the file system can recover consistently after a crash", True),
              ("Compression of stored file contents", False),
@@ -377,7 +377,7 @@ QUESTIONS = {
 
     # 447 -- Development Tools, Build Chains and Testing Environments
     447: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does a linker do that a compiler does not?",
             [("Resolves references between separately compiled units and libraries", True),
              ("Checks the syntax of the source code", False),
@@ -402,7 +402,7 @@ QUESTIONS = {
              ("The software may not be used commercially", False),
              ("The original author must approve each modification", False)],
             "Copyleft attaches to distribution, not to use, and does not forbid charging. Confusing 'free software' with 'zero price' is the usual source of licence error."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which risk should an organization assess before adopting an open source component?",
             [("Licence compatibility, maintenance activity, and security update practice", True),
              ("Whether the code compiles on the first attempt", False),
@@ -413,7 +413,7 @@ QUESTIONS = {
 
     # 449 -- Hardware: Logic Circuits and Semiconductors
     449: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the output of a two-input XOR gate when both inputs are 1?",
             [("0", True),
              ("1", False),

@@ -9,6 +9,6 @@ class AdaptiveQuestionRecommendation(BaseModel):
     medium_mastery: float
     hard_mastery: float
 
-    recommended_difficulty: Literal["EASY", "MEDIUM", "HARD"]
+    recommended_difficulty: Literal["EASY", "AVERAGE", "HARD"]
 
     reason: str

@@ -15,6 +15,52 @@ from .state import QuestionBankState
 
 logger = logging.getLogger(__name__)
 
+# The three levels the adaptive engine understands. IrtModel maps them to
+# b = -1.5 / 0.0 / +1.5, so a bank that is all AVERAGE gives the engine one
+# point on the scale and nothing to tell a Novice from an Advanced learner
+# with -- every sitting then measures roughly the same thing.
+DIFFICULTY_LEVELS = ("EASY", "AVERAGE", "HARD")
+
+
+def difficulty_quota(count: int) -> dict[str, int]:
+    """An even split of `count` across the three levels.
+
+    The remainder goes to AVERAGE, which is where an exam's mass belongs:
+    11 questions is 4 EASY / 4 AVERAGE / 3 HARD, not a silent drift back to
+    all-AVERAGE.
+    """
+    if count <= 0:
+        return {level: 0 for level in DIFFICULTY_LEVELS}
+    base, extra = divmod(count, 3)
+    quota = {level: base for level in DIFFICULTY_LEVELS}
+    # The one or two left over go to AVERAGE first, then EASY -- never twice
+    # to the same level, which would hand a batch of 2 both spares and ask
+    # for no EASY and no HARD at all.
+    for level in ("AVERAGE", "EASY")[:extra]:
+        quota[level] += 1
+    return quota
+
+
+def difficulty_quota_instruction(count: int) -> str:
+    """The quota as an instruction, counted out rather than described.
+
+    "Mix the difficulty" reliably produces a batch of AVERAGE questions --
+    the model reads "a question" as "a mid-level question" unless it is told
+    how many of each to write. Exact numbers are what changes the output.
+    """
+    quota = difficulty_quota(count)
+    spread = ", ".join(f"{quota[level]} {level}" for level in DIFFICULTY_LEVELS if quota[level])
+    return (
+        f"Difficulty is a hard quota, not a suggestion: exactly {spread}. "
+        "Set `difficulty` explicitly on EVERY question to one of EASY, AVERAGE "
+        "or HARD -- a question with no difficulty is stored as AVERAGE and "
+        "makes the bank useless to the adaptive engine. EASY means a single "
+        "recalled fact or definition; AVERAGE means applying one idea to a "
+        "short scenario; HARD means combining two or more ideas, a multi-step "
+        "calculation, or reasoning about a trade-off. Write genuinely easier "
+        "and genuinely harder questions -- do not relabel mid-level ones."
+    )
+
 async def resolve_scope_node(state: QuestionBankState):
     """Resolves the reference context once, up front: uploaded-file text
     and/or certification-knowledge retrieved from the vector store,
@@ -78,6 +124,14 @@ async def generate_batch_node(state: QuestionBankState):
            " Mix MCQ, SHORT_ANSWER, DESCRIPTIVE, PROGRAMMING, and DIAGRAM types.")
     )
     focus = (state.get("difficulty_focus") or "").strip().upper()
+    if not focus:
+        # Without an explicit quota the model writes almost nothing but
+        # AVERAGE -- left to itself it treats "a question" as "a mid-level
+        # question", and the bank ends up unusable for an adaptive engine
+        # that needs items at the ends of the scale to tell a Novice from an
+        # Advanced learner. Asking for "a mix" is not enough; it has to be
+        # counted out.
+        base_instructions += " " + difficulty_quota_instruction(count)
     if focus:
         # A top-up for one level of the adaptive bank. The difficulty mix the
         # agent normally aims for would put most of the batch at the levels

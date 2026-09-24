@@ -134,9 +134,9 @@ def import_paper(db, name, allow_weak):
             values (:t, 'MCQ', :d, :l, :k, now())
             returning question_id"""), {
             "t": stem,
-            # Past papers carry no difficulty label. MEDIUM is the honest
+            # Past papers carry no difficulty label. AVERAGE is the honest
             # default: claiming EASY or HARD per question would be invention.
-            "d": "MEDIUM",
+            "d": "AVERAGE",
             "l": record["lesson_id"],
             "k": record.get("image_key"),
         }).scalar()

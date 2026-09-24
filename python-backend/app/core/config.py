@@ -240,6 +240,30 @@ class Settings(BaseSettings):
     ai_document_audit_max_tokens: int = 512
     ai_document_audit_temperature: float = 0.0
 
+    #: Looks at a rendered page and says what a figure IS.
+    #:
+    #: The only VISION task in the system. Everything else here reads text;
+    #: this one is handed a PNG of the region around a question and asked the
+    #: questions geometry cannot answer -- are these four pictures the answer
+    #: options or one diagram in four parts, does the stem refer to a figure
+    #: that was never captured, where does the figure actually end.
+    #:
+    #: `split_figures` decides that today by arithmetic: the trailing figures
+    #: are the options if there are as many of them as there are choices and
+    #: they are all within 20% of each other in size. That rule found choice
+    #: images on 22 of 3,018 IT Passport questions, which is far too few --
+    #: four graphs drawn at different heights fail the uniformity test and get
+    #: glued into one tall stem image instead.
+    #:
+    #: Must be a vision model. Gemini Flash is the cheapest that is, and this
+    #: runs only on the questions the geometry is unsure about, so the spend is
+    #: a fraction of the bank.
+    ai_figure_provider: str = "openrouter"
+    ai_figure_model: str = "google/gemini-2.5-flash"
+    ai_figure_fallbacks: str = "openai/gpt-4.1-mini,anthropic/claude-sonnet-4.5"
+    ai_figure_max_tokens: int = 700
+    ai_figure_temperature: float = 0.0
+
     # Curriculum size
     # What the planner is *asked* for. Lower all six to run the whole workflow
     # end-to-end on a small AI budget: setting every min/max to 1 yields a

@@ -116,9 +116,10 @@ def _detect_issues(record: dict[str, Any]) -> list[str]:
     return issues
 
 
-def parse_upload(paper_name: str, questions_pdf: bytes, answers_pdf: bytes,
-                 certification_id: int, *, kind: PaperKind = "subject_a",
-                 upload_figures: bool = True) -> list[ImportedQuestion]:
+async def parse_upload(paper_name: str, questions_pdf: bytes, answers_pdf: bytes,
+                       certification_id: int, *, kind: PaperKind = "subject_a",
+                       upload_figures: bool = True,
+                       use_figure_agent: bool = True) -> list[ImportedQuestion]:
     """Parses one uploaded paper and returns reviewable drafts.
 
     `paper_name` is what the citation is built from, so it must carry the
@@ -159,7 +160,13 @@ def parse_upload(paper_name: str, questions_pdf: bytes, answers_pdf: bytes,
     parser.parse(paper_name)
 
     if upload_figures:
-        figures.run(paper_name, True)
+        # The assisted path: the vision agent is asked about the questions
+        # whose figures the geometry could not confidently classify, so an
+        # uploaded paper whose options are pictures arrives with per-choice
+        # images rather than one composite and four buttons of scraped
+        # drawing labels. Degrades to pure geometry when the agent is off or
+        # unreachable.
+        await figures.run_assisted(paper_name, True, use_agent=use_figure_agent)
 
     mapping.PARSED_DIR = parsed_dir
     mapping.main_for(certification_id, [paper_name])

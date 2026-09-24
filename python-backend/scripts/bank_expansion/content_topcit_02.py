@@ -16,7 +16,7 @@ QUESTIONS = {
 
     # 405 -- Protocols and the OSI Reference Model
     405: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "At which OSI layer does a protocol that provides end-to-end reliable delivery operate?",
             [("Transport layer", True),
              ("Network layer", False),
@@ -30,14 +30,14 @@ QUESTIONS = {
              ("The physical layer repairs the corrupted bits", False),
              ("The network layer rewrites the frame's payload", False)],
             "Error detection on a single link is the data link layer's job, and its response is to discard rather than repair. Recovery, if any, is left to a higher layer that tracks end-to-end delivery."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the practical benefit of a layered protocol model?",
             [("A layer's implementation can change without disturbing the layers above and below", True),
              ("Network traffic travels faster than without layering", False),
              ("Fewer protocols are needed in total", False),
              ("Encryption becomes unnecessary", False)],
             "Layering buys substitutability through stable interfaces -- the same application runs unchanged over Ethernet or Wi-Fi. It costs a little overhead, which is the trade deliberately accepted."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which statement about the relationship between the OSI model and the TCP/IP stack is correct?",
             [("TCP/IP collapses several OSI layers, and is the model actually deployed", True),
              ("TCP/IP has exactly seven layers matching OSI one to one", False),
@@ -48,7 +48,7 @@ QUESTIONS = {
 
     # 406 -- Internet Address Structure: MAC, IP, and Port Numbers
     406: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which statement about MAC and IP addresses is correct?",
             [("A MAC address identifies an interface on a local link; an IP address identifies a host for routing", True),
              ("A MAC address changes at every router hop and an IP address never changes", False),
@@ -62,14 +62,14 @@ QUESTIONS = {
              ("The gateway's MAC and the final destination's MAC", False),
              ("A broadcast MAC in both fields", False)],
             "Layer 2 addressing only ever spans one link, so the frame is addressed to the gateway. The gateway then builds a new frame for the next hop while the IP header is unchanged."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does a port number identify?",
             [("A specific application endpoint on a host", True),
              ("The physical socket the cable is plugged into", False),
              ("The network the host belongs to", False),
              ("The manufacturer of the network interface", False)],
             "The combination of IP address and port identifies a conversation endpoint, which is what lets one host hold many simultaneous connections."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which range is conventionally reserved for well-known services such as HTTP and SSH?",
             [("0 to 1023", True),
              ("1024 to 49151", False),
@@ -80,14 +80,14 @@ QUESTIONS = {
 
     # 407 -- Internet Standards and the IEEE 802 Family
     407: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which IEEE 802 standard defines wireless local area networking?",
             [("802.11", True),
              ("802.3", False),
              ("802.1Q", False),
              ("802.15", False)],
             "802.11 is wireless LAN, 802.3 is Ethernet, 802.1Q is VLAN tagging, and 802.15 covers personal area networks such as Bluetooth."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does an RFC represent in internet standardization?",
             [("A published document that may define a standard, a practice, or information", True),
              ("A request for funding a network project", False),
@@ -101,7 +101,7 @@ QUESTIONS = {
              ("It compresses frames to save bandwidth", False),
              ("It assigns IP addresses to hosts in each VLAN", False)],
             "Without the tag a trunk cannot tell one VLAN's traffic from another's. The tag carries no security properties, which is why VLAN separation is not a security boundary on its own."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which organization is responsible for allocating global IP address blocks?",
             [("IANA, through the regional internet registries", True),
              ("IEEE, through its 802 working groups", False),
@@ -112,7 +112,7 @@ QUESTIONS = {
 
     # 408 -- Network Layer Devices: Routers, Switches, and VLANs
     408: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What distinguishes a switch from a hub?",
             [("A switch forwards a frame only to the port where the destination sits", True),
              ("A switch operates at the physical layer only", False),
@@ -126,14 +126,14 @@ QUESTIONS = {
              ("The second link stays idle until the first fails", False),
              ("Each switch discards duplicate frames using a sequence number", False)],
             "Ethernet frames carry no hop count, so a layer 2 loop has nothing to stop a broadcast circulating. Spanning tree exists to block the redundant path until it is needed."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What do VLANs achieve on a single physical switch?",
             [("Separate broadcast domains, so traffic is isolated between groups", True),
              ("Increased physical port speed", False),
              ("Automatic encryption of traffic between groups", False),
              ("Elimination of the need for any router", False)],
             "VLANs partition the switch logically. Traffic between them still requires a routing function, and the isolation is not an encryption boundary."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which device makes forwarding decisions using the destination IP address?",
             [("Router", True),
              ("Layer 2 switch", False),
@@ -144,7 +144,7 @@ QUESTIONS = {
 
     # 409 -- IPv4 Addressing, Subnetting, and CIDR
     409: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "How many usable host addresses does a /28 IPv4 subnet provide?",
             [("14", True),
              ("16", False),
@@ -158,7 +158,7 @@ QUESTIONS = {
              ("255.255.252.0 (/22)", False),
              ("255.255.248.0 (/21)", False)],
             "A /24 provides 254 usable addresses, too few. A /23 provides 510, which covers 500 with the least waste; larger prefixes would spare more addresses than needed."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which address range is reserved for private use in IPv4?",
             [("192.168.0.0 to 192.168.255.255", True),
              ("8.8.8.0 to 8.8.8.255", False),
@@ -176,7 +176,7 @@ QUESTIONS = {
 
     # 410 -- Routing Protocols and Algorithms
     410: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What distinguishes a link-state routing protocol from a distance-vector one?",
             [("Each router builds a full map of the topology and computes its own shortest paths", True),
              ("It advertises only the hop count to each destination", False),
@@ -190,14 +190,14 @@ QUESTIONS = {
              ("The protocol uses cost rather than hop count", False),
              ("Routers stop exchanging updates once converged", False)],
             "Because each router only knows what its neighbours claim, a stale advertisement can be believed and re-advertised. Split horizon and route poisoning exist to suppress exactly this."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which protocol is used for routing between autonomous systems on the internet?",
             [("BGP", True),
              ("OSPF", False),
              ("RIP", False),
              ("ARP", False)],
             "BGP is the inter-domain protocol carrying routing policy between networks. OSPF and RIP operate inside a single autonomous system, and ARP is not a routing protocol at all."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "When a routing table holds several matching routes, which is selected?",
             [("The one with the longest matching prefix", True),
              ("The one added to the table most recently", False),
@@ -208,7 +208,7 @@ QUESTIONS = {
 
     # 411 -- Software-Defined Networking and NFV
     411: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the central architectural idea of software-defined networking?",
             [("Separating the control plane from the data plane, with centralized control", True),
              ("Replacing all copper cabling with fibre", False),
@@ -222,14 +222,14 @@ QUESTIONS = {
              ("Network latency necessarily doubles", False),
              ("Standard protocols can no longer be used", False)],
             "Centralization concentrates both failure and attack surface, which is why production SDN controllers are clustered and their southbound channels authenticated."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does network function virtualization replace?",
             [("Dedicated appliances such as firewalls and load balancers, with software on general servers", True),
              ("Physical cabling between data centres", False),
              ("The need for any network monitoring", False),
              ("IP addressing with name-based routing", False)],
             "NFV turns a purchasing and deployment problem into a provisioning one: a new firewall becomes an instance to start rather than a box to rack."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which benefit most directly follows from a programmable network control plane?",
             [("Network policy can be changed across many devices from one place", True),
              ("Physical link bandwidth increases automatically", False),
@@ -240,7 +240,7 @@ QUESTIONS = {
 
     # 412 -- Cloud and Data Centre Networking
     412: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What characterizes east-west traffic in a data centre?",
             [("Traffic between servers inside the data centre", True),
              ("Traffic between the data centre and external clients", False),
@@ -254,14 +254,14 @@ QUESTIONS = {
              ("It removes the need for any redundancy", False),
              ("It eliminates the need for layer 3 routing", False)],
             "Uniform hop count means any server pair sees the same latency and available bandwidth, which is what east-west-heavy workloads need. It uses more cabling, not less."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does an overlay network such as VXLAN provide in a data centre?",
             [("Logical layer 2 segments carried over a routed layer 3 fabric", True),
              ("Physical redundancy for failed cables", False),
              ("Compression of application payloads", False),
              ("Automatic backup of virtual machine images", False)],
             "Overlays decouple tenant network topology from the physical fabric, which is what lets a virtual machine migrate without changing its addressing."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which networking concern is most heightened in a multi-tenant cloud environment?",
             [("Isolating tenants so one cannot reach or affect another's traffic", True),
              ("Choosing the colour of the cabling", False),
@@ -272,7 +272,7 @@ QUESTIONS = {
 
     # 413 -- Mobile Network Evolution: 4G, 5G, and Edge Computing
     413: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which capability distinguishes 5G from 4G beyond raw speed?",
             [("Very low latency and support for massive device density", True),
              ("The use of copper cabling to the handset", False),
@@ -286,14 +286,14 @@ QUESTIONS = {
              ("It removes the need for any core network", False),
              ("It allows handsets to operate without batteries", False)],
             "A low-latency radio is wasted if every request still crosses the country. Edge placement is what makes the end-to-end latency budget achievable."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does network slicing allow an operator to do?",
             [("Run logically separate networks with different characteristics over one infrastructure", True),
              ("Physically divide the fibre into strands per customer", False),
              ("Encrypt all traffic without any key exchange", False),
              ("Remove the need for spectrum licensing", False)],
             "A slice for low-latency industrial control and a slice for consumer video can coexist with genuinely different guarantees, which a single undifferentiated network cannot provide."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which application benefits most from ultra-reliable low-latency communication?",
             [("Remote control of industrial machinery", True),
              ("Downloading a large software update overnight", False),
@@ -304,7 +304,7 @@ QUESTIONS = {
 
     # 378 -- Physical Layer and Media
     378: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Why is optical fibre preferred over copper for long high-capacity links?",
             [("It carries far more bandwidth over distance and is immune to electromagnetic interference", True),
              ("It is cheaper to purchase and install per metre", False),
@@ -318,7 +318,7 @@ QUESTIONS = {
              ("The switches are operating at the same speed", False),
              ("The cable is shielded rather than unshielded", False)],
             "100 metres is the standard's limit including patch leads, and exceeding it produces exactly this kind of marginal, intermittent behaviour rather than a clean failure."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does attenuation describe in a transmission medium?",
             [("The loss of signal strength as it travels along the medium", True),
              ("The addition of unwanted noise from adjacent cables", False),
@@ -329,7 +329,7 @@ QUESTIONS = {
 
     # 379 -- Data Link Layer
     379: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the primary purpose of framing at the data link layer?",
             [("To mark where each block of data begins and ends on the link", True),
              ("To choose the best route across the network", False),
@@ -343,7 +343,7 @@ QUESTIONS = {
              ("Switches transmit only when the link is idle", False),
              ("The protocol was replaced by CSMA/CA on Ethernet", False)],
             "Collision detection solved contention on a shared medium. A dedicated full-duplex link has no contention, so the mechanism has nothing left to do."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does a MAC address's organizationally unique identifier indicate?",
             [("The manufacturer assigned that block of addresses", True),
              ("The network the device is currently attached to", False),
@@ -354,7 +354,7 @@ QUESTIONS = {
 
     # 380 -- Network Service Architecture
     380: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What problem does DNS solve?",
             [("Translating human-readable names into the addresses needed to reach a host", True),
              ("Encrypting traffic between a browser and a server", False),
@@ -368,7 +368,7 @@ QUESTIONS = {
              ("The host is connected to a properly functioning VLAN", False),
              ("The DNS server is unreachable but DHCP worked", False)],
             "The link-local range is the fallback when DHCP fails. It permits communication on the local link only, which is why the symptom is 'can reach some local hosts, nothing else'."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the role of a reverse proxy in a service architecture?",
             [("Accepting client requests on behalf of back-end servers and forwarding them", True),
              ("Allowing internal users to reach the internet anonymously", False),
@@ -379,7 +379,7 @@ QUESTIONS = {
 
     # 381 -- Machine-to-Machine Communications
     381: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Why is MQTT commonly chosen for constrained M2M devices?",
             [("Its publish-subscribe model and small message overhead suit low-power, intermittent links", True),
              ("It requires a permanent high-bandwidth connection", False),
@@ -393,7 +393,7 @@ QUESTIONS = {
              ("Reduce the sensor count until the raw volume is manageable", False),
              ("Store all readings on each sensor indefinitely", False)],
             "Moving computation to the data is cheaper than moving data to the computation, particularly over metered or constrained links."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the main security concern specific to large M2M deployments?",
             [("Vast numbers of weakly protected devices that are rarely patched", True),
              ("Devices generating too little traffic to monitor", False),
@@ -404,7 +404,7 @@ QUESTIONS = {
 
     # 382 -- Internet of Things Standards
     382: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which characteristic makes a protocol suitable for low-power wide-area IoT networks?",
             [("Long range and very low power at the cost of low data rate", True),
              ("Maximum throughput regardless of power draw", False),
@@ -418,7 +418,7 @@ QUESTIONS = {
              ("No standards bodies have addressed IoT at all", False),
              ("IP addressing cannot be used by IoT devices", False)],
             "The difficulty is an excess of partially overlapping standards rather than an absence of them, which is what gateway and abstraction layers exist to paper over."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the primary role of an IoT gateway?",
             [("Bridging constrained device protocols to standard IP networks, often with local processing", True),
              ("Generating electrical power for attached sensors", False),

@@ -17,7 +17,7 @@ QUESTIONS = {
 
     # 450 -- Human Interface Technology and Interaction Models
     450: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does Fitts's law predict about pointing at a target on screen?",
             [("Time to acquire it grows with distance and shrinks with target size", True),
              ("Time depends only on the user's typing speed", False),
@@ -42,7 +42,7 @@ QUESTIONS = {
              ("Coloured text always fails to load", False),
              ("Colour indicators slow the page down measurably", False)],
             "Accessibility guidance requires that colour never be the sole carrier of information. An icon or text label alongside the colour makes the signal redundant and therefore robust."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does consistency in interface design primarily reduce?",
             [("The learning the user must redo in each part of the system", True),
              ("The amount of memory the application consumes", False),
@@ -60,7 +60,7 @@ QUESTIONS = {
              ("About 88.2 kbit/s", False),
              ("About 2.82 Mbit/s", False)],
             "44,100 x 16 x 2 = 1,411,200 bit/s. Halving the channels or the sample depth halves the rate, which is the arithmetic behind every audio format decision."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What distinguishes lossy from lossless compression?",
             [("Lossy discards information that cannot be recovered on decompression", True),
              ("Lossy always produces larger files than lossless", False),
@@ -71,7 +71,7 @@ QUESTIONS = {
 
     # 453 -- Multimedia Applications: Graphics, Audio, Video and VR
     453: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the key difference between raster and vector graphics?",
             [("Raster stores a grid of pixels; vector stores shapes that scale without loss", True),
              ("Raster images always use fewer bytes", False),
@@ -96,7 +96,7 @@ QUESTIONS = {
              ("Users to bypass the DBMS entirely", False),
              ("Two databases to share one physical file", False)],
             "Logical independence insulates applications from conceptual change; physical independence insulates the conceptual schema from storage change. The two are routinely swapped in answers."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the purpose of a database view?",
             [("To present a derived, restricted picture of the underlying tables", True),
              ("To store a second physical copy of the data", False),
@@ -114,7 +114,7 @@ QUESTIONS = {
              ("Third normal form, because of a transitive dependency", False),
              ("Boyce-Codd normal form only", False)],
             "Depending on part of a composite key is precisely the 2NF violation. It admits rows where the same product carries two different names."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is a candidate key?",
             [("Any attribute set that uniquely identifies a row and contains no unnecessary attribute", True),
              ("The first column defined in the table", False),
@@ -132,7 +132,7 @@ QUESTIONS = {
              ("The order's row duplicated once per shipment table row", False),
              ("An error, because the join cannot be satisfied", False)],
             "The left side is preserved in full. That is what makes the outer join the standard way to find rows lacking a match -- filter afterwards for a null on the right."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the effect of GROUP BY in a SQL query?",
             [("Rows sharing the grouped values collapse into one, over which aggregates are computed", True),
              ("Rows are returned in sorted order without aggregation", False),
@@ -150,7 +150,7 @@ QUESTIONS = {
              ("Commit both transactions partially", False),
              ("Escalate both to table-level locks and continue", False)],
             "Detection and victim selection is standard, with the aborted transaction rolled back and usually retried. Indefinite waiting would stall the whole system."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which ACID property guarantees that a committed transaction survives a subsequent crash?",
             [("Durability", True),
              ("Atomicity", False),
@@ -168,7 +168,7 @@ QUESTIONS = {
              ("All three properties simultaneously", False),
              ("Nothing, if the hardware is reliable enough", False)],
             "Partitions happen in any real network, so the practical choice is between refusing requests to stay consistent and serving possibly stale data to stay available."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which workload characteristic favours a document-oriented NoSQL store over a relational database?",
             [("Records with varying structure, queried mostly by their own identifier", True),
              ("Complex multi-table joins with strict referential integrity", False),
@@ -179,7 +179,7 @@ QUESTIONS = {
 
     # 459 -- Network Architecture: LAN, WAN, Topologies and Devices
     459: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the main advantage of a star topology over a bus topology?",
             [("A single cable fault affects only one node rather than the whole segment", True),
              ("It requires less cabling in total", False),
@@ -204,7 +204,7 @@ QUESTIONS = {
              ("Each source transmits whenever the channel is idle", False),
              ("Each source is given a distinct spreading code", False)],
             "TDM divides time; FDM divides frequency; CSMA is contention-based; CDMA uses codes. The distinction is a standard FE item."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the purpose of flow control in data communication?",
             [("To stop a fast sender overwhelming a slower receiver", True),
              ("To detect corrupted bits in a frame", False),
@@ -222,7 +222,7 @@ QUESTIONS = {
              ("SYN, ACK, FIN", False),
              ("SYN-ACK, SYN, ACK", False)],
             "The exchange synchronizes sequence numbers in both directions before data flows, which is what UDP omits and why UDP has no connection to establish."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which situation makes UDP a better choice than TCP?",
             [("Real-time media where a late retransmission is worse than a lost packet", True),
              ("File transfer where every byte must arrive intact", False),
@@ -233,7 +233,7 @@ QUESTIONS = {
 
     # 462 -- Network Management, Monitoring and Troubleshooting
     462: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does an SNMP trap represent?",
             [("An unsolicited notification sent by an agent when an event occurs", True),
              ("A request from the manager polling a device", False),
@@ -251,7 +251,7 @@ QUESTIONS = {
 
     # 463 -- Network Applications: DNS, Mail, Web
     463: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which DNS record type maps a domain name to an IPv4 address?",
             [("A", True),
              ("MX", False),
@@ -276,7 +276,7 @@ QUESTIONS = {
              ("Cross-site request forgery", False),
              ("Directory traversal", False)],
             "The payload persists on the server and fires in a victim's browser. CSRF instead abuses an existing session to make the victim issue a request they did not intend."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is a zero-day vulnerability?",
             [("One exploited before a patch is available from the vendor", True),
              ("One that has been patched for less than a day", False),
@@ -294,7 +294,7 @@ QUESTIONS = {
              ("It proves the server's software is free of vulnerabilities", False),
              ("It authenticates the client to the server", False)],
             "The certificate authenticates the server and carries the key used to establish the session. Bulk traffic is then protected by a symmetric key derived during the handshake."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does a challenge-response authentication scheme avoid that a plain password exchange does not?",
             [("Transmitting the secret itself, so a captured exchange cannot be replayed", True),
              ("The need for the user to remember any secret", False),
@@ -305,7 +305,7 @@ QUESTIONS = {
 
     # 466 -- Information Security Management: ISMS, Risk and Policy
     466: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does risk acceptance formally require?",
             [("A decision by someone with authority to carry the consequences", True),
              ("Confirmation that the risk cannot occur", False),
@@ -323,7 +323,7 @@ QUESTIONS = {
 
     # 467 -- Security Technology Evaluation and Certification Schemes
     467: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does an ISO/IEC 15408 Common Criteria evaluation assess?",
             [("Whether a product meets a defined security functional and assurance specification", True),
              ("Whether an organization's management system conforms to a standard", False),
@@ -348,7 +348,7 @@ QUESTIONS = {
              ("More frequent backup scheduling", False),
              ("Additional monitoring of the production network", False)],
             "Once the media is out of the organization's control, only encryption still protects the contents -- provided the key did not travel with it."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does a web application firewall inspect that a network firewall does not?",
             [("The content and structure of HTTP requests, such as injection payloads", True),
              ("The physical condition of network cabling", False),

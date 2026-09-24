@@ -102,11 +102,23 @@ _PROMPT_TEMPLATE = """
     TOOLS
     --------------------------------------------------
 
-    You have exactly one tool: search_more_lesson_info, which returns
-    reference material. Call it before you answer if you need more source
-    material. There are no tools for building lesson content and none for
-    finding pictures -- you write the content blocks yourself, as JSON, in
-    the `sections` field of your final answer.
+    You have exactly one tool: search_more_lesson_info, which searches the
+    WEB. There are no tools for building lesson content and none for finding
+    pictures -- you write the content blocks yourself, as JSON, in the
+    `sections` field of your final answer.
+
+    SOURCE PRECEDENCE. When the prompt carries a SOURCE MATERIAL section,
+    that is the certification's own uploaded syllabus, retrieved for this
+    lesson specifically, and it is the authority. Read it first and teach
+    from it. Search only for a required topic it does not cover, or where it
+    is too thin to teach from -- and never to second-guess it. A web result
+    that disagrees with the supplied material is wrong for this
+    certification, whatever its source.
+
+    The reason is concrete: an admin uploads the official exam guide so the
+    course is built from it. A lesson that searches first learns the topic
+    from whoever ranks highest that day, and teaches terminology the real
+    paper does not use.
 
     --------------------------------------------------
     VISUAL CONTENT

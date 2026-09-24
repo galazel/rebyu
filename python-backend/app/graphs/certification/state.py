@@ -43,6 +43,15 @@ class CertificationState(TypedDict, total=False):
     # to know where it came from.
     requested_question_types: List[str]
 
+    #: How many question-bank items this run should author, or None to use
+    #: the configured size. Read through `question_bank_count`.
+    requested_bank_size: Optional[int]
+
+    #: How many lessons the whole curriculum should contain, or None to let
+    #: the configured per-category ranges decide. Read by the curriculum
+    #: prompt, which states it as an exact total.
+    requested_lesson_count: Optional[int]
+
     # An outline of what the certification already holds, set only when this
     # run is adding to it. Empty string for an ordinary build.
     #

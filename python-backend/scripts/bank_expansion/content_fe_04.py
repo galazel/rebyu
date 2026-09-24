@@ -17,7 +17,7 @@ QUESTIONS = {
 
     # 501 -- Information Systems Strategy and Enterprise Architecture
     501: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What are the four conventional architecture domains of an enterprise architecture?",
             [("Business, data, application and technology", True),
              ("Hardware, software, network and storage", False),
@@ -35,7 +35,7 @@ QUESTIONS = {
 
     # 502 -- Business Process Analysis and Modelling
     502: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "In BPMN, what does a gateway represent?",
             [("A point where the process flow diverges or converges according to a condition", True),
              ("An external participant in the process", False),
@@ -60,7 +60,7 @@ QUESTIONS = {
              ("The hypervisor's patching and integrity", False),
              ("The network hardware in the provider's facility", False)],
             "IaaS gives the customer the machine upward. Assuming the provider patches the guest OS is one of the most common and consequential misreadings of the model."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which cost characteristic distinguishes cloud from on-premises provision?",
             [("Operational expenditure that follows consumption, rather than capital expenditure ahead of it", True),
              ("Cloud is always cheaper over any time horizon", False),
@@ -71,7 +71,7 @@ QUESTIONS = {
 
     # 504 -- System Utilisation Promotion and Evaluation
     504: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Why is user adoption measured after a system is deployed?",
             [("A system that is available but unused delivers none of its expected benefit", True),
              ("Adoption determines the hardware warranty period", False),
@@ -96,7 +96,7 @@ QUESTIONS = {
              ("3.3 years", False),
              ("4 years", False)],
             "300,000 / 100,000 = 3 years. Simple payback ignores the time value of money and anything happening after the payback point, which is why NPV is preferred for longer horizons."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Why does net present value discount future cash flows?",
             [("Money available now is worth more than the same amount later", True),
              ("Future cash flows are always smaller in nominal terms", False),
@@ -107,7 +107,7 @@ QUESTIONS = {
 
     # 506 -- Requirements Definition from the Client Side
     506: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the client's responsibility when defining requirements for a procured system?",
             [("Stating the business need and constraints clearly enough for suppliers to respond comparably", True),
              ("Specifying the supplier's internal development method", False),
@@ -125,7 +125,7 @@ QUESTIONS = {
 
     # 507 -- Procurement Planning: RFI, RFP and Supplier Selection
     507: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What distinguishes an RFP from an RFI?",
             [("An RFP asks for solutions and prices against settled requirements; an RFI gathers market information", True),
              ("An RFP is issued after the contract is signed", False),
@@ -150,7 +150,7 @@ QUESTIONS = {
              ("High switching costs for the buyer", False),
              ("A small number of buyers relative to suppliers", False)],
             "Power follows alternatives. When leaving is cheap and substitutes are plentiful, the buyer sets the terms."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which generic strategy does a firm pursue when it serves a narrow segment with a tailored offering?",
             [("Focus", True),
              ("Cost leadership", False),
@@ -161,7 +161,7 @@ QUESTIONS = {
 
     # 509 -- Marketing: Segmentation, Mix and Pricing
     509: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What are the four elements of the traditional marketing mix?",
             [("Product, price, place and promotion", True),
              ("People, process, physical evidence and price", False),
@@ -179,7 +179,7 @@ QUESTIONS = {
 
     # 510 -- Business Strategy Goals and Evaluation
     510: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does a balanced scorecard add to purely financial measurement?",
             [("Customer, internal process, and learning perspectives alongside the financial one", True),
              ("More detailed financial ratios", False),
@@ -197,7 +197,7 @@ QUESTIONS = {
 
     # 511 -- Business Management Systems: ERP, SCM, CRM and BI
     511: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the defining architectural feature of an ERP system?",
             [("A single integrated data store shared across business functions", True),
              ("Separate databases for each department", False),
@@ -215,7 +215,7 @@ QUESTIONS = {
 
     # 512 -- Planning a Technology Development Strategy
     512: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does a technology roadmap communicate?",
             [("How technology capability will develop over time against business need", True),
              ("The physical layout of the data centre", False),
@@ -240,7 +240,7 @@ QUESTIONS = {
              ("It is any innovation that harms an incumbent", False),
              ("It always requires a larger budget than incumbents have", False)],
             "The pattern is what makes it hard to respond to: incumbents rationally ignore an entrant that looks worse on the measures their best customers care about."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the purpose of a stage-gate process in innovation management?",
             [("To review each development stage against criteria before committing further funding", True),
              ("To ensure every project is completed regardless of results", False),
@@ -251,7 +251,7 @@ QUESTIONS = {
 
     # 514 -- Business Systems and Administrative Applications
     514: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does a payroll system's period-end processing typically require that daily processing does not?",
             [("Batch calculation, statutory deduction and reporting against a fixed cut-off", True),
              ("Continuous real-time updates to every record", False),
@@ -276,7 +276,7 @@ QUESTIONS = {
              ("The maintenance schedule and staff roster", False),
              ("The customer complaints log and warranty claims", False)],
             "The plan states what to build, the BOM states what each unit needs, and inventory states what is already held. The difference is what must be ordered and when."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does a kanban system use to trigger replenishment?",
             [("Actual downstream consumption, signalled upstream", True),
              ("A forecast produced at the start of the quarter", False),
@@ -287,7 +287,7 @@ QUESTIONS = {
 
     # 516 -- e-Business: EC, Electronic Payment and Digital Marketing
     516: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does payment tokenization achieve for an online merchant?",
             [("Repeat charges become possible without the merchant storing the card number", True),
              ("Transactions complete without any payment processor", False),
@@ -305,7 +305,7 @@ QUESTIONS = {
 
     # 517 -- Consumer Appliances and Embedded Consumer Systems
     517: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What characterizes a real-time embedded system?",
             [("Correctness depends on producing the result within a required time bound", True),
              ("It always executes faster than a general-purpose computer", False),
@@ -330,7 +330,7 @@ QUESTIONS = {
              ("Industrial devices cannot be connected to a network", False),
              ("Patches for control systems are never released", False)],
             "A process that cannot stop, plus a vendor certification tied to a specific configuration, means the usual patch-promptly advice does not simply transfer."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What is the purpose of a PLC in an industrial system?",
             [("Executing control logic deterministically against sensor input and actuator output", True),
              ("Hosting the corporate web site", False),
@@ -341,7 +341,7 @@ QUESTIONS = {
 
     # 519 -- Management and Organisation Theory
     519: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does a matrix organization structure create for its members?",
             [("Dual reporting lines, typically to a function and to a project or product", True),
              ("A single reporting line with no functional manager", False),
@@ -366,7 +366,7 @@ QUESTIONS = {
              ("800 units", False),
              ("2,500 units", False)],
             "Contribution per unit is 500 - 300 = 200, so 400,000 / 200 = 2,000 units. Above that volume each unit contributes to profit rather than to covering fixed cost."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does linear programming determine?",
             [("The optimal value of an objective function subject to linear constraints", True),
              ("The shortest path between two nodes in a network", False),
@@ -384,7 +384,7 @@ QUESTIONS = {
              ("280,000", False),
              ("160,000", False)],
             "(1,200,000 - 200,000) / 5 = 200,000 per year. The residual value is excluded from the depreciable amount, which is the step most often skipped."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which statement shows an organization's position at a single point in time?",
             [("The balance sheet", True),
              ("The income statement", False),
@@ -402,7 +402,7 @@ QUESTIONS = {
              ("Neither holds rights, because the algorithm is published", False),
              ("The algorithm's publisher owns both programs", False)],
             "Independent creation is a complete answer to a copyright claim, because the right covers expression rather than the idea. A patent on the algorithm would be a different matter."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which right is most relevant to protecting a product name used in trade?",
             [("Trademark", True),
              ("Patent", False),
@@ -420,7 +420,7 @@ QUESTIONS = {
              ("A technical fault rather than a policy matter", False),
              ("Acceptable if no data is copied", False)],
             "Holding a key does not authorize entering every room. Purpose-bound authorization is why access logging and periodic review exist alongside authentication."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What obligation do data breach notification rules typically impose?",
             [("Reporting qualifying breaches to the regulator, and often the individuals, within a deadline", True),
              ("Publishing all breaches in a national newspaper", False),
@@ -438,7 +438,7 @@ QUESTIONS = {
              ("Neither party; the worker is fully autonomous", False),
              ("A government labour office", False)],
             "Direction by the client is what distinguishes dispatch from a subcontract, where the contractor directs its own staff. Getting this wrong creates disguised dispatch, which is a legal problem."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What distinguishes a contract for work from an employment contract?",
             [("A contract for work commits to delivering a result rather than to working under direction", True),
              ("A contract for work has no payment terms", False),
@@ -456,7 +456,7 @@ QUESTIONS = {
              ("Disclosing it anonymously to competitors", False),
              ("Taking no action unless personally liable", False)],
             "Engineering codes place public safety first while still requiring proper process. The obligation is to escalate responsibly, not to stay silent and not to act recklessly."),
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "What does a conflict of interest require of a professional?",
             [("Disclosure to the affected parties, and often withdrawal from the decision", True),
              ("Concealment until the work is completed", False),
@@ -467,7 +467,7 @@ QUESTIONS = {
 
     # 526 -- Standardisation and Standards Bodies
     526: [
-        mcq("MEDIUM",
+        mcq("AVERAGE",
             "Which body publishes the ISO/IEC joint standards covering information technology?",
             [("ISO and IEC together, through their joint technical committee", True),
              ("IEEE acting alone", False),

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import require_service_key
 from app.db.session import get_db
-from app.graphs.tutor.lesson_context import load_lesson_context
+from app.graphs.tutor.lesson_context import load_lesson_context, load_source_material
 from app.graphs.tutor.workflow import get_tutor_graph
 from app.services.ai.tutor_service import append_messages, get_conversation
 
@@ -74,6 +74,7 @@ async def append_conversation_messages(payload: AppendMessagesRequest) -> Conver
 @router.post("/chat", response_model=ChatResponse)
 async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
     lesson_context = None
+    source_material = None
     if payload.lessonId is not None:
         try:
             lesson_context = load_lesson_context(db, payload.lessonId)
@@ -81,6 +82,11 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
             # A lesson lookup failure should degrade to an unscoped answer,
             # not take the whole chat down -- the learner still gets a reply.
             logger.exception("Failed to load lesson %s for the tutor", payload.lessonId)
+        # Retrieved per QUESTION, not per lesson: what the corpus says about
+        # "how does DHCP assign addresses" is not what it says about the
+        # lesson as a whole, and the useful passage is the one that matches
+        # what was actually asked.
+        source_material = load_source_material(db, payload.lessonId, payload.message)
 
     graph = await get_tutor_graph()
     config = {"configurable": {"thread_id": payload.sessionId}}
@@ -89,6 +95,7 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
             "request": payload.message,
             "messages": [HumanMessage(content=payload.message)],
             "lessonContext": lesson_context,
+            "sourceMaterial": source_material,
         },
         config=config,
     )

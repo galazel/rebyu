@@ -32,7 +32,7 @@ def get_lesson_mastery(
 def get_questions(
     learner_id: int,
     lesson_id: int,
-    difficulty: Literal["EASY", "MEDIUM", "HARD"],
+    difficulty: Literal["EASY", "AVERAGE", "HARD"],
     question_count: int = 10
 ):
     """
