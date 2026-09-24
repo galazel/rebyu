@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import { ClipboardCheck, FileText, Workflow } from "@/components/icons"
 import { cn } from "@/lib/utils"
 import { getFileViewUrl } from "@/services/fileService.js"
+import { useAuthedMediaSrc } from "@/lib/authed-media.jsx"
 import DiagramArea from "@/components/challenges/diagram-area.jsx"
 import { getDiagramTypeLabel } from "@/components/questions/question-editors.jsx"
 import { ProblemStatement, SidePanel, WorkspaceShell } from "./attempt-workspace-shell.jsx"
@@ -44,12 +45,18 @@ export default function DiagramQuestionLayout({
     setNotice(null)
   }, [question.attemptQuestionId, question.rubric])
 
+  /* Fetched with the bearer token rather than handed to the tag as a
+     /files/view URL: that endpoint calls requireAuth and a browser sends no
+     Authorization header on an <img src>, so the figure came back 400 and
+     rendered as a broken image. */
+  const questionImageSrc = useAuthedMediaSrc(question.questionImageKey)
+
   const problem = (
     <ProblemStatement
       question={question}
       index={index}
       typeLabel={`Diagram · ${diagramLabel}`}
-      imageSrc={question.questionImageKey ? getFileViewUrl(question.questionImageKey) : null}
+      imageSrc={questionImageSrc}
     >
       {subQuestions.length > 0 ? (
         <div className="rounded-xl border border-rb-swan bg-rb-polar/40 p-3">

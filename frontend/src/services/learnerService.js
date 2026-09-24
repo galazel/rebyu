@@ -61,6 +61,15 @@ export function getMyClasses(certificationId) {
   return base(`learners/me/classes${query}`)
 }
 
+/**
+ * Just the published assessments of those classes, flattened, each with where
+ * this learner stands on it -- the counterpart of learners/me/announcements.
+ */
+export function getMyClassAssessments(certificationId) {
+  const query = certificationId != null ? `?certificationId=${encodeURIComponent(certificationId)}` : ""
+  return base(`learners/me/class-assessments${query}`)
+}
+
 /** The signed-in learner edits their own name, username and phone number. */
 export function updateMyProfile({ firstName, lastName, username, phoneNumber }) {
   return base("learners/me/profile", {

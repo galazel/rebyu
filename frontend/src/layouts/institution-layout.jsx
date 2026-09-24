@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { getMyInstitutionProfile } from "@/services/institutionService.js"
-import { useAuth } from "@/context/auth-context.jsx"
+import { isDepartmentHeadUser, useAuth } from "@/context/auth-context.jsx"
 import { useNotifications } from "@/hooks/use-notifications.js"
 import { NotificationBell } from "@/components/notification-bell.jsx"
 import { usePortalTheme } from "@/hooks/use-portal-theme.js"
@@ -66,9 +66,10 @@ export default function InstitutionLayout() {
   )
 
   const orgName = institution?.institutionName ?? "Institution"
-  // An institution member (group leader) has no Institution page; their
-  // groups are in the header navigation instead.
-  const isDepartmentHead = user?.departmentHeadRole && user.departmentHeadRole !== "owner"
+  // A department head has no Institution page; their departments are in the
+  // header navigation instead. The account's user type decides this, not its
+  // membership row -- see isDepartmentHeadUser.
+  const isDepartmentHead = isDepartmentHeadUser(user)
   // Pass the account's real role through so the header can tell the
   // institution's own account apart from one it created for a member.
   const portalRole = (user?.role ?? "").toUpperCase() === "DEPARTMENT_HEAD"
@@ -85,7 +86,7 @@ export default function InstitutionLayout() {
 
   return (
     <div className="netacad-portal institution-portal flex min-h-screen flex-col">
-      <PortalTopNavigation role={portalRole} institutionName={orgName} departmentHeadRole={user?.departmentHeadRole} actions={<>
+      <PortalTopNavigation role={portalRole} institutionName={orgName} isOwner={!isDepartmentHead} actions={<>
             <NotificationBell
               items={notifications.items}
               unreadCount={notifications.unreadCount}

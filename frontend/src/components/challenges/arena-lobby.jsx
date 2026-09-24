@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 
 import { Loader2, Lock, Trophy } from "@/components/icons"
-import { BackButton, TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
+import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { CHALLENGE_ARENAS_KEY, getChallengeArenas } from "@/services/challengeService.js"
 
 /**
@@ -39,9 +39,6 @@ export function ArenaLobby({ arenaId, name, blurb, icon: Icon = Trophy, tone }) 
   return (
     <div className="rebyu-ds min-h-dvh bg-rb-polar">
       <div className="flex items-center gap-4 px-5 pt-6 lg:px-8">
-        <BackButton asChild label="Back to arenas">
-          <Link to="/learner/challenges" />
-        </BackButton>
         <div className="font-rb-display text-xl font-extrabold lowercase text-rb-eel">
           {name.toLowerCase()}
         </div>

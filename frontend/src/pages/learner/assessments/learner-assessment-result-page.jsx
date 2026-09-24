@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 
+import { AuthedImage } from "@/lib/authed-media.jsx"
 import { returnPath } from "@/lib/assessment-return"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -15,7 +16,6 @@ import { toast } from "sonner"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import {
-  BackButton,
   Chip,
   RebyuCard,
   TactileButton,
@@ -164,6 +164,11 @@ const PROFICIENCY_TIERS = [
   { label: "Advanced", from: 75 },
 ]
 
+/* The tier from which the curriculum counts a sitting as cleared. Read off
+   the scale above rather than written out again, so the stamp on this page
+   and the lock on the learning road cannot drift apart. */
+const PROFICIENT_RATING = PROFICIENCY_TIERS.find((tier) => tier.label === "Proficient").from
+
 function ProficiencyScale({ rating }) {
   return (
     <ol className="mt-3 grid grid-cols-4 gap-1" aria-label="Proficiency tiers">
@@ -213,7 +218,7 @@ function StatTile({ label, value, tone }) {
    missed were the hard ones. */
 const DIFFICULTY_TONES = {
   EASY: "border-rb-feather/50 bg-rb-feather-wash text-rb-feather-lip",
-  MEDIUM: "border-rb-bee/60 bg-rb-bee-wash text-rb-eel",
+  AVERAGE: "border-rb-bee/60 bg-rb-bee-wash text-rb-eel",
   HARD: "border-rb-cardinal/50 bg-rb-cardinal-wash text-rb-cardinal-lip",
 }
 
@@ -372,9 +377,6 @@ export default function LearnerAssessmentResultPage() {
     <div className="rebyu-ds min-h-dvh bg-rb-polar text-rb-eel">
       <header className="sticky top-0 z-40 border-b-2 border-rb-swan bg-rb-snow">
         <div className="mx-auto flex h-16 max-w-4xl items-center gap-3 px-4">
-          <BackButton asChild size="sm" label={resumePath ? "Back to the lesson" : "Back to the course"}>
-            <Link to={backPath} />
-          </BackButton>
           <div className="min-w-0">
             <p className="rb-eyebrow">attempt result</p>
             <p className="truncate text-sm font-bold text-rb-eel">
@@ -389,7 +391,19 @@ export default function LearnerAssessmentResultPage() {
         {/* The paper as the teacher hands it back: a notebook sheet with the
             score circled in pen and a stamp in the corner. */}
         <section className="rb-graded-sheet p-6 sm:p-8">
-          <TeacherStamp passed={Boolean(result.passed)} />
+          {/* Stamped on the level reached, not the paper's pass mark. The
+              sheet right below it says "Proficient — proficiency 56 out of
+              100"; a TRY AGAIN stamp over that is the page contradicting
+              itself, and it is the level that opens the next lesson. A
+              sitting that measured no level still falls back to the mark,
+              because there it is the only verdict there is. */}
+          <TeacherStamp
+            passed={
+              proficiencyRating != null
+                ? proficiencyRating >= PROFICIENT_RATING
+                : Boolean(result.passed)
+            }
+          />
           <div className="flex flex-wrap items-center gap-2">
             <Chip tone="macaw">{getAssessmentTypeLabel(result.assessmentType)}</Chip>
             <Chip>Attempt {result.attemptNumber}</Chip>
@@ -670,6 +684,30 @@ export default function LearnerAssessmentResultPage() {
                         ) : null}
                       </div>
                     </div>
+
+                    {/* The figure the question was asked with. A past-paper
+                        stem reading "refer to the diagram" is not reviewable
+                        without it, and this screen is the only place the
+                        learner meets the question again. */}
+                    <AuthedImage
+                      imageKey={answer.questionImageKey}
+                      alt="Question reference"
+                      zoomable
+                      className="max-h-80 w-auto rounded-xl border border-rb-swan"
+                    />
+                    {answer.choiceImages?.length > 0 ? (
+                      <div className="flex flex-wrap gap-3">
+                        {answer.choiceImages.map((choice) => (
+                          <AuthedImage
+                            key={choice.choiceId}
+                            imageKey={choice.imageKey}
+                            alt=""
+                            zoomable
+                            className="max-h-40 rounded-lg border border-rb-swan"
+                          />
+                        ))}
+                      </div>
+                    ) : null}
 
                     {answer.selectedChoiceText ? (
                       <div className="space-y-2 text-sm">

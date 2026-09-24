@@ -9,7 +9,7 @@ import {
 } from "react-router-dom"
 import { returnState } from "@/lib/assessment-return"
 import { CurriculumDock } from "@/components/learner/curriculum-dock.jsx"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   ArrowRight,
   BookOpen,
@@ -34,7 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { BackButton, TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
+import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import {
   Reveal,
   StaggerItem,
@@ -1165,7 +1165,13 @@ function standingSuffix(standing) {
 function unitNodes(major, takenExamIds, attemptsByExamId, examResults) {
   const nodes = major.middles.map((middle, index) => {
     const total = middle.lessons.length
-    const done = total > 0 && middle.done === total
+    /* Finished, not merely read through. `middle.cleared` requires every
+       lesson's quiz to have been cleared and the topic's own module exam with
+       it; `middle.done === total` only counted lessons whose text had been
+       opened, so a learner who failed every quick check still unlocked the
+       next topic and the unit exam behind it. The "N/total lessons" caption
+       below still reports reading, which is what it is asked about. */
+    const done = total > 0 && middle.cleared
 
     return {
       key: `topic-${middle.id}`,
@@ -1331,6 +1337,16 @@ export default function LearnerCertificationCurriculumPage() {
     return map
   }, [masteryQuery.data])
 
+  /* Same reason as the topic page: the road's locks come from the shell's
+     portal payload, which is fetched when the shell mounts and never again
+     while the learner moves between pages. Without this the road can draw a
+     unit as shut using results from before the attempt that opened it. */
+  const queryClient = useQueryClient()
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ["learner-portal-data"] })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const curriculum = useMemo(() => {
     if (!certification) return null
     return buildCurriculum({
@@ -1339,8 +1355,9 @@ export default function LearnerCertificationCurriculumPage() {
       exams: certificationExams,
       examTypesById,
       lessonPriorityById,
+      examResults: data?.examResults ?? [],
     })
-  }, [certification, lessonById, certificationExams, examTypesById, lessonPriorityById])
+  }, [certification, lessonById, certificationExams, examTypesById, lessonPriorityById, data?.examResults])
 
   const diagnosticDone = useMemo(() => {
     if (!curriculum) return false
@@ -1700,9 +1717,6 @@ export default function LearnerCertificationCurriculumPage() {
           card underneath already says. What is left is the two things that are
           actually actions, as icons, with the progress they qualify. */}
       <div className="mx-auto flex max-w-[1600px] items-center gap-2 px-4 pb-1 pt-4 sm:gap-3 sm:px-5 lg:px-8">
-        <BackButton asChild label="Back to my learning">
-          <Link to="/learner/learning" />
-        </BackButton>
 
         {/* The page still needs a name -- for the document outline and for
             anyone arriving by screen reader -- but not a banner across the top.

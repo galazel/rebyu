@@ -23,7 +23,7 @@ export default function DepartmentHeadDashboardPage() {
   if (departmentsQuery.isError)
     return <InstitutionErrorState title="Unable to load your departments" onRetry={departmentsQuery.refetch} />
 
-  const groups = (departmentsQuery.data ?? []).filter((group) => group.status === "active")
+  const departments = (departmentsQuery.data ?? []).filter((row) => row.status === "active")
 
   return (
     <div className="space-y-6">
@@ -47,23 +47,23 @@ export default function DepartmentHeadDashboardPage() {
           </p>
         </div>
 
-        {groups.length === 0 ? (
+        {departments.length === 0 ? (
           <InstitutionEmptyState
             icon={UsersRoundIcon}
             title="No departments assigned"
-            description="Ask your Institution Administrator to assign you as a department department head."
+            description="Ask your institution to assign you as a department head."
           />
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {/* Same bubble card as the challenge arenas — a group is an entity you
-                pick from a shelf, which is exactly what that card is for. */}
-            {groups.map((group, index) => (
+            {/* Same bubble card as the challenge arenas — a department is an
+                entity you pick from a shelf, which is what that card is for. */}
+            {departments.map((department, index) => (
               <BubbleCard
-                key={group.departmentId}
+                key={department.departmentId}
                 tone={toneForIndex(index)}
                 icon={UsersRoundIcon}
-                eyebrow="Learning group"
-                title={group.departmentName}
+                eyebrow="Department"
+                title={department.departmentName}
                 footer={
                   <Button asChild className="w-full">
                     <Link to={`/institution/departments/${department.departmentId}`}>
@@ -74,7 +74,7 @@ export default function DepartmentHeadDashboardPage() {
                 }
               >
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  {group.departmentDescription || "Assigned learning group"}
+                  {department.departmentDescription || "Assigned department"}
                 </p>
               </BubbleCard>
             ))}

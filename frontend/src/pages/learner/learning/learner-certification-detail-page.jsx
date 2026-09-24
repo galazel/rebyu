@@ -21,11 +21,12 @@ import {
 import { Button } from "@/components/ui/button"
 
 import { BentoHeading } from "@/components/commons/bento.jsx"
-import { BackButton, TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
+import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 
 import { BUBBLE_TONES } from "@/components/commons/bubble-card.jsx"
 import { LearnerEmptyState, toneForCertification } from "@/components/learner/learner-ui.jsx"
 import { LearnerAnnouncements } from "@/components/learner/learner-announcements.jsx"
+import { LearnerClassAssessments } from "@/components/learner/learner-class-assessments.jsx"
 import { announceRewards, prefetchRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
 
 import { getCertificationModules } from "@/services/learnerService.js"
@@ -383,9 +384,6 @@ export default function LearnerCertificationDetailPage() {
         <div className="mx-auto w-full max-w-[1600px] px-5 lg:px-8">
 
           <div className="flex items-center gap-3 py-6">
-            <BackButton asChild label="Back to certifications">
-              <Link to="/learner/certifications" />
-            </BackButton>
             <span className="font-rb-display text-sm font-extrabold lowercase text-rb-wolf">
               back to certifications
             </span>
@@ -652,6 +650,8 @@ export default function LearnerCertificationDetailPage() {
                 like a brochure. */}
             <aside className="flex min-w-0 flex-col gap-9 self-start lg:sticky lg:top-6">
               <LearnerAnnouncements certificationId={certificationId} />
+
+              <LearnerClassAssessments certificationId={certificationId} />
 
               <section>
                 <BentoHeading title="how this works" hint="The route from here to the exam." />

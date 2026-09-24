@@ -50,7 +50,7 @@ import {
   InstitutionPageHeader,
   InstitutionStatusBadge,
 } from "@/components/institution/institution-ui.jsx"
-import { useAuth } from "@/context/auth-context.jsx"
+import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
 import { REFERENCE_DEPARTMENT, useReferenceOptions } from "@/services/referenceService.js"
 import {
   getLearnerDisplayName,
@@ -433,7 +433,7 @@ function ManageGroupDialog({
   // Assigning/removing a group's leader (and creating a new leader's account)
   // is an institution-management action -- owner-only, same as Billing/
   // Partnership/Institution profile.
-  const isOwner = user?.departmentHeadRole === "owner"
+  const isOwner = isInstitutionOwner(user)
 
   const departmentInvitations = (Array.isArray(invitations) ? invitations : []).filter(
     (inv) => inv.departmentId === departmentId

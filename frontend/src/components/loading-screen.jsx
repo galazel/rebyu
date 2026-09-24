@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 
+import { isDepartmentHeadUser } from "@/context/auth-context.jsx"
 import { TraySupplies } from "@/components/classroom/tray-supplies.jsx"
 
 /**
@@ -62,8 +63,7 @@ export function messagesForUser(user) {
   const role = String(user?.role ?? "").toUpperCase()
   if (!role) return GUEST_MESSAGES
   if (role === "ADMIN") return ADMIN_MESSAGES
-  if (role === "DEPARTMENT_HEAD"
-      || (role === "INSTITUTION" && user?.departmentHeadRole && user.departmentHeadRole !== "owner")) {
+  if (isDepartmentHeadUser(user)) {
     return DEPARTMENT_HEAD_MESSAGES
   }
   if (role === "INSTITUTION") return INSTITUTION_MESSAGES

@@ -50,6 +50,7 @@ import {
   getExamQuestions,
   getExamTypes,
   getExams,
+  archiveExam,
   publishExam,
 } from "@/services/assessmentService.js"
 import { getQuestions } from "@/services/questionService.js"
@@ -366,6 +367,16 @@ function InlineNameInput({ placeholder, onSubmit, onCancel, isPending, className
   )
 }
 
+/* The tabs this page offers, in the order they are shown. ?tab= is only
+   honoured when it names one of them. */
+const VALID_TABS = [
+  "curriculum",
+  "assessments",
+  "question-bank",
+  "learners",
+  "announcements",
+]
+
 export default function InstitutionDepartmentWorkspacePage() {
   const { departmentId } = useParams()
   const id = Number(departmentId)
@@ -374,7 +385,7 @@ export default function InstitutionDepartmentWorkspacePage() {
   const [previewExam, setPreviewExam] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get("tab")
-  const activeTab = VALID_TABS.includes(requestedTab) ? requestedTab : "curriculum"
+  const activeTab = VALID_TABS.includes(requestedTab) ? requestedTab : VALID_TABS[0]
 
   const deleteExamMutation = useMutation({
     mutationFn: (id) => deleteExam(id),
@@ -396,6 +407,18 @@ export default function InstitutionDepartmentWorkspacePage() {
       toast.success("Assessment published. Learners can now access it.")
     },
     onError: (err) => toast.error(backendMessage(err, "Unable to publish this assessment.")),
+  })
+
+  /* The other half of publish. Without it a mistake in a published paper could
+     only be deleted, taking its attempts with it; archiving takes it off the
+     learners' list and leaves the record intact. */
+  const unpublishExamMutation = useMutation({
+    mutationFn: (examId) => archiveExam(examId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["exams"] })
+      toast.success("Assessment unpublished. Learners can no longer open it.")
+    },
+    onError: (err) => toast.error(backendMessage(err, "Unable to unpublish this assessment.")),
   })
 
   const departmentQuery = useQuery({
@@ -515,7 +538,7 @@ export default function InstitutionDepartmentWorkspacePage() {
     <div className="space-y-6">
       <InstitutionPageHeader
         title={group.departmentName}
-        subtitle={group.departmentDescription || "Your assigned group workspace."}
+        subtitle={group.departmentDescription || "Your assigned department workspace."}
         actions={<Badge>Assigned department</Badge>}
       />
       <Tabs
@@ -664,16 +687,25 @@ export default function InstitutionDepartmentWorkspacePage() {
                       {examTypeById.get(exam.examTypeId) ?? "Assessment"}
                     </Badge>
                     <InstitutionStatusBadge status={exam.status} />
-                    {exam.status === "DRAFT" || !exam.status ? (
+                    {exam.status === "PUBLISHED" ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => unpublishExamMutation.mutate(exam.examId)}
+                        disabled={unpublishExamMutation.isPending}
+                      >
+                        Unpublish
+                      </Button>
+                    ) : (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => publishExamMutation.mutate(exam.examId)}
                         disabled={publishExamMutation.isPending}
                       >
-                        Publish
+                        {exam.status === "ARCHIVED" ? "Republish" : "Publish"}
                       </Button>
-                    ) : null}
+                    )}
                     <Button asChild variant="ghost" size="sm">
                       <Link to={`/institution/departments/${id}/assessments/${exam.examId}/edit`}>
                         Edit
@@ -712,7 +744,7 @@ export default function InstitutionDepartmentWorkspacePage() {
         </TabsContent>
 
         {/* Moved here from the institution account: writing questions is the
-            group leader's work, for the certification their group studies. */}
+            department head's work, for the certification their department studies. */}
         <TabsContent value="question-bank" className="mt-5 space-y-4">
           <p className="text-sm text-muted-foreground">
             Add questions to any lesson in this certification. You can edit or delete

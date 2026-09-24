@@ -38,7 +38,7 @@ function flattenLessons(certification) {
 }
 
 /**
- * Read-only certification content viewer for Institution Members, modelled on
+ * Read-only certification content viewer for department heads, modelled on
  * the Cisco Networking Academy reader: a left "Course Outline" sidebar
  * (search + collapsible modules + lessons) and the selected lesson's content
  * on the right. Deliberately NO progress bar / completion state -- a member

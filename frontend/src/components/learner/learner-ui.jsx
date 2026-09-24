@@ -11,6 +11,7 @@ import {
   CircleUserRound,
   FileText,
   FolderOpen,
+  GraduationCap,
   LibraryBig,
   LogOut,
   Menu,

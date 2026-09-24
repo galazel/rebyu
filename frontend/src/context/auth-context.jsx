@@ -236,16 +236,41 @@ export function useAuth() {
   return context
 }
 
+/**
+ * Is this the institution's own account, rather than one of the department
+ * head accounts it created?
+ *
+ * The user type is authoritative: a DEPARTMENT_HEAD account is never the
+ * owner, whatever its membership row says -- an account can hold a membership
+ * in more than one institution, and a missing row used to read as "owner"
+ * and hand a department head the institution-wide portal. For an INSTITUTION
+ * account the membership row decides, and a missing one still means the
+ * institution's own account.
+ */
+export function isInstitutionOwner(user) {
+  if (!user) return false
+  if (String(user.role ?? "").toUpperCase() === "DEPARTMENT_HEAD") return false
+  return user.departmentHeadRole == null || user.departmentHeadRole === "owner"
+}
+
+/** The other side of the same coin, for anyone inside the institution portal. */
+export function isDepartmentHeadUser(user) {
+  if (!user) return false
+  const role = String(user.role ?? "").toUpperCase()
+  if (role !== "INSTITUTION" && role !== "DEPARTMENT_HEAD") return false
+  return !isInstitutionOwner(user)
+}
+
 export function roleHomePath(role) {
   switch ((role ?? "").toUpperCase()) {
     case "ADMIN":
       return "/admin/dashboard"
     case "INSTITUTION":
-    // An account the institution created for one of its people (a group
-    // leader). Same portal as the institution's own account -- the dashboard
-    // itself branches on whether they are the owner.
-    case "DEPARTMENT_HEAD":
       return "/institution/dashboard"
+    // An account the institution created for one of the people who runs a
+    // department. Same portal, its own home.
+    case "DEPARTMENT_HEAD":
+      return "/institution/department-head"
     default:
       return "/learner/analytics"
   }

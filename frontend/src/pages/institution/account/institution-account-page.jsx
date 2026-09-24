@@ -1,27 +1,22 @@
 import { useLocation, useNavigate } from "react-router-dom"
-import {
-  Building2Icon,
-  FilesIcon,
-  HandshakeIcon,
-  SparklesIcon,
-} from "@/components/icons"
+import { Building2Icon, HandshakeIcon } from "@/components/icons"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAuth } from "@/context/auth-context.jsx"
+import { isDepartmentHeadUser, useAuth } from "@/context/auth-context.jsx"
 
-import InstitutionFilesPage from "./institution-files-page.jsx"
-import InstitutionLicensePage from "./institution-license-page.jsx"
 import InstitutionProfilePage from "./institution-profile-page.jsx"
 import InstitutionPartnershipPage from "./institution-partnership-page.jsx"
 
 /**
  * The institution's own account, as one page.
  *
- * Profile, Partnership, License and Files were separate routes behind a
- * dropdown, and every one of them was a short read: a contact form,
- * a request status, a plan card, a file list. Nothing on any
- * of them was long enough to be a destination, and telling them apart from
- * their labels was guesswork.
+ * Profile and Partnership were separate routes behind a dropdown, and each was
+ * a short read; neither was long enough to be a destination of its own.
+ *
+ * License and Files were tabs here too and are gone: the plan card repeated
+ * what the partnership record already says, and the file list was an empty
+ * shelf. The partnership table now carries the plan -- what was requested, what
+ * it costs, and the button that renews it.
  *
  * They keep their own URLs, so an existing link or bookmark still lands where
  * it did; the tab is derived from the path rather than from state, and picking
@@ -42,20 +37,6 @@ const TABS = [
     icon: HandshakeIcon,
     Panel: InstitutionPartnershipPage,
   },
-  {
-    value: "license",
-    path: "/institution/license",
-    label: "License",
-    icon: SparklesIcon,
-    Panel: InstitutionLicensePage,
-  },
-  {
-    value: "files",
-    path: "/institution/files",
-    label: "Files",
-    icon: FilesIcon,
-    Panel: InstitutionFilesPage,
-  },
 ]
 
 export default function InstitutionAccountPage() {
@@ -63,15 +44,14 @@ export default function InstitutionAccountPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  // A group leader has no business with the institution's plan or
-  // partnership record -- Files is the only one of these they are sent to (from
-  // the account menu), so it is the only one they get.
-  const isDepartmentHead =
-    Boolean(user?.departmentHeadRole) && user.departmentHeadRole !== "owner"
-  const tabs = isDepartmentHead ? TABS.filter((tab) => tab.value === "files") : TABS
+  // A department head has no business with the institution's own record or its
+  // partnership: both belong to the owner. They reach this page only by typing
+  // the URL -- the account menu does not offer it -- so it says so plainly
+  // rather than rendering a tab strip with nothing in it.
+  const isDepartmentHead = isDepartmentHeadUser(user)
 
   const active =
-    tabs.find((tab) => location.pathname.startsWith(tab.path))?.value ?? tabs[0].value
+    TABS.find((tab) => location.pathname.startsWith(tab.path))?.value ?? TABS[0].value
 
   return (
     <div className="space-y-6">
@@ -80,42 +60,48 @@ export default function InstitutionAccountPage() {
           Institution
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Your institution's details, partnership, plan, and shared files.
+          Your institution's details and its partnership with REBYU.
         </p>
       </div>
 
-      <Tabs
-        value={active}
-        onValueChange={(value) => {
-          const next = tabs.find((tab) => tab.value === value)
-          if (next) navigate(next.path)
-        }}
-      >
-        {/* Its own horizontal scroll container: the triggers must not be what
-            makes the page scroll sideways on a narrow screen. */}
-        <div className="-mx-1 overflow-x-auto px-1 pb-1">
-          <TabsList>
-            {tabs.map((tab) => {
-              const Icon = tab.icon
-              return (
-                <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
-                  <Icon className="size-4" aria-hidden="true" />
-                  {tab.label}
-                </TabsTrigger>
-              )
-            })}
-          </TabsList>
-        </div>
+      {isDepartmentHead ? (
+        <p className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+          Only the institution owner can see the institution's record and its
+          partnership.
+        </p>
+      ) : (
+        <Tabs
+          value={active}
+          onValueChange={(value) => {
+            const next = TABS.find((tab) => tab.value === value)
+            if (next) navigate(next.path)
+          }}
+        >
+          {/* Its own horizontal scroll container: the triggers must not be what
+              makes the page scroll sideways on a narrow screen. */}
+          <div className="-mx-1 overflow-x-auto px-1 pb-1">
+            <TabsList>
+              {TABS.map((tab) => {
+                const Icon = tab.icon
+                return (
+                  <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5">
+                    <Icon className="size-4" aria-hidden="true" />
+                    {tab.label}
+                  </TabsTrigger>
+                )
+              })}
+            </TabsList>
+          </div>
 
-        {tabs.map(({ value, Panel }) => (
-          /* Mounted only while selected. Each of these panels runs its own
-             queries, and mounting all five would fire five sets of requests to
-             show one. */
-          <TabsContent key={value} value={value} className="mt-6">
-            {active === value ? <Panel /> : null}
-          </TabsContent>
-        ))}
-      </Tabs>
+          {TABS.map(({ value, Panel }) => (
+            /* Mounted only while selected. Each panel runs its own queries, and
+               mounting both would fire two sets of requests to show one. */
+            <TabsContent key={value} value={value} className="mt-6">
+              {active === value ? <Panel /> : null}
+            </TabsContent>
+          ))}
+        </Tabs>
+      )}
     </div>
   )
 }

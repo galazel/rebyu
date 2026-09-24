@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useOutletContext } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { FileQuestionIcon, Loader2, Plus, Trash2 } from "@/components/icons"
+import { FileQuestionIcon, Loader2, Pencil, Plus, Search, Trash2 } from "@/components/icons"
 import { toast } from "sonner"
 
 import {
@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
@@ -36,6 +35,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import {
   InstitutionEmptyState,
   InstitutionLoadingSkeleton,
@@ -341,6 +348,9 @@ export function InstitutionQuestionBankPanel({
     initialLessonId ? String(initialLessonId) : ""
   )
   const [formOpen, setFormOpen] = useState(false)
+  const [search, setSearch] = useState("")
+  const [typeFilter, setTypeFilter] = useState("all")
+  const [difficultyFilter, setDifficultyFilter] = useState("all")
   const [editingQuestion, setEditingQuestion] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const queryClient = useQueryClient()
@@ -405,6 +415,25 @@ export function InstitutionQuestionBankPanel({
 
   const questions = Array.isArray(questionsQuery.data) ? questionsQuery.data : []
 
+  // Filtering happens here rather than on the server: a lesson's bank is a
+  // page of rows, not a corpus, and the list is already in hand.
+  const visibleQuestions = useMemo(() => {
+    const needle = search.trim().toLowerCase()
+    return questions.filter((question) => {
+      if (typeFilter !== "all" && question.questionType !== typeFilter) return false
+      if (difficultyFilter !== "all" && question.difficultyLevel !== difficultyFilter) return false
+      if (!needle) return true
+      const haystack = [
+        question.questionText,
+        ...(question.choices ?? []).map((choice) => choice.choiceText),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+      return haystack.includes(needle)
+    })
+  }, [questions, search, typeFilter, difficultyFilter])
+
   const deleteMutation = useMutation({
     mutationFn: (questionId) => deleteQuestion(questionId),
     onSuccess: () => {
@@ -421,12 +450,14 @@ export function InstitutionQuestionBankPanel({
   })
 
   return (
-    <div className="space-y-6">
-      <div
-        className={`grid gap-3 ${isLockedToCertification ? "" : "sm:grid-cols-2"}`}
-      >
+    <div className="space-y-4">
+      {/* One toolbar, the way the admin bank does it: what you are looking at
+          on the left, how you narrow it in the middle, what you can add on the
+          right. The selects used to be full-width stacked fields above a
+          column of cards, which spent the whole viewport on two dropdowns. */}
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-background p-3">
         {isLockedToCertification ? null : (
-          <div className="space-y-1.5">
+          <div className="min-w-52 flex-1 space-y-1.5">
             <Label>Certification</Label>
             <Select
               value={selectedCertId}
@@ -454,7 +485,7 @@ export function InstitutionQuestionBankPanel({
             </Select>
           </div>
         )}
-        <div className="space-y-1.5">
+        <div className="min-w-64 flex-1 space-y-1.5">
           <Label>Lesson</Label>
           <Select
             value={selectedLessonId}
@@ -479,6 +510,68 @@ export function InstitutionQuestionBankPanel({
             </SelectContent>
           </Select>
         </div>
+
+        {selectedLessonId ? (
+          <>
+            <div className="min-w-48 flex-1 space-y-1.5">
+              <Label htmlFor="qb-search">Search</Label>
+              <div className="relative">
+                <Search
+                  className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <Input
+                  id="qb-search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Question or choice text"
+                  className="pl-8"
+                />
+              </div>
+            </div>
+            <div className="w-40 space-y-1.5">
+              <Label>Type</Label>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  {QUESTION_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-36 space-y-1.5">
+              <Label>Difficulty</Label>
+              <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All levels</SelectItem>
+                  {DIFFICULTIES.map((level) => (
+                    <SelectItem key={level.value} value={level.value}>
+                      {level.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              onClick={() => {
+                setEditingQuestion(null)
+                setFormOpen(true)
+              }}
+            >
+              <Plus className="size-4" aria-hidden="true" />
+              Add question
+            </Button>
+          </>
+        ) : null}
       </div>
 
       {!selectedLessonId ? (
@@ -491,18 +584,6 @@ export function InstitutionQuestionBankPanel({
         />
       ) : (
         <>
-          <div className="flex justify-end">
-            <Button
-              onClick={() => {
-                setEditingQuestion(null)
-                setFormOpen(true)
-              }}
-            >
-              <Plus className="size-4" aria-hidden="true" />
-              Add question
-            </Button>
-          </div>
-
           {questionsQuery.isLoading ? (
             <InstitutionLoadingSkeleton rows={3} />
           ) : questions.length === 0 ? (
@@ -511,75 +592,93 @@ export function InstitutionQuestionBankPanel({
               title="No questions yet"
               description="Add the first question for this lesson."
             />
+          ) : visibleQuestions.length === 0 ? (
+            <InstitutionEmptyState
+              icon={FileQuestionIcon}
+              title="Nothing matches those filters"
+              description="Clear the search or widen the type and difficulty."
+            />
           ) : (
-            <div className="space-y-3">
-              {questions.map((question) => {
-                const isMine = question.createdByUserId === user?.userId
-                return (
-                  <Card key={question.questionId}>
-                    <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0">
-                      <div className="space-y-1.5">
-                        <p className="text-sm font-medium">{question.questionText}</p>
-                        <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                          <Badge variant="outline">
-                            {QUESTION_TYPES.find((t) => t.value === question.questionType)
-                              ?.label ?? question.questionType}
-                          </Badge>
-                          <Badge variant="outline">
-                            {DIFFICULTIES.find((d) => d.value === question.difficultyLevel)
-                              ?.label ?? question.difficultyLevel}
-                          </Badge>
-                          <span>
-                            · {question.createdByEmail
-                              ? `Added by ${question.createdByEmail}`
-                              : "Platform question"}
-                          </span>
-                        </div>
-                      </div>
-                      {isMine ? (
-                        <div className="flex shrink-0 gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setEditingQuestion(question)
-                              setFormOpen(true)
-                            }}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDeleteTarget(question)}
-                          >
-                            <Trash2 className="size-4" aria-hidden="true" />
-                          </Button>
-                        </div>
-                      ) : null}
-                    </CardHeader>
-                    {question.questionType === "MCQ" && question.choices?.length ? (
-                      <CardContent className="pt-0">
-                        <ul className="space-y-1 text-sm">
-                          {question.choices.map((choice) => (
-                            <li
-                              key={choice.choiceId ?? choice.choiceText}
-                              className={
-                                choice.correct
-                                  ? "font-medium text-emerald-700 dark:text-emerald-400"
-                                  : "text-muted-foreground"
-                              }
-                            >
-                              {choice.correct ? "✓ " : "• "}
-                              {choice.choiceText}
-                            </li>
-                          ))}
-                        </ul>
-                      </CardContent>
-                    ) : null}
-                  </Card>
-                )
-              })}
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Showing {visibleQuestions.length} of {questions.length} question
+                {questions.length === 1 ? "" : "s"}
+              </p>
+              <div className="overflow-x-auto rounded-xl border border-border bg-background">
+                <Table>
+                  <TableHeader className="text-xs">
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="h-9 py-2">Question</TableHead>
+                      <TableHead className="h-9 w-36 py-2">Type</TableHead>
+                      <TableHead className="h-9 w-28 py-2">Difficulty</TableHead>
+                      <TableHead className="h-9 w-48 py-2">Source</TableHead>
+                      <TableHead className="h-9 w-0 py-2 text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="text-[13px]">
+                    {visibleQuestions.map((question) => {
+                      const isMine = question.createdByUserId === user?.userId
+                      const correct = (question.choices ?? []).find((choice) => choice.correct)
+                      return (
+                        <TableRow key={question.questionId} className="align-top">
+                          <TableCell className="max-w-xl py-2.5">
+                            <p className="font-medium text-foreground">{question.questionText}</p>
+                            {/* The answer, not every option: a bank is scanned
+                                for what a question tests, and four choices per
+                                row turned the table back into a column of
+                                cards. */}
+                            {correct ? (
+                              <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
+                                &#10003; {correct.choiceText}
+                              </p>
+                            ) : null}
+                          </TableCell>
+                          <TableCell className="py-2.5 text-muted-foreground">
+                            {QUESTION_TYPES.find((t) => t.value === question.questionType)?.label ??
+                              question.questionType}
+                          </TableCell>
+                          <TableCell className="py-2.5">
+                            <Badge variant="outline">
+                              {DIFFICULTIES.find((d) => d.value === question.difficultyLevel)
+                                ?.label ?? question.difficultyLevel}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="max-w-48 truncate py-2.5 text-xs text-muted-foreground">
+                            {question.createdByEmail ?? "Platform question"}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap py-2.5 text-right">
+                            {isMine ? (
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label="Edit question"
+                                  onClick={() => {
+                                    setEditingQuestion(question)
+                                    setFormOpen(true)
+                                  }}
+                                >
+                                  <Pencil className="size-4" aria-hidden="true" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label="Delete question"
+                                  onClick={() => setDeleteTarget(question)}
+                                >
+                                  <Trash2 className="size-4" aria-hidden="true" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Read only</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
         </>

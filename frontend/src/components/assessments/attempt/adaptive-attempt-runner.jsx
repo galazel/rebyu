@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { answerAdaptiveItems } from "@/services/assessmentService.js"
 import { playCorrectMark, playWrongMark } from "@/lib/sound.js"
 import { getFileViewUrl } from "@/services/fileService.js"
+import { AuthedImage, prefetchAuthedMedia, questionMediaKeys } from "@/lib/authed-media.jsx"
 import { cn } from "@/lib/utils"
 
 import ProgrammingQuestionLayout from "./programming-question-layout.jsx"
@@ -63,6 +64,12 @@ export function AdaptiveAttemptRunner({
     [attempt.questions, initialCurrent],
   )
   const initialQueued = initialReserve[0] ?? null
+
+  /* The current item and everything already served with it: on a resume the
+     whole reserve is in hand before the first render. */
+  useEffect(() => {
+    prefetchAuthedMedia([initialCurrent, ...initialReserve].flatMap(questionMediaKeys))
+  }, [initialCurrent, initialReserve])
 
   const [current, setCurrent] = useState(initialCurrent)
   /* Items the server has served but the learner has not reached, by their
@@ -132,6 +139,12 @@ export function AdaptiveAttemptRunner({
         for (const served of [response.next, ...(response.queued ?? [])]) {
           if (served && !answeredIds.has(served.attemptQuestionId)) {
             reserveRef.current.set(served.displayOrder, served)
+            /* The figure is fetched now, while the learner is still on the
+               item before it. Served ahead but fetched on arrival, a scanned
+               table appeared a beat after the stem and the choices -- on a
+               running clock, a question you start answering before you can
+               see what it is about. */
+            prefetchAuthedMedia(questionMediaKeys(served))
           }
         }
         const last = batch[batch.length - 1].item
@@ -364,24 +377,34 @@ export function AdaptiveAttemptRunner({
         </div>
       ) : current ? (
         <main className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:py-8">
-            <div key={current.attemptQuestionId} className="rounded-rb-card border-2 border-rb-swan bg-rb-snow p-6 shadow-[var(--comic-shadow-sm)] sm:p-10">
-              <div className="mb-4 flex items-center gap-2">
+          {/* Sized to be answered without scrolling. A question the learner
+              has to scroll through is one they answer from the half of it
+              they can see -- and with a figure above the choices, scrolling
+              hides the very thing the choices are about. The card is built
+              to fit the viewport instead: tighter padding, a stem at reading
+              size rather than display size, and a figure capped in height. */}
+          <div className="mx-auto w-full max-w-4xl px-4 py-4 sm:py-5">
+            <div key={current.attemptQuestionId} className="rounded-rb-card border-2 border-rb-swan bg-rb-snow p-4 shadow-[var(--comic-shadow-sm)] sm:p-6">
+              <div className="mb-3 flex items-center gap-2">
                 <span className="rounded-full bg-rb-feather-wash px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-rb-feather-ink">
                   {typeLabel(current)}
                 </span>
               </div>
 
-              <p className="whitespace-pre-wrap text-xl font-medium leading-9 sm:text-2xl sm:leading-10 text-rb-eel">{current.question}</p>
-              {current.questionImageKey ? (
-                <img
-                  src={getFileViewUrl(current.questionImageKey)}
-                  alt="Question reference"
-                  className="mt-4 w-full rounded-xl border-2 border-rb-swan"
-                />
-              ) : null}
+              <QuestionStem text={current.question} />
+              {/* Capped, not full-width: these figures are scans of a past
+                  paper, and at the card's full width a five-row table pushed
+                  the choices off the screen on its own. Height is what has to
+                  be bounded, so the cap is in vh; `w-auto` keeps the scan's
+                  own proportions and it is centred rather than stretched. */}
+              <AuthedImage
+                imageKey={current.questionImageKey}
+                alt="Question reference"
+                zoomable
+                className="mx-auto mt-3 max-h-[34vh] w-auto max-w-full rounded-xl border-2 border-rb-swan object-contain"
+              />
 
-              <div className="mt-6">
+              <div className="mt-4">
                 {isMultipleChoice(current) ? (
                   <div className="grid gap-2 sm:grid-cols-2">
                     {(current.choices ?? []).map((choice, choiceIndex) => {
@@ -404,7 +427,7 @@ export function AdaptiveAttemptRunner({
                           aria-pressed={selected}
                           disabled={revealed || grading}
                           className={cn(
-                            "flex min-h-16 items-start gap-3 rounded-2xl border-2 p-4 text-left text-base leading-7 transition",
+                            "flex min-h-12 items-start gap-3 rounded-2xl border-2 p-3 text-left text-[15px] leading-6 transition",
                             !revealed && "active:translate-y-[2px]",
                             isRight
                               ? "border-rb-leaf bg-rb-leaf-wash text-rb-leaf-lip"
@@ -418,7 +441,7 @@ export function AdaptiveAttemptRunner({
                         >
                           <span
                             className={cn(
-                              "grid size-7 shrink-0 place-items-center rounded-lg text-xs font-bold",
+                              "grid size-6 shrink-0 place-items-center rounded-lg text-xs font-bold",
                               isRight ? "bg-rb-leaf text-white" : isWrong || wrongNoKey ? "bg-rb-cardinal text-white" : selected ? "bg-rb-feather text-white" : "bg-rb-polar text-rb-wolf",
                             )}
                           >
@@ -426,9 +449,7 @@ export function AdaptiveAttemptRunner({
                           </span>
                           <span className="flex-1">
                             {choice.choiceText}
-                            {choice.imageKey ? (
-                              <img src={getFileViewUrl(choice.imageKey)} alt="" className="mt-2 max-h-40 rounded-lg" />
-                            ) : null}
+                            <AuthedImage imageKey={choice.imageKey} zoomable className="mt-2 max-h-28 w-auto rounded-lg object-contain" placeholderClassName="mt-2 h-16 w-full max-w-[10rem]" />
                           </span>
                         </button>
                       )
@@ -602,6 +623,37 @@ function ProgressBar({ answered, total, mainTotal }) {
         <span className="absolute top-0 h-full w-0.5 bg-rb-eel/40" style={{ left: `${finalStart}%` }} />
       ) : null}
     </div>
+  )
+}
+
+/**
+ * The question asked, with its licence citation set apart from it.
+ *
+ * Every past-paper stem carries a required source line -- "Source: (2011S,
+ * IP, Q69) -- adapted: ...". It is part of the text and has to stay, but at
+ * the stem's own size it reads as a second paragraph of the question and
+ * costs three lines of a card that has to fit a figure and four choices.
+ * Split off and set small and muted, it is still there to be read and no
+ * longer competes with the thing being asked.
+ *
+ * The split is textual only; nothing is reworded, dropped or abbreviated.
+ * A stem with no citation renders exactly as before.
+ */
+function QuestionStem({ text }) {
+  const full = String(text ?? "")
+  const at = full.search(/\s*Source:\s*\(/)
+  const asked = at === -1 ? full : full.slice(0, at).trimEnd()
+  const citation = at === -1 ? "" : full.slice(at).trim()
+
+  return (
+    <>
+      <p className="whitespace-pre-wrap text-lg font-medium leading-7 text-rb-eel sm:text-xl sm:leading-8">
+        {asked}
+      </p>
+      {citation ? (
+        <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-rb-wolf">{citation}</p>
+      ) : null}
+    </>
   )
 }
 

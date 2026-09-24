@@ -62,7 +62,7 @@ export function getInstitutionInvitations(institutionId) {
   return base(`institution/invitations?institutionId=${institutionId}`)
 }
 
-// Only the invitation's own group leader may cancel it; institutionId is
+// Only the invitation's own department head may cancel it; institutionId is
 // resolved from the caller's JWT server-side, never a client param.
 export function cancelInstitutionInvitation(invitationId) {
   return base(`institution/invitations/${invitationId}/cancel`, { method: "PUT" })

@@ -14,7 +14,6 @@ import { toast } from "sonner"
 
 import { BrandLogo } from "@/components/brand-logo"
 import {
-  BackButton,
   Chip,
   RebyuCard,
   TactileButton,
@@ -569,9 +568,6 @@ function PublicHeader() {
           <BrandLogo className="size-9" />
           <span className="rb-display text-2xl leading-none">rebyu</span>
         </Link>
-        <BackButton asChild size="sm" label="Back to home">
-          <Link to="/" />
-        </BackButton>
       </div>
     </header>
   )

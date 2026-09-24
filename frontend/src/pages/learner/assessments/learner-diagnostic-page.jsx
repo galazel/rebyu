@@ -11,7 +11,7 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { LearnerEmptyState } from "@/components/learner/learner-ui.jsx"
-import { BackButton, RebyuCard, TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
+import { RebyuCard, TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 
 function getCertificationId(certification) {
     return String(
@@ -242,12 +242,6 @@ export default function LearnerDiagnosticGatePage() {
     return (
         <main className="rebyu-ds min-h-[calc(100dvh-8rem)] rounded-rb-card border-2 border-rb-swan bg-rb-snow px-5 py-8 sm:px-8 sm:py-10 xl:px-12">
             <article className="mx-auto w-full max-w-5xl">
-                <BackButton
-                    size="sm"
-                    label="Back to My Learning"
-                    onClick={() => navigate("/learner/learning")}
-                />
-
                 {/* The gate, said once. It used to be said three times -- a hero,
                     a dashed "lesson content is locked" panel, and a closing card
                     that repeated the hero -- around two blocks of copy written

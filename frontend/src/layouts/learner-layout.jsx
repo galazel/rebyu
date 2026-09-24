@@ -37,7 +37,7 @@ import {
 } from "@/services/learnerAnalyticsService.js"
 import { useAuth } from "@/context/auth-context.jsx"
 import { NotificationBell } from "@/components/notification-bell.jsx"
-import { getLearnerInvitations } from "@/services/institutionService.js"
+import { getMyInvitations } from "@/services/institutionService.js"
 import { usePortalTheme } from "@/hooks/use-portal-theme.js"
 import { useNotifications } from "@/hooks/use-notifications.js"
 import { PortalThemeMenuItem } from "@/components/portal-theme-toggle"
@@ -152,7 +152,7 @@ export default function LearnerLayout() {
     ""
   const invitationsQuery = useQuery({
     queryKey: ["learner-notification-invitations", email],
-    queryFn: getLearnerInvitations,
+    queryFn: getMyInvitations,
     enabled: Boolean(email),
     refetchInterval: 30_000,
     staleTime: 15_000,
@@ -167,11 +167,10 @@ export default function LearnerLayout() {
   const pendingInvitationNotifications = (
     Array.isArray(invitationsQuery.data) ? invitationsQuery.data : []
   )
-    .filter(
-      (invitation) =>
-        String(invitation.email ?? "").toLowerCase() === email.toLowerCase() &&
-        String(invitation.status ?? "").toUpperCase() === "PENDING"
-    )
+    /* No filter: the endpoint returns this caller's own PENDING invitations
+       and nothing else. The email/status filter that stood here was the only
+       thing narrowing a platform-wide list, in the browser, after the whole
+       list had already been sent. */
     .map((invitation) => ({
       id: `pending-certification-invitation-${invitation.invitationId}`,
       type: "invitation",

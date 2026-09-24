@@ -130,8 +130,8 @@ const adminGroups = [
   },
 ]
 
-/* An institution member (group leader) works only inside their own groups, so
-   their header carries just that workspace.
+/* A department head works only inside their own departments, so their header
+   carries just that workspace.
    It used to be empty, with a one-link strip repeated at the top of each page. */
 const departmentHeadGroups = [
   {
@@ -140,9 +140,13 @@ const departmentHeadGroups = [
     items: [
       {
         label: "My departments",
-        href: "/institution/head",
+        href: "/institution/department-head",
         icon: UsersRound,
-        match: ["/institution/head", "/institution/departments", "/institution/certifications"],
+        match: [
+          "/institution/department-head",
+          "/institution/departments",
+          "/institution/certifications",
+        ],
       },
     ],
   },
@@ -150,7 +154,7 @@ const departmentHeadGroups = [
 
 // Groups now live inside Certifications (you create a group from within the
 // certification it belongs to), so there's no standalone "Groups" nav item.
-// Items flagged ownerOnly are hidden for a group leader / other institution
+// Items flagged ownerOnly are hidden for a department head / other institution
 // member -- only the institution owner sees them.
 const departments = [
   {
@@ -179,10 +183,11 @@ const departments = [
     icon: Building2,
     ownerOnly: true,
     items: [
-      // One entry, because there is one page. Profile, Partnership, License
-      // and Files were short routes behind a menu; they
-      // are now tabs on /institution/profile, and the old paths still open
-      // their own tab. `match` keeps the header underlined on all of them.
+      // One entry, because there is one page. Profile and Partnership were
+      // short routes behind a menu; they are now tabs on
+      // /institution/profile, and the old paths still open their own tab.
+      // `match` keeps the header underlined on all of them, invoices
+      // included -- an invoice is opened from the partnership table.
       {
         label: "Institution",
         href: "/institution/profile",
@@ -190,8 +195,6 @@ const departments = [
         match: [
           "/institution/profile",
           "/institution/partnership",
-          "/institution/license",
-          "/institution/files",
           "/institution/invoices",
         ],
       },
@@ -354,12 +357,12 @@ export function CommandPalette({ open, onOpenChange, items }) {
   )
 }
 
-export function PortalTopNavigation({ role, actions, institutionName, departmentHeadRole }) {
+export function PortalTopNavigation({ role, actions, institutionName, isOwner = true }) {
   const location = useLocation()
   const [commandOpen, setCommandOpen] = useState(false)
-  const isInstitutionOwner = departmentHeadRole === "owner"
-  // An Institution Member (group leader, non-owner) only ever acts within
-  // their own assigned groups' workspace pages -- that navigation lives on
+  const isInstitutionOwner = isOwner
+  // A department head (non-owner) only ever acts within their own assigned
+  // departments' workspace pages -- that navigation lives on
   // the page itself now (see department-head-dashboard-page.jsx /
   // institution-department-workspace-page.jsx), not in this header, and the
   // command-K search bar is hidden for them too since there's nothing

@@ -1,17 +1,18 @@
 import { useMemo, useState } from "react"
-import { useOutletContext } from "react-router-dom"
+import { Link, useOutletContext } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { HandshakeIcon, PlusIcon, Trash2Icon } from "@/components/icons"
+import {
+  CreditCard,
+  HandshakeIcon,
+  Loader2,
+  PlusIcon,
+  RefreshCwIcon,
+  Trash2Icon,
+} from "@/components/icons"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -30,33 +31,94 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
   InstitutionEmptyState,
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
   InstitutionPageHeader,
   InstitutionStatusBadge,
+  formatDate,
   formatDateTime,
 } from "@/components/institution/institution-ui.jsx"
 import { useInstitutionData } from "@/hooks/use-institution-data.js"
 import {
+  getMyInstitutionInvoices,
   getPartnershipRequestTransactions,
+  startInvoiceCheckout,
   submitPartnershipRequestTransaction,
 } from "@/services/institutionService.js"
+
+/**
+ * The institution's partnership: every request it has made, as one table --
+ * what was asked for, what it costs, where it stands, and when access runs
+ * out. The two things an institution does from here are renew a request whose
+ * access window is ending, and pay the invoice that approval raises; renewing
+ * reopens the request form with the same certifications and slots, and paying
+ * hands off to PayMongo's hosted checkout.
+ */
+
+const DEFAULT_ITEM = { certificationId: "", slots: 10, months: 12 }
 
 function toLocalDate(date) {
   return date.toISOString().slice(0, 10)
 }
 
-function RequestPartnershipDialog({ open, onOpenChange, institution, data }) {
+function money(value, currency = "PHP") {
+  if (value == null) return "—"
+  return Number(value).toLocaleString("en-PH", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 2,
+  })
+}
+
+function apiMessage(error, fallback) {
+  return error?.response?.data?.message ?? error?.message ?? fallback
+}
+
+/** Whole months between two ISO dates, at least 1 -- what the form asks for. */
+function monthsBetween(startDate, endDate) {
+  if (!startDate || !endDate) return 12
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 12
+  const months =
+    (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
+  return months > 0 ? months : 12
+}
+
+/** The latest access end date across a request's items. */
+function accessEndsOn(request) {
+  const ends = (request.items ?? [])
+    .map((item) => item.requestedAccessEndDate)
+    .filter(Boolean)
+    .sort()
+  return ends.length > 0 ? ends[ends.length - 1] : null
+}
+
+function RequestPartnershipDialog({ open, onOpenChange, data, seed }) {
   const queryClient = useQueryClient()
-  const [items, setItems] = useState([
-    { certificationId: "", slots: 10, months: 12 },
-  ])
+  const [items, setItems] = useState([{ ...DEFAULT_ITEM }])
   const [error, setError] = useState("")
 
   // One idempotency key per open dialog: a double-click cannot create two
   // requests, and the whole request+items submission is atomic on the server.
-  const [idempotencyKey] = useState(() => crypto.randomUUID())
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
+
+  // The dialog is remounted per opening (`key` on the caller), so seeding from
+  // props at first render is enough -- no effect that races the user's typing.
+  const [seeded, setSeeded] = useState(false)
+  if (!seeded) {
+    setSeeded(true)
+    if (seed && seed.length > 0) setItems(seed)
+  }
 
   const submitMutation = useMutation({
     mutationFn: () => {
@@ -80,14 +142,17 @@ function RequestPartnershipDialog({ open, onOpenChange, institution, data }) {
         queryKey: ["partnership-request-transactions"],
       })
       toast.success("Partnership request submitted.")
-      setItems([{ certificationId: "", slots: 10, months: 12 }])
+      setItems([{ ...DEFAULT_ITEM }])
+      setIdempotencyKey(crypto.randomUUID())
       setError("")
       onOpenChange(false)
     },
     onError: (mutationError) => {
       toast.error(
-        mutationError?.response?.data?.message ??
+        apiMessage(
+          mutationError,
           "Unable to submit the partnership request. Please try again."
+        )
       )
     },
   })
@@ -117,15 +182,19 @@ function RequestPartnershipDialog({ open, onOpenChange, institution, data }) {
   const certifications = [...data.certificationById.values()].filter(
     (certification) => certification.status === "PUBLISHED"
   )
+  const renewing = Boolean(seed && seed.length > 0)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Request partnership</DialogTitle>
+          <DialogTitle>
+            {renewing ? "Renew partnership" : "Request partnership"}
+          </DialogTitle>
           <DialogDescription>
-            Request certification access and learner slots for your
-            institution. The REBYU team will review your request.
+            {renewing
+              ? "The same certifications and slots, for a fresh access window. The REBYU team reviews the renewal and raises an invoice you can pay online."
+              : "Request certification access and learner slots for your institution. The REBYU team will review your request."}
           </DialogDescription>
         </DialogHeader>
 
@@ -197,9 +266,7 @@ function RequestPartnershipDialog({ open, onOpenChange, institution, data }) {
                   aria-label="Remove line item"
                   disabled={items.length === 1}
                   onClick={() =>
-                    setItems((current) =>
-                      current.filter((_, i) => i !== index)
-                    )
+                    setItems((current) => current.filter((_, i) => i !== index))
                   }
                 >
                   <Trash2Icon />
@@ -212,12 +279,7 @@ function RequestPartnershipDialog({ open, onOpenChange, institution, data }) {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() =>
-              setItems((current) => [
-                ...current,
-                { certificationId: "", slots: 10, months: 12 },
-              ])
-            }
+            onClick={() => setItems((current) => [...current, { ...DEFAULT_ITEM }])}
           >
             <PlusIcon aria-hidden="true" />
             Add certification
@@ -241,7 +303,9 @@ function RequestPartnershipDialog({ open, onOpenChange, institution, data }) {
             <Button type="submit" disabled={submitMutation.isPending}>
               {submitMutation.isPending
                 ? "Submitting..."
-                : "Submit Partnership Request"}
+                : renewing
+                  ? "Submit renewal"
+                  : "Submit Partnership Request"}
             </Button>
           </DialogFooter>
         </form>
@@ -250,11 +314,37 @@ function RequestPartnershipDialog({ open, onOpenChange, institution, data }) {
   )
 }
 
+/** The certifications and slots of one request, stacked inside its cell. */
+function RequestItems({ request, certificationById }) {
+  const items = Array.isArray(request.items) ? request.items : []
+  if (items.length === 0) {
+    return <span className="text-sm text-muted-foreground">No line items</span>
+  }
+  return (
+    <ul className="space-y-1">
+      {items.map((item) => (
+        <li key={item.partnershipRequestItemId} className="text-sm">
+          <span className="font-medium">
+            {item.certificationTitle ??
+              certificationById.get(item.certificationId)?.title ??
+              `Certification #${item.certificationId}`}
+          </span>
+          <span className="text-muted-foreground"> · {item.slots} slot(s)</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export default function InstitutionPartnershipPage() {
   const { institution, institutionLoading, institutionError, refetchInstitution } =
     useOutletContext()
   const data = useInstitutionData(institution?.institutionId)
   const [requestOpen, setRequestOpen] = useState(false)
+  const [seed, setSeed] = useState(null)
+  // Remounts the dialog per opening, so each renewal seeds cleanly and gets a
+  // fresh idempotency key.
+  const [dialogKey, setDialogKey] = useState(0)
 
   // Institution-scoped endpoint (institutionId derived server-side from the JWT) --
   // NOT the unfiltered generic CRUD list, which would leak every tenant's requests.
@@ -265,12 +355,62 @@ export default function InstitutionPartnershipPage() {
     retry: 1,
   })
 
+  // The invoice a request's approval raised, so the row can price it and offer
+  // the payment. Its absence is normal (nothing approved yet), so a failure
+  // here only costs the amount column, never the table.
+  const invoicesQuery = useQuery({
+    queryKey: ["institution-invoices"],
+    queryFn: getMyInstitutionInvoices,
+    enabled: institution != null,
+    retry: 1,
+  })
+
+  const invoiceByRequestId = useMemo(() => {
+    const map = new Map()
+    const list = Array.isArray(invoicesQuery.data) ? invoicesQuery.data : []
+    for (const invoice of list) {
+      if (invoice.partnershipRequestId == null) continue
+      const held = map.get(invoice.partnershipRequestId)
+      // Newest invoice wins: a renewal of the same request is what to pay.
+      if (!held || new Date(invoice.issuedAt) > new Date(held.issuedAt)) {
+        map.set(invoice.partnershipRequestId, invoice)
+      }
+    }
+    return map
+  }, [invoicesQuery.data])
+
+  const checkout = useMutation({
+    mutationFn: (invoiceId) => startInvoiceCheckout(invoiceId),
+    onSuccess: ({ checkoutUrl }) => window.location.assign(checkoutUrl),
+    onError: (error) =>
+      toast.error(apiMessage(error, "Could not open PayMongo checkout.")),
+  })
+
   const requests = useMemo(() => {
     const list = Array.isArray(requestsQuery.data) ? requestsQuery.data : []
     return [...list].sort(
       (a, b) => new Date(b.submittedAt ?? 0) - new Date(a.submittedAt ?? 0)
     )
   }, [requestsQuery.data])
+
+  const openRequest = (seedItems) => {
+    setSeed(seedItems ?? null)
+    setDialogKey((key) => key + 1)
+    setRequestOpen(true)
+  }
+
+  const renew = (request) => {
+    openRequest(
+      (request.items ?? []).map((item) => ({
+        certificationId: String(item.certificationId),
+        slots: item.slots ?? 1,
+        months: monthsBetween(
+          item.requestedAccessStartDate,
+          item.requestedAccessEndDate
+        ),
+      }))
+    )
+  }
 
   if (institutionLoading) return <InstitutionLoadingSkeleton />
   if (institutionError) {
@@ -289,9 +429,9 @@ export default function InstitutionPartnershipPage() {
     <div className="space-y-6">
       <InstitutionPageHeader
         title="Partnership"
-        subtitle="Request certification access for your institution and track approval status."
+        subtitle="Every request your institution has made: what it covers, what it costs, and when access ends."
         actions={
-          <Button onClick={() => setRequestOpen(true)}>
+          <Button onClick={() => openRequest(null)}>
             <HandshakeIcon aria-hidden="true" />
             Request Partnership
           </Button>
@@ -308,70 +448,131 @@ export default function InstitutionPartnershipPage() {
           title="No partnership requests yet"
           description="Submit a request to allocate certifications and learner slots for your institution."
           action={
-            <Button size="sm" onClick={() => setRequestOpen(true)}>
+            <Button size="sm" onClick={() => openRequest(null)}>
               Request Partnership
             </Button>
           }
         />
       ) : (
-        <div className="space-y-4">
-          {requests.map((request) => {
-            const items = Array.isArray(request.items) ? request.items : []
-            return (
-              <Card key={request.requestId}>
-                <CardHeader>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <CardTitle className="text-base">
-                      Request #{request.requestId}
-                    </CardTitle>
-                    <InstitutionStatusBadge status={request.status} />
-                  </div>
-                  <CardDescription>
-                    Submitted {formatDateTime(request.submittedAt)}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {items.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      No line items recorded for this request.
-                    </p>
-                  ) : (
-                    <ul className="divide-y">
-                      {items.map((item) => {
-                        const certification = data.certificationById.get(
-                          item.certificationId
-                        )
-                        return (
-                          <li
-                            key={item.partnershipRequestItemId}
-                            className="flex items-center justify-between gap-2 py-2 text-sm"
+        <Card>
+          <CardContent className="overflow-x-auto p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Request</TableHead>
+                  <TableHead>Certifications</TableHead>
+                  <TableHead className="text-right">Slots</TableHead>
+                  <TableHead>Access until</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Invoice</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {requests.map((request) => {
+                  const invoice = invoiceByRequestId.get(request.requestId)
+                  const payable = invoice?.payable
+                  const paying =
+                    checkout.isPending &&
+                    checkout.variables === invoice?.institutionInvoiceId
+                  return (
+                    <TableRow key={request.requestId} className="align-top">
+                      <TableCell>
+                        <p className="font-semibold">#{request.requestId}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDateTime(request.submittedAt)}
+                        </p>
+                      </TableCell>
+                      <TableCell className="min-w-[14rem]">
+                        <RequestItems
+                          request={request}
+                          certificationById={data.certificationById}
+                        />
+                      </TableCell>
+                      <TableCell className="text-right font-semibold tabular-nums">
+                        {request.totalSlots ??
+                          (request.items ?? []).reduce(
+                            (sum, item) => sum + Number(item.slots ?? 0),
+                            0
+                          )}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {formatDate(accessEndsOn(request))}
+                      </TableCell>
+                      <TableCell>
+                        <InstitutionStatusBadge status={request.status} />
+                      </TableCell>
+                      <TableCell>
+                        {invoice ? (
+                          <>
+                            <Link
+                              to={`/institution/invoices/${invoice.institutionInvoiceId}`}
+                              className="font-mono text-sm font-semibold text-primary underline-offset-2 hover:underline"
+                            >
+                              {invoice.invoiceNumber}
+                            </Link>
+                            <p className="text-xs tabular-nums text-muted-foreground">
+                              {money(invoice.totalAmount, invoice.currency)} ·{" "}
+                              {invoice.status}
+                            </p>
+                          </>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            Not billed yet
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-2">
+                          {payable ? (
+                            <Button
+                              size="sm"
+                              disabled={checkout.isPending}
+                              onClick={() =>
+                                checkout.mutate(invoice.institutionInvoiceId)
+                              }
+                            >
+                              {paying ? (
+                                <Loader2
+                                  className="size-4 animate-spin"
+                                  aria-hidden="true"
+                                />
+                              ) : (
+                                <CreditCard className="size-4" aria-hidden="true" />
+                              )}
+                              Pay now
+                            </Button>
+                          ) : null}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => renew(request)}
                           >
-                            <span className="truncate">
-                              {certification?.title ??
-                                `Certification #${item.certificationId}`}
-                            </span>
-                            <span className="shrink-0 text-muted-foreground">
-                              {item.slots} slot(s) ·{" "}
-                              {item.requestedAccessStartDate} →{" "}
-                              {item.requestedAccessEndDate}
-                            </span>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+                            <RefreshCwIcon className="size-4" aria-hidden="true" />
+                            Renew
+                          </Button>
+                        </div>
+                        {invoice && !payable && invoice.paymentUnavailableReason ? (
+                          <p className="mt-1 text-right text-xs text-muted-foreground">
+                            {invoice.paymentUnavailableReason}
+                          </p>
+                        ) : null}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
 
       <RequestPartnershipDialog
+        key={dialogKey}
         open={requestOpen}
         onOpenChange={setRequestOpen}
-        institution={institution}
         data={data}
+        seed={seed}
       />
     </div>
   )

@@ -2,13 +2,19 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 
 /**
- * What the four boxes mean, in the admin's words rather than the schema's.
+ * What the boxes mean, in the admin's words rather than the schema's.
  *
  * "Critical thinking" is one choice here and two types to the generator --
  * programming tasks and diagramming tasks are both stored as
  * CRITICAL_THINKING -- so ticking it turns on both. The description says which
  * two, because "critical thinking" on its own does not tell an admin they are
  * about to ask for code and diagrams.
+ *
+ * "Fill in the blanks" is the other choice that is not a storage type: the
+ * item is a passage with its terms blanked and a candidate list under it, one
+ * blank per sub-question, stored as SHORT_ANSWER because that is how each
+ * blank is marked. Ticking it tells the generator to write short answers in
+ * that shape rather than as single-term recall.
  */
 export const QUESTION_TYPE_OPTIONS = [
   {
@@ -20,6 +26,12 @@ export const QUESTION_TYPE_OPTIONS = [
     value: "SHORT_ANSWER",
     label: "Short answer",
     description: "One exact term, value or acronym. Marked by exact match.",
+  },
+  {
+    value: "FILL_IN_BLANK",
+    label: "Fill in the blanks",
+    description:
+      "A passage with its key terms blanked, answered from a candidate list. Marked by exact match.",
   },
   {
     value: "DESCRIPTIVE",
@@ -58,12 +70,12 @@ export function QuestionTypeChoice({ value = [], onChange, disabled }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div>
-        <p className="text-sm font-medium text-foreground">
-          Question formats <span className="text-muted-foreground">(optional)</span>
-        </p>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
+        <h3 className="text-sm font-semibold text-foreground">
+          Question formats <span className="font-normal text-muted-foreground">(optional)</span>
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Tick what the real exam contains. Everything generated — lesson
           quizzes, unit exams, the diagnostic, the mock and the question bank —
           uses only these. Leave all unticked and the planner researches the

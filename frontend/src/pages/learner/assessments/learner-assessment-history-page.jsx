@@ -10,7 +10,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import {
-  BackButton,
   Chip,
   RebyuCard,
   TactileButton,
@@ -45,10 +44,49 @@ function formatDate(value) {
   })
 }
 
+/* ------------------------------------------------------------- standing
+ *
+ * Proficiency is the verdict this page reports, not the pass mark.
+ *
+ * An adaptive sitting measures a level (0..100) and the curriculum opens on
+ * that level, so a learner who reached Proficient has done the thing the
+ * system asked of them -- even when the raw percentage on the day sat under
+ * the paper's pass mark, which it often does, because the engine keeps
+ * feeding harder items until it finds the edge of what they know. Stamping
+ * "not passed" across that attempt reports a failure that the rest of the
+ * system does not agree happened.
+ *
+ * Percentage and the pass flag remain for sittings that measured no
+ * proficiency -- a fixed institution paper, or a row written before ratings
+ * were recorded. There, the pass mark really is the only verdict there is.
+ */
+
+/** The rating from which a sitting counts as Proficient (see IrtModel). */
+const PROFICIENT_RATING = 50
+
+/**
+ * What one attempt is worth: `{ rating, label, cleared, measured }`.
+ * `cleared` is the proficiency test where there is a proficiency, and the
+ * pass flag only where there is not.
+ */
+function standingOf(attempt) {
+  const raw = attempt?.proficiency?.rating
+  const rating = raw == null ? null : Number(raw)
+  if (rating == null || !Number.isFinite(rating)) {
+    return { rating: null, label: null, cleared: attempt?.passed === true, measured: false }
+  }
+  return {
+    rating,
+    label: attempt.proficiency.label,
+    cleared: rating >= PROFICIENT_RATING,
+    measured: true,
+  }
+}
+
 /**
  * The run of attempts, as a shape.
  *
- * A list of percentages one card apart is not comparable at a glance, and
+ * A list of figures one card apart is not comparable at a glance, and
  * comparing attempts is the entire reason this page exists. Bars are in the
  * order they were sat -- oldest at the left -- so improvement reads left to
  * right, and each is coloured by whether that attempt passed rather than by
@@ -60,17 +98,24 @@ function AttemptTrend({ attempts }) {
 
   return (
     <section className="rb-graded-sheet p-5">
-      <p className="rb-graded-heading">score by attempt</p>
+      <p className="rb-graded-heading">proficiency by attempt</p>
       <div className="mt-4 flex items-end gap-2 sm:gap-3">
         {attempts.map((attempt) => {
-          const percentage = Math.min(100, Math.max(0, Number(attempt.percentage ?? 0)))
+          /* Proficiency where the sitting measured one, percentage only as a
+             fallback for sittings that did not. Both are 0..100, so the run
+             stays comparable either way -- but plotting raw percentage for an
+             adaptive paper draws the difficulty of the draw as if it were
+             progress. */
+          const rating = attempt.proficiency?.rating
+          const value = Math.min(100, Math.max(0,
+            Number(rating ?? attempt.percentage ?? 0)))
           return (
             <div
               key={attempt.assessmentAttemptId}
               className="flex min-w-0 flex-1 flex-col items-center gap-2"
             >
               <span className="rb-numeric text-xs text-rb-wolf">
-                {percentage.toFixed(0)}%
+                {rating == null ? `${value.toFixed(0)}%` : value.toFixed(0)}
               </span>
               {/* Fixed-height well so every bar is measured against the same
                   100%, not against the tallest score in the run. */}
@@ -78,11 +123,11 @@ function AttemptTrend({ attempts }) {
                 <div
                   className={cn(
                     "w-full rounded-[6px]",
-                    attempt.passed ? "rb-highlight-pass" : "rb-highlight-fail"
+                    standingOf(attempt).cleared ? "rb-highlight-pass" : "rb-highlight-fail"
                   )}
                   /* A floor of 4px so a zero-scoring attempt is still a mark on
                      the page rather than a gap in the run. */
-                  style={{ height: `max(4px, ${percentage}%)` }}
+                  style={{ height: `max(4px, ${value}%)` }}
                 />
               </div>
               <span className="text-xs font-bold text-rb-wolf">
@@ -129,6 +174,7 @@ function answerMark(answer) {
 function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
   const inProgress = attempt.submittedAt == null
   const percentage = Number(attempt.percentage ?? 0)
+  const standing = standingOf(attempt)
 
   const resultQuery = useQuery({
     queryKey: ["attempt-result", String(attempt.assessmentAttemptId), learnerId],
@@ -150,6 +196,16 @@ function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
               <Chip tone="macaw">
                 <ClockIcon className="size-3" aria-hidden="true" />
                 In progress
+              </Chip>
+            ) : standing.measured ? (
+              /* The level reached, which is what the curriculum reads. */
+              <Chip tone={standing.cleared ? "leaf" : "fox"}>
+                {standing.cleared ? (
+                  <CheckCircle2Icon className="size-3" aria-hidden="true" />
+                ) : (
+                  <ClockIcon className="size-3" aria-hidden="true" />
+                )}
+                {standing.label}
               </Chip>
             ) : attempt.passed ? (
               <Chip tone="leaf">
@@ -174,9 +230,9 @@ function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
             {formatDate(attempt.startedAt)}
             {!inProgress ? ` · took ${formatDuration(attempt.durationSeconds)}` : null}
           </p>
-          {attempt.proficiency != null ? (
+          {standing.measured ? (
             <p className="rb-pen text-lg text-[#6b706c]">
-              proficiency {Number(attempt.proficiency.rating).toFixed(0)} / 100 · {attempt.proficiency.label}
+              proficiency {standing.rating.toFixed(0)} / 100 · {standing.label}
             </p>
           ) : null}
           {attempt.correctCount != null && attempt.itemCount != null ? (
@@ -192,10 +248,16 @@ function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
         {inProgress ? null : (
           /* Remounted with every page, so the score stamps down again each
              time a page is turned to. */
-          <div className={cn("rb-grade-score rb-grade-score-sm", attempt.passed ? "is-pass" : "is-fail")}>
+          /* Circled in the margin: the proficiency reached, or the raw
+             percentage when the sitting measured none. */
+          <div className={cn("rb-grade-score rb-grade-score-sm", standing.cleared ? "is-pass" : "is-fail")}>
             <PenCircle />
-            <span className="rb-grade-score-value">{percentage.toFixed(0)}%</span>
-            <span className="rb-grade-score-note">{attempt.passed ? "passed" : "not passed"}</span>
+            <span className="rb-grade-score-value">
+              {standing.measured ? standing.rating.toFixed(0) : `${percentage.toFixed(0)}%`}
+            </span>
+            <span className="rb-grade-score-note">
+              {standing.measured ? standing.label : attempt.passed ? "passed" : "not passed"}
+            </span>
           </div>
         )}
       </div>
@@ -304,16 +366,41 @@ export default function LearnerAssessmentHistoryPage() {
   const submitted = attempts.filter((attempt) => attempt.submittedAt != null)
   const assessmentTitle = attempts[0]?.assessmentTitle ?? "Assessment"
 
+  /* Ranked on proficiency, and shown as proficiency.
+   *
+   * The raw percentage is how many of the items served happened to be right,
+   * and an adaptive paper does not serve the same items twice -- an easy run
+   * scoring 80% is a weaker sitting than a hard one scoring 60%, so ordering
+   * attempts by percentage ranks the luck of the draw. Proficiency is the
+   * measure the engine actually produces (IrtModel.rating, 0..100) and the one
+   * the curriculum gates on, so it is what "best" should mean here too.
+   *
+   * Percentage is kept as the sub-caption: it answers "how did that sitting
+   * go", which is a fair question, just not the one the headline figure
+   * should be answering. */
+  const ratingOf = (attempt) =>
+    attempt?.proficiency?.rating == null ? null : Number(attempt.proficiency.rating)
+
   const highestAttempt = submitted.length
-    ? submitted.reduce((best, attempt) =>
-        Number(attempt.percentage ?? 0) > Number(best.percentage ?? 0) ? attempt : best
-      )
+    ? submitted.reduce((best, attempt) => {
+        const a = ratingOf(attempt)
+        const b = ratingOf(best)
+        // Falls back to percentage only while neither sitting measured a
+        // proficiency -- a fixed paper, or a row written before ratings were
+        // recorded.
+        if (a == null && b == null) {
+          return Number(attempt.percentage ?? 0) > Number(best.percentage ?? 0) ? attempt : best
+        }
+        if (a == null) return best
+        if (b == null) return attempt
+        return a > b ? attempt : best
+      })
     : null
   const highestAttemptId = highestAttempt?.assessmentAttemptId ?? null
   const latestAttempt = submitted.length ? submitted[0] : null
   const latestAttemptId = latestAttempt?.assessmentAttemptId ?? null
 
-  const everPassed = submitted.some((attempt) => attempt.passed)
+  const everCleared = submitted.some((attempt) => standingOf(attempt).cleared)
   const inProgressCount = attempts.length - submitted.length
 
   /* Oldest first for the trend, whatever order the list arrives in: a run that
@@ -324,9 +411,6 @@ export default function LearnerAssessmentHistoryPage() {
     <div className="rebyu-ds min-h-dvh bg-rb-polar text-rb-eel">
       <header className="sticky top-0 z-40 border-b-2 border-rb-swan bg-rb-snow">
         <div className="mx-auto flex h-16 max-w-4xl items-center gap-3 px-4">
-          <BackButton asChild size="sm" label="Back to progress">
-            <Link to="/learner/progress" />
-          </BackButton>
           <div className="min-w-0">
             <p className="rb-eyebrow">attempt history</p>
             <p className="truncate text-sm font-bold text-rb-eel">{assessmentTitle}</p>
@@ -338,31 +422,47 @@ export default function LearnerAssessmentHistoryPage() {
         {/* The front sheet of the file: every attempt marked, a stamp once
             there is something to stamp. */}
         <section className="rb-graded-sheet p-6 sm:p-8">
-          {submitted.length > 0 ? <TeacherStamp passed={everPassed} /> : null}
+          {submitted.length > 0 ? <TeacherStamp passed={everCleared} /> : null}
           <h1 className="rb-display rb-display-md pr-28 sm:pr-36">{assessmentTitle}</h1>
           <p className="rb-body mt-2 text-sm">
             {submitted.length} submitted attempt{submitted.length === 1 ? "" : "s"}
             {inProgressCount > 0 ? ` · ${inProgressCount} in progress` : ""}
             {submitted.length > 0
-              ? everPassed
-                ? " · passed"
-                : " · not passed yet"
+              ? everCleared
+                ? " · proficient"
+                : " · not proficient yet"
               : ""}
           </p>
 
           {submitted.length > 0 ? (
             <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
               <SummaryTile
-                label="Best score"
-                value={`${Number(highestAttempt.percentage ?? 0).toFixed(0)}%`}
-                caption={`Attempt ${highestAttempt.attemptNumber}`}
-                tone={highestAttempt.passed ? "leaf" : "cardinal"}
+                label={ratingOf(highestAttempt) == null ? "Best score" : "Best proficiency"}
+                value={
+                  ratingOf(highestAttempt) == null
+                    ? `${Number(highestAttempt.percentage ?? 0).toFixed(0)}%`
+                    : `${ratingOf(highestAttempt).toFixed(0)} / 100`
+                }
+                caption={
+                  ratingOf(highestAttempt) == null
+                    ? `Attempt ${highestAttempt.attemptNumber}`
+                    : `Attempt ${highestAttempt.attemptNumber} · ${highestAttempt.proficiency.label}`
+                }
+                tone={standingOf(highestAttempt).cleared ? "leaf" : "cardinal"}
               />
               <SummaryTile
-                label="Latest score"
-                value={`${Number(latestAttempt.percentage ?? 0).toFixed(0)}%`}
-                caption={`Attempt ${latestAttempt.attemptNumber}`}
-                tone={latestAttempt.passed ? "leaf" : "cardinal"}
+                label={ratingOf(latestAttempt) == null ? "Latest score" : "Latest proficiency"}
+                value={
+                  ratingOf(latestAttempt) == null
+                    ? `${Number(latestAttempt.percentage ?? 0).toFixed(0)}%`
+                    : `${ratingOf(latestAttempt).toFixed(0)} / 100`
+                }
+                caption={
+                  ratingOf(latestAttempt) == null
+                    ? `Attempt ${latestAttempt.attemptNumber}`
+                    : `Attempt ${latestAttempt.attemptNumber} · ${latestAttempt.proficiency.label}`
+                }
+                tone={standingOf(latestAttempt).cleared ? "leaf" : "cardinal"}
               />
               <SummaryTile label="Attempts sat" value={submitted.length} />
             </dl>
@@ -410,7 +510,7 @@ export default function LearnerAssessmentHistoryPage() {
                 return {
                   key: attempt.assessmentAttemptId,
                   tab: attempt.attemptNumber,
-                  tone: inProgress ? "open" : attempt.passed ? "pass" : "fail",
+                  tone: inProgress ? "open" : standingOf(attempt).cleared ? "pass" : "fail",
                   label: `Attempt ${attempt.attemptNumber}`,
                   content: (
                     <AttemptPage

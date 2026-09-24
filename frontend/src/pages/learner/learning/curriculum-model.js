@@ -98,6 +98,14 @@ export function buildCurriculum({
   exams = [],
   examTypesById,
   lessonPriorityById,
+  /* The learner's results, so the model can say what is CLEARED and not only
+     what has been read. Progression is gated on clearing, and computing that
+     here keeps one definition of it: both the road and the lesson rail had
+     their own, and both were wrong in the same way -- they gated on
+     `lesson.completed`, which means the text was read and says nothing about
+     the quiz. A learner could fail the quick check and walk straight into the
+     next lesson, under a banner reading "Retake it to open the next lesson". */
+  examResults = [],
 }) {
   /* Published, and part of the certification's own curriculum.
      The AI tutor saves its practice quizzes and flashcard decks as published
@@ -173,13 +181,21 @@ export function buildCurriculum({
       const lessons = asArray(middle.lessons).map((lesson) => {
         const id = idOf(lesson.lessonId)
         const known = lessonById?.get(id)
+        const completed = Boolean(known?.completed ?? lesson.completed)
+        const quiz = quizByLesson.get(id) ?? null
 
         return {
           ...lesson,
           id,
           name: lesson.name ?? lesson.title ?? "Untitled lesson",
-          completed: Boolean(known?.completed ?? lesson.completed),
-          quiz: quizByLesson.get(id) ?? null,
+          completed,
+          quiz,
+          /* Read AND its quiz cleared -- the test progression is gated on.
+             `completed` stays what it was, the text having been read, because
+             that is what the progress counts and the outline tick mean. A
+             lesson with no quiz is cleared by being read: there is nothing
+             else to ask of it. */
+          cleared: completed && (!quiz || examStanding(examResults, quiz.examId).cleared),
           priorityTag: lessonPriorityById?.get(id) ?? null,
         }
       })
@@ -203,6 +219,17 @@ export function buildCurriculum({
         quizzes,
         assessment,
         done: lessons.filter((lesson) => lesson.completed).length,
+        /* How much of the topic is actually behind the learner, and whether
+           the topic itself is finished. A topic is finished when every lesson
+           in it is cleared AND its own module exam is cleared -- the module
+           exam is the gate on the next topic, exactly as the unit exam gates
+           the next unit. `done` above is kept for the "3/8 lessons" counter,
+           which reports reading and should go on doing so. */
+        clearedCount: lessons.filter((lesson) => lesson.cleared).length,
+        cleared:
+          lessons.length > 0 &&
+          lessons.every((lesson) => lesson.cleared) &&
+          (!assessment || examStanding(examResults, assessment.examId).cleared),
       }
     })
 
@@ -282,13 +309,18 @@ export function hasSatDiagnostic({ diagnostic, examResults = [], certificationId
 
 /* ------------------------------------------------------------- clearing
  *
- * What it takes for a quiz or exam to open the road past it. Sitting it is
- * not enough: it has to be PASSED, and -- when the sitting was adaptive and
- * measured a proficiency -- that proficiency has to be at least Proficient.
- * A pass at a Developing rating is a pass on the day, not a reason to move
- * the learner on to material that builds on this; the next stop stays shut
- * until a retake shows the level. Older rows with no rating clear on the pass
- * alone, so nothing already earned is taken away.
+ * What it takes for a quiz or exam to open the road past it: PROFICIENCY.
+ *
+ * Where a sitting measured a level (0..100), reaching Proficient is the whole
+ * test and the paper's pass mark does not enter into it. An adaptive paper
+ * keeps serving harder items until it finds the edge of what the learner
+ * knows, so scoring under the pass mark is the ordinary shape of a sitting
+ * that measured a real level -- requiring the pass as well shut the road on
+ * learners the engine had just rated Proficient, which is exactly backwards.
+ *
+ * Only a sitting that measured nothing -- a fixed institution paper, or a row
+ * written before ratings were recorded -- falls back to the pass flag, because
+ * there the pass mark is the only verdict there is.
  */
 
 /** The 0..100 rating from which a sitting counts as Proficient (see IrtModel). */
@@ -298,9 +330,9 @@ export const PROFICIENT_RATING = 50
  * The learner's standing on one exam, from every result row for it: the best
  * sitting counts, so a bad retake never re-locks what a good one opened.
  *   taken   -- sat at least once
- *   passed  -- passed at least once
+ *   passed  -- passed the paper's mark at least once (reported, not gated on)
  *   rating  -- the best proficiency measured, or null when none was
- *   cleared -- passed at a proficient level: the gate the road reads
+ *   cleared -- reached Proficient: the gate the road reads
  *   reason  -- why it is not cleared, in the learner's terms; null when it is
  */
 export function examStanding(examResults, examId) {
@@ -308,28 +340,81 @@ export function examStanding(examResults, examId) {
   if (rows.length === 0) {
     return { taken: false, passed: false, rating: null, cleared: false, reason: "not sat yet" }
   }
-  const passedRows = rows.filter((row) => row?.isPassed === true || row?.passed === true)
-  const ratingOf = (row) => (row?.rating == null ? null : Number(row.rating))
-  const best = (list) =>
-    list.reduce((top, row) => {
-      const value = ratingOf(row)
-      return value == null ? top : top == null ? value : Math.max(top, value)
-    }, null)
-  const rating = best(rows)
-  if (passedRows.length === 0) {
-    return { taken: true, passed: false, rating, cleared: false, reason: "not passed yet" }
+  const passed = rows.some((row) => row?.isPassed === true || row?.passed === true)
+  const ratingOf = (row) => {
+    const value = row?.rating == null ? null : Number(row.rating)
+    return value == null || !Number.isFinite(value) ? null : value
   }
-  const passedRating = best(passedRows)
-  if (passedRating != null && passedRating < PROFICIENT_RATING) {
+  /* The BEST level ever reached: a weak retake never re-locks a road that a
+     stronger sitting opened. */
+  const rating = rows.reduce((top, row) => {
+    const value = ratingOf(row)
+    return value == null ? top : top == null ? value : Math.max(top, value)
+  }, null)
+
+  if (rating == null) {
+    // Nothing measured a level here, so the pass mark is the only verdict.
     return {
       taken: true,
-      passed: true,
-      rating: passedRating,
-      cleared: false,
-      reason: `passed, but proficiency is ${Math.round(passedRating)} — reach ${PROFICIENT_RATING} (Proficient) to continue`,
+      passed,
+      rating: null,
+      cleared: passed,
+      reason: passed ? null : "not passed yet",
     }
   }
-  return { taken: true, passed: true, rating: passedRating ?? rating, cleared: true, reason: null }
+  if (rating < PROFICIENT_RATING) {
+    return {
+      taken: true,
+      passed,
+      rating,
+      cleared: false,
+      reason: `proficiency is ${Math.round(rating)} — reach ${PROFICIENT_RATING} (Proficient) to continue`,
+    }
+  }
+  return { taken: true, passed, rating, cleared: true, reason: null }
+}
+
+/** The proficiency tier a 0..100 rating falls in. Mirrors the result screen. */
+export function proficiencyLabel(rating) {
+  const value = Number(rating)
+  if (!Number.isFinite(value)) return null
+  if (value >= 75) return "Advanced"
+  if (value >= PROFICIENT_RATING) return "Proficient"
+  if (value >= 25) return "Developing"
+  return "Novice"
+}
+
+/**
+ * The learner's MOST RECENT sitting of one exam, or null.
+ *
+ * Distinct from {@link examStanding}, which reports their BEST. Both belong on
+ * the quiz card and they answer different questions: the standing says whether
+ * the road ahead is open, the latest sitting says how the last attempt
+ * actually went. Showing only the standing meant a learner who had just
+ * scored badly saw their best result reported back at them, with no sign the
+ * attempt they had only just finished had happened at all.
+ */
+export function latestSitting(examResults, examId) {
+  const rows = (examResults ?? []).filter((row) => idOf(row?.examId) === idOf(examId))
+  if (rows.length === 0) return null
+  const newest = rows.reduce((latest, row) => {
+    const a = Date.parse(row?.takenAt ?? "")
+    const b = Date.parse(latest?.takenAt ?? "")
+    if (!Number.isFinite(a)) return latest
+    if (!Number.isFinite(b)) return row
+    if (a !== b) return a > b ? row : latest
+    // Same timestamp: the higher attempt number is the later sitting.
+    return Number(row?.attemptNo ?? 0) > Number(latest?.attemptNo ?? 0) ? row : latest
+  })
+  const rating = newest?.rating == null ? null : Number(newest.rating)
+  return {
+    attemptNo: newest?.attemptNo ?? null,
+    takenAt: newest?.takenAt ?? null,
+    score: newest?.score == null ? null : Number(newest.score),
+    rating,
+    label: proficiencyLabel(rating),
+    passed: newest?.isPassed === true || newest?.passed === true,
+  }
 }
 
 /** Ids of every exam the learner has cleared, as strings. */

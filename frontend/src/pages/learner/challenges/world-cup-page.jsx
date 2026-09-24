@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import { Award, Clock, Crown, Gauge, Lock, Trophy, Users, Zap } from "@/components/icons"
 
-import { BackButton, ProgressBar, TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
+import { ProgressBar, TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { getWorldCupTracks } from "@/lib/arenas.js"
 import { getLearnerPortalData } from "@/services/learnerService.js"
 import { CHALLENGE_ARENAS_KEY, getChallengeArenas } from "@/services/challengeService.js"
@@ -348,9 +348,6 @@ export default function WorldCupPage() {
           the tournament as a panel inside an app rather than the thing you came
           here for. Back, the run's name, and its state sit on the page itself. */}
       <div className="flex shrink-0 items-center gap-4 px-5 pt-6 lg:px-8">
-        <BackButton asChild label="Back to arenas">
-          <Link to="/learner/challenges" />
-        </BackButton>
         <div className="min-w-0">
           <div className="font-rb-display text-xl font-extrabold lowercase text-rb-eel">
             world cup

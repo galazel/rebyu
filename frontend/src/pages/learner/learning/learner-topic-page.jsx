@@ -62,7 +62,14 @@ import {
 } from "@/services/learnerService.js"
 import { getExams, getExamTypes } from "@/services/assessmentService.js"
 import { getProgressAnalytics } from "@/services/learnerAnalyticsService.js"
-import { buildCurriculum, examStanding, findMiddle } from "./curriculum-model.js"
+import { cn } from "@/lib/utils"
+import {
+  buildCurriculum,
+  examStanding,
+  findMiddle,
+  latestSitting,
+  PROFICIENT_RATING,
+} from "./curriculum-model.js"
 import {
   SectionStackSkeleton,
   TopicPageSkeleton,
@@ -341,9 +348,18 @@ function OutlineRow({
               heading you scroll to, a quiz is something you answer. */}
           {item.quiz ? (
             <li>
-              <a
-                href={`#quiz-${item.quiz.examId}`}
-                className="flex items-center gap-2 py-1.5 text-xs font-bold text-rb-beetle-lip hover:underline"
+              {/* A button that opens the lesson, not a bare `#quiz-N` anchor.
+                  *
+                  * The quiz band is rendered only for the lesson currently on
+                  * screen, so the anchor's target does not exist while any
+                  * other lesson is open -- and a hash link to a missing target
+                  * does nothing at all. From every lesson but one, clicking
+                  * "Quick check" was dead. Selecting the lesson first puts its
+                  * band on the page; the scroll then has something to find. */}
+              <button
+                type="button"
+                onClick={() => onSelect(item, { scrollTo: `quiz-${item.quiz.examId}` })}
+                className="flex w-full items-center gap-2 py-1.5 text-left text-xs font-bold text-rb-beetle-lip hover:underline"
               >
                 <span className="grid size-5 shrink-0 place-items-center rounded-full bg-rb-beetle-wash">
                   <CircleHelp className="size-3" aria-hidden="true" />
@@ -351,7 +367,7 @@ function OutlineRow({
                 <span className="min-w-0 truncate">
                   Quick check · {item.quiz.totalQuestions} questions
                 </span>
-              </a>
+              </button>
             </li>
           ) : null}
         </ul>
@@ -649,6 +665,7 @@ const SECTION_TONE = {
 
 function LessonView({
   onOpenOutline,
+  backTo,
   lessonItem,
   sections,
   loading,
@@ -663,10 +680,10 @@ function LessonView({
   onToggleLesson,
   onPrev,
   onNext,
-  backTo,
   takenExamIds,
   quizPending,
   quizStanding,
+  quizLatest,
 }) {
   const articleRef = useRef(null)
   const headerRef = useRef(null)
@@ -838,8 +855,8 @@ function LessonView({
           {backTo ? (
             <TactileButton asChild variant="feather" size="sm" className="shrink-0">
               <Link to={backTo} aria-label="Back to curriculum">
-                <ArrowLeft className="size-4" />
                 <span className="hidden sm:inline">back to curriculum</span>
+                <span className="sm:hidden">curriculum</span>
               </Link>
             </TactileButton>
           ) : null}
@@ -954,6 +971,7 @@ function LessonView({
             quiz={lessonItem.quiz}
             taken={Boolean(takenExamIds?.has(String(lessonItem.quiz.examId)))}
             standing={quizStanding}
+            latest={quizLatest}
           />
         </div>
       ) : null}
@@ -1038,7 +1056,15 @@ function LessonView({
  * is what the attempt engine already does. Rendering our own radio buttons here
  * would produce a score the backend never sees.
  */
-function QuizBand({ quiz, taken, standing }) {
+function QuizBand({ quiz, taken, standing, latest }) {
+  /* Whether the last sitting opens the road: its level where it measured one,
+     and only otherwise the paper's pass mark. */
+  const latestCleared =
+    latest == null
+      ? false
+      : latest.rating != null
+        ? latest.rating >= PROFICIENT_RATING
+        : latest.passed
   /* Where the quiz hands the learner back. They are part-way through this
      topic, so finishing sends them here rather than to the certification's
      roadmap. */
@@ -1062,18 +1088,79 @@ function QuizBand({ quiz, taken, standing }) {
             {quiz.description ??
               "A short check on what this lesson covered. Answer it while the lesson is fresh — it is scored, and you can retake it."}
           </p>
+
+          {/* How the last sitting actually went.
+              *
+              * The line below it reports the learner's BEST attempt, so someone
+              * who had just sat the quiz saw either a stale summary of an older,
+              * better attempt or, if they had cleared it, nothing at all. The
+              * result they had that second finished was the one thing the card
+              * would not tell them. */}
+          {latest ? (
+            <div
+              className={cn(
+                "mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-rb-control border-2 px-3 py-2",
+                /* Coloured by the level reached, which is what opens the
+                   road -- not by the paper's pass mark, which an adaptive
+                   sitting routinely lands under while measuring a real and
+                   perfectly good level. */
+                latestCleared
+                  ? "border-rb-feather/50 bg-rb-feather-wash"
+                  : "border-rb-fox/40 bg-rb-fox-wash",
+              )}
+            >
+              <span className="text-xs font-bold uppercase tracking-wide text-rb-wolf">
+                Your last attempt
+              </span>
+              <span className="text-sm font-extrabold text-rb-eel">
+                {latest.rating != null
+                  ? `proficiency ${Math.round(latest.rating)} / 100${latest.label ? ` · ${latest.label}` : ""}`
+                  : `${Math.round(latest.score ?? 0)}%`}
+              </span>
+              {/* The verdict in the learner's terms. Where a level was
+                  measured that level IS the verdict, so the card says whether
+                  it opens the next lesson rather than stamping "not passed"
+                  on a sitting the curriculum is perfectly happy with. */}
+              <span
+                className={cn(
+                  "text-sm font-bold",
+                  latestCleared ? "text-rb-feather-lip" : "text-rb-fox-lip",
+                )}
+              >
+                {latest.rating != null
+                  ? latestCleared
+                    ? "next lesson open"
+                    : `reach ${PROFICIENT_RATING} to continue`
+                  : latest.passed
+                    ? "passed"
+                    : "not passed"}
+              </span>
+              {latest.rating != null && latest.score != null ? (
+                <span className="text-xs font-semibold text-rb-wolf">
+                  {Math.round(latest.score)}% of the items served
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
           {/* Why the lesson is still open after a sitting: the quiz has to be
               passed at a proficient level before the next lesson opens. */}
           {standing?.taken && !standing.cleared ? (
             <p className="mt-3 rounded-rb-control border-2 border-rb-fox/40 bg-rb-fox-wash px-3 py-2 text-sm font-bold text-rb-eel">
-              Quiz {standing.reason}. Retake it to open the next lesson.
+              {/* `reason` already reads as a sentence about proficiency; it
+                  only needs its first letter. */}
+              {standing.reason.charAt(0).toUpperCase() + standing.reason.slice(1)}.
+              Retake it to open the next lesson.
             </p>
           ) : null}
 
           <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               [CircleHelp, `${quiz.totalQuestions} questions`],
-              [CheckCircle2, `${Math.round(Number(quiz.passingScore ?? 0))}% to pass`],
+              /* What actually opens the next lesson. The paper's own pass
+                 mark is not the gate any more, so quoting it here sent
+                 learners chasing a number that decides nothing. */
+              [CheckCircle2, `proficiency ${PROFICIENT_RATING} to continue`],
               [Clock, quiz.durationMinutes ? `${quiz.durationMinutes} minutes` : "Self-paced"],
               [Zap, `up to ${ASSESSMENT_MAX_XP} XP`],
             ].map(([Icon, label]) => (
@@ -1163,8 +1250,8 @@ function AssessmentView({ exam, position, total, backTo, taken, onOpenOutline })
           {backTo ? (
             <TactileButton asChild variant="feather" size="sm" className="shrink-0">
               <Link to={backTo} aria-label="Back to curriculum">
-                <ArrowLeft className="size-4" />
                 <span className="hidden sm:inline">back to curriculum</span>
+                <span className="sm:hidden">curriculum</span>
               </Link>
             </TactileButton>
           ) : null}
@@ -1264,6 +1351,22 @@ export default function LearnerTopicPage() {
     (item) => String(item.certificationId) === String(certificationId),
   )
 
+  /* The locks on this page are computed from the shell's portal payload --
+     which lesson quizzes have been CLEARED. That payload is fetched once, when
+     the shell mounts, and seeded from a persisted snapshot before that; moving
+     between lessons never refreshes it. So a learner could pass a quiz, come
+     back, and be told by the rail that they had not: the rule was right and
+     the data behind it was from before their attempt.
+
+     Refetched on entering a topic, which is exactly when these locks are about
+     to be drawn. One request per topic opened, against a gate that is wrong
+     until it happens. */
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ["learner-portal-data"] })
+    // Once per mount: re-running this on every render would refetch forever.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const examsQuery = useQuery({ queryKey: ["exams"], queryFn: () => getExams(), staleTime: 60_000 })
   const examTypesQuery = useQuery({
     queryKey: ["exam-types"],
@@ -1344,8 +1447,9 @@ export default function LearnerTopicPage() {
       ),
       examTypesById,
       lessonPriorityById,
+      examResults: data?.examResults ?? [],
     })
-  }, [certification, lessonById, examsQuery.data, certificationId, examTypesById, lessonPriorityById])
+  }, [certification, lessonById, examsQuery.data, certificationId, examTypesById, lessonPriorityById, data?.examResults])
 
   const { major, middle } = useMemo(
     () => (curriculum ? findMiddle(curriculum, middleCategoryId) : { major: null, middle: null }),
@@ -1438,9 +1542,28 @@ export default function LearnerTopicPage() {
     return true
   }
 
+  /* Cleared, which is what the rail above gates on: the lesson read AND its
+     quiz cleared.
+     *
+     * This used to be `locallyDone.has(id) || lessonById.get(id)?.completed`
+     * -- reading alone. The quiz was never consulted, so a learner who failed
+     * the quick check walked straight into the next lesson while the card on
+     * screen read "Quiz not passed yet. Retake it to open the next lesson."
+     * The rail said one thing and did another.
+     *
+     * `locallyDone` still counts, but only to carry the moment between
+     * finishing a lesson and the server confirming it; it cannot substitute
+     * for the quiz, so it is ANDed with the same clearing test rather than
+     * short-circuiting it. */
   const isDone = useCallback(
-    (lessonId) => locallyDone.has(lessonId) || Boolean(lessonById.get(lessonId)?.completed),
-    [locallyDone, lessonById],
+    (lessonId) => {
+      const read = locallyDone.has(lessonId) || Boolean(lessonById.get(lessonId)?.completed)
+      if (!read) return false
+      const quiz = track.find((entry) => entry.id === lessonId)?.quiz
+      if (!quiz) return true
+      return examStanding(data?.examResults, quiz.examId).cleared
+    },
+    [locallyDone, lessonById, track, data?.examResults],
   )
 
   /* When each section was recorded as read in this sitting, so a rush can take
@@ -1624,6 +1747,8 @@ export default function LearnerTopicPage() {
      launcher offers the retake. `takenExamIds` still decides first go vs
      retake. */
   const quizStanding = activeQuiz ? examStanding(data?.examResults, activeQuiz.examId) : null
+  // The sitting they just finished, as opposed to their best one.
+  const quizLatest = activeQuiz ? latestSitting(data?.examResults, activeQuiz.examId) : null
   const quizPending = Boolean(activeQuiz) && !quizStanding?.cleared
 
   // Two entry points, deliberately different: the scroll check only ever
@@ -1726,11 +1851,26 @@ export default function LearnerTopicPage() {
       activeId={active?.id}
       collapsed={outlineCollapsed}
       onCollapse={() => setOutlineCollapsed((value) => !value)}
-      onSelect={(item) => {
+      onSelect={(item, options) => {
         if (explainLock(item)) return
         setActiveId(item.id)
         setRailOpen(false)
-        window.scrollTo({ top: 0 })
+        if (!options?.scrollTo) {
+          window.scrollTo({ top: 0 })
+          return
+        }
+        /* Scrolled after the lesson has actually rendered. The band being
+           aimed at belongs to the lesson just selected, so it is not in the
+           document yet on this tick -- looking for it now finds nothing and
+           the click appears to do nothing, which is the bug this is fixing.
+           Falls back to the top of the lesson if the band never appears. */
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const target = document.getElementById(options.scrollTo)
+            if (target) target.scrollIntoView({ behavior: "smooth", block: "start" })
+            else window.scrollTo({ top: 0 })
+          })
+        })
       }}
       activeSections={sections}
       readSections={readSections}
@@ -1769,6 +1909,7 @@ export default function LearnerTopicPage() {
             <LessonView
               key={active.id}
               lessonItem={active}
+              backTo={backTo}
               sections={sections}
               loading={lessonQuery.isLoading}
               position={activeIndex + 1}
@@ -1783,6 +1924,7 @@ export default function LearnerTopicPage() {
               takenExamIds={takenExamIds}
               quizPending={quizPending}
               quizStanding={quizStanding}
+              quizLatest={quizLatest}
               onPrev={
                 prev
                   ? () => {
@@ -1800,7 +1942,6 @@ export default function LearnerTopicPage() {
                     }
                   : undefined
               }
-              backTo={backTo}
               onOpenOutline={() => setRailOpen(true)}
             />
           ) : (

@@ -7,14 +7,28 @@ import { startAssessmentAttempt } from "@/services/assessmentService.js"
  * A pattern, not a single flick: the challenge fires only once the learner
  * has skimmed more than this many lessons in a row. One lesson raced through
  * is a strike; a lesson finished without a rush clears the count.
+ *
+ * Two strikes meant the THIRD skimmed lesson in an unbroken run, and paired
+ * with a count that died with the tab (see below) that was a bar almost
+ * nobody cleared -- the challenge minted twelve times in the days before the
+ * rule landed and not once in the three days after it. One strike still
+ * refuses to fire on a single flick, which is the whole point of counting.
  */
-const STRIKES_BEFORE_CHALLENGE = 2
+const STRIKES_BEFORE_CHALLENGE = 1
 
 const strikesKey = (learnerId) => `rebyu:skim-strikes:${learnerId}`
 
+/* localStorage, not sessionStorage.
+ *
+ * The run this counts is a reading habit, and a habit does not end because a
+ * tab was closed. sessionStorage is per-tab: every new tab, every restart,
+ * every "open in new tab" from the curriculum started the count at zero, so
+ * a learner skimming steadily across a week could never reach the second
+ * strike, let alone the third. The count is cleared the moment a lesson is
+ * finished at a reading pace, which is the thing that should end the run. */
 function readStrikes(learnerId) {
   try {
-    const raw = sessionStorage.getItem(strikesKey(learnerId))
+    const raw = localStorage.getItem(strikesKey(learnerId))
     const parsed = raw ? JSON.parse(raw) : null
     return Array.isArray(parsed) ? parsed.map(Number) : []
   } catch {
@@ -24,7 +38,7 @@ function readStrikes(learnerId) {
 
 function writeStrikes(learnerId, lessons) {
   try {
-    sessionStorage.setItem(strikesKey(learnerId), JSON.stringify(lessons))
+    localStorage.setItem(strikesKey(learnerId), JSON.stringify(lessons))
   } catch {
     /* Storage blocked: the count just lives for this page. */
   }
@@ -37,7 +51,8 @@ function writeStrikes(learnerId, lessons) {
  * however many rushes); when more than STRIKES_BEFORE_CHALLENGE different
  * lessons in a row have been skimmed, the next skimmed lesson brings the
  * challenge. Finishing a lesson at a reading pace wipes the strikes. The
- * count sits in sessionStorage so moving between lessons keeps it.
+ * count sits in localStorage so it survives moving between lessons, and
+ * closing the browser.
  *
  * `trigger()` is what the guard calls. When it is the challenge's turn, it
  * asks the server once whether a challenge can be served for this lesson; an
@@ -80,7 +95,7 @@ export function useSkimChallenge({ learnerId, lessonId, enabled }) {
 
     if (!force) {
       /* First rush in this lesson: record the strike. The challenge only
-         comes once the pattern has held across more than two lessons. */
+         comes once the pattern has held across more than one lesson. */
       if (!skimmedRef.current) {
         skimmedRef.current = true
         const strikes = readStrikes(learnerId).filter((id) => id !== Number(lesson))

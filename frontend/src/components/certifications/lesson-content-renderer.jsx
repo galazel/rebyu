@@ -208,14 +208,23 @@ function ImageAttribution({ sourceUrl, sourceName }) {
 //: a different variant group, so tailwind-merge does not treat it as a conflict
 //: and would otherwise leave it applied above 640px.
 //:
-//: Every one of the panel's own decorations is turned off. A diagram opened to
-//: be read does not want a card around it: the border, the popover fill, the
-//: padding, the rounding and the drop shadow all drew a second frame inside the
-//: viewport and shrank the picture to make room for it. What is left is the
-//: media, centred on the scrim.
+//: A window on the lesson, not a takeover of it. The previous panel was the
+//: whole viewport with a transparent surface, which is how a phone shows a
+//: photo and the wrong shape for a diagram opened beside the text that explains
+//: it -- the lesson vanished, and closing it was the only way back to the
+//: sentence that sent you here. This is a centred panel at roughly half the
+//: screen on a laptop (`52vw`), widening as the screen narrows until it takes
+//: nearly all of a phone, where half would be smaller than the lesson already
+//: showed. The scrim keeps the page visible around it.
+//:
+//: The surface comes back with it: a diagram is letterboxed by `object-contain`
+//: and an image with its own alpha needs something to sit on, so the panel
+//: keeps its background, border, radius and shadow rather than letting the
+//: dimmed page show through the bands.
 const LIGHTBOX_PANEL =
-    "!max-w-none fixed inset-0 top-0 left-0 h-dvh w-screen translate-x-0 translate-y-0 " +
-    "grid place-items-center gap-0 overflow-hidden rounded-none border-0 bg-transparent p-0 shadow-none"
+    "!max-w-none w-[92vw] sm:w-[64vw] lg:w-[52vw] max-h-[82dvh] " +
+    "grid place-items-center gap-0 overflow-hidden rounded-2xl border border-border " +
+    "bg-background p-3 shadow-2xl"
 
 //: The media is capped in the SAME units as the panel, minus its `p-6` on both
 //: sides (1.5rem x 2 = 3rem) -- not in percentages of it.
@@ -241,7 +250,7 @@ const LIGHTBOX_PANEL =
 //: lesson visible around it, not a takeover. On a phone half would be too small
 //: to read, so it takes nearly the width there.
 const LIGHTBOX_MEDIA =
-    "max-h-[70dvh] max-w-[92vw] sm:max-h-[60dvh] sm:max-w-[50vw] bg-white object-contain shadow-2xl"
+    "max-h-[74dvh] w-full rounded-lg bg-white object-contain"
 
 //: Nothing in this view is rounded. A radius is a card's edge treatment, and
 //: opened media is not on a card -- a rounded corner over a square diagram
@@ -256,14 +265,13 @@ const LIGHTBOX_SCRIM =
     "bg-slate-950/45 supports-backdrop-filter:backdrop-blur-sm"
 
 /**
- * The one way out of a full-screen media view.
+ * The one way out of the viewer.
  *
- * The shared dialog's own close key is an arrow anchored to the corner of a
- * panel, and here there is no panel for it to hold on to -- so this replaces
- * it: a plain X, pinned to the top right of the viewport, which is what a
- * picture opened full-screen is expected to have and the only control the view
- * needs. Unlike the shared key this one is inside the content, so it sits in
- * the focus trap and can be tabbed to; Esc still dismisses.
+ * A plain X in the panel's own top right, over the media rather than out in
+ * the corner of the screen: the viewer is a window on the lesson now, so its
+ * control belongs to the window. Unlike the shared dialog's close key this one
+ * is inside the content, so it sits in the focus trap and can be tabbed to;
+ * Esc still dismisses, and so does a click on the scrim around it.
  */
 function LightboxClose() {
   return (
@@ -271,7 +279,7 @@ function LightboxClose() {
         <button
             type="button"
             aria-label="Close"
-            className="fixed right-4 top-4 z-51 grid size-11 place-items-center bg-slate-950/40 text-white backdrop-blur-sm transition-colors hover:bg-slate-950/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="absolute right-2 top-2 z-10 grid size-9 place-items-center rounded-full bg-slate-950/50 text-white backdrop-blur-sm transition-colors hover:bg-slate-950/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         >
           <X className="size-5" aria-hidden="true" />
         </button>
@@ -483,7 +491,7 @@ function VideoBlock({ videoKey, className }) {
                 `max-h-`: a <video> with no loaded frame has no intrinsic size,
                 so a max-height alone collapses the player to nothing until the
                 first frame arrives. */}
-            {player(`${LIGHTBOX_MEDIA} aspect-video h-auto w-[92vw] sm:w-[50vw]`)}
+            {player(`${LIGHTBOX_MEDIA} aspect-video h-auto w-full`)}
             <LightboxClose />
           </DialogContent>
         </Dialog>

@@ -52,6 +52,19 @@ import {
   updateExam,
 } from "@/services/assessmentService.js"
 
+/** The small caps heading that divides the detail rail into readable groups. */
+function SectionLabel({ children, className = "" }) {
+  return (
+    <p className={"text-xs font-semibold uppercase tracking-wide text-muted-foreground " + className}>
+      {children}
+    </p>
+  )
+}
+
+/** What the empty state adds: multiple choice, or whatever heads the list. */
+const firstQuestionType =
+  QUESTION_TYPES.find((type) => type.id === "MULTIPLE_CHOICE") ?? QUESTION_TYPES[0]
+
 const QUESTION_API = { saveQuestion, saveChoices, saveTextQuestion, saveProgrammingQuestion, saveDiagramQuestion }
 
 // What each exam type actually targets in the curriculum tree. Regardless of
@@ -638,8 +651,10 @@ export default function InstitutionAssessmentBuilderPage() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col">
-      {/* Top bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+      {/* Top bar. The heading is the assessment being written, not the verb --
+          the button beside it already says what pressing it does, and the two
+          reading "Create assessment" side by side said nothing twice. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
           <Button
             variant="ghost"
@@ -649,12 +664,17 @@ export default function InstitutionAssessmentBuilderPage() {
             <ArrowLeftIcon className="size-4" />
             Cancel
           </Button>
-          <h1 className="truncate font-heading text-base font-bold text-foreground">
-            {isEdit ? "Edit assessment" : "Create assessment"}
-          </h1>
+          <div className="min-w-0">
+            <h1 className="truncate font-heading text-base font-bold text-foreground">
+              {title.trim() || (isEdit ? "Edit assessment" : "New assessment")}
+            </h1>
+            <p className="truncate text-xs text-muted-foreground">
+              {isEdit ? "Editing" : "Draft"}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">
+          <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium tabular-nums text-muted-foreground">
             {questions.length} question{questions.length === 1 ? "" : "s"} · {totalPoints} pt
             {totalPoints === 1 ? "" : "s"}
           </span>
@@ -690,10 +710,12 @@ export default function InstitutionAssessmentBuilderPage() {
         </p>
       ) : null}
 
-      <div className="grid min-h-0 flex-1 md:grid-cols-[280px_minmax(0,1fr)_260px]">
+      {/* The detail rail holds six labelled controls and the points panel; at
+          280px every select clipped the value it was showing. */}
+      <div className="grid min-h-0 flex-1 md:grid-cols-[320px_minmax(0,1fr)_268px] xl:grid-cols-[360px_minmax(0,1fr)_288px]">
         {/* LEFT: assessment details */}
-        <aside className="min-h-0 space-y-4 overflow-y-auto border-b border-border p-4 md:border-b-0 md:border-r">
-          <p className="text-sm font-medium text-foreground">Assessment details</p>
+        <aside className="min-h-0 space-y-5 overflow-y-auto border-b border-border p-4 md:border-b-0 md:border-r">
+          <SectionLabel>Basics</SectionLabel>
 
           <div className="space-y-1.5">
             <Label htmlFor="a-title">Name</Label>
@@ -720,6 +742,8 @@ export default function InstitutionAssessmentBuilderPage() {
               </SelectContent>
             </Select>
           </div>
+
+          <SectionLabel className="pt-1">Where it attaches</SectionLabel>
 
           {allMajors.length === 0 ? (
             <p className="text-xs text-muted-foreground">
@@ -815,6 +839,8 @@ export default function InstitutionAssessmentBuilderPage() {
             </>
           )}
 
+          <SectionLabel className="pt-1">Marking</SectionLabel>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="a-duration">Duration (min)</Label>
@@ -891,12 +917,20 @@ export default function InstitutionAssessmentBuilderPage() {
         {/* CENTER: authored questions, using the exact admin question editors */}
         <main className="min-h-0 overflow-y-auto bg-muted/20 p-4">
           {questions.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-center">
-              <ListChecks className="size-10 text-muted-foreground" />
-              <p className="mt-3 text-sm font-medium text-foreground">No questions yet</p>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                Pick a question type on the right to add your first question.
-              </p>
+            /* The palette on the right is a trip across the page for the first
+               question, and it is nearly always multiple choice -- so the empty
+               state offers that one where the eye already is. */
+            <div className="flex h-full items-center justify-center p-2">
+              <div className="w-full max-w-md rounded-2xl border-2 border-dashed border-border bg-background/60 px-6 py-10 text-center">
+                <ListChecks className="mx-auto size-10 text-muted-foreground" />
+                <p className="mt-3 text-sm font-medium text-foreground">No questions yet</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Add your first question here, or pick another type from the palette.
+                </p>
+                <Button className="mt-5" onClick={() => addQuestion(firstQuestionType)}>
+                  Add a multiple choice question
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -945,8 +979,8 @@ export default function InstitutionAssessmentBuilderPage() {
         {/* RIGHT: question type palette -- the same five types as admin */}
         <aside className="min-h-0 space-y-4 overflow-y-auto border-t border-border p-4 md:border-l md:border-t-0">
           <div>
-            <p className="text-sm font-medium text-foreground">Add Question</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <SectionLabel>Add question</SectionLabel>
+            <p className="mt-1.5 text-sm text-muted-foreground">
               Pick a type to add it to this assessment.
             </p>
           </div>

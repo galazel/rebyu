@@ -14,6 +14,7 @@ import { BadgeUploadStep } from "@/components/certifications/badge-upload-step.j
 import { QuestionTypeChoice } from "@/components/certifications/question-type-choice.jsx"
 
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
@@ -172,12 +173,22 @@ export default function CertificationFormDrawer({
        the supervised alternative is one click away and clearly labelled. */
     const [reviewMode, setReviewMode] = useState("auto")
     const [questionTypes, setQuestionTypes] = useState([])
+    /* Required, and seeded with a workable default rather than left blank.
+       The bank is the largest and most expensive thing a run produces, and the
+       size it used to take came from .env -- a number nobody filling in this
+       form could see, let alone predict. Asking for it outright is the honest
+       version. */
+    const [questionBankSize, setQuestionBankSize] = useState("300")
+    /* Also required. The configured curriculum knobs MULTIPLY (majors x
+       middles x lessons), so the old behaviour produced a lesson total that
+       could not be worked out from anything on screen. */
+    const [lessonCount, setLessonCount] = useState("40")
 
     const {
         mutateAsync: createWithAi,
         isPending: isBusy,
     } = useMutation({
-        mutationFn: ({ payload, documents, mode, questionTypes: chosenTypes, badge }) =>
+        mutationFn: ({ payload, documents, mode, questionTypes: chosenTypes, badge, bankSize, lessons }) =>
             addCertificationWithAi(
                 payload,
                 documents,
@@ -189,7 +200,9 @@ export default function CertificationFormDrawer({
                     ),
                 mode,
                 chosenTypes,
-                badge
+                badge,
+                bankSize,
+                lessons
             ),
     })
 
@@ -278,6 +291,20 @@ export default function CertificationFormDrawer({
             return
         }
 
+        /* Both sizes are required. Generation is long and expensive, and a run
+           started on a number the admin never chose is one they only find out
+           about at the end. */
+        const bank = Number(questionBankSize)
+        if (!questionBankSize || !Number.isFinite(bank) || bank < 10 || bank > 5000) {
+            setSubmissionError("Enter a question bank size between 10 and 5000.")
+            return
+        }
+        const lessons = Number(lessonCount)
+        if (!lessonCount || !Number.isFinite(lessons) || lessons < 1 || lessons > 300) {
+            setSubmissionError("Enter how many lessons to create, between 1 and 300.")
+            return
+        }
+
         try {
             setSubmissionError("")
 
@@ -294,6 +321,8 @@ export default function CertificationFormDrawer({
                 mode: reviewMode,
                 questionTypes,
                 badge: badgeImage,
+                bankSize: bank,
+                lessons,
             })
 
             await onSaved?.(savedCertification)
@@ -441,6 +470,69 @@ export default function CertificationFormDrawer({
                                 onChange={setQuestionTypes}
                                 disabled={isBusy}
                             />
+                        </div>
+
+                        <div className="border-t border-border pt-8">
+                            <p className="text-sm font-semibold text-foreground">How big should it be?</p>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Both are required. They decide how long the run takes and what it
+                                costs, so the form asks for them rather than reading them from a
+                                config file you cannot see from here.
+                            </p>
+
+                            <div className="mt-4 grid gap-5 sm:grid-cols-2">
+                                <div>
+                                    <label
+                                        htmlFor="lesson-count"
+                                        className="text-sm font-semibold text-foreground"
+                                    >
+                                        Lessons
+                                    </label>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        How many lessons the whole curriculum should contain. They
+                                        are spread across the categories by how much material each
+                                        area holds, not divided evenly.
+                                    </p>
+                                    <Input
+                                        id="lesson-count"
+                                        type="number"
+                                        min={1}
+                                        max={300}
+                                        step={1}
+                                        inputMode="numeric"
+                                        value={lessonCount}
+                                        onChange={(event) => setLessonCount(event.target.value)}
+                                        disabled={isBusy}
+                                        className="mt-3 max-w-[220px]"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label
+                                        htmlFor="question-bank-size"
+                                        className="text-sm font-semibold text-foreground"
+                                    >
+                                        Question bank size
+                                    </label>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        The pool every quiz, retake and practice session draws from.
+                                        Each difficulty level gets an equal share, and every lesson
+                                        gets at least one question however small the number.
+                                    </p>
+                                    <Input
+                                        id="question-bank-size"
+                                        type="number"
+                                        min={10}
+                                        max={5000}
+                                        step={10}
+                                        inputMode="numeric"
+                                        value={questionBankSize}
+                                        onChange={(event) => setQuestionBankSize(event.target.value)}
+                                        disabled={isBusy}
+                                        className="mt-3 max-w-[220px]"
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         <div className="border-t border-border pt-8">

@@ -63,9 +63,16 @@ export function getInstitutionLearnerExamResults(learnerId) {
   return base(`institution/me/learners/${learnerId}/exam-results`)
 }
 
-// Learner invitations (read-only; the dashboard's "Recent invitations" widget)
-export function getLearnerInvitations() {
-  return base("learner-invitations")
+/* The signed-in learner's OWN pending invitations.
+ *
+ * This used to call "learner-invitations", which returns every invitation on
+ * the platform, and the caller filtered it down to its own email in the
+ * browser. That handed each learner every other learner's name, address,
+ * invitation status and inviting institution -- and did it on a 30s poll. The
+ * server now matches on the token's email and returns only what the caller may
+ * see, so there is nothing left to filter. */
+export function getMyInvitations() {
+  return base("learner-invitations/me")
 }
 
 // Group-owned announcements. The backend scopes these to the caller's own

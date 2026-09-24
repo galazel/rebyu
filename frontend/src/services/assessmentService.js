@@ -37,7 +37,7 @@ export function getExamById(examId, includeDepartmentId) {
   return base(`exams/${examId}${query}`)
 }
 
-// ownerDepartmentId is required for an Institution Member creating their own
+// ownerDepartmentId is required for a department head creating their own
 // exam; omitted, the backend requires ADMIN and creates an official exam.
 export function createExam(exam, ownerDepartmentId) {
   const query = ownerDepartmentId != null ? `?ownerDepartmentId=${ownerDepartmentId}` : ""

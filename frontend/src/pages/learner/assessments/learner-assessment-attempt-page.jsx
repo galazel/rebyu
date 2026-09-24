@@ -53,7 +53,7 @@ import ProgrammingQuestionLayout from "@/components/assessments/attempt/programm
 import AttemptSkeleton from "@/components/assessments/attempt/attempt-skeleton.jsx"
 import QuestionNavigator from "@/components/assessments/attempt/question-navigator.jsx"
 import SubQuestionTabs from "@/components/assessments/attempt/sub-question-tabs.jsx"
-import { getFileViewUrl } from "@/services/fileService.js"
+import { AuthedImage, prefetchAuthedMedia, questionMediaKeys } from "@/lib/authed-media.jsx"
 import {
   getCurrentLearner,
   getCurrentLearnerIdentity,
@@ -249,13 +249,12 @@ function NormalQuestionPanel({ question, index, answer, onAnswer }) {
 
         <p className="text-base leading-7">{question.question}</p>
 
-        {question.questionImageKey ? (
-            <img
-                src={getFileViewUrl(question.questionImageKey)}
-                alt="Question reference"
-                className="max-h-80 w-auto rounded-xl border"
-            />
-        ) : null}
+        <AuthedImage
+            imageKey={question.questionImageKey}
+            alt="Question reference"
+            zoomable
+            className="max-h-80 w-auto rounded-xl border"
+        />
 
         {isMultipleChoice(question) ? (
             <RadioGroup
@@ -295,13 +294,15 @@ function NormalQuestionPanel({ question, index, answer, onAnswer }) {
                   </span>
                   {choice.choiceText}
                 </span>
-                      {choice.imageKey ? (
-                          <img
-                              src={getFileViewUrl(choice.imageKey)}
-                              alt=""
-                              className="mt-2 max-h-40 w-auto rounded-lg border"
-                          />
-                      ) : null}
+                      {/* Through AuthedImage like every other figure: a raw
+                          `<img src={getFileViewUrl(...)}>` carries no
+                          Authorization header, so this choice's picture was
+                          always a broken glyph. */}
+                      <AuthedImage
+                          imageKey={choice.imageKey}
+                          className="mt-2 max-h-40 w-auto rounded-lg border"
+                          placeholderClassName="mt-2 h-16 w-full max-w-[10rem]"
+                      />
                     </div>
                   </label>
               ))}
@@ -410,13 +411,12 @@ function WorkspaceQuestionPanel({ question, index, answer, onAnswer }) {
         {question.diagramType ? (
             <Badge variant="outline">{question.diagramType}</Badge>
         ) : null}
-        {question.questionImageKey ? (
-            <img
-                src={getFileViewUrl(question.questionImageKey)}
-                alt="Problem reference"
-                className="w-full rounded-xl border"
-            />
-        ) : null}
+        <AuthedImage
+            imageKey={question.questionImageKey}
+            alt="Problem reference"
+            zoomable
+            className="w-full rounded-xl border"
+        />
       </div>
   )
 
@@ -707,6 +707,18 @@ export default function LearnerAssessmentAttemptPage() {
       [questions, answers, answeredIds, skipped, flagged]
   )
 
+  /* Figures for the item on screen and the few after it.
+     A figure fetched only when its question is opened arrives a beat after
+     the stem, which on a running clock is a question the learner starts
+     answering before they can see what it is about. Ahead, not the whole
+     paper: a 60-item past paper is 60 scans, and firing them at once starves
+     the one actually being read. */
+  useEffect(() => {
+    prefetchAuthedMedia(
+        questions.slice(currentIndex, currentIndex + 4).flatMap(questionMediaKeys)
+    )
+  }, [questions, currentIndex])
+
   // Persist the last-viewed item (debounced) so a refresh resumes in place.
   useEffect(() => {
     /* An adaptive attempt's current item is the engine's to set; writing
@@ -823,6 +835,17 @@ export default function LearnerAssessmentAttemptPage() {
         queryKey: ["learner-progress-analytics", String(result.certificationId)],
       })
       queryClient.invalidateQueries({ queryKey: ["learner-streak"] })
+      /* The portal payload carries `examResults`, and the curriculum reads its
+         locks from those: a lesson opens when the one before it has been
+         CLEARED. Without this the learner passes a quiz, returns to the topic,
+         and finds the next lesson still shut with "its quiz: not passed yet" --
+         because the shell is still holding the results from before the attempt
+         they just sat. It resolved itself after the 30s staleTime, which is
+         worse than failing outright: it looks like the gate is broken.
+
+         Not awaited, for the reason the comment above gives -- the learner is
+         already on the results page and nothing there reads this. */
+      queryClient.invalidateQueries({ queryKey: ["learner-portal-data"] })
     },
     onError: (error) => {
       toast.error(

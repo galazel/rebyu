@@ -4,7 +4,7 @@ import { Navigate, Routes, Route, useLocation } from "react-router-dom"
 import ProtectedRoute from "./components/ProtectedRoute"
 import { LoadingScreen } from "./components/loading-screen.jsx"
 import { LoadingSignal } from "./components/loading-overlay.jsx"
-import { roleHomePath, useAuth } from "./context/auth-context.jsx"
+import { isInstitutionOwner, roleHomePath, useAuth } from "./context/auth-context.jsx"
 
 const DashboardLayout = lazyRoute(() => import("./layouts/DashboardLayout"))
 const LearnerLayout = lazyRoute(() => import("./layouts/learner-layout.jsx"))
@@ -91,12 +91,13 @@ const NotificationsPage = lazyRoute(() => import("./pages/notifications-page.jsx
 const NotFoundPage = lazyRoute(() => import("./pages/public/not-found-page.jsx"))
 const ForbiddenPage = lazyRoute(() => import("./pages/public/forbidden-page.jsx"))
 
-// Owners land on the institution dashboard; Institution Members (group leaders)
-// land on their own "My Groups" workspace list -- they never see the
-// institution-wide dashboard.
+// Owners land on the institution dashboard; department heads land on their own
+// workspace list -- they never see the institution-wide dashboard. Ownership is
+// decided by isInstitutionOwner, not by the membership row alone: a
+// DEPARTMENT_HEAD account with no row used to read as an owner here.
 function InstitutionHome() {
     const { user } = useAuth()
-    const target = user?.departmentHeadRole === "owner" ? "dashboard" : "head"
+    const target = isInstitutionOwner(user) ? "dashboard" : "department-head"
     return <Navigate to={target} replace />
 }
 
@@ -116,9 +117,12 @@ function GuestOnlyRoute({ children }) {
 
 function InstitutionDashboardEntry() {
     const { user } = useAuth()
-    return user?.departmentHeadRole === "owner"
+    // A department head is sent to their own path rather than shown their
+    // dashboard at the institution's URL -- the address bar should say which
+    // of the two accounts is signed in.
+    return isInstitutionOwner(user)
         ? <InstitutionDashboardPage />
-        : <DepartmentHeadDashboardPage />
+        : <Navigate to="/institution/department-head" replace />
 }
 
 /**
@@ -454,9 +458,12 @@ export function App() {
                 <Route path="/institution" element={<InstitutionLayout />}>
                     <Route index element={<InstitutionHome />} />
                     <Route path="dashboard" element={<InstitutionDashboardEntry />} />
-                    {/* Institution Member (group leader) home; the per-group
-                        workspace route is defined alongside the groups routes below. */}
-                    <Route path="head" element={<DepartmentHeadDashboardPage />} />
+                    {/* A department head's home. The path says what the account
+                        is: /institution/head was the old spelling and still
+                        redirects, so older links keep working. The per-department
+                        workspace route is defined with the department routes below. */}
+                    <Route path="department-head" element={<DepartmentHeadDashboardPage />} />
+                    <Route path="head" element={<Navigate to="/institution/department-head" replace />} />
                     {/* The roster only. Its per-learner detail page was reached
                         from a "View" action that no longer exists -- an
                         institution sees who is on a certification and which
@@ -501,11 +508,15 @@ export function App() {
                         path="certifications/:certificationId/view"
                         element={<InstitutionCertificationViewerPage />}
                     />
-                    {/* The question bank belongs to institution members, inside their
-                        group workspace; the institution account no longer has one. */}
+                    {/* The question bank belongs to department heads, inside their
+                        department workspace; the institution account has none. */}
                     <Route path="question-bank" element={<Navigate to="/institution/certifications" replace />} />
                     <Route path="profile" element={<InstitutionAccountPage />} />
-                    <Route path="license" element={<InstitutionAccountPage />} />
+                    {/* License and Files are gone: the plan card repeated the
+                        partnership record and the file shelf was empty. Old
+                        links land on the account page. */}
+                    <Route path="license" element={<Navigate to="/institution/partnership" replace />} />
+                    <Route path="files" element={<Navigate to="/institution/profile" replace />} />
                     {/* Analytics is not a second page. It was a separate route
                         that recomputed the same cohort figures from a second read
                         of the same data, next to trend panels on placeholder
@@ -514,8 +525,7 @@ export function App() {
                         /learner/dashboard and /learner/analytics are one board. */}
                     <Route path="analytics" element={<Navigate to="/institution/dashboard" replace />} />
                     <Route path="partnership" element={<InstitutionAccountPage />} />
-                    <Route path="billing" element={<Navigate to="/institution/license" replace />} />
-                    <Route path="files" element={<InstitutionAccountPage />} />
+                    <Route path="billing" element={<Navigate to="/institution/invoices" replace />} />
                     {/* Invoices: the list, and the one the approval email links to. */}
                     <Route path="invoices" element={<InstitutionInvoicesPage />} />
                     <Route path="invoices/:invoiceId" element={<InstitutionInvoicesPage />} />

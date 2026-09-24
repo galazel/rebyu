@@ -2,7 +2,6 @@ import { Link } from "react-router-dom"
 
 import { BrandLogo } from "@/components/brand-logo"
 import { TraySupplies } from "@/components/classroom/tray-supplies.jsx"
-import { BackButton } from "@/components/rebyu/rebyu-ui.jsx"
 
 /**
  * Two-column frame shared by every auth route.
@@ -74,9 +73,6 @@ export default function AuthShell({
             <span className="font-rb-display text-2xl leading-none text-rb-eel">rebyu</span>
           </Link>
 
-          <BackButton asChild size="sm" label="Back to home">
-            <Link to="/" />
-          </BackButton>
         </div>
 
         <div

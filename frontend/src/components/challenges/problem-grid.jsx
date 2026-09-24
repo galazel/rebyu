@@ -30,7 +30,7 @@ export function buildProblems(count, titles, solvedCount) {
   return Array.from({ length: count }, (_, i) => ({
     id: i + 1,
     title: titles[i % titles.length],
-    difficulty: i < count * 0.3 ? "easy" : i < count * 0.7 ? "medium" : "hard",
+    difficulty: i < count * 0.3 ? "easy" : i < count * 0.7 ? "average" : "hard",
     state: i < solvedCount ? "solved" : i === solvedCount ? "current" : "locked",
   }))
 }
@@ -114,7 +114,7 @@ function roadPath(points) {
 /** Stroke colour for a node's stem and its marker on the road. */
 const DIFFICULTY_STROKE = {
   easy: "var(--color-rb-feather)",
-  medium: "var(--color-rb-fox)",
+  average: "var(--color-rb-fox)",
   hard: "var(--color-rb-cardinal)",
 }
 
@@ -125,7 +125,7 @@ const DIFFICULTY_STROKE = {
  *  problem matches the node you clicked to reach it. */
 const DIFFICULTY_NODE = {
   easy: "border-rb-feather bg-rb-feather text-white shadow-[var(--comic-shadow-sm)]",
-  medium: "border-rb-fox bg-rb-fox text-white shadow-[var(--comic-shadow-sm)]",
+  average: "border-rb-fox bg-rb-fox text-white shadow-[var(--comic-shadow-sm)]",
   hard: "border-rb-cardinal bg-rb-cardinal text-white shadow-[var(--comic-shadow-sm)]",
 }
 
@@ -138,7 +138,7 @@ const DIFFICULTY_NODE = {
  *  ink, no lip, so a locked node is never mistaken for a solved one. */
 const DIFFICULTY_NODE_LOCKED = {
   easy: "border-rb-feather/40 bg-rb-feather-wash text-rb-feather-lip shadow-[var(--comic-shadow-sm)]",
-  medium: "border-rb-fox/40 bg-rb-fox-wash text-rb-fox-lip shadow-[var(--comic-shadow-sm)]",
+  average: "border-rb-fox/40 bg-rb-fox-wash text-rb-fox-lip shadow-[var(--comic-shadow-sm)]",
   hard: "border-rb-cardinal/40 bg-rb-cardinal-wash text-rb-cardinal-lip shadow-[var(--comic-shadow-sm)]",
 }
 
@@ -146,13 +146,13 @@ const DIFFICULTY_NODE_LOCKED = {
  *  both a filled node and a pale locked one. */
 const DIFFICULTY_TAG = {
   easy: "bg-rb-feather text-white",
-  medium: "bg-rb-fox text-white",
+  average: "bg-rb-fox text-white",
   hard: "bg-rb-cardinal text-white",
 }
 
 export const DIFFICULTY_CHIP = {
   easy: "bg-rb-feather-wash text-rb-feather-ink",
-  medium: "bg-rb-fox-wash text-rb-fox-lip",
+  average: "bg-rb-fox-wash text-rb-fox-lip",
   hard: "bg-rb-cardinal-wash text-rb-cardinal-lip",
 }
 

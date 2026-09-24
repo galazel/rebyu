@@ -67,10 +67,23 @@ export function DocumentUploadStep({ onFilesChange, error, disabled }) {
   const problem = error || errors[0]
 
   return (
-    // No explainer panel above the drop zone: the zone says what it takes and
-    // the button says what it does, and a paragraph describing generation is
-    // read once and skipped past on every run after that.
-    <section className="space-y-5">
+    <section className="space-y-4">
+      {/* Headed like every other section of this drawer. It was the one
+          section with no label at all -- a bare dashed box between "Badge
+          image" and "Question formats", which read as part of the badge
+          section above it. The description says what the files are FOR, since
+          the zone already says what it takes. */}
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">
+          Reference documents <span className="font-normal text-muted-foreground">(optional)</span>
+        </h3>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          The syllabus, exam guide, past papers or notes this certification should be built from.
+          Everything generated — the curriculum, lessons, questions and exams — is drawn from what
+          you upload here; leave it empty and the planner researches the certification itself.
+        </p>
+      </div>
+
       <div
         className={cn(
           "relative flex min-h-52 flex-col items-center justify-center rounded-xl border border-dashed p-4 transition-colors has-[input:focus]:ring-2",

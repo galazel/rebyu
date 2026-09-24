@@ -3,6 +3,7 @@ import { Code2, FileText, HistoryIcon, Loader2Icon, PlayIcon, TerminalIcon, XIco
 import { toast } from "sonner"
 
 import { getFileViewUrl } from "@/services/fileService.js"
+import { useAuthedMediaSrc } from "@/lib/authed-media.jsx"
 import {
   getAttemptExecutions,
   runAttemptProgramming,
@@ -104,12 +105,18 @@ export default function ProgrammingQuestionLayout({
     </button>
   )
 
+  /* Fetched with the bearer token rather than handed to the tag as a
+     /files/view URL: that endpoint calls requireAuth and a browser sends no
+     Authorization header on an <img src>, so the figure came back 400 and
+     rendered as a broken image. */
+  const questionImageSrc = useAuthedMediaSrc(question.questionImageKey)
+
   const problem = (
     <ProblemStatement
       question={question}
       index={index}
       typeLabel="Programming"
-      imageSrc={question.questionImageKey ? getFileViewUrl(question.questionImageKey) : null}
+      imageSrc={questionImageSrc}
     >
       {subQuestions.length > 0 ? (
         <div className="rounded-xl border border-rb-swan bg-rb-polar/40 p-3">

@@ -147,7 +147,13 @@ export async function addCertificationWithAi(
     onUploadProgress,
     reviewMode = "guided",
     questionTypes = [],
-    badge = null
+    badge = null,
+    /* How many question-bank items to author. null keeps the server's
+       configured size, which is what every run did before the form asked. */
+    questionBankSize = null,
+    /* How many lessons the curriculum should hold in total. null keeps the
+       server's configured per-level ranges. */
+    lessonCount = null
 ) {
     const formData = new FormData()
 
@@ -167,6 +173,8 @@ export async function addCertificationWithAi(
     const params = new URLSearchParams({ reviewMode })
     // Repeated key so Spring binds it as List<String>; see the append call.
     ;(questionTypes ?? []).forEach((type) => params.append("questionTypes", type))
+    if (questionBankSize) params.set("questionBankSize", String(questionBankSize))
+    if (lessonCount) params.set("lessonCount", String(lessonCount))
 
     return await base(`certifications/generate?${params.toString()}`, {
         method: "POST",
@@ -197,6 +205,8 @@ export async function appendToCertificationWithAi(
         additionalInstructions = "",
         reviewMode = "guided",
         questionTypes = [],
+        questionBankSize = null,
+        lessonCount = null,
         onUploadProgress,
     } = {}
 ) {
@@ -214,6 +224,8 @@ export async function appendToCertificationWithAi(
     // repeated params, and a joined one would arrive as a single malformed
     // entry that the consumer then discards as unrecognised.
     questionTypes.forEach((type) => params.append("questionTypes", type))
+    if (questionBankSize) params.set("questionBankSize", String(questionBankSize))
+    if (lessonCount) params.set("lessonCount", String(lessonCount))
 
     return await base(
         `certifications/${certificationId}/generate/append?${params.toString()}`,
