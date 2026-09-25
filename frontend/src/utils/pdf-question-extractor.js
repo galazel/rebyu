@@ -15,6 +15,20 @@
 
 const SCALE = 2
 
+/** A glyph with no character behind it: "□", the replacement character, or a private-use code. */
+const GARBLED_RE = /[□�-]/
+
+/**
+ * A line of a formula's pieces rather than words: "C □ E □ G D □ F □ H".
+ * Stacked fractions print their numerators on a line of their own, above
+ * the choice letters, and read as text they are only noise in the stem.
+ */
+function isGarbledMathLine(text) {
+    if (!GARBLED_RE.test(text)) return false
+    const tokens = text.split(/\s+/).filter(Boolean)
+    return tokens.length >= 3 && tokens.every((token) => token.length <= 2)
+}
+
 /** A page number as printed: "7", "– 12 –", "- 12 -", "Page 7", "Page 7 of 40", "7/40". */
 const FOOTER_RE = /^(?:[–—-]\s*)?(?:page\s*)?\d{1,4}(?:\s*(?:\/|of)\s*\d{1,4})?(?:\s*[–—-])?$/i
 
@@ -30,6 +44,8 @@ function isPageNumber(line, pageHeight) {
 
 /** The start of a question: "Q12." near the left margin. */
 const QUESTION_RE = /^Q\s?(\d{1,3})\s?[.:)]\s*/
+/** A question number with no full stop -- accepted only as the next number. */
+const BARE_QUESTION_RE = /^Q\s?(\d{1,3})(?=\s|$)\s*/
 
 /**
  * A section banner -- "Answer questions Q66 through Q100 concerning
@@ -71,6 +87,19 @@ function makeCanvas(width, height) {
     return canvas
 }
 
+/**
+ * Full-width forms as their ordinary characters: "Q59．" is "Q59.", "ａ）" is
+ * "a)". Papers set in a Japanese font print question numbers this way, and
+ * unconverted the question was not found -- it ran on inside the one before.
+ * Only the full-width block and the ideographic space: superscripts and
+ * other symbols a formula needs are left as printed.
+ */
+function halfWidth(text) {
+    return (text || "")
+        .replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+        .replace(/　/g, " ")
+}
+
 function isDark(data, index) {
     return data[index] + data[index + 1] + data[index + 2] < 500
 }
@@ -100,7 +129,7 @@ async function readPages(pdf, pdfjs, onProgress) {
                 // not across it.
                 const up = t[1] < 0
                 items.push({
-                    str: item.str,
+                    str: halfWidth(item.str),
                     x: up ? t[4] - h : t[4] - h * 0.28,
                     y0: up ? t[5] - length : t[5],
                     y1: up ? t[5] : t[5] + length,
@@ -111,7 +140,7 @@ async function readPages(pdf, pdfjs, onProgress) {
                 continue
             }
             items.push({
-                str: item.str,
+                str: halfWidth(item.str),
                 x: t[4],
                 y0: t[5] - h,
                 y1: t[5] + h * 0.28,
@@ -249,14 +278,24 @@ function locateQuestions(pages) {
                 contexts.push(context)
                 continue
             }
-            const match = line.text.match(QUESTION_RE)
+            let match = line.text.match(QUESTION_RE)
+            let pattern = QUESTION_RE
+            // A number printed without its full stop ("Q96 Which ...", a typo
+            // in 2023S) counts only when it is the next number expected.
+            const bare = !match && line.text.match(BARE_QUESTION_RE)
+            // Not a banner's wrapped range: "Q89 through Q92."
+            const range = bare && /^(through|to|and|or|[–~-]|Q\s?\d)/i.test(line.text.slice(bare[0].length))
+            if (bare && !range && Number(bare[1]) === lastNumber + 1) {
+                match = bare
+                pattern = BARE_QUESTION_RE
+            }
             if (match && line.x0 < pg.minX + pg.W * 0.12) {
                 const number = Number(match[1])
                 // Numbering going backwards means the list restarts -- the
                 // sample "Q1" printed on every paper's cover.
                 if (number <= lastNumber) questions = []
                 lastNumber = number
-                line.stripped = line.text.replace(QUESTION_RE, "")
+                line.stripped = line.text.replace(pattern, "")
                 line.isQuestion = true
                 current = { num: number, lines: [line], segs: [{ pg, top: line.top, bottom: line.bottom }], context }
                 questions.push(current)
@@ -303,6 +342,98 @@ function crop(source, x, y, width, height) {
     const canvas = makeCanvas(width, height)
     canvas.getContext("2d").drawImage(source, x, y, width, height, 0, 0, width, height)
     return canvas
+}
+
+/**
+ * Printed marks inside a rectangle that the text layer does not account for:
+ * a fraction bar, a root sign, an arrow, a set or logic symbol drawn as
+ * lines, a structure diagram -- or a glyph whose font has no character for
+ * it. Read as text, each of these is silently missing ("(A  B)" for
+ * "(A ∩ B)"), so a count above `HIDDEN_INK_MIN` means the text is not the
+ * whole story and the page should be shown as printed.
+ */
+const HIDDEN_INK_MIN = 30
+
+function hiddenInk(pg, x0, y0, x1, y1) {
+    const x = Math.max(0, Math.floor(x0))
+    const y = Math.max(0, Math.floor(y0))
+    const w = Math.min(pg.W, Math.ceil(x1)) - x
+    const h = Math.min(pg.H, Math.ceil(y1)) - y
+    if (w <= 0 || h <= 0) return 0
+    const data = pg.canvas.getContext("2d", { willReadFrequently: true }).getImageData(x, y, w, h).data
+    const covered = new Uint8Array(w * h)
+    const pad = 3
+    for (const item of pg.items) {
+        // A glyph with no character behind it is ink the text lacks, even
+        // though pdf.js gives it a box.
+        if (!item.str.trim() || GARBLED_RE.test(item.str)) continue
+        const xa = Math.max(0, Math.floor(item.x - pad - x))
+        const xb = Math.min(w, Math.ceil(item.x + item.w + pad - x))
+        const ya = Math.max(0, Math.floor(item.y0 - pad - y))
+        const yb = Math.min(h, Math.ceil(item.y1 + pad - y))
+        for (let row = ya; row < yb; row++) covered.fill(1, row * w + xa, row * w + xb)
+    }
+    let count = 0
+    for (let i = 0; i < w * h; i++) {
+        if (!covered[i] && isDark(data, i * 4)) count++
+    }
+    return count
+}
+
+/**
+ * The lines among `lines` whose print the text cannot carry: an unreadable
+ * glyph, or hidden ink on the line itself or in the gap below it (where a
+ * fraction's bar sits between its numerator and denominator lines).
+ */
+function formulaLines(lines) {
+    const flagged = new Set()
+    lines.forEach((line, index) => {
+        const pg = line.pg
+        if (GARBLED_RE.test(line.text) || hiddenInk(pg, line.x0 - 2, line.top, line.x1 + 2, line.bottom) >= HIDDEN_INK_MIN) {
+            flagged.add(line)
+        }
+        const below = lines[index + 1]
+        const height = line.bottom - line.top
+        if (below && below.pg === pg && below.top - line.bottom < height * 1.2 && below.top > line.bottom) {
+            const x0 = Math.min(line.x0, below.x0) - 2
+            const x1 = Math.max(line.x1, below.x1) + 2
+            if (hiddenInk(pg, x0, line.bottom, x1, below.top) >= HIDDEN_INK_MIN) {
+                flagged.add(line)
+                flagged.add(below)
+            }
+        }
+    })
+    return flagged
+}
+
+/** Runs of neighbouring flagged lines, cropped as printed across the text width. */
+function formulaCrops(lines, flagged) {
+    const crops = []
+    let run = []
+    const flush = () => {
+        if (!run.length) return
+        const pg = run[0].pg
+        const x0 = Math.max(0, Math.floor(pg.minX - 8))
+        const x1 = Math.min(pg.W, Math.ceil(pg.maxX + 8))
+        const y0 = Math.max(0, Math.floor(Math.min(...run.map((l) => l.top)) - 8))
+        const y1 = Math.min(pg.H, Math.ceil(Math.max(...run.map((l) => l.bottom)) + 8))
+        if (y1 - y0 > 4) crops.push(crop(pg.canvas, x0, y0, x1 - x0, y1 - y0))
+        run = []
+    }
+    for (const line of lines) {
+        if (flagged.has(line) && (!run.length || run[run.length - 1].pg === line.pg)) run.push(line)
+        else {
+            flush()
+            if (flagged.has(line)) run.push(line)
+        }
+    }
+    flush()
+    return crops
+}
+
+/** Text with the characters no font could name taken out ("□" kept: papers print it on purpose). */
+function readableText(text) {
+    return (text || "").replace(/[�-]/g, " ").replace(/[ \t]{2,}/g, " ").trim()
 }
 
 /** The dark-pixel bounds inside a rectangle, with some rectangles blanked out. */
@@ -397,11 +528,33 @@ function cropOptions(question, keys) {
         const later = starts.filter((s) => s > value + 8)
         return later.length ? Math.min(...later) - 6 : limit
     }
+    // Where one row of choices ends and the next begins: the middle of the
+    // widest blank band between them. The next row's letter is not the
+    // boundary -- a stacked fraction prints its numerator above the letter's
+    // line, and cut at the letter that numerator lands in the row above.
+    const occupied = (y) =>
+        pg.rowInk[Math.round(y)] > 1 || pg.items.some((item) => !item.sideways && item.y0 <= y && item.y1 >= y)
+    const rowEnd = (marker) => {
+        const later = rows.filter((start) => start > marker.y0 + 8)
+        if (!later.length) return bottom
+        const nextStart = Math.min(...later)
+        let best = null
+        let run = null
+        for (let y = Math.ceil(marker.y1); y < nextStart; y++) {
+            if (occupied(y)) {
+                run = null
+                continue
+            }
+            run = run ? { a: run.a, b: y } : { a: y, b: y }
+            if (!best || run.b - run.a > best.b - best.a) best = { ...run }
+        }
+        return best && best.b - best.a >= 2 ? Math.round((best.a + best.b) / 2) : nextStart - 6
+    }
     const cellOf = (marker) => ({
         x0: marker.x0 - 6,
         y0: marker.y0 - 6,
         x1: next(columns, marker.x0, right),
-        y1: next(rows, marker.y0, bottom),
+        y1: rowEnd(marker),
     })
     const top = Math.min(...found.map((m) => m.y0)) - 6
 
@@ -520,10 +673,19 @@ function buildQuestion(question) {
     const stemPart = optionStart === -1 ? texts : texts.slice(0, optionStart)
     const optionPart = optionStart === -1 ? [] : texts.slice(optionStart)
 
+    // Formulas, symbols and drawn marks the text cannot carry: those lines
+    // are also shown as printed, and the choices become pictures.
+    const stemLines = stemPart.filter((entry) => !entry.fig && entry.t).map((entry) => entry.line)
+    // Fragments just above "a)" are the choices' numerators, not the stem's.
+    while (optionStart > 0 && stemLines.length && isGarbledMathLine(stemLines[stemLines.length - 1].text)) stemLines.pop()
+    const stemFormulas = formulaCrops(stemLines, formulaLines(stemLines))
+    const optionLines = optionPart.filter((entry) => !entry.fig && entry.t).map((entry) => entry.line)
+    const drawnOptions = formulaLines(optionLines).size > 0
+
     let stem = ""
     let previous = null
     for (const entry of stemPart) {
-        if (entry.fig || !entry.t) {
+        if (entry.fig || !entry.t || isGarbledMathLine(entry.t)) {
             previous = null
             continue
         }
@@ -557,21 +719,32 @@ function buildQuestion(question) {
             .trim(),
         image: null,
     }))
-    const visualOptions = options.length > 0 && options.some((option) => !option.text)
+    // A choice whose text holds a glyph with no character behind it -- a
+    // math font's "+" and fraction bars come out as "□" -- cannot be read as
+    // text: the choices are cut from the page as printed instead.
+    const garbled = options.some((option) => GARBLED_RE.test(option.text))
+    const visualOptions = options.length > 0 && (garbled || drawnOptions || options.some((option) => !option.text))
 
     // Picture options: one crop each, and the stem's figure ends above them.
     let optionCut = null
     if (visualOptions) {
         optionCut = cropOptions(question, options.map((option) => option.key))
-        if (optionCut?.table) {
+        if (optionCut?.table && !garbled) {
             for (const option of options) {
                 option.text = optionCut.texts[option.key]
                 option.fromTable = true
             }
-        } else if (optionCut) {
-            for (const option of options) option.image = optionCut.crops[option.key]
+        } else if (optionCut?.crops) {
+            for (const option of options) {
+                option.image = optionCut.crops[option.key]
+                // The picture is the choice; its scraped text would contradict it.
+                if (option.image) option.text = ""
+            }
         }
     }
+
+    // What is left as text loses the characters no font could name.
+    for (const option of options) if (!option.image) option.text = readableText(option.text)
 
     // The shared case study, as printed: its passage and figure together.
     const figures = []
@@ -589,8 +762,20 @@ function buildQuestion(question) {
     // of pictured choices included. The choices still get their own text or
     // crop above; the figure is never trimmed to make room for them.
     for (const band of bands) {
-        figures.push(crop(band.pg.canvas, band.x0, band.a, band.x1 - band.x0, band.b - band.a))
+        // Choices already given their own text or picture are not shown a
+        // second time inside the figure: it ends where they begin. A choice
+        // table keeps its header row (the columns the choices are values
+        // of); a figure that was nothing but the choices goes.
+        let bottom = band.b
+        // A figure that starts at the choices is nothing but the choices.
+        if (optionCut && optionCut.pg === band.pg && band.a >= optionCut.top - 30) continue
+        if (optionCut && optionCut.pg === band.pg && optionCut.top > band.a && optionCut.top < band.b) {
+            bottom = Math.max(band.a, Math.floor(optionCut.top))
+            if (bottom - band.a < 24) continue
+        }
+        figures.push(crop(band.pg.canvas, band.x0, band.a, band.x1 - band.x0, bottom - band.a))
     }
+    figures.push(...stemFormulas)
 
     // Unreliable text and nothing to show for it: the whole question region
     // is the honest fallback, flagged so the reviewer checks it.
@@ -599,7 +784,7 @@ function buildQuestion(question) {
 
     return {
         num: question.num,
-        stem: stem.trim(),
+        stem: readableText(stem),
         options,
         visualOptions,
         unclear,

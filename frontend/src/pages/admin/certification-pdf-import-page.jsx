@@ -259,6 +259,11 @@ function problemWith(question, paper) {
     if (!tag?.difficulty) return "no difficulty"
     if (!answer) return "no correct answer"
     if (question.options.length < 2) return "choices were not read"
+    // The key says "d" but only a) to c) were read: saved, the question would
+    // have no correct choice at all.
+    if (!question.options.some((option) => option.key === answer)) {
+        return `the answer key says ${answer}, but choice ${answer} was not read -- check the choices against the original`
+    }
     if (type === "MCQ" && question.options.some((option) => !option.text && !option.imageSrc)) {
         return "a choice is empty"
     }
@@ -575,6 +580,16 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
                 </Button>
             </div>
 
+            {answer && question.options.length && !question.options.some((option) => option.key === answer) ? (
+                <p className="mb-3 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-2 text-sm text-destructive">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                        The answer key says <b>{answer}</b>, but only choices {question.options.map((option) => option.key).join(", ")} were
+                        read. Compare with Show original, then use Edit → Add choice for the missing one, or click the right choice.
+                    </span>
+                </p>
+            ) : null}
+
             {duplicate ? (
                 <p className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-sm text-amber-800">
                     <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -596,7 +611,13 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
                             className="bg-background font-serif"
                         />
                     </label>
-                    {question.options.map((option) => (
+                    {[
+                        ...question.options,
+                        ...Object.keys(draft.texts)
+                            .filter((key) => !question.options.some((option) => option.key === key))
+                            .sort()
+                            .map((key) => ({ key, text: draft.texts[key], imageSrc: null })),
+                    ].map((option) => (
                         <label key={option.key} className="flex items-center gap-2">
                             <span className="grid size-7 shrink-0 place-items-center rounded-full border-2 border-primary/60 text-xs font-bold text-primary">
                                 {option.key}
@@ -616,6 +637,23 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
                         </label>
                     ))}
                     <div className="flex justify-end gap-2">
+                        {Object.keys(draft.texts).length < 8 ? (
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="mr-auto"
+                                onClick={() =>
+                                    setDraft((d) => {
+                                        const keys = [...new Set([...question.options.map((o) => o.key), ...Object.keys(d.texts)])].sort()
+                                        const nextKey = String.fromCharCode((keys.at(-1) ?? "`").charCodeAt(0) + 1)
+                                        return { ...d, texts: { ...d.texts, [nextKey]: "" } }
+                                    })
+                                }
+                            >
+                                <Plus className="h-3 w-3" /> Add choice
+                            </Button>
+                        ) : null}
                         <Button type="button" size="sm" variant="ghost" onClick={() => setDraft(null)}>
                             Cancel
                         </Button>
@@ -1256,7 +1294,14 @@ export default function CertificationPdfImportPage() {
             edit: (paperId, num, stem, texts) =>
                 handlers.current.updateQuestion(paperId, num, (q) => ({
                     stem,
-                    options: q.options.map((o) => (o.key in texts ? { ...o, text: texts[o.key] } : o)),
+                    options: [
+                        ...q.options.map((o) => (o.key in texts ? { ...o, text: texts[o.key] } : o)),
+                        // Choices added in the editor, for one the reader missed.
+                        ...Object.keys(texts)
+                            .filter((key) => !q.options.some((o) => o.key === key) && texts[key].trim())
+                            .sort()
+                            .map((key) => ({ key, text: texts[key].trim(), image: null, imageSrc: null })),
+                    ],
                 })),
             jump: (paperId, num) => {
                 handlers.current.setFilter("all")

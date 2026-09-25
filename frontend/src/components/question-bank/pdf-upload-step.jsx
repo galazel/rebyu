@@ -72,6 +72,30 @@ export function pairFiles(items) {
         byTitle.set(parsed.titleKey, group)
     }
 
+    // A key whose title differs from one paper's only by a session word
+    // ("2017A IP AM Answer" for "2017A IP Question") is that paper's key,
+    // when exactly one paper without a key matches that way.
+    const loose = (titleKey) => titleKey.replace(/\b(am|pm|morning|afternoon)\b/g, " ").replace(/\s+/g, " ").trim()
+    const session = (titleKey) =>
+        /\b(am|morning)\b/.test(titleKey) ? "am" : /\b(pm|afternoon)\b/.test(titleKey) ? "pm" : null
+    for (const [titleKey, group] of byTitle) {
+        if (group.papers.length || !group.keys.length) continue
+        const matches = [...byTitle.values()].filter(
+            (other) =>
+                other !== group &&
+                other.papers.length &&
+                !other.keys.length &&
+                loose(other.title.toLowerCase()) === loose(titleKey) &&
+                // A paper named for the other session is not this key's paper.
+                (!session(other.title.toLowerCase()) || session(other.title.toLowerCase()) === session(titleKey)),
+        )
+        if (matches.length === 1) {
+            matches[0].keys.push(...group.keys)
+            matches[0].looseKey = true
+            byTitle.delete(titleKey)
+        }
+    }
+
     const pairs = []
     for (const group of byTitle.values()) {
         for (const extra of group.papers.slice(1)) {
@@ -86,7 +110,7 @@ export function pairFiles(items) {
             }
             continue
         }
-        pairs.push({ title: group.title, paper: group.papers[0], key: group.keys[0] ?? null })
+        pairs.push({ title: group.title, paper: group.papers[0], key: group.keys[0] ?? null, looseKey: Boolean(group.looseKey) })
     }
     pairs.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }))
     return { pairs, errors }
@@ -263,6 +287,11 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
                                         <AlertTriangle className="size-4 text-amber-600" />
                                     )}
                                     {pair.title}
+                                    {pair.looseKey ? (
+                                        <span className="text-xs font-normal text-muted-foreground">
+                                            -- paired although only the key's name says AM/PM
+                                        </span>
+                                    ) : null}
                                 </p>
                                 <div className="grid gap-2 sm:grid-cols-2">
                                     <FileLine item={pair.paper} kind="paper" disabled={disabled} onRemove={removeFile} />

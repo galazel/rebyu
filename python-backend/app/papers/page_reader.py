@@ -62,6 +62,13 @@ ids
 rules
   - Copy text exactly as printed. Never invent, complete or correct it.
     Keep formulas and symbols as printed.
+  - Math, science and logic as plain text, exactly equal to what is printed:
+    fractions as (C+E+G)/3, powers as x^2, roots as sqrt(x), subscripts as
+    H_2O, and the symbols themselves (∩ ∪ ¬ ∧ ∨ → ≤ ≥ ≠ × ÷ Σ π). If a stem
+    part or a choice cannot be written exactly that way -- a structure
+    diagram, a circuit, a graph, a table of pictures -- do not approximate
+    it: give the figure's id (figureId for a choice, figureIds for the stem),
+    or set "unclear": true.
   - Leave out what is printed on every page and is not part of a question:
     page numbers ("7", "- 7 -", "Page 7 of 40"), running headers and footers,
     the exam's name or code, copyright lines. A number alone at the top or
