@@ -228,6 +228,62 @@ async def tag_questions_route(request: SuggestLessonsRequest):
     return {"tags": tags, "lessons": lessons}
 
 
+class TagJobPaper(BaseModel):
+    paperId: str = Field(max_length=300)
+    name: str = Field(default="", max_length=300)
+    #: Each question's number on the page, in the order of `questions`: the
+    #: page applies a paper's tags by number when it collects them.
+    nums: list[int | str] = Field(default_factory=list, max_length=500)
+    questions: list[str] = Field(default_factory=list, max_length=500)
+    stems: list[str] = Field(default_factory=list, max_length=500)
+
+
+class TagJobRequest(BaseModel):
+    certificationId: int
+    papers: list[TagJobPaper] = Field(default_factory=list, min_length=1, max_length=400)
+
+
+@router.post("/tag-jobs")
+async def start_tag_job(request: TagJobRequest):
+    """Tags every paper in the background; the page polls the job.
+
+    Returns at once. The work carries on if the admin leaves or refreshes the
+    page -- see `app.papers.tag_jobs`.
+    """
+    from app.papers import tag_jobs
+
+    return await tag_jobs.start_job(
+        request.certificationId, [paper.model_dump() for paper in request.papers])
+
+
+@router.get("/tag-jobs/latest")
+async def latest_tag_job(certificationId: int):
+    """The certification's most recent tagging job, or {"job": null}."""
+    from app.papers import tag_jobs
+
+    return {"job": await tag_jobs.latest_job(certificationId)}
+
+
+@router.get("/tag-jobs/{job_id}")
+async def get_tag_job(job_id: str):
+    from app.papers import tag_jobs
+
+    job = await tag_jobs.get_job(job_id)
+    if not job:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That tagging job is not known -- it may have expired.")
+    return job
+
+
+@router.post("/tag-jobs/{job_id}/cancel")
+async def cancel_tag_job(job_id: str):
+    from app.papers import tag_jobs
+
+    job = await tag_jobs.cancel_job(job_id)
+    if not job:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "That tagging job is not known -- it may have expired.")
+    return job
+
+
 @router.post("/suggest-lessons")
 def suggest_lessons_route(request: SuggestLessonsRequest):
     """The lesson each question most likely belongs to, for review.

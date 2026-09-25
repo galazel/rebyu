@@ -56,3 +56,30 @@ export function findDuplicates(certificationId, stems) {
         timeout: 60000,
     })
 }
+
+/**
+ * Starts tagging every paper in the background: `papers` is
+ * `[{ paperId, name, nums, questions, stems }]`. Resolves to the job at once;
+ * the server keeps working if the page is left or refreshed.
+ */
+export function startTagJob(certificationId, papers) {
+    return base("ai/past-papers/tag-jobs", {
+        method: "POST",
+        data: { certificationId: Number(certificationId), papers },
+        timeout: 120000,
+    })
+}
+
+/** A tagging job: `{ id, status, total, tagged, lessons, papers: [{ paperId, nums, status, tags }] }`. */
+export function getTagJob(jobId) {
+    return base(`ai/past-papers/tag-jobs/${jobId}`, { timeout: 30000 })
+}
+
+/** The certification's most recent tagging job, as `{ job }` (null when none). */
+export function latestTagJob(certificationId) {
+    return base(`ai/past-papers/tag-jobs/latest?certificationId=${Number(certificationId)}`, { timeout: 30000 })
+}
+
+export function cancelTagJob(jobId) {
+    return base(`ai/past-papers/tag-jobs/${jobId}/cancel`, { method: "POST", data: {}, timeout: 30000 })
+}

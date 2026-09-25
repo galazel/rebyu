@@ -275,11 +275,11 @@ class Settings(BaseSettings):
     #: are rate-limited within minutes. gpt-oss is fine here because tagging
     #: asks for plain JSON, not tool calls.
     ai_tagging_fallbacks: str = (
-        "groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,"
+        "groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,groq:qwen/qwen3.8-27b,"
         "qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free,"
         "nvidia/nemotron-3-super-120b-a12b:free"
     )
-    ai_tagging_max_tokens: int = 1000  # ~30 tokens a question, 12 a batch
+    ai_tagging_max_tokens: int = 3000  # ~30 tokens a question; gpt-oss spends part of it reasoning
     ai_tagging_temperature: float = 0.0
 
     #: Reading an exam page the fixed-layout reader cannot: an afternoon paper

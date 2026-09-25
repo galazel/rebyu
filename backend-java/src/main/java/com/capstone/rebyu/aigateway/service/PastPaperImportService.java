@@ -147,6 +147,26 @@ public class PastPaperImportService {
         }
     }
 
+    /** A GET to the AI service -- a tagging job's progress -- its reply returned as-is. */
+    public Map<String, Object> get(String path, String failure) {
+        try {
+            return aiWebClient.get()
+                    .uri(path)
+                    .retrieve()
+                    .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {})
+                    .block(Duration.ofSeconds(30));
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException error) {
+            log.error("{} ({}): {}", failure, path, error.getResponseBodyAsString());
+            throw new ResponseStatusException(
+                    error.getStatusCode().value() == 404 ? HttpStatus.NOT_FOUND : HttpStatus.BAD_GATEWAY,
+                    failure + ": " + detailOf(error.getResponseBodyAsString()));
+        } catch (RuntimeException error) {
+            log.error("{} ({})", failure, path, error);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    failure + ": " + (error.getMessage() == null ? "the AI service did not answer" : error.getMessage()));
+        }
+    }
+
     /** FastAPI's {"detail": "..."} body, or the body itself. */
     private static String detailOf(String body) {
         if (body == null || body.isBlank()) return "no explanation was given";

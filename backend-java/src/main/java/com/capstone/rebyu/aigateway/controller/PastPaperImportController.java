@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -119,6 +121,53 @@ public class PastPaperImportController {
             @RequestBody Map<String, Object> request) {
         requireAdmin(jwt);
         return pastPaperImportService.forward("/past-papers/tag", request, "Questions could not be tagged");
+    }
+
+    /**
+     * Starts tagging every paper in the background. Returns the job at once;
+     * the page polls it, and the work goes on if the admin leaves the page.
+     */
+    @PostMapping(value = "/tag-jobs", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> startTagJob(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody Map<String, Object> request) {
+        requireAdmin(jwt);
+        return pastPaperImportService.forward("/past-papers/tag-jobs", request, "Tagging could not be started");
+    }
+
+    /** The certification's most recent tagging job, as {"job": ...} (null when none). */
+    @GetMapping("/tag-jobs/latest")
+    public Map<String, Object> latestTagJob(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam Long certificationId) {
+        requireAdmin(jwt);
+        return pastPaperImportService.get(
+                "/past-papers/tag-jobs/latest?certificationId=" + certificationId, "The tagging job could not be read");
+    }
+
+    @GetMapping("/tag-jobs/{jobId}")
+    public Map<String, Object> tagJob(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String jobId) {
+        requireAdmin(jwt);
+        return pastPaperImportService.get("/past-papers/tag-jobs/" + safeId(jobId), "The tagging job could not be read");
+    }
+
+    @PostMapping("/tag-jobs/{jobId}/cancel")
+    public Map<String, Object> cancelTagJob(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable String jobId) {
+        requireAdmin(jwt);
+        return pastPaperImportService.forward(
+                "/past-papers/tag-jobs/" + safeId(jobId) + "/cancel", Map.of(), "Tagging could not be stopped");
+    }
+
+    /** A job id is 32 hex characters; anything else never reaches the AI service's path. */
+    private static String safeId(String jobId) {
+        if (jobId == null || !jobId.matches("[0-9a-f]{32}")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not a tagging job id.");
+        }
+        return jobId;
     }
 
     /**

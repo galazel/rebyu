@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { NotificationBell } from "@/components/notification-bell.jsx"
+import { TaggingJobWatcher } from "@/components/question-bank/tagging-job-watcher.jsx"
 import { PortalTopNavigation } from "@/components/navigation/portal-navigation.jsx"
 import { PortalThemeMenuItem } from "@/components/portal-theme-toggle"
 import { useAuth } from "@/context/auth-context.jsx"
@@ -87,6 +88,8 @@ export default function DashboardLayout() {
           <Outlet />
         </Suspense>
       </main>
+      {/* Says when a PDF import's background tagging finishes. */}
+      <TaggingJobWatcher />
     </div>
   )
 }

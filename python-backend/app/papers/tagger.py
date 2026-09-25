@@ -34,16 +34,15 @@ logger = logging.getLogger(__name__)
 #: Questions per model call. Larger batches mean fewer calls -- and fewer
 #: chances to hit a free model's rate limit -- for a paper of a hundred.
 BATCH = 25
-#: Batches in flight at once. Two, not more: bursts of parallel calls are
-#: what the free models' shared rate limits refuse first.
-CONCURRENCY = 2
-#: Retries of a busy (429/503) model, and the wait before each.
-RETRIES = 2
-BACKOFF = 12
-#: Seconds one batch may spend across every model and retry. With two
-#: batches in flight a 100-question paper stays inside the 4 minutes the
-#: backend waits for.
+#: Batches in flight at once: one per Groq model in the chain, each of which
+#: has its own 8,000-tokens-a-minute allowance.
+CONCURRENCY = 3
+#: Seconds one batch may spend across every model and wait, when tagging is
+#: answered directly (the /tag route, inside the backend's 4 minutes).
 BATCH_BUDGET = 110
+#: The same in a background job (app.papers.tag_jobs), where nobody waits on
+#: the request: long enough to sit out any per-minute limit.
+JOB_BATCH_BUDGET = 900
 DIFFICULTIES = ("easy", "average", "hard")
 
 SYSTEM = """You file multiple-choice questions from an IT certification exam
@@ -114,12 +113,37 @@ def _parse(body, count, lesson_ids):
     return tags
 
 
-async def _tag_batch(chain, catalogue, questions, lesson_ids, semaphore):
-    """Tags for one batch, trying each model of the chain in turn.
+#: When each model may be asked again (event-loop time). Shared by every
+#: batch of a run, so one 429 or 402 is learned once rather than per batch.
+_cooling: dict[str, float] = {}
+#: Out of credit: waiting does not add credit, so the model rests a while.
+CREDIT_REST = 1800
+#: An error that is neither busy nor credit (a 413, a malformed reply).
+ERROR_REST = 300
+#: A model that answered with nothing readable.
+UNUSABLE_REST = 30
 
-    A model that errors -- out of credit, rate limited, withdrawn -- or whose
-    reply cannot be read hands the batch to the next one. Grok first, then the
-    free models.
+
+def _retry_after(error) -> float:
+    """Seconds a rate-limited provider asked for: Groq says "Please try
+    again in 7.5s" (or "1m2.5s", "450ms"); 20 when it does not say."""
+    match = re.search(r"try again in (?:(\d+)m)?([\d.]+)(ms|s)", str(error))
+    if not match:
+        return 20.0
+    minutes = int(match.group(1) or 0)
+    value = float(match.group(2)) / (1000 if match.group(3) == "ms" else 1)
+    return minutes * 60 + value + 1
+
+
+async def _tag_batch(chain, catalogue, questions, lesson_ids, semaphore, budget=None):
+    """Tags for one batch, from the first model in the chain that answers.
+
+    Every model has limits of its own -- Groq's free tier allows 8,000 tokens
+    a minute, and a batch of 25 is 5-7k of them -- so a refused model is
+    rested for exactly as long as it asked and the others are tried; when all
+    are resting, the batch waits for the first to come back. Within the
+    budget the batch is never handed to the embedding match merely because a
+    limit was hit, which is what left papers without a difficulty.
     """
     listing = "\n\n".join(f"{i + 1}. {text[:900]}" for i, text in enumerate(questions))
     messages = [
@@ -127,39 +151,47 @@ async def _tag_batch(chain, catalogue, questions, lesson_ids, semaphore):
         ("human", f"Lessons:\n{catalogue}\n\nQuestions:\n{listing}"),
     ]
     loop = asyncio.get_running_loop()
-    deadline = loop.time() + BATCH_BUDGET
+    deadline = loop.time() + (budget or BATCH_BUDGET)
     async with semaphore:
-        for model in chain:
-            # A free model answering "rate-limited" or "overloaded" is busy,
-            # not broken: it is waited for and asked again rather than
-            # abandoned on the first 429 -- which is what left every question
-            # of a paper to the embedding match. Out of credit (402) is not
-            # retried; waiting does not add credit.
-            for attempt in range(1 + RETRIES):
-                remaining = deadline - loop.time()
-                if remaining < 10:
-                    logger.warning("Tagging batch ran out of time")
-                    return {}, None
+        while deadline - loop.time() > 5:
+            for model in chain:
+                now = loop.time()
+                if _cooling.get(model, 0) > now:
+                    continue
+                remaining = deadline - now
+                if remaining < 5:
+                    break
                 try:
                     reply = await asyncio.wait_for(
                         get_llm(tasks.TAGGING, model=model).ainvoke(messages),
-                        timeout=min(60, remaining))
-                except Exception as error:  # noqa: BLE001 -- retry or next model
-                    busy = any(code in str(error) for code in ("429", "503", "overloaded", "rate-limited"))
-                    logger.warning("Tagging with %s failed (attempt %d): %s", model, attempt + 1, str(error)[:200])
-                    if busy and attempt < RETRIES:
-                        await asyncio.sleep(min(BACKOFF * (attempt + 1), max(0, deadline - loop.time() - 10)))
-                        continue
-                    break
+                        timeout=min(90, remaining))
+                except Exception as error:  # noqa: BLE001 -- rest the model, try the next
+                    text = str(error)
+                    if "402" in text or "credits" in text.lower():
+                        rest = CREDIT_REST
+                    elif any(code in text for code in ("429", "503", "overloaded", "rate-limited", "rate_limit")):
+                        rest = _retry_after(error)
+                    else:
+                        rest = ERROR_REST
+                    _cooling[model] = loop.time() + rest
+                    logger.warning("Tagging with %s failed, resting it %.0fs: %s", model, rest, text[:160])
+                    continue
                 tags = _parse(getattr(reply, "content", ""), len(questions), lesson_ids)
                 if tags:
                     return tags, model
+                _cooling[model] = loop.time() + UNUSABLE_REST
                 logger.warning("Tagging with %s returned nothing usable", model)
+            # Every model is resting: wait for the first to come back.
+            wake = min((_cooling.get(model, 0) for model in chain), default=loop.time()) - loop.time()
+            wait = max(1.0, wake)
+            if loop.time() + wait > deadline - 5:
                 break
+            await asyncio.sleep(wait)
+    logger.warning("Tagging batch ran out of time")
     return {}, None
 
 
-async def tag_questions(db, certification_id, questions):
+async def tag_questions(db, certification_id, questions, budget=None):
     """`(tags, lessons)`: one `{lessonId, lessonName, difficulty, score, source}`
     per question, in order, and the certification's lesson catalogue."""
     from app.papers.mapping import lesson_texts, suggest_lessons
@@ -175,12 +207,24 @@ async def tag_questions(db, certification_id, questions):
     semaphore = asyncio.Semaphore(CONCURRENCY)
     starts = list(range(0, len(questions), BATCH))
     batches = await asyncio.gather(*(
-        _tag_batch(chain, catalogue, questions[s:s + BATCH], lesson_ids, semaphore)
+        _tag_batch(chain, catalogue, questions[s:s + BATCH], lesson_ids, semaphore, budget)
         for s in starts
     ))
     for start, (tags, model) in zip(starts, batches):
         for offset, tag in tags.items():
             results[start + offset] = {**tag, "source": "ai", "model": model}
+
+    # Given time (a background job), what the model skipped or could not
+    # answer is asked once more before the embedding match fills it in: a
+    # question should leave with a lesson AND a difficulty.
+    if budget:
+        again = [i for i, tag in enumerate(results) if tag is None or not tag.get("difficulty") and not tag.get("noLesson")]
+        for s in range(0, len(again), BATCH):
+            chunk = again[s:s + BATCH]
+            tags, model = await _tag_batch(
+                chain, catalogue, [questions[i] for i in chunk], lesson_ids, semaphore, budget)
+            for offset, tag in tags.items():
+                results[chunk[offset]] = {**tag, "source": "ai", "model": model}
 
     # Whatever the model did not answer, the embedding match files.
     missing = [i for i, tag in enumerate(results) if tag is None]

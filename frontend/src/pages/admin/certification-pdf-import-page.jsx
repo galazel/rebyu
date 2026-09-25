@@ -43,7 +43,16 @@ import { PdfUploadStep } from "@/components/question-bank/pdf-upload-step.jsx"
 import { clearDraft, loadDraft, saveDraft } from "@/utils/pdf-import-draft.js"
 import { getAllCertifications } from "@/services/certificationService.js"
 import { uploadQuestionImage } from "@/services/fileService.js"
-import { findDuplicates, readDocumentLayout, readDocumentPage, tagQuestions } from "@/services/pdfImportService.js"
+import { cancelTagJob, findDuplicates, getTagJob, readDocumentLayout, readDocumentPage, startTagJob } from "@/services/pdfImportService.js"
+import {
+    activeJobFor,
+    addActiveJob,
+    appliedPapers,
+    askForNotifications,
+    forgetJob,
+    markApplied,
+    notify,
+} from "@/utils/tag-job-registry.js"
 import { saveChoices, saveQuestion, saveTextQuestion } from "@/services/questionService.js"
 import {
     canvasToFile,
@@ -893,7 +902,10 @@ export default function CertificationPdfImportPage() {
     const [keyText, setKeyText] = useState("")
     const [uploadOpen, setUploadOpen] = useState(false)
     const [lessons, setLessons] = useState([])
-    const [tagging, setTagging] = useState(false)
+    // The background tagging job this page is following, if any.
+    const [tagJob, setTagJob] = useState(null)
+    const [starting, setStarting] = useState(false)
+    const tagging = starting || tagJob?.status === "running"
     const [notice, setNotice] = useState(null)
     const [previewOpen, setPreviewOpen] = useState(false)
     const [duplicatesOpen, setDuplicatesOpen] = useState(false)
@@ -1167,65 +1179,149 @@ export default function CertificationPdfImportPage() {
     }
 
     /**
-     * Tags every paper's questions, paper by paper. A question no lesson fits,
-     * or one already in the bank or earlier in this upload, is dropped:
-     * left unticked, with the reason on its card. Only questions with their
-     * answer are tagged; the rest wait for their key.
+     * Starts tagging every paper in the background. The server works through
+     * them whether or not this page stays open; the page follows the job
+     * (below), applies each paper's tags as it finishes, and picks the job
+     * back up after a refresh. Only questions with their answer are sent.
      */
     async function tagWithAi() {
         const targets = latest.current.papers
             .map((p) => ({ ...p, questions: answered(p) }))
             .filter((p) => p.questions.length)
-        const skipped = latest.current.papers.reduce((sum, p) => sum + unanswered(p).length, 0)
         if (!targets.length) {
             setNotice({ kind: "error", text: "No question has its answer yet. Add the answer keys first." })
             return
         }
-        setTagging(true)
+        askForNotifications()
+        setStarting(true)
         setNotice(null)
-        const seen = new Map()
-        let tagged = 0
-        let noLesson = 0
-        let duplicates = 0
-        let fallback = 0
         try {
-            for (const [index, target] of targets.entries()) {
-                setNotice({ kind: "info", text: `Tagging ${target.name} (${index + 1} of ${targets.length})…` })
-                const texts = target.questions.map(
-                    (q) => `${q.stem}\n${q.options.map((o) => `${o.key}) ${o.text || "[picture]"}`).join("\n")}`,
-                )
-                const result = await tagQuestions(certificationId, texts, target.questions.map(duplicateText))
-                setLessons(result.lessons ?? [])
-                const tags = {}
-                const include = {}
-                target.questions.forEach((question, position) => {
-                    const tag = { ...(result.tags?.[position] ?? {}) }
-                    // Across papers too: the same question in two uploads.
-                    const print = questionPrint(question)
-                    if (!tag.duplicate && print && seen.has(print)) {
-                        tag.duplicate = "upload"
-                        tag.duplicateOf = seen.get(print)
-                    }
-                    if (print && !seen.has(print)) seen.set(print, `${target.name} Q${question.num}`)
-                    if (tag.noLesson) noLesson += 1
-                    else if (tag.duplicate) duplicates += 1
-                    if (tag.source && tag.source !== "ai") fallback += 1
-                    tags[question.num] = tag
-                    include[question.num] = !dropReason(tag)
-                    tagged += 1
-                })
+            const job = await startTagJob(
+                certificationId,
+                targets.map((target) => ({
+                    paperId: target.id,
+                    name: target.name,
+                    nums: target.questions.map((q) => q.num),
+                    questions: target.questions.map(
+                        (q) => `${q.stem}\n${q.options.map((o) => `${o.key}) ${o.text || "[picture]"}`).join("\n")}`,
+                    ),
+                    stems: target.questions.map(duplicateText),
+                })),
+            )
+            addActiveJob({ id: job.id, certificationId: String(certificationId), title: certification?.title ?? "" })
+            setTagJob(job)
+        } catch (error) {
+            setNotice({ kind: "error", text: error?.response?.data?.message || error?.message || "Tagging could not be started." })
+        } finally {
+            setStarting(false)
+        }
+    }
+
+    /**
+     * Puts the finished papers' tags on the page, each paper once. A question
+     * no lesson fits, or one already in the bank or earlier in this upload,
+     * is dropped: left unticked, with the reason on its card. "Earlier in
+     * this upload" is judged in the job's paper order, the same order the
+     * old page-by-page tagging used.
+     */
+    function applyJob(job) {
+        if (job.lessons?.length) setLessons(job.lessons)
+        const done = appliedPapers(job.id)
+        const seen = new Map()
+        const fresh = []
+        for (const entry of job.papers) {
+            if (entry.status !== "done" || !entry.tags) continue
+            const target = latest.current.papers.find((p) => p.id === entry.paperId)
+            if (!target) continue
+            const byNum = new Map(target.questions.map((q) => [String(q.num), q]))
+            const isNew = !done.has(entry.paperId)
+            const tags = {}
+            const include = {}
+            entry.nums.forEach((num, position) => {
+                const question = byNum.get(String(num))
+                if (!question) return
+                const tag = { ...(entry.tags[position] ?? {}) }
+                const print = questionPrint(question)
+                if (!tag.duplicate && print && seen.has(print)) {
+                    tag.duplicate = "upload"
+                    tag.duplicateOf = seen.get(print)
+                }
+                if (print && !seen.has(print)) seen.set(print, `${target.name} Q${question.num}`)
+                tags[question.num] = tag
+                include[question.num] = !dropReason(tag)
+            })
+            if (isNew) {
+                fresh.push(entry.paperId)
                 updatePaper(target.id, (p) => ({ tags: { ...p.tags, ...tags }, include: { ...p.include, ...include } }))
             }
-            const parts = [`${tagged} questions tagged.`]
-            if (noLesson) parts.push(`${noLesson} dropped: no lesson in this certification fits them.`)
-            if (duplicates) parts.push(`${duplicates} dropped as duplicates.`)
-            if (skipped) parts.push(`${skipped} without an answer were skipped.`)
-            if (fallback) parts.push(`${fallback} could not be tagged by the AI and were matched without it -- set their difficulty.`)
-            setNotice({ kind: fallback ? "warn" : "ok", text: parts.join(" ") })
+        }
+        if (fresh.length) markApplied(job.id, fresh)
+    }
+
+    /** What the finished job did, for the notice and the notification. */
+    function jobSummary(job) {
+        const tags = job.papers.flatMap((entry) => entry.tags ?? [])
+        const noLesson = tags.filter((tag) => tag.noLesson).length
+        const duplicates = tags.filter((tag) => !tag.noLesson && tag.duplicate).length
+        const fallback = tags.filter((tag) => tag.source && tag.source !== "ai").length
+        const failed = job.papers.filter((entry) => entry.status === "failed").length
+        const parts = [`${tags.length} questions tagged.`]
+        if (noLesson) parts.push(`${noLesson} dropped: no lesson in this certification fits them.`)
+        if (duplicates) parts.push(`${duplicates} dropped as duplicates.`)
+        if (fallback) parts.push(`${fallback} could not be tagged by the AI and were matched without it -- set their difficulty.`)
+        if (failed) parts.push(`${failed} paper${failed === 1 ? "" : "s"} could not be tagged -- tag again to retry.`)
+        return { text: parts.join(" "), warn: Boolean(fallback || failed) }
+    }
+
+    // Follows the job while it runs, and finishes it off when it ends.
+    useEffect(() => {
+        if (!tagJob) return undefined
+        if (tagJob.status !== "running") {
+            applyJob(tagJob)
+            forgetJob(tagJob.id)
+            if (tagJob.status === "done") {
+                const summary = jobSummary(tagJob)
+                setNotice({ kind: summary.warn ? "warn" : "ok", text: summary.text })
+                notify("REBYU import: tagging finished", summary.text)
+            } else {
+                const why = tagJob.status === "cancelled" ? "Tagging was stopped." : tagJob.error || "Tagging stopped."
+                setNotice({ kind: "warn", text: `${why} Papers finished before that keep their tags; tag again for the rest.` })
+                notify("REBYU import: tagging stopped", why)
+            }
+            return undefined
+        }
+        applyJob(tagJob)
+        const timer = setInterval(async () => {
+            try {
+                const job = await getTagJob(tagJob.id)
+                if (job.status === "running") applyJob(job)
+                setTagJob(job)
+            } catch (error) {
+                if (error?.response?.status === 404) {
+                    forgetJob(tagJob.id)
+                    setTagJob(null)
+                }
+            }
+        }, 5000)
+        return () => clearInterval(timer)
+    }, [tagJob?.id, tagJob?.status])
+
+    // After a refresh or a return to the page: the job this browser started.
+    useEffect(() => {
+        if (!restored) return
+        const active = activeJobFor(certificationId)
+        if (!active) return
+        getTagJob(active.id)
+            .then((job) => setTagJob(job))
+            .catch(() => forgetJob(active.id))
+    }, [restored, certificationId])
+
+    async function stopTagging() {
+        if (!tagJob) return
+        try {
+            setTagJob(await cancelTagJob(tagJob.id))
         } catch (error) {
-            setNotice({ kind: "error", text: error?.response?.data?.message || error?.message || "Tagging failed." })
-        } finally {
-            setTagging(false)
+            setNotice({ kind: "error", text: error?.response?.data?.message || "Tagging could not be stopped." })
         }
     }
 
@@ -1434,8 +1530,19 @@ export default function CertificationPdfImportPage() {
                                 ) : null}
                                 <Button type="button" size="sm" variant={taggedCount ? "outline" : "default"} disabled={tagging || busy} onClick={tagWithAi}>
                                     {tagging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                                    {tagging ? "Tagging…" : taggedCount ? "Tag all again with AI" : `Tag ${answeredCount} with AI`}
+                                    {tagging
+                                        ? tagJob
+                                            ? `Tagging ${tagJob.tagged} of ${tagJob.total}…`
+                                            : "Starting…"
+                                        : taggedCount
+                                          ? "Tag all again with AI"
+                                          : `Tag ${answeredCount} with AI`}
                                 </Button>
+                                {tagJob?.status === "running" ? (
+                                    <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={stopTagging}>
+                                        Stop
+                                    </Button>
+                                ) : null}
                                 <Button type="button" size="sm" disabled={!taggedCount || tagging} onClick={() => { setSaving(null); setPreviewOpen(true) }}>
                                     <Eye className="mr-2 h-4 w-4" /> Preview & save
                                 </Button>
@@ -1461,6 +1568,22 @@ export default function CertificationPdfImportPage() {
                                 </div>
                             </div>
 
+                            {tagJob?.status === "running" ? (
+                                <div className="mb-3 rounded-xl border border-primary/30 bg-primary/5 p-3 text-sm" aria-live="polite">
+                                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                                        <div
+                                            className="h-full bg-primary transition-[width]"
+                                            style={{ width: `${tagJob.total ? Math.round((tagJob.tagged / tagJob.total) * 100) : 0}%` }}
+                                        />
+                                    </div>
+                                    <p className="mt-2">
+                                        <b>Tagging in the background</b>: {tagJob.tagged} of {tagJob.total} questions,{" "}
+                                        {tagJob.papers.filter((entry) => entry.status === "done").length} of {tagJob.papers.length} papers done.
+                                        Tags appear here paper by paper. You can leave or refresh this page -- tagging keeps going on
+                                        the server, and you will be told when it is finished.
+                                    </p>
+                                </div>
+                            ) : null}
                             {busy ? (
                                 <div className="mb-3 rounded-xl border bg-background p-3 text-sm text-muted-foreground" aria-live="polite">
                                     <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-muted">
