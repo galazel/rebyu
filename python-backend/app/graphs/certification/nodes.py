@@ -539,7 +539,7 @@ async def generate_diagnostic_exam_node(state: CertificationState):
             "begin studying. Use the same question types and layout as the real exam "
             f"described above: {researched_question_types(state, UNKNOWN_EXAM_QUESTION_TYPES)}."
             f"{performance_quota(researched_question_types(state, UNKNOWN_EXAM_QUESTION_TYPES), DIAGNOSTIC_EXAM_ITEMS)}"
-            f"{blank_format_rule(state)}"
+            f"{blank_format_rule(state)}{mcq_style_rule(state)}"
             f"{SUB_QUESTION_RULE} "
             # An even spread, not an easy-weighted one. The diagnostic exists
             # to locate a learner on the scale before teaching, and a paper
@@ -674,6 +674,52 @@ def blank_format_rule(state: CertificationState) -> str:
     )
 
 
+#: Shares of a batch that must be written in each of these formats.
+TYPED_BLANK_SHARE = "a quarter"
+SCENARIO_SHARE = "a third"
+
+
+def mcq_style_rule(state: CertificationState) -> str:
+    """Typed fill-in-the-blank items and scenario-based MCQs, in every batch.
+
+    The system prompt describes scenarios and blanked artifacts, but as a
+    preference, and a preference loses to the model's habit of "Which of the
+    following is X". A stated share is met (see `mcq_format_quota`), so this
+    states one -- for every stage, not only the two exam papers.
+
+    The blank is typed, not picked: a SHORT_ANSWER whose stem is one sentence
+    from the lesson with ONE key term blanked, marked by exact match against
+    `correct_answer` and its `accepted_variations`. One blank per item, so a
+    learner who knows the term is never marked wrong for the order of two.
+    Only when the stage allows SHORT_ANSWER; a paper that is MCQ-only (the
+    FE exam) gets the scenarios alone.
+    """
+    return (
+        " FORMATS REQUIRED: "
+        f"(1) If SHORT_ANSWER is one of the question types allowed above, at least "
+        f"{TYPED_BLANK_SHARE} of the questions in this batch must be TYPED "
+        "FILL-IN-THE-BLANK items: question_type SHORT_ANSWER, the question opens "
+        "\"Complete the sentence.\" (or \"Complete the statement.\") followed by ONE "
+        "sentence built from the lesson's content with exactly ONE key term replaced "
+        "by ____________ , e.g. \"Complete the sentence. Modern mainframe computers "
+        "offer businesses high processing power to handle large amounts of data as "
+        "well as ____________ by using redundant components to offer little to no "
+        "downtime.\" The learner TYPES the missing term -- there are no choices. "
+        "correct_answer is that term exactly (at most six words, e.g. \"high "
+        "availability\"), and accepted_variations lists every other correct way to "
+        "write it (acronym or full name, hyphenated or not, singular or plural). The "
+        "sentence must leave only ONE term that fits: if a synonym or a neighbouring "
+        "concept would also complete it truthfully, add a detail that rules it out "
+        "or list it as a variation. "
+        f"(2) At least {SCENARIO_SHARE} of the MCQs in this batch must be "
+        "SCENARIO-BASED: a concrete situation in two to four sentences -- a named "
+        "organisation or role, what it has, what it needs or what went wrong, with "
+        "the numbers or constraints that matter -- then a question on what should be "
+        "done, what caused it, or which option fits. The scenario must decide the "
+        "answer: without it, more than one choice would be defensible. "
+    )
+
+
 def requested_question_types(state: CertificationState) -> str:
     """The admin's own choice of formats, when they made one.
 
@@ -785,7 +831,7 @@ async def generate_mock_exam_node(state: CertificationState):
             f"above{difficulty}. This exam uses these question types ONLY: {types}. "
             f"Do not use a type that is not listed.{performance_quota(types, count)}"
             f"{difficulty_quota_rule(count)}"
-            f"{blank_format_rule(state)}"
+            f"{blank_format_rule(state)}{mcq_style_rule(state)}"
             f"{SUB_QUESTION_RULE} "
             "Set lesson_ref on each question to the lesson it tests.",
         ),
@@ -1053,6 +1099,7 @@ async def generate_question_bank_node(state: CertificationState):
             + performance_quota(bank_types, total)
             + difficulty_quota_rule(total)
             + blank_format_rule(state)
+            + mcq_style_rule(state)
             + " This bank is the primary source for "
             "future adaptive assessments, remediation, and practice, so cover the curriculum "
             "broadly rather than deeply on any one topic.",
@@ -1330,7 +1377,7 @@ async def major_generate_node(state: CertificationState):
             f"{researched_question_types(state, 'MCQ, SHORT_ANSWER, DESCRIPTIVE')}."
             f"{performance_quota(researched_question_types(state, 'MCQ, SHORT_ANSWER, DESCRIPTIVE'), major_quiz_count())}"
             f"{difficulty_quota_rule(major_quiz_count())}"
-            f"{blank_format_rule(state)} "
+            f"{blank_format_rule(state)}{mcq_style_rule(state)} "
             "Set lesson_ref on each question to the lesson it tests.",
         ),
         count=major_quiz_count(),
@@ -1366,7 +1413,7 @@ async def middle_generate_node(state: CertificationState):
             f"{researched_question_types(state, 'MCQ, SHORT_ANSWER, DESCRIPTIVE')}."
             f"{performance_quota(researched_question_types(state, 'MCQ, SHORT_ANSWER, DESCRIPTIVE'), middle_quiz_count())}"
             f"{difficulty_quota_rule(middle_quiz_count())}"
-            f"{blank_format_rule(state)} "
+            f"{blank_format_rule(state)}{mcq_style_rule(state)} "
             "Set lesson_ref on each question to the lesson it tests.",
         ),
         count=middle_quiz_count(),
@@ -1446,6 +1493,7 @@ async def _quiz_for(state: CertificationState, lesson: dict) -> dict:
             f"content directly, using these question types: "
             f"{researched_question_types(state, 'MCQ, SHORT_ANSWER')}. "
             + blank_format_rule(state)
+            + mcq_style_rule(state)
             + _lesson_performance_rule(state)
             + difficulty_quota_rule(lesson_quiz_count())
             + f" Set lesson_ref to '{name}'.",
