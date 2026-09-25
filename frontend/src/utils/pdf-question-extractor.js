@@ -651,7 +651,7 @@ export function paperStem(fileName) {
         .toLowerCase()
         .replace(/\.pdf$/, "")
         .replace(/[_\-.\s]+/g, " ")
-        .replace(/\b(questions?|answers?|answer ?keys?|keys?|solutions?|am|pm|morning|afternoon)\b/g, " ")
+        .replace(/\b(questions?|answers?|ans|answer ?keys?|keys?|solutions?|am|pm|morning|afternoon)\b/g, " ")
         .replace(/\s+/g, " ")
         .trim()
 }
@@ -747,6 +747,8 @@ function pmAnswersFrom(texts) {
 }
 
 function answersFrom(texts, fileName) {
+    // NFKC: a full-width "ｃ", as some keys print a few answers, is a "c".
+    texts = texts.map((text) => text.normalize("NFKC"))
     const pm = pmAnswersFrom(texts)
     if (pm) return pm
     const all = texts.join("\n")
@@ -760,7 +762,8 @@ function answersFrom(texts, fileName) {
             .length +
         (all.match(/^\s*\(?[a-hA-H][.)]\s+[A-Za-z]{3,}/gm) || []).length / 4
     const answers = {}
-    const re = /(?:^|\s)(\d{1,3})\s*[.):-]?\s+\(?([a-dA-D])\)?(?=\s|$)/g
+    // "MA089" -- the optional-section numbering of the 2010 keys -- is Q89.
+    const re = /(?:^|\s)(?:[A-Z]{1,2}(?=\d))?0*(\d{1,3})\s*[.):-]?\s+\(?([a-dA-D])\)?(?=\s|$)/g
     let match
     while ((match = re.exec(all))) {
         const number = Number(match[1])

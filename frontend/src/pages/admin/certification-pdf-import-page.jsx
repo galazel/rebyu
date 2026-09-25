@@ -6,7 +6,6 @@ import {
     AlertTriangle,
     ArrowLeft,
     CheckCircle2,
-    Copy,
     Eye,
     KeyRound,
     Loader2,
@@ -55,7 +54,7 @@ import {
 
 const KEYS = ["a", "b", "c", "d"]
 const DIFFICULTIES = ["easy", "average", "hard"]
-const isPdf = (file) => /pdf$/i.test(file.type) || /\.pdf$/i.test(file.name)
+
 
 /**
  * What an imported question can be saved as. An exam question arrives as
@@ -305,19 +304,6 @@ async function saveOne(question, paper, certificationId) {
     }
 }
 
-function asText(paper) {
-    return paper.questions
-        .map((question) => {
-            const answer = paper.answers[question.num]
-            return (
-                `Q${question.num}. ${question.stem}${question.figureSrcs.length ? "\n[figure]" : ""}\n` +
-                question.options.map((o) => `  ${o.key}) ${o.text || "[see figure]"}`).join("\n") +
-                (answer ? `\n  Answer: ${answer}` : "")
-            )
-        })
-        .join("\n\n")
-}
-
 /**
  * What the question is saved as. Chosen before or after tagging; programming
  * and diagram are not offered -- a past paper has no test cases or reference
@@ -357,6 +343,88 @@ function ImageTools({ onReplace, onRemove, label }) {
                 <Trash2 className="h-3 w-3" /> Remove
             </Button>
         </span>
+    )
+}
+
+/** What to upload and what happens next, shown before the first upload. */
+function ImportGuide() {
+    const steps = [
+        {
+            title: "Name the files after their exam",
+            body: "The question file ends in \"Questions\" and its key in \"Answer Key\", with the same exam title before it (see below). Any exam or school's reviewer works -- its layout does not matter.",
+        },
+        {
+            title: "Upload them all and check the pairs",
+            body: "Select every PDF at once. Files with the same title are paired and listed for you to check. A name that breaks the format, or a key with no question file, is shown as an error and must be fixed before you continue.",
+        },
+        {
+            title: "Wait until every file is read",
+            body: "Problems -- questions the key gives no answer for, a file that could not be read -- are listed once the last file is done.",
+        },
+        {
+            title: "Check the questions",
+            body: "Each paper is a section with its questions below it. Compare a question with the page it came from with Show original; click a choice to change the answer, and replace, remove or add images. Questions without an answer are skipped.",
+        },
+        {
+            title: "Choose how each question is saved",
+            body: "Multiple choice keeps the choices. Short answer and Descriptive make the learner type; the correct choice's text becomes the answer.",
+        },
+        {
+            title: "Tag with AI, then Preview & save",
+            body: "The AI sets each question's lesson and difficulty. Questions no lesson fits, and duplicates of the bank or of each other, are dropped. Nothing is saved until you confirm the preview.",
+        },
+    ]
+    return (
+        <div className="mb-4 rounded-2xl border bg-background p-5 shadow-sm">
+            <h2 className="text-base font-bold">How importing works</h2>
+            <ol className="mt-3 space-y-3">
+                {steps.map((step, index) => (
+                    <li key={step.title} className="flex gap-3">
+                        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
+                            {index + 1}
+                        </span>
+                        <div>
+                            <p className="text-sm font-semibold">{step.title}</p>
+                            <p className="text-sm text-muted-foreground">{step.body}</p>
+                        </div>
+                    </li>
+                ))}
+            </ol>
+
+            <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                <p className="text-sm font-semibold">File names</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                    <span className="font-mono">&lt;Exam title&gt; Questions.pdf</span> and{" "}
+                    <span className="font-mono">&lt;Exam title&gt; Answer Key.pdf</span>. Spaces, _ or - may separate the words, and
+                    capitals do not matter. "Question", "Answers", "Answer" and "Key" are accepted too.
+                </p>
+                <div className="mt-2 overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="text-xs text-muted-foreground">
+                            <tr>
+                                <th className="py-1 pr-4 font-semibold">Questions</th>
+                                <th className="py-1 font-semibold">Its answer key</th>
+                            </tr>
+                        </thead>
+                        <tbody className="font-mono text-xs">
+                            {[
+                                ["Midterm Exam Questions.pdf", "Midterm Exam Answer Key.pdf"],
+                                ["Networking Reviewer Set 2 Questions.pdf", "Networking Reviewer Set 2 Answer Key.pdf"],
+                                ["2021S_IP_Question.pdf", "2021S_IP_Answer.pdf"],
+                            ].map(([paper, key]) => (
+                                <tr key={paper} className="border-t">
+                                    <td className="py-1 pr-4">{paper}</td>
+                                    <td className="py-1">{key}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                    A question file with no key is allowed when its answers are printed inside it.
+                </p>
+            </div>
+        </div>
     )
 }
 
@@ -461,7 +529,38 @@ function QuestionCard({ question, paper, lessons, duplicate, onPick, onTag, onTy
                 </Button>
             </div>
 
-            <ul className={cn("mt-3 gap-2", pictures ? "grid grid-cols-1 sm:grid-cols-2" : "grid")}>
+            {/* Saved as text, the learner sees no choices: they type. The card
+                shows that, and what their answer is marked against. */}
+            {type !== "MCQ" ? (
+                <div className="mt-3 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                        {type === "SHORT_ANSWER" ? "Learner types a short answer" : "Learner writes an answer"}
+                    </p>
+                    <div className="mt-2 rounded-lg border bg-background px-3 py-2 text-sm text-muted-foreground">Their answer…</div>
+                    <p className="mt-2 text-sm">
+                        {type === "SHORT_ANSWER" ? "Marked correct when it matches: " : "Marked by AI against: "}
+                        {(() => {
+                            const correct = question.options.find((option) => option.key === answer)
+                            if (!correct) return <em className="text-destructive">no answer chosen yet -- pick one of the choices below</em>
+                            if (!correct.text) return <em className="text-destructive">the correct choice is a picture, so there is no text to match -- keep this one as Multiple choice</em>
+                            return <strong>{correct.text}</strong>
+                        })()}
+                    </p>
+                </div>
+            ) : null}
+            {type !== "MCQ" && question.options.length ? (
+                <p className="mt-3 text-xs font-semibold text-muted-foreground">
+                    Choices from the paper -- not shown to learners. Click one to make it the answer.
+                </p>
+            ) : null}
+
+            <ul
+                className={cn(
+                    "mt-3 gap-2",
+                    pictures ? "grid grid-cols-1 sm:grid-cols-2" : "grid",
+                    type !== "MCQ" && "mt-1 text-sm opacity-80",
+                )}
+            >
                 {question.options.map((option) => {
                     const correct = answer === option.key
                     return (
@@ -623,7 +722,6 @@ export default function CertificationPdfImportPage() {
     const [notice, setNotice] = useState(null)
     const [previewOpen, setPreviewOpen] = useState(false)
     const [saving, setSaving] = useState(null)
-    const [copied, setCopied] = useState(false)
 
     const { data: certifications = [] } = useQuery({
         queryKey: ["admin-certifications", "question-bank-page"],
@@ -635,6 +733,8 @@ export default function CertificationPdfImportPage() {
     )
 
     const busy = progress !== null
+    // A key read before its paper is not "unmatched" yet, and a paper read
+    // before its key is not "missing answers": the errors wait for the last file.
 
     // The latest papers and keys, for handlers that run across awaits: a
     // closure over `papers` from the render that started a long read would
@@ -651,38 +751,6 @@ export default function CertificationPdfImportPage() {
         updatePaper(paperId, (p) => ({
             questions: p.questions.map((q) => (q.num === num ? { ...q, ...change(q) } : q)),
         }))
-    }
-
-    function attachKey(key, paperId) {
-        setKeys((current) => current.map((k) => (k.id === key.id ? { ...k, paperId } : k.paperId === paperId ? { ...k, paperId: null } : k)))
-        updatePaper(paperId, () => ({ answers: { ...key.answers }, keyName: key.name }))
-    }
-
-    /** Pairs every unattached key with the paper whose exam date agrees. */
-    function matchKeys(allPapers, allKeys) {
-        const papersOut = allPapers.map((p) => ({ ...p }))
-        const keysOut = allKeys.map((k) => ({ ...k }))
-        for (const key of keysOut) {
-            if (key.paperId) continue
-            let best = null
-            let bestScore = 0
-            for (const candidate of papersOut) {
-                if (candidate.keyName) continue
-                const score = matchScore(key.info, candidate.info)
-                if (score > bestScore) {
-                    best = candidate
-                    bestScore = score
-                }
-            }
-            // 4 = at least the year agrees; merely "not conflicting" is not
-            // evidence the key belongs to the paper.
-            if (best && bestScore >= 4) {
-                key.paperId = best.id
-                best.answers = { ...best.answers, ...key.answers }
-                best.keyName = key.name
-            }
-        }
-        return { papersOut, keysOut }
     }
 
     /**
@@ -727,90 +795,122 @@ export default function CertificationPdfImportPage() {
         }
     }
 
-    async function addFiles(fileList) {
-        const files = [...fileList]
-        const loaded = new Set([
-            ...latest.current.papers.map((p) => p.fileId),
-            ...latest.current.keys.map((k) => k.fileId),
-        ])
-        const pdfs = files.filter(isPdf).filter((file) => !loaded.has(`${file.name}:${file.size}`))
-        const rejected = files.filter((file) => !isPdf(file))
-        setFailures((current) => [
+    /**
+     * Reads the pairs the upload step made -- each a question file and, when
+     * there is one, the answer key with the same title -- and attaches every
+     * key to its own paper. The pairing is the file names', checked by the
+     * admin before Next; nothing here guesses which key belongs where.
+     */
+    async function addFiles(pairList) {
+        const loaded = new Set(latest.current.papers.map((p) => p.fileId))
+        const pairs = pairList.filter((pair) => !loaded.has(`${pair.paper.name}:${pair.paper.size}`))
+        setFailures((current) =>
             // A file added again is tried again; its old failure goes.
-            ...current.filter((f) => !pdfs.some((file) => file.name === f.name)),
-            ...rejected.map((file) => ({ name: file.name, error: "not a PDF" })),
-        ])
+            current.filter((f) => !pairs.some((pair) => [pair.paper.name, pair.key?.name].includes(f.name))),
+        )
 
-        for (const [index, file] of pdfs.entries()) {
-            const label = pdfs.length > 1 ? ` (${index + 1} of ${pdfs.length})` : ""
-            setProgress({ label: `Opening ${file.name}${label}`, percent: 2 })
+        for (const [index, pair] of pairs.entries()) {
+            const label = pairs.length > 1 ? ` (${index + 1} of ${pairs.length})` : ""
+            const reportProgress = (file) => async (page, total, phase) => {
+                setProgress({
+                    label: phase === "ai"
+                        ? `Reading ${file.name}${label} with AI, page ${page} of ${total}`
+                        : phase === "layout"
+                          ? `Reading the layout of ${file.name}${label} (${total} pages, about ${Math.max(10, total * 2)} seconds)`
+                          : `Opening ${file.name}${label}, page ${page} of ${total}`,
+                    percent: phase === "layout" ? 60 : Math.round((page / total) * 100),
+                })
+                await new Promise((resolve) => setTimeout(resolve, 0))
+            }
+
+            let result
+            setProgress({ label: `Opening ${pair.paper.name}${label}`, percent: 2 })
             try {
-                const result = await readExamPdf(
-                    file,
-                    async (page, total, phase) => {
-                        setProgress({
-                            label: phase === "ai"
-                                ? `Reading ${file.name}${label} with AI, page ${page} of ${total}`
-                                : phase === "layout"
-                                  ? `Reading the layout of ${file.name}${label} (${total} pages, about ${Math.max(10, total * 2)} seconds)`
-                                  : `Opening ${file.name}${label}, page ${page} of ${total}`,
-                            percent: phase === "layout" ? 60 : Math.round((page / total) * 100),
-                        })
-                        await new Promise((resolve) => setTimeout(resolve, 0))
-                    },
-                    readDocumentPage,
-                    readDocumentLayout,
-                )
-                const fileId = `${file.name}:${file.size}`
-                const id = `${fileId}:${Date.now()}`
-                const { papers: currentPapers, keys: currentKeys } = latest.current
-                let nextPapers = currentPapers
-                let nextKeys = currentKeys
+                result = await readExamPdf(pair.paper, reportProgress(pair.paper), readDocumentPage, readDocumentLayout)
                 if (result.kind === "key") {
-                    nextKeys = [...currentKeys, { id, fileId, name: result.name, info: result.info, answers: result.answers, count: result.count, paperId: null }]
-                } else {
-                    nextPapers = [...currentPapers, {
-                        id,
-                        fileId,
-                        name: result.name,
-                        info: result.info,
-                        questions: result.questions.map(forDisplay),
-                        readBy: result.readBy,
-                        profile: result.profile,
-                        // Answers printed on the paper itself, when the AI read one.
-                        answers: Object.fromEntries(
-                            result.questions.filter((q) => q.answer).map((q) => [q.num, q.answer]),
-                        ),
-                        keyName: null,
-                        tags: {},
-                        types: {},
-                        include: {},
-                        saved: {},
-                        duplicates: {},
-                    }]
-                }
-                const { papersOut, keysOut } = matchKeys(nextPapers, nextKeys)
-                latest.current = { papers: papersOut, keys: keysOut }
-                setPapers(papersOut)
-                setKeys(keysOut)
-                if (result.kind !== "key") {
-                    const questions = result.questions
-                    findDuplicates(certificationId, questions.map((q) => q.stem))
-                        .then((found) => {
-                            const bank = {}
-                            questions.forEach((q, index) => {
-                                if (found.duplicates?.[index]) bank[q.num] = found.duplicates[index]
-                            })
-                            updatePaper(id, () => ({ duplicates: bank }))
-                        })
-                        .catch(() => {
-                            // The upload still works; only the question-bank check is missing.
-                            setNotice({ kind: "warn", text: `${result.name}: could not check the question bank for duplicates.` })
-                        })
+                    throw new Error("it is named as questions, but it reads as an answer key -- rename it to end in \"Answer Key\"")
                 }
             } catch (error) {
-                setFailures((current) => [...current, { name: file.name, error: error?.message || String(error) }])
+                setFailures((current) => [...current, { name: pair.paper.name, error: error?.message || String(error) }])
+                continue
             }
+
+            // Answers printed in the paper itself, then the key's on top.
+            let answers = Object.fromEntries(result.questions.filter((q) => q.answer).map((q) => [q.num, q.answer]))
+            let keyName = null
+            let keyEntry = null
+            const fileId = `${pair.paper.name}:${pair.paper.size}`
+            const id = `${fileId}:${Date.now()}`
+            if (pair.key) {
+                setProgress({ label: `Reading answer key ${pair.key.name}${label}`, percent: 90 })
+                try {
+                    const key = await readExamPdf(pair.key, reportProgress(pair.key), readDocumentPage, readDocumentLayout)
+                    // A key laid out like a paper -- questions with their
+                    // answers marked -- gives its answers the same way.
+                    const keyAnswers = key.kind === "key"
+                        ? key.answers
+                        : Object.fromEntries((key.questions ?? []).filter((q) => q.answer).map((q) => [q.num, q.answer]))
+                    if (!Object.keys(keyAnswers).length) throw new Error("no answers could be read from it")
+                    answers = { ...answers, ...keyAnswers }
+                    keyName = pair.key.name
+                    keyEntry = {
+                        id: `${pair.key.name}:${pair.key.size}:${Date.now()}`,
+                        fileId: `${pair.key.name}:${pair.key.size}`,
+                        name: pair.key.name,
+                        info: key.info,
+                        answers: keyAnswers,
+                        count: Object.keys(keyAnswers).length,
+                        paperId: id,
+                    }
+                } catch (error) {
+                    setFailures((current) => [...current, { name: pair.key.name, error: error?.message || String(error) }])
+                }
+            }
+
+            const paper = {
+                id,
+                fileId,
+                name: result.name,
+                info: result.info,
+                questions: result.questions.map(forDisplay),
+                readBy: result.readBy,
+                profile: result.profile,
+                answers,
+                keyName,
+                tags: {},
+                types: {},
+                include: {},
+                saved: {},
+                duplicates: {},
+            }
+            latest.current = {
+                papers: [...latest.current.papers, paper],
+                keys: keyEntry ? [...latest.current.keys, keyEntry] : latest.current.keys,
+            }
+            setPapers(latest.current.papers)
+            setKeys(latest.current.keys)
+
+            const questions = result.questions
+            // Retried: a backend restarting mid-upload fails one call, and the
+            // paper would go unchecked for good.
+            const check = (attempt = 0) =>
+                findDuplicates(certificationId, questions.map((q) => q.stem)).catch((error) =>
+                    attempt < 3
+                        ? new Promise((resolve) => setTimeout(resolve, 5000 * (attempt + 1))).then(() => check(attempt + 1))
+                        : Promise.reject(error),
+                )
+            check()
+                .then((found) => {
+                    const bank = {}
+                    questions.forEach((q, position) => {
+                        if (found.duplicates?.[position]) bank[q.num] = found.duplicates[position]
+                    })
+                    updatePaper(id, () => ({ duplicates: bank }))
+                })
+                .catch(() => {
+                    // The upload still works; only the question-bank check is missing.
+                    setNotice({ kind: "warn", text: `${result.name}: could not check the question bank for duplicates.` })
+                })
         }
         setProgress(null)
     }
@@ -949,8 +1049,6 @@ export default function CertificationPdfImportPage() {
         setSaving({ done, total: queue.length, errors, finished: true })
     }
 
-    // A key already feeding a paper is not "unmatched", whichever copy it is.
-    const looseKeys = keys.filter((key) => !key.paperId && !papers.some((p) => p.keyName === key.name))
     const totalQuestions = papers.reduce((sum, p) => sum + p.questions.length, 0)
     const answeredCount = papers.reduce((sum, p) => sum + answered(p).length, 0)
     const taggedCount = papers.reduce((sum, p) => sum + Object.keys(p.tags).length, 0)
@@ -977,6 +1075,7 @@ export default function CertificationPdfImportPage() {
             <div className="min-h-0 flex-1 overflow-y-auto">
                 {!papers.length ? (
                     <section className="mx-auto mt-[6vh] max-w-3xl px-5">
+                        <ImportGuide />
                         <div className="rounded-2xl border bg-background p-5 shadow-sm">
                             <PdfUploadStep onNext={addFiles} disabled={busy} nextLabel="Next: read the files" />
                         </div>
@@ -1075,19 +1174,6 @@ export default function CertificationPdfImportPage() {
                                         </button>
                                     ))}
                                 </div>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="rounded-full"
-                                    onClick={async () => {
-                                        await navigator.clipboard.writeText(papers.map((p) => `===== ${p.name} =====\n\n${asText(p)}`).join("\n\n\n"))
-                                        setCopied(true)
-                                        setTimeout(() => setCopied(false), 1600)
-                                    }}
-                                >
-                                    <Copy className="mr-2 h-4 w-4" /> {copied ? "Copied" : "Copy as text"}
-                                </Button>
                             </div>
 
                             {busy ? (
@@ -1122,7 +1208,7 @@ export default function CertificationPdfImportPage() {
 
                             {/* Every paper needs its answers before anything can be saved:
                                 what is missing is said here, not discovered in the preview. */}
-                            {papers.some((p) => unanswered(p).length) ? (
+                            {!busy && papers.some((p) => unanswered(p).length) ? (
                                 <div className="mb-3 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
                                     <p className="mb-1 flex items-center gap-2 font-semibold">
                                         <AlertTriangle className="h-4 w-4 shrink-0" /> Answers are missing
@@ -1144,31 +1230,10 @@ export default function CertificationPdfImportPage() {
                                 </div>
                             ) : null}
 
-                            {failures.map((failure, index) => (
+                            {!busy && failures.map((failure, index) => (
                                 <p key={`f${index}`} className="mb-2 flex items-start gap-2 rounded-xl border border-dashed bg-background p-3 text-sm text-destructive">
                                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> Could not read {failure.name}: {failure.error}.
                                 </p>
-                            ))}
-
-                            {looseKeys.map((key) => (
-                                <div key={key.id} className="mb-3 rounded-xl border border-primary/50 bg-background p-3 text-sm">
-                                    <p className="mb-2">
-                                        <KeyRound className="mr-1 inline h-4 w-4" />
-                                        Answer key <b>{key.name}</b> ({key.count} answers{describeExam(key.info) ? `, ${describeExam(key.info)}` : ""}) was not matched to a paper.
-                                    </p>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        {papers.map((item) => (
-                                            <Button key={item.id} type="button" size="sm" variant="outline" onClick={() => attachKey(key, item.id)}>
-                                                Use for {item.name.replace(/\.pdf$/i, "")}
-                                            </Button>
-                                        ))}
-                                    </div>
-                                    {papers.some((item) => matchScore(key.info, item.info) === 0) ? (
-                                        <p className="mt-2 text-xs text-destructive">
-                                            Its exam date differs from {papers.filter((item) => matchScore(key.info, item.info) === 0).map((item) => item.name).join(", ")} -- only attach it if you are sure.
-                                        </p>
-                                    ) : null}
-                                </div>
                             ))}
 
                             <input
@@ -1214,7 +1279,7 @@ export default function CertificationPdfImportPage() {
                                                         }))
                                                     }
                                                 >
-                                                    <SelectTrigger size="sm" className="w-auto" aria-label="Save all questions in this paper as"><SelectValue placeholder="Save all as…" /></SelectTrigger>
+                                                    <SelectTrigger size="sm" className="w-auto" aria-label="Save all questions in this paper as"><SelectValue placeholder="Save this paper's questions as…" /></SelectTrigger>
                                                     <SelectContent>
                                                         {SAVE_TYPES.map((type) => (
                                                             <SelectItem key={type.id} value={type.id}>{type.label}</SelectItem>
@@ -1260,7 +1325,7 @@ export default function CertificationPdfImportPage() {
                                             })()}
                                             {(() => {
                                                 const missing = unanswered(item)
-                                                if (!missing.length) return null
+                                                if (busy || !missing.length) return null
                                                 const none = missing.length === item.questions.length
                                                 return (
                                                     <div
