@@ -153,6 +153,9 @@ services:
     volumes:
       - ./python-backend:/app
       - python_artifacts:/app/artifacts
+      # Downloaded AI models (Docling's layout model, the lesson matcher),
+      # kept across rebuilds instead of fetched again on every start.
+      - model_cache:/root/.cache
     # Come back after a kill. On a 5.9 GB host this process is the biggest
     # thing running, so it is what the kernel reaches for first when memory
     # runs out -- 2026-09-02 it took SIGKILL (exit 137) mid-run and, with no
@@ -219,6 +222,7 @@ services:
 volumes:
   rabbitmq_data:
   python_artifacts:
+  model_cache:
 
 networks:
   rebyu-net:

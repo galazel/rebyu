@@ -74,6 +74,40 @@ public class PastPaperImportService {
         }
     }
 
+    /**
+     * Every question in a PDF of any layout, read by the AI service's layout
+     * reader (Docling plus question profiles, no generative model). A long
+     * document takes a minute or more on CPU, hence the long wait.
+     */
+    public Map<String, Object> readLayout(MultipartFile file) {
+        requirePdf(file, "document");
+        MultipartBodyBuilder body = new MultipartBodyBuilder();
+        body.part("file", asResource(file)).filename(filenameOf(file));
+        try {
+            return aiWebClient.post()
+                    .uri("/past-papers/read-layout")
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(BodyInserters.fromMultipartData(body.build()))
+                    .httpRequest(httpRequest -> {
+                        reactor.netty.http.client.HttpClientRequest nettyRequest = httpRequest.getNativeRequest();
+                        nettyRequest.responseTimeout(Duration.ofMinutes(8));
+                    })
+                    .retrieve()
+                    .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {})
+                    .block(Duration.ofMinutes(9));
+        } catch (ResponseStatusException error) {
+            throw error;
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException error) {
+            log.error("Layout reading failed: {}", error.getResponseBodyAsString());
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    "The document could not be read: " + detailOf(error.getResponseBodyAsString()));
+        } catch (RuntimeException error) {
+            log.error("Layout reading failed", error);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "The document could not be read: "
+                    + (error.getMessage() == null ? "the AI service did not answer in time" : error.getMessage()));
+        }
+    }
+
     public Map<String, Object> suggestLessons(Map<String, Object> request) {
         return forward("/past-papers/suggest-lessons", request, "Lessons could not be suggested");
     }
@@ -85,18 +119,41 @@ public class PastPaperImportService {
                     .uri(path)
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(request)
+                    // Tagging a paper is several model calls, each of which
+                    // may walk the fallback chain; the client-wide read
+                    // timeout gave up on it while Python was still working,
+                    // and the admin saw "null".
+                    .httpRequest(httpRequest -> {
+                        reactor.netty.http.client.HttpClientRequest nettyRequest = httpRequest.getNativeRequest();
+                        nettyRequest.responseTimeout(Duration.ofMinutes(4));
+                    })
                     .retrieve()
                     .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {})
-                    // Tagging a paper is several model calls; the first
-                    // suggestion loads the embedding model.
-                    .block(Duration.ofMinutes(4));
+                    .block(Duration.ofMinutes(5));
         } catch (ResponseStatusException error) {
             throw error;
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException error) {
+            // The AI service's own explanation -- "No model could read this
+            // page: ... 402 credits" -- rather than "502 Bad Gateway".
+            log.error("{} ({}): {}", failure, path, error.getResponseBodyAsString());
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                    failure + ": " + detailOf(error.getResponseBodyAsString()));
         } catch (RuntimeException error) {
             log.error("{} ({})", failure, path, error);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                    failure + ": " + error.getMessage());
+            String message = error.getMessage() == null
+                    ? "the AI service did not answer in time"
+                    : error.getMessage();
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, failure + ": " + message);
         }
+    }
+
+    /** FastAPI's {"detail": "..."} body, or the body itself. */
+    private static String detailOf(String body) {
+        if (body == null || body.isBlank()) return "no explanation was given";
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("\"detail\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").matcher(body);
+        String detail = matcher.find() ? matcher.group(1).replace("\\\"", "\"") : body;
+        return detail.length() > 500 ? detail.substring(0, 500) + "..." : detail;
     }
 
     public Map<String, Object> importApproved(Map<String, Object> request) {

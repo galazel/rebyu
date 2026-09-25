@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.api.routes import ai_settings as ai_settings_routes
 from app.api.routes import assessments as assessment_routes
 from app.api.routes import certification as certification_routes
 from app.api.routes import past_papers as past_paper_routes
@@ -94,6 +95,8 @@ def create_app() -> FastAPI:
     # submission blocks on it, so unlike generation it is a direct call rather
     # than a queued run.
     app.include_router(assessment_routes.router, prefix="/api/v1/ai")
+    # The admin AI settings page: credits, and the model each task uses.
+    app.include_router(ai_settings_routes.router, prefix="/api/v1/ai")
     app.include_router(certification_routes.router, prefix="/api/v1/ai")
     app.include_router(past_paper_routes.router, prefix="/api/v1/ai")
     app.include_router(question_bank_routes.router, prefix="/api/v1/ai")

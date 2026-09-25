@@ -5,6 +5,7 @@ import {
   Award,
   BarChart3,
   BookOpenCheck,
+  Bot,
   Building2,
   ChevronDown,
   CircleHelp,
@@ -126,6 +127,8 @@ const adminGroups = [
       { label: "Community", href: "/admin/community", icon: UsersRound },
       // The stored pick-lists (industries, department names) every select reads.
       { label: "Reference lists", href: "/admin/reference-lists", icon: ListChecks },
+      // Credits left, the model each AI feature runs on, and choosing it.
+      { label: "AI settings", href: "/admin/ai-settings", icon: Bot },
     ],
   },
 ]

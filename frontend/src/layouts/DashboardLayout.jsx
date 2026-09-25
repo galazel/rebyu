@@ -70,7 +70,7 @@ export default function DashboardLayout() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" sideOffset={10} className="w-52 p-2">
                 <DropdownMenuItem><UserIcon />Profile</DropdownMenuItem>
-                <DropdownMenuItem><SettingsIcon />Settings</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/admin/ai-settings")}><SettingsIcon />AI settings</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <PortalThemeMenuItem />
                 <DropdownMenuSeparator />

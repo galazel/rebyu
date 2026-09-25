@@ -149,8 +149,12 @@ FIGURE = "figure"
 #: to correct -- the reviewer sees every tag before anything is saved.
 TAGGING = "tagging"
 
+#: Reading one exam page -- image plus text layer -- into questions, for
+#: documents whose layout the fixed-pattern reader does not know.
+EXTRACTION = "extraction"
+
 TASKS = (LESSON, CURRICULUM, QUESTION, TUTOR, LESSON_AUDIT, DOCUMENT_AUDIT, DIAGRAM,
-         GRADING, FIGURE, TAGGING)
+         GRADING, FIGURE, TAGGING, EXTRACTION)
 
 #: Older call sites (and any caller that only knows the coarse distinction)
 #: pass the two names this module replaced. They resolve to the task that most
@@ -224,14 +228,23 @@ def profile_for(task: str, settings: Settings | None = None) -> TaskProfile:
     """
     settings = settings or get_settings()
     name = resolve(task)
+    # The model an administrator picked on the AI settings page, if any.
+    # Only for OpenRouter tasks: the page offers OpenRouter's catalogue, and a
+    # slug is only meaningful to the provider that serves it.
+    provider_name = getattr(settings, f"ai_{name}_provider")
+    chosen = None
+    if provider_name == "openrouter":
+        from app.ai.overrides import model_for
+
+        chosen = model_for(name)
     return TaskProfile(
         name=name,
         # Per task, not global: a task's fallback chain must stay inside one
         # provider, because a model slug is only meaningful to the provider that
         # serves it -- `llama-3.3-70b-versatile` is a Groq name and
         # `meta-llama/llama-3.3-70b-instruct` is an OpenRouter one.
-        provider=provider_for(getattr(settings, f"ai_{name}_provider")),
-        model=getattr(settings, f"ai_{name}_model"),
+        provider=provider_for(provider_name),
+        model=chosen or getattr(settings, f"ai_{name}_model"),
         fallbacks=_split(getattr(settings, f"ai_{name}_fallbacks"))
         + (settings.ai_default_model,),
         max_tokens=getattr(settings, f"ai_{name}_max_tokens"),

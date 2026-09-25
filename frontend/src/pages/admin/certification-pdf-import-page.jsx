@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 
@@ -10,9 +10,11 @@ import {
     Eye,
     KeyRound,
     Loader2,
+    Plus,
     Save,
     Search,
     Sparkles,
+    Trash2,
     UploadIcon,
     X,
 } from "@/components/icons"
@@ -37,9 +39,10 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { PdfUploadStep } from "@/components/question-bank/pdf-upload-step.jsx"
 import { getAllCertifications } from "@/services/certificationService.js"
 import { uploadQuestionImage } from "@/services/fileService.js"
-import { tagQuestions } from "@/services/pdfImportService.js"
+import { findDuplicates, readDocumentLayout, readDocumentPage, tagQuestions } from "@/services/pdfImportService.js"
 import { saveChoices, saveQuestion, saveTextQuestion } from "@/services/questionService.js"
 import {
     canvasToFile,
@@ -69,17 +72,102 @@ const QUESTION_TYPES = [
     { id: "DIAGRAM", label: "Diagram", disabled: "needs a reference diagram" },
 ]
 
-/** Canvases become data URLs once, when a paper is read, not on every render. */
+/**
+ * Canvases become data URLs once, when a paper is read, not on every render
+ * -- and once per canvas: the questions of one page, or the blanks of one
+ * passage, share the same page images.
+ */
+const imageUrls = new WeakMap()
+function srcOf(canvas) {
+    if (!imageUrls.has(canvas)) {
+        imageUrls.set(canvas, canvas.height > 2500 ? canvas.toDataURL("image/jpeg", 0.85) : canvas.toDataURL("image/png"))
+    }
+    return imageUrls.get(canvas)
+}
+
+/**
+ * A read question as the page keeps it: every image as a compressed data URL,
+ * and no canvases. A canvas holds its page area uncompressed -- a hundred
+ * papers of them ran to gigabytes and took the tab down -- so the canvases
+ * are dropped here and rebuilt from the data URL only when a question is
+ * saved.
+ */
 function forDisplay(question) {
+    const { figures, snaps, ...rest } = question
     return {
-        ...question,
-        figureSrcs: question.figures.map((canvas) => canvas.toDataURL("image/png")),
-        snapSrcs: question.snaps.map((canvas) => canvas.toDataURL("image/png")),
-        options: question.options.map((option) => ({
+        ...rest,
+        figureSrcs: figures.map(srcOf),
+        // "Show original" is only ever looked at: JPEG keeps it small.
+        snapSrcs: snaps.map((canvas) => canvas.toDataURL("image/jpeg", 0.8)),
+        options: question.options.map(({ image, ...option }) => ({
             ...option,
-            imageSrc: option.image ? option.image.toDataURL("image/png") : null,
+            imageSrc: image ? srcOf(image) : null,
         })),
     }
+}
+
+/** A data URL drawn back onto a canvas, for stacking and saving. */
+function srcToCanvas(src) {
+    return new Promise((resolve, reject) => {
+        const image = new Image()
+        image.onload = () => {
+            const canvas = document.createElement("canvas")
+            canvas.width = image.naturalWidth
+            canvas.height = image.naturalHeight
+            canvas.getContext("2d").drawImage(image, 0, 0)
+            resolve(canvas)
+        }
+        image.onerror = () => reject(new Error("An image could not be prepared for saving."))
+        image.src = src
+    })
+}
+
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"]
+
+/** A picked image file drawn onto a canvas -- the form every crop takes here. */
+function fileToCanvas(file) {
+    return new Promise((resolve, reject) => {
+        if (!IMAGE_TYPES.includes(file.type)) {
+            reject(new Error("Choose a PNG, JPEG, WebP or GIF image."))
+            return
+        }
+        const url = URL.createObjectURL(file)
+        const image = new Image()
+        image.onload = () => {
+            const canvas = document.createElement("canvas")
+            canvas.width = image.naturalWidth
+            canvas.height = image.naturalHeight
+            const context = canvas.getContext("2d")
+            context.fillStyle = "#fff"
+            context.fillRect(0, 0, canvas.width, canvas.height)
+            context.drawImage(image, 0, 0)
+            URL.revokeObjectURL(url)
+            resolve(canvas)
+        }
+        image.onerror = () => {
+            URL.revokeObjectURL(url)
+            reject(new Error("That image could not be opened."))
+        }
+        image.src = url
+    })
+}
+
+/**
+ * Asks for one image file and resolves to it as a canvas, or to null when the
+ * picker is closed without one.
+ */
+function pickImage() {
+    return new Promise((resolve, reject) => {
+        const input = document.createElement("input")
+        input.type = "file"
+        input.accept = IMAGE_TYPES.join(",")
+        input.onchange = () => {
+            const file = input.files?.[0]
+            if (!file) resolve(null)
+            else fileToCanvas(file).then(resolve, reject)
+        }
+        input.click()
+    })
 }
 
 /** A pasted key: "1 c, 2 d, 3 a", or one letter per question in order. */
@@ -97,11 +185,42 @@ function parseKeyText(text, questions) {
     return key
 }
 
+/**
+ * A question's text with case, spacing and punctuation taken away -- what two
+ * copies of one question have in common. The server compares the same way
+ * against the question bank.
+ */
+function fingerprint(text) {
+    return (text || "").toLowerCase().replace(/[^0-9a-z]+/g, "")
+}
+
+/** The questions of a paper that have no correct answer yet. */
+function unanswered(paper) {
+    return paper.questions.filter((question) => !paper.answers[question.num])
+}
+
+/** "Q5, Q12, Q31" -- the first few, then how many more. */
+function listNumbers(questions, limit = 12) {
+    const shown = questions.slice(0, limit).map((q) => `Q${q.num}`).join(", ")
+    return questions.length > limit ? `${shown} and ${questions.length - limit} more` : shown
+}
+
+/** Why the tagging dropped a question, or null when it did not. */
+function dropReason(tag) {
+    if (!tag) return null
+    if (tag.noLesson) return "no lesson in this certification fits it"
+    if (tag.duplicate === "bank") return "it is already in the question bank"
+    if (tag.duplicate === "paper") return "it repeats an earlier question in the same paper"
+    if (tag.duplicate === "upload") return `it repeats ${tag.duplicateOf ?? "a question in another uploaded paper"}`
+    return null
+}
+
 /** Why a question cannot be saved as configured, or null when it can. */
 function problemWith(question, paper) {
     const tag = paper.tags[question.num]
     const type = paper.types[question.num] ?? "MCQ"
     const answer = paper.answers[question.num]
+    if (dropReason(tag)) return `dropped: ${dropReason(tag)}`
     if (!tag?.lessonId) return "no lesson"
     if (!tag?.difficulty) return "no difficulty"
     if (!answer) return "no correct answer"
@@ -137,8 +256,9 @@ async function saveOne(question, paper, certificationId) {
     const answer = paper.answers[question.num]
 
     let imageKey = null
-    if (question.figures.length) {
-        const file = await canvasToFile(stackCanvases(question.figures), `q${question.num}.png`)
+    if (question.figureSrcs.length) {
+        const canvases = await Promise.all(question.figureSrcs.map(srcToCanvas))
+        const file = await canvasToFile(stackCanvases(canvases), `q${question.num}.png`)
         imageKey = await uploadQuestionImage(file)
     }
     const saved = await saveQuestion({
@@ -153,8 +273,8 @@ async function saveOne(question, paper, certificationId) {
     if (type === "MCQ") {
         for (const option of question.options) {
             let choiceImageKey = null
-            if (option.image) {
-                const file = await canvasToFile(option.image, `q${question.num}${option.key}.png`)
+            if (option.imageSrc) {
+                const file = await canvasToFile(await srcToCanvas(option.imageSrc), `q${question.num}${option.key}.png`)
                 choiceImageKey = await uploadQuestionImage(file)
             }
             await saveChoices({
@@ -189,7 +309,49 @@ function asText(paper) {
         .join("\n\n")
 }
 
-function QuestionCard({ question, paper, lessons, onPick, onTag, onType, onInclude, cardRef }) {
+/**
+ * What the question is saved as. Chosen before or after tagging; programming
+ * and diagram are not offered -- a past paper has no test cases or reference
+ * diagram to give them.
+ */
+const SAVE_TYPES = QUESTION_TYPES.filter((item) => !item.disabled)
+
+function TypeToggle({ value, onChange }) {
+    return (
+        <div className="inline-flex items-center gap-2">
+        <span className="text-xs font-semibold text-muted-foreground">Save as</span>
+        <div className="inline-flex overflow-hidden rounded-full border text-xs" role="group" aria-label="Save as">
+            {SAVE_TYPES.map((item) => (
+                <button
+                    key={item.id}
+                    type="button"
+                    aria-pressed={value === item.id}
+                    onClick={() => onChange(item.id)}
+                    className={cn("px-2.5 py-1", value === item.id ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
+                >
+                    {item.label}
+                </button>
+            ))}
+        </div>
+        </div>
+    )
+}
+
+/** Small image controls that sit on a figure or a pictured choice. */
+function ImageTools({ onReplace, onRemove, label }) {
+    return (
+        <span className="flex gap-1.5">
+            <Button type="button" size="xs" variant="outline" onClick={onReplace} aria-label={`Replace ${label}`}>
+                <UploadIcon className="h-3 w-3" /> Replace
+            </Button>
+            <Button type="button" size="xs" variant="outline" onClick={onRemove} aria-label={`Remove ${label}`} className="text-destructive">
+                <Trash2 className="h-3 w-3" /> Remove
+            </Button>
+        </span>
+    )
+}
+
+function QuestionCard({ question, paper, lessons, duplicate, onPick, onTag, onType, onInclude, onFigures, onOptionImage, onImageError, onDelete, cardRef }) {
     const [showOriginal, setShowOriginal] = useState(false)
     const answer = paper.answers[question.num]
     const tag = paper.tags[question.num]
@@ -219,6 +381,7 @@ function QuestionCard({ question, paper, lessons, onPick, onTag, onType, onInclu
                         <CheckCircle2 className="h-3 w-3" /> Saved
                     </Badge>
                 ) : null}
+                <TypeToggle value={type} onChange={(value) => onType(question.num, value)} />
                 <span className="flex-1" />
                 <button
                     type="button"
@@ -228,17 +391,66 @@ function QuestionCard({ question, paper, lessons, onPick, onTag, onType, onInclu
                 >
                     {showOriginal ? "Hide original" : "Show original"}
                 </button>
+                <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    className="text-destructive"
+                    aria-label={`Delete question ${question.num}`}
+                    title="Delete this question from the import"
+                    onClick={() => onDelete(question.num)}
+                >
+                    <Trash2 className="h-4 w-4" />
+                </Button>
             </div>
+
+            {duplicate ? (
+                <p className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-sm text-amber-800">
+                    <AlertTriangle className="h-4 w-4 shrink-0" />
+                    <span className="flex-1">Duplicate: {duplicate}.</span>
+                    <Button type="button" size="xs" variant="outline" onClick={() => onDelete(question.num)}>
+                        <Trash2 className="h-3 w-3" /> Delete
+                    </Button>
+                </p>
+            ) : null}
 
             <p className="mb-3 max-w-[72ch] whitespace-pre-line font-serif text-[1.05rem] leading-relaxed">
                 {question.stem}
             </p>
 
             {question.figureSrcs.map((src, index) => (
-                <figure key={index} className="my-3 overflow-x-auto rounded-lg border bg-white p-2">
+                <figure key={`${index}-${src.length}`} className="group relative my-3 overflow-x-auto rounded-lg border bg-white p-2">
                     <img src={src} alt={`Figure ${index + 1} for question ${question.num}`} className="mx-auto block h-auto max-w-full" />
+                    <div className="absolute right-2 top-2">
+                        <ImageTools
+                            label={`figure ${index + 1}`}
+                            onReplace={() =>
+                                pickImage()
+                                    .then((canvas) => {
+                                        if (!canvas) return
+                                        onFigures(question.num, question.figureSrcs.map((f, i) => (i === index ? srcOf(canvas) : f)))
+                                    })
+                                    .catch(onImageError)
+                            }
+                            onRemove={() => onFigures(question.num, question.figureSrcs.filter((_, i) => i !== index))}
+                        />
+                    </div>
                 </figure>
             ))}
+            <div className="mb-2">
+                <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    onClick={() =>
+                        pickImage()
+                            .then((canvas) => canvas && onFigures(question.num, [...question.figureSrcs, srcOf(canvas)]))
+                            .catch(onImageError)
+                    }
+                >
+                    <Plus className="h-3 w-3" /> Add image
+                </Button>
+            </div>
 
             <ul className={cn("mt-3 gap-2", pictures ? "grid grid-cols-1 sm:grid-cols-2" : "grid")}>
                 {question.options.map((option) => {
@@ -268,6 +480,36 @@ function QuestionCard({ question, paper, lessons, onPick, onTag, onType, onInclu
                                     <span className="pt-0.5">{option.text || <em className="text-muted-foreground">empty</em>}</span>
                                 )}
                             </button>
+                            {/* Outside the choice button: a control inside it would
+                                also mark the answer. */}
+                            {option.imageSrc ? (
+                                <div className="ml-12 mt-1">
+                                    <ImageTools
+                                        label={`choice ${option.key} image`}
+                                        onReplace={() =>
+                                            pickImage()
+                                                .then((canvas) => canvas && onOptionImage(question.num, option.key, canvas))
+                                                .catch(onImageError)
+                                        }
+                                        onRemove={() => onOptionImage(question.num, option.key, null)}
+                                    />
+                                </div>
+                            ) : !option.text ? (
+                                <div className="ml-12 mt-1">
+                                    <Button
+                                        type="button"
+                                        size="xs"
+                                        variant="outline"
+                                        onClick={() =>
+                                            pickImage()
+                                                .then((canvas) => canvas && onOptionImage(question.num, option.key, canvas))
+                                                .catch(onImageError)
+                                        }
+                                    >
+                                        <Plus className="h-3 w-3" /> Add image
+                                    </Button>
+                                </div>
+                            ) : null}
                         </li>
                     )
                 })}
@@ -287,10 +529,11 @@ function QuestionCard({ question, paper, lessons, onPick, onTag, onType, onInclu
             ) : null}
 
             {tagged ? (
-                <div className="mt-4 grid gap-3 rounded-xl border bg-muted/30 p-3 sm:grid-cols-[auto_1fr_10rem_11rem] sm:items-end">
+                <div className="mt-4 grid gap-3 rounded-xl border bg-muted/30 p-3 sm:grid-cols-[auto_1fr_10rem] sm:items-end">
                     <label className="flex items-center gap-2 text-sm font-medium sm:pb-2">
                         <Checkbox
-                            checked={included}
+                            checked={included && !dropReason(tag)}
+                            disabled={Boolean(dropReason(tag))}
                             onCheckedChange={(value) => onInclude(question.num, Boolean(value))}
                         />
                         Save
@@ -331,22 +574,12 @@ function QuestionCard({ question, paper, lessons, onPick, onTag, onType, onInclu
                             </SelectContent>
                         </Select>
                     </div>
-                    <div>
-                        <p className="mb-1 text-xs font-semibold text-muted-foreground">Question type</p>
-                        <Select value={type} onValueChange={(value) => onType(question.num, value)}>
-                            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                {QUESTION_TYPES.map((item) => (
-                                    <SelectItem key={item.id} value={item.id} disabled={Boolean(item.disabled)}>
-                                        {item.label}
-                                        {item.disabled ? <span className="ml-2 text-xs text-muted-foreground">{item.disabled}</span> : null}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    {included && problem ? (
-                        <p className="flex items-center gap-2 text-sm text-amber-700 sm:col-span-4">
+                    {dropReason(tag) ? (
+                        <p className="flex items-center gap-2 text-sm text-destructive sm:col-span-3">
+                            <AlertTriangle className="h-4 w-4 shrink-0" /> Dropped, not saved: {dropReason(tag)}.
+                        </p>
+                    ) : included && problem ? (
+                        <p className="flex items-center gap-2 text-sm text-amber-700 sm:col-span-3">
                             <AlertTriangle className="h-4 w-4 shrink-0" /> Cannot be saved yet: {problem}.
                         </p>
                     ) : null}
@@ -362,19 +595,20 @@ function QuestionCard({ question, paper, lessons, onPick, onTag, onType, onInclu
  */
 export default function CertificationPdfImportPage() {
     const { id: certificationId } = useParams()
-    const inputRef = useRef(null)
+    const keyInputRef = useRef(null)
+    const keyTargetRef = useRef(null)
     const cardRefs = useRef({})
 
     const [papers, setPapers] = useState([])
     const [keys, setKeys] = useState([])
     const [failures, setFailures] = useState([])
-    const [active, setActive] = useState(0)
     const [progress, setProgress] = useState(null)
     const [filter, setFilter] = useState("all")
     const [term, setTerm] = useState("")
-    const [showKeyBox, setShowKeyBox] = useState(false)
+    // Which paper's answer-key panel is open, if any.
+    const [keyBoxFor, setKeyBoxFor] = useState(null)
     const [keyText, setKeyText] = useState("")
-    const [dragging, setDragging] = useState(false)
+    const [uploadOpen, setUploadOpen] = useState(false)
     const [lessons, setLessons] = useState([])
     const [tagging, setTagging] = useState(false)
     const [notice, setNotice] = useState(null)
@@ -391,11 +625,23 @@ export default function CertificationPdfImportPage() {
         (item) => String(item.certificationId ?? item.id) === String(certificationId),
     )
 
-    const paper = papers[active] ?? null
     const busy = progress !== null
+
+    // The latest papers and keys, for handlers that run across awaits: a
+    // closure over `papers` from the render that started a long read would
+    // write back a stale list and drop whatever was added meanwhile.
+    const latest = useRef({ papers, keys })
+    latest.current = { papers, keys }
 
     function updatePaper(id, change) {
         setPapers((current) => current.map((p) => (p.id === id ? { ...p, ...change(p) } : p)))
+    }
+
+    /** Changes one question of one paper -- its figures or its choices' images. */
+    function updateQuestion(paperId, num, change) {
+        updatePaper(paperId, (p) => ({
+            questions: p.questions.map((q) => (q.num === num ? { ...q, ...change(q) } : q)),
+        }))
     }
 
     function attachKey(key, paperId) {
@@ -403,56 +649,15 @@ export default function CertificationPdfImportPage() {
         updatePaper(paperId, () => ({ answers: { ...key.answers }, keyName: key.name }))
     }
 
-    async function addFiles(fileList) {
-        const files = [...fileList]
-        const pdfs = files.filter(isPdf)
-        const rejected = files.filter((file) => !isPdf(file))
-        if (rejected.length) {
-            setFailures((current) => [...current, ...rejected.map((file) => ({ name: file.name, error: "not a PDF" }))])
-        }
-
-        const readPapers = []
-        const readKeys = []
-        for (const [index, file] of pdfs.entries()) {
-            const label = pdfs.length > 1 ? ` (${index + 1} of ${pdfs.length})` : ""
-            setProgress({ label: `Opening ${file.name}${label}`, percent: 2 })
-            try {
-                const result = await readExamPdf(file, async (page, total) => {
-                    setProgress({ label: `Reading ${file.name}${label}, page ${page} of ${total}`, percent: Math.round((page / total) * 100) })
-                    await new Promise((resolve) => setTimeout(resolve, 0))
-                })
-                const id = `${file.name}:${file.size}:${Date.now()}:${index}`
-                if (result.kind === "key") {
-                    readKeys.push({ id, name: result.name, info: result.info, answers: result.answers, count: result.count, paperId: null })
-                } else {
-                    readPapers.push({
-                        id,
-                        name: result.name,
-                        info: result.info,
-                        questions: result.questions.map(forDisplay),
-                        answers: {},
-                        keyName: null,
-                        tags: {},
-                        types: {},
-                        include: {},
-                        saved: {},
-                    })
-                }
-            } catch (error) {
-                setFailures((current) => [...current, { name: file.name, error: error?.message || String(error) }])
-            }
-        }
-        setProgress(null)
-
-        // Pair keys with papers whose exam date agrees -- the ones just read
-        // and any already open. A key only "not conflicting" is not enough.
-        const allPapers = [...papers, ...readPapers]
-        const allKeys = [...keys, ...readKeys]
-        for (const key of allKeys) {
+    /** Pairs every unattached key with the paper whose exam date agrees. */
+    function matchKeys(allPapers, allKeys) {
+        const papersOut = allPapers.map((p) => ({ ...p }))
+        const keysOut = allKeys.map((k) => ({ ...k }))
+        for (const key of keysOut) {
             if (key.paperId) continue
             let best = null
             let bestScore = 0
-            for (const candidate of allPapers) {
+            for (const candidate of papersOut) {
                 if (candidate.keyName) continue
                 const score = matchScore(key.info, candidate.info)
                 if (score > bestScore) {
@@ -460,52 +665,207 @@ export default function CertificationPdfImportPage() {
                     bestScore = score
                 }
             }
+            // 4 = at least the year agrees; merely "not conflicting" is not
+            // evidence the key belongs to the paper.
             if (best && bestScore >= 4) {
                 key.paperId = best.id
-                best.answers = { ...key.answers }
+                best.answers = { ...best.answers, ...key.answers }
                 best.keyName = key.name
             }
         }
-        setPapers(allPapers)
-        setKeys(allKeys)
-        if (!papers.length && readPapers.length) setActive(0)
+        return { papersOut, keysOut }
     }
 
-    const visible = useMemo(() => {
-        if (!paper) return []
-        const needle = term.trim().toLowerCase()
-        return paper.questions.filter(
-            (question) =>
-                (filter === "all" || question.figureSrcs.length) &&
-                (!needle ||
-                    `q${question.num} ${question.stem} ${question.options.map((o) => o.text).join(" ")}`
-                        .toLowerCase()
-                        .includes(needle)),
-        )
-    }, [paper, filter, term])
+    /**
+     * An answer key PDF for the paper in the open tab: attached to it directly,
+     * whatever its date says -- the admin chose the paper. A date that
+     * disagrees, or a key whose question numbers do not fit the paper, is
+     * said out loud rather than silently applied.
+     */
+    async function addKeyForPaper(file, target) {
+        setProgress({ label: `Reading answer key ${file.name}`, percent: 30 })
+        try {
+            const result = await readExamPdf(file, null, readDocumentPage)
+            if (result.kind !== "key") {
+                setNotice({ kind: "error", text: `${file.name} is a question paper, not an answer key. Add it with Add PDFs instead.` })
+                return
+            }
+            const fileId = `${file.name}:${file.size}`
+            const key = { id: `${fileId}:${Date.now()}`, fileId, name: result.name, info: result.info, answers: result.answers, count: result.count, paperId: target.id }
+            setKeys((current) => [
+                ...current.map((k) => (k.paperId === target.id ? { ...k, paperId: null } : k)).filter((k) => k.fileId !== fileId),
+                key,
+            ])
+            updatePaper(target.id, () => ({ answers: { ...result.answers }, keyName: result.name }))
 
+            const fits = target.questions.filter((q) => result.answers[q.num]).length
+            const warnings = []
+            if (matchScore(result.info, target.info) === 0) {
+                warnings.push(`its exam date (${describeExam(result.info) || "unknown"}) is not the paper's (${describeExam(target.info) || "unknown"})`)
+            }
+            if (fits < target.questions.length) {
+                warnings.push(`it gives answers for ${fits} of the paper's ${target.questions.length} questions`)
+            }
+            setNotice(
+                warnings.length
+                    ? { kind: "warn", text: `${result.name} attached to ${target.name}, but ${warnings.join(", and ")}. Check it is the right key.` }
+                    : { kind: "ok", text: `${result.name} attached to ${target.name}: all ${fits} questions have their answer.` },
+            )
+        } catch (error) {
+            setNotice({ kind: "error", text: `Could not read ${file.name}: ${error?.message || error}.` })
+        } finally {
+            setProgress(null)
+        }
+    }
+
+    async function addFiles(fileList) {
+        const files = [...fileList]
+        const loaded = new Set([
+            ...latest.current.papers.map((p) => p.fileId),
+            ...latest.current.keys.map((k) => k.fileId),
+        ])
+        const pdfs = files.filter(isPdf).filter((file) => !loaded.has(`${file.name}:${file.size}`))
+        const rejected = files.filter((file) => !isPdf(file))
+        setFailures((current) => [
+            // A file added again is tried again; its old failure goes.
+            ...current.filter((f) => !pdfs.some((file) => file.name === f.name)),
+            ...rejected.map((file) => ({ name: file.name, error: "not a PDF" })),
+        ])
+
+        for (const [index, file] of pdfs.entries()) {
+            const label = pdfs.length > 1 ? ` (${index + 1} of ${pdfs.length})` : ""
+            setProgress({ label: `Opening ${file.name}${label}`, percent: 2 })
+            try {
+                const result = await readExamPdf(
+                    file,
+                    async (page, total, phase) => {
+                        setProgress({
+                            label: phase === "ai"
+                                ? `Reading ${file.name}${label} with AI, page ${page} of ${total}`
+                                : phase === "layout"
+                                  ? `Reading the layout of ${file.name}${label} (${total} pages, about ${Math.max(10, total * 2)} seconds)`
+                                  : `Opening ${file.name}${label}, page ${page} of ${total}`,
+                            percent: phase === "layout" ? 60 : Math.round((page / total) * 100),
+                        })
+                        await new Promise((resolve) => setTimeout(resolve, 0))
+                    },
+                    readDocumentPage,
+                    readDocumentLayout,
+                )
+                const fileId = `${file.name}:${file.size}`
+                const id = `${fileId}:${Date.now()}`
+                const { papers: currentPapers, keys: currentKeys } = latest.current
+                let nextPapers = currentPapers
+                let nextKeys = currentKeys
+                if (result.kind === "key") {
+                    nextKeys = [...currentKeys, { id, fileId, name: result.name, info: result.info, answers: result.answers, count: result.count, paperId: null }]
+                } else {
+                    nextPapers = [...currentPapers, {
+                        id,
+                        fileId,
+                        name: result.name,
+                        info: result.info,
+                        questions: result.questions.map(forDisplay),
+                        readBy: result.readBy,
+                        profile: result.profile,
+                        // Answers printed on the paper itself, when the AI read one.
+                        answers: Object.fromEntries(
+                            result.questions.filter((q) => q.answer).map((q) => [q.num, q.answer]),
+                        ),
+                        keyName: null,
+                        tags: {},
+                        types: {},
+                        include: {},
+                        saved: {},
+                        duplicates: {},
+                    }]
+                }
+                const { papersOut, keysOut } = matchKeys(nextPapers, nextKeys)
+                latest.current = { papers: papersOut, keys: keysOut }
+                setPapers(papersOut)
+                setKeys(keysOut)
+                if (result.kind !== "key") {
+                    const questions = result.questions
+                    findDuplicates(certificationId, questions.map((q) => q.stem))
+                        .then((found) => {
+                            const bank = {}
+                            questions.forEach((q, index) => {
+                                if (found.duplicates?.[index]) bank[q.num] = found.duplicates[index]
+                            })
+                            updatePaper(id, () => ({ duplicates: bank }))
+                        })
+                        .catch(() => {
+                            // The upload still works; only the question-bank check is missing.
+                            setNotice({ kind: "warn", text: `${result.name}: could not check the question bank for duplicates.` })
+                        })
+                }
+            } catch (error) {
+                setFailures((current) => [...current, { name: file.name, error: error?.message || String(error) }])
+            }
+        }
+        setProgress(null)
+    }
+
+    /** Whether a question passes the search box and the figures filter. */
+    function matches(question) {
+        const needle = term.trim().toLowerCase()
+        return (
+            (filter === "all" || question.figureSrcs.length > 0) &&
+            (!needle ||
+                `q${question.num} ${question.stem} ${question.options.map((o) => o.text).join(" ")}`
+                    .toLowerCase()
+                    .includes(needle))
+        )
+    }
+
+    /**
+     * Tags every paper's questions, paper by paper. A question no lesson fits,
+     * or one already in the bank or earlier in this upload, is dropped:
+     * left unticked, with the reason on its card.
+     */
     async function tagWithAi() {
-        if (!paper) return
+        const targets = latest.current.papers
+        if (!targets.length) return
         setTagging(true)
         setNotice(null)
+        const seen = new Map()
+        let tagged = 0
+        let noLesson = 0
+        let duplicates = 0
+        let fallback = 0
         try {
-            const texts = paper.questions.map(
-                (q) => `${q.stem}\n${q.options.map((o) => `${o.key}) ${o.text || "[picture]"}`).join("\n")}`,
-            )
-            const result = await tagQuestions(certificationId, texts)
-            setLessons(result.lessons ?? [])
-            const tags = {}
-            paper.questions.forEach((question, index) => {
-                const tag = result.tags?.[index]
-                if (tag) tags[question.num] = tag
-            })
-            updatePaper(paper.id, () => ({ tags }))
-            const fallback = Object.values(tags).filter((t) => t.source !== "ai").length
-            setNotice(
-                fallback
-                    ? { kind: "warn", text: `${fallback} question${fallback === 1 ? "" : "s"} could not be tagged by the AI and were matched to a lesson without it. Their difficulty is not set -- check them before saving.` }
-                    : { kind: "ok", text: `All ${paper.questions.length} questions tagged. Check the lessons, then preview and save.` },
-            )
+            for (const [index, target] of targets.entries()) {
+                setNotice({ kind: "info", text: `Tagging ${target.name} (${index + 1} of ${targets.length})…` })
+                const texts = target.questions.map(
+                    (q) => `${q.stem}\n${q.options.map((o) => `${o.key}) ${o.text || "[picture]"}`).join("\n")}`,
+                )
+                const result = await tagQuestions(certificationId, texts, target.questions.map((q) => q.stem))
+                setLessons(result.lessons ?? [])
+                const tags = {}
+                const include = {}
+                target.questions.forEach((question, position) => {
+                    const tag = { ...(result.tags?.[position] ?? {}) }
+                    // Across papers too: the same question in two uploads.
+                    const print = fingerprint(question.stem)
+                    if (!tag.duplicate && print.length >= 40 && seen.has(print)) {
+                        tag.duplicate = "upload"
+                        tag.duplicateOf = seen.get(print)
+                    }
+                    if (print.length >= 40 && !seen.has(print)) seen.set(print, `${target.name} Q${question.num}`)
+                    if (tag.noLesson) noLesson += 1
+                    else if (tag.duplicate) duplicates += 1
+                    if (tag.source && tag.source !== "ai") fallback += 1
+                    tags[question.num] = tag
+                    include[question.num] = !dropReason(tag)
+                    tagged += 1
+                })
+                updatePaper(target.id, () => ({ tags, include }))
+            }
+            const parts = [`${tagged} questions tagged.`]
+            if (noLesson) parts.push(`${noLesson} dropped: no lesson in this certification fits them.`)
+            if (duplicates) parts.push(`${duplicates} dropped as duplicates.`)
+            if (fallback) parts.push(`${fallback} could not be tagged by the AI and were matched without it -- set their difficulty.`)
+            setNotice({ kind: fallback ? "warn" : "ok", text: parts.join(" ") })
         } catch (error) {
             setNotice({ kind: "error", text: error?.response?.data?.message || error?.message || "Tagging failed." })
         } finally {
@@ -513,26 +873,58 @@ export default function CertificationPdfImportPage() {
         }
     }
 
-    const toSave = paper
-        ? paper.questions.filter((q) => paper.include[q.num] !== false && !paper.saved[q.num] && paper.tags[q.num])
-        : []
-    const ready = paper ? toSave.filter((q) => !problemWith(q, paper)) : []
-    const blocked = paper ? toSave.filter((q) => problemWith(q, paper)) : []
+    /**
+     * {"<paper id>-<num>": why it is a duplicate}. The question bank's answer
+     * comes from the server; repeats across the uploaded papers are found
+     * here, first copy kept.
+     */
+    const duplicateReasons = {}
+    {
+        const firstSeen = new Map()
+        for (const item of papers) {
+            for (const question of item.questions) {
+                const id = `${item.id}-${question.num}`
+                const server = item.duplicates?.[question.num]
+                if (server === "bank") duplicateReasons[id] = "it is already in this certification's question bank"
+                else if (server === "paper") duplicateReasons[id] = "it repeats an earlier question in the same paper"
+                const print = fingerprint(question.stem)
+                if (print.length < 40) continue
+                const earlier = firstSeen.get(print)
+                if (earlier && !duplicateReasons[id]) {
+                    duplicateReasons[id] = `it repeats ${earlier} in this upload`
+                } else if (!earlier) {
+                    firstSeen.set(print, `${item.name.replace(/\.pdf$/i, "")} Q${question.num}`)
+                }
+            }
+        }
+    }
+
+    function deleteQuestions(paperId, nums) {
+        const gone = new Set(nums.map(String))
+        updatePaper(paperId, (p) => ({ questions: p.questions.filter((q) => !gone.has(String(q.num))) }))
+    }
+
+    // What Save would write, across every paper.
+    const pending = papers.flatMap((p) =>
+        p.questions
+            .filter((q) => p.include[q.num] !== false && !p.saved[q.num] && p.tags[q.num])
+            .map((question) => ({ question, paper: p })),
+    )
+    const ready = pending.filter(({ question, paper: p }) => !problemWith(question, p))
+    const blocked = pending.filter(({ question, paper: p }) => problemWith(question, p))
     const lessonName = (id) => lessons.find((l) => l.lessonId === id)?.name ?? `Lesson ${id}`
 
     async function saveReady() {
-        if (!paper) return
-        const target = paper
         const queue = [...ready]
         const errors = []
         let done = 0
         setSaving({ done, total: queue.length, errors })
-        for (const question of queue) {
+        for (const { question, paper: target } of queue) {
             try {
                 await saveOne(question, target, certificationId)
                 updatePaper(target.id, (p) => ({ saved: { ...p.saved, [question.num]: true } }))
             } catch (error) {
-                errors.push(`Q${question.num}: ${error?.response?.data?.message || error?.message || "failed"}`)
+                errors.push(`${target.name} Q${question.num}: ${error?.response?.data?.message || error?.message || "failed"}`)
             }
             done += 1
             setSaving({ done, total: queue.length, errors: [...errors] })
@@ -540,26 +932,13 @@ export default function CertificationPdfImportPage() {
         setSaving({ done, total: queue.length, errors, finished: true })
     }
 
-    const looseKeys = keys.filter((key) => !key.paperId)
-    const answeredCount = paper ? Object.keys(paper.answers).length : 0
-    const taggedCount = paper ? Object.keys(paper.tags).length : 0
+    // A key already feeding a paper is not "unmatched", whichever copy it is.
+    const looseKeys = keys.filter((key) => !key.paperId && !papers.some((p) => p.keyName === key.name))
+    const totalQuestions = papers.reduce((sum, p) => sum + p.questions.length, 0)
+    const taggedCount = papers.reduce((sum, p) => sum + Object.keys(p.tags).length, 0)
 
     return (
-        <div
-            className="flex h-dvh w-full flex-col overflow-hidden bg-muted/20"
-            onDragOver={(event) => {
-                event.preventDefault()
-                setDragging(true)
-            }}
-            onDragLeave={(event) => {
-                if (event.currentTarget === event.target) setDragging(false)
-            }}
-            onDrop={(event) => {
-                event.preventDefault()
-                setDragging(false)
-                if (event.dataTransfer?.files?.length && !busy) addFiles(event.dataTransfer.files)
-            }}
-        >
+        <div className="flex h-dvh w-full flex-col overflow-hidden bg-muted/20">
             <header className="flex shrink-0 items-center gap-3 border-b border-border bg-background px-4 py-2.5">
                 <Button asChild variant="ghost" size="icon-sm" aria-label="Back to question bank">
                     <Link to={`/admin/certification/${certificationId}/question-bank`}>
@@ -570,72 +949,27 @@ export default function CertificationPdfImportPage() {
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Import from PDF</p>
                     <p className="truncate text-sm font-semibold">{certification?.title ?? "Question bank"}</p>
                 </div>
-                <Button type="button" size="sm" disabled={busy} onClick={() => inputRef.current?.click()}>
-                    <UploadIcon className="mr-2 h-4 w-4" /> Add PDFs
-                </Button>
-                <input
-                    ref={inputRef}
-                    type="file"
-                    accept="application/pdf,.pdf"
-                    multiple
-                    hidden
-                    onChange={(event) => {
-                        if (event.target.files?.length) addFiles(event.target.files)
-                        event.target.value = ""
-                    }}
-                />
+                {papers.length ? (
+                    <Button type="button" size="sm" disabled={busy} onClick={() => setUploadOpen(true)}>
+                        <UploadIcon className="mr-2 h-4 w-4" /> Add PDFs
+                    </Button>
+                ) : null}
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
                 {!papers.length ? (
-                    <section className="mx-auto mt-[8vh] max-w-3xl px-5">
-                        <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => !busy && inputRef.current?.click()}
-                            onKeyDown={(event) => {
-                                if ((event.key === "Enter" || event.key === " ") && !busy) {
-                                    event.preventDefault()
-                                    inputRef.current?.click()
-                                }
-                            }}
-                            className={cn(
-                                "cursor-pointer rounded-3xl border-2 border-dashed border-primary/50 bg-background px-7 py-12 text-center transition",
-                                dragging && "bg-primary/5",
-                            )}
-                        >
-                            <div className="inline-flex gap-2.5" aria-hidden="true">
-                                {KEYS.map((key) => (
-                                    <span
-                                        key={key}
-                                        className={cn(
-                                            "grid size-7 place-items-center rounded-full border-2 border-primary text-xs font-bold text-primary",
-                                            key === "c" && "border-foreground bg-foreground text-transparent",
-                                        )}
-                                    >
-                                        {key}
-                                    </span>
-                                ))}
-                            </div>
-                            <h1 className="mt-5 font-serif text-3xl font-semibold">Drop exam papers and answer keys here</h1>
-                            <p className="mx-auto mt-2 max-w-[48ch] text-muted-foreground">
-                                Add question papers and their answer keys together, as many as you like. Keys are
-                                matched to papers by exam date. Every question is pulled out with its answer choices,
-                                and diagrams, tables and circuit figures are captured as images.
-                            </p>
-                            {busy ? (
-                                <div className="mx-auto mt-6 max-w-xl" aria-live="polite">
-                                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                                        <div className="h-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} />
-                                    </div>
-                                    <p className="mt-2 text-sm text-muted-foreground">{progress.label}</p>
-                                </div>
-                            ) : null}
+                    <section className="mx-auto mt-[6vh] max-w-3xl px-5">
+                        <div className="rounded-2xl border bg-background p-5 shadow-sm">
+                            <PdfUploadStep onNext={addFiles} disabled={busy} nextLabel="Next: read the files" />
                         </div>
-                        <p className="mt-4 text-center text-sm text-muted-foreground">
-                            Works with multiple-choice papers numbered Q1, Q2 … with choices a) to d). Files are read in
-                            this browser; only the questions you save are uploaded.
-                        </p>
+                        {busy ? (
+                            <div className="mt-4 rounded-xl border bg-background p-3" aria-live="polite">
+                                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                                    <div className="h-full bg-primary transition-[width]" style={{ width: `${progress.percent}%` }} />
+                                </div>
+                                <p className="mt-2 text-sm text-muted-foreground">{progress.label}</p>
+                            </div>
+                        ) : null}
                         {failures.map((failure, index) => (
                             <p key={index} className="mt-2 flex items-start gap-2 text-sm text-destructive">
                                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> Could not read {failure.name}: {failure.error}.
@@ -643,82 +977,98 @@ export default function CertificationPdfImportPage() {
                         ))}
                     </section>
                 ) : (
-                    <div className="mx-auto grid max-w-[1400px] gap-6 px-4 py-5 lg:grid-cols-[250px_minmax(0,1fr)]">
+                    <div className="grid w-full gap-6 px-4 py-5 lg:px-6 lg:grid-cols-[250px_minmax(0,1fr)]">
                         <aside className="hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto rounded-2xl border bg-background p-3 lg:sticky lg:top-0 lg:block">
                             <h2 className="text-sm font-bold text-primary">Answer sheet</h2>
-                            <p className="mb-2 text-xs text-muted-foreground">
-                                {paper?.keyName ? "Green marks the key" : "Click a choice to mark the answer"}
-                            </p>
-                            {paper?.questions.map((question) => {
-                                const answer = paper.answers[question.num]
-                                return (
-                                    <button
-                                        key={question.num}
-                                        type="button"
-                                        onClick={() => {
-                                            setFilter("all")
-                                            setTerm("")
-                                            requestAnimationFrame(() =>
-                                                cardRefs.current[question.num]?.scrollIntoView({ behavior: "smooth", block: "start" }),
-                                            )
-                                        }}
-                                        className="grid w-full grid-cols-[34px_repeat(4,22px)] items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-muted"
-                                    >
-                                        <b className="pr-1 text-right text-xs text-primary">{question.num}</b>
-                                        {KEYS.map((key) => (
-                                            <span
-                                                key={key}
-                                                className={cn(
-                                                    "grid size-5 place-items-center rounded-full border text-[10px]",
-                                                    answer === key ? "border-emerald-600 bg-emerald-600 text-white" : "border-primary/50 text-primary",
-                                                )}
+                            <p className="mb-2 text-xs text-muted-foreground">Green marks the answer. Click a number to jump to it.</p>
+                            {papers.map((item) => (
+                                <div key={item.id} className="mb-3">
+                                    {papers.length > 1 ? (
+                                        <p className="sticky top-0 mb-1 truncate bg-background py-1 text-xs font-semibold">{item.name.replace(/\.pdf$/i, "")}</p>
+                                    ) : null}
+                                    {item.questions.map((question) => {
+                                        const answer = item.answers[question.num]
+                                        return (
+                                            <button
+                                                key={question.num}
+                                                type="button"
+                                                onClick={() => {
+                                                    setFilter("all")
+                                                    setTerm("")
+                                                    requestAnimationFrame(() =>
+                                                        cardRefs.current[`${item.id}-${question.num}`]?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                                                    )
+                                                }}
+                                                className="flex w-full flex-wrap items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-muted"
                                             >
-                                                {key}
-                                            </span>
-                                        ))}
-                                    </button>
-                                )
-                            })}
+                                                <b className="w-12 shrink-0 pr-1 text-right text-xs text-primary">{question.num}</b>
+                                                {(question.options.length > 4 ? question.options.map((o) => o.key) : KEYS).map((key) => (
+                                                    <span
+                                                        key={key}
+                                                        className={cn(
+                                                            "grid size-5 place-items-center rounded-full border text-[10px]",
+                                                            answer === key ? "border-emerald-600 bg-emerald-600 text-white" : "border-primary/50 text-primary",
+                                                        )}
+                                                    >
+                                                        {key}
+                                                    </span>
+                                                ))}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            ))}
                         </aside>
 
                         <main className="min-w-0">
-                            <div className="mb-3 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Papers">
-                                {papers.map((item, index) => (
-                                    <div
-                                        key={item.id}
-                                        role="tab"
-                                        aria-selected={index === active}
-                                        className={cn(
-                                            "flex max-w-[300px] flex-none items-center rounded-xl border bg-background",
-                                            index === active && "border-primary shadow-[inset_0_-3px_0] shadow-primary",
-                                        )}
-                                    >
-                                        <button type="button" className="min-w-0 px-3 py-2 text-left" onClick={() => setActive(index)}>
-                                            <b className="block truncate text-sm">{item.name.replace(/\.pdf$/i, "")}</b>
-                                            <small className="text-xs text-muted-foreground">
-                                                {[describeExam(item.info), `${item.questions.length} questions`, item.keyName && "key added"].filter(Boolean).join(", ")}
-                                            </small>
-                                        </button>
+                            {/* Everything that acts on all papers at once. */}
+                            <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border bg-background p-3">
+                                <p className="flex-1 text-sm text-muted-foreground">
+                                    <strong className="text-foreground">
+                                        {totalQuestions} questions{papers.length > 1 ? ` in ${papers.length} papers` : ""}
+                                    </strong>
+                                    {taggedCount ? `, ${taggedCount} tagged` : ""}.
+                                </p>
+                                <Button type="button" size="sm" variant={taggedCount ? "outline" : "default"} disabled={tagging || busy} onClick={tagWithAi}>
+                                    {tagging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                    {tagging ? "Tagging…" : taggedCount ? "Tag all again with AI" : `Tag all ${totalQuestions} with AI`}
+                                </Button>
+                                <Button type="button" size="sm" disabled={!taggedCount || tagging} onClick={() => { setSaving(null); setPreviewOpen(true) }}>
+                                    <Eye className="mr-2 h-4 w-4" /> Preview & save
+                                </Button>
+                            </div>
+
+                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                                <div className="relative min-w-[220px] flex-1">
+                                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="Search question text" className="rounded-full pl-9" />
+                                </div>
+                                <div className="inline-flex overflow-hidden rounded-full border bg-background" role="group" aria-label="Filter">
+                                    {[["all", "All"], ["fig", "With figures"]].map(([value, label]) => (
                                         <button
+                                            key={value}
                                             type="button"
-                                            aria-label={`Remove ${item.name}`}
-                                            className="mr-1 grid size-7 place-items-center rounded-full text-muted-foreground hover:bg-muted"
-                                            onClick={() => {
-                                                setPapers((current) => current.filter((p) => p.id !== item.id))
-                                                setKeys((current) => current.map((k) => (k.paperId === item.id ? { ...k, paperId: null } : k)))
-                                                setActive(0)
-                                            }}
+                                            aria-pressed={filter === value}
+                                            onClick={() => setFilter(value)}
+                                            className={cn("px-3.5 py-1.5 text-sm", filter === value && "bg-foreground text-background")}
                                         >
-                                            <X className="h-3.5 w-3.5" />
+                                            {label}
                                         </button>
-                                    </div>
-                                ))}
-                                {failures.map((failure, index) => (
-                                    <div key={`f${index}`} title={failure.error} className="flex max-w-[300px] flex-none flex-col rounded-xl border border-dashed bg-background px-3 py-2">
-                                        <b className="truncate text-sm">{failure.name.replace(/\.pdf$/i, "")}</b>
-                                        <small className="text-xs text-destructive">Could not read</small>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="rounded-full"
+                                    onClick={async () => {
+                                        await navigator.clipboard.writeText(papers.map((p) => `===== ${p.name} =====\n\n${asText(p)}`).join("\n\n\n"))
+                                        setCopied(true)
+                                        setTimeout(() => setCopied(false), 1600)
+                                    }}
+                                >
+                                    <Copy className="mr-2 h-4 w-4" /> {copied ? "Copied" : "Copy as text"}
+                                </Button>
                             </div>
 
                             {busy ? (
@@ -729,6 +1079,57 @@ export default function CertificationPdfImportPage() {
                                     {progress.label}
                                 </div>
                             ) : null}
+
+                            {notice ? (
+                                <p
+                                    className={cn(
+                                        "mb-3 flex items-start gap-2 rounded-xl border p-3 text-sm",
+                                        notice.kind === "ok" && "border-emerald-300 bg-emerald-50 text-emerald-800",
+                                        notice.kind === "warn" && "border-amber-300 bg-amber-50 text-amber-800",
+                                        notice.kind === "error" && "border-destructive/40 bg-destructive/5 text-destructive",
+                                        notice.kind === "info" && "bg-background text-muted-foreground",
+                                    )}
+                                >
+                                    {notice.kind === "ok" ? (
+                                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                                    ) : notice.kind === "info" ? (
+                                        <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin" />
+                                    ) : (
+                                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                                    )}
+                                    {notice.text}
+                                </p>
+                            ) : null}
+
+                            {/* Every paper needs its answers before anything can be saved:
+                                what is missing is said here, not discovered in the preview. */}
+                            {papers.some((p) => unanswered(p).length) ? (
+                                <div className="mb-3 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                                    <p className="mb-1 flex items-center gap-2 font-semibold">
+                                        <AlertTriangle className="h-4 w-4 shrink-0" /> Answers are missing
+                                    </p>
+                                    <ul className="list-disc space-y-0.5 pl-6">
+                                        {papers.map((p) => {
+                                            const missing = unanswered(p)
+                                            if (!missing.length) return null
+                                            return (
+                                                <li key={p.id}>
+                                                    <b>{p.name.replace(/\.pdf$/i, "")}</b>:{" "}
+                                                    {missing.length === p.questions.length
+                                                        ? `no answer key -- none of its ${p.questions.length} questions has an answer. Add its answer key PDF, or paste the key.`
+                                                        : `${missing.length} of ${p.questions.length} questions have no answer (${listNumbers(missing)}). Mark them, or add the full key.`}
+                                                </li>
+                                            )
+                                        })}
+                                    </ul>
+                                </div>
+                            ) : null}
+
+                            {failures.map((failure, index) => (
+                                <p key={`f${index}`} className="mb-2 flex items-start gap-2 rounded-xl border border-dashed bg-background p-3 text-sm text-destructive">
+                                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> Could not read {failure.name}: {failure.error}.
+                                </p>
+                            ))}
 
                             {looseKeys.map((key) => (
                                 <div key={key.id} className="mb-3 rounded-xl border border-primary/50 bg-background p-3 text-sm">
@@ -751,119 +1152,217 @@ export default function CertificationPdfImportPage() {
                                 </div>
                             ))}
 
-                            {paper ? (
-                                <>
-                                    <div className="mb-3 flex flex-wrap items-center gap-2">
-                                        <div className="relative min-w-[220px] flex-1">
-                                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                            <Input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="Search question text" className="rounded-full pl-9" />
-                                        </div>
-                                        <div className="inline-flex overflow-hidden rounded-full border bg-background" role="group" aria-label="Filter">
-                                            {[["all", "All"], ["fig", "With figures"]].map(([value, label]) => (
-                                                <button
-                                                    key={value}
-                                                    type="button"
-                                                    aria-pressed={filter === value}
-                                                    onClick={() => setFilter(value)}
-                                                    className={cn("px-3.5 py-1.5 text-sm", filter === value && "bg-foreground text-background")}
-                                                >
-                                                    {label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                        <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={() => setShowKeyBox((open) => !open)}>
-                                            <KeyRound className="mr-2 h-4 w-4" /> Add answer key
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className="rounded-full"
-                                            onClick={async () => {
-                                                await navigator.clipboard.writeText(asText(paper))
-                                                setCopied(true)
-                                                setTimeout(() => setCopied(false), 1600)
-                                            }}
-                                        >
-                                            <Copy className="mr-2 h-4 w-4" /> {copied ? "Copied" : "Copy as text"}
-                                        </Button>
-                                    </div>
+                            <input
+                                ref={keyInputRef}
+                                type="file"
+                                accept="application/pdf,.pdf"
+                                hidden
+                                onChange={(event) => {
+                                    const file = event.target.files?.[0]
+                                    const target = latest.current.papers.find((p) => p.id === keyTargetRef.current)
+                                    if (file && target) addKeyForPaper(file, target)
+                                    event.target.value = ""
+                                }}
+                            />
 
-                                    {showKeyBox ? (
-                                        <div className="mb-3 rounded-xl border bg-background p-3">
-                                            <p className="mb-2 text-sm text-muted-foreground">
-                                                Paste the answer key, or add the answer key PDF. Formats like <em>1 c, 2 d, 3 a</em> or one letter per question in order (<em>cdab…</em>) both work.
-                                            </p>
-                                            <Textarea value={keyText} onChange={(event) => setKeyText(event.target.value)} className="min-h-20" />
-                                            <div className="mt-2 flex flex-wrap gap-2">
+                            {/* One section per uploaded paper. */}
+                            {papers.map((item) => {
+                                const shown = item.questions.filter((question) => matches(question))
+                                const marked = Object.keys(item.answers).length
+                                const keyBoxOpen = keyBoxFor === item.id
+                                return (
+                                    <section key={item.id} className="mb-8" aria-label={item.name}>
+                                        <div className="sticky top-0 z-10 mb-3 rounded-xl border-2 border-primary/30 bg-background p-3 shadow-sm">
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <div className="min-w-0 flex-1">
+                                                    <h2 className="truncate text-base font-bold">{item.name.replace(/\.pdf$/i, "")}</h2>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {[
+                                                            describeExam(item.info),
+                                                            `${item.questions.length} questions`,
+                                                            `${item.questions.filter((q) => q.figureSrcs.length).length} with figures`,
+                                                            item.readBy === "ai" && "read by AI",
+                                                            item.readBy === "layout" && `layout: ${item.profile ?? "detected"}`,
+                                                            `${marked} answers marked${item.keyName ? ` from ${item.keyName}` : ""}`,
+                                                        ].filter(Boolean).join(" · ")}
+                                                    </p>
+                                                </div>
+                                                <Select
+                                                    value=""
+                                                    onValueChange={(value) =>
+                                                        updatePaper(item.id, (p) => ({
+                                                            types: Object.fromEntries(p.questions.map((q) => [q.num, value])),
+                                                        }))
+                                                    }
+                                                >
+                                                    <SelectTrigger size="sm" className="w-auto" aria-label="Save all questions in this paper as"><SelectValue placeholder="Save all as…" /></SelectTrigger>
+                                                    <SelectContent>
+                                                        {SAVE_TYPES.map((type) => (
+                                                            <SelectItem key={type.id} value={type.id}>{type.label}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <Button type="button" size="sm" variant={keyBoxOpen ? "default" : "outline"} onClick={() => setKeyBoxFor(keyBoxOpen ? null : item.id)}>
+                                                    <KeyRound className="mr-2 h-4 w-4" /> {item.keyName ? "Change answer key" : "Add answer key"}
+                                                </Button>
                                                 <Button
                                                     type="button"
-                                                    size="sm"
-                                                    onClick={() => updatePaper(paper.id, (p) => ({ answers: parseKeyText(keyText, p.questions), keyName: "pasted key" }))}
+                                                    size="icon-sm"
+                                                    variant="ghost"
+                                                    aria-label={`Remove ${item.name}`}
+                                                    onClick={() => {
+                                                        setPapers((current) => current.filter((p) => p.id !== item.id))
+                                                        setKeys((current) => current.map((k) => (k.paperId === item.id ? { ...k, paperId: null } : k)))
+                                                    }}
                                                 >
-                                                    Apply key
-                                                </Button>
-                                                <Button type="button" size="sm" variant="outline" onClick={() => updatePaper(paper.id, () => ({ answers: {}, keyName: null }))}>
-                                                    Clear answers
+                                                    <X className="h-4 w-4" />
                                                 </Button>
                                             </div>
+
+                                            {(() => {
+                                                const duplicates = item.questions.filter((q) => duplicateReasons[`${item.id}-${q.num}`])
+                                                if (!duplicates.length) return null
+                                                return (
+                                                    <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-sm text-amber-800">
+                                                        <AlertTriangle className="h-4 w-4 shrink-0" />
+                                                        <span className="flex-1">
+                                                            {duplicates.length} duplicate{duplicates.length === 1 ? "" : "s"}: {listNumbers(duplicates)}.
+                                                        </span>
+                                                        <Button
+                                                            type="button"
+                                                            size="xs"
+                                                            variant="outline"
+                                                            onClick={() => deleteQuestions(item.id, duplicates.map((q) => q.num))}
+                                                        >
+                                                            <Trash2 className="h-3 w-3" /> Delete all duplicates
+                                                        </Button>
+                                                    </div>
+                                                )
+                                            })()}
+                                            {(() => {
+                                                const missing = unanswered(item)
+                                                if (!missing.length) return null
+                                                const none = missing.length === item.questions.length
+                                                return (
+                                                    <div
+                                                        className={cn(
+                                                            "mt-3 flex flex-wrap items-center gap-2 rounded-lg border p-2 text-sm",
+                                                            none
+                                                                ? "border-destructive/40 bg-destructive/5 text-destructive"
+                                                                : "border-amber-300 bg-amber-50 text-amber-800",
+                                                        )}
+                                                    >
+                                                        <AlertTriangle className="h-4 w-4 shrink-0" />
+                                                        <span className="flex-1">
+                                                            {none
+                                                                ? `No answer key: none of the ${item.questions.length} questions has an answer.`
+                                                                : `Missing answers: ${listNumbers(missing)} (${missing.length} of ${item.questions.length}).`}
+                                                        </span>
+                                                        <Button
+                                                            type="button"
+                                                            size="xs"
+                                                            variant="outline"
+                                                            disabled={busy}
+                                                            onClick={() => {
+                                                                keyTargetRef.current = item.id
+                                                                keyInputRef.current?.click()
+                                                            }}
+                                                        >
+                                                            <UploadIcon className="h-3 w-3" /> Upload key PDF
+                                                        </Button>
+                                                    </div>
+                                                )
+                                            })()}
+                                            {keyBoxOpen ? (
+                                                <div className="mt-3 border-t pt-3">
+                                                    <p className="mb-2 text-sm text-muted-foreground">
+                                                        Upload this paper&apos;s answer key PDF, or paste the key. Pasted formats like <em>1 c, 2 d, 3 a</em> or one letter per question in order (<em>cdab…</em>) both work.
+                                                    </p>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        className="mb-2"
+                                                        disabled={busy}
+                                                        onClick={() => {
+                                                            keyTargetRef.current = item.id
+                                                            keyInputRef.current?.click()
+                                                        }}
+                                                    >
+                                                        <UploadIcon className="mr-2 h-4 w-4" /> Upload key PDF for this paper
+                                                    </Button>
+                                                    <Textarea value={keyText} onChange={(event) => setKeyText(event.target.value)} className="min-h-20" />
+                                                    <div className="mt-2 flex flex-wrap gap-2">
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            onClick={() => updatePaper(item.id, (p) => ({ answers: parseKeyText(keyText, p.questions), keyName: "pasted key" }))}
+                                                        >
+                                                            Apply pasted key
+                                                        </Button>
+                                                        <Button type="button" size="sm" variant="outline" onClick={() => updatePaper(item.id, () => ({ answers: {}, keyName: null }))}>
+                                                            Clear answers
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ) : null}
                                         </div>
-                                    ) : null}
 
-                                    <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border bg-background p-3">
-                                        <p className="flex-1 text-sm text-muted-foreground">
-                                            <strong className="text-foreground">{paper.questions.length} questions</strong> from {paper.name},{" "}
-                                            {paper.questions.filter((q) => q.figureSrcs.length).length} with figures. {answeredCount} answers marked
-                                            {paper.keyName ? ` (from ${paper.keyName})` : ""}. {taggedCount ? `${taggedCount} tagged.` : ""}
-                                        </p>
-                                        <Button type="button" size="sm" variant={taggedCount ? "outline" : "default"} disabled={tagging || busy} onClick={tagWithAi}>
-                                            {tagging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                                            {tagging ? "Tagging…" : taggedCount ? "Tag again with AI" : "Tag lessons & difficulty with AI"}
-                                        </Button>
-                                        <Button type="button" size="sm" disabled={!taggedCount || tagging} onClick={() => { setSaving(null); setPreviewOpen(true) }}>
-                                            <Eye className="mr-2 h-4 w-4" /> Preview & save
-                                        </Button>
-                                    </div>
-
-                                    {notice ? (
-                                        <p
-                                            className={cn(
-                                                "mb-3 flex items-start gap-2 rounded-xl border p-3 text-sm",
-                                                notice.kind === "ok" && "border-emerald-300 bg-emerald-50 text-emerald-800",
-                                                notice.kind === "warn" && "border-amber-300 bg-amber-50 text-amber-800",
-                                                notice.kind === "error" && "border-destructive/40 bg-destructive/5 text-destructive",
+                                        <div className="space-y-4">
+                                            {shown.length ? (
+                                                shown.map((question) => (
+                                                    <QuestionCard
+                                                        key={`${item.id}-${question.num}`}
+                                                        cardRef={(node) => { cardRefs.current[`${item.id}-${question.num}`] = node }}
+                                                        question={question}
+                                                        paper={item}
+                                                        lessons={lessons}
+                                                        onPick={(num, key) => updatePaper(item.id, (p) => ({ answers: { ...p.answers, [num]: key } }))}
+                                                        onTag={(num, change) => updatePaper(item.id, (p) => ({ tags: { ...p.tags, [num]: { ...p.tags[num], ...change } } }))}
+                                                        onType={(num, value) => updatePaper(item.id, (p) => ({ types: { ...p.types, [num]: value } }))}
+                                                        onInclude={(num, value) => updatePaper(item.id, (p) => ({ include: { ...p.include, [num]: value } }))}
+                                                        onFigures={(num, figureSrcs) => updateQuestion(item.id, num, () => ({ figureSrcs }))}
+                                                        onOptionImage={(num, key, canvas) =>
+                                                            updateQuestion(item.id, num, (q) => ({
+                                                                options: q.options.map((o) =>
+                                                                    o.key === key ? { ...o, imageSrc: canvas ? srcOf(canvas) : null } : o,
+                                                                ),
+                                                            }))
+                                                        }
+                                                        onImageError={(error) => setNotice({ kind: "error", text: error?.message || "That image could not be used." })}
+                                                        duplicate={duplicateReasons[`${item.id}-${question.num}`]}
+                                                        onDelete={(num) => deleteQuestions(item.id, [num])}
+                                                    />
+                                                ))
+                                            ) : (
+                                                <p className="py-6 text-center text-sm text-muted-foreground">No questions in this paper match. Clear the search or switch the filter to All.</p>
                                             )}
-                                        >
-                                            {notice.kind === "ok" ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
-                                            {notice.text}
-                                        </p>
-                                    ) : null}
-
-                                    <div className="space-y-4">
-                                        {visible.length ? (
-                                            visible.map((question) => (
-                                                <QuestionCard
-                                                    key={`${paper.id}-${question.num}`}
-                                                    cardRef={(node) => { cardRefs.current[question.num] = node }}
-                                                    question={question}
-                                                    paper={paper}
-                                                    lessons={lessons}
-                                                    onPick={(num, key) => updatePaper(paper.id, (p) => ({ answers: { ...p.answers, [num]: key } }))}
-                                                    onTag={(num, change) => updatePaper(paper.id, (p) => ({ tags: { ...p.tags, [num]: { ...p.tags[num], ...change } } }))}
-                                                    onType={(num, value) => updatePaper(paper.id, (p) => ({ types: { ...p.types, [num]: value } }))}
-                                                    onInclude={(num, value) => updatePaper(paper.id, (p) => ({ include: { ...p.include, [num]: value } }))}
-                                                />
-                                            ))
-                                        ) : (
-                                            <p className="py-10 text-center text-muted-foreground">No questions match. Clear the search or switch the filter to All.</p>
-                                        )}
-                                    </div>
-                                </>
-                            ) : null}
+                                        </div>
+                                    </section>
+                                )
+                            })}
                         </main>
                     </div>
                 )}
             </div>
+
+            <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+                <DialogContent className="max-h-[calc(100dvh-3rem)] overflow-y-auto sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Add PDFs</DialogTitle>
+                        <DialogDescription>
+                            More papers or answer keys. They are added as new sections; papers already here stay as they are.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <PdfUploadStep
+                        disabled={busy}
+                        nextLabel="Next: read the files"
+                        onNext={(files) => {
+                            setUploadOpen(false)
+                            addFiles(files)
+                        }}
+                    />
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={previewOpen} onOpenChange={(open) => !(saving && !saving.finished) && setPreviewOpen(open)}>
                 <DialogContent className="max-h-[calc(100dvh-3rem)] overflow-y-auto sm:max-w-3xl">
@@ -877,27 +1376,28 @@ export default function CertificationPdfImportPage() {
 
                     {blocked.length ? (
                         <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                            {blocked.map((q) => (
-                                <p key={q.num}>Q{q.num}: {problemWith(q, paper)}</p>
+                            {blocked.map(({ question, paper: p }) => (
+                                <p key={`${p.id}-${question.num}`}>{p.name.replace(/\.pdf$/i, "")} Q{question.num}: {problemWith(question, p)}</p>
                             ))}
                         </div>
                     ) : null}
 
                     <div className="space-y-3">
-                        {ready.map((question) => {
-                            const tag = paper.tags[question.num]
-                            const type = paper.types[question.num] ?? "MCQ"
-                            const answer = paper.answers[question.num]
+                        {ready.map(({ question, paper: p }) => {
+                            const tag = p.tags[question.num]
+                            const type = p.types[question.num] ?? "MCQ"
+                            const answer = p.answers[question.num]
                             const correct = question.options.find((o) => o.key === answer)
                             return (
-                                <div key={question.num} className="rounded-xl border p-3">
+                                <div key={`${p.id}-${question.num}`} className="rounded-xl border p-3">
                                     <div className="mb-1 flex flex-wrap items-center gap-2">
                                         <b className="text-primary">Q{question.num}</b>
+                                        <span className="text-xs text-muted-foreground">{p.name.replace(/\.pdf$/i, "")}</span>
                                         <Badge variant="secondary">{QUESTION_TYPES.find((t) => t.id === type)?.label}</Badge>
                                         <Badge variant="outline">{lessonName(tag.lessonId)}</Badge>
                                         <Badge variant="outline" className="capitalize">{tag.difficulty}</Badge>
                                     </div>
-                                    <p className="line-clamp-3 whitespace-pre-line text-sm">{questionText(question, paper)}</p>
+                                    <p className="line-clamp-3 whitespace-pre-line text-sm">{questionText(question, p)}</p>
                                     {question.figureSrcs.length ? (
                                         <img src={question.figureSrcs[0]} alt="" className="mt-2 max-h-28 rounded border bg-white" />
                                     ) : null}

@@ -102,6 +102,11 @@ docx2txt
 # PDF figure/diagram/table screenshotting (app/rag/visuals.py) --
 # pypdf/docx2txt above extract text only and have no rendering capability.
 pymupdf>=1.24,<2.0
+# Page layout for the PDF question importer (app/papers/layout_reader.py):
+# reading order, text blocks, and figure/table/formula regions of any exam or
+# reviewer layout, two columns and scans included. MIT licence, runs locally.
+# Its OpenCV needs libgl1/libglib2.0-0/libxcb1, installed in the Dockerfile.
+docling>=2.40,<3.0
 python-dotenv
 requests
 tenacity

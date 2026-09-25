@@ -655,9 +655,73 @@ export function citationFor(info, number) {
     return `(${[when, info.category, `Q${number}`].filter(Boolean).join(", ")})`
 }
 
-function answersFrom(texts, fileName) {
+/**
+ * An afternoon (PM) key: one row per blank -- "1 1 A g" (question 1,
+ * subquestion 1, blank A, answer g), "B h" (next blank), "2 D a" (subquestion
+ * 2), "4 A a" (question 4, no subquestions), "2 a" (subquestion 2 answered
+ * directly). Ids are the ones the page reader gives the paper's blanks:
+ * "1-1-A", "4-A", "3-2".
+ *
+ * A number before a blank is a new question when the blank is A -- blank
+ * letters run on through a question's subquestions and restart only with the
+ * next question -- and a subquestion otherwise. "b/f" (either accepted)
+ * keeps its first letter.
+ */
+function pmAnswersFrom(texts) {
     const all = texts.join("\n")
-    const questionLines = (all.match(/^\s*Q\s?\d{1,3}\s?[.:)]/gm) || []).length
+    if (!/subquestion/i.test(all)) return null
+    const answers = {}
+    let question = null
+    let sub = null
+    for (const row of all.split("\n")) {
+        const tokens = row.trim().split(/\s+/)
+        const numbers = []
+        while (tokens.length && /^\d{1,2}$/.test(tokens[0])) numbers.push(Number(tokens.shift()))
+        const [first, second] = tokens
+        const answerOf = (token) => (token && /^[a-z](\/[a-z])?$/.test(token) ? token[0] : null)
+
+        if (first && /^[A-Z]$/.test(first) && answerOf(second)) {
+            if (numbers.length >= 2) {
+                ;[question, sub] = numbers
+            } else if (numbers.length === 1) {
+                if (first === "A" || question === null) {
+                    question = numbers[0]
+                    sub = null
+                } else {
+                    sub = numbers[0]
+                }
+            }
+            if (question === null) continue
+            answers[sub === null ? `${question}-${first}` : `${question}-${sub}-${first}`] = answerOf(second)
+        } else if (numbers.length && answerOf(first)) {
+            // A subquestion answered directly, with no blank.
+            if (numbers.length >= 2) {
+                ;[question, sub] = numbers
+            } else if (question !== null) {
+                sub = numbers[0]
+            } else {
+                continue
+            }
+            answers[`${question}-${sub}`] = answerOf(first)
+        }
+    }
+    const count = Object.keys(answers).length
+    return count >= 10 ? { answers, count } : null
+}
+
+function answersFrom(texts, fileName) {
+    const pm = pmAnswersFrom(texts)
+    if (pm) return pm
+    const all = texts.join("\n")
+    // What a question paper has and a key file does not: numbered questions
+    // with words after the number (in any style -- "Q1.", "Question 1", "1.")
+    // and lettered choices with words after the letter. A paper that ends in
+    // an answer-key section has a key's number-letter pairs too, so the pairs
+    // alone do not make a key.
+    const questionLines =
+        (all.match(/^\s*(?:Q\s?\d{1,3}\s?[.:)]|(?:Question|Item)\s+\d{1,3}\b|\d{1,3}\s?[.)]\s+[A-Za-z]{3,})/gim) || [])
+            .length +
+        (all.match(/^\s*\(?[a-hA-H][.)]\s+[A-Za-z]{3,}/gm) || []).length / 4
     const answers = {}
     const re = /(?:^|\s)(\d{1,3})\s*[.):-]?\s+\(?([a-dA-D])\)?(?=\s|$)/g
     let match
@@ -678,7 +742,258 @@ function answersFrom(texts, fileName) {
  * `{ kind: "paper", name, info, questions }`. Throws with a readable message
  * when the file is neither.
  */
-export async function readExamPdf(file, onProgress) {
+/**
+ * The figures on a whole page: clusters of non-text ink, grown over the short
+ * label lines that touch them, each spanning the page's text width. What a
+ * page reader is shown and picks from -- it says which question a figure
+ * belongs to, and the crop is taken here, exactly.
+ *
+ * A page with no text layer (a scan) has no text to mask, so every line of
+ * print would count as ink: no candidates are offered for it.
+ */
+function pageFigures(pg) {
+    if (!pg.items.length) return []
+    const x0 = Math.max(0, Math.floor(pg.minX - 16))
+    const x1 = Math.min(pg.W, Math.ceil(pg.maxX + 16))
+    const clusters = []
+    let cluster = null
+    let gap = 0
+    for (let y = 0; y < pg.H; y++) {
+        if (pg.rowInk[y] > 1) {
+            if (!cluster || gap > 44) {
+                cluster = { a: y, b: y, ink: 0 }
+                clusters.push(cluster)
+            }
+            cluster.b = y
+            cluster.ink += pg.rowInk[y]
+            gap = 0
+        } else {
+            gap++
+        }
+    }
+    const figures = []
+    for (const c of clusters) {
+        if (c.ink < 40) continue
+        let a = c.a
+        let b = c.b
+        let changed = true
+        while (changed) {
+            changed = false
+            for (const line of pg.lines) {
+                if (!(line.bottom > a - 22 && line.top < b + 22 && (line.top < a || line.bottom > b))) continue
+                const inside = line.top >= c.a - 4 && line.bottom <= c.b + 4
+                if (!inside && (line.wraps || /[?:]$/.test(line.text) || QUESTION_RE.test(line.text))) continue
+                a = Math.min(a, line.top)
+                b = Math.max(b, line.bottom)
+                changed = true
+            }
+        }
+        a = Math.max(0, a - 10)
+        b = Math.min(pg.H, b + 10)
+        figures.push({ id: `p${pg.num}f${figures.length + 1}`, a, b, x0, x1 })
+    }
+    return figures
+}
+
+/** A page as a JPEG, about 1100px wide, base64 without its data: prefix. */
+function pageJpeg(pg) {
+    const scale = Math.min(1, 1100 / pg.W)
+    const canvas = makeCanvas(pg.W * scale, pg.H * scale)
+    canvas.getContext("2d").drawImage(pg.canvas, 0, 0, canvas.width, canvas.height)
+    return canvas.toDataURL("image/jpeg", 0.82).split(",")[1]
+}
+
+/** Where on the page question `label`'s heading ("Q1.") is printed, if it is. */
+function headingTop(pg, label) {
+    const line = pg.lines.find((l) => {
+        const match = l.text.match(QUESTION_RE)
+        return match && match[1] === String(label)
+    })
+    return line ? line.top : null
+}
+
+/**
+ * Reads a document page by page with the vision page reader (`readPage`, a
+ * call to the backend), for documents the fixed-layout reader does not know.
+ *
+ * Questions split across a page break are joined. Blanks of one passage
+ * question ("1-2-C") share their passage: each carries the pages from the
+ * question's heading to its last blank, as printed, as its figure -- the
+ * passage, its figures and the answer group all read in place.
+ */
+async function readWithAi(pages, readPage, onProgress) {
+    const questions = []
+    const answers = {}
+    const byId = new Map()
+    let previousId = null
+
+    for (const pg of pages) {
+        const figures = pageFigures(pg)
+        const openIds = questions.filter((q) => !q.options.length).slice(-30).map((q) => q.num)
+        // Said before the call, not after: a page with the AI takes seconds
+        // to a minute, and "Opening ... page 1 of 1" read as stuck.
+        if (onProgress) await onProgress(pg.num, pages.length, "ai")
+        const result = await readPage({
+            image: pageJpeg(pg),
+            text: pg.lines.map((line) => line.text).join("\n"),
+            figures: figures.map((f) => ({ id: f.id, top: f.a / pg.H, bottom: f.b / pg.H })),
+            previousId,
+            openIds,
+        })
+        Object.assign(answers, result.answers || {})
+
+        const figureCanvas = (id) => {
+            const figure = figures.find((f) => f.id === id)
+            return figure ? crop(pg.canvas, figure.x0, figure.a, figure.x1 - figure.x0, figure.b - figure.a) : null
+        }
+        for (const item of result.questions || []) {
+            const options = item.options.map((option) => ({
+                key: option.key,
+                text: option.text,
+                image: option.figureId ? figureCanvas(option.figureId) : null,
+                fromTable: false,
+            }))
+            const own = item.figureIds.map(figureCanvas).filter(Boolean)
+            // Joined by id, not only across one page break: a passage's
+            // blanks are often printed a page before their answer group.
+            const earlier = byId.get(item.id)
+            if (earlier && (item.continuesFromPreviousPage || !earlier.options.length)) {
+                if (item.stem && !earlier.stem.includes(item.stem)) {
+                    earlier.stem = [earlier.stem, item.stem].filter(Boolean).join("\n")
+                }
+                if (!earlier.options.length && options.length) {
+                    earlier.options = options
+                    earlier.visualOptions = options.some((o) => !o.text)
+                }
+                earlier.figures.push(...own)
+                if (!earlier.pages.includes(pg.num)) earlier.pages.push(pg.num)
+                earlier.unclear = (earlier.unclear || item.unclear) && !earlier.options.length
+                if (item.answer) earlier.answer = item.answer
+                continue
+            }
+            const entry = {
+                num: item.id,
+                parent: item.id.includes("-") ? item.id.split("-")[0] : null,
+                stem: item.stem,
+                options,
+                figures: own,
+                snaps: [],
+                pages: [pg.num],
+                answer: item.answer,
+                unclear: item.unclear || (!pg.items.length && own.length === 0),
+                visualOptions: options.some((o) => !o.text),
+                aiRead: true,
+            }
+            byId.set(item.id, entry)
+            questions.push(entry)
+        }
+        if (questions.length) previousId = questions[questions.length - 1].num
+        if (onProgress) await onProgress(pg.num, pages.length, "ai")
+    }
+
+    // Each blank's passage: from its question's heading to its last blank.
+    const byParent = new Map()
+    for (const question of questions) {
+        if (!question.parent) continue
+        if (!byParent.has(question.parent)) byParent.set(question.parent, [])
+        byParent.get(question.parent).push(question)
+    }
+    for (const [parent, blanks] of byParent) {
+        const lastPage = Math.max(...blanks.flatMap((q) => q.pages))
+        let firstPage = Math.min(...blanks.flatMap((q) => q.pages))
+        let top = 0
+        for (let n = firstPage; n >= Math.max(1, firstPage - 4); n--) {
+            const found = headingTop(pages[n - 1], parent)
+            if (found !== null) {
+                firstPage = n
+                top = Math.max(0, found - 12)
+                break
+            }
+        }
+        const context = []
+        for (let n = firstPage; n <= lastPage; n++) {
+            const pg = pages[n - 1]
+            const x0 = Math.max(0, Math.floor(pg.minX - 16))
+            const x1 = Math.min(pg.W, Math.ceil(pg.maxX + 16))
+            const y0 = n === firstPage ? top : 0
+            context.push(crop(pg.canvas, x0, y0, x1 - x0, pg.H * 0.95 - y0))
+        }
+        for (const blank of blanks) {
+            blank.figures = context
+            blank.snaps = context
+            blank.contextPages = [firstPage, lastPage]
+        }
+    }
+    for (const question of questions) {
+        // A plain question's "original" is its page.
+        if (!question.snaps.length) question.snaps = question.pages.map((n) => pages[n - 1].canvas)
+        if (!question.answer && answers[question.num]) question.answer = answers[question.num]
+    }
+    return { questions, answers }
+}
+
+/**
+ * The layout reader's questions with their figures cropped from this
+ * browser's own page render -- pdf.js 3.11 draws the papers' fax-encoded
+ * labels, which a server-side crop would not guarantee.
+ */
+function fromLayout(layout, pages) {
+    const cropBox = (ref, pad = 6) => {
+        const pg = pages[ref.page - 1]
+        if (!pg) return null
+        const [left, top, right, bottom] = ref.box
+        const x0 = Math.max(0, Math.floor(left * pg.W) - pad)
+        const y0 = Math.max(0, Math.floor(top * pg.H) - pad)
+        const x1 = Math.min(pg.W, Math.ceil(right * pg.W) + pad)
+        const y1 = Math.min(pg.H, Math.ceil(bottom * pg.H) + pad)
+        return x1 - x0 < 4 || y1 - y0 < 4 ? null : crop(pg.canvas, x0, y0, x1 - x0, y1 - y0)
+    }
+    const region = (area) => {
+        const pg = pages[area.page - 1]
+        if (!pg) return null
+        const x0 = Math.max(0, Math.floor(pg.minX - 16))
+        const x1 = Math.min(pg.W, Math.ceil(pg.maxX + 16))
+        const y0 = Math.max(0, Math.floor(area.top * pg.H) - 10)
+        const y1 = Math.min(pg.H, Math.ceil(area.bottom * pg.H) + 10)
+        return y1 - y0 < 4 ? null : crop(pg.canvas, x0, y0, x1 - x0, y1 - y0)
+    }
+    return (layout.questions || []).map((question) => {
+        const options = question.options.map((option) => ({
+            key: option.key,
+            text: option.text,
+            image: option.figure ? cropBox(option.figure) : null,
+            fromTable: false,
+        }))
+        return {
+            num: question.num,
+            stem: question.stem,
+            options,
+            figures: question.figures.map((ref) => cropBox(ref)).filter(Boolean),
+            snaps: (question.regions || []).map(region).filter(Boolean),
+            pages: question.pages,
+            answer: question.answer,
+            unclear: question.issues.length > 0,
+            issues: question.issues,
+            visualOptions: options.some((o) => !o.text),
+        }
+    })
+}
+
+/**
+ * Reads one PDF: an answer key or a question paper, whichever it is, in
+ * whatever layout it is printed.
+ *
+ * Three readers, cheapest first:
+ *   1. the built-in ITPEC reader (Q1. ... a) to d)) -- instant, exact;
+ *   2. `readLayout`, the server's layout reader -- any numbering and choice
+ *      style, two columns, inline answers or an answer-key section, scans --
+ *      no generative model;
+ *   3. `readPage`, the vision AI page reader, only when both fall short.
+ *
+ * Resolves to `{ kind: "key", name, info, answers, count }` or
+ * `{ kind: "paper", name, info, questions, readBy, profile? }`.
+ */
+export async function readExamPdf(file, onProgress, readPage, readLayout) {
     const pdfjs = await loadPdfJs()
     const data = new Uint8Array(await file.arrayBuffer())
     const task = pdfjs.getDocument({ data, isEvalSupported: false })
@@ -689,33 +1004,72 @@ export async function readExamPdf(file, onProgress) {
         const key = answersFrom(texts, file.name)
         if (key) return { kind: "key", name: file.name, info, ...key }
 
-        if (info.session === "pm") {
-            // FE afternoon papers are a different shape: a handful of long
-            // questions, each with sub-questions and answer groups of up to
-            // ten options. Read as a-d questions they come out wrong.
-            throw new Error("it is an afternoon (PM) paper. Only multiple-choice morning papers can be imported")
-        }
-        if (!texts.join("").trim()) {
-            throw new Error("it has no text layer (a scanned paper), so its questions cannot be read")
-        }
         const pages = await readPages(pdf, pdfjs, onProgress)
-        const questions = locateQuestions(pages).map(buildQuestion)
-        if (!questions.length) {
-            throw new Error("no questions were found. The reader looks for lines that start with Q1., Q2. and so on")
+        const ruled = info.session === "pm" ? [] : locateQuestions(pages).map(buildQuestion)
+        const fourChoice = ruled.filter((q) => q.options.length === 4).length
+        if (ruled.length >= 5 && fourChoice >= ruled.length * 0.8) {
+            return { kind: "paper", name: file.name, info, questions: ruled, readBy: "rules" }
         }
-        return { kind: "paper", name: file.name, info, questions }
+
+        let layoutProblem = null
+        if (readLayout && info.session !== "pm") {
+            if (onProgress) await onProgress(0, pages.length, "layout")
+            try {
+                const layout = await readLayout(file)
+                if (layout.total >= 3 && layout.complete >= layout.total * 0.6) {
+                    return {
+                        kind: "paper",
+                        name: file.name,
+                        info,
+                        questions: fromLayout(layout, pages),
+                        readBy: "layout",
+                        profile: layout.profile,
+                    }
+                }
+                if (!layout.total && Object.keys(layout.answers || {}).length >= 10) {
+                    const answers = layout.answers
+                    return { kind: "key", name: file.name, info, answers, count: Object.keys(answers).length }
+                }
+                layoutProblem = layout.total
+                    ? `the layout reader read only ${layout.complete} of ${layout.total} questions completely`
+                    : "the layout reader found no questions"
+            } catch (error) {
+                layoutProblem = error?.response?.data?.message || error?.message || "the layout reader failed"
+            }
+        }
+
+        if (!readPage) {
+            throw new Error(layoutProblem || "its layout is not one the built-in reader knows")
+        }
+        const read = await readWithAi(pages, readPage, onProgress)
+        const answerCount = Object.keys(read.answers).length
+        if (!read.questions.length && answerCount) {
+            return { kind: "key", name: file.name, info, answers: read.answers, count: answerCount }
+        }
+        if (!read.questions.length) throw new Error(layoutProblem ? `${layoutProblem}, and the AI found none either` : "no questions were found in it")
+        return { kind: "paper", name: file.name, info, questions: read.questions, readBy: "ai" }
     } finally {
         task.destroy()
     }
 }
 
-/** A cropped canvas as a PNG File, ready for the builder's image fields. */
+/**
+ * A cropped canvas as an image File. PNG keeps small figures sharp; a tall
+ * stack of whole pages (a passage question's context) goes as JPEG, or it
+ * would not fit the 5 MB image limit.
+ */
 export function canvasToFile(canvas, name) {
+    const type = canvas.height > 2500 ? "image/jpeg" : "image/png"
+    const fileName = type === "image/jpeg" ? name.replace(/\.png$/i, ".jpg") : name
     return new Promise((resolve, reject) => {
-        canvas.toBlob((blob) => {
-            if (blob) resolve(new File([blob], name, { type: "image/png" }))
-            else reject(new Error("The figure could not be saved as an image."))
-        }, "image/png")
+        canvas.toBlob(
+            (blob) => {
+                if (blob) resolve(new File([blob], fileName, { type }))
+                else reject(new Error("The figure could not be saved as an image."))
+            },
+            type,
+            0.85,
+        )
     })
 }
 

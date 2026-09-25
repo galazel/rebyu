@@ -69,6 +69,46 @@ public class PastPaperImportController {
     }
 
     /**
+     * Every question in a PDF of any layout -- other schools' reviewers, two
+     * columns, inline answers, an answer-key section -- read by layout
+     * analysis and question profiles rather than a generative model. Writes
+     * nothing.
+     */
+    @PostMapping(value = "/read-layout", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Map<String, Object> readLayout(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam("file") MultipartFile file) {
+        requireAdmin(jwt);
+        return pastPaperImportService.readLayout(file);
+    }
+
+    /**
+     * The questions on one page of a document the browser cannot read by its
+     * fixed layout (afternoon papers, other formats, scans), read by the
+     * EXTRACTION vision model. Writes nothing.
+     */
+    @PostMapping(value = "/read-page", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> readPage(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody Map<String, Object> request) {
+        requireAdmin(jwt);
+        return pastPaperImportService.forward("/past-papers/read-page", request, "The page could not be read");
+    }
+
+    /**
+     * Which of a paper's questions are already in the certification's
+     * question bank, or repeat an earlier question of the same paper. Writes
+     * nothing.
+     */
+    @PostMapping(value = "/duplicates", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> duplicates(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody Map<String, Object> request) {
+        requireAdmin(jwt);
+        return pastPaperImportService.forward("/past-papers/duplicates", request, "Duplicates could not be checked");
+    }
+
+    /**
      * A lesson and a difficulty for each question, from the TAGGING model
      * (Grok, free models as fallbacks), for the PDF import page's "Tag with
      * AI". Writes nothing.

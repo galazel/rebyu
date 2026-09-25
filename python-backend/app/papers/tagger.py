@@ -22,14 +22,28 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
+
+from sqlalchemy import text
 
 from app.ai import tasks
 from app.utils.helpers import get_llm
 
 logger = logging.getLogger(__name__)
 
-BATCH = 12
-CONCURRENCY = 3
+#: Questions per model call. Larger batches mean fewer calls -- and fewer
+#: chances to hit a free model's rate limit -- for a paper of a hundred.
+BATCH = 25
+#: Batches in flight at once. Two, not more: bursts of parallel calls are
+#: what the free models' shared rate limits refuse first.
+CONCURRENCY = 2
+#: Retries of a busy (429/503) model, and the wait before each.
+RETRIES = 2
+BACKOFF = 12
+#: Seconds one batch may spend across every model and retry. With two
+#: batches in flight a 100-question paper stays inside the 4 minutes the
+#: backend waits for.
+BATCH_BUDGET = 110
 DIFFICULTIES = ("easy", "average", "hard")
 
 SYSTEM = """You file multiple-choice questions from an IT certification exam
@@ -40,6 +54,8 @@ You are given the course's lessons, one per line as
 and a numbered list of questions.
 
 For EVERY question pick the ONE lesson whose topic the question tests, and a
+difficulty. When NO lesson in the list covers the question's topic at all,
+give "lessonId": null -- do not force it into a loosely related lesson. The
 difficulty:
   easy     recall of a single fact or definition
   average  applying one concept, or a short calculation
@@ -47,10 +63,10 @@ difficulty:
 
 Return ONLY a JSON array, no prose and no markdown fence, one object per
 question in the order given:
-[{"index": <question number as given>, "lessonId": <lessonId from the list>,
+[{"index": <question number as given>, "lessonId": <lessonId from the list, or null>,
   "difficulty": "easy" | "average" | "hard"}]
 
-Use only lessonIds that appear in the list."""
+Use only lessonIds that appear in the list, or null."""
 
 
 def _catalogue_text(lessons):
@@ -76,15 +92,24 @@ def _parse(body, count, lesson_ids):
     for item in data if isinstance(data, list) else []:
         try:
             index = int(item["index"])
-            lesson_id = int(item["lessonId"])
         except (KeyError, TypeError, ValueError):
             continue
+        raw = item.get("lessonId")
+        if raw is None:
+            lesson_id = None
+        else:
+            try:
+                lesson_id = int(raw)
+            except (TypeError, ValueError):
+                continue
         difficulty = str(item.get("difficulty", "")).lower()
-        if not (1 <= index <= count) or lesson_id not in lesson_ids:
+        if not (1 <= index <= count) or (lesson_id is not None and lesson_id not in lesson_ids):
             continue
         tags[index - 1] = {
             "lessonId": lesson_id,
             "difficulty": difficulty if difficulty in DIFFICULTIES else None,
+            # The model looked at every lesson and none covers this.
+            "noLesson": lesson_id is None,
         }
     return tags
 
@@ -101,17 +126,36 @@ async def _tag_batch(chain, catalogue, questions, lesson_ids, semaphore):
         ("system", SYSTEM),
         ("human", f"Lessons:\n{catalogue}\n\nQuestions:\n{listing}"),
     ]
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + BATCH_BUDGET
     async with semaphore:
         for model in chain:
-            try:
-                reply = await get_llm(tasks.TAGGING, model=model).ainvoke(messages)
-            except Exception as error:  # noqa: BLE001 -- next model
-                logger.warning("Tagging with %s failed: %s", model, error)
-                continue
-            tags = _parse(getattr(reply, "content", ""), len(questions), lesson_ids)
-            if tags:
-                return tags, model
-            logger.warning("Tagging with %s returned nothing usable", model)
+            # A free model answering "rate-limited" or "overloaded" is busy,
+            # not broken: it is waited for and asked again rather than
+            # abandoned on the first 429 -- which is what left every question
+            # of a paper to the embedding match. Out of credit (402) is not
+            # retried; waiting does not add credit.
+            for attempt in range(1 + RETRIES):
+                remaining = deadline - loop.time()
+                if remaining < 10:
+                    logger.warning("Tagging batch ran out of time")
+                    return {}, None
+                try:
+                    reply = await asyncio.wait_for(
+                        get_llm(tasks.TAGGING, model=model).ainvoke(messages),
+                        timeout=min(60, remaining))
+                except Exception as error:  # noqa: BLE001 -- retry or next model
+                    busy = any(code in str(error) for code in ("429", "503", "overloaded", "rate-limited"))
+                    logger.warning("Tagging with %s failed (attempt %d): %s", model, attempt + 1, str(error)[:200])
+                    if busy and attempt < RETRIES:
+                        await asyncio.sleep(min(BACKOFF * (attempt + 1), max(0, deadline - loop.time() - 10)))
+                        continue
+                    break
+                tags = _parse(getattr(reply, "content", ""), len(questions), lesson_ids)
+                if tags:
+                    return tags, model
+                logger.warning("Tagging with %s returned nothing usable", model)
+                break
     return {}, None
 
 
@@ -163,3 +207,43 @@ async def tag_questions(db, certification_id, questions):
         for lesson_id, lesson in sorted(lessons.items())
     ]
     return tags, catalogue_out
+
+
+def _fingerprint(text):
+    """A question's text with its source line, case, spacing and punctuation
+    taken away -- what two copies of one question have in common."""
+    text = (text or "").split("\nSource:")[0].split("Source: (")[0]
+    return re.sub(r"[^0-9a-z]+", "", text.lower())
+
+
+def find_duplicates(db, certification_id, stems):
+    """For each stem: why it is a duplicate, or None.
+
+    "bank" -- the certification's question bank already holds it;
+    "paper" -- an earlier question in this same upload is the same question.
+    Stems too short to identify a question (a lone "Blank A:") are never
+    called duplicates.
+    """
+    existing = {
+        _fingerprint(row[0])
+        for row in db.execute(text("""
+            select q.question_text from questions q
+              join lessons l on l.lesson_id = q.lesson_id
+              join middle_categories mc on mc.middle_category_id = l.middle_category_id
+              join major_categories m on m.major_category_id = mc.major_category_id
+             where m.certification_id = :c"""), {"c": certification_id})
+    }
+    seen = set()
+    reasons = []
+    for stem in stems:
+        key = _fingerprint(stem)
+        if len(key) < 40:
+            reasons.append(None)
+        elif key in existing:
+            reasons.append("bank")
+        elif key in seen:
+            reasons.append("paper")
+        else:
+            reasons.append(None)
+        seen.add(key)
+    return reasons

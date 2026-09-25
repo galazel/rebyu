@@ -68,9 +68,26 @@ class ImportRequest(BaseModel):
     questions: list[ApprovedQuestion] = Field(default_factory=list)
 
 
+class PageFigure(BaseModel):
+    id: str
+    top: float
+    bottom: float
+
+
+class ReadPageRequest(BaseModel):
+    image: str = Field(max_length=8_000_000)
+    text: str = ""
+    figures: list[PageFigure] = Field(default_factory=list, max_length=60)
+    previousId: str | None = None
+    openIds: list[str] = Field(default_factory=list, max_length=60)
+
+
 class SuggestLessonsRequest(BaseModel):
     certificationId: int
     questions: list[str] = Field(default_factory=list, max_length=500)
+    #: The question stems alone, for duplicate detection; the full texts above
+    #: carry the options too, which the bank's stored text does not.
+    stems: list[str] = Field(default_factory=list, max_length=500)
 
 
 async def _read(upload: UploadFile) -> bytes:
@@ -128,6 +145,63 @@ async def parse_paper(
     }
 
 
+@router.post("/read-layout")
+async def read_layout_route(file: UploadFile = File(...)):
+    """Every question in a PDF of any layout, read without a generative model.
+
+    Docling finds the page layout; question profiles read the questions,
+    choices, answers and figure positions from it. See
+    `app.papers.layout_reader`. Writes nothing.
+    """
+    from starlette.concurrency import run_in_threadpool
+
+    from app.papers.layout_reader import read_document
+
+    data = await _read(file)
+    try:
+        # CPU-bound for tens of seconds; off the event loop.
+        return await run_in_threadpool(read_document, data)
+    except Exception as error:  # noqa: BLE001 -- surfaced to the admin
+        logger.exception("Layout reading failed for %s", file.filename)
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            f"The document's layout could not be read: {error}") from error
+
+
+@router.post("/read-page")
+async def read_page_route(request: ReadPageRequest):
+    """The questions on one page of a document the browser's reader does not
+    know, read by the EXTRACTION vision model. Writes nothing."""
+    from app.papers.page_reader import read_page
+
+    try:
+        return await read_page(
+            request.image, request.text,
+            [f.model_dump() for f in request.figures], request.previousId,
+            request.openIds)
+    except RuntimeError as error:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(error)) from error
+
+
+class DuplicatesRequest(BaseModel):
+    certificationId: int
+    stems: list[str] = Field(default_factory=list, max_length=1000)
+
+
+@router.post("/duplicates")
+def duplicates_route(request: DuplicatesRequest):
+    """For each stem, "bank" when the certification's question bank already
+    holds it, "paper" when an earlier stem in the same list is the same
+    question, else null. Run as soon as a paper is read, so duplicates are
+    flagged before anything is tagged or saved."""
+    from app.papers.tagger import find_duplicates
+
+    session = SessionLocal()
+    try:
+        return {"duplicates": find_duplicates(session, request.certificationId, request.stems)}
+    finally:
+        session.close()
+
+
 @router.post("/tag")
 async def tag_questions_route(request: SuggestLessonsRequest):
     """A lesson and a difficulty for each question, for review before saving.
@@ -136,17 +210,21 @@ async def tag_questions_route(request: SuggestLessonsRequest):
     could not answer is filed by the local embedding match instead, with its
     difficulty left for the reviewer.
     """
-    from app.papers.tagger import tag_questions
+    from app.papers.tagger import find_duplicates, tag_questions
 
     session = SessionLocal()
     try:
         tags, lessons = await tag_questions(
             session, request.certificationId, request.questions)
+        duplicates = find_duplicates(
+            session, request.certificationId, request.stems or request.questions)
     finally:
         session.close()
     if not lessons:
         raise HTTPException(status.HTTP_404_NOT_FOUND,
                             "This certification has no lessons to file questions under.")
+    for tag, duplicate in zip(tags, duplicates):
+        tag["duplicate"] = duplicate
     return {"tags": tags, "lessons": lessons}
 
 

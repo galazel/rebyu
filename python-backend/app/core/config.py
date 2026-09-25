@@ -277,6 +277,19 @@ class Settings(BaseSettings):
     ai_tagging_max_tokens: int = 1000  # ~30 tokens a question, 12 a batch
     ai_tagging_temperature: float = 0.0
 
+    #: Reading an exam page the fixed-layout reader cannot: an afternoon paper
+    #: of passages with lettered blanks, another school's format, a scan. The
+    #: page arrives as an image with its text layer; the model returns the
+    #: questions on it. Must be a vision model; the fallbacks are free ones.
+    ai_extraction_provider: str = "openrouter"
+    ai_extraction_model: str = "google/gemini-2.5-flash"
+    ai_extraction_fallbacks: str = (
+        "google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free,"
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    )
+    ai_extraction_max_tokens: int = 4000  # a page of blanks with a 10-option group fits
+    ai_extraction_temperature: float = 0.0
+
     # Curriculum size
     # What the planner is *asked* for. Lower all six to run the whole workflow
     # end-to-end on a small AI budget: setting every min/max to 1 yields a
