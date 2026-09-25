@@ -62,6 +62,10 @@ ids
 rules
   - Copy text exactly as printed. Never invent, complete or correct it.
     Keep formulas and symbols as printed.
+  - Leave out what is printed on every page and is not part of a question:
+    page numbers ("7", "- 7 -", "Page 7 of 40"), running headers and footers,
+    the exam's name or code, copyright lines. A number alone at the top or
+    bottom of the page is the page number, never the end of a choice.
   - pageKind "answer_key" for a table of correct answers: fill "answers"
     with the same ids the questions would have ("1" -> "c", "1-2-C" -> "g").
   - pageKind "other" for a cover, instructions or blank page: no questions.

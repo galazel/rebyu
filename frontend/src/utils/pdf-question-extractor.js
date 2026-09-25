@@ -15,8 +15,18 @@
 
 const SCALE = 2
 
-/** A page footer such as "– 12 –". */
-const FOOTER_RE = /^[–-]\s*\d+\s*[–-]$/
+/** A page number as printed: "7", "– 12 –", "- 12 -", "Page 7", "Page 7 of 40", "7/40". */
+const FOOTER_RE = /^(?:[–—-]\s*)?(?:page\s*)?\d{1,4}(?:\s*(?:\/|of)\s*\d{1,4})?(?:\s*[–—-])?$/i
+
+/**
+ * A page number line: one of the forms above, in the top or bottom eighth of
+ * the page. Only there -- a choice that is a bare number ("20") sits in the
+ * body. Left in, the number joins the last choice on the page ("Digital
+ * democracy 7").
+ */
+function isPageNumber(line, pageHeight) {
+    return FOOTER_RE.test(line.text) && (line.bottom < pageHeight * 0.12 || line.top > pageHeight * 0.88)
+}
 
 /** The start of a question: "Q12." near the left margin. */
 const QUESTION_RE = /^Q\s?(\d{1,3})\s?[.:)]\s*/
@@ -144,7 +154,7 @@ async function readPages(pdf, pdfjs, onProgress) {
             line.bottom = Math.max(...line.items.map((i) => i.y1))
         }
         lines.sort((a, b) => a.top - b.top)
-        const body = lines.filter((l) => !FOOTER_RE.test(l.text))
+        const body = lines.filter((l) => !isPageNumber(l, canvas.height))
 
         // Dark pixels NOT covered by text.
         const W = canvas.width
@@ -179,6 +189,32 @@ async function readPages(pdf, pdfjs, onProgress) {
         pages.push(pageInfo)
         page.cleanup()
         if (onProgress) await onProgress(number, pdf.numPages)
+    }
+    return withoutRunningLines(pages)
+}
+
+/**
+ * Drops running headers and footers: a line in the top or bottom margin that
+ * repeats on several pages -- the exam's name, a school's header, a copyright
+ * line. Left in, one joins the last choice before each page break. Digits
+ * are ignored when comparing, so "Page 3" and "Page 4" are one line.
+ */
+function withoutRunningLines(pages) {
+    if (pages.length < 2) return pages
+    const inMargin = (line, pg) => line.bottom < pg.H * 0.12 || line.top > pg.H * 0.88
+    const keyOf = (line) => line.text.toLowerCase().replace(/\d+/g, "#").trim()
+    const pagesWith = new Map()
+    for (const pg of pages) {
+        for (const line of pg.lines) {
+            if (!inMargin(line, pg)) continue
+            const key = keyOf(line)
+            if (!pagesWith.has(key)) pagesWith.set(key, new Set())
+            pagesWith.get(key).add(pg.num)
+        }
+    }
+    const needed = Math.max(2, Math.floor(pages.length / 2))
+    for (const pg of pages) {
+        pg.lines = pg.lines.filter((line) => !(inMargin(line, pg) && pagesWith.get(keyOf(line))?.size >= needed))
     }
     return pages
 }

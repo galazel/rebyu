@@ -64,6 +64,16 @@ TEXT_LABELS = {"text", "paragraph", "list_item", "section_header", "title", "cap
                "checkbox_selected", "checkbox_unselected", "footnote", "reference"}
 FIGURE_LABELS = {"picture", "table", "formula", "code", "chart"}
 SKIPPED_LABELS = {"page_header", "page_footer"}
+#: A page number as printed: "7", "- 12 -", "Page 7", "Page 7 of 40", "7/40".
+#: Dropped only in the top or bottom eighth of the page (see `_is_page_number`),
+#: where Docling sometimes labels it plain text rather than a footer.
+PAGE_NUMBER = re.compile(r"^(?:[–—-]\s*)?(?:page\s*)?\d{1,4}(?:\s*(?:/|of)\s*\d{1,4})?(?:\s*[–—-])?$", re.I)
+
+
+def _is_page_number(text, fraction):
+    """A page-number line in the margin. A bare-number choice ("20") sits in
+    the body and is kept; in the margin it would join the last choice."""
+    return bool(PAGE_NUMBER.match(text)) and (fraction[3] < 0.12 or fraction[1] > 0.88)
 
 _converter = None
 _converter_ocr = None
@@ -147,11 +157,36 @@ def layout_blocks(pdf_bytes: bytes) -> tuple[list[dict], int, bool]:
             # profiles need it back in the text to find the choices.
             if marker and not text.startswith(marker):
                 text = f"{marker} {text}".strip()
-            if text:
+            if text and not _is_page_number(text, fraction):
                 blocks.append({"kind": "text", "label": label, "text": text,
                                "page": prov.page_no, "box": fraction})
     source.close()
-    return blocks, len(doc.pages), ocr
+    return _without_running_lines(blocks, len(doc.pages)), len(doc.pages), ocr
+
+
+def _in_margin(box):
+    return box[3] < 0.12 or box[1] > 0.88
+
+
+def _without_running_lines(blocks, page_count):
+    """Drops running headers and footers: text in the top or bottom margin
+    that repeats on several pages -- the exam's name, a school's header, a
+    copyright line. Left in, one joins the last choice before each page
+    break. Digits are ignored when comparing, so "Page 3" and "Page 4" are
+    one line."""
+    if page_count < 2:
+        return blocks
+    pages_with = {}
+    for block in blocks:
+        if block["kind"] == "text" and _in_margin(block["box"]):
+            key = re.sub(r"\d+", "#", block["text"].lower()).strip()
+            pages_with.setdefault(key, set()).add(block["page"])
+    running = {key for key, pages in pages_with.items() if len(pages) >= max(2, page_count // 2)}
+    return [
+        block for block in blocks
+        if not (block["kind"] == "text" and _in_margin(block["box"])
+                and re.sub(r"\d+", "#", block["text"].lower()).strip() in running)
+    ]
 
 
 #: A printed line that begins with a choice letter: "(a) ...", "b) ...", "C. ..."

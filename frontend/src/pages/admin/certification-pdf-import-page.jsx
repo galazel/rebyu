@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { memo, useMemo, useRef, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 
@@ -9,6 +9,7 @@ import {
     Eye,
     KeyRound,
     Loader2,
+    Pencil,
     Plus,
     Save,
     Search,
@@ -189,8 +190,15 @@ function parseKeyText(text, questions) {
  * copies of one question have in common. The server compares the same way
  * against the question bank.
  */
+const prints = new Map()
 function fingerprint(text) {
-    return (text || "").toLowerCase().replace(/[^0-9a-z]+/g, "")
+    // Cached: the duplicate check runs on every render, over every question.
+    let print = prints.get(text)
+    if (print === undefined) {
+        print = (text || "").toLowerCase().replace(/[^0-9a-z]+/g, "")
+        prints.set(text, print)
+    }
+    return print
 }
 
 /** The questions of a paper that have no correct answer yet. */
@@ -346,6 +354,44 @@ function ImageTools({ onReplace, onRemove, label }) {
     )
 }
 
+/**
+ * One paper's rows on the answer sheet. Memoized like the cards: a change to
+ * one paper redraws its hundred rows, not every paper's.
+ */
+const SheetPaper = memo(function SheetPaper({ paper, showName, onJump }) {
+    return (
+        <div className="mb-3">
+            {showName ? (
+                <p className="sticky top-0 mb-1 truncate bg-background py-1 text-xs font-semibold">{paper.name.replace(/\.pdf$/i, "")}</p>
+            ) : null}
+            {answered(paper).map((question) => {
+                const answer = paper.answers[question.num]
+                return (
+                    <button
+                        key={question.num}
+                        type="button"
+                        onClick={() => onJump(paper.id, question.num)}
+                        className="flex w-full flex-wrap items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-muted"
+                    >
+                        <b className="w-12 shrink-0 pr-1 text-right text-xs text-primary">{question.num}</b>
+                        {(question.options.length > 4 ? question.options.map((o) => o.key) : KEYS).map((key) => (
+                            <span
+                                key={key}
+                                className={cn(
+                                    "grid size-5 place-items-center rounded-full border text-[10px]",
+                                    answer === key ? "border-emerald-600 bg-emerald-600 text-white" : "border-primary/50 text-primary",
+                                )}
+                            >
+                                {key}
+                            </span>
+                        ))}
+                    </button>
+                )
+            })}
+        </div>
+    )
+})
+
 /** What to upload and what happens next, shown before the first upload. */
 function ImportGuide() {
     const steps = [
@@ -428,7 +474,31 @@ function ImportGuide() {
     )
 }
 
-function QuestionCard({ question, paper, lessons, duplicate, onPick, onTag, onType, onInclude, onFigures, onOptionImage, onImageError, onDelete, cardRef }) {
+/**
+ * One question. Memoized, and given only stable props -- the paper it is on,
+ * and one `actions` object that never changes -- so a change to one paper
+ * re-renders that paper's cards and no others. With thirty papers of a
+ * hundred questions each, re-rendering every card on any change is what
+ * made every control on the page lag.
+ */
+const QuestionCard = memo(function QuestionCard({ question, paper, lessons, duplicate, actions, cardRefs }) {
+    const onPick = (num, key) => actions.pick(paper.id, num, key)
+    const onTag = (num, change) => actions.tag(paper.id, num, change)
+    const onType = (num, value) => actions.type(paper.id, num, value)
+    const onInclude = (num, value) => actions.include(paper.id, num, value)
+    const onFigures = (num, figureSrcs) => actions.figures(paper.id, num, figureSrcs)
+    const onOptionImage = (num, key, canvas) => actions.optionImage(paper.id, num, key, canvas)
+    const onImageError = actions.imageError
+    const onDelete = (num) => actions.remove(paper.id, num)
+    // Editing works on a draft; Save writes it back, Cancel drops it.
+    const [draft, setDraft] = useState(null)
+    const startEdit = () =>
+        setDraft({ stem: question.stem, texts: Object.fromEntries(question.options.map((o) => [o.key, o.text || ""])) })
+    const saveEdit = () => {
+        actions.edit(paper.id, question.num, draft.stem.trim(), draft.texts)
+        setDraft(null)
+    }
+    const cardRef = (node) => { cardRefs.current[`${paper.id}-${question.num}`] = node }
     const [showOriginal, setShowOriginal] = useState(false)
     const answer = paper.answers[question.num]
     const tag = paper.tags[question.num]
@@ -443,7 +513,8 @@ function QuestionCard({ question, paper, lessons, duplicate, onPick, onTag, onTy
         <article
             ref={cardRef}
             className={cn(
-                "rounded-2xl border bg-background p-5 shadow-sm",
+                // Off-screen cards are not laid out or painted until scrolled to.
+                "rounded-2xl border bg-background p-5 shadow-sm [contain-intrinsic-size:auto_480px] [content-visibility:auto]",
                 !included && "opacity-60",
             )}
         >
@@ -460,6 +531,11 @@ function QuestionCard({ question, paper, lessons, duplicate, onPick, onTag, onTy
                 ) : null}
                 <TypeToggle value={type} onChange={(value) => onType(question.num, value)} />
                 <span className="flex-1" />
+                {draft ? null : (
+                    <Button type="button" size="xs" variant="outline" onClick={startEdit} aria-label={`Edit question ${question.num}`}>
+                        <Pencil className="h-3 w-3" /> Edit
+                    </Button>
+                )}
                 <button
                     type="button"
                     className="text-sm text-muted-foreground underline underline-offset-2 hover:text-foreground"
@@ -491,9 +567,50 @@ function QuestionCard({ question, paper, lessons, duplicate, onPick, onTag, onTy
                 </p>
             ) : null}
 
-            <p className="mb-3 max-w-[72ch] whitespace-pre-line font-serif text-[1.05rem] leading-relaxed">
-                {question.stem}
-            </p>
+            {draft ? (
+                <div className="mb-3 space-y-3 rounded-xl border-2 border-primary/40 bg-primary/5 p-3">
+                    <label className="block">
+                        <span className="mb-1 block text-xs font-semibold text-muted-foreground">Question</span>
+                        <Textarea
+                            value={draft.stem}
+                            rows={Math.min(12, Math.max(3, Math.ceil(draft.stem.length / 90)))}
+                            onChange={(event) => setDraft((d) => ({ ...d, stem: event.target.value }))}
+                            className="bg-background font-serif"
+                        />
+                    </label>
+                    {question.options.map((option) => (
+                        <label key={option.key} className="flex items-center gap-2">
+                            <span className="grid size-7 shrink-0 place-items-center rounded-full border-2 border-primary/60 text-xs font-bold text-primary">
+                                {option.key}
+                            </span>
+                            {option.imageSrc ? (
+                                <span className="text-xs text-muted-foreground">Picture choice -- change it with Replace below.</span>
+                            ) : (
+                                <Input
+                                    value={draft.texts[option.key] ?? ""}
+                                    aria-label={`Choice ${option.key}`}
+                                    onChange={(event) =>
+                                        setDraft((d) => ({ ...d, texts: { ...d.texts, [option.key]: event.target.value } }))
+                                    }
+                                    className="bg-background"
+                                />
+                            )}
+                        </label>
+                    ))}
+                    <div className="flex justify-end gap-2">
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setDraft(null)}>
+                            Cancel
+                        </Button>
+                        <Button type="button" size="sm" disabled={!draft.stem.trim()} onClick={saveEdit}>
+                            Save changes
+                        </Button>
+                    </div>
+                </div>
+            ) : (
+                <p className="mb-3 max-w-[72ch] whitespace-pre-line font-serif text-[1.05rem] leading-relaxed">
+                    {question.stem}
+                </p>
+            )}
 
             {question.figureSrcs.map((src, index) => (
                 <figure key={`${index}-${src.length}`} className="group relative my-3 overflow-x-auto rounded-lg border bg-white p-2">
@@ -559,6 +676,8 @@ function QuestionCard({ question, paper, lessons, duplicate, onPick, onTag, onTy
                     "mt-3 gap-2",
                     pictures ? "grid grid-cols-1 sm:grid-cols-2" : "grid",
                     type !== "MCQ" && "mt-1 text-sm opacity-80",
+                    // While editing, the choices are the boxes above.
+                    draft && "hidden",
                 )}
             >
                 {question.options.map((option) => {
@@ -695,7 +814,7 @@ function QuestionCard({ question, paper, lessons, duplicate, onPick, onTag, onTy
             ) : null}
         </article>
     )
-}
+})
 
 /**
  * Importing exam papers as questions: upload papers and answer keys, review
@@ -1016,6 +1135,41 @@ export default function CertificationPdfImportPage() {
         }
     }
 
+    // What a question card can do, as one object that never changes: the
+    // cards are memoized, and a fresh function per render would re-render
+    // all of them. Each call reaches the current handlers through the ref.
+    const handlers = useRef(null)
+    handlers.current = { updatePaper, updateQuestion, deleteQuestions, setNotice, setFilter, setTerm }
+    const cardActions = useMemo(
+        () => ({
+            pick: (paperId, num, key) => handlers.current.updatePaper(paperId, (p) => ({ answers: { ...p.answers, [num]: key } })),
+            tag: (paperId, num, change) =>
+                handlers.current.updatePaper(paperId, (p) => ({ tags: { ...p.tags, [num]: { ...p.tags[num], ...change } } })),
+            type: (paperId, num, value) => handlers.current.updatePaper(paperId, (p) => ({ types: { ...p.types, [num]: value } })),
+            include: (paperId, num, value) => handlers.current.updatePaper(paperId, (p) => ({ include: { ...p.include, [num]: value } })),
+            figures: (paperId, num, figureSrcs) => handlers.current.updateQuestion(paperId, num, () => ({ figureSrcs })),
+            optionImage: (paperId, num, key, canvas) =>
+                handlers.current.updateQuestion(paperId, num, (q) => ({
+                    options: q.options.map((o) => (o.key === key ? { ...o, imageSrc: canvas ? srcOf(canvas) : null } : o)),
+                })),
+            imageError: (error) => handlers.current.setNotice({ kind: "error", text: error?.message || "That image could not be used." }),
+            remove: (paperId, num) => handlers.current.deleteQuestions(paperId, [num]),
+            edit: (paperId, num, stem, texts) =>
+                handlers.current.updateQuestion(paperId, num, (q) => ({
+                    stem,
+                    options: q.options.map((o) => (o.key in texts ? { ...o, text: texts[o.key] } : o)),
+                })),
+            jump: (paperId, num) => {
+                handlers.current.setFilter("all")
+                handlers.current.setTerm("")
+                requestAnimationFrame(() =>
+                    cardRefs.current[`${paperId}-${num}`]?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                )
+            },
+        }),
+        [],
+    )
+
     function deleteQuestions(paperId, nums) {
         const gone = new Set(nums.map(String))
         updatePaper(paperId, (p) => ({ questions: p.questions.filter((q) => !gone.has(String(q.num))) }))
@@ -1099,41 +1253,7 @@ export default function CertificationPdfImportPage() {
                             <h2 className="text-sm font-bold text-primary">Answer sheet</h2>
                             <p className="mb-2 text-xs text-muted-foreground">Green marks the answer. Click a number to jump to it. Questions without an answer are left off and will not be saved.</p>
                             {papers.filter((item) => answered(item).length).map((item) => (
-                                <div key={item.id} className="mb-3">
-                                    {papers.length > 1 ? (
-                                        <p className="sticky top-0 mb-1 truncate bg-background py-1 text-xs font-semibold">{item.name.replace(/\.pdf$/i, "")}</p>
-                                    ) : null}
-                                    {answered(item).map((question) => {
-                                        const answer = item.answers[question.num]
-                                        return (
-                                            <button
-                                                key={question.num}
-                                                type="button"
-                                                onClick={() => {
-                                                    setFilter("all")
-                                                    setTerm("")
-                                                    requestAnimationFrame(() =>
-                                                        cardRefs.current[`${item.id}-${question.num}`]?.scrollIntoView({ behavior: "smooth", block: "start" }),
-                                                    )
-                                                }}
-                                                className="flex w-full flex-wrap items-center gap-1.5 rounded-md px-1 py-0.5 hover:bg-muted"
-                                            >
-                                                <b className="w-12 shrink-0 pr-1 text-right text-xs text-primary">{question.num}</b>
-                                                {(question.options.length > 4 ? question.options.map((o) => o.key) : KEYS).map((key) => (
-                                                    <span
-                                                        key={key}
-                                                        className={cn(
-                                                            "grid size-5 place-items-center rounded-full border text-[10px]",
-                                                            answer === key ? "border-emerald-600 bg-emerald-600 text-white" : "border-primary/50 text-primary",
-                                                        )}
-                                                    >
-                                                        {key}
-                                                    </span>
-                                                ))}
-                                            </button>
-                                        )
-                                    })}
-                                </div>
+                                <SheetPaper key={item.id} paper={item} showName={papers.length > 1} onJump={cardActions.jump} />
                             ))}
                         </aside>
 
@@ -1271,21 +1391,25 @@ export default function CertificationPdfImportPage() {
                                                         ].filter(Boolean).join(" · ")}
                                                     </p>
                                                 </div>
-                                                <Select
+                                                {/* A plain select: the styled one froze the page for a moment on
+                                                    every open, with three thousand cards below it. */}
+                                                <select
                                                     value=""
-                                                    onValueChange={(value) =>
+                                                    aria-label="Save all questions in this paper as"
+                                                    className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                                                    onChange={(event) => {
+                                                        const value = event.target.value
+                                                        if (!value) return
                                                         updatePaper(item.id, (p) => ({
                                                             types: Object.fromEntries(p.questions.map((q) => [q.num, value])),
                                                         }))
-                                                    }
+                                                    }}
                                                 >
-                                                    <SelectTrigger size="sm" className="w-auto" aria-label="Save all questions in this paper as"><SelectValue placeholder="Save this paper's questions as…" /></SelectTrigger>
-                                                    <SelectContent>
-                                                        {SAVE_TYPES.map((type) => (
-                                                            <SelectItem key={type.id} value={type.id}>{type.label}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                    <option value="">Save this paper's questions as…</option>
+                                                    {SAVE_TYPES.map((type) => (
+                                                        <option key={type.id} value={type.id}>{type.label}</option>
+                                                    ))}
+                                                </select>
                                                 <Button type="button" size="sm" variant={keyBoxOpen ? "default" : "outline"} onClick={() => setKeyBoxFor(keyBoxOpen ? null : item.id)}>
                                                     <KeyRound className="mr-2 h-4 w-4" /> {item.keyName ? "Change answer key" : "Add answer key"}
                                                 </Button>
@@ -1396,25 +1520,12 @@ export default function CertificationPdfImportPage() {
                                                 shown.map((question) => (
                                                     <QuestionCard
                                                         key={`${item.id}-${question.num}`}
-                                                        cardRef={(node) => { cardRefs.current[`${item.id}-${question.num}`] = node }}
+                                                        cardRefs={cardRefs}
                                                         question={question}
                                                         paper={item}
                                                         lessons={lessons}
-                                                        onPick={(num, key) => updatePaper(item.id, (p) => ({ answers: { ...p.answers, [num]: key } }))}
-                                                        onTag={(num, change) => updatePaper(item.id, (p) => ({ tags: { ...p.tags, [num]: { ...p.tags[num], ...change } } }))}
-                                                        onType={(num, value) => updatePaper(item.id, (p) => ({ types: { ...p.types, [num]: value } }))}
-                                                        onInclude={(num, value) => updatePaper(item.id, (p) => ({ include: { ...p.include, [num]: value } }))}
-                                                        onFigures={(num, figureSrcs) => updateQuestion(item.id, num, () => ({ figureSrcs }))}
-                                                        onOptionImage={(num, key, canvas) =>
-                                                            updateQuestion(item.id, num, (q) => ({
-                                                                options: q.options.map((o) =>
-                                                                    o.key === key ? { ...o, imageSrc: canvas ? srcOf(canvas) : null } : o,
-                                                                ),
-                                                            }))
-                                                        }
-                                                        onImageError={(error) => setNotice({ kind: "error", text: error?.message || "That image could not be used." })}
+                                                        actions={cardActions}
                                                         duplicate={duplicateReasons[`${item.id}-${question.num}`]}
-                                                        onDelete={(num) => deleteQuestions(item.id, [num])}
                                                     />
                                                 ))
                                             ) : (
