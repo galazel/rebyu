@@ -122,7 +122,7 @@ class Settings(BaseSettings):
     #: padding with headings and paragraphs.
     ai_lesson_provider: str = "openrouter"
     ai_lesson_model: str = "anthropic/claude-sonnet-4.5"
-    ai_lesson_fallbacks: str = "google/gemini-2.5-pro,openai/gpt-4.1"
+    ai_lesson_fallbacks: str = "google/gemini-2.5-pro,openai/gpt-4.1,groq:openai/gpt-oss-120b,nvidia/nemotron-3-ultra-550b-a55b:free"
     #: 16000. Unlike Groq -- whose 12k tokens-per-minute ceiling counts
     #: `max_tokens` and refused anything larger with a 413 -- OpenRouter imposes
     #: no per-minute ceiling here, and this model's output limit is 64k. So the
@@ -139,7 +139,7 @@ class Settings(BaseSettings):
     #: before its closing brackets be repaired instead of rejected.
     ai_curriculum_provider: str = "openrouter"
     ai_curriculum_model: str = "anthropic/claude-sonnet-4.5"
-    ai_curriculum_fallbacks: str = "google/gemini-2.5-pro,openai/gpt-4.1"
+    ai_curriculum_fallbacks: str = "google/gemini-2.5-pro,openai/gpt-4.1,groq:openai/gpt-oss-120b,nvidia/nemotron-3-ultra-550b-a55b:free"
     ai_curriculum_max_tokens: int = 16000
     #: Near-deterministic: a syllabus should be the same shape twice, and this
     #: agent's answer is hand-parsed JSON, where creativity is only ever risk.
@@ -165,7 +165,7 @@ class Settings(BaseSettings):
     #: of the scenario, not an inventive one.
     ai_diagram_provider: str = "openrouter"
     ai_diagram_model: str = "anthropic/claude-sonnet-4.5"
-    ai_diagram_fallbacks: str = "openai/gpt-4.1,google/gemini-2.5-flash"
+    ai_diagram_fallbacks: str = "openai/gpt-4.1,google/gemini-2.5-flash,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
     #: Room for a real model answer. A ten-class UML diagram with three
     #: compartments each, typed attributes, operation signatures and labelled
     #: relationships is several thousand tokens of XML on its own; 4000 cut
@@ -192,7 +192,7 @@ class Settings(BaseSettings):
 
     ai_question_provider: str = "openrouter"
     ai_question_model: str = "google/gemini-2.5-flash"
-    ai_question_fallbacks: str = "openai/gpt-4.1-mini,anthropic/claude-haiku-4.5"
+    ai_question_fallbacks: str = "openai/gpt-4.1-mini,anthropic/claude-haiku-4.5,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,groq:qwen/qwen3.8-27b,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
     ai_question_max_tokens: int = 8000
     #: Deliberately the highest of the six. Batches cannot see each other except
     #: through an "already written" list, and at low temperature they converge on
@@ -204,7 +204,7 @@ class Settings(BaseSettings):
     #: beats a marginally better slow one.
     ai_tutor_provider: str = "openrouter"
     ai_tutor_model: str = "google/gemini-2.5-flash"
-    ai_tutor_fallbacks: str = "openai/gpt-4.1-mini"
+    ai_tutor_fallbacks: str = "openai/gpt-4.1-mini,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
     ai_tutor_max_tokens: int = 2000
     ai_tutor_temperature: float = 0.3
 
@@ -212,7 +212,7 @@ class Settings(BaseSettings):
     #: page: a fast instruction model, no reasoning budget (see `tasks.GRADING`).
     ai_grading_provider: str = "openrouter"
     ai_grading_model: str = "openai/gpt-4.1-mini"
-    ai_grading_fallbacks: str = "google/gemini-2.5-flash-lite,google/gemini-2.5-flash"
+    ai_grading_fallbacks: str = "google/gemini-2.5-flash-lite,google/gemini-2.5-flash,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
     ai_grading_max_tokens: int = 1500
     ai_grading_temperature: float = 0.0
 
@@ -220,7 +220,7 @@ class Settings(BaseSettings):
     #: output, large input -- so this is sized by context, not by capability.
     ai_lesson_audit_provider: str = "openrouter"
     ai_lesson_audit_model: str = "openai/gpt-4.1-mini"
-    ai_lesson_audit_fallbacks: str = "google/gemini-2.5-flash"
+    ai_lesson_audit_fallbacks: str = "google/gemini-2.5-flash,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
     ai_lesson_audit_max_tokens: int = 1024
     ai_lesson_audit_temperature: float = 0.0
 
@@ -236,7 +236,7 @@ class Settings(BaseSettings):
     #: actual agent, not a toy call.
     ai_document_audit_provider: str = "openrouter"
     ai_document_audit_model: str = "openai/gpt-4.1-mini"
-    ai_document_audit_fallbacks: str = "google/gemini-2.5-flash"
+    ai_document_audit_fallbacks: str = "google/gemini-2.5-flash,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
     ai_document_audit_max_tokens: int = 512
     ai_document_audit_temperature: float = 0.0
 
@@ -260,7 +260,7 @@ class Settings(BaseSettings):
     #: a fraction of the bank.
     ai_figure_provider: str = "openrouter"
     ai_figure_model: str = "google/gemini-2.5-flash"
-    ai_figure_fallbacks: str = "openai/gpt-4.1-mini,anthropic/claude-sonnet-4.5"
+    ai_figure_fallbacks: str = "openai/gpt-4.1-mini,anthropic/claude-sonnet-4.5,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
     ai_figure_max_tokens: int = 700
     ai_figure_temperature: float = 0.0
 
@@ -270,7 +270,12 @@ class Settings(BaseSettings):
     #: OpenRouter's free models, so tagging still works with no credit left.
     ai_tagging_provider: str = "openrouter"
     ai_tagging_model: str = "x-ai/grok-4.7"
+    #: "groq:" entries run on Groq (see `get_llm`): its free tier is fast
+    #: and has daily room for a whole paper, where OpenRouter's :free models
+    #: are rate-limited within minutes. gpt-oss is fine here because tagging
+    #: asks for plain JSON, not tool calls.
     ai_tagging_fallbacks: str = (
+        "groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,"
         "qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free,"
         "nvidia/nemotron-3-super-120b-a12b:free"
     )
@@ -285,7 +290,7 @@ class Settings(BaseSettings):
     ai_extraction_model: str = "google/gemini-2.5-flash"
     ai_extraction_fallbacks: str = (
         "google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free,"
-        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free,qwen/qwen3.8-27b:free"
     )
     ai_extraction_max_tokens: int = 4000  # a page of blanks with a 10-option group fits
     ai_extraction_temperature: float = 0.0

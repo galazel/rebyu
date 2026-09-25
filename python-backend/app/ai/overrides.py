@@ -31,6 +31,15 @@ def _session():
     return SessionLocal()
 
 
+def _table() -> str:
+    """Schema-qualified: the pooler does not keep `search_path` reliably
+    (see app/db/base.py), and unqualified the table is sometimes not found --
+    every override then silently ignored."""
+    from app.core.config import get_settings
+
+    return f"{get_settings().db_schema}.ai_model_overrides"
+
+
 def all_overrides() -> dict[str, str]:
     """{task: model} for every task an administrator changed."""
     global _cache, _loaded_at
@@ -39,7 +48,7 @@ def all_overrides() -> dict[str, str]:
     try:
         session = _session()
         try:
-            rows = session.execute(text("select task, model from ai_model_overrides")).fetchall()
+            rows = session.execute(text(f"select task, model from {_table()}")).fetchall()
         finally:
             session.close()
         _cache = {task: model for task, model in rows}
@@ -58,8 +67,8 @@ def set_model(task: str, model: str, updated_by: str | None = None) -> None:
     global _loaded_at
     session = _session()
     try:
-        session.execute(text("""
-            insert into ai_model_overrides (task, model, updated_by, updated_at)
+        session.execute(text(f"""
+            insert into {_table()} (task, model, updated_by, updated_at)
             values (:task, :model, :by, now())
             on conflict (task) do update
                set model = excluded.model, updated_by = excluded.updated_by, updated_at = now()"""),
@@ -74,7 +83,7 @@ def clear_model(task: str) -> None:
     global _loaded_at
     session = _session()
     try:
-        session.execute(text("delete from ai_model_overrides where task = :task"), {"task": task})
+        session.execute(text(f"delete from {_table()} where task = :task"), {"task": task})
         session.commit()
     finally:
         session.close()

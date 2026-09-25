@@ -9,7 +9,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
 
-from app.ai.tasks import profile_for
+from app.ai.tasks import PROVIDERS, profile_for
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -114,6 +114,14 @@ def get_llm(task: str = "question", model: str | None = None):
     settings = get_settings()
     profile = profile_for(task, settings)
     provider = profile.provider
+
+    # A fallback may live at another provider, written "<provider>:<model>" --
+    # "groq:openai/gpt-oss-120b" behind an OpenRouter primary, so a task keeps
+    # working when one provider's credit or rate limit runs out. OpenRouter's
+    # own slugs never start with a provider name and a colon.
+    if model and ":" in model and model.split(":", 1)[0] in PROVIDERS:
+        provider_name, model = model.split(":", 1)
+        provider = PROVIDERS[provider_name]
 
     key = provider.api_key()
     if not key:

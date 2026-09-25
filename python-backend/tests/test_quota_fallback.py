@@ -455,13 +455,51 @@ def test_no_credit_is_not_mistaken_for_a_spent_daily_budget():
     assert not quota.is_daily_quota_exhausted(_no_credit(status=429))
 
 
-async def test_no_credit_fails_immediately_instead_of_walking_the_chain():
+def _only_chain(monkeypatch, models):
+    """Pins the task's chain, so these tests do not depend on what .env lists."""
+    from types import SimpleNamespace
+
+    import app.ai.router as router
+
+    profile = SimpleNamespace(name=TASK, chain=list(models), provider=SimpleNamespace(name="openrouter"))
+    monkeypatch.setattr(router, "profile_for", lambda *args, **kwargs: profile)
+
+
+PAID = ["paid/one", "paid/two"]
+FREE = ["free/one:free", "free/two:free"]
+GROQ = ["groq:openai/gpt-oss-120b"]
+
+
+async def test_no_credit_fails_immediately_when_only_openrouter_paid_models_remain(monkeypatch):
+    _only_chain(monkeypatch, PAID)
     calls: list[str] = []
-    factory = _factory({model: _no_credit() for model in CHAIN}, calls)
+    factory = _factory({model: _no_credit() for model in PAID}, calls)
 
     with pytest.raises(OutOfCredits, match="credit"):
         await ainvoke_with_fallback(factory, {"messages": []})
-    assert calls == [PRIMARY], "should not spend a request per model to learn the same thing"
+    assert calls == ["paid/one"], "should not spend a request per model to learn the same thing"
+
+
+async def test_no_credit_skips_the_paid_models_for_another_provider(monkeypatch):
+    """The balance is OpenRouter's: Groq, and OpenRouter's :free models, do
+    not need it, so they are tried -- the other paid models are not."""
+    _only_chain(monkeypatch, PAID + GROQ + FREE)
+    calls: list[str] = []
+    factory = _factory({model: _no_credit() for model in PAID}, calls)
+
+    result = await ainvoke_with_fallback(factory, {"messages": []})
+    assert result == {"structured_response": f"ok from {GROQ[0]}"}
+    assert calls == ["paid/one", GROQ[0]]
+
+
+async def test_no_credit_falls_to_the_free_models_when_nothing_else_is_listed(monkeypatch):
+    _only_chain(monkeypatch, PAID + FREE)
+    calls: list[str] = []
+    factory = _factory({model: _no_credit() for model in PAID}, calls)
+
+    result = await ainvoke_with_fallback(factory, {"messages": []})
+    assert result == {"structured_response": "ok from free/one:free"}
+    assert calls == ["paid/one", "free/one:free"]
 
 
 # the free tier's account-wide daily cap
@@ -511,14 +549,25 @@ def test_it_is_not_retryable():
     assert not is_retryable(_FreeCapError())
 
 
-async def test_the_daily_cap_stops_the_run_without_walking_the_chain():
+async def test_the_daily_cap_stops_the_run_without_walking_the_chain(monkeypatch):
+    _only_chain(monkeypatch, FREE)
     calls: list[str] = []
-    factory = _factory({model: _FreeCapError() for model in CHAIN}, calls)
+    factory = _factory({model: _FreeCapError() for model in FREE}, calls)
 
     with pytest.raises(AllModelsExhausted, match="free-model daily allowance"):
         await ainvoke_with_fallback(factory, {"messages": []})
 
-    assert calls == [PRIMARY], "one request should establish an account-wide fact"
+    assert calls == ["free/one:free"], "one request should establish an account-wide fact"
+
+
+async def test_the_daily_cap_skips_the_free_models_for_groq(monkeypatch):
+    _only_chain(monkeypatch, FREE + GROQ)
+    calls: list[str] = []
+    factory = _factory({model: _FreeCapError() for model in FREE}, calls)
+
+    result = await ainvoke_with_fallback(factory, {"messages": []})
+    assert result == {"structured_response": f"ok from {GROQ[0]}"}
+    assert calls == ["free/one:free", GROQ[0]]
 
 
 async def test_the_daily_cap_marks_every_model_so_later_calls_fail_fast():

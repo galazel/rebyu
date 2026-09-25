@@ -100,6 +100,15 @@ async def _ainvoke_once(agent, payload: dict, config: dict | None) -> Any:
     return await agent.ainvoke(payload, config)
 
 
+def _provider_of(model: str, profile) -> str:
+    """The provider a chain entry runs on: its "<provider>:" prefix, as
+    `get_llm` reads it, or else the task's own provider."""
+    from app.ai.tasks import PROVIDERS
+
+    prefix = model.split(":", 1)[0]
+    return prefix if ":" in model and prefix in PROVIDERS else profile.provider.name
+
+
 async def ainvoke_with_fallback(
     build_agent: Callable[..., Any],
     payload: dict,
@@ -130,10 +139,37 @@ async def ainvoke_with_fallback(
 
     last_exc: BaseException | None = None
     too_large_for: list[str] = []
+    # Models ruled out by an account-level failure earlier in this call.
+    ruled_out: set[str] = set()
     for model in available:
+        if model in ruled_out:
+            continue
         try:
             return await _ainvoke_once(build_agent(model), payload, config)
         except Exception as exc:
+            # An account-level failure at OpenRouter says nothing about
+            # another provider: a chain with "groq:" entries (or, for credit,
+            # OpenRouter's :free models) still has somewhere to go, so only
+            # the models sharing the wall are skipped.
+            if (is_account_daily_cap(exc) or is_out_of_credits(exc)) and _provider_of(model, profile) == "openrouter":
+                free_cap = is_account_daily_cap(exc)
+                sharing = [
+                    other for other in chain
+                    if _provider_of(other, profile) == "openrouter" and other.endswith(":free") == free_cap
+                ]
+                rest = [other for other in available if other not in ruled_out and other not in sharing]
+                if rest:
+                    ruled_out.update(sharing)
+                    if free_cap:
+                        wait = parse_retry_after(exc) or get_settings().ai_quota_cooldown_seconds
+                        for spent in sharing:
+                            mark_exhausted(spent, wait)
+                    last_exc = exc
+                    logger.warning(
+                        "OpenRouter refused %s (%s); trying %s",
+                        model, "free-model daily cap" if free_cap else "out of credit", rest[0],
+                    )
+                    continue
             if is_account_daily_cap(exc):
                 # Account-wide, like the credits case below: every `:free` slug
                 # shares one daily counter, so the remaining models in this
