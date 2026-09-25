@@ -216,8 +216,19 @@ def _fingerprint(text):
     return re.sub(r"[^0-9a-z]+", "", text.lower())
 
 
+#: Between a question's stem and its choices in a duplicate-check entry. A
+#: control character, since a stem can hold line breaks of its own.
+CHOICES_SEPARATOR = "\x01"
+
+
 def find_duplicates(db, certification_id, stems):
-    """For each stem: why it is a duplicate, or None.
+    """For each question: why it is a duplicate, or None.
+
+    Each entry is a question's stem followed by its choices' text -- the
+    same stem with different choices is a different question, and papers
+    reuse stems ("Which of the following is an appropriate description
+    concerning ...") all the time. The bank is compared the same way: each
+    question's text with its choices, in order.
 
     "bank" -- the certification's question bank already holds it;
     "paper" -- an earlier question in this same upload is the same question.
@@ -225,9 +236,12 @@ def find_duplicates(db, certification_id, stems):
     called duplicates.
     """
     existing = {
-        _fingerprint(row[0])
+        _fingerprint(row[0]) + _fingerprint(row[1] or "")
         for row in db.execute(text("""
-            select q.question_text from questions q
+            select q.question_text,
+                   (select string_agg(coalesce(c.choice_text, ''), ' ' order by c.choice_id)
+                      from choices c where c.question_id = q.question_id)
+              from questions q
               join lessons l on l.lesson_id = q.lesson_id
               join middle_categories mc on mc.middle_category_id = l.middle_category_id
               join major_categories m on m.major_category_id = mc.major_category_id
@@ -235,9 +249,11 @@ def find_duplicates(db, certification_id, stems):
     }
     seen = set()
     reasons = []
-    for stem in stems:
-        key = _fingerprint(stem)
-        if len(key) < 40:
+    for entry in stems:
+        stem, _, choices = (entry or "").partition(CHOICES_SEPARATOR)
+        stem_key = _fingerprint(stem)
+        key = stem_key + _fingerprint(choices)
+        if len(stem_key) < 40:
             reasons.append(None)
         elif key in existing:
             reasons.append("bank")

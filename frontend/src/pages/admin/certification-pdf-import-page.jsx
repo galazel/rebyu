@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef, useState } from "react"
+import { memo, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 
@@ -40,6 +40,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { PdfUploadStep } from "@/components/question-bank/pdf-upload-step.jsx"
+import { clearDraft, loadDraft, saveDraft } from "@/utils/pdf-import-draft.js"
 import { getAllCertifications } from "@/services/certificationService.js"
 import { uploadQuestionImage } from "@/services/fileService.js"
 import { findDuplicates, readDocumentLayout, readDocumentPage, tagQuestions } from "@/services/pdfImportService.js"
@@ -190,6 +191,23 @@ function parseKeyText(text, questions) {
  * copies of one question have in common. The server compares the same way
  * against the question bank.
  */
+/**
+ * What makes two questions the same question: the stem AND the choices.
+ * Papers reuse a stem ("Which of the following is an appropriate description
+ * concerning the Java language?") with different choices, and those are
+ * different questions. Null for a stem too short to tell questions apart.
+ */
+function questionPrint(question) {
+    const stem = fingerprint(question.stem)
+    if (stem.length < 40) return null
+    return `${stem}|${question.options.map((option) => fingerprint(option.text)).join("|")}`
+}
+
+/** A question as the server's duplicate check compares it: the stem, then its choices after a U+0001 (a stem can hold line breaks). */
+function duplicateText(question) {
+    return [question.stem, ...question.options.map((option) => option.text || "")].join("\u0001")
+}
+
 const prints = new Map()
 function fingerprint(text) {
     // Cached: the duplicate check runs on every render, over every question.
@@ -840,6 +858,7 @@ export default function CertificationPdfImportPage() {
     const [tagging, setTagging] = useState(false)
     const [notice, setNotice] = useState(null)
     const [previewOpen, setPreviewOpen] = useState(false)
+    const [duplicatesOpen, setDuplicatesOpen] = useState(false)
     const [saving, setSaving] = useState(null)
 
     const { data: certifications = [] } = useQuery({
@@ -852,6 +871,61 @@ export default function CertificationPdfImportPage() {
     )
 
     const busy = progress !== null
+
+    // The import survives a refresh: it is restored from the browser's own
+    // storage on load, and each change is written back a moment later --
+    // only the papers that changed. Nothing is saved until the restore has
+    // run, so an empty first render cannot overwrite what was there.
+    const [restored, setRestored] = useState(false)
+    const written = useRef(new Map())
+    useEffect(() => {
+        let cancelled = false
+        setRestored(false)
+        loadDraft(certificationId).then((draft) => {
+            if (cancelled) return
+            if (draft?.papers.length && !latest.current.papers.length) {
+                latest.current = { papers: draft.papers, keys: draft.keys }
+                setPapers(draft.papers)
+                setKeys(draft.keys)
+                setLessons(draft.lessons)
+                written.current = new Map(draft.papers.map((paper) => [paper.id, paper]))
+                const count = draft.papers.reduce((sum, paper) => sum + paper.questions.length, 0)
+                setNotice({
+                    kind: "ok",
+                    text: `Restored your import: ${count} questions in ${draft.papers.length} paper${draft.papers.length === 1 ? "" : "s"}, as you left them.`,
+                })
+            }
+            setRestored(true)
+        })
+        return () => {
+            cancelled = true
+        }
+    }, [certificationId])
+    useEffect(() => {
+        if (!restored) return undefined
+        const timer = setTimeout(() => {
+            const changed = papers.filter((paper) => written.current.get(paper.id) !== paper)
+            const ids = new Set(papers.map((paper) => paper.id))
+            const removed = [...written.current.keys()].filter((id) => !ids.has(id))
+            saveDraft(certificationId, { changed, removed, order: [...ids], keys, lessons }).then((ok) => {
+                if (!ok) return
+                for (const paper of changed) written.current.set(paper.id, paper)
+                for (const id of removed) written.current.delete(id)
+            })
+        }, 800)
+        return () => clearTimeout(timer)
+    }, [certificationId, papers, keys, lessons, restored])
+
+    function startOver() {
+        if (!window.confirm("Remove every paper from this import? Questions already saved to the question bank stay there.")) return
+        latest.current = { papers: [], keys: [] }
+        setPapers([])
+        setKeys([])
+        setFailures([])
+        setNotice(null)
+        written.current = new Map()
+        clearDraft(certificationId)
+    }
     // A key read before its paper is not "unmatched" yet, and a paper read
     // before its key is not "missing answers": the errors wait for the last file.
 
@@ -881,11 +955,18 @@ export default function CertificationPdfImportPage() {
     async function addKeyForPaper(file, target) {
         setProgress({ label: `Reading answer key ${file.name}`, percent: 30 })
         try {
-            const result = await readExamPdf(file, null, readDocumentPage)
-            if (result.kind !== "key") {
-                setNotice({ kind: "error", text: `${file.name} is a question paper, not an answer key. Add it with Add PDFs instead.` })
+            const read = await readExamPdf(file, null, readDocumentPage, readDocumentLayout)
+            // Read the same way as a key uploaded with its paper: a key laid
+            // out like a paper -- questions with their answers marked --
+            // gives its answers too.
+            const answers = read.kind === "key"
+                ? read.answers
+                : Object.fromEntries((read.questions ?? []).filter((q) => q.answer).map((q) => [q.num, q.answer]))
+            if (!Object.keys(answers).length) {
+                setNotice({ kind: "error", text: `No answers could be read from ${file.name}. Is it the answer key? You can also paste the key instead.` })
                 return
             }
+            const result = { name: read.name, info: read.info, answers, count: Object.keys(answers).length }
             const fileId = `${file.name}:${file.size}`
             const key = { id: `${fileId}:${Date.now()}`, fileId, name: result.name, info: result.info, answers: result.answers, count: result.count, paperId: target.id }
             setKeys((current) => [
@@ -902,6 +983,7 @@ export default function CertificationPdfImportPage() {
             if (fits < target.questions.length) {
                 warnings.push(`it gives answers for ${fits} of the paper's ${target.questions.length} questions`)
             }
+            setKeyBoxFor(null)
             setNotice(
                 warnings.length
                     ? { kind: "warn", text: `${result.name} attached to ${target.name}, but ${warnings.join(", and ")}. Check it is the right key.` }
@@ -1013,7 +1095,7 @@ export default function CertificationPdfImportPage() {
             // Retried: a backend restarting mid-upload fails one call, and the
             // paper would go unchecked for good.
             const check = (attempt = 0) =>
-                findDuplicates(certificationId, questions.map((q) => q.stem)).catch((error) =>
+                findDuplicates(certificationId, questions.map(duplicateText)).catch((error) =>
                     attempt < 3
                         ? new Promise((resolve) => setTimeout(resolve, 5000 * (attempt + 1))).then(() => check(attempt + 1))
                         : Promise.reject(error),
@@ -1074,19 +1156,19 @@ export default function CertificationPdfImportPage() {
                 const texts = target.questions.map(
                     (q) => `${q.stem}\n${q.options.map((o) => `${o.key}) ${o.text || "[picture]"}`).join("\n")}`,
                 )
-                const result = await tagQuestions(certificationId, texts, target.questions.map((q) => q.stem))
+                const result = await tagQuestions(certificationId, texts, target.questions.map(duplicateText))
                 setLessons(result.lessons ?? [])
                 const tags = {}
                 const include = {}
                 target.questions.forEach((question, position) => {
                     const tag = { ...(result.tags?.[position] ?? {}) }
                     // Across papers too: the same question in two uploads.
-                    const print = fingerprint(question.stem)
-                    if (!tag.duplicate && print.length >= 40 && seen.has(print)) {
+                    const print = questionPrint(question)
+                    if (!tag.duplicate && print && seen.has(print)) {
                         tag.duplicate = "upload"
                         tag.duplicateOf = seen.get(print)
                     }
-                    if (print.length >= 40 && !seen.has(print)) seen.set(print, `${target.name} Q${question.num}`)
+                    if (print && !seen.has(print)) seen.set(print, `${target.name} Q${question.num}`)
                     if (tag.noLesson) noLesson += 1
                     else if (tag.duplicate) duplicates += 1
                     if (tag.source && tag.source !== "ai") fallback += 1
@@ -1123,8 +1205,8 @@ export default function CertificationPdfImportPage() {
                 const server = item.duplicates?.[question.num]
                 if (server === "bank") duplicateReasons[id] = "it is already in this certification's question bank"
                 else if (server === "paper") duplicateReasons[id] = "it repeats an earlier question in the same paper"
-                const print = fingerprint(question.stem)
-                if (print.length < 40) continue
+                const print = questionPrint(question)
+                if (!print) continue
                 const earlier = firstSeen.get(print)
                 if (earlier && !duplicateReasons[id]) {
                     duplicateReasons[id] = `it repeats ${earlier} in this upload`
@@ -1133,6 +1215,23 @@ export default function CertificationPdfImportPage() {
                 }
             }
         }
+    }
+
+    // Every duplicate across the papers, for the list the top bar opens.
+    const duplicateList = papers.flatMap((item) =>
+        item.questions
+            .filter((question) => duplicateReasons[`${item.id}-${question.num}`])
+            .map((question) => ({ paper: item, question, reason: duplicateReasons[`${item.id}-${question.num}`] })),
+    )
+
+    function deleteAllDuplicates() {
+        const byPaper = new Map()
+        for (const { paper: item, question } of duplicateList) {
+            byPaper.set(item.id, [...(byPaper.get(item.id) ?? []), question.num])
+        }
+        for (const [paperId, nums] of byPaper) deleteQuestions(paperId, nums)
+        setDuplicatesOpen(false)
+        setNotice({ kind: "ok", text: `${duplicateList.length} duplicate${duplicateList.length === 1 ? "" : "s"} deleted. The first copy of each question is kept.` })
     }
 
     // What a question card can do, as one object that never changes: the
@@ -1220,14 +1319,23 @@ export default function CertificationPdfImportPage() {
                     <p className="truncate text-sm font-semibold">{certification?.title ?? "Question bank"}</p>
                 </div>
                 {papers.length ? (
-                    <Button type="button" size="sm" disabled={busy} onClick={() => setUploadOpen(true)}>
-                        <UploadIcon className="mr-2 h-4 w-4" /> Add PDFs
-                    </Button>
+                    <>
+                        <Button type="button" size="sm" variant="ghost" className="text-destructive" disabled={busy || tagging} onClick={startOver}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Start over
+                        </Button>
+                        <Button type="button" size="sm" disabled={busy} onClick={() => setUploadOpen(true)}>
+                            <UploadIcon className="mr-2 h-4 w-4" /> Add PDFs
+                        </Button>
+                    </>
                 ) : null}
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-                {!papers.length ? (
+                {!papers.length && !restored ? (
+                    <p className="mt-[20vh] flex items-center justify-center gap-2 text-sm text-muted-foreground" aria-live="polite">
+                        <Loader2 className="h-4 w-4 animate-spin" /> Loading your import…
+                    </p>
+                ) : !papers.length ? (
                     <section className="mx-auto mt-[6vh] max-w-3xl px-5">
                         <ImportGuide />
                         <div className="rounded-2xl border bg-background p-5 shadow-sm">
@@ -1267,6 +1375,18 @@ export default function CertificationPdfImportPage() {
                                     {answeredCount < totalQuestions ? `, ${answeredCount} with their answer` : ""}
                                     {taggedCount ? `, ${taggedCount} tagged` : ""}.
                                 </p>
+                                {duplicateList.length ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="border-amber-400 text-amber-800 hover:bg-amber-50"
+                                        disabled={busy}
+                                        onClick={() => setDuplicatesOpen(true)}
+                                    >
+                                        <AlertTriangle className="mr-2 h-4 w-4" /> {duplicateList.length} duplicate{duplicateList.length === 1 ? "" : "s"}
+                                    </Button>
+                                ) : null}
                                 <Button type="button" size="sm" variant={taggedCount ? "outline" : "default"} disabled={tagging || busy} onClick={tagWithAi}>
                                     {tagging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                     {tagging ? "Tagging…" : taggedCount ? "Tag all again with AI" : `Tag ${answeredCount} with AI`}
@@ -1503,7 +1623,18 @@ export default function CertificationPdfImportPage() {
                                                         <Button
                                                             type="button"
                                                             size="sm"
-                                                            onClick={() => updatePaper(item.id, (p) => ({ answers: parseKeyText(keyText, p.questions), keyName: "pasted key" }))}
+                                                            onClick={() => {
+                                                                const answers = parseKeyText(keyText, item.questions)
+                                                                const count = Object.keys(answers).length
+                                                                if (!count) {
+                                                                    setNotice({ kind: "error", text: "No answers could be read from the pasted key. Use a form like 1 c, 2 d, 3 a." })
+                                                                    return
+                                                                }
+                                                                updatePaper(item.id, () => ({ answers, keyName: "pasted key" }))
+                                                                setKeyBoxFor(null)
+                                                                setKeyText("")
+                                                                setNotice({ kind: "ok", text: `Pasted key applied to ${item.name}: ${count} answer${count === 1 ? "" : "s"}.` })
+                                                            }}
                                                         >
                                                             Apply pasted key
                                                         </Button>
@@ -1556,6 +1687,65 @@ export default function CertificationPdfImportPage() {
                             addFiles(files)
                         }}
                     />
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={duplicatesOpen} onOpenChange={setDuplicatesOpen}>
+                <DialogContent className="max-h-[calc(100dvh-3rem)] overflow-y-auto sm:max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle>Duplicate questions</DialogTitle>
+                        <DialogDescription>
+                            {duplicateList.length} question{duplicateList.length === 1 ? " repeats" : "s repeat"} one already in the question bank
+                            or earlier in this upload. Deleting keeps the first copy.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {/* At the top, not after hundreds of rows. */}
+                    {duplicateList.length ? (
+                        <div className="sticky -top-6 z-10 -mx-6 flex items-center justify-between gap-3 border-b bg-background px-6 py-3">
+                            <p className="text-sm text-muted-foreground">Delete every duplicate below in one go.</p>
+                            <Button type="button" variant="destructive" onClick={deleteAllDuplicates}>
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete all {duplicateList.length} duplicates
+                            </Button>
+                        </div>
+                    ) : null}
+                    <ul className="divide-y rounded-xl border">
+                        {duplicateList.map(({ paper: item, question, reason }) => (
+                            <li key={`${item.id}-${question.num}`} className="flex items-start gap-3 p-3">
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold">
+                                        {item.name.replace(/\.pdf$/i, "")} · Q{question.num}
+                                    </p>
+                                    <p className="text-xs text-amber-800">Duplicate: {reason}.</p>
+                                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{question.stem}</p>
+                                </div>
+                                <div className="flex shrink-0 gap-1.5">
+                                    <Button
+                                        type="button"
+                                        size="xs"
+                                        variant="ghost"
+                                        onClick={() => {
+                                            setDuplicatesOpen(false)
+                                            cardActions.jump(item.id, question.num)
+                                        }}
+                                    >
+                                        View
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="xs"
+                                        variant="outline"
+                                        className="text-destructive"
+                                        onClick={() => deleteQuestions(item.id, [question.num])}
+                                    >
+                                        <Trash2 className="h-3 w-3" /> Delete
+                                    </Button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                    {duplicateList.length ? null : (
+                        <p className="py-4 text-center text-sm text-muted-foreground">No duplicates left.</p>
+                    )}
                 </DialogContent>
             </Dialog>
 
