@@ -53,8 +53,10 @@ You are given the course's lessons, one per line as
 and a numbered list of questions.
 
 For EVERY question pick the ONE lesson whose topic the question tests, and a
-difficulty. When NO lesson in the list covers the question's topic at all,
-give "lessonId": null -- do not force it into a loosely related lesson. The
+difficulty. Every question gets a lesson: when none covers its topic exactly,
+pick the CLOSEST one -- the lesson a learner would study to answer it (a
+software licence question goes under intellectual property or software, a
+spreadsheet formula under data handling). Never leave it out. The
 difficulty:
   easy     recall of a single fact or definition
   average  applying one concept, or a short calculation
@@ -62,10 +64,10 @@ difficulty:
 
 Return ONLY a JSON array, no prose and no markdown fence, one object per
 question in the order given:
-[{"index": <question number as given>, "lessonId": <lessonId from the list, or null>,
+[{"index": <question number as given>, "lessonId": <lessonId from the list>,
   "difficulty": "easy" | "average" | "hard"}]
 
-Use only lessonIds that appear in the list, or null."""
+Use only lessonIds that appear in the list."""
 
 
 def _catalogue_text(lessons):
@@ -108,7 +110,10 @@ def _parse(body, count, lesson_ids):
             "lessonId": lesson_id,
             "difficulty": difficulty if difficulty in DIFFICULTIES else None,
             # The model looked at every lesson and none covers this.
-            "noLesson": lesson_id is None,
+            # The model gave no lesson anyway: it is found below (the closest
+            # by meaning), and the question is kept -- never dropped for it.
+            "noLesson": False,
+            "needsLesson": lesson_id is None,
         }
     return tags
 
@@ -218,7 +223,7 @@ async def tag_questions(db, certification_id, questions, budget=None):
     # answer is asked once more before the embedding match fills it in: a
     # question should leave with a lesson AND a difficulty.
     if budget:
-        again = [i for i, tag in enumerate(results) if tag is None or not tag.get("difficulty") and not tag.get("noLesson")]
+        again = [i for i, tag in enumerate(results) if tag is None or tag.get("needsLesson") or not tag.get("difficulty")]
         for s in range(0, len(again), BATCH):
             chunk = again[s:s + BATCH]
             tags, model = await _tag_batch(
@@ -226,8 +231,9 @@ async def tag_questions(db, certification_id, questions, budget=None):
             for offset, tag in tags.items():
                 results[chunk[offset]] = {**tag, "source": "ai", "model": model}
 
-    # Whatever the model did not answer, the embedding match files.
-    missing = [i for i, tag in enumerate(results) if tag is None]
+    # Whatever the model did not answer -- or answered without a lesson --
+    # the embedding match files under the closest lesson.
+    missing = [i for i, tag in enumerate(results) if tag is None or tag.get("needsLesson")]
     embedding = {}
     if missing:
         suggestions, _ = suggest_lessons(db, certification_id, [questions[i] for i in missing])
@@ -235,6 +241,10 @@ async def tag_questions(db, certification_id, questions, budget=None):
 
     tags = []
     for index, tag in enumerate(results):
+        if tag is not None and tag.pop("needsLesson", False):
+            fallback = embedding.get(index)
+            tag["lessonId"] = fallback["lessonId"] if fallback else None
+            tag["lessonSource"] = "closest"
         if tag is None:
             fallback = embedding.get(index)
             tag = {

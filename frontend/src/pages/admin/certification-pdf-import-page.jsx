@@ -248,10 +248,18 @@ function listNumbers(questions, limit = 12) {
     return questions.length > limit ? `${shown} and ${questions.length - limit} more` : shown
 }
 
+/** A question still without its lesson or its difficulty. */
+function needsTag(paper, question) {
+    const tag = paper.tags[question.num]
+    return !tag || !tag.lessonId || !tag.difficulty
+}
+
 /** Why the tagging dropped a question, or null when it did not. */
 function dropReason(tag) {
     if (!tag) return null
-    if (tag.noLesson) return "no lesson in this certification fits it"
+    // A question with no exact lesson is never dropped: the tagger files it
+    // under the closest one, and an older tag without a lesson just waits
+    // for one to be chosen.
     if (tag.duplicate === "bank") return "it is already in the question bank"
     if (tag.duplicate === "paper") return "it repeats an earlier question in the same paper"
     if (tag.duplicate === "upload") return `it repeats ${tag.duplicateOf ?? "a question in another uploaded paper"}`
@@ -449,7 +457,7 @@ function ImportGuide() {
         },
         {
             title: "Tag with AI, then Preview & save",
-            body: "The AI sets each question's lesson and difficulty. Questions no lesson fits, and duplicates of the bank or of each other, are dropped. Nothing is saved until you confirm the preview.",
+            body: "The AI sets each question's lesson and difficulty -- the closest lesson when none fits exactly. Duplicates of the bank or of each other are dropped. Nothing is saved until you confirm the preview.",
         },
     ]
     return (
@@ -1184,9 +1192,9 @@ export default function CertificationPdfImportPage() {
      * (below), applies each paper's tags as it finishes, and picks the job
      * back up after a refresh. Only questions with their answer are sent.
      */
-    async function tagWithAi() {
+    async function tagWithAi(onlyMissing = false) {
         const targets = latest.current.papers
-            .map((p) => ({ ...p, questions: answered(p) }))
+            .map((p) => ({ ...p, questions: answered(p).filter((q) => !onlyMissing || needsTag(p, q)) }))
             .filter((p) => p.questions.length)
         if (!targets.length) {
             setNotice({ kind: "error", text: "No question has its answer yet. Add the answer keys first." })
@@ -1261,12 +1269,10 @@ export default function CertificationPdfImportPage() {
     /** What the finished job did, for the notice and the notification. */
     function jobSummary(job) {
         const tags = job.papers.flatMap((entry) => entry.tags ?? [])
-        const noLesson = tags.filter((tag) => tag.noLesson).length
-        const duplicates = tags.filter((tag) => !tag.noLesson && tag.duplicate).length
+        const duplicates = tags.filter((tag) => tag.duplicate).length
         const fallback = tags.filter((tag) => tag.source && tag.source !== "ai").length
         const failed = job.papers.filter((entry) => entry.status === "failed").length
         const parts = [`${tags.length} questions tagged.`]
-        if (noLesson) parts.push(`${noLesson} dropped: no lesson in this certification fits them.`)
         if (duplicates) parts.push(`${duplicates} dropped as duplicates.`)
         if (fallback) parts.push(`${fallback} could not be tagged by the AI and were matched without it -- set their difficulty.`)
         if (failed) parts.push(`${failed} paper${failed === 1 ? "" : "s"} could not be tagged -- tag again to retry.`)
@@ -1446,6 +1452,7 @@ export default function CertificationPdfImportPage() {
     const totalQuestions = papers.reduce((sum, p) => sum + p.questions.length, 0)
     const answeredCount = papers.reduce((sum, p) => sum + answered(p).length, 0)
     const taggedCount = papers.reduce((sum, p) => sum + Object.keys(p.tags).length, 0)
+    const missingTagCount = papers.reduce((sum, p) => sum + answered(p).filter((q) => needsTag(p, q)).length, 0)
 
     return (
         <div className="flex h-dvh w-full flex-col overflow-hidden bg-muted/20">
@@ -1528,7 +1535,7 @@ export default function CertificationPdfImportPage() {
                                         <AlertTriangle className="mr-2 h-4 w-4" /> {duplicateList.length} duplicate{duplicateList.length === 1 ? "" : "s"}
                                     </Button>
                                 ) : null}
-                                <Button type="button" size="sm" variant={taggedCount ? "outline" : "default"} disabled={tagging || busy} onClick={tagWithAi}>
+                                <Button type="button" size="sm" variant={taggedCount ? "outline" : "default"} disabled={tagging || busy} onClick={() => tagWithAi(false)}>
                                     {tagging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                     {tagging
                                         ? tagJob
@@ -1538,6 +1545,11 @@ export default function CertificationPdfImportPage() {
                                           ? "Tag all again with AI"
                                           : `Tag ${answeredCount} with AI`}
                                 </Button>
+                                {!tagging && taggedCount && missingTagCount ? (
+                                    <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => tagWithAi(true)}>
+                                        <Sparkles className="mr-2 h-4 w-4" /> Tag {missingTagCount} missing a lesson or difficulty
+                                    </Button>
+                                ) : null}
                                 {tagJob?.status === "running" ? (
                                     <Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={stopTagging}>
                                         Stop
