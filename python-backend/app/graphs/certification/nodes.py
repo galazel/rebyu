@@ -1163,7 +1163,7 @@ MIDDLE_PHASE = LoopPhase(
 #             for each lesson:  content -> 10-question quiz
 #             middle quiz, from those lessons' content
 #         major quiz, from every lesson under the major
-#     mock exam -> diagnostic exam -> question bank
+#     question bank -> diagnostic exam -> mock exam
 #
 # It used to be three independent passes (all majors, then all middles, then
 # all lessons), which meant every category quiz was written before a single

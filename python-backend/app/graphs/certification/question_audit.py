@@ -1,4 +1,10 @@
-"""The duplicate audit: the last thing a run does to its questions.
+"""The duplicate audit, run once the question bank is written.
+
+It runs after the last lesson's bank and before the diagnostic and mock, so it
+covers every lesson, category and bank question. The two exams written after
+it are handed everything already written (`written_stems`) and screened by the
+overlap check in `invoke_question_agent`, rather than audited again -- a
+second full pass would re-read every lesson for two papers.
 
 Every assessment in a run is a separate call to the question agent -- a
 lesson's quiz, the middle exam over that lesson, the major exam above it, the

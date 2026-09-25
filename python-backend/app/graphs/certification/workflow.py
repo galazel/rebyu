@@ -57,6 +57,14 @@ def route_certification_assessments(state: CertificationState) -> str:
     return "append" if (state.get("existing_curriculum") or "").strip() else "full"
 
 
+def _after_bank(state) -> str:
+    """After the bank's review: regenerate it, go on to the diagnostic, or --
+    for an append, which writes no certification-wide exams -- finish."""
+    if route_after_review(state) == "regenerate":
+        return "regenerate"
+    return "diagnostic" if route_certification_assessments(state) == "full" else "done"
+
+
 def build_certification_graph(checkpointer):
     """Assembles and compiles the graph against the given checkpointer.
 
@@ -68,7 +76,7 @@ def build_certification_graph(checkpointer):
                 FOR EACH lesson under it: content -> quiz -> validate -> [review]
                 middle quiz (from those lessons) -> validate -> [review]
             major quiz (from every lesson under it) -> validate -> [review]
-        mock -> [review] -> diagnostic -> [review] -> bank -> audit -> [review] -> END
+        bank -> audit -> [review] -> diagnostic -> [review] -> mock -> [review] -> END
 
     Bottom-up and interleaved, because every assessment is generated *from the
     content it tests*. The previous shape ran three flat passes -- all majors,
@@ -183,7 +191,9 @@ def build_certification_graph(checkpointer):
     workflow.add_conditional_edges(
         CERTIFICATION_ASSESSMENTS_GATE,
         route_certification_assessments,
-        {"full": "generate_mock_exam", "append": "generate_question_bank"},
+        # The bank comes first either way; an append ends after it (see
+        # `_after_bank`).
+        {"full": "generate_question_bank", "append": "generate_question_bank"},
     )
 
     # Certification-wide assessments
@@ -195,32 +205,30 @@ def build_certification_graph(checkpointer):
     workflow.add_node("audit_questions", instrument(audit_questions_node, "audit_questions"))
     workflow.add_node("await_question_bank_review", await_question_bank_review_node)
 
-    # Mock before diagnostic: the mock exam is the one that has to imitate the
-    # real paper, so it runs first while the exam structure is freshest in the
-    # reviewer's mind. Both now follow every lesson, so both are written from
-    # the certification's actual content.
-    workflow.add_edge("generate_mock_exam", "await_mock_exam_review")
+    # Bank, then diagnostic, then mock -- right after the last lesson. The
+    # bank is the widest set and is audited for duplicates as soon as it
+    # exists; the two exams are written after it, each told what the run has
+    # already written (`written_stems`), so they do not repeat bank items.
+    # The mock comes last: it imitates the real paper end to end, and the
+    # reviewer sees it with everything else in the certification done.
+    workflow.add_edge("generate_question_bank", "audit_questions")
+    workflow.add_edge("audit_questions", "await_question_bank_review")
     workflow.add_conditional_edges(
-        "await_mock_exam_review",
-        route_after_review,
-        {"approve": "generate_diagnostic_exam", "regenerate": "generate_mock_exam"},
+        "await_question_bank_review",
+        _after_bank,
+        {"regenerate": "generate_question_bank", "diagnostic": "generate_diagnostic_exam", "done": END},
     )
     workflow.add_edge("generate_diagnostic_exam", "await_diagnostic_exam_review")
     workflow.add_conditional_edges(
         "await_diagnostic_exam_review",
         route_after_review,
-        {"approve": "generate_question_bank", "regenerate": "generate_diagnostic_exam"},
+        {"approve": "generate_mock_exam", "regenerate": "generate_diagnostic_exam"},
     )
-    # The bank is the last thing written, so once it exists every question of
-    # the run exists: the duplicate audit runs here, over all of them, and the
-    # reviewer sees the bank as it will be stored. A regenerated bank is
-    # audited again.
-    workflow.add_edge("generate_question_bank", "audit_questions")
-    workflow.add_edge("audit_questions", "await_question_bank_review")
+    workflow.add_edge("generate_mock_exam", "await_mock_exam_review")
     workflow.add_conditional_edges(
-        "await_question_bank_review",
+        "await_mock_exam_review",
         route_after_review,
-        {"approve": END, "regenerate": "generate_question_bank"},
+        {"approve": END, "regenerate": "generate_mock_exam"},
     )
 
     return workflow.compile(checkpointer=checkpointer)

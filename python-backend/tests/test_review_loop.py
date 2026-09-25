@@ -292,13 +292,15 @@ async def test_phases_run_bottom_up_lesson_then_middle_then_major(graph_env):
     await _start(graph, "loop-7")
 
     stages = []
-    for _ in range(6):
+    for _ in range(8):
         result = await _resume(graph, "loop-7", APPROVE_REMAINING)
         if "__interrupt__" not in result:
             break
         stages.append(result["__interrupt__"][0].value["stage"])
 
-    assert stages[:3] == ["MIDDLE", "MAJOR", "MOCK_EXAM"], stages
+    # After the last lesson: the bank, then the diagnostic, then the mock.
+    assert stages[:3] == ["MIDDLE", "MAJOR", "QUESTION_BANK"], stages
+    assert stages[3:5] == ["DIAGNOSTIC_EXAM", "MOCK_EXAM"], stages
 
 
 async def test_lesson_review_shows_both_the_lesson_and_its_quiz(graph_env):
