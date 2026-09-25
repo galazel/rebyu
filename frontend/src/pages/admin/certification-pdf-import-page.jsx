@@ -199,6 +199,15 @@ function unanswered(paper) {
     return paper.questions.filter((question) => !paper.answers[question.num])
 }
 
+/**
+ * The questions of a paper that have their correct answer -- the only ones
+ * tagged, listed on the answer sheet and saved. One without an answer is
+ * left out until its key is added.
+ */
+function answered(paper) {
+    return paper.questions.filter((question) => paper.answers[question.num])
+}
+
 /** "Q5, Q12, Q31" -- the first few, then how many more. */
 function listNumbers(questions, limit = 12) {
     const shown = questions.slice(0, limit).map((q) => `Q${q.num}`).join(", ")
@@ -821,11 +830,18 @@ export default function CertificationPdfImportPage() {
     /**
      * Tags every paper's questions, paper by paper. A question no lesson fits,
      * or one already in the bank or earlier in this upload, is dropped:
-     * left unticked, with the reason on its card.
+     * left unticked, with the reason on its card. Only questions with their
+     * answer are tagged; the rest wait for their key.
      */
     async function tagWithAi() {
         const targets = latest.current.papers
-        if (!targets.length) return
+            .map((p) => ({ ...p, questions: answered(p) }))
+            .filter((p) => p.questions.length)
+        const skipped = latest.current.papers.reduce((sum, p) => sum + unanswered(p).length, 0)
+        if (!targets.length) {
+            setNotice({ kind: "error", text: "No question has its answer yet. Add the answer keys first." })
+            return
+        }
         setTagging(true)
         setNotice(null)
         const seen = new Map()
@@ -859,11 +875,12 @@ export default function CertificationPdfImportPage() {
                     include[question.num] = !dropReason(tag)
                     tagged += 1
                 })
-                updatePaper(target.id, () => ({ tags, include }))
+                updatePaper(target.id, (p) => ({ tags: { ...p.tags, ...tags }, include: { ...p.include, ...include } }))
             }
             const parts = [`${tagged} questions tagged.`]
             if (noLesson) parts.push(`${noLesson} dropped: no lesson in this certification fits them.`)
             if (duplicates) parts.push(`${duplicates} dropped as duplicates.`)
+            if (skipped) parts.push(`${skipped} without an answer were skipped.`)
             if (fallback) parts.push(`${fallback} could not be tagged by the AI and were matched without it -- set their difficulty.`)
             setNotice({ kind: fallback ? "warn" : "ok", text: parts.join(" ") })
         } catch (error) {
@@ -906,7 +923,7 @@ export default function CertificationPdfImportPage() {
 
     // What Save would write, across every paper.
     const pending = papers.flatMap((p) =>
-        p.questions
+        answered(p)
             .filter((q) => p.include[q.num] !== false && !p.saved[q.num] && p.tags[q.num])
             .map((question) => ({ question, paper: p })),
     )
@@ -935,6 +952,7 @@ export default function CertificationPdfImportPage() {
     // A key already feeding a paper is not "unmatched", whichever copy it is.
     const looseKeys = keys.filter((key) => !key.paperId && !papers.some((p) => p.keyName === key.name))
     const totalQuestions = papers.reduce((sum, p) => sum + p.questions.length, 0)
+    const answeredCount = papers.reduce((sum, p) => sum + answered(p).length, 0)
     const taggedCount = papers.reduce((sum, p) => sum + Object.keys(p.tags).length, 0)
 
     return (
@@ -980,13 +998,13 @@ export default function CertificationPdfImportPage() {
                     <div className="grid w-full gap-6 px-4 py-5 lg:px-6 lg:grid-cols-[250px_minmax(0,1fr)]">
                         <aside className="hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto rounded-2xl border bg-background p-3 lg:sticky lg:top-0 lg:block">
                             <h2 className="text-sm font-bold text-primary">Answer sheet</h2>
-                            <p className="mb-2 text-xs text-muted-foreground">Green marks the answer. Click a number to jump to it.</p>
-                            {papers.map((item) => (
+                            <p className="mb-2 text-xs text-muted-foreground">Green marks the answer. Click a number to jump to it. Questions without an answer are left off and will not be saved.</p>
+                            {papers.filter((item) => answered(item).length).map((item) => (
                                 <div key={item.id} className="mb-3">
                                     {papers.length > 1 ? (
                                         <p className="sticky top-0 mb-1 truncate bg-background py-1 text-xs font-semibold">{item.name.replace(/\.pdf$/i, "")}</p>
                                     ) : null}
-                                    {item.questions.map((question) => {
+                                    {answered(item).map((question) => {
                                         const answer = item.answers[question.num]
                                         return (
                                             <button
@@ -1027,11 +1045,12 @@ export default function CertificationPdfImportPage() {
                                     <strong className="text-foreground">
                                         {totalQuestions} questions{papers.length > 1 ? ` in ${papers.length} papers` : ""}
                                     </strong>
+                                    {answeredCount < totalQuestions ? `, ${answeredCount} with their answer` : ""}
                                     {taggedCount ? `, ${taggedCount} tagged` : ""}.
                                 </p>
                                 <Button type="button" size="sm" variant={taggedCount ? "outline" : "default"} disabled={tagging || busy} onClick={tagWithAi}>
                                     {tagging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                                    {tagging ? "Tagging…" : taggedCount ? "Tag all again with AI" : `Tag all ${totalQuestions} with AI`}
+                                    {tagging ? "Tagging…" : taggedCount ? "Tag all again with AI" : `Tag ${answeredCount} with AI`}
                                 </Button>
                                 <Button type="button" size="sm" disabled={!taggedCount || tagging} onClick={() => { setSaving(null); setPreviewOpen(true) }}>
                                     <Eye className="mr-2 h-4 w-4" /> Preview & save
@@ -1116,8 +1135,8 @@ export default function CertificationPdfImportPage() {
                                                 <li key={p.id}>
                                                     <b>{p.name.replace(/\.pdf$/i, "")}</b>:{" "}
                                                     {missing.length === p.questions.length
-                                                        ? `no answer key -- none of its ${p.questions.length} questions has an answer. Add its answer key PDF, or paste the key.`
-                                                        : `${missing.length} of ${p.questions.length} questions have no answer (${listNumbers(missing)}). Mark them, or add the full key.`}
+                                                        ? `no answer key -- none of its ${p.questions.length} questions has an answer, so it is skipped. Add its answer key PDF to include it.`
+                                                        : `${missing.length} of ${p.questions.length} questions have no answer (${listNumbers(missing)}) and are skipped. Mark them, or add the full key, to include them.`}
                                                 </li>
                                             )
                                         })}

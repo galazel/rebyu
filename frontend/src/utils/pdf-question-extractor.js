@@ -602,25 +602,58 @@ async function pageTexts(pdf) {
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 
-/** Year, month and session read from a paper's first page and file name. */
+const MONTH_RE = "(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*"
+
+/**
+ * Year, month and session read from a paper's file name and first page. The
+ * file name wins: "2011S_IP_Questions" and "2011S_IP_Answers" name the same
+ * exam, while the first page's prose ("marks", "you may") only looks like a
+ * month. A month in the text counts only beside a year ("April 2011").
+ */
 export function examInfo(text, fileName) {
-    const source = (fileName || "").replace(/[_\-.]+/g, " ") + " " + (text || "").slice(0, 1500)
+    const name = (fileName || "").replace(/\.pdf$/i, "").replace(/[_\-.]+/g, " ")
+    const lower = name.toLowerCase()
+    const body = (text || "").slice(0, 1500)
     const info = {}
-    const year = source.match(/\b(?:19|20)\d{2}/)
+
+    const year = name.match(/(?:19|20)\d{2}/) || body.match(/\b(?:19|20)\d{2}\b/)
     if (year) info.year = Number(year[0])
-    const month = source.toLowerCase().match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*/)
-    if (month) {
-        info.month = MONTHS.indexOf(month[1]) + 1
-    } else {
-        // ITPEC file names: 2023A is the autumn (October) exam, 2023S spring (April).
-        const season = source.match(/\b(?:19|20)\d{2}([AS])\b/)
-        if (season) info.month = season[1] === "A" ? 10 : 4
-    }
-    if (/\bAM\b|morning/i.test(source)) info.session = "am"
-    else if (/\bPM\b|afternoon/i.test(source)) info.session = "pm"
+
+    // "2012Oct", "2015May" -- a month glued to the year in the file name.
+    const nameMonth =
+        lower.match(new RegExp(`(?:19|20)\\d{2}\\s*${MONTH_RE}(?![a-z])`)) || lower.match(new RegExp(`\\b${MONTH_RE}\\b`))
+    // ITPEC file names: 2023A is the autumn (October) exam, 2023S spring (April).
+    const season = name.match(/(?:19|20)\d{2}([AS])(?![a-z])/i)
+    const textMonth = body
+        .toLowerCase()
+        .match(new RegExp(`\\b${MONTH_RE}\\.?,?\\s+(?:\\d{1,2},?\\s+)?(?:19|20)\\d{2}\\b`))
+    if (nameMonth) info.month = MONTHS.indexOf(nameMonth[1]) + 1
+    else if (season) info.month = season[1].toUpperCase() === "A" ? 10 : 4
+    else if (textMonth) info.month = MONTHS.indexOf(textMonth[1]) + 1
+
+    const source = `${name} ${body}`
+    if (/\bAM\b|morning/i.test(name)) info.session = "am"
+    else if (/\bPM\b|afternoon/i.test(name)) info.session = "pm"
+    else if (/morning/i.test(body)) info.session = "am"
+    else if (/afternoon/i.test(body)) info.session = "pm"
     if (/\bFE\b|fundamental/i.test(source)) info.category = "FE"
     else if (/\bIP\b|IT Passport/i.test(source)) info.category = "IP"
+    info.stem = paperStem(fileName)
     return info
+}
+
+/**
+ * What a question paper and its answer key share in their file names:
+ * "2011S_IP_Questions.pdf" and "2011S_IP_Answers.pdf" are both "2011s ip".
+ */
+export function paperStem(fileName) {
+    return (fileName || "")
+        .toLowerCase()
+        .replace(/\.pdf$/, "")
+        .replace(/[_\-.\s]+/g, " ")
+        .replace(/\b(questions?|answers?|answer ?keys?|keys?|solutions?|am|pm|morning|afternoon)\b/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
 }
 
 export function describeExam(info) {
@@ -631,8 +664,12 @@ export function describeExam(info) {
     return parts.join(" ")
 }
 
-/** 0 when the details conflict; higher is a better match. */
+/**
+ * 0 when the details conflict; higher is a better match. The same file name
+ * stem ("2011S_IP_Questions" / "2011S_IP_Answers") outranks any date.
+ */
 export function matchScore(a, b) {
+    if (a?.stem && a.stem === b?.stem && (!a.session || !b.session || a.session === b.session)) return 20
     let score = 1
     for (const key of ["year", "month", "session"]) {
         if (a?.[key] && b?.[key]) {
