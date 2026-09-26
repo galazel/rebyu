@@ -326,7 +326,14 @@ public class AdminPartnershipService {
 
         String money = refund.refunded().signum() > 0
                 ? formatMoney(refund.refunded()) + " has been refunded to the original payment method."
-                : "There was nothing left to refund.";
+                : refund.hasPending()
+                ? formatMoney(refund.pending()) + " has been sent back to the original payment method "
+                        + "and may take a few days to appear."
+                : refund.hasExpired()
+                        ? formatMoney(refund.expired()) + " is outside the "
+                                + com.capstone.rebyu.billing.service.InstitutionRefundService.REFUND_WINDOW_HOURS
+                                + "-hour refund window, so it has not been returned."
+                        : "There was nothing left to refund.";
         String shortfall = refund.hasFailures()
                 ? " " + formatMoney(refund.failed()) + " could not be refunded automatically -- the REBYU team will follow up."
                 : "";

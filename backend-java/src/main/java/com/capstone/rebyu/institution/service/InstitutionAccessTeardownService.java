@@ -57,7 +57,11 @@ public class InstitutionAccessTeardownService {
             int exams,
             int questions,
             int curriculumBranches,
-            BigDecimal refunded) {
+            /** What would come back if this were dropped now -- zero once the
+                24-hour window has closed. Quoted, not promised: the provider
+                still has the last word at the moment of refunding. */
+            BigDecimal refundable,
+            int refundWindowHours) {
 
         /** True when something other than the allocation itself goes with it. */
         public boolean destroysWork() {
@@ -89,7 +93,10 @@ public class InstitutionAccessTeardownService {
                 count("""
                         SELECT count(*) FROM major_categories m JOIN departments d ON d.department_id = m.owner_department_id
                          WHERE d.institution_cert_id = ?""", institutionCertId),
-                BigDecimal.ZERO);
+                refundService.quote(
+                        allocation.getInstitution().getInstitutionId(),
+                        allocation.getCertification().getCertificationId()),
+                InstitutionRefundService.REFUND_WINDOW_HOURS);
     }
 
     /**
@@ -145,7 +152,7 @@ public class InstitutionAccessTeardownService {
 
         return new TeardownResult(
                 new Impact(null, "All certifications", 0, departments, enrolments, invitations,
-                        0, 0, 0, refund.refunded()),
+                        0, 0, 0, refund.refunded(), InstitutionRefundService.REFUND_WINDOW_HOURS),
                 refund);
     }
 

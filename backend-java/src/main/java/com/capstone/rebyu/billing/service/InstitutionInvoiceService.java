@@ -35,6 +35,7 @@ public class InstitutionInvoiceService {
     private static final int DUE_DAYS = 30;
 
     private final InstitutionInvoiceRepository invoices;
+    private final InstitutionRefundService refundService;
     private final com.capstone.rebyu.billing.client.PayMongoClient payMongoClient;
     private final com.capstone.rebyu.partnership.service.InstitutionAccessGrantService accessGrantService;
 
@@ -206,8 +207,15 @@ public class InstitutionInvoiceService {
         return saved;
     }
 
-    @Transactional(readOnly = true)
+    /**
+     * Opening the invoices page is also what settles a refund still in flight:
+     * PayMongo does not announce it, so someone has to ask, and the person
+     * waiting on the money is the obvious someone. No pending refund means no
+     * request at all.
+     */
+    @Transactional
     public List<InvoiceDto> listForInstitution(Long institutionId) {
+        refundService.refreshPendingRefunds(institutionId);
         return invoices.findByInstitution_InstitutionIdOrderByIssuedAtDesc(institutionId).stream().map(this::toDto).toList();
     }
 

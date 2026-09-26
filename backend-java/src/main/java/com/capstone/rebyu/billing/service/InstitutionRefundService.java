@@ -47,6 +47,21 @@ import java.util.List;
 @RequiredArgsConstructor
 public class InstitutionRefundService {
 
+    /**
+     * How long after paying an invoice its money can still come back.
+     *
+     * The ordinary consumer-refund window, and the same one whether a single
+     * certification is dropped or the whole partnership ends. Counted from the
+     * payment, not from the request to drop: what matters is how long the
+     * institution has had the money's worth, not how quickly it filled in a
+     * dialog.
+     *
+     * <p>Past it, access is still removed -- dropping a certification is not
+     * conditional on a refund -- but nothing is returned, and everything that
+     * reports on the drop says so rather than quietly returning zero.
+     */
+    public static final int REFUND_WINDOW_HOURS = 24;
+
     private final InstitutionInvoiceRepository invoices;
     private final PayMongoClient payMongoClient;
 
@@ -62,10 +77,86 @@ public class InstitutionRefundService {
         }
     }
 
-    public record RefundResult(BigDecimal refunded, BigDecimal failed, List<RefundLine> lines) {
+    /**
+     * @param expired what was not returned because the window had closed --
+     *                distinct from {@code failed}, which is money that should
+     *                have come back and did not.
+     */
+    public record RefundResult(
+            BigDecimal refunded, BigDecimal pending, BigDecimal failed, BigDecimal expired,
+            List<RefundLine> lines) {
         public boolean hasFailures() {
             return failed.signum() > 0;
         }
+
+        public boolean hasExpired() {
+            return expired.signum() > 0;
+        }
+
+        /** Accepted by PayMongo but not settled yet -- true of card refunds. */
+        public boolean hasPending() {
+            return pending.signum() > 0;
+        }
+    }
+
+    /**
+     * What dropping this would return, without returning it. Lets the admin
+     * screen say "₱447 will be refunded" or "outside the 24-hour window" before
+     * anyone commits to a delete that cannot be undone.
+     */
+    @Transactional(readOnly = true)
+    public BigDecimal quote(Long institutionId, Long certificationId) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (InstitutionInvoice invoice : invoices.findByInstitution_InstitutionIdOrderByIssuedAtDesc(institutionId)) {
+            if (invoice.getStatus() != InstitutionInvoice.Status.paid || !withinWindow(invoice)) continue;
+            total = total.add(refundableAmount(invoice, certificationId));
+        }
+        return total;
+    }
+
+    /**
+     * Re-reads any refund still in flight for this institution and records where
+     * it got to.
+     *
+     * PayMongo does not tell us when a pending refund settles, so something has
+     * to ask. Called whenever the institution's invoices are read: cheap when
+     * there is nothing pending (no request at all), and it means a refund
+     * resolves by someone simply looking at the page rather than needing a job
+     * that runs whether or not anyone cares.
+     */
+    @Transactional
+    public void refreshPendingRefunds(Long institutionId) {
+        for (InstitutionInvoice invoice : invoices.findByInstitution_InstitutionIdOrderByIssuedAtDesc(institutionId)) {
+            if (invoice.getRefundReference() == null) continue;
+            /* Only a settled refund is finished. A null status is a refund made
+               before we recorded one -- unknown, not done -- so it gets asked
+               about too, which backfills it on the first read. */
+            if ("succeeded".equalsIgnoreCase(invoice.getRefundStatus())) continue;
+
+            var refund = payMongoClient.refundStatus(invoice.getRefundReference());
+            if (refund == null || refund.status().equalsIgnoreCase(invoice.getRefundStatus())) continue;
+
+            log.info("Refund {} on invoice {} moved from {} to {}",
+                    refund.id(), invoice.getInvoiceNumber(), invoice.getRefundStatus(), refund.status());
+            invoice.setRefundStatus(refund.status());
+            /* A refund that failed never happened: the money is the
+               institution's to be refunded again, so it stops counting against
+               what has already come back. */
+            if (!refund.succeeded() && !refund.pending()) {
+                invoice.setRefundedAmount(BigDecimal.ZERO);
+                invoice.setRefundedAt(null);
+                if (invoice.getStatus() == InstitutionInvoice.Status.cancelled) {
+                    invoice.setStatus(InstitutionInvoice.Status.paid);
+                }
+            }
+            invoices.save(invoice);
+        }
+    }
+
+    /** Paid, and paid recently enough. An invoice with no paid_at is not refundable. */
+    private static boolean withinWindow(InstitutionInvoice invoice) {
+        LocalDateTime paidAt = invoice.getPaidAt();
+        return paidAt != null && paidAt.isAfter(LocalDateTime.now().minusHours(REFUND_WINDOW_HOURS));
     }
 
     /**
@@ -78,7 +169,9 @@ public class InstitutionRefundService {
     public RefundResult refund(Long institutionId, Long certificationId, String reason) {
         List<RefundLine> lines = new ArrayList<>();
         BigDecimal refunded = BigDecimal.ZERO;
+        BigDecimal pending = BigDecimal.ZERO;
         BigDecimal failed = BigDecimal.ZERO;
+        BigDecimal expired = BigDecimal.ZERO;
 
         for (InstitutionInvoice invoice : invoices.findByInstitution_InstitutionIdOrderByIssuedAtDesc(institutionId)) {
             if (invoice.getStatus() != InstitutionInvoice.Status.paid) {
@@ -94,13 +187,30 @@ public class InstitutionRefundService {
             BigDecimal amount = refundableAmount(invoice, certificationId);
             if (amount.signum() <= 0) continue;
 
-            long cents = amount.movePointRight(2).setScale(0, RoundingMode.HALF_UP).longValueExact();
-            String refundId = payMongoClient.refundPayment(invoice.getProviderPaymentId(), cents, reason);
+            if (!withinWindow(invoice)) {
+                expired = expired.add(amount);
+                lines.add(new RefundLine(invoice.getInvoiceNumber(), amount, null,
+                        "outside the " + REFUND_WINDOW_HOURS + "-hour refund window"));
+                log.info("Invoice {} is past the {}h refund window ({} not returned)",
+                        invoice.getInvoiceNumber(), REFUND_WINDOW_HOURS, amount);
+                continue;
+            }
 
-            if (refundId != null) {
-                refunded = refunded.add(amount);
+            long cents = amount.movePointRight(2).setScale(0, RoundingMode.HALF_UP).longValueExact();
+            var refund = payMongoClient.refundPayment(invoice.getProviderPaymentId(), cents, reason);
+
+            if (refund != null) {
+                /* Counted against the invoice either way -- the money is
+                   committed the moment PayMongo accepts it, and counting only
+                   settled refunds would let a second drop refund it again while
+                   the first was still in flight. Whether it has *landed* is the
+                   status, not the amount. */
+                if (refund.succeeded()) refunded = refunded.add(amount);
+                else pending = pending.add(amount);
+
                 invoice.setRefundedAmount(nullToZero(invoice.getRefundedAmount()).add(amount));
-                invoice.setRefundReference(refundId);
+                invoice.setRefundReference(refund.id());
+                invoice.setRefundStatus(refund.status());
                 invoice.setRefundedAt(LocalDateTime.now());
                 /* Fully refunded reads as cancelled; a partial refund leaves it
                    paid, because it was -- and the refunded amount beside it
@@ -109,7 +219,8 @@ public class InstitutionRefundService {
                     invoice.setStatus(InstitutionInvoice.Status.cancelled);
                 }
                 invoices.save(invoice);
-                lines.add(new RefundLine(invoice.getInvoiceNumber(), amount, refundId, null));
+                lines.add(new RefundLine(invoice.getInvoiceNumber(), amount, refund.id(),
+                        refund.succeeded() ? null : "accepted, settling (" + refund.status() + ")"));
             } else {
                 failed = failed.add(amount);
                 String why = invoice.getProviderPaymentId() == null
@@ -121,10 +232,10 @@ public class InstitutionRefundService {
             }
         }
 
-        log.info("Institution {} refund ({}): {} returned, {} failed across {} invoice(s)",
+        log.info("Institution {} refund ({}): {} returned, {} settling, {} failed, {} past the window, across {} invoice(s)",
                 institutionId, certificationId == null ? "whole partnership" : "certification " + certificationId,
-                refunded, failed, lines.size());
-        return new RefundResult(refunded, failed, lines);
+                refunded, pending, failed, expired, lines.size());
+        return new RefundResult(refunded, pending, failed, expired, lines);
     }
 
     /**

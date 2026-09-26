@@ -94,11 +94,20 @@ function DropCertificationDialog({ allocation, title, onClose }) {
       queryClient.invalidateQueries({ queryKey: ["admin-institution-certificates"] })
       queryClient.invalidateQueries({ queryKey: ["admin-institution-cert-learners"] })
       const refunded = Number(result?.refund?.refunded ?? 0)
+      const pending = Number(result?.refund?.pending ?? 0)
+      const expired = Number(result?.refund?.expired ?? 0)
+      const failed = Number(result?.refund?.failed ?? 0)
       toast.success(`${title} removed`, {
         description:
           refunded > 0
             ? `₱${refunded.toLocaleString("en-PH")} refunded to the institution.`
-            : "There was nothing to refund.",
+            : pending > 0
+              ? `₱${pending.toLocaleString("en-PH")} refund sent — it may take a few days to settle.`
+            : expired > 0
+              ? `No refund — ₱${expired.toLocaleString("en-PH")} was past the refund window.`
+              : failed > 0
+                ? `₱${failed.toLocaleString("en-PH")} could not be refunded. Check PayMongo.`
+                : "There was nothing to refund.",
       })
       onClose()
     },
@@ -145,7 +154,25 @@ function DropCertificationDialog({ allocation, title, onClose }) {
                       lose their owner.
                     </p>
                   ) : null}
-                  <p>What the institution paid for {title} is refunded to its original payment method.</p>
+                  {/* The refund window is the one part of this an admin
+                      cannot infer from the table, and the one they will be
+                      asked about afterwards. */}
+                  {Number(impact.refundable) > 0 ? (
+                    <p>
+                      <strong>
+                        ₱{Number(impact.refundable).toLocaleString("en-PH", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </strong>{" "}
+                      is refunded to the institution's original payment method.
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground">
+                      <strong>No refund.</strong> Nothing paid for {title} is still inside the{" "}
+                      {impact.refundWindowHours}-hour refund window, so the access is removed
+                      without money being returned.
+                    </p>
+                  )}
                 </>
               ) : (
                 <p className="text-destructive">

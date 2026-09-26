@@ -117,6 +117,12 @@ public class InstitutionInvoice {
     @Column(name = "refunded_at")
     private LocalDateTime refundedAt;
 
+    /* pending / succeeded / failed, as PayMongo last reported it. A refund is
+       accepted long before it settles, so "we have a refund id" and "the money
+       went back" are different facts and are stored as such. */
+    @Column(name = "refund_status", length = 20)
+    private String refundStatus;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     @Builder.Default

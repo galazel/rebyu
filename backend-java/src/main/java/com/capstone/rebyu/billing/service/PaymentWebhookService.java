@@ -134,7 +134,8 @@ public class PaymentWebhookService {
         if (subscription.getRefundId() != null || subscription.getAmountPaid() == null) return;
         String paymentId = payMongo.paymentIdForSession(subscription.getProviderSubscriptionId());
         long cents = subscription.getAmountPaid().movePointRight(2).longValue();
-        String refundId = paymentId == null ? null : payMongo.refundPayment(paymentId, cents, notes);
+        var refund = paymentId == null ? null : payMongo.refundPayment(paymentId, cents, notes);
+        String refundId = refund == null ? null : refund.id();
         if (refundId == null) {
             log.error("Subscription {} was rejected but its payment ({}) could not be refunded; refund it by hand in PayMongo.",
                     subscription.getLearnerSubscriptionId(), subscription.getProviderSubscriptionId());
