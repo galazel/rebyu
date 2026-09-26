@@ -286,6 +286,9 @@ async def handle_certification_generation_requested(payload: dict) -> None:
         # loop walks the curriculum in state, and the curriculum in state is
         # the addition, not the whole.
         "existing_curriculum": _existing_curriculum(certification_id, params),
+        # The admin's own words for this run. Stored by Java in the request's
+        # params and, until now, never handed to the planner at all.
+        "additional_instructions": str(params.get("additionalInstructions") or "").strip(),
         "status": "STARTED",
     }
 

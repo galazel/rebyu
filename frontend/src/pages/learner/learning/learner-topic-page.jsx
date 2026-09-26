@@ -1089,13 +1089,9 @@ function QuizBand({ quiz, taken, standing, latest }) {
               "A short check on what this lesson covered. Answer it while the lesson is fresh — it is scored, and you can retake it."}
           </p>
 
-          {/* How the last sitting actually went.
-              *
-              * The line below it reports the learner's BEST attempt, so someone
-              * who had just sat the quiz saw either a stale summary of an older,
-              * better attempt or, if they had cleared it, nothing at all. The
-              * result they had that second finished was the one thing the card
-              * would not tell them. */}
+          {/* How the last sitting actually went -- the same sitting the gate
+              reads (see `examStanding`), so a failed retake shown here is also
+              what shuts the next lesson and the unit exam. */}
           {latest ? (
             <div
               className={cn(

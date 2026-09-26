@@ -34,6 +34,10 @@ import com.capstone.rebyu.execution.dto.CodeExecutionResultDto;
 import com.capstone.rebyu.execution.dto.CodeExecutionResultDto.TestCaseResultDto;
 import com.capstone.rebyu.execution.service.CodeExecutionService;
 import com.capstone.rebyu.diagram.dto.DiagramGradingRequestDto;
+import com.capstone.rebyu.challenge.entity.ChallengeArenaConfig;
+import com.capstone.rebyu.challenge.repository.ChallengeArenaConfigRepository;
+import com.capstone.rebyu.challenge.service.ArenaScoring;
+import com.capstone.rebyu.challenge.service.ChallengeArenaService;
 import com.capstone.rebyu.diagram.dto.DiagramGradingResultDto;
 import com.capstone.rebyu.diagram.service.DiagramGradingService;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -94,6 +98,7 @@ public class AssessmentAttemptService {
     private static final Set<String> CAPPED_ARENAS = Set.of("codestrike", "blueprint");
 
     private final ExamRepository examRepository;
+    private final ChallengeArenaConfigRepository arenaConfigRepository;
     private final BktProperties bktProperties;
     private final ExamQuestionRepository examQuestionRepository;
     private final QuestionRepository questionRepository;
@@ -366,6 +371,16 @@ public class AssessmentAttemptService {
                 .filter(Objects::nonNull)
                 .toList();
         PhaseTimer.mark(timer, "load questions");
+
+        /* A paused arena is closed, not just hidden: the learner's card locks on
+           the status, but a bookmarked attempt URL would otherwise walk in. */
+        if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
+                && exam.getTargetScope() != null
+                && arenaConfigRepository.findById(exam.getTargetScope())
+                        .map(ChallengeArenaConfig::getLive)
+                        .orElse(null) == Boolean.FALSE) {
+            throw new IllegalArgumentException("This arena is closed for now. Check back later.");
+        }
 
         /* Free learners see the first problems of a solo arena, not the whole set. */
         if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
@@ -1614,6 +1629,10 @@ public class AssessmentAttemptService {
             // it against the full test set.
             if ("PROGRAMMING".equals(criticalThinkingType)) {
                 if (hasFreshVerdict(answer)) {
+                    // Check already ran this exact code, so it is not re-run --
+                    // but Check marks tests passed only, and CodeStrike is
+                    // weighted. Re-weigh from the stored run.
+                    applyCodeStrikeWeightsFromStoredRun(attemptQuestion, answer, points);
                     return;
                 }
                 gradeProgrammingOnSubmit(attemptQuestion, source, answer, points, batch);
@@ -1945,11 +1964,66 @@ public class AssessmentAttemptService {
                     .divide(BigDecimal.valueOf(total), 4, RoundingMode.HALF_UP);
             answer.setCredit(points.multiply(ratio).setScale(4, RoundingMode.HALF_UP));
             answer.setIsCorrect(passed == total);
+            applyCodeStrikeWeights(attemptQuestion, answer, points, passed, total, result.executionTimeMs());
         } else {
             answer.setCredit(BigDecimal.ZERO);
             answer.setIsCorrect(false);
         }
         answer.setPendingManualEvaluation(false);
+    }
+
+    /**
+     * CodeStrike is scored on its admin weights, not correctness alone.
+     *
+     * <p>Only on submit, and only for the CodeStrike arena: every other paper
+     * with a programming item is still marked on tests passed. {@code isCorrect}
+     * keeps meaning "passed every test" -- the weights change the credit, not
+     * the verdict. The breakdown is written to the feedback so a learner who
+     * passed every test can see why they did not get full marks.
+     */
+    /** The same weighting, from the run Check stored on the answer. */
+    private void applyCodeStrikeWeightsFromStoredRun(
+            AssessmentAttemptQuestion attemptQuestion, AssessmentAttemptAnswer answer, BigDecimal points) {
+        String payload = answer.getExecutionResult();
+        if (payload == null || payload.isBlank()) {
+            return;
+        }
+        try {
+            JsonNode run = objectMapper.readTree(payload);
+            int total = run.path("totalTests").asInt(0);
+            if (total <= 0) {
+                return;
+            }
+            int passed = run.path("passedTests").asInt(0);
+            Long maxTimeMs = run.hasNonNull("executionTimeMs") ? run.get("executionTimeMs").asLong() : null;
+            applyCodeStrikeWeights(attemptQuestion, answer, points, passed, total, maxTimeMs);
+        } catch (Exception e) {
+            log.warn("Could not re-weigh CodeStrike answer {}: {}", answer.getAttemptAnswerId(), e.toString());
+        }
+    }
+
+    private void applyCodeStrikeWeights(
+            AssessmentAttemptQuestion attemptQuestion, AssessmentAttemptAnswer answer,
+            BigDecimal points, int passed, int total, Long maxTimeMs) {
+        AssessmentAttempt attempt = attemptQuestion.getAttempt();
+        Exam exam = attempt == null ? null : attempt.getExam();
+        if (exam == null || exam.getExamType() == null
+                || !TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
+                || !"codestrike".equals(exam.getTargetScope())) {
+            return;
+        }
+
+        Map<String, Integer> settings = ChallengeArenaService.settingsOf(
+                "codestrike", arenaConfigRepository.findById("codestrike"));
+        ArenaScoring.Breakdown breakdown = ArenaScoring.codeStrike(
+                settings, passed, total, maxTimeMs,
+                attempt.getStartedAt(), LocalDateTime.now(), exam.getDurationMinutes());
+
+        answer.setCredit(points.multiply(breakdown.fraction()).setScale(4, RoundingMode.HALF_UP));
+        String existing = answer.getFeedback();
+        answer.setFeedback(existing == null || existing.isBlank()
+                ? breakdown.summary()
+                : existing + "\n\n" + breakdown.summary());
     }
 
     /**

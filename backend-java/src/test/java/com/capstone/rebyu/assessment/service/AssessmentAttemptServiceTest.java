@@ -82,7 +82,8 @@ class AssessmentAttemptServiceTest {
     @BeforeEach
     void setUp() {
         service = new AssessmentAttemptService(
-                examRepository, bktProperties, examQuestionRepository, questionRepository,
+                examRepository, mock(com.capstone.rebyu.challenge.repository.ChallengeArenaConfigRepository.class),
+                bktProperties, examQuestionRepository, questionRepository,
                 textQuestionConfigRepository, programmingQuestionConfigRepository,
                 diagramQuestionConfigRepository, attemptRepository,
                 attemptQuestionRepository, attemptAnswerRepository,

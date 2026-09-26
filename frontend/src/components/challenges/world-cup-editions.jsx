@@ -1,17 +1,18 @@
-import { useMemo, useState } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { ArrowLeft, CalendarDays, Check, Plus, Trophy } from "@/components/icons"
+import { useEffect, useMemo, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { ArrowLeft, CalendarDays, Check, Loader2, Plus, Save, Trash2, Trophy } from "@/components/icons"
 import { toast } from "sonner"
 
 import {
-  saveChoices,
-  saveDiagramQuestion,
-  saveProgrammingQuestion,
-  saveQuestion,
-  saveTextQuestion,
-} from "@/services/questionService.js"
-import { saveAuthoredQuestion } from "@/components/questions/question-editors.jsx"
-import { CHALLENGE_ARENAS_KEY, saveArenaProblems } from "@/services/challengeService.js"
+  CHALLENGE_ARENAS_KEY,
+  WORLD_CUP_EDITIONS_KEY,
+  createWorldCupEdition,
+  deleteWorldCupEdition,
+  getWorldCupEdition,
+  getWorldCupEditions,
+  publishWorldCupEdition,
+  saveWorldCupEditionStages,
+} from "@/services/challengeService.js"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -32,8 +33,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { createLocalId } from "@/components/questions/question-editors.jsx"
 import QuestionSetEditor, {
+  arenaQuestionFromSaved,
+  saveArenaQuestion,
   totalPointsOf,
   totalXpOf,
   validateArenaQuestions,
@@ -53,10 +55,9 @@ import { getAllCertifications } from "@/services/certificationService.js"
  * two finalists answering questions they had already seen two rounds earlier,
  * so every stage carries its own set.
  *
- * Editions live in local state. There is no weekly-exam endpoint yet; publish
- * validates the whole edition and reports what is missing. The shape here —
- * week, certification, and a question set per stage — is what that endpoint has
- * to accept.
+ * Editions are stored server-side. "Save draft" writes new or edited questions
+ * to the bank and records which each stage runs; learners see nothing until
+ * "Publish week" copies the edition into the World Cup exam.
  */
 
 /**
@@ -72,7 +73,9 @@ function toDateString(date) {
 }
 
 function weekStartOf(date) {
-  const monday = new Date(date)
+  // A bare "YYYY-MM-DD" parses as UTC midnight, which is the previous day
+  // anywhere west of UTC -- read it as local midnight instead.
+  const monday = typeof date === "string" ? new Date(`${date}T00:00:00`) : new Date(date)
   // getDay(): 0 = Sunday. Shift back to the Monday that starts this week.
   const offset = (monday.getDay() + 6) % 7
   monday.setDate(monday.getDate() - offset)
@@ -97,12 +100,14 @@ function emptyStages(arena) {
   return Object.fromEntries(arena.stages.map((stage) => [stage.id, []]))
 }
 
+function apiMessage(error, fallback) {
+  return error?.response?.data?.message ?? error?.message ?? fallback
+}
+
 export default function WorldCupEditions({ arena }) {
   const queryClient = useQueryClient()
-  const [editions, setEditions] = useState([])
   const [openEditionId, setOpenEditionId] = useState(null)
   const [createOpen, setCreateOpen] = useState(false)
-  const [errors, setErrors] = useState({})
 
   const thisWeek = weekStartOf(new Date())
   const [draftWeek, setDraftWeek] = useState(thisWeek)
@@ -111,7 +116,6 @@ export default function WorldCupEditions({ arena }) {
      NULL -- so an edition needs one even though a bracket spans the whole
      certification. Asked for once, when the week is created. */
   const [draftLesson, setDraftLesson] = useState("")
-  const [publishing, setPublishing] = useState(false)
   const [draftError, setDraftError] = useState("")
 
   const { data: certifications = [] } = useQuery({
@@ -119,6 +123,12 @@ export default function WorldCupEditions({ arena }) {
     queryFn: () => getAllCertifications(),
     staleTime: 5 * 60 * 1000,
   })
+
+  const editionsQuery = useQuery({
+    queryKey: [WORLD_CUP_EDITIONS_KEY],
+    queryFn: getWorldCupEditions,
+  })
+  const editions = editionsQuery.data ?? []
 
   const certificationName = useMemo(() => {
     const byId = new Map(
@@ -140,243 +150,51 @@ export default function WorldCupEditions({ arena }) {
     )
   }, [certifications, draftCertification])
 
-  const openEdition = editions.find((edition) => edition.id === openEditionId) ?? null
+  const createMutation = useMutation({
+    mutationFn: createWorldCupEdition,
+    onSuccess: (edition) => {
+      queryClient.invalidateQueries({ queryKey: [WORLD_CUP_EDITIONS_KEY] })
+      setOpenEditionId(edition.editionId)
+      setCreateOpen(false)
+      setDraftError("")
+      setDraftCertification("")
+      setDraftLesson("")
+      setDraftWeek(thisWeek)
+    },
+    onError: (error) => setDraftError(apiMessage(error, "The week could not be created.")),
+  })
 
   function createEdition() {
     if (!draftCertification) {
       setDraftError("Choose the certification this week's bracket runs on.")
       return
     }
-
     if (!draftLesson) {
       setDraftError("Choose the lesson these questions are filed under.")
       return
     }
-
     if (editions.some((edition) => edition.weekStart === draftWeek)) {
       setDraftError("An exam already exists for that week.")
       return
     }
-
-    const edition = {
-      id: createLocalId(),
+    createMutation.mutate({
       weekStart: draftWeek,
-      certificationId: draftCertification,
-      lessonId: draftLesson,
-      published: false,
-      stages: emptyStages(arena),
-    }
-
-    setEditions((current) =>
-      [...current, edition].sort((a, b) => b.weekStart.localeCompare(a.weekStart)),
-    )
-    setOpenEditionId(edition.id)
-    setCreateOpen(false)
-    setDraftError("")
-    setDraftCertification("")
-    setDraftWeek(thisWeek)
-  }
-
-  function setStageQuestions(editionId, stageId, problems) {
-    setEditions((current) =>
-      current.map((edition) =>
-        edition.id === editionId
-          ? { ...edition, stages: { ...edition.stages, [stageId]: problems } }
-          : edition,
-      ),
-    )
-  }
-
-  /** Every stage has to hold questions and every question has to be valid: a
-   *  bracket that runs out of questions at the semifinal cannot be played. */
-  function publishEdition(edition) {
-    const allQuestions = arena.stages.flatMap((stage) => edition.stages[stage.id])
-    const nextErrors = validateArenaQuestions(allQuestions)
-    setErrors(nextErrors)
-
-    const emptyStageNames = arena.stages
-      .filter((stage) => edition.stages[stage.id].length === 0)
-      .map((stage) => stage.name)
-
-    if (emptyStageNames.length > 0) {
-      toast.error("Every stage needs questions", {
-        description: `${emptyStageNames.join(", ")} ${emptyStageNames.length === 1 ? "has" : "have"} none.`,
-      })
-      return
-    }
-
-    const invalidCount = Object.keys(nextErrors).length
-    if (invalidCount > 0) {
-      toast.error("Fix the highlighted questions", {
-        description: `${invalidCount} of ${allQuestions.length} questions are incomplete.`,
-      })
-      return
-    }
-
-    /* Two steps, in this order: every question is written to the bank exactly
-       as the bank writes it -- same endpoints, same per-type follow-ups -- and
-       only then is the arena told which questions this week's bracket runs.
-
-       Publishing replaces the arena's whole set rather than adding to it,
-       which is what a weekly bracket wants: everyone sits the same questions
-       at once, and by the time next week is published last week's are spent. */
-    setPublishing(true)
-    void (async () => {
-      try {
-        const saved = []
-
-        for (const [stageIndex, stage] of arena.stages.entries()) {
-          for (const problem of edition.stages[stage.id]) {
-            const question = await saveAuthoredQuestion(
-              problem,
-              {
-                lessonId: Number(edition.lessonId),
-                certificationId: Number(edition.certificationId),
-                totalPoints: Number(problem.points) || 1,
-              },
-              {
-                saveQuestion,
-                saveChoices,
-                saveTextQuestion,
-                saveProgrammingQuestion,
-                saveDiagramQuestion,
-              },
-            )
-
-            saved.push({
-              questionId: question.questionId,
-              // Which round this question belongs to, kept in the order the
-              // stages are played.
-              nodeIndex: stageIndex + 1,
-              points: Number(problem.points) || 1,
-            })
-          }
-        }
-
-        const status = await saveArenaProblems(arena.id, {
-          certificationId: Number(edition.certificationId),
-          timeLimitMinutes: Number(
-            arena.fields?.find((field) => field.key === "timeLimit")?.value ?? 0,
-          ),
-          problems: saved,
-        })
-
-        await queryClient.invalidateQueries({ queryKey: [CHALLENGE_ARENAS_KEY] })
-
-        setEditions((current) =>
-          current.map((item) =>
-            item.id === edition.id ? { ...item, published: true } : item,
-          ),
-        )
-
-        toast.success(`${formatWeek(edition.weekStart)} is live`, {
-          description: `${status.problemCount} questions across ${arena.stages.length} stages. The World Cup is open to learners.`,
-        })
-      } catch (error) {
-        /* The questions are written one at a time and the arena is only told
-           at the end, so a failure part-way leaves some in the bank. Saying so
-           beats a bare error, because republishing writes a fresh set rather
-           than resuming this one. */
-        toast.error("Could not publish this week", {
-          description:
-            error?.response?.data?.message ??
-            error?.message ??
-            "Some questions may have been saved. Check the question bank before retrying.",
-        })
-      } finally {
-        setPublishing(false)
-      }
-    })()
+      certificationId: Number(draftCertification),
+      lessonId: Number(draftLesson),
+    })
   }
 
   /* one edition */
 
-  if (openEdition) {
-    const stageCounts = arena.stages.map((stage) => ({
-      stage,
-      count: openEdition.stages[stage.id].length,
-    }))
-    const allQuestions = arena.stages.flatMap((stage) => openEdition.stages[stage.id])
-
+  if (openEditionId != null) {
     return (
-      <div className="space-y-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => setOpenEditionId(null)}>
-            <ArrowLeft className="size-4" />
-            <span className="sr-only">Back to weekly exams</span>
-          </Button>
-
-          <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-bold">{formatWeek(openEdition.weekStart)}</h3>
-            <p className="text-xs text-muted-foreground">
-              {certificationName(openEdition.certificationId)} ·{" "}
-              {allQuestions.length} question{allQuestions.length === 1 ? "" : "s"} ·{" "}
-              {totalPointsOf(allQuestions)} points · {totalXpOf(allQuestions)} XP
-            </p>
-          </div>
-
-          {/* Disabled while publishing: questions are written one at a time,
-              so a second press mid-run would author the whole week twice. */}
-          <Button
-            size="sm"
-            onClick={() => publishEdition(openEdition)}
-            disabled={publishing}
-          >
-            <Check className="mr-2 size-4" />
-            {publishing ? "Publishing..." : "Publish week"}
-          </Button>
-        </div>
-
-        {/* One tab per bracket stage. The count rides on the tab so an admin can
-            see which round is still empty without opening it. */}
-        <Tabs defaultValue={arena.stages[0].id}>
-          <TabsList>
-            {stageCounts.map(({ stage, count }) => (
-              <TabsTrigger key={stage.id} value={stage.id}>
-                {stage.name}
-                <Badge variant="outline" className="ml-2 tabular-nums">
-                  {count}
-                </Badge>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          {arena.stages.map((stage) => (
-            <TabsContent key={stage.id} value={stage.id} className="mt-5 space-y-4">
-              <div className="rounded-xl border border-border bg-muted/40 px-4 py-3">
-                <p className="text-sm font-bold">{stage.name}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {stage.matches} match{stage.matches === 1 ? "" : "es"} ·{" "}
-                  {stage.players} players · every match in this stage answers this set.
-                </p>
-              </div>
-
-              <QuestionSetEditor
-                problems={openEdition.stages[stage.id]}
-                onChange={(problems) =>
-                  setStageQuestions(openEdition.id, stage.id, problems)
-                }
-                typeIds={arena.questionTypes}
-                errors={errors}
-                emptyState={
-                  <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center">
-                    <Trophy
-                      className="mx-auto size-7 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                    <p className="mt-3 text-sm font-medium">
-                      No {stage.name.toLowerCase()} questions yet
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Add one below. Same editors as a certification&rsquo;s question bank.
-                    </p>
-                  </div>
-                }
-              />
-            </TabsContent>
-          ))}
-        </Tabs>
-      </div>
+      <EditionEditor
+        key={openEditionId}
+        arena={arena}
+        editionId={openEditionId}
+        certificationName={certificationName}
+        onBack={() => setOpenEditionId(null)}
+      />
     )
   }
 
@@ -398,7 +216,16 @@ export default function WorldCupEditions({ arena }) {
         </Button>
       </div>
 
-      {editions.length === 0 ? (
+      {editionsQuery.isLoading ? (
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border px-6 py-12 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+          Loading weekly exams...
+        </div>
+      ) : editionsQuery.isError ? (
+        <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center text-sm text-destructive">
+          {apiMessage(editionsQuery.error, "The weekly exams could not be loaded.")}
+        </div>
+      ) : editions.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
           <CalendarDays className="mx-auto size-7 text-muted-foreground" aria-hidden="true" />
           <p className="mt-3 text-sm font-medium">No weekly exams yet</p>
@@ -411,15 +238,15 @@ export default function WorldCupEditions({ arena }) {
           {editions.map((edition) => {
             const counts = arena.stages.map((stage) => ({
               stage,
-              count: edition.stages[stage.id].length,
+              count: edition.stageCounts?.[stage.id] ?? 0,
             }))
             const total = counts.reduce((sum, item) => sum + item.count, 0)
 
             return (
-              <li key={edition.id}>
+              <li key={edition.editionId}>
                 <button
                   type="button"
-                  onClick={() => setOpenEditionId(edition.id)}
+                  onClick={() => setOpenEditionId(edition.editionId)}
                   className="flex w-full flex-wrap items-center gap-3 rounded-xl border-2 border-border bg-card px-4 py-3 text-left transition hover:border-primary/45 hover:bg-accent/40"
                 >
                   <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted">
@@ -478,7 +305,9 @@ export default function WorldCupEditions({ arena }) {
                 type="date"
                 value={draftWeek}
                 className="mt-1.5"
-                onChange={(event) => setDraftWeek(weekStartOf(event.target.value))}
+                onChange={(event) => {
+                  if (event.target.value) setDraftWeek(weekStartOf(event.target.value))
+                }}
               />
               <p className="mt-1 text-xs text-muted-foreground">
                 {formatWeek(draftWeek)} — any date snaps to that week&rsquo;s Monday.
@@ -562,10 +391,287 @@ export default function WorldCupEditions({ arena }) {
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={createEdition}>Create exam</Button>
+            <Button onClick={createEdition} disabled={createMutation.isPending}>
+              {createMutation.isPending ? "Creating..." : "Create exam"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+/**
+ * One week, opened: a tab per bracket stage, loaded from the server and saved
+ * back as a draft or published.
+ */
+function EditionEditor({ arena, editionId, certificationName, onBack }) {
+  const queryClient = useQueryClient()
+  const [stages, setStages] = useState(null)
+  const [errors, setErrors] = useState({})
+  const [busy, setBusy] = useState(null) // "save" | "publish" | "delete" | null
+  const [dirty, setDirty] = useState(false)
+
+  /* The edition with every stage rebuilt into editor shape. Fetched once:
+     a background refetch must not overwrite what is being edited. */
+  const detailQuery = useQuery({
+    queryKey: [WORLD_CUP_EDITIONS_KEY, editionId],
+    queryFn: async () => {
+      const detail = await getWorldCupEdition(editionId)
+      const rebuilt = {}
+      for (const stage of arena.stages) {
+        const rows = detail.stages?.[stage.id] ?? []
+        const problems = await Promise.all(rows.map(arenaQuestionFromSaved))
+        rebuilt[stage.id] = problems.filter(Boolean)
+      }
+      return { edition: detail.edition, stages: rebuilt }
+    },
+    staleTime: Infinity,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+  })
+
+  const edition = detailQuery.data?.edition ?? null
+
+  useEffect(() => {
+    if (stages === null && detailQuery.data) {
+      setStages({ ...emptyStages(arena), ...detailQuery.data.stages })
+    }
+  }, [stages, detailQuery.data, arena])
+
+  if (!edition || stages === null) {
+    return (
+      <div className="space-y-5">
+        <Button variant="ghost" size="sm" onClick={onBack}>
+          <ArrowLeft className="mr-2 size-4" />
+          Weekly exams
+        </Button>
+        <div className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border px-6 py-12 text-sm text-muted-foreground">
+          {detailQuery.isError ? (
+            apiMessage(detailQuery.error, "This week could not be loaded.")
+          ) : (
+            <>
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              Loading this week&rsquo;s questions...
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  const allQuestions = arena.stages.flatMap((stage) => stages[stage.id])
+
+  function setStageQuestions(stageId, problems) {
+    setStages((current) => ({ ...current, [stageId]: problems }))
+    setDirty(true)
+  }
+
+  /** Writes new or edited questions to the bank, then the stage lists. */
+  async function saveDraft() {
+    const nextErrors = validateArenaQuestions(allQuestions)
+    setErrors(nextErrors)
+    const invalidCount = Object.keys(nextErrors).length
+    if (invalidCount > 0) {
+      toast.error("Fix the highlighted questions", {
+        description: `${invalidCount} of ${allQuestions.length} questions are incomplete.`,
+      })
+      return false
+    }
+
+    const ids = {}
+    const savedIds = new Map()
+    for (const stage of arena.stages) {
+      ids[stage.id] = []
+      for (const problem of stages[stage.id]) {
+        const questionId = await saveArenaQuestion(problem, {
+          lessonId: edition.lessonId,
+          certificationId: edition.certificationId,
+        })
+        savedIds.set(problem.id, questionId)
+        ids[stage.id].push(questionId)
+      }
+    }
+
+    await saveWorldCupEditionStages(editionId, ids)
+
+    // Saved questions re-link by id next time instead of being written again.
+    setStages((current) =>
+      Object.fromEntries(
+        Object.entries(current).map(([stageId, problems]) => [
+          stageId,
+          problems.map((problem) =>
+            savedIds.has(problem.id)
+              ? { ...problem, existingQuestionId: savedIds.get(problem.id), edited: false }
+              : problem,
+          ),
+        ]),
+      ),
+    )
+    setDirty(false)
+    await queryClient.invalidateQueries({ queryKey: [WORLD_CUP_EDITIONS_KEY], exact: true })
+    return true
+  }
+
+  async function run(kind, action) {
+    setBusy(kind)
+    try {
+      await action()
+    } catch (error) {
+      /* Questions are written one at a time, so a failure part-way can leave
+         some in the bank. The ones already written are re-linked on retry. */
+      toast.error(kind === "publish" ? "Could not publish this week" : "Could not save this week", {
+        description: apiMessage(error, "Some questions may have been saved. Try again."),
+      })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  function onSaveDraft() {
+    void run("save", async () => {
+      if (await saveDraft()) {
+        toast.success("Draft saved", { description: "Learners see nothing until you publish." })
+      }
+    })
+  }
+
+  /** Every stage has to hold questions and every question has to be valid: a
+   *  bracket that runs out of questions at the semifinal cannot be played. */
+  function onPublish() {
+    const emptyStageNames = arena.stages
+      .filter((stage) => stages[stage.id].length === 0)
+      .map((stage) => stage.name)
+    if (emptyStageNames.length > 0) {
+      toast.error("Every stage needs questions", {
+        description: `${emptyStageNames.join(", ")} ${emptyStageNames.length === 1 ? "has" : "have"} none.`,
+      })
+      return
+    }
+
+    void run("publish", async () => {
+      if (!(await saveDraft())) return
+      await publishWorldCupEdition(editionId)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: [WORLD_CUP_EDITIONS_KEY], exact: true }),
+        queryClient.invalidateQueries({ queryKey: [CHALLENGE_ARENAS_KEY], exact: true }),
+      ])
+      toast.success(`${formatWeek(edition.weekStart)} is live`, {
+        description: `${allQuestions.length} questions across ${arena.stages.length} stages. The World Cup is open to learners.`,
+      })
+      onBack()
+    })
+  }
+
+  function onDelete() {
+    if (!window.confirm(`Delete the draft for ${formatWeek(edition.weekStart)}? Its questions stay in the bank.`)) {
+      return
+    }
+    void run("delete", async () => {
+      await deleteWorldCupEdition(editionId)
+      await queryClient.invalidateQueries({ queryKey: [WORLD_CUP_EDITIONS_KEY], exact: true })
+      toast.success("Draft deleted")
+      onBack()
+    })
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            if (!dirty || window.confirm("Leave without saving? Unsaved questions will be lost.")) onBack()
+          }}
+        >
+          <ArrowLeft className="size-4" />
+          <span className="sr-only">Back to weekly exams</span>
+        </Button>
+
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-bold">
+            {formatWeek(edition.weekStart)}
+            <Badge variant={edition.published ? "default" : "secondary"} className="ml-2">
+              {edition.published ? "Published" : "Draft"}
+            </Badge>
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {certificationName(edition.certificationId)} ·{" "}
+            {allQuestions.length} question{allQuestions.length === 1 ? "" : "s"} ·{" "}
+            {totalPointsOf(allQuestions)} points · {totalXpOf(allQuestions)} XP
+          </p>
+        </div>
+
+        {!edition.published ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            onClick={onDelete}
+            disabled={Boolean(busy)}
+          >
+            <Trash2 className="mr-2 size-4" />
+            Delete draft
+          </Button>
+        ) : null}
+
+        {/* Disabled while busy: questions are written one at a time, so a
+            second press mid-run would author the whole week twice. */}
+        <Button size="sm" variant="outline" onClick={onSaveDraft} disabled={Boolean(busy)}>
+          <Save className="mr-2 size-4" />
+          {busy === "save" ? "Saving..." : "Save draft"}
+        </Button>
+        <Button size="sm" onClick={onPublish} disabled={Boolean(busy)}>
+          <Check className="mr-2 size-4" />
+          {busy === "publish" ? "Publishing..." : edition.published ? "Republish week" : "Publish week"}
+        </Button>
+      </div>
+
+      {/* One tab per bracket stage. The count rides on the tab so an admin can
+          see which round is still empty without opening it. */}
+      <Tabs defaultValue={arena.stages[0].id}>
+        <TabsList>
+          {arena.stages.map((stage) => (
+            <TabsTrigger key={stage.id} value={stage.id}>
+              {stage.name}
+              <Badge variant="outline" className="ml-2 tabular-nums">
+                {stages[stage.id].length}
+              </Badge>
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {arena.stages.map((stage) => (
+          <TabsContent key={stage.id} value={stage.id} className="mt-5 space-y-4">
+            <div className="rounded-xl border border-border bg-muted/40 px-4 py-3">
+              <p className="text-sm font-bold">{stage.name}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {stage.matches} match{stage.matches === 1 ? "" : "es"} ·{" "}
+                {stage.players} players · every match in this stage answers this set.
+              </p>
+            </div>
+
+            <QuestionSetEditor
+              problems={stages[stage.id]}
+              onChange={(problems) => setStageQuestions(stage.id, problems)}
+              typeIds={arena.questionTypes}
+              errors={errors}
+              emptyState={
+                <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center">
+                  <Trophy className="mx-auto size-7 text-muted-foreground" aria-hidden="true" />
+                  <p className="mt-3 text-sm font-medium">
+                    No {stage.name.toLowerCase()} questions yet
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Add one below. Same editors as a certification&rsquo;s question bank.
+                  </p>
+                </div>
+              }
+            />
+          </TabsContent>
+        ))}
+      </Tabs>
     </div>
   )
 }

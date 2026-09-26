@@ -48,8 +48,10 @@ export default function GenerateMoreDialog({ open, onOpenChange, certification }
   }
 
   async function handleSubmit() {
-    if (files.length === 0) {
-      toast.error("Add at least one document to generate from.")
+    // Documents are optional: instructions alone are enough to say what to
+    // add. With neither, there is nothing to go on.
+    if (files.length === 0 && !instructions.trim()) {
+      toast.error("Upload documents, or say what to add -- for example, which domain or topics.")
       return
     }
 
@@ -89,9 +91,11 @@ export default function GenerateMoreDialog({ open, onOpenChange, certification }
         <DialogHeader>
           <DialogTitle>Add to this certification</DialogTitle>
           <DialogDescription>
-            Upload the material for what is missing — another domain, a new
-            module, further lessons. The planner is given the curriculum that
-            already exists and asked only for what these documents add.
+            Add another domain, new modules, further lessons -- with their
+            quizzes, category exams and question-bank items, as a full build
+            writes them. Upload material for it, or just say what to add: the
+            planner is given the curriculum that already exists and asked only
+            for what is new.
           </DialogDescription>
         </DialogHeader>
 
@@ -99,9 +103,11 @@ export default function GenerateMoreDialog({ open, onOpenChange, certification }
             curriculum first, and an admin has no way to tell them apart from
             the button alone. */}
         <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm leading-6 text-muted-foreground">
-          Nothing existing is removed. Your current majors, lessons, questions
-          and assessments stay exactly as they are, and lessons that already
-          exist are not written again.
+          Your current majors, lessons, quizzes and question bank stay exactly
+          as they are, and lessons that already exist are not written again.
+          The diagnostic and mock exams cover the whole certification, so they
+          are rebuilt over the old and new material together; the previous two
+          are archived, with learners' past attempts kept.
         </div>
 
         <div className="space-y-4">
@@ -117,7 +123,8 @@ export default function GenerateMoreDialog({ open, onOpenChange, certification }
 
           <div className="space-y-2">
             <Label htmlFor="append-instructions">
-              Anything specific to add? <span className="text-muted-foreground">(optional)</span>
+              What should be added?{" "}
+              <span className="text-muted-foreground">(required when no documents are uploaded)</span>
             </Label>
             <Textarea
               id="append-instructions"
@@ -137,7 +144,7 @@ export default function GenerateMoreDialog({ open, onOpenChange, certification }
           >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || files.length === 0}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || (files.length === 0 && !instructions.trim())}>
             {isSubmitting ? "Queueing..." : "Generate and add"}
           </Button>
         </DialogFooter>

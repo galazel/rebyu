@@ -2,10 +2,9 @@ import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
   CreditCard,
-  DollarSign,
   Download,
   GraduationCapIcon,
-  UsersIcon,
+  UserCheck,
 } from "@/components/icons"
 
 import {
@@ -19,7 +18,6 @@ import { BentoHeading, BentoStat, BentoTile } from "@/components/commons/bento.j
 import {
   BarBreakdownChart,
   DonutChart,
-  RadialGauge,
   TrendAreaChart,
   TrendLineChart,
 } from "@/components/charts/rebyu-charts.jsx"
@@ -98,7 +96,6 @@ export default function AdminDashboard() {
           month: label,
           users: Number(row.newUsers ?? 0),
           attempts,
-          passRate: attempts ? Math.round((Number(row.passedAttempts ?? 0) * 100) / attempts) : 0,
           sales: Math.round(Number(row.certificationSales ?? 0)),
           pro: Math.round(Number(row.proRevenue ?? 0)),
           approvals: Number(row.proApprovals ?? 0),
@@ -207,15 +204,12 @@ export default function AdminDashboard() {
           ["Published certifications", catalog.publishedCertifications],
           ["Institutions onboarded", catalog.institutions],
           ["Partnership requests pending", catalog.pendingPartnerships],
-          ["Gross sales (PHP)", sales.grossSales],
-          ["Sales last 30 days (PHP)", sales.salesLast30Days],
           ["Paid orders", sales.paidOrders],
           ["Pending orders", sales.pendingOrders],
           ["Active subscriptions", sales.activeSubscriptions],
           ["Active licences", sales.activeLicenses],
           ["Graded attempts", assessments.gradedAttempts],
           ["Average score (%)", assessments.averageScore],
-          ["Pass rate (%)", assessments.passRate],
           ["Pro revenue approved (PHP)", pro?.approvedRevenue],
           ["Pro revenue last 30 days (PHP)", pro?.approvedRevenueLast30Days],
           ["Learners on Pro", pro?.activePro],
@@ -229,7 +223,6 @@ export default function AdminDashboard() {
           "Month",
           "New accounts",
           "Assessment attempts",
-          "Pass rate (%)",
           "Certification sales (PHP)",
           "Pro revenue (PHP)",
           "Pro approvals",
@@ -238,7 +231,6 @@ export default function AdminDashboard() {
           row.month,
           row.users,
           row.attempts,
-          row.passRate,
           row.sales,
           row.pro,
           row.approvals,
@@ -377,48 +369,6 @@ export default function AdminDashboard() {
         ),
       },
       {
-        id: "admin-pass-rate",
-        col: 2,
-        row: 2,
-        element: (
-          <BentoTile col={2} row={2}>
-            <BentoHeading
-              title="Pass rate"
-              hint={`${count(assessments.gradedAttempts)} graded attempts · average score ${
-                assessments.averageScore == null ? "—" : `${assessments.averageScore}%`
-              }`}
-            />
-            {failed || assessments.passRate == null ? (
-              <p className="mt-4 text-sm text-muted-foreground">
-                {failed ? "Could not be loaded." : "Nothing graded yet."}
-              </p>
-            ) : (
-              <RadialGauge value={assessments.passRate} label="passed" height={170} />
-            )}
-          </BentoTile>
-        ),
-      },
-      {
-        id: "admin-users",
-        col: 2,
-        row: 2,
-        element: (
-          <BentoStat
-            tone="macaw"
-            col={2}
-            row={2}
-            icon={UsersIcon}
-            label="Total users"
-            value={failed ? "—" : count(people.totalUsers)}
-            hint={
-              failed
-                ? "Could not be loaded"
-                : `${count(people.activeUsers)} active · ${count(people.learners)} learners`
-            }
-          />
-        ),
-      },
-      {
         id: "admin-studying",
         col: 2,
         row: 2,
@@ -441,7 +391,7 @@ export default function AdminDashboard() {
         ),
       },
       {
-        id: "admin-sales",
+        id: "admin-sales", // id kept so saved layouts put this tile where Gross sales was
         col: 2,
         row: 2,
         element: (
@@ -449,14 +399,10 @@ export default function AdminDashboard() {
             tone="bee"
             col={2}
             row={2}
-            icon={DollarSign}
-            label="Gross sales"
-            value={failed ? "—" : money(sales.grossSales)}
-            hint={
-              failed
-                ? "Could not be loaded"
-                : `${money(sales.salesLast30Days)} in the last 30 days`
-            }
+            icon={UserCheck}
+            label="Active users"
+            value={failed ? "—" : count(people.activeUsers)}
+            hint={failed ? "Could not be loaded" : `of ${count(people.totalUsers)} total users · ${count(people.learners)} learners`}
           />
         ),
       },
@@ -714,7 +660,6 @@ export default function AdminDashboard() {
     planSlices,
     planMix,
     pro,
-    assessments,
     people,
     catalog,
     sales,

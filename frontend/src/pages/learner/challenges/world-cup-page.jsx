@@ -275,8 +275,9 @@ export default function WorldCupPage() {
   const locked = arenasQuery.isSuccess && !worldCup?.configured
 
   const tracks = useMemo(
-    () => getWorldCupTracks(portalQuery.data?.enrolledCertifications ?? []),
-    [portalQuery.data],
+    () =>
+      getWorldCupTracks(portalQuery.data?.enrolledCertifications ?? [], worldCup?.disabledTrackIds),
+    [portalQuery.data, worldCup?.disabledTrackIds],
   )
 
   useEffect(() => {

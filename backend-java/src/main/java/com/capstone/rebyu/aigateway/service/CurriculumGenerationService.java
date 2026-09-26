@@ -186,10 +186,19 @@ public class CurriculumGenerationService {
                to keep the configured per-category ranges. */
             Integer lessonCount
     ) throws IOException {
-        aiUploadValidator.validate(files);
-
-        String documentContent = extractText(files);
-        aiUploadValidator.requireReadableText(documentContent);
+        // Documents are optional here: an admin may add from instructions
+        // alone ("Add the Business and Ethics domain"), and the planner works
+        // from its own knowledge and research. One of the two is required --
+        // with neither there is nothing to say what to add.
+        boolean hasFiles = files != null && files.stream().anyMatch(f -> f != null && !f.isEmpty());
+        if (hasFiles) {
+            aiUploadValidator.validate(files);
+            String documentContent = extractText(files);
+            aiUploadValidator.requireReadableText(documentContent);
+        } else if (additionalInstructions == null || additionalInstructions.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Upload documents, or say what to add -- for example, which domain or topics.");
+        }
 
         GenerationRequest request = recordGenerationRequest(
                 certificationId, GenerationRequest.RequestType.CERTIFICATION, additionalInstructions,
@@ -197,7 +206,9 @@ public class CurriculumGenerationService {
                 lessonCount);
         publishAfterCommit(request.getGenerationRequestId(), certificationId);
 
-        ingestFiles(files, certificationId);
+        if (hasFiles) {
+            ingestFiles(files, certificationId);
+        }
 
         log.info("Append generation queued for certification {}", certificationId);
         return self.fetchCertificationDto(certificationId);

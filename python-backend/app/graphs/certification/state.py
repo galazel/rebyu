@@ -61,6 +61,11 @@ class CertificationState(TypedDict, total=False):
     # work that already exists.
     existing_curriculum: str
 
+    # What the admin typed with the request ("Add the Business and Ethics
+    # domain"). Shown to the curriculum planner, which follows it -- and, in
+    # an append with no new documents, plans from it alone.
+    additional_instructions: str
+
     # Preferred source: small `{s3_key, filename, content_type}` pointers.
     # LangGraph serializes the entire state into Postgres on every superstep,
     # so carrying raw file bytes here meant a 10 MB PDF was re-persisted on

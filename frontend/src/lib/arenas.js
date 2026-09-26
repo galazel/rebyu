@@ -33,9 +33,19 @@ export const ARENAS = [
     fields: [
       { key: "problems", label: "Roadmap nodes", value: "10", hint: "Circle buttons on the path" },
       { key: "timeLimit", label: "Run time limit (min)", value: "45", hint: "0 for untimed" },
-      { key: "weightCorrect", label: "Weight — correctness (%)", value: "60" },
-      { key: "weightSpeed", label: "Weight — speed (%)", value: "20" },
-      { key: "weightBigO", label: "Weight — complexity (%)", value: "20" },
+      { key: "weightCorrect", label: "Weight — correctness (%)", value: "60", hint: "Tests passed" },
+      {
+        key: "weightSpeed",
+        label: "Weight — speed (%)",
+        value: "20",
+        hint: "Full marks for finishing in half the time limit",
+      },
+      {
+        key: "weightBigO",
+        label: "Weight — efficiency (%)",
+        value: "20",
+        hint: "Slowest test runtime: full under 250 ms, zero at 5 s",
+      },
     ],
   },
   {
@@ -111,13 +121,6 @@ export function getArena(arenaId) {
   return ARENAS.find((arena) => arena.id === arenaId) ?? null
 }
 
-/** The certification tracks a World Cup lobby can queue into. */
-export const ARENA_TRACKS = [
-  { id: "it-passport", name: "IT Passport", enabled: true },
-  { id: "topcit", name: "TOPCIT", enabled: true },
-  { id: "fe-exam", name: "FE Exam", enabled: false },
-]
-
 /** Blade colours, cycled. Three tones for however many tracks a learner has. */
 const TRACK_TONES = ["bee", "macaw", "beetle"]
 
@@ -130,9 +133,16 @@ const TRACK_TONES = ["bee", "macaw", "beetle"]
  * and the questions are drawn from that certification's bank, which an
  * unenrolled learner has no business seeing. Enrolled in TOPCIT only? TOPCIT is
  * the only blade on the screen.
+ *
+ * `disabledTrackIds` are the certifications an admin switched off on the IT
+ * Olympics overview (the World Cup status carries them). A track too few
+ * players queue into never fills a lobby, so it is left off the screen.
  */
-export function getWorldCupTracks(enrolledCertifications = []) {
-  return enrolledCertifications.map((certification, index) => ({
+export function getWorldCupTracks(enrolledCertifications = [], disabledTrackIds = []) {
+  const disabled = new Set((disabledTrackIds ?? []).map(String))
+  return enrolledCertifications
+    .filter((certification) => !disabled.has(String(certification.certificationId ?? certification.id)))
+    .map((certification, index) => ({
     id: String(certification.certificationId ?? certification.id),
     name: certification.title ?? "Certification",
     short: String(certification.title ?? "certification").toLowerCase(),

@@ -1,7 +1,7 @@
 import { Suspense } from "react"
 import { Outlet, useLocation, useNavigate } from "react-router-dom"
 import { PortalPageSkeleton } from "@/components/portal-page-skeleton.jsx"
-import { LogOutIcon, SettingsIcon, UserIcon } from "@/components/icons"
+import { LogOutIcon } from "@/components/icons"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -70,9 +70,6 @@ export default function DashboardLayout() {
                 <Avatar><AvatarFallback>{(user?.displayName ?? user?.email ?? "AD").slice(0, 2).toUpperCase()}</AvatarFallback></Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" sideOffset={10} className="w-52 p-2">
-                <DropdownMenuItem><UserIcon />Profile</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/admin/ai-settings")}><SettingsIcon />AI settings</DropdownMenuItem>
-                <DropdownMenuSeparator />
                 <PortalThemeMenuItem />
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onClick={handleLogout}><LogOutIcon />Log out</DropdownMenuItem>

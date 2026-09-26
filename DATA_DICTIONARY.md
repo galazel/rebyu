@@ -1080,17 +1080,7 @@ The BKT_EVENT_OUTBOX table stores durable mastery events awaiting delivery to th
 | description | NOT NULL | TEXT | No | Description of the challenge rules. |
 | is_timed | NOT NULL | BOOLEAN | No | Whether the mode has a time limit. Defaults to false. |
 
-The CHALLENGE_MODES table stores the game-mode definitions of the challenge feature. One mode has many sessions and many industry tags.
-
-### DATA DICTIONARY OF CHALLENGE_MODE_INDUSTRIES
-
-| Field Name | Constraints | Data Type | Allow Nulls | Description |
-|---|---|---|---|---|
-| challenge_mode_industry_id | PK, identity | BIGINT | No | Unique identifier for a mode–industry link. |
-| industry | NOT NULL | VARCHAR(100) | No | Industry the challenge mode applies to. |
-| challenge_mode_id | FK → CHALLENGE_MODES, NOT NULL | BIGINT | No | Challenge mode being tagged. |
-
-The CHALLENGE_MODE_INDUSTRIES table tags challenge modes with the industries they apply to. Many industry tags belong to one challenge mode.
+The CHALLENGE_MODES table stores the game-mode definitions of the challenge feature. One mode has many sessions.
 
 ### DATA DICTIONARY OF CHALLENGE_SESSIONS
 

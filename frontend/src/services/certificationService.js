@@ -215,6 +215,9 @@ export async function appendToCertificationWithAi(
     ;(files ?? []).forEach((file) => {
         formData.append("files", file)
     })
+    // Adding from instructions alone sends no files; a multipart body with no
+    // parts at all is not reliably parsed, so it carries this marker instead.
+    if (!(files ?? []).length) formData.append("source", "instructions")
 
     const params = new URLSearchParams({ reviewMode })
     if (additionalInstructions.trim()) {

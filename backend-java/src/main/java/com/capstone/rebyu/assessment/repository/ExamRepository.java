@@ -108,8 +108,12 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
      * Read from `exam_results` rather than `assessment_attempts` so the server
      * and the screen answer from the same rows: `rating` lives only here.
      * A row with no rating (a fixed paper, or one written before ratings were
-     * recorded) clears on the pass alone, so nothing already earned is taken
-     * away. */
+     * recorded) clears on the pass alone.
+     *
+     * Only the LATEST sitting (highest attempt number) is read, matching
+     * `examStanding` on the screen: a failed retake shuts the road again
+     * until a later sitting clears it. Counting any cleared row let a learner
+     * whose last quiz scored 37 still open the topic exam on an older 50+. */
 
     /** Earlier lessons in this topic whose quiz the learner has not passed. */
     @Query("""
@@ -120,6 +124,8 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
                AND e.lesson.lessonId < :lessonId
                AND NOT EXISTS (SELECT 1 FROM ExamResult r
                                 WHERE r.exam = e AND r.learner.learnerId = :learnerId
+                                  AND r.id.attemptNo = (SELECT MAX(r2.id.attemptNo) FROM ExamResult r2
+                                                         WHERE r2.exam = e AND r2.learner.learnerId = :learnerId)
                                   AND ((r.rating IS NOT NULL AND r.rating >= :proficient)
                                      OR (r.rating IS NULL AND r.isPassed = TRUE)))
             """)
@@ -137,6 +143,8 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
                AND e.lesson.middleCategory.middleCategoryId = :middleCategoryId
                AND NOT EXISTS (SELECT 1 FROM ExamResult r
                                 WHERE r.exam = e AND r.learner.learnerId = :learnerId
+                                  AND r.id.attemptNo = (SELECT MAX(r2.id.attemptNo) FROM ExamResult r2
+                                                         WHERE r2.exam = e AND r2.learner.learnerId = :learnerId)
                                   AND ((r.rating IS NOT NULL AND r.rating >= :proficient)
                                      OR (r.rating IS NULL AND r.isPassed = TRUE)))
             """)
@@ -153,6 +161,8 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
                AND e.middleCategory.majorCategory.majorCategoryId = :majorCategoryId
                AND NOT EXISTS (SELECT 1 FROM ExamResult r
                                 WHERE r.exam = e AND r.learner.learnerId = :learnerId
+                                  AND r.id.attemptNo = (SELECT MAX(r2.id.attemptNo) FROM ExamResult r2
+                                                         WHERE r2.exam = e AND r2.learner.learnerId = :learnerId)
                                   AND ((r.rating IS NOT NULL AND r.rating >= :proficient)
                                      OR (r.rating IS NULL AND r.isPassed = TRUE)))
             """)

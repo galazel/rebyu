@@ -327,30 +327,27 @@ export function hasSatDiagnostic({ diagnostic, examResults = [], certificationId
 export const PROFICIENT_RATING = 50
 
 /**
- * The learner's standing on one exam, from every result row for it: the best
- * sitting counts, so a bad retake never re-locks what a good one opened.
+ * The learner's standing on one exam, read off their MOST RECENT sitting.
  *   taken   -- sat at least once
- *   passed  -- passed the paper's mark at least once (reported, not gated on)
- *   rating  -- the best proficiency measured, or null when none was
+ *   passed  -- the latest sitting passed the paper's mark (reported, not gated on)
+ *   rating  -- the latest sitting's proficiency, or null when it measured none
  *   cleared -- reached Proficient: the gate the road reads
  *   reason  -- why it is not cleared, in the learner's terms; null when it is
+ *
+ * Latest, not best. This used to take the best sitting ever, so that a weak
+ * retake never re-locked the road -- but then the quiz card said "your last
+ * attempt: 37, reach 50 to continue" while the lesson stayed ticked and the
+ * unit exam stayed open on the strength of an older sitting. What the card
+ * reports is what the gate now reads: fail the retake and the road shuts
+ * until it is cleared again.
  */
 export function examStanding(examResults, examId) {
-  const rows = (examResults ?? []).filter((row) => idOf(row?.examId) === idOf(examId))
-  if (rows.length === 0) {
+  const latest = latestSitting(examResults, examId)
+  if (!latest) {
     return { taken: false, passed: false, rating: null, cleared: false, reason: "not sat yet" }
   }
-  const passed = rows.some((row) => row?.isPassed === true || row?.passed === true)
-  const ratingOf = (row) => {
-    const value = row?.rating == null ? null : Number(row.rating)
-    return value == null || !Number.isFinite(value) ? null : value
-  }
-  /* The BEST level ever reached: a weak retake never re-locks a road that a
-     stronger sitting opened. */
-  const rating = rows.reduce((top, row) => {
-    const value = ratingOf(row)
-    return value == null ? top : top == null ? value : Math.max(top, value)
-  }, null)
+  const passed = latest.passed
+  const rating = latest.rating == null || !Number.isFinite(latest.rating) ? null : latest.rating
 
   if (rating == null) {
     // Nothing measured a level here, so the pass mark is the only verdict.
@@ -387,24 +384,25 @@ export function proficiencyLabel(rating) {
 /**
  * The learner's MOST RECENT sitting of one exam, or null.
  *
- * Distinct from {@link examStanding}, which reports their BEST. Both belong on
- * the quiz card and they answer different questions: the standing says whether
- * the road ahead is open, the latest sitting says how the last attempt
- * actually went. Showing only the standing meant a learner who had just
- * scored badly saw their best result reported back at them, with no sign the
- * attempt they had only just finished had happened at all.
+ * {@link examStanding} is built on this, so the attempt the quiz card reports
+ * and the verdict the road gates on are always the same sitting.
  */
 export function latestSitting(examResults, examId) {
   const rows = (examResults ?? []).filter((row) => idOf(row?.examId) === idOf(examId))
   if (rows.length === 0) return null
+  /* The highest attempt number is the latest sitting -- the same row the
+     server's progression gate reads (ExamRepository.countUnpassed*), so the
+     screen and the server cannot pick different sittings. The timestamp only
+     breaks a tie between rows that carry no attempt number. */
   const newest = rows.reduce((latest, row) => {
-    const a = Date.parse(row?.takenAt ?? "")
-    const b = Date.parse(latest?.takenAt ?? "")
-    if (!Number.isFinite(a)) return latest
-    if (!Number.isFinite(b)) return row
+    const a = Number(row?.attemptNo ?? 0)
+    const b = Number(latest?.attemptNo ?? 0)
     if (a !== b) return a > b ? row : latest
-    // Same timestamp: the higher attempt number is the later sitting.
-    return Number(row?.attemptNo ?? 0) > Number(latest?.attemptNo ?? 0) ? row : latest
+    const at = Date.parse(row?.takenAt ?? "")
+    const bt = Date.parse(latest?.takenAt ?? "")
+    if (!Number.isFinite(at)) return latest
+    if (!Number.isFinite(bt)) return row
+    return at > bt ? row : latest
   })
   const rating = newest?.rating == null ? null : Number(newest.rating)
   return {

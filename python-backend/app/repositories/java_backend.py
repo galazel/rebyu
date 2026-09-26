@@ -11,7 +11,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import insert, select, text, update
+from sqlalchemy import func, insert, select, text, update
 from sqlalchemy.orm import Session
 
 from app.db.java_tables import (
@@ -686,3 +686,54 @@ def delete_question_if_unused(session: Session, question_id: int) -> bool:
             "Could not delete duplicate question %s; leaving it stored", question_id, exc_info=True
         )
         return False
+
+
+def retire_certification_exam(
+    session: Session, certification_id: int, scope: str, title: str, new_question_texts: list[str]
+) -> str:
+    """Makes way for a rebuilt certification-wide exam (the diagnostic or the
+    mock of an append run): the current one is archived -- off the learner
+    side, its attempts kept -- and retitled so the new one can take its name.
+
+    Returns "same" when the current exam already holds the new questions (this
+    run stored it on an earlier, partial save): it is then kept and nothing is
+    written again. Otherwise "retired" (or "none" when there was no exam).
+    """
+    import re as _re
+
+    def key(value):
+        return _re.sub(r"[^0-9a-z]+", "", (value or "").split("Source:")[0].lower())[:200]
+
+    current = session.execute(
+        select(exams.c.exam_id, exams.c.title)
+        .where(exams.c.certification_id == certification_id)
+        .where((exams.c.target_scope == scope) | (exams.c.title == title))
+        .where((exams.c.status.is_(None)) | (exams.c.status != "ARCHIVED"))
+    ).mappings().all()
+    if not current:
+        return "none"
+
+    wanted = {key(text) for text in new_question_texts if key(text)}
+    outcome = "none"
+    for row in current:
+        stored = {
+            key(value)
+            for (value,) in session.execute(
+                select(questions.c.question_text)
+                .select_from(exam_questions.join(questions, questions.c.question_id == exam_questions.c.question_id))
+                .where(exam_questions.c.exam_id == row["exam_id"])
+            ).all()
+        }
+        if wanted and stored and len(wanted & stored) >= 0.8 * len(wanted):
+            return "same"
+        session.execute(
+            update(exams)
+            .where(exams.c.exam_id == row["exam_id"])
+            .values(
+                status="ARCHIVED",
+                title=f"{row['title']} (replaced)"[:150],
+                updated_at=func.now(),
+            )
+        )
+        outcome = "retired"
+    return outcome

@@ -5,8 +5,17 @@ import {
   QuestionTypeButton,
   cloneQuestionData,
   createLocalId,
+  saveAuthoredQuestion,
   validateQuestionData,
 } from "@/components/questions/question-editors.jsx"
+import { reconstructQuestionData } from "@/components/questions/reconstruct-question.js"
+import {
+  saveChoices,
+  saveDiagramQuestion,
+  saveProgrammingQuestion,
+  saveQuestion,
+  saveTextQuestion,
+} from "@/services/questionService.js"
 
 /**
  * One flat set of authored arena questions.
@@ -68,6 +77,55 @@ export function validateArenaQuestions(problems) {
   return errors
 }
 
+/**
+ * A saved arena problem, back in the editor's shape.
+ *
+ * `existingQuestionId` is what keeps a re-save from duplicating the bank: an
+ * untouched problem is re-linked by id, and only one whose content was edited
+ * (`edited`, set by the editors) is written again as a new question.
+ */
+export async function arenaQuestionFromSaved(row) {
+  const rebuilt = await reconstructQuestionData(row.question, [
+    row.question,
+    ...(row.subQuestions ?? []),
+  ])
+  if (!rebuilt) return null
+
+  const questionType = QUESTION_TYPES.find((type) => type.id === rebuilt.typeId)
+  return {
+    id: createLocalId(),
+    typeId: rebuilt.typeId,
+    typeName: questionType?.title ?? rebuilt.typeId,
+    ...DEFAULT_REWARD,
+    points: row.points != null ? String(Number(row.points)) : DEFAULT_REWARD.points,
+    data: rebuilt.data,
+    existingQuestionId: row.questionId,
+    lessonId: row.question?.lessonId ?? null,
+    edited: false,
+  }
+}
+
+const QUESTION_API = {
+  saveQuestion,
+  saveChoices,
+  saveTextQuestion,
+  saveProgrammingQuestion,
+  saveDiagramQuestion,
+}
+
+/** The bank id an arena problem runs: the saved one if untouched, else a new write. */
+export async function saveArenaQuestion(problem, { lessonId, certificationId }) {
+  if (problem.existingQuestionId && !problem.edited) {
+    return problem.existingQuestionId
+  }
+  const saved = await saveAuthoredQuestion(
+    problem,
+    { lessonId: Number(lessonId), certificationId: Number(certificationId) },
+    QUESTION_API,
+  )
+  return saved.questionId
+}
+
 export function totalPointsOf(problems) {
   return problems.reduce((total, problem) => total + (Number(problem.points) || 0), 0)
 }
@@ -112,6 +170,7 @@ export default function QuestionSetEditor({
           ? {
               ...problem,
               data: typeof update === "function" ? update(problem.data) : update,
+              edited: true,
             }
           : problem,
       ),

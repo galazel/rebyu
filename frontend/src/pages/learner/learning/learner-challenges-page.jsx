@@ -98,13 +98,6 @@ export default function LearnerChallengesPage() {
   const learnerId = outletContext?.data?.learnerId ?? null
   const { isFree } = useLearnerEntitlements()
 
-  /* The learner's own tracks. Enrolled in TOPCIT and nothing else? TOPCIT is
-     the only track the World Cup can put you in. */
-  const worldCupTracks = useMemo(
-    () => getWorldCupTracks(outletContext?.data?.enrolledCertifications ?? []),
-    [outletContext?.data?.enrolledCertifications],
-  )
-
   /* Which arenas an admin has actually put problems into. An arena with no
      problems is a run that opens onto nothing, and finding that out after
      stepping in is worse than being told up front. */
@@ -114,6 +107,16 @@ export default function LearnerChallengesPage() {
     staleTime: 60_000,
   })
 
+  /* The learner's own tracks. Enrolled in TOPCIT and nothing else? TOPCIT is
+     the only track the World Cup can put you in -- less any an admin has
+     switched off. */
+  const disabledTrackIds = (arenaQuery.data ?? []).find((arena) => arena.arenaId === "worldcup")
+    ?.disabledTrackIds
+  const worldCupTracks = useMemo(
+    () => getWorldCupTracks(outletContext?.data?.enrolledCertifications ?? [], disabledTrackIds),
+    [outletContext?.data?.enrolledCertifications, disabledTrackIds],
+  )
+
   const configuredArenas = useMemo(() => {
     const map = new Map()
     for (const arena of arenaQuery.data ?? []) {
@@ -121,16 +124,6 @@ export default function LearnerChallengesPage() {
     }
     return map
   }, [arenaQuery.data])
-
-  /* The industries this learner is actually in, taken from what they are
-     enrolled in. A certification carries one; an arena is assigned a set. */
-  const learnerIndustries = useMemo(() => {
-    const set = new Set()
-    for (const certification of outletContext?.data?.enrolledCertifications ?? []) {
-      if (certification?.industry) set.add(certification.industry)
-    }
-    return set
-  }, [outletContext?.data?.enrolledCertifications])
 
   const challenges = useMemo(
     () =>
@@ -145,15 +138,6 @@ export default function LearnerChallengesPage() {
 
         const enrolled = !challenge.needsEnrollment || worldCupTracks.length > 0
 
-        /* An arena with no industries assigned is open to everyone. Once an
-           admin assigns industries, only learners enrolled in a certification
-           from one of them belong there. */
-        const restricted = (arena?.industries ?? []).length > 0
-        const inIndustry =
-          !known ||
-          !restricted ||
-          (arena.industries ?? []).some((industry) => learnerIndustries.has(industry))
-
         /* Free: World Cup is Pro, and the solo arenas stop after the first few problems. */
         const proLocked = isFree && challenge.id === "worldcup"
         const freeCapped = isFree && challenge.id !== "worldcup"
@@ -163,20 +147,14 @@ export default function LearnerChallengesPage() {
           ...(challenge.needsEnrollment ? { tracks: worldCupTracks } : null),
           problemCount: arena?.problemCount ?? 0,
           unconfigured: known && !configured,
-          inIndustry,
+          // Closed by an admin, as opposed to never set up.
+          paused: known && arena?.live === false,
           proLocked,
           freeCapped,
           available: ready && enrolled && !proLocked,
         }
       }),
-    [worldCupTracks, configuredArenas, arenaQuery.isSuccess, learnerIndustries, isFree],
-  )
-
-  /* Arenas for someone else's industry are not shown at all, rather than shown
-     locked: that padlock never opens for this learner. */
-  const visibleChallenges = useMemo(
-    () => challenges.filter((challenge) => challenge.inIndustry),
-    [challenges],
+    [worldCupTracks, configuredArenas, arenaQuery.isSuccess, isFree],
   )
 
   const leaderboardQuery = useQuery({
@@ -208,9 +186,10 @@ export default function LearnerChallengesPage() {
     /* Two reasons an arena can be shut, and they need different answers: one
        is on the learner to fix, the other is not theirs at all. */
     if (challenge.unconfigured) {
-      toast.info(`${challenge.title} is not ready yet`, {
-        description:
-          "This arena has no problems set up yet. It unlocks as soon as an admin adds them.",
+      toast.info(`${challenge.title} is ${challenge.paused ? "closed for now" : "not ready yet"}`, {
+        description: challenge.paused
+          ? "An admin has paused this arena. Check back later."
+          : "This arena has no problems set up yet. It unlocks as soon as an admin adds them.",
       })
       return
     }
@@ -264,9 +243,8 @@ export default function LearnerChallengesPage() {
           </div>
         </header>
 
-        {visibleChallenges.length > 0 ? (
-          <section aria-label="Arenas" className="grid gap-5 md:grid-cols-3">
-            {visibleChallenges.map((challenge) => {
+        <section aria-label="Arenas" className="grid gap-5 md:grid-cols-3">
+            {challenges.map((challenge) => {
               const Icon = challenge.icon
               const open = challenge.available
               return (
@@ -356,15 +334,6 @@ export default function LearnerChallengesPage() {
               )
             })}
           </section>
-        ) : (
-          <div className="rb-sticky-yellow mx-auto max-w-md p-6 text-center">
-            <p className="rb-sticky-title">No arenas for you yet</p>
-            <p className="rb-sticky-body mt-2">
-              Arenas are opened to particular industries. None currently covers a certification
-              you are enrolled in.
-            </p>
-          </div>
-        )}
 
         <section className="grid gap-6 pt-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.8fr)]">
           {/* The class leaderboard, on a sheet of notebook paper. */}

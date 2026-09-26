@@ -166,6 +166,12 @@ async def document_ingestion_node(state: CertificationState):
     # PDF parsing, embedding, and FAISS writes are CPU-bound and release no
     # GIL time voluntarily -- run them off the event loop so a large upload
     # can't stall every other in-flight request.
+    # An append from instructions alone has nothing to index: the planner
+    # retrieves from what the certification already holds, and researches.
+    if not (state.get("document_refs") or state.get("uploaded_files")):
+        logger.info("No documents to ingest; continuing from the instructions")
+        return {"vector_store_id": _namespace(state), "status": "DOCUMENT_PROCESSING_COMPLETED"}
+
     documents = await asyncio.to_thread(
         resolve_documents, state.get("document_refs"), state.get("uploaded_files")
     )
@@ -226,6 +232,13 @@ async def validate_documents_node(state: CertificationState):
 
     combined_samples = "\n\n---\n\n".join(sample_texts)
 
+    # No documents at all: an append from the admin's instructions alone.
+    # There is nothing to judge, and the planner works from the instructions
+    # and its own research -- the check is for uploads that do not match.
+    if not sample_texts and not (state.get("document_refs") or state.get("uploaded_files")):
+        logger.info("No documents to validate; continuing from the instructions")
+        return {"status": "VALIDATION_PASSED"}
+
     audit = await _invoke_auditor(state, combined_samples)
 
     if audit.is_related:
@@ -254,6 +267,12 @@ async def _invoke_curriculum_agent(state: CertificationState, context: str) -> C
     # context so it needs no second prompt template: the planner is told what
     # exists and asked for the difference, and everything downstream then works
     # on that difference alone.
+    instructions = (state.get("additional_instructions") or "").strip()
+    if instructions:
+        context = (
+            "THE ADMINISTRATOR'S INSTRUCTIONS FOR THIS RUN -- follow them:\n"
+            f"{instructions}\n\n{context}"
+        )
     existing = (state.get("existing_curriculum") or "").strip()
     if existing:
         context = (
@@ -267,9 +286,13 @@ async def _invoke_curriculum_agent(state: CertificationState, context: str) -> C
             "major category's name EXACTLY as written above and put only the "
             "new middle categories or lessons inside it -- matching is by name, "
             "so an exact repeat attaches to the existing one instead of "
-            "creating a duplicate. If the material adds nothing genuinely new, "
-            "return an empty majorCategories list rather than inventing "
-            "material to fill it.\n\n"
+            "creating a duplicate. When the administrator's instructions ask "
+            "for something the material does not cover -- a domain, a topic, "
+            "more lessons -- plan it from your own knowledge of this "
+            "certification and your research. With no instructions, if the "
+            "material adds nothing genuinely new, return an empty "
+            "majorCategories list rather than inventing material to fill "
+            "it.\n\n"
             f"{context}"
         )
 
@@ -506,6 +529,26 @@ async def _invoke_lesson_auditor(state: CertificationState) -> LessonAuditResult
     )
 
 
+def _with_existing_curriculum(context: str, state: CertificationState) -> str:
+    """For an append run: the diagnostic and mock cover the WHOLE
+    certification, not just what this run added.
+
+    The run's own curriculum holds only the new material, so the exam is
+    also shown the outline of what already existed -- the lesson names it
+    must spread its items over and name in `lesson_ref`."""
+    existing = (state.get("existing_curriculum") or "").strip()
+    if not existing:
+        return context
+    return (
+        "THIS EXAM COVERS THE WHOLE CERTIFICATION: the curriculum that already existed, "
+        "listed first, and the material just added, below it. Spread the questions over "
+        "both in proportion to their size, and set lesson_ref to the exact name of the "
+        "lesson each question tests, as written in these lists.\n\n"
+        f"Existing curriculum:\n{existing}\n\n"
+        f"Material added now:\n{context}"
+    )
+
+
 def _curriculum_outline(curriculum: dict) -> str:
     lines = []
     for major in _flatten_majors(curriculum):
@@ -528,7 +571,7 @@ async def generate_diagnostic_exam_node(state: CertificationState):
     # The real paper's shape, same source the mock reads. The diagnostic is the
     # mock's layout at a fixed length: a learner should meet the exam's formats
     # here, before studying, rather than for the first time at the end.
-    context = _with_exam_structure(context, state)
+    context = _with_exam_structure(_with_existing_curriculum(context, state), state)
 
     batch = await invoke_question_agent(
         scope, context,
@@ -806,7 +849,7 @@ async def generate_mock_exam_node(state: CertificationState):
     # time, pass mark and examined weighting. Coverage especially -- a mock
     # sampled from the syllabus rather than the paper's own weighting tests the
     # wrong proportions however good the individual items are.
-    context = _with_exam_structure(context, state)
+    context = _with_exam_structure(_with_existing_curriculum(context, state), state)
 
     if not known:
         logger.info(

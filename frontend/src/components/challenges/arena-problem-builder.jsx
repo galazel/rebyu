@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Check, Plus, Trash2, Trophy } from "@/components/icons"
+import { Check, Loader2, Plus, Trash2, Trophy } from "@/components/icons"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -21,16 +21,16 @@ import {
   createLocalId,
   validateQuestionData,
 } from "@/components/questions/question-editors.jsx"
+import {
+  arenaQuestionFromSaved,
+  saveArenaQuestion,
+} from "@/components/challenges/question-set-editor.jsx"
 import { getAllCertifications } from "@/services/certificationService.js"
 import {
-  saveChoices,
-  saveDiagramQuestion,
-  saveProgrammingQuestion,
-  saveQuestion,
-  saveTextQuestion,
-} from "@/services/questionService.js"
-import { saveAuthoredQuestion } from "@/components/questions/question-editors.jsx"
-import { CHALLENGE_ARENAS_KEY, saveArenaProblems } from "@/services/challengeService.js"
+  CHALLENGE_ARENAS_KEY,
+  getArenaProblems,
+  saveArenaProblems,
+} from "@/services/challengeService.js"
 
 /**
  * Authoring surface for one arena's problem set.
@@ -61,11 +61,10 @@ import { CHALLENGE_ARENAS_KEY, saveArenaProblems } from "@/services/challengeSer
  *   whole set — a run whose questions each named a different certification
  *   would not be a track at all.
  *
- * Problems live in local state. There is no arena-problems endpoint yet, and
- * `saveAuthoredQuestion` cannot stand in for one — it writes a question against
- * a lesson and certification, which an arena problem has neither of. Save
- * validates and reports; the shape authored here is what the endpoint has to
- * accept.
+ * The saved set is reloaded on open -- every question back in its editor, in
+ * its node -- so an arena is built up over several sittings. Saving writes only
+ * new or edited problems to the bank; an untouched one is re-linked by its id,
+ * so saving twice does not duplicate the bank.
  */
 
 /** Defaults per problem. Points score the run, XP feeds the learner's level. */
@@ -75,7 +74,7 @@ function createNode() {
   return { id: createLocalId(), problems: [] }
 }
 
-export default function ArenaProblemBuilder({ arena }) {
+export default function ArenaProblemBuilder({ arena, status, settings }) {
   const queryClient = useQueryClient()
   // One shape in state for both arenas: a mock-exam arena is a single unnamed
   // node, so grouping never needs a second code path here or in the endpoint.
@@ -94,11 +93,58 @@ export default function ArenaProblemBuilder({ arena }) {
   const questionsPerNode = Number(arena.questionsPerNode) || 0
   const isRoadmap = questionsPerNode > 0
 
-  /** For a roadmap this is the number of circle buttons on the path; for a
-   *  mock exam there is no such field and the set is open-ended. */
+  /** For a roadmap this is the number of circle buttons on the path -- the
+   *  saved setting, so changing it on the Settings tab moves this target; for
+   *  a mock exam there is no such field and the set is open-ended. */
   const targetNodes = isRoadmap
-    ? Number(arena.fields.find((field) => field.key === "problems")?.value ?? 0)
+    ? Number(
+        settings?.problems ??
+          arena.fields.find((field) => field.key === "problems")?.value ??
+          0,
+      )
     : 0
+
+  /* The saved set, rebuilt into editor shape. Each non-MCQ question needs its
+     own config fetch, so this is one query that resolves once everything is
+     rebuilt rather than a flicker of half-filled editors. */
+  const savedQuery = useQuery({
+    queryKey: [CHALLENGE_ARENAS_KEY, arena.id, "problems"],
+    queryFn: async () => {
+      const rows = await getArenaProblems(arena.id)
+      const rebuilt = await Promise.all(
+        rows.map(async (row) => ({
+          nodeIndex: row.nodeIndex ?? 1,
+          problem: await arenaQuestionFromSaved(row),
+        })),
+      )
+      return rebuilt.filter((item) => item.problem)
+    },
+    // Hydrated once; a background refetch must not overwrite unsaved edits.
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  })
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    if (hydrated || !savedQuery.data) return
+    setHydrated(true)
+    if (savedQuery.data.length === 0) return
+
+    const byNode = new Map()
+    for (const { nodeIndex, problem } of savedQuery.data) {
+      const key = isRoadmap ? nodeIndex : 1
+      if (!byNode.has(key)) byNode.set(key, [])
+      byNode.get(key).push(problem)
+    }
+    setNodes(
+      [...byNode.keys()]
+        .sort((a, b) => a - b)
+        .map((key) => ({ id: createLocalId(), problems: byNode.get(key) })),
+    )
+    if (status?.certificationId) setCertificationId(String(status.certificationId))
+    const firstLesson = savedQuery.data.find(({ problem }) => problem.lessonId)?.problem.lessonId
+    if (firstLesson) setLessonId(String(firstLesson))
+  }, [hydrated, savedQuery.data, isRoadmap, status?.certificationId])
 
   const allowedTypes = useMemo(
     () => QUESTION_TYPES.filter((type) => arena.questionTypes.includes(type.id)),
@@ -195,6 +241,7 @@ export default function ArenaProblemBuilder({ arena }) {
           ? {
               ...problem,
               data: typeof update === "function" ? update(problem.data) : update,
+              edited: true,
             }
           : problem,
       ),
@@ -284,44 +331,44 @@ export default function ArenaProblemBuilder({ arena }) {
     void (async () => {
       try {
         const saved = []
+        // problem id -> the bank id it now runs, so the editors can be told
+        // they are saved and a second save re-links instead of re-writing.
+        const savedIds = new Map()
 
         for (const node of nodes) {
           const nodeIndex = isRoadmap ? nodes.indexOf(node) + 1 : null
 
           for (const problem of node.problems) {
-            const question = await saveAuthoredQuestion(
-              problem,
-              {
-                lessonId: Number(lessonId),
-                certificationId: Number(certificationId),
-                totalPoints: Number(problem.points) || 1,
-              },
-              {
-                saveQuestion,
-                saveChoices,
-                saveTextQuestion,
-                saveProgrammingQuestion,
-                saveDiagramQuestion,
-              },
-            )
-
+            const questionId = await saveArenaQuestion(problem, { lessonId, certificationId })
+            savedIds.set(problem.id, questionId)
             saved.push({
-              questionId: question.questionId,
+              questionId,
               nodeIndex,
               points: Number(problem.points) || 1,
             })
           }
         }
 
+        // No time limit sent: the server uses the arena's saved setting.
         const status = await saveArenaProblems(arena.id, {
           certificationId: Number(certificationId),
-          timeLimitMinutes: Number(
-            arena.fields.find((field) => field.key === "timeLimit")?.value ?? 0,
-          ),
           problems: saved,
         })
 
-        await queryClient.invalidateQueries({ queryKey: [CHALLENGE_ARENAS_KEY] })
+        setNodes((current) =>
+          current.map((node) => ({
+            ...node,
+            problems: node.problems.map((problem) =>
+              savedIds.has(problem.id)
+                ? { ...problem, existingQuestionId: savedIds.get(problem.id), edited: false }
+                : problem,
+            ),
+          })),
+        )
+
+        // Not the problems query: it is this screen's hydration source, and
+        // refetching it would be ignored anyway.
+        await queryClient.invalidateQueries({ queryKey: [CHALLENGE_ARENAS_KEY], exact: true })
 
         toast.success(`${arena.name} is live`, {
           description: `${status.problemCount} problem${
@@ -440,6 +487,26 @@ export default function ArenaProblemBuilder({ arena }) {
             onAdd={(type) => addProblem(node.id, type)}
           />
         ))}
+      </div>
+    )
+  }
+
+  if (!hydrated) {
+    return (
+      <div className="flex items-center justify-center gap-2 rounded-2xl border-2 border-border bg-card px-6 py-12 text-sm text-muted-foreground">
+        {savedQuery.isError ? (
+          <span>
+            The saved problems could not be loaded.{" "}
+            <button type="button" className="font-bold underline" onClick={() => savedQuery.refetch()}>
+              Try again
+            </button>
+          </span>
+        ) : (
+          <>
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            Loading saved problems...
+          </>
+        )}
       </div>
     )
   }

@@ -514,8 +514,24 @@ def persist_generated_assessments(
             passing_score=real_passing,
         )
 
+    def _make_way(scope: str, title: str, exam: dict) -> None:
+        """An append run rebuilds the certification-wide exams over the old
+        and new material; the pair already stored is retired, not kept.
+        (A normal run keeps the stored copy, which may have been edited.)"""
+        if not (result.get("existing_curriculum") or "").strip():
+            return
+        outcome = repo.retire_certification_exam(
+            session, certification_id, scope, title,
+            [q.get("question") or q.get("question_text") or "" for q in exam["questions"]],
+        )
+        if outcome == "retired":
+            existing_exams.discard((scope, _title_key(title)))
+            existing_exams.discard((None, _title_key(title)))
+            logger.info("Retired the previous %s of certification %s for the rebuilt one", title, certification_id)
+
     diagnostic = result.get("diagnostic_exam") or {}
     if diagnostic.get("questions"):
+        _make_way("DIAGNOSTIC", "Diagnostic Exam", diagnostic)
         _store_exam(
             scope="DIAGNOSTIC", title="Diagnostic Exam",
             questions=diagnostic["questions"],
@@ -529,6 +545,7 @@ def persist_generated_assessments(
 
     mock = result.get("mock_exam") or {}
     if mock.get("questions"):
+        _make_way("MOCK", "Mock Exam", mock)
         _store_exam(
             scope="MOCK", title="Mock Exam",
             questions=mock["questions"],
