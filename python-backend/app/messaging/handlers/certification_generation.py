@@ -49,7 +49,7 @@ def _load_context(generation_request_id: int, certification_id: int):
                 repo.insert_notification(
                     session, user_id=user_id, title="Generation failed",
                     body=f"Curriculum generation failed: certification {certification_id} not found.",
-                    href="/admin/certifications",
+                    href="/admin",
                 )
             return None
         documents = repo.list_knowledge_documents(session, certification_id, "LESSON")

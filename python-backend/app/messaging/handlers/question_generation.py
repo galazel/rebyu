@@ -39,7 +39,11 @@ def _notify(generation_request: dict, title: str, body: str) -> None:
     if user_id is None:
         return
     with SessionLocal() as session:
-        repo.insert_notification(session, user_id=user_id, title=title, body=body, href="/admin/question-bank")
+        # Question banks live under their certification; there is no bare
+        # /admin/question-bank page, so the old link opened the 404.
+        certification_id = generation_request.get("certification_id")
+        href = f"/admin/certification/{certification_id}/question-bank" if certification_id else "/admin"
+        repo.insert_notification(session, user_id=user_id, title=title, body=body, href=href)
 
 
 def _load_context(generation_request_id: int, certification_id: int):
@@ -57,7 +61,7 @@ def _load_context(generation_request_id: int, certification_id: int):
                 repo.insert_notification(
                     session, user_id=user_id, title="Generation failed",
                     body=f"Question generation failed: certification {certification_id} not found.",
-                    href="/admin/certifications",
+                    href="/admin",
                 )
             return None
         documents = repo.list_knowledge_documents(session, certification_id, "QUESTION")
