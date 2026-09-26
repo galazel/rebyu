@@ -18,6 +18,7 @@ import { playCorrectMark, playWrongMark } from "@/lib/sound.js"
 import { getFileViewUrl } from "@/services/fileService.js"
 import { AuthedImage, prefetchAuthedMedia, questionMediaKeys } from "@/lib/authed-media.jsx"
 import { cn } from "@/lib/utils"
+import { describeCountdown, formatCountdown } from "@/lib/countdown.js"
 
 import ProgrammingQuestionLayout from "./programming-question-layout.jsx"
 import DiagramQuestionLayout from "./diagram-question-layout.jsx"
@@ -322,9 +323,11 @@ export function AdaptiveAttemptRunner({
                     ? "border-rb-cardinal bg-rb-cardinal-wash text-rb-cardinal-lip"
                     : "border-rb-swan bg-rb-polar text-rb-eel",
                 )}
+                role="timer"
+                aria-label={describeCountdown(remainingSeconds)}
               >
                 <Clock3 className="size-4" aria-hidden="true" />
-                {formatClock(remainingSeconds)}
+                {formatCountdown(remainingSeconds)}
               </span>
             ) : null}
             <Button variant="outline" size="sm" onClick={onLeave} className="gap-1.5">
@@ -726,12 +729,6 @@ function fromDraftDto(saved) {
     }
   }
   return out
-}
-
-function formatClock(totalSeconds) {
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
 }
 
 export default AdaptiveAttemptRunner
