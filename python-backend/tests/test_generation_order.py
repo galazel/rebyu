@@ -197,9 +197,10 @@ def test_the_walk_is_bottom_up_and_interleaved(trace):
         "lesson:M1.m1.L1", "lesson_quiz:M1.m1.L1",
         "middle_quiz:M1.m1[2]",
         "major_quiz:M1[4]",
-        "mock",
-        "diagnostic",
+        # After the last lesson: the bank, then the diagnostic, then the mock.
         "bank",
+        "diagnostic",
+        "mock",
     ]
 
 
@@ -228,7 +229,8 @@ def test_the_single_lesson_test_configuration_still_walks_every_stage(trace):
         "lesson:M0.m0.L0", "lesson_quiz:M0.m0.L0",
         "middle_quiz:M0.m0[1]",
         "major_quiz:M0[1]",
-        "mock",
-        "diagnostic",
+        # After the last lesson: the bank, then the diagnostic, then the mock.
         "bank",
+        "diagnostic",
+        "mock",
     ]

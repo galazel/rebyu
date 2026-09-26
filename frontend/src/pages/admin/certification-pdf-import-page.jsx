@@ -904,6 +904,9 @@ export default function CertificationPdfImportPage() {
     const [failures, setFailures] = useState([])
     const [progress, setProgress] = useState(null)
     const [filter, setFilter] = useState("all")
+    // One paper is shown at a time: thirty papers of a hundred cards each
+    // made the page too heavy to scroll. Search still covers every paper.
+    const [currentPaperId, setCurrentPaperId] = useState(null)
     const [term, setTerm] = useState("")
     // Which paper's answer-key panel is open, if any.
     const [keyBoxFor, setKeyBoxFor] = useState(null)
@@ -1378,7 +1381,7 @@ export default function CertificationPdfImportPage() {
     // cards are memoized, and a fresh function per render would re-render
     // all of them. Each call reaches the current handlers through the ref.
     const handlers = useRef(null)
-    handlers.current = { updatePaper, updateQuestion, deleteQuestions, setNotice, setFilter, setTerm }
+    handlers.current = { updatePaper, updateQuestion, deleteQuestions, setNotice, setFilter, setTerm, setCurrentPaperId }
     const cardActions = useMemo(
         () => ({
             pick: (paperId, num, key) => handlers.current.updatePaper(paperId, (p) => ({ answers: { ...p.answers, [num]: key } })),
@@ -1408,8 +1411,12 @@ export default function CertificationPdfImportPage() {
             jump: (paperId, num) => {
                 handlers.current.setFilter("all")
                 handlers.current.setTerm("")
+                handlers.current.setCurrentPaperId(paperId)
+                // Two frames: the paper's cards are drawn before scrolling to one.
                 requestAnimationFrame(() =>
-                    cardRefs.current[`${paperId}-${num}`]?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                    requestAnimationFrame(() =>
+                        cardRefs.current[`${paperId}-${num}`]?.scrollIntoView({ behavior: "smooth", block: "start" }),
+                    ),
                 )
             },
         }),
@@ -1432,26 +1439,57 @@ export default function CertificationPdfImportPage() {
     const lessonName = (id) => lessons.find((l) => l.lessonId === id)?.name ?? `Lesson ${id}`
 
     async function saveReady() {
-        const queue = [...ready]
         const errors = []
         let done = 0
-        setSaving({ done, total: queue.length, errors })
+        let saved = 0
+        setSaving({ done: 0, total: ready.length, errors, checking: true })
+
+        // One last look at the question bank, right before writing: it may
+        // have changed since the paper was read and tagged -- another import,
+        // a save that stopped halfway, a question added by hand. A question
+        // the bank already holds is skipped and marked, not saved twice.
+        const inBank = new Set()
+        const byPaper = new Map()
+        for (const item of ready) byPaper.set(item.paper.id, [...(byPaper.get(item.paper.id) ?? []), item])
+        for (const [paperId, items] of byPaper) {
+            try {
+                const found = await findDuplicates(certificationId, items.map(({ question }) => duplicateText(question)))
+                const nums = items.filter((_, index) => found.duplicates?.[index] === "bank").map(({ question }) => question.num)
+                if (!nums.length) continue
+                for (const num of nums) inBank.add(`${paperId}-${num}`)
+                updatePaper(paperId, (p) => ({
+                    tags: Object.fromEntries(Object.entries(p.tags).map(([num, tag]) => [num, nums.map(String).includes(String(num)) ? { ...tag, duplicate: "bank" } : tag])),
+                    include: { ...p.include, ...Object.fromEntries(nums.map((num) => [num, false])) },
+                }))
+            } catch {
+                errors.push(`${items[0].paper.name}: the question bank could not be checked for duplicates, so this paper was not saved. Try again.`)
+                for (const { question } of items) inBank.add(`${paperId}-${question.num}`)
+            }
+        }
+        const queue = ready.filter(({ question, paper: target }) => !inBank.has(`${target.id}-${question.num}`))
+        const skipped = ready.length - queue.length
+        setSaving({ done, total: queue.length, errors: [...errors], skipped })
+
         for (const { question, paper: target } of queue) {
             try {
                 await saveOne(question, target, certificationId)
+                saved += 1
                 updatePaper(target.id, (p) => ({ saved: { ...p.saved, [question.num]: true } }))
             } catch (error) {
                 errors.push(`${target.name} Q${question.num}: ${error?.response?.data?.message || error?.message || "failed"}`)
             }
             done += 1
-            setSaving({ done, total: queue.length, errors: [...errors] })
+            setSaving({ done, saved, total: queue.length, errors: [...errors], skipped })
         }
-        setSaving({ done, total: queue.length, errors, finished: true })
+        setSaving({ done, saved, total: queue.length, errors, skipped, finished: true })
     }
 
     const totalQuestions = papers.reduce((sum, p) => sum + p.questions.length, 0)
     const answeredCount = papers.reduce((sum, p) => sum + answered(p).length, 0)
     const taggedCount = papers.reduce((sum, p) => sum + Object.keys(p.tags).length, 0)
+    const currentPaper = papers.find((p) => p.id === currentPaperId) ?? papers[0] ?? null
+    const currentIndex = currentPaper ? papers.indexOf(currentPaper) : -1
+    const searching = term.trim() !== ""
     const missingTagCount = papers.reduce((sum, p) => sum + answered(p).filter((q) => needsTag(p, q)).length, 0)
 
     return (
@@ -1508,9 +1546,9 @@ export default function CertificationPdfImportPage() {
                         <aside className="hidden max-h-[calc(100dvh-7rem)] self-start overflow-y-auto rounded-2xl border bg-background p-3 lg:sticky lg:top-0 lg:block">
                             <h2 className="text-sm font-bold text-primary">Answer sheet</h2>
                             <p className="mb-2 text-xs text-muted-foreground">Green marks the answer. Click a number to jump to it. Questions without an answer are left off and will not be saved.</p>
-                            {papers.filter((item) => answered(item).length).map((item) => (
-                                <SheetPaper key={item.id} paper={item} showName={papers.length > 1} onJump={cardActions.jump} />
-                            ))}
+                            {currentPaper && answered(currentPaper).length ? (
+                                <SheetPaper paper={currentPaper} showName={papers.length > 1} onJump={cardActions.jump} />
+                            ) : null}
                         </aside>
 
                         <main className="min-w-0">
@@ -1669,9 +1707,50 @@ export default function CertificationPdfImportPage() {
                                 }}
                             />
 
-                            {/* One section per uploaded paper. */}
-                            {papers.map((item) => {
+                            {/* The paper being looked at -- or, while searching, every paper with a match. */}
+                            {papers.length > 1 ? (
+                                <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border bg-background p-2">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={currentIndex <= 0}
+                                        onClick={() => setCurrentPaperId(papers[currentIndex - 1].id)}
+                                        aria-label="Previous paper"
+                                    >
+                                        ‹
+                                    </Button>
+                                    <select
+                                        value={currentPaper?.id ?? ""}
+                                        onChange={(event) => setCurrentPaperId(event.target.value)}
+                                        aria-label="Paper to show"
+                                        className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm"
+                                    >
+                                        {papers.map((item, index) => {
+                                            const tagged = answered(item).filter((q) => item.tags[q.num]?.lessonId && item.tags[q.num]?.difficulty).length
+                                            return (
+                                                <option key={item.id} value={item.id}>
+                                                    {`Paper ${index + 1} of ${papers.length}: ${item.name.replace(/\.pdf$/i, "")} -- ${item.questions.length} questions, ${tagged} tagged`}
+                                                </option>
+                                            )
+                                        })}
+                                    </select>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={currentIndex >= papers.length - 1}
+                                        onClick={() => setCurrentPaperId(papers[currentIndex + 1].id)}
+                                        aria-label="Next paper"
+                                    >
+                                        ›
+                                    </Button>
+                                    {searching ? <span className="text-xs text-muted-foreground">Searching every paper</span> : null}
+                                </div>
+                            ) : null}
+                            {(searching ? papers : currentPaper ? [currentPaper] : []).map((item) => {
                                 const shown = item.questions.filter((question) => matches(question))
+                                if (searching && !shown.length) return null
                                 const marked = Object.keys(item.answers).length
                                 const keyBoxOpen = keyBoxFor === item.id
                                 return (
@@ -1969,9 +2048,10 @@ export default function CertificationPdfImportPage() {
                                     {type === "MCQ" ? (
                                         <ul className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
                                             {question.options.map((option) => (
-                                                <li key={option.key} className={cn("flex items-center gap-2 rounded px-1", option.key === answer && "bg-emerald-50 font-semibold text-emerald-800")}>
-                                                    {option.key})
-                                                    {option.imageSrc ? <img src={option.imageSrc} alt="" className="max-h-14 rounded bg-white" /> : <span className="truncate">{option.text}</span>}
+                                                <li key={option.key} className={cn("flex items-start gap-2 rounded px-1 py-0.5", option.key === answer && "bg-emerald-50 font-semibold text-emerald-800")}>
+                                                    {/* The letter never wraps; long choices take two lines. */}
+                                                    <span className="shrink-0 whitespace-nowrap">{option.key})</span>
+                                                    {option.imageSrc ? <img src={option.imageSrc} alt="" className="max-h-14 rounded bg-white" /> : <span className="line-clamp-2 min-w-0">{option.text}</span>}
                                                 </li>
                                             ))}
                                         </ul>
@@ -1990,9 +2070,16 @@ export default function CertificationPdfImportPage() {
                             <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-muted">
                                 <div className="h-full bg-primary transition-[width]" style={{ width: `${saving.total ? (saving.done / saving.total) * 100 : 100}%` }} />
                             </div>
-                            {saving.finished
-                                ? `Saved ${saving.done - saving.errors.length} of ${saving.total}.`
-                                : `Saving ${saving.done} of ${saving.total}…`}
+                            {saving.checking
+                                ? "Checking the question bank for questions it already holds…"
+                                : saving.finished
+                                  ? `Saved ${saving.saved ?? 0} of ${saving.total}.`
+                                  : `Saving ${saving.done} of ${saving.total}…`}
+                            {saving.skipped ? (
+                                <p className="text-amber-700">
+                                    {saving.skipped} already in the question bank -- skipped, not saved twice. They are marked as duplicates on their cards.
+                                </p>
+                            ) : null}
                             {saving.errors.map((error) => (
                                 <p key={error} className="text-destructive">{error}</p>
                             ))}

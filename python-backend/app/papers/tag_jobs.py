@@ -54,6 +54,12 @@ def _latest_key(certification_id: int) -> str:
 
 
 async def _save(job: dict) -> None:
+    # A cancel is written by another request; the running job's own copy
+    # must not overwrite it with its older "not cancelled".
+    if not job.get("cancelled"):
+        raw = await _client().get(_key(job["id"]))
+        if raw and json.loads(raw).get("cancelled"):
+            job["cancelled"] = True
     job["updatedAt"] = time.time()
     await _client().set(_key(job["id"]), json.dumps(job), ex=TTL_SECONDS)
 
@@ -79,6 +85,12 @@ async def start_job(certification_id: int, papers: list[dict]) -> dict:
 
     Each paper is {paperId, name, questions: [text], stems: [text]}.
     """
+    # One job per certification: the one still running is stopped, so two
+    # never tag the same papers at once.
+    previous = await latest_job(certification_id)
+    if previous and previous["status"] == "running":
+        await cancel_job(previous["id"])
+
     job = {
         "id": uuid.uuid4().hex,
         "certificationId": certification_id,
@@ -118,28 +130,32 @@ async def _run(job: dict, papers: list[dict]) -> None:
     try:
         for index, paper in enumerate(papers):
             # Cancelled from the page: the flag is in Redis, not in this copy.
-            stored = await get_job(job["id"])
-            if stored and stored.get("cancelled"):
+            await _save(job)  # also picks up a cancel made meanwhile
+            if job.get("cancelled"):
                 job["status"] = "cancelled"
                 await _save(job)
                 return
             entry = job["papers"][index]
             entry["status"] = "tagging"
             await _save(job)
-            session = SessionLocal()
             try:
+                # The factory, not a session: a connection is taken for each
+                # short database step and handed back, never held through
+                # the model calls and their rate-limit waits.
                 tags, lessons = await tag_questions(
-                    session, job["certificationId"], paper["questions"], budget=JOB_BATCH_BUDGET)
-                duplicates = find_duplicates(
-                    session, job["certificationId"], paper.get("stems") or paper["questions"])
+                    SessionLocal, job["certificationId"], paper["questions"], budget=JOB_BATCH_BUDGET)
+                session = SessionLocal()
+                try:
+                    duplicates = find_duplicates(
+                        session, job["certificationId"], paper.get("stems") or paper["questions"])
+                finally:
+                    session.close()
             except Exception as error:  # noqa: BLE001 -- one paper, not the run
                 logger.exception("Tagging %s failed", entry["name"])
                 entry["status"] = "failed"
                 entry["error"] = str(error)[:300]
                 await _save(job)
                 continue
-            finally:
-                session.close()
             if not lessons:
                 job["status"] = "failed"
                 job["error"] = "This certification has no lessons to file questions under."

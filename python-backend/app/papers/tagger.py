@@ -23,6 +23,7 @@ import asyncio
 import json
 import logging
 import re
+from contextlib import contextmanager
 
 from sqlalchemy import text
 
@@ -196,12 +197,30 @@ async def _tag_batch(chain, catalogue, questions, lesson_ids, semaphore, budget=
     return {}, None
 
 
+@contextmanager
+def _session(db):
+    """`db` itself, or -- given a session factory -- a session opened for
+    this one step and closed after it. A background job passes the factory:
+    it must not hold a pooled connection through minutes of waiting on a
+    rate-limited model (the pool is three connections; two jobs holding one
+    each starved every other request)."""
+    if callable(db) and not hasattr(db, "execute"):
+        session = db()
+        try:
+            yield session
+        finally:
+            session.close()
+    else:
+        yield db
+
+
 async def tag_questions(db, certification_id, questions, budget=None):
     """`(tags, lessons)`: one `{lessonId, lessonName, difficulty, score, source}`
     per question, in order, and the certification's lesson catalogue."""
     from app.papers.mapping import lesson_texts, suggest_lessons
 
-    lessons = lesson_texts(db, certification_id)
+    with _session(db) as session:
+        lessons = lesson_texts(session, certification_id)
     if not lessons:
         return [], []
     lesson_ids = set(lessons)
@@ -236,7 +255,8 @@ async def tag_questions(db, certification_id, questions, budget=None):
     missing = [i for i, tag in enumerate(results) if tag is None or tag.get("needsLesson")]
     embedding = {}
     if missing:
-        suggestions, _ = suggest_lessons(db, certification_id, [questions[i] for i in missing])
+        with _session(db) as session:
+            suggestions, _ = suggest_lessons(session, certification_id, [questions[i] for i in missing])
         embedding = dict(zip(missing, suggestions))
 
     tags = []
