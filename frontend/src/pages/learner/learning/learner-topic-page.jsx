@@ -51,6 +51,11 @@ import { Button } from "@/components/ui/button"
 import { PriorityBookmark } from "@/components/learner/priority-tag.jsx"
 import { ASSESSMENT_MAX_XP, LESSON_COMPLETION_XP } from "@/lib/xp.js"
 import { announceRewards, prefetchRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
+import {
+  forgetLessonCompleted,
+  rememberLessonCompleted,
+  wasLessonCompletedThisSession,
+} from "@/lib/lesson-completion.js"
 import { LessonTool } from "@/components/certifications/lesson-content-renderer.jsx"
 import {
   getLessonById,
@@ -1553,7 +1558,14 @@ export default function LearnerTopicPage() {
      * short-circuiting it. */
   const isDone = useCallback(
     (lessonId) => {
-      const read = locallyDone.has(lessonId) || Boolean(lessonById.get(lessonId)?.completed)
+      /* `wasLessonCompletedThisSession` carries the same moment as
+         `locallyDone`, but across a navigation: leaving the topic and coming
+         back used to drop it, and the portal payload behind
+         `lessonById` is being refetched at exactly that moment. */
+      const read =
+        locallyDone.has(lessonId) ||
+        wasLessonCompletedThisSession(lessonId) ||
+        Boolean(lessonById.get(lessonId)?.completed)
       if (!read) return false
       const quiz = track.find((entry) => entry.id === lessonId)?.quiz
       if (!quiz) return true
@@ -1631,6 +1643,7 @@ export default function LearnerTopicPage() {
     // The tick goes green straight away; the request confirms it behind the
     // scenes and takes it back only if it fails.
     onMutate: (lessonId) => {
+      rememberLessonCompleted(lessonId)
       setLocallyDone((current) => new Set(current).add(lessonId))
       // A lesson finished at a reading pace ends any run of skimmed lessons.
       knowledgeCheck.clearStrikes()
@@ -1646,6 +1659,7 @@ export default function LearnerTopicPage() {
       await queryClient.invalidateQueries({ queryKey: ["learner-streak"] })
     },
     onError: (error, lessonId) => {
+      forgetLessonCompleted(lessonId)
       setLocallyDone((current) => {
         const next = new Set(current)
         next.delete(lessonId)
@@ -1753,6 +1767,9 @@ export default function LearnerTopicPage() {
   // Both are gated on the quick check, so neither route can complete around it.
   const readLesson = useCallback(() => {
     if (!activeLessonId || alreadyDone || completing || quizPending || !data?.learnerId) return
+    // Already sent once in this tab. `alreadyDone` reads the portal payload,
+    // which is stale for as long as the refetch on mount takes.
+    if (wasLessonCompletedThisSession(activeLessonId)) return
     completeMutation.mutate(activeLessonId)
   }, [activeLessonId, alreadyDone, completing, quizPending, data?.learnerId, completeMutation])
 

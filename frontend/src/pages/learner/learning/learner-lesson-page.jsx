@@ -23,6 +23,11 @@ import { cn } from "@/lib/utils"
 import { LESSON_COMPLETION_XP } from "@/lib/xp.js"
 import { announceRewards, prefetchRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
 import {
+  forgetLessonCompleted,
+  rememberLessonCompleted,
+  wasLessonCompletedThisSession,
+} from "@/lib/lesson-completion.js"
+import {
   getCertificationModules,
   getLessonById,
   markLessonComplete,
@@ -552,6 +557,9 @@ export default function LearnerLessonPage() {
 
   const completed =
       locallyCompleted ||
+      // Survives leaving the lesson and coming back, which `locallyCompleted`
+      // and `completionSentRef` do not -- see lib/lesson-completion.js.
+      wasLessonCompletedThisSession(lessonId) ||
       Boolean(currentLesson?.completed) ||
       completedLessons.some(
           (item) => String(item.lessonId) === String(lessonId)
@@ -577,7 +585,10 @@ export default function LearnerLessonPage() {
         }),
     // Before the request, not after: the announcement is a before/after diff,
     // and completing the lesson is what changes both sides of it.
-    onMutate: () => snapshotRewards(queryClient),
+    onMutate: () => {
+      rememberLessonCompleted(lessonId)
+      return snapshotRewards(queryClient)
+    },
     onSuccess: async (_result, _variables, before) => {
       setLocallyCompleted(true)
 
@@ -591,6 +602,7 @@ export default function LearnerLessonPage() {
     },
 
     onError: (error) => {
+      forgetLessonCompleted(lessonId)
       completionSentRef.current = false
       toast.error("Could not mark lesson complete", {
         description:
@@ -636,6 +648,7 @@ export default function LearnerLessonPage() {
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return
         if (completionSentRef.current) return
+        if (wasLessonCompletedThisSession(lessonId)) return
 
         completionSentRef.current = true
         // Finished at a reading pace: the run of skimmed lessons is over.
