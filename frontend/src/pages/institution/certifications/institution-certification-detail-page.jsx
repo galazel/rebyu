@@ -2,14 +2,13 @@ import { useMemo, useState } from "react"
 import { Link, useOutletContext, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
-  ArrowLeftIcon,
   BookOpenIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   ClipboardCheckIcon,
   FileQuestionIcon,
   Layers3Icon,
-  UsersRoundIcon,
+  UsersRoundIcon
 } from "@/components/icons"
 
 import { Badge } from "@/components/ui/badge"
@@ -290,13 +289,6 @@ export default function InstitutionCertificationDetailPage() {
   if (!institution || !institutionCert || !certification) {
     return (
       <div className="space-y-6">
-        <Link
-          to="/institution/certifications"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeftIcon className="size-4" aria-hidden="true" />
-          Back to Certifications
-        </Link>
         <InstitutionEmptyState
           title="Certification not found"
           description="This certification allocation could not be found."
@@ -320,13 +312,6 @@ export default function InstitutionCertificationDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link
-        to="/institution/certifications"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeftIcon className="size-4" aria-hidden="true" />
-        Back to Certifications
-      </Link>
 
       <InstitutionPageHeader
         title={certification.title}

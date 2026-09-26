@@ -179,9 +179,16 @@ body.netacad-overlay-theme {
     background: transparent;
     color: #ffffff;
 }
-.netacad-portal header.sticky nav :is(a, button):hover {
+/* Every nav item has the active pill's shape, so a hover reads as the same
+   pill arriving rather than a hard-edged square behind the label. */
+.netacad-portal header.sticky nav :is(a, button) {
+    border-radius: 10px;
+}
+/* The active item keeps its white pill on hover. The translucent wash painted
+   over it turned the one clearly-marked item into a muddy grey-green. */
+.netacad-portal header.sticky nav :is(a, button):not(.rb-nav-active):hover {
     color: #ffffff;
-    background: rgb(255 255 255 / 0.12);
+    background: rgb(255 255 255 / 0.14);
 }
 .netacad-portal header.sticky :is(a, button).rb-nav-active,
 .netacad-portal header.sticky :is(a, button).rb-nav-active:hover,

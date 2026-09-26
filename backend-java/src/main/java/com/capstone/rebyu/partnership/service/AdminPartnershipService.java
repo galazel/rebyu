@@ -30,6 +30,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Transaction Two: an admin approves or rejects a partnership request.
@@ -58,6 +59,7 @@ public class AdminPartnershipService {
     private final com.capstone.rebyu.billing.service.InstitutionInvoiceService invoiceService;
     private final com.capstone.rebyu.notification.service.EmailService emailService;
     private final InstitutionAccessGrantService accessGrantService;
+    private final com.capstone.rebyu.institution.service.InstitutionAccessTeardownService teardownService;
 
     @Transactional(readOnly = true)
     public List<PartnershipRequestSummaryDto> list(String statusFilter) {
@@ -80,6 +82,26 @@ public class AdminPartnershipService {
         requireReviewable(request);
 
         Institution institution = resolveOrCreateInstitution(request);
+
+        /* A cancellation is an approval of the opposite thing: nothing is
+           reserved, nothing is invoiced, and what exists is taken away. It
+           leaves the method here rather than sharing the tail below, because
+           every line of that tail -- reserve, provision, invoice, welcome --
+           is about granting access. */
+        if (request.getRequestType() == PartnershipRequest.RequestType.CANCELLATION) {
+            return approveCancellation(request, institution, remarks, reviewedBy);
+        }
+
+        /* Read this BEFORE reserve(), which writes a pending allocation row for
+           every certification not already held. Asked afterwards, a first-ever
+           partnership looks like an existing one -- the rows reserve() just
+           created are indistinguishable from rows held all along -- and the
+           institution gets told its new access is "added to what you already
+           have" on the day it joined. */
+        boolean addsToExistingAccess =
+                request.getRequestType() == PartnershipRequest.RequestType.ADDITIONAL
+                        || request.getRequestType() == PartnershipRequest.RequestType.RENEWAL
+                        || !heldSlots(request).isEmpty();
 
         // Pay before access: the allocations are written as pending now and
         // switched on when the invoice below is paid (InstitutionAccessGrantService).
@@ -108,24 +130,33 @@ public class AdminPartnershipService {
                                     : ""))
                     .toList();
             emailService.sendPartnershipWelcome(
-                    request.getInstitutionEmail(),
-                    request.getInstitutionName(),
-                    request.getReferenceNumber(),
+                    addsToExistingAccess,
+                    emailOf(request),
+                    nameOf(request),
+                    referenceOf(request),
                     invoice.getInvoiceNumber(),
                     formatMoney(invoice.getTotalAmount()),
                     "/institution/invoices/" + invoice.getInstitutionInvoiceId(),
                     lines);
         } catch (RuntimeException e) {
-            log.warn("Welcome email for request {} could not be sent: {}", request.getReferenceNumber(), e.getMessage());
+            log.warn("Welcome email for request {} could not be sent: {}", referenceOf(request), e.getMessage());
         }
 
         log.info("Partnership request {} APPROVED (institution {}); account emailed={}",
-                request.getReferenceNumber(), institution.getInstitutionId(), provision.emailed());
+                referenceOf(request), institution.getInstitutionId(), provision.emailed());
 
+        /* Same shape either way -- approved, now pay -- but an institution
+           that has been using REBYU for months is not being told its
+           partnership was approved, it is being told its extra slots are
+           waiting on an invoice. */
         notifyInstitutionOwners(institution,
-                "Partnership request approved",
-                "Your partnership request (" + request.getReferenceNumber() + ") was approved. "
-                        + "Pay invoice " + invoice.getInvoiceNumber() + " to activate access.",
+                addsToExistingAccess ? "Additional access approved" : "Partnership request approved",
+                addsToExistingAccess
+                        ? "Your request (" + referenceOf(request) + ") was approved. Pay invoice "
+                                + invoice.getInvoiceNumber()
+                                + " and the extra slots are added to your allocation."
+                        : "Your partnership request (" + referenceOf(request) + ") was approved. "
+                                + "Pay invoice " + invoice.getInvoiceNumber() + " to activate access.",
                 "/institution/invoices/" + invoice.getInstitutionInvoiceId());
 
         return toDetail(request, provision.emailed(), provision.note());
@@ -146,9 +177,9 @@ public class AdminPartnershipService {
                     "This institution already has an institution account.");
         }
 
-        String[] name = splitName(request.getContactPersonName());
+        String[] name = splitName(contactNameOf(request));
         CognitoAdminService.ProvisionResult result = cognitoAdminService
-                .createInstitutionAccount(request.getInstitutionEmail(), name[0], name[1]);
+                .createInstitutionAccount(emailOf(request), name[0], name[1]);
 
         // Link a local INSTITUTION user only when a Cognito identity exists, so
         // sign-in and role resolution work. If the sub is unknown (existing
@@ -236,7 +267,7 @@ public class AdminPartnershipService {
         request.setAdminRemarks(remarks);
         requestRepository.save(request);
 
-        log.info("Partnership request {} REJECTED", request.getReferenceNumber());
+        log.info("Partnership request {} REJECTED", referenceOf(request));
 
         // Only an already-signed-in institution (re-requesting more slots) has an
         // account to notify at this point -- a first-time public request has no
@@ -244,14 +275,80 @@ public class AdminPartnershipService {
         if (request.getInstitution() != null) {
             notifyInstitutionOwners(request.getInstitution(),
                     "Partnership request rejected",
-                    "Your partnership request (" + request.getReferenceNumber() + ") was not approved.",
+                    "Your partnership request (" + referenceOf(request) + ") was not approved."
+                            + (remarks == null || remarks.isBlank() ? "" : " Reason: " + remarks),
                     "/institution/partnership");
+        }
+
+        /* And by email, which is the only one of the two that reaches a public
+           applicant -- they have no account to hold an in-app notice. Mirrors
+           approval: best-effort, and never rolls back the decision, because the
+           request IS rejected either way and re-reviewing it is not something an
+           admin should have to do to clear a mail failure. */
+        String recipient = emailOf(request);
+        if (recipient != null) {
+            try {
+                emailService.sendPartnershipRejected(
+                        recipient, nameOf(request), referenceOf(request), remarks);
+            } catch (Exception e) {
+                log.warn("Rejection email for request {} could not be sent: {}",
+                        referenceOf(request), e.getMessage());
+            }
+        } else {
+            log.warn("Request {} rejected with no email address to tell anyone at.",
+                    referenceOf(request));
         }
 
         return toDetail(request);
     }
 
     /** Notifies every owner/primary-contact User linked to this institution. */
+    /**
+     * Ends the partnership: access revoked immediately, money returned.
+     *
+     * Access first, money second is deliberate -- {@link InstitutionAccessTeardownService}
+     * refunds before it deletes, so a refund that PayMongo refuses stops the
+     * teardown while the institution still has what it paid for.
+     */
+    private PartnershipRequestDetailDto approveCancellation(
+            PartnershipRequest request, Institution institution, String remarks, String reviewedBy) {
+
+        request.setInstitution(institution);
+        request.setStatus(PartnershipRequest.Status.APPROVED);
+        request.setReviewedAt(LocalDateTime.now());
+        request.setReviewedBy(reviewedBy);
+        request.setAdminRemarks(remarks);
+        requestRepository.save(request);
+
+        var result = teardownService.cancelPartnership(institution.getInstitutionId(),
+                "Partnership cancelled (" + referenceOf(request) + ")");
+        var refund = result.refund();
+
+        String money = refund.refunded().signum() > 0
+                ? formatMoney(refund.refunded()) + " has been refunded to the original payment method."
+                : "There was nothing left to refund.";
+        String shortfall = refund.hasFailures()
+                ? " " + formatMoney(refund.failed()) + " could not be refunded automatically -- the REBYU team will follow up."
+                : "";
+
+        try {
+            emailService.sendPartnershipCancelled(
+                    emailOf(request), nameOf(request), referenceOf(request), money + shortfall);
+        } catch (Exception e) {
+            log.warn("Cancellation email for {} could not be sent: {}", referenceOf(request), e.getMessage());
+        }
+
+        notifyInstitutionOwners(institution,
+                "Partnership cancelled",
+                "Your partnership (" + referenceOf(request) + ") has ended and access has been removed. " + money + shortfall,
+                "/institution/partnership");
+
+        log.info("Partnership CANCELLED for institution {} ({}): {} refunded, {} failed",
+                institution.getInstitutionId(), referenceOf(request), refund.refunded(), refund.failed());
+
+        return toDetail(request);
+    }
+
     private void notifyInstitutionOwners(Institution institution, String title, String body, String href) {
         departmentHeadRepository.findByInstitution_InstitutionId(institution.getInstitutionId()).stream()
                 .filter(member -> member.isPrimaryContact() || member.getHeadRole() == DepartmentHead.HeadRole.owner)
@@ -319,6 +416,78 @@ public class AdminPartnershipService {
         return institutionRepository.save(institution);
     }
 
+    /* Read the request's own copy first, then fall through to the institution
+       it is linked to.
+
+       The copy is the truth for a public request -- it is all there is, made
+       before any institution row existed. The fall-through is for the requests
+       already in the table from before the portal path wrote its copy: rather
+       than a migration to backfill them, they resolve through the link they do
+       have. A request with neither is a public one still awaiting review, and
+       reads as unknown rather than as blank. */
+
+    private static String nameOf(PartnershipRequest request) {
+        return firstPresent(request.getInstitutionName(),
+                request.getInstitution() == null ? null : request.getInstitution().getInstitutionName());
+    }
+
+    private static String emailOf(PartnershipRequest request) {
+        return firstPresent(request.getInstitutionEmail(),
+                request.getInstitution() == null ? null : request.getInstitution().getPrimaryContactEmail());
+    }
+
+    private static String contactNameOf(PartnershipRequest request) {
+        return firstPresent(request.getContactPersonName(),
+                request.getInstitution() == null ? null : request.getInstitution().getPrimaryContactName());
+    }
+
+    private static String contactNumberOf(PartnershipRequest request) {
+        return firstPresent(request.getContactNumber(),
+                request.getInstitution() == null ? null : request.getInstitution().getPrimaryContactPhone());
+    }
+
+    private static String addressOf(PartnershipRequest request) {
+        return firstPresent(request.getInstitutionAddress(),
+                request.getInstitution() == null ? null : request.getInstitution().getAddress());
+    }
+
+    /** Its reference, or the id it can always be found by. Never the text "null". */
+    private static String referenceOf(PartnershipRequest request) {
+        String reference = firstPresent(request.getReferenceNumber(), null);
+        return reference != null ? reference : "#" + request.getRequestId();
+    }
+
+    /** NEW for the rows written before the column existed. */
+    private static String typeOf(PartnershipRequest request) {
+        return request.getRequestType() == null
+                ? PartnershipRequest.RequestType.NEW.name()
+                : request.getRequestType().name();
+    }
+
+    private static String firstPresent(String preferred, String fallback) {
+        if (preferred != null && !preferred.isBlank()) return preferred;
+        return fallback != null && !fallback.isBlank() ? fallback : null;
+    }
+
+    /**
+     * Slots this institution already holds, per certification.
+     *
+     * Empty for a first-time public request, which has no institution yet --
+     * and that emptiness is itself the answer: nothing held means nothing to
+     * add to, so the request is a new partnership rather than a top-up.
+     */
+    private Map<Long, Integer> heldSlots(PartnershipRequest request) {
+        if (request.getInstitution() == null) return Map.of();
+        Map<Long, Integer> held = new java.util.HashMap<>();
+        for (InstitutionCertificate allocation : institutionCertificateRepository
+                .findByInstitution_InstitutionId(request.getInstitution().getInstitutionId())) {
+            held.merge(allocation.getCertification().getCertificationId(),
+                    allocation.getTotalSlots() == null ? 0 : allocation.getTotalSlots(),
+                    Integer::sum);
+        }
+        return held;
+    }
+
     private PartnershipRequestSummaryDto toSummary(PartnershipRequest request) {
         List<PartnershipRequestItem> items =
                 itemRepository.findByPartnershipRequest_RequestId(request.getRequestId());
@@ -327,9 +496,10 @@ public class AdminPartnershipService {
                 .sum();
         return new PartnershipRequestSummaryDto(
                 request.getRequestId(),
-                request.getReferenceNumber(),
-                request.getInstitutionName(),
-                request.getInstitutionEmail(),
+                referenceOf(request),
+                typeOf(request),
+                nameOf(request),
+                emailOf(request),
                 request.getStatus().name(),
                 request.getSubmittedAt(),
                 items.size(),
@@ -343,6 +513,7 @@ public class AdminPartnershipService {
 
     private PartnershipRequestDetailDto toDetail(
             PartnershipRequest request, Boolean accountEmailed, String accountNote) {
+        Map<Long, Integer> held = heldSlots(request);
         List<PartnershipItemDetailDto> items = itemRepository
                 .findByPartnershipRequest_RequestId(request.getRequestId())
                 .stream()
@@ -354,7 +525,8 @@ public class AdminPartnershipService {
                         item.getRequestedAccessStartDate(),
                         item.getRequestedAccessEndDate(),
                         com.capstone.rebyu.billing.service.InstitutionInvoiceService.PRICE_PER_SLOT,
-                        com.capstone.rebyu.billing.service.InstitutionInvoiceService.lineTotal(item.getSlots())))
+                        com.capstone.rebyu.billing.service.InstitutionInvoiceService.lineTotal(item.getSlots()),
+                        held.get(item.getCertification().getCertificationId())))
                 .toList();
         java.math.BigDecimal total = items.stream().map(PartnershipItemDetailDto::lineTotal)
                 .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
@@ -362,12 +534,13 @@ public class AdminPartnershipService {
                 invoiceService.findForRequest(request.getRequestId());
         return new PartnershipRequestDetailDto(
                 request.getRequestId(),
-                request.getReferenceNumber(),
-                request.getInstitutionName(),
-                request.getInstitutionEmail(),
-                request.getContactPersonName(),
-                request.getContactNumber(),
-                request.getInstitutionAddress(),
+                referenceOf(request),
+                typeOf(request),
+                nameOf(request),
+                emailOf(request),
+                contactNameOf(request),
+                contactNumberOf(request),
+                addressOf(request),
                 request.getBusinessDescription(),
                 request.getStatus().name(),
                 request.getSubmittedAt(),

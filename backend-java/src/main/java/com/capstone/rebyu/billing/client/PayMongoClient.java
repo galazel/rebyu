@@ -14,6 +14,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -203,7 +204,24 @@ public class PayMongoClient {
         if (attributes == null) return false;
 
         String status = (String) attributes.get("payment_status");
-        return "paid".equalsIgnoreCase(status);
+        if ("paid".equalsIgnoreCase(status)) return true;
+
+        /* `payment_status` is not always there. A session that has been paid
+           comes back with status "active" and no payment_status at all, but
+           carries the payment itself in `payments` -- which is what actually
+           happened to invoice REBYU-INV-202609-000001: PayMongo had taken the
+           money and recorded pay_… as "paid", while this method kept answering
+           false and the invoice sat unpaid forever. Read the payments. */
+        Object rawPayments = attributes.get("payments");
+        if (rawPayments instanceof List<?> payments) {
+            for (Object entry : payments) {
+                if (!(entry instanceof Map<?, ?> payment)) continue;
+                Object paymentAttributes = payment.get("attributes");
+                if (!(paymentAttributes instanceof Map<?, ?> paid)) continue;
+                if ("paid".equalsIgnoreCase(String.valueOf(paid.get("status")))) return true;
+            }
+        }
+        return false;
     }
 
     /** The id of the payment a paid checkout session produced, or null. */

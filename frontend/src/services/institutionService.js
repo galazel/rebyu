@@ -269,3 +269,14 @@ export function startInvoiceCheckout(invoiceId) {
 export function verifyInvoicePayment(invoiceId) {
   return base(`institution/me/invoices/${invoiceId}/verify`, { method: "POST" })
 }
+
+/**
+ * Asks REBYU to end the partnership. An admin reviews it; approving revokes
+ * every learner's access immediately and refunds what was paid.
+ */
+export function requestPartnershipCancellation(reason) {
+  return base("institution/partnership-requests/cancellation", {
+    method: "POST",
+    data: { reason },
+  })
+}

@@ -1,7 +1,7 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { ArrowLeftIcon, AwardIcon, Building2Icon, UsersIcon } from "@/components/icons"
+import { AwardIcon, Building2Icon, UsersIcon } from "@/components/icons"
 
 import {
   Card,
@@ -31,6 +31,25 @@ import {
   formatDate,
 } from "@/components/institution/institution-ui.jsx"
 import { getAllCertifications } from "@/services/certificationService.js"
+import {
+  dropInstitutionCertification,
+  getAllocationImpact,
+} from "@/services/adminInstitutionService.js"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Button } from "@/components/ui/button"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { getAllLearners } from "@/services/adminLearnerService.js"
 import {
   getAllInstitutionCertificates,
@@ -48,6 +67,124 @@ function getLearnerDisplayName(learner) {
   return full || learner.username || `Learner #${learner.learnerId}`
 }
 
+/**
+ * Dropping a certification, with what it destroys stated first.
+ *
+ * The server is asked what would go before anything goes: the counts shown
+ * here come from the same walk of the same relationships that the delete then
+ * performs, so this is not an estimate of the damage, it is the damage.
+ */
+function DropCertificationDialog({ allocation, title, onClose }) {
+  const queryClient = useQueryClient()
+  const [reason, setReason] = useState("")
+
+  const impactQuery = useQuery({
+    queryKey: ["allocation-impact", allocation?.institutionCertId],
+    queryFn: () => getAllocationImpact(allocation.institutionCertId),
+    enabled: allocation != null,
+  })
+
+  const drop = useMutation({
+    mutationFn: () =>
+      dropInstitutionCertification(
+        allocation.institutionCertId,
+        reason.trim() || `${title} dropped by REBYU admin`
+      ),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-institution-certificates"] })
+      queryClient.invalidateQueries({ queryKey: ["admin-institution-cert-learners"] })
+      const refunded = Number(result?.refund?.refunded ?? 0)
+      toast.success(`${title} removed`, {
+        description:
+          refunded > 0
+            ? `₱${refunded.toLocaleString("en-PH")} refunded to the institution.`
+            : "There was nothing to refund.",
+      })
+      onClose()
+    },
+    onError: (error) =>
+      toast.error(
+        error?.response?.data?.message ?? "Could not drop this certification."
+      ),
+  })
+
+  const impact = impactQuery.data
+  const loading = impactQuery.isLoading
+
+  return (
+    <AlertDialog open={allocation != null} onOpenChange={(open) => !open && onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Drop {title}?</AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-2 text-sm">
+              <p>This removes the allocation and everything built on it, and cannot be undone.</p>
+              {loading ? (
+                <p className="text-muted-foreground">Checking what this would remove…</p>
+              ) : impact ? (
+                <>
+                  <ul className="list-disc space-y-1 pl-5">
+                    <li>
+                      <strong>{impact.departments}</strong> department
+                      {impact.departments === 1 ? "" : "s"}
+                    </li>
+                    <li>
+                      <strong>{impact.enrolments}</strong> learner enrolment
+                      {impact.enrolments === 1 ? "" : "s"} — access ends immediately
+                    </li>
+                    <li>
+                      <strong>{impact.invitations}</strong> pending invitation
+                      {impact.invitations === 1 ? "" : "s"}
+                    </li>
+                  </ul>
+                  {impact.exams + impact.questions + impact.curriculumBranches > 0 ? (
+                    <p className="text-muted-foreground">
+                      {impact.exams} exam(s), {impact.questions} question(s) and{" "}
+                      {impact.curriculumBranches} curriculum branch(es) authored by these
+                      departments are kept — learners have already answered them — but they
+                      lose their owner.
+                    </p>
+                  ) : null}
+                  <p>What the institution paid for {title} is refunded to its original payment method.</p>
+                </>
+              ) : (
+                <p className="text-destructive">
+                  Could not read what this would remove. Do not proceed.
+                </p>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="drop-reason">Reason (recorded against the refund)</Label>
+          <Textarea
+            id="drop-reason"
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Optional."
+            rows={2}
+          />
+        </div>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={drop.isPending}>Keep it</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(event) => {
+              event.preventDefault()
+              drop.mutate()
+            }}
+            disabled={drop.isPending || loading || !impact}
+            className="bg-destructive text-white hover:bg-destructive/90"
+          >
+            {drop.isPending ? "Removing…" : "Drop and refund"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
 export default function AdminInstitutionDetail() {
   const { id } = useParams()
   const institutionId = Number(id)
@@ -58,6 +195,8 @@ export default function AdminInstitutionDetail() {
     enabled: Number.isFinite(institutionId),
     retry: 1,
   })
+
+  const [dropping, setDropping] = useState(null)
 
   const institutionCertsQuery = useQuery({
     queryKey: ["admin-institution-certificates"],
@@ -138,13 +277,6 @@ export default function AdminInstitutionDetail() {
   if (institutionQuery.isError || !institution) {
     return (
       <div className="space-y-6">
-        <Link
-          to="/admin/institutions"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeftIcon className="size-4" aria-hidden="true" />
-          Back to Institutions
-        </Link>
         <InstitutionErrorState onRetry={institutionQuery.refetch} />
       </div>
     )
@@ -152,13 +284,6 @@ export default function AdminInstitutionDetail() {
 
   return (
     <div className="space-y-6">
-      <Link
-        to="/admin/institutions"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeftIcon className="size-4" aria-hidden="true" />
-        Back to Institutions
-      </Link>
 
       <InstitutionPageHeader
         title={institution.institutionName}
@@ -210,6 +335,7 @@ export default function AdminInstitutionDetail() {
                   <TableHead>Slot usage</TableHead>
                   <TableHead>Access period</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -237,6 +363,23 @@ export default function AdminInstitutionDetail() {
                       <TableCell>
                         <AccessWindowBadge allocation={institutionCert} />
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() =>
+                            setDropping({
+                              allocation: institutionCert,
+                              title:
+                                certification?.title ??
+                                `Certification #${institutionCert.certificationId}`,
+                            })
+                          }
+                        >
+                          Drop
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   )
                 })}
@@ -245,6 +388,14 @@ export default function AdminInstitutionDetail() {
           )}
         </CardContent>
       </Card>
+
+      {dropping ? (
+        <DropCertificationDialog
+          allocation={dropping.allocation}
+          title={dropping.title}
+          onClose={() => setDropping(null)}
+        />
+      ) : null}
 
       <Card className={TABLE_SURFACE}>
         <CardHeader>

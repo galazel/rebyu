@@ -1,7 +1,5 @@
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
 import {
-  ArrowLeftIcon,
   Award,
   Bell,
   CheckCheck,
@@ -12,7 +10,7 @@ import {
   Mail,
   RotateCcw,
   Trash2,
-  Trophy,
+  Trophy
 } from "@/components/icons"
 
 import {
@@ -154,7 +152,6 @@ function groupByDay(items) {
  * per-user rather than per-portal. The bell in every layout links here.
  */
 export default function NotificationsPage() {
-  const navigate = useNavigate()
   const [confirmClearAll, setConfirmClearAll] = useState(false)
   const inbox = useNotifications()
 
@@ -189,15 +186,6 @@ export default function NotificationsPage() {
           pushed the title down while the actions stayed pinned to the top of
           the row -- so the two buttons lined up with the back link rather than
           with the heading they act on. */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="-ml-2 text-muted-foreground"
-        onClick={() => navigate(-1)}
-      >
-        <ArrowLeftIcon className="size-4" aria-hidden="true" />
-        Back
-      </Button>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">

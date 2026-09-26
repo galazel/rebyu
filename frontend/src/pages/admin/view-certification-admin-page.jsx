@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
 import {
-  ArrowLeft,
   ArrowUpRight,
   BookOpen,
   ChevronDown,
@@ -11,7 +10,7 @@ import {
   Sparkles,
   Layers3,
   ListChecks,
-  Trash2,
+  Trash2
 } from "@/components/icons"
 
 import { toast } from "sonner"
@@ -509,15 +508,6 @@ export default function ViewCertificationAdmin() {
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               Go back to the certifications page and select a certification again.
             </p>
-
-            <Button
-                type="button"
-                className="mt-6 h-10 rounded-xl px-5"
-                onClick={() => navigate(-1)}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Go back
-            </Button>
           </div>
         </section>
     )

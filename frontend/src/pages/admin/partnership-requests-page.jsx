@@ -72,6 +72,14 @@ function formatDate(value) {
     : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
 }
 
+/** What each kind of request is called, wherever it is named. */
+const REQUEST_TYPE_LABEL = {
+  NEW: "Partnership request",
+  ADDITIONAL: "Additional access request",
+  RENEWAL: "Renewal request",
+  CANCELLATION: "Cancellation request",
+}
+
 export default function PartnershipRequests() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState("")
@@ -121,8 +129,6 @@ export default function PartnershipRequests() {
       sortRows(filtered, {
         institution: (request) => request.institutionName ?? null,
         reference: (request) => request.referenceNumber ?? null,
-        certifications: (request) => Number(request.certificationCount ?? 0),
-        slots: (request) => Number(request.totalRequestedSlots ?? 0),
         submitted: (request) => {
           const time = request.submittedAt
             ? new Date(request.submittedAt).getTime()
@@ -131,7 +137,6 @@ export default function PartnershipRequests() {
         },
         status: (request) => request.status ?? null,
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [filtered, sort]
   )
 
@@ -184,6 +189,18 @@ export default function PartnershipRequests() {
   const detail = detailQuery.data
   const canReview =
     detail && (detail.status === "PENDING" || detail.status === "UNDER_REVIEW")
+
+  /* What was asked for. The request says so itself now; the fall-back reads it
+     off the line items, for rows submitted before it did -- a certification the
+     institution already holds slots for is one the server tops up rather than
+     creates. */
+  /* A cancellation grants nothing: no slots, no invoice, no access. Every
+     other kind of request is some amount of "yes, have this". */
+  const isCancellation = detail?.requestType === "CANCELLATION"
+  const isTopUp =
+    detail?.requestType === "ADDITIONAL" ||
+    detail?.requestType === "RENEWAL" ||
+    (detail?.items ?? []).some((item) => item.existingSlots != null)
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
@@ -243,20 +260,6 @@ export default function PartnershipRequests() {
                   onSort={toggle}
                 />
                 <SortableHead
-                  column="certifications"
-                  label="Certifications"
-                  sort={sort}
-                  onSort={toggle}
-                  align="right"
-                />
-                <SortableHead
-                  column="slots"
-                  label="Slots"
-                  sort={sort}
-                  onSort={toggle}
-                  align="right"
-                />
-                <SortableHead
                   column="submitted"
                   label="Submitted"
                   sort={sort}
@@ -295,12 +298,6 @@ export default function PartnershipRequests() {
                     </TableCell>
                     <TableCell className="font-mono text-xs">
                       {r.referenceNumber}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {r.certificationCount}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {r.totalRequestedSlots}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {formatDate(r.submittedAt)}
@@ -354,9 +351,20 @@ export default function PartnershipRequests() {
       >
         <DialogContent className="max-h-[calc(100dvh-4rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Partnership request</DialogTitle>
+            <DialogTitle>
+              {/* The request's own word for itself, except where it says NEW
+                  only because it predates the column -- a row whose lines add
+                  to slots already held is an addition whatever it calls
+                  itself. */}
+              {detail?.requestType && detail.requestType !== "NEW"
+                ? REQUEST_TYPE_LABEL[detail.requestType]
+                : isTopUp
+                  ? "Additional access request"
+                  : "Partnership request"}
+            </DialogTitle>
             <DialogDescription>
               {detail?.referenceNumber} · submitted {formatDate(detail?.submittedAt)}
+              {isTopUp ? " · from an existing partner" : ""}
             </DialogDescription>
           </DialogHeader>
 
@@ -384,7 +392,13 @@ export default function PartnershipRequests() {
                 </div>
               </section>
 
-              <section className="space-y-2 rounded-lg bg-card p-4 shadow-sm">
+              {/* A cancellation has no line items -- it asks for nothing. The
+                  empty table that rendered here read as data failing to load. */}
+              <section
+                className={`space-y-2 rounded-lg bg-card p-4 shadow-sm ${
+                  isCancellation ? "hidden" : ""
+                }`}
+              >
                 <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
                   Requested certifications
                 </h3>
@@ -409,7 +423,17 @@ export default function PartnershipRequests() {
                           {money(item.lineTotal ?? (item.requestedSlots ?? 0) * (detail.pricePerSlot ?? 149), detail.currency)}
                         </span>
                         <span className="block text-xs text-muted-foreground">
+                          {item.existingSlots != null ? "+" : ""}
                           {item.requestedSlots} slot(s) × {money(item.unitPrice ?? detail.pricePerSlot ?? 149, detail.currency)}
+                          {/* What they hold now and what approving makes it.
+                              "10 slots" alone cannot be told apart from a
+                              request to be cut down to 10, and approving is
+                              not reversible. */}
+                          {item.existingSlots != null ? (
+                            <span className="block text-muted-foreground">
+                              {item.existingSlots} held → {item.existingSlots + Number(item.requestedSlots ?? 0)} after approval
+                            </span>
+                          ) : null}
                         </span>
                       </span>
                     </li>
@@ -418,7 +442,7 @@ export default function PartnershipRequests() {
                 <div className="flex items-baseline justify-between gap-3 px-1 pt-1 text-sm">
                   <span className="text-muted-foreground">
                     {(detail.items ?? []).reduce((sum, item) => sum + Number(item.requestedSlots ?? 0), 0)} slot(s) total
-                    · {money(detail.pricePerSlot ?? 149, detail.currency)} per slot
+                    {isTopUp ? " added" : ""} · {money(detail.pricePerSlot ?? 149, detail.currency)} per slot
                   </span>
                   <span className="text-base font-bold tabular-nums text-foreground">
                     Total {money(
@@ -442,8 +466,11 @@ export default function PartnershipRequests() {
               {canReview ? (
                 <section className="space-y-2">
                   <p className="text-xs text-muted-foreground">
-                    Approving issues the invoice and emails the institution a welcome message with a link to pay it.
-                    The access above activates once the invoice is paid.
+                    {isCancellation
+                      ? "Approving ends this partnership immediately: every learner loses access, the institution's departments, enrolments and pending invitations are deleted, and what it paid is refunded to its original payment method. This cannot be undone."
+                      : isTopUp
+                        ? "Approving issues an invoice for the additional slots and emails it. The extra slots are added to the institution's existing allocation once it is paid — nothing it already has is replaced."
+                        : "Approving issues the invoice and emails the institution a welcome message with a link to pay it. The access above activates once the invoice is paid."}
                   </p>
                   <div className="flex gap-2">
                     <Button
@@ -484,13 +511,27 @@ export default function PartnershipRequests() {
           <AlertDialogHeader>
             <AlertDialogTitle>
               {confirm?.action === "approve"
-                ? "Approve this partnership?"
-                : "Reject this partnership?"}
+                ? isCancellation
+                  ? "End this partnership?"
+                  : isTopUp
+                    ? "Approve this additional access?"
+                    : "Approve this partnership?"
+                : isCancellation
+                  ? "Decline this cancellation?"
+                  : isTopUp
+                    ? "Reject this additional access?"
+                    : "Reject this partnership?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirm?.action === "approve"
-                ? "An invoice is issued and a welcome email with a link to pay it is sent. Certification access and learner slots activate once the invoice is paid."
-                : "The institution will be notified that the request was rejected. No access is granted."}
+                ? isCancellation
+                  ? "Access is revoked now, the institution's departments and enrolments are deleted, and its payments are refunded. There is no undo."
+                  : isTopUp
+                    ? "An invoice for the additional slots is issued and emailed. They are added to the institution's existing allocation once it is paid."
+                    : "An invoice is issued and a welcome email with a link to pay it is sent. Certification access and learner slots activate once the invoice is paid."
+                : isCancellation
+                  ? "The institution keeps its access and is told the cancellation was declined, with your reason."
+                  : "The institution is emailed and notified that the request was rejected, with your reason. No access is granted."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {confirm?.action === "reject" ? (
@@ -521,8 +562,16 @@ export default function PartnershipRequests() {
             >
               {reviewMutation.isPending
                 ? confirm?.action === "approve"
-                  ? "Approving partnership..."
-                  : "Rejecting partnership..."
+                  ? isCancellation
+                    ? "Ending partnership..."
+                    : isTopUp
+                      ? "Approving access..."
+                      : "Approving partnership..."
+                  : isCancellation
+                    ? "Declining..."
+                    : isTopUp
+                      ? "Rejecting access..."
+                      : "Rejecting partnership..."
                 : confirm?.action === "approve"
                   ? "Approve Partnership"
                   : "Reject Partnership"}

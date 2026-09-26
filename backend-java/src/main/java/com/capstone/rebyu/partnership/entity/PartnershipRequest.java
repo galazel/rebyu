@@ -26,6 +26,29 @@ public class PartnershipRequest {
         PENDING, UNDER_REVIEW, MEETING_SCHEDULED, APPROVED, REJECTED, CANCELLED
     }
 
+    /**
+     * What is being asked for, which is not the same question as what state the
+     * asking is in.
+     *
+     * Each carries its own reference prefix, so a reference read out over the
+     * phone or quoted in an email says what it is before anyone looks it up:
+     * PR- a first partnership, AD- more slots on one that exists, RN- a fresh
+     * window for one that is ending, CN- ending one early.
+     */
+    public enum RequestType {
+        NEW("PR"), ADDITIONAL("AD"), RENEWAL("RN"), CANCELLATION("CN");
+
+        private final String prefix;
+
+        RequestType(String prefix) {
+            this.prefix = prefix;
+        }
+
+        public String prefix() {
+            return prefix;
+        }
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long requestId;
@@ -66,6 +89,13 @@ public class PartnershipRequest {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 25)
     private Status status = Status.PENDING;
+
+    /* NEW for every row that predates this column: the public form only ever
+       made first partnerships, and the portal made nothing else until the
+       "request more access" path existed. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "request_type", length = 20)
+    private RequestType requestType = RequestType.NEW;
 
     // Review audit fields, populated when an admin approves or rejects.
     @Column(name = "reviewed_at")

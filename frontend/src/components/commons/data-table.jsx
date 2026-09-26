@@ -138,8 +138,18 @@ export function SortableHead({ column, label, sort, onSort, className = "", alig
       <button
         type="button"
         onClick={() => onSort(column)}
-        className={`group inline-flex items-center gap-1 text-[13px] font-bold uppercase tracking-wide transition-colors hover:text-foreground ${
-          isActive ? "text-foreground" : ""
+        /* Type comes from the table head it sits in -- size, weight and colour
+           all inherited -- so a sortable column reads exactly like a plain one.
+           It used to set its own `text-[13px] font-bold uppercase tracking-wide`,
+           which is why admin tables shouted INSTITUTION / REFERENCE while every
+           institution table beside them said Request / Certifications. Sorting
+           is an affordance on a heading, not a different kind of heading.
+
+           The active and hover states lean on weight and opacity rather than
+           swapping in `text-foreground`, which would have dropped the portal's
+           heading colour on exactly the column someone is using. */
+        className={`group inline-flex items-center gap-1 transition-opacity hover:opacity-80 ${
+          isActive ? "opacity-100" : "opacity-90"
         } ${align === "right" ? "flex-row-reverse" : ""}`}
         aria-label={`Sort by ${label}`}
       >

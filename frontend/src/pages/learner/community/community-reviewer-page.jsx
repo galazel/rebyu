@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { useParams, useSearchParams } from "react-router-dom"
 
 import { Loader2 } from "@/components/icons"
-import { BackButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { DocumentReader } from "@/pages/learner/workspace/document-reader.jsx"
 import { apiMessage } from "@/services/base"
 import { fetchFileBlob, getFileViewLink } from "@/services/fileService"
@@ -67,7 +66,6 @@ export default function CommunityReviewerPage() {
     const plan = useLearnerEntitlements()
     const { postId } = useParams()
     const [params] = useSearchParams()
-    const navigate = useNavigate()
 
     // A post sharing several images repeats key and name once per image.
     const keys = params.getAll("key").filter(Boolean)
@@ -161,15 +159,8 @@ export default function CommunityReviewerPage() {
         [state, name, size, fileKey, uploader, circle, isImageSet, keys.length]
     )
 
-    function back() {
-        // Back to the feed the reviewer was opened from, keeping the post in
-        // view rather than dropping the reader at the top of the feed.
-        navigate(postId ? `/learner/community?post=${postId}` : "/learner/community")
-    }
-
-    const backControl = (
-        <BackButton label="Back to community" onClick={back} className="shrink-0" />
-    )
+    // No in-page back control: the browser's own back button returns to the feed.
+    const backControl = null
 
     return (
         <div className="flex h-dvh min-h-0 flex-col bg-rb-snow">

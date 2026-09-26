@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import {
   AlignLeft,
-  ArrowLeft,
   BetweenHorizontalEnd,
   CheckCircle2,
   CircleAlert,
@@ -23,7 +22,7 @@ import {
   Table as TableIcon,
   Target,
   Trash2,
-  Type,
+  Type
 } from "@/components/icons"
 
 import {
@@ -1647,15 +1646,6 @@ function CreateLessons() {
       <section className="relative flex h-[100dvh] max-h-[100dvh] min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background">
         <header className="flex shrink-0 items-center justify-between border-b bg-background px-4 py-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={handleCancel}
-                aria-label="Back"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
 
             <div className="min-w-0">
               <p className="text-sm text-muted-foreground">Lesson editor</p>

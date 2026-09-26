@@ -111,7 +111,7 @@ const adminGroups = [
     icon: ServerCog,
     items: [
       { label: "Institutions", href: "/admin/institutions", icon: Building2 },
-      { label: "Partnership requests", href: "/admin/partnership-requests", icon: Handshake },
+      { label: "Partnership", href: "/admin/partnership-requests", icon: Handshake },
       // Who has paid (certification orders and Pro subscriptions), and the
       // test-mode PayMongo queue where an admin approves Pro.
       {
@@ -181,28 +181,9 @@ const departments = [
       { label: "Certifications", href: "/institution/certifications", icon: Award },
     ],
   },
-  {
-    label: "Institution",
-    icon: Building2,
-    ownerOnly: true,
-    items: [
-      // One entry, because there is one page. Profile and Partnership were
-      // short routes behind a menu; they are now tabs on
-      // /institution/profile, and the old paths still open their own tab.
-      // `match` keeps the header underlined on all of them, invoices
-      // included -- an invoice is opened from the partnership table.
-      {
-        label: "Institution",
-        href: "/institution/profile",
-        icon: Building2,
-        match: [
-          "/institution/profile",
-          "/institution/partnership",
-          "/institution/invoices",
-        ],
-      },
-    ],
-  },
+  // No "Institution" entry: the institution's profile and partnership page
+  // is account-level, so it lives in the account menu beside Log out
+  // (institution-layout.jsx) rather than beside the working pages.
 ]
 
 /**

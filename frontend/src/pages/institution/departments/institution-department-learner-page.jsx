@@ -1,15 +1,14 @@
 import { useMemo } from "react"
-import { Link, useNavigate, useParams } from "react-router-dom"
+import { Link, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
-  ArrowLeftIcon,
   AwardIcon,
   BookOpen,
   ClipboardListIcon,
   GaugeIcon,
   TargetIcon,
   SparklesIcon,
-  TrendingDownIcon,
+  TrendingDownIcon
 } from "@/components/icons"
 
 import { Badge } from "@/components/ui/badge"
@@ -102,7 +101,6 @@ function TopicList({ title, description, icon: Icon, topics, tone }) {
  */
 export default function InstitutionDepartmentLearnerPage() {
   const { departmentId, learnerId } = useParams()
-  const navigate = useNavigate()
   const departmentIdNumber = Number(departmentId)
   const learnerIdNumber = Number(learnerId)
 
@@ -170,10 +168,6 @@ export default function InstitutionDepartmentLearnerPage() {
   if (analyticsQuery.isError) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate(backToGroup)}>
-          <ArrowLeftIcon className="size-4" aria-hidden="true" />
-          Back to department
-        </Button>
         <InstitutionErrorState
           title="Unable to load this learner's statistics"
           description="They may no longer be assigned to this department."
@@ -194,10 +188,6 @@ export default function InstitutionDepartmentLearnerPage() {
   return (
     <div className="space-y-6">
       <div>
-        <Button variant="ghost" size="sm" className="-ml-2 mb-1" onClick={() => navigate(backToGroup)}>
-          <ArrowLeftIcon className="size-4" aria-hidden="true" />
-          Back to department
-        </Button>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { AlertCircle, ArrowLeftIcon, ListChecks, Loader2 } from "@/components/icons"
+import { AlertCircle, ListChecks, Loader2 } from "@/components/icons"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -521,7 +521,6 @@ export default function InstitutionAssessmentBuilderPage() {
             size="sm"
             onClick={() => navigate(`/institution/departments/${id}?tab=assessments`)}
           >
-            <ArrowLeftIcon className="size-4" />
             Cancel
           </Button>
           <div className="min-w-0">

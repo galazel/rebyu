@@ -103,6 +103,20 @@ public class InstitutionInvoice {
     @Column(name = "provider_payment_id", length = 100)
     private String providerPaymentId;
 
+    /* What has been given back, and the provider's record of giving it. Kept
+       beside the payment rather than replacing it: the invoice was paid, and a
+       refund is a second event, not an edit to the first. A partial refund
+       (one certification dropped out of several) leaves the invoice paid with
+       an amount recorded here; a full one also flips it to cancelled. */
+    @Column(name = "refunded_amount", precision = 12, scale = 2)
+    private java.math.BigDecimal refundedAmount;
+
+    @Column(name = "refund_reference", length = 120)
+    private String refundReference;
+
+    @Column(name = "refunded_at")
+    private LocalDateTime refundedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30)
     @Builder.Default
