@@ -16,6 +16,7 @@ import {
   completeTemporaryPassword,
 } from "@/services/authService.js"
 import { getLearnerPortalData } from "@/services/learnerService.js"
+import { usePresenceHeartbeat } from "@/hooks/use-presence-heartbeat.js"
 
 const AuthContext = createContext(null)
 const AUTH_USER_SNAPSHOT_KEY = "rebyu:auth-user-snapshot"
@@ -219,6 +220,8 @@ export function AuthProvider({ children }) {
     setUser(null)
     setStatus("anonymous")
   }, [queryClient])
+
+  usePresenceHeartbeat(status === "authenticated")
 
   const value = useMemo(
     () => ({ user, status, login, logout, refresh ,   setNewPassword,}),
