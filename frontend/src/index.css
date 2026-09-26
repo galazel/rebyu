@@ -1903,9 +1903,20 @@ body.rb-attempt-lock {
 .rb-docx hr { margin: 1.5em 0; border: 0; border-top: 2px solid var(--border); }
 
 /* ==========================================================================
-   INSTITUTION PORTAL TYPOGRAPHY
+   PORTAL TYPOGRAPHY -- institution, department and admin
    Display: Champion Gothic Featherweight (Hoefler&Co) with Antonio / Bebas Neue / Oswald fallbacks
    Body: Poppins Regular (Google Fonts)
+
+   One scope, not two copies. The admin portal and the institution portal are
+   the same kind of screen -- tables, filters, figures, someone doing their job
+   -- and a heading that changes shape when an admin opens an institution's page
+   reads as two products. Department heads sign in through the institution
+   layout, so they are already inside `.institution-portal` and need no
+   selector of their own.
+
+   The learner portal is deliberately left out: it keeps the classroom face
+   from rebyu-classroom.css, which is the one place the hand-drawn identity
+   still belongs.
    ========================================================================== */
 @font-face {
   font-family: "Champion Gothic Featherweight";
@@ -1919,7 +1930,8 @@ body.rb-attempt-lock {
   font-display: swap;
 }
 
-.institution-portal {
+.institution-portal,
+.admin-portal {
   --font-institution-display: "Champion Gothic Featherweight", "Champion Gothic", "ChampionGothic-Featherweight", "Antonio", "Bebas Neue", "Oswald", sans-serif;
   --font-institution-body: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
@@ -1933,16 +1945,11 @@ body.rb-attempt-lock {
 }
 
 /* Headings, KPI metrics, titles, and display elements */
-.institution-portal h1,
-.institution-portal h2,
-.institution-portal h3,
-.institution-portal h4,
-.institution-portal h5,
-.institution-portal h6,
-.institution-portal .font-rb-display,
-.institution-portal .font-display,
-.institution-portal .font-heading,
-.institution-portal .rb-display {
+:is(.institution-portal, .admin-portal) :is(h1, h2, h3, h4, h5, h6),
+:is(.institution-portal, .admin-portal) .font-rb-display,
+:is(.institution-portal, .admin-portal) .font-display,
+:is(.institution-portal, .admin-portal) .font-heading,
+:is(.institution-portal, .admin-portal) .rb-display {
   font-family: var(--font-institution-display) !important;
   text-transform: none;
   letter-spacing: 0.02em;
@@ -1950,22 +1957,14 @@ body.rb-attempt-lock {
 
 /* All body copy, controls, buttons, tables, badges, descriptions */
 .institution-portal,
-.institution-portal p,
-.institution-portal span:not(.font-rb-display):not(.font-display):not(.font-heading),
-.institution-portal button,
-.institution-portal a,
-.institution-portal input,
-.institution-portal select,
-.institution-portal textarea,
-.institution-portal label,
-.institution-portal table,
-.institution-portal th,
-.institution-portal td,
-.institution-portal tr,
-.institution-portal .font-rb-body,
-.institution-portal .font-body {
+.admin-portal,
+:is(.institution-portal, .admin-portal) :is(p, button, a, input, select, textarea, label, table, th, td, tr),
+:is(.institution-portal, .admin-portal) span:not(.font-rb-display):not(.font-display):not(.font-heading),
+:is(.institution-portal, .admin-portal) .font-rb-body,
+:is(.institution-portal, .admin-portal) .font-body {
   font-family: var(--font-institution-body);
 }
+
 
 @keyframes badge-sheen {
   0% {
