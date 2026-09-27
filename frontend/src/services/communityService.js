@@ -1,4 +1,5 @@
 import { base } from "./base"
+import { socialTime } from "@/lib/social-time.js"
 
 const COMMUNITY_FEED_SNAPSHOT_KEY = "rebyu:community-feed-snapshot"
 
@@ -19,22 +20,12 @@ export function writeCommunityFeedSnapshot(data) {
   }
 }
 
-const relativeHours = (value) => {
-  const time = value ? new Date(value).getTime() : NaN
-  if (!Number.isFinite(time)) {
-    return "recently"
-  }
-
-  const hoursAgo = Math.max(0, Math.round((Date.now() - time) / 3600000))
-  return new Intl.RelativeTimeFormat("en", { numeric: "auto" }).format(-hoursAgo, "hour")
-}
-
 const postView = (post) => ({
   ...post,
   badge: post.ownedByMe ? "You" : "Learner",
   badgeClass: "border-blue-200 bg-blue-50 text-blue-700",
   community: post.community || "Community",
-  createdAt: relativeHours(post.createdAt),
+  createdAt: socialTime(post.createdAt),
   attachment: post.attachmentName ? {
     name: post.attachmentName,
     type: post.attachmentType || "PDF",

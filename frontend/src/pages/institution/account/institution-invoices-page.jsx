@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Link, useParams, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
-import { ArrowLeftIcon, CreditCard, Download, Loader2 } from "@/components/icons"
+import { CreditCard, Download, Loader2 } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -16,6 +16,7 @@ import {
   formatDate,
   formatDateTime,
 } from "@/components/institution/institution-ui.jsx"
+import InvoiceDocument from "@/components/billing/invoice-document.jsx"
 import {
   getMyInstitutionInvoice,
   getMyInstitutionInvoices,
@@ -70,8 +71,38 @@ function InvoiceDetail({ invoiceId }) {
     const next = new URLSearchParams(searchParams)
     next.delete("payment")
     setSearchParams(next, { replace: true })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  /* And again whenever an unpaid invoice is opened at all, not only on the
+     redirect back.
+     
+     The `?payment=success` flag is the only proof we get that someone paid,
+     and it survives exactly one page load -- the effect above strips it. Lose
+     that load (the tab is closed at PayMongo, the redirect is interrupted, the
+     link is opened again from the email later, or verification answers "not
+     yet" because the provider has not settled) and nothing ever asks again.
+     The invoice then sits unpaid forever while the money is gone, which is
+     what happened to REBYU-INV-202609-000001. Asking on open costs one request
+     on an unpaid invoice and is idempotent server-side: without a checkout
+     session it is a no-op, and an already-paid invoice is left alone. */
+  const invoiceStatus = query.data?.status
+  const verifiedOnOpen = useRef(false)
+  useEffect(() => {
+    if (verifiedOnOpen.current) return
+    if (!invoiceStatus || invoiceStatus === "paid") return
+    if (searchParams.get("payment")) return // the effect above owns this load
+    verifiedOnOpen.current = true
+    verifyInvoicePayment(invoiceId)
+      .then((invoice) => {
+        if (invoice.status !== "paid") return
+        queryClient.setQueryData(["institution-invoice", invoiceId], invoice)
+        queryClient.invalidateQueries({ queryKey: ["institution-invoices"] })
+        toast.success("Payment received. Thank you!")
+      })
+      // Silent: nobody asked for this check, so a failure is not theirs to act
+      // on. The Pay button is still there if it really is unpaid.
+      .catch(() => {})
+  }, [invoiceStatus])
 
   const checkout = useMutation({
     mutationFn: () => startInvoiceCheckout(invoiceId),
@@ -96,13 +127,6 @@ function InvoiceDetail({ invoiceId }) {
 
   return (
     <div className="space-y-6 print:space-y-4">
-      <Link
-        to="/institution/invoices"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground print:hidden"
-      >
-        <ArrowLeftIcon className="size-4" aria-hidden="true" />
-        All invoices
-      </Link>
 
       <InstitutionPageHeader
         title={`Invoice ${invoice.invoiceNumber}`}
@@ -120,112 +144,37 @@ function InvoiceDetail({ invoiceId }) {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Billed to</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm">
-            <p className="font-semibold">{invoice.institutionName}</p>
-            <p>{invoice.billToName}</p>
-            <p className="text-muted-foreground">{invoice.billToEmail}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Amount due</CardTitle>
-            <CardDescription>
-              {slots} learner slot{slots === 1 ? "" : "s"} across {invoice.items?.length ?? 0} certification
-              {(invoice.items?.length ?? 0) === 1 ? "" : "s"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold tabular-nums">{money(invoice.totalAmount, invoice.currency)}</p>
-            {invoice.status === "paid" ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Paid {formatDateTime(invoice.paidAt)}
-                {invoice.paymentReference ? ` · ref ${invoice.paymentReference}` : ""}
-              </p>
-            ) : (
-              <div className="mt-3 space-y-2 print:hidden">
-                <Button
-                  onClick={() => checkout.mutate()}
-                  disabled={!invoice.payable || checkout.isPending || verifying}
-                  className="w-full sm:w-auto"
-                >
-                  {checkout.isPending || verifying ? (
-                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <CreditCard className="size-4" aria-hidden="true" />
-                  )}
-                  {verifying ? "Confirming payment…" : `Pay ${money(invoice.totalAmount, invoice.currency)} with PayMongo`}
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  {invoice.payable
-                    ? "Card or GCash, on PayMongo's secure checkout (test mode). Certification access activates the moment payment is confirmed."
-                    : invoice.paymentUnavailableReason ?? "Online payment is not available for this invoice."}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      {/* The invoice itself, one template shared by every invoice REBYU
+          issues, and the only thing that reaches paper -- see
+          styles/rebyu-print.css. */}
+      <InvoiceDocument invoice={invoice} />
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Line items</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Certification</TableHead>
-                <TableHead>Access window</TableHead>
-                <TableHead className="text-right">Slots</TableHead>
-                <TableHead className="text-right">Per slot</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(invoice.items ?? []).map((item) => (
-                <TableRow key={item.institutionInvoiceItemId}>
-                  <TableCell className="font-medium">{item.certificationTitle}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {item.accessStartDate && item.accessEndDate
-                      ? `${formatDate(item.accessStartDate)} – ${formatDate(item.accessEndDate)}`
-                      : "1 year from approval"}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">{item.learnerSlots}</TableCell>
-                  <TableCell className="text-right tabular-nums">{money(item.unitPrice, invoice.currency)}</TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums">
-                    {money(item.lineTotal, invoice.currency)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <dl className="ml-auto grid max-w-xs grid-cols-2 gap-y-1 px-4 py-4 text-sm">
-            <dt className="text-muted-foreground">Subtotal</dt>
-            <dd className="text-right tabular-nums">{money(invoice.subtotal, invoice.currency)}</dd>
-            {Number(invoice.discountAmount) > 0 ? (
-              <>
-                <dt className="text-muted-foreground">Discount</dt>
-                <dd className="text-right tabular-nums">− {money(invoice.discountAmount, invoice.currency)}</dd>
-              </>
-            ) : null}
-            {Number(invoice.taxAmount) > 0 ? (
-              <>
-                <dt className="text-muted-foreground">Tax ({invoice.taxRate}%)</dt>
-                <dd className="text-right tabular-nums">{money(invoice.taxAmount, invoice.currency)}</dd>
-              </>
-            ) : null}
-            <dt className="border-t pt-2 font-bold">Total</dt>
-            <dd className="border-t pt-2 text-right text-base font-bold tabular-nums">
-              {money(invoice.totalAmount, invoice.currency)}
-            </dd>
-          </dl>
-        </CardContent>
-      </Card>
+      {/* Paying is an action on the page, not part of the document: it means
+          nothing once printed, and it disappears the moment the invoice is
+          settled. */}
+      {invoice.status !== "paid" ? (
+        <div className="print:hidden mx-auto w-full max-w-[52rem] space-y-2">
+          <Button
+            onClick={() => checkout.mutate()}
+            disabled={!invoice.payable || checkout.isPending || verifying}
+            className="w-full sm:w-auto"
+          >
+            {checkout.isPending || verifying ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <CreditCard className="size-4" aria-hidden="true" />
+            )}
+            {verifying
+              ? "Confirming payment…"
+              : `Pay ${money(invoice.totalAmount, invoice.currency)} with PayMongo`}
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            {invoice.payable
+              ? "Card or GCash, on PayMongo's secure checkout (test mode). Certification access activates the moment payment is confirmed."
+              : invoice.paymentUnavailableReason ?? "Online payment is not available for this invoice."}
+          </p>
+        </div>
+      ) : null}
     </div>
   )
 }

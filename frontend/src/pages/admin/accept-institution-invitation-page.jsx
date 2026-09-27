@@ -6,6 +6,7 @@ import { CheckCircle2, CircleAlert, Loader2, Mail, ShieldCheck } from "@/compone
 
 import { Button } from "@/components/ui/button"
 import { base } from "@/services/base"
+import { clearLearnerPortalSnapshot } from "@/services/learnerService.js"
 
 const ACCEPT_INVITATION_ENDPOINT = "learners/accept-invitation"
 const LEARNER_LEARNING_ROUTE = "/learner/learning"
@@ -69,9 +70,59 @@ export default function AcceptInstitutionInvitationPage() {
       // Only strip the token from the URL after a confirmed success.
       window.history.replaceState({}, document.title, window.location.pathname)
 
-      // Refresh learner data so the new certification appears immediately.
-      await queryClient.invalidateQueries({ queryKey: ["learner-portal-data"] })
-      await queryClient.invalidateQueries({ queryKey: ["learner-enrollments"] })
+      /* Refresh learner data so the new certification appears immediately.
+
+         Two things have to happen here, and only doing the first is why an
+         accepted invitation used to land on a My Learning that still did not
+         list it -- until the learner navigated away and came back, at which
+         point it was there.
+
+         The stored snapshot goes first. This page lives OUTSIDE the learner
+         shell, so the shell's query has no observer mounted while we are here
+         and nothing is redrawing. When the shell does mount a moment later it
+         seeds itself from that snapshot, which was written before the
+         acceptance: it draws the old list at once and refetches behind it,
+         with data already present and therefore no loading state. The portal
+         call is the slow one -- it walks every enrolled certification -- so
+         the old list is what is on screen for the whole of it. Removed, the
+         shell has nothing to draw and waits properly.
+
+         Then the refetch, with `refetchType: "all"`. The default only
+         refetches queries that have an active observer, and none of these do
+         from this route -- they would merely be marked stale and left for
+         whenever something mounts them. Asking for all of them, and awaiting
+         it, means the cache is already correct by the time "Open My Learning"
+         is pressed, so the shell finds fresh data rather than fetching it.
+
+         `learner-certification-progress` is in the list because My Learning
+         reads the cards' progress bars from its own query, not from the
+         portal -- it was never invalidated, so even once the card appeared its
+         bar came from the answer given before the certification existed.
+         `learner-notification-invitations` is here so the invitation stops
+         being offered in the bell once it has been taken. */
+      clearLearnerPortalSnapshot()
+
+      /* Caught, and deliberately not reported. The invitation is accepted --
+         the server said so -- and the catch below is for acceptance failures.
+         Letting a refresh error fall into it would tell the learner their
+         invitation did not work when it did, and send them back to a link
+         that now correctly answers ALREADY_ACCEPTED. A refresh that fails
+         leaves a stale list, which the shell's own refetch fixes. */
+      await queryClient
+        .invalidateQueries({
+          predicate: (query) =>
+            [
+              "learner-portal-data",
+              "learner-certification-progress",
+              "learner-enrollments",
+              "learner-notification-invitations",
+              "certifications",
+            ].includes(query.queryKey?.[0]),
+          refetchType: "all",
+        })
+        .catch((refreshError) => {
+          console.warn("invitation accepted, refresh failed", refreshError)
+        })
 
       setAccepted(true)
       toast.success("Invitation accepted", {

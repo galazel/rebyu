@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { Link, useOutletContext, useSearchParams } from "react-router-dom"
-import { ArrowLeftIcon, Search, UsersIcon } from "@/components/icons"
+import { Search, UsersIcon } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -144,13 +144,6 @@ export default function InstitutionLearnersPage() {
     <div className="space-y-6">
       {scopedCertification ? (
         <div>
-          <Link
-            to="/institution/certifications"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeftIcon className="size-4" aria-hidden="true" />
-            Certifications
-          </Link>
           <h1 className="mt-2 font-rb-display text-2xl font-extrabold tracking-tight">
             {scopedCertification} learners
           </h1>

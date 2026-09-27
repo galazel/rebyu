@@ -32,9 +32,24 @@ public class PartnershipTransactionController {
             @Valid @RequestBody SubmitPartnershipRequestDto request) {
         Long institutionId = myInstitutionId(jwt);
         SubmitPartnershipRequestDto trusted = new SubmitPartnershipRequestDto(
-                institutionId, request.items(), request.idempotencyKey());
+                institutionId, request.items(), request.idempotencyKey(), request.requestType());
         return transactionService.submit(trusted);
     }
+
+    /**
+     * Asks to end the partnership. An admin reviews it; approving revokes
+     * access and refunds what was paid.
+     */
+    @PostMapping("/cancellation")
+    public PartnershipRequestTransactionDto cancel(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody(required = false) CancellationRequest body) {
+        return transactionService.submitCancellation(
+                myInstitutionId(jwt), body == null ? null : body.reason());
+    }
+
+    /** Why they are leaving -- optional, and shown to the reviewing admin. */
+    public record CancellationRequest(String reason) {}
 
     @GetMapping
     public List<PartnershipRequestTransactionDto> list(@AuthenticationPrincipal Jwt jwt) {

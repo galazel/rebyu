@@ -69,12 +69,7 @@ import {
 } from "@/services/assessmentService.js"
 import { GeneratedQuizArena } from "@/components/practice/generated-quiz-arena.jsx"
 import { AdaptiveAttemptRunner } from "@/components/assessments/attempt/adaptive-attempt-runner.jsx"
-
-function formatClock(totalSeconds) {
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
-}
+import { describeCountdown, formatCountdown } from "@/lib/countdown.js"
 
 // Serializes one local answer into the backend AttemptAnswerDraftDto shape.
 function toDraftDto(attemptQuestionId, answer) {
@@ -893,9 +888,6 @@ export default function LearnerAssessmentAttemptPage() {
             <p className="font-medium">Assessment unavailable</p>
             <p className="mt-1 text-sm text-muted-foreground">{startError}</p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
-              <Button variant="outline" onClick={() => navigate(-1)}>
-                Go back
-              </Button>
               {/* Retakes, mock exams and World Cup are Pro; say so with a way in. */}
               {/REBYU Pro/.test(startError) ? (
                 <Button onClick={() => navigate("/learner/subscription")}>Upgrade to Pro</Button>
@@ -1073,10 +1065,10 @@ export default function LearnerAssessmentAttemptPage() {
                         "rb-timer-urgent"
                     )}
                     role="timer"
-                    aria-label="Time remaining"
+                    aria-label={describeCountdown(remainingSeconds)}
                 >
               <ClockIcon className="size-4" aria-hidden="true" />
-                  {formatClock(remainingSeconds)}
+                  {formatCountdown(remainingSeconds)}
             </span>
             ) : null}
 
@@ -1402,7 +1394,7 @@ export default function LearnerAssessmentAttemptPage() {
                         <>
                           <dt className="text-muted-foreground">Time remaining</dt>
                           <dd className="text-right tabular-nums">
-                            {formatClock(remainingSeconds)}
+                            {formatCountdown(remainingSeconds)}
                           </dd>
                         </>
                     ) : null}

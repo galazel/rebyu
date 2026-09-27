@@ -2,12 +2,11 @@ import { useMemo, useState } from "react"
 import { Link, useParams, useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
-  ArrowLeftIcon,
   BookOpen,
   ChevronDown,
   ChevronRight,
   Search,
-  X,
+  X
 } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
@@ -115,13 +114,6 @@ export default function InstitutionCertificationViewerPage() {
         >
           {sidebarOpen ? <X className="size-5" /> : <BookOpen className="size-5" />}
         </Button>
-        <Link
-          to={departmentId ? `/institution/departments/${departmentId}` : "/institution/certifications"}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeftIcon className="size-4" />
-          Back
-        </Link>
         <h1 className="truncate font-heading text-base font-bold text-foreground">
           {certification?.title ?? "Certification"}
         </h1>

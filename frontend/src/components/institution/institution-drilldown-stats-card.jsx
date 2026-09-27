@@ -22,7 +22,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { useChartTheme } from "@/components/charts/rebyu-charts.jsx"
-import { getLearnerDisplayName } from "@/hooks/use-institution-data.js"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { getDepartmentAbbreviation } from "@/constants/departments.js"
 
@@ -135,7 +134,7 @@ function DepartmentDetailsFixedCard({ item, onClick, onMouseEnter, onMouseLeave 
         <div className="flex items-center justify-between gap-1 text-muted-foreground">
           <span className="text-[10px]">Allotted Slots:</span>
           <span className="font-bold tabular-nums text-foreground">
-            {item.allottedSlots ?? item.value ?? 0}
+            {item.slotsKnown === false ? "None" : item.allottedSlots ?? item.value ?? 0}
           </span>
         </div>
         <div className="flex items-center justify-between gap-1 text-muted-foreground">
@@ -150,7 +149,7 @@ function DepartmentDetailsFixedCard({ item, onClick, onMouseEnter, onMouseLeave 
             className="font-extrabold tabular-nums"
             style={{ color: sliceFill }}
           >
-            {item.reachPct ?? 0}%
+            {item.reachPct == null ? "—" : `${item.reachPct}%`}
           </span>
         </div>
       </div>
@@ -162,13 +161,53 @@ function DepartmentDetailsFixedCard({ item, onClick, onMouseEnter, onMouseLeave 
   )
 }
 
+/**
+ * The ring's denominator.
+ *
+ * A department with no slot allotment still has people in it, so its slice is
+ * sized by the enrollments themselves -- not by the ten seats this card used to
+ * invent for it, which put a capacity on screen that no row anywhere held.
+ * `slotsKnown` travels alongside so a label can say which of the two it is
+ * looking at.
+ */
+function capacityOf(allotted, enrolled) {
+  return Number(allotted) > 0 ? Number(allotted) : enrolled
+}
+
+/** Reach against a real allotment only; null where there is none to reach. */
+function reachOf(allotted, enrolled) {
+  return Number(allotted) > 0
+    ? Math.min(Math.round((enrolled / Number(allotted)) * 100), 100)
+    : null
+}
+
+/** What a slice says on hover -- honest about a capacity nobody allotted. */
+function sliceTitle(item) {
+  const heads = `${item.enrolled} enrolled`
+  return item.slotsKnown
+    ? `${item.name} — ${heads} / ${item.allottedSlots} slots (${item.reachPct}% reach)`
+    : `${item.name} — ${heads}, no slot allotment`
+}
+
+/** One key for both cases, so "not in a department" groups like any other. */
+function deptKey(departmentId) {
+  return departmentId == null ? "unassigned" : String(departmentId)
+}
+
+/**
+ * Departments, their certifications and their learners, drilled into.
+ *
+ * Every figure comes from the institution dashboard payload, which counts them
+ * from the rows server-side. This card used to assemble them from four separate
+ * reads and paper over the seams: a department with no allotment was drawn as
+ * ten slots, and "average score" fell back to average progress, which is a
+ * different measurement wearing the same label.
+ */
 export default function InstitutionDrilldownStatsCard({
-  data,
-  groupStats = [],
+  certifications = [],
   departments = [],
-  members = [],
+  enrollments = [],
   summary = {},
-  failed = false,
 }) {
   const chartTheme = useChartTheme()
   const isMobile = useIsMobile()
@@ -244,171 +283,47 @@ export default function InstitutionDrilldownStatsCard({
     }
   }, [])
 
-  // Fast lookups
-  const membersMap = useMemo(() => {
-    return new Map((members || []).map((m) => [m.learnerId, m]))
-  }, [members])
 
   // -------------------------------------------------------------------------
   // LEVEL 1: Aggregated Slots & Enrolled Learners per Department
   // Inner Pie = Total Slots Allotted | Outer Ring = Enrolled Reach % exclusive to each dept
   // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // LEVEL 1: Slots & enrolled learners per department
+  // Inner Pie = the department's capacity | Outer Ring = its enrolled reach
+  // -------------------------------------------------------------------------
   const level1Data = useMemo(() => {
-    const deptMap = new Map()
-
-    // 0. Only consider active, non-archived departments
-    const activeDepartments = (departments || []).filter((dept) => {
-      const status = (dept?.status || "active").toLowerCase()
-      return status === "active"
-    })
-
-    const activeDeptIdSet = new Set(
-      activeDepartments
-        .map((dept) => String(dept.departmentId ?? dept.id ?? ""))
-        .filter(Boolean)
-    )
-
-    // 1. Seed from active departments prop
-    activeDepartments.forEach((dept) => {
-      const deptId = String(dept.departmentId ?? dept.id ?? "")
-      if (!deptId) return
-      deptMap.set(deptId, {
-        id: dept.departmentId ?? dept.id,
-        name: dept.departmentName || dept.name || `Department #${deptId}`,
-        allottedSlots: Number(dept.totalSlots ?? 0),
-        usedSlots: Number(dept.usedSlots ?? 0),
-        learnerIds: new Set(),
-        assignmentCount: 0,
-      })
-    })
-
-    // 2. Seed from groupStats - ONLY if active and not archived
-    groupStats.forEach((group) => {
-      const status = (group?.status || "active").toLowerCase()
-      if (status !== "active") return
-
-      if (group?.departmentId != null) {
-        const deptId = String(group.departmentId)
-        // If we have registered active departments, don't resurrect unlisted/deleted ones
-        if (activeDeptIdSet.size > 0 && !activeDeptIdSet.has(deptId)) {
-          return
-        }
-
-        if (!deptMap.has(deptId)) {
-          deptMap.set(deptId, {
-            id: group.departmentId,
-            name: group.departmentName || `Department #${group.departmentId}`,
-            allottedSlots: 0,
-            usedSlots: Number(group.learners ?? 0),
-            learnerIds: new Set(),
-            assignmentCount: 0,
-          })
-        }
-      }
-    })
-
-    // 3. Map assignments to find enrolled learners per department
-    data?.assignments?.forEach((assignment) => {
-      const membership = data.groupByInstitutionCertLearnerId?.get(
-        assignment.institutionCertLearnerId
-      )
-      const deptId =
-        membership?.departmentId != null
-          ? String(membership.departmentId)
-          : "unassigned"
-
-      // Do NOT resurrect archived / deleted departments
-      if (deptId !== "unassigned" && activeDeptIdSet.size > 0 && !activeDeptIdSet.has(deptId)) {
-        return
-      }
-
-      if (deptMap.has(deptId)) {
-        const entry = deptMap.get(deptId)
-        entry.learnerIds.add(assignment.learnerId)
-        entry.assignmentCount += 1
-      }
-    })
-
-    // Fallback if no departments existed yet but summary/assignments exist
-    if (deptMap.size === 0 && (summary?.seatsTotal || data?.assignments?.length)) {
-      deptMap.set("general", {
-        id: null,
-        name: "General",
-        allottedSlots: Number(summary?.seatsTotal ?? 10),
-        usedSlots: Number(summary?.seatsUsed ?? data?.assignments?.length ?? 0),
-        learnerIds: new Set((data?.assignments || []).map((a) => a.learnerId)),
-        assignmentCount: data?.assignments?.length ?? 0,
-      })
-    }
-
-    return Array.from(deptMap.values())
-      .map((entry, index) => {
-        const enrolled = entry.learnerIds.size || entry.usedSlots || 0
-        let slots = entry.allottedSlots
-        if (!slots || slots <= 0) {
-          slots = enrolled > 0 ? Math.max(enrolled, 10) : (entry.id ? 10 : 0)
-        }
-
-        const reachPct =
-          slots > 0 ? Math.min(Math.round((enrolled / slots) * 100), 100) : 0
-
-        const deptLearnerIds = entry.learnerIds
-        const deptMembers = members.filter((m) => deptLearnerIds.has(m.learnerId))
-
-        const certified = deptMembers.filter(
-          (m) =>
-            Number(m.completedCertifications ?? 0) > 0 ||
-            Number(m.averageProgress ?? 0) >= 100
-        ).length
-
-        const inProgress = deptMembers.filter(
-          (m) =>
-            Number(m.averageProgress ?? 0) > 0 &&
-            Number(m.averageProgress ?? 0) < 100
-        ).length
-
-        const avgScoreVal =
-          deptMembers.length > 0
-            ? Math.round(
-                deptMembers.reduce(
-                  (sum, m) =>
-                    sum + Number(m.averageProgress ?? m.score ?? 0),
-                  0
-                ) / deptMembers.length
-              )
-            : summary?.averageScore != null
-            ? Math.round(Number(summary.averageScore))
-            : summary?.averageProgress != null
-            ? Math.round(Number(summary.averageProgress))
-            : 0
+    return departments
+      .map((dept, index) => {
+        const enrolled = dept.enrolled ?? 0
+        const allotted = Number(dept.allottedSlots ?? 0)
+        const capacity = capacityOf(allotted, enrolled)
 
         return {
-          id: entry.id,
-          name: entry.name,
-          value: slots, // Inner pie slice size = allotted slots!
-          allottedSlots: slots,
+          id: dept.departmentId ?? null,
+          key: deptKey(dept.departmentId),
+          name: dept.name,
+          institutionCertId: dept.institutionCertId ?? null,
+          certificationTitle: dept.certificationTitle,
+          value: capacity, // inner pie slice
+          allottedSlots: capacity, // the outer ring's denominator, so both agree
+          slotsKnown: allotted > 0,
           enrolled,
-          reachPct,
-          certified,
-          inProgress,
-          avgScore: avgScoreVal,
-          assignmentCount: entry.assignmentCount,
+          reachPct: reachOf(allotted, enrolled),
+          certified: dept.completed ?? 0,
+          inProgress: dept.inProgress ?? 0,
+          notStarted: dept.notStarted ?? 0,
+          avgProgress: Number(dept.averageProgress ?? 0),
+          avgScore: dept.averageScore,
+          lessonsCompleted: dept.lessonsCompleted ?? 0,
+          gradedAttempts: dept.gradedAttempts ?? 0,
+          assignmentCount: enrolled,
           fill: SLOTS_PALETTE[index % SLOTS_PALETTE.length],
         }
       })
       .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value)
-  }, [
-    departments,
-    groupStats,
-    data?.assignments,
-    data?.groupByInstitutionCertLearnerId,
-    summary?.seatsTotal,
-    summary?.seatsUsed,
-    members,
-    summary?.averageScore,
-    summary?.averageProgress,
-  ])
+  }, [departments])
 
   const totalLevel1Slots = useMemo(() => {
     return level1Data.reduce((sum, item) => sum + item.allottedSlots, 0)
@@ -585,107 +500,90 @@ export default function InstitutionDrilldownStatsCard({
   // LEVEL 2: Certifications in the Selected Department
   // -------------------------------------------------------------------------
   const level2Data = useMemo(() => {
-    if (!selectedDepartment || !data?.assignments?.length) return []
+    if (!selectedDepartment) return []
 
-    const deptIdStr =
-      selectedDepartment.id != null ? String(selectedDepartment.id) : "unassigned"
+    const key = selectedDepartment.key ?? deptKey(selectedDepartment.id)
+    const institutionSlotsByCert = new Map(
+      certifications.map((cert) => [
+        String(cert.institutionCertId),
+        Number(cert.totalSlots ?? 0),
+      ])
+    )
+
     const certMap = new Map()
-
-    data.assignments.forEach((assignment) => {
-      const membership = data.groupByInstitutionCertLearnerId?.get(
-        assignment.institutionCertLearnerId
-      )
-      const currentDeptId =
-        membership?.departmentId != null
-          ? String(membership.departmentId)
-          : "unassigned"
-
-      if (currentDeptId === deptIdStr) {
-        const instCert = data.institutionCertById?.get(
-          assignment.institutionCertId
-        )
-        const cert = instCert
-          ? data.certificationById?.get(instCert.certificationId)
-          : null
-        const certKey = String(assignment.institutionCertId)
-        const title =
-          cert?.title ||
-          `Certification #${instCert?.certificationId || assignment.institutionCertId}`
-
-        if (!certMap.has(certKey)) {
-          certMap.set(certKey, {
-            institutionCertId: assignment.institutionCertId,
-            certificationId: instCert?.certificationId,
-            title,
-            totalSlots: instCert?.totalSlots ?? 0,
-            assignments: [],
-            learnerIds: new Set(),
-          })
-        }
-
-        const entry = certMap.get(certKey)
-        entry.assignments.push(assignment)
-        entry.learnerIds.add(assignment.learnerId)
+    enrollments.forEach((row) => {
+      if (deptKey(row.departmentId) !== key) return
+      const certKey = String(row.institutionCertId)
+      if (!certMap.has(certKey)) {
+        certMap.set(certKey, {
+          institutionCertId: row.institutionCertId,
+          title: row.certificationTitle,
+          rows: [],
+          learnerIds: new Set(),
+        })
       }
+      const entry = certMap.get(certKey)
+      entry.rows.push(row)
+      entry.learnerIds.add(row.learnerId)
     })
 
     return Array.from(certMap.values())
       .map((entry, index) => {
         const enrolled = entry.learnerIds.size
-        let slots = entry.totalSlots
-        if (!slots || slots <= 0) {
-          slots = Math.max(enrolled, 10)
-        }
-        const reachPct =
-          slots > 0 ? Math.min(Math.round((enrolled / slots) * 100), 100) : 0
 
-        const certMembers = members.filter((m) => entry.learnerIds.has(m.learnerId))
+        /* The department's own allotment when this is the certification it was
+           carved out of. Otherwise the institution's whole allotment for that
+           certification, which is the only capacity the "not in a department"
+           grouping can honestly be measured against. */
+        const allotted =
+          selectedDepartment.slotsKnown &&
+          selectedDepartment.institutionCertId != null &&
+          String(selectedDepartment.institutionCertId) === String(entry.institutionCertId)
+            ? Number(selectedDepartment.allottedSlots)
+            : institutionSlotsByCert.get(String(entry.institutionCertId)) ?? 0
+        const capacity = capacityOf(allotted, enrolled)
 
-        const certified = certMembers.filter(
-          (m) =>
-            Number(m.completedCertifications ?? 0) > 0 ||
-            Number(m.averageProgress ?? 0) >= 100
-        ).length
+        let certified = 0
+        let inProgress = 0
+        let notStarted = 0
+        let progressSum = 0
+        let scoreSum = 0
+        let scored = 0
 
-        const inProgress = certMembers.filter(
-          (m) =>
-            Number(m.averageProgress ?? 0) > 0 &&
-            Number(m.averageProgress ?? 0) < 100
-        ).length
-
-        const avgProgressVal =
-          certMembers.length > 0
-            ? Math.round(
-                certMembers.reduce(
-                  (sum, m) => sum + Number(m.averageProgress ?? 0),
-                  0
-                ) / certMembers.length
-              )
-            : 0
+        entry.rows.forEach((row) => {
+          const progress = Number(row.progress ?? 0)
+          progressSum += progress
+          if (row.status === "completed" || progress >= 100) certified += 1
+          else if (progress > 0) inProgress += 1
+          else notStarted += 1
+          if (row.averageScore != null) {
+            scoreSum += Number(row.averageScore)
+            scored += 1
+          }
+        })
 
         return {
-          ...entry,
+          institutionCertId: entry.institutionCertId,
           name: entry.title,
-          value: slots, // Slices represent allotted slots!
-          allottedSlots: slots,
+          title: entry.title,
+          rows: entry.rows,
+          learnerIds: entry.learnerIds,
+          value: capacity, // inner pie slice = the capacity it is measured against
+          allottedSlots: capacity, // the outer ring's denominator, so both agree
+          slotsKnown: allotted > 0,
           enrolled,
-          reachPct,
+          reachPct: reachOf(allotted, enrolled),
           certified,
           inProgress,
-          avgProgress: avgProgressVal,
+          notStarted,
+          avgProgress: entry.rows.length ? Math.round(progressSum / entry.rows.length) : 0,
+          avgScore: scored ? Math.round(scoreSum / scored) : null,
           fill: SLOTS_PALETTE[(index + 1) % SLOTS_PALETTE.length],
         }
       })
       .filter((item) => item.value > 0)
       .sort((a, b) => b.value - a.value)
-  }, [
-    selectedDepartment,
-    data?.assignments,
-    data?.groupByInstitutionCertLearnerId,
-    data?.institutionCertById,
-    data?.certificationById,
-    members,
-  ])
+  }, [selectedDepartment, enrollments, certifications])
 
   const totalLevel2Slots = useMemo(() => {
     return level2Data.reduce((sum, c) => sum + c.allottedSlots, 0)
@@ -862,148 +760,55 @@ export default function InstitutionDrilldownStatsCard({
   // -------------------------------------------------------------------------
   const level3Data = useMemo(() => {
     if (!selectedCertification) return null
-    const totalSlots = Number(
-      selectedCertification.allottedSlots ?? selectedCertification.totalSlots ?? 0
-    )
-    const enrolledInDept = Number(
-      selectedCertification.enrolled ??
-        selectedCertification.assignments?.length ??
-        0
-    )
+
+    const rows = selectedCertification.rows ?? []
+    /* Only a real allotment is a capacity. Where the department has none, the
+       anatomy below has nothing to divide into filled and remaining seats, and
+       `slotsKnown` is what lets it say so instead of inventing a denominator. */
+    const totalSlots = selectedCertification.slotsKnown
+      ? Number(selectedCertification.allottedSlots ?? 0)
+      : 0
+    const enrolledInDept = selectedCertification.enrolled ?? rows.length
     const remainingSlots = Math.max(totalSlots - enrolledInDept, 0)
     const percentFilled =
-      totalSlots > 0
-        ? Math.min(Math.round((enrolledInDept / totalSlots) * 100), 100)
-        : 0
-
-    const certId =
-      selectedCertification.institutionCertId ||
-      selectedCertification.certificationId
-
-    const deptLearnerAssignments = (data?.assignments || []).filter((assignment) => {
-      const matchCert =
-        assignment.institutionCertId === certId ||
-        assignment.certificationId === certId ||
-        (selectedCertification.certificationId &&
-          assignment.certificationId === selectedCertification.certificationId)
-      if (!matchCert) return false
-
-      if (!selectedDepartment?.id) return true
-      const membership = data.groupByInstitutionCertLearnerId?.get(
-        assignment.institutionCertLearnerId
-      )
-      return (
-        membership?.departmentId != null &&
-        String(membership.departmentId) === String(selectedDepartment.id)
-      )
-    })
-
-    let completed = 0
-    let inProgress = 0
-    let notStarted = 0
-
-    deptLearnerAssignments.forEach((assignment) => {
-      const member = membersMap.get(assignment.learnerId)
-      let prog = Number(
-        assignment.progressPercentage ?? member?.averageProgress ?? 0
-      )
-      if (isNaN(prog)) prog = 0
-      if (prog >= 100 || Number(member?.completedCertifications ?? 0) > 0) {
-        completed += 1
-      } else if (prog > 0) {
-        inProgress += 1
-      } else {
-        notStarted += 1
-      }
-    })
-
-    // If no direct assignments found, fallback to counts from selectedCertification
-    if (deptLearnerAssignments.length === 0 && enrolledInDept > 0) {
-      completed = selectedCertification.certified || 0
-      inProgress =
-        selectedCertification.inProgress ||
-        Math.max(enrolledInDept - completed, 0)
-      notStarted = Math.max(enrolledInDept - completed - inProgress, 0)
-    }
+      totalSlots > 0 ? Math.min(Math.round((enrolledInDept / totalSlots) * 100), 100) : 0
 
     return {
       totalSlots,
+      slotsKnown: Boolean(selectedCertification.slotsKnown),
       enrolledInDept,
       remainingSlots,
       percentFilled,
-      completed,
-      inProgress,
-      notStarted,
+      completed: selectedCertification.certified ?? 0,
+      inProgress: selectedCertification.inProgress ?? 0,
+      notStarted: selectedCertification.notStarted ?? 0,
     }
-  }, [
-    selectedCertification,
-    selectedDepartment,
-    data?.assignments,
-    data?.groupByInstitutionCertLearnerId,
-    membersMap,
-  ])
+  }, [selectedCertification])
 
   const level4Learners = useMemo(() => {
     if (!selectedCertification) return []
 
-    const certId =
-      selectedCertification.institutionCertId ||
-      selectedCertification.certificationId
-
-    const deptLearnerAssignments = (data?.assignments || []).filter((assignment) => {
-      const matchCert =
-        assignment.institutionCertId === certId ||
-        assignment.certificationId === certId ||
-        (selectedCertification.certificationId &&
-          assignment.certificationId === selectedCertification.certificationId)
-      if (!matchCert) return false
-
-      if (!selectedDepartment?.id) return true
-      const membership = data.groupByInstitutionCertLearnerId?.get(
-        assignment.institutionCertLearnerId
-      )
-      return (
-        membership?.departmentId != null &&
-        String(membership.departmentId) === String(selectedDepartment.id)
-      )
-    })
-
-    const assignmentsToUse =
-      deptLearnerAssignments.length > 0
-        ? deptLearnerAssignments
-        : selectedCertification.assignments || []
-
-    return assignmentsToUse
-      .map((assignment) => {
-        const learner = data.learnerById?.get(assignment.learnerId)
-        const member = membersMap.get(assignment.learnerId)
-        const name = getLearnerDisplayName(learner)
-        const email = learner?.email || learner?.username || ""
-
-        let progress = Number(
-          assignment.progressPercentage ?? member?.averageProgress ?? 0
-        )
-        if (isNaN(progress)) progress = 0
-        progress = Math.min(Math.max(Math.round(progress), 0), 100)
-
+    return (selectedCertification.rows ?? [])
+      .map((row) => {
+        const progress = Math.min(Math.max(Math.round(Number(row.progress ?? 0)), 0), 100)
         return {
-          learnerId: assignment.learnerId,
-          assignmentId: assignment.institutionCertLearnerId,
-          name,
-          email,
+          learnerId: row.learnerId,
+          // One row per enrollment, and this list is always inside a single
+          // certification, so the pair is unique.
+          assignmentId: `${row.learnerId}-${row.institutionCertId}`,
+          name: row.name,
+          detail: row.lastActivityAt
+            ? `Last active ${new Date(row.lastActivityAt).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}`
+            : "No activity in this period",
           progress,
-          status: assignment.status || "active",
+          status: row.status ?? "active",
         }
       })
       .sort((a, b) => b.progress - a.progress)
-  }, [
-    selectedCertification,
-    selectedDepartment,
-    data?.assignments,
-    data?.groupByInstitutionCertLearnerId,
-    data.learnerById,
-    membersMap,
-  ])
+  }, [selectedCertification])
 
   // Distribution buckets for Level 4
   const progressBuckets = useMemo(() => {
@@ -1034,55 +839,45 @@ export default function InstitutionDrilldownStatsCard({
   // -------------------------------------------------------------------------
   // Summary Stats for Level 1 (Original Mockup Metrics)
   // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // Summary Stats for Level 1 (Original Mockup Metrics)
+  // -------------------------------------------------------------------------
   const level1SummaryStats = useMemo(() => {
     const deptCount = level1Data.length || 1
     const totalEnrolled = totalLevel1Enrolled
-    const avgEnrollees = Math.round(totalLevel1Enrolled / deptCount)
+    const certifiedCount = level1Data.reduce((sum, d) => sum + d.certified, 0)
+    const inProgressCount = level1Data.reduce((sum, d) => sum + d.inProgress, 0)
 
-    // Certified learners: completed certifications > 0 or progress >= 100%
-    const certifiedCount = members.filter(
-      (m) =>
-        Number(m.completedCertifications ?? 0) > 0 ||
-        Number(m.averageProgress ?? 0) >= 100
-    ).length
-    const avgCertified = Math.round(certifiedCount / deptCount)
     const certifiedPct =
       totalLevel1Slots > 0
         ? Math.min(Math.round((certifiedCount / totalLevel1Slots) * 100), 100)
         : 0
-
-    // In-progress learners: 0 < progress < 100%
-    const inProgressCount = members.filter(
-      (m) =>
-        Number(m.averageProgress ?? 0) > 0 && Number(m.averageProgress ?? 0) < 100
-    ).length
-    const avgInProgress = Math.round(inProgressCount / deptCount)
     const inProgressPct =
       totalLevel1Slots > 0
         ? Math.min(Math.round((inProgressCount / totalLevel1Slots) * 100), 100)
         : 0
 
-    const avgScore =
-      summary?.averageScore != null
-        ? `${Math.round(Number(summary.averageScore))}%`
-        : summary?.averageProgress != null
-        ? `${Math.round(Number(summary.averageProgress))}%`
-        : "—"
-
     return {
-      avgEnrollees,
-      avgCertified,
+      avgEnrollees: Math.round(totalEnrolled / deptCount),
+      avgCertified: Math.round(certifiedCount / deptCount),
       certifiedPct,
-      avgInProgress,
+      avgInProgress: Math.round(inProgressCount / deptCount),
       inProgressPct,
-      avgScore,
+      /* The institution's average *score* -- graded attempts, weighted by how
+         many there were. This used to fall back to average progress whenever no
+         score was available, which is a different measurement wearing this
+         one's label; unmeasured now says so. */
+      avgScore:
+        summary.averageScore == null
+          ? "—"
+          : `${Math.round(Number(summary.averageScore))}%`,
       // Totals retained for remarks calculation & aliases
       totalEnrolled,
       totalCompleted: certifiedCount,
       totalInProgress: inProgressCount,
       completedPct: certifiedPct,
     }
-  }, [level1Data, totalLevel1Enrolled, totalLevel1Slots, members, summary])
+  }, [level1Data, totalLevel1Enrolled, totalLevel1Slots, summary])
 
   // Retain last hovered item so fade-out animation completes smoothly without blanking
   const [lastActiveDept, setLastActiveDept] = useState(null)
@@ -1101,6 +896,9 @@ export default function InstitutionDrilldownStatsCard({
   // -------------------------------------------------------------------------
   // Summary Stats for Level 2 (Certification Level)
   // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // Summary Stats for Level 2 (Certification Level)
+  // -------------------------------------------------------------------------
   const level2SummaryStats = useMemo(() => {
     if (!level2Data.length) {
       return {
@@ -1115,31 +913,14 @@ export default function InstitutionDrilldownStatsCard({
         totalEnrolled: 0,
         totalCompleted: 0,
         totalInProgress: 0,
+        completedPct: 0,
       }
     }
 
-    const certCount = level2Data.length || 1
+    const certCount = level2Data.length
     const totalEnrolled = level2Data.reduce((sum, c) => sum + c.enrolled, 0)
-    const avgEnrollees = Math.round(totalEnrolled / certCount)
-
-    const deptLearnerIds = new Set()
-    level2Data.forEach((c) => {
-      c.learnerIds?.forEach((id) => deptLearnerIds.add(id))
-    })
-    const deptMembers = members.filter((m) => deptLearnerIds.has(m.learnerId))
-
-    const certifiedCount = deptMembers.filter(
-      (m) =>
-        Number(m.completedCertifications ?? 0) > 0 ||
-        Number(m.averageProgress ?? 0) >= 100
-    ).length
-    const avgCertified = Math.round(certifiedCount / certCount)
-
-    const inProgressCount = deptMembers.filter(
-      (m) =>
-        Number(m.averageProgress ?? 0) > 0 && Number(m.averageProgress ?? 0) < 100
-    ).length
-    const avgInProgress = Math.round(inProgressCount / certCount)
+    const certifiedCount = level2Data.reduce((sum, c) => sum + c.certified, 0)
+    const inProgressCount = level2Data.reduce((sum, c) => sum + c.inProgress, 0)
 
     const certifiedPct =
       totalLevel2Slots > 0
@@ -1150,23 +931,23 @@ export default function InstitutionDrilldownStatsCard({
         ? Math.min(Math.round((inProgressCount / totalLevel2Slots) * 100), 100)
         : 0
 
+    /* Weighted by enrollment rather than a mean of means: a certification with
+       two learners in it would otherwise count for as much as one with two
+       hundred. */
+    const progressWeighted = level2Data.reduce(
+      (sum, c) => sum + c.avgProgress * Math.max(c.enrolled, 0),
+      0
+    )
     const avgProgressVal =
-      deptMembers.length > 0
-        ? Math.round(
-            deptMembers.reduce(
-              (sum, m) => sum + Number(m.averageProgress ?? 0),
-              0
-            ) / deptMembers.length
-          )
-        : 0
+      totalEnrolled > 0 ? Math.round(progressWeighted / totalEnrolled) : 0
 
     return {
-      avgEnrollees,
-      avgCertified,
-      certified: avgCertified,
+      avgEnrollees: Math.round(totalEnrolled / certCount),
+      avgCertified: Math.round(certifiedCount / certCount),
+      certified: Math.round(certifiedCount / certCount),
       certifiedPct,
-      avgInProgress,
-      inProgress: avgInProgress,
+      avgInProgress: Math.round(inProgressCount / certCount),
+      inProgress: Math.round(inProgressCount / certCount),
       inProgressPct,
       avgProgress: `${avgProgressVal}%`,
       // Totals retained for remarks calculation
@@ -1175,7 +956,7 @@ export default function InstitutionDrilldownStatsCard({
       totalInProgress: inProgressCount,
       completedPct: certifiedPct,
     }
-  }, [level2Data, totalLevel2Slots, members])
+  }, [level2Data, totalLevel2Slots])
 
   // Retain last hovered certification so fade-out animation completes smoothly without blanking
   const [lastActiveCert, setLastActiveCert] = useState(null)
@@ -1261,6 +1042,14 @@ export default function InstitutionDrilldownStatsCard({
           tag: "Data Pending",
           diagnosis: "Slot utilization metrics are currently loading or unavailable.",
           recommendation: "Refresh the data or verify assigned licenses for this certification.",
+        }
+      }
+
+      if (!level3Data.slotsKnown) {
+        return {
+          tag: "No Slot Allotment",
+          diagnosis: `${selectedDepartment?.name || "This department"} has no seats allotted for this track, so there is no capacity to measure its ${level3Data.enrolledInDept} enrollee(s) against.`,
+          recommendation: "Allot slots to this department so its seat usage can be tracked against a target.",
         }
       }
 
@@ -1512,14 +1301,7 @@ export default function InstitutionDrilldownStatsCard({
 
       {/* ----------------- Body Content Per Level ----------------- */}
       <div className="relative min-h-0 flex-1 overflow-hidden py-2">
-        {failed ? (
-          <div className="flex h-full flex-col items-center justify-center p-4 text-center">
-            <p className="text-xs text-muted-foreground">
-              Could not load department statistics.
-            </p>
-          </div>
-        ) : (
-          <AnimatePresence mode="wait" custom={direction}>
+        <AnimatePresence mode="wait" custom={direction}>
             {currentLevel === 1 ? (
               /* ========================================================= */
               /* LEVEL 1: Dual-Ring Concentric Pie (Slots + Enrolled Reach) */
@@ -1634,6 +1416,8 @@ export default function InstitutionDrilldownStatsCard({
                             ? `${level1SummaryStats.inProgressPct}%`
                             : hoveredStatMetric === "score"
                             ? level1SummaryStats.avgScore
+                            : activeLevel1ReachPct == null
+                            ? "—"
                             : `${activeLevel1ReachPct}%`}
                         </span>
                         <span className="mt-1 max-w-[85px] sm:max-w-[95px] truncate text-[9px] sm:text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground">
@@ -1706,7 +1490,7 @@ export default function InstitutionDrilldownStatsCard({
                           onClick={() => handleSelectDepartment(item)}
                           onMouseEnter={() => handleDeptMouseEnter(item)}
                           onMouseLeave={handleDeptMouseLeave}
-                          title={`${item.name} — ${item.enrolled} enrolled / ${item.allottedSlots} slots (${item.reachPct}% reach)`}
+                          title={sliceTitle(item)}
                           className={`group flex w-[105px] sm:w-[110px] items-center gap-1.5 rounded px-1.5 py-0.5 text-left text-xs transition cursor-pointer min-w-0 ${
                             isHovered
                               ? "bg-primary/10 font-bold text-primary"
@@ -1959,6 +1743,8 @@ export default function InstitutionDrilldownStatsCard({
                             ? `${level2SummaryStats.inProgressPct}%`
                             : hoveredStatMetric === "progress" || hoveredStatMetric === "score"
                             ? level2SummaryStats.avgProgress
+                            : activeLevel2ReachPct == null
+                            ? "—"
                             : `${activeLevel2ReachPct}%`}
                         </span>
                         <span className="mt-1 max-w-[85px] sm:max-w-[95px] truncate text-[9px] sm:text-[10px] font-extrabold uppercase leading-tight tracking-wider text-muted-foreground">
@@ -2034,7 +1820,7 @@ export default function InstitutionDrilldownStatsCard({
                           onClick={() => handleSelectCertification(item)}
                           onMouseEnter={() => handleCertMouseEnter(item)}
                           onMouseLeave={handleCertMouseLeave}
-                          title={`${item.name} — ${item.enrolled} enrolled / ${item.allottedSlots} slots (${item.reachPct}% reach)`}
+                          title={sliceTitle(item)}
                           className={`group flex w-[220px] sm:w-[240px] items-center gap-2 rounded px-2 py-1 text-left text-xs transition cursor-pointer ${
                             isHovered
                               ? "bg-primary/10 font-bold text-primary"
@@ -2443,9 +2229,9 @@ export default function InstitutionDrilldownStatsCard({
                           <div className="truncate text-xs font-bold text-foreground">
                             {learner.name}
                           </div>
-                          {learner.email ? (
+                          {learner.detail ? (
                             <div className="truncate text-[10px] text-muted-foreground">
-                              {learner.email}
+                              {learner.detail}
                             </div>
                           ) : null}
                         </div>
@@ -2472,8 +2258,7 @@ export default function InstitutionDrilldownStatsCard({
             </div>
               </motion.div>
             )}
-          </AnimatePresence>
-        )}
+        </AnimatePresence>
       </div>
 
       {/* ----------------- Remarks Box (Executive Diagnostic Intelligence) ----------------- */}

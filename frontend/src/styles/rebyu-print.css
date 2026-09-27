@@ -1,0 +1,101 @@
+/* ============================================================================
+   Printing a document out of an app
+   ----------------------------------------------------------------------------
+   "Save as PDF" in REBYU is the browser's own print dialog, so whatever the
+   page looks like is what gets filed. Printing the page itself produced two
+   sheets carrying the portal navigation, a toast that happened to be on
+   screen, and cards laid out for a desktop viewport.
+
+   So the print sheet is not the screen with pieces hidden -- it is one
+   element, `.rb-invoice-doc`, lifted out and given the paper to itself. The
+   visibility trick rather than `display:none` on everything else: an ancestor
+   of the document (the portal shell, the router outlet, a flex column with a
+   fixed height) cannot be hidden without hiding the document inside it, and
+   cannot be safely re-laid-out from here either. Hiding every element but
+   restoring visibility down the document's own subtree leaves the layout
+   intact and paints only what we want.
+   ========================================================================= */
+
+/* Screen: the document reads as a sheet of paper resting on the page. */
+.rb-invoice-doc {
+    --rb-invoice-ink: #2c3a33;
+    --rb-invoice-muted: #6b706c;
+    --rb-invoice-accent: #2f6b4f;
+    --rb-invoice-rule: #e3ddd0;
+    --rb-invoice-due: #b06d3b;
+
+    max-width: 52rem;
+    margin-inline: auto;
+    padding: clamp(1.25rem, 4vw, 2.5rem);
+    background: #ffffff;
+    color: var(--rb-invoice-ink);
+    border: 1px solid var(--rb-invoice-rule);
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgb(44 58 51 / 0.06), 0 8px 24px -12px rgb(44 58 51 / 0.18);
+}
+
+/* An invoice is a record, not a surface that follows the reader's theme: it is
+   filed, forwarded and printed, and it should look the same in all three. The
+   tokens above are literal rather than themed for exactly that reason, and
+   dark mode leaves the sheet alone -- only the shadow softens so a white sheet
+   on a dark page does not glow. */
+:root[data-theme="dark"] .rb-invoice-doc,
+:root:not([data-theme="light"]) .rb-invoice-doc {
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 30px -14px rgb(0 0 0 / 0.6);
+}
+
+@media print {
+    @page {
+        size: A4;
+        margin: 14mm;
+    }
+
+    html,
+    body {
+        background: #ffffff !important;
+        /* The portal shell scrolls an inner pane; on paper there is nothing to
+           scroll, and a fixed height would clip the document to one sheet. */
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    body * {
+        visibility: hidden;
+    }
+
+    .rb-invoice-doc,
+    .rb-invoice-doc * {
+        visibility: visible;
+    }
+
+    .rb-invoice-doc {
+        position: absolute;
+        inset: 0 auto auto 0;
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    /* Keep a line item and its price on the same sheet. */
+    .rb-invoice-doc tr,
+    .rb-invoice-doc dl,
+    .rb-invoice-doc footer {
+        break-inside: avoid;
+    }
+
+    .rb-invoice-doc thead {
+        display: table-header-group;
+    }
+
+    /* Colour survives the print dialog's "background graphics" default being
+       off: these are borders and text, not backgrounds, so the PAID mark and
+       the letterhead stay legible either way. */
+    .rb-invoice-doc {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+}

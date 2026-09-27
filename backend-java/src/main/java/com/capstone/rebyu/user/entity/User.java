@@ -48,4 +48,10 @@ public class User {
     // pre-Cognito accounts keep working until their first federated sign-in.
     @Column(name = "cognito_sub", unique = true, length = 64)
     private String cognitoSub;
+
+    // When this account last made a signed-in request. "Online" on the admin
+    // dashboard means seen within the last few minutes -- a timestamp rather
+    // than an isOnline flag, because closing the tab never logs anyone out.
+    @Column(name = "last_seen_at")
+    private LocalDateTime lastSeenAt;
 }

@@ -32,16 +32,21 @@ async def handle_assessment_submitted(payload: dict) -> None:
 
     percentage = attempt["percentage"]
     passed = attempt["passed"]
-    score_text = f"{percentage:.0f}%" if percentage is not None else "an unscored result"
-    outcome = "Passed" if passed else "Did not pass" if passed is not None else "Pending review"
+    if percentage is not None and passed is not None:
+        body = (f"{'Passed' if passed else 'Did not pass'} -- you scored {percentage:.0f}% on "
+                f"{attempt['exam_title']} (attempt #{attempt['attempt_number']}).")
+    else:
+        # The Java side publishes only after the score is saved, so this is a
+        # safety net, not a state: there is no manual-review step to wait on.
+        body = f"Your results for {attempt['exam_title']} (attempt #{attempt['attempt_number']}) are ready."
 
     with SessionLocal() as session:
         repo.insert_notification(
             session,
             user_id=attempt["user_id"],
             title=f"Results ready: {attempt['exam_title']}",
-            body=f"{outcome} -- you scored {score_text} on {attempt['exam_title']} "
-                 f"(attempt #{attempt['attempt_number']}).",
+            body=body,
+            href=f"/learner/results/{assessment_attempt_id}",
         )
 
     logger.info("Notified user %s for submitted attempt %s", attempt["user_id"], assessment_attempt_id)
@@ -61,6 +66,7 @@ async def handle_assessment_retake_requested(payload: dict) -> None:
             title=f"Retake started: {attempt['exam_title']}",
             body=f"Attempt #{attempt['attempt_number']} of {attempt['exam_title']} has started with a "
                  f"question set personalized to your past performance.",
+            href=f"/learner/assessments/{attempt['exam_id']}",
         )
 
     logger.info("Notified user %s for retake attempt %s", attempt["user_id"], assessment_attempt_id)

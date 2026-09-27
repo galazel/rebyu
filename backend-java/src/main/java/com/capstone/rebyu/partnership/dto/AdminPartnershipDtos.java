@@ -19,7 +19,13 @@ public final class AdminPartnershipDtos {
             LocalDate requestedAccessStartDate,
             LocalDate requestedAccessEndDate,
             BigDecimal unitPrice,
-            BigDecimal lineTotal
+            BigDecimal lineTotal,
+            /* What this institution already holds for this certification, or
+               null where it holds none. Without it "10 slots" on the review
+               screen is ambiguous in the worst way: an institution with 60
+               slots asking for 10 more looks identical to one asking to be cut
+               down to 10, and approving is not reversible. */
+            Integer existingSlots
     ) {
     }
 
@@ -27,6 +33,8 @@ public final class AdminPartnershipDtos {
     public record PartnershipRequestSummaryDto(
             Long requestId,
             String referenceNumber,
+            /** NEW / ADDITIONAL / RENEWAL / CANCELLATION. */
+            String requestType,
             String institutionName,
             String institutionEmail,
             String status,
@@ -40,6 +48,7 @@ public final class AdminPartnershipDtos {
     public record PartnershipRequestDetailDto(
             Long requestId,
             String referenceNumber,
+            String requestType,
             String institutionName,
             String institutionEmail,
             String contactPersonName,

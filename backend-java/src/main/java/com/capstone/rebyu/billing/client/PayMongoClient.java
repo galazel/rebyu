@@ -14,6 +14,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -203,7 +204,24 @@ public class PayMongoClient {
         if (attributes == null) return false;
 
         String status = (String) attributes.get("payment_status");
-        return "paid".equalsIgnoreCase(status);
+        if ("paid".equalsIgnoreCase(status)) return true;
+
+        /* `payment_status` is not always there. A session that has been paid
+           comes back with status "active" and no payment_status at all, but
+           carries the payment itself in `payments` -- which is what actually
+           happened to invoice REBYU-INV-202609-000001: PayMongo had taken the
+           money and recorded pay_… as "paid", while this method kept answering
+           false and the invoice sat unpaid forever. Read the payments. */
+        Object rawPayments = attributes.get("payments");
+        if (rawPayments instanceof List<?> payments) {
+            for (Object entry : payments) {
+                if (!(entry instanceof Map<?, ?> payment)) continue;
+                Object paymentAttributes = payment.get("attributes");
+                if (!(paymentAttributes instanceof Map<?, ?> paid)) continue;
+                if ("paid".equalsIgnoreCase(String.valueOf(paid.get("status")))) return true;
+            }
+        }
+        return false;
     }
 
     /** The id of the payment a paid checkout session produced, or null. */
@@ -226,11 +244,28 @@ public class PayMongoClient {
     }
 
     /**
-     * Refunds a payment in full (or the given amount). Returns the refund id,
-     * or null if PayMongo would not take it. Test-mode money, like everything
-     * else this client touches.
+     * A refund PayMongo accepted, and what it has done with it so far.
+     *
+     * <p>Accepting a refund is not the same as making it. Card refunds settle
+     * over days and come back {@code pending} first; only {@code succeeded}
+     * means the money has moved, and a pending refund can still fail.
      */
-    public String refundPayment(String paymentId, long amountCents, String notes) {
+    public record Refund(String id, String status) {
+        public boolean succeeded() {
+            return "succeeded".equalsIgnoreCase(status);
+        }
+
+        public boolean pending() {
+            return "pending".equalsIgnoreCase(status);
+        }
+    }
+
+    /**
+     * Refunds a payment in full (or the given amount). Returns what PayMongo
+     * accepted, or null if it would not take it at all. Test-mode money, like
+     * everything else this client touches.
+     */
+    public Refund refundPayment(String paymentId, long amountCents, String notes) {
         if (!isEnabled() || paymentId == null) return null;
         try {
             Map<String, Object> attributes = new HashMap<>();
@@ -241,10 +276,29 @@ public class PayMongoClient {
             String response = postRequest("/refunds", Map.of("data", Map.of("attributes", attributes)));
             JsonNode root = objectMapper.readTree(response);
             String refundId = root.path("data").path("id").asText(null);
-            log.info("Refunded PayMongo payment {} ({} cents): refund {}", paymentId, amountCents, refundId);
-            return refundId;
+            if (refundId == null) return null;
+            String status = root.path("data").path("attributes").path("status").asText("pending");
+            log.info("Refunded PayMongo payment {} ({} cents): refund {} [{}]",
+                    paymentId, amountCents, refundId, status);
+            return new Refund(refundId, status);
         } catch (Exception e) {
             log.error("Failed to refund PayMongo payment {}: {}", paymentId, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Re-reads a refund. What turns a {@code pending} refund into a settled
+     * one in our own records, since PayMongo will not tell us unprompted.
+     */
+    public Refund refundStatus(String refundId) {
+        if (!isEnabled() || refundId == null) return null;
+        try {
+            JsonNode root = objectMapper.readTree(getRequest("/refunds/" + refundId));
+            String status = root.path("data").path("attributes").path("status").asText(null);
+            return status == null ? null : new Refund(refundId, status);
+        } catch (Exception e) {
+            log.warn("Could not re-read PayMongo refund {}: {}", refundId, e.getMessage());
             return null;
         }
     }

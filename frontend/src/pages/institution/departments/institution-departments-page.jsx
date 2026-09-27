@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, useOutletContext, useSearchParams } from "react-router-dom"
-import { ArrowLeftIcon } from "@/components/icons"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Loader2, Mail, Plus, Trash2, UserCog, UserPlus, Users2, UsersRound } from "@/components/icons"
 import { toast } from "sonner"
@@ -1191,15 +1190,6 @@ export default function DepartmentsPage() {
 
   return (
     <div className="space-y-6">
-      {scopedInstitutionCertId != null ? (
-        <Link
-          to="/institution/certifications"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeftIcon className="size-4" aria-hidden="true" />
-          Back to Certifications
-        </Link>
-      ) : null}
 
       <InstitutionPageHeader
         title={scopedCertification ? `Departments — ${scopedCertification.title}` : "Departments"}

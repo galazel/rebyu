@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { ArrowLeft, Loader2, Save } from "@/components/icons"
+import { Loader2, Save } from "@/components/icons"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -123,13 +123,6 @@ export default function ArenaDetailPage() {
     <div className="rebyu-page">
       <div className="rebyu-page-header">
         <div className="flex items-start gap-3">
-          {/* Back to the challenge list, which is where "Manage problems" is
-              clicked from and the only entry in the admin nav. */}
-          <Button asChild variant="ghost" size="icon" className="mt-0.5">
-            <Link to="/admin/challenges" aria-label="Back to challenges">
-              <ArrowLeft className="size-4" />
-            </Link>
-          </Button>
 
           <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${arena.tone}`}>
             <arena.icon className="size-6" aria-hidden="true" />

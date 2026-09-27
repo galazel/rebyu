@@ -72,6 +72,7 @@ public class EmailService {
      * arrive separately (see sendTemporaryPassword / Cognito).
      */
     public void sendPartnershipWelcome(
+            boolean existingPartner,
             String recipientEmail,
             String institutionName,
             String referenceNumber,
@@ -82,40 +83,144 @@ public class EmailService {
     ) {
         String base = frontendUrl.replaceAll("/+$", "");
         String invoiceUrl = base + invoicePath;
-        String subject = "Welcome to REBYU, " + institutionName + " - your partnership is approved";
+        /* An institution that already has access is not being welcomed and its
+           account is not "ready" -- it has been signing in for months. Same
+           invoice, same link, different first line. */
+        String subject = existingPartner
+                ? "Your REBYU request (" + referenceNumber + ") is approved - invoice ready to pay"
+                : "Welcome to REBYU, " + institutionName + " - your partnership is approved";
+        String opening = existingPartner
+                ? "Your request (%s) has been approved. The access below is added to what you already have."
+                : "Welcome to REBYU! Your partnership request (%s) has been approved and your institution account is ready.";
+        String openingHtml = existingPartner
+                ? "Your request <b>" + escape(referenceNumber)
+                        + "</b> has been approved. The access below is added to what you already have."
+                : "Welcome to REBYU! Your partnership request <b>" + escape(referenceNumber)
+                        + "</b> has been approved and your institution account is ready.";
+        String accessHeading = existingPartner ? "Additional access approved" : "Certification access approved";
+        String signInNote = existingPartner
+                ? ""
+                : "<p style=\"font-size:12px;color:#6b706c\">Your sign-in details arrive in a separate email.</p>";
         StringBuilder textLines = new StringBuilder();
         StringBuilder htmlLines = new StringBuilder();
         for (String line : lineSummaries) {
             textLines.append("  - ").append(line).append('\n');
             htmlLines.append("<li>").append(escape(line)).append("</li>");
         }
+        String closing = existingPartner
+                ? "Once the invoice is paid the extra slots are added to your allocation and are ready to assign."
+                : "Your sign-in details are sent in a separate email. Once the invoice is paid, head to Certifications to create departments and invite your learners.";
         String text = """
                 Hello %s,
 
-                Welcome to REBYU! Your partnership request (%s) has been approved and your institution account is ready.
+                %s
 
-                Certification access approved (activates once the invoice is paid):
+                %s (activates once the invoice is paid):
                 %s
                 Invoice %s - amount due: %s
 
                 View and pay your invoice online (card or GCash via PayMongo):
                 %s
 
-                Your sign-in details are sent in a separate email. Once the invoice is paid, head to Certifications to create departments and invite your learners.
+                %s
 
                 REBYU Team
-                """.formatted(institutionName, referenceNumber, textLines, invoiceNumber, amountDue, invoiceUrl);
+                """.formatted(institutionName, opening.formatted(referenceNumber), accessHeading,
+                textLines, invoiceNumber, amountDue, invoiceUrl, closing);
         String html = frame("<p>Hello <b>" + escape(institutionName) + "</b>,</p>"
-                + "<p>Welcome to REBYU! Your partnership request <b>" + escape(referenceNumber)
-                + "</b> has been approved and your institution account is ready.</p>"
-                + "<p style=\"margin-bottom:4px\"><b>Certification access approved</b> <span style=\"color:#6b706c\">(activates once the invoice is paid)</span></p><ul style=\"margin-top:0\">" + htmlLines + "</ul>"
+                + "<p>" + openingHtml + "</p>"
+                + "<p style=\"margin-bottom:4px\"><b>" + accessHeading + "</b> <span style=\"color:#6b706c\">(activates once the invoice is paid)</span></p><ul style=\"margin-top:0\">" + htmlLines + "</ul>"
                 + "<p>Invoice <b>" + escape(invoiceNumber) + "</b> &middot; amount due <b>" + escape(amountDue) + "</b></p>"
                 + "<p><a href=\"" + invoiceUrl + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;display:inline-block\">View and pay invoice</a></p>"
-                + "<p style=\"font-size:12px;color:#6b706c\">Pay by card or GCash through PayMongo from the invoice page; access switches on as soon as payment is confirmed. Your sign-in details arrive in a separate email. Once you are in, open Certifications to create departments and invite learners.</p>");
+                + "<p style=\"font-size:12px;color:#6b706c\">Pay by card or GCash through PayMongo from the invoice page; access switches on as soon as payment is confirmed. "
+                + (existingPartner
+                        ? "The extra slots join your existing allocation."
+                        : "Your sign-in details arrive in a separate email. Once you are in, open Certifications to create departments and invite learners.")
+                + "</p>"
+                + signInNote);
         sendHtml(recipientEmail, subject, text, html);
     }
 
     /** Sent when a learner passes a certification's mock exam: the badge is theirs. */
+    /**
+     * Sent when an admin rejects a partnership request.
+     *
+     * The approval has had an email since the beginning; the rejection had only
+     * an in-app notice, which an institution that submitted a request and then
+     * closed the tab never sees -- and which a public applicant, having no
+     * account yet, cannot receive at all. A decision either way is worth the
+     * same message, and an unexplained "no" is the one most likely to be
+     * chased, so the admin's remarks ride along when there are any.
+     */
+    public void sendPartnershipRejected(
+            String recipientEmail,
+            String institutionName,
+            String referenceNumber,
+            String remarks
+    ) {
+        String base = frontendUrl.replaceAll("/+$", "");
+        String link = base + "/institution/partnership";
+        String subject = "Your REBYU partnership request (" + referenceNumber + ") was not approved";
+        boolean hasRemarks = remarks != null && !remarks.isBlank();
+        String text = """
+                Hello %s,
+
+                Your partnership request (%s) was reviewed and could not be approved.
+                %s
+                You can submit a new request at any time:
+                %s
+
+                If you think this was a mistake, reply to this email and we will take another look.
+
+                REBYU Team
+                """.formatted(institutionName, referenceNumber,
+                hasRemarks ? "\nReason given: " + remarks + "\n" : "", link);
+        String html = frame("<p>Hello <b>" + escape(institutionName) + "</b>,</p>"
+                + "<p>Your partnership request <b>" + escape(referenceNumber)
+                + "</b> was reviewed and could not be approved.</p>"
+                + (hasRemarks
+                        ? "<p style=\"background:#f4f1ea;border-left:3px solid #c8553d;padding:10px 12px;margin:0 0 16px\">"
+                                + "<b>Reason given:</b><br>" + escape(remarks) + "</p>"
+                        : "")
+                + "<p><a href=\"" + link + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;display:inline-block\">Submit a new request</a></p>"
+                + "<p style=\"font-size:12px;color:#6b706c\">If you think this was a mistake, reply to this email and we will take another look.</p>");
+        sendHtml(recipientEmail, subject, text, html);
+    }
+
+    /**
+     * Sent when a partnership ends: access is already gone by the time this
+     * arrives, so it says so plainly and states what happened to the money.
+     */
+    public void sendPartnershipCancelled(
+            String recipientEmail,
+            String institutionName,
+            String referenceNumber,
+            String refundSummary
+    ) {
+        String subject = "Your REBYU partnership (" + referenceNumber + ") has ended";
+        String text = """
+                Hello %s,
+
+                Your partnership (%s) has been cancelled and access for your learners has been removed.
+
+                %s
+
+                Your invoices and payment records stay available for your accounting. If you would
+                like to work with REBYU again, you can submit a new partnership request at any time.
+
+                REBYU Team
+                """.formatted(institutionName, referenceNumber, refundSummary);
+        String html = frame("<p>Hello <b>" + escape(institutionName) + "</b>,</p>"
+                + "<p>Your partnership <b>" + escape(referenceNumber)
+                + "</b> has been cancelled and access for your learners has been removed.</p>"
+                + "<p style=\"background:#f4f1ea;border-left:3px solid #2f6b4f;padding:10px 12px\">"
+                + escape(refundSummary) + "</p>"
+                + "<p style=\"font-size:12px;color:#6b706c\">Your invoices and payment records stay available for "
+                + "your accounting. If you would like to work with REBYU again, you can submit a new partnership "
+                + "request at any time.</p>");
+        sendHtml(recipientEmail, subject, text, html);
+    }
+
     public void sendBadgeEarned(String recipientEmail, String learnerName, String certificationTitle,
                                 String score, boolean hasBadgeImage) {
         String base = frontendUrl.replaceAll("/+$", "");

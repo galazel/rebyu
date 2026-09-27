@@ -436,22 +436,20 @@ function CertificationCard({ item, certification, generationRun = null }) {
             )}
         >
           <figure className="relative h-48 shrink-0 overflow-hidden border-b border-border">
+            {/* The earned emblem goes in the cover's medallion rather than
+                being pinned into a corner of it: the cap already has a circle
+                in the middle, and two circles on one panel read as a mistake.
+                The key is part of the src so a replaced badge is never served
+                from the browser's cache of the old one. */}
             <CertificationCover
                 title={certificationTitle}
+                badgeSrc={
+                    badgeImageKey
+                        ? `${certificationBadgeUrl(certificationId)}?v=${encodeURIComponent(badgeImageKey)}`
+                        : undefined
+                }
                 className="h-full w-full"
             />
-
-            {badgeImageKey ? (
-                /* The earned emblem, pinned bottom-left over the wordmark the
-                   way Credly shows a badge on its issuer's colour. The key is
-                   part of the src so a replaced badge is never served from the
-                   browser's cache of the old one. */
-                <img
-                    src={`${certificationBadgeUrl(certificationId)}?v=${encodeURIComponent(badgeImageKey)}`}
-                    alt=""
-                    className="absolute bottom-3 left-3 size-16 rounded-full border-4 border-white/90 bg-white object-cover shadow-md"
-                />
-            ) : null}
 
             {isEmpty && !isGenerating ? (
                 /* A wanted-poster stamp: rotated hard, outlined, and centred

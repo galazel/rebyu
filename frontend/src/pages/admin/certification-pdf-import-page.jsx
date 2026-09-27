@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query"
 
 import {
     AlertTriangle,
-    ArrowLeft,
     CheckCircle2,
     Eye,
     KeyRound,
@@ -16,7 +15,7 @@ import {
     Sparkles,
     Trash2,
     UploadIcon,
-    X,
+    X
 } from "@/components/icons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -1495,11 +1494,6 @@ export default function CertificationPdfImportPage() {
     return (
         <div className="flex h-dvh w-full flex-col overflow-hidden bg-muted/20">
             <header className="flex shrink-0 items-center gap-3 border-b border-border bg-background px-4 py-2.5">
-                <Button asChild variant="ghost" size="icon-sm" aria-label="Back to question bank">
-                    <Link to={`/admin/certification/${certificationId}/question-bank`}>
-                        <ArrowLeft className="size-4" />
-                    </Link>
-                </Button>
                 <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Import from PDF</p>
                     <p className="truncate text-sm font-semibold">{certification?.title ?? "Question bank"}</p>

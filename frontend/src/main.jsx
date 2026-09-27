@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client"
 import "./index.css"
 // Loaded after index.css on purpose: the classroom design layer wins on source order.
 import "./styles/rebyu-classroom.css"
+import "./styles/rebyu-print.css"
 import App from "./App.jsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
 import { BrowserRouter } from "react-router-dom"

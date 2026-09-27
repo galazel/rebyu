@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
 
-import { ArrowLeft, Upload } from "@/components/icons"
+import { Upload } from "@/components/icons"
 import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 
 /**
@@ -148,19 +147,9 @@ export function UploadDropzone({ onFile, error, icon: Icon = Upload, title, subt
 
 /** The heading every feature screen carries, with a way back to the hub. */
 export function FeatureHeader({ title, subtitle, backTo = "/learner/workspace", children }) {
-  const navigate = useNavigate()
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 lg:px-6">
       <div className="flex min-w-0 items-center gap-3">
-        <TactileButton
-          variant="ghost"
-          size="sm"
-          className="rb-btn-icon"
-          onClick={() => navigate(backTo)}
-          aria-label="Back to the workspace"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-        </TactileButton>
         <div className="min-w-0">
           <h1 className="rb-display rb-display-sm truncate">{title}</h1>
           <p className="text-sm font-medium text-rb-wolf">{subtitle}</p>

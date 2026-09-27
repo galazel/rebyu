@@ -79,7 +79,9 @@ def _notify(context: RunContext, title: str, body: str) -> None:
     with SessionLocal() as session:
         repo.insert_notification(
             session, user_id=context.triggered_by_user_id, title=title, body=body,
-            href="/admin/certifications",
+            # The certification's own admin page; the catalog (/admin) when
+            # the run never resolved one. There is no /admin/certifications.
+            href=f"/admin/certification/{context.certification_id}" if context.certification_id else "/admin",
         )
 
 

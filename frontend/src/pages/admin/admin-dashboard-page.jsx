@@ -1,11 +1,6 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import {
-  CreditCard,
-  Download,
-  GraduationCapIcon,
-  UserCheck,
-} from "@/components/icons"
+import { CreditCard, Download, GraduationCapIcon, UserCheck } from "@/components/icons"
 
 import {
   InstitutionErrorState,
@@ -27,7 +22,7 @@ import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearr
 import { useDashboardLayout } from "@/hooks/use-dashboard-layout.js"
 import { Button } from "@/components/ui/button"
 import { downloadCsv, timestampedFilename, toCsv } from "@/lib/csv.js"
-import { getPlatformMetrics } from "@/services/adminMetricsService.js"
+import { getPlatformMetrics, getUserPresence } from "@/services/adminMetricsService.js"
 import { base } from "@/services/base"
 
 function asArray(value) {
@@ -55,6 +50,54 @@ function money(value) {
   }).format(Number(value))
 }
 
+/* Tiles the 2026-09 redesign removed. A saved arrangement that still names
+   one was made for the old board, and replaying it would scatter the new
+   tiles around the old gaps -- so it gives way to the new default until the
+   admin arranges the board again. */
+const RETIRED_TILES = new Set(["admin-users", "admin-sales", "admin-pass-rate", "admin-partners"])
+
+const PERIODS = [
+  { key: "week", label: "Week", hint: "Each day, last 7 days" },
+  { key: "month", label: "Month", hint: "Each day, last 30 days" },
+  { key: "year", label: "Year", hint: "Each month, last 12 months" },
+]
+
+/** "2026-09-26" as a local date -- `new Date(string)` would read it as UTC midnight and slip a day west of Greenwich. */
+function localDate(iso) {
+  const [year, month, day] = String(iso).split("-").map(Number)
+  return new Date(year, (month || 1) - 1, day || 1)
+}
+
+function bucketLabel(iso, period) {
+  const date = localDate(iso)
+  if (period === "year") return date.toLocaleDateString(undefined, { month: "short" })
+  if (period === "week") return date.toLocaleDateString(undefined, { weekday: "short" })
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+}
+
+/** Week / Month / Year switch for the user activity graph. */
+function PeriodSwitch({ value, onChange }) {
+  return (
+    <div role="group" aria-label="Time range" className="inline-flex gap-1 rounded-rb-control border-2 border-border p-1">
+      {PERIODS.map((option) => (
+        <button
+          key={option.key}
+          type="button"
+          aria-pressed={value === option.key}
+          onClick={() => onChange(option.key)}
+          className={`rounded-lg px-3 py-1 text-xs font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+            value === option.key
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function AdminDashboard() {
   /* One aggregate call for every counter. The page used to fetch six global
      lists in full and count them in the browser; these are COUNT/SUM queries
@@ -65,9 +108,19 @@ export default function AdminDashboard() {
     retry: 1,
   })
 
-  /* The partnership feed needs rows rather than counts, so it stays a list read.
-     It is the only one left: payments now come down with the metrics payload,
-     and the /exam-results fetch went with the assessment feed it fed. */
+  /* Who is online, and active users over the chosen range. Polled, because
+     "right now" is the whole point of the number; the old range stays on
+     screen while a new one loads so the graph does not blink out. */
+  const [period, setPeriod] = useState("week")
+  const presenceQuery = useQuery({
+    queryKey: ["admin-presence", period],
+    queryFn: () => getUserPresence(period),
+    refetchInterval: 30_000,
+    placeholderData: (previous) => previous,
+    retry: 1,
+  })
+
+  /* The partnership feed needs rows rather than counts, so it stays a list read. */
   const partnershipsQuery = useQuery({
     queryKey: ["partnership-requests"],
     queryFn: () => base("partnership-requests"),
@@ -79,10 +132,22 @@ export default function AdminDashboard() {
   const people = metrics.people ?? {}
   const catalog = metrics.catalog ?? {}
   const sales = metrics.sales ?? {}
-
   const assessments = metrics.assessments ?? {}
   const planMix = metrics.planMix ?? null
   const pro = metrics.pro ?? null
+  const presence = presenceQuery.data ?? null
+
+  const activity = useMemo(
+    () =>
+      asArray(presence?.history).map((point) => ({
+        bucket: point.bucket,
+        label: bucketLabel(point.bucket, presence?.period ?? period),
+        active: Number(point.activeUsers ?? 0),
+        total: Number(point.totalUsers ?? 0),
+      })),
+    [presence, period]
+  )
+  const activityPeak = Math.max(4, ...activity.map((row) => Math.max(row.active, row.total)))
 
   /* Six calendar months, oldest first, labelled "Apr", "May"... The server
      zero-fills quiet months so a line never jumps a gap. */
@@ -91,11 +156,10 @@ export default function AdminDashboard() {
       asArray(metrics.trends).map((row) => {
         const [year, month] = String(row.month).split("-").map(Number)
         const label = new Date(year, (month || 1) - 1, 1).toLocaleDateString(undefined, { month: "short" })
-        const attempts = Number(row.attempts ?? 0)
         return {
           month: label,
           users: Number(row.newUsers ?? 0),
-          attempts,
+          attempts: Number(row.attempts ?? 0),
           sales: Math.round(Number(row.certificationSales ?? 0)),
           pro: Math.round(Number(row.proRevenue ?? 0)),
           approvals: Number(row.proApprovals ?? 0),
@@ -163,40 +227,49 @@ export default function AdminDashboard() {
     ].filter((slice) => slice.value > 0)
   }, [catalog.certifications, catalog.publishedCertifications])
 
-  const feeds = useMemo(() => {
-    const partnerships = asArray(partnershipsQuery.data)
-    return {
-      recentPartnerships: [...partnerships]
+  const recentPartnerships = useMemo(
+    () =>
+      [...asArray(partnershipsQuery.data)]
         .sort((a, b) => new Date(b.submittedAt ?? 0) - new Date(a.submittedAt ?? 0))
         .slice(0, 5),
-    }
-  }, [partnershipsQuery.data])
+    [partnershipsQuery.data]
+  )
 
   /**
    * The screen, as a spreadsheet.
    *
-   * Every section here is a tile above, in the order the tiles read, so an
-   * admin who exports can point at a row and find the chart it came from. The
-   * feeds are exported at the length they are shown rather than in full: the
-   * button says "export this dashboard", and quietly returning a different,
-   * longer set of payments than the eight on screen would be a different
-   * report wearing this one's label.
+   * Every section is a tile above, in the order the tiles read, so an admin
+   * who exports can point at a row and find the chart it came from. Feeds go
+   * out at the length they are shown, and the user activity section is the
+   * range currently selected on the graph.
    *
    * Numbers go out bare -- no peso sign, no thousands separator -- because a
    * formatted figure lands in a spreadsheet as text and will not sum.
    */
-  const buildCsv = () =>
-    toCsv([
+  const buildCsv = () => {
+    const range = PERIODS.find((option) => option.key === (presence?.period ?? period))
+    return toCsv([
       {
         title: "REBYU platform dashboard",
         columns: ["Exported", new Date().toISOString()],
       },
       {
+        title: "Attendance (admins not counted)",
+        columns: ["Metric", "Value"],
+        rows: [
+          [`Online now (used REBYU in the last ${presence?.onlineWindowMinutes ?? 5} minutes)`, presence?.onlineUsers],
+          ["Total users", presence?.totalUsers],
+        ],
+      },
+      {
+        title: `User activity (${range?.label ?? "Week"}: ${range?.hint?.toLowerCase() ?? ""})`,
+        columns: [range?.key === "year" ? "Month" : "Day", "Active users", "Total users"],
+        rows: activity.map((row) => [row.bucket, row.active, row.total]),
+      },
+      {
         title: "Summary",
         columns: ["Metric", "Value"],
         rows: [
-          ["Total users", people.totalUsers],
-          ["Active users", people.activeUsers],
           ["Learners", people.learners],
           ["Learners in a certification", people.learnersInCertification],
           ["Active enrollments", people.activeEnrollments],
@@ -209,7 +282,6 @@ export default function AdminDashboard() {
           ["Active subscriptions", sales.activeSubscriptions],
           ["Active licences", sales.activeLicenses],
           ["Graded attempts", assessments.gradedAttempts],
-          ["Average score (%)", assessments.averageScore],
           ["Pro revenue approved (PHP)", pro?.approvedRevenue],
           ["Pro revenue last 30 days (PHP)", pro?.approvedRevenueLast30Days],
           ["Learners on Pro", pro?.activePro],
@@ -218,23 +290,9 @@ export default function AdminDashboard() {
         ],
       },
       {
-        title: "Platform activity (last six months)",
-        columns: [
-          "Month",
-          "New accounts",
-          "Assessment attempts",
-          "Certification sales (PHP)",
-          "Pro revenue (PHP)",
-          "Pro approvals",
-        ],
-        rows: trends.map((row) => [
-          row.month,
-          row.users,
-          row.attempts,
-          row.sales,
-          row.pro,
-          row.approvals,
-        ]),
+        title: "Learners per certification",
+        columns: ["Certification", "Learners"],
+        rows: learnersPerCertification.map((row) => [row.title, row.learners]),
       },
       {
         title: "Learner plans",
@@ -242,14 +300,21 @@ export default function AdminDashboard() {
         rows: planSlices.map((slice) => [slice.name, slice.value]),
       },
       {
+        title: "Revenue and activity (last six months)",
+        columns: [
+          "Month",
+          "Certification sales (PHP)",
+          "Pro revenue (PHP)",
+          "Pro approvals",
+          "New accounts",
+          "Assessment attempts",
+        ],
+        rows: trends.map((row) => [row.month, row.sales, row.pro, row.approvals, row.users, row.attempts]),
+      },
+      {
         title: "Certification catalog",
         columns: ["Status", "Certifications"],
         rows: catalogMix.map((slice) => [slice.name, slice.value]),
-      },
-      {
-        title: "Learners per certification",
-        columns: ["Certification", "Learners"],
-        rows: learnersPerCertification.map((row) => [row.title, row.learners]),
       },
       {
         title: "Learners who paid",
@@ -266,41 +331,149 @@ export default function AdminDashboard() {
       {
         title: "Recent partnership requests",
         columns: ["Request", "Status", "Submitted at"],
-        rows: feeds.recentPartnerships.map((request) => [
+        rows: recentPartnerships.map((request) => [
           `Request #${request.requestId}`,
           request.status,
           request.submittedAt,
         ]),
       },
     ])
+  }
 
+  /* Placed by coordinate in even six-column bands, each a wide chart beside a
+     narrow one, so the board reads as rows rather than a scatter:
+       y0  user activity (4, 3 tall)  | online now / on a certification / Pro revenue (2, stacked)
+       y3  learners per cert (4)      | learner plans (2)
+       y5  revenue (4)                | catalog (2)
+       y7  platform activity (4)      | billing (2)
+       y9  learners who paid (4)      | partnership requests (2) */
   const tiles = useMemo(() => {
     const failed = metricsQuery.isError
+    const range = PERIODS.find((option) => option.key === period)
 
     return [
       {
-        id: "admin-growth",
+        id: "admin-user-activity",
+        x: 0,
+        y: 0,
+        col: 4,
+        row: 3,
+        element: (
+          <BentoTile col={4} row={3}>
+            <BentoHeading
+              title="Active users"
+              hint={`${range.hint}: people who used REBYU, against total users. Admins are not counted.`}
+              action={<PeriodSwitch value={period} onChange={setPeriod} />}
+            />
+            {presenceQuery.isError ? (
+              <p className="mt-4 text-sm text-muted-foreground">Could not be loaded.</p>
+            ) : (
+              <TrendLineChart
+                data={activity}
+                xKey="label"
+                height={340}
+                dot={period !== "month"}
+                domain={[0, Math.ceil(activityPeak * 1.15)]}
+                series={[
+                  { key: "active", name: "Active users" },
+                  { key: "total", name: "Total users" },
+                ]}
+                legendNote={period === "year" ? "This month" : "Today"}
+              />
+            )}
+          </BentoTile>
+        ),
+      },
+      {
+        id: "admin-online",
+        x: 4,
+        y: 0,
+        col: 2,
+        row: 1,
+        element: (
+          <BentoStat
+            tone="leaf"
+            col={2}
+            row={1}
+            icon={UserCheck}
+            label="Online now"
+            value={presenceQuery.isError ? "—" : count(presence?.onlineUsers)}
+            hint={
+              presenceQuery.isError
+                ? "Could not be loaded"
+                : `of ${count(presence?.totalUsers)} total users · last ${presence?.onlineWindowMinutes ?? 5} min`
+            }
+          />
+        ),
+      },
+      {
+        id: "admin-studying",
+        x: 4,
+        y: 1,
+        col: 2,
+        row: 1,
+        element: (
+          <BentoStat
+            tone="feather"
+            col={2}
+            row={1}
+            icon={GraduationCapIcon}
+            label="Taking a certification"
+            value={failed ? "—" : count(people.learnersInCertification)}
+            // Distinct people, not enrollment rows: one learner can hold several
+            // active certifications, and conflating the two overstates the roll.
+            hint={failed ? "Could not be loaded" : `${count(people.activeEnrollments)} active enrollments`}
+          />
+        ),
+      },
+      {
+        id: "admin-pro-revenue",
+        x: 4,
+        y: 2,
+        col: 2,
+        row: 1,
+        element: (
+          <BentoStat
+            tone="bee"
+            col={2}
+            row={1}
+            icon={CreditCard}
+            label="Pro revenue (test)"
+            value={failed || !pro ? "—" : money(pro.approvedRevenue)}
+            hint={
+              failed || !pro
+                ? "Could not be loaded"
+                : `${money(pro.approvedRevenueLast30Days)} in 30 days · ${count(pro.activePro)} on Pro`
+            }
+          />
+        ),
+      },
+      {
+        id: "admin-learners-per-cert",
+        x: 0,
+        y: 3,
         col: 4,
         row: 2,
         element: (
           <BentoTile col={4} row={2}>
             <BentoHeading
-              title="Platform activity"
-              hint="New accounts and graded assessment attempts, last six months"
+              title="Learners per certification"
+              hint="Distinct people with an active enrollment in each certification"
             />
             {failed ? (
               <p className="mt-4 text-sm text-muted-foreground">Could not be loaded.</p>
+            ) : learnersPerCertification.length === 0 ? (
+              <p className="mt-4 text-sm text-muted-foreground">No active enrollments yet.</p>
             ) : (
-              <TrendAreaChart
-                data={trends}
-                xKey="month"
-                stacked={false}
-                height={190}
-                series={[
-                  { key: "attempts", name: "Assessment attempts" },
-                  { key: "users", name: "New accounts" },
-                ]}
-                legendNote="This month"
+              <BarBreakdownChart
+                data={learnersPerCertification.map((row) => ({
+                  certification: row.title,
+                  learners: Number(row.learners ?? 0),
+                }))}
+                categoryKey="certification"
+                valueKey="learners"
+                height={200}
+                categoryWidth={132}
               />
             )}
           </BentoTile>
@@ -308,6 +481,8 @@ export default function AdminDashboard() {
       },
       {
         id: "admin-plan-mix",
+        x: 4,
+        y: 3,
         col: 2,
         row: 2,
         element: (
@@ -342,6 +517,8 @@ export default function AdminDashboard() {
       },
       {
         id: "admin-revenue",
+        x: 0,
+        y: 5,
         col: 4,
         row: 2,
         element: (
@@ -369,108 +546,14 @@ export default function AdminDashboard() {
         ),
       },
       {
-        id: "admin-studying",
-        col: 2,
-        row: 2,
-        element: (
-          <BentoStat
-            tone="feather"
-            col={2}
-            row={2}
-            icon={GraduationCapIcon}
-            label="Currently taking a certification"
-            value={failed ? "—" : count(people.learnersInCertification)}
-            // Distinct people, not enrollment rows: one learner can hold several
-            // active certifications, and conflating the two overstates the roll.
-            hint={
-              failed
-                ? "Could not be loaded"
-                : `${count(people.activeEnrollments)} active enrollments`
-            }
-          />
-        ),
-      },
-      {
-        id: "admin-sales", // id kept so saved layouts put this tile where Gross sales was
-        col: 2,
-        row: 2,
-        element: (
-          <BentoStat
-            tone="bee"
-            col={2}
-            row={2}
-            icon={UserCheck}
-            label="Active users"
-            value={failed ? "—" : count(people.activeUsers)}
-            hint={failed ? "Could not be loaded" : `of ${count(people.totalUsers)} total users · ${count(people.learners)} learners`}
-          />
-        ),
-      },
-      {
-        id: "admin-pro-revenue",
-        col: 2,
-        row: 2,
-        element: (
-          <BentoStat
-            tone="feather"
-            col={2}
-            row={2}
-            icon={CreditCard}
-            label="Pro revenue (test)"
-            value={failed || !pro ? "—" : money(pro.approvedRevenue)}
-            hint={
-              failed || !pro
-                ? "Could not be loaded"
-                : `${money(pro.approvedRevenueLast30Days)} in 30 days · ${count(pro.activePro)} on Pro · ${count(
-                    pro.awaitingApproval
-                  )} waiting (${money(pro.awaitingRevenue)})`
-            }
-          />
-        ),
-      },
-      {
-        id: "admin-learners-per-cert",
-        col: 4,
-        row: 2,
-        element: (
-          <BentoTile col={4} row={2}>
-            <BentoHeading
-              title="Learners per certification"
-              hint="Distinct people with an active enrollment in each certification"
-            />
-            {failed ? (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Could not be loaded.
-              </p>
-            ) : learnersPerCertification.length === 0 ? (
-              <p className="mt-4 text-sm text-muted-foreground">
-                No active enrollments yet.
-              </p>
-            ) : (
-              <BarBreakdownChart
-                data={learnersPerCertification.map((row) => ({
-                  certification: row.title,
-                  learners: Number(row.learners ?? 0),
-                }))}
-                categoryKey="certification"
-                valueKey="learners"
-                height={180}
-                categoryWidth={132}
-              />
-            )}
-          </BentoTile>
-        ),
-      },
-      {
         id: "admin-catalog",
+        x: 4,
+        y: 5,
         col: 2,
         row: 2,
         element: (
           <BentoTile col={2} row={2}>
-            <BentoHeading
-              title="Certification catalog"
-              hint="Published against still in draft"
-            />
+            <BentoHeading title="Certification catalog" hint="Published against still in draft" />
             {failed || catalogMix.length === 0 ? (
               <p className="mt-4 text-sm text-muted-foreground">
                 {failed ? "Could not be loaded." : "No certifications yet."}
@@ -487,15 +570,44 @@ export default function AdminDashboard() {
         ),
       },
       {
+        id: "admin-growth",
+        x: 0,
+        y: 7,
+        col: 4,
+        row: 2,
+        element: (
+          <BentoTile col={4} row={2}>
+            <BentoHeading
+              title="Platform activity"
+              hint="New accounts and graded assessment attempts, last six months"
+            />
+            {failed ? (
+              <p className="mt-4 text-sm text-muted-foreground">Could not be loaded.</p>
+            ) : (
+              <TrendAreaChart
+                data={trends}
+                xKey="month"
+                stacked={false}
+                height={190}
+                series={[
+                  { key: "attempts", name: "Assessment attempts" },
+                  { key: "users", name: "New accounts" },
+                ]}
+                legendNote="This month"
+              />
+            )}
+          </BentoTile>
+        ),
+      },
+      {
         id: "admin-commercial",
+        x: 4,
+        y: 7,
         col: 2,
         row: 2,
         element: (
           <BentoTile col={2} row={2}>
-            <BentoHeading
-              title="Billing"
-              hint="Orders, subscriptions, and institutional licences"
-            />
+            <BentoHeading title="Billing" hint="Orders, subscriptions, and institutional licences" />
             {failed ? (
               <p className="mt-4 text-sm text-muted-foreground">Could not be loaded.</p>
             ) : (
@@ -517,74 +629,9 @@ export default function AdminDashboard() {
         ),
       },
       {
-        id: "admin-partners",
-        col: 2,
-        row: 2,
-        element: (
-          <BentoTile col={2} row={2}>
-            <BentoHeading
-              title="Institutions"
-              hint="Onboarded against requests still awaiting review"
-            />
-            {failed ? (
-              <p className="mt-4 text-sm text-muted-foreground">Could not be loaded.</p>
-            ) : (
-              <BarBreakdownChart
-                data={[
-                  { label: "Onboarded", count: Number(catalog.institutions ?? 0) },
-                  { label: "Pending", count: Number(catalog.pendingPartnerships ?? 0) },
-                ]}
-                categoryKey="label"
-                valueKey="count"
-                height={168}
-                categoryWidth={104}
-              />
-            )}
-          </BentoTile>
-        ),
-      },
-      {
-        id: "admin-recent-partnerships",
-        col: 2,
-        row: 2,
-        element: (
-          <BentoTile col={2} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
-              <BentoHeading
-                title="Recent partnership requests"
-                hint="Latest requests from institutions."
-              />
-
-              {partnershipsQuery.isError ? (
-                <p className="text-sm text-muted-foreground">
-                  Partnership requests could not be loaded.
-                </p>
-              ) : feeds.recentPartnerships.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No partnership requests yet.</p>
-              ) : (
-                <ul className="-mr-2 min-h-0 flex-1 divide-y-2 divide-border overflow-y-auto pr-2">
-                  {feeds.recentPartnerships.map((request) => (
-                    <li
-                      key={request.requestId}
-                      className="flex items-center justify-between gap-2 py-3 text-sm first:pt-0"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-bold">Request #{request.requestId}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDateTime(request.submittedAt)}
-                        </p>
-                      </div>
-                      <InstitutionStatusBadge status={request.status} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </BentoTile>
-        ),
-      },
-      {
         id: "admin-recent-payments",
+        x: 0,
+        y: 9,
         col: 4,
         row: 2,
         element: (
@@ -600,10 +647,8 @@ export default function AdminDashboard() {
                 }
               />
 
-              {metricsQuery.isError ? (
-                <p className="text-sm text-muted-foreground">
-                  Payments could not be loaded.
-                </p>
+              {failed ? (
+                <p className="text-sm text-muted-foreground">Payments could not be loaded.</p>
               ) : recentPayments.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No paid purchases or Pro subscriptions yet.</p>
               ) : (
@@ -652,9 +697,56 @@ export default function AdminDashboard() {
           </BentoTile>
         ),
       },
+      {
+        id: "admin-recent-partnerships",
+        x: 4,
+        y: 9,
+        col: 2,
+        row: 2,
+        element: (
+          <BentoTile col={2} row={2} className="!p-0">
+            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+              <BentoHeading
+                title="Institutions"
+                hint={
+                  failed
+                    ? "Latest partnership requests."
+                    : `${count(catalog.institutions)} onboarded · ${count(catalog.pendingPartnerships)} awaiting review`
+                }
+              />
+
+              {partnershipsQuery.isError ? (
+                <p className="text-sm text-muted-foreground">Partnership requests could not be loaded.</p>
+              ) : recentPartnerships.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No partnership requests yet.</p>
+              ) : (
+                <ul className="-mr-2 min-h-0 flex-1 divide-y-2 divide-border overflow-y-auto pr-2">
+                  {recentPartnerships.map((request) => (
+                    <li
+                      key={request.requestId}
+                      className="flex items-center justify-between gap-2 py-3 text-sm first:pt-0"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-bold">Request #{request.requestId}</p>
+                        <p className="text-xs text-muted-foreground">{formatDateTime(request.submittedAt)}</p>
+                      </div>
+                      <InstitutionStatusBadge status={request.status} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </BentoTile>
+        ),
+      },
     ]
   }, [
     metricsQuery.isError,
+    presenceQuery.isError,
+    presence,
+    period,
+    activity,
+    activityPeak,
     trends,
     revenuePeak,
     planSlices,
@@ -663,8 +755,8 @@ export default function AdminDashboard() {
     people,
     catalog,
     sales,
-    feeds,
     recentPayments,
+    recentPartnerships,
     learnersPerCertification,
     catalogMix,
     partnershipsQuery.isError,
@@ -672,7 +764,7 @@ export default function AdminDashboard() {
 
   if (metricsQuery.isLoading) return <InstitutionLoadingSkeleton />
 
-  if (metricsQuery.isError && partnershipsQuery.isError) {
+  if (metricsQuery.isError && partnershipsQuery.isError && presenceQuery.isError) {
     return (
       <div className="space-y-6">
         <InstitutionPageHeader
@@ -684,6 +776,7 @@ export default function AdminDashboard() {
           description="The dashboard could not reach the REBYU backend. Check that the API is running."
           onRetry={() => {
             metricsQuery.refetch()
+            presenceQuery.refetch()
             partnershipsQuery.refetch()
           }}
         />
@@ -695,7 +788,7 @@ export default function AdminDashboard() {
     <div className="space-y-6">
       <InstitutionPageHeader
         title="Dashboard"
-        subtitle="Platform overview across learners, institutions, and certifications."
+        subtitle="Platform overview across learners, institutions, and certifications. Admins are not counted as users."
       />
 
       <div className="flex flex-wrap items-center justify-end gap-3">
@@ -704,10 +797,8 @@ export default function AdminDashboard() {
             with nothing on it. */}
         <Button
           variant="outline"
-          onClick={() =>
-            downloadCsv(timestampedFilename("rebyu-admin-dashboard"), buildCsv())
-          }
-          disabled={metricsQuery.isLoading || metricsQuery.isError}
+          onClick={() => downloadCsv(timestampedFilename("rebyu-admin-dashboard"), buildCsv())}
+          disabled={metricsQuery.isLoading || metricsQuery.isError || presenceQuery.isLoading}
         >
           <Download className="size-4" aria-hidden="true" />
           Export CSV
@@ -722,15 +813,11 @@ export default function AdminDashboard() {
         />
       </div>
 
-      {/* Three headline numbers, then charts. The nine single-number cards this
-          replaced were the same weight as each other, so nothing stood out and
-          the page read as a wall -- and a lone integer in a large tile is a poor
-          use of the space a chart can fill with a comparison. Every series here
-          is a real query; the sample-data panels that used to sit here (invented
-          months, invented pass rates) are gone rather than chipped. */}
       <DashboardBoard
         tiles={tiles}
-        layout={layout.tileLayout}
+        layout={
+          layout.tileLayout.some((item) => RETIRED_TILES.has(item.id)) ? [] : layout.tileLayout
+        }
         editing={layout.rearranging}
         onLayoutChange={layout.handleLayoutChange}
       />

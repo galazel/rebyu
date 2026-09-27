@@ -28,7 +28,10 @@ public final class PartnershipTransactionDtos {
     public record SubmitPartnershipRequestDto(
             Long institutionId,
             @NotEmpty List<PartnershipItemRequestDto> items,
-            String idempotencyKey
+            String idempotencyKey,
+            // NEW / ADDITIONAL / RENEWAL. Null is read as NEW, so an older
+            // client that does not send it still submits a valid request.
+            String requestType
     ) {
     }
 

@@ -113,7 +113,9 @@ public class RedisResponseCacheFilter extends OncePerRequestFilter {
         return uri.startsWith("/actuator/")
                 || uri.contains("/stream")
                 || uri.contains("/events")
-                || uri.endsWith("/sse");
+                || uri.endsWith("/sse")
+                // Live by definition: a cached online count is a stale one.
+                || uri.contains("/presence");
     }
 
     private boolean isWrite(HttpServletRequest request) {

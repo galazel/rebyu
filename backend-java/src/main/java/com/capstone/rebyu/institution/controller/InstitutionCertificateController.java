@@ -3,6 +3,9 @@ package com.capstone.rebyu.institution.controller;
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
 import com.capstone.rebyu.institution.dto.InstitutionCertificateDto;
+import com.capstone.rebyu.institution.service.InstitutionAccessTeardownService;
+import com.capstone.rebyu.institution.service.InstitutionAccessTeardownService.Impact;
+import com.capstone.rebyu.institution.service.InstitutionAccessTeardownService.TeardownResult;
 import com.capstone.rebyu.institution.service.InstitutionCertificateService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +21,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class InstitutionCertificateController {
     private final InstitutionCertificateService institutionCertificateService;
+    private final InstitutionAccessTeardownService teardownService;
     private final CognitoAuthService auth;
 
     // Cross-tenant allocation data: the unfiltered list exposes every institution's
@@ -54,10 +58,33 @@ public class InstitutionCertificateController {
         return institutionCertificateService.update(id, dto);
     }
 
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
+    /**
+     * What dropping this allocation would destroy, and what it would refund.
+     * Asked before {@link #delete}, so nobody removes three departments and two
+     * learners' enrolments on the strength of a row in a table.
+     */
+    @GetMapping("/{id}/impact")
+    public Impact impact(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
-        institutionCertificateService.delete(id);
+        return teardownService.describe(id);
+    }
+
+    /**
+     * Drops a certification from an institution: the allocation, its
+     * departments, enrolments and invitations, and a refund of what was paid
+     * for it.
+     *
+     * <p>This used to be {@code repository.delete(...)} with no checks -- on an
+     * allocation with learners on it that either failed on a foreign key or
+     * stranded them, and it never returned a peso. Call {@code /impact} first.
+     */
+    @DeleteMapping("/{id}")
+    public TeardownResult delete(
+            @PathVariable Long id,
+            @RequestParam(required = false) String reason,
+            @AuthenticationPrincipal Jwt jwt) {
+        requireAdmin(jwt);
+        return teardownService.dropCertification(
+                id, reason == null || reason.isBlank() ? "Certification dropped by REBYU admin" : reason);
     }
 }

@@ -11,6 +11,8 @@ import {
 } from "@/components/icons"
 import { Link } from "react-router-dom"
 
+import { socialTime } from "@/lib/social-time.js"
+
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import {
@@ -44,16 +46,6 @@ function resolveIcon(item) {
   }
   const match = iconByTitlePrefix.find(([pattern]) => pattern.test(item.title ?? ""))
   return match ? match[1] : Bell
-}
-
-function formatTime(value) {
-  if (!value) return "Recently"
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "Recently"
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date)
 }
 
 export function NotificationBell({
@@ -164,7 +156,7 @@ export function NotificationBell({
                         </span>
                       ) : null}
                       <span className="mt-1 block text-[11px] text-muted-foreground">
-                        {formatTime(item.createdAt)}
+                        {socialTime(item.createdAt)}
                       </span>
                     </span>
                   </button>

@@ -1,65 +1,68 @@
+import { Award } from "@/components/icons"
+
 import { cn } from "@/lib/utils"
 
 /**
- * The default cover for a certification: its name, huge, on Feather blue.
+ * The default cover for a certification: the arena card's cap, reused.
  *
- * This is the landing page footer's device, reused. There, one oversized
- * lowercase wordmark sits on the bottom edge and is clipped by it — the mark
- * is the graphic, not a label placed on one. A certification cover is the same
- * problem (a surface that has to say one name and nothing else), so it gets the
- * same answer instead of a photograph. No uploads, no stock imagery, and a
- * title that stays legible at any length because nothing is competing with it.
+ * It used to be one oversized lowercase wordmark filling the whole panel,
+ * sized by a formula that measured the title in ems per character. That
+ * formula was calibrated against the rounded display face; the moment the
+ * portals took the institution's condensed one, every letter changed width and
+ * long names broke over three lines and were clipped from the top -- "IT
+ * Passport Exam" losing its first line is not a cover, it is a bug.
  *
- * The type is sized in `cqi` — percent of the panel's own width — so the mark
- * fills a 260px card tile and a full-width banner identically.
+ * So the name is no longer load-bearing here. This is the shape the challenges
+ * page already uses (see BubbleCard): a flat feather face, two oversized
+ * translucent circles bled off opposite corners for depth without an image,
+ * and a circular medallion in the middle. The title still bleeds across the
+ * bottom at low contrast -- it is what tells two certifications apart at a
+ * glance -- but it is set on one line and allowed to run off the edge, so no
+ * measurement of the face can make it clip wrongly. The readable name lives in
+ * the card body underneath, where it always did.
  */
-
-/** Rough advance width of the display face, in ems per character. Measured off
- *  the rendered mark rather than derived — it only has to be close enough to
- *  keep the longest word inside the panel. */
-const CHAR_WIDTH = 0.52
-
-/** Two limits, whichever bites first:
- *  - the longest word has to fit one line, or it breaks mid-word;
- *  - the whole title has to fit a few lines, or it grows past the panel and
- *    gets clipped from the TOP, which cuts the beginning of the name off.
- *  100 is the panel's own width in cqi; ~175 is about three lines of it. */
-function markSize(title) {
-  const text = String(title ?? "").trim()
-  const words = text.split(/\s+/).filter(Boolean)
-  const longest = words.reduce((max, word) => Math.max(max, word.length), 0)
-  if (!longest) return 28
-
-  const byWord = 100 / (longest * CHAR_WIDTH)
-  const byLength = 175 / (text.length * CHAR_WIDTH)
-
-  return Math.min(34, Math.max(9, Math.min(byWord, byLength)))
-}
-
-export default function CertificationCover({ title, className, children }) {
+export default function CertificationCover({
+  title,
+  badgeSrc,
+  icon: Icon = Award,
+  className,
+  children,
+}) {
   return (
     <div
       className={cn(
-        // Always full-strength blue. There is no dimmed variant: a generating
+        // Always full-strength green. There is no dimmed variant: a generating
         // or empty certification is marked by a badge over the cover, not by
         // draining the colour out of it.
-        "rebyu-ds relative isolate flex items-end overflow-hidden bg-rb-feather",
+        "rebyu-ds group/cover relative isolate flex items-center justify-center overflow-hidden bg-rb-feather",
         className,
       )}
       style={{ containerType: "inline-size" }}
     >
-      {/* Bottom-right and bled off both edges on purpose — a wordmark that fits
-          inside its box reads as a logo placement rather than as the surface
-          itself. */}
+      <div className="pointer-events-none absolute -right-8 -top-8 size-28 rounded-full bg-white/10" />
+      <div className="pointer-events-none absolute -bottom-10 -left-7 size-32 rounded-full bg-white/10" />
+
+      {/* Bled off the bottom-left corner, behind the medallion. Sized in `cqw`
+          so it scales with the card rather than the viewport, and kept to one
+          line: a long name runs out of the panel, which reads as bleed, where
+          wrapping and clipping read as breakage. */}
       <span
-        className="block w-full select-none pl-4 pr-3 text-right font-rb-display font-black lowercase leading-[0.72] tracking-tight text-white [overflow-wrap:anywhere]"
-        style={{
-          fontSize: `${markSize(title)}cqi`,
-          marginBottom: "-0.12em",
-          marginRight: "-0.06em",
-        }}
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-3 left-2 select-none whitespace-nowrap font-rb-display font-black lowercase leading-none text-white/20"
+        style={{ fontSize: "clamp(2.5rem, 22cqw, 5rem)" }}
       >
         {title}
+      </span>
+
+      {/* The badge if the certification has one, the generic mark if not --
+          either way the middle of the cap is occupied, which is what stops the
+          panel reading as an empty green rectangle. */}
+      <span className="grid size-20 place-items-center overflow-hidden rounded-full bg-white/20 text-white transition-transform duration-300 group-hover/cover:scale-105">
+        {badgeSrc ? (
+          <img src={badgeSrc} alt="" className="size-full object-cover" />
+        ) : (
+          <Icon className="size-10" strokeWidth={1.7} aria-hidden="true" />
+        )}
       </span>
 
       {children}

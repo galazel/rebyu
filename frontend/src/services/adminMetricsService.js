@@ -13,3 +13,18 @@ import { base } from "./base"
 export function getPlatformMetrics() {
   return base("admin/metrics")
 }
+
+/**
+ * Online now, total users, and active users per day (week, month) or per
+ * month (year). Admins are not counted in any of it.
+ *
+ * @param period "week" | "month" | "year"
+ */
+export function getUserPresence(period = "week") {
+  return base(`admin/presence?period=${encodeURIComponent(period)}`)
+}
+
+/** "Still here" -- see usePresenceHeartbeat. */
+export function sendPresenceHeartbeat() {
+  return base("presence/heartbeat")
+}

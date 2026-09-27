@@ -412,6 +412,8 @@ export function TrendLineChart({
   ticks,
   legendNote,
   showLegend = true,
+  // Off for dense series (a month of days), where a dot per point is noise.
+  dot = true,
 }) {
   const theme = useChartTheme()
   if (!data?.length) return <ChartEmpty />
@@ -447,7 +449,7 @@ export function TrendLineChart({
                   name={entry.name}
                   stroke={color}
                   strokeWidth={2}
-                  dot={{ r: 4, fill: color, stroke: theme.surface, strokeWidth: 2 }}
+                  dot={dot ? { r: 4, fill: color, stroke: theme.surface, strokeWidth: 2 } : false}
                   activeDot={{ r: 6, stroke: theme.surface, strokeWidth: 2 }}
                 />
               )

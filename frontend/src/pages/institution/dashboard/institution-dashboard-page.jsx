@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { Link, useOutletContext } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -12,23 +12,14 @@ import {
   GraduationCapIcon,
   MailPlusIcon,
   TargetIcon,
-  TicketIcon,
   TrendingUp,
   UserCheck,
-  Users,
   UsersIcon,
 } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   InstitutionEmptyState,
   InstitutionErrorState,
@@ -43,31 +34,37 @@ import { BentoTile } from "@/components/commons/bento.jsx"
 import { DashboardBoard } from "@/components/commons/dashboard-board.jsx"
 import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
 import { useDashboardLayout } from "@/hooks/use-dashboard-layout.js"
-import { useInstitutionData } from "@/hooks/use-institution-data.js"
-import {
-  getDepartmentStats,
-  getInstitutionLearningStats,
-} from "@/services/institutionLearningStatsService.js"
-import { getDepartments } from "@/services/institutionService.js"
+import { getInstitutionDashboard } from "@/services/institutionDashboardService.js"
 import {
   BarBreakdownChart,
   BeadedRadialGauge,
   DonutChart,
   RadialGauge,
-  readinessColor,
-  readinessInk,
+  TrendLineChart,
+  seriesColor,
   useChartTheme,
 } from "@/components/charts/rebyu-charts.jsx"
 import InstitutionDrilldownStatsCard from "@/components/institution/institution-drilldown-stats-card.jsx"
 import { getDepartmentColor, getDepartmentAbbreviation } from "@/constants/departments.js"
 import { DateRangeNavigator } from "@/components/commons/date-range-navigator.jsx"
 
-const PROGRESS_BUCKETS = [
-  { label: "0-25%", min: 0, max: 25 },
-  { label: "26-50%", min: 26, max: 50 },
-  { label: "51-75%", min: 51, max: 75 },
-  { label: "76-100%", min: 76, max: 100 },
+/** The three lines, named once so the chart and its legend cannot disagree. */
+const TREND_SERIES = [
+  { key: "lessons", name: "Lessons completed" },
+  { key: "attempts", name: "Graded attempts" },
+  { key: "learners", name: "Active learners" },
 ]
+
+const EMPTY_DASHBOARD = {
+  range: null,
+  summary: {},
+  certifications: [],
+  departments: [],
+  enrollments: [],
+  progressBuckets: [],
+  trend: [],
+  invitations: { pending: 0, recent: [] },
+}
 
 /** Not-yet-measured reads as a dash. A zero would claim a fact we do not have. */
 function count(value) {
@@ -78,10 +75,36 @@ function percent(value, digits = 0) {
   return value == null ? "—" : `${Number(value).toFixed(digits)}%`
 }
 
-/** Relative-ish, but plain: a roster is scanned, not read. */
-function lastActive(value) {
-  if (!value) return "No activity yet"
-  return `Last active ${formatDateTime(value)}`
+/**
+ * The local calendar date, as the API's `from`/`to` want it.
+ *
+ * Not `toISOString().slice(0, 10)`: that converts to UTC first, so anyone east
+ * of Greenwich asking for "today" would send yesterday. Manila is UTC+8, which
+ * is every hour of the working day.
+ */
+function isoDate(date) {
+  if (!date) return null
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
+/**
+ * A trend bucket's label, at the resolution the server bucketed by -- it picks
+ * hour, day or month from the length of the range, so the axis never has to
+ * choose between 24 labels and 365 of them.
+ */
+function bucketLabel(value, granularity) {
+  if (!value) return ""
+  const at = new Date(value)
+  if (Number.isNaN(at.getTime())) return String(value)
+  if (granularity === "hour") {
+    return at.toLocaleTimeString("en-US", { hour: "numeric" })
+  }
+  if (granularity === "month") {
+    return at.toLocaleDateString("en-US", { month: "short" })
+  }
+  return at.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
 /**
@@ -174,370 +197,107 @@ function Figure({ icon: Icon, label, value, hint, alert = false }) {
 export default function InstitutionDashboardPage() {
   const { institution, institutionLoading, institutionError, refetchInstitution } =
     useOutletContext()
-  const data = useInstitutionData(institution?.institutionId)
   const layout = useDashboardLayout("institution")
 
-  /* Learning statistics come from their own tenant-scoped endpoint rather than
-     being derived in the browser: progress lives on the assignment rows, but
-     lessons finished, graded attempts, pass rate and average score are rollups
-     over data the portal overview does not carry, and doing them per member
-     client-side would mean a request per learner. */
-  const statsQuery = useQuery({
-    queryKey: ["institution-learning-stats", institution?.institutionId],
-    queryFn: getInstitutionLearningStats,
-    enabled: institution?.institutionId != null,
-    retry: 1,
-  })
+  /* The period selected above the board. Held here rather than inside the
+     navigator because it is a query parameter: the navigator used to be a shell
+     that moved a label and changed nothing.
 
-  const departmentStatsQuery = useQuery({
-    queryKey: ["institution-group-stats"],
-    queryFn: getDepartmentStats,
-    enabled: institution?.institutionId != null,
-    retry: 1,
-  })
-
-  const departmentsQuery = useQuery({
-    queryKey: ["departments", institution?.institutionId],
-    queryFn: () => getDepartments({ institutionId: institution?.institutionId }),
-    enabled: institution?.institutionId != null,
-    retry: 1,
-  })
-
-  const summary = statsQuery.data?.summary ?? {}
-  const members = useMemo(
-    () => (Array.isArray(statsQuery.data?.members) ? statsQuery.data.members : []),
-    [statsQuery.data]
-  )
-
-  const groupStats = useMemo(
-    () =>
-      (Array.isArray(departmentStatsQuery.data)
-        ? departmentStatsQuery.data
-        : []
-      ).filter((g) => (g?.status ?? "active").toLowerCase() === "active"),
-    [departmentStatsQuery.data]
-  )
-
-  const departments = useMemo(
-    () =>
-      (Array.isArray(departmentsQuery.data)
-        ? departmentsQuery.data
-        : []
-      ).filter((d) => (d.status ?? "active").toLowerCase() === "active"),
-    [departmentsQuery.data]
-  )
-
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState("all")
-
-  // Map each member to their designated department
-  const membersWithDepartment = useMemo(() => {
-    const deptLookup = new Map() // learnerId -> { departmentId, departmentName }
-
-    // Seed from assignments and group memberships
-    data.assignments?.forEach((assignment) => {
-      const membership = data.groupByInstitutionCertLearnerId?.get(
-        assignment.institutionCertLearnerId
-      )
-      if (membership?.departmentId != null) {
-        const dId = String(membership.departmentId)
-        const activeDept = departments.find(
-          (d) => String(d.departmentId ?? d.id) === dId
-        )
-        if (activeDept) {
-          const dName =
-            membership.departmentName ||
-            activeDept.departmentName ||
-            `Department #${dId}`
-          deptLookup.set(assignment.learnerId, {
-            departmentId: dId,
-            departmentName: dName,
-          })
-        }
-      }
-    })
-
-    return members.map((member) => {
-      const dept = deptLookup.get(member.learnerId)
-      return {
-        ...member,
-        departmentId: dept?.departmentId ?? "unassigned",
-        departmentName: dept?.departmentName ?? "General / Unassigned",
-      }
-    })
-  }, [members, data.assignments, data.groupByInstitutionCertLearnerId, departments])
-
-  // Available departments for the filter dropdown
-  const availableDepartments = useMemo(() => {
-    const map = new Map()
-
-    // 1. Registered departments
-    departments.forEach((dept) => {
-      const id = String(dept.departmentId ?? dept.id ?? "")
-      if (id) {
-        map.set(id, {
-          id,
-          name: dept.departmentName || dept.name || `Department #${id}`,
-          count: 0,
-        })
-      }
-    })
-
-    // 2. Group stats for registered active departments
-    groupStats.forEach((group) => {
-      if (group?.departmentId != null) {
-        const id = String(group.departmentId)
-        if (map.has(id)) {
-          const entry = map.get(id)
-          entry.count = Math.max(entry.count, Number(group.learners ?? 0))
-        }
-      }
-    })
-
-    // 3. Count member associations
-    membersWithDepartment.forEach((member) => {
-      if (member.departmentId !== "unassigned") {
-        if (map.has(member.departmentId)) {
-          const entry = map.get(member.departmentId)
-          entry.count = (entry.count || 0) + 1
-        }
-      }
-    })
-
-    const unassignedCount = membersWithDepartment.filter(
-      (m) => m.departmentId === "unassigned"
-    ).length
-
+     Seeded with the navigator's own default -- this year -- so the first render
+     asks for the same range the navigator reports back on mount. Starting empty
+     would fetch twice, and the query cannot simply wait for the navigator: the
+     loading branch below renders a skeleton in its place, so nothing would ever
+     mount to report a range. */
+  const [range, setRange] = useState(() => {
+    const now = new Date()
     return {
-      list: Array.from(map.values()),
-      unassignedCount,
+      mode: "yearly",
+      from: new Date(now.getFullYear(), 0, 1),
+      to: new Date(now.getFullYear(), 11, 31),
     }
-  }, [departments, groupStats, membersWithDepartment])
+  })
+  const handleRangeChange = useCallback((next) => setRange(next), [])
+  const from = isoDate(range?.from)
+  const to = isoDate(range?.to)
 
-  // Filtered members according to department selection
-  const filteredMembers = useMemo(() => {
-    if (selectedDepartmentId === "all") return membersWithDepartment
-    return membersWithDepartment.filter(
-      (m) => m.departmentId === selectedDepartmentId
-    )
-  }, [membersWithDepartment, selectedDepartmentId])
+  /* One read, one snapshot. The board used to stitch four together -- learning
+     stats, group stats, the department list and the portal overview -- and then
+     fill in everything the joins between them did not carry: a department with
+     no slots was drawn as ten, seats came from a stored counter that had drifted
+     from the roster, and a learner's practice on a certification the institution
+     never licensed counted towards its pass rate. Every figure below is now
+     counted from the rows themselves, server-side, so two tiles reading the same
+     thing cannot disagree. */
+  const dashboardQuery = useQuery({
+    queryKey: ["institution-dashboard", institution?.institutionId, from, to],
+    queryFn: () => getInstitutionDashboard({ from, to }),
+    enabled: institution?.institutionId != null,
+    // Keep the board on screen while a new period loads; a full skeleton on
+    // every arrow press reads as the page reloading rather than as a filter.
+    placeholderData: (previous) => previous,
+    retry: 1,
+  })
 
-  // Grouped members for sectioned table presentation
-  const departmentGroups = useMemo(() => {
-    if (selectedDepartmentId !== "all") {
-      const selectedDept =
-        availableDepartments.list.find((d) => d.id === selectedDepartmentId) || {
-          id: selectedDepartmentId,
-          name:
-            selectedDepartmentId === "unassigned"
-              ? "General / Unassigned"
-              : "Department",
-        }
-      return [
-        {
-          id: selectedDepartmentId,
-          name: selectedDept.name,
-          members: filteredMembers,
-        },
-      ]
-    }
+  const dashboard = dashboardQuery.data ?? EMPTY_DASHBOARD
+  const {
+    summary = {},
+    certifications = [],
+    departments = [],
+    enrollments = [],
+    progressBuckets = [],
+    invitations = { pending: 0, recent: [] },
+  } = dashboard
 
-    const groups = new Map()
-    membersWithDepartment.forEach((m) => {
-      if (!groups.has(m.departmentId)) {
-        groups.set(m.departmentId, {
-          id: m.departmentId,
-          name: m.departmentName,
-          members: [],
-        })
-      }
-      groups.get(m.departmentId).members.push(m)
-    })
-
-    return Array.from(groups.values())
-  }, [selectedDepartmentId, filteredMembers, membersWithDepartment, availableDepartments])
-
-  // Department-level aggregated summary rows for the stats table
-  // Starts from ALL registered departments (not just those with active members)
-  // so zero-enrolled departments still appear as rows.
-  const departmentSummaryRows = useMemo(() => {
-    // Index groupStats by departmentId
-    const statsByDeptId = new Map()
-    groupStats.forEach((g) => {
-      if (g?.departmentId != null) {
-        statsByDeptId.set(String(g.departmentId), g)
-      }
-    })
-
-    // Index member lists by departmentId from departmentGroups
-    const membersByDeptId = new Map()
-    departmentGroups.forEach((group) => {
-      membersByDeptId.set(String(group.id), group.members)
-    })
-
-    // Collect all departments: registered ones + any in membersWithDepartment
-    const allDepts = new Map()
-
-    // 1. All registered departments (even with 0 members)
-    availableDepartments.list.forEach((dept) => {
-      allDepts.set(String(dept.id), { id: String(dept.id), name: dept.name })
-    })
-
-    // 2. Unassigned bucket if it exists
-    if (availableDepartments.unassignedCount > 0) {
-      allDepts.set("unassigned", { id: "unassigned", name: "General / Unassigned" })
-    }
-
-    return Array.from(allDepts.values()).map(({ id, name }) => {
-      const apiStat = statsByDeptId.get(id) ?? null
-      const mems = membersByDeptId.get(id) ?? []
-      const memberCount = mems.length
-
-      const avgProgress =
-        apiStat?.averageProgress != null
-          ? Number(apiStat.averageProgress)
-          : memberCount > 0
-          ? Math.round(mems.reduce((s, m) => s + Number(m.averageProgress ?? 0), 0) / memberCount)
-          : 0
-      const lessonsCompleted =
-        apiStat?.lessonsCompleted != null
-          ? Number(apiStat.lessonsCompleted)
-          : mems.reduce((s, m) => s + Number(m.lessonsCompleted ?? 0), 0)
-      const gradedAttempts =
-        apiStat?.gradedAttempts != null
-          ? Number(apiStat.gradedAttempts)
-          : mems.reduce((s, m) => s + Number(m.gradedAttempts ?? 0), 0)
-      const passRate =
-        apiStat?.passRate != null
-          ? Number(apiStat.passRate)
-          : memberCount > 0
-          ? Math.round(mems.reduce((s, m) => s + Number(m.passRate ?? 0), 0) / memberCount)
-          : null
-      const averageScore =
-        apiStat?.averageScore != null
-          ? Number(apiStat.averageScore)
-          : memberCount > 0
-          ? Math.round(mems.reduce((s, m) => s + Number(m.averageScore ?? 0), 0) / memberCount)
-          : null
-      const completed = mems.filter((m) => Number(m.averageProgress ?? 0) >= 100).length
-      const inProgress = mems.filter(
-        (m) => Number(m.averageProgress ?? 0) > 0 && Number(m.averageProgress ?? 0) < 100
-      ).length
-
-      return {
-        id,
-        name,
-        memberCount,
-        avgProgress,
-        lessonsCompleted,
-        gradedAttempts,
-        passRate,
-        averageScore,
-        completed,
-        inProgress,
-      }
-    })
-  }, [departmentGroups, groupStats, availableDepartments, membersWithDepartment])
-
-  /* The cohort shape the Analytics page used to draw, over the same roster the
-     members table below uses -- so the two can never disagree, which is what
-     happens when a second page recomputes the same thing from a different read. */
-  const cohort = useMemo(() => {
-    const buckets = PROGRESS_BUCKETS.map((bucket) => ({
-      name: bucket.label,
-      value: members.filter((member) => {
-        const progress = Number(member.averageProgress ?? 0)
-        return progress >= bucket.min && progress <= bucket.max
-      }).length,
-    }))
-
-    // Below 30% and still holding an active assignment: someone who finished
-    // and was archived is not "needing support", they are done.
-    const needingSupport = members.filter(
-      (member) =>
-        member.activeCertifications > 0 && Number(member.averageProgress ?? 0) < 30
-    )
-
-    return { buckets, needingSupport }
-  }, [members])
-
-  const recentInvitations = useMemo(
-    () =>
-      [...data.invitations]
-        .sort((a, b) => new Date(b.sentAt ?? 0) - new Date(a.sentAt ?? 0))
-        .slice(0, 5),
-    [data.invitations]
-  )
-
-  const pendingInvitations = useMemo(
-    () => data.invitations.filter((invite) => invite.status === "PENDING").length,
-    [data.invitations]
-  )
-
-  // Read once here rather than inside the tiles: `useChartTheme` is a hook and
-  // the tiles are built inside a useMemo callback, which is not a component.
   const chartTheme = useChartTheme()
 
-  const cohortStats = useMemo(() => {
-    const total = members.length
-    const completed = members.filter(
-      (m) => Number(m.averageProgress ?? 0) >= 100
-    ).length
-    const inProgress = members.filter(
-      (m) =>
-        Number(m.averageProgress ?? 0) >= 25 &&
-        Number(m.averageProgress ?? 0) < 100
-    ).length
-    const stalled = members.filter(
-      (m) => Number(m.averageProgress ?? 0) < 25
-    ).length
+  const trendData = useMemo(
+    () =>
+      (dashboard.trend ?? []).map((point) => ({
+        label: bucketLabel(point.bucket, dashboard.range?.granularity),
+        attempts: point.gradedAttempts,
+        lessons: point.lessonsCompleted,
+        learners: point.activeLearners,
+      })),
+    [dashboard.trend, dashboard.range]
+  )
 
-    const pctCompleted = total > 0 ? Math.round((completed / total) * 100) : 0
-    const pctInProgress = total > 0 ? Math.round((inProgress / total) * 100) : 0
-    const pctStalled =
-      total > 0 ? Math.max(100 - pctCompleted - pctInProgress, 0) : 0
+  /* What the period adds up to. The chart's own legend states the *last*
+     bucket, which on any range that ends quietly -- a month read on its last
+     day, a year read in January -- puts three zeros under a line with a visible
+     spike in it. Lessons and attempts sum; active learners cannot, because the
+     same person active in two buckets is one learner, so that one comes from
+     the summary, which counts them distinctly across the whole range. */
+  const trendTotals = useMemo(
+    () => ({
+      lessons: trendData.reduce((sum, point) => sum + Number(point.lessons ?? 0), 0),
+      attempts: trendData.reduce((sum, point) => sum + Number(point.attempts ?? 0), 0),
+      learners: summary.activeLearners ?? 0,
+    }),
+    [trendData, summary.activeLearners]
+  )
 
-    return {
-      total,
-      completed,
-      inProgress,
-      stalled,
-      pctCompleted,
-      pctInProgress,
-      pctStalled,
-    }
-  }, [members])
+  const activeCertifications = useMemo(
+    () =>
+      certifications.filter((cert) =>
+        ["active", "expiring_soon"].includes(accessWindowStatus(cert).status)
+      ),
+    [certifications]
+  )
 
-  const healthBadge = useMemo(() => {
-    const avgScore = Number(summary.averageScore ?? 0)
-    if (avgScore === 0) {
-      return {
-        label: "No Activity",
-        classes: "border-border bg-muted text-muted-foreground",
-      }
-    }
-    if (avgScore < 40) {
-      return {
-        label: "Needs Focus",
-        classes:
-          "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:border-amber-500/20 dark:bg-amber-950/40 dark:text-amber-400",
-      }
-    }
-    if (avgScore < 70) {
-      return {
-        label: "Moderate",
-        classes:
-          "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:border-sky-500/20 dark:bg-sky-950/40 dark:text-sky-400",
-      }
-    }
-    return {
-      label: "On Track",
-      classes:
-        "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-950/40 dark:text-emerald-400",
-    }
-  }, [summary.averageScore])
+  const cohortBuckets = useMemo(
+    () =>
+      progressBuckets
+        .map((bucket) => ({ name: bucket.label, value: bucket.enrollments }))
+        .filter((bucket) => bucket.value > 0),
+    [progressBuckets]
+  )
+
+  const departmentRows = useMemo(
+    () => [...departments].sort((a, b) => (b.averageProgress ?? 0) - (a.averageProgress ?? 0)),
+    [departments]
+  )
 
   const tiles = useMemo(() => {
-    const failed = statsQuery.isError
     const seatsTotal = summary.seatsTotal ?? 0
     const seatsUsed = summary.seatsUsed ?? 0
 
@@ -551,12 +311,10 @@ export default function InstitutionDashboardPage() {
         element: (
           <BentoTile tone="plain" col={3} row={3}>
             <InstitutionDrilldownStatsCard
-              data={data}
-              groupStats={groupStats}
+              certifications={certifications}
               departments={departments}
-              members={members}
+              enrollments={enrollments}
               summary={summary}
-              failed={failed}
             />
           </BentoTile>
         ),
@@ -593,7 +351,7 @@ export default function InstitutionDashboardPage() {
               <div className="flex items-end justify-between gap-2 pt-1">
                 <div className="min-w-0 max-w-[62%]">
                   <div className="font-rb-display text-2xl font-black leading-none tracking-tight tabular-nums text-white sm:text-3xl drop-shadow-md">
-                    {failed ? "—" : `${seatsUsed} / ${seatsTotal}`}
+                    {`${seatsUsed} / ${seatsTotal}`}
                   </div>
                   <div className="mt-1.5 truncate text-[11px] font-semibold text-emerald-100 drop-shadow-xs">
                     {seatsTotal > 0
@@ -602,7 +360,7 @@ export default function InstitutionDashboardPage() {
                   </div>
                 </div>
 
-                {!failed && seatsTotal > 0 ? (
+                {seatsTotal > 0 ? (
                   <div className="size-[72px] shrink-0 rounded-full bg-slate-900/60 p-1 backdrop-blur-md border border-white/25 shadow-md ring-1 ring-white/10">
                     <RadialGauge
                       value={(seatsUsed / seatsTotal) * 100}
@@ -640,7 +398,7 @@ export default function InstitutionDashboardPage() {
                 {/* Left Column (5 cols): Beaded Ring Gauge & Stat Hero (styled like reference) */}
                 <div className="sm:col-span-5 flex items-center justify-center pl-4 min-w-0">
                   <BeadedRadialGauge
-                    value={failed ? 0 : Number(summary.averageProgress) || 0}
+                    value={Number(summary.averageProgress) || 0}
                     label="Overall Completion"
                   />
                 </div>
@@ -653,7 +411,7 @@ export default function InstitutionDashboardPage() {
                       <CheckCheck className="size-3.5 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div className="mt-1.5 font-rb-display text-lg font-bold tabular-nums text-foreground">
-                      {failed ? "—" : percent(summary.passRate)}
+                      {percent(summary.passRate)}
                     </div>
                   </div>
 
@@ -663,7 +421,7 @@ export default function InstitutionDashboardPage() {
                       <TargetIcon className="size-3.5 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div className="mt-1.5 font-rb-display text-lg font-bold tabular-nums text-foreground">
-                      {failed ? "—" : percent(summary.averageScore)}
+                      {percent(summary.averageScore)}
                     </div>
                   </div>
 
@@ -673,7 +431,7 @@ export default function InstitutionDashboardPage() {
                       <ClipboardListIcon className="size-3.5 text-sky-600 dark:text-sky-400" />
                     </div>
                     <div className="mt-1.5 font-rb-display text-lg font-bold tabular-nums text-foreground">
-                      {failed ? "—" : count(summary.gradedAttempts)}
+                      {count(summary.gradedAttempts)}
                     </div>
                   </div>
 
@@ -683,7 +441,7 @@ export default function InstitutionDashboardPage() {
                       <BookOpenCheckIcon className="size-3.5 text-violet-600 dark:text-violet-400" />
                     </div>
                     <div className="mt-1.5 font-rb-display text-lg font-bold tabular-nums text-foreground">
-                      {failed ? "—" : count(summary.lessonsCompleted)}
+                      {count(summary.lessonsCompleted)}
                     </div>
                   </div>
                 </div>
@@ -694,17 +452,17 @@ export default function InstitutionDashboardPage() {
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-1.5">
                     <span className="size-2 rounded-full bg-emerald-600 dark:bg-emerald-400" />
-                    <span>Completed: <strong className="text-foreground">{cohortStats.completed}</strong></span>
+                    <span>Completed: <strong className="text-foreground">{count(summary.completed)}</strong></span>
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="size-2 rounded-full bg-amber-500" />
-                    <span>In Progress: <strong className="text-foreground">{cohortStats.inProgress}</strong></span>
+                    <span>In Progress: <strong className="text-foreground">{count(summary.inProgress)}</strong></span>
                   </span>
                 </div>
-                {cohortStats.stalled > 0 ? (
+                {summary.needingSupport > 0 ? (
                   <span className="flex items-center gap-1.5">
                     <span className="size-2 rounded-full bg-slate-400" />
-                    <span>Needs Support: <strong className="text-foreground">{cohortStats.stalled}</strong></span>
+                    <span>Needs Support: <strong className="text-foreground">{count(summary.needingSupport)}</strong></span>
                   </span>
                 ) : null}
               </div>
@@ -731,44 +489,40 @@ export default function InstitutionDashboardPage() {
               icon={BarChart3Icon}
               kicker="Executive Summary"
               title="Institutional Activity at a Glance"
-              hint="Learning activity across the whole institution."
+              hint="Learning activity across the whole institution, over the selected period."
             />
             <dl className="grid flex-1 grid-cols-2 items-center gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
               <Figure
                 icon={BookOpenCheckIcon}
                 label="Lessons completed"
-                value={failed ? "—" : count(summary.lessonsCompleted)}
+                value={count(summary.lessonsCompleted)}
               />
               <Figure
                 icon={ClipboardListIcon}
                 label="Graded attempts"
-                value={failed ? "—" : count(summary.gradedAttempts)}
-                hint={failed ? null : `${percent(summary.passRate)} pass rate`}
+                value={count(summary.gradedAttempts)}
+                hint={`${percent(summary.passRate)} pass rate`}
               />
               <Figure
                 icon={UserCheck}
                 label="Average score"
-                value={failed ? "—" : percent(summary.averageScore)}
-                hint={failed ? null : "Weighted by attempts"}
+                value={percent(summary.averageScore)}
+                hint="Weighted by attempts"
               />
               <Figure
                 icon={GraduationCapIcon}
                 label="Active certifications"
-                value={
-                  data.institutionCerts.filter((cert) =>
-                    ["active", "expiring_soon"].includes(accessWindowStatus(cert).status)
-                  ).length
-                }
+                value={count(activeCertifications.length)}
               />
               <Figure
                 icon={BarChart3Icon}
                 label="Needing support"
-                value={failed ? "—" : cohort.needingSupport.length}
-                hint={failed ? null : "Active, below 30%"}
+                value={count(summary.needingSupport)}
+                hint="Unfinished, below 30%"
                 /* The one figure on this strip that is a call to action rather
                    than a record of what happened, so it is the one allowed to
                    carry colour. */
-                alert={!failed && cohort.needingSupport.length > 0}
+                alert={summary.needingSupport > 0}
               />
             </dl>
           </BentoTile>
@@ -786,13 +540,13 @@ export default function InstitutionDashboardPage() {
               icon={CircleDotIcon}
               kicker="Progress Milestones"
               title="Learner Completion Distribution"
-              hint="How member progress is spread across the roster"
+              hint="How progress is spread across the roster"
             />
             <DonutChart
-              data={cohort.buckets.filter((bucket) => bucket.value > 0)}
+              data={cohortBuckets}
               height={168}
-              centerValue={String(members.length)}
-              centerLabel={members.length === 1 ? "member" : "members"}
+              centerValue={String(summary.enrollments ?? 0)}
+              centerLabel={summary.enrollments === 1 ? "enrollment" : "enrollments"}
             />
           </BentoTile>
         ),
@@ -809,26 +563,72 @@ export default function InstitutionDashboardPage() {
               icon={Building2}
               kicker="Department Benchmark"
               title="Completion by Department"
-              hint="Average progress across each department's active learners"
+              hint="Average progress across each department's learners"
             />
-            {departmentStatsQuery.isError ? (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Department completion could not be loaded.
+            <BarBreakdownChart
+              data={departmentRows.map((row) => ({
+                group: row.name,
+                completion: Number(row.averageProgress ?? 0),
+              }))}
+              categoryKey="group"
+              valueKey="completion"
+              unit="%"
+              target={60}
+              height={168}
+              categoryWidth={96}
+            />
+          </BentoTile>
+        ),
+      },
+      {
+        /* The one tile the period selector above the board exists for. Progress
+           is current state and cannot be replayed over time, so this plots what
+           the institution's learners actually did inside the range -- bucketed
+           by hour, day or month by the server, whichever the range's length
+           calls for. */
+        id: "ent-activity-trend",
+        col: 6,
+        row: 2,
+        x: 0,
+        y: 6,
+        element: (
+          <BentoTile col={6} row={2}>
+            <DashboardCardHeader
+              icon={TrendingUp}
+              kicker="Activity Over Time"
+              title="Lessons, Attempts & Active Learners"
+              hint="Work done inside the selected period, on certifications this institution licenses."
+            />
+            {/* Lines, not stacked areas: three counts on very different
+                scales -- a year of lessons against a handful of learners --
+                and a stack would add them into a total nobody asked for. */}
+            <TrendLineChart
+              data={trendData}
+              xKey="label"
+              domain={["auto", "auto"]}
+              dot={trendData.length <= 14}
+              height={200}
+              showLegend={false}
+              series={TREND_SERIES}
+            />
+            <dl className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-border/40 pt-2.5">
+              {TREND_SERIES.map((entry, index) => (
+                <div key={entry.key} className="flex items-center gap-2">
+                  <span
+                    className="size-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: seriesColor(chartTheme, index) }}
+                    aria-hidden="true"
+                  />
+                  <dt className="text-xs font-semibold text-muted-foreground">{entry.name}</dt>
+                  <dd className="font-rb-display text-sm font-bold tabular-nums text-foreground">
+                    {count(trendTotals[entry.key])}
+                  </dd>
+                </div>
+              ))}
+              <p className="ml-auto text-[11px] text-muted-foreground">
+                Totals for the selected period
               </p>
-            ) : (
-              <BarBreakdownChart
-                data={groupStats.map((group) => ({
-                  group: group.departmentName,
-                  completion: Number(group.averageProgress ?? 0),
-                }))}
-                categoryKey="group"
-                valueKey="completion"
-                unit="%"
-                target={60}
-                height={168}
-                categoryWidth={96}
-              />
-            )}
+            </dl>
           </BentoTile>
         ),
       },
@@ -837,7 +637,7 @@ export default function InstitutionDashboardPage() {
         col: 6,
         row: 3,
         x: 0,
-        y: 6,
+        y: 8,
         element: (
           <BentoTile col={6} row={3} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -847,26 +647,22 @@ export default function InstitutionDashboardPage() {
                 title="Performance by Department"
                 hint="Aggregated learning metrics across all departments — ranked by avg progress."
                 chip={
-                  departmentSummaryRows.length > 0 ? (
+                  departmentRows.length > 0 ? (
                     <Badge
                       variant="secondary"
                       className="border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
                     >
-                      {departmentSummaryRows.length}{" "}
-                      {departmentSummaryRows.length === 1 ? "department" : "departments"}
+                      {departmentRows.length}{" "}
+                      {departmentRows.length === 1 ? "department" : "departments"}
                     </Badge>
                   ) : null
                 }
               />
 
-              {statsQuery.isError ? (
-                <p className="text-sm text-muted-foreground">
-                  Learning statistics could not be loaded.
-                </p>
-              ) : departmentSummaryRows.length === 0 ? (
+              {departmentRows.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center text-sm text-muted-foreground">
                   <Building2 className="mb-2 size-8 text-muted-foreground/40" />
-                  <p>No departments with active learners yet.</p>
+                  <p>No departments yet.</p>
                   <div className="mt-3">
                     <Button asChild size="sm" variant="outline">
                       <Link to="/institution/departments">Manage departments</Link>
@@ -899,11 +695,9 @@ export default function InstitutionDashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {[...departmentSummaryRows]
-                        .sort((a, b) => b.avgProgress - a.avgProgress)
-                        .map((row) => (
+                      {departmentRows.map((row) => (
                         <tr
-                          key={row.id}
+                          key={row.departmentId ?? "unassigned"}
                           className="border-b border-border/40 hover:bg-muted/40 transition-colors duration-150"
                         >
                           {/* Department name with open-ring badge */}
@@ -929,7 +723,7 @@ export default function InstitutionDashboardPage() {
                             <div className="flex justify-center">
                               <span className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-muted/30 px-2 py-0.5 text-xs font-semibold tabular-nums">
                                 <UsersIcon className="size-3 text-muted-foreground" />
-                                {row.memberCount}
+                                {row.enrolled}
                               </span>
                             </div>
                           </td>
@@ -938,12 +732,12 @@ export default function InstitutionDashboardPage() {
                           <td className="py-2.5 px-3">
                             <div className="flex items-center gap-2 max-w-[130px]">
                               <Progress
-                                value={row.avgProgress}
+                                value={Number(row.averageProgress ?? 0)}
                                 aria-label={`${row.name} avg progress`}
                                 className="h-2 flex-1 rounded-full bg-muted/60 [&>[data-slot=progress-indicator]]:rounded-full"
                               />
                               <span className="shrink-0 tabular-nums text-xs font-bold text-foreground w-8 text-right">
-                                {percent(row.avgProgress)}
+                                {percent(row.averageProgress)}
                               </span>
                             </div>
                           </td>
@@ -991,7 +785,7 @@ export default function InstitutionDashboardPage() {
         col: 3,
         row: 2,
         x: 0,
-        y: 9,
+        y: 11,
         element: (
           <BentoTile col={3} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -1001,19 +795,19 @@ export default function InstitutionDashboardPage() {
                 title="Recent Learner Invitations"
                 hint="The latest learner invitations sent."
                 chip={
-                  pendingInvitations > 0 ? (
+                  invitations.pending > 0 ? (
                     <Badge
                       variant="secondary"
                       className="gap-1 border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
                     >
                       <MailPlusIcon className="size-3" aria-hidden="true" />
-                      {pendingInvitations} pending
+                      {invitations.pending} pending
                     </Badge>
                   ) : null
                 }
               />
 
-              {recentInvitations.length === 0 ? (
+              {invitations.recent.length === 0 ? (
                 <div className="text-sm text-muted-foreground">
                   No invitations sent yet.
                   <div className="mt-3">
@@ -1024,7 +818,7 @@ export default function InstitutionDashboardPage() {
                 </div>
               ) : (
                 <ul className="-mr-2 min-h-0 flex-1 divide-y-2 divide-border overflow-y-auto pr-2">
-                  {recentInvitations.map((invitation) => (
+                  {invitations.recent.map((invitation) => (
                     <li
                       key={invitation.invitationId}
                       className="flex items-center justify-between gap-3 py-3 text-sm first:pt-0"
@@ -1049,7 +843,7 @@ export default function InstitutionDashboardPage() {
         col: 3,
         row: 2,
         x: 3,
-        y: 9,
+        y: 11,
         element: (
           <BentoTile col={3} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -1057,37 +851,34 @@ export default function InstitutionDashboardPage() {
                 icon={GraduationCap}
                 kicker="Certification Inventory"
                 title="Program Slot Allocations"
-                hint="Slot usage per certification your institution has access to."
+                hint="Seats taken per certification your institution has access to."
                 chip={
-                  data.institutionCerts.length > 0 ? (
+                  activeCertifications.length > 0 ? (
                     <Badge
                       variant="secondary"
                       className="border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
                     >
-                      {data.institutionCerts.length} active
+                      {activeCertifications.length} active
                     </Badge>
                   ) : null
                 }
               />
 
-              {data.institutionCerts.length === 0 ? (
+              {certifications.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No certification allocations yet. Submit a partnership request to get started.
                 </p>
               ) : (
                 <div className="-mr-2 min-h-0 flex-1 space-y-4 overflow-y-auto pr-2">
-                  {data.institutionCerts.map((institutionCert) => {
-                    const certification = data.certificationById.get(institutionCert.certificationId)
-                    const used = institutionCert.usedSlots ?? 0
-                    const total = institutionCert.totalSlots ?? 0
+                  {certifications.map((cert) => {
+                    const used = cert.seatsUsed ?? 0
+                    const total = cert.totalSlots ?? 0
                     const pct = total > 0 ? (used / total) * 100 : 0
 
                     return (
-                      <div key={institutionCert.institutionCertId} className="space-y-1.5">
+                      <div key={cert.institutionCertId} className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2 text-sm">
-                          <span className="truncate font-bold">
-                            {certification?.title ?? `Certification #${institutionCert.certificationId}`}
-                          </span>
+                          <span className="truncate font-bold">{cert.title}</span>
                           <span className="shrink-0 text-muted-foreground">
                             {used} / {total} slots
                           </span>
@@ -1105,25 +896,19 @@ export default function InstitutionDashboardPage() {
     ]
   }, [
     chartTheme,
-    statsQuery.isError,
-    departmentStatsQuery.isError,
     summary,
-    members,
-    cohort,
-    groupStats,
+    certifications,
     departments,
-    departmentSummaryRows,
-    data,
-    data.institutionCerts,
-    data.certificationById,
-    data.assignments,
-    data.groupByInstitutionCertLearnerId,
-    data.learnerById,
-    recentInvitations,
-    pendingInvitations,
+    enrollments,
+    activeCertifications,
+    cohortBuckets,
+    departmentRows,
+    trendData,
+    trendTotals,
+    invitations,
   ])
 
-  if (institutionLoading || (institution && data.isLoading)) {
+  if (institutionLoading || (institution && dashboardQuery.isLoading)) {
     return <InstitutionLoadingSkeleton />
   }
 
@@ -1157,17 +942,22 @@ export default function InstitutionDashboardPage() {
         }
       />
 
-      {data.isError ? (
-        <InstitutionErrorState onRetry={data.refetchAll} />
+      {dashboardQuery.isError ? (
+        <InstitutionErrorState onRetry={dashboardQuery.refetch} />
       ) : (
         <>
           {/* Toolbar row: Date range navigator directly above the big card, rearrange controls on the right */}
           <div className="relative z-30 flex flex-wrap items-center justify-between gap-4 mb-2.5">
             <div className="w-full md:w-[calc(50%-10px)]">
-              <DateRangeNavigator className="w-full" />
+              <DateRangeNavigator className="w-full" onRangeChange={handleRangeChange} />
             </div>
 
             <div className="ml-auto flex items-center gap-3">
+              {dashboardQuery.isFetching ? (
+                <span className="text-xs font-semibold text-muted-foreground" role="status">
+                  Updating…
+                </span>
+              ) : null}
               <DashboardRearrangeControls
                 rearranging={layout.rearranging}
                 onStart={layout.startRearranging}

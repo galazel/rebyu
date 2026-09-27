@@ -5,6 +5,8 @@ import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
 import com.capstone.rebyu.institution.service.DepartmentHeadProvisioningService;
 import com.capstone.rebyu.institution.service.DepartmentHeadProvisioningService.InviteResult;
+import com.capstone.rebyu.institution.service.InstitutionDashboardService;
+import com.capstone.rebyu.institution.service.InstitutionDashboardService.InstitutionDashboardDto;
 import com.capstone.rebyu.institution.service.InstitutionLearningStatsService;
 import com.capstone.rebyu.institution.service.InstitutionPortalService;
 import com.capstone.rebyu.institution.dto.DepartmentHeadInviteRequestDto;
@@ -28,9 +30,12 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /** Tenant-scoped institution portal reads; institutionId always comes from the caller's JWT. */
@@ -42,6 +47,7 @@ public class InstitutionPortalController {
     private final InstitutionPortalService portalService;
     private final com.capstone.rebyu.billing.service.InstitutionInvoiceService invoiceService;
     private final InstitutionLearningStatsService learningStatsService;
+    private final InstitutionDashboardService dashboardService;
     private final InstitutionService institutionService;
     private final DepartmentHeadService departmentHeadService;
     private final DepartmentHeadProvisioningService departmentHeadProvisioningService;
@@ -67,6 +73,19 @@ public class InstitutionPortalController {
     @GetMapping("/learning-stats")
     public InstitutionLearningStatsDto learningStats(@AuthenticationPrincipal Jwt jwt) {
         return learningStatsService.learningStats(myInstitutionId(jwt));
+    }
+
+    /**
+     * Everything on the institution dashboard in one consistent snapshot.
+     * {@code from}/{@code to} (inclusive dates) bound the activity figures --
+     * attempts, lessons, the trend -- and default to the current year.
+     */
+    @GetMapping("/dashboard")
+    public InstitutionDashboardDto dashboard(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return dashboardService.dashboard(myInstitutionId(jwt), from, to);
     }
 
     /** Completion per learning group, for the group-analytics panels. */
