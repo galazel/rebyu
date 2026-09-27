@@ -25,4 +25,14 @@ public interface LearnerInvitationRepository extends JpaRepository<LearnerInvita
      */
     List<LearnerInvitation> findByEmailIgnoreCaseAndStatusOrderBySentAtDesc(
             String email, LearnerInvitation.Status status);
+
+    /**
+     * Invitations belonging to one group, by status.
+     *
+     * <p>Used when a group is archived: its still-PENDING invitations point at
+     * a group that will no longer exist, so they are revoked and the slots they
+     * were holding are given back to the allocation.
+     */
+    List<LearnerInvitation> findByDepartment_DepartmentIdAndStatus(
+            Long departmentId, LearnerInvitation.Status status);
 }
