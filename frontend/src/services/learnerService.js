@@ -169,6 +169,26 @@ export function writeLearnerPortalSnapshot(data) {
   }
 }
 
+/**
+ * Drops the stored snapshot, so the next mount of the learner shell waits for
+ * the server instead of drawing what was true before.
+ *
+ * The snapshot is `initialData` for the shell's query: with it present the
+ * shell renders immediately and refetches behind the page, which is right for
+ * a return visit and wrong immediately after something changed what the portal
+ * contains. Accepting an invitation adds a certification, and the shell would
+ * spend the whole of that refetch -- a slow call, it walks the catalog --
+ * showing the list from before the acceptance, with no spinner to say so. It
+ * reads as an acceptance that did not take.
+ */
+export function clearLearnerPortalSnapshot() {
+  try {
+    sessionStorage.removeItem(LEARNER_PORTAL_SNAPSHOT_KEY)
+  } catch {
+    // Nothing to clear is the same outcome as having cleared it.
+  }
+}
+
 // The caller's own learner record (JWT-derived) -- use instead of fetching all learners.
 export function getCurrentLearner() {
   return base("learners/me")
