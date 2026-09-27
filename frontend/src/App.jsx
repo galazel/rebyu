@@ -61,6 +61,7 @@ const LearnerPracticeHistoryPage = lazyRoute(() => import("./pages/learner/pract
 const LearnerPracticeReviewPage = lazyRoute(() => import("./pages/learner/practice/learner-practice-review-page.jsx"))
 const InstitutionDashboardPage = lazyRoute(() => import("./pages/institution/dashboard/institution-dashboard-page.jsx"))
 const DepartmentHeadDashboardPage = lazyRoute(() => import("./pages/institution/dashboard/department-head-dashboard-page.jsx"))
+const DepartmentHeadProgramsPage = lazyRoute(() => import("./pages/institution/dashboard/department-head-programs-page.jsx"))
 const InstitutionDepartmentWorkspacePage = lazyRoute(() => import("./pages/institution/departments/institution-department-workspace-page.jsx"))
 const InstitutionDepartmentLearnerPage = lazyRoute(() => import("./pages/institution/departments/institution-department-learner-page.jsx"))
 const InstitutionLearnersPage = lazyRoute(() => import("./pages/institution/departments/institution-learners-page.jsx"))
@@ -474,6 +475,7 @@ export function App() {
                         redirects, so older links keep working. The per-department
                         workspace route is defined with the department routes below. */}
                     <Route path="department-head" element={<DepartmentHeadDashboardPage />} />
+                    <Route path="programs" element={<DepartmentHeadProgramsPage />} />
                     <Route path="head" element={<Navigate to="/institution/department-head" replace />} />
                     {/* The roster only. Its per-learner detail page was reached
                         from a "View" action that no longer exists -- an
