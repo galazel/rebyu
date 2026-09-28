@@ -15,6 +15,7 @@ import {
     MoreHorizontal,
     Plus,
     Search,
+    Lock,
     Send,
     Share2,
     Sparkles,
@@ -698,6 +699,9 @@ export default function Community() {
     const [circleName, setCircleName] = useState("")
     const [circleDescription, setCircleDescription] = useState("")
     const [circleTopic, setCircleTopic] = useState("General Study")
+    /* Public by default. A circle nobody can read is the deliberate choice, so
+       it is the one you have to make rather than the one you fall into. */
+    const [circleVisibility, setCircleVisibility] = useState("PUBLIC")
 
     // Threads are per post and stay mounted in the feed: openThreads holds which
     // cards are expanded, commentsByPost caches what each one has loaded.
@@ -1123,9 +1127,8 @@ export default function Community() {
             toast.error("Add a circle name and description.")
             return
         }
-        // The dialog stays open for the whole round trip, so without this guard a
-        // second click during the await creates a second circle -- and a second
-        // announcement post with it.
+        // The dialog stays open for the whole round trip, so without this guard
+        // a second click during the await creates a second circle.
         if (isCreatingCircle) return
         setIsCreatingCircle(true)
 
@@ -1134,16 +1137,22 @@ export default function Community() {
                 name: circleName.trim(),
                 description: circleDescription.trim(),
                 topic: circleTopic,
+                visibility: circleVisibility,
             })
 
             setCircles((current) => [newCircle, ...current])
             setPosts(await getCommunityPosts())
             setCircleName("")
             setCircleDescription("")
+            setCircleVisibility("PUBLIC")
             setCreateCircleOpen(false)
             selectFeedTab("for-you")
 
-            toast.success("Study circle created and posted to the news feed.")
+            toast.success(
+                newCircle?.isPrivate
+                    ? "Private study circle created. Only members can read what is posted in it."
+                    : "Study circle created."
+            )
         } catch (error) {
             toast.error(apiMessage(error, "The study circle could not be created."))
         } finally {
@@ -1362,9 +1371,22 @@ export default function Community() {
                                         </span>
 
                                         <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-bold text-foreground">{circle.name}</p>
+                                            <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                                                <span className="truncate">{circle.name}</span>
+                                                {/* Marked on the circle, not on its posts: a
+                                                    private circle's posts are the ones a
+                                                    non-member never sees, so the lock has to
+                                                    live where they can see it. */}
+                                                {circle.isPrivate ? (
+                                                    <Lock
+                                                        className="size-3 shrink-0 text-muted-foreground"
+                                                        aria-label="Private circle"
+                                                    />
+                                                ) : null}
+                                            </p>
                                             <p className="truncate text-[11px] font-semibold text-muted-foreground">
                                                 {circle.members?.toLocaleString?.() ?? 0} members
+                                                {circle.isPrivate ? " · private" : ""}
                                             </p>
                                         </div>
                                     </button>
@@ -1610,8 +1632,8 @@ export default function Community() {
                     <DialogHeader>
                         <DialogTitle>Create study circle</DialogTitle>
                         <DialogDescription>
-                            Create a focused study group. A public announcement will
-                            automatically be added to the community news feed.
+                            Create a focused study group. It will be listed for other learners to
+                            find and join.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1655,10 +1677,28 @@ export default function Community() {
                             />
                         </div>
 
+                        <div className="space-y-2">
+                            <Label htmlFor="circle-visibility">Who can read what is posted here</Label>
+
+                            <Select value={circleVisibility} onValueChange={setCircleVisibility}>
+                                <SelectTrigger id="circle-visibility">
+                                    <SelectValue />
+                                </SelectTrigger>
+
+                                <SelectContent>
+                                    <SelectItem value="PUBLIC">Public — anyone on the feed</SelectItem>
+                                    <SelectItem value="PRIVATE">Private — members only</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Says the part that is easy to get wrong: private hides the
+                            posts, not the circle. The circle stays listed either way,
+                            or nobody could ask to join it. */}
                         <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground">
-                            After creation, the circle will appear in the Study Circles list
-                            and a joinable announcement post will be published to the news
-                            feed.
+                            {circleVisibility === "PRIVATE"
+                                ? "The circle stays listed so learners can find and join it, but posts inside it are hidden from the news feed and readable only by members."
+                                : "The circle is listed for anyone to join, and posts inside it appear on the community news feed."}
                         </div>
                     </div>
 

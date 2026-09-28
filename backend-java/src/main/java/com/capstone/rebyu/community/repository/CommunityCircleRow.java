@@ -6,6 +6,8 @@ public interface CommunityCircleRow {
     String getName();
     String getDescription();
     String getTopic();
+    /** "PUBLIC" or "PRIVATE"; never null -- the query coalesces an older row to PUBLIC. */
+    String getVisibility();
     long getMembers();
     boolean getJoined();
     boolean getOwner();

@@ -85,7 +85,8 @@ public class CommunityService {
             String attachmentName, String attachmentType, String attachmentKey, Long attachmentSize,
             List<Attachment> attachments) {}
 
-    public record CircleRequest(String name, String description, String topic) {}
+    /** {@code visibility} is "PUBLIC" or "PRIVATE"; anything else, or absent, means public. */
+    public record CircleRequest(String name, String description, String topic, String visibility) {}
 
     public record CommentRequest(String body, Long parentCommentId) {}
     public record ShareStudyItemRequest(Long circleId) {}
@@ -104,6 +105,7 @@ public class CommunityService {
 
     public record Circle(
             Long circleId, String initials, String name, String description, String topic,
+            String visibility, boolean isPrivate,
             long members, boolean joined, boolean owner) {}
 
     public record Comment(
@@ -526,6 +528,14 @@ public class CommunityService {
                 .name(request.name().trim())
                 .description(request.description().trim())
                 .topic(request.topic().trim())
+                /* Public unless private is asked for by name. A circle whose
+                   visibility arrives missing or unrecognised is the ordinary
+                   one, not the hidden one: a typo should not quietly create a
+                   room nobody can find their way into. */
+                .visibility(CommunityCircle.PRIVATE.equalsIgnoreCase(
+                        request.visibility() == null ? null : request.visibility().trim())
+                        ? CommunityCircle.PRIVATE
+                        : CommunityCircle.PUBLIC)
                 .build();
         CommunityCircle saved = circleRepository.save(circle);
 
@@ -616,8 +626,12 @@ public class CommunityService {
     }
 
     private static Circle mapCircleRow(CommunityCircleRow row) {
+        String visibility = CommunityCircle.PRIVATE.equalsIgnoreCase(row.getVisibility())
+                ? CommunityCircle.PRIVATE
+                : CommunityCircle.PUBLIC;
         return new Circle(row.getCircleId(), initials(row.getName()), row.getName(), row.getDescription(),
-                row.getTopic(), row.getMembers(), row.getJoined(), row.getOwner());
+                row.getTopic(), visibility, CommunityCircle.PRIVATE.equals(visibility),
+                row.getMembers(), row.getJoined(), row.getOwner());
     }
 
     private Comment mapComment(CommunityComment comment, Long viewerLearnerId) {

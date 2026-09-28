@@ -71,6 +71,10 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
             JOIN learners l ON l.learner_id=p.author_learner_id
             LEFT JOIN community_circles c ON c.circle_id=p.circle_id
             WHERE p.moderation_status='VISIBLE'
+              AND (p.circle_id IS NULL
+                   OR COALESCE(c.visibility, 'PUBLIC') <> 'PRIVATE'
+                   OR EXISTS(SELECT 1 FROM community_circle_members m
+                             WHERE m.circle_id=p.circle_id AND m.learner_id=:learnerId))
               AND (CAST(:type AS varchar) IS NULL OR p.post_type=:type)
               AND (CAST(:searchPattern AS varchar) IS NULL OR lower(p.title || ' ' || p.body || ' ' || concat(l.first_name,' ',l.last_name)) LIKE :searchPattern)
               AND (:savedOnly = false OR EXISTS(SELECT 1 FROM community_saved_posts s WHERE s.post_id=p.post_id AND s.learner_id=:learnerId))
@@ -95,6 +99,13 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
             JOIN learners l ON l.learner_id=p.author_learner_id
             LEFT JOIN community_circles c ON c.circle_id=p.circle_id
             WHERE p.post_id=:postId
+              -- The same gate as the feed, and it has to be here too: without
+              -- it a private circle's post stays readable to anyone holding
+              -- its id, which is the one case a feed filter never covers.
+              AND (p.circle_id IS NULL
+                   OR COALESCE(c.visibility, 'PUBLIC') <> 'PRIVATE'
+                   OR EXISTS(SELECT 1 FROM community_circle_members m
+                             WHERE m.circle_id=p.circle_id AND m.learner_id=:learnerId))
             """, nativeQuery = true)
     Optional<CommunityPostRow> findRowById(@Param("postId") Long postId, @Param("learnerId") Long learnerId);
 }
