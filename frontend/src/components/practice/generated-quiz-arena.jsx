@@ -71,10 +71,17 @@ export function GeneratedQuizArena({
      answer: the attempt is still marked in full at submission. */
   const [verdicts, setVerdicts] = useState(() => ({}))
 
+  /* Questions whose marking is still in flight. Next waits on this: the check
+     is a round trip, and without it a fast learner locks an answer and is on
+     the next question before the verdict lands -- which is the whole reason
+     they were shown one. */
+  const [checkingIds, setCheckingIds] = useState(() => new Set())
+
   const question = questions[currentIndex]
   const answer = question ? answers[question.attemptQuestionId] : null
   const locked = question ? lockedIds.has(question.attemptQuestionId) : false
   const verdict = question ? verdicts[question.attemptQuestionId] : null
+  const checking = question ? checkingIds.has(question.attemptQuestionId) : false
   const isLast = currentIndex === questions.length - 1
 
   const lock = useCallback(
@@ -87,6 +94,7 @@ export function GeneratedQuizArena({
          marked unanswered at submission like any other. */
       if (selectedChoiceId == null || !onCheckChoice) return
       const questionId = question.attemptQuestionId
+      setCheckingIds((current) => new Set(current).add(questionId))
       Promise.resolve(onCheckChoice(questionId, selectedChoiceId))
         .then((result) => {
           if (result) setVerdicts((current) => ({ ...current, [questionId]: result }))
@@ -96,6 +104,16 @@ export function GeneratedQuizArena({
            regardless. Falling back to the old "marked at the end" line is a
            better failure than a tile that never resolves. */
         .catch(() => {})
+        /* Cleared either way. Leaving it set on a failed check would hold Next
+           down for good and strand the learner on a question they have already
+           answered -- a lost verdict must not cost them the quiz. */
+        .finally(() => {
+          setCheckingIds((current) => {
+            const next = new Set(current)
+            next.delete(questionId)
+            return next
+          })
+        })
     },
     [question, onCheckChoice]
   )
@@ -242,6 +260,8 @@ export function GeneratedQuizArena({
                 </p>
               ) : null}
             </>
+          ) : checking ? (
+            <p className="text-sm text-white/70">Marking…</p>
           ) : (
             <p className="text-sm text-white/70">
               Locked in. Every answer is marked when you finish the quiz.
@@ -257,16 +277,27 @@ export function GeneratedQuizArena({
             : ""}
         </p>
 
+        {/* Held while the marking is in flight. Moving on before the verdict
+            lands skips the one thing the check exists to show, and on the last
+            question it would submit the paper over the top of it. A question
+            with nothing to check -- a typed answer, or one the clock took
+            unanswered -- never sets `checking`, so it is not held at all. */}
         <Button
           size="lg"
-          disabled={!locked || isSubmitting}
+          disabled={!locked || checking || isSubmitting}
           className="min-w-40 font-rb-display font-extrabold"
           onClick={() => {
             if (isLast) onFinish()
             else onIndexChange(currentIndex + 1)
           }}
         >
-          {isLast ? (isSubmitting ? "Marking..." : "Finish") : "Next"}
+          {checking
+            ? "Marking..."
+            : isLast
+              ? isSubmitting
+                ? "Marking..."
+                : "Finish"
+              : "Next"}
         </Button>
       </div>
     </ArenaShell>
