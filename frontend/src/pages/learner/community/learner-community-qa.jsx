@@ -78,6 +78,20 @@ import {
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { isPremiumError } from "@/services/subscriptionService.js"
 
+/**
+ * The composer's value for "not a circle" -- the open community feed.
+ *
+ * <p>A named value rather than an empty one because Radix Select refuses "" as
+ * an item value, and because the feed is a real destination a learner picks,
+ * not the absence of a choice.
+ */
+const OPEN_FEED = "community"
+
+/** The circle a post belongs to, or null when it is going to the open feed. */
+function circleIdForPost(value) {
+    return value && value !== OPEN_FEED ? Number(value) : null
+}
+
 const FEED_TABS = [
     { value: "for-you", label: "For you" },
     { value: "discussion", label: "Discussions" },
@@ -685,7 +699,9 @@ export default function Community() {
     const [shareType, setShareType] = useState("discussion")
     const [shareTitle, setShareTitle] = useState("")
     const [shareDescription, setShareDescription] = useState("")
-    const [shareCommunity, setShareCommunity] = useState("")
+    /* Radix will not take "" as a value, so the open feed needs a name of its
+       own rather than the absence of one. */
+    const [shareCommunity, setShareCommunity] = useState(OPEN_FEED)
     const [attachedFile, setAttachedFile] = useState(null)
     const [isUploadingAttachment, setIsUploadingAttachment] = useState(false)
     const [isPublishing, setIsPublishing] = useState(false)
@@ -775,9 +791,11 @@ export default function Community() {
         setCircles(data.circles)
         setCertifications(data.certifications)
         setStudyItems(data.studyItems)
-        setShareCommunity((current) =>
-            current || !data.circles[0] ? current : String(data.circles[0].circleId)
-        )
+        /* The composer used to point at whichever circle happened to load
+           first, so a learner who joined one could no longer post to the
+           community at all -- every post went into that circle, and nothing in
+           the picker said otherwise or offered a way out. It opens on the feed
+           now, and a circle is something you choose. */
     }, [feedQuery.dataUpdatedAt])
 
     useEffect(() => {
@@ -848,8 +866,10 @@ export default function Community() {
     function openComposer(type) {
         setShareType(type)
         setAttachedFile(null)
-        // Posting from inside a circle should land in that circle by default.
-        if (activeCircleId) setShareCommunity(String(activeCircleId))
+        // Posting from inside a circle should land in that circle by default,
+        // and posting from the feed should land on the feed -- set both ways
+        // round, or the last circle posted to quietly becomes the default.
+        setShareCommunity(activeCircleId ? String(activeCircleId) : OPEN_FEED)
         setSelectedStudyItemId("")
         setComposerOpen(true)
     }
@@ -1061,7 +1081,7 @@ export default function Community() {
                 return
             }
             try {
-                const nextPost = await shareCommunityStudyItem(Number(selectedStudyItemId), shareCommunity ? Number(shareCommunity) : null)
+                const nextPost = await shareCommunityStudyItem(Number(selectedStudyItemId), circleIdForPost(shareCommunity))
                 setPosts((current) => [nextPost, ...current])
                 setSelectedStudyItemId("")
                 setComposerOpen(false)
@@ -1091,7 +1111,7 @@ export default function Community() {
                 title: shareTitle.trim(),
                 description: shareDescription.trim(),
                 postType,
-                circleId: shareCommunity ? Number(shareCommunity) : null,
+                circleId: circleIdForPost(shareCommunity),
                 attachmentName: attachedFile?.name ?? null,
                 attachmentType: shareType === "reviewer" ? attachmentKind : null,
                 attachmentKey: attachedFile?.key ?? null,
@@ -1483,8 +1503,16 @@ export default function Community() {
                             <div className="mt-4 grid gap-3">
                                 {joinedCircles.length > 0 ? (
                                     <Select value={shareCommunity} onValueChange={setShareCommunity}>
-                                        <SelectTrigger><SelectValue placeholder="Choose a study circle (optional)" /></SelectTrigger>
-                                        <SelectContent>{joinedCircles.map((circle) => <SelectItem key={circle.circleId} value={String(circle.circleId)}>{circle.name}</SelectItem>)}</SelectContent>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={OPEN_FEED}>Community — everyone</SelectItem>
+                                            {joinedCircles.map((circle) => (
+                                                <SelectItem key={circle.circleId} value={String(circle.circleId)}>
+                                                    {circle.name}
+                                                    {circle.isPrivate ? " (private)" : ""}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
                                     </Select>
                                 ) : null}
                                 {["quiz", "flashcard"].includes(shareType) ? (
