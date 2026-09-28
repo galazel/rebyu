@@ -1,6 +1,7 @@
 package com.capstone.rebyu.institution.controller;
 
 import com.capstone.rebyu.assessment.dto.ExamResultDto;
+import com.capstone.rebyu.enrollment.service.CertificationAwardService;
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
 import com.capstone.rebyu.institution.service.DepartmentHeadProvisioningService;
@@ -122,6 +123,13 @@ public class InstitutionPortalController {
     public List<ExamResultDto> learnerExamResults(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long learnerId) {
         return portalService.learnerExamResults(myInstitutionId(jwt), learnerId);
+    }
+
+    /** Badges and certificates one of the caller's own learners has earned; 404 outside the tenant. */
+    @GetMapping("/learners/{learnerId}/awards")
+    public List<CertificationAwardService.AwardDto> learnerAwards(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long learnerId) {
+        return portalService.learnerAwards(myInstitutionId(jwt), learnerId);
     }
 
     @GetMapping("/invoices")

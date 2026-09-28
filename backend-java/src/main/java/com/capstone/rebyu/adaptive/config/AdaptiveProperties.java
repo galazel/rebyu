@@ -40,8 +40,10 @@ public class AdaptiveProperties {
      * bigger the assessment, the smaller the share of it that asked for
      * anything beyond picking an option.
      *
-     * <p>Sized to the assessment instead: a quiz closes on 2, a topic exam on
-     * 5, a unit exam on 10. Anything not listed falls back to
+     * <p>Sized per assessment instead, so one type can be given a final round
+     * of its own without moving any other. The lesson quiz, middle exam, major
+     * exam and diagnostic all sit at zero: each is answered and marked in a
+     * single pass. Anything not listed falls back to
      * {@link #finalRoundMax}. A type is still capped by what its bank actually
      * holds -- see {@code AdaptiveAttemptService}, which takes the smaller of
      * this and the workspace items available.
@@ -49,7 +51,8 @@ public class AdaptiveProperties {
     private Map<String, Integer> finalRoundCounts = new LinkedHashMap<>(Map.of(
             "LESSON_QUIZ", 0,
             "MIDDLE_EXAM", 0,
-            "MAJOR_EXAM", 0));
+            "MAJOR_EXAM", 0,
+            "DIAGNOSTIC", 0));
 
     /**
      * The final-round size for a type with no entry above.

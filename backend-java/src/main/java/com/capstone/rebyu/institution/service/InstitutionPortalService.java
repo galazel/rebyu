@@ -6,7 +6,9 @@ import com.capstone.rebyu.assessment.repository.ExamResultRepository;
 import com.capstone.rebyu.enrollment.dto.InstitutionCertificationLearnerDto;
 import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.mapper.InstitutionCertificationLearnerMapper;
+import com.capstone.rebyu.certification.repository.CertificationRepository;
 import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
+import com.capstone.rebyu.enrollment.service.CertificationAwardService;
 import com.capstone.rebyu.institution.dto.InstitutionPortalDtos.GroupMembershipDto;
 import com.capstone.rebyu.institution.dto.InstitutionPortalDtos.LearnerSummaryDto;
 import com.capstone.rebyu.institution.dto.InstitutionPortalDtos.OverviewDto;
@@ -44,6 +46,8 @@ public class InstitutionPortalService {
     private final DepartmentLearnerRepository groupAssigneeRepository;
     private final ExamResultRepository examResultRepository;
     private final ExamResultMapper examResultMapper;
+    private final CertificationAwardService awardService;
+    private final CertificationRepository certificationRepository;
 
     public OverviewDto overview(Long institutionId) {
         List<InstitutionCertificateDto> institutionCerts =
@@ -83,10 +87,32 @@ public class InstitutionPortalService {
      * so a manager can't probe or read another institution's learner results.
      */
     public List<ExamResultDto> learnerExamResults(Long institutionId, Long learnerId) {
+        requireOwnLearner(institutionId, learnerId);
+        return examResultRepository.findByLearner_LearnerId(learnerId).stream()
+                .map(examResultMapper::toDto).toList();
+    }
+
+    /**
+     * The badges and certificates one of the caller's own learners has earned.
+     *
+     * <p>The same rows {@code /api/learners/me/awards} serves a learner about
+     * themselves, read here by the institution that enrolled them -- a
+     * department head reviewing a learner should not have to ask them for a
+     * screenshot of their own badge wall.
+     */
+    public List<CertificationAwardService.AwardDto> learnerAwards(Long institutionId, Long learnerId) {
+        requireOwnLearner(institutionId, learnerId);
+        return awardService.awardsOf(learnerId, id -> certificationRepository.findById(id).orElse(null));
+    }
+
+    /**
+     * Rejects a learner outside the caller's tenant as a 404 rather than a 403:
+     * to this institution the learner does not exist, and saying "forbidden"
+     * would confirm the id belongs to someone.
+     */
+    private void requireOwnLearner(Long institutionId, Long learnerId) {
         if (!institutionCertLearnerRepository.existsByLearner_LearnerIdAndInstitutionCert_Institution_InstitutionId(learnerId, institutionId)) {
             throw new EntityNotFoundException("Learner not found in this institution: " + learnerId);
         }
-        return examResultRepository.findByLearner_LearnerId(learnerId).stream()
-                .map(examResultMapper::toDto).toList();
     }
 }
