@@ -526,6 +526,47 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
     return () => document.removeEventListener("fullscreenchange", sync)
   }, [])
 
+  /* The keys a reader is expected to answer to. Everything here is already a
+     button in the toolbar -- this is the same set reachable without aiming at
+     one, which is what you want on page 140 of 197.
+
+     Typing is left alone: the page box is an input, and stealing "f" or a plus
+     from it would make it impossible to type a page number. */
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      const tag = event.target?.tagName
+      if (tag === "INPUT" || tag === "TEXTAREA" || event.target?.isContentEditable) return
+
+      const handlers = {
+        ArrowRight: () => goTo(page + 1),
+        ArrowDown: () => goTo(page + 1),
+        PageDown: () => goTo(page + 1),
+        ArrowLeft: () => goTo(page - 1),
+        ArrowUp: () => goTo(page - 1),
+        PageUp: () => goTo(page - 1),
+        Home: () => goTo(1),
+        End: () => pageCount && goTo(pageCount),
+        "+": () => zoomTo(Math.min(ZOOM_STEPS.length - 1, zoomIndex + 1)),
+        "=": () => zoomTo(Math.min(ZOOM_STEPS.length - 1, zoomIndex + 1)),
+        "-": () => zoomTo(Math.max(0, zoomIndex - 1)),
+        f: () => toggleFullscreen(),
+        F: () => toggleFullscreen(),
+      }
+
+      const run = handlers[event.key]
+      if (!run) return
+      event.preventDefault()
+      run()
+    }
+
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+    // Deliberately every render: the handler reads the current page and zoom,
+    // and a dependency list here would either be the same thing written out or
+    // a stale closure paging from wherever the reader was when it mounted.
+  })
+
   const toggleFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen?.()
     else frameRef.current?.requestFullscreen?.()
@@ -665,22 +706,53 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
           {file.description ? <p className="rb-reader-description">{file.description}</p> : null}
 
           {pageNumbers.length > 1 ? (
-            <nav className="mt-6" aria-label="Jump to page">
+            <nav className="mt-6 min-h-0" aria-label="Jump to page">
               <p className="rb-reader-label">Jump to page</p>
-              <div className="rb-reader-jump">
-                {pageNumbers.map((number) => (
-                  <button
-                    key={number}
-                    type="button"
-                    onClick={() => goTo(number)}
-                    aria-current={number === page ? "page" : undefined}
-                  >
-                    {number}
-                  </button>
-                ))}
-              </div>
+
+              {/* Pictures are their own labels. A column of numbered buttons
+                  made a reader count rows to find the page they could already
+                  recognise on sight. */}
+              {isImage ? (
+                <div className="rb-reader-thumbs">
+                  {images.map((image, index) => (
+                    <button
+                      key={image.url ?? index}
+                      type="button"
+                      onClick={() => goTo(index + 1)}
+                      aria-current={index + 1 === page ? "page" : undefined}
+                      aria-label={`Page ${index + 1}`}
+                    >
+                      <img src={image.url} alt="" loading="lazy" />
+                      <span>{index + 1}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                /* Scrolls rather than growing. A 197-page document drew 197
+                   buttons down the panel, burying everything above it -- and
+                   the toolbar already takes a page number typed straight in,
+                   which is the faster way to cross a document that long. */
+                <div className="rb-reader-jump rb-reader-jump-scroll">
+                  {pageNumbers.map((number) => (
+                    <button
+                      key={number}
+                      type="button"
+                      onClick={() => goTo(number)}
+                      aria-current={number === page ? "page" : undefined}
+                    >
+                      {number}
+                    </button>
+                  ))}
+                </div>
+              )}
             </nav>
           ) : null}
+
+          <p className="rb-reader-keys">
+            <span><kbd>←</kbd> <kbd>→</kbd> page</span>
+            <span><kbd>+</kbd> <kbd>−</kbd> zoom</span>
+            <span><kbd>F</kbd> full screen</span>
+          </p>
         </aside>
 
         {/* ---- pages */}
