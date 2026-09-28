@@ -1846,13 +1846,15 @@ body.rb-attempt-lock {
 /* ---------------------------------------------------------------------------
    Converted Word documents (.rb-docx)
 
-   A shared .docx has no native viewer in any browser, so the file-viewer dialog
-   converts it to HTML with mammoth and drops the result in here. That output is
-   plain semantic tags -- h1-h3, p, ul/ol, table, strong/em -- and Tailwind's
-   preflight has already stripped every one of them back to unstyled inline
-   text, which reads as one undifferentiated wall. These rules give the document
-   back its structure without pulling in a whole prose plugin for the one place
-   in the app that renders foreign HTML.
+   Plain semantic HTML -- h1-h3, p, ul/ol, table, strong/em -- that Tailwind's
+   preflight has stripped back to unstyled inline text, which reads as one
+   undifferentiated wall. These rules give it structure back without pulling in
+   a whole prose plugin for the one place in the app that renders foreign HTML.
+
+   This is now the .txt reader and anywhere else bare markup is dropped in.
+   Word documents are NOT rendered with this class any more: docx-preview
+   brings the document's own spacing and alignment with it, and these rules
+   would overwrite exactly what it went to the trouble of preserving.
    --------------------------------------------------------------------------- */
 .rb-docx > :first-child { margin-top: 0; }
 .rb-docx p { margin: 0 0 0.85em; }
