@@ -4,32 +4,35 @@ import { useQuery } from "@tanstack/react-query"
 import {
   AwardIcon,
   BookOpen,
+  CircleAlertIcon,
+  CircleCheckIcon,
   ClipboardListIcon,
   GaugeIcon,
+  HistoryIcon,
+  MinusCircleIcon,
   TargetIcon,
   SparklesIcon,
-  TrendingDownIcon
+  TrendingDownIcon,
+  TrendingUpIcon
 } from "@/components/icons"
 
+import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import {
-  BarBreakdownChart,
-  ChartEmpty,
-  ChartPanel,
-} from "@/components/charts/rebyu-charts.jsx"
+import { ChartEmpty } from "@/components/charts/rebyu-charts.jsx"
 import {
   InstitutionEmptyState,
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
-  InstitutionStatCard,
 } from "@/components/institution/institution-ui.jsx"
 import {
   getGroupLearnerAnalytics,
+  getGroupLearnerAwards,
   getGroupLearnerRoster,
 } from "@/services/institutionService.js"
+import { certificationBadgeUrl } from "@/services/certificationService.js"
 
 /**
  * Every figure on this page comes from ProgressAnalyticsService, which already
@@ -94,6 +97,500 @@ function TopicList({ title, description, icon: Icon, topics, tone }) {
   )
 }
 
+
+/** Up to two initials for the avatar; falls back to a neutral mark. */
+function initialsOf(name) {
+  const parts = String(name ?? "").trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "—"
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join("")
+}
+
+/** One figure in the profile column: label, value, and what it is measured against. */
+function ProfileStat({ icon: Icon, label, value, hint }) {
+  return (
+    <div className="flex items-center gap-3 px-3 py-2.5">
+      <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <dt className="truncate text-xs text-muted-foreground">{label}</dt>
+        {hint ? <dd className="truncate text-[11px] text-muted-foreground/80">{hint}</dd> : null}
+      </div>
+      <dd className="shrink-0 font-heading text-base font-bold tabular-nums text-foreground">
+        {value}
+      </dd>
+    </div>
+  )
+}
+
+/** Weeks of history the activity grid covers, matching a year at a glance. */
+const ACTIVITY_WEEKS = 53
+
+/**
+ * Five steps of one hue, absence through busiest.
+ *
+ * <p>Mixed against the card rather than hard-coded so the ramp follows the
+ * theme: `--color-rb-leaf` is a mid green in light mode and a lighter one in
+ * dark, so in both the cell gets further from the surface as the count rises.
+ * Step 0 is the neutral track, not the palest green -- "nothing happened" is
+ * absence, not a small amount, and GitHub's own grid says it the same way.
+ */
+const ACTIVITY_STEPS = [
+  "var(--color-muted, #ebedf0)",
+  "color-mix(in srgb, var(--color-rb-leaf) 28%, transparent)",
+  "color-mix(in srgb, var(--color-rb-leaf) 52%, transparent)",
+  "color-mix(in srgb, var(--color-rb-leaf) 76%, transparent)",
+  "var(--color-rb-leaf)",
+]
+
+/** Local-date key; `toISOString` would bucket a late-evening attempt into tomorrow. */
+function dayKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate()
+  ).padStart(2, "0")}`
+}
+
+/** 0 for a quiet day, then 1..4 by how busy it was. */
+function activityStep(count) {
+  if (!count) return 0
+  if (count === 1) return 1
+  if (count === 2) return 2
+  if (count <= 4) return 3
+  return 4
+}
+
+/**
+ * A year of assessment activity as a contribution grid -- a column per week,
+ * a row per weekday, the shade carrying how many attempts were submitted.
+ *
+ * <p>It answers a question no score chart on this page does: not how well the
+ * learner did, but whether they are turning up at all, and in what rhythm. A
+ * fortnight of blank columns before an exam is the kind of thing a department
+ * head wants to catch while it is still fixable.
+ *
+ * <p>Count, not score, decides the shade: mixing the two would make a single
+ * excellent attempt look like a quiet week.
+ */
+function ActivityGrid({ attempts }) {
+  const { weeks, monthLabels, total, activeDays } = useMemo(() => {
+    const counts = new Map()
+    for (const attempt of attempts) {
+      if (!attempt.submittedAt) continue
+      const key = dayKey(new Date(attempt.submittedAt))
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+
+    // End on the Saturday of this week so the last column is never a stub,
+    // then walk back whole weeks from there.
+    const end = new Date()
+    end.setHours(0, 0, 0, 0)
+    end.setDate(end.getDate() + (6 - end.getDay()))
+    const start = new Date(end)
+    start.setDate(start.getDate() - (ACTIVITY_WEEKS * 7 - 1))
+
+    const builtWeeks = []
+    const labels = []
+    let seenTotal = 0
+    let seenDays = 0
+    const cursor = new Date(start)
+    const today = new Date()
+    today.setHours(23, 59, 59, 999)
+
+    for (let week = 0; week < ACTIVITY_WEEKS; week += 1) {
+      const days = []
+      for (let day = 0; day < 7; day += 1) {
+        const date = new Date(cursor)
+        const key = dayKey(date)
+        const count = counts.get(key) ?? 0
+        const future = date > today
+        if (!future && count > 0) {
+          seenTotal += count
+          seenDays += 1
+        }
+        days.push({ key, date, count, future })
+        cursor.setDate(cursor.getDate() + 1)
+      }
+      // One label per month, on the first week that starts inside it. A
+      // partial leading month goes unlabelled on purpose: labelling week 0
+      // regardless printed it a column away from the next month's label, and
+      // the two ran together as "SepOct".
+      const first = days[0].date
+      if (first.getDate() <= 7) {
+        const name = first.toLocaleDateString(undefined, { month: "short" })
+        if (labels[labels.length - 1]?.name !== name) labels.push({ week, name })
+      }
+      builtWeeks.push(days)
+    }
+
+    return { weeks: builtWeeks, monthLabels: labels, total: seenTotal, activeDays: seenDays }
+  }, [attempts])
+
+  return (
+    <div>
+      {/* Left-aligned and scrolled rather than centred: centring a grid that
+          can outgrow its container risks clipping the leading weeks, and a
+          year of columns reads left-to-right from the oldest week anyway. */}
+      <div className="overflow-x-auto pb-1">
+        <div className="min-w-max">
+          <div className="flex gap-[3px] pl-8 text-[10px] text-muted-foreground">
+            {weeks.map((_, week) => {
+              const label = monthLabels.find((entry) => entry.week === week)
+              return (
+                <span key={week} className="w-[11px] shrink-0">
+                  {label ? label.name : ""}
+                </span>
+              )
+            })}
+          </div>
+
+          <div className="mt-1 flex gap-[3px]">
+            <div className="flex w-8 shrink-0 flex-col gap-[3px] pr-1 text-[10px] leading-[11px] text-muted-foreground">
+              {["", "Mon", "", "Wed", "", "Fri", ""].map((label, index) => (
+                <span key={index} className="h-[11px]">
+                  {label}
+                </span>
+              ))}
+            </div>
+
+            {weeks.map((days, week) => (
+              <div key={week} className="flex flex-col gap-[3px]">
+                {days.map((day) => (
+                  <span
+                    key={day.key}
+                    title={
+                      day.future
+                        ? undefined
+                        : `${day.count} attempt${day.count === 1 ? "" : "s"} on ${day.date.toLocaleDateString()}`
+                    }
+                    className="size-[11px] rounded-[2px] ring-1 ring-inset ring-border/40"
+                    style={{
+                      background: day.future ? "transparent" : ACTIVITY_STEPS[activityStep(day.count)],
+                      visibility: day.future ? "hidden" : undefined,
+                    }}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>
+          {total} attempt{total === 1 ? "" : "s"} on {activeDays} day
+          {activeDays === 1 ? "" : "s"} in the last year
+        </span>
+        <span className="flex items-center gap-1.5">
+          Less
+          {ACTIVITY_STEPS.map((step, index) => (
+            <span
+              key={index}
+              className="size-[11px] rounded-[2px] ring-1 ring-inset ring-border/40"
+              style={{ background: step }}
+            />
+          ))}
+          More
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/** LESSON_QUIZ -> "Lesson quiz". Unknown types are shown as they arrive. */
+function formatAssessmentType(type) {
+  if (!type) return null
+  const words = String(type).replaceAll("_", " ").toLowerCase()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+/**
+ * Passed or not, said in words and an icon as well as colour -- a pass is not
+ * legible as "the green one" to a reader who cannot separate the two hues.
+ */
+function AttemptOutcome({ passed }) {
+  if (passed == null) return null
+  const Icon = passed ? CircleCheckIcon : CircleAlertIcon
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-xs font-medium ${
+        passed ? "text-rb-leaf" : "text-destructive"
+      }`}
+    >
+      <Icon className="size-3.5" aria-hidden="true" />
+      {passed ? "Passed" : "Not passed"}
+    </span>
+  )
+}
+
+/**
+ * How the latest attempt compares with the first. Only shown once there are
+ * two attempts to compare -- a single sitting has no movement, and calling it
+ * "0" would read as "did not improve" rather than "has not retaken".
+ */
+function AttemptMovement({ attempts }) {
+  if (attempts.length < 2) return null
+  const delta = Math.round(attempts[attempts.length - 1].score - attempts[0].score)
+  const Icon = delta > 0 ? TrendingUpIcon : delta < 0 ? TrendingDownIcon : MinusCircleIcon
+  const tone = delta > 0 ? "text-rb-leaf" : delta < 0 ? "text-destructive" : "text-muted-foreground"
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-medium ${tone}`}>
+      <Icon className="size-3.5" aria-hidden="true" />
+      {delta > 0 ? `+${delta}` : delta}
+      <span className="font-normal text-muted-foreground">since first try</span>
+    </span>
+  )
+}
+
+/**
+ * The run of attempts, as a shape -- the same reading the learner gets of
+ * their own history on the assessment history page: oldest at the left so
+ * improvement reads left to right, every bar measured against the same fixed
+ * 100% well rather than against the tallest in the run, and coloured by
+ * whether that attempt passed rather than by its height.
+ *
+ * <p>It borrows that page's highlighter fills, which are global, but not its
+ * `rb-graded-sheet` paper or `rb-graded-heading` ink: both are scoped to the
+ * classroom design system, and the sheet forces a 3.75rem left padding for
+ * punch-holes whose custom properties this portal never defines. The shape is
+ * the part worth sharing; the paper would arrive broken.
+ */
+function AttemptBars({ attempts }) {
+  return (
+    /* Fixed-width columns rather than flex-1: this panel is half of a wide
+       main column, and a learner with two attempts would otherwise get two
+       slabs the width of a hand. Scrolls instead of shrinking once a run is
+       long enough to outgrow the panel. */
+    <div className="mt-4 flex items-end gap-2 overflow-x-auto pb-1 sm:gap-3">
+      {attempts.map((attempt) => {
+        const value = Math.min(100, Math.max(0, Number(attempt.score) || 0))
+        return (
+          <div
+            key={attempt.attemptNumber ?? attempt.label}
+            className="flex w-14 shrink-0 flex-col items-center gap-2"
+            title={`Attempt ${attempt.attemptNumber ?? "?"}: ${Math.round(value)}%${
+              attempt.takenOn ? ` on ${attempt.takenOn}` : ""
+            }`}
+          >
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {Math.round(value)}%
+            </span>
+            {/* Fixed-height well so every bar is measured against the same
+                100%, not against the tallest score in the run. */}
+            <div className="flex h-24 w-full items-end border-b-2 border-dashed border-border px-1.5">
+              <div
+                className={cn(
+                  "w-full rounded-[6px]",
+                  attempt.passed ? "rb-highlight-pass" : "rb-highlight-fail"
+                )}
+                /* A floor of 4px so a zero-scoring attempt is still a mark on
+                   the page rather than a gap in the run. */
+                style={{ height: `max(4px, ${value}%)` }}
+              />
+            </div>
+            <span className="text-xs font-bold text-muted-foreground">
+              #{attempt.attemptNumber ?? "—"}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * One assessment and every attempt on it.
+ *
+ * <p>Every attempt is drawn, including a lone one: in this idiom a single bar
+ * in its well still reads as "sat once, scored this", and the head came here
+ * to see the attempts rather than to be shown a number when there is only
+ * one.
+ */
+function AssessmentAttemptPanel({ group }) {
+  const { attempts } = group
+  const best = Math.max(...attempts.map((attempt) => attempt.score))
+  const typeLabel = formatAssessmentType(group.assessmentType)
+
+  return (
+    <li className="rounded-lg border border-border/60 bg-card p-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-foreground">{group.title}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {typeLabel ? `${typeLabel} · ` : ""}
+            {attempts.length} attempt{attempts.length === 1 ? "" : "s"}
+            {attempts.length > 1 ? ` · best ${Math.round(best)}%` : ""}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1">
+          <AttemptMovement attempts={attempts} />
+          <AttemptOutcome passed={attempts.some((attempt) => attempt.passed)} />
+        </div>
+      </div>
+
+      <AttemptBars attempts={attempts} />
+    </li>
+  )
+}
+
+/**
+ * Every assessment this learner has sat, each with its own attempts.
+ *
+ * <p>Small multiples rather than one long bar list: the previous chart put
+ * every attempt of every assessment on a single axis, so "Mock Exam (try 2)"
+ * sat between two unrelated quizzes and the one comparison worth making -- a
+ * retake against its own first attempt -- was the one the eye could not make.
+ *
+ * <p>Ordered by most recent activity, so what the learner is working on now is
+ * at the top rather than whatever they sat first.
+ */
+function AssessmentResultsSection({ groups }) {
+  if (groups.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <HistoryIcon className="size-4 text-primary" aria-hidden="true" />
+            Assessment results
+          </CardTitle>
+          <CardDescription>Every assessment this learner has sat, attempt by attempt.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartEmpty message="No assessment has been graded yet." />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const totalAttempts = groups.reduce((sum, group) => sum + group.attempts.length, 0)
+  const retaken = groups.filter((group) => group.attempts.length > 1).length
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <HistoryIcon className="size-4 text-primary" aria-hidden="true" />
+          Assessment results
+        </CardTitle>
+        <CardDescription>
+          {groups.length} assessment{groups.length === 1 ? "" : "s"} sat ·{" "}
+          {totalAttempts} attempt{totalAttempts === 1 ? "" : "s"}
+          {retaken ? ` · ${retaken} retaken` : ""}. Each bar is one attempt, oldest on the left;
+          green cleared the assessment, red did not. Practice the learner generated in the AI
+          tutor is not counted.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul className="grid gap-3 lg:grid-cols-2">
+          {groups.map((group) => (
+            <AssessmentAttemptPanel key={group.examId ?? group.title} group={group} />
+          ))}
+        </ul>
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
+ * One earned credential: the badge image the admin uploaded for the
+ * certification, the date it was awarded, and the certificate number when one
+ * was issued. Drawn the way the learner's own badge wall draws it, so a
+ * department head and the learner are looking at the same object.
+ */
+function CredentialMark({ award }) {
+  const earnedAt = award.badgeAwardedAt ?? award.certificateAwardedAt
+  const score = Number(award.scorePercentage)
+  return (
+    <li className="flex min-w-0 items-center gap-3 rounded-lg border border-border/60 bg-card p-3">
+      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-rb-bee/60 bg-rb-bee-wash shadow-sm">
+        {award.hasBadgeImage ? (
+          <img
+            /* Busted on the award date: the admin can replace a certification's
+               badge image, and the URL is otherwise identical forever. */
+            src={`${certificationBadgeUrl(award.certificationId)}?v=${encodeURIComponent(earnedAt ?? "")}`}
+            alt=""
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <AwardIcon className="size-7 text-rb-bee" aria-hidden="true" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-foreground">
+          {award.certificationTitle ?? "Certification"}
+        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {earnedAt ? `Awarded ${new Date(earnedAt).toLocaleDateString()}` : "Awarded"}
+          {Number.isFinite(score) ? ` · passed at ${Math.round(score)}%` : ""}
+        </p>
+        {award.certificateNumber ? (
+          <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+            {award.certificateNumber}
+          </p>
+        ) : null}
+      </div>
+    </li>
+  )
+}
+
+/**
+ * What this learner has actually walked away with. The figures above are
+ * progress; this is the outcome -- a badge is only written once the mock exam
+ * is passed (see CertificationAwardService), so an empty card here is a
+ * meaningful "not yet", not missing data.
+ *
+ * <p>Its own query rather than a field on the analytics DTO: awards are earned
+ * against a certification, not against the department this page is scoped to,
+ * and a failure to load them should cost the card, not the page.
+ */
+function CredentialsCard({ query }) {
+  const awards = (Array.isArray(query.data) ? query.data : []).filter(
+    (award) => award.badgeAwardedAt != null || award.certificateAwardedAt != null
+  )
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <AwardIcon className="size-4 text-rb-bee" aria-hidden="true" />
+          Credentials earned
+        </CardTitle>
+        <CardDescription>
+          Badges and certificates from finishing a certification — awarded on passing its mock exam.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {query.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading credentials…</p>
+        ) : query.isError ? (
+          <p className="text-sm text-muted-foreground">
+            Unable to load this learner's credentials.{" "}
+            <button
+              type="button"
+              onClick={query.refetch}
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              Try again
+            </button>
+          </p>
+        ) : awards.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No credential earned yet. One is issued automatically when this learner passes a
+            certification's mock exam.
+          </p>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {awards.map((award) => (
+              <CredentialMark key={award.certificationId} award={award} />
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 /**
  * One learner's statistics, for the leader of the group they belong to. Reached
  * by clicking a row in the group's Learners tab. Read-only: this is a
@@ -119,43 +616,80 @@ export default function InstitutionDepartmentLearnerPage() {
     retry: 1,
   })
 
+  // Kept out of the page's loading gate: a slow or failed award lookup should
+  // not hold back the statistics, which are what this page is mainly for.
+  const awardsQuery = useQuery({
+    queryKey: ["group-learner-awards", learnerIdNumber],
+    queryFn: () => getGroupLearnerAwards(learnerIdNumber),
+    enabled: Number.isFinite(learnerIdNumber),
+    staleTime: 60_000,
+    retry: 1,
+  })
+
   const learner = (Array.isArray(rosterQuery.data) ? rosterQuery.data : []).find(
     (row) => row.learnerId === learnerIdNumber
   )
+  const initials = initialsOf(learner?.name)
   const analytics = analyticsQuery.data
 
   const backToGroup = `/institution/departments/${departmentId}?tab=learners`
 
 
-  /* One bar per graded attempt, oldest first.
-     `scoreTrend` already excludes the AI tutor's practice quizzes and
+  /* `scoreTrend` already excludes the AI tutor's practice quizzes and
      flashcards -- the backend drops anything `tutorPracticeMarker` recognises
      before building it -- so this is the curriculum's own assessments only.
-     Labelled by title and attempt number because a retake of the same exam is
-     a different bar, and two bars reading "Mock Exam" would be unreadable. */
-  const assessmentScores = useMemo(() => {
-    const points = (analytics?.scoreTrend ?? []).filter((point) => point.percentage != null)
-    // The DTO's field is `assessmentTitle`; this read `examTitle`, which never
-    // existed, so every bar and legend entry said "Assessment".
-    const titleOf = (point) => point.assessmentTitle ?? point.examTitle ?? "Assessment"
-    const titleCounts = points.reduce((counts, point) => {
-      counts.set(titleOf(point), (counts.get(titleOf(point)) ?? 0) + 1)
-      return counts
-    }, new Map())
-    return points.map((point) => {
-      const title = titleOf(point)
-      const repeated = titleCounts.get(title) > 1
-      const date = point.submittedAt
-        ? new Date(point.submittedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })
-        : null
-      return {
-        label: repeated
-          ? `${title} (${point.attemptNumber ? `try ${point.attemptNumber}` : date ?? "retake"})`
-          : title,
-        score: Math.round(Number(point.percentage) * 10) / 10,
+     One point per submitted attempt, which is what lets a retake be grouped
+     against its own first sitting rather than against the next exam along. */
+  const gradedAttempts = useMemo(
+    () => (analytics?.scoreTrend ?? []).filter((point) => point.percentage != null),
+    [analytics?.scoreTrend]
+  )
+
+  /* Grouped by `examId` -- the id, not the title, because two assessments in a
+     certification may legitimately share a name and merging them would invent
+     a retake that never happened. Titles are still the fallback for a point
+     that arrives without an id. */
+  const assessmentGroups = useMemo(() => {
+    const byExam = new Map()
+    for (const point of gradedAttempts) {
+      // The DTO's field is `assessmentTitle`; this once read `examTitle`, which
+      // never existed, so every label said "Assessment".
+      const title = point.assessmentTitle ?? "Assessment"
+      const key = point.examId ?? `title:${title}`
+      if (!byExam.has(key)) {
+        byExam.set(key, {
+          examId: point.examId ?? key,
+          title,
+          assessmentType: point.assessmentType,
+          attempts: [],
+          lastSubmittedAt: null,
+        })
       }
-    })
-  }, [analytics?.scoreTrend])
+      const group = byExam.get(key)
+      const submittedAt = point.submittedAt ? new Date(point.submittedAt) : null
+      group.attempts.push({
+        attemptNumber: point.attemptNumber,
+        label: point.attemptNumber ? `Try ${point.attemptNumber}` : "Attempt",
+        score: Math.round(Number(point.percentage) * 10) / 10,
+        passed: point.passed,
+        takenOn: submittedAt ? submittedAt.toLocaleDateString() : null,
+      })
+      if (submittedAt && (group.lastSubmittedAt == null || submittedAt > group.lastSubmittedAt)) {
+        group.lastSubmittedAt = submittedAt
+      }
+    }
+
+    return [...byExam.values()]
+      .map((group) => ({
+        ...group,
+        // Attempt order, not submission order: a late-graded first attempt
+        // should still read as "Try 1" on the left.
+        attempts: [...group.attempts].sort(
+          (a, b) => (a.attemptNumber ?? 0) - (b.attemptNumber ?? 0)
+        ),
+      }))
+      .sort((a, b) => (b.lastSubmittedAt?.getTime() ?? 0) - (a.lastSubmittedAt?.getTime() ?? 0))
+  }, [gradedAttempts])
 
   if (analyticsQuery.isLoading || rosterQuery.isLoading) {
     return (
@@ -186,19 +720,30 @@ export default function InstitutionDepartmentLearnerPage() {
   const totalAttempts = analytics?.totalAssessmentAttempts ?? 0
 
   return (
-    <div className="space-y-6">
-      <div>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
-              {learner?.name ?? "Learner"}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {analytics?.certificationTitle ?? "Progress and performance"}
-              {learner?.username ? ` · @${learner.username}` : ""}
-            </p>
+    /* A profile, not a report: who the learner is stays pinned in the left
+       column while the right scrolls through what they have been doing. The
+       identity and the headline figures do not move, so a head reading down
+       the activity never loses track of whose it is. */
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] lg:items-start">
+      <aside className="space-y-5 lg:sticky lg:top-6">
+        <div>
+          <div className="flex size-28 items-center justify-center rounded-full border-2 border-border bg-muted sm:size-36">
+            <span className="font-heading text-3xl font-bold text-muted-foreground sm:text-4xl">
+              {initials}
+            </span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+
+          <h1 className="mt-4 font-heading text-2xl font-bold leading-tight tracking-tight text-foreground">
+            {learner?.name ?? "Learner"}
+          </h1>
+          {learner?.username ? (
+            <p className="text-base text-muted-foreground">@{learner.username}</p>
+          ) : null}
+          <p className="mt-2 text-sm text-muted-foreground">
+            {analytics?.certificationTitle ?? "Progress and performance"}
+          </p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             {/* The roster already carries this learner's mock-exam result, so
                 the badge costs no extra call. */}
             {learner?.mockExamPassed ? (
@@ -214,113 +759,83 @@ export default function InstitutionDepartmentLearnerPage() {
               <Badge variant="outline">Mastery data unavailable</Badge>
             ) : null}
           </div>
+
+          <Button asChild variant="outline" className="mt-4 w-full">
+            <Link to={backToGroup}>Back to this group</Link>
+          </Button>
         </div>
-      </div>
 
-      {!analytics?.hasAssessmentActivity && !analytics?.hasChallengeActivity ? (
-        <InstitutionEmptyState
-          icon={SparklesIcon}
-          title="No activity yet"
-          description="This learner has not attempted an assessment or challenge yet, so there is nothing to report."
-        />
-      ) : null}
-
-      {/* Four figures: curriculum progress, assessments passed, average score,
-          readiness. Average score and the assessment counts are returned by
-          this endpoint (`averageAssessmentScore`, `passedAssessmentCount`,
-          `totalAssessmentCount`) and were being dropped on the floor -- nothing
-          on the page read them.
-
-          Confidence and overall mastery used to sit here too, alongside a
-          meter card and a three-gauge row that restated readiness and
-          curriculum completion a second and third time. One figure, stated
-          once. */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <InstitutionStatCard
-          icon={BookOpen}
-          label="Lessons completed"
-          value={`${completedLessons}/${totalLessons}`}
-          hint={
-            totalLessons
-              ? `${Math.round(((completedLessons / totalLessons) * 100 + Number.EPSILON) * 10) / 10}% of the curriculum`
-              : "No lessons in this certification yet"
-          }
-        />
-        <InstitutionStatCard
-          icon={ClipboardListIcon}
-          label="Assessments passed"
-          value={`${passedAssessments}/${totalAssessments}`}
-          hint={
-            totalAssessments
-              ? `${totalAttempts} attempt${totalAttempts === 1 ? "" : "s"} on this certification`
-              : "No published assessments yet"
-          }
-        />
-        <InstitutionStatCard
-          icon={TargetIcon}
-          label="Average score"
-          /* Across graded attempts, not across assessments: an unattempted
-             assessment has no score to average in, and counting it as zero
-             would report a failure that has not happened. */
-          value={formatPercent(analytics?.averageAssessmentScore)}
-          hint={
-            totalAttempts
-              ? `Mean of ${totalAttempts} graded attempt${totalAttempts === 1 ? "" : "s"}`
-              : "No graded attempt yet"
-          }
-        />
-        <InstitutionStatCard
-          icon={GaugeIcon}
-          label="Readiness"
-          value={formatPercent(analytics?.readinessPercentage)}
-          hint="Weighted likelihood of passing"
-        />
-      </div>
-
-      <TopicList
-        title="Weakest topics"
-        description="Where this learner needs the most help — lowest mastery first."
-        icon={TrendingDownIcon}
-        topics={weakestTopics}
-        tone="weak"
-      />
-
-      <ChartPanel
-        title="score on every assessment"
-        subtitle={
-          analytics?.averageAssessmentScore == null
-            ? "Each graded attempt on this certification, oldest first. Practice the learner generated in the AI tutor is not counted."
-            : `Each graded attempt on this certification, oldest first — averaging ${formatPercent(analytics.averageAssessmentScore)}. Practice the learner generated in the AI tutor is not counted.`
-        }
-        footnote={
-          assessmentScores.length
-            ? "Bars at or above the 75% line are passes at the usual threshold."
-            : undefined
-        }
-      >
-        {assessmentScores.length === 0 ? (
-          <ChartEmpty message="No assessment has been graded yet." />
-        ) : (
-          <BarBreakdownChart
-            data={assessmentScores}
-            categoryKey="label"
-            valueKey="score"
-            unit="%"
-            target={75}
-            domainMax={100}
-            height={Math.max(220, assessmentScores.length * 44)}
-            categoryWidth={220}
+        {/* The same four figures the page has always led with, as a list
+            rather than a card row: in a column this narrow the cards were all
+            chrome and no number. */}
+        <dl className="divide-y divide-border/60 rounded-lg border border-border/60">
+          <ProfileStat
+            icon={BookOpen}
+            label="Lessons completed"
+            value={`${completedLessons}/${totalLessons}`}
+            hint={
+              totalLessons
+                ? `${Math.round(((completedLessons / totalLessons) * 100 + Number.EPSILON) * 10) / 10}% of the curriculum`
+                : "No lessons yet"
+            }
           />
-        )}
-      </ChartPanel>
+          <ProfileStat
+            icon={ClipboardListIcon}
+            label="Assessments passed"
+            value={`${passedAssessments}/${totalAssessments}`}
+            hint={
+              totalAssessments
+                ? `${totalAttempts} attempt${totalAttempts === 1 ? "" : "s"}`
+                : "None published yet"
+            }
+          />
+          <ProfileStat
+            icon={TargetIcon}
+            label="Average score"
+            /* Across graded attempts, not across assessments: an unattempted
+               assessment has no score to average in, and counting it as zero
+               would report a failure that has not happened. */
+            value={formatPercent(analytics?.averageAssessmentScore)}
+            hint={totalAttempts ? `Mean of ${totalAttempts} graded` : "No graded attempt yet"}
+          />
+          <ProfileStat
+            icon={GaugeIcon}
+            label="Readiness"
+            value={formatPercent(analytics?.readinessPercentage)}
+            hint="Likelihood of passing"
+          />
+        </dl>
 
-      <p className="text-xs text-muted-foreground">
-        Monitoring view only.{" "}
-        <Link to={backToGroup} className="font-medium text-primary hover:underline">
-          Back to this group&apos;s learners
-        </Link>
-        .
-      </p>
+        <CredentialsCard query={awardsQuery} />
+      </aside>
+
+      <div className="min-w-0 space-y-6">
+        {!analytics?.hasAssessmentActivity && !analytics?.hasChallengeActivity ? (
+          <InstitutionEmptyState
+            icon={SparklesIcon}
+            title="No activity yet"
+            description="This learner has not attempted an assessment or challenge yet, so there is nothing to report."
+          />
+        ) : null}
+
+        <Card>
+          <CardContent className="pt-6">
+            <ActivityGrid attempts={gradedAttempts} />
+          </CardContent>
+        </Card>
+
+        <AssessmentResultsSection groups={assessmentGroups} />
+
+        <TopicList
+          title="Weakest topics"
+          description="Where this learner needs the most help — lowest mastery first."
+          icon={TrendingDownIcon}
+          topics={weakestTopics}
+          tone="weak"
+        />
+
+        <p className="text-xs text-muted-foreground">Monitoring view only.</p>
+      </div>
     </div>
   )
 }

@@ -394,18 +394,25 @@ export default function LearnerAccountPage() {
         >
           <SectionHeader title="Profile details" description="Update how your learner identity appears across REBYU." />
           <div className="p-4 sm:p-6">
-            {certificationBadges.length ? (
-              <section className="border-b border-border/70 pb-5 sm:pb-6">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0"><h3 className="text-[15px] font-semibold sm:text-base">Certification badges</h3><p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">Earned by passing a certification's mock exam.</p></div>
-                  <span className="shrink-0 rounded-full bg-rb-bee/15 px-2.5 py-1 text-xs font-semibold text-rb-eel">{certificationBadges.length} earned</span>
-                </div>
+            {/* Shown whether or not any have been earned, for the same reason
+                the achievements below are: a wall with nothing on it still
+                says what there is to win, where a section that disappears
+                until you have one reads as though certifications carry no
+                badge at all. */}
+            <section className="border-b border-border/70 pb-5 sm:pb-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0"><h3 className="text-[15px] font-semibold sm:text-base">Certification badges</h3><p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">Earned by passing a certification's mock exam.</p></div>
+                <span className="shrink-0 rounded-full bg-rb-bee/15 px-2.5 py-1 text-xs font-semibold text-rb-eel">{certificationBadges.length} earned</span>
+              </div>
+              {certificationBadges.length ? (
                 <div className="mt-4 grid grid-cols-4 gap-x-2 gap-y-4 sm:mt-5 sm:grid-cols-5 sm:gap-5 lg:grid-cols-8">
                   {certificationBadges.map((award) => <CertificationBadgeMark key={award.certificationId} award={award} />)}
                 </div>
-              </section>
-            ) : null}
-            <section className={`border-b border-border/70 pb-5 sm:pb-6 ${certificationBadges.length ? "mt-5 sm:mt-6" : ""}`}>
+              ) : (
+                <div className="mt-5 flex items-center gap-3 py-3 text-sm text-muted-foreground"><span className="flex size-10 items-center justify-center rounded-full bg-rb-bee-wash"><Award className="size-5 text-rb-bee" /></span>Pass a certification&apos;s mock exam to earn its badge and certificate.</div>
+              )}
+            </section>
+            <section className="mt-5 border-b border-border/70 pb-5 sm:mt-6 sm:pb-6">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0"><h3 className="text-[15px] font-semibold sm:text-base">Achievements</h3><p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">Milestones earned through lessons, assessments, and learning streaks.</p></div>
                 <span className="shrink-0 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">{earnedAchievements.length}/{achievements.length} earned</span>

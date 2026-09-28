@@ -15,6 +15,15 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
     // Per-scope uniqueness checks (spec §5): one required assessment per scope.
     boolean existsByLesson_LessonId(Long lessonId);
 
+    /**
+     * Every set one learner has already generated of one kind against one
+     * lesson -- what a fresh generation has to avoid being named the same as.
+     * Scoped to the learner because two learners generating from the same
+     * lesson each want the plain title, not a number they did not earn.
+     */
+    List<Exam> findByLearner_LearnerIdAndLesson_LessonIdAndExamType_ExamTypeText(
+            Long learnerId, Long lessonId, String examTypeText);
+
     // Same check, but ignoring AI-tutor-generated practice quizzes: a learner
     // generating one for their own use must never block an admin from later
     // authoring the lesson's real, official quiz. Explicit JPQL rather than a

@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface GeneratedStudySetRepository extends JpaRepository<GeneratedStudySet, Long> {
@@ -26,4 +27,19 @@ public interface GeneratedStudySetRepository extends JpaRepository<GeneratedStud
 
     Optional<GeneratedStudySet> findFirstByLearner_LearnerIdAndSourceAndGenerationVersion(
             Long learnerId, String source, String generationVersion);
+
+    /**
+     * The titles one learner has already used for sets of one kind against one
+     * lesson -- what a fresh generation has to avoid being named the same as.
+     */
+    @Query("""
+            SELECT s.title FROM GeneratedStudySet s
+            WHERE s.learner.learnerId = :learnerId
+              AND s.lesson.lessonId = :lessonId
+              AND s.studyType = :studyType
+            """)
+    List<String> findTitlesByLearnerLessonAndType(
+            @Param("learnerId") Long learnerId,
+            @Param("lessonId") Long lessonId,
+            @Param("studyType") String studyType);
 }

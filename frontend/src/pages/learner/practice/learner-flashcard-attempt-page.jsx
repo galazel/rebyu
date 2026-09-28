@@ -11,6 +11,7 @@ import {
   CountdownRing,
   useQuestionClock,
 } from "@/components/practice/kahoot-arena.jsx"
+import { apiMessage } from "@/services/base"
 import {
   completePracticeAttempt,
   getStudySet,
@@ -64,7 +65,13 @@ export default function LearnerFlashcardAttemptPage() {
           setAttempt(nextAttempt)
         }
       })
-      .catch(() => toast.error("This flashcard set could not be opened."))
+      /* The server says why -- an enrollment that is no longer active, a set
+         that is gone -- and swallowing it left the learner staring at a blank
+         card with nothing to act on. The generic line stays as the fallback
+         for a failure that carries no message of its own. */
+      .catch((error) =>
+        toast.error(apiMessage(error, "This flashcard set could not be opened."))
+      )
     return () => {
       live = false
     }

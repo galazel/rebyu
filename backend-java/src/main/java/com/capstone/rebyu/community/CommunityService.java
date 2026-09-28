@@ -85,7 +85,8 @@ public class CommunityService {
             String attachmentName, String attachmentType, String attachmentKey, Long attachmentSize,
             List<Attachment> attachments) {}
 
-    public record CircleRequest(String name, String description, String topic) {}
+    /** {@code visibility} is "PUBLIC" or "PRIVATE"; anything else, or absent, means public. */
+    public record CircleRequest(String name, String description, String topic, String visibility) {}
 
     public record CommentRequest(String body, Long parentCommentId) {}
     public record ShareStudyItemRequest(Long circleId) {}
@@ -104,6 +105,7 @@ public class CommunityService {
 
     public record Circle(
             Long circleId, String initials, String name, String description, String topic,
+            String visibility, boolean isPrivate,
             long members, boolean joined, boolean owner) {}
 
     public record Comment(
@@ -526,18 +528,25 @@ public class CommunityService {
                 .name(request.name().trim())
                 .description(request.description().trim())
                 .topic(request.topic().trim())
+                /* Public unless private is asked for by name. A circle whose
+                   visibility arrives missing or unrecognised is the ordinary
+                   one, not the hidden one: a typo should not quietly create a
+                   room nobody can find their way into. */
+                .visibility(CommunityCircle.PRIVATE.equalsIgnoreCase(
+                        request.visibility() == null ? null : request.visibility().trim())
+                        ? CommunityCircle.PRIVATE
+                        : CommunityCircle.PUBLIC)
                 .build();
         CommunityCircle saved = circleRepository.save(circle);
 
         circleMemberRepository.addMember(saved.getCircleId(), learnerId);
 
-        postRepository.save(CommunityPost.builder()
-                .author(learnerRef(learnerId))
-                .circle(saved)
-                .postType("circle")
-                .title(request.name().trim() + " is now open")
-                .body(request.description().trim())
-                .build());
+        /* Creating a circle used to announce itself into the feed. Making a
+           circle is not saying something, and the post said nothing the
+           circle's own row in the sidebar does not -- so it read as the
+           owner's first post rather than as a room opening, and it was the
+           top of their feed either way. The circle is discoverable as a
+           circle; anyone with something to say can post in it. */
 
         return circleById(learnerId, saved.getCircleId());
     }
@@ -545,8 +554,8 @@ public class CommunityService {
     /**
      * Deletes a circle the caller owns, along with the posts written in it.
      * The posts go explicitly: the circle_id FK is ON DELETE SET NULL (V24), so
-     * without this the circle's announcement and discussions would survive as
-     * orphans in the global feed after the circle they belong to is gone.
+     * without this the discussions written inside it would survive as orphans
+     * in the global feed after the circle they belong to is gone.
      * Members cascade with the circle.
      */
     @Transactional
@@ -617,8 +626,12 @@ public class CommunityService {
     }
 
     private static Circle mapCircleRow(CommunityCircleRow row) {
+        String visibility = CommunityCircle.PRIVATE.equalsIgnoreCase(row.getVisibility())
+                ? CommunityCircle.PRIVATE
+                : CommunityCircle.PUBLIC;
         return new Circle(row.getCircleId(), initials(row.getName()), row.getName(), row.getDescription(),
-                row.getTopic(), row.getMembers(), row.getJoined(), row.getOwner());
+                row.getTopic(), visibility, CommunityCircle.PRIVATE.equals(visibility),
+                row.getMembers(), row.getJoined(), row.getOwner());
     }
 
     private Comment mapComment(CommunityComment comment, Long viewerLearnerId) {

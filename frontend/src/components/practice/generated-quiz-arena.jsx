@@ -24,13 +24,17 @@ import {
  * payload for the same server-side grading. What changes is the framing: one
  * question filling the window, four coloured tiles, and a clock per question.
  *
- * <h3>Why there is no "Correct!" between questions</h3>
- * A graded attempt is marked on submission, by the server, all at once. Nothing
- * here knows whether a tile was right, so nothing here says. The practice-set
- * arena does show it, because that runner grades each answer as it is given --
- * a different endpoint answering a different question. Inventing the verdict
- * locally would mean marking the paper in the browser, which is exactly what an
- * assessment must not do.
+ * <h3>Where the verdict between questions comes from</h3>
+ * The browser still does not mark the paper. A locked choice is sent to
+ * {@code /choice/{attemptQuestionId}/check}, which marks it the same way
+ * submission will and answers with what it made of it, so the tile that lights
+ * up and the score at the end cannot disagree. The choices in this page carry
+ * no correct flag and never have -- reading one off the payload would put the
+ * answers in the page for anyone with a network tab open.
+ *
+ * <p>Which choice was right, and why, arrive only when the exam releases its
+ * answers. Where it does not, the learner is still told whether theirs stood:
+ * they have locked it and cannot change it, and that much is theirs to know.
  */
 
 /** Per question. Enough to read four options, not enough to deliberate. */
@@ -49,6 +53,7 @@ export function GeneratedQuizArena({
   questions,
   answers,
   onAnswer,
+  onCheckChoice,
   currentIndex,
   onIndexChange,
   onFinish,
@@ -61,15 +66,57 @@ export function GeneratedQuizArena({
      the arena's own state -- the attempt still holds the answer itself. */
   const [lockedIds, setLockedIds] = useState(() => new Set())
 
+  /* The server's marking of each locked choice, by question. Kept here rather
+     than on the attempt because it is what this runner shows, not part of the
+     answer: the attempt is still marked in full at submission. */
+  const [verdicts, setVerdicts] = useState(() => ({}))
+
+  /* Questions whose marking is still in flight. Next waits on this: the check
+     is a round trip, and without it a fast learner locks an answer and is on
+     the next question before the verdict lands -- which is the whole reason
+     they were shown one. */
+  const [checkingIds, setCheckingIds] = useState(() => new Set())
+
   const question = questions[currentIndex]
   const answer = question ? answers[question.attemptQuestionId] : null
   const locked = question ? lockedIds.has(question.attemptQuestionId) : false
+  const verdict = question ? verdicts[question.attemptQuestionId] : null
+  const checking = question ? checkingIds.has(question.attemptQuestionId) : false
   const isLast = currentIndex === questions.length - 1
 
-  const lock = useCallback(() => {
-    if (!question) return
-    setLockedIds((current) => new Set(current).add(question.attemptQuestionId))
-  }, [question])
+  const lock = useCallback(
+    (selectedChoiceId) => {
+      if (!question) return
+      setLockedIds((current) => new Set(current).add(question.attemptQuestionId))
+
+      /* Only a choice can be marked this way, and only one that was actually
+         picked: a question the clock ran out on has nothing to send, and is
+         marked unanswered at submission like any other. */
+      if (selectedChoiceId == null || !onCheckChoice) return
+      const questionId = question.attemptQuestionId
+      setCheckingIds((current) => new Set(current).add(questionId))
+      Promise.resolve(onCheckChoice(questionId, selectedChoiceId))
+        .then((result) => {
+          if (result) setVerdicts((current) => ({ ...current, [questionId]: result }))
+        })
+        /* A verdict that does not arrive costs the learner the feedback, not
+           the question: the answer is already saved, and submission marks it
+           regardless. Falling back to the old "marked at the end" line is a
+           better failure than a tile that never resolves. */
+        .catch(() => {})
+        /* Cleared either way. Leaving it set on a failed check would hold Next
+           down for good and strand the learner on a question they have already
+           answered -- a lost verdict must not cost them the quiz. */
+        .finally(() => {
+          setCheckingIds((current) => {
+            const next = new Set(current)
+            next.delete(questionId)
+            return next
+          })
+        })
+    },
+    [question, onCheckChoice]
+  )
 
   /* Time up locks whatever is selected, blank included -- an unanswered
      question is submitted unanswered and marked wrong, the same as it would be
@@ -78,7 +125,7 @@ export function GeneratedQuizArena({
     seconds: QUESTION_SECONDS,
     index: currentIndex,
     running: Boolean(question) && !locked && !isSubmitting,
-    onExpire: lock,
+    onExpire: () => lock(),
   })
 
   if (!question) return null
@@ -132,16 +179,27 @@ export function GeneratedQuizArena({
               label={choice.choiceText}
               selected={answer?.selectedChoiceId === choice.choiceId}
               disabled={locked || isSubmitting}
+              /* Once the server has answered: the right tile lights up, the
+                 learner's own stays lit so they can see what they picked
+                 against it, and the rest step back. Until then -- or where
+                 the exam withholds its answers -- only the picked tile stays
+                 lit, exactly as before. */
               state={
-                locked && answer?.selectedChoiceId !== choice.choiceId
-                  ? "dimmed"
-                  : "idle"
+                !locked
+                  ? "idle"
+                  : verdict?.correctChoiceId === choice.choiceId
+                    ? "correct"
+                    : answer?.selectedChoiceId === choice.choiceId
+                      ? verdict && verdict.correct === false
+                        ? "wrong"
+                        : "idle"
+                      : "dimmed"
               }
               onSelect={() => {
                 onAnswer(question.attemptQuestionId, {
                   selectedChoiceId: choice.choiceId,
                 })
-                lock()
+                lock(choice.choiceId)
               }}
             />
           ))}
@@ -176,13 +234,40 @@ export function GeneratedQuizArena({
         </div>
       )}
 
-      {/* Said once, plainly. A learner who has just watched a tile go dim with
-          no verdict deserves to know the marking is coming, not to conclude the
-          quiz is broken. */}
+      {/* Said once, plainly. With a verdict it is the verdict; without one --
+          a typed answer, a question the clock took, or a check that did not
+          come back -- it is still the old promise, so a learner watching a
+          tile dim never concludes the quiz is broken. */}
       {locked ? (
-        <p className="mt-6 text-center text-sm text-white/70">
-          Locked in. Every answer is marked when you finish the quiz.
-        </p>
+        <div className="mt-6 text-center">
+          {verdict ? (
+            <>
+              <p
+                className={`font-rb-display text-xl font-extrabold ${
+                  verdict.correct ? "text-rb-leaf" : "text-white"
+                }`}
+              >
+                {verdict.correct ? "Correct" : "Not quite"}
+              </p>
+              {!verdict.correct && !verdict.answersReleased ? (
+                <p className="mt-1 text-sm text-white/70">
+                  This quiz keeps its answers until you finish.
+                </p>
+              ) : null}
+              {verdict.explanation ? (
+                <p className="mx-auto mt-2 max-w-2xl text-sm text-white/80">
+                  {verdict.explanation}
+                </p>
+              ) : null}
+            </>
+          ) : checking ? (
+            <p className="text-sm text-white/70">Marking…</p>
+          ) : (
+            <p className="text-sm text-white/70">
+              Locked in. Every answer is marked when you finish the quiz.
+            </p>
+          )}
+        </div>
       ) : null}
 
       <div className="mt-auto flex items-center justify-between gap-4 py-6">
@@ -192,16 +277,27 @@ export function GeneratedQuizArena({
             : ""}
         </p>
 
+        {/* Held while the marking is in flight. Moving on before the verdict
+            lands skips the one thing the check exists to show, and on the last
+            question it would submit the paper over the top of it. A question
+            with nothing to check -- a typed answer, or one the clock took
+            unanswered -- never sets `checking`, so it is not held at all. */}
         <Button
           size="lg"
-          disabled={!locked || isSubmitting}
+          disabled={!locked || checking || isSubmitting}
           className="min-w-40 font-rb-display font-extrabold"
           onClick={() => {
             if (isLast) onFinish()
             else onIndexChange(currentIndex + 1)
           }}
         >
-          {isLast ? (isSubmitting ? "Marking..." : "Finish") : "Next"}
+          {checking
+            ? "Marking..."
+            : isLast
+              ? isSubmitting
+                ? "Marking..."
+                : "Finish"
+              : "Next"}
         </Button>
       </div>
     </ArenaShell>

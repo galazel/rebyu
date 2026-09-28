@@ -3294,11 +3294,86 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
   font-variant-numeric: tabular-nums;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
+/* Long documents scroll their page list instead of pushing the panel down.
+   Roughly six rows before it gives way, which is enough to see where you are
+   without the list becoming the panel. */
+.rb-reader-jump-scroll {
+  max-height: 14rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
 .rb-reader-jump button:hover { border-color: var(--reader-green); }
 .rb-reader-jump button[aria-current="page"] {
   border-color: var(--reader-green);
   background: var(--reader-green);
   color: #fff;
+}
+
+/* Page thumbnails, for a file whose pages are pictures. Two columns so the
+   previews are big enough to tell apart, scrolling once there are more than a
+   few rows of them. */
+.rb-reader-thumbs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  max-height: 18rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+.rb-reader-thumbs button {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--reader-line);
+  border-radius: 0.45rem;
+  background: #fff;
+  padding: 0;
+  transition: border-color 0.15s ease;
+}
+.rb-reader-thumbs button:hover { border-color: var(--reader-green); }
+.rb-reader-thumbs button[aria-current="page"] {
+  border-color: var(--reader-green);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--reader-green) 35%, transparent);
+}
+.rb-reader-thumbs img {
+  display: block;
+  width: 100%;
+  height: 4.5rem;
+  object-fit: cover;
+}
+.rb-reader-thumbs span {
+  position: absolute;
+  right: 0.25rem;
+  bottom: 0.25rem;
+  border-radius: 0.25rem;
+  background: rgb(0 0 0 / 0.6);
+  padding: 0 0.3rem;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The shortcuts, said once and quietly at the foot of the panel. Laid out as
+   segments so a narrow panel breaks between them rather than through the
+   middle of "full screen". */
+.rb-reader-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.6rem;
+  margin-top: 1.25rem;
+  color: var(--reader-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.rb-reader-keys span { white-space: nowrap; }
+.rb-reader-keys kbd {
+  border: 1px solid var(--reader-line);
+  border-radius: 0.25rem;
+  background: #fff;
+  padding: 0 0.3rem;
+  font-family: inherit;
+  font-size: 0.7rem;
 }
 
 .rb-reader-room {
@@ -3592,3 +3667,100 @@ li:nth-child(n+6) > .rb-graded-row { --rb-stamp-order: 5; }
 .dark .rb-code-sample .hljs-comment { color: #9aa79f; }
 .dark .rb-code-sample .hljs-title, .dark .rb-code-sample .hljs-section { color: #d9b3ff; }
 .dark .rb-code-sample .hljs-type { color: #7fd7b0; }
+
+/* ---------------------------------------------------------------------------
+   Shared images in a community post (.rb-post-gallery)
+
+   One frame, one image at a time. The frame is a scroll-snapping track rather
+   than a slide that is swapped in, so a touch swipe works with no handler of
+   its own and the arrows only have to scroll it. A fixed aspect keeps a post
+   the same height whether it carries one image or ten, which is what stops a
+   feed jumping around as it loads.
+   --------------------------------------------------------------------------- */
+.rb-post-gallery {
+  position: relative;
+  margin-top: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.85rem;
+  overflow: hidden;
+  background: #0d0d0d;
+}
+.rb-post-gallery-frame {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.rb-post-gallery-frame::-webkit-scrollbar { display: none; }
+.rb-post-gallery-frame > button {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  display: block;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+.rb-post-gallery-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.rb-post-gallery-wait {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #171717 25%, #242424 37%, #171717 63%);
+  background-size: 400% 100%;
+  animation: rb-post-gallery-shimmer 1.3s ease-in-out infinite;
+}
+@keyframes rb-post-gallery-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0 0; }
+}
+.rb-post-gallery-count {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.62);
+  padding: 0.15rem 0.55rem;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.rb-post-gallery-step {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.9);
+  color: #1c1c1c;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.3);
+}
+.rb-post-gallery-step.is-prev { left: 0.6rem; }
+.rb-post-gallery-step.is-next { right: 0.6rem; }
+.rb-post-gallery-step:hover { background: #fff; }
+.rb-post-gallery-dots {
+  position: absolute;
+  bottom: 0.6rem;
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  gap: 0.3rem;
+}
+.rb-post-gallery-dots span {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.45);
+  transition: background-color 0.15s ease;
+}
+.rb-post-gallery-dots span[data-on] { background: #fff; }

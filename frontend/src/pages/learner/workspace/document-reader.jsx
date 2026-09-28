@@ -27,16 +27,18 @@ import {
  *       own PDF viewer is dark and cannot be restyled, which is why it is not
  *       used. Pages draw as they come near the screen and let their pixels go
  *       once they are far away, so a 400-page book does not hold 400 bitmaps.</li>
- *   <li><b>Word</b> — converted to HTML with mammoth, then laid out onto
- *       letter-sized sheets: each block is measured and packed until the next
- *       one would spill past the bottom margin.</li>
+ *   <li><b>Word</b> — rendered by docx-preview, which reads the OOXML and
+ *       keeps what the document actually says: alignment, fonts and sizes,
+ *       spacing, tables, and its own page size, margins and page breaks. It
+ *       paginates the way the document does, so its pages are used as they
+ *       come rather than repacked.</li>
  *   <li><b>TXT</b> — paragraphs packed onto the same sheets.</li>
  *   <li><b>Images</b> — shown whole as a single page, fitted to the room and
  *       zoomed like a PDF page.</li>
  * </ul>
  *
- * <p>pdf.js and mammoth are both imported only when a file of their kind is
- * opened, so neither weighs on any other page.
+ * <p>pdf.js and docx-preview are both imported only when a file of their kind
+ * is opened, so neither weighs on any other page.
  */
 
 const ZOOM_STEPS = [0.5, 0.75, 0.9, 1, 1.15, 1.35, 1.6, 2]
@@ -238,6 +240,59 @@ function PdfPage({ doc, number, width, ratio, rootRef }) {
  * would pass the bottom margin. One block taller than a whole sheet gets a
  * sheet of its own and lets it grow.
  */
+/**
+ * Renders a Word file the way Word laid it out, one self-contained HTML page
+ * per sheet.
+ *
+ * <p>This used to go through mammoth, which converts a document to *semantic*
+ * HTML on purpose: it maps Word's named styles to tags and drops direct
+ * formatting entirely. A capstone title page, centred by hand rather than by a
+ * style, therefore arrived as a column of flush-left paragraphs -- the spacing
+ * gone, the page break ignored, the approval table flattened into a run of
+ * text. Nothing was wrong with the file; the converter was never trying to
+ * keep any of that.
+ *
+ * <p>docx-preview reads the OOXML instead and emits real pages: alignment,
+ * fonts and sizes, paragraph spacing, tables, and the document's own page size
+ * and margins. Because it paginates the way the document does, the sheets it
+ * produces need no repacking -- which is why Word no longer goes through
+ * {@link useSheets}.
+ *
+ * <p>Each page carries its own copy of the generated stylesheet so a sheet is
+ * standalone: the shell renders sheets as isolated HTML, and a page whose CSS
+ * lived somewhere else would lose its formatting the moment the preview gate
+ * dropped the pages around it.
+ */
+async function renderDocxSheets(file) {
+  const [{ renderAsync }, buffer] = await Promise.all([
+    import("docx-preview"),
+    file.arrayBuffer(),
+  ])
+
+  // Rendered off-screen: docx-preview measures as it lays out, so the container
+  // has to be in the document, but nothing here should ever be seen.
+  const staging = document.createElement("div")
+  staging.setAttribute("aria-hidden", "true")
+  staging.style.cssText = "position:absolute;left:-10000px;top:0;width:1200px;visibility:hidden"
+  document.body.appendChild(staging)
+
+  try {
+    await renderAsync(new Blob([buffer]), staging, null, {
+      inWrapper: true,
+      breakPages: true,
+      ignoreWidth: false,
+      ignoreHeight: false,
+      experimental: true,
+    })
+
+    const styles = [...staging.querySelectorAll("style")].map((tag) => tag.outerHTML).join("")
+    const pages = [...staging.querySelectorAll("section.docx")]
+    return pages.length ? pages.map((page) => styles + page.outerHTML) : null
+  } finally {
+    staging.remove()
+  }
+}
+
 function useSheets(html) {
   const measureRef = useRef(null)
   const [sheets, setSheets] = useState(null)
@@ -286,8 +341,9 @@ function useSheets(html) {
           top: 0,
           width: SHEET_WIDTH - SHEET_PADDING * 2,
         }}
-        // mammoth's own output (a fixed set of semantic tags, no scripts) or
-        // text this component escaped itself.
+        // Only ever the text branch now, and that text was escaped by
+        // textToHtml in this file before it got here. Word no longer passes
+        // through the packer at all.
         dangerouslySetInnerHTML={{ __html: html }}
       />
     ) : null
@@ -344,32 +400,47 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
   /* content */
   const pdf = usePdfDocument(file, isPdf)
   const [html, setHtml] = useState(null)
+  const [docxSheets, setDocxSheets] = useState(null)
   const [flowError, setFlowError] = useState(null)
 
   useEffect(() => {
-    if (!isText && !isWord) return undefined
+    if (!isText) return undefined
     let cancelled = false
     setHtml(null)
     setFlowError(null)
 
-    const read = isText
-      ? file.text().then(textToHtml)
-      : Promise.all([import("mammoth/mammoth.browser"), file.arrayBuffer()])
-          .then(([mammoth, buffer]) => mammoth.convertToHtml({ arrayBuffer: buffer }))
-          .then(({ value }) => value)
-
-    read.then(
+    file.text().then(textToHtml).then(
       (value) => !cancelled && setHtml(value),
-      () =>
-        !cancelled &&
-        setFlowError(isWord ? "This Word document could not be read." : "This file could not be read.")
+      () => !cancelled && setFlowError("This file could not be read.")
     )
     return () => {
       cancelled = true
     }
-  }, [file, isText, isWord])
+  }, [file, isText])
 
-  const { sheets, measurer } = useSheets(html)
+  /* Word arrives already paginated, so it does not go through the packer that
+     text does -- the document's own page breaks are the whole point. */
+  useEffect(() => {
+    if (!isWord) return undefined
+    let cancelled = false
+    setDocxSheets(null)
+    setFlowError(null)
+
+    renderDocxSheets(file).then(
+      (pages) => {
+        if (cancelled) return
+        if (pages) setDocxSheets(pages)
+        else setFlowError("This Word document could not be read.")
+      },
+      () => !cancelled && setFlowError("This Word document could not be read.")
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [file, isWord])
+
+  const { sheets: packedSheets, measurer } = useSheets(html)
+  const sheets = isWord ? docxSheets : packedSheets
 
   const [imageError, setImageError] = useState(false)
   useEffect(() => setImageError(false), [file])
@@ -454,6 +525,47 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
     document.addEventListener("fullscreenchange", sync)
     return () => document.removeEventListener("fullscreenchange", sync)
   }, [])
+
+  /* The keys a reader is expected to answer to. Everything here is already a
+     button in the toolbar -- this is the same set reachable without aiming at
+     one, which is what you want on page 140 of 197.
+
+     Typing is left alone: the page box is an input, and stealing "f" or a plus
+     from it would make it impossible to type a page number. */
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      const tag = event.target?.tagName
+      if (tag === "INPUT" || tag === "TEXTAREA" || event.target?.isContentEditable) return
+
+      const handlers = {
+        ArrowRight: () => goTo(page + 1),
+        ArrowDown: () => goTo(page + 1),
+        PageDown: () => goTo(page + 1),
+        ArrowLeft: () => goTo(page - 1),
+        ArrowUp: () => goTo(page - 1),
+        PageUp: () => goTo(page - 1),
+        Home: () => goTo(1),
+        End: () => pageCount && goTo(pageCount),
+        "+": () => zoomTo(Math.min(ZOOM_STEPS.length - 1, zoomIndex + 1)),
+        "=": () => zoomTo(Math.min(ZOOM_STEPS.length - 1, zoomIndex + 1)),
+        "-": () => zoomTo(Math.max(0, zoomIndex - 1)),
+        f: () => toggleFullscreen(),
+        F: () => toggleFullscreen(),
+      }
+
+      const run = handlers[event.key]
+      if (!run) return
+      event.preventDefault()
+      run()
+    }
+
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+    // Deliberately every render: the handler reads the current page and zoom,
+    // and a dependency list here would either be the same thing written out or
+    // a stale closure paging from wherever the reader was when it mounted.
+  })
 
   const toggleFullscreen = () => {
     if (document.fullscreenElement) document.exitFullscreen?.()
@@ -594,22 +706,53 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
           {file.description ? <p className="rb-reader-description">{file.description}</p> : null}
 
           {pageNumbers.length > 1 ? (
-            <nav className="mt-6" aria-label="Jump to page">
+            <nav className="mt-6 min-h-0" aria-label="Jump to page">
               <p className="rb-reader-label">Jump to page</p>
-              <div className="rb-reader-jump">
-                {pageNumbers.map((number) => (
-                  <button
-                    key={number}
-                    type="button"
-                    onClick={() => goTo(number)}
-                    aria-current={number === page ? "page" : undefined}
-                  >
-                    {number}
-                  </button>
-                ))}
-              </div>
+
+              {/* Pictures are their own labels. A column of numbered buttons
+                  made a reader count rows to find the page they could already
+                  recognise on sight. */}
+              {isImage ? (
+                <div className="rb-reader-thumbs">
+                  {images.map((image, index) => (
+                    <button
+                      key={image.url ?? index}
+                      type="button"
+                      onClick={() => goTo(index + 1)}
+                      aria-current={index + 1 === page ? "page" : undefined}
+                      aria-label={`Page ${index + 1}`}
+                    >
+                      <img src={image.url} alt="" loading="lazy" />
+                      <span>{index + 1}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                /* Scrolls rather than growing. A 197-page document drew 197
+                   buttons down the panel, burying everything above it -- and
+                   the toolbar already takes a page number typed straight in,
+                   which is the faster way to cross a document that long. */
+                <div className="rb-reader-jump rb-reader-jump-scroll">
+                  {pageNumbers.map((number) => (
+                    <button
+                      key={number}
+                      type="button"
+                      onClick={() => goTo(number)}
+                      aria-current={number === page ? "page" : undefined}
+                    >
+                      {number}
+                    </button>
+                  ))}
+                </div>
+              )}
             </nav>
           ) : null}
+
+          <p className="rb-reader-keys">
+            <span><kbd>←</kbd> <kbd>→</kbd> page</span>
+            <span><kbd>+</kbd> <kbd>−</kbd> zoom</span>
+            <span><kbd>F</kbd> full screen</span>
+          </p>
         </aside>
 
         {/* ---- pages */}
@@ -686,21 +829,37 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
               {(previewPages == null ? sheets : sheets.slice(0, previewPages + 1)).map((sheet, index) => {
                 const sheetSlot = (
                 <div key={index} data-page={index + 1} className="rb-reader-page-slot">
+                  {/* A Word page brings its own size and margins out of the
+                      document, so the sheet only scales it. Text has no page
+                      of its own and is packed onto the letter sheet above. */}
                   <div
                     className="rb-reader-sheet"
-                    style={{
-                      width: SHEET_WIDTH * sheetScale,
-                      minHeight: SHEET_HEIGHT * sheetScale,
-                    }}
+                    /* fit-content, not a fixed width: the page inside is
+                       whatever size the document says it is, and a sheet left
+                       to fill the stack would draw white well past the edge of
+                       it. */
+                    style={
+                      isWord
+                        ? { width: "fit-content" }
+                        : { width: SHEET_WIDTH * sheetScale, minHeight: SHEET_HEIGHT * sheetScale }
+                    }
                   >
+                    {/* No .rb-docx on a Word page. Those rules exist to give
+                        structure back to bare semantic HTML, and against a
+                        document that already carries its own spacing they
+                        would overwrite the very thing being preserved. */}
                     <div
-                      className="rb-docx rb-reader-flow"
-                      style={{
-                        width: SHEET_WIDTH,
-                        minHeight: SHEET_HEIGHT,
-                        padding: SHEET_PADDING,
-                        zoom: sheetScale,
-                      }}
+                      className={isWord ? "rb-reader-flow" : "rb-docx rb-reader-flow"}
+                      style={
+                        isWord
+                          ? { zoom: sheetScale }
+                          : {
+                              width: SHEET_WIDTH,
+                              minHeight: SHEET_HEIGHT,
+                              padding: SHEET_PADDING,
+                              zoom: sheetScale,
+                            }
+                      }
                       dangerouslySetInnerHTML={{ __html: sheet }}
                     />
                   </div>

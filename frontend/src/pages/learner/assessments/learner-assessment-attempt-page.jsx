@@ -60,6 +60,7 @@ import {
 } from "@/services/learnerService.js"
 import {
   autosaveAttemptAnswers,
+  checkChoiceAnswer,
   getAssessmentTypeLabel,
   setAttemptCurrentItem,
   setAttemptFlag,
@@ -995,6 +996,12 @@ export default function LearnerAssessmentAttemptPage() {
             questions={questions}
             answers={answers}
             onAnswer={setAnswer}
+            /* The arena asks the server what it made of a locked choice. It
+               is given the call rather than the learner id so the runner
+               stays unaware of identity -- it only knows how to ask. */
+            onCheckChoice={(attemptQuestionId, selectedChoiceId) =>
+              checkChoiceAnswer(attempt.assessmentAttemptId, attemptQuestionId, learnerId, selectedChoiceId)
+            }
             currentIndex={currentIndex}
             onIndexChange={setCurrentIndex}
             onFinish={() => submitMutation.mutate()}

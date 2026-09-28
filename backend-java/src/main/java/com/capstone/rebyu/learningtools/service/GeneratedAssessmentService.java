@@ -91,6 +91,17 @@ public class GeneratedAssessmentService {
 
     public record GeneratedExam(Long examId, String title, Long certificationId, int itemCount) {}
 
+    /** @see GeneratedTitles#notAlreadyUsed */
+    private String titleNotAlreadyUsed(
+            String base, Long learnerId, Long lessonId, String examTypeText) {
+        return GeneratedTitles.notAlreadyUsed(base, exams
+                .findByLearner_LearnerIdAndLesson_LessonIdAndExamType_ExamTypeText(
+                        learnerId, lessonId, examTypeText)
+                .stream()
+                .map(Exam::getTitle)
+                .toList());
+    }
+
     @Transactional
     public GeneratedExam createGeneratedExam(
             Long learnerId, String type, String title, Long lessonId, List<GeneratedQuestionItem> items) {
@@ -119,6 +130,8 @@ public class GeneratedAssessmentService {
 
         Learner learner = Learner.builder().learnerId(learnerId).build();
 
+        String uniqueTitle = titleNotAlreadyUsed(title.trim(), learnerId, lessonId, examTypeText);
+
         // `lesson` and `learner` are both set -- this exam belongs to exactly
         // this learner's request against exactly this lesson, and is
         // findable by either. `targetScope("GENERATED")` (a non-empty,
@@ -136,7 +149,7 @@ public class GeneratedAssessmentService {
         Exam exam = Exam.builder()
                 .certification(certification)
                 .examType(examType)
-                .title(title.trim())
+                .title(uniqueTitle)
                 .isGenerated(true)
                 .lesson(lesson)
                 .learner(learner)

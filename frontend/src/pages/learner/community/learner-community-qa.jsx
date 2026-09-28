@@ -15,12 +15,16 @@ import {
     MoreHorizontal,
     Plus,
     Search,
+    ChevronLeft,
+    ChevronRight,
+    Lock,
     Send,
     Share2,
     Sparkles,
     UsersRound,
     X,
 } from "@/components/icons"
+import { getFileViewLink } from "@/services/fileService"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -76,6 +80,20 @@ import {
 } from "@/services/communityService"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { isPremiumError } from "@/services/subscriptionService.js"
+
+/**
+ * The composer's value for "not a circle" -- the open community feed.
+ *
+ * <p>A named value rather than an empty one because Radix Select refuses "" as
+ * an item value, and because the feed is a real destination a learner picks,
+ * not the absence of a choice.
+ */
+const OPEN_FEED = "community"
+
+/** The circle a post belongs to, or null when it is going to the open feed. */
+function circleIdForPost(value) {
+    return value && value !== OPEN_FEED ? Number(value) : null
+}
 
 const FEED_TABS = [
     { value: "for-you", label: "For you" },
@@ -165,6 +183,120 @@ const REVIEWER_ACCEPT = ".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp"
 
 /** Images can be shared several at a time, up to this many in one post (the API's limit too). */
 const MAX_REVIEWER_IMAGES = 10
+
+/**
+ * Shared images, shown as images.
+ *
+ * <p>They used to arrive as a file tile -- an icon, "4 images", a size and a
+ * read button -- which is the right shape for a document nobody can judge
+ * without opening it, and the wrong one for pictures. A picture posted to a
+ * feed is meant to be looked at where it lands.
+ *
+ * <p>One frame, one image at a time, swiped or stepped through: the shape
+ * every feed uses for a set of photographs, because it keeps a post the same
+ * height whether it carries one image or ten. The frame scroll-snaps, so a
+ * touch swipe works without being taught to, and the arrows do the same thing
+ * for a mouse.
+ *
+ * <p>Links are fetched per file and only when the post is first shown. They
+ * are signed URLs, so asking for every image on the page up front would spend
+ * a request on each one a reader scrolls straight past.
+ */
+function PostImageCarousel({ files, onOpen }) {
+    const [urls, setUrls] = useState(null)
+    const [failed, setFailed] = useState(false)
+    const [index, setIndex] = useState(0)
+    const trackRef = useRef(null)
+
+    useEffect(() => {
+        let cancelled = false
+        setUrls(null)
+        setFailed(false)
+        setIndex(0)
+
+        Promise.all(files.map((file) => getFileViewLink(file.key, file.name))).then(
+            (links) => !cancelled && setUrls(links.map((link) => link.url)),
+            () => !cancelled && setFailed(true)
+        )
+        return () => {
+            cancelled = true
+        }
+    }, [files])
+
+    /* The dots follow the frame rather than the buttons, so a swipe moves them
+       too -- the buttons just scroll the same track. */
+    function syncIndex(event) {
+        const track = event.currentTarget
+        const width = track.clientWidth || 1
+        setIndex(Math.round(track.scrollLeft / width))
+    }
+
+    function step(delta) {
+        const track = trackRef.current
+        if (!track) return
+        const next = Math.min(files.length - 1, Math.max(0, index + delta))
+        track.scrollTo({ left: next * track.clientWidth, behavior: "smooth" })
+        setIndex(next)
+    }
+
+    if (failed) return null
+
+    return (
+        <div className="rb-post-gallery">
+            <div className="rb-post-gallery-frame" ref={trackRef} onScroll={syncIndex}>
+                {files.map((file, position) => (
+                    <button
+                        key={file.key ?? position}
+                        type="button"
+                        onClick={onOpen}
+                        aria-label={`Open ${file.name ?? `image ${position + 1}`}`}
+                    >
+                        {urls ? (
+                            <img src={urls[position]} alt={file.name ?? ""} loading="lazy" />
+                        ) : (
+                            <span className="rb-post-gallery-wait" aria-hidden="true" />
+                        )}
+                    </button>
+                ))}
+            </div>
+
+            {files.length > 1 ? (
+                <>
+                    <span className="rb-post-gallery-count">{index + 1}/{files.length}</span>
+
+                    {/* Hidden at the ends rather than disabled: a control that
+                        cannot do anything is better gone than greyed. */}
+                    {index > 0 ? (
+                        <button
+                            type="button"
+                            className="rb-post-gallery-step is-prev"
+                            onClick={() => step(-1)}
+                            aria-label="Previous image"
+                        >
+                            <ChevronLeft className="size-4" />
+                        </button>
+                    ) : null}
+                    {index < files.length - 1 ? (
+                        <button
+                            type="button"
+                            className="rb-post-gallery-step is-next"
+                            onClick={() => step(1)}
+                            aria-label="Next image"
+                        >
+                            <ChevronRight className="size-4" />
+                        </button>
+                    ) : null}
+
+                    <div className="rb-post-gallery-dots" aria-hidden="true">
+                        {files.map((file, position) => (
+                            <span key={file.key ?? position} data-on={position === index ? "" : undefined} />
+                        ))}
+                    </div>
+                </>
+            ) : null}
+        </div>
+    )
+}
 
 /** The attachment's kind, from its extension: PDF, DOCX (Word), TXT or IMAGE. */
 function reviewerAttachmentKind(name) {
@@ -485,8 +617,14 @@ function CommunityPost({
                     </p>
                 </div>
 
-                {/* the attachment is the point of the post — give it a tile of its own */}
-                {post.attachment ? (
+                {/* Pictures are shown; everything else gets a tile, because a
+                    document cannot be judged without opening it. */}
+                {post.attachment?.type === "IMAGE" && post.attachment.key ? (
+                    <PostImageCarousel
+                        files={post.attachment.files ?? [{ key: post.attachment.key, name: post.attachment.name }]}
+                        onOpen={() => onOpenAttachment(post)}
+                    />
+                ) : post.attachment ? (
                     <PayloadTile
                         icon={post.attachment.type === "DOCX" ? FileArchive : FileText}
                         tone={attachmentTone(post.attachment.type)}
@@ -684,7 +822,9 @@ export default function Community() {
     const [shareType, setShareType] = useState("discussion")
     const [shareTitle, setShareTitle] = useState("")
     const [shareDescription, setShareDescription] = useState("")
-    const [shareCommunity, setShareCommunity] = useState("")
+    /* Radix will not take "" as a value, so the open feed needs a name of its
+       own rather than the absence of one. */
+    const [shareCommunity, setShareCommunity] = useState(OPEN_FEED)
     const [attachedFile, setAttachedFile] = useState(null)
     const [isUploadingAttachment, setIsUploadingAttachment] = useState(false)
     const [isPublishing, setIsPublishing] = useState(false)
@@ -698,6 +838,9 @@ export default function Community() {
     const [circleName, setCircleName] = useState("")
     const [circleDescription, setCircleDescription] = useState("")
     const [circleTopic, setCircleTopic] = useState("General Study")
+    /* Public by default. A circle nobody can read is the deliberate choice, so
+       it is the one you have to make rather than the one you fall into. */
+    const [circleVisibility, setCircleVisibility] = useState("PUBLIC")
 
     // Threads are per post and stay mounted in the feed: openThreads holds which
     // cards are expanded, commentsByPost caches what each one has loaded.
@@ -771,9 +914,11 @@ export default function Community() {
         setCircles(data.circles)
         setCertifications(data.certifications)
         setStudyItems(data.studyItems)
-        setShareCommunity((current) =>
-            current || !data.circles[0] ? current : String(data.circles[0].circleId)
-        )
+        /* The composer used to point at whichever circle happened to load
+           first, so a learner who joined one could no longer post to the
+           community at all -- every post went into that circle, and nothing in
+           the picker said otherwise or offered a way out. It opens on the feed
+           now, and a circle is something you choose. */
     }, [feedQuery.dataUpdatedAt])
 
     useEffect(() => {
@@ -811,12 +956,22 @@ export default function Community() {
             // filters and the saved view belong to the global feed.
             if (activeCircleId) return post.circleId === activeCircleId
             if (showSavedOnly && !post.saved) return false
+            /* "circle" is the one tab that is not a kind of post. It used to
+               be: creating a circle wrote a "{name} is now open" post typed
+               `circle`, and this tab listed those announcements. Nothing
+               announces itself any more -- a circle is not something someone
+               said -- so the tab means what its name always implied instead,
+               everything written inside a circle, whatever kind of post it
+               is. Matching on postType here would leave it permanently
+               empty. */
             const matchesTab =
                 showSavedOnly ||
                 activeTab === "for-you" ||
-                (activeTab === "reviewer"
-                    ? REVIEWER_TYPES.includes(post.postType)
-                    : post.postType === activeTab)
+                (activeTab === "circle"
+                    ? post.circleId != null
+                    : activeTab === "reviewer"
+                        ? REVIEWER_TYPES.includes(post.postType)
+                        : post.postType === activeTab)
 
             const matchesSearch =
                 !query ||
@@ -834,8 +989,10 @@ export default function Community() {
     function openComposer(type) {
         setShareType(type)
         setAttachedFile(null)
-        // Posting from inside a circle should land in that circle by default.
-        if (activeCircleId) setShareCommunity(String(activeCircleId))
+        // Posting from inside a circle should land in that circle by default,
+        // and posting from the feed should land on the feed -- set both ways
+        // round, or the last circle posted to quietly becomes the default.
+        setShareCommunity(activeCircleId ? String(activeCircleId) : OPEN_FEED)
         setSelectedStudyItemId("")
         setComposerOpen(true)
     }
@@ -1047,7 +1204,7 @@ export default function Community() {
                 return
             }
             try {
-                const nextPost = await shareCommunityStudyItem(Number(selectedStudyItemId), shareCommunity ? Number(shareCommunity) : null)
+                const nextPost = await shareCommunityStudyItem(Number(selectedStudyItemId), circleIdForPost(shareCommunity))
                 setPosts((current) => [nextPost, ...current])
                 setSelectedStudyItemId("")
                 setComposerOpen(false)
@@ -1077,7 +1234,7 @@ export default function Community() {
                 title: shareTitle.trim(),
                 description: shareDescription.trim(),
                 postType,
-                circleId: shareCommunity ? Number(shareCommunity) : null,
+                circleId: circleIdForPost(shareCommunity),
                 attachmentName: attachedFile?.name ?? null,
                 attachmentType: shareType === "reviewer" ? attachmentKind : null,
                 attachmentKey: attachedFile?.key ?? null,
@@ -1113,9 +1270,8 @@ export default function Community() {
             toast.error("Add a circle name and description.")
             return
         }
-        // The dialog stays open for the whole round trip, so without this guard a
-        // second click during the await creates a second circle -- and a second
-        // announcement post with it.
+        // The dialog stays open for the whole round trip, so without this guard
+        // a second click during the await creates a second circle.
         if (isCreatingCircle) return
         setIsCreatingCircle(true)
 
@@ -1124,16 +1280,22 @@ export default function Community() {
                 name: circleName.trim(),
                 description: circleDescription.trim(),
                 topic: circleTopic,
+                visibility: circleVisibility,
             })
 
             setCircles((current) => [newCircle, ...current])
             setPosts(await getCommunityPosts())
             setCircleName("")
             setCircleDescription("")
+            setCircleVisibility("PUBLIC")
             setCreateCircleOpen(false)
             selectFeedTab("for-you")
 
-            toast.success("Study circle created and posted to the news feed.")
+            toast.success(
+                newCircle?.isPrivate
+                    ? "Private study circle created. Only members can read what is posted in it."
+                    : "Study circle created."
+            )
         } catch (error) {
             toast.error(apiMessage(error, "The study circle could not be created."))
         } finally {
@@ -1352,9 +1514,22 @@ export default function Community() {
                                         </span>
 
                                         <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-bold text-foreground">{circle.name}</p>
+                                            <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                                                <span className="truncate">{circle.name}</span>
+                                                {/* Marked on the circle, not on its posts: a
+                                                    private circle's posts are the ones a
+                                                    non-member never sees, so the lock has to
+                                                    live where they can see it. */}
+                                                {circle.isPrivate ? (
+                                                    <Lock
+                                                        className="size-3 shrink-0 text-muted-foreground"
+                                                        aria-label="Private circle"
+                                                    />
+                                                ) : null}
+                                            </p>
                                             <p className="truncate text-[11px] font-semibold text-muted-foreground">
                                                 {circle.members?.toLocaleString?.() ?? 0} members
+                                                {circle.isPrivate ? " · private" : ""}
                                             </p>
                                         </div>
                                     </button>
@@ -1451,8 +1626,16 @@ export default function Community() {
                             <div className="mt-4 grid gap-3">
                                 {joinedCircles.length > 0 ? (
                                     <Select value={shareCommunity} onValueChange={setShareCommunity}>
-                                        <SelectTrigger><SelectValue placeholder="Choose a study circle (optional)" /></SelectTrigger>
-                                        <SelectContent>{joinedCircles.map((circle) => <SelectItem key={circle.circleId} value={String(circle.circleId)}>{circle.name}</SelectItem>)}</SelectContent>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value={OPEN_FEED}>Community — everyone</SelectItem>
+                                            {joinedCircles.map((circle) => (
+                                                <SelectItem key={circle.circleId} value={String(circle.circleId)}>
+                                                    {circle.name}
+                                                    {circle.isPrivate ? " (private)" : ""}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
                                     </Select>
                                 ) : null}
                                 {["quiz", "flashcard"].includes(shareType) ? (
@@ -1600,8 +1783,8 @@ export default function Community() {
                     <DialogHeader>
                         <DialogTitle>Create study circle</DialogTitle>
                         <DialogDescription>
-                            Create a focused study group. A public announcement will
-                            automatically be added to the community news feed.
+                            Create a focused study group. It will be listed for other learners to
+                            find and join.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1645,10 +1828,28 @@ export default function Community() {
                             />
                         </div>
 
+                        <div className="space-y-2">
+                            <Label htmlFor="circle-visibility">Who can read what is posted here</Label>
+
+                            <Select value={circleVisibility} onValueChange={setCircleVisibility}>
+                                <SelectTrigger id="circle-visibility">
+                                    <SelectValue />
+                                </SelectTrigger>
+
+                                <SelectContent>
+                                    <SelectItem value="PUBLIC">Public — anyone on the feed</SelectItem>
+                                    <SelectItem value="PRIVATE">Private — members only</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Says the part that is easy to get wrong: private hides the
+                            posts, not the circle. The circle stays listed either way,
+                            or nobody could ask to join it. */}
                         <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground">
-                            After creation, the circle will appear in the Study Circles list
-                            and a joinable announcement post will be published to the news
-                            feed.
+                            {circleVisibility === "PRIVATE"
+                                ? "The circle stays listed so learners can find and join it, but posts inside it are hidden from the news feed and readable only by members."
+                                : "The circle is listed for anyone to join, and posts inside it appear on the community news feed."}
                         </div>
                     </div>
 

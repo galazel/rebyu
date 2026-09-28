@@ -7,6 +7,7 @@ import com.capstone.rebyu.aigateway.dto.AnswerGradingResultDto;
 import com.capstone.rebyu.aigateway.dto.AnswerGradingResultDto.SubAnswerGradeDto;
 import com.capstone.rebyu.aigateway.service.AiAnswerGradingService;
 import com.capstone.rebyu.assessment.dto.attempt.DiagramAttemptDtos.*;
+import com.capstone.rebyu.assessment.dto.attempt.ChoiceCheckDtos.*;
 import com.capstone.rebyu.adaptive.engine.IrtModel;
 import com.capstone.rebyu.adaptive.service.AdaptivePolicy;
 import com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.*;
@@ -3096,6 +3097,58 @@ public class AssessmentAttemptService {
                 "Your diagram has been saved. It will be evaluated against the rubric "
                         + "after you submit the assessment.",
                 readSnapshotRubric(question));
+    }
+
+    /**
+     * Marks one choice answer while the attempt is still open, so a runner that
+     * shows its verdict between questions can say what the server made of it
+     * rather than what the browser guessed.
+     *
+     * <p>Correctness is read the same way {@link #scoreAnswer} reads it -- the
+     * selected choice against the source question's own {@code isCorrect} --
+     * so a verdict shown here and the mark awarded at submission cannot
+     * disagree. The answer is saved first, exactly as the diagram check saves
+     * before checking: the attempt, not this call, remains the record of what
+     * was answered.
+     *
+     * <p>Which correct choice it was, and why, are gated on the exam's
+     * {@code effectiveReleaseAnswers}. An exam that withholds its answers after
+     * submission must not hand them out mid-paper, so those callers get the
+     * verdict alone.
+     */
+    @Transactional
+    public ChoiceCheckResultDto checkChoice(
+            Long attemptId, Long attemptQuestionId, ChoiceCheckRequestDto request) {
+
+        AssessmentAttempt attempt = requireOwnedAttempt(attemptId, request.learnerId());
+        requireEditable(attempt);
+        AssessmentAttemptQuestion question = requireAttemptQuestion(attempt, attemptQuestionId);
+        if (!isMultipleChoice(question.getQuestionType())) {
+            throw new BusinessRuleException.InvalidAssessmentSubmissionException(
+                    "This item is not a choice question.");
+        }
+
+        Question source = question.getSourceQuestionId() == null ? null
+                : questionRepository.findById(question.getSourceQuestionId()).orElse(null);
+        if (source == null) {
+            throw new BusinessRuleException.InvalidAssessmentSubmissionException(
+                    "This item can no longer be marked.");
+        }
+
+        upsertAnswers(attempt, List.of(new AttemptAnswerDraftDto(
+                attemptQuestionId, null, request.selectedChoiceId(), null, null, null)));
+
+        Choice correctChoice = source.getChoices().stream()
+                .filter(Choice::isCorrect).findFirst().orElse(null);
+        boolean correct = correctChoice != null
+                && correctChoice.getChoiceId().equals(request.selectedChoiceId());
+
+        boolean releaseAnswers = attempt.getExam().effectiveReleaseAnswers();
+        return new ChoiceCheckResultDto(
+                correct,
+                releaseAnswers && correctChoice != null ? correctChoice.getChoiceId() : null,
+                releaseAnswers && correctChoice != null ? correctChoice.getExplanation() : null,
+                releaseAnswers);
     }
 
     private List<RubricCriterionDto> readSnapshotRubric(AssessmentAttemptQuestion attemptQuestion) {

@@ -14,6 +14,7 @@ public interface CommunityCircleRepository extends JpaRepository<CommunityCircle
 
     @Query(value = """
             SELECT c.circle_id AS circleId, c.name AS name, c.description AS description, c.topic AS topic,
+              COALESCE(c.visibility, 'PUBLIC') AS visibility,
               (SELECT count(*) FROM community_circle_members m WHERE m.circle_id=c.circle_id) AS members,
               EXISTS(SELECT 1 FROM community_circle_members m WHERE m.circle_id=c.circle_id AND m.learner_id=:learnerId) AS joined,
               (c.owner_learner_id=:learnerId) AS owner
@@ -24,6 +25,7 @@ public interface CommunityCircleRepository extends JpaRepository<CommunityCircle
 
     @Query(value = """
             SELECT c.circle_id AS circleId, c.name AS name, c.description AS description, c.topic AS topic,
+              COALESCE(c.visibility, 'PUBLIC') AS visibility,
               (SELECT count(*) FROM community_circle_members m WHERE m.circle_id=c.circle_id) AS members,
               EXISTS(SELECT 1 FROM community_circle_members m WHERE m.circle_id=c.circle_id AND m.learner_id=:learnerId) AS joined,
               (c.owner_learner_id=:learnerId) AS owner

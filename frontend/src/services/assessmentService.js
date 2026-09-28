@@ -170,6 +170,21 @@ export function checkAttemptDiagram(attemptId, attemptQuestionId, learnerId, dia
   )
 }
 
+/**
+ * Marks one locked choice answer while the attempt is still open.
+ *
+ * <p>The verdict comes from the server for a reason: the choices the browser
+ * holds carry no correct flag, and inventing one here would mean marking the
+ * paper in the page. Which choice was right, and why, come back only when the
+ * exam releases its answers.
+ */
+export function checkChoiceAnswer(attemptId, attemptQuestionId, learnerId, selectedChoiceId) {
+  return base(`learner/assessment-attempts/${attemptId}/choice/${attemptQuestionId}/check`, {
+    method: "POST",
+    data: { learnerId, selectedChoiceId },
+  })
+}
+
 /** One answer of an adaptive session; returns the marking (main round) and the next item. */
 export function answerAdaptiveItem(attemptId, learnerId, answer) {
   return base(`learner/assessment-attempts/${attemptId}/adaptive/answer`, {

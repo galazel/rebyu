@@ -136,11 +136,25 @@ export function CountdownRing({ remaining, total, paused = false }) {
 
 /**
  * One answer. `state` is what the tile knows after the answer is locked in:
- * "correct" and "wrong" stay lit, everything else dims out of the way.
+ * "correct" and "wrong" stay lit -- "wrong" in red, over its own colour --
+ * and everything else dims out of the way.
  */
 export function AnswerTile({ index, label, selected, state, disabled, onSelect }) {
   const tile = ANSWER_TILES[index % ANSWER_TILES.length]
   const dimmed = state === "dimmed"
+  const wrong = state === "wrong"
+
+  /* A tile keeps its own colour until it is marked wrong, and then it goes
+     red. The four tile colours are identities, not verdicts -- the square is
+     green whatever is written on it -- so a learner who picked the square and
+     missed sat looking at a green tile beside the green correct one, which
+     reads as two right answers. Cardinal is the palette's own red, so the
+     verdict arrives without a colour from outside the set.
+
+     The word carries it too: "Correct" and "Your answer" say which is which
+     without relying on telling the two hues apart. */
+  const face = wrong ? "var(--color-rb-cardinal)" : tile.face
+  const lip = wrong ? "var(--color-rb-cardinal-lip)" : tile.lip
 
   return (
     <button
@@ -148,7 +162,7 @@ export function AnswerTile({ index, label, selected, state, disabled, onSelect }
       disabled={disabled}
       onClick={onSelect}
       aria-pressed={selected}
-      style={{ background: tile.face, boxShadow: `0 6px 0 0 ${tile.lip}` }}
+      style={{ background: face, boxShadow: `0 6px 0 0 ${lip}` }}
       className={`flex min-h-28 items-center gap-4 rounded-2xl px-5 py-4 text-left text-white transition duration-150 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-white enabled:hover:-translate-y-0.5 enabled:active:translate-y-0.5 enabled:active:shadow-none ${
         dimmed ? "opacity-35 saturate-50" : ""
       } ${selected ? "ring-4 ring-white ring-offset-2 ring-offset-transparent" : ""}`}
@@ -159,9 +173,9 @@ export function AnswerTile({ index, label, selected, state, disabled, onSelect }
         {label}
       </span>
 
-      {state === "correct" ? (
-        <span className="ml-auto font-rb-display text-sm font-extrabold uppercase tracking-wide">
-          Correct
+      {state === "correct" || wrong ? (
+        <span className="ml-auto shrink-0 font-rb-display text-sm font-extrabold uppercase tracking-wide">
+          {wrong ? "Your answer" : "Correct"}
         </span>
       ) : null}
     </button>
