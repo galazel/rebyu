@@ -531,13 +531,12 @@ public class CommunityService {
 
         circleMemberRepository.addMember(saved.getCircleId(), learnerId);
 
-        postRepository.save(CommunityPost.builder()
-                .author(learnerRef(learnerId))
-                .circle(saved)
-                .postType("circle")
-                .title(request.name().trim() + " is now open")
-                .body(request.description().trim())
-                .build());
+        /* Creating a circle used to announce itself into the feed. Making a
+           circle is not saying something, and the post said nothing the
+           circle's own row in the sidebar does not -- so it read as the
+           owner's first post rather than as a room opening, and it was the
+           top of their feed either way. The circle is discoverable as a
+           circle; anyone with something to say can post in it. */
 
         return circleById(learnerId, saved.getCircleId());
     }
@@ -545,8 +544,8 @@ public class CommunityService {
     /**
      * Deletes a circle the caller owns, along with the posts written in it.
      * The posts go explicitly: the circle_id FK is ON DELETE SET NULL (V24), so
-     * without this the circle's announcement and discussions would survive as
-     * orphans in the global feed after the circle they belong to is gone.
+     * without this the discussions written inside it would survive as orphans
+     * in the global feed after the circle they belong to is gone.
      * Members cascade with the circle.
      */
     @Transactional

@@ -811,12 +811,22 @@ export default function Community() {
             // filters and the saved view belong to the global feed.
             if (activeCircleId) return post.circleId === activeCircleId
             if (showSavedOnly && !post.saved) return false
+            /* "circle" is the one tab that is not a kind of post. It used to
+               be: creating a circle wrote a "{name} is now open" post typed
+               `circle`, and this tab listed those announcements. Nothing
+               announces itself any more -- a circle is not something someone
+               said -- so the tab means what its name always implied instead,
+               everything written inside a circle, whatever kind of post it
+               is. Matching on postType here would leave it permanently
+               empty. */
             const matchesTab =
                 showSavedOnly ||
                 activeTab === "for-you" ||
-                (activeTab === "reviewer"
-                    ? REVIEWER_TYPES.includes(post.postType)
-                    : post.postType === activeTab)
+                (activeTab === "circle"
+                    ? post.circleId != null
+                    : activeTab === "reviewer"
+                        ? REVIEWER_TYPES.includes(post.postType)
+                        : post.postType === activeTab)
 
             const matchesSearch =
                 !query ||
