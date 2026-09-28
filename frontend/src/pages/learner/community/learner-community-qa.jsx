@@ -15,6 +15,8 @@ import {
     MoreHorizontal,
     Plus,
     Search,
+    ChevronLeft,
+    ChevronRight,
     Lock,
     Send,
     Share2,
@@ -22,6 +24,7 @@ import {
     UsersRound,
     X,
 } from "@/components/icons"
+import { getFileViewLink } from "@/services/fileService"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -180,6 +183,120 @@ const REVIEWER_ACCEPT = ".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp"
 
 /** Images can be shared several at a time, up to this many in one post (the API's limit too). */
 const MAX_REVIEWER_IMAGES = 10
+
+/**
+ * Shared images, shown as images.
+ *
+ * <p>They used to arrive as a file tile -- an icon, "4 images", a size and a
+ * read button -- which is the right shape for a document nobody can judge
+ * without opening it, and the wrong one for pictures. A picture posted to a
+ * feed is meant to be looked at where it lands.
+ *
+ * <p>One frame, one image at a time, swiped or stepped through: the shape
+ * every feed uses for a set of photographs, because it keeps a post the same
+ * height whether it carries one image or ten. The frame scroll-snaps, so a
+ * touch swipe works without being taught to, and the arrows do the same thing
+ * for a mouse.
+ *
+ * <p>Links are fetched per file and only when the post is first shown. They
+ * are signed URLs, so asking for every image on the page up front would spend
+ * a request on each one a reader scrolls straight past.
+ */
+function PostImageCarousel({ files, onOpen }) {
+    const [urls, setUrls] = useState(null)
+    const [failed, setFailed] = useState(false)
+    const [index, setIndex] = useState(0)
+    const trackRef = useRef(null)
+
+    useEffect(() => {
+        let cancelled = false
+        setUrls(null)
+        setFailed(false)
+        setIndex(0)
+
+        Promise.all(files.map((file) => getFileViewLink(file.key, file.name))).then(
+            (links) => !cancelled && setUrls(links.map((link) => link.url)),
+            () => !cancelled && setFailed(true)
+        )
+        return () => {
+            cancelled = true
+        }
+    }, [files])
+
+    /* The dots follow the frame rather than the buttons, so a swipe moves them
+       too -- the buttons just scroll the same track. */
+    function syncIndex(event) {
+        const track = event.currentTarget
+        const width = track.clientWidth || 1
+        setIndex(Math.round(track.scrollLeft / width))
+    }
+
+    function step(delta) {
+        const track = trackRef.current
+        if (!track) return
+        const next = Math.min(files.length - 1, Math.max(0, index + delta))
+        track.scrollTo({ left: next * track.clientWidth, behavior: "smooth" })
+        setIndex(next)
+    }
+
+    if (failed) return null
+
+    return (
+        <div className="rb-post-gallery">
+            <div className="rb-post-gallery-frame" ref={trackRef} onScroll={syncIndex}>
+                {files.map((file, position) => (
+                    <button
+                        key={file.key ?? position}
+                        type="button"
+                        onClick={onOpen}
+                        aria-label={`Open ${file.name ?? `image ${position + 1}`}`}
+                    >
+                        {urls ? (
+                            <img src={urls[position]} alt={file.name ?? ""} loading="lazy" />
+                        ) : (
+                            <span className="rb-post-gallery-wait" aria-hidden="true" />
+                        )}
+                    </button>
+                ))}
+            </div>
+
+            {files.length > 1 ? (
+                <>
+                    <span className="rb-post-gallery-count">{index + 1}/{files.length}</span>
+
+                    {/* Hidden at the ends rather than disabled: a control that
+                        cannot do anything is better gone than greyed. */}
+                    {index > 0 ? (
+                        <button
+                            type="button"
+                            className="rb-post-gallery-step is-prev"
+                            onClick={() => step(-1)}
+                            aria-label="Previous image"
+                        >
+                            <ChevronLeft className="size-4" />
+                        </button>
+                    ) : null}
+                    {index < files.length - 1 ? (
+                        <button
+                            type="button"
+                            className="rb-post-gallery-step is-next"
+                            onClick={() => step(1)}
+                            aria-label="Next image"
+                        >
+                            <ChevronRight className="size-4" />
+                        </button>
+                    ) : null}
+
+                    <div className="rb-post-gallery-dots" aria-hidden="true">
+                        {files.map((file, position) => (
+                            <span key={file.key ?? position} data-on={position === index ? "" : undefined} />
+                        ))}
+                    </div>
+                </>
+            ) : null}
+        </div>
+    )
+}
 
 /** The attachment's kind, from its extension: PDF, DOCX (Word), TXT or IMAGE. */
 function reviewerAttachmentKind(name) {
@@ -500,8 +617,14 @@ function CommunityPost({
                     </p>
                 </div>
 
-                {/* the attachment is the point of the post — give it a tile of its own */}
-                {post.attachment ? (
+                {/* Pictures are shown; everything else gets a tile, because a
+                    document cannot be judged without opening it. */}
+                {post.attachment?.type === "IMAGE" && post.attachment.key ? (
+                    <PostImageCarousel
+                        files={post.attachment.files ?? [{ key: post.attachment.key, name: post.attachment.name }]}
+                        onOpen={() => onOpenAttachment(post)}
+                    />
+                ) : post.attachment ? (
                     <PayloadTile
                         icon={post.attachment.type === "DOCX" ? FileArchive : FileText}
                         tone={attachmentTone(post.attachment.type)}
