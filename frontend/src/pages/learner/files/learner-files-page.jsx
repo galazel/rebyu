@@ -18,6 +18,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { toast } from "sonner"
 import { deleteLibraryItem, getLibraryItems } from "@/services/learnerToolsService"
 import { getAllCertifications } from "@/services/certificationService"
@@ -91,6 +101,11 @@ export default function LearnerFilesPage() {
   const [certificationId, setCertificationId] = useState("")
   const [category, setCategory] = useState(ALL_VALUE)
   const [viewItem, setViewItem] = useState(null)
+  /* The row the trash button is asking about. Deleting used to happen on the
+     click itself, so a misaimed tap took a set with no way back -- the items
+     are generated, and the one that is gone is not the one the tutor writes
+     next time. */
+  const [pendingRemoval, setPendingRemoval] = useState(null)
 
   /**
    * Opens the lesson a set was generated from, where lessons are read now: the
@@ -163,6 +178,7 @@ export default function LearnerFilesPage() {
   }, [libraryQuery.isError, certificationsQuery.isError])
 
   async function removeResource(item) {
+    if (!item) return
     try {
       await deleteLibraryItem(item.id)
       // Written through the cache rather than into local state, so the removal
@@ -173,6 +189,8 @@ export default function LearnerFilesPage() {
       toast.success("Resource removed.")
     } catch {
       toast.error("The resource could not be removed.")
+    } finally {
+      setPendingRemoval(null)
     }
   }
 
@@ -397,7 +415,7 @@ export default function LearnerFilesPage() {
                             ) : null}
 
                             {item.ownedByMe ? (
-                                <Button type="button" size="icon" variant="ghost" onClick={() => removeResource(item)} aria-label="Remove from library">
+                                <Button type="button" size="icon" variant="ghost" onClick={() => setPendingRemoval(item)} aria-label="Remove from library">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                             ) : null}
@@ -417,6 +435,30 @@ export default function LearnerFilesPage() {
             <p className="whitespace-pre-wrap text-sm leading-7 text-muted-foreground">{viewItem?.description || "No description was added."}</p>
           </DialogContent>
         </Dialog>
+
+        {/* Names the set rather than asking about "this item": with three rows
+            reading the same the only way to be sure the right one is going is
+            to be told which. */}
+        <AlertDialog
+            open={Boolean(pendingRemoval)}
+            onOpenChange={(open) => !open && setPendingRemoval(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove this from your library?</AlertDialogTitle>
+              <AlertDialogDescription>
+                “{pendingRemoval?.title}” will be deleted. This cannot be undone — the tutor can
+                generate another, but not this one again.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep it</AlertDialogCancel>
+              <AlertDialogAction onClick={() => removeResource(pendingRemoval)}>
+                Remove
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
   )
 }
