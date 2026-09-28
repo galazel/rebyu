@@ -28,8 +28,10 @@ import {
 } from "@/components/institution/institution-ui.jsx"
 import {
   getGroupLearnerAnalytics,
+  getGroupLearnerAwards,
   getGroupLearnerRoster,
 } from "@/services/institutionService.js"
+import { certificationBadgeUrl } from "@/services/certificationService.js"
 
 /**
  * Every figure on this page comes from ProgressAnalyticsService, which already
@@ -95,6 +97,106 @@ function TopicList({ title, description, icon: Icon, topics, tone }) {
 }
 
 /**
+ * One earned credential: the badge image the admin uploaded for the
+ * certification, the date it was awarded, and the certificate number when one
+ * was issued. Drawn the way the learner's own badge wall draws it, so a
+ * department head and the learner are looking at the same object.
+ */
+function CredentialMark({ award }) {
+  const earnedAt = award.badgeAwardedAt ?? award.certificateAwardedAt
+  const score = Number(award.scorePercentage)
+  return (
+    <li className="flex min-w-0 items-center gap-3 rounded-lg border border-border/60 bg-card p-3">
+      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-rb-bee/60 bg-rb-bee-wash shadow-sm">
+        {award.hasBadgeImage ? (
+          <img
+            /* Busted on the award date: the admin can replace a certification's
+               badge image, and the URL is otherwise identical forever. */
+            src={`${certificationBadgeUrl(award.certificationId)}?v=${encodeURIComponent(earnedAt ?? "")}`}
+            alt=""
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <AwardIcon className="size-7 text-rb-bee" aria-hidden="true" />
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-foreground">
+          {award.certificationTitle ?? "Certification"}
+        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {earnedAt ? `Awarded ${new Date(earnedAt).toLocaleDateString()}` : "Awarded"}
+          {Number.isFinite(score) ? ` · passed at ${Math.round(score)}%` : ""}
+        </p>
+        {award.certificateNumber ? (
+          <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+            {award.certificateNumber}
+          </p>
+        ) : null}
+      </div>
+    </li>
+  )
+}
+
+/**
+ * What this learner has actually walked away with. The figures above are
+ * progress; this is the outcome -- a badge is only written once the mock exam
+ * is passed (see CertificationAwardService), so an empty card here is a
+ * meaningful "not yet", not missing data.
+ *
+ * <p>Its own query rather than a field on the analytics DTO: awards are earned
+ * against a certification, not against the department this page is scoped to,
+ * and a failure to load them should cost the card, not the page.
+ */
+function CredentialsCard({ query }) {
+  const awards = (Array.isArray(query.data) ? query.data : []).filter(
+    (award) => award.badgeAwardedAt != null || award.certificateAwardedAt != null
+  )
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <AwardIcon className="size-4 text-rb-bee" aria-hidden="true" />
+          Credentials earned
+        </CardTitle>
+        <CardDescription>
+          Badges and certificates from finishing a certification — awarded on passing its mock exam.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {query.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading credentials…</p>
+        ) : query.isError ? (
+          <p className="text-sm text-muted-foreground">
+            Unable to load this learner's credentials.{" "}
+            <button
+              type="button"
+              onClick={query.refetch}
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              Try again
+            </button>
+          </p>
+        ) : awards.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No credential earned yet. One is issued automatically when this learner passes a
+            certification's mock exam.
+          </p>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2">
+            {awards.map((award) => (
+              <CredentialMark key={award.certificationId} award={award} />
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
  * One learner's statistics, for the leader of the group they belong to. Reached
  * by clicking a row in the group's Learners tab. Read-only: this is a
  * monitoring view, so nothing here changes the learner's record.
@@ -116,6 +218,16 @@ export default function InstitutionDepartmentLearnerPage() {
     queryKey: ["group-learner-analytics", departmentIdNumber, learnerIdNumber],
     queryFn: () => getGroupLearnerAnalytics(departmentIdNumber, learnerIdNumber),
     enabled: Number.isFinite(departmentIdNumber) && Number.isFinite(learnerIdNumber),
+    retry: 1,
+  })
+
+  // Kept out of the page's loading gate: a slow or failed award lookup should
+  // not hold back the statistics, which are what this page is mainly for.
+  const awardsQuery = useQuery({
+    queryKey: ["group-learner-awards", learnerIdNumber],
+    queryFn: () => getGroupLearnerAwards(learnerIdNumber),
+    enabled: Number.isFinite(learnerIdNumber),
+    staleTime: 60_000,
     retry: 1,
   })
 
@@ -276,6 +388,8 @@ export default function InstitutionDepartmentLearnerPage() {
           hint="Weighted likelihood of passing"
         />
       </div>
+
+      <CredentialsCard query={awardsQuery} />
 
       <TopicList
         title="Weakest topics"

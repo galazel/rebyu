@@ -203,6 +203,17 @@ export function getGroupLearnerAnalytics(departmentId, learnerId) {
   return base(`institution/me/departments/${departmentId}/learners/${learnerId}/analytics`)
 }
 
+/**
+ * The badges and certificates one learner has earned, newest first.
+ *
+ * <p>Scoped to the caller's institution server-side: a learner outside it is a
+ * 404, not a 403. Keyed by learner rather than department because an award is
+ * earned against a certification, not against the group they sit in.
+ */
+export function getGroupLearnerAwards(learnerId) {
+  return base(`institution/me/learners/${learnerId}/awards`)
+}
+
 /** Unassigns the learner from the group. Account, enrollment and progress remain. */
 export function removeLearnerFromGroup(departmentId, learnerId) {
   return base(`institution/me/departments/${departmentId}/learners/${learnerId}`, { method: "DELETE" })
