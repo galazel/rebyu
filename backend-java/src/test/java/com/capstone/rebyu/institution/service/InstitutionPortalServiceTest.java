@@ -49,10 +49,13 @@ class InstitutionPortalServiceTest {
         groupAssigneeRepository = mock(DepartmentLearnerRepository.class);
         examResultRepository = mock(com.capstone.rebyu.assessment.repository.ExamResultRepository.class);
         service = new InstitutionPortalService(institutionCertRepository, mock(InstitutionCertificateMapper.class),
-                institutionCertLearnerRepository, institutionCertLearnerMapper,
-                learnerRepository, invitationService,
-                groupAssigneeRepository, examResultRepository,
-                mock(com.capstone.rebyu.assessment.mapper.ExamResultMapper.class));
+        institutionCertLearnerRepository, institutionCertLearnerMapper,
+        learnerRepository, invitationService,
+        groupAssigneeRepository, examResultRepository,
+        mock(com.capstone.rebyu.assessment.mapper.ExamResultMapper.class),
+        mock(com.capstone.rebyu.enrollment.service.CertificationAwardService.class),
+        mock(com.capstone.rebyu.certification.repository.CertificationRepository.class));
+
 
         when(institutionCertRepository.findByInstitution_InstitutionId(INSTITUTION_ID)).thenReturn(List.of());
         when(invitationService.listInvitations(INSTITUTION_ID)).thenReturn(List.of());
