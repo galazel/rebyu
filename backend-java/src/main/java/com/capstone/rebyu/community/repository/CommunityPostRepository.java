@@ -83,6 +83,19 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
     List<CommunityPostRow> feed(@Param("learnerId") Long learnerId, @Param("type") String type,
                                  @Param("searchPattern") String searchPattern, @Param("savedOnly") boolean savedOnly);
 
+    /**
+     * One post, subject to the same private-circle gate as the feed.
+     *
+     * <p>The gate is repeated here rather than left to the feed because a feed
+     * filter only covers what the feed hands out. A post read by id is the one
+     * path that skips it, so without this a member could pass a private
+     * circle's post id to anyone and it would still resolve.
+     *
+     * <p>Note for anyone adding to the SQL below: keep prose out of it. Spring
+     * Data scans the whole query string for quotes before it runs, including
+     * inside {@code --} comments, so a single apostrophe in an explanation
+     * opens a quoted range that never closes and the repository fails to start.
+     */
     @Query(value = """
             SELECT p.post_id AS postId, concat(l.first_name, ' ', l.last_name) AS authorName, c.name AS community,
               p.created_at AS createdAt, p.title AS title, p.body AS body, p.post_type AS postType, p.circle_id AS circleId,
@@ -99,9 +112,6 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
             JOIN learners l ON l.learner_id=p.author_learner_id
             LEFT JOIN community_circles c ON c.circle_id=p.circle_id
             WHERE p.post_id=:postId
-              -- The same gate as the feed, and it has to be here too: without
-              -- it a private circle's post stays readable to anyone holding
-              -- its id, which is the one case a feed filter never covers.
               AND (p.circle_id IS NULL
                    OR COALESCE(c.visibility, 'PUBLIC') <> 'PRIVATE'
                    OR EXISTS(SELECT 1 FROM community_circle_members m
