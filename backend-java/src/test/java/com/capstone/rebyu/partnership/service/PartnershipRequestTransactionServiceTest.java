@@ -36,12 +36,18 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PartnershipRequestTransactionServiceTest {
 
-    @Mock private PartnershipRequestRepository requestRepository;
-    @Mock private PartnershipRequestItemRepository itemRepository;
-    @Mock private InstitutionRepository institutionRepository;
-    @Mock private CertificationRepository certificationRepository;
-    @Mock private UserRepository userRepository;
-    @Mock private NotificationService notificationService;
+    @Mock
+    private PartnershipRequestRepository requestRepository;
+    @Mock
+    private PartnershipRequestItemRepository itemRepository;
+    @Mock
+    private InstitutionRepository institutionRepository;
+    @Mock
+    private CertificationRepository certificationRepository;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private NotificationService notificationService;
 
     private PartnershipRequestTransactionService service;
 
@@ -70,8 +76,8 @@ class PartnershipRequestTransactionServiceTest {
     private SubmitPartnershipRequestDto request(String key) {
         return new SubmitPartnershipRequestDto(1L, List.of(
                 new PartnershipItemRequestDto(1L, 10,
-                        LocalDate.now(), LocalDate.now().plusMonths(12))
-        ), key);
+                        LocalDate.now(), LocalDate.now().plusMonths(12))),
+                key, "NEW");
     }
 
     @Test
@@ -144,8 +150,8 @@ class PartnershipRequestTransactionServiceTest {
 
         SubmitPartnershipRequestDto bad = new SubmitPartnershipRequestDto(1L, List.of(
                 new PartnershipItemRequestDto(1L, 5,
-                        LocalDate.now().plusMonths(6), LocalDate.now())
-        ), "k2");
+                        LocalDate.now().plusMonths(6), LocalDate.now())),
+                "k2", "NEW");
 
         assertThrows(BusinessRuleException.InvalidPartnershipRequestException.class,
                 () -> service.submit(bad));
