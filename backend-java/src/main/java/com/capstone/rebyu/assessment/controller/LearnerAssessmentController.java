@@ -1,6 +1,7 @@
 package com.capstone.rebyu.assessment.controller;
 
 import com.capstone.rebyu.assessment.dto.attempt.DiagramAttemptDtos.*;
+import com.capstone.rebyu.assessment.dto.attempt.ChoiceCheckDtos.*;
 import com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.*;
 import com.capstone.rebyu.assessment.dto.attempt.ProgrammingAttemptDtos.*;
 import com.capstone.rebyu.assessment.service.AdaptiveAttemptService;
@@ -182,6 +183,20 @@ public class LearnerAssessmentController {
         return assessmentAttemptService.checkDiagram(attemptId, attemptQuestionId,
                 new DiagramCheckRequestDto(
                         me(jwt), request.diagramData(), request.diagramType()));
+    }
+
+    /**
+     * Marks one locked choice answer mid-attempt, for runners that show a
+     * verdict between questions instead of only at the end.
+     */
+    @PostMapping("/assessment-attempts/{attemptId}/choice/{attemptQuestionId}/check")
+    public ChoiceCheckResultDto checkChoice(
+            @PathVariable Long attemptId,
+            @PathVariable Long attemptQuestionId,
+            @Valid @RequestBody ChoiceCheckRequestDto request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return assessmentAttemptService.checkChoice(attemptId, attemptQuestionId,
+                new ChoiceCheckRequestDto(me(jwt), request.selectedChoiceId()));
     }
 
     /**

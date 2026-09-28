@@ -21,6 +21,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { toast } from "sonner"
 import { deleteLibraryItem, getLibraryItems } from "@/services/learnerToolsService"
 import { getAllCertifications } from "@/services/certificationService"
+import { getLessonById } from "@/services/learnerService.js"
 import {
   LearnerEmptyState,
   LearnerPageHeader,
@@ -90,6 +91,34 @@ export default function LearnerFilesPage() {
   const [certificationId, setCertificationId] = useState("")
   const [category, setCategory] = useState(ALL_VALUE)
   const [viewItem, setViewItem] = useState(null)
+
+  /**
+   * Opens the lesson a set was generated from, where lessons are read now: the
+   * topic page, with the outline beside it and the tutor that generated the
+   * set in the first place. This sent every learner to
+   * `/learner/lessons/:id` -- the older standalone page -- which is why Source
+   * landed somewhere that did not look like the rest of the course.
+   *
+   * <p>The library row carries the lesson and its certification but not the
+   * topic, so that one field is looked up. If the lookup fails the old page is
+   * still a lesson and still the right lesson, so it stays the fallback rather
+   * than the button doing nothing.
+   */
+  async function openSourceLesson(item) {
+    let topicId = item.middleCategoryId ?? null
+    if (!topicId && item.certificationId) {
+      try {
+        topicId = (await getLessonById(item.lessonId))?.middleCategoryId ?? null
+      } catch {
+        topicId = null
+      }
+    }
+    navigate(
+      topicId && item.certificationId
+        ? `/learner/learning/${item.certificationId}/topics/${topicId}?lesson=${item.lessonId}`
+        : `/learner/lessons/${item.lessonId}`
+    )
+  }
 
   /* Cached, so coming back from a quiz does not re-fetch the library and put
      the spinner up over a list that has not changed. The page holds no copy of
@@ -360,7 +389,7 @@ export default function LearnerFilesPage() {
                                     type="button"
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => navigate(`/learner/lessons/${item.lessonId}`)}
+                                    onClick={() => openSourceLesson(item)}
                                 >
                                   <BookOpenCheck className="mr-2 h-4 w-4" />
                                   Source

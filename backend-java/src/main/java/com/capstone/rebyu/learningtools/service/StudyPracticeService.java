@@ -102,7 +102,11 @@ public class StudyPracticeService {
                 .certification(certification)
                 .lesson(lesson)
                 .studyType(studyType)
-                .title(title.trim())
+                /* A second deck generated from the same lesson must not arrive
+                   under the same name as the first -- see GeneratedTitles. */
+                .title(GeneratedTitles.notAlreadyUsed(
+                        title.trim(),
+                        studySets.findTitlesByLearnerLessonAndType(learnerId, lessonId, studyType)))
                 .build();
         int displayOrder = 1;
         for (GeneratedItem item : items) {
