@@ -138,18 +138,26 @@ const adminGroups = [
    It used to be empty, with a one-link strip repeated at the top of each page. */
 const departmentHeadGroups = [
   {
-    label: "My departments",
+    label: "Overview",
+    icon: LayoutDashboard,
+    items: [
+      {
+        label: "Overview",
+        href: "/institution/department-head",
+        icon: LayoutDashboard,
+        match: ["/institution/department-head"],
+      },
+    ],
+  },
+  {
+    label: "Programs",
     icon: UsersRound,
     items: [
       {
-        label: "My departments",
-        href: "/institution/department-head",
+        label: "Programs",
+        href: "/institution/programs",
         icon: UsersRound,
-        match: [
-          "/institution/department-head",
-          "/institution/departments",
-          "/institution/certifications",
-        ],
+        match: ["/institution/programs", "/institution/departments"],
       },
     ],
   },

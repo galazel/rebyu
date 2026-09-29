@@ -49,17 +49,22 @@ class InstitutionPortalServiceTest {
         groupAssigneeRepository = mock(DepartmentLearnerRepository.class);
         examResultRepository = mock(com.capstone.rebyu.assessment.repository.ExamResultRepository.class);
         service = new InstitutionPortalService(institutionCertRepository, mock(InstitutionCertificateMapper.class),
-                institutionCertLearnerRepository, institutionCertLearnerMapper,
-                learnerRepository, invitationService,
-                groupAssigneeRepository, examResultRepository,
-                mock(com.capstone.rebyu.assessment.mapper.ExamResultMapper.class));
+        institutionCertLearnerRepository, institutionCertLearnerMapper,
+        learnerRepository, invitationService,
+        groupAssigneeRepository, examResultRepository,
+        mock(com.capstone.rebyu.assessment.mapper.ExamResultMapper.class),
+        mock(com.capstone.rebyu.enrollment.service.CertificationAwardService.class),
+        mock(com.capstone.rebyu.certification.repository.CertificationRepository.class));
+
 
         when(institutionCertRepository.findByInstitution_InstitutionId(INSTITUTION_ID)).thenReturn(List.of());
         when(invitationService.listInvitations(INSTITUTION_ID)).thenReturn(List.of());
-        /* Stubbed, not left as a bare mock: `overview` streams this result
-           straight away, so the default null would NPE before any assertion in
-           these tests is reached. Empty is also the honest default here -- these
-           tests are about which learners are fetched, not about grouping. */
+        /*
+         * Stubbed, not left as a bare mock: `overview` streams this result
+         * straight away, so the default null would NPE before any assertion in
+         * these tests is reached. Empty is also the honest default here -- these
+         * tests are about which learners are fetched, not about grouping.
+         */
         when(groupAssigneeRepository.assignmentGroupsByInstitution(INSTITUTION_ID)).thenReturn(List.of());
     }
 
@@ -79,7 +84,8 @@ class InstitutionPortalServiceTest {
 
         OverviewDto result = service.overview(INSTITUTION_ID);
 
-        // Deduped learner ids from this institution's assignments only -- never a global fetch.
+        // Deduped learner ids from this institution's assignments only -- never a
+        // global fetch.
         verify(learnerRepository).findByLearnerIdIn(Set.of(11L, 22L));
         verify(learnerRepository, never()).findAll();
         assertEquals(2, result.learners().size());
@@ -87,7 +93,8 @@ class InstitutionPortalServiceTest {
 
     @Test
     void overview_noAssignments_skipsLearnerLookupEntirely() {
-        when(institutionCertLearnerRepository.findByInstitutionCert_Institution_InstitutionId(INSTITUTION_ID)).thenReturn(List.of());
+        when(institutionCertLearnerRepository.findByInstitutionCert_Institution_InstitutionId(INSTITUTION_ID))
+                .thenReturn(List.of());
 
         OverviewDto result = service.overview(INSTITUTION_ID);
 
@@ -97,7 +104,8 @@ class InstitutionPortalServiceTest {
 
     @Test
     void overview_usesInstitutionScopedRepositoryQueries_notGlobalFindAll() {
-        when(institutionCertLearnerRepository.findByInstitutionCert_Institution_InstitutionId(INSTITUTION_ID)).thenReturn(List.of());
+        when(institutionCertLearnerRepository.findByInstitutionCert_Institution_InstitutionId(INSTITUTION_ID))
+                .thenReturn(List.of());
 
         service.overview(INSTITUTION_ID);
 
@@ -108,7 +116,8 @@ class InstitutionPortalServiceTest {
     @Test
     void learnerExamResults_learnerNotInInstitution_throwsNotFoundWithoutReadingResults() {
         Long otherLearnerId = 999L;
-        when(institutionCertLearnerRepository.existsByLearner_LearnerIdAndInstitutionCert_Institution_InstitutionId(otherLearnerId, INSTITUTION_ID))
+        when(institutionCertLearnerRepository
+                .existsByLearner_LearnerIdAndInstitutionCert_Institution_InstitutionId(otherLearnerId, INSTITUTION_ID))
                 .thenReturn(false);
 
         assertThrows(jakarta.persistence.EntityNotFoundException.class,
@@ -119,7 +128,8 @@ class InstitutionPortalServiceTest {
     @Test
     void learnerExamResults_learnerInInstitution_returnsScopedResults() {
         Long learnerId = 55L;
-        when(institutionCertLearnerRepository.existsByLearner_LearnerIdAndInstitutionCert_Institution_InstitutionId(learnerId, INSTITUTION_ID))
+        when(institutionCertLearnerRepository
+                .existsByLearner_LearnerIdAndInstitutionCert_Institution_InstitutionId(learnerId, INSTITUTION_ID))
                 .thenReturn(true);
         when(examResultRepository.findByLearner_LearnerId(learnerId)).thenReturn(List.of());
 
