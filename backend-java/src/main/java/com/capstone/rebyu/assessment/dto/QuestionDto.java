@@ -53,8 +53,6 @@ public class QuestionDto {
      */
     private Long certificationId;
 
-    @Positive
-
     private List<ChoiceDto> choices;
 
     /**

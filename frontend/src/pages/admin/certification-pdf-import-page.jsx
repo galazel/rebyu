@@ -62,7 +62,9 @@ import {
     stackCanvases,
 } from "@/utils/pdf-question-extractor.js"
 
-const KEYS = ["a", "b", "c", "d"]
+const LETTER_KEYS = ["a", "b", "c", "d", "e", "f", "g", "h"]
+const NUM_KEYS = ["1", "2", "3", "4", "5", "6", "7", "8"]
+const KEYS = LETTER_KEYS.slice(0, 4)
 const DIFFICULTIES = ["easy", "average", "hard"]
 
 
@@ -326,7 +328,7 @@ async function saveOne(question, paper, certificationId) {
     })
 
     if (type === "MCQ") {
-        for (const option of question.options) {
+        await Promise.all(question.options.map(async (option) => {
             let choiceImageKey = null
             if (option.imageSrc) {
                 const file = await canvasToFile(await srcToCanvas(option.imageSrc), `q${question.num}${option.key}.png`)
@@ -339,7 +341,7 @@ async function saveOne(question, paper, certificationId) {
                 correct: option.key === answer,
                 explanation: "",
             })
-        }
+        }))
     } else {
         const correct = question.options.find((option) => option.key === answer)
         await saveTextQuestion({
@@ -662,7 +664,8 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
                                 onClick={() =>
                                     setDraft((d) => {
                                         const keys = [...new Set([...question.options.map((o) => o.key), ...Object.keys(d.texts)])].sort()
-                                        const nextKey = String.fromCharCode((keys.at(-1) ?? "`").charCodeAt(0) + 1)
+                                        const last = keys.at(-1) ?? ""
+                                        const nextKey = /^\d+$/.test(last) ? String(Number(last) + 1) : String.fromCharCode((last || "`").charCodeAt(0) + 1)
                                         return { ...d, texts: { ...d.texts, [nextKey]: "" } }
                                     })
                                 }
@@ -1128,12 +1131,32 @@ export default function CertificationPdfImportPage() {
                 }
             }
 
+            const displayed = result.questions.map(forDisplay)
+            for (const question of displayed) {
+                const ans = answers[question.num]
+                if (question.options.length < 2 && ans) {
+                    const isNum = /^\d$/.test(ans)
+                    let keys
+                    if (isNum) {
+                        const max = Math.max(Number(ans), 4)
+                        keys = Array.from({ length: max }, (_, i) => String(i + 1))
+                    } else {
+                        const maxKey = ans > "d" ? ans : "d"
+                        keys = []
+                        for (let ch = "a"; ch <= maxKey; ch = String.fromCharCode(ch.charCodeAt(0) + 1)) keys.push(ch)
+                    }
+                    question.options = keys.map((key) => {
+                        const existing = question.options.find((o) => o.key === key)
+                        return existing ?? { key, text: key, imageSrc: null, fromTable: false }
+                    })
+                }
+            }
             const paper = {
                 id,
                 fileId,
                 name: result.name,
                 info: result.info,
-                questions: result.questions.map(forDisplay),
+                questions: displayed,
                 readBy: result.readBy,
                 profile: result.profile,
                 answers,
@@ -1469,15 +1492,27 @@ export default function CertificationPdfImportPage() {
         const skipped = ready.length - queue.length
         setSaving({ done, total: queue.length, errors: [...errors], skipped })
 
-        for (const { question, paper: target } of queue) {
-            try {
-                await saveOne(question, target, certificationId)
-                saved += 1
-                updatePaper(target.id, (p) => ({ saved: { ...p.saved, [question.num]: true } }))
-            } catch (error) {
-                errors.push(`${target.name} Q${question.num}: ${error?.response?.data?.message || error?.message || "failed"}`)
+        const BATCH = 3
+        for (let i = 0; i < queue.length; i += BATCH) {
+            const batch = queue.slice(i, i + BATCH)
+            const results = await Promise.allSettled(
+                batch.map(({ question, paper: target }) =>
+                    saveOne(question, target, certificationId).then(
+                        () => ({ ok: true, question, paper: target }),
+                        (error) => ({ ok: false, question, paper: target, error }),
+                    ),
+                ),
+            )
+            for (const { value } of results) {
+                if (value.ok) {
+                    saved += 1
+                    updatePaper(value.paper.id, (p) => ({ saved: { ...p.saved, [value.question.num]: true } }))
+                } else {
+                    const e = value.error
+                    errors.push(`${value.paper.name} Q${value.question.num}: ${e?.response?.data?.message || e?.message || "failed"}`)
+                }
+                done += 1
             }
-            done += 1
             setSaving({ done, saved, total: queue.length, errors: [...errors], skipped })
         }
         setSaving({ done, saved, total: queue.length, errors, skipped, finished: true })

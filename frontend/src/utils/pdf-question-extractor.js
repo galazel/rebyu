@@ -58,11 +58,11 @@ const BANNER_RE = /^Answer (?:the )?questions? (?:Q?\d+|[A-Z]) through (?:Q?\d+|
 /** The heading of a case study several questions share: "Question A". */
 const CASE_RE = /^Question [A-Z]\b/
 
-/** A choice marker on its own: "a)", "(b)", "c." */
-const MARKER_RE = /^\(?([a-d])[).]$/
+/** A choice marker on its own: "a)", "(b)", "c.", "1)", "(2)", "3." */
+const MARKER_RE = /^\(?([a-h1-8])[).]$/
 
-/** A line that is a choice WITH its text: "a) Divisional organization". */
-const TEXT_CHOICE_RE = /^\(?[a-d][).]\s+\S/
+/** A line that is a choice WITH its text: "a) Divisional organization", "1) Yes". */
+const TEXT_CHOICE_RE = /^\(?[a-h1-8][).]\s+\S/
 
 /**
  * pdf.js 3.11, not the 6.x the document reader uses. The ITPEC papers set
@@ -669,7 +669,7 @@ function buildQuestion(question) {
         line,
         fig: index > 0 && inBand(line),
     }))
-    const optionStart = texts.findIndex((entry) => /^\(?a[).](\s|$)/.test(entry.t))
+    const optionStart = texts.findIndex((entry) => /^\(?(?:a|1)[).](\s|$)/.test(entry.t))
     const stemPart = optionStart === -1 ? texts : texts.slice(0, optionStart)
     const optionPart = optionStart === -1 ? [] : texts.slice(optionStart)
 
@@ -695,21 +695,30 @@ function buildQuestion(question) {
 
     // Inside a figure only the choice letters count; the rest is the drawing.
     const optionText = optionPart
-        .map((entry) => (entry.fig ? (entry.t.match(/\(?[a-d][).]/g) || []).join(" ") : entry.t))
+        .map((entry) => (entry.fig ? (entry.t.match(/\(?[a-h1-8][).]/g) || []).join(" ") : entry.t))
         .join("\n")
-    const markerRe = /(?:^|\s)\(?([a-d])[).](?=\s|$)/g
+    const markerRe = /(?:^|\s)\(?([a-h1-8])[).](?=\s|$)/g
     const marks = []
     let match
     while ((match = markerRe.exec(optionText))) {
         marks.push({ key: match[1], at: match.index + match[0].length, start: match.index })
     }
-    const sequence = []
-    let want = "a"
-    for (const mark of marks) {
-        if (mark.key === want) {
-            sequence.push(mark)
-            want = String.fromCharCode(want.charCodeAt(0) + 1)
+    // Try letter sequence (a, b, c, ...) first, then numbered (1, 2, 3, ...).
+    const buildSequence = (first, nextFn) => {
+        const seq = []
+        let want = first
+        for (const mark of marks) {
+            if (mark.key === want) {
+                seq.push(mark)
+                want = nextFn(want)
+            }
         }
+        return seq
+    }
+    let sequence = buildSequence("a", (ch) => String.fromCharCode(ch.charCodeAt(0) + 1))
+    if (sequence.length < 2) {
+        const numSeq = buildSequence("1", (n) => String(Number(n) + 1))
+        if (numSeq.length > sequence.length) sequence = numSeq
     }
     const options = sequence.map((mark, index) => ({
         key: mark.key,
@@ -984,11 +993,12 @@ function answersFrom(texts, fileName) {
         (all.match(/^\s*\(?[a-hA-H][.)]\s+[A-Za-z]{3,}/gm) || []).length / 4
     const answers = {}
     // "MA089" -- the optional-section numbering of the 2010 keys -- is Q89.
-    const re = /(?:^|\s)(?:[A-Z]{1,2}(?=\d))?0*(\d{1,3})\s*[.):-]?\s+\(?([a-dA-D])\)?(?=\s|$)/g
+    const re = /(?:^|\s)(?:[A-Z]{1,2}(?=\d))?0*(\d{1,3})\s*[.):-]?\s+\(?([a-hA-H1-8])\)?(?=\s|$)/g
     let match
     while ((match = re.exec(all))) {
         const number = Number(match[1])
-        if (number > 0 && number <= 200 && !answers[number]) answers[number] = match[2].toLowerCase()
+        const raw = match[2]
+        if (number > 0 && number <= 200 && !answers[number]) answers[number] = /\d/.test(raw) ? raw : raw.toLowerCase()
     }
     const count = Object.keys(answers).length
     const looksLikeKey = /answer/i.test(all + " " + (fileName || "")) || count >= 20

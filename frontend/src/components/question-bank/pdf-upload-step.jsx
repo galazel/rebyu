@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils"
 /* A whole folder of past papers and keys at once -- 156 PDFs for FE. Files
    are read one after another, and each keeps only compressed images, so the
    count is bounded by patience rather than memory. */
-const MAX_FILES = 300
+const MAX_FILES = 10
 const MAX_SIZE_MB = 50
 
 /** The word a file name ends with, and what it makes the file. Longest first. */

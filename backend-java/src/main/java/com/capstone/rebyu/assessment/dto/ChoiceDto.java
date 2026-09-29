@@ -1,6 +1,5 @@
 package com.capstone.rebyu.assessment.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -16,7 +15,7 @@ public class ChoiceDto {
     @NotNull
     private Long questionId;
 
-    @NotBlank
+    @NotNull
     private String choiceText;
 
     @Size(max = 255)
