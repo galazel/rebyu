@@ -161,6 +161,43 @@ export default function DepartmentHeadDashboardPage() {
     return map
   }, [statsQuery.data])
 
+  const hardestTopics = statsQuery.data?.hardestTopics ?? []
+  const hardestAssessments = statsQuery.data?.hardestAssessments ?? []
+
+  /* Who to speak to, by name and with the reason.
+     "Needing support: 3" is a number a head cannot act on -- they have to go
+     and find out who. These are the same learners, named, each carrying why
+     they are here so the follow-up is obvious before the row is opened. */
+  const needsAttention = useMemo(() => {
+    const members = statsQuery.data?.members ?? []
+    const now = Date.now()
+    const STALE_DAYS = 14
+
+    return members
+      .map((member) => {
+        const daysSince = member.lastActivityAt
+          ? Math.floor((now - new Date(member.lastActivityAt).getTime()) / 86_400_000)
+          : null
+
+        /* One reason each, most urgent first: never started outranks gone
+           quiet, which outranks struggling. A row listing three problems is
+           read as none. */
+        let reason = null
+        if (!member.gradedAttempts && !member.lessonsCompleted) {
+          reason = "Has not started"
+        } else if (daysSince != null && daysSince >= STALE_DAYS) {
+          reason = `No activity in ${daysSince} days`
+        } else if (member.averageScore != null && member.averageScore < 50) {
+          reason = `Averaging ${member.averageScore}% across ${member.gradedAttempts} attempt${member.gradedAttempts === 1 ? "" : "s"}`
+        } else if (member.passRate != null && member.passRate < 50 && member.gradedAttempts > 0) {
+          reason = `Passing ${member.passRate}% of attempts`
+        }
+        return reason ? { ...member, reason } : null
+      })
+      .filter(Boolean)
+      .slice(0, 8)
+  }, [statsQuery.data])
+
   const departmentStatsQuery = useQuery({
     queryKey: ["department-head-group-stats"],
     queryFn: getDepartmentStats,
@@ -562,6 +599,30 @@ export default function DepartmentHeadDashboardPage() {
                                   avg {Math.round(Number(outcome.averageProgress))}% complete
                                 </span>
                               ) : null}
+                              {/* How well, beside how far. A programme can be
+                                  most of the way through and averaging 40% on
+                                  its papers, and only one of those is a
+                                  warning. */}
+                              {outcome.averageScore != null ? (
+                                <span
+                                  className={
+                                    outcome.averageScore < 50
+                                      ? "font-semibold text-destructive"
+                                      : "text-muted-foreground"
+                                  }
+                                >
+                                  avg score {outcome.averageScore}%
+                                </span>
+                              ) : null}
+                              {outcome.gradedAttempts > 0 ? (
+                                <span className="text-muted-foreground">
+                                  {outcome.gradedAttempts} attempt
+                                  {outcome.gradedAttempts === 1 ? "" : "s"}
+                                  {outcome.attemptPassRate != null
+                                    ? ` · ${outcome.attemptPassRate}% passed`
+                                    : ""}
+                                </span>
+                              ) : null}
                             </div>
                           )
                         })()}
@@ -574,13 +635,151 @@ export default function DepartmentHeadDashboardPage() {
           </BentoTile>
         ),
       },
+      // 8a. What the cohort is getting wrong
+      {
+        id: "dept-hard-topics",
+        col: 3,
+        row: 2,
+        x: 0,
+        y: 5,
+        element: (
+          <BentoTile col={3} row={2} className="!p-0">
+            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+              <DashboardCardHeader
+                icon={TargetIcon}
+                kicker="Teaching Signal"
+                title="Topics the department is failing"
+                hint="Lowest accuracy across everyone's marked answers."
+              />
+              {hardestTopics.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Not enough marked answers yet to rank topics.
+                </p>
+              ) : (
+                <ul className="-mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
+                  {hardestTopics.map((topic) => (
+                    <li key={topic.lessonId}>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="min-w-0 truncate text-sm font-semibold text-foreground">
+                          {topic.lessonTitle}
+                        </span>
+                        <span className="shrink-0 text-xs font-bold tabular-nums text-destructive">
+                          {topic.accuracy}%
+                        </span>
+                      </div>
+                      <Progress value={topic.accuracy} className="mt-1.5 h-1.5" />
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {topic.categoryTitle ? `${topic.categoryTitle} · ` : ""}
+                        {topic.learners} learner{topic.learners === 1 ? "" : "s"} · {topic.answered} answers
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </BentoTile>
+        ),
+      },
+      // 8b. Which papers are hardest
+      {
+        id: "dept-hard-assessments",
+        col: 3,
+        row: 2,
+        x: 3,
+        y: 5,
+        element: (
+          <BentoTile col={3} row={2} className="!p-0">
+            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+              <DashboardCardHeader
+                icon={ClipboardListIcon}
+                kicker="Assessment Signal"
+                title="Hardest assessments"
+                hint="Lowest pass rate first — a paper nobody passes is worth a look."
+              />
+              {hardestAssessments.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No assessment has been graded in this department yet.
+                </p>
+              ) : (
+                <ul className="-mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
+                  {hardestAssessments.map((exam) => (
+                    <li key={exam.examId}>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="min-w-0 truncate text-sm font-semibold text-foreground">
+                          {exam.title}
+                        </span>
+                        <span className="shrink-0 text-xs font-bold tabular-nums text-destructive">
+                          {exam.passRate}% pass
+                        </span>
+                      </div>
+                      <Progress value={exam.passRate} className="mt-1.5 h-1.5" />
+                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                        {exam.attempts} attempt{exam.attempts === 1 ? "" : "s"} by {exam.learners} learner
+                        {exam.learners === 1 ? "" : "s"}
+                        {exam.averageScore != null ? ` · avg ${exam.averageScore}%` : ""}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </BentoTile>
+        ),
+      },
+      // 8c. Who needs a conversation, by name
+      {
+        id: "dept-needs-attention",
+        col: 6,
+        row: 2,
+        x: 0,
+        y: 7,
+        element: (
+          <BentoTile col={6} row={2} className="!p-0">
+            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+              <DashboardCardHeader
+                icon={UserCheck}
+                kicker="Follow Up"
+                title="Learners needing attention"
+                hint="Named, with the reason — a count alone cannot be acted on."
+                chip={
+                  needsAttention.length > 0 ? (
+                    <Badge variant="secondary" className="border-amber-500/20 bg-amber-500/10 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                      {needsAttention.length}
+                    </Badge>
+                  ) : null
+                }
+              />
+              {needsAttention.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nobody is flagged right now.
+                </p>
+              ) : (
+                <ul className="-mr-2 min-h-0 flex-1 divide-y divide-border/60 overflow-y-auto pr-2">
+                  {needsAttention.map((row) => (
+                    <li key={row.learnerId} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">{row.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{row.reason}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-4 text-xs tabular-nums text-muted-foreground">
+                        <span>{Math.round(Number(row.averageProgress ?? 0))}% complete</span>
+                        {row.averageScore != null ? <span>{row.averageScore}% avg</span> : null}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </BentoTile>
+        ),
+      },
       // 8. Department Learner Roster & Performance Table
       {
         id: "dept-learner-table",
         col: 6,
         row: 3,
         x: 0,
-        y: 5,
+        y: 9,
         element: (
           <BentoTile col={6} row={3} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -679,7 +878,7 @@ export default function DepartmentHeadDashboardPage() {
         col: 6,
         row: 2,
         x: 0,
-        y: 8,
+        y: 12,
         element: (
           <BentoTile col={6} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">

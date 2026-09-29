@@ -5,6 +5,9 @@ import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository;
 import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository.LearnerAttemptStats;
 import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
+import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.TopicDifficultyDto;
+import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.AssessmentOutcomeDto;
+import com.capstone.rebyu.assessment.repository.AssessmentAttemptAnswerRepository;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.CertificationStatsDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.InstitutionLearningStatsDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.DepartmentProgressDto;
@@ -22,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import com.capstone.rebyu.institution.entity.InstitutionCertificate;
+import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository;
+import java.util.Collection;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -56,6 +61,7 @@ public class InstitutionLearningStatsService {
     private final LearnerRepository learnerRepository;
     private final DepartmentLearnerRepository groupAssigneeRepository;
     private final com.capstone.rebyu.enrollment.repository.LearnerCertificationAwardRepository awardRepository;
+    private final AssessmentAttemptAnswerRepository attemptAnswerRepository;
 
     public InstitutionLearningStatsDto learningStats(Long institutionId) {
         List<InstitutionCertificationLearner> assignments =
@@ -80,7 +86,9 @@ public class InstitutionLearningStatsService {
             return new InstitutionLearningStatsDto(
                     new LearningStatsSummaryDto(0, 0, 0, null, 0, 0, null, null, seatsTotal, seatsUsed),
                     List.of(),
-                    certificationStats);
+                    certificationStats,
+                    List.of(),
+                    List.of());
         }
 
         Map<Long, LearnerAttemptStats> attemptStats = attemptRepository
@@ -117,7 +125,67 @@ public class InstitutionLearningStatsService {
                         Comparator.nullsLast(String::compareToIgnoreCase)));
 
         return new InstitutionLearningStatsDto(
-                summary(members, seatsTotal, seatsUsed), members, certificationStats);
+                summary(members, seatsTotal, seatsUsed),
+                members,
+                certificationStats,
+                hardestTopics(learnerIds),
+                hardestAssessments(learnerIds));
+    }
+
+    /** Answers needed on a topic before the cohort's accuracy on it means anything. */
+    private static final long MIN_TOPIC_ANSWERS = 3;
+
+    /** How many rows each of the two difficulty lists returns. */
+    private static final int DIFFICULTY_LIST_LIMIT = 5;
+
+    /**
+     * The topics this roster gets wrong most often, least accurate first.
+     *
+     * <p>Thin evidence is excluded rather than ranked: a topic answered once,
+     * wrongly, is 0% accurate and would top this list every time while saying
+     * nothing about the cohort. The learner count travels with each row so a
+     * topic one person struggled with is not read as a department-wide gap.
+     */
+    private List<TopicDifficultyDto> hardestTopics(Collection<Long> learnerIds) {
+        if (learnerIds.isEmpty()) return List.of();
+        return attemptAnswerRepository.topicDifficulty(learnerIds, MIN_TOPIC_ANSWERS).stream()
+                .map(row -> new TopicDifficultyDto(
+                        row.getLessonId(),
+                        row.getLessonTitle(),
+                        row.getCategoryTitle(),
+                        Math.round(100f * row.getCorrect() / row.getAnswered()),
+                        row.getAnswered(),
+                        row.getLearners()))
+                .sorted(Comparator.comparingInt(TopicDifficultyDto::accuracy)
+                        .thenComparing(Comparator.comparingLong(TopicDifficultyDto::learners).reversed()))
+                .limit(DIFFICULTY_LIST_LIMIT)
+                .toList();
+    }
+
+    /**
+     * The assessments this roster does worst on, lowest pass rate first.
+     *
+     * <p>Ranked by pass rate rather than mean score because passing is the
+     * thing being measured: a paper everyone scrapes through at 76% is not a
+     * problem, and one everyone fails at 74% is.
+     */
+    private List<AssessmentOutcomeDto> hardestAssessments(Collection<Long> learnerIds) {
+        if (learnerIds.isEmpty()) return List.of();
+        return attemptRepository.examOutcomesByLearnerIds(learnerIds).stream()
+                .filter(row -> row.getAttempts() > 0)
+                .map(row -> new AssessmentOutcomeDto(
+                        row.getExamId(),
+                        row.getExamTitle(),
+                        row.getExamType(),
+                        row.getAttempts(),
+                        row.getLearners(),
+                        Math.round(100f * row.getPassedAttempts() / row.getAttempts()),
+                        row.getAverageScore() == null ? null
+                                : (int) Math.round(row.getAverageScore())))
+                .sorted(Comparator.comparingInt(AssessmentOutcomeDto::passRate)
+                        .thenComparing(Comparator.comparingLong(AssessmentOutcomeDto::attempts).reversed()))
+                .limit(DIFFICULTY_LIST_LIMIT)
+                .toList();
     }
 
     /**
@@ -136,6 +204,18 @@ public class InstitutionLearningStatsService {
     private List<CertificationStatsDto> certificationStats(
             List<InstitutionCertificate> institutionCerts,
             List<InstitutionCertificationLearner> assignments) {
+
+        Set<Long> rosterIds = assignments.stream()
+                .map(a -> a.getLearner().getLearnerId())
+                .collect(Collectors.toSet());
+        Map<Long, AssessmentAttemptRepository.CertificationScoreRow> scoreByCertification =
+                rosterIds.isEmpty() ? Map.of()
+                        : attemptRepository.certificationScoresByLearnerIds(rosterIds).stream()
+                                .filter(row -> row.getCertificationId() != null)
+                                .collect(Collectors.toMap(
+                                        AssessmentAttemptRepository.CertificationScoreRow::getCertificationId,
+                                        Function.identity(),
+                                        (a, b) -> a));
 
         Map<Long, List<InstitutionCertificationLearner>> byCertification = assignments.stream()
                 .filter(a -> a.getStatus() != InstitutionCertificationLearner.Status.revoked)
@@ -180,6 +260,8 @@ public class InstitutionLearningStatsService {
             /* Passing is a kind of progress, so someone who has passed is not
                also counted as in progress -- the three states add up to the
                enrolled count, which is what makes the row readable. */
+            var scores = scoreByCertification.get(certificationId);
+
             int inProgress = Math.max(0, started - passed);
             int notStarted = Math.max(0, enrolled - started);
 
@@ -194,7 +276,12 @@ public class InstitutionLearningStatsService {
                     notStarted,
                     enrolled == 0 ? null
                             : progressTotal.divide(BigDecimal.valueOf(enrolled), 1, RoundingMode.HALF_UP),
-                    enrolled == 0 ? null : Math.round(100f * passed / enrolled)));
+                    enrolled == 0 ? null : Math.round(100f * passed / enrolled),
+                    scores == null || scores.getAverageScore() == null ? null
+                            : (int) Math.round(scores.getAverageScore()),
+                    scores == null ? 0L : scores.getAttempts(),
+                    scores == null || scores.getAttempts() == 0 ? null
+                            : Math.round(100f * scores.getPassedAttempts() / scores.getAttempts())));
         }
 
         // Busiest programme first: a department looks at where its people are.

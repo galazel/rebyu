@@ -118,6 +118,79 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
             @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds,
             @org.springframework.data.repository.query.Param("status") AssessmentAttempt.Status status);
 
+    /** One certification across a roster: how it is being scored, not just finished. */
+    interface CertificationScoreRow {
+        Long getCertificationId();
+        Double getAverageScore();
+        long getAttempts();
+        long getPassedAttempts();
+    }
+
+    /**
+     * Average score and attempt outcomes per certification, across a roster.
+     *
+     * <p>Completion says how much of a programme a cohort has worked through;
+     * this says how well they are doing it. A department can be 80% through a
+     * certification and averaging 40% on its papers, and only one of those two
+     * numbers is a warning.
+     *
+     * <p>Grouped through the exam's certification rather than the learner's
+     * assignment, so a score counts toward the programme whose paper was
+     * actually sat.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT a.exam.certification.certificationId AS certificationId,
+                   AVG(a.percentage) AS averageScore,
+                   COUNT(a) AS attempts,
+                   SUM(CASE WHEN a.passed = true THEN 1 ELSE 0 END) AS passedAttempts
+            FROM AssessmentAttempt a
+            WHERE a.learnerId IN :learnerIds
+              AND a.submittedAt IS NOT NULL
+              AND a.percentage IS NOT NULL
+            GROUP BY a.exam.certification.certificationId
+            """)
+    List<CertificationScoreRow> certificationScoresByLearnerIds(
+            @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds);
+
+    /** One assessment across a roster: how often it was sat, passed, and at what score. */
+    interface ExamOutcomeRow {
+        Long getExamId();
+        String getExamTitle();
+        String getExamType();
+        long getAttempts();
+        long getPassedAttempts();
+        Double getAverageScore();
+        long getLearners();
+    }
+
+    /**
+     * How each assessment is actually going across a group of learners.
+     *
+     * <p>A department can see one overall pass rate but not which paper is
+     * carrying it. An assessment nearly everybody fails is either the hardest
+     * point in the course or a badly built exam, and both are worth knowing;
+     * neither is visible in an average.
+     *
+     * <p>Distinct learners travel with the attempt count so a paper one person
+     * sat five times is not mistaken for one five people struggled with.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT a.exam.examId AS examId,
+                   a.exam.title AS examTitle,
+                   a.exam.examType.examTypeText AS examType,
+                   COUNT(a) AS attempts,
+                   SUM(CASE WHEN a.passed = true THEN 1 ELSE 0 END) AS passedAttempts,
+                   AVG(a.percentage) AS averageScore,
+                   COUNT(DISTINCT a.learnerId) AS learners
+            FROM AssessmentAttempt a
+            WHERE a.learnerId IN :learnerIds
+              AND a.submittedAt IS NOT NULL
+              AND a.percentage IS NOT NULL
+            GROUP BY a.exam.examId, a.exam.title, a.exam.examType.examTypeText
+            """)
+    List<ExamOutcomeRow> examOutcomesByLearnerIds(
+            @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds);
+
     /** One row per learner who has ever passed a mock exam on a certification. */
     interface LearnerMockExamResult {
         Long getLearnerId();
