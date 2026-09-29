@@ -109,7 +109,14 @@ public final class ProgressAnalyticsDtos {
             String assessmentTitle,
             String assessmentType,
             BigDecimal percentage,
-            Boolean passed
+            Boolean passed,
+            /* What the percentage is a percentage of. A score reported only as
+               "10%" leaves a head guessing whether that was one question out
+               of ten or four out of forty, and those are different
+               conversations to have with a learner. Null on an attempt
+               recorded before the counts were kept. */
+            Integer correctCount,
+            Integer itemCount
     ) {
     }
 

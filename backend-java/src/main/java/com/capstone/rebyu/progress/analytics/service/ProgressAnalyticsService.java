@@ -358,7 +358,9 @@ public class ProgressAnalyticsService {
                         (a.getExam() != null && a.getExam().getExamType() != null)
                                 ? a.getExam().getExamType().getExamTypeText() : null,
                         a.getPercentage(),
-                        a.getPassed()))
+                        a.getPassed(),
+                        a.getCorrectCount(),
+                        a.getItemCount()))
                 .toList();
 
         List<AssessmentAttempt> finishedChallenges = attempts.stream()
@@ -533,6 +535,16 @@ public class ProgressAnalyticsService {
                 .limit(TOPIC_LIST_LIMIT)
                 .map(l -> toTopicRow(l, lessonById))
                 .toList();
+
+        /* When the mastery service has said nothing there is still something
+           true to say. It models learning over time and this only counts
+           marks, so it is not a substitute -- but an empty panel reads as
+           "no weak topics", which is the opposite of what an unanswered
+           service means. Marks the database already holds are a poorer
+           measure and an honest one. */
+        if (weakestTopics.isEmpty()) {
+            weakestTopics = weakestTopicsFromMarks(learnerId, certificationId, lessonById);
+        }
 
         List<TopicRow> strongestTopics = lessonPriorities.stream()
                 .filter(l -> l.masteryProbability() != null && l.evidenceCount() != null && l.evidenceCount() > 0)
@@ -964,6 +976,50 @@ public class ProgressAnalyticsService {
             return "DEVELOPING";
         }
         return "WEAK";
+    }
+
+    /**
+     * Weakest topics from marked answers, for when the mastery service has
+     * nothing to say.
+     *
+     * <p>Accuracy per lesson, lowest first. It is a blunter measure than
+     * mastery -- it has no notion of a learner improving, and treats a
+     * question answered once the same as one answered five times -- so it is
+     * only reached when the proper one is unavailable, and the page says as
+     * much through {@code bktAvailable}.
+     *
+     * <p>Lessons with a single marked answer are kept rather than filtered:
+     * one wrong answer out of one is exactly the signal a head is looking for
+     * early on, and dropping it would leave a learner with two attempts
+     * looking like a learner with none. The count travels alongside as
+     * evidence, so thin evidence is visible rather than hidden.
+     */
+    private List<TopicRow> weakestTopicsFromMarks(
+            Long learnerId, Long certificationId, Map<Long, Lesson> lessonById) {
+        return attemptAnswerRepository.lessonAccuracy(learnerId, certificationId).stream()
+                .filter(row -> row.getLessonId() != null && row.getAnswered() > 0)
+                .sorted(Comparator.comparingDouble(row -> (double) row.getCorrect() / row.getAnswered()))
+                .limit(TOPIC_LIST_LIMIT)
+                .map(row -> {
+                    Lesson lesson = lessonById.get(row.getLessonId());
+                    if (lesson == null) return null;
+                    return new TopicRow(
+                            row.getLessonId(),
+                            lesson.getName(),
+                            lesson.getMiddleCategory() == null ? null
+                                    : lesson.getMiddleCategory().getMiddleCategoryId(),
+                            lesson.getMiddleCategory() == null ? null
+                                    : lesson.getMiddleCategory().getTitle(),
+                            100.0 * row.getCorrect() / row.getAnswered(),
+                            null,
+                            (int) row.getAnswered(),
+                            null);
+                })
+                /* A lesson that answers no longer belong to -- regenerated
+                   curriculum, mostly -- is dropped rather than listed under a
+                   name this certification does not contain. */
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     private TopicRow toTopicRow(LessonPriorityView priority, Map<Long, Lesson> lessonById) {

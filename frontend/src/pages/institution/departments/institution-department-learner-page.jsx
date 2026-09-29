@@ -370,12 +370,19 @@ function AttemptBars({ attempts }) {
             key={attempt.attemptNumber ?? attempt.label}
             className="flex w-14 shrink-0 flex-col items-center gap-2"
             title={`Attempt ${attempt.attemptNumber ?? "?"}: ${Math.round(value)}%${
-              attempt.takenOn ? ` on ${attempt.takenOn}` : ""
-            }`}
+              attempt.correctCount != null && attempt.itemCount != null
+                ? ` (${attempt.correctCount} of ${attempt.itemCount} correct)`
+                : ""
+            }${attempt.takenOn ? ` on ${attempt.takenOn}` : ""}`}
           >
             <span className="text-xs tabular-nums text-muted-foreground">
               {Math.round(value)}%
             </span>
+            {attempt.correctCount != null && attempt.itemCount != null ? (
+              <span className="-mt-1.5 text-[10px] tabular-nums text-muted-foreground/80">
+                {attempt.correctCount}/{attempt.itemCount}
+              </span>
+            ) : null}
             {/* Fixed-height well so every bar is measured against the same
                 100%, not against the tallest score in the run. */}
             <div className="flex h-24 w-full items-end border-b-2 border-dashed border-border px-1.5">
@@ -675,6 +682,10 @@ export default function InstitutionDepartmentLearnerPage() {
         score: Math.round(Number(point.percentage) * 10) / 10,
         passed: point.passed,
         takenOn: submittedAt ? submittedAt.toLocaleDateString() : null,
+        /* The marks behind the percentage. Older attempts were recorded
+           without them, so both have to be present to be shown. */
+        correctCount: point.correctCount,
+        itemCount: point.itemCount,
       })
       if (submittedAt && (group.lastSubmittedAt == null || submittedAt > group.lastSubmittedAt)) {
         group.lastSubmittedAt = submittedAt
@@ -836,7 +847,15 @@ export default function InstitutionDepartmentLearnerPage() {
 
         <TopicList
           title="Weakest topics"
-          description="Where this learner needs the most help — lowest mastery first."
+          /* Says which measure is on screen. With the mastery service
+             answering these are modelled over time; without it they are the
+             learner's marks, which is a blunter thing and should not be
+             presented as the same one. */
+          description={
+            analytics?.bktAvailable === false
+              ? "Where this learner needs the most help — least accurate first, from their marked answers."
+              : "Where this learner needs the most help — lowest mastery first."
+          }
           icon={TrendingDownIcon}
           topics={weakestTopics}
           tone="weak"
