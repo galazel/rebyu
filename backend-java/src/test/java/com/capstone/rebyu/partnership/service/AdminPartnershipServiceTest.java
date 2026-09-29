@@ -34,178 +34,185 @@ import static org.mockito.Mockito.when;
 
 class AdminPartnershipServiceTest {
 
-    private static final Long REQUEST_ID = 1L;
-    private static final Long EXISTING_INSTITUTION_ID = 10L;
-    private static final Long NEW_INSTITUTION_ID = 11L;
-    private static final String ORG_EMAIL = "contact@acme.com";
-    private static final String ORG_NAME = "Acme Corp";
+        private static final Long REQUEST_ID = 1L;
+        private static final Long EXISTING_INSTITUTION_ID = 10L;
+        private static final Long NEW_INSTITUTION_ID = 11L;
+        private static final String ORG_EMAIL = "contact@acme.com";
+        private static final String ORG_NAME = "Acme Corp";
 
-    private PartnershipRequestRepository requestRepository;
-    private PartnershipRequestItemRepository itemRepository;
-    private InstitutionRepository institutionRepository;
-    private InstitutionCertificateRepository institutionCertificateRepository;
-    private DepartmentHeadRepository departmentHeadRepository;
-    private UserRepository userRepository;
-    private UserTypeRepository userTypeRepository;
-    private CognitoAdminService cognitoAdminService;
-    private NotificationService notificationService;
+        private PartnershipRequestRepository requestRepository;
+        private PartnershipRequestItemRepository itemRepository;
+        private InstitutionRepository institutionRepository;
+        private InstitutionCertificateRepository institutionCertificateRepository;
+        private DepartmentHeadRepository departmentHeadRepository;
+        private UserRepository userRepository;
+        private UserTypeRepository userTypeRepository;
+        private CognitoAdminService cognitoAdminService;
+        private NotificationService notificationService;
 
-    private AdminPartnershipService service;
+        private AdminPartnershipService service;
 
-    @BeforeEach
-    void setUp() {
-        requestRepository = mock(PartnershipRequestRepository.class);
-        itemRepository = mock(PartnershipRequestItemRepository.class);
-        institutionRepository = mock(InstitutionRepository.class);
-        institutionCertificateRepository = mock(InstitutionCertificateRepository.class);
-        departmentHeadRepository = mock(DepartmentHeadRepository.class);
-        userRepository = mock(UserRepository.class);
-        userTypeRepository = mock(UserTypeRepository.class);
-        cognitoAdminService = mock(CognitoAdminService.class);
-        notificationService = mock(NotificationService.class);
+        @BeforeEach
+        void setUp() {
+                requestRepository = mock(PartnershipRequestRepository.class);
+                itemRepository = mock(PartnershipRequestItemRepository.class);
+                institutionRepository = mock(InstitutionRepository.class);
+                institutionCertificateRepository = mock(InstitutionCertificateRepository.class);
+                departmentHeadRepository = mock(DepartmentHeadRepository.class);
+                userRepository = mock(UserRepository.class);
+                userTypeRepository = mock(UserTypeRepository.class);
+                cognitoAdminService = mock(CognitoAdminService.class);
+                notificationService = mock(NotificationService.class);
 
-        var invoiceService = mock(com.capstone.rebyu.billing.service.InstitutionInvoiceService.class);
-        var emailService = mock(com.capstone.rebyu.notification.service.EmailService.class);
-        var accessGrantService = mock(InstitutionAccessGrantService.class);
-        // approve() bills and emails after provisioning; a stub invoice keeps that path quiet.
-        when(invoiceService.issueForApprovedRequest(any(), any(), any())).thenReturn(
-                com.capstone.rebyu.billing.entity.InstitutionInvoice.builder()
-                        .institutionInvoiceId(1L).invoiceNumber("REBYU-INV-TEST-000001")
-                        .totalAmount(java.math.BigDecimal.ZERO).build());
+                var invoiceService = mock(com.capstone.rebyu.billing.service.InstitutionInvoiceService.class);
+                var emailService = mock(com.capstone.rebyu.notification.service.EmailService.class);
+                var accessGrantService = mock(InstitutionAccessGrantService.class);
+                // approve() bills and emails after provisioning; a stub invoice keeps that path
+                // quiet.
+                when(invoiceService.issueForApprovedRequest(any(), any(), any())).thenReturn(
+                                com.capstone.rebyu.billing.entity.InstitutionInvoice.builder()
+                                                .institutionInvoiceId(1L).invoiceNumber("REBYU-INV-TEST-000001")
+                                                .totalAmount(java.math.BigDecimal.ZERO).build());
 
-        service = new AdminPartnershipService(
-                requestRepository, itemRepository, institutionRepository,
-                institutionCertificateRepository, departmentHeadRepository,
-                userRepository, userTypeRepository, cognitoAdminService, notificationService,
-                invoiceService, emailService, accessGrantService);
+                service = new AdminPartnershipService(
+                                requestRepository, itemRepository, institutionRepository,
+                                institutionCertificateRepository, departmentHeadRepository,
+                                userRepository, userTypeRepository, cognitoAdminService, notificationService,
+                                invoiceService, emailService, accessGrantService,
+                                mock(com.capstone.rebyu.institution.service.InstitutionAccessTeardownService.class));
 
-        // Common approve() plumbing: no certificate items to process, request save is a no-op passthrough.
-        when(itemRepository.findByPartnershipRequest_RequestId(REQUEST_ID)).thenReturn(List.of());
-        when(requestRepository.save(any(PartnershipRequest.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(institutionRepository.save(any(Institution.class))).thenAnswer(inv -> {
-            Institution e = inv.getArgument(0);
-            if (e.getInstitutionId() == null) {
-                e.setInstitutionId(NEW_INSTITUTION_ID);
-            }
-            return e;
-        });
-    }
+                // Common approve() plumbing: no certificate items to process, request save is a
+                // no-op passthrough.
+                when(itemRepository.findByPartnershipRequest_RequestId(REQUEST_ID)).thenReturn(List.of());
+                when(requestRepository.save(any(PartnershipRequest.class))).thenAnswer(inv -> inv.getArgument(0));
+                when(institutionRepository.save(any(Institution.class))).thenAnswer(inv -> {
+                        Institution e = inv.getArgument(0);
+                        if (e.getInstitutionId() == null) {
+                                e.setInstitutionId(NEW_INSTITUTION_ID);
+                        }
+                        return e;
+                });
+        }
 
-    private PartnershipRequest pendingRequest() {
-        return PartnershipRequest.builder()
-                .requestId(REQUEST_ID)
-                .referenceNumber("REF-001")
-                .institutionName(ORG_NAME)
-                .institutionEmail(ORG_EMAIL)
-                .contactPersonName("Jane Doe")
-                .contactNumber("123456")
-                .institutionAddress("123 Street")
-                .submittedAt(LocalDateTime.now())
-                .status(PartnershipRequest.Status.PENDING)
-                .build();
-    }
+        private PartnershipRequest pendingRequest() {
+                return PartnershipRequest.builder()
+                                .requestId(REQUEST_ID)
+                                .referenceNumber("REF-001")
+                                .institutionName(ORG_NAME)
+                                .institutionEmail(ORG_EMAIL)
+                                .contactPersonName("Jane Doe")
+                                .contactNumber("123456")
+                                .institutionAddress("123 Street")
+                                .submittedAt(LocalDateTime.now())
+                                .status(PartnershipRequest.Status.PENDING)
+                                .build();
+        }
 
-    private Institution existingInstitution(String name) {
-        return Institution.builder()
-                .institutionId(EXISTING_INSTITUTION_ID)
-                .institutionName(name)
-                .institutionType(Institution.InstitutionType.other)
-                .industry("General")
-                .primaryContactName("Old Contact")
-                .primaryContactEmail(ORG_EMAIL)
-                .isVerified(true)
-                .joinedAt(LocalDateTime.now())
-                .build();
-    }
+        private Institution existingInstitution(String name) {
+                return Institution.builder()
+                                .institutionId(EXISTING_INSTITUTION_ID)
+                                .institutionName(name)
+                                .institutionType(Institution.InstitutionType.other)
+                                .industry("General")
+                                .primaryContactName("Old Contact")
+                                .primaryContactEmail(ORG_EMAIL)
+                                .isVerified(true)
+                                .joinedAt(LocalDateTime.now())
+                                .build();
+        }
 
-    // ---- 1: email matches -> the existing Institution is reused (even if the name differs) ----
-    @Test
-    void approve_emailMatches_reusesExistingInstitutionEvenIfNameDiffers() {
-        PartnershipRequest request = pendingRequest();
-        when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
-        when(institutionRepository.findByPrimaryContactEmailIgnoreCase(ORG_EMAIL))
-                .thenReturn(Optional.of(existingInstitution("A Totally Different Org")));
-        when(departmentHeadRepository.findByInstitution_InstitutionId(any())).thenReturn(List.of());
-        when(cognitoAdminService.createInstitutionAccount(anyString(), anyString(), anyString()))
-                .thenReturn(new CognitoAdminService.ProvisionResult(true, "sub-123", "emailed"));
-        when(userTypeRepository.findByUserTypeText("INSTITUTION"))
-                .thenReturn(Optional.of(new UserType()));
-        when(userRepository.findByEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.empty());
-        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+        // ---- 1: email matches -> the existing Institution is reused (even if the name
+        // differs) ----
+        @Test
+        void approve_emailMatches_reusesExistingInstitutionEvenIfNameDiffers() {
+                PartnershipRequest request = pendingRequest();
+                when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
+                when(institutionRepository.findByPrimaryContactEmailIgnoreCase(ORG_EMAIL))
+                                .thenReturn(Optional.of(existingInstitution("A Totally Different Org")));
+                when(departmentHeadRepository.findByInstitution_InstitutionId(any())).thenReturn(List.of());
+                when(cognitoAdminService.createInstitutionAccount(anyString(), anyString(), anyString()))
+                                .thenReturn(new CognitoAdminService.ProvisionResult(true, "sub-123", "emailed"));
+                when(userTypeRepository.findByUserTypeText("INSTITUTION"))
+                                .thenReturn(Optional.of(new UserType()));
+                when(userRepository.findByEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.empty());
+                when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        PartnershipRequestDetailDto result = service.approve(REQUEST_ID, "ok", "admin");
+                PartnershipRequestDetailDto result = service.approve(REQUEST_ID, "ok", "admin");
 
-        // Reused the institution already on file (by contact email); the account
-        // is provisioned on it and no duplicate Institution is created.
-        assertEquals(EXISTING_INSTITUTION_ID, result.institutionId());
-        verify(institutionRepository, never()).save(any(Institution.class));
-    }
+                // Reused the institution already on file (by contact email); the account
+                // is provisioned on it and no duplicate Institution is created.
+                assertEquals(EXISTING_INSTITUTION_ID, result.institutionId());
+                verify(institutionRepository, never()).save(any(Institution.class));
+        }
 
-    // 2: email AND name both match -> the existing Institution is reused
-    @Test
-    void approve_emailAndNameMatch_reusesExistingInstitution() {
-        PartnershipRequest request = pendingRequest();
-        when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
-        when(institutionRepository.findByPrimaryContactEmailIgnoreCase(ORG_EMAIL))
-                .thenReturn(Optional.of(existingInstitution(ORG_NAME)));
-        when(departmentHeadRepository.findByInstitution_InstitutionId(EXISTING_INSTITUTION_ID))
-                .thenReturn(List.of()); // no owner linked yet
-        when(cognitoAdminService.createInstitutionAccount(anyString(), anyString(), anyString()))
-                .thenReturn(new CognitoAdminService.ProvisionResult(true, "sub-123", "emailed"));
-        when(userTypeRepository.findByUserTypeText("INSTITUTION"))
-                .thenReturn(Optional.of(new UserType()));
-        when(userRepository.findByEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.empty());
-        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+        // 2: email AND name both match -> the existing Institution is reused
+        @Test
+        void approve_emailAndNameMatch_reusesExistingInstitution() {
+                PartnershipRequest request = pendingRequest();
+                when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
+                when(institutionRepository.findByPrimaryContactEmailIgnoreCase(ORG_EMAIL))
+                                .thenReturn(Optional.of(existingInstitution(ORG_NAME)));
+                when(departmentHeadRepository.findByInstitution_InstitutionId(EXISTING_INSTITUTION_ID))
+                                .thenReturn(List.of()); // no owner linked yet
+                when(cognitoAdminService.createInstitutionAccount(anyString(), anyString(), anyString()))
+                                .thenReturn(new CognitoAdminService.ProvisionResult(true, "sub-123", "emailed"));
+                when(userTypeRepository.findByUserTypeText("INSTITUTION"))
+                                .thenReturn(Optional.of(new UserType()));
+                when(userRepository.findByEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.empty());
+                when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        PartnershipRequestDetailDto result = service.approve(REQUEST_ID, "ok", "admin");
+                PartnershipRequestDetailDto result = service.approve(REQUEST_ID, "ok", "admin");
 
-        assertEquals(EXISTING_INSTITUTION_ID, result.institutionId());
-        // No brand-new Institution should have been created/persisted.
-        verify(institutionRepository, never()).save(any(Institution.class));
-    }
+                assertEquals(EXISTING_INSTITUTION_ID, result.institutionId());
+                // No brand-new Institution should have been created/persisted.
+                verify(institutionRepository, never()).save(any(Institution.class));
+        }
 
-    // ---- 3: Cognito UsernameExistsException path, local User already exists -> linked as owner ----
-    @Test
-    void provisionInstitutionAccount_usernameExists_existingLocalUser_linksAsOwner() {
-        PartnershipRequest request = pendingRequest();
-        when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
-        when(institutionRepository.findByPrimaryContactEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.empty());
-        when(institutionRepository.findByInstitutionNameIgnoreCase(ORG_NAME)).thenReturn(Optional.empty());
-        when(departmentHeadRepository.findByInstitution_InstitutionId(any())).thenReturn(List.of());
-        when(cognitoAdminService.createInstitutionAccount(anyString(), anyString(), anyString()))
-                .thenReturn(new CognitoAdminService.ProvisionResult(false, null, "already exists"));
+        // ---- 3: Cognito UsernameExistsException path, local User already exists ->
+        // linked as owner ----
+        @Test
+        void provisionInstitutionAccount_usernameExists_existingLocalUser_linksAsOwner() {
+                PartnershipRequest request = pendingRequest();
+                when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
+                when(institutionRepository.findByPrimaryContactEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.empty());
+                when(institutionRepository.findByInstitutionNameIgnoreCase(ORG_NAME)).thenReturn(Optional.empty());
+                when(departmentHeadRepository.findByInstitution_InstitutionId(any())).thenReturn(List.of());
+                when(cognitoAdminService.createInstitutionAccount(anyString(), anyString(), anyString()))
+                                .thenReturn(new CognitoAdminService.ProvisionResult(false, null, "already exists"));
 
-        User existingUser = User.builder()
-                .userId(55L)
-                .email(ORG_EMAIL)
-                .build();
-        when(userRepository.findByEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.of(existingUser));
-        when(departmentHeadRepository.save(any(DepartmentHead.class))).thenAnswer(inv -> inv.getArgument(0));
+                User existingUser = User.builder()
+                                .userId(55L)
+                                .email(ORG_EMAIL)
+                                .build();
+                when(userRepository.findByEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.of(existingUser));
+                when(departmentHeadRepository.save(any(DepartmentHead.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        service.approve(REQUEST_ID, "ok", "admin");
+                service.approve(REQUEST_ID, "ok", "admin");
 
-        verify(departmentHeadRepository, times(1)).save(any(DepartmentHead.class));
-        // The user-type lookup / new-user creation path (only used when a Cognito identity exists) is skipped.
-        verify(userTypeRepository, never()).findByUserTypeText(anyString());
-        verify(userRepository, never()).save(any(User.class));
-    }
+                verify(departmentHeadRepository, times(1)).save(any(DepartmentHead.class));
+                // The user-type lookup / new-user creation path (only used when a Cognito
+                // identity exists) is skipped.
+                verify(userTypeRepository, never()).findByUserTypeText(anyString());
+                verify(userRepository, never()).save(any(User.class));
+        }
 
-    // ---- 4: Cognito UsernameExistsException path, no local User -> no DepartmentHead, no exception ----
-    @Test
-    void provisionInstitutionAccount_usernameExists_noLocalUser_skipsLinkingWithoutError() {
-        PartnershipRequest request = pendingRequest();
-        when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
-        when(institutionRepository.findByPrimaryContactEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.empty());
-        when(institutionRepository.findByInstitutionNameIgnoreCase(ORG_NAME)).thenReturn(Optional.empty());
-        when(departmentHeadRepository.findByInstitution_InstitutionId(any())).thenReturn(List.of());
-        when(cognitoAdminService.createInstitutionAccount(anyString(), anyString(), anyString()))
-                .thenReturn(new CognitoAdminService.ProvisionResult(false, null, "already exists"));
-        when(userRepository.findByEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.empty());
+        // ---- 4: Cognito UsernameExistsException path, no local User -> no
+        // DepartmentHead, no exception ----
+        @Test
+        void provisionInstitutionAccount_usernameExists_noLocalUser_skipsLinkingWithoutError() {
+                PartnershipRequest request = pendingRequest();
+                when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
+                when(institutionRepository.findByPrimaryContactEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.empty());
+                when(institutionRepository.findByInstitutionNameIgnoreCase(ORG_NAME)).thenReturn(Optional.empty());
+                when(departmentHeadRepository.findByInstitution_InstitutionId(any())).thenReturn(List.of());
+                when(cognitoAdminService.createInstitutionAccount(anyString(), anyString(), anyString()))
+                                .thenReturn(new CognitoAdminService.ProvisionResult(false, null, "already exists"));
+                when(userRepository.findByEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.empty());
 
-        PartnershipRequestDetailDto result = service.approve(REQUEST_ID, "ok", "admin");
+                PartnershipRequestDetailDto result = service.approve(REQUEST_ID, "ok", "admin");
 
-        assertNotNull(result);
-        verify(departmentHeadRepository, never()).save(any(DepartmentHead.class));
-        verify(userRepository, never()).save(any(User.class));
-    }
+                assertNotNull(result);
+                verify(departmentHeadRepository, never()).save(any(DepartmentHead.class));
+                verify(userRepository, never()).save(any(User.class));
+        }
 }
