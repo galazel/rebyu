@@ -33,6 +33,7 @@ import {
   getGroupLearnerRoster,
 } from "@/services/institutionService.js"
 import { certificationBadgeUrl } from "@/services/certificationService.js"
+import { useAvatarUrl } from "@/hooks/use-avatar-url.js"
 
 /**
  * Every figure on this page comes from ProgressAnalyticsService, which already
@@ -630,6 +631,7 @@ export default function InstitutionDepartmentLearnerPage() {
     (row) => row.learnerId === learnerIdNumber
   )
   const initials = initialsOf(learner?.name)
+  const avatarUrl = useAvatarUrl(learner?.avatarKey ?? null)
   const analytics = analyticsQuery.data
 
   const backToGroup = `/institution/departments/${departmentId}?tab=learners`
@@ -727,10 +729,16 @@ export default function InstitutionDepartmentLearnerPage() {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] lg:items-start">
       <aside className="space-y-5 lg:sticky lg:top-6">
         <div>
-          <div className="flex size-28 items-center justify-center rounded-full border-2 border-border bg-muted sm:size-36">
+          {/* Their picture where they have uploaded one. The initials stay
+              underneath rather than being swapped out, so a link that has
+              expired leaves the learner recognisable. */}
+          <div className="relative flex size-28 items-center justify-center overflow-hidden rounded-full border-2 border-border bg-muted sm:size-36">
             <span className="font-heading text-3xl font-bold text-muted-foreground sm:text-4xl">
               {initials}
             </span>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" className="absolute inset-0 size-full object-cover" />
+            ) : null}
           </div>
 
           <h1 className="mt-4 font-heading text-2xl font-bold leading-tight tracking-tight text-foreground">

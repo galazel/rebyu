@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
+import { useAvatarUrls } from "@/hooks/use-avatar-url.js"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
@@ -578,6 +579,13 @@ function LessonProgressCell({ completed, total, percentage }) {
  * -- an absent badge means "not yet", which is also what a learner with no
  * attempt at all should read as, so there is no "failed" variant here.
  */
+/** Up to two initials, standing in until a picture loads or where there is none. */
+function rosterInitials(name) {
+  const parts = String(name ?? "").trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  return parts.slice(0, 2).map((part) => part[0].toUpperCase()).join("")
+}
+
 function MockExamBadge({ passed, score }) {
   if (!passed) return null
   const rounded = Number.isFinite(Number(score)) ? Math.round(Number(score)) : null
@@ -605,6 +613,7 @@ function SectionPanel({
   const [isOpen, setIsOpen] = useState(defaultOpen)
   const [addOpen, setAddOpen] = useState(false)
   const [removeTarget, setRemoveTarget] = useState(null)
+  const rosterAvatars = useAvatarUrls(learners.map((row) => row.avatarKey))
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["department-learner-roster", departmentId] })
@@ -754,11 +763,29 @@ function SectionPanel({
                         className="cursor-pointer"
                         onClick={() => navigate(`/institution/departments/${departmentId}/learners/${row.learnerId}`)}
                       >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium text-foreground hover:underline">{row.name}</p>
-                          <MockExamBadge passed={row.mockExamPassed} score={row.bestMockExamScore} />
+                        <div className="flex items-center gap-3">
+                          {/* A face is quicker to find in a list than a name
+                              is to read. Initials underneath, so an expired
+                              link still identifies the row. */}
+                          <span className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-[11px] font-bold text-muted-foreground">
+                            {rosterInitials(row.name)}
+                            {rosterAvatars[row.avatarKey] ? (
+                              <img
+                                src={rosterAvatars[row.avatarKey]}
+                                alt=""
+                                loading="lazy"
+                                className="absolute inset-0 size-full object-cover"
+                              />
+                            ) : null}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-medium text-foreground hover:underline">{row.name}</p>
+                              <MockExamBadge passed={row.mockExamPassed} score={row.bestMockExamScore} />
+                            </div>
+                            <p className="text-xs text-muted-foreground">{row.email ?? (row.username ? `@${row.username}` : "")}</p>
+                          </div>
                         </div>
-                        <p className="text-xs text-muted-foreground">{row.email ?? (row.username ? `@${row.username}` : "")}</p>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(row.assignedAt)}

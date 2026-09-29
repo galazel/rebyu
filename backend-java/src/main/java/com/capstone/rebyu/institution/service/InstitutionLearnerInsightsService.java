@@ -58,6 +58,10 @@ public class InstitutionLearnerInsightsService {
             Long institutionCertLearnerId,
             String name,
             String username,
+            /* Their profile picture, so a head scanning a roster recognises a
+               face rather than reading two initials off a coloured disc. Null
+               until they upload one. */
+            String avatarKey,
             String email,
             String status,
             LocalDateTime assignedAt,
@@ -229,6 +233,7 @@ public class InstitutionLearnerInsightsService {
                 enrollment != null ? enrollment.getInstitutionCertLearnerId() : null,
                 displayName(learner),
                 learner != null ? learner.getUsername() : null,
+                learner != null ? learner.getAvatarKey() : null,
                 learner != null && learner.getUser() != null ? learner.getUser().getEmail() : null,
                 assignee.getStatus() != null ? assignee.getStatus().name() : null,
                 assignee.getAssignedAt(),
