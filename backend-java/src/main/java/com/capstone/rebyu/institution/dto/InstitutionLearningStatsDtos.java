@@ -108,6 +108,8 @@ public final class InstitutionLearningStatsDtos {
             Long lessonId,
             String lessonTitle,
             String categoryTitle,
+            Long certificationId,
+            String certificationTitle,
             /** Share answered correctly, 0-100. */
             int accuracy,
             long answered,
@@ -131,10 +133,17 @@ public final class InstitutionLearningStatsDtos {
             int passRate,
             Integer averageScore) {}
 
+    /** One programme's weakest topics, so a head reads them against the course they belong to. */
+    public record CertificationTopicsDto(
+            Long certificationId,
+            String certificationTitle,
+            List<TopicDifficultyDto> topics) {}
+
     public record InstitutionLearningStatsDto(
             LearningStatsSummaryDto summary,
             List<MemberLearningStatsDto> members,
             List<CertificationStatsDto> certifications,
-            List<TopicDifficultyDto> hardestTopics,
+            /** Weakest topics per certification -- a department teaches programmes, not one pool. */
+            List<CertificationTopicsDto> hardestTopics,
             List<AssessmentOutcomeDto> hardestAssessments) {}
 }

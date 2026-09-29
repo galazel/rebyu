@@ -67,6 +67,8 @@ public interface AssessmentAttemptAnswerRepository
         Long getLessonId();
         String getLessonTitle();
         String getCategoryTitle();
+        Long getCertificationId();
+        String getCertificationTitle();
         long getAnswered();
         long getCorrect();
         long getLearners();
@@ -89,6 +91,8 @@ public interface AssessmentAttemptAnswerRepository
             SELECT q.lesson_id AS lessonId,
                    l.name AS lessonTitle,
                    m.title AS categoryTitle,
+                   j.certification_id AS certificationId,
+                   c.title AS certificationTitle,
                    count(*) AS answered,
                    count(*) FILTER (WHERE a.is_correct) AS correct,
                    count(DISTINCT t.learner_id) AS learners
@@ -98,10 +102,12 @@ public interface AssessmentAttemptAnswerRepository
             JOIN questions q ON q.question_id = aq.source_question_id
             JOIN lessons l ON l.lesson_id = q.lesson_id
             JOIN middle_categories m ON m.middle_category_id = l.middle_category_id
+            JOIN major_categories j ON j.major_category_id = m.major_category_id
+            JOIN certifications c ON c.certification_id = j.certification_id
             WHERE t.learner_id IN :learnerIds
               AND t.submitted_at IS NOT NULL
               AND a.is_correct IS NOT NULL
-            GROUP BY q.lesson_id, l.name, m.title
+            GROUP BY q.lesson_id, l.name, m.title, j.certification_id, c.title
             HAVING count(*) >= :minAnswers
             """, nativeQuery = true)
     List<TopicDifficultyRow> topicDifficulty(@Param("learnerIds") Collection<Long> learnerIds,

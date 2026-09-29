@@ -6,6 +6,7 @@ import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository.Lear
 import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.TopicDifficultyDto;
+import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.CertificationTopicsDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.AssessmentOutcomeDto;
 import com.capstone.rebyu.assessment.repository.AssessmentAttemptAnswerRepository;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.CertificationStatsDto;
@@ -31,6 +32,7 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -146,19 +148,44 @@ public class InstitutionLearningStatsService {
      * nothing about the cohort. The learner count travels with each row so a
      * topic one person struggled with is not read as a department-wide gap.
      */
-    private List<TopicDifficultyDto> hardestTopics(Collection<Long> learnerIds) {
+    private List<CertificationTopicsDto> hardestTopics(Collection<Long> learnerIds) {
         if (learnerIds.isEmpty()) return List.of();
-        return attemptAnswerRepository.topicDifficulty(learnerIds, MIN_TOPIC_ANSWERS).stream()
-                .map(row -> new TopicDifficultyDto(
-                        row.getLessonId(),
-                        row.getLessonTitle(),
-                        row.getCategoryTitle(),
-                        Math.round(100f * row.getCorrect() / row.getAnswered()),
-                        row.getAnswered(),
-                        row.getLearners()))
-                .sorted(Comparator.comparingInt(TopicDifficultyDto::accuracy)
-                        .thenComparing(Comparator.comparingLong(TopicDifficultyDto::learners).reversed()))
-                .limit(DIFFICULTY_LIST_LIMIT)
+
+        /* Grouped by programme rather than pooled. A department teaches
+           courses, and "the weakest topics" pooled across all of them answers
+           a question nobody asked: a head fixing the IT Passport syllabus
+           cannot act on a list where three of the five rows are TOPCIT. */
+        Map<Long, List<TopicDifficultyDto>> byCertification =
+                attemptAnswerRepository.topicDifficulty(learnerIds, MIN_TOPIC_ANSWERS).stream()
+                        .filter(row -> row.getCertificationId() != null)
+                        .map(row -> new TopicDifficultyDto(
+                                row.getLessonId(),
+                                row.getLessonTitle(),
+                                row.getCategoryTitle(),
+                                row.getCertificationId(),
+                                row.getCertificationTitle(),
+                                Math.round(100f * row.getCorrect() / row.getAnswered()),
+                                row.getAnswered(),
+                                row.getLearners()))
+                        .collect(Collectors.groupingBy(TopicDifficultyDto::certificationId,
+                                LinkedHashMap::new, Collectors.toList()));
+
+        return byCertification.values().stream()
+                .map(topics -> {
+                    List<TopicDifficultyDto> worst = topics.stream()
+                            .sorted(Comparator.comparingInt(TopicDifficultyDto::accuracy)
+                                    .thenComparing(Comparator.comparingLong(TopicDifficultyDto::learners).reversed()))
+                            .limit(DIFFICULTY_LIST_LIMIT)
+                            .toList();
+                    return new CertificationTopicsDto(
+                            worst.get(0).certificationId(),
+                            worst.get(0).certificationTitle(),
+                            worst);
+                })
+                // The programme with the most topics in trouble goes first.
+                .sorted(Comparator.comparingInt((CertificationTopicsDto c) -> c.topics().size()).reversed()
+                        .thenComparing(CertificationTopicsDto::certificationTitle,
+                                Comparator.nullsLast(String::compareToIgnoreCase)))
                 .toList();
     }
 

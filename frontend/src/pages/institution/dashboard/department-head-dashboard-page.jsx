@@ -656,25 +656,32 @@ export default function DepartmentHeadDashboardPage() {
                   Not enough marked answers yet to rank topics.
                 </p>
               ) : (
-                <ul className="-mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
-                  {hardestTopics.map((topic) => (
-                    <li key={topic.lessonId}>
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="min-w-0 truncate text-sm font-semibold text-foreground">
-                          {topic.lessonTitle}
-                        </span>
-                        <span className="shrink-0 text-xs font-bold tabular-nums text-destructive">
-                          {topic.accuracy}%
-                        </span>
-                      </div>
-                      <Progress value={topic.accuracy} className="mt-1.5 h-1.5" />
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {topic.categoryTitle ? `${topic.categoryTitle} · ` : ""}
-                        {topic.learners} learner{topic.learners === 1 ? "" : "s"} · {topic.answered} answers
+                /* One chart per programme. A department teaches courses, and a
+                   single pooled ranking is unusable to a head fixing one
+                   syllabus -- they cannot act on a list where half the rows
+                   belong to a course they do not run. */
+                <div className="-mr-2 min-h-0 flex-1 space-y-5 overflow-y-auto pr-2">
+                  {hardestTopics.map((programme) => (
+                    <div key={programme.certificationId}>
+                      <p className="mb-2 truncate text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                        {programme.certificationTitle}
                       </p>
-                    </li>
+                      <BarBreakdownChart
+                        data={programme.topics.map((topic) => ({
+                          topic: topic.lessonTitle,
+                          accuracy: topic.accuracy,
+                        }))}
+                        categoryKey="topic"
+                        valueKey="accuracy"
+                        unit="%"
+                        target={50}
+                        domainMax={100}
+                        height={Math.max(120, programme.topics.length * 34)}
+                        categoryWidth={150}
+                      />
+                    </div>
                   ))}
-                </ul>
+                </div>
               )}
             </div>
           </BentoTile>
@@ -701,26 +708,35 @@ export default function DepartmentHeadDashboardPage() {
                   No assessment has been graded in this department yet.
                 </p>
               ) : (
-                <ul className="-mr-2 min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
-                  {hardestAssessments.map((exam) => (
-                    <li key={exam.examId}>
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="min-w-0 truncate text-sm font-semibold text-foreground">
-                          {exam.title}
-                        </span>
-                        <span className="shrink-0 text-xs font-bold tabular-nums text-destructive">
-                          {exam.passRate}% pass
-                        </span>
-                      </div>
-                      <Progress value={exam.passRate} className="mt-1.5 h-1.5" />
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
+                <div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
+                  {/* Pass rate, not mean score: a paper everyone scrapes
+                      through at 76% is fine, one everyone fails at 74% is
+                      not, and only the first of those is visible in a mean. */}
+                  <BarBreakdownChart
+                    data={hardestAssessments.map((exam) => ({
+                      exam: exam.title,
+                      passRate: exam.passRate,
+                    }))}
+                    categoryKey="exam"
+                    valueKey="passRate"
+                    unit="%"
+                    target={50}
+                    domainMax={100}
+                    height={Math.max(140, hardestAssessments.length * 38)}
+                    categoryWidth={150}
+                  />
+                  <ul className="mt-3 space-y-1">
+                    {hardestAssessments.map((exam) => (
+                      <li key={exam.examId} className="truncate text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">{exam.title}</span>
+                        {" — "}
                         {exam.attempts} attempt{exam.attempts === 1 ? "" : "s"} by {exam.learners} learner
                         {exam.learners === 1 ? "" : "s"}
                         {exam.averageScore != null ? ` · avg ${exam.averageScore}%` : ""}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
           </BentoTile>
