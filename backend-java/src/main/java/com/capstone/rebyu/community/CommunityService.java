@@ -96,7 +96,8 @@ public class CommunityService {
     public record LearnerNotification(Long id, String title, String description, OffsetDateTime createdAt, String href, boolean read) {}
 
     public record Post(
-            Long postId, String authorName, String initials, String community, OffsetDateTime createdAt,
+            Long postId, String authorName, String initials, String authorAvatarKey,
+            String community, OffsetDateTime createdAt,
             String title, String description, String postType, Long circleId,
             String attachmentName, String attachmentType, String attachmentKey, Long attachmentSize,
             List<Attachment> attachments,
@@ -595,7 +596,8 @@ public class CommunityService {
     // Mapping / helpers
 
     private static Post mapPostRow(CommunityPostRow row) {
-        return new Post(row.getPostId(), row.getAuthorName(), initials(row.getAuthorName()), row.getCommunity(),
+        return new Post(row.getPostId(), row.getAuthorName(), initials(row.getAuthorName()),
+                row.getAuthorAvatarKey(), row.getCommunity(),
                 row.getCreatedAt() == null ? null : row.getCreatedAt().atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
                 row.getTitle(), row.getBody(), row.getPostType(), row.getCircleId(),
                 row.getAttachmentName(), row.getAttachmentType(), row.getAttachmentKey(), row.getAttachmentSize(),

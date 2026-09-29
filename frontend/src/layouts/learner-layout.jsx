@@ -11,7 +11,8 @@ import {
   UserIcon,
 } from "@/components/icons"
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useAvatarUrl } from "@/hooks/use-avatar-url.js"
 import { LearnerMobileNavigation, PortalTopNavigation } from "@/components/navigation/portal-navigation.jsx"
 import {
   DropdownMenu,
@@ -145,6 +146,11 @@ export default function LearnerLayout() {
     learner: authUser,
   }
   const displayName = getLearnerDisplayName(shellData)
+  /* Read off whichever of the two the shell is serving: the identity stands in
+     until the portal call lands, and the learner row carries it after. */
+  const avatarUrl = useAvatarUrl(
+    shellData?.learner?.avatarKey ?? shellData?.identity?.avatarKey ?? null
+  )
   const email =
     query.data?.user?.email ??
     query.data?.identity?.email ??
@@ -285,6 +291,7 @@ export default function LearnerLayout() {
                       aria-label="Open account menu"
                     >
                       <Avatar>
+                        {avatarUrl ? <AvatarImage src={avatarUrl} alt="" className="object-cover" /> : null}
                         <AvatarFallback>
                           {getInitials(displayName, email)}
                         </AvatarFallback>

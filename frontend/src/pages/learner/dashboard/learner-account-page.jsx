@@ -29,7 +29,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { deleteMyAvatar, getMyAwards, updateMyProfile, uploadMyAvatar } from "@/services/learnerService.js"
-import { getFileViewLink } from "@/services/fileService"
+import { useAvatarUrl } from "@/hooks/use-avatar-url.js"
 import { apiMessage } from "@/services/base"
 import { certificationBadgeUrl } from "@/services/certificationService.js"
 import { achievementBadge } from "@/lib/achievements.js"
@@ -233,28 +233,19 @@ export default function LearnerAccountPage() {
   /* The stored key is turned into a viewable link the same way every other
      upload is; the link is short-lived, so it is resolved here rather than
      kept on the identity the key rides in on. */
-  const [avatarUrl, setAvatarUrl] = useState(null)
   const [avatarBusy, setAvatarBusy] = useState(false)
+  /* Set locally right after an upload so the new picture is on screen before
+     the round trip that fetches its link; null otherwise, so the resolved one
+     shows. */
+  const [freshAvatarUrl, setFreshAvatarUrl] = useState(null)
   const avatarInputRef = useRef(null)
   /* The shell serves the learner row when the portal call has landed and the
      signed-in identity before it has, and the key rides on both -- so it is
      read from whichever is present rather than from one and hoped for. */
   const avatarKey = learner?.avatarKey ?? data.identity?.avatarKey ?? user?.avatarKey ?? null
 
-  useEffect(() => {
-    if (!avatarKey) {
-      setAvatarUrl(null)
-      return undefined
-    }
-    let cancelled = false
-    getFileViewLink(avatarKey).then(
-      ({ url }) => !cancelled && setAvatarUrl(url),
-      () => !cancelled && setAvatarUrl(null)
-    )
-    return () => {
-      cancelled = true
-    }
-  }, [avatarKey])
+  const resolvedAvatarUrl = useAvatarUrl(avatarKey)
+  const avatarUrl = freshAvatarUrl ?? resolvedAvatarUrl
 
   async function onPickAvatar(event) {
     const file = event.target.files?.[0]
@@ -268,7 +259,7 @@ export default function LearnerAccountPage() {
       /* Shown from the local file rather than waiting on a fresh signed link:
          the bytes are already here, and the round trip would leave the old
          picture on screen after the new one was saved. */
-      setAvatarUrl(URL.createObjectURL(file))
+      setFreshAvatarUrl(URL.createObjectURL(file))
       if (nextKey) queryClient.invalidateQueries()
       toast.success("Profile picture updated.")
     } catch (error) {
@@ -282,7 +273,7 @@ export default function LearnerAccountPage() {
     setAvatarBusy(true)
     try {
       await deleteMyAvatar()
-      setAvatarUrl(null)
+      setFreshAvatarUrl(null)
       queryClient.invalidateQueries()
       toast.success("Profile picture removed.")
     } catch (error) {

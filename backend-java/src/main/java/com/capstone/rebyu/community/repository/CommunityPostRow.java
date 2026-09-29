@@ -6,6 +6,8 @@ import java.time.Instant;
 public interface CommunityPostRow {
     Long getPostId();
     String getAuthorName();
+    /** The author's profile picture key, or null when they have not uploaded one. */
+    String getAuthorAvatarKey();
     String getCommunity();
     /**
      * Instant, not OffsetDateTime: Hibernate hands a native query's timestamptz back as

@@ -25,6 +25,7 @@ import {
     X,
 } from "@/components/icons"
 import { getFileViewLink } from "@/services/fileService"
+import { useAvatarUrls } from "@/hooks/use-avatar-url.js"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
@@ -157,15 +158,31 @@ function formatBytes(size) {
     return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function CommunityAvatar({ initials, tone, className = "" }) {
+/**
+ * The author beside a post: their picture where they have uploaded one, and
+ * the coloured initials that have always stood in where they have not.
+ *
+ * <p>The initials stay underneath rather than being replaced, so a link that
+ * has expired or failed leaves the author still recognisable instead of a
+ * broken image icon.
+ */
+function CommunityAvatar({ initials, tone, url, className = "" }) {
     return (
         <div
-            className={`grid size-10 shrink-0 place-items-center rounded-full font-rb-display text-sm font-extrabold lowercase ${
+            className={`relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-full font-rb-display text-sm font-extrabold lowercase ${
                 tone ?? avatarTone(initials ?? "")
             } ${className}`}
             aria-hidden="true"
         >
             {initials}
+            {url ? (
+                <img
+                    src={url}
+                    alt=""
+                    loading="lazy"
+                    className="absolute inset-0 size-full object-cover"
+                />
+            ) : null}
         </div>
     )
 }
@@ -488,6 +505,7 @@ function CommunityPost({
                            onReport,
                            onOpenAttachment,
                            onOpenCircle,
+                           authorAvatarUrl,
                            threadOpen,
                            threadComments,
                            draft,
@@ -518,7 +536,7 @@ function CommunityPost({
         <article ref={cardRef} className="overflow-hidden rounded-rb-card border-2 border-border bg-card transition-colors hover:border-rb-macaw/60">
             <div className="p-4 sm:p-5">
                 <div className="flex items-start gap-3">
-                    <CommunityAvatar initials={post.initials} tone={avatarTone(post.authorName ?? "")} />
+                    <CommunityAvatar initials={post.initials} tone={avatarTone(post.authorName ?? "")} url={authorAvatarUrl} />
 
                     <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -938,6 +956,10 @@ export default function Community() {
     }, [certifications])
 
     /** Circles you can actually post into — the only ones worth offering. */
+    /* One resolve per author across the whole feed, not one per card: a feed
+       is mostly the same few people posting repeatedly. */
+    const authorAvatarUrls = useAvatarUrls(posts.map((post) => post.authorAvatarKey))
+
     const joinedCircles = useMemo(
         () => circles.filter((circle) => circle.joined || circle.owner),
         [circles]
@@ -1723,6 +1745,7 @@ export default function Community() {
                                 <CommunityPost
                                     key={post.postId}
                                     post={post}
+                                    authorAvatarUrl={authorAvatarUrls[post.authorAvatarKey]}
                                     circles={circles}
                                     onToggleUpvote={toggleUpvote}
                                     onToggleSave={toggleSave}
