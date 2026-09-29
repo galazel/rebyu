@@ -31,7 +31,20 @@ public class DashboardLayoutService {
      * lands in a UNIQUE key, and letting the client name it means one typo (or one
      * loop) fills the table with rows nothing will ever read again.
      */
-    private static final Set<String> KNOWN_BOARDS = Set.of("admin", "institution");
+    /**
+     * Boards a saved tile arrangement may belong to.
+     *
+     * <p>A board missing from here is not a degraded feature, it is an
+     * exception on every read and every save: the department-head dashboard
+     * asked for "department-head" from the day it shipped and got
+     * {@code Unknown dashboard board} each time, so its tiles could neither be
+     * restored nor rearranged, and the log filled with warnings on a page that
+     * looked like it was working.
+     *
+     * <p>Anything calling {@code useDashboardLayout} needs its board named
+     * here.
+     */
+    private static final Set<String> KNOWN_BOARDS = Set.of("admin", "institution", "department-head");
 
     private final UserDashboardLayoutRepository layoutRepository;
     private final EntityManager entityManager;
