@@ -151,6 +151,16 @@ export default function DepartmentHeadDashboardPage() {
     retry: 1,
   })
 
+  /* Outcomes per programme, keyed so a slot row can pick up its own. The
+     panel listed seats filled and nothing about the people in them. */
+  const certificationStatsById = useMemo(() => {
+    const map = new Map()
+    for (const row of statsQuery.data?.certifications ?? []) {
+      map.set(row.certificationId, row)
+    }
+    return map
+  }, [statsQuery.data])
+
   const departmentStatsQuery = useQuery({
     queryKey: ["department-head-group-stats"],
     queryFn: getDepartmentStats,
@@ -479,8 +489,8 @@ export default function DepartmentHeadDashboardPage() {
               <DashboardCardHeader
                 icon={GraduationCap}
                 kicker="Department Allocations"
-                title="Program Slot Allocations"
-                hint="Assigned certification slot utilization."
+                title="Programmes & Outcomes"
+                hint="Seats used, who is on each programme, and how many have passed."
                 chip={
                   instData.institutionCerts.length > 0 ? (
                     <Badge
@@ -516,6 +526,45 @@ export default function DepartmentHeadDashboardPage() {
                           </span>
                         </div>
                         <Progress value={pct} aria-label="Slot usage" />
+
+                        {/* Seats filled says what the department bought; this
+                            says what happened to the people in them, which is
+                            the question a department is asked about its own
+                            programmes. */}
+                        {(() => {
+                          const outcome = certificationStatsById.get(institutionCert.certificationId)
+                          if (!outcome || outcome.enrolled === 0) {
+                            return (
+                              <p className="text-xs text-muted-foreground">
+                                No learners on this programme yet.
+                              </p>
+                            )
+                          }
+                          return (
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                              <span className="font-semibold text-foreground">
+                                {outcome.enrolled} enrolled
+                              </span>
+                              <span className="text-rb-leaf">
+                                {outcome.passed} passed
+                                {outcome.passRate != null ? ` · ${outcome.passRate}%` : ""}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {outcome.inProgress} in progress
+                              </span>
+                              {outcome.notStarted > 0 ? (
+                                <span className="text-muted-foreground">
+                                  {outcome.notStarted} not started
+                                </span>
+                              ) : null}
+                              {outcome.averageProgress != null ? (
+                                <span className="text-muted-foreground">
+                                  avg {Math.round(Number(outcome.averageProgress))}% complete
+                                </span>
+                              ) : null}
+                            </div>
+                          )
+                        })()}
                       </div>
                     )
                   })}

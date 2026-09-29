@@ -5,6 +5,7 @@ import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository;
 import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository.LearnerAttemptStats;
 import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
+import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.CertificationStatsDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.InstitutionLearningStatsDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.DepartmentProgressDto;
 import com.capstone.rebyu.department.repository.DepartmentLearnerRepository;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import com.capstone.rebyu.institution.entity.InstitutionCertificate;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -53,6 +55,7 @@ public class InstitutionLearningStatsService {
     private final LearnerCompletedLessonRepository completedLessonRepository;
     private final LearnerRepository learnerRepository;
     private final DepartmentLearnerRepository groupAssigneeRepository;
+    private final com.capstone.rebyu.enrollment.repository.LearnerCertificationAwardRepository awardRepository;
 
     public InstitutionLearningStatsDto learningStats(Long institutionId) {
         List<InstitutionCertificationLearner> assignments =
@@ -64,17 +67,20 @@ public class InstitutionLearningStatsService {
                 .map(assignment -> assignment.getLearner().getLearnerId())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
+        var institutionCerts = institutionCertRepository.findByInstitution_InstitutionId(institutionId);
         int seatsTotal = 0;
         int seatsUsed = 0;
-        for (var institutionCert : institutionCertRepository.findByInstitution_InstitutionId(institutionId)) {
+        for (var institutionCert : institutionCerts) {
             seatsTotal += institutionCert.getTotalSlots() == null ? 0 : institutionCert.getTotalSlots();
             seatsUsed += institutionCert.getUsedSlots() == null ? 0 : institutionCert.getUsedSlots();
         }
+        List<CertificationStatsDto> certificationStats = certificationStats(institutionCerts, assignments);
 
         if (learnerIds.isEmpty()) {
             return new InstitutionLearningStatsDto(
                     new LearningStatsSummaryDto(0, 0, 0, null, 0, 0, null, null, seatsTotal, seatsUsed),
-                    List.of());
+                    List.of(),
+                    certificationStats);
         }
 
         Map<Long, LearnerAttemptStats> attemptStats = attemptRepository
@@ -110,7 +116,92 @@ public class InstitutionLearningStatsService {
                 .thenComparing(MemberLearningStatsDto::name,
                         Comparator.nullsLast(String::compareToIgnoreCase)));
 
-        return new InstitutionLearningStatsDto(summary(members, seatsTotal, seatsUsed), members);
+        return new InstitutionLearningStatsDto(
+                summary(members, seatsTotal, seatsUsed), members, certificationStats);
+    }
+
+    /**
+     * Per-certification rollup: who is on each programme and how they are
+     * doing on it.
+     *
+     * <p>Built from the assignments already loaded rather than a query per
+     * certification -- the rows say which learner sits on which programme and
+     * how far along they are, so the only thing that has to be fetched is who
+     * has passed.
+     *
+     * <p>Revoked assignments are left out of every figure. A seat taken back
+     * is not a learner failing to progress, and counting them would drag a
+     * programme's average down for people who are no longer on it.
+     */
+    private List<CertificationStatsDto> certificationStats(
+            List<InstitutionCertificate> institutionCerts,
+            List<InstitutionCertificationLearner> assignments) {
+
+        Map<Long, List<InstitutionCertificationLearner>> byCertification = assignments.stream()
+                .filter(a -> a.getStatus() != InstitutionCertificationLearner.Status.revoked)
+                .filter(a -> a.getInstitutionCert() != null
+                        && a.getInstitutionCert().getCertification() != null)
+                .collect(Collectors.groupingBy(
+                        a -> a.getInstitutionCert().getCertification().getCertificationId()));
+
+        /* Every award for these learners in one read. Asking per assignment
+           was a query each, which on a full roster is the whole page. */
+        Set<String> passedPairs = awardRepository
+                .findByLearnerIdIn(assignments.stream()
+                        .map(a -> a.getLearner().getLearnerId())
+                        .collect(Collectors.toSet()))
+                .stream()
+                .map(award -> award.getLearnerId() + ":" + award.getCertificationId())
+                .collect(Collectors.toSet());
+
+        List<CertificationStatsDto> rows = new ArrayList<>();
+        for (InstitutionCertificate institutionCert : institutionCerts) {
+            var certification = institutionCert.getCertification();
+            if (certification == null) continue;
+            Long certificationId = certification.getCertificationId();
+            List<InstitutionCertificationLearner> onIt =
+                    byCertification.getOrDefault(certificationId, List.of());
+
+            int enrolled = onIt.size();
+            int passed = 0;
+            int started = 0;
+            BigDecimal progressTotal = BigDecimal.ZERO;
+
+            for (InstitutionCertificationLearner assignment : onIt) {
+                BigDecimal progress = assignment.getProgressPercentage() == null
+                        ? BigDecimal.ZERO : assignment.getProgressPercentage();
+                progressTotal = progressTotal.add(progress);
+                if (progress.signum() > 0) started++;
+                if (passedPairs.contains(assignment.getLearner().getLearnerId() + ":" + certificationId)) {
+                    passed++;
+                }
+            }
+
+            /* Passing is a kind of progress, so someone who has passed is not
+               also counted as in progress -- the three states add up to the
+               enrolled count, which is what makes the row readable. */
+            int inProgress = Math.max(0, started - passed);
+            int notStarted = Math.max(0, enrolled - started);
+
+            rows.add(new CertificationStatsDto(
+                    certificationId,
+                    certification.getTitle(),
+                    institutionCert.getTotalSlots() == null ? 0 : institutionCert.getTotalSlots(),
+                    institutionCert.getUsedSlots() == null ? 0 : institutionCert.getUsedSlots(),
+                    enrolled,
+                    passed,
+                    inProgress,
+                    notStarted,
+                    enrolled == 0 ? null
+                            : progressTotal.divide(BigDecimal.valueOf(enrolled), 1, RoundingMode.HALF_UP),
+                    enrolled == 0 ? null : Math.round(100f * passed / enrolled)));
+        }
+
+        // Busiest programme first: a department looks at where its people are.
+        rows.sort(Comparator.comparingInt(CertificationStatsDto::enrolled).reversed()
+                .thenComparing(CertificationStatsDto::title,
+                        Comparator.nullsLast(String::compareToIgnoreCase)));
+        return rows;
     }
 
     /**
