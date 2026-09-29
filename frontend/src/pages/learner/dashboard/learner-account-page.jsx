@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useOutletContext } from "react-router-dom"
 import { toast } from "sonner"
@@ -11,7 +11,9 @@ import {
   ChevronRight,
   CircleUserRound,
   CreditCard,
+  ImagePlus,
   KeyRound,
+  Loader2,
   LockKeyhole,
   Mail,
   Shield,
@@ -20,13 +22,15 @@ import {
   LogOut,
 } from "@/components/icons"
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
-import { getMyAwards, updateMyProfile } from "@/services/learnerService.js"
+import { deleteMyAvatar, getMyAwards, updateMyProfile, uploadMyAvatar } from "@/services/learnerService.js"
+import { getFileViewLink } from "@/services/fileService"
+import { apiMessage } from "@/services/base"
 import { certificationBadgeUrl } from "@/services/certificationService.js"
 import { achievementBadge } from "@/lib/achievements.js"
 import {
@@ -71,6 +75,38 @@ function ledgerLabel(reason) {
     default:
       return String(reason ?? "Activity").replaceAll("_", " ").toLowerCase()
   }
+}
+
+/**
+ * Whether this browser is currently connected.
+ *
+ * <p>The dot beside a learner's picture says "reachable now", and for the
+ * person looking at their own profile the honest source of that is their own
+ * connection -- the server's idea of who is online is a five-minute window
+ * refreshed by a heartbeat, which would keep the dot green for minutes after
+ * the wifi dropped.
+ *
+ * <p>A hidden tab still counts as online: the person has not gone anywhere,
+ * and a dot that flickered every time they looked at another window would be
+ * reporting attention rather than presence.
+ */
+function useOnline() {
+  const [online, setOnline] = useState(() =>
+    typeof navigator === "undefined" ? true : navigator.onLine !== false
+  )
+
+  useEffect(() => {
+    const goOnline = () => setOnline(true)
+    const goOffline = () => setOnline(false)
+    window.addEventListener("online", goOnline)
+    window.addEventListener("offline", goOffline)
+    return () => {
+      window.removeEventListener("online", goOnline)
+      window.removeEventListener("offline", goOffline)
+    }
+  }, [])
+
+  return online
 }
 
 function initials(name) {
@@ -191,6 +227,70 @@ export default function LearnerAccountPage() {
     [learner?.firstName, learner?.lastName].filter(Boolean).join(" ") ||
     learner?.username ||
     "Learner"
+
+  const online = useOnline()
+
+  /* The stored key is turned into a viewable link the same way every other
+     upload is; the link is short-lived, so it is resolved here rather than
+     kept on the identity the key rides in on. */
+  const [avatarUrl, setAvatarUrl] = useState(null)
+  const [avatarBusy, setAvatarBusy] = useState(false)
+  const avatarInputRef = useRef(null)
+  /* The shell serves the learner row when the portal call has landed and the
+     signed-in identity before it has, and the key rides on both -- so it is
+     read from whichever is present rather than from one and hoped for. */
+  const avatarKey = learner?.avatarKey ?? data.identity?.avatarKey ?? user?.avatarKey ?? null
+
+  useEffect(() => {
+    if (!avatarKey) {
+      setAvatarUrl(null)
+      return undefined
+    }
+    let cancelled = false
+    getFileViewLink(avatarKey).then(
+      ({ url }) => !cancelled && setAvatarUrl(url),
+      () => !cancelled && setAvatarUrl(null)
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [avatarKey])
+
+  async function onPickAvatar(event) {
+    const file = event.target.files?.[0]
+    // Cleared straight away so choosing the same file twice still fires.
+    event.target.value = ""
+    if (!file) return
+
+    setAvatarBusy(true)
+    try {
+      const { avatarKey: nextKey } = await uploadMyAvatar(file)
+      /* Shown from the local file rather than waiting on a fresh signed link:
+         the bytes are already here, and the round trip would leave the old
+         picture on screen after the new one was saved. */
+      setAvatarUrl(URL.createObjectURL(file))
+      if (nextKey) queryClient.invalidateQueries()
+      toast.success("Profile picture updated.")
+    } catch (error) {
+      toast.error(apiMessage(error, "The picture could not be uploaded."))
+    } finally {
+      setAvatarBusy(false)
+    }
+  }
+
+  async function onRemoveAvatar() {
+    setAvatarBusy(true)
+    try {
+      await deleteMyAvatar()
+      setAvatarUrl(null)
+      queryClient.invalidateQueries()
+      toast.success("Profile picture removed.")
+    } catch (error) {
+      toast.error(apiMessage(error, "The picture could not be removed."))
+    } finally {
+      setAvatarBusy(false)
+    }
+  }
 
   const [activeTab, setActiveTab] = useState("profile")
   const [form, setForm] = useState({
@@ -849,13 +949,61 @@ export default function LearnerAccountPage() {
         {/* A student ID row: photo beside the name at every width. Stacking a
             96px avatar over the name spent a phone's whole first screen on it. */}
         <div className="flex items-center gap-3 pb-4 sm:gap-5 sm:pb-6">
-          <Avatar className="size-14 shrink-0 border border-border shadow-sm sm:size-24">
-            <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary sm:text-2xl">{initials(fullName)}</AvatarFallback>
-          </Avatar>
+          {/* The picture is the control: clicking it is how everywhere else
+              lets you change one, so there is no separate button to find. */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarBusy}
+              className="group relative block rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              aria-label={avatarUrl ? "Change your profile picture" : "Upload a profile picture"}
+            >
+              <Avatar className="size-14 border border-border shadow-sm sm:size-24">
+                {avatarUrl ? <AvatarImage src={avatarUrl} alt="" className="object-cover" /> : null}
+                <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary sm:text-2xl">{initials(fullName)}</AvatarFallback>
+              </Avatar>
+
+              <span className="pointer-events-none absolute inset-0 grid place-items-center rounded-full bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                {avatarBusy ? <Loader2 className="size-5 animate-spin" /> : <ImagePlus className="size-5" />}
+              </span>
+            </button>
+
+            {/* Sits on the rim, the way a status dot does everywhere: a ring in
+                the page background so it reads as a dot on the picture rather
+                than a hole punched in it. */}
+            <span
+              className={`absolute bottom-0.5 right-0.5 size-3 rounded-full ring-2 ring-background sm:size-4 ${
+                online ? "bg-rb-leaf" : "bg-muted-foreground"
+              }`}
+              title={online ? "Online" : "Offline"}
+              aria-label={online ? "Online" : "Offline"}
+              role="img"
+            />
+
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="hidden"
+              onChange={onPickAvatar}
+            />
+          </div>
           <div className="min-w-0 flex-1">
             <p className="truncate font-heading text-lg font-semibold leading-tight tracking-tight sm:text-2xl">{fullName}</p>
             <p className="truncate text-xs text-muted-foreground sm:mt-1 sm:text-base">@{learner?.username || "learner"}</p>
             <div className="mt-1.5 flex min-w-0 items-center gap-2 sm:mt-3"><Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px] sm:px-2 sm:py-0.5 sm:text-xs">Learner</Badge><span className="truncate text-xs text-muted-foreground sm:text-sm">{user?.email || "Learner account"}</span></div>
+            {/* Offered only once there is one to remove. */}
+            {avatarUrl ? (
+              <button
+                type="button"
+                onClick={onRemoveAvatar}
+                disabled={avatarBusy}
+                className="mt-1.5 text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground sm:mt-2"
+              >
+                Remove photo
+              </button>
+            ) : null}
           </div>
         </div>
 

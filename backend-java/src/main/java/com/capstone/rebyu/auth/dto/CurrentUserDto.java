@@ -17,7 +17,12 @@ public record CurrentUserDto(
         String departmentHeadRole,
         String firstName,
         String lastName,
-        String displayName
+        String displayName,
+        // Object key of the learner's profile picture, or null when they have
+        // not uploaded one and their initials stand in. Carried on identity
+        // rather than fetched per page so every place that draws the person --
+        // the nav, the account page, a post -- draws the same one.
+        String avatarKey
 ) {
     // Bean-style alias for learnerId() -- controllers across the codebase call
     // this form; records only auto-generate the canonical accessor.

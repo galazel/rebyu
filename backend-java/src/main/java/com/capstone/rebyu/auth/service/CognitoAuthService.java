@@ -429,7 +429,8 @@ public class CognitoAuthService {
                 departmentHeadRole,
                 firstName,
                 lastName,
-                displayName
+                displayName,
+                learner != null ? learner.getAvatarKey() : null
         );
     }
 }

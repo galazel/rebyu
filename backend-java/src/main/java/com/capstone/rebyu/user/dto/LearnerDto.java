@@ -32,6 +32,17 @@ public class LearnerDto {
     @Size(max = 50)
     private String lastName;
 
+    /**
+     * Object key of the profile picture, or null for the initials that stand in
+     * before one is uploaded.
+     *
+     * <p>Unvalidated and never read on the way in: it is set by uploading a
+     * picture, not by sending a string. A learner editing their name must not
+     * be able to point their avatar at an arbitrary key by adding a field to
+     * the request.
+     */
+    private String avatarKey;
+
     /*
      * Read-only, and deliberately unvalidated.
      *

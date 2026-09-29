@@ -10,6 +10,8 @@ import com.capstone.rebyu.user.service.LearnerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +22,8 @@ import java.util.List;
 @RequestMapping("/api/learners")
 @RequiredArgsConstructor
 public class LearnerController {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LearnerController.class);
+    private final com.capstone.rebyu.certification.service.S3StorageService s3StorageService;
     private final LearnerService learnerService;
     private final CognitoAuthService cognitoAuthService;
     private final com.capstone.rebyu.user.repository.LearnerRepository learnerRepository;
@@ -46,6 +50,86 @@ public class LearnerController {
      * <p>Email is not editable here: it is the sign-in identity, and changing it
      * in REBYU's tables alone would unlink the account from its login.
      */
+    /** What the browser needs to draw the picture: the key it resolves to a signed link. */
+    public record MyAvatarResponse(String avatarKey) {
+    }
+
+    private static final long MAX_AVATAR_BYTES = 5L * 1024 * 1024;
+    private static final List<String> AVATAR_TYPES =
+            List.of("image/png", "image/jpeg", "image/webp", "image/gif");
+
+    /**
+     * The signed-in learner sets their own profile picture.
+     *
+     * <p>Only the learner themselves: the id comes from the token rather than
+     * the request, so there is no id to tamper with and no way to write a
+     * picture onto somebody else's profile.
+     *
+     * <p>The content type is checked against a short list rather than trusting
+     * the extension, and the size is capped before anything reaches storage --
+     * an avatar is a small picture, and the cap is what keeps this from being
+     * a general-purpose upload with a friendly name.
+     */
+    @PostMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @org.springframework.transaction.annotation.Transactional
+    public MyAvatarResponse uploadMyAvatar(
+            @RequestPart("file") MultipartFile file, @AuthenticationPrincipal Jwt jwt) {
+        var learner = requireMyLearner(jwt);
+
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Choose an image to upload.");
+        }
+        if (file.getSize() > MAX_AVATAR_BYTES) {
+            throw new IllegalArgumentException("A profile picture must be 5 MB or smaller.");
+        }
+        String contentType = file.getContentType() == null ? "" : file.getContentType().toLowerCase();
+        if (!AVATAR_TYPES.contains(contentType)) {
+            throw new IllegalArgumentException("A profile picture must be a PNG, JPEG, WebP or GIF image.");
+        }
+
+        String previous = learner.getAvatarKey();
+        try {
+            learner.setAvatarKey(s3StorageService.uploadFile(file, "learner-avatars"));
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("The picture could not be uploaded", e);
+        }
+        learnerRepository.save(learner);
+
+        // The one it replaced is nobody's now. A failure here is not the
+        // learner's problem -- their new picture is already saved.
+        deleteQuietly(previous);
+        return new MyAvatarResponse(learner.getAvatarKey());
+    }
+
+    /** Removes the picture, putting the learner back to their initials. */
+    @DeleteMapping("/me/avatar")
+    @org.springframework.transaction.annotation.Transactional
+    public MyAvatarResponse deleteMyAvatar(@AuthenticationPrincipal Jwt jwt) {
+        var learner = requireMyLearner(jwt);
+        String previous = learner.getAvatarKey();
+        learner.setAvatarKey(null);
+        learnerRepository.save(learner);
+        deleteQuietly(previous);
+        return new MyAvatarResponse(null);
+    }
+
+    private void deleteQuietly(String key) {
+        if (key == null || key.isBlank()) return;
+        try {
+            s3StorageService.deleteFile(key);
+        } catch (RuntimeException e) {
+            log.warn("Could not delete replaced avatar {}", key, e);
+        }
+    }
+
+    private com.capstone.rebyu.user.entity.Learner requireMyLearner(Jwt jwt) {
+        if (jwt == null) throw new IllegalArgumentException("Authentication is required");
+        CurrentUserDto me = cognitoAuthService.syncCurrentUser(jwt, jwt.getTokenValue());
+        if (me.learnerId() == null) throw new IllegalArgumentException("A learner account is required");
+        return learnerRepository.findById(me.learnerId())
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Learner not found"));
+    }
+
     @PutMapping("/me/profile")
     @org.springframework.transaction.annotation.Transactional
     public MyProfileResponse updateMyProfile(

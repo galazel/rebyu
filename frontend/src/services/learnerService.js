@@ -78,6 +78,25 @@ export function updateMyProfile({ firstName, lastName, username, phoneNumber }) 
   })
 }
 
+/**
+ * Sets the signed-in learner's profile picture. Returns the stored key, which
+ * the caller turns into a viewable link the same way every other upload is
+ * shown.
+ *
+ * <p>No learner id is sent: the server takes it from the token, so a picture
+ * can only ever land on the profile of whoever is signed in.
+ */
+export function uploadMyAvatar(file) {
+  const body = new FormData()
+  body.append("file", file)
+  return base("learners/me/avatar", { method: "POST", data: body })
+}
+
+/** Removes the picture and puts the learner back to their initials. */
+export function deleteMyAvatar() {
+  return base("learners/me/avatar", { method: "DELETE" })
+}
+
 /** XP total and badge catalog only -- the cheap read behind the reward pop-ups. */
 export function getMyRewards() {
   return base("learner-achievements/me/rewards")

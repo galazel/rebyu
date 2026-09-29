@@ -160,11 +160,18 @@ public class LearnerService {
     }
 
     public LearnerDto update(Long id, LearnerDto dto) {
-        findEntity(id);
+        Learner existing = findEntity(id);
 
         Learner entity = learnerMapper.toEntity(dto);
 
         entity.setLearnerId(id);
+
+        /* This replaces the row wholesale rather than editing it, so anything
+           the request does not carry is not merely left alone -- it is written
+           back as null. The profile picture is set by uploading one and has no
+           field in this payload, so without carrying it over, saving a name
+           from the admin table would silently delete the learner's photo. */
+        entity.setAvatarKey(existing.getAvatarKey());
 
         return learnerMapper.toDto(
                 learnerRepository.save(entity)
