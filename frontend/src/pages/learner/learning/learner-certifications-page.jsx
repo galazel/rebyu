@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react"
 import { useNavigate, useOutletContext } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { Award, BookOpen, GraduationCap, Layers3 } from "@/components/icons"
+import { Award, BookOpen, CheckCircle, GraduationCap, Layers3 } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -139,20 +139,35 @@ function CertificationCard({
             ...(award?.badgeAwardedAt ? [{ label: "Badge earned", side: "right" }] : []),
           ]}
           footer={
-            <Button
-                /* 12px corners, not a pill: the system puts every rectangular
-                   control on the same radius so a button and a round node stay
-                   distinguishable shapes. */
-                className="w-full hover:opacity-90 hover:bg-rb-feather-wash"
-                style={
-                  enrolled
-                    ? { background: "#fff", color: "var(--color-rb-feather-ink)", border: "2px solid var(--color-rb-feather-ink)" }
-                    : { background: palette.solid, color: "#fff" }
-                }
-                onClick={onAction}
-            >
-              {enrolled ? "Continue learning" : "View details"}
-            </Button>
+            <>
+              {size.lessons > 0 ? (
+                  <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border pt-3 text-xs font-bold text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Layers3 className="size-3.5" aria-hidden="true" />
+                      {size.modules} module{size.modules === 1 ? "" : "s"}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <BookOpen className="size-3.5" aria-hidden="true" />
+                      {size.lessons} lesson{size.lessons === 1 ? "" : "s"}
+                    </span>
+                  </div>
+              ) : null}
+              <Button
+                  className="w-full hover:opacity-90 hover:bg-rb-feather-wash"
+                  style={
+                    award?.badgeAwardedAt
+                      ? { background: "var(--color-rb-bee-wash)", color: "var(--color-rb-eel)", border: "2px solid var(--color-rb-bee)" }
+                      : enrolled
+                        ? { background: "#fff", color: "var(--color-rb-feather-ink)", border: "2px solid var(--color-rb-feather-ink)" }
+                        : { background: palette.solid, color: "#fff" }
+                  }
+                  onClick={onAction}
+              >
+                {award?.badgeAwardedAt
+                  ? <><CheckCircle className="mr-1.5 inline-block size-4" /> Certification complete</>
+                  : enrolled ? "Continue learning" : "View details"}
+              </Button>
+            </>
           }
       >
         <p className="mt-2 line-clamp-3 min-h-[60px] break-words text-sm leading-6 text-muted-foreground">
@@ -160,22 +175,6 @@ function CertificationCard({
         </p>
 
         <EarnedStrip certificationId={getCertificationId(certification)} award={award} />
-
-        {/* How big it is, in the words its own page uses. Hidden entirely when
-            the payload carries no curriculum rather than printing "0 lessons"
-            at a learner deciding whether to enrol. */}
-        {size.lessons > 0 ? (
-            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border pt-3 text-xs font-bold text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <Layers3 className="size-3.5" aria-hidden="true" />
-                {size.modules} module{size.modules === 1 ? "" : "s"}
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <BookOpen className="size-3.5" aria-hidden="true" />
-                {size.lessons} lesson{size.lessons === 1 ? "" : "s"}
-              </span>
-            </div>
-        ) : null}
       </BubbleCard>
   )
 }

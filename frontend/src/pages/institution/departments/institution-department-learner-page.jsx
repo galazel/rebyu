@@ -509,34 +509,27 @@ function CredentialMark({ award }) {
   const earnedAt = award.badgeAwardedAt ?? award.certificateAwardedAt
   const score = Number(award.scorePercentage)
   return (
-    <li className="flex min-w-0 items-center gap-3 rounded-lg border border-border/60 bg-card p-3">
-      <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-rb-bee/60 bg-rb-bee-wash shadow-sm">
+    <li className="flex min-w-0 items-center gap-2.5 rounded-md border border-border/60 bg-card px-3 py-2">
+      <div className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-rb-bee/60 bg-rb-bee-wash">
         {award.hasBadgeImage ? (
           <img
-            /* Busted on the award date: the admin can replace a certification's
-               badge image, and the URL is otherwise identical forever. */
             src={`${certificationBadgeUrl(award.certificationId)}?v=${encodeURIComponent(earnedAt ?? "")}`}
             alt=""
             className="h-full w-full object-cover"
             loading="lazy"
           />
         ) : (
-          <AwardIcon className="size-7 text-rb-bee" aria-hidden="true" />
+          <AwardIcon className="size-4 text-rb-bee" aria-hidden="true" />
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-foreground">
+        <p className="truncate text-xs font-medium text-foreground">
           {award.certificationTitle ?? "Certification"}
         </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {earnedAt ? `Awarded ${new Date(earnedAt).toLocaleDateString()}` : "Awarded"}
-          {Number.isFinite(score) ? ` · passed at ${Math.round(score)}%` : ""}
+        <p className="text-[11px] leading-tight text-muted-foreground">
+          {earnedAt ? new Date(earnedAt).toLocaleDateString() : "Awarded"}
+          {Number.isFinite(score) ? ` · ${Math.round(score)}%` : ""}
         </p>
-        {award.certificateNumber ? (
-          <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
-            {award.certificateNumber}
-          </p>
-        ) : null}
       </div>
     </li>
   )
@@ -559,36 +552,32 @@ function CredentialsCard({ query }) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-sm">
           <AwardIcon className="size-4 text-rb-bee" aria-hidden="true" />
           Credentials earned
         </CardTitle>
-        <CardDescription>
-          Badges and certificates from finishing a certification — awarded on passing its mock exam.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         {query.isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading credentials…</p>
+          <p className="text-xs text-muted-foreground">Loading…</p>
         ) : query.isError ? (
-          <p className="text-sm text-muted-foreground">
-            Unable to load this learner's credentials.{" "}
+          <p className="text-xs text-muted-foreground">
+            Unable to load.{" "}
             <button
               type="button"
               onClick={query.refetch}
               className="underline underline-offset-2 hover:text-foreground"
             >
-              Try again
+              Retry
             </button>
           </p>
         ) : awards.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No credential earned yet. One is issued automatically when this learner passes a
-            certification's mock exam.
+          <p className="text-xs text-muted-foreground">
+            No credentials yet.
           </p>
         ) : (
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul className="grid gap-2">
             {awards.map((award) => (
               <CredentialMark key={award.certificationId} award={award} />
             ))}
@@ -737,14 +726,14 @@ export default function InstitutionDepartmentLearnerPage() {
        column while the right scrolls through what they have been doing. The
        identity and the headline figures do not move, so a head reading down
        the activity never loses track of whose it is. */
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] lg:items-start">
-      <aside className="space-y-5 lg:sticky lg:top-6">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] lg:h-[calc(100dvh-6rem)]">
+      <aside className="space-y-4 lg:overflow-y-auto">
         <div>
           {/* Their picture where they have uploaded one. The initials stay
               underneath rather than being swapped out, so a link that has
               expired leaves the learner recognisable. */}
-          <div className="relative flex size-28 items-center justify-center overflow-hidden rounded-full border-2 border-border bg-muted sm:size-36">
-            <span className="font-heading text-3xl font-bold text-muted-foreground sm:text-4xl">
+          <div className="relative flex size-20 items-center justify-center overflow-hidden rounded-full border-2 border-border bg-muted sm:size-24">
+            <span className="font-heading text-2xl font-bold text-muted-foreground sm:text-3xl">
               {initials}
             </span>
             {avatarUrl ? (
@@ -752,7 +741,7 @@ export default function InstitutionDepartmentLearnerPage() {
             ) : null}
           </div>
 
-          <h1 className="mt-4 font-heading text-2xl font-bold leading-tight tracking-tight text-foreground">
+          <h1 className="mt-3 font-heading text-xl font-bold leading-tight tracking-tight text-foreground">
             {learner?.name ?? "Learner"}
           </h1>
           {learner?.username ? (
@@ -828,7 +817,7 @@ export default function InstitutionDepartmentLearnerPage() {
         <CredentialsCard query={awardsQuery} />
       </aside>
 
-      <div className="min-w-0 space-y-6">
+      <div className="min-w-0 space-y-6 lg:overflow-y-auto">
         {!analytics?.hasAssessmentActivity && !analytics?.hasChallengeActivity ? (
           <InstitutionEmptyState
             icon={SparklesIcon}
