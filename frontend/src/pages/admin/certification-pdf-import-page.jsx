@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react"
-import { Link, useParams } from "react-router-dom"
+import { Link, useNavigate, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
+import { toast } from "sonner"
 
 import {
     AlertTriangle,
@@ -897,6 +898,7 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
  */
 export default function CertificationPdfImportPage() {
     const { id: certificationId } = useParams()
+    const navigate = useNavigate()
     const keyInputRef = useRef(null)
     const keyTargetRef = useRef(null)
     const cardRefs = useRef({})
@@ -1516,6 +1518,12 @@ export default function CertificationPdfImportPage() {
             setSaving({ done, saved, total: queue.length, errors: [...errors], skipped })
         }
         setSaving({ done, saved, total: queue.length, errors, skipped, finished: true })
+        if (!errors.length) {
+            clearDraft(certificationId)
+            toast.success(`Saved ${saved} question${saved === 1 ? "" : "s"} to the question bank.`)
+            setPreviewOpen(false)
+            navigate(`/admin/certification/${certificationId}/question-bank`)
+        }
     }
 
     const totalQuestions = papers.reduce((sum, p) => sum + p.questions.length, 0)
