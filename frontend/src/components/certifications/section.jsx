@@ -111,13 +111,12 @@ function Section({
                         bare whitespace it read as content that had failed to
                         load, so it says what it is. */}
                     {tools.length === 0 ? (
-                        <div className="flex flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-border/70 text-center">
+                        <div className="flex flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-border/70 py-12 text-center">
                             <p className="text-sm font-medium text-muted-foreground">
                                 This section is empty
                             </p>
                             <p className="mt-1 max-w-xs text-xs leading-5 text-muted-foreground/80">
-                                Add a tool from the panel on the left to put
-                                something in it.
+                                Use the Add block button below to insert content.
                             </p>
                         </div>
                     ) : null}

@@ -219,7 +219,7 @@ const OLYMPICS_MODES = [
   },
   {
     id: "worldcup",
-    name: "world cup",
+    name: "champions cup",
     role: "Exam Readiness",
     format: "8 players · live bracket",
     icon: Medal,
@@ -282,8 +282,12 @@ function BrandMark({ light = false }) {
   return (
     <span className="flex items-center gap-2.5">
       <BrandLogo className="size-9" />
+      {/* `rb-wordmark`: the name is the brand, not classroom dressing, so it
+          takes the product face here exactly as it does in the institution
+          and admin headers. Without it the landing's handwriting exception
+          swept the logo up with the headlines. */}
       <span
-        className={`rb-display text-2xl leading-none transition-colors duration-200 ${
+        className={`rb-wordmark rb-display text-2xl leading-none transition-colors duration-200 ${
           light ? "text-white! [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]" : ""
         }`}
       >
@@ -953,7 +957,7 @@ function OlympicsSection() {
           />
           <p className="rb-body-lg mt-4">
             Three arenas built on the same question banks you study from. Two you can run solo any
-            time; the World Cup needs seven other people.
+            time; the Champions Cup needs seven other people.
           </p>
         </div>
       </div>
@@ -1844,7 +1848,7 @@ function Footer() {
         style={{ y: wordmarkY }}
         className="pointer-events-none flex select-none justify-center overflow-hidden leading-[0.72]"
       >
-        <span className="font-rb-display text-[24vw] font-black lowercase tracking-tight text-rb-polar">
+        <span className="rb-wordmark font-rb-display text-[24vw] font-black lowercase tracking-tight text-rb-polar">
           rebyu
         </span>
       </motion.div>

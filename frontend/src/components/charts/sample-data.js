@@ -76,7 +76,7 @@ export const CHALLENGE_SCORE_TREND = [
 export const CHALLENGE_ARENA_MIX = [
   { name: "CodeStrike", value: 14 },
   { name: "Blueprint Arena", value: 9 },
-  { name: "World Cup", value: 4 },
+  { name: "Champions Cup", value: 4 },
 ]
 
 /* admin */

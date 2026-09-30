@@ -31,7 +31,7 @@ const FREE_EXCLUDES = [
   "AI tutor",
   "Mistake bank",
   "Shared quizzes, exams and full files in the community",
-  "World Cup",
+  "Champions Cup",
 ]
 const PRO_INCLUDES = [
   "Everything in Free",
@@ -40,7 +40,7 @@ const PRO_INCLUDES = [
   "AI tutor, with up to 10 generated quizzes or flashcard sets a day",
   "Mistake bank",
   "Full community: files, shared quizzes and exams",
-  "Every problem in CodeStrike and Blueprint Arena, plus World Cup",
+  "Every problem in CodeStrike and Blueprint Arena, plus Champions Cup",
 ]
 
 function formatMoney(amount, currency = "PHP") {

@@ -332,7 +332,7 @@ export default function WorldCupPage() {
           </div>
           <h1 className="rb-display rb-display-lg mt-6 !text-center">not open yet</h1>
           <p className="rb-body-lg mt-3">
-            No World Cup week has been published yet. The bracket opens as soon as an
+            No Champions Cup week has been published yet. The bracket opens as soon as an
             admin publishes one.
           </p>
           <TactileButton asChild className="mt-8 w-full">
@@ -351,7 +351,7 @@ export default function WorldCupPage() {
       <div className="flex shrink-0 items-center gap-4 px-5 pt-6 lg:px-8">
         <div className="min-w-0">
           <div className="font-rb-display text-xl font-extrabold lowercase text-rb-eel">
-            world cup
+            champions cup
           </div>
           <div className="truncate text-xs font-semibold text-rb-wolf">{SUBTITLE[phase]}</div>
         </div>
@@ -432,7 +432,7 @@ export default function WorldCupPage() {
                 no tracks yet
               </div>
               <p className="mt-3 text-sm leading-6 text-rb-wolf">
-                The World Cup is played on a certification you are enrolled in. Enrol in
+                The Champions Cup is played on a certification you are enrolled in. Enrol in
                 one and its track appears here.
               </p>
               <TactileButton asChild className="mt-6">

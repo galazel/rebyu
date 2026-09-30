@@ -447,36 +447,21 @@ export default function ViewCertificationAdmin() {
         >
           <span className="sr-only">Loading certification</span>
 
-          <header className="relative isolate overflow-hidden border-b border-border bg-rb-feather px-6 py-12 sm:px-10 lg:px-20 lg:py-16">
+          <header className="relative isolate overflow-hidden border-b border-border bg-rb-feather px-6 py-8 sm:px-10 lg:px-20 lg:py-10">
             <div className="relative z-10 mx-auto max-w-6xl">
-              <Skeleton className="mb-5 h-7 w-64 rounded-full bg-white/25" />
-              <Skeleton className="h-10 w-[min(28rem,80%)] rounded-xl bg-white/30" />
-              <div className="mt-5 space-y-2">
+              <div className="flex items-center gap-2 mb-3">
+                <Skeleton className="h-6 w-48 rounded-full bg-white/25" />
+                <Skeleton className="h-4 w-40 rounded bg-white/15" />
+              </div>
+              <Skeleton className="h-9 w-[min(28rem,80%)] rounded-xl bg-white/30" />
+              <div className="mt-3 space-y-1.5">
                 <Skeleton className="h-4 w-[min(46rem,95%)] rounded bg-white/20" />
                 <Skeleton className="h-4 w-[min(34rem,75%)] rounded bg-white/20" />
-              </div>
-              <div className="mt-7 flex flex-wrap gap-3">
-                <Skeleton className="h-9 w-40 rounded-full bg-white/20" />
-                <Skeleton className="h-9 w-48 rounded-full bg-white/20" />
               </div>
             </div>
           </header>
 
-          <main className="mx-auto max-w-6xl px-6 py-10 sm:px-10 lg:px-20">
-            <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-40 rounded" />
-                <Skeleton className="h-8 w-56 rounded-lg" />
-                <Skeleton className="h-4 w-[min(30rem,90%)] rounded" />
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Skeleton className="h-11 w-36 rounded-xl" />
-                <Skeleton className="h-11 w-36 rounded-xl" />
-                <Skeleton className="h-11 w-40 rounded-xl" />
-              </div>
-            </div>
-
-            <Skeleton className="mb-5 h-6 w-32 rounded" />
+          <main className="mx-auto max-w-6xl px-6 py-8 sm:px-10 lg:px-20">
             <div className="space-y-6">
               {Array.from({ length: 3 }).map((_, index) => (
                   <div key={index} className="space-y-3">
@@ -553,221 +538,151 @@ export default function ViewCertificationAdmin() {
           ref={pageRef}
           className="min-h-full overflow-y-auto bg-muted/30 font-sans"
       >
-        {/* Feather blue, the same default cover the certification wears on every
-            card — there is no uploaded image to blur behind this header now. */}
-        <header className="relative isolate overflow-hidden border-b border-border bg-rb-feather px-6 py-12 sm:px-10 lg:px-20 lg:py-16">
+        <header className="relative isolate overflow-hidden border-b border-border bg-rb-feather px-6 py-8 sm:px-10 lg:px-20 lg:py-10">
           <div className="relative z-10 mx-auto max-w-6xl">
-            {/* The header is the certification's own record of itself, so it
-                is edited here rather than in a panel that covers it. Each
-                field is the same markup it always was until you click the
-                pencil. */}
-            <div className="mb-5 flex items-center gap-2">
-              {/* The pill IS the control.
-                  It used to be a read-only badge with a separate white circle
-                  beside it whose own value was `sr-only` -- so the thing that
-                  showed the industry could not change it, and the thing that
-                  changed it showed nothing. Two elements for one field, and the
-                  live one looked like a stray button.
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="mb-3 flex items-center gap-2">
+                  <Select
+                      value={certification.industry || ""}
+                      onValueChange={(industry) => {
+                        void saveCertificationEdit(
+                            (current) => ({ ...current, industry }),
+                            "Industry updated"
+                        ).catch((error) =>
+                            toast.error("Could not update the industry", {
+                              description: apiMessage(error, "Please try again."),
+                            })
+                        )
+                      }}
+                  >
+                    <SelectTrigger
+                        size="sm"
+                        aria-label="Industry"
+                        title="Change industry"
+                        className="gap-1.5 rounded-full border-black/10 bg-white/85 px-3 py-1 text-xs font-semibold text-black shadow-sm backdrop-blur-sm hover:bg-white data-[size=sm]:h-auto"
+                    >
+                      <SelectValue placeholder="General" />
+                    </SelectTrigger>
 
-                  A select rather than the pencil the rest of the page uses,
-                  because the industry has to match the one vocabulary
-                  certifications and challenge arenas are both filtered by: a
-                  typed one silently matches nothing. A chevron inside the pill
-                  says "pick from a list", which is what this actually is. */}
-              <Select
-                  value={certification.industry || ""}
-                  onValueChange={(industry) => {
-                    void saveCertificationEdit(
-                        (current) => ({ ...current, industry }),
-                        "Industry updated"
-                    ).catch((error) =>
-                        toast.error("Could not update the industry", {
-                          description: apiMessage(error, "Please try again."),
-                        })
-                    )
-                  }}
-              >
-                <SelectTrigger
-                    size="sm"
-                    aria-label="Industry"
-                    title="Change industry"
-                    className="gap-1.5 rounded-full border-black/10 bg-white/85 px-3 py-1 text-xs font-semibold text-black shadow-sm backdrop-blur-sm hover:bg-white data-[size=sm]:h-auto"
-                >
-                  <SelectValue placeholder="General" />
-                </SelectTrigger>
+                    <SelectContent>
+                      {industries.map((industry) => (
+                          <SelectItem key={industry} value={industry}>
+                            {industry}
+                          </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-                <SelectContent>
-                  {industries.map((industry) => (
-                      <SelectItem key={industry} value={industry}>
-                        {industry}
-                      </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+                  <div className="flex items-center gap-2 text-xs text-white/70">
+                    <span>{majorCategories.length} categories</span>
+                    <span className="text-white/40">·</span>
+                    <span>{totalMiddleCategories} modules</span>
+                    <span className="text-white/40">·</span>
+                    <span>{totalLessons} lessons</span>
+                  </div>
+                </div>
 
-            <InlineEditable
-                value={certification.title}
-                label="Certification name"
-                tone="dark"
-                className="max-w-3xl"
-                validate={validateCertificationTitle}
-                onSave={(title) =>
-                    saveCertificationEdit(
-                        (current) => ({ ...current, title }),
-                        "Certification name updated"
-                    )
-                }
-                renderValue={(title) => (
-                    <h1 className="font-heading text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
-                      {title}
-                    </h1>
-                )}
-            />
+                <InlineEditable
+                    value={certification.title}
+                    label="Certification name"
+                    tone="dark"
+                    className="max-w-3xl"
+                    validate={validateCertificationTitle}
+                    onSave={(title) =>
+                        saveCertificationEdit(
+                            (current) => ({ ...current, title }),
+                            "Certification name updated"
+                        )
+                    }
+                    renderValue={(title) => (
+                        <h1 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-4xl">
+                          {title}
+                        </h1>
+                    )}
+                />
 
-            <InlineEditable
-                value={certification.description}
-                label="Description"
-                tone="dark"
-                multiline
-                className="mt-4 max-w-3xl"
-                validate={validateCertificationDescription}
-                onSave={(description) =>
-                    saveCertificationEdit(
-                        (current) => ({ ...current, description }),
-                        "Description updated"
-                    )
-                }
-                renderValue={(description) => (
-                    <p className="text-sm leading-7 text-white/85 sm:text-base">
-                      {description || "No description available."}
-                    </p>
-                )}
-            />
-
-            <div className="mt-8 flex flex-wrap gap-3 text-sm">
-              <div className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-white/90 backdrop-blur-sm">
-                <Layers3 className="h-4 w-4" />
-
-                <span>
-                {majorCategories.length} major{" "}
-                  {majorCategories.length === 1 ? "category" : "categories"}
-              </span>
+                <InlineEditable
+                    value={certification.description}
+                    label="Description"
+                    tone="dark"
+                    multiline
+                    className="mt-2 max-w-3xl"
+                    validate={validateCertificationDescription}
+                    onSave={(description) =>
+                        saveCertificationEdit(
+                            (current) => ({ ...current, description }),
+                            "Description updated"
+                        )
+                    }
+                    renderValue={(description) => (
+                        <p className="text-sm leading-6 text-white/80">
+                          {description || "No description available."}
+                        </p>
+                    )}
+                />
               </div>
 
-              <div className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-white/90 backdrop-blur-sm">
-                <BookOpen className="h-4 w-4" />
-
-                <span>
-                {totalMiddleCategories} modules · {totalLessons} lessons
-              </span>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <main className="px-6 py-10 sm:px-10 lg:px-20 lg:py-12">
-          <div className="mx-auto max-w-6xl">
-            <div className="mb-8 flex flex-col gap-5 border-b border-border pb-8 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-primary">
-                  Certification curriculum
-                </p>
-
-                <h2 className="mt-1 font-heading text-3xl font-bold tracking-tight text-foreground">
-                  Course Modules
-                </h2>
-
-                {/* Says the page is editable, because the pencils alone did
-                    not: they are small, they sit beside the text rather than
-                    on it, and an admin who has not noticed one goes looking
-                    for a form instead. */}
-                <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-                  Everything on this page is edited where it is shown: the
-                  pencil beside any name renames it, and each level of the
-                  curriculum adds and removes its own items. There is no
-                  separate edit form to open.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                {/* One slot, two states.
-                    While a build is running this REPLACES "Add with AI" rather
-                    than sitting beside it: adding more to a certification that
-                    is already generating queues a second run against the same
-                    curriculum, and the thing an admin actually wants at that
-                    moment is to see what the current one is doing. Offering
-                    both invites the wrong one. */}
+              <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-end">
                 {isGenerating ? (
                     <Button
                         type="button"
-                        className="h-11 rounded-xl px-5 font-medium shadow-sm"
+                        size="sm"
+                        className="gap-2 rounded-lg font-medium shadow-sm"
                         onClick={() => setIsWatchingGeneration(true)}
                     >
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       View progress
                     </Button>
                 ) : (
-                    /* Adds to the curriculum rather than rebuilding it: another
-                       domain, another module, further lessons and the questions
-                       and assessments that go with them.
-
-                       Worded "Add with AI" rather than "Generate", because the
-                       generate control on the certification list REPLACES a
-                       curriculum. Two buttons a page apart both saying
-                       generate, one of which deletes everything, is a trap. */
                     <Button
                         type="button"
                         variant="outline"
-                        className="h-11 rounded-xl px-5 font-medium shadow-sm"
+                        size="sm"
+                        className="gap-2 rounded-lg border-white/25 bg-white/10 font-medium text-white shadow-sm backdrop-blur-sm hover:bg-white/20 hover:text-white"
                         onClick={() => setIsGenerateMoreOpen(true)}
                     >
-                      <Sparkles className="mr-2 h-4 w-4" />
+                      <Sparkles className="h-3.5 w-3.5" />
                       Add with AI
                     </Button>
                 )}
 
-                {/* The two workspaces this certification owns, side by side.
-                    Both are full pages of their own; neither is a tab. */}
                 <Button
                     type="button"
                     variant="outline"
-                    className="h-11 rounded-xl px-5 font-medium shadow-sm"
+                    size="sm"
+                    className="gap-2 rounded-lg border-white/25 bg-white/10 font-medium text-white shadow-sm backdrop-blur-sm hover:bg-white/20 hover:text-white"
                     onClick={() =>
                         navigate(
                             `/admin/certification/${certification.certificationId}/assessments`
                         )
                     }
                 >
-                  <ClipboardCheck className="mr-2 h-4 w-4" />
+                  <ClipboardCheck className="h-3.5 w-3.5" />
                   Assessments
                 </Button>
 
-                {/* One button, not two: the bank opens with the builder in
-                    it. */}
                 <Button
                     type="button"
-                    className="h-11 rounded-xl px-5 font-medium shadow-sm"
+                    size="sm"
+                    className="gap-2 rounded-lg font-medium shadow-sm"
                     onClick={() =>
                         navigate(
                             `/admin/certification/${certification.certificationId}/question-bank`
                         )
                     }
                 >
-                  <ListChecks className="mr-2 h-4 w-4" />
+                  <ListChecks className="h-3.5 w-3.5" />
                   Question Bank
                 </Button>
-
               </div>
             </div>
+          </div>
+        </header>
 
-            {/* The curriculum, in place. It is what this page is about -- a
-                link to it from a page whose whole subject is it was a step
-                that led nowhere new. */}
+        <main className="px-6 py-8 sm:px-10 lg:px-20">
+          <div className="mx-auto max-w-6xl">
             <section className="mb-10">
-              <h3 className="mb-5 font-heading text-xl font-bold tracking-tight text-foreground">
-                Curriculum
-              </h3>
 
               {majorCategories.length === 0 && generationError ? (
                   /* The rejected case, told properly. An empty curriculum has

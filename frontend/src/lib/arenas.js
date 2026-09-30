@@ -31,6 +31,12 @@ export const ARENAS = [
     tracked: false,
     questionsPerNode: 10,
     fields: [
+      {
+        key: "entryXp",
+        label: "XP needed to enter",
+        value: "0",
+        hint: "0 lets anyone in; otherwise the learner must already hold this much XP",
+      },
       { key: "problems", label: "Roadmap nodes", value: "10", hint: "Circle buttons on the path" },
       { key: "timeLimit", label: "Run time limit (min)", value: "45", hint: "0 for untimed" },
       { key: "weightCorrect", label: "Weight — correctness (%)", value: "60", hint: "Tests passed" },
@@ -60,6 +66,12 @@ export const ARENAS = [
     tracked: false,
     questionsPerNode: 10,
     fields: [
+      {
+        key: "entryXp",
+        label: "XP needed to enter",
+        value: "0",
+        hint: "0 lets anyone in; otherwise the learner must already hold this much XP",
+      },
       { key: "problems", label: "Roadmap nodes", value: "10", hint: "Circle buttons on the path" },
       { key: "timeLimit", label: "Run time limit (min)", value: "60" },
       {
@@ -78,7 +90,7 @@ export const ARENAS = [
   },
   {
     id: "worldcup",
-    name: "World Cup",
+    name: "Champions Cup",
     icon: Trophy,
     tone: "bg-rb-bee-wash text-rb-bee-ink",
     format: "8-player tournament",
@@ -104,6 +116,12 @@ export const ARENAS = [
       { id: "final", name: "Final", matches: 1, players: 2 },
     ],
     fields: [
+      {
+        key: "entryXp",
+        label: "XP needed to enter",
+        value: "0",
+        hint: "0 lets anyone in; otherwise the learner must already hold this much XP",
+      },
       { key: "lobbySize", label: "Lobby size", value: "8", hint: "Bracket requires a power of two" },
       { key: "roundSeconds", label: "Seconds per round", value: "180" },
       { key: "countdown", label: "Lock-in countdown (s)", value: "3" },

@@ -11,4 +11,6 @@ public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPl
 
     List<SubscriptionPlan> findByCustomerTypeAndStatusOrderByDisplayOrderAsc(
             SubscriptionPlan.CustomerType customerType, String status);
+
+    List<SubscriptionPlan> findAllByOrderByDisplayOrderAsc();
 }

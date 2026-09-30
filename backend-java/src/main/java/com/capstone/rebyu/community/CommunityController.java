@@ -132,6 +132,15 @@ public class CommunityController {
         service.deletePost(me(jwt), id);
     }
 
+    @DeleteMapping("/posts/{id}/comments/{commentId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteComment(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long id,
+            @PathVariable Long commentId) {
+        service.deleteComment(me(jwt), id, commentId);
+    }
+
     @PostMapping("/posts/{id}/like")
     public CommunityService.PostCounts like(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
         return service.toggleLike(me(jwt), id);

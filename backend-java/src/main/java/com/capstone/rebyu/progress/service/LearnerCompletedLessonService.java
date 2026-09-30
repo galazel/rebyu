@@ -3,6 +3,7 @@ package com.capstone.rebyu.progress.service;
 import com.capstone.rebyu.certification.entity.Lesson;
 import com.capstone.rebyu.certification.repository.LessonRepository;
 import com.capstone.rebyu.enrollment.service.OrgEnrollmentProgressService;
+import com.capstone.rebyu.gamification.RewardAmounts;
 import com.capstone.rebyu.gamification.RewardService;
 import com.capstone.rebyu.gamification.service.StreakService;
 import com.capstone.rebyu.progress.dto.LearnerCompletedLessonDto;
@@ -23,7 +24,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional
 public class LearnerCompletedLessonService {
-    private static final int LESSON_COMPLETION_XP = 100;
+    private static int lessonCompletionXp() { return RewardAmounts.getLessonCompletionXp(); }
 
     private final LearnerCompletedLessonRepository learnerCompletedLessonRepository;
     private final LearnerCompletedLessonMapper learnerCompletedLessonMapper;
@@ -54,7 +55,7 @@ public class LearnerCompletedLessonService {
 
         // Keyed by lessonId, not a timestamp: a lesson re-marked complete (the
         // composite PK makes `create` an upsert) must not re-pay XP.
-        rewardService.awardXp(dto.getLearnerId(), LESSON_COMPLETION_XP, "LESSON_COMPLETED",
+        rewardService.awardXp(dto.getLearnerId(), lessonCompletionXp(), "LESSON_COMPLETED",
                 "lesson-completed:" + dto.getLessonId());
         streakService.recordActivity(dto.getLearnerId());
         // After the row is saved, so "First Step" sees this very lesson. The

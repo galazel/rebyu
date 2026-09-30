@@ -83,19 +83,36 @@ public class ChallengeArenaService {
    */
   private record SettingSpec(String key, int defaultValue, int min, int max) {}
 
+  /**
+   * The XP a learner must already hold to enter an arena.
+   *
+   * <p>A knob on each arena rather than one global number: the arenas are not
+   * equally demanding, and an admin who wants CodeStrike to be the deep end
+   * and Blueprint the shallow one can say so. Default 0, which is "open to
+   * everyone" -- an arena nobody configured must not silently shut.
+   *
+   * <p>Read against lifetime XP, not challenge points. Gating the arenas on
+   * points earned *in* the arenas would be a lock whose only key is inside
+   * the room: a learner at zero points could never enter anything.
+   */
+  public static final String ENTRY_XP = "entryXp";
+
   private static final Map<String, List<SettingSpec>> SETTING_SPECS = Map.of(
       "codestrike", List.of(
+          new SettingSpec(ENTRY_XP, 0, 0, 1_000_000),
           new SettingSpec("problems", 10, 1, 50),
           new SettingSpec("timeLimit", 45, 0, 600),
           new SettingSpec("weightCorrect", 60, 0, 100),
           new SettingSpec("weightSpeed", 20, 0, 100),
           new SettingSpec("weightBigO", 20, 0, 100)),
       "blueprint", List.of(
+          new SettingSpec(ENTRY_XP, 0, 0, 1_000_000),
           new SettingSpec("problems", 10, 1, 50),
           new SettingSpec("timeLimit", 60, 0, 600),
           new SettingSpec("passRules", 80, 1, 100),
           new SettingSpec("components", 8, 1, 50)),
       "worldcup", List.of(
+          new SettingSpec(ENTRY_XP, 0, 0, 1_000_000),
           new SettingSpec("lobbySize", 8, 2, 64),
           new SettingSpec("roundSeconds", 180, 10, 3600),
           new SettingSpec("countdown", 3, 0, 60),

@@ -5,6 +5,7 @@ import {
   AlignLeft,
   BetweenHorizontalEnd,
   CheckCircle2,
+  ChevronDown,
   CircleAlert,
   Code2 as CodeIcon,
   FilePlay,
@@ -32,9 +33,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import Section from "../../components/certifications/section"
 import {
@@ -390,110 +398,50 @@ const actionGroups = [
 const actions = actionGroups.flatMap((group) => group.items)
 
 
-/**
- * The third pane: what is selected, and its properties.
- *
- * <p>The editor had tools on the left and the lesson in the middle, so every
- * property of a section -- its name, what it holds, the order of it -- had to
- * be edited on the canvas itself, between the blocks it describes. Pulling
- * them out here leaves the middle as the lesson and nothing else, which is the
- * point of the layout: the thing being made stays legible while it is made.
- */
-function LessonInspectorPanel({
-  section,
-  sectionNumber,
-  sectionCount,
-  onSectionChange,
-  onDeleteSection,
-  onRemoveTool,
-}) {
+function AddBlockDropdown({ onAddTool, disabled }) {
   return (
-      <aside className="flex h-full max-h-full w-[320px] shrink-0 flex-col overflow-hidden border-l bg-background">
-        <div className="shrink-0 border-b px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Inspector
-          </p>
-          <p className="mt-0.5 text-sm font-semibold">
-            {section ? `Section ${sectionNumber} of ${sectionCount}` : "Nothing selected"}
-          </p>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          {!section ? (
-              <p className="text-sm leading-6 text-muted-foreground">
-                Select a section in the lesson to edit its name and see what it
-                holds.
-              </p>
-          ) : (
-              <div className="space-y-5">
-                <div>
-                  <Label htmlFor="inspector-section-name" className="text-xs font-bold">
-                    Section name
-                  </Label>
-                  <Input
-                      id="inspector-section-name"
-                      value={section.sectionName ?? ""}
-                      placeholder="Untitled section"
-                      className="mt-1.5"
-                      onChange={(event) =>
-                          onSectionChange(section.id, "sectionName", event.target.value)
-                      }
-                  />
-                </div>
-
-                <div>
-                  <p className="text-xs font-bold">Content</p>
-
-                  {(section.content ?? []).length === 0 ? (
-                      <p className="mt-1.5 text-xs leading-5 text-muted-foreground">
-                        Nothing in this section yet. Add a tool from the left.
-                      </p>
-                  ) : (
-                      <ul className="mt-1.5 space-y-1.5">
-                        {(section.content ?? []).map((block, blockIndex) => {
-                          const tool = actions.find((action) => action.type === block.type)
-
-                          return (
-                              <li
-                                  key={block.id}
-                                  className="flex items-center gap-2 rounded-lg border px-2.5 py-2"
-                              >
-                                <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                                  {tool?.name ?? block.type}
-                                </span>
-
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 shrink-0"
-                                    aria-label={`Remove ${tool?.name ?? block.type}`}
-                                    onClick={() => onRemoveTool(blockIndex)}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </li>
-                          )
-                        })}
-                      </ul>
-                  )}
-                </div>
-
-                <div className="border-t pt-4">
-                  <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full gap-2 text-destructive hover:text-destructive"
-                      onClick={() => onDeleteSection(section.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete section
-                  </Button>
-                </div>
-              </div>
-          )}
-        </div>
-      </aside>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+              type="button"
+              variant="outline"
+              disabled={disabled}
+              className="h-10 w-full gap-2 border-dashed text-muted-foreground hover:text-foreground"
+          >
+            <Plus className="h-4 w-4" />
+            Add block
+            <ChevronDown className="ml-auto h-3.5 w-3.5 opacity-50" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="center" className="w-72 max-h-[420px] overflow-y-auto">
+          {actionGroups.map((group, groupIndex) => (
+              <React.Fragment key={group.label}>
+                {groupIndex > 0 && <DropdownMenuSeparator />}
+                <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  {group.label}
+                </DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  {group.items.map((action) => {
+                    const Icon = action.icon
+                    return (
+                        <DropdownMenuItem
+                            key={action.type}
+                            onClick={() => onAddTool(action.type)}
+                            className="gap-2.5"
+                        >
+                          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <div className="min-w-0">
+                            <span className="text-sm font-medium">{action.name}</span>
+                            <p className="truncate text-xs text-muted-foreground">{action.description}</p>
+                          </div>
+                        </DropdownMenuItem>
+                    )
+                  })}
+                </DropdownMenuGroup>
+              </React.Fragment>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
   )
 }
 
@@ -553,74 +501,6 @@ function getMediaToolConfig(tool) {
   return STATIC_MEDIA_TOOL_CONFIG[tool.type]
 }
 
-function LessonToolCard({ action, onClick, disabled }) {
-  const Icon = action.icon
-
-  return (
-      <button
-          type="button"
-          disabled={disabled}
-          onClick={onClick}
-          // The tool's description is a hover tooltip rather than a second line
-          // of visible text: with nineteen tools stacked in a narrow panel, a
-          // grey subtitle under every one of them was more noise than help.
-          title={action.description}
-          className="group flex w-full items-center gap-3 rounded-lg border bg-background px-3 py-2 text-left transition hover:border-primary/40 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-50"
-      >
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border bg-muted text-muted-foreground transition group-hover:border-primary/30 group-hover:bg-primary/10 group-hover:text-primary">
-        <Icon className="h-4 w-4" />
-      </span>
-
-        <span className="min-w-0 truncate text-sm font-medium leading-5 text-foreground">
-          {action.name}
-        </span>
-      </button>
-  )
-}
-
-/**
- * Persistent left tools panel — always visible (no collapse-to-icon-rail),
- * matching the community feed's left navigation aside: a bordered card with
- * a muted header, sticky within its scroll container, sitting beside a
- * scrollable center area.
- */
-function LessonToolsPanel({ isLoadingLesson, onAddTool }) {
-  return (
-      <aside className="flex h-full max-h-full w-[300px] shrink-0 flex-col overflow-hidden border-r bg-background">
-        <div className="shrink-0 border-b bg-muted/40 px-5 py-4">
-          <h2 className="text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">
-            Lesson Tools
-          </h2>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Add tools to the selected lesson section.
-          </p>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
-          <div className="space-y-6 pb-6">
-            {actionGroups.map((group) => (
-                <section key={group.label} className="space-y-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                    {group.label}
-                  </h3>
-
-                  <div className="grid gap-1.5">
-                    {group.items.map((action) => (
-                        <LessonToolCard
-                            key={action.type}
-                            action={action}
-                            disabled={isLoadingLesson}
-                            onClick={() => onAddTool(action.type)}
-                        />
-                    ))}
-                  </div>
-                </section>
-            ))}
-          </div>
-        </div>
-      </aside>
-  )
-}
 
 
 function LessonFeedbackDialog({
@@ -1099,14 +979,16 @@ function CreateLessons() {
     })
   }
 
-  function handleAddTool(toolType) {
+  function handleAddTool(toolType, targetIndex) {
     const selectedTool = actions.find((action) => action.type === toolType)
 
     if (!selectedTool) {
       return
     }
 
-    if (!sections[sectionIndex]) {
+    const resolvedIndex = targetIndex ?? sectionIndex
+
+    if (!sections[resolvedIndex]) {
       setIsErrorAddingToolWithoutSection(true)
       return
     }
@@ -1119,7 +1001,7 @@ function CreateLessons() {
 
     setSections((previousSections) =>
         previousSections.map((section, currentSectionIndex) => {
-          if (currentSectionIndex !== sectionIndex) {
+          if (currentSectionIndex !== resolvedIndex) {
             return section
           }
 
@@ -1713,108 +1595,99 @@ function CreateLessons() {
             onClose={() => setIsErrorAddingToolWithoutSection(false)}
         />
 
-        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-          <LessonToolsPanel
-              isLoadingLesson={isLoadingLesson}
-              onAddTool={handleAddTool}
-          />
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain bg-muted/30">
+          <div className="mx-auto w-full max-w-4xl p-4 sm:p-6">
+            {isLoadingLesson ? (
+                <Card className="mt-6 shadow-none">
+                  <CardContent className="flex min-h-[460px] flex-col items-center justify-center px-6 text-center">
+                    <div className="h-10 w-10 animate-spin rounded-full border-4 border-muted border-t-primary" />
 
-          <div className="min-h-0 min-w-0 flex-1 overflow-hidden p-4 sm:p-6">
-            <div className="mx-auto h-full min-h-0 w-full max-w-[1280px] overflow-hidden rounded-lg border bg-background">
-              <main className="h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain">
-                <div className="mx-auto w-full max-w-[1280px] p-5 sm:p-6">
-                  {isLoadingLesson ? (
-                      <Card className="mt-6 shadow-none">
-                        <CardContent className="flex min-h-[460px] flex-col items-center justify-center px-6 text-center">
-                          <div className="h-10 w-10 animate-spin rounded-full border-4 border-muted border-t-primary" />
+                    <h3 className="mt-5 text-base font-semibold">
+                      Loading lesson content
+                    </h3>
 
-                          <h3 className="mt-5 text-base font-semibold">
-                            Loading lesson content
-                          </h3>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Loading sections, blocks, images, and videos.
+                    </p>
+                  </CardContent>
+                </Card>
+            ) : sections.length === 0 ? (
+                <Card className="mt-6 shadow-none">
+                  <CardContent className="flex min-h-[340px] flex-col items-center justify-center px-6 text-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                      <BetweenHorizontalEnd className="h-5 w-5 text-muted-foreground" />
+                    </div>
 
-                          <p className="mt-2 text-sm text-muted-foreground">
-                            Loading sections, blocks, images, and videos.
-                          </p>
-                        </CardContent>
-                      </Card>
-                  ) : sections.length === 0 ? (
-                      <Card className="mt-6 shadow-none">
-                        <CardContent className="flex min-h-[460px] flex-col items-center justify-center px-6 text-center">
-                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                            <BetweenHorizontalEnd className="h-5 w-5 text-muted-foreground" />
-                          </div>
+                    <h3 className="mt-4 text-base font-semibold">
+                      Start building your lesson
+                    </h3>
 
-                          <h3 className="mt-4 text-base font-semibold">
-                            Start building your lesson
-                          </h3>
+                    <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+                      Add your first section, then use the Add block button inside
+                      it to insert content blocks.
+                    </p>
 
-                          <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-                            Add your first section, then click the left Tools tab
-                            to slide open the tools panel and add lesson blocks.
-                          </p>
+                    <Button
+                        type="button"
+                        onClick={handleAddSection}
+                        className="mt-5 gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add first section
+                    </Button>
+                  </CardContent>
+                </Card>
+            ) : (
+                <div className="space-y-5 pb-8">
+                  {sections.map((section, index) => {
+                    const isSelected = sectionIndex === index
 
-                          <Button
-                              type="button"
-                              onClick={handleAddSection}
-                              className="mt-5 gap-2"
-                          >
-                            <Plus className="h-4 w-4" />
-                            Add first section
-                          </Button>
-                        </CardContent>
-                      </Card>
-                  ) : (
-                      <div className="mt-6 space-y-6 pb-8">
-                        {sections.map((section, index) => {
-                          const isSelected = sectionIndex === index
+                    function addToolToThisSection(toolType) {
+                      setSectionIndex(index)
+                      handleAddTool(toolType, index)
+                    }
 
-                          return (
-                              <div
-                                  key={section.id}
-                                  className={`rounded-xl transition ${
-                                      isSelected ? "ring-2 ring-primary/15" : ""
-                                  }`}
-                                  onMouseDown={() => setSectionIndex(index)}
-                                  onFocusCapture={() => setSectionIndex(index)}
-                              >
-                                <Section
-                                    section={section}
-                                    sectionIndex={index}
-                                    onChange={handleSectionChange}
-                                    onDelete={handleDeleteSection}
-                                    handleRemovalTool={handleRemoveTool}
-                                    handleToolDataChange={handleToolDataChange}
-                                    onClick={() => setSectionIndex(index)}
-                                />
-                              </div>
-                          )
-                        })}
-
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleAddSection}
-                            className="h-12 w-full border-dashed text-muted-foreground hover:text-foreground"
+                    return (
+                        <div
+                            key={section.id}
+                            className={`rounded-xl transition ${
+                                isSelected ? "ring-2 ring-primary/15" : ""
+                            }`}
+                            onMouseDown={() => setSectionIndex(index)}
+                            onFocusCapture={() => setSectionIndex(index)}
                         >
-                          <Plus className="mr-2 h-4 w-4" />
-                          Add another section
-                        </Button>
-                      </div>
-                  )}
-                </div>
-              </main>
-            </div>
-          </div>
+                          <Section
+                              section={section}
+                              sectionIndex={index}
+                              onChange={handleSectionChange}
+                              onDelete={handleDeleteSection}
+                              handleRemovalTool={handleRemoveTool}
+                              handleToolDataChange={handleToolDataChange}
+                              onClick={() => setSectionIndex(index)}
+                          />
+                          <div className="mx-auto mt-2 max-w-5xl px-1">
+                            <AddBlockDropdown
+                                onAddTool={addToolToThisSection}
+                                disabled={isLoadingLesson}
+                            />
+                          </div>
+                        </div>
+                    )
+                  })}
 
-          <LessonInspectorPanel
-              section={sections[sectionIndex] ?? null}
-              sectionNumber={sectionIndex + 1}
-              sectionCount={sections.length}
-              onSectionChange={handleSectionChange}
-              onDeleteSection={handleDeleteSection}
-              onRemoveTool={(toolIndex) => handleRemoveTool(sectionIndex, toolIndex)}
-          />
-        </div>
+                  <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAddSection}
+                      className="h-12 w-full border-dashed text-muted-foreground hover:text-foreground"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add another section
+                  </Button>
+                </div>
+            )}
+          </div>
+        </main>
       </section>
   )
 }

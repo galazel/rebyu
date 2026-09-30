@@ -1104,6 +1104,30 @@ function MultipleChoices({
         }));
     }
 
+    function addChoice() {
+        onDataChange((currentData) => ({
+            ...currentData,
+            choices: [
+                ...(currentData.choices ?? []),
+                { choiceText: "", image: null, explanation: "", isCorrect: false },
+            ],
+        }));
+    }
+
+    function removeChoice(indexToRemove) {
+        onDataChange((currentData) => {
+            const next = (currentData.choices ?? []).filter((_, i) => i !== indexToRemove);
+            let correctIndex = currentData.correctChoiceIndex;
+            if (correctIndex === indexToRemove) correctIndex = null;
+            else if (correctIndex != null && correctIndex > indexToRemove) correctIndex -= 1;
+            return {
+                ...currentData,
+                choices: next,
+                correctChoiceIndex: correctIndex,
+            };
+        });
+    }
+
     return (
         <CompactQuestionCard
             type="MCQ"
@@ -1160,7 +1184,7 @@ function MultipleChoices({
                         return (
                             <div
                                 key={`${questionKey}-choice-${index}`}
-                                className={`rounded-md border p-3 transition ${
+                                className={`relative rounded-md border p-3 transition ${
                                     isCorrect
                                         ? "border-primary bg-primary/5"
                                         : choiceError || imageError
@@ -1168,6 +1192,16 @@ function MultipleChoices({
                                             : "border-border bg-muted/20"
                                 }`}
                             >
+                                {choices.length > 2 && (
+                                    <button
+                                        type="button"
+                                        aria-label={`Remove choice ${letter}`}
+                                        onClick={() => removeChoice(index)}
+                                        className="absolute right-1.5 top-1.5 rounded p-0.5 text-muted-foreground/60 transition hover:bg-destructive/10 hover:text-destructive"
+                                    >
+                                        <XIcon className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
                                 <div className="flex items-center gap-2">
                                     <RadioGroupItem
                                         id={`${questionKey}-correct-${index}`}
@@ -1258,6 +1292,17 @@ function MultipleChoices({
                         );
                     })}
                 </RadioGroup>
+
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-1.5"
+                    onClick={addChoice}
+                >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Choice
+                </Button>
 
                 <FieldError message={errors.correctChoiceIndex} />
             </div>
@@ -3287,34 +3332,17 @@ OUTPUT RULES:
                             All Questions
                         </TabsTrigger>
 
-                    </TabsList>
-
-                    {/* The bank and the builder are one page: the questions
-                        you are writing and the ones already written are the
-                        same subject, and sending authoring to a route of its
-                        own meant leaving the library to add to it, then
-                        navigating back to see that you had. Both buttons swap
-                        the area below in place. */}
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant={
-                                activeTab === "question-builder" &&
-                                builderMode === "manual"
-                                    ? "default"
-                                    : "outline"
-                            }
+                        <TabsTrigger
+                            value="question-builder"
+                            className="h-8 rounded-md px-3 text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
                             onClick={() => {
-                                setActiveTab("question-builder");
-                                setBuilderMode("manual");
+                                if (builderMode === "") setBuilderMode("manual");
                             }}
                         >
                             <BookOpen className="mr-2 h-4 w-4" />
                             Question Builder
-                        </Button>
-
-                    </div>
+                        </TabsTrigger>
+                    </TabsList>
 
                     {activeTab === "question-builder" && builderMode !== "" && (
                         <div className="flex shrink-0 items-center gap-2 py-1.5">
@@ -3382,47 +3410,19 @@ OUTPUT RULES:
                             the controls say what they do, and the height they
                             gave back goes to the list. */}
                         <div className="flex shrink-0 flex-col gap-2">
-                                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                                    <div className="sr-only">
-                                        <h3>Refine your library</h3>
-                                    </div>
-
-                                    {!isLockedToCertification && selectedFilterCertification && (
-                                        <p className="max-w-full truncate text-xs text-muted-foreground sm:max-w-[280px]">
-                                            Viewing:{" "}
-                                            <span className="font-medium text-foreground">
-                        {getCertificationTitle(selectedFilterCertification)}
-                      </span>
-                                        </p>
-                                    )}
+                                <div className="sr-only">
+                                    <h3>Refine your library</h3>
                                 </div>
 
-                                <div
-                                    className={`grid gap-2 md:grid-cols-2 ${
-                                        isLockedToCertification
-                                            ? "xl:grid-cols-[minmax(230px,1.2fr)_minmax(185px,0.9fr)_minmax(165px,0.8fr)]"
-                                            : "xl:grid-cols-[minmax(250px,1.35fr)_minmax(230px,1.2fr)_minmax(185px,0.9fr)_minmax(165px,0.8fr)]"
-                                    }`}
-                                >
+                                <div className="flex flex-wrap items-end gap-2">
                                     {!isLockedToCertification && (
-                                    <div className="space-y-1.5">
-                                        <Label
-                                            htmlFor="question-filter-certification"
-                                            className="text-xs font-medium text-muted-foreground"
-                                        >
-                                            Certification
-                                        </Label>
-
                                         <Select
                                             value={filterCertificationId}
                                             onValueChange={setFilterCertificationId}
                                             disabled={isPending}
                                         >
-                                            <SelectTrigger
-                                                id="question-filter-certification"
-                                                className="h-10 w-full min-w-0 rounded-lg bg-background px-3 text-sm [&>span]:truncate"
-                                            >
-                                                <SelectValue placeholder="Select certification" />
+                                            <SelectTrigger className="h-9 w-full min-w-[180px] max-w-[280px] rounded-lg bg-background px-3 text-sm [&>span]:truncate">
+                                                <SelectValue placeholder="Certification" />
                                             </SelectTrigger>
 
                                             <SelectContent
@@ -3449,16 +3449,7 @@ OUTPUT RULES:
                                                 </SelectGroup>
                                             </SelectContent>
                                         </Select>
-                                    </div>
                                     )}
-
-                                    <div className="space-y-1.5">
-                                        <Label
-                                            htmlFor="question-filter-lesson"
-                                            className="text-xs font-medium text-muted-foreground"
-                                        >
-                                            Lesson
-                                        </Label>
 
                                         <Select
                                             value={filterLessonId}
@@ -3468,10 +3459,7 @@ OUTPUT RULES:
                                                 filterLessons.length === 0
                                             }
                                         >
-                                            <SelectTrigger
-                                                id="question-filter-lesson"
-                                                className="h-10 w-full min-w-0 rounded-lg bg-background px-3 text-sm [&>span]:truncate"
-                                            >
+                                            <SelectTrigger className="h-9 w-full min-w-[160px] max-w-[260px] rounded-lg bg-background px-3 text-sm [&>span]:truncate">
                                                 <SelectValue placeholder="All lessons" />
                                             </SelectTrigger>
 
@@ -3500,25 +3488,13 @@ OUTPUT RULES:
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        <Label
-                                            htmlFor="question-filter-type"
-                                            className="text-xs font-medium text-muted-foreground"
-                                        >
-                                            Question type
-                                        </Label>
 
                                         <Select
                                             value={filterQuestionType}
                                             onValueChange={setFilterQuestionType}
                                             disabled={!selectedFilterCertification}
                                         >
-                                            <SelectTrigger
-                                                id="question-filter-type"
-                                                className="h-10 w-full min-w-0 rounded-lg bg-background px-3 text-sm [&>span]:truncate"
-                                            >
+                                            <SelectTrigger className="h-9 w-full min-w-[130px] max-w-[180px] rounded-lg bg-background px-3 text-sm [&>span]:truncate">
                                                 <SelectValue placeholder="All types" />
                                             </SelectTrigger>
 
@@ -3547,10 +3523,6 @@ OUTPUT RULES:
                                                     Descriptive
                                                 </SelectItem>
 
-                                                {/* Matches all three workspace
-                                                    types, however they were
-                                                    stored -- see
-                                                    QUESTION_TYPE_FILTER_MATCHES. */}
                                                 <SelectItem
                                                     value="CRITICAL_THINKING"
                                                     className="min-h-10"
@@ -3567,26 +3539,14 @@ OUTPUT RULES:
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        <Label
-                                            htmlFor="question-filter-difficulty"
-                                            className="text-xs font-medium text-muted-foreground"
-                                        >
-                                            Difficulty
-                                        </Label>
 
                                         <Select
                                             value={filterDifficulty}
                                             onValueChange={setFilterDifficulty}
                                             disabled={!selectedFilterCertification}
                                         >
-                                            <SelectTrigger
-                                                id="question-filter-difficulty"
-                                                className="h-10 w-full min-w-0 rounded-lg bg-background px-3 text-sm [&>span]:truncate"
-                                            >
-                                                <SelectValue placeholder="All difficulties" />
+                                            <SelectTrigger className="h-9 w-full min-w-[120px] max-w-[160px] rounded-lg bg-background px-3 text-sm [&>span]:truncate">
+                                                <SelectValue placeholder="Difficulty" />
                                             </SelectTrigger>
 
                                             <SelectContent
@@ -3615,36 +3575,6 @@ OUTPUT RULES:
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
-                                    </div>
-
-                                    {
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-                                    }
                                 </div>
                         </div>
 
@@ -3953,7 +3883,7 @@ OUTPUT RULES:
                                     <div className="shrink-0 space-y-2">
                                         {isLockedToCertification ? (
                                             <p className="text-xs text-muted-foreground">
-                                                Use “Generate Questions” to create draft questions
+                                                Use "Generate Questions" to create draft questions
                                                 for this certification, then review and save them.
                                             </p>
                                         ) : (
@@ -3994,16 +3924,38 @@ OUTPUT RULES:
                                                 </SelectContent>
                                             </Select>
                                             <p className="text-xs text-muted-foreground">
-                                                Choose a certification, then use “Generate Questions” to
+                                                Choose a certification, then use "Generate Questions" to
                                                 create draft questions you can review and save.
                                             </p>
                                         </>
                                         )}
                                     </div>
 
-                                    <div className="grid min-h-0 flex-1 overflow-y-auto rounded-2xl border border-border/80 bg-background shadow-sm md:grid-cols-[minmax(0,1fr)_240px] md:overflow-hidden">
+                                    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-2xl border border-border/80 bg-background shadow-sm md:overflow-hidden">
                                         <main className="min-h-0 min-w-0 bg-muted/20 md:overflow-y-auto">
                                             <div className="mx-auto w-full max-w-4xl space-y-4 p-5 sm:p-6">
+                                        {selectedLesson && (
+                                            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background/80 px-3 py-2">
+                                                <span className="mr-1 text-xs font-medium text-muted-foreground">Add:</span>
+                                                {questionTypes.map((questionType) => {
+                                                    const Icon = questionType.icon;
+                                                    return (
+                                                        <Button
+                                                            key={questionType.id}
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 gap-1.5 px-2.5 text-xs"
+                                                            onClick={() => addQuestion(questionType)}
+                                                        >
+                                                            <Icon className="h-3.5 w-3.5" />
+                                                            {questionType.title}
+                                                        </Button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
                                         {Object.keys(validationErrors).length > 0 && (
                                             <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
                                                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -4025,7 +3977,7 @@ OUTPUT RULES:
                                                 title="No questions generated yet"
                                                 description={
                                                     selectedCertification
-                                                        ? "Click “Generate Questions” to create draft questions for this certification."
+                                                        ? 'Click "Generate Questions" to create draft questions for this certification.'
                                                         : "Select a certification to begin."
                                                 }
                                             />
@@ -4053,34 +4005,10 @@ OUTPUT RULES:
                                         )}
                                             </div>
                                         </main>
-                                        <aside className="min-h-0 border-t border-border bg-background/95 md:overflow-y-auto md:border-l md:border-t-0">
-                                            <div className="space-y-4 p-4">
-                                                <div>
-                                                    <p className="text-sm font-medium text-foreground">
-                                                        Add Question
-                                                    </p>
-                                                    <p className="mt-1 text-sm text-muted-foreground">
-                                                        {selectedLesson
-                                                            ? `Add a question to ${selectedLesson.name}.`
-                                                            : "Generate first, then add or edit questions here."}
-                                                    </p>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    {questionTypes.map((questionType) => (
-                                                        <QuestionTypeButton
-                                                            key={questionType.id}
-                                                            questionType={questionType}
-                                                            onAdd={addQuestion}
-                                                            disabled={!selectedLesson}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </aside>
                                     </div>
                                 </div>
                             ) : (
-                            <div className="grid min-h-0 w-full flex-1 overflow-y-auto rounded-2xl border border-border/80 bg-background shadow-sm md:grid-cols-[220px_minmax(0,1fr)_240px] md:overflow-hidden lg:grid-cols-[280px_minmax(0,1fr)_260px]">
+                            <div className="grid min-h-0 w-full flex-1 overflow-y-auto rounded-2xl border border-border/80 bg-background shadow-sm md:grid-cols-[260px_minmax(0,1fr)] md:overflow-hidden">
                         <aside className="min-h-0 border-b border-border bg-background/95 md:overflow-y-auto md:border-b-0 md:border-r">
                             <div className="space-y-4 p-4">
                                 <div>
@@ -4283,8 +4211,8 @@ OUTPUT RULES:
                                     />
                                 ) : (
                                     <>
-                                        <div className="flex flex-wrap items-end justify-between gap-2">
-                                            <div className="min-w-0">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div className="min-w-0 flex-1">
                                                 <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
                                                     {selectedLesson.majorCategoryTitle} /{" "}
                                                     {selectedLesson.middleCategoryTitle}
@@ -4299,6 +4227,26 @@ OUTPUT RULES:
                                                 {questions.length}{" "}
                                                 {questions.length === 1 ? "question" : "questions"}
                                             </p>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background/80 px-3 py-2">
+                                            <span className="mr-1 text-xs font-medium text-muted-foreground">Add:</span>
+                                            {questionTypes.map((questionType) => {
+                                                const Icon = questionType.icon;
+                                                return (
+                                                    <Button
+                                                        key={questionType.id}
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 gap-1.5 px-2.5 text-xs"
+                                                        onClick={() => addQuestion(questionType)}
+                                                    >
+                                                        <Icon className="h-3.5 w-3.5" />
+                                                        {questionType.title}
+                                                    </Button>
+                                                );
+                                            })}
                                         </div>
 
                                         {Object.keys(validationErrors).length > 0 && (
@@ -4322,7 +4270,7 @@ OUTPUT RULES:
                                             <EmptyState
                                                 icon={FileQuestion}
                                                 title="No questions added yet"
-                                                description="Use the Add Question panel to add your first question."
+                                                description="Choose a question type above to add your first question."
                                             />
                                         ) : (
                                             questions.map((question, index) => {
@@ -4348,33 +4296,6 @@ OUTPUT RULES:
                                 )}
                             </div>
                         </main>
-
-                        <aside className="min-h-0 border-t border-border bg-background/95 md:overflow-y-auto md:border-l md:border-t-0">
-                            <div className="space-y-4 p-4">
-                                <div>
-                                    <p className="text-sm font-medium text-foreground">
-                                        Add Question
-                                    </p>
-
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        {selectedLesson
-                                            ? `Add a question to ${selectedLesson.name}.`
-                                            : "Select a lesson to start adding questions."}
-                                    </p>
-                                </div>
-
-                                <div className="space-y-2">
-                                    {questionTypes.map((questionType) => (
-                                        <QuestionTypeButton
-                                            key={questionType.id}
-                                            questionType={questionType}
-                                            onAdd={addQuestion}
-                                            disabled={!selectedLesson}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        </aside>
                             </div>
                             )}
                         </div>

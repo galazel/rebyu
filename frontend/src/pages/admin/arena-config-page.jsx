@@ -116,7 +116,7 @@ export default function ArenaConfigPage() {
         <div className="rounded-2xl border-2 border-border bg-card p-5">
           <h2 className="text-base font-bold">Certification tracks</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Disabled tracks are hidden from the World Cup track-selection screen.
+            Disabled tracks are hidden from the Champions Cup track-selection screen.
           </p>
 
           {certificationsQuery.isLoading || loading ? (

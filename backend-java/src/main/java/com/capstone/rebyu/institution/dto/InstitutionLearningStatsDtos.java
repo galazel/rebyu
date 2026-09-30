@@ -131,7 +131,19 @@ public final class InstitutionLearningStatsDtos {
             long learners,
             /** Share of attempts that passed, 0-100. */
             int passRate,
-            Integer averageScore) {}
+            Integer averageScore,
+            /* The mark this paper is passed at. Without it the average score
+               cannot be read: 39% is a near miss on a paper passed at 40 and
+               nowhere near one passed at 70, and the dashboard was drawing
+               both the same way. */
+            Integer passingScore,
+            long passedAttempts) {}
+
+    /** One programme's hardest papers, read against the course they belong to. */
+    public record CertificationAssessmentsDto(
+            Long certificationId,
+            String certificationTitle,
+            List<AssessmentOutcomeDto> assessments) {}
 
     /** One programme's weakest topics, so a head reads them against the course they belong to. */
     public record CertificationTopicsDto(
@@ -145,5 +157,6 @@ public final class InstitutionLearningStatsDtos {
             List<CertificationStatsDto> certifications,
             /** Weakest topics per certification -- a department teaches programmes, not one pool. */
             List<CertificationTopicsDto> hardestTopics,
-            List<AssessmentOutcomeDto> hardestAssessments) {}
+            /** Hardest papers per certification, grouped for the same reason. */
+            List<CertificationAssessmentsDto> hardestAssessments) {}
 }

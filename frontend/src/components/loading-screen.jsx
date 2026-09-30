@@ -143,7 +143,10 @@ export function LoadingScreen({ messages = MESSAGES, overlay = false, finishing 
 
   return (
     <div
-      className={`rebyu-ds rb-light-only isolate flex h-svh w-full items-center justify-center overflow-hidden bg-[#2a2118] px-4 transition-opacity ${
+      /* `rb-classroom-face` keeps the hand-drawn identity here. The rest of
+         the product moved to one typeface, and this screen is the exception
+         on purpose: it is the curtain before the app, not part of it. */
+      className={`rebyu-ds rb-light-only rb-classroom-face isolate flex h-svh w-full items-center justify-center overflow-hidden bg-[#2a2118] px-4 transition-opacity ${
         overlay ? "fixed inset-0 z-[300]" : "relative"
       } ${leaving ? "opacity-0" : "opacity-100"}`}
       style={{ transitionDuration: `${FADE_MS}ms` }}

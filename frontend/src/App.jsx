@@ -90,6 +90,9 @@ const ArenaDetail = lazyRoute(() => import("./pages/admin/arena-detail-page.jsx"
 const CertificationQuestionBank = lazyRoute(() => import("./pages/admin/certification-question-bank-page.jsx"))
 const CertificationPdfImport = lazyRoute(() => import("./pages/admin/certification-pdf-import-page.jsx"))
 const CertificationAssessments = lazyRoute(() => import("./pages/admin/certification-assessments-page.jsx"))
+const PricingManagement = lazyRoute(() => import("./pages/admin/pricing-management-page.jsx"))
+const RewardsManagement = lazyRoute(() => import("./pages/admin/rewards-management-page.jsx"))
+const SeedChallenges = lazyRoute(() => import("./pages/admin/seed-challenges-page.jsx"))
 const NotificationsPage = lazyRoute(() => import("./pages/notifications-page.jsx"))
 const NotFoundPage = lazyRoute(() => import("./pages/public/not-found-page.jsx"))
 const ForbiddenPage = lazyRoute(() => import("./pages/public/forbidden-page.jsx"))
@@ -344,6 +347,9 @@ export function App() {
                     <Route path="community" element={<CommunityModeration />} />
                     <Route path="reference-lists" element={<ReferenceLists />} />
                     <Route path="ai-settings" element={<AiSettings />} />
+                    <Route path="pricing" element={<PricingManagement />} />
+                    <Route path="rewards" element={<RewardsManagement />} />
+                    <Route path="seed-challenges" element={<SeedChallenges />} />
                     {/* BKT delivery status is withdrawn from the admin portal.
                         The page and its service still exist -- re-register this
                         route to bring it back. */}

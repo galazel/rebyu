@@ -436,83 +436,153 @@ const SheetPaper = memo(function SheetPaper({ paper, showName, onJump }) {
 
 /** What to upload and what happens next, shown before the first upload. */
 function ImportGuide() {
-    const steps = [
-        {
-            title: "Name the files after their exam",
-            body: "The question file ends in \"Questions\" and its key in \"Answer Key\", with the same exam title before it (see below). Any exam or school's reviewer works -- its layout does not matter.",
-        },
-        {
-            title: "Upload them all and check the pairs",
-            body: "Select every PDF at once. Files with the same title are paired and listed for you to check. A name that breaks the format, or a key with no question file, is shown as an error and must be fixed before you continue.",
-        },
-        {
-            title: "Wait until every file is read",
-            body: "Problems -- questions the key gives no answer for, a file that could not be read -- are listed once the last file is done.",
-        },
-        {
-            title: "Check the questions",
-            body: "Each paper is a section with its questions below it. Compare a question with the page it came from with Show original; click a choice to change the answer, and replace, remove or add images. Questions without an answer are skipped.",
-        },
-        {
-            title: "Choose how each question is saved",
-            body: "Multiple choice keeps the choices. Short answer and Descriptive make the learner type; the correct choice's text becomes the answer.",
-        },
-        {
-            title: "Tag with AI, then Preview & save",
-            body: "The AI sets each question's lesson and difficulty -- the closest lesson when none fits exactly. Duplicates of the bank or of each other are dropped. Nothing is saved until you confirm the preview.",
-        },
-    ]
+    const [showNaming, setShowNaming] = useState(false)
     return (
-        <div className="mb-4 rounded-2xl border bg-background p-5 shadow-sm">
-            <h2 className="text-base font-bold">How importing works</h2>
-            <ol className="mt-3 space-y-3">
-                {steps.map((step, index) => (
-                    <li key={step.title} className="flex gap-3">
-                        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                            {index + 1}
-                        </span>
-                        <div>
-                            <p className="text-sm font-semibold">{step.title}</p>
-                            <p className="text-sm text-muted-foreground">{step.body}</p>
-                        </div>
-                    </li>
+        <div className="mb-4 rounded-2xl border bg-background p-4 shadow-sm">
+            <h2 className="text-sm font-bold">How importing works</h2>
+            <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+                {[
+                    ["Upload PDFs", "Name them Title Questions.pdf and Title Answer Key.pdf."],
+                    ["Check pairs", "Files with the same title are paired automatically."],
+                    ["Review questions", "Compare with Show original. Click a choice to fix the answer."],
+                    ["Crop images", "Drag on the original or a figure to crop and assign to a choice."],
+                    ["Tag with AI", "AI sets each question’s lesson and difficulty. Duplicates are dropped."],
+                    ["Preview & save", "Nothing is saved until you confirm the preview."],
+                ].map(([title, body]) => (
+                    <p key={title} className="text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">{title}:</span> {body}
+                    </p>
                 ))}
-            </ol>
-
-            <div className="mt-4 rounded-xl border border-primary/30 bg-primary/5 p-3">
-                <p className="text-sm font-semibold">File names</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                    <span className="font-mono">&lt;Exam title&gt; Questions.pdf</span> and{" "}
-                    <span className="font-mono">&lt;Exam title&gt; Answer Key.pdf</span>. Spaces, _ or - may separate the words, and
-                    capitals do not matter. "Question", "Answers", "Answer" and "Key" are accepted too.
-                </p>
-                <div className="mt-2 overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                        <thead className="text-xs text-muted-foreground">
-                            <tr>
-                                <th className="py-1 pr-4 font-semibold">Questions</th>
-                                <th className="py-1 font-semibold">Its answer key</th>
-                            </tr>
-                        </thead>
-                        <tbody className="font-mono text-xs">
-                            {[
-                                ["Midterm Exam Questions.pdf", "Midterm Exam Answer Key.pdf"],
-                                ["Networking Reviewer Set 2 Questions.pdf", "Networking Reviewer Set 2 Answer Key.pdf"],
-                                ["2021S_IP_Question.pdf", "2021S_IP_Answer.pdf"],
-                            ].map(([paper, key]) => (
-                                <tr key={paper} className="border-t">
-                                    <td className="py-1 pr-4">{paper}</td>
-                                    <td className="py-1">{key}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                    A question file with no key is allowed when its answers are printed inside it.
-                </p>
             </div>
+            <button type="button" onClick={() => setShowNaming((o) => !o)} className="mt-2 text-xs font-semibold text-primary underline-offset-2 hover:underline">
+                {showNaming ? "Hide file naming guide" : "File naming guide"}
+            </button>
+            {showNaming ? (
+                <div className="mt-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
+                    <p className="text-xs text-muted-foreground">
+                        <span className="font-mono">&lt;Title&gt; Questions.pdf</span> and <span className="font-mono">&lt;Title&gt; Answer Key.pdf</span>. Spaces, _ or - work; capitals don&apos;t matter.
+                    </p>
+                    <div className="mt-1.5 overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                            <thead className="text-muted-foreground"><tr><th className="py-0.5 pr-4 font-semibold">Questions</th><th className="py-0.5 font-semibold">Answer key</th></tr></thead>
+                            <tbody className="font-mono">
+                                {[["Midterm Exam Questions.pdf", "Midterm Exam Answer Key.pdf"], ["2021S_IP_Question.pdf", "2021S_IP_Answer.pdf"]].map(([p, k]) => (
+                                    <tr key={p} className="border-t"><td className="py-0.5 pr-4">{p}</td><td className="py-0.5">{k}</td></tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">A file with no key is allowed when answers are printed inside it.</p>
+                </div>
+            ) : null}
         </div>
+    )
+}
+
+/** Crop a region from an image and assign it to a choice or figure. */
+function CropableImage({ src, alt, questionNum, choiceKeys, onCrop }) {
+    const containerRef = useRef(null)
+    const imgRef = useRef(null)
+    const [drag, setDrag] = useState(null)
+    const [sel, setSel] = useState(null)
+
+    function rel(e) {
+        const r = containerRef.current.getBoundingClientRect()
+        return {
+            x: Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)),
+            y: Math.max(0, Math.min(1, (e.clientY - r.top) / r.height)),
+        }
+    }
+    function onDown(e) {
+        if (e.button !== 0) return
+        setSel(null)
+        const p = rel(e)
+        setDrag({ x0: p.x, y0: p.y, x1: p.x, y1: p.y })
+        containerRef.current.setPointerCapture(e.pointerId)
+    }
+    function onMove(e) {
+        if (!drag) return
+        const p = rel(e)
+        setDrag((d) => ({ ...d, x1: p.x, y1: p.y }))
+    }
+    function onUp() {
+        if (!drag) return
+        const w = Math.abs(drag.x1 - drag.x0)
+        const h = Math.abs(drag.y1 - drag.y0)
+        if (w > 0.02 && h > 0.02) setSel({ x: Math.min(drag.x0, drag.x1), y: Math.min(drag.y0, drag.y1), w, h })
+        setDrag(null)
+    }
+    function assign(target) {
+        if (!sel || !imgRef.current) return
+        const img = imgRef.current
+        const canvas = document.createElement("canvas")
+        canvas.width = Math.round(sel.w * img.naturalWidth)
+        canvas.height = Math.round(sel.h * img.naturalHeight)
+        const ctx = canvas.getContext("2d")
+        ctx.fillStyle = "#fff"
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(
+            img,
+            Math.round(sel.x * img.naturalWidth), Math.round(sel.y * img.naturalHeight),
+            canvas.width, canvas.height,
+            0, 0, canvas.width, canvas.height,
+        )
+        onCrop(target, canvas)
+        setSel(null)
+    }
+
+    const box = drag ?? (sel && { x0: sel.x, y0: sel.y, x1: sel.x + sel.w, y1: sel.y + sel.h })
+    return (
+        <figure className="my-2 rounded-lg border bg-white p-2 text-center">
+            <div
+                ref={containerRef}
+                className="relative inline-block cursor-crosshair select-none"
+                onPointerDown={onDown}
+                onPointerMove={onMove}
+                onPointerUp={onUp}
+            >
+                <img ref={imgRef} src={src} alt={alt} className="block h-auto max-w-full" draggable={false} />
+                {box ? (
+                    <div
+                        className="pointer-events-none absolute border-2 border-primary bg-primary/15"
+                        style={{
+                            left: `${Math.min(box.x0, box.x1) * 100}%`,
+                            top: `${Math.min(box.y0, box.y1) * 100}%`,
+                            width: `${Math.abs(box.x1 - box.x0) * 100}%`,
+                            height: `${Math.abs(box.y1 - box.y0) * 100}%`,
+                        }}
+                    />
+                ) : null}
+                {sel ? (
+                    <div
+                        className="absolute z-10 flex flex-wrap items-center gap-1 rounded-lg border bg-background px-2 py-1.5 shadow-lg"
+                        style={{ left: `${sel.x * 100}%`, top: `${(sel.y + sel.h) * 100}%`, marginTop: 4 }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                    >
+                        <span className="text-xs font-semibold text-muted-foreground">Assign to</span>
+                        {choiceKeys.map((key) => (
+                            <button
+                                key={key}
+                                type="button"
+                                onClick={() => assign(key)}
+                                className="grid size-7 place-items-center rounded-full border-2 border-primary/60 text-xs font-bold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
+                            >
+                                {key}
+                            </button>
+                        ))}
+                        <button type="button" onClick={() => assign("figure")} className="rounded-md border px-2 py-0.5 text-xs font-semibold transition-colors hover:bg-muted">
+                            Figure
+                        </button>
+                        <button type="button" onClick={() => setSel(null)} aria-label="Cancel crop" className="grid size-6 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted">
+                            <X className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
+                ) : null}
+            </div>
+            {!sel && !drag ? (
+                <p className="mt-1 text-center text-[11px] text-muted-foreground">Drag to crop a region, then assign it to a choice or figure</p>
+            ) : null}
+        </figure>
     )
 }
 
@@ -689,9 +759,8 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
             )}
 
             {question.figureSrcs.map((src, index) => (
-                <figure key={`${index}-${src.length}`} className="group relative my-3 overflow-x-auto rounded-lg border bg-white p-2">
-                    <img src={src} alt={`Figure ${index + 1} for question ${question.num}`} className="mx-auto block h-auto max-w-full" />
-                    <div className="absolute right-2 top-2">
+                <div key={`${index}-${src.length}`} className="group relative my-3">
+                    <div className="absolute right-2 top-2 z-20">
                         <ImageTools
                             label={`figure ${index + 1}`}
                             onReplace={() =>
@@ -705,7 +774,20 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
                             onRemove={() => onFigures(question.num, question.figureSrcs.filter((_, i) => i !== index))}
                         />
                     </div>
-                </figure>
+                    <CropableImage
+                        src={src}
+                        alt={`Figure ${index + 1} for question ${question.num}`}
+                        questionNum={question.num}
+                        choiceKeys={question.options.map((o) => o.key)}
+                        onCrop={(target, canvas) => {
+                            if (target === "figure") {
+                                onFigures(question.num, [...question.figureSrcs, srcOf(canvas)])
+                            } else {
+                                onOptionImage(question.num, target, canvas)
+                            }
+                        }}
+                    />
+                </div>
             ))}
             <div className="mb-2">
                 <Button
@@ -824,9 +906,20 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
             {showOriginal ? (
                 <div className="mt-4 border-t border-dashed pt-3">
                     {question.snapSrcs.map((src, index) => (
-                        <figure key={index} className="my-2 overflow-x-auto rounded-lg border bg-white p-2">
-                            <img src={src} alt={`Question ${question.num} as printed`} className="mx-auto block h-auto max-w-full" />
-                        </figure>
+                        <CropableImage
+                            key={index}
+                            src={src}
+                            alt={`Question ${question.num} as printed`}
+                            questionNum={question.num}
+                            choiceKeys={question.options.map((o) => o.key)}
+                            onCrop={(target, canvas) => {
+                                if (target === "figure") {
+                                    onFigures(question.num, [...question.figureSrcs, srcOf(canvas)])
+                                } else {
+                                    onOptionImage(question.num, target, canvas)
+                                }
+                            }}
+                        />
                     ))}
                 </div>
             ) : null}
@@ -1511,19 +1604,17 @@ export default function CertificationPdfImportPage() {
                     updatePaper(value.paper.id, (p) => ({ saved: { ...p.saved, [value.question.num]: true } }))
                 } else {
                     const e = value.error
-                    errors.push(`${value.paper.name} Q${value.question.num}: ${e?.response?.data?.message || e?.message || "failed"}`)
+                    const raw = e?.response?.data?.message || e?.message || "failed"
+                    const dup = raw.match(/^(This lesson already asks this \(question \d+\))/)
+                    const short = dup ? dup[1] : raw.length > 150 ? raw.slice(0, 150) + "…" : raw
+                    errors.push(`${value.paper.name} Q${value.question.num}: ${short}`)
                 }
                 done += 1
             }
             setSaving({ done, saved, total: queue.length, errors: [...errors], skipped })
         }
         setSaving({ done, saved, total: queue.length, errors, skipped, finished: true })
-        if (!errors.length) {
-            clearDraft(certificationId)
-            toast.success(`Saved ${saved} question${saved === 1 ? "" : "s"} to the question bank.`)
-            setPreviewOpen(false)
-            navigate(`/admin/certification/${certificationId}/question-bank`)
-        }
+        clearDraft(certificationId)
     }
 
     const totalQuestions = papers.reduce((sum, p) => sum + p.questions.length, 0)
@@ -2047,23 +2138,27 @@ export default function CertificationPdfImportPage() {
 
             <Dialog open={previewOpen} onOpenChange={(open) => !(saving && !saving.finished) && setPreviewOpen(open)}>
                 <DialogContent className="max-h-[calc(100dvh-3rem)] overflow-y-auto sm:max-w-3xl">
-                    <DialogHeader>
-                        <DialogTitle>Preview before saving</DialogTitle>
-                        <DialogDescription>
-                            {ready.length} question{ready.length === 1 ? "" : "s"} will be saved to {certification?.title ?? "this certification"}.
-                            {blocked.length ? ` ${blocked.length} cannot be saved yet and will be left out.` : ""}
-                        </DialogDescription>
-                    </DialogHeader>
+                    {!saving?.finished ? (
+                        <>
+                            <DialogHeader>
+                                <DialogTitle>Preview before saving</DialogTitle>
+                                <DialogDescription>
+                                    {ready.length} question{ready.length === 1 ? "" : "s"} will be saved to {certification?.title ?? "this certification"}.
+                                    {blocked.length ? ` ${blocked.length} cannot be saved yet and will be left out.` : ""}
+                                </DialogDescription>
+                            </DialogHeader>
 
-                    {blocked.length ? (
-                        <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                            {blocked.map(({ question, paper: p }) => (
-                                <p key={`${p.id}-${question.num}`}>{p.name.replace(/\.pdf$/i, "")} Q{question.num}: {problemWith(question, p)}</p>
-                            ))}
-                        </div>
+                            {blocked.length ? (
+                                <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+                                    {blocked.map(({ question, paper: p }) => (
+                                        <p key={`${p.id}-${question.num}`}>{p.name.replace(/\.pdf$/i, "")} Q{question.num}: {problemWith(question, p)}</p>
+                                    ))}
+                                </div>
+                            ) : null}
+                        </>
                     ) : null}
 
-                    <div className="space-y-3">
+                    <div className={cn("space-y-3", saving?.finished && "hidden")}>
                         {ready.map(({ question, paper: p }) => {
                             const tag = p.tags[question.num]
                             const type = p.types[question.num] ?? "MCQ"
@@ -2102,38 +2197,81 @@ export default function CertificationPdfImportPage() {
                         })}
                     </div>
 
-                    {saving ? (
+                    {saving && !saving.finished ? (
                         <div className="rounded-xl border bg-muted/40 p-3 text-sm" aria-live="polite">
                             <div className="mb-2 h-1.5 overflow-hidden rounded-full bg-muted">
                                 <div className="h-full bg-primary transition-[width]" style={{ width: `${saving.total ? (saving.done / saving.total) * 100 : 100}%` }} />
                             </div>
                             {saving.checking
-                                ? "Checking the question bank for questions it already holds…"
-                                : saving.finished
-                                  ? `Saved ${saving.saved ?? 0} of ${saving.total}.`
-                                  : `Saving ${saving.done} of ${saving.total}…`}
-                            {saving.skipped ? (
-                                <p className="text-amber-700">
-                                    {saving.skipped} already in the question bank -- skipped, not saved twice. They are marked as duplicates on their cards.
-                                </p>
-                            ) : null}
-                            {saving.errors.map((error) => (
-                                <p key={error} className="text-destructive">{error}</p>
-                            ))}
+                                ? <p className="text-muted-foreground">Checking the question bank for questions it already holds…</p>
+                                : <p>Saving {saving.done} of {saving.total}…</p>}
                         </div>
                     ) : null}
 
-                    <DialogFooter>
-                        <Button type="button" variant="outline" disabled={Boolean(saving && !saving.finished)} onClick={() => setPreviewOpen(false)}>
-                            {saving?.finished ? "Close" : "Back to review"}
-                        </Button>
-                        {!saving?.finished ? (
+                    {saving?.finished ? (
+                        <div className="flex flex-col items-center gap-4 py-4" aria-live="polite">
+                            <div className={cn(
+                                "grid size-16 place-items-center rounded-full",
+                                (saving.saved ?? 0) > 0 ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600",
+                            )}>
+                                {(saving.saved ?? 0) > 0
+                                    ? <CheckCircle2 className="h-8 w-8" />
+                                    : <AlertTriangle className="h-8 w-8" />}
+                            </div>
+                            <div className="text-center">
+                                <p className="text-lg font-bold">
+                                    {(saving.saved ?? 0) > 0
+                                        ? `${saving.saved} question${saving.saved === 1 ? "" : "s"} saved`
+                                        : "No questions were saved"}
+                                </p>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    {(saving.saved ?? 0) > 0 ? `Added to ${certification?.title ?? "the question bank"}.` : "All questions were already in the bank or had errors."}
+                                </p>
+                            </div>
+                            {(saving.skipped || saving.errors.length) ? (
+                                <div className="w-full space-y-2 rounded-xl border bg-muted/30 p-3 text-sm">
+                                    {saving.skipped ? (
+                                        <p className="flex items-center gap-2 text-amber-700">
+                                            <AlertTriangle className="h-4 w-4 shrink-0" />
+                                            {saving.skipped} skipped — already in the question bank.
+                                        </p>
+                                    ) : null}
+                                    {saving.errors.length ? (
+                                        <ul className="space-y-1">
+                                            {saving.errors.map((error, i) => (
+                                                <li key={i} className="flex items-start gap-2 text-destructive">
+                                                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                                    <span>{error}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : null}
+                                </div>
+                            ) : null}
+                            <Button
+                                type="button"
+                                className="mt-2"
+                                onClick={() => {
+                                    setPreviewOpen(false)
+                                    navigate(`/admin/certification/${certificationId}/question-bank`)
+                                }}
+                            >
+                                Go to question bank
+                            </Button>
+                        </div>
+                    ) : null}
+
+                    {!saving?.finished ? (
+                        <DialogFooter>
+                            <Button type="button" variant="outline" disabled={Boolean(saving)} onClick={() => setPreviewOpen(false)}>
+                                Back to review
+                            </Button>
                             <Button type="button" disabled={!ready.length || Boolean(saving)} onClick={saveReady}>
                                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                 Save {ready.length} to question bank
                             </Button>
-                        ) : null}
-                    </DialogFooter>
+                        </DialogFooter>
+                    ) : null}
                 </DialogContent>
             </Dialog>
         </div>

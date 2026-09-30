@@ -327,27 +327,33 @@ export function hasSatDiagnostic({ diagnostic, examResults = [], certificationId
 export const PROFICIENT_RATING = 50
 
 /**
- * The learner's standing on one exam, read off their MOST RECENT sitting.
+ * The learner's standing on one exam, read off their BEST sitting.
  *   taken   -- sat at least once
- *   passed  -- the latest sitting passed the paper's mark (reported, not gated on)
- *   rating  -- the latest sitting's proficiency, or null when it measured none
+ *   passed  -- the best sitting passed the paper's mark (reported, not gated on)
+ *   rating  -- the best sitting's proficiency, or null when none measured one
  *   cleared -- reached Proficient: the gate the road reads
  *   reason  -- why it is not cleared, in the learner's terms; null when it is
  *
- * Latest, not best. This used to take the best sitting ever, so that a weak
- * retake never re-locked the road -- but then the quiz card said "your last
- * attempt: 37, reach 50 to continue" while the lesson stayed ticked and the
- * unit exam stayed open on the strength of an older sitting. What the card
- * reports is what the gate now reads: fail the retake and the road shuts
- * until it is cleared again.
+ * Best, not latest.
+ *
+ * This read the latest sitting between the two, on the argument that the quiz
+ * card reporting "your last attempt: 37" while the road stayed open was a
+ * contradiction. It was -- but the fix was to the card, not to the gate.
+ * Reading the latest meant a learner who cleared a quiz and then retook it to
+ * practise was locked out of a road they had already opened, which punishes
+ * exactly the behaviour the retake button invites.
+ *
+ * Progress is earned once. A weak retake is information about today, not a
+ * demotion. The card now names both sittings (see the quiz panel), so the two
+ * numbers explain each other instead of appearing to disagree.
  */
 export function examStanding(examResults, examId) {
-  const latest = latestSitting(examResults, examId)
-  if (!latest) {
+  const best = bestSitting(examResults, examId)
+  if (!best) {
     return { taken: false, passed: false, rating: null, cleared: false, reason: "not sat yet" }
   }
-  const passed = latest.passed
-  const rating = latest.rating == null || !Number.isFinite(latest.rating) ? null : latest.rating
+  const passed = best.passed
+  const rating = best.rating == null || !Number.isFinite(best.rating) ? null : best.rating
 
   if (rating == null) {
     // Nothing measured a level here, so the pass mark is the only verdict.
@@ -369,6 +375,44 @@ export function examStanding(examResults, examId) {
     }
   }
   return { taken: true, passed, rating, cleared: true, reason: null }
+}
+
+/**
+ * The learner's BEST sitting of one exam, or null.
+ *
+ * Ranked by what the road actually gates on: a measured proficiency first,
+ * and the pass flag only where nothing measured a level -- so a rated sitting
+ * always outranks an unrated one rather than losing to an old fixed paper
+ * that happened to be marked passed. Ties go to the later attempt, which is
+ * the more informative of two equal readings.
+ */
+export function bestSitting(examResults, examId) {
+  const rows = (examResults ?? []).filter((row) => idOf(row?.examId) === idOf(examId))
+  if (rows.length === 0) return null
+
+  const rank = (row) => {
+    const rating = row?.rating == null ? null : Number(row.rating)
+    if (rating != null && Number.isFinite(rating)) return [2, rating]
+    return [row?.isPassed === true || row?.passed === true ? 1 : 0, 0]
+  }
+
+  const winner = rows.reduce((best, row) => {
+    const [aTier, aValue] = rank(row)
+    const [bTier, bValue] = rank(best)
+    if (aTier !== bTier) return aTier > bTier ? row : best
+    if (aValue !== bValue) return aValue > bValue ? row : best
+    return Number(row?.attemptNo ?? 0) > Number(best?.attemptNo ?? 0) ? row : best
+  })
+
+  const rating = winner?.rating == null ? null : Number(winner.rating)
+  return {
+    attemptNo: winner?.attemptNo ?? null,
+    takenAt: winner?.takenAt ?? null,
+    score: winner?.score == null ? null : Number(winner.score),
+    rating,
+    label: proficiencyLabel(rating),
+    passed: winner?.isPassed === true || winner?.passed === true,
+  }
 }
 
 /** The proficiency tier a 0..100 rating falls in. Mirrors the result screen. */

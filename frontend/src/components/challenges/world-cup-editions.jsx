@@ -557,7 +557,7 @@ function EditionEditor({ arena, editionId, certificationName, onBack }) {
         queryClient.invalidateQueries({ queryKey: [CHALLENGE_ARENAS_KEY], exact: true }),
       ])
       toast.success(`${formatWeek(edition.weekStart)} is live`, {
-        description: `${allQuestions.length} questions across ${arena.stages.length} stages. The World Cup is open to learners.`,
+        description: `${allQuestions.length} questions across ${arena.stages.length} stages. The Champions Cup is open to learners.`,
       })
       onBack()
     })

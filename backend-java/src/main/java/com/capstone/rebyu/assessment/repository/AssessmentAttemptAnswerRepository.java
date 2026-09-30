@@ -82,6 +82,13 @@ public interface AssessmentAttemptAnswerRepository
      * failing, which is the difference between knowing there is a problem and
      * knowing what to teach again.
      *
+     * <p>Bounded by certification as well as by learner. Scoping on the people
+     * alone was not enough: the same learners sit papers on certifications
+     * their institution does not teach them -- their own enrolments -- and
+     * those answers came back as topics the department was failing. A
+     * department head was shown TOPCIT and FE topics for a cohort enrolled
+     * only on IT Passport.
+     *
      * <p>Learners are counted distinctly alongside the answers so a topic that
      * one person got wrong ten times is not read as a topic ten people
      * struggle with. Only graded answers count -- a pending manual mark is not
@@ -105,11 +112,16 @@ public interface AssessmentAttemptAnswerRepository
             JOIN major_categories j ON j.major_category_id = m.major_category_id
             JOIN certifications c ON c.certification_id = j.certification_id
             WHERE t.learner_id IN :learnerIds
+              AND j.certification_id IN :certificationIds
               AND t.submitted_at IS NOT NULL
+              AND t.submitted_at >= :from AND t.submitted_at <= :to
               AND a.is_correct IS NOT NULL
             GROUP BY q.lesson_id, l.name, m.title, j.certification_id, c.title
             HAVING count(*) >= :minAnswers
             """, nativeQuery = true)
     List<TopicDifficultyRow> topicDifficulty(@Param("learnerIds") Collection<Long> learnerIds,
-                                             @Param("minAnswers") long minAnswers);
+                                             @Param("certificationIds") Collection<Long> certificationIds,
+                                             @Param("minAnswers") long minAnswers,
+                                             @Param("from") java.time.LocalDateTime from,
+                                             @Param("to") java.time.LocalDateTime to);
 }

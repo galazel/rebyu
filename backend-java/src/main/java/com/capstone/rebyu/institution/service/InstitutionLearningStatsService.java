@@ -7,6 +7,7 @@ import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.enrollment.repository.InstitutionCertificationLearnerRepository;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.TopicDifficultyDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.CertificationTopicsDto;
+import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.CertificationAssessmentsDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.AssessmentOutcomeDto;
 import com.capstone.rebyu.assessment.repository.AssessmentAttemptAnswerRepository;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.CertificationStatsDto;
@@ -65,9 +66,79 @@ public class InstitutionLearningStatsService {
     private final com.capstone.rebyu.enrollment.repository.LearnerCertificationAwardRepository awardRepository;
     private final AssessmentAttemptAnswerRepository attemptAnswerRepository;
 
+    /**
+     * Where a window is not given, one wide enough to mean "all of it".
+     *
+     * Sentinels rather than nullable bounds in the queries: a JPQL
+     * `:from IS NULL OR ...` has to be type-inferred by Hibernate on every
+     * one of these, and getting it wrong fails at runtime on a dashboard
+     * rather than at compile time here.
+     */
+    private static final LocalDateTime ALL_TIME_START = LocalDateTime.of(1970, 1, 1, 0, 0);
+    private static final LocalDateTime ALL_TIME_END = LocalDateTime.of(9999, 12, 31, 23, 59, 59);
+
+    /** Every learner the institution has, for an owner or administrator. */
     public InstitutionLearningStatsDto learningStats(Long institutionId) {
+        return learningStats(institutionId, null, null, null);
+    }
+
+    /**
+     * The same statistics, narrowed to the departments the caller actually
+     * teaches.
+     *
+     * <p>A department head was being handed the whole institution: the roster,
+     * the weakest topics, the hardest papers and every certification the
+     * institution had ever bought seats on, including ones nobody in their
+     * department is sitting. That is both a tenant leak within the institution
+     * and unreadable -- a head cannot act on a programme they do not run.
+     *
+     * <p>Scoping happens once, on the assignment rows, because every figure
+     * below is derived from them. Certifications are then taken from the
+     * surviving assignments rather than from the institution's seat rows, so a
+     * programme appears here only if somebody in these departments is on it.
+     *
+     * @param departmentIds  null for the whole institution; an empty list
+     *                       means a head with no departments, who correctly
+     *                       sees nothing rather than everything
+     */
+    public InstitutionLearningStatsDto learningStats(
+            Long institutionId, Collection<Long> departmentIds, LocalDateTime from, LocalDateTime to) {
+
+        /* The window is read two ways, because the figures are two kinds of
+           thing.
+
+           Activity -- attempts sat, lessons finished, answers marked -- is
+           counted *within* [start, end]: it happened on a date.
+
+           Standing facts -- who is enrolled, who has passed -- are taken *as
+           of* `end`. Enrolment is not an event that stops counting when the
+           week turns over: someone enrolled last March is still enrolled this
+           week, and filtering them to the window would report an empty
+           department for every period but the one they signed up in. */
+        LocalDateTime start = from == null ? ALL_TIME_START : from;
+        LocalDateTime end = to == null ? ALL_TIME_END : to;
+
         List<InstitutionCertificationLearner> assignments =
                 institutionCertLearnerRepository.findByInstitutionCert_Institution_InstitutionId(institutionId);
+
+        if (departmentIds != null) {
+            if (departmentIds.isEmpty()) {
+                return new InstitutionLearningStatsDto(
+                        new LearningStatsSummaryDto(0, 0, 0, null, 0, 0, null, null, 0, 0),
+                        List.of(), List.of(), List.of(), List.of());
+            }
+            Set<Long> taught = Set.copyOf(
+                    groupAssigneeRepository.institutionCertLearnerIdsByDepartments(departmentIds));
+            assignments = assignments.stream()
+                    .filter(a -> taught.contains(a.getInstitutionCertLearnerId()))
+                    .toList();
+        }
+
+        /* Nobody who had not yet been enrolled. Without this, stepping back to
+           a month before the cohort existed still showed the cohort. */
+        assignments = assignments.stream()
+                .filter(a -> a.getAssignedAt() == null || !a.getAssignedAt().isAfter(end))
+                .toList();
 
         // Insertion-ordered so the roster is stable between reloads even before
         // the sort below, which makes diffing a dashboard by eye possible.
@@ -75,14 +146,16 @@ public class InstitutionLearningStatsService {
                 .map(assignment -> assignment.getLearner().getLearnerId())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        var institutionCerts = institutionCertRepository.findByInstitution_InstitutionId(institutionId);
+        var institutionCerts = departmentIds == null
+                ? institutionCertRepository.findByInstitution_InstitutionId(institutionId)
+                : seatRowsBehind(assignments);
         int seatsTotal = 0;
         int seatsUsed = 0;
         for (var institutionCert : institutionCerts) {
             seatsTotal += institutionCert.getTotalSlots() == null ? 0 : institutionCert.getTotalSlots();
             seatsUsed += institutionCert.getUsedSlots() == null ? 0 : institutionCert.getUsedSlots();
         }
-        List<CertificationStatsDto> certificationStats = certificationStats(institutionCerts, assignments);
+        List<CertificationStatsDto> certificationStats = certificationStats(institutionCerts, assignments, start, end);
 
         if (learnerIds.isEmpty()) {
             return new InstitutionLearningStatsDto(
@@ -94,11 +167,11 @@ public class InstitutionLearningStatsService {
         }
 
         Map<Long, LearnerAttemptStats> attemptStats = attemptRepository
-                .statsByLearnerIds(learnerIds, AssessmentAttempt.Status.SUBMITTED).stream()
+                .statsByLearnerIds(learnerIds, AssessmentAttempt.Status.SUBMITTED, start, end).stream()
                 .collect(Collectors.toMap(LearnerAttemptStats::getLearnerId, Function.identity()));
 
         Map<Long, Long> lessonsDone = completedLessonRepository
-                .lessonsCompletedByLearnerIds(learnerIds).stream()
+                .lessonsCompletedByLearnerIds(learnerIds, start, end).stream()
                 .collect(Collectors.toMap(LessonsDone::getLearnerId, LessonsDone::getLessonsCompleted));
 
         Map<Long, Learner> learnerById = learnerRepository.findByLearnerIdIn(learnerIds).stream()
@@ -126,12 +199,44 @@ public class InstitutionLearningStatsService {
                 .thenComparing(MemberLearningStatsDto::name,
                         Comparator.nullsLast(String::compareToIgnoreCase)));
 
+        /* The certifications these seat rows are for. Both difficulty lists are
+           bounded by it as well as by learner: the same people sit papers on
+           certifications nobody here teaches them -- their own enrolments --
+           and those answers were surfacing as topics "the department is
+           failing". A cohort on IT Passport alone was being shown TOPCIT and
+           FE. */
+        Set<Long> certificationIds = institutionCerts.stream()
+                .map(InstitutionCertificate::getCertification)
+                .filter(java.util.Objects::nonNull)
+                .map(certification -> certification.getCertificationId())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
         return new InstitutionLearningStatsDto(
                 summary(members, seatsTotal, seatsUsed),
                 members,
                 certificationStats,
-                hardestTopics(learnerIds),
-                hardestAssessments(learnerIds));
+                hardestTopics(learnerIds, certificationIds, start, end),
+                hardestAssessments(learnerIds, certificationIds, start, end));
+    }
+
+    /**
+     * The distinct seat blocks these assignments sit on, in a stable order.
+     *
+     * <p>A seat block with nobody from the caller's departments on it is not
+     * one of their programmes, so it never reaches the dashboard -- which is
+     * the difference between "we teach two certifications" and a list of every
+     * allocation the institution's finance office has ever signed.
+     */
+    private List<InstitutionCertificate> seatRowsBehind(
+            List<InstitutionCertificationLearner> assignments) {
+        Map<Long, InstitutionCertificate> byId = new LinkedHashMap<>();
+        for (InstitutionCertificationLearner assignment : assignments) {
+            InstitutionCertificate seatRow = assignment.getInstitutionCert();
+            if (seatRow != null) {
+                byId.putIfAbsent(seatRow.getInstitutionCertId(), seatRow);
+            }
+        }
+        return List.copyOf(byId.values());
     }
 
     /** Answers needed on a topic before the cohort's accuracy on it means anything. */
@@ -148,15 +253,17 @@ public class InstitutionLearningStatsService {
      * nothing about the cohort. The learner count travels with each row so a
      * topic one person struggled with is not read as a department-wide gap.
      */
-    private List<CertificationTopicsDto> hardestTopics(Collection<Long> learnerIds) {
-        if (learnerIds.isEmpty()) return List.of();
+    private List<CertificationTopicsDto> hardestTopics(
+            Collection<Long> learnerIds, Collection<Long> certificationIds,
+            LocalDateTime from, LocalDateTime to) {
+        if (learnerIds.isEmpty() || certificationIds.isEmpty()) return List.of();
 
         /* Grouped by programme rather than pooled. A department teaches
            courses, and "the weakest topics" pooled across all of them answers
            a question nobody asked: a head fixing the IT Passport syllabus
            cannot act on a list where three of the five rows are TOPCIT. */
         Map<Long, List<TopicDifficultyDto>> byCertification =
-                attemptAnswerRepository.topicDifficulty(learnerIds, MIN_TOPIC_ANSWERS).stream()
+                attemptAnswerRepository.topicDifficulty(learnerIds, certificationIds, MIN_TOPIC_ANSWERS, from, to).stream()
                         .filter(row -> row.getCertificationId() != null)
                         .map(row -> new TopicDifficultyDto(
                                 row.getLessonId(),
@@ -196,22 +303,56 @@ public class InstitutionLearningStatsService {
      * thing being measured: a paper everyone scrapes through at 76% is not a
      * problem, and one everyone fails at 74% is.
      */
-    private List<AssessmentOutcomeDto> hardestAssessments(Collection<Long> learnerIds) {
-        if (learnerIds.isEmpty()) return List.of();
-        return attemptRepository.examOutcomesByLearnerIds(learnerIds).stream()
-                .filter(row -> row.getAttempts() > 0)
-                .map(row -> new AssessmentOutcomeDto(
-                        row.getExamId(),
-                        row.getExamTitle(),
-                        row.getExamType(),
-                        row.getAttempts(),
-                        row.getLearners(),
-                        Math.round(100f * row.getPassedAttempts() / row.getAttempts()),
-                        row.getAverageScore() == null ? null
-                                : (int) Math.round(row.getAverageScore())))
-                .sorted(Comparator.comparingInt(AssessmentOutcomeDto::passRate)
-                        .thenComparing(Comparator.comparingLong(AssessmentOutcomeDto::attempts).reversed()))
-                .limit(DIFFICULTY_LIST_LIMIT)
+    private List<CertificationAssessmentsDto> hardestAssessments(
+            Collection<Long> learnerIds, Collection<Long> certificationIds,
+            LocalDateTime from, LocalDateTime to) {
+        if (learnerIds.isEmpty() || certificationIds.isEmpty()) return List.of();
+
+        /* Grouped by programme, like the topics above and for the same
+           reason: a head fixing one course cannot act on a ranking where the
+           worst papers belong to a different one, and the two lists sitting
+           side by side on the dashboard should be read the same way. */
+        record Outcome(Long certificationId, String certificationTitle, AssessmentOutcomeDto exam) {}
+
+        Map<Long, List<Outcome>> byCertification =
+                attemptRepository.examOutcomesByLearnerIds(learnerIds, certificationIds, from, to).stream()
+                        .filter(row -> row.getAttempts() > 0)
+                        .filter(row -> row.getCertificationId() != null)
+                        .map(row -> new Outcome(
+                                row.getCertificationId(),
+                                row.getCertificationTitle(),
+                                new AssessmentOutcomeDto(
+                                        row.getExamId(),
+                                        row.getExamTitle(),
+                                        row.getExamType(),
+                                        row.getAttempts(),
+                                        row.getLearners(),
+                                        Math.round(100f * row.getPassedAttempts() / row.getAttempts()),
+                                        row.getAverageScore() == null ? null
+                                                : (int) Math.round(row.getAverageScore()),
+                                        row.getPassingScore() == null ? null
+                                                : row.getPassingScore().setScale(0, RoundingMode.HALF_UP).intValue(),
+                                        row.getPassedAttempts())))
+                        .collect(Collectors.groupingBy(Outcome::certificationId,
+                                LinkedHashMap::new, Collectors.toList()));
+
+        return byCertification.values().stream()
+                .map(outcomes -> {
+                    List<AssessmentOutcomeDto> worst = outcomes.stream()
+                            .map(Outcome::exam)
+                            .sorted(Comparator.comparingInt(AssessmentOutcomeDto::passRate)
+                                    .thenComparing(Comparator.comparingLong(AssessmentOutcomeDto::attempts).reversed()))
+                            .limit(DIFFICULTY_LIST_LIMIT)
+                            .toList();
+                    return new CertificationAssessmentsDto(
+                            outcomes.get(0).certificationId(),
+                            outcomes.get(0).certificationTitle(),
+                            worst);
+                })
+                // The programme with the most papers in trouble goes first.
+                .sorted(Comparator.comparingInt((CertificationAssessmentsDto c) -> c.assessments().size()).reversed()
+                        .thenComparing(CertificationAssessmentsDto::certificationTitle,
+                                Comparator.nullsLast(String::compareToIgnoreCase)))
                 .toList();
     }
 
@@ -230,14 +371,15 @@ public class InstitutionLearningStatsService {
      */
     private List<CertificationStatsDto> certificationStats(
             List<InstitutionCertificate> institutionCerts,
-            List<InstitutionCertificationLearner> assignments) {
+            List<InstitutionCertificationLearner> assignments,
+            LocalDateTime from, LocalDateTime to) {
 
         Set<Long> rosterIds = assignments.stream()
                 .map(a -> a.getLearner().getLearnerId())
                 .collect(Collectors.toSet());
         Map<Long, AssessmentAttemptRepository.CertificationScoreRow> scoreByCertification =
                 rosterIds.isEmpty() ? Map.of()
-                        : attemptRepository.certificationScoresByLearnerIds(rosterIds).stream()
+                        : attemptRepository.certificationScoresByLearnerIds(rosterIds, from, to).stream()
                                 .filter(row -> row.getCertificationId() != null)
                                 .collect(Collectors.toMap(
                                         AssessmentAttemptRepository.CertificationScoreRow::getCertificationId,
@@ -258,6 +400,9 @@ public class InstitutionLearningStatsService {
                         .map(a -> a.getLearner().getLearnerId())
                         .collect(Collectors.toSet()))
                 .stream()
+                // As of the end of the period: a credential awarded in
+                // December is not a pass the department had in March.
+                .filter(award -> award.getCreatedAt() == null || !award.getCreatedAt().isAfter(to))
                 .map(award -> award.getLearnerId() + ":" + award.getCertificationId())
                 .collect(Collectors.toSet());
 
@@ -326,7 +471,27 @@ public class InstitutionLearningStatsService {
      * different situation from a group nobody has been assigned to.
      */
     public List<DepartmentProgressDto> groupProgress(Long institutionId) {
-        return groupAssigneeRepository.groupProgressByInstitution(institutionId).stream()
+        return groupProgress(institutionId, null, null);
+    }
+
+    /**
+     * The same rollup, narrowed to the departments the caller teaches.
+     *
+     * <p>Filtered here rather than in the browser: the page was fetching every
+     * department in the institution and dropping the ones it did not own,
+     * which means the names and figures of other people's departments were on
+     * the wire and in the cache whether or not they were drawn.
+     *
+     * @param departmentIds  null for the whole institution
+     */
+    public List<DepartmentProgressDto> groupProgress(
+            Long institutionId, Collection<Long> departmentIds, LocalDateTime asOf) {
+        Set<Long> mine = departmentIds == null ? null : Set.copyOf(departmentIds);
+        if (mine != null && mine.isEmpty()) return List.of();
+
+        return groupAssigneeRepository
+                .groupProgressByInstitution(institutionId, asOf == null ? ALL_TIME_END : asOf).stream()
+                .filter(row -> mine == null || mine.contains(row.getDepartmentId()))
                 .map(row -> new DepartmentProgressDto(
                         row.getDepartmentId(),
                         row.getDepartmentName(),

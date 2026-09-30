@@ -478,7 +478,21 @@ export default function LearnerCertificationsPage() {
               </div>
             </div>
 
-            {visibleCertifications.length === 0 ? (
+            {awardsQuery.isLoading ? (
+                <section className="grid grid-cols-1 items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="animate-pulse overflow-hidden rounded-2xl border-2 border-border">
+                      <div className="h-28 bg-muted/40" />
+                      <div className="space-y-3 p-5">
+                        <div className="h-4 w-3/4 rounded bg-muted/40" />
+                        <div className="h-3 w-full rounded bg-muted/30" />
+                        <div className="h-3 w-2/3 rounded bg-muted/30" />
+                        <div className="mt-2 h-10 w-full rounded-xl bg-muted/40" />
+                      </div>
+                    </div>
+                  ))}
+                </section>
+            ) : visibleCertifications.length === 0 ? (
                 <LearnerEmptyState
                     icon={Award}
                     title="No certifications found"

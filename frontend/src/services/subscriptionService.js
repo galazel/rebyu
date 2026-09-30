@@ -101,3 +101,48 @@ export function revokeSubscription(id) {
 export function getAdminPayments() {
   return base("admin/payments")
 }
+
+// Admin pricing management
+export function getAdminPlans() {
+  return base("admin/pricing/plans")
+}
+
+export function getAdminPlan(id) {
+  return base(`admin/pricing/plans/${id}`)
+}
+
+export function createAdminPlan(data) {
+  return base("admin/pricing/plans", { method: "POST", data })
+}
+
+export function updateAdminPlan(id, data) {
+  return base(`admin/pricing/plans/${id}`, { method: "PUT", data })
+}
+
+export function updatePlanEntitlements(planId, entitlements) {
+  return base(`admin/pricing/plans/${planId}/entitlements`, {
+    method: "PUT",
+    data: { entitlements },
+  })
+}
+
+export function deletePlanEntitlement(planId, code) {
+  return base(`admin/pricing/plans/${planId}/entitlements/${code}`, { method: "DELETE" })
+}
+
+export function getAdminPartnershipPricing() {
+  return base("admin/pricing/partnership")
+}
+
+export function updateAdminPartnershipPricing(pricePerSlot) {
+  return base("admin/pricing/partnership", { method: "PUT", data: { pricePerSlot } })
+}
+
+// Admin rewards management
+export function getAdminRewards() {
+  return base("admin/rewards")
+}
+
+export function updateAdminRewards(data) {
+  return base("admin/rewards", { method: "PUT", data })
+}

@@ -9,9 +9,11 @@ import {
   Brain,
   BookOpen,
   Check,
+  ClipboardListIcon,
   GripHorizontal,
   Loader2,
   Target,
+  TrendingUp,
   Trophy,
 } from "@/components/icons"
 
@@ -29,7 +31,7 @@ import {
   LearnerEmptyState,
   LearnerErrorState,
 } from "@/components/learner/learner-ui.jsx"
-import { LearnerStatusStrip } from "@/components/learner/learner-status-strip.jsx"
+import { PlayerCardTile } from "@/components/learner/player-card-tile.jsx"
 import { ExamCountdownTile } from "@/components/learner/exam-countdown-tile.jsx"
 import { StudyNotesTile } from "@/components/learner/study-notes-tile.jsx"
 import { TodaysPlanTile } from "@/components/learner/todays-plan-tile.jsx"
@@ -273,21 +275,17 @@ function NextUpTile({
 
   return (
     <BentoTile tone="macaw" col={4} row={2}>
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-bold text-rb-macaw-lip">
-          {done ? "all caught up" : awaitingAssessments ? "assessments left" : "study next"}
-        </p>
+      {/* Through the shared heading rather than its own markup: this tile
+          wrote its label by hand and so sat differently from the eight
+          around it. */}
+      <BentoHeading
+        icon={done ? Trophy : BookOpen}
+        kicker="Up Next"
+        title={done ? "all caught up" : awaitingAssessments ? "assessments left" : "study next"}
+        hint="The lesson to open now, and how far through the course you are."
+      />
 
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/60 text-rb-eel dark:bg-white/10 dark:text-rb-snow">
-          {done ? (
-            <Trophy className="size-4" aria-hidden="true" />
-          ) : (
-            <BookOpen className="size-4" aria-hidden="true" />
-          )}
-        </span>
-      </div>
-
-      <div className="mt-4 min-w-0">
+      <div className="min-w-0">
         <p className="truncate text-xs font-bold uppercase tracking-wide text-rb-macaw-lip">
           {certification?.title ?? "Certification"}
         </p>
@@ -384,7 +382,12 @@ function ReadinessTile({ readiness }) {
 
   return (
     <BentoTile col={2} row={2}>
-      <BentoHeading title="exam readiness" hint="Your estimated chance of passing." />
+      <BentoHeading
+        icon={Target}
+        kicker="Exam Outlook"
+        title="exam readiness"
+        hint="Your estimated chance of passing."
+      />
 
       {readiness === null ? (
         <div className="flex flex-1 flex-col items-center justify-center text-center">
@@ -1042,9 +1045,10 @@ export default function LearnerProgressPage() {
    * fall out of array order. A learner who arranges their own board still
    * overrides all of it; this is only the starting point.
    *
-   * Reading down the board: what to do next and how ready you are, then the
-   * desk (notes, countdown) beside the weakest topic, then mastery in full,
-   * then the two history charts side by side.
+   * Reading down the board: the learner's own run across the top, then what to
+   * do next and how ready you are, then the desk (notes, countdown) beside the
+   * weakest topic, then mastery in full, then the two history charts side by
+   * side.
    *
    * The ids are the contract with the saved layout, so renaming one drops a
    * learner's position for that tile (it falls back to the default spot)
@@ -1052,9 +1056,21 @@ export default function LearnerProgressPage() {
    */
   const dashboardTiles = [
     {
-      id: "next-up",
+      /* The board's top band, and the only tile on it that is about the
+         learner rather than the syllabus. It was two small counters in the
+         controls row, where it read as page furniture beside the picker and
+         the "Updating" spinner. */
+      id: "player-card",
       x: 0,
       y: 0,
+      col: 6,
+      row: 1,
+      element: <PlayerCardTile portalData={data} />,
+    },
+    {
+      id: "next-up",
+      x: 0,
+      y: 1,
       col: 3,
       row: 2,
       element: (
@@ -1079,7 +1095,7 @@ export default function LearnerProgressPage() {
       // same question, a number that can actually be explained.
       id: "exam-readiness",
       x: 3,
-      y: 0,
+      y: 1,
       col: 2,
       row: 2,
       element: (
@@ -1092,7 +1108,7 @@ export default function LearnerProgressPage() {
       // question, so moving it would be the surprise, not the change.
       id: "topic-mastery",
       x: 3,
-      y: 2,
+      y: 3,
       col: 3,
       row: 1,
       element: (
@@ -1209,7 +1225,7 @@ export default function LearnerProgressPage() {
     {
       id: "todays-plan",
       x: 5,
-      y: 0,
+      y: 1,
       col: 1,
       row: 2,
       // Handed the generator itself rather than a link back to this page: the
@@ -1226,7 +1242,7 @@ export default function LearnerProgressPage() {
       id: "exam-countdown",
       // A date and a number of days: one row is all it has to say.
       x: 2,
-      y: 2,
+      y: 3,
       col: 1,
       row: 1,
       element: (
@@ -1242,7 +1258,7 @@ export default function LearnerProgressPage() {
       // band -- which is what keeps this column's extra depth from opening a
       // hole across the rest of the board.
       x: 0,
-      y: 2,
+      y: 3,
       col: 2,
       row: 3,
       element: (
@@ -1255,12 +1271,14 @@ export default function LearnerProgressPage() {
       // verdicts under the lines, and squeezed into two rows the chart wins and
       // they get cut off.
       x: 0,
-      y: 5,
+      y: 6,
       col: 3,
       row: 3,
       element: (
         <BentoTile col={4} row={3}>
           <BentoHeading
+            icon={TrendingUp}
+            kicker="Progress Over Time"
             title="score across retakes"
             hint="Each assessment's attempts in order — a rising line is a score you moved."
             chip={
@@ -1364,31 +1382,38 @@ export default function LearnerProgressPage() {
       // beside it empty. It is a list rather than a chart, so the two rows are
       // there to stop it ending after the first topic.
       x: 2,
-      y: 3,
+      y: 4,
       col: 4,
       row: 2,
       element: (
         <BentoTile col={4} row={4} className="!p-0">
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex items-start justify-between gap-3 border-b border-border p-5 sm:p-6">
+            {/* The count rides in the heading's own action slot. Sat beside
+                the heading as a sibling it was laid out against the tile
+                rather than against the title, and on a narrow board it
+                landed on top of the words. */}
+            <div className="p-5 pb-0 sm:p-6 sm:pb-0">
               <BentoHeading
+                icon={Brain}
+                kicker="Topic Breakdown"
                 title="mastery by topic"
                 hint="Weakest first — every topic with enough answers behind it to score."
+                action={
+                  analytics?.unassessedTopicCount ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
+                          {analytics.unassessedTopicCount} not yet assessed
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        These topics have no answers behind them yet, so they carry no
+                        mastery estimate and are left out of this list.
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : null
+                }
               />
-
-              {analytics?.unassessedTopicCount ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-[11px] font-bold text-muted-foreground">
-                      {analytics.unassessedTopicCount} not yet assessed
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    These topics have no answers behind them yet, so they carry no
-                    mastery estimate and are left out of this list.
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
             </div>
 
             {rankedMastery.length === 0 ? (
@@ -1439,7 +1464,7 @@ export default function LearnerProgressPage() {
     {
       id: "assessment-history",
       x: 3,
-      y: 5,
+      y: 6,
       col: 3,
       row: 3,
       element: (
@@ -1447,6 +1472,8 @@ export default function LearnerProgressPage() {
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="border-b border-border p-5 sm:p-6">
               <BentoHeading
+                icon={ClipboardListIcon}
+                kicker="Your Record"
                 title="assessment history"
                 hint="Your latest attempt on each assessment — open the full run from here."
               />
@@ -1684,11 +1711,6 @@ export default function LearnerProgressPage() {
               Updating
             </span>
           ) : null}
-
-          {/* The learner's streak and XP counters, beside the certification
-              picker -- this board is the one page a learner reads
-              specifically to check their progress. */}
-          <LearnerStatusStrip portalData={data} className="ml-auto" />
 
           <Select
             value={selectedCertificationId}

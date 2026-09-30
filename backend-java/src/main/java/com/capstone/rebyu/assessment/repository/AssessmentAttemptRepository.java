@@ -112,11 +112,14 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
                    MAX(a.submittedAt) AS lastSubmittedAt
             FROM AssessmentAttempt a
             WHERE a.learnerId IN :learnerIds AND a.status = :status
+              AND a.submittedAt >= :from AND a.submittedAt <= :to
             GROUP BY a.learnerId
             """)
     List<LearnerAttemptStats> statsByLearnerIds(
             @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds,
-            @org.springframework.data.repository.query.Param("status") AssessmentAttempt.Status status);
+            @org.springframework.data.repository.query.Param("status") AssessmentAttempt.Status status,
+            @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
+            @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to);
 
     /** One certification across a roster: how it is being scored, not just finished. */
     interface CertificationScoreRow {
@@ -147,16 +150,22 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
             WHERE a.learnerId IN :learnerIds
               AND a.submittedAt IS NOT NULL
               AND a.percentage IS NOT NULL
+              AND a.submittedAt >= :from AND a.submittedAt <= :to
             GROUP BY a.exam.certification.certificationId
             """)
     List<CertificationScoreRow> certificationScoresByLearnerIds(
-            @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds);
+            @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds,
+            @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
+            @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to);
 
     /** One assessment across a roster: how often it was sat, passed, and at what score. */
     interface ExamOutcomeRow {
         Long getExamId();
         String getExamTitle();
         String getExamType();
+        Long getCertificationId();
+        String getCertificationTitle();
+        java.math.BigDecimal getPassingScore();
         long getAttempts();
         long getPassedAttempts();
         Double getAverageScore();
@@ -171,6 +180,11 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
      * point in the course or a badly built exam, and both are worth knowing;
      * neither is visible in an average.
      *
+     * <p>Bounded by certification as well as by learner, for the same reason
+     * as the topic query: these learners also sit papers on certifications
+     * the caller does not teach, and those are not the caller's hardest
+     * assessments.
+     *
      * <p>Distinct learners travel with the attempt count so a paper one person
      * sat five times is not mistaken for one five people struggled with.
      */
@@ -178,18 +192,28 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
             SELECT a.exam.examId AS examId,
                    a.exam.title AS examTitle,
                    a.exam.examType.examTypeText AS examType,
+                   a.exam.certification.certificationId AS certificationId,
+                   a.exam.certification.title AS certificationTitle,
+                   a.exam.passingScore AS passingScore,
                    COUNT(a) AS attempts,
                    SUM(CASE WHEN a.passed = true THEN 1 ELSE 0 END) AS passedAttempts,
                    AVG(a.percentage) AS averageScore,
                    COUNT(DISTINCT a.learnerId) AS learners
             FROM AssessmentAttempt a
             WHERE a.learnerId IN :learnerIds
+              AND a.exam.certification.certificationId IN :certificationIds
               AND a.submittedAt IS NOT NULL
               AND a.percentage IS NOT NULL
-            GROUP BY a.exam.examId, a.exam.title, a.exam.examType.examTypeText
+              AND a.submittedAt >= :from AND a.submittedAt <= :to
+            GROUP BY a.exam.examId, a.exam.title, a.exam.examType.examTypeText,
+                     a.exam.certification.certificationId, a.exam.certification.title,
+                     a.exam.passingScore
             """)
     List<ExamOutcomeRow> examOutcomesByLearnerIds(
-            @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds);
+            @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds,
+            @org.springframework.data.repository.query.Param("certificationIds") java.util.Collection<Long> certificationIds,
+            @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
+            @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to);
 
     /** One row per learner who has ever passed a mock exam on a certification. */
     interface LearnerMockExamResult {

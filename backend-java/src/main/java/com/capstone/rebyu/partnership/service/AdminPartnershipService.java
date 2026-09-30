@@ -531,7 +531,7 @@ public class AdminPartnershipService {
                         item.getSlots(),
                         item.getRequestedAccessStartDate(),
                         item.getRequestedAccessEndDate(),
-                        com.capstone.rebyu.billing.service.InstitutionInvoiceService.PRICE_PER_SLOT,
+                        com.capstone.rebyu.billing.service.InstitutionInvoiceService.getPricePerSlot(),
                         com.capstone.rebyu.billing.service.InstitutionInvoiceService.lineTotal(item.getSlots()),
                         held.get(item.getCertification().getCertificationId())))
                 .toList();
@@ -558,7 +558,7 @@ public class AdminPartnershipService {
                 items,
                 accountEmailed,
                 accountNote,
-                com.capstone.rebyu.billing.service.InstitutionInvoiceService.PRICE_PER_SLOT,
+                com.capstone.rebyu.billing.service.InstitutionInvoiceService.getPricePerSlot(),
                 com.capstone.rebyu.billing.service.InstitutionInvoiceService.CURRENCY,
                 total,
                 invoice != null ? invoice.institutionInvoiceId() : null,

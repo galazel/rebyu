@@ -76,7 +76,12 @@ export function ExamCountdownTile({ certificationId }) {
   return (
     // Half the band, beside the notes tile.
     <BentoTile col={3} row={2}>
-      <BentoHeading title="exam countdown" />
+      <BentoHeading
+        icon={CalendarDays}
+        kicker="Exam Day"
+        title="exam countdown"
+        hint="Days left against your plan's target date."
+      />
 
       {isLoading ? (
         <BentoSkeleton rows={1} />

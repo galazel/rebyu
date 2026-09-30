@@ -181,17 +181,59 @@ export function BentoStat({ tone = "plain", col = 2, row = 1, icon: Icon, label,
 }
 
 /** Section heading used inside a plain tile that holds a list or a chart. */
-export function BentoHeading({ title, hint, action, chip }) {
+/**
+ * One tile's header, and the only way a tile on a board should get one.
+ *
+ * <p>Takes the shape the institution and admin boards already use: an icon in
+ * a tinted square, a small kicker naming the kind of thing, the title, an
+ * optional line of help, and a rule under the lot. Tiles that wrote their own
+ * heading drifted -- some lowercase, some title case, some with a hint, some
+ * with an icon and some without -- and a board of nine cards that each
+ * introduce themselves differently reads as nine widgets rather than one
+ * page.
+ *
+ * <p>`icon` and `kicker` are optional so the older call sites keep working
+ * unchanged while they are converted.
+ */
+export function BentoHeading({ icon: Icon, kicker, title, hint, action, chip }) {
   return (
-    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="font-rb-display text-sm font-extrabold lowercase">{title}</h2>
-          {chip ?? null}
+    <div className="mb-3 flex items-start justify-between gap-2 border-b border-border/60 pb-2.5">
+      <div className="flex min-w-0 items-center gap-2">
+        {Icon ? (
+          <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-emerald-500/15 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
+            <Icon className="size-4" aria-hidden="true" />
+          </span>
+        ) : null}
+        <div className="min-w-0">
+          {/* An `h3`, matching the institution board's header exactly. As a
+              `p` it was picking up the body face while the same label over
+              there took the display one, so two headers built to the same
+              spec still did not look alike. */}
+          {kicker ? (
+            <h3 className="text-[10px] font-bold uppercase leading-tight tracking-wider text-emerald-700 dark:text-emerald-400">
+              {kicker}
+            </h3>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="truncate font-rb-display text-sm font-extrabold lowercase">{title}</h2>
+            {chip ?? null}
+          </div>
+          {/* Wraps rather than truncating. On a one-column tile the hints are
+              wider than the card, and an ellipsis there cut the sentence
+              mid-word ("Days left against your plan's tar…") -- which is
+              worse than a second line, because the second line costs nothing
+              and the clipped sentence costs the meaning. */}
+          {hint ? (
+            <p className="mt-0.5 text-[11px] font-medium leading-snug text-muted-foreground">
+              {hint}
+            </p>
+          ) : null}
         </div>
-        {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
       </div>
-      {action ?? null}
+      {/* `shrink-0`: the action is a control, and flex was letting it be
+          squeezed until "view calendar" read "view calend". The title beside
+          it truncates instead, which is the right one to give up. */}
+      {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   )
 }

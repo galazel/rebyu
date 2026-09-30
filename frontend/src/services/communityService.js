@@ -84,6 +84,8 @@ export const toggleCircleMembership = (id) => base(`community/circles/${id}/memb
 export const deleteCommunityCircle = (id) => base(`community/circles/${id}`, { method: "DELETE" })
 export const getCommunityComments = (id) => base(`community/posts/${id}/comments`)
 export const addCommunityComment = (id, body, parentCommentId = null) => base(`community/posts/${id}/comments`, { method: "POST", data: { body, parentCommentId } })
+export const deleteCommunityComment = (id, commentId) =>
+  base(`community/posts/${id}/comments/${commentId}`, { method: "DELETE" })
 export const deleteCommunityPost = (id) => base(`community/posts/${id}`, { method: "DELETE" })
 
 /** Uploads a real PDF/DOCX attachment; returns { attachmentKey }. Call before createCommunityPost. */

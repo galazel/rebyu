@@ -789,17 +789,23 @@ body.netacad-overlay-theme {
    [data-title]` — (0,2,0). Every rule in this block therefore leads with
    `:root` and keeps the toast in the selector, putting it at (0,3,0). Drop
    either half and sonner silently wins back border, weight and radius. */
+/* An ordinary toast: hairline border, soft elevation, no classroom lip.
+   The 2px border and flat drop-shadow were the chalkboard treatment, which
+   read as a sticker on top of the page rather than a notification -- and
+   sat oddly beside the institution and admin surfaces it also appears on. */
 :root [data-sonner-toast].netacad-toast {
     min-height: 0;
     align-items: center;
     gap: 10px;
     overflow: hidden;
-    border: 2px solid var(--border);
-    border-radius: var(--radius-rb-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     background: var(--popover);
     color: var(--foreground);
     padding: 14px 46px 14px 14px;
-    box-shadow: 0 var(--rb-lip) 0 var(--border);
+    box-shadow:
+        0 1px 2px rgb(18 49 38 / 0.06),
+        0 8px 24px -6px rgb(18 49 38 / 0.18);
 }
 
 :root [data-sonner-toast][data-styled="true"] .netacad-toast-content {
@@ -1916,9 +1922,14 @@ body.rb-attempt-lock {
    layout, so they are already inside `.institution-portal` and need no
    selector of their own.
 
-   The learner portal is deliberately left out: it keeps the classroom face
-   from rebyu-classroom.css, which is the one place the hand-drawn identity
-   still belongs.
+   The learner portal now takes the same face. It kept the hand-drawn
+   classroom type until 2026-09-29, and the result was that moving between a
+   learner screen and an institution one read as leaving one product for
+   another. One typeface across all three is what makes it one product.
+
+   The classroom identity itself stays -- the chalkboard, the paper sheets,
+   the ruled lines. Only the lettering changes, so the surfaces still look
+   like a classroom while the words look like REBYU.
    ========================================================================== */
 @font-face {
   font-family: "Champion Gothic Featherweight";
@@ -1932,8 +1943,18 @@ body.rb-attempt-lock {
   font-display: swap;
 }
 
-.institution-portal,
-.admin-portal {
+/* Defined on :root, not on the three portal classes.
+   Scoping the face to `.institution-portal, .admin-portal, .learner-portal`
+   only dressed what those elements contain -- and a lot of the interface is
+   not inside them. Sonner mounts its toaster at the top of the tree, and
+   every Radix overlay (dialog, tooltip, popover, select, dropdown) portals
+   its content to `document.body`. All of it sat outside the selector and
+   kept the old classroom face, so the page was one typeface and everything
+   that opened on top of it was another.
+
+   Now that all three portals take the same face there is nothing left for
+   the scoping to express, and at the root it reaches the overlays too. */
+:root {
   --font-institution-display: "Champion Gothic Featherweight", "Champion Gothic", "ChampionGothic-Featherweight", "Antonio", "Bebas Neue", "Oswald", sans-serif;
   --font-institution-body: "Poppins", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
@@ -1942,29 +1963,176 @@ body.rb-attempt-lock {
   --font-display: var(--font-institution-display);
   --font-body: var(--font-institution-body);
   --font-heading: var(--font-institution-display);
+  --font-sans: var(--font-institution-body);
 
+  /* The chalkboard lettering reads its own token; pointed at the same face so
+     the board stays a board without the handwriting. */
+  --rb-chalk-font: var(--font-institution-display);
+}
+
+body {
   font-family: var(--font-institution-body);
 }
 
-/* Headings, KPI metrics, titles, and display elements */
-:is(.institution-portal, .admin-portal) :is(h1, h2, h3, h4, h5, h6),
-:is(.institution-portal, .admin-portal) .font-rb-display,
-:is(.institution-portal, .admin-portal) .font-display,
-:is(.institution-portal, .admin-portal) .font-heading,
-:is(.institution-portal, .admin-portal) .rb-display {
+/* Headings, KPI metrics, titles, and display elements.
+   Unscoped for the same reason as the tokens: a dialog title is an `h2` that
+   lives in `document.body`, not inside a portal wrapper. */
+:is(h1, h2, h3, h4, h5, h6),
+.font-rb-display,
+.font-display,
+.font-heading,
+.rb-display {
   font-family: var(--font-institution-display) !important;
   text-transform: none;
   letter-spacing: 0.02em;
 }
 
 /* All body copy, controls, buttons, tables, badges, descriptions */
-.institution-portal,
-.admin-portal,
-:is(.institution-portal, .admin-portal) :is(p, button, a, input, select, textarea, label, table, th, td, tr),
-:is(.institution-portal, .admin-portal) span:not(.font-rb-display):not(.font-display):not(.font-heading),
-:is(.institution-portal, .admin-portal) .font-rb-body,
-:is(.institution-portal, .admin-portal) .font-body {
+:is(p, button, a, input, select, textarea, label, table, th, td, tr),
+span:not(.font-rb-display):not(.font-display):not(.font-heading),
+.font-rb-body,
+.font-body {
   font-family: var(--font-institution-body);
+}
+
+/* `.rb-chalk` and `.rb-chalk-label` set `font-family` from the chalk token
+   directly, and `.rb-graded-heading` is the paper-sheet heading. Named rather
+   than left to the token swap above so a later edit to either file cannot
+   quietly put the handwriting back on one surface and not the others.
+   `font-synthesis: weight` is restored because `.rb-chalk` turns it off --
+   the chalk face has one weight, this one has the full range. */
+:is(.rb-chalk, .rb-chalk-label, .rb-graded-heading) {
+  font-family: var(--font-institution-display) !important;
+  font-synthesis: weight;
+}
+
+/* Except on an actual chalkboard, which is the rule the classroom layer
+   states at the top of its own file: chalk "only where a chalkboard is behind
+   the words". Champion Gothic on a green board reads as a sign screwed to it
+   rather than as something written on it, and the board is the one surface
+   where the handwriting is the point.
+
+   The token is redefined here as well as the rule, because `:root` now points
+   `--rb-chalk-font` at the display face for everywhere that is not a board. */
+/* "REBYU Chalk" (`/fonts/chalkboard.woff2`) leads, and nothing is allowed to
+   push it back. It is the real chalk face -- the blocky outlined one that has
+   always been on the board -- and it is the identity of the page, not a
+   fallback. Caveat and Patrick Hand sit behind it only in case the file ever
+   fails to load. */
+.rb-chalkboard {
+  --rb-chalk-font: "REBYU Chalk", "Caveat", "Patrick Hand", cursive;
+}
+
+/* Paper and notepads: pencil.
+   Scoped to the props that are DRAWN as paper -- the notebook sheet, graded
+   papers, paper and sticky notes -- and deliberately not to
+   `.netacad-portal [data-slot="card"]`, which is every ordinary dashboard
+   tile. Those are cards carrying a faint rule, not sheets of paper, and
+   handwriting on them would undo the single typeface the portals were
+   just given. */
+:is(.rb-notebook, .rb-paper-note, .rb-graded-sheet, .rb-graded-item, .rb-sticky, .rb-folder-sheet, .rb-loading-note)
+  :is(h1, h2, h3, h4, h5, h6, .rb-graded-heading, .font-rb-display),
+:is(.rb-paper-note, .rb-sticky, .rb-loading-note) {
+  font-family: "Patrick Hand", ui-rounded, system-ui, sans-serif !important;
+  font-synthesis: weight;
+  letter-spacing: 0;
+}
+
+/* The `*` arm is the whole reason a board ever looked printed. `WordReveal`
+   and `Typewriter` split their line into one `<span>` per word, and the
+   sweep's generic `span` rule below sets a font-family directly on those
+   spans. A declaration on the child beats an inherited one from the parent
+   no matter how the parent won -- `!important` on the `h1` never reaches
+   text the `h1` does not directly contain. So the chalk has to be handed to
+   the descendants too, not just to the heading. */
+.rb-chalkboard :is(.rb-chalk, .rb-chalk-label),
+.rb-chalkboard :is(h1, h2, h3, h4, h5, h6),
+.rb-chalkboard :is(.rb-chalk, .rb-chalk-label, h1, h2, h3, h4, h5, h6) * {
+  font-family: var(--rb-chalk-font) !important;
+  font-synthesis: none;
+  letter-spacing: 0.01em;
+}
+
+/* ==========================================================================
+   THE TWO PLACES THAT KEEP THE CLASSROOM
+   --------------------------------------------------------------------------
+   The landing page and the loading screen are not the product -- they are the
+   window onto it and the curtain in front of it. The hand-drawn identity is
+   the point of both, so the sweep above is undone here and only here.
+
+   Last in the file, and `!important` against `!important`: the global rules
+   above carry it, and an exception that cannot outrank the thing it is an
+   exception to is just a comment.
+   ========================================================================== */
+:is(.rb-classroom-landing, .rb-classroom-face) {
+  --font-rb-display: "Patrick Hand", "Nunito Sans", ui-rounded, system-ui, sans-serif;
+  --font-rb-body: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-rb-display);
+  --font-heading: var(--font-rb-display);
+  --font-body: var(--font-rb-body);
+  --rb-chalk-font: "REBYU Chalk", "Caveat", "Patrick Hand", cursive;
+
+  font-family: var(--font-rb-body);
+}
+
+:is(.rb-classroom-landing, .rb-classroom-face) :is(h1, h2, h3, h4, h5, h6),
+:is(.rb-classroom-landing, .rb-classroom-face) :is(.font-rb-display, .font-display, .font-heading, .rb-display) {
+  font-family: var(--font-rb-display) !important;
+  letter-spacing: 0;
+}
+
+:is(.rb-classroom-landing, .rb-classroom-face) :is(p, button, a, span, label, li) {
+  font-family: var(--font-rb-body);
+}
+
+/* The chalk surfaces go back to chalk, and `.rb-chalk` gets its single-weight
+   synthesis rule back with them. */
+:is(.rb-classroom-landing, .rb-classroom-face) :is(.rb-chalk, .rb-chalk-label),
+:is(.rb-classroom-landing, .rb-classroom-face) :is(.rb-chalk, .rb-chalk-label) *,
+:is(.rb-classroom-landing, .rb-classroom-face) .rb-chalkboard :is(h1, h2, h3, h4, h5, h6),
+:is(.rb-classroom-landing, .rb-classroom-face) .rb-chalkboard :is(h1, h2, h3, h4, h5, h6) * {
+  font-family: var(--rb-chalk-font) !important;
+  font-synthesis: none;
+}
+
+/* The portal page label ("your progress board") becomes the plain kicker the
+   institution and admin boards use.
+   Scoped to `.netacad-portal` on purpose. The bookmark rule in
+   rebyu-classroom.css is left exactly as it was, so the landing page's
+   `.rb-book-tag` and the loading screen's label keep the cream strip, the
+   punched hole, the tilt and the tassel -- none of which this selector can
+   reach. */
+.netacad-portal .rb-chalk-label {
+  margin-left: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--color-rb-feather-lip, #245440);
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transform: none;
+}
+
+.netacad-portal .rb-chalk-label::before {
+  content: none;
+}
+
+/* The paper tag a skeleton wears, wherever it appears. */
+.rb-loading-note {
+  font-family: "Patrick Hand", "Nunito Sans", ui-rounded, system-ui, sans-serif !important;
+}
+
+/* The wordmark is the brand and takes the product face everywhere -- landing
+   header, landing footer, and the portals -- regardless of the surface it
+   sits on. Last in the file so it outranks the landing's handwriting
+   exception, which was otherwise sweeping the logo up with the headlines. */
+.rb-wordmark {
+  font-family: var(--font-institution-display) !important;
+  letter-spacing: 0.02em;
 }
 
 

@@ -44,8 +44,11 @@ public interface LearnerCompletedLessonRepository extends JpaRepository<LearnerC
             SELECT l.learner.learnerId AS learnerId, COUNT(l) AS lessonsCompleted
             FROM LearnerCompletedLesson l
             WHERE l.learner.learnerId IN :learnerIds
+              AND l.completedAt >= :from AND l.completedAt <= :to
             GROUP BY l.learner.learnerId
             """)
     List<LessonsDone> lessonsCompletedByLearnerIds(
-            @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds);
+            @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds,
+            @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
+            @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to);
 }

@@ -25,6 +25,7 @@ import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { XpRankingsPanel } from "@/components/learner/xp-rankings-panel.jsx"
 import { FREE_ARENA_PROBLEM_LIMIT } from "@/services/subscriptionService.js"
 import { getWorldCupTracks } from "@/lib/arenas.js"
+import { getMyRewards } from "@/services/learnerService.js"
 
 /* The three IT Olympics arenas, and only those three.
 
@@ -59,7 +60,7 @@ const CHALLENGES = [
   },
   {
     id: "worldcup",
-    title: "World Cup",
+    title: "Champions Cup",
     role: "Exam readiness",
     format: "8-player bracket",
     description:
@@ -125,6 +126,18 @@ export default function LearnerChallengesPage() {
     return map
   }, [arenaQuery.data])
 
+  /* Lifetime XP, which is what an arena's entry requirement is measured in.
+     Read here so the card can say how far short the learner is rather than
+     only that they cannot come in -- "earn 320 more XP" is a next step, "you
+     may not enter" is a wall. The server checks it again when a run starts;
+     this is the courtesy, not the lock. */
+  const rewardsQuery = useQuery({
+    queryKey: ["learner-rewards"],
+    queryFn: getMyRewards,
+    staleTime: 60_000,
+  })
+  const myXp = Number(rewardsQuery.data?.totalXp ?? 0)
+
   const challenges = useMemo(
     () =>
       CHALLENGES.map((challenge) => {
@@ -142,6 +155,12 @@ export default function LearnerChallengesPage() {
         const proLocked = isFree && challenge.id === "worldcup"
         const freeCapped = isFree && challenge.id !== "worldcup"
 
+        /* The arena's XP door. Unknown counts as open, the same way an
+           unknown configuration does: a lookup still in flight must not read
+           as a locked arena. */
+        const entryXp = Number(arena?.settings?.entryXp ?? 0)
+        const xpShortfall = known && entryXp > 0 ? Math.max(0, entryXp - myXp) : 0
+
         return {
           ...challenge,
           ...(challenge.needsEnrollment ? { tracks: worldCupTracks } : null),
@@ -151,10 +170,12 @@ export default function LearnerChallengesPage() {
           paused: known && arena?.live === false,
           proLocked,
           freeCapped,
-          available: ready && enrolled && !proLocked,
+          entryXp,
+          xpShortfall,
+          available: ready && enrolled && !proLocked && xpShortfall === 0,
         }
       }),
-    [worldCupTracks, configuredArenas, arenaQuery.isSuccess, isFree],
+    [worldCupTracks, configuredArenas, arenaQuery.isSuccess, isFree, myXp],
   )
 
   const leaderboardQuery = useQuery({
@@ -183,6 +204,15 @@ export default function LearnerChallengesPage() {
       navigate(challenge.route)
       return
     }
+    /* Short of the entry requirement: the one closure the learner can do
+       something about today, so it is answered with the number they need
+       rather than a refusal. */
+    if (challenge.xpShortfall > 0) {
+      toast.info(`${challenge.title} opens at ${challenge.entryXp.toLocaleString()} XP`, {
+        description: `You have ${myXp.toLocaleString()} XP — earn ${challenge.xpShortfall.toLocaleString()} more from lessons, practice and assessments to unlock this arena.`,
+      })
+      return
+    }
     /* Two reasons an arena can be shut, and they need different answers: one
        is on the learner to fix, the other is not theirs at all. */
     if (challenge.unconfigured) {
@@ -195,7 +225,7 @@ export default function LearnerChallengesPage() {
     }
     toast.info("Enrol in a certification first", {
       description:
-        "The World Cup bracket runs on one certification's question bank. Enrol in a certification to unlock it.",
+        "The Champions Cup bracket runs on one certification's question bank. Enrol in a certification to unlock it.",
     })
   }
 
@@ -206,9 +236,11 @@ export default function LearnerChallengesPage() {
         ? challenge.freeCapped
           ? `free · ${FREE_ARENA_PROBLEM_LIMIT} problems`
           : "ready"
-        : challenge.unconfigured
-          ? "not open yet"
-          : "enrol to unlock"
+        : challenge.xpShortfall > 0
+          ? `${challenge.entryXp.toLocaleString()} xp to enter`
+          : challenge.unconfigured
+            ? "not open yet"
+            : "enrol to unlock"
 
   return (
     <>
@@ -244,7 +276,24 @@ export default function LearnerChallengesPage() {
         </header>
 
         <section aria-label="Arenas" className="grid gap-5 md:grid-cols-3">
-            {challenges.map((challenge) => {
+            {arenaQuery.isLoading ? [1, 2, 3].map(i => (
+              <div key={i} className="flex animate-pulse flex-col rounded-2xl border-2 border-rb-swan bg-white p-5 sm:p-6">
+                <div className="flex items-start justify-between">
+                  <div className="size-14 rounded-2xl bg-rb-polar" />
+                  <div className="h-6 w-24 rounded-full bg-rb-polar" />
+                </div>
+                <div className="mt-5 space-y-2">
+                  <div className="h-3 w-20 rounded bg-rb-polar" />
+                  <div className="h-7 w-40 rounded bg-rb-polar" />
+                  <div className="h-4 w-full rounded bg-rb-polar" />
+                  <div className="h-4 w-3/4 rounded bg-rb-polar" />
+                </div>
+                <div className="mt-3 h-4 w-32 rounded bg-rb-polar" />
+                <div className="mt-auto pt-5">
+                  <div className="h-11 w-full rounded-xl bg-rb-polar" />
+                </div>
+              </div>
+            )) : challenges.map((challenge) => {
               const Icon = challenge.icon
               const open = challenge.available
               return (
@@ -315,6 +364,33 @@ export default function LearnerChallengesPage() {
                     </div>
                   ) : null}
 
+                  {/* The door, on the card. A learner should be able to see
+                      what an arena costs and how close they are without
+                      pressing a button that refuses them. */}
+                  {challenge.xpShortfall > 0 ? (
+                    <div className="mt-3 rounded-xl bg-rb-bee-wash px-3 py-2">
+                      <p className="text-xs font-bold text-rb-eel">
+                        Opens at {challenge.entryXp.toLocaleString()} XP
+                      </p>
+                      <p className="mt-0.5 text-xs text-rb-wolf">
+                        You have {myXp.toLocaleString()} — {challenge.xpShortfall.toLocaleString()} to go
+                      </p>
+                      <div
+                        className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/70"
+                        role="progressbar"
+                        aria-valuenow={Math.min(100, Math.round((myXp / challenge.entryXp) * 100))}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-label={`${challenge.title} entry progress`}
+                      >
+                        <div
+                          className="h-full rounded-full bg-rb-bee-ink"
+                          style={{ width: `${Math.min(100, (myXp / challenge.entryXp) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="mt-auto pt-5">
                     <TactileButton
                       variant={open || challenge.proLocked ? "feather" : "ghost"}
@@ -326,7 +402,9 @@ export default function LearnerChallengesPage() {
                         ? "upgrade to pro"
                         : open
                           ? "start challenge"
-                          : "how to unlock"}
+                          : challenge.xpShortfall > 0
+                            ? "keep earning xp"
+                            : "how to unlock"}
                       <ChevronRight className="size-4" aria-hidden="true" />
                     </TactileButton>
                   </div>

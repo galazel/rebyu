@@ -47,6 +47,16 @@ import {
 /** How often the clock is checked. A minute's granularity, checked twice. */
 const TICK_MS = 30_000
 
+/**
+ * Quiet time after a session is settled before another may open by itself.
+ *
+ * Long enough that finishing one task does not immediately summon the next,
+ * short enough that a genuine evening of study still runs. Anything still due
+ * stays on Today's plan and can be started from there at once -- this only
+ * governs what opens over the page uninvited.
+ */
+const SESSION_COOLDOWN_MS = 10 * 60_000
+
 const ACTIVITY_TITLES = {
   "pomodoro": "Pomodoro session",
   "active-recall": "Active recall",
@@ -80,6 +90,14 @@ export function StudyActivityHost() {
   const firedRef = useRef(new Set())
 
   const [now, setNow] = useState(() => new Date())
+
+  /* When the last session was settled, so the next one does not open on top
+     of it. A learner coming back after a few days has every task of those
+     days due at once, and the host was working through the whole backlog a
+     modal at a time -- four fired inside seventy seconds in one recorded
+     evening, which reads as the app nagging rather than as a study plan. One
+     session at a time, and the rest wait on Today's plan. */
+  const [settledAt, setSettledAt] = useState(null)
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), TICK_MS)
@@ -119,6 +137,7 @@ export function StudyActivityHost() {
        Pomodoro is running -- the learner is already studying, and its timer
        is showing. */
     if (!statusesQuery.isSuccess || pomodoro) return null
+    if (settledAt != null && Date.now() - settledAt < SESSION_COOLDOWN_MS) return null
 
     const candidates = []
 
@@ -155,7 +174,7 @@ export function StudyActivityHost() {
 
     candidates.sort((a, b) => String(a.event.at).localeCompare(String(b.event.at)))
     return candidates[0] ?? null
-  }, [plansQuery.data, statusesQuery.isSuccess, statusByTask, pomodoro, now])
+  }, [plansQuery.data, statusesQuery.isSuccess, statusByTask, pomodoro, now, settledAt])
 
   useEffect(() => {
     if (activeTask || !dueTask) return
@@ -169,21 +188,39 @@ export function StudyActivityHost() {
     })
     // `statusMutation` deliberately absent: it is recreated every render, and
     // depending on it would re-run this the instant a task opens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [activeTask, dueTask])
 
+  /* Awaited, not fired and forgotten.
+     `/learner/assessments/:examId` is routed OUTSIDE the learner layout this
+     host is mounted in, so starting a recall unmounts the host in the same
+     tick the status write is issued -- and the COMPLETED write was being lost
+     on the way out. Every recall task in the database was still sitting at
+     IN_PROGRESS, however many times the learner had actually sat one. The
+     caller waits for the write, then navigates. */
   const finishTask = useCallback(
-    (status) => {
+    async (status) => {
       const task = activeTask
       setActiveTask(null)
       if (!task) return
 
       // IN_PROGRESS is left as it is on a dismissal: the session was started
       // and not finished, which is exactly what the record should say.
-      if (status) {
-        statusMutation.mutate({ planId: task.planId, eventId: task.event.id, status })
+      if (!status) return
+
+      setSettledAt(Date.now())
+      try {
+        await statusMutation.mutateAsync({
+          planId: task.planId,
+          eventId: task.event.id,
+          status,
+        })
+      } catch {
+        // Already reported by the mutation's own onError. Swallowed here so a
+        // failed write cannot strand the learner on a dialog that will not
+        // close -- the task simply stays outstanding, which is the truth.
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+       
     },
     [activeTask]
   )

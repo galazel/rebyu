@@ -21,6 +21,7 @@ import {
     Send,
     Share2,
     Sparkles,
+    Trash2,
     UsersRound,
     X,
 } from "@/components/icons"
@@ -60,6 +61,7 @@ import { getAllCertifications } from "@/services/certificationService"
 import { getLibraryItems } from "@/services/learnerToolsService"
 import {
     addCommunityComment,
+    deleteCommunityComment,
     applyPostCounts,
     createCommunityCircle,
     createCommunityPost,
@@ -511,6 +513,7 @@ function CommunityPost({
                            draft,
                            onDraftChange,
                            onSubmitComment,
+                           onDeleteComment,
                        }) {
     const linkedCircle = post.circleId
         ? circles.find((circle) => circle.circleId === post.circleId)
@@ -759,7 +762,7 @@ function CommunityPost({
                            off the screen. */
                         <div className="max-h-60 space-y-1.5 overflow-y-auto pr-1">
                             {threadComments.map((comment) => (
-                                <div key={comment.commentId} className="flex gap-2">
+                                <div key={comment.commentId} className="group/comment flex items-start gap-2">
                                     <CommunityAvatar
                                         initials={comment.initials}
                                         tone={avatarTone(comment.authorName ?? "")}
@@ -771,6 +774,22 @@ function CommunityPost({
                                             {comment.body}
                                         </p>
                                     </div>
+                                    {/* Yours to remove, or yours because the post is.
+                                        Kept quiet until the row is hovered or the
+                                        button is focused, so a thread does not read
+                                        as a column of delete buttons -- but it is a
+                                        real button in the tab order, not a
+                                        hover-only affordance. */}
+                                    {comment.ownedByMe || post.ownedByMe ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => onDeleteComment(post.postId, comment.commentId)}
+                                            aria-label={`Delete comment by ${comment.authorName}`}
+                                            className="mt-1 shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-destructive group-hover/comment:opacity-100"
+                                        >
+                                            <Trash2 className="size-3.5" aria-hidden="true" />
+                                        </button>
+                                    ) : null}
                                 </div>
                             ))}
 
@@ -1354,6 +1373,50 @@ export default function Community() {
         }
     }
 
+    /**
+     * Removes a comment from the thread, and from the post's count.
+     *
+     * <p>Optimistic, with the rows put back if the server refuses: a comment
+     * is small and the thread is already on screen, so waiting on a round
+     * trip to see your own deletion is the slower lie. Replies go with it,
+     * because that is what the server does -- showing them hang on until the
+     * next reload would disagree with what actually happened.
+     */
+    async function removeComment(postId, commentId) {
+        const previous = commentsByPost[postId]
+        if (!previous) return
+
+        const removed = previous.filter(
+            (comment) => comment.commentId === commentId || comment.parentCommentId === commentId
+        ).length
+        const remaining = previous.filter(
+            (comment) => comment.commentId !== commentId && comment.parentCommentId !== commentId
+        )
+
+        setCommentsByPost((current) => ({ ...current, [postId]: remaining }))
+        setPosts((current) =>
+            current.map((post) =>
+                post.postId === postId
+                    ? { ...post, comments: Math.max(0, post.comments - removed) }
+                    : post
+            )
+        )
+
+        try {
+            await deleteCommunityComment(postId, commentId)
+        } catch (error) {
+            setCommentsByPost((current) => ({ ...current, [postId]: previous }))
+            setPosts((current) =>
+                current.map((post) =>
+                    post.postId === postId
+                        ? { ...post, comments: post.comments + removed }
+                        : post
+                )
+            )
+            toast.error(apiMessage(error, "The comment could not be deleted."))
+        }
+    }
+
     function setDraft(postId, value) {
         setCommentDrafts((current) => ({ ...current, [postId]: value }))
     }
@@ -1761,6 +1824,7 @@ export default function Community() {
                                     draft={commentDrafts[post.postId]}
                                     onDraftChange={setDraft}
                                     onSubmitComment={submitComment}
+                                    onDeleteComment={removeComment}
                                 />
                             ))}
                         </div>

@@ -119,10 +119,20 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
      * A row with no rating (a fixed paper, or one written before ratings were
      * recorded) clears on the pass alone.
      *
-     * Only the LATEST sitting (highest attempt number) is read, matching
-     * `examStanding` on the screen: a failed retake shuts the road again
-     * until a later sitting clears it. Counting any cleared row let a learner
-     * whose last quiz scored 37 still open the topic exam on an older 50+. */
+     * ANY cleared sitting counts, not only the most recent one.
+     *
+     * This read the latest sitting alone until 2026-09-29, so a learner who
+     * had cleared a quiz and then retook it for practice was locked out of
+     * the road they had already opened -- the retake scored lower, and the
+     * next lesson and the topic exam shut behind them. Progress through a
+     * curriculum is a thing you earn, not a thing you have to keep
+     * re-earning: once a lesson has been cleared at Proficient it stays
+     * cleared, and a weak retake is information, not a demotion.
+     *
+     * The screen agrees (`examStanding` in curriculum-model.js reads the best
+     * sitting), and the quiz card names both so the two numbers cannot look
+     * like a contradiction: the best sitting is the standing, the latest is
+     * reported beside it. */
 
     /** Earlier lessons in this topic whose quiz the learner has not passed. */
     @Query("""
@@ -133,8 +143,6 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
                AND e.lesson.lessonId < :lessonId
                AND NOT EXISTS (SELECT 1 FROM ExamResult r
                                 WHERE r.exam = e AND r.learner.learnerId = :learnerId
-                                  AND r.id.attemptNo = (SELECT MAX(r2.id.attemptNo) FROM ExamResult r2
-                                                         WHERE r2.exam = e AND r2.learner.learnerId = :learnerId)
                                   AND ((r.rating IS NOT NULL AND r.rating >= :proficient)
                                      OR (r.rating IS NULL AND r.isPassed = TRUE)))
             """)
@@ -152,8 +160,6 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
                AND e.lesson.middleCategory.middleCategoryId = :middleCategoryId
                AND NOT EXISTS (SELECT 1 FROM ExamResult r
                                 WHERE r.exam = e AND r.learner.learnerId = :learnerId
-                                  AND r.id.attemptNo = (SELECT MAX(r2.id.attemptNo) FROM ExamResult r2
-                                                         WHERE r2.exam = e AND r2.learner.learnerId = :learnerId)
                                   AND ((r.rating IS NOT NULL AND r.rating >= :proficient)
                                      OR (r.rating IS NULL AND r.isPassed = TRUE)))
             """)
@@ -170,8 +176,6 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
                AND e.middleCategory.majorCategory.majorCategoryId = :majorCategoryId
                AND NOT EXISTS (SELECT 1 FROM ExamResult r
                                 WHERE r.exam = e AND r.learner.learnerId = :learnerId
-                                  AND r.id.attemptNo = (SELECT MAX(r2.id.attemptNo) FROM ExamResult r2
-                                                         WHERE r2.exam = e AND r2.learner.learnerId = :learnerId)
                                   AND ((r.rating IS NOT NULL AND r.rating >= :proficient)
                                      OR (r.rating IS NULL AND r.isPassed = TRUE)))
             """)

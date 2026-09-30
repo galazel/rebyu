@@ -25,6 +25,7 @@ export function RecallSession({ task, certificationId, onStarted, onDismiss }) {
   const location = useLocation()
 
   const [state, setState] = useState({ status: "building" })
+  const [starting, setStarting] = useState(false)
 
   /* Minted once per opening. Without the guard React's development double-mount
      would create two exams for one scheduled session, and the learner would sit
@@ -113,14 +114,20 @@ export function RecallSession({ task, certificationId, onStarted, onDismiss }) {
 
       <div className="flex flex-wrap items-center justify-center gap-2">
         <Button
-          onClick={() => {
-            onStarted?.()
+          disabled={starting}
+          onClick={async () => {
+            setStarting(true)
+            /* Awaited: the attempt runner is outside the layout that owns the
+               scheduler, so navigating first killed the "this session is
+               done" write on its way out and the task was offered again the
+               next time the learner landed anywhere. */
+            await onStarted?.()
             navigate(`/learner/assessments/${session.examId}`, {
               state: returnState(location),
             })
           }}
         >
-          Start recall
+          {starting ? "Starting…" : "Start recall"}
         </Button>
 
         <Button variant="ghost" onClick={onDismiss}>

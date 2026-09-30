@@ -2,34 +2,26 @@ import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
-  BarChart3Icon,
-  BookOpenCheckIcon,
-  BookOpenIcon,
+  AlertTriangle,
+  Award,
   Building2,
   CheckCheck,
-  CircleDotIcon,
   ClipboardListIcon,
+  Download,
   GraduationCap,
-  GraduationCapIcon,
-  MailPlusIcon,
+  Layers,
   TargetIcon,
   UserCheck,
-  UsersIcon,
   UsersRoundIcon,
 } from "@/components/icons"
 
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import {
-  InstitutionEmptyState,
   InstitutionErrorState,
   InstitutionLoadingSkeleton,
-  InstitutionStatusBadge,
-  accessWindowStatus,
-  formatDateTime,
 } from "@/components/institution/institution-ui.jsx"
-import { BubbleCard, toneForIndex } from "@/components/commons/bubble-card.jsx"
 import { getDepartments } from "@/services/institutionService.js"
 import { DateRangeNavigator } from "@/components/commons/date-range-navigator.jsx"
 import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
@@ -41,18 +33,53 @@ import {
   getInstitutionLearningStats,
 } from "@/services/institutionLearningStatsService.js"
 import { useInstitutionData } from "@/hooks/use-institution-data.js"
+import { downloadCsv, timestampedFilename, toCsv } from "@/lib/csv.js"
 import {
   BarBreakdownChart,
   BeadedRadialGauge,
-  DonutChart,
+  StackedBarChart,
 } from "@/components/charts/rebyu-charts.jsx"
 
-const PROGRESS_BUCKETS = [
-  { label: "0-25%", min: 0, max: 25 },
+/* Five bands rather than four, because "has not started" and "has barely
+   started" are different problems -- one is an onboarding failure and the
+   other is a teaching one, and a 0-25% bucket drew them as the same people. */
+const PROGRESS_TIERS = [
+  { label: "Not started", min: 0, max: 0 },
+  { label: "1-25%", min: 1, max: 25 },
   { label: "26-50%", min: 26, max: 50 },
   { label: "51-75%", min: 51, max: 75 },
   { label: "76-100%", min: 76, max: 100 },
 ]
+
+/**
+ * The mark to draw the target line at, or null when the papers disagree.
+ *
+ * One line cannot stand for two different pass marks, and drawing the first
+ * paper's would quietly mislabel the rest -- so with a mixed set the line is
+ * dropped and each paper's mark is named in the list instead.
+ */
+function passMarkFor(assessments) {
+  const marks = new Set(
+    assessments.map((exam) => exam.passingScore).filter((mark) => mark != null)
+  )
+  return marks.size === 1 ? [...marks][0] : null
+}
+
+/**
+ * `YYYY-MM-DD` in the viewer's own timezone.
+ *
+ * Not `toISOString()`: that converts to UTC first, so anyone east of
+ * Greenwich asking for today gets yesterday's date sent to the server. In
+ * Manila (UTC+8) every request before 08:00 would have been off by a day.
+ */
+function isoDate(date) {
+  if (!date) return null
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-")
+}
 
 function count(value) {
   return value == null ? "—" : Number(value).toLocaleString()
@@ -107,28 +134,20 @@ function DashboardCardHeader({
   )
 }
 
-function Figure({ icon: Icon, label, value, hint, alert = false }) {
+/** One headline figure inside the performance tile. */
+function StatBox({ label, value, icon: Icon, iconClass = "", alert = false }) {
   return (
-    <div className="flex min-w-0 items-start gap-3">
-      {Icon ? (
-        <span
-          className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-xl ${alert ? "bg-rb-fox-wash text-rb-fox-lip" : "bg-muted text-muted-foreground"
-            }`}
-        >
-          <Icon className="size-4" aria-hidden="true" />
-        </span>
-      ) : null}
-      <div className="min-w-0">
-        <dt className="truncate text-xs font-semibold text-muted-foreground">{label}</dt>
-        <dd
-          className={`mt-0.5 font-rb-display text-2xl font-extrabold leading-none tabular-nums ${alert ? "text-rb-fox-lip" : "text-foreground"
-            }`}
-        >
-          {value}
-        </dd>
-        {hint ? (
-          <p className="mt-1 truncate text-[11px] leading-4 text-muted-foreground">{hint}</p>
-        ) : null}
+    <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
+      <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+        <span className="truncate">{label}</span>
+        {Icon ? <Icon className={`size-3.5 shrink-0 ${iconClass}`} aria-hidden="true" /> : null}
+      </div>
+      <div
+        className={`mt-1.5 font-rb-display text-lg font-bold tabular-nums ${
+          alert ? "text-rb-fox-lip" : "text-foreground"
+        }`}
+      >
+        {value}
       </div>
     </div>
   )
@@ -137,7 +156,13 @@ function Figure({ icon: Icon, label, value, hint, alert = false }) {
 /** Home for teachers/facilitators. */
 export default function DepartmentHeadDashboardPage() {
   const layout = useDashboardLayout("department-head")
-  const [dateRange, setDateRange] = useState(null)
+  /* The period the board is reporting on. Held here rather than inside the
+     navigator because it is a query input, not a piece of chrome: both stats
+     queries key on it, so changing the period refetches rather than
+     re-filtering what is already on screen. */
+  const [range, setRange] = useState(null)
+  const from = isoDate(range?.from)
+  const to = isoDate(range?.to)
 
   const departmentsQuery = useQuery({
     queryKey: ["my-institution-groups"],
@@ -146,61 +171,65 @@ export default function DepartmentHeadDashboardPage() {
   })
 
   const statsQuery = useQuery({
-    queryKey: ["department-head-learning-stats"],
-    queryFn: getInstitutionLearningStats,
+    queryKey: ["department-head-learning-stats", from, to],
+    queryFn: () => getInstitutionLearningStats({ from, to }),
+    // The previous period's figures stay on screen while the next ones load,
+    // so stepping through weeks does not blink the whole board to skeletons.
+    placeholderData: (previous) => previous,
     retry: 1,
   })
-
-  /* Outcomes per programme, keyed so a slot row can pick up its own. The
-     panel listed seats filled and nothing about the people in them. */
-  const certificationStatsById = useMemo(() => {
-    const map = new Map()
-    for (const row of statsQuery.data?.certifications ?? []) {
-      map.set(row.certificationId, row)
-    }
-    return map
-  }, [statsQuery.data])
 
   const hardestTopics = statsQuery.data?.hardestTopics ?? []
   const hardestAssessments = statsQuery.data?.hardestAssessments ?? []
 
-  /* Who to speak to, by name and with the reason.
-     "Needing support: 3" is a number a head cannot act on -- they have to go
-     and find out who. These are the same learners, named, each carrying why
-     they are here so the follow-up is obvious before the row is opened. */
-  const needsAttention = useMemo(() => {
-    const members = statsQuery.data?.members ?? []
+  /* The programmes this department actually teaches.
+     /learning-stats is scoped to the caller's departments on the server, so
+     these rows are already this department's learners and this department's
+     seat blocks -- a certification nobody here is sitting is not in the
+     response at all. The `enrolled` guard is belt and braces, not a filter
+     the page depends on. */
+  const programmes = useMemo(
+    () => (statsQuery.data?.certifications ?? []).filter((row) => row.enrolled > 0),
+    [statsQuery.data]
+  )
+
+  /* Why a learner needs a conversation, or null if they do not.
+     This used to drive a tile of its own, which on a small department listed
+     the same three people the roster below it already listed, with the same
+     two numbers beside them -- the board said everything twice. It is a
+     column on the roster now: same signal, one table. */
+  const flagFor = useMemo(() => {
     const now = Date.now()
     const STALE_DAYS = 14
 
-    return members
-      .map((member) => {
-        const daysSince = member.lastActivityAt
-          ? Math.floor((now - new Date(member.lastActivityAt).getTime()) / 86_400_000)
-          : null
+    return (member) => {
+      const daysSince = member.lastActivityAt
+        ? Math.floor((now - new Date(member.lastActivityAt).getTime()) / 86_400_000)
+        : null
 
-        /* One reason each, most urgent first: never started outranks gone
-           quiet, which outranks struggling. A row listing three problems is
-           read as none. */
-        let reason = null
-        if (!member.gradedAttempts && !member.lessonsCompleted) {
-          reason = "Has not started"
-        } else if (daysSince != null && daysSince >= STALE_DAYS) {
-          reason = `No activity in ${daysSince} days`
-        } else if (member.averageScore != null && member.averageScore < 50) {
-          reason = `Averaging ${member.averageScore}% across ${member.gradedAttempts} attempt${member.gradedAttempts === 1 ? "" : "s"}`
-        } else if (member.passRate != null && member.passRate < 50 && member.gradedAttempts > 0) {
-          reason = `Passing ${member.passRate}% of attempts`
-        }
-        return reason ? { ...member, reason } : null
-      })
-      .filter(Boolean)
-      .slice(0, 8)
-  }, [statsQuery.data])
+      /* One reason each, most urgent first: never started outranks gone
+         quiet, which outranks struggling. A row listing three problems is
+         read as none. */
+      if (!member.gradedAttempts && !member.lessonsCompleted) {
+        return "Has not started"
+      }
+      if (daysSince != null && daysSince >= STALE_DAYS) {
+        return `No activity in ${daysSince} days`
+      }
+      if (member.averageScore != null && member.averageScore < 50) {
+        return `Averaging ${member.averageScore}% across ${member.gradedAttempts} attempt${member.gradedAttempts === 1 ? "" : "s"}`
+      }
+      if (member.passRate != null && member.passRate < 50 && member.gradedAttempts > 0) {
+        return `Passing ${member.passRate}% of attempts`
+      }
+      return null
+    }
+  }, [])
 
   const departmentStatsQuery = useQuery({
-    queryKey: ["department-head-group-stats"],
-    queryFn: getDepartmentStats,
+    queryKey: ["department-head-group-stats", to],
+    queryFn: () => getDepartmentStats({ to }),
+    placeholderData: (previous) => previous,
     retry: 1,
   })
 
@@ -262,56 +291,151 @@ export default function DepartmentHeadDashboardPage() {
           ...m,
           departmentId: dept?.departmentId,
           departmentName: dept?.departmentName,
+          flag: flagFor(m),
         }
       })
       .filter((m) => m.departmentId != null)
-  }, [allMembers, instData.assignments, instData.groupByInstitutionCertLearnerId, assignedDeptIds, groups])
+      /* Anyone flagged first, then least progress. The roster is read to find
+         who needs help, and that should not mean sorting the table by hand on
+         every visit. */
+      .sort((a, b) => {
+        if (Boolean(a.flag) !== Boolean(b.flag)) return a.flag ? -1 : 1
+        return Number(a.averageProgress ?? 0) - Number(b.averageProgress ?? 0)
+      })
+  }, [allMembers, instData.assignments, instData.groupByInstitutionCertLearnerId, assignedDeptIds, groups, flagFor])
 
-  const cohort = useMemo(() => {
-    const buckets = PROGRESS_BUCKETS.map((bucket) => ({
-      name: bucket.label,
-      value: deptLearners.filter((member) => {
-        const progress = Number(member.averageProgress ?? 0)
-        return progress >= bucket.min && progress <= bucket.max
-      }).length,
-    }))
+  const flaggedCount = useMemo(
+    () => deptLearners.filter((learner) => learner.flag).length,
+    [deptLearners]
+  )
 
-    const needingSupport = deptLearners.filter(
-      (member) => member.activeCertifications > 0 && Number(member.averageProgress ?? 0) < 30
-    )
-
-    return { buckets, needingSupport }
-  }, [deptLearners])
-
-  const cohortStats = useMemo(() => {
-    const total = deptLearners.length
-    const completed = deptLearners.filter((m) => Number(m.averageProgress ?? 0) >= 100).length
-    const inProgress = deptLearners.filter(
-      (m) => Number(m.averageProgress ?? 0) >= 25 && Number(m.averageProgress ?? 0) < 100
-    ).length
-    const stalled = deptLearners.filter((m) => Number(m.averageProgress ?? 0) < 25).length
-
-    return { total, completed, inProgress, stalled }
-  }, [deptLearners])
-
-  const recentInvitations = useMemo(
+  /* Counts, not shares. A donut of three people reported "0-25%: 100%", which
+     is technically true and tells a head nothing; a column chart of headcount
+     says three, and keeps saying three when the cohort is thirty. */
+  const spread = useMemo(
     () =>
-      [...instData.invitations]
-        .sort((a, b) => new Date(b.sentAt ?? 0) - new Date(a.sentAt ?? 0))
-        .slice(0, 5),
-    [instData.invitations]
+      PROGRESS_TIERS.map((tier) => ({
+        tier: tier.label,
+        learners: deptLearners.filter((member) => {
+          const progress = Math.round(Number(member.averageProgress ?? 0))
+          return progress >= tier.min && progress <= tier.max
+        }).length,
+      })),
+    [deptLearners]
   )
 
-  const pendingInvitations = useMemo(
-    () => instData.invitations.filter((invite) => invite.status === "PENDING").length,
-    [instData.invitations]
+  const needingSupport = useMemo(
+    () =>
+      deptLearners.filter(
+        (member) => member.activeCertifications > 0 && Number(member.averageProgress ?? 0) < 30
+      ).length,
+    [deptLearners]
   )
+
+  /**
+   * The board as a spreadsheet, one titled section per tile.
+   *
+   * Sectioned rather than flattened, the same way the admin export is: a
+   * dashboard is not one table, and squashing the roster, the programmes and
+   * the two difficulty lists into a single shape loses which number belongs
+   * to what. Numbers go out bare -- no % sign, no separators -- because a
+   * formatted figure lands in a spreadsheet as text and will not sum.
+   */
+  const buildCsv = () =>
+    toCsv([
+      {
+        title: `REBYU department dashboard — ${groups.map((g) => g.departmentName).join(", ") || "my department"}`,
+        columns: ["Exported", new Date().toISOString(), "Period", from ?? "all time", to ?? ""],
+      },
+      {
+        title: "Summary",
+        columns: ["Metric", "Value"],
+        rows: [
+          ["Students", deptLearners.length],
+          ["Average completion (%)", summary.averageProgress],
+          ["Pass rate (%)", summary.passRate],
+          ["Average score (%)", summary.averageScore],
+          ["Graded attempts", summary.gradedAttempts],
+          ["Lessons completed", summary.lessonsCompleted],
+          ["Needing support", needingSupport],
+          ["Seats used", summary.seatsUsed],
+          ["Seats total", summary.seatsTotal],
+        ],
+      },
+      {
+        title: "Programmes",
+        columns: [
+          "Programme", "Enrolled", "Passed", "In progress", "Not started",
+          "Seats used", "Seats total", "Avg completion (%)", "Avg score (%)",
+          "Graded attempts", "Attempt pass rate (%)",
+        ],
+        rows: programmes.map((row) => [
+          row.title, row.enrolled, row.passed, row.inProgress, row.notStarted,
+          row.seatsUsed, row.seatsTotal,
+          row.averageProgress == null ? null : Math.round(Number(row.averageProgress)),
+          row.averageScore, row.gradedAttempts, row.attemptPassRate,
+        ]),
+      },
+      {
+        title: "Completion spread",
+        columns: ["Band", "Students"],
+        rows: spread.map((band) => [band.tier, band.learners]),
+      },
+      {
+        title: "Weakest topics",
+        columns: ["Programme", "Topic", "Accuracy (%)", "Answers", "Learners"],
+        rows: hardestTopics.flatMap((programme) =>
+          programme.topics.map((topic) => [
+            programme.certificationTitle, topic.lessonTitle,
+            topic.accuracy, topic.answered, topic.learners,
+          ])
+        ),
+      },
+      {
+        title: "Hardest assessments",
+        columns: [
+          "Programme", "Assessment", "Attempts", "Passed", "Pass rate (%)",
+          "Learners", "Avg score (%)", "Pass mark (%)",
+        ],
+        rows: hardestAssessments.flatMap((programme) =>
+          programme.assessments.map((exam) => [
+            programme.certificationTitle, exam.title, exam.attempts,
+            exam.passedAttempts, exam.passRate, exam.learners,
+            exam.averageScore, exam.passingScore,
+          ])
+        ),
+      },
+      {
+        title: "Sections",
+        columns: ["Section", "Learners", "Finished", "Avg completion (%)"],
+        rows: groupStats.map((group) => [
+          group.departmentName, group.learners, group.completedLearners,
+          Math.round(Number(group.averageProgress ?? 0)),
+        ]),
+      },
+      {
+        title: "Roster",
+        columns: [
+          "Learner", "Needs attention", "Completion (%)", "Lessons",
+          "Attempts", "Avg score (%)",
+        ],
+        rows: deptLearners.map((learner) => [
+          learner.name, learner.flag,
+          Math.round(Number(learner.averageProgress ?? 0)),
+          learner.lessonsCompleted, learner.gradedAttempts, learner.averageScore,
+        ]),
+      },
+    ])
 
   const tiles = useMemo(() => {
     const failed = statsQuery.isError
+    const totalEnrolled = programmes.reduce((sum, row) => sum + row.enrolled, 0)
+    // The summary's seat counts are scoped to this department's seat blocks
+    // by the server, so they need no second pass here.
+    const seatsTotal = Number(summary.seatsTotal ?? 0)
 
     return [
-      // 3. Departmental Progress & Performance Gauge
+      // Department headline: how far, how well, and how many people.
       {
         id: "dept-progress",
         col: 3,
@@ -336,312 +460,241 @@ export default function DepartmentHeadDashboardPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 sm:col-span-7">
-                  <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
-                    <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      <span>Pass Rate</span>
-                      <CheckCheck className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <div className="mt-1.5 font-rb-display text-lg font-bold tabular-nums text-foreground">
-                      {failed ? "—" : percent(summary.passRate)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
-                    <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      <span>Avg Score</span>
-                      <TargetIcon className="size-3.5 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <div className="mt-1.5 font-rb-display text-lg font-bold tabular-nums text-foreground">
-                      {failed ? "—" : percent(summary.averageScore)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
-                    <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      <span>Attempts</span>
-                      <ClipboardListIcon className="size-3.5 text-sky-600 dark:text-sky-400" />
-                    </div>
-                    <div className="mt-1.5 font-rb-display text-lg font-bold tabular-nums text-foreground">
-                      {failed ? "—" : count(summary.gradedAttempts)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
-                    <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      <span>Lessons Done</span>
-                      <BookOpenCheckIcon className="size-3.5 text-violet-600 dark:text-violet-400" />
-                    </div>
-                    <div className="mt-1.5 font-rb-display text-lg font-bold tabular-nums text-foreground">
-                      {failed ? "—" : count(summary.lessonsCompleted)}
-                    </div>
-                  </div>
+                  <StatBox
+                    label="Students"
+                    value={count(deptLearners.length)}
+                    icon={UsersRoundIcon}
+                    iconClass="text-sky-600 dark:text-sky-400"
+                  />
+                  <StatBox
+                    label="Pass Rate"
+                    value={failed ? "—" : percent(summary.passRate)}
+                    icon={CheckCheck}
+                    iconClass="text-emerald-600 dark:text-emerald-400"
+                  />
+                  <StatBox
+                    label="Avg Score"
+                    value={failed ? "—" : percent(summary.averageScore)}
+                    icon={TargetIcon}
+                    iconClass="text-amber-600 dark:text-amber-400"
+                  />
+                  <StatBox
+                    label="Needs Support"
+                    value={failed ? "—" : count(needingSupport)}
+                    icon={UserCheck}
+                    iconClass="text-rb-fox-lip"
+                    alert={!failed && needingSupport > 0}
+                  />
                 </div>
               </div>
 
-              {/* 4. Learner Cohort & Risk Summary */}
+              {/* Seats and papers sat: the two totals nothing else on the
+                  board carries, kept out of the stat boxes because neither is
+                  a performance reading. */}
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-emerald-600 dark:bg-emerald-400" />
-                    <span>Completed: <strong className="text-foreground">{cohortStats.completed}</strong></span>
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-amber-500" />
-                    <span>In Progress: <strong className="text-foreground">{cohortStats.inProgress}</strong></span>
-                  </span>
-                </div>
-                {cohortStats.stalled > 0 ? (
-                  <span className="flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-slate-400" />
-                    <span>Needing Support: <strong className="text-foreground">{cohortStats.stalled}</strong></span>
-                  </span>
-                ) : null}
+                <span>
+                  <strong className="text-foreground tabular-nums">{totalEnrolled}</strong>{" "}
+                  enrolments on {programmes.length} programme
+                  {programmes.length === 1 ? "" : "s"}
+                  {seatsTotal > 0 ? (
+                    <>
+                      {" "}
+                      · <strong className="text-foreground tabular-nums">{seatsTotal}</strong> seats
+                    </>
+                  ) : null}
+                </span>
+                <span>
+                  <strong className="text-foreground tabular-nums">
+                    {failed ? "—" : count(summary.gradedAttempts)}
+                  </strong>{" "}
+                  graded attempts
+                </span>
               </div>
             </div>
           </BentoTile>
         ),
       },
-      // 6. Learner Completion Distribution Chart
+      // Who is on each certification, and where they have got to.
       {
-        id: "dept-completion-distribution",
+        id: "dept-programme-enrolment",
         col: 3,
         row: 2,
         x: 3,
         y: 0,
         element: (
-          <BentoTile col={3} row={2}>
-            <DashboardCardHeader
-              icon={CircleDotIcon}
-              kicker="Progress Distribution"
-              title="Learner Completion Spread"
-              hint="How department learners are distributed across completion tiers"
-            />
-            <DonutChart
-              data={cohort.buckets.filter((bucket) => bucket.value > 0)}
-              height={168}
-              centerValue={String(deptLearners.length)}
-              centerLabel={deptLearners.length === 1 ? "student" : "students"}
-            />
-          </BentoTile>
-        ),
-      },
-      // 5. Department Activity at a Glance Strip
-      {
-        id: "dept-key-figures",
-        col: 6,
-        row: 1,
-        x: 0,
-        y: 2,
-        element: (
-          <BentoTile col={6} row={1}>
-            <DashboardCardHeader
-              icon={BarChart3Icon}
-              kicker="Operational Summary"
-              title="Department Activity at a Glance"
-              hint="Current metrics across your assigned department workspace."
-            />
-            <dl className="grid flex-1 grid-cols-2 items-center gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
-              <Figure
-                icon={BookOpenCheckIcon}
-                label="Department lessons"
-                value={failed ? "—" : count(summary.lessonsCompleted)}
-              />
-              <Figure
-                icon={ClipboardListIcon}
-                label="Graded exam attempts"
-                value={failed ? "—" : count(summary.gradedAttempts)}
-                hint={failed ? null : `${percent(summary.passRate)} pass rate`}
-              />
-              <Figure
-                icon={UserCheck}
-                label="Avg test score"
-                value={failed ? "—" : percent(summary.averageScore)}
-              />
-              <Figure
-                icon={GraduationCapIcon}
-                label="Active certifications"
-                value={
-                  instData.institutionCerts.filter((cert) =>
-                    ["active", "expiring_soon"].includes(accessWindowStatus(cert).status)
-                  ).length
-                }
-              />
-              <Figure
-                icon={BarChart3Icon}
-                label="Needing support"
-                value={failed ? "—" : cohort.needingSupport.length}
-                hint={failed ? null : "Active, below 30%"}
-                alert={!failed && cohort.needingSupport.length > 0}
-              />
-            </dl>
-          </BentoTile>
-        ),
-      },
-      // 7. Group / Section Breakdown Tile
-      {
-        id: "dept-section-breakdown",
-        col: 3,
-        row: 2,
-        x: 0,
-        y: 3,
-        element: (
-          <BentoTile col={3} row={2}>
-            <DashboardCardHeader
-              icon={Building2}
-              kicker="Internal Benchmark"
-              title="Section / Course Completion"
-              hint="Average progress vs 60% department benchmark"
-            />
-            {departmentStatsQuery.isError ? (
-              <p className="mt-4 text-sm text-muted-foreground">
-                Section stats could not be loaded.
-              </p>
-            ) : (
-              <BarBreakdownChart
-                data={groupStats.map((group) => ({
-                  group: group.departmentName,
-                  completion: Number(group.averageProgress ?? 0),
-                }))}
-                categoryKey="group"
-                valueKey="completion"
-                unit="%"
-                target={60}
-                height={168}
-                categoryWidth={96}
-              />
-            )}
-          </BentoTile>
-        ),
-      },
-      // 9. Program Slot Allocations & Active Enrolments
-      {
-        id: "dept-allocations",
-        col: 3,
-        row: 2,
-        x: 3,
-        y: 3,
-        element: (
           <BentoTile col={3} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
               <DashboardCardHeader
                 icon={GraduationCap}
-                kicker="Department Allocations"
-                title="Programmes & Outcomes"
-                hint="Seats used, who is on each programme, and how many have passed."
+                kicker="Enrolment by Programme"
+                title="Who is on each certification"
+                hint="Your department's learners only — a programme nobody here is on is not listed."
                 chip={
-                  instData.institutionCerts.length > 0 ? (
+                  totalEnrolled > 0 ? (
                     <Badge
                       variant="secondary"
                       className="border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
                     >
-                      {instData.institutionCerts.length} active
+                      {totalEnrolled} enrolled
                     </Badge>
                   ) : null
                 }
               />
-
-              {instData.institutionCerts.length === 0 ? (
+              {programmes.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No program allocations assigned to this department yet.
+                  None of your learners are assigned to a certification yet.
                 </p>
               ) : (
-                <div className="-mr-2 min-h-0 flex-1 space-y-4 overflow-y-auto pr-2">
-                  {instData.institutionCerts.map((institutionCert) => {
-                    const certification = instData.certificationById.get(institutionCert.certificationId)
-                    const used = institutionCert.usedSlots ?? 0
-                    const total = institutionCert.totalSlots ?? 0
-                    const pct = total > 0 ? (used / total) * 100 : 0
-
-                    return (
-                      <div key={institutionCert.institutionCertId} className="space-y-1.5">
-                        <div className="flex items-center justify-between gap-2 text-sm">
-                          <span className="truncate font-bold">
-                            {certification?.title ?? `Certification #${institutionCert.certificationId}`}
-                          </span>
-                          <span className="shrink-0 text-muted-foreground">
-                            {used} / {total} slots
-                          </span>
-                        </div>
-                        <Progress value={pct} aria-label="Slot usage" />
-
-                        {/* Seats filled says what the department bought; this
-                            says what happened to the people in them, which is
-                            the question a department is asked about its own
-                            programmes. */}
-                        {(() => {
-                          const outcome = certificationStatsById.get(institutionCert.certificationId)
-                          if (!outcome || outcome.enrolled === 0) {
-                            return (
-                              <p className="text-xs text-muted-foreground">
-                                No learners on this programme yet.
-                              </p>
-                            )
-                          }
-                          return (
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                              <span className="font-semibold text-foreground">
-                                {outcome.enrolled} enrolled
-                              </span>
-                              <span className="text-rb-leaf">
-                                {outcome.passed} passed
-                                {outcome.passRate != null ? ` · ${outcome.passRate}%` : ""}
-                              </span>
-                              <span className="text-muted-foreground">
-                                {outcome.inProgress} in progress
-                              </span>
-                              {outcome.notStarted > 0 ? (
-                                <span className="text-muted-foreground">
-                                  {outcome.notStarted} not started
-                                </span>
-                              ) : null}
-                              {outcome.averageProgress != null ? (
-                                <span className="text-muted-foreground">
-                                  avg {Math.round(Number(outcome.averageProgress))}% complete
-                                </span>
-                              ) : null}
-                              {/* How well, beside how far. A programme can be
-                                  most of the way through and averaging 40% on
-                                  its papers, and only one of those is a
-                                  warning. */}
-                              {outcome.averageScore != null ? (
-                                <span
-                                  className={
-                                    outcome.averageScore < 50
-                                      ? "font-semibold text-destructive"
-                                      : "text-muted-foreground"
-                                  }
-                                >
-                                  avg score {outcome.averageScore}%
-                                </span>
-                              ) : null}
-                              {outcome.gradedAttempts > 0 ? (
-                                <span className="text-muted-foreground">
-                                  {outcome.gradedAttempts} attempt
-                                  {outcome.gradedAttempts === 1 ? "" : "s"}
-                                  {outcome.attemptPassRate != null
-                                    ? ` · ${outcome.attemptPassRate}% passed`
-                                    : ""}
-                                </span>
-                              ) : null}
-                            </div>
-                          )
-                        })()}
-                      </div>
-                    )
-                  })}
+                <div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
+                  <StackedBarChart
+                    data={programmes.map((row) => ({
+                      programme: row.title,
+                      passed: row.passed,
+                      inProgress: row.inProgress,
+                      notStarted: row.notStarted,
+                    }))}
+                    categoryKey="programme"
+                    series={[
+                      { key: "passed", name: "Passed" },
+                      { key: "inProgress", name: "In progress" },
+                      { key: "notStarted", name: "Not started" },
+                    ]}
+                    height={Math.max(130, programmes.length * 56)}
+                    categoryWidth={140}
+                    note="Passed counts awarded credentials, not assignments marked complete."
+                  />
                 </div>
               )}
             </div>
           </BentoTile>
         ),
       },
-      // 8a. What the cohort is getting wrong
+      // The same programmes as numbers: seats, completion, marks.
+      {
+        id: "dept-programme-table",
+        col: 3,
+        row: 2,
+        x: 0,
+        y: 2,
+        element: (
+          <BentoTile col={3} row={2} className="!p-0">
+            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+              <DashboardCardHeader
+                icon={Award}
+                kicker="Programme Scorecard"
+                title="Seats, completion and marks"
+                hint="Your department's learners on each programme, with their marks."
+              />
+              {programmes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  None of your learners are assigned to a certification yet.
+                </p>
+              ) : (
+                <div className="-mr-2 min-h-0 flex-1 overflow-auto pr-2">
+                  <table className="w-full text-xs" style={{ minWidth: 400 }}>
+                    <thead className="sticky top-0 z-10 bg-background">
+                      <tr className="border-b border-border/60 text-[11px] font-semibold text-muted-foreground">
+                        <th className="py-2 pr-3 text-left">Programme</th>
+                        <th className="px-2 py-2 text-center">Enrolled</th>
+                        <th className="px-2 py-2 text-center">Seats</th>
+                        <th className="px-2 py-2 text-center">Passed</th>
+                        <th className="px-2 py-2 text-center">Avg done</th>
+                        <th className="px-2 py-2 text-center">Avg score</th>
+                        <th className="py-2 pl-2 text-center">Attempts</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {programmes.map((row) => (
+                        <tr
+                          key={row.certificationId}
+                          className="border-b border-border/40 transition-colors hover:bg-muted/40"
+                        >
+                          <td className="max-w-[150px] truncate py-2 pr-3 font-bold text-foreground">
+                            {row.title}
+                          </td>
+                          <td className="px-2 py-2 text-center tabular-nums font-semibold text-foreground">
+                            {count(row.enrolled)}
+                          </td>
+                          <td className="px-2 py-2 text-center tabular-nums text-muted-foreground">
+                            {row.seatsTotal > 0 ? `${row.seatsUsed}/${row.seatsTotal}` : "—"}
+                          </td>
+                          <td className="px-2 py-2 text-center tabular-nums text-muted-foreground">
+                            {count(row.passed)}
+                            {row.passRate != null ? (
+                              <span className="ml-1 text-[10px]">({row.passRate}%)</span>
+                            ) : null}
+                          </td>
+                          <td className="px-2 py-2 text-center tabular-nums text-muted-foreground">
+                            {row.averageProgress == null
+                              ? "—"
+                              : `${Math.round(Number(row.averageProgress))}%`}
+                          </td>
+                          {/* A cohort can be most of the way through a
+                              programme and averaging 40% on its papers, and
+                              only one of those two numbers is a warning. */}
+                          <td
+                            className={`px-2 py-2 text-center tabular-nums font-semibold ${
+                              row.averageScore != null && row.averageScore < 50
+                                ? "text-destructive"
+                                : "text-foreground"
+                            }`}
+                          >
+                            {row.averageScore == null ? "—" : `${row.averageScore}%`}
+                          </td>
+                          <td className="py-2 pl-2 text-center tabular-nums text-muted-foreground">
+                            {count(row.gradedAttempts)}
+                            {row.attemptPassRate != null ? (
+                              <span className="ml-1 text-[10px]">({row.attemptPassRate}%)</span>
+                            ) : null}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </BentoTile>
+        ),
+      },
+      // How the cohort is spread across completion.
+      {
+        id: "dept-completion-spread",
+        col: 3,
+        row: 2,
+        x: 3,
+        y: 2,
+        element: (
+          <BentoTile col={3} row={2}>
+            <DashboardCardHeader
+              icon={Layers}
+              kicker="Progress Distribution"
+              title="How far the cohort has got"
+              hint="Students per completion band — a headcount, not a share."
+            />
+            {deptLearners.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No learners assigned to your department yet.
+              </p>
+            ) : (
+              <BarBreakdownChart
+                data={spread}
+                categoryKey="tier"
+                valueKey="learners"
+                horizontal={false}
+                height={186}
+              />
+            )}
+          </BentoTile>
+        ),
+      },
+      // What the cohort is getting wrong
       {
         id: "dept-hard-topics",
         col: 3,
         row: 2,
         x: 0,
-        y: 5,
+        y: 4,
         element: (
           <BentoTile col={3} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -687,13 +740,13 @@ export default function DepartmentHeadDashboardPage() {
           </BentoTile>
         ),
       },
-      // 8b. Which papers are hardest
+      // Which papers are hardest
       {
         id: "dept-hard-assessments",
         col: 3,
         row: 2,
         x: 3,
-        y: 5,
+        y: 4,
         element: (
           <BentoTile col={3} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
@@ -701,51 +754,139 @@ export default function DepartmentHeadDashboardPage() {
                 icon={ClipboardListIcon}
                 kicker="Assessment Signal"
                 title="Hardest assessments"
-                hint="Lowest pass rate first — a paper nobody passes is worth a look."
+                hint="Lowest pass rate first, per programme — a paper nobody passes is worth a look."
               />
               {hardestAssessments.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No assessment has been graded in this department yet.
                 </p>
               ) : (
-                <div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
-                  {/* Pass rate, not mean score: a paper everyone scrapes
-                      through at 76% is fine, one everyone fails at 74% is
-                      not, and only the first of those is visible in a mean. */}
-                  <BarBreakdownChart
-                    data={hardestAssessments.map((exam) => ({
-                      exam: exam.title,
-                      passRate: exam.passRate,
-                    }))}
-                    categoryKey="exam"
-                    valueKey="passRate"
-                    unit="%"
-                    target={50}
-                    domainMax={100}
-                    height={Math.max(140, hardestAssessments.length * 38)}
-                    categoryWidth={150}
-                  />
-                  <ul className="mt-3 space-y-1">
-                    {hardestAssessments.map((exam) => (
-                      <li key={exam.examId} className="truncate text-xs text-muted-foreground">
-                        <span className="font-semibold text-foreground">{exam.title}</span>
-                        {" — "}
-                        {exam.attempts} attempt{exam.attempts === 1 ? "" : "s"} by {exam.learners} learner
-                        {exam.learners === 1 ? "" : "s"}
-                        {exam.averageScore != null ? ` · avg ${exam.averageScore}%` : ""}
-                      </li>
-                    ))}
-                  </ul>
+                /* One chart per programme, matching the topics tile beside
+                   it. A pooled ranking of papers is unreadable to a head
+                   fixing one course: they cannot act on a list where the
+                   worst rows belong to a certification they do not run. */
+                <div className="-mr-2 min-h-0 flex-1 space-y-5 overflow-y-auto pr-2">
+                  {hardestAssessments.map((programme) => (
+                    <div key={programme.certificationId}>
+                      <p className="mb-2 truncate text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                        {programme.certificationTitle}
+                      </p>
+                      {/* Average score against the pass mark, not pass rate.
+                          Ranking by pass rate is the right order -- a paper
+                          everyone scrapes through at 76% is fine and one
+                          everyone fails at 74% is not -- but it is the wrong
+                          thing to *draw*: on a struggling cohort every paper
+                          sits at 0% and the chart was five invisible bars.
+                          The mean varies (18% to 39% here), and how far short
+                          of the pass mark a paper falls is the thing a head
+                          can actually teach against. */}
+                      <BarBreakdownChart
+                        data={programme.assessments.map((exam) => ({
+                          exam: exam.title,
+                          averageScore: exam.averageScore ?? 0,
+                        }))}
+                        categoryKey="exam"
+                        valueKey="averageScore"
+                        unit="%"
+                        target={passMarkFor(programme.assessments)}
+                        domainMax={100}
+                        height={Math.max(120, programme.assessments.length * 36)}
+                        categoryWidth={150}
+                      />
+                      <ul className="mt-2 space-y-1">
+                        {programme.assessments.map((exam) => (
+                          <li key={exam.examId} className="truncate text-xs text-muted-foreground">
+                            <span className="font-semibold text-foreground">{exam.title}</span>
+                            {" — "}
+                            {/* The pass rate the bars no longer carry, said
+                                as the fraction it is: "0 of 9 passed" is a
+                                fact, a 0% bar is a blank. */}
+                            <span
+                              className={
+                                exam.passRate === 0 ? "font-semibold text-destructive" : undefined
+                              }
+                            >
+                              {exam.passedAttempts} of {exam.attempts} passed
+                            </span>
+                            {" · "}
+                            {exam.learners} learner{exam.learners === 1 ? "" : "s"}
+                            {exam.averageScore != null ? ` · avg ${exam.averageScore}%` : ""}
+                            {exam.passingScore != null ? ` · pass mark ${exam.passingScore}%` : ""}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           </BentoTile>
         ),
       },
-      // 8c. Who needs a conversation, by name
+      // Sections, with the headcount the old bar chart threw away.
       {
-        id: "dept-needs-attention",
+        id: "dept-section-breakdown",
         col: 6,
+        row: 1,
+        x: 0,
+        y: 6,
+        element: (
+          <BentoTile col={6} row={1} className="!p-0">
+            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
+              <DashboardCardHeader
+                icon={Building2}
+                kicker="Internal Benchmark"
+                title="Sections you are responsible for"
+                hint="Headcount, finishers and average completion against the 60% benchmark."
+              />
+              {departmentStatsQuery.isError ? (
+                <p className="text-sm text-muted-foreground">Section stats could not be loaded.</p>
+              ) : groupStats.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No sections assigned to you yet.</p>
+              ) : (
+                <div className="-mr-2 min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-2">
+                  {groupStats.map((group) => {
+                    const progress = Math.round(Number(group.averageProgress ?? 0))
+                    return (
+                      <div
+                        key={group.departmentId}
+                        className="flex flex-wrap items-center gap-x-4 gap-y-1"
+                      >
+                        <span className="w-40 shrink-0 truncate text-xs font-bold text-foreground">
+                          {group.departmentName}
+                        </span>
+                        <Progress value={progress} className="h-2 min-w-[120px] flex-1" />
+                        <span className="w-10 shrink-0 text-right text-xs font-bold tabular-nums text-foreground">
+                          {progress}%
+                        </span>
+                        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                          {count(group.learners)} learner{group.learners === 1 ? "" : "s"} ·{" "}
+                          {count(group.completedLearners)} finished
+                        </span>
+                        <span
+                          className={`shrink-0 text-[11px] font-semibold ${
+                            progress >= 60 ? "text-rb-leaf" : "text-muted-foreground"
+                          }`}
+                        >
+                          {progress >= 60 ? "on benchmark" : `${60 - progress} pts below`}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </BentoTile>
+        ),
+      },
+      // Department Learner Roster & Performance Table
+      {
+        id: "dept-learner-table",
+        col: 6,
+        // Two rows, not three: with the follow-up tile folded in, one roster
+        // of a small cohort was sitting in half a screen of white space. It
+        // scrolls when a department is bigger, and can still be dragged
+        // taller by anyone who wants it taller.
         row: 2,
         x: 0,
         y: 7,
@@ -753,66 +894,29 @@ export default function DepartmentHeadDashboardPage() {
           <BentoTile col={6} row={2} className="!p-0">
             <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
               <DashboardCardHeader
-                icon={UserCheck}
-                kicker="Follow Up"
-                title="Learners needing attention"
-                hint="Named, with the reason — a count alone cannot be acted on."
-                chip={
-                  needsAttention.length > 0 ? (
-                    <Badge variant="secondary" className="border-amber-500/20 bg-amber-500/10 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                      {needsAttention.length}
-                    </Badge>
-                  ) : null
-                }
-              />
-              {needsAttention.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Nobody is flagged right now.
-                </p>
-              ) : (
-                <ul className="-mr-2 min-h-0 flex-1 divide-y divide-border/60 overflow-y-auto pr-2">
-                  {needsAttention.map((row) => (
-                    <li key={row.learnerId} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-foreground">{row.name}</p>
-                        <p className="truncate text-xs text-muted-foreground">{row.reason}</p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-4 text-xs tabular-nums text-muted-foreground">
-                        <span>{Math.round(Number(row.averageProgress ?? 0))}% complete</span>
-                        {row.averageScore != null ? <span>{row.averageScore}% avg</span> : null}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </BentoTile>
-        ),
-      },
-      // 8. Department Learner Roster & Performance Table
-      {
-        id: "dept-learner-table",
-        col: 6,
-        row: 3,
-        x: 0,
-        y: 9,
-        element: (
-          <BentoTile col={6} row={3} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
-              <DashboardCardHeader
                 icon={Building2}
                 kicker="Department Roster"
-                title="Student Learner Roster & Performance"
-                hint="Individual student progress and assessment records."
+                title="Student roster & who needs a conversation"
+                hint="Anyone flagged sits at the top, with the reason beside their name."
                 chip={
-                  deptLearners.length > 0 ? (
-                    <Badge
-                      variant="secondary"
-                      className="border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-                    >
-                      {deptLearners.length} {deptLearners.length === 1 ? "student" : "students"}
-                    </Badge>
-                  ) : null
+                  <>
+                    {flaggedCount > 0 ? (
+                      <Badge
+                        variant="secondary"
+                        className="border-amber-500/20 bg-amber-500/10 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                      >
+                        {flaggedCount} need attention
+                      </Badge>
+                    ) : null}
+                    {deptLearners.length > 0 ? (
+                      <Badge
+                        variant="secondary"
+                        className="border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                      >
+                        {deptLearners.length} {deptLearners.length === 1 ? "student" : "students"}
+                      </Badge>
+                    ) : null}
+                  </>
                 }
               />
 
@@ -829,15 +933,17 @@ export default function DepartmentHeadDashboardPage() {
                 <div className="min-h-0 flex-1 overflow-x-auto">
                   <table className="w-full text-sm" style={{ minWidth: 640 }}>
                     <colgroup>
-                      <col style={{ width: "30%" }} />
-                      <col style={{ width: "25%" }} />
-                      <col style={{ width: "15%" }} />
-                      <col style={{ width: "15%" }} />
-                      <col style={{ width: "15%" }} />
+                      <col style={{ width: "22%" }} />
+                      <col style={{ width: "26%" }} />
+                      <col style={{ width: "22%" }} />
+                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "10%" }} />
                     </colgroup>
                     <thead className="sticky top-0 bg-background z-10">
                       <tr className="border-b border-transparent text-xs font-semibold text-muted-foreground">
                         <th className="py-2.5 pl-2 pr-3 text-left">Student Name</th>
+                        <th className="py-2.5 px-3 text-left">Needs attention</th>
                         <th className="py-2.5 px-3 text-left">Progress</th>
                         <th className="py-2.5 px-2 text-center">Lessons</th>
                         <th className="py-2.5 px-2 text-center">Attempts</th>
@@ -857,6 +963,19 @@ export default function DepartmentHeadDashboardPage() {
                             >
                               {learner.name || `Learner #${learner.learnerId}`}
                             </Link>
+                          </td>
+                          {/* The reason, not a warning icon: "no activity in
+                              21 days" and "averaging 19%" call for different
+                              conversations, and a triangle says neither. */}
+                          <td className="py-2.5 px-3">
+                            {learner.flag ? (
+                              <span className="flex items-center gap-1.5 text-xs font-semibold text-rb-fox-lip">
+                                <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
+                                <span className="truncate">{learner.flag}</span>
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
                           </td>
                           <td className="py-2.5 px-3">
                             <div className="flex items-center gap-2 max-w-[140px]">
@@ -888,71 +1007,18 @@ export default function DepartmentHeadDashboardPage() {
           </BentoTile>
         ),
       },
-      // 10. Recent Submissions & Activity Feed
-      {
-        id: "dept-recent-activity",
-        col: 6,
-        row: 2,
-        x: 0,
-        y: 12,
-        element: (
-          <BentoTile col={6} row={2} className="!p-0">
-            <div className="flex min-h-0 flex-1 flex-col p-5 sm:p-6">
-              <DashboardCardHeader
-                icon={MailPlusIcon}
-                kicker="Recent Activity"
-                title="Recent Submissions & Department Invitations"
-                hint="Recent activity, test submissions, and onboarding invitations."
-                chip={
-                  pendingInvitations > 0 ? (
-                    <Badge
-                      variant="secondary"
-                      className="gap-1 border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-                    >
-                      <MailPlusIcon className="size-3" aria-hidden="true" />
-                      {pendingInvitations} pending invitations
-                    </Badge>
-                  ) : null
-                }
-              />
-
-              {recentInvitations.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  No recent activity or invitations logged yet.
-                </div>
-              ) : (
-                <ul className="-mr-2 min-h-0 flex-1 divide-y-2 divide-border overflow-y-auto pr-2">
-                  {recentInvitations.map((invitation) => (
-                    <li
-                      key={invitation.invitationId}
-                      className="flex items-center justify-between gap-3 py-3 text-sm first:pt-0"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-bold">{invitation.email}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Sent {formatDateTime(invitation.sentAt)}
-                        </p>
-                      </div>
-                      <InstitutionStatusBadge status={invitation.status} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </BentoTile>
-        ),
-      },
     ]
   }, [
     summary,
-    cohort,
-    cohortStats,
+    spread,
+    needingSupport,
+    programmes,
+    hardestTopics,
+    hardestAssessments,
+    flaggedCount,
     groupStats,
     deptLearners,
     groups,
-    instData,
-    recentInvitations,
-    pendingInvitations,
     statsQuery.isError,
     departmentStatsQuery.isError,
   ])
@@ -966,10 +1032,22 @@ export default function DepartmentHeadDashboardPage() {
       {/* Controls & Header Navigation (2A) */}
       <div className="relative z-30 flex flex-wrap items-center justify-between gap-4 mb-2.5">
         <div className="w-full md:w-[calc(50%-10px)]">
-          <DateRangeNavigator className="w-full" onChange={setDateRange} />
+          <DateRangeNavigator className="w-full" onRangeChange={setRange} />
         </div>
 
         <div className="ml-auto flex items-center gap-3">
+          {/* Disabled while the figures are still arriving: a CSV exported
+              mid-load is a file full of blanks that reads like a department
+              with nothing on it. */}
+          <Button
+            variant="outline"
+            onClick={() => downloadCsv(timestampedFilename("rebyu-department-dashboard"), buildCsv())}
+            disabled={statsQuery.isLoading || statsQuery.isError}
+          >
+            <Download className="size-4" aria-hidden="true" />
+            Export CSV
+          </Button>
+
           <DashboardRearrangeControls
             rearranging={layout.rearranging}
             onStart={layout.startRearranging}

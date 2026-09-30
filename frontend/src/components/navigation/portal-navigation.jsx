@@ -23,6 +23,8 @@ import {
   UsersRound,
   X,
   ListChecks,
+  Play,
+  Trophy,
 } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
@@ -127,6 +129,10 @@ const adminGroups = [
       { label: "Community", href: "/admin/community", icon: UsersRound },
       // The stored pick-lists (industries, department names) every select reads.
       { label: "Reference lists", href: "/admin/reference-lists", icon: ListChecks },
+      // Subscription plans, partnership pricing, features, AI credits.
+      { label: "Pricing & plans", href: "/admin/pricing", icon: CreditCard },
+      { label: "Rewards & XP", href: "/admin/rewards", icon: Trophy },
+      { label: "Seed challenges", href: "/admin/seed-challenges", icon: Play },
       // Credits left, the model each AI feature runs on, and choosing it.
       { label: "AI settings", href: "/admin/ai-settings", icon: Bot },
     ],

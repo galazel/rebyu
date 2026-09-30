@@ -58,7 +58,7 @@ const INITIAL_CHALLENGES = [
   {
     challengeId: 3,
     arenaId: "worldcup",
-    title: "World Cup",
+    title: "Champions Cup",
     description:
         "An eight-player bracket on one certification track — quarterfinals, semis, and a timed grand final.",
     icon: Trophy,

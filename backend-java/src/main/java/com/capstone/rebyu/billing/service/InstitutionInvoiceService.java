@@ -30,8 +30,19 @@ import java.util.List;
 @Slf4j
 public class InstitutionInvoiceService {
 
-    public static final BigDecimal PRICE_PER_SLOT = new BigDecimal("149.00");
+    private static volatile BigDecimal PRICE_PER_SLOT = new BigDecimal("149.00");
     public static final String CURRENCY = "PHP";
+
+    public static BigDecimal getPricePerSlot() {
+        return PRICE_PER_SLOT;
+    }
+
+    public static void setPricePerSlot(BigDecimal price) {
+        if (price == null || price.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Price per slot must be non-negative");
+        }
+        PRICE_PER_SLOT = price;
+    }
     private static final int DUE_DAYS = 30;
 
     private final InstitutionInvoiceRepository invoices;

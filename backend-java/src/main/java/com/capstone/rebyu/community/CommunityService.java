@@ -476,6 +476,38 @@ public class CommunityService {
         return saved;
     }
 
+    /**
+     * Removes one comment, and any replies to it.
+     *
+     * <p>Either the person who wrote it or the person whose post it is on may
+     * delete it. The post's author already has a blunter version of this --
+     * deleting the post takes the whole thread with it -- so withholding the
+     * ability to remove one comment would only push them towards the larger
+     * action.
+     *
+     * <p>A mismatched post is refused rather than ignored: the id pair comes
+     * from a URL, and quietly deleting a comment that belongs to a different
+     * post because the comment id happened to be right is exactly the sort of
+     * thing that is discovered much later.
+     */
+    @Transactional
+    public void deleteComment(Long learnerId, Long postId, Long commentId) {
+        CommunityComment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new EntityNotFoundException("Comment not found: " + commentId));
+
+        if (comment.getPost() == null || !comment.getPost().getPostId().equals(postId)) {
+            throw new EntityNotFoundException("Comment not found: " + commentId);
+        }
+
+        boolean mine = comment.getAuthor() != null
+                && comment.getAuthor().getLearnerId().equals(learnerId);
+        if (!mine && !isPostAuthor(postId, learnerId)) {
+            throw new IllegalArgumentException("You can only delete your own comment");
+        }
+
+        commentRepository.deleteWithReplies(commentId);
+    }
+
     // Author notifications
 
     /**

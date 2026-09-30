@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
-import { Check, NotebookPenIcon, Plus, Trash2 } from "@/components/icons"
+import { Check, NotebookPenIcon, Plus, StickyNote, Trash2 } from "@/components/icons"
 import { Button } from "@/components/ui/button"
 import { BentoSkeleton, BentoTile } from "@/components/commons/bento.jsx"
 import {
@@ -208,17 +208,31 @@ export function StudyNotesTile({ certificationId }) {
       className="relative overflow-hidden border-[#e6ddcf] bg-[#fffdf9] p-0 sm:p-0 dark:border-[#332f29] dark:bg-[#1c1a17]"
     >
       <div className="relative shrink-0 px-5 pb-1.5">
-        <div className="mt-2 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
-          <div className="min-w-0">
-            <h2 className="font-rb-display text-sm font-extrabold lowercase text-[#2f2a22] dark:text-[#eae4d8]">
-              study notes
-            </h2>
+        {/* The same header shape as every other tile -- icon, kicker, title,
+            hint, rule -- but drawn in this tile's own paper inks rather than
+            through BentoHeading, whose emerald chip would be the one thing on
+            cream paper that looked like a mistake rather than a standard. */}
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 border-b border-[#e6ddcf] pb-2.5 dark:border-[#332f29]">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-[#efe7d8] text-[#7a6a4f] dark:bg-[#2a251d] dark:text-[#c9b892]">
+              <StickyNote className="size-4" aria-hidden="true" />
+            </span>
 
-            <p className="mt-0.5 text-xs text-[#7c7367] dark:text-[#a49b8d]">
-              {notes.length
-                ? `${doneCount} of ${notes.length} done`
-                : "Your checklist for this certification."}
-            </p>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase leading-tight tracking-wider text-[#8a7c62] dark:text-[#b0a184]">
+                Your Checklist
+              </p>
+
+              <h2 className="truncate font-rb-display text-sm font-extrabold lowercase text-[#2f2a22] dark:text-[#eae4d8]">
+                study notes
+              </h2>
+
+              <p className="mt-0.5 truncate text-[11px] font-medium text-[#7c7367] dark:text-[#a49b8d]">
+                {notes.length
+                  ? `${doneCount} of ${notes.length} done`
+                  : "Jot down what to come back to."}
+              </p>
+            </div>
           </div>
 
           {notes.length ? (

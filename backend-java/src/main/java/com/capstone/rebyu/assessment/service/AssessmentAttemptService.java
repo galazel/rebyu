@@ -18,6 +18,7 @@ import com.capstone.rebyu.billing.entitlement.Entitlements;
 import com.capstone.rebyu.billing.service.LearnerEntitlementService;
 import com.capstone.rebyu.bkt.config.BktProperties;
 import com.capstone.rebyu.bkt.service.BktOutboxService;
+import com.capstone.rebyu.gamification.RewardAmounts;
 import com.capstone.rebyu.gamification.RewardService;
 import com.capstone.rebyu.gamification.service.StreakService;
 import com.capstone.rebyu.progress.service.AchievementAwardService;
@@ -147,9 +148,9 @@ public class AssessmentAttemptService {
      * a later perfect), so the total always reflects the learner's BEST
      * result while each tier still pays at most once per exam.
      */
-    private static final int ASSESSMENT_ATTEMPTED_XP = 30;
-    private static final int ASSESSMENT_PASSED_TOPUP_XP = 70;
-    private static final int ASSESSMENT_PERFECT_TOPUP_XP = 100;
+    private static int assessmentAttemptedXp()    { return RewardAmounts.getAssessmentAttemptedXp(); }
+    private static int assessmentPassedTopupXp()  { return RewardAmounts.getAssessmentPassedTopupXp(); }
+    private static int assessmentPerfectTopupXp() { return RewardAmounts.getAssessmentPerfectTopupXp(); }
 
     /**
      * The pop-up knowledge check pays the same three tiers at a quarter of the
@@ -167,9 +168,9 @@ public class AssessmentAttemptService {
      * which is the ordering the economy needs: the check is a nudge to
      * remember something, not a way to progress.
      */
-    private static final int CHECK_ATTEMPTED_XP = 10;
-    private static final int CHECK_PASSED_TOPUP_XP = 15;
-    private static final int CHECK_PERFECT_TOPUP_XP = 25;
+    private static int checkAttemptedXp()    { return RewardAmounts.getCheckAttemptedXp(); }
+    private static int checkPassedTopupXp()  { return RewardAmounts.getCheckPassedTopupXp(); }
+    private static int checkPerfectTopupXp() { return RewardAmounts.getCheckPerfectTopupXp(); }
 
     /**
      * Mirrors {@code LessonKnowledgeCheckService.KNOWLEDGE_CHECK_EXAM_TYPE}.
@@ -381,6 +382,25 @@ public class AssessmentAttemptService {
                         .map(ChallengeArenaConfig::getLive)
                         .orElse(null) == Boolean.FALSE) {
             throw new IllegalArgumentException("This arena is closed for now. Check back later.");
+        }
+
+        /* The arena's XP door, checked here and not only on the card.
+           The learner's card locks and explains the shortfall, but a
+           bookmarked attempt URL bypasses every screen -- the same reasoning
+           as the pause check above. */
+        if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
+                && exam.getTargetScope() != null) {
+            int required = ChallengeArenaService
+                    .settingsOf(exam.getTargetScope(), arenaConfigRepository.findById(exam.getTargetScope()))
+                    .getOrDefault(ChallengeArenaService.ENTRY_XP, 0);
+            if (required > 0) {
+                long held = rewardService.balance(learnerId).xp();
+                if (held < required) {
+                    throw new IllegalArgumentException(
+                            "This arena needs " + required + " XP to enter. You have "
+                                    + held + " — earn " + (required - held) + " more and come back.");
+                }
+            }
         }
 
         /* Free learners see the first problems of a solo arena, not the whole set. */
@@ -836,9 +856,9 @@ public class AssessmentAttemptService {
         boolean isCheck = KNOWLEDGE_CHECK_EXAM_TYPE.equals(
                 attempt.getExam().getExamType().getExamTypeText());
 
-        int attemptedXp = isCheck ? CHECK_ATTEMPTED_XP : ASSESSMENT_ATTEMPTED_XP;
-        int passedXp = isCheck ? CHECK_PASSED_TOPUP_XP : ASSESSMENT_PASSED_TOPUP_XP;
-        int perfectXp = isCheck ? CHECK_PERFECT_TOPUP_XP : ASSESSMENT_PERFECT_TOPUP_XP;
+        int attemptedXp = isCheck ? checkAttemptedXp() : assessmentAttemptedXp();
+        int passedXp = isCheck ? checkPassedTopupXp() : assessmentPassedTopupXp();
+        int perfectXp = isCheck ? checkPerfectTopupXp() : assessmentPerfectTopupXp();
 
         // Existing key and reason, so learners already paid the previous flat
         // award are not paid again for simply finishing this exam.

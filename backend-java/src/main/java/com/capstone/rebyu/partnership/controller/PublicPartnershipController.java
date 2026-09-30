@@ -30,7 +30,7 @@ public class PublicPartnershipController {
     @GetMapping("/pricing")
     public java.util.Map<String, Object> pricing() {
         return java.util.Map.of(
-                "pricePerSlot", com.capstone.rebyu.billing.service.InstitutionInvoiceService.PRICE_PER_SLOT,
+                "pricePerSlot", com.capstone.rebyu.billing.service.InstitutionInvoiceService.getPricePerSlot(),
                 "currency", com.capstone.rebyu.billing.service.InstitutionInvoiceService.CURRENCY);
     }
 

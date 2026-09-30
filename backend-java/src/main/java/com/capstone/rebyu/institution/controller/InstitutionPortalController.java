@@ -50,6 +50,7 @@ public class InstitutionPortalController {
     private final InstitutionLearningStatsService learningStatsService;
     private final InstitutionDashboardService dashboardService;
     private final InstitutionService institutionService;
+    private final com.capstone.rebyu.department.service.DepartmentService departmentService;
     private final DepartmentHeadService departmentHeadService;
     private final DepartmentHeadProvisioningService departmentHeadProvisioningService;
     private final InstitutionRepository institutionRepository;
@@ -67,13 +68,31 @@ public class InstitutionPortalController {
     }
 
     /**
-     * Learning statistics for the caller's own institution: a roster-wide
-     * rollup plus a row per member (progress, lessons finished, graded attempts,
-     * pass rate, average score, last activity).
+     * Learning statistics for the caller: a roster-wide rollup plus a row per
+     * member (progress, lessons finished, graded attempts, pass rate, average
+     * score, last activity).
+     *
+     * <p>An owner or administrator gets the whole institution. Anyone else is
+     * a department head, and gets only the departments they have been given --
+     * their roster, their programmes, their weak topics. The previous version
+     * answered with the full institution for every caller and left the browser
+     * to filter, which put other departments' learners and marks on the wire
+     * for anyone who asked.
      */
     @GetMapping("/learning-stats")
-    public InstitutionLearningStatsDto learningStats(@AuthenticationPrincipal Jwt jwt) {
-        return learningStatsService.learningStats(myInstitutionId(jwt));
+    public InstitutionLearningStatsDto learningStats(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        CurrentUserDto user = institutionUser(jwt);
+        return learningStatsService.learningStats(
+                user.institutionId(),
+                myDepartmentIds(user),
+                from == null ? null : from.atStartOfDay(),
+                // Inclusive: a request for a single day means that whole day,
+                // and `to.atStartOfDay()` would report everything before 00:00
+                // as the day's activity -- which is nothing.
+                to == null ? null : to.atTime(java.time.LocalTime.MAX));
     }
 
     /**
@@ -91,8 +110,14 @@ public class InstitutionPortalController {
 
     /** Completion per learning group, for the group-analytics panels. */
     @GetMapping("/group-stats")
-    public List<DepartmentProgressDto> groupStats(@AuthenticationPrincipal Jwt jwt) {
-        return learningStatsService.groupProgress(myInstitutionId(jwt));
+    public List<DepartmentProgressDto> groupStats(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        CurrentUserDto user = institutionUser(jwt);
+        return learningStatsService.groupProgress(
+                user.institutionId(),
+                myDepartmentIds(user),
+                to == null ? null : to.atTime(java.time.LocalTime.MAX));
     }
 
     /** Every member of the caller's own institution (owners, managers, staff). */
@@ -159,6 +184,10 @@ public class InstitutionPortalController {
     }
 
     private Long myInstitutionId(Jwt jwt) {
+        return institutionUser(jwt).institutionId();
+    }
+
+    private CurrentUserDto institutionUser(Jwt jwt) {
         if (jwt == null) {
             throw new IllegalArgumentException("Authentication is required");
         }
@@ -166,6 +195,25 @@ public class InstitutionPortalController {
         if (user.institutionId() == null) {
             throw new IllegalArgumentException("An institution account is required");
         }
-        return user.institutionId();
+        return user;
+    }
+
+    /**
+     * The departments a caller's analytics are confined to, or null for an
+     * owner, who is confined to nothing.
+     *
+     * <p>Resolved through the same {@code getAccessible} the departments
+     * endpoint uses, so "which departments are mine" has exactly one answer in
+     * this codebase. A head whose assignments have all been revoked resolves
+     * to an empty list, which the stats service reads as "no learners" rather
+     * than falling through to the institution.
+     */
+    private List<Long> myDepartmentIds(CurrentUserDto user) {
+        if ("owner".equalsIgnoreCase(user.departmentHeadRole())) {
+            return null;
+        }
+        return departmentService.getAccessible(user.institutionId(), user.userId(), false, null).stream()
+                .map(com.capstone.rebyu.department.dto.DepartmentDto::getDepartmentId)
+                .toList();
     }
 }

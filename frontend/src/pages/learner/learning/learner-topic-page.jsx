@@ -73,6 +73,7 @@ import {
   examStanding,
   findMiddle,
   latestSitting,
+  bestSitting,
   PROFICIENT_RATING,
 } from "./curriculum-model.js"
 import {
@@ -689,6 +690,7 @@ function LessonView({
   quizPending,
   quizStanding,
   quizLatest,
+  quizBest,
 }) {
   const articleRef = useRef(null)
   const headerRef = useRef(null)
@@ -812,6 +814,16 @@ function LessonView({
     autoCompletedRef.current = true
     onReadLesson()
   }, [sections, readSections, quizPending, onReadLesson, lessonItem.quiz])
+
+  const prevLessonDoneRef = useRef(lessonDone)
+  useEffect(() => {
+    if (lessonDone && !prevLessonDoneRef.current) {
+      requestAnimationFrame(() => {
+        document.getElementById("lesson-complete")?.scrollIntoView({ behavior: "smooth", block: "center" })
+      })
+    }
+    prevLessonDoneRef.current = lessonDone
+  }, [lessonDone])
 
   return (
     <article
@@ -977,6 +989,7 @@ function LessonView({
             taken={Boolean(takenExamIds?.has(String(lessonItem.quiz.examId)))}
             standing={quizStanding}
             latest={quizLatest}
+            best={quizBest}
           />
         </div>
       ) : null}
@@ -986,6 +999,7 @@ function LessonView({
           be pressed, so a learner who jumped to the end can still set it. */}
       <div className="mx-auto w-full max-w-6xl">
       <motion.div
+        id="lesson-complete"
         aria-live="polite"
         // A single settle when the lesson lands, so finishing registers as an
         // event rather than a colour swap you might not look up for.
@@ -1053,6 +1067,119 @@ function LessonView({
 }
 
 /**
+ * How a learner stands on one exam, in the two lines they actually need: the
+ * sitting the road is gated on, and whether it opened the road.
+ *
+ * Shared by the lesson's quick check and the topic's unit assessment because
+ * they are gated the same way -- on a proficiency, read off the BEST sitting
+ * (see `examStanding`). The assessment splash used to say none of this: it
+ * quoted the paper's pass mark, which decides nothing, and never reported a
+ * rating at all, so a learner who had cleared the unit exam could not tell
+ * from the splash that the next topic was open.
+ *
+ * `opens` is what clearing this paper unlocks, in the learner's terms --
+ * "next lesson" for a quick check, "next topic" for a unit assessment.
+ */
+function StandingBand({ standing, latest, best, opens }) {
+  /* The card leads with the sitting the road is gated on -- the best one --
+     because a learner reading "your last attempt: 30, reach 50" while the
+     next lesson sits open has been told two different things. The latest
+     sitting still appears when it is not the best, as a second line: it is
+     how they did today, which is worth knowing and is not the verdict. */
+  const shown = best ?? latest
+  if (!shown && !(standing?.taken && !standing.cleared)) return null
+
+  const cleared =
+    shown == null
+      ? false
+      : shown.rating != null
+        ? shown.rating >= PROFICIENT_RATING
+        : shown.passed
+
+  /* Only when it says something the headline does not. */
+  const retakeToShow =
+    latest && best && latest.attemptNo !== best.attemptNo ? latest : null
+
+  return (
+    <>
+      {/* How the best sitting actually went -- the same sitting the gate
+          reads (see `examStanding`), so a rating shown here is also what
+          opens or shuts the road past this paper. */}
+      {shown ? (
+        <div
+          className={cn(
+            "mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-rb-control border-2 px-3 py-2",
+            /* Coloured by the level reached, which is what opens the road --
+               not by the paper's pass mark, which an adaptive sitting
+               routinely lands under while measuring a real and perfectly
+               good level. */
+            cleared
+              ? "border-rb-feather/50 bg-rb-feather-wash"
+              : "border-rb-fox/40 bg-rb-fox-wash",
+          )}
+        >
+          <span className="text-xs font-bold uppercase tracking-wide text-rb-wolf">
+            {retakeToShow ? "Your best attempt" : "Your last attempt"}
+          </span>
+          <span className="text-sm font-extrabold text-rb-eel">
+            {shown.rating != null
+              ? `proficiency ${Math.round(shown.rating)} / 100${shown.label ? ` · ${shown.label}` : ""}`
+              : `${Math.round(shown.score ?? 0)}%`}
+          </span>
+          {/* The verdict in the learner's terms. Where a level was measured
+              that level IS the verdict, so the card says whether it opens the
+              road rather than stamping "not passed" on a sitting the
+              curriculum is perfectly happy with. */}
+          <span
+            className={cn(
+              "text-sm font-bold",
+              cleared ? "text-rb-feather-lip" : "text-rb-fox-lip",
+            )}
+          >
+            {shown.rating != null
+              ? cleared
+                ? `${opens} open`
+                : `reach ${PROFICIENT_RATING} to continue`
+              : shown.passed
+                ? "passed"
+                : "not passed"}
+          </span>
+          {shown.rating != null && shown.score != null ? (
+            <span className="text-xs font-semibold text-rb-wolf">
+              {Math.round(shown.score)}% of the items served
+            </span>
+          ) : null}
+
+          {/* Today's sitting, when it is not the one that counts. Said
+              plainly, and without a verdict attached: a practice retake that
+              went badly does not take anything away. */}
+          {retakeToShow ? (
+            <span className="w-full text-xs font-semibold text-rb-wolf">
+              Latest retake:{" "}
+              {retakeToShow.rating != null
+                ? `proficiency ${Math.round(retakeToShow.rating)}`
+                : `${Math.round(retakeToShow.score ?? 0)}%`}
+              {" — your best stands, and the road stays open."}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Why the road is still shut after a sitting: this paper has to be
+          cleared at a proficient level before the next stop opens. */}
+      {standing?.taken && !standing.cleared ? (
+        <p className="mt-3 rounded-rb-control border-2 border-rb-fox/40 bg-rb-fox-wash px-3 py-2 text-sm font-bold text-rb-eel">
+          {/* `reason` already reads as a sentence about proficiency; it only
+              needs its first letter. */}
+          {standing.reason.charAt(0).toUpperCase() + standing.reason.slice(1)}.
+          Retake it to open the {opens}.
+        </p>
+      ) : null}
+    </>
+  )
+}
+
+/**
  * A lesson's quick check, on the "test your skills" layout: a coloured band
  * with one card floating on it.
  *
@@ -1061,15 +1188,7 @@ function LessonView({
  * is what the attempt engine already does. Rendering our own radio buttons here
  * would produce a score the backend never sees.
  */
-function QuizBand({ quiz, taken, standing, latest }) {
-  /* Whether the last sitting opens the road: its level where it measured one,
-     and only otherwise the paper's pass mark. */
-  const latestCleared =
-    latest == null
-      ? false
-      : latest.rating != null
-        ? latest.rating >= PROFICIENT_RATING
-        : latest.passed
+function QuizBand({ quiz, taken, standing, latest, best }) {
   /* Where the quiz hands the learner back. They are part-way through this
      topic, so finishing sends them here rather than to the certification's
      roadmap. */
@@ -1094,66 +1213,12 @@ function QuizBand({ quiz, taken, standing, latest }) {
               "A short check on what this lesson covered. Answer it while the lesson is fresh — it is scored, and you can retake it."}
           </p>
 
-          {/* How the last sitting actually went -- the same sitting the gate
-              reads (see `examStanding`), so a failed retake shown here is also
-              what shuts the next lesson and the unit exam. */}
-          {latest ? (
-            <div
-              className={cn(
-                "mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-rb-control border-2 px-3 py-2",
-                /* Coloured by the level reached, which is what opens the
-                   road -- not by the paper's pass mark, which an adaptive
-                   sitting routinely lands under while measuring a real and
-                   perfectly good level. */
-                latestCleared
-                  ? "border-rb-feather/50 bg-rb-feather-wash"
-                  : "border-rb-fox/40 bg-rb-fox-wash",
-              )}
-            >
-              <span className="text-xs font-bold uppercase tracking-wide text-rb-wolf">
-                Your last attempt
-              </span>
-              <span className="text-sm font-extrabold text-rb-eel">
-                {latest.rating != null
-                  ? `proficiency ${Math.round(latest.rating)} / 100${latest.label ? ` · ${latest.label}` : ""}`
-                  : `${Math.round(latest.score ?? 0)}%`}
-              </span>
-              {/* The verdict in the learner's terms. Where a level was
-                  measured that level IS the verdict, so the card says whether
-                  it opens the next lesson rather than stamping "not passed"
-                  on a sitting the curriculum is perfectly happy with. */}
-              <span
-                className={cn(
-                  "text-sm font-bold",
-                  latestCleared ? "text-rb-feather-lip" : "text-rb-fox-lip",
-                )}
-              >
-                {latest.rating != null
-                  ? latestCleared
-                    ? "next lesson open"
-                    : `reach ${PROFICIENT_RATING} to continue`
-                  : latest.passed
-                    ? "passed"
-                    : "not passed"}
-              </span>
-              {latest.rating != null && latest.score != null ? (
-                <span className="text-xs font-semibold text-rb-wolf">
-                  {Math.round(latest.score)}% of the items served
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-
-          {/* Why the lesson is still open after a sitting: the quiz has to be
-              passed at a proficient level before the next lesson opens. */}
-          {standing?.taken && !standing.cleared ? (
-            <p className="mt-3 rounded-rb-control border-2 border-rb-fox/40 bg-rb-fox-wash px-3 py-2 text-sm font-bold text-rb-eel">
-              {/* `reason` already reads as a sentence about proficiency; it
-                  only needs its first letter. */}
-              {standing.reason.charAt(0).toUpperCase() + standing.reason.slice(1)}.
-              Retake it to open the next lesson.
-            </p>
-          ) : null}
+          <StandingBand
+            standing={standing}
+            latest={latest}
+            best={best}
+            opens="next lesson"
+          />
 
           <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
@@ -1208,11 +1273,29 @@ function QuizBand({ quiz, taken, standing, latest }) {
   )
 }
 
-/** The unit assessment splash: what it takes to pass, and one key. */
-function AssessmentView({ exam, position, total, backTo, taken, onOpenOutline }) {
+/**
+ * The unit assessment splash: what it takes to clear it, how the learner
+ * stands, and one key.
+ *
+ * Gated exactly as a lesson's quick check is -- on reaching Proficient on the
+ * BEST sitting -- so it reports the same thing in the same words. It used to
+ * quote the paper's own pass mark and nothing else, which is a number the road
+ * no longer reads, and it showed no attempt at all: a learner who had already
+ * cleared this exam met a splash that could have been their first visit.
+ */
+function AssessmentView({
+  exam,
+  position,
+  total,
+  backTo,
+  taken,
+  standing,
+  latest,
+  best,
+  onOpenOutline,
+}) {
   // Same reasoning as QuizBand: finishing returns to this topic.
   const location = useLocation()
-  const passMark = Math.round(Number(exam.passingScore ?? 0))
 
   return (
     <div className="w-full pb-10">
@@ -1279,14 +1362,22 @@ function AssessmentView({ exam, position, total, backTo, taken, onOpenOutline })
         />
 
         <p className="rb-body-lg mt-7">
-          You must score {passMark} percent or higher on this assessment to pass the module. You
-          have unlimited chances. Good luck!
+          This assessment measures your level across the whole topic. Reach proficiency{" "}
+          {PROFICIENT_RATING} to open the next topic — you have unlimited chances, and your best
+          sitting is the one that counts. Good luck!
         </p>
+
+        {/* Where they stand, on the sitting the gate reads. The same band the
+            quick check wears, because it is the same gate. */}
+        <StandingBand standing={standing} latest={latest} best={best} opens="next topic" />
 
         <ul className="mt-8 grid gap-3 sm:grid-cols-3">
           {[
             [ClipboardCheck, `${exam.totalQuestions} questions`],
-            [CheckCircle2, `${passMark}% to pass`],
+            /* What actually opens the next topic. The paper's own pass mark is
+               not the gate any more, so quoting it here sent learners chasing
+               a number that decides nothing. */
+            [CheckCircle2, `proficiency ${PROFICIENT_RATING} to continue`],
             [Clock, exam.durationMinutes ? `${exam.durationMinutes} minutes` : "Unlimited attempts"],
           ].map(([Icon, label]) => (
             <li
@@ -1759,6 +1850,8 @@ export default function LearnerTopicPage() {
   const quizStanding = activeQuiz ? examStanding(data?.examResults, activeQuiz.examId) : null
   // The sitting they just finished, as opposed to their best one.
   const quizLatest = activeQuiz ? latestSitting(data?.examResults, activeQuiz.examId) : null
+  // The sitting the road is gated on, which the card leads with.
+  const quizBest = activeQuiz ? bestSitting(data?.examResults, activeQuiz.examId) : null
   const quizPending = Boolean(activeQuiz) && !quizStanding?.cleared
 
   // Two entry points, deliberately different: the scroll check only ever
@@ -1938,6 +2031,7 @@ export default function LearnerTopicPage() {
               quizPending={quizPending}
               quizStanding={quizStanding}
               quizLatest={quizLatest}
+              quizBest={quizBest}
               onPrev={
                 prev
                   ? () => {
@@ -1965,6 +2059,9 @@ export default function LearnerTopicPage() {
               backTo={backTo}
               onOpenOutline={() => setRailOpen(true)}
               taken={Boolean(takenExamIds.has(String(active.exam.examId)))}
+              standing={examStanding(data?.examResults, active.exam.examId)}
+              latest={latestSitting(data?.examResults, active.exam.examId)}
+              best={bestSitting(data?.examResults, active.exam.examId)}
             />
           )}
             </motion.div>

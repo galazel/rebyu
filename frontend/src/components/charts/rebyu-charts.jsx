@@ -710,6 +710,94 @@ export function BarBreakdownChart({
   )
 }
 
+/* stacked bar */
+
+/**
+ * One row per category, split into named parts that add up to that row's
+ * total — the shape for "how are the people on this programme doing", where
+ * the split matters as much as the total and a second chart per programme
+ * would be unreadable.
+ *
+ * Not a donut: a donut can only ever draw one category, so comparing four
+ * programmes meant four rings, and a ring with a single non-zero slice (which
+ * is what a young cohort always produces) says nothing at all.
+ *
+ * @param series  [{ key, name }] — colour follows position, never value, so
+ *                filtering an empty part out never repaints the survivors.
+ * @param totalKey  optional key printed at the end of each legend row.
+ */
+export function StackedBarChart({
+  data,
+  categoryKey,
+  series,
+  height = 260,
+  categoryWidth = 130,
+  barSize = 18,
+  note,
+}) {
+  const theme = useChartTheme()
+  if (!data?.length) return <ChartEmpty />
+
+  const last = series.length - 1
+
+  return (
+    <figure className="w-full min-w-0">
+      <div style={{ height }} className="w-full min-w-0 overflow-hidden">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            layout="vertical"
+            margin={{ top: 8, right: 20, bottom: 0, left: 4 }}
+            barCategoryGap="30%"
+          >
+            <CartesianGrid stroke={theme.grid} strokeWidth={1} horizontal={false} vertical />
+            <XAxis type="number" allowDecimals={false} {...axisProps(theme)} />
+            <YAxis
+              type="category"
+              dataKey={categoryKey}
+              width={categoryWidth}
+              interval={0}
+              {...axisProps(theme)}
+              tick={(tickProps) => (
+                <CategoryTick
+                  {...tickProps}
+                  width={categoryWidth - 8}
+                  fill={theme.ink.secondary}
+                />
+              )}
+            />
+            <Tooltip content={<TooltipCard />} cursor={{ fill: "rgba(127,127,127,0.08)" }} />
+            {series.map((part, index) => (
+              <Bar
+                key={part.key}
+                dataKey={part.key}
+                name={part.name}
+                stackId="parts"
+                barSize={barSize}
+                fill={seriesColor(theme, index)}
+                // Only the outer end is rounded, or every segment reads as its
+                // own separate bar and the row stops looking like one whole.
+                radius={index === last ? [0, 4, 4, 0] : 0}
+              />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <ChartLegend
+        items={series.map((part, index) => ({
+          name: part.name,
+          value: data
+            .reduce((sum, row) => sum + Number(row[part.key] || 0), 0)
+            .toLocaleString(),
+          color: seriesColor(theme, index),
+        }))}
+        note={note}
+      />
+    </figure>
+  )
+}
+
 /* donut */
 
 /** Parts of a whole — at most four named slices, the tail folded into Other. */

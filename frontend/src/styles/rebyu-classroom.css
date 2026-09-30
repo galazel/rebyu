@@ -2283,30 +2283,19 @@ body.netacad-overlay-theme {
 }
 
 /* ===========================================================================
-   TOASTS AS BOOKMARKS
+   TOASTS
    ---------------------------------------------------------------------------
-   A cream bookmark strip with the red tassel threaded through its hole.
+   Retired 2026-09-29: this skinned every toast in the product as a cream
+   bookmark with a drawn tassel hanging off it, in `!important` so nothing
+   could opt out. Toasts are not a classroom surface -- they are chrome, they
+   appear on institution and admin screens too, and a notification dressed as
+   a prop reads as decoration rather than as something that just happened.
+
+   The ordinary toast in index.css now stands: hairline border, soft
+   elevation, the product's own type. Deliberately left empty rather than
+   deleted, so the next person to look for the bookmark toast finds out where
+   it went.
    =========================================================================== */
-:root [data-sonner-toast].netacad-toast {
-    padding-left: 58px !important;
-    border: 0 !important;
-    border-radius: 3px !important;
-    background:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 72'%3E%3Cpath d='M41 34 C44 12 26 1 16 10 C10 15 11 22 12 30' fill='none' stroke='%23168a5b' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='12' cy='33' r='4.5' fill='%23086b41'/%3E%3Cpath d='M8 36 L16 36 L23 68 L1 68 Z' fill='%23168a5b'/%3E%3Cpath d='M9 40 L5 67 M12 40 L11 67 M15 40 L17 67 M13 40 L21 67' stroke='%23086b41' stroke-width='1'/%3E%3C/svg%3E") no-repeat 2px center / 34px 56px,
-        radial-gradient(circle 6px at 34px 50%, rgb(110 88 55 / 0.45) 0 5px, rgb(110 88 55 / 0.2) 5px 6px, transparent 6.5px),
-        linear-gradient(175deg, #e6f6e9, #c9ecd3) !important;
-    box-shadow: 0 1px 1px rgb(60 40 10 / 0.15), 6px 12px 18px -8px rgb(60 40 10 / 0.45) !important;
-    color: #1f4f36 !important;
-}
-:root [data-sonner-toast][data-styled="true"] .netacad-toast-title {
-    color: #1f4f36;
-    font-family: var(--font-rb-display);
-    font-size: 1.15rem;
-    font-weight: 400;
-}
-:root [data-sonner-toast][data-styled="true"] .netacad-toast-description {
-    color: #4d4a3a;
-}
 
 /* ===========================================================================
    MARKED PAPERS: RESULT AND ATTEMPT HISTORY

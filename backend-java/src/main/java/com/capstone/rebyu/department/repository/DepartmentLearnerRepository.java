@@ -55,11 +55,13 @@ public interface DepartmentLearnerRepository extends JpaRepository<DepartmentLea
             WHERE g.institution.institutionId = :institutionId
               AND a.status = com.capstone.rebyu.department.entity.DepartmentLearner.Status.active
               AND g.status = com.capstone.rebyu.department.entity.Department.Status.active
+              AND a.assignedAt <= :asOf
             GROUP BY g.departmentId, g.departmentName
             ORDER BY g.departmentName
             """)
     List<GroupProgress> groupProgressByInstitution(
-            @org.springframework.data.repository.query.Param("institutionId") Long institutionId);
+            @org.springframework.data.repository.query.Param("institutionId") Long institutionId,
+            @org.springframework.data.repository.query.Param("asOf") java.time.LocalDateTime asOf);
 
     // Group membership per assignment (institution learner roster)
 
@@ -91,4 +93,29 @@ public interface DepartmentLearnerRepository extends JpaRepository<DepartmentLea
             """)
     List<AssignmentGroup> assignmentGroupsByInstitution(
             @org.springframework.data.repository.query.Param("institutionId") Long institutionId);
+
+    /**
+     * The assignment rows taught by a given set of departments.
+     *
+     * <p>This is what makes a department head's analytics theirs rather than
+     * the institution's. Every rollup downstream is keyed on assignment ids,
+     * so scoping once here scopes the roster, the programmes, the weak topics
+     * and the hardest papers together -- they cannot drift apart the way four
+     * separately-filtered queries would.
+     *
+     * <p>Active memberships in active departments only, matching the two
+     * queries above: an archived membership is history, and a head who no
+     * longer teaches someone should not still be reading their marks.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT l.institutionCertLearnerId
+            FROM DepartmentLearner a
+            JOIN a.department g
+            JOIN a.institutionCertLearner l
+            WHERE g.departmentId IN :departmentIds
+              AND a.status = com.capstone.rebyu.department.entity.DepartmentLearner.Status.active
+              AND g.status = com.capstone.rebyu.department.entity.Department.Status.active
+            """)
+    List<Long> institutionCertLearnerIdsByDepartments(
+            @org.springframework.data.repository.query.Param("departmentIds") java.util.Collection<Long> departmentIds);
 }
