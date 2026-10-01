@@ -108,10 +108,12 @@ export function getLearnerAssessment(assessmentId, learnerId) {
   return base(`learner/assessments/${assessmentId}?learnerId=${learnerId}`)
 }
 
-export function startAssessmentAttempt(assessmentId, learnerId, idempotencyKey) {
+export function startAssessmentAttempt(assessmentId, learnerId, idempotencyKey, questionIndex) {
+  const data = { learnerId, idempotencyKey }
+  if (questionIndex != null) data.questionIndex = questionIndex
   return base(`learner/assessments/${assessmentId}/attempts`, {
     method: "POST",
-    data: { learnerId, idempotencyKey },
+    data,
   })
 }
 

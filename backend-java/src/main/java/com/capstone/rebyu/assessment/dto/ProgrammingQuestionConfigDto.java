@@ -18,5 +18,7 @@ public class ProgrammingQuestionConfigDto {
 
     private String starterCode;
 
+    private String language;
+
     private List<ProgrammingTestCaseDto> testCases;
 }

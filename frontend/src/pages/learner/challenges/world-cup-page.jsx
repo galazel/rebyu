@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { Award, Clock, Crown, Gauge, Lock, Trophy, Users, Zap } from "@/components/icons"
+import { Award, CalendarDays, ChevronRight, Clock, Crown, Gauge, Lock, Sparkles, Trophy, Users, Zap } from "@/components/icons"
 
 import { ProgressBar, TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { getWorldCupTracks } from "@/lib/arenas.js"
@@ -315,6 +315,16 @@ export default function WorldCupPage() {
 
   const clock = `00:${String(lobbyClock).padStart(2, "0")}`
 
+  const thisWeekLabel = useMemo(() => {
+    const now = new Date()
+    const monday = new Date(now)
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
+    const sunday = new Date(monday)
+    sunday.setDate(sunday.getDate() + 6)
+    const fmt = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    return `${fmt(monday)} – ${fmt(sunday)}, ${sunday.getFullYear()}`
+  }, [])
+
   const SUBTITLE = {
     track: "Choose your certification track",
     lobby: "Matchmaking · 8-player tournament",
@@ -345,70 +355,121 @@ export default function WorldCupPage() {
 
   return (
     <div className="rebyu-ds rb-arena flex h-dvh flex-col overflow-hidden">
-      {/* No header bar, same as the CodeStrike run: a ruled white strip framed
-          the tournament as a panel inside an app rather than the thing you came
-          here for. Back, the run's name, and its state sit on the page itself. */}
-      <div className="flex shrink-0 items-center gap-4 px-5 pt-6 lg:px-8">
-        <div className="min-w-0">
-          <div className="font-rb-display text-xl font-extrabold lowercase text-rb-eel">
-            champions cup
-          </div>
-          <div className="truncate text-xs font-semibold text-rb-wolf">{SUBTITLE[phase]}</div>
-        </div>
-
-        <div className="ml-auto flex items-center gap-3">
-          {phase === "lobby" || phase === "found" ? (
-            <>
-              <span className="rb-numeric text-sm text-rb-wolf">{filled} / 8 ready</span>
-              <span className="flex items-center gap-1.5 rounded-rb-pill border-2 border-rb-swan bg-rb-polar px-3 py-1.5 text-sm font-bold tabular-nums text-rb-eel">
-                <Clock className="size-4" aria-hidden="true" />
-                {clock}
-              </span>
-            </>
-          ) : null}
-          {track ? (
-            <span
-              className={`rounded-rb-pill px-3 py-1.5 text-xs font-bold ${TRACK_TONE[track.tone].wash} ${TRACK_TONE[track.tone].ink}`}
-            >
-              {track.name}
+      {/* Header — adapts per phase. Track select gets a centred hero;
+          lobby/bracket/stats get a compact top bar. */}
+      {phase === "track" ? (
+        <header className="relative shrink-0 overflow-hidden border-b border-rb-swan bg-white">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-rb-bee-wash/60 via-transparent to-transparent"
+          />
+          <div className="relative mx-auto flex max-w-5xl flex-col items-center px-5 pb-7 pt-8 text-center lg:px-8">
+            <span className="grid size-16 place-items-center rounded-2xl bg-gradient-to-br from-rb-bee via-rb-macaw to-rb-feather shadow-lg shadow-rb-macaw/25">
+              <Trophy className="size-8 text-white" aria-hidden="true" />
             </span>
-          ) : null}
-          {/* The published week, for real.
-              The bracket around it is still a presentation -- the seats, the
-              countdown and the opponents are local state. This button is the
-              part that is not: it opens the questions an admin published, in
-              the standard exam workspace, graded like any other attempt. */}
-          {worldCup?.examId ? (
-            <TactileButton
-              size="sm"
-              onClick={() => navigate(`/learner/assessments/${worldCup.examId}`)}
-            >
-              play this week
-            </TactileButton>
-          ) : null}
+            <h1 className="mt-4 font-rb-display text-4xl font-extrabold lowercase tracking-tight text-rb-eel sm:text-5xl">
+              champions cup
+            </h1>
+            <p className="mt-2 max-w-md text-sm leading-6 text-rb-wolf">
+              An 8-player bracket on your certification track — quarterfinals, semis,
+              and a timed grand final.
+            </p>
 
-          {phase === "bracket" ? (
-            <TactileButton size="sm" variant="ghost" onClick={() => setPhase("stats")}>
-              view results
-            </TactileButton>
-          ) : null}
-          {phase === "stats" ? (
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-rb-polar px-3.5 py-1.5 text-xs font-bold text-rb-eel">
+                <CalendarDays className="size-3.5 text-rb-wolf" aria-hidden="true" />
+                {thisWeekLabel}
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-rb-polar px-3.5 py-1.5 text-xs font-bold text-rb-eel">
+                <Users className="size-3.5 text-rb-wolf" aria-hidden="true" />
+                8-player bracket
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-rb-polar px-3.5 py-1.5 text-xs font-bold text-rb-eel">
+                <Sparkles className="size-3.5 text-rb-wolf" aria-hidden="true" />
+                3 rounds
+              </span>
+            </div>
+
+            {worldCup?.examId ? (
+              <TactileButton
+                className="mt-6"
+                onClick={() => navigate(`/learner/assessments/${worldCup.examId}`)}
+              >
+                <Zap className="size-4" aria-hidden="true" />
+                play this week
+                <ChevronRight className="size-4" aria-hidden="true" />
+              </TactileButton>
+            ) : null}
+          </div>
+
+          <div className="absolute bottom-0 left-0 right-0">
             <TactileButton
-              size="sm"
+              asChild
               variant="ghost"
-              onClick={() => {
-                setPhase("track")
-                setTrack(null)
-                setFilled(1)
-                setCountdown(3)
-                setLobbyClock(40)
-              }}
+              size="sm"
+              className="absolute bottom-3 left-5 lg:left-8"
             >
-              play again
+              <Link to="/learner/challenges">back to arenas</Link>
             </TactileButton>
-          ) : null}
+          </div>
+        </header>
+      ) : (
+        <div className="flex shrink-0 items-center gap-4 px-5 pt-6 lg:px-8">
+          <div className="min-w-0">
+            <div className="font-rb-display text-xl font-extrabold lowercase text-rb-eel">
+              champions cup
+            </div>
+            <div className="truncate text-xs font-semibold text-rb-wolf">{SUBTITLE[phase]}</div>
+          </div>
+
+          <div className="ml-auto flex items-center gap-3">
+            {phase === "lobby" || phase === "found" ? (
+              <>
+                <span className="rb-numeric text-sm text-rb-wolf">{filled} / 8 ready</span>
+                <span className="flex items-center gap-1.5 rounded-rb-pill border-2 border-rb-swan bg-rb-polar px-3 py-1.5 text-sm font-bold tabular-nums text-rb-eel">
+                  <Clock className="size-4" aria-hidden="true" />
+                  {clock}
+                </span>
+              </>
+            ) : null}
+            {track ? (
+              <span
+                className={`rounded-rb-pill px-3 py-1.5 text-xs font-bold ${TRACK_TONE[track.tone].wash} ${TRACK_TONE[track.tone].ink}`}
+              >
+                {track.name}
+              </span>
+            ) : null}
+            {worldCup?.examId ? (
+              <TactileButton
+                size="sm"
+                onClick={() => navigate(`/learner/assessments/${worldCup.examId}`)}
+              >
+                play this week
+              </TactileButton>
+            ) : null}
+            {phase === "bracket" ? (
+              <TactileButton size="sm" variant="ghost" onClick={() => setPhase("stats")}>
+                view results
+              </TactileButton>
+            ) : null}
+            {phase === "stats" ? (
+              <TactileButton
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setPhase("track")
+                  setTrack(null)
+                  setFilled(1)
+                  setCountdown(3)
+                  setLobbyClock(40)
+                }}
+              >
+                play again
+              </TactileButton>
+            ) : null}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* The body owns the rest of the viewport. Each phase fills it rather
           than sitting in a centred column — a tournament with dead space above
@@ -443,15 +504,13 @@ export default function WorldCupPage() {
         ) : null}
 
         {phase === "track" && tracks.length > 0 ? (
-          <div className="flex min-h-0 flex-1 flex-col px-5 pt-6 lg:px-8">
-            <div className="rb-blades min-h-[560px] flex-1 pb-6 lg:min-h-0">
+          <div className="flex min-h-0 flex-1 flex-col px-5 pt-5 lg:px-8">
+            <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-rb-wolf">
+              Choose your track
+            </p>
+            <div className="rb-blades mt-3 min-h-[480px] flex-1 pb-6 lg:min-h-0">
               {tracks.map((item, index) => {
                 const tone = BLADE_TONE[item.tone]
-                // The blade strip overhangs both edges of the viewport so the
-                // skewed ends are cropped rather than leaving triangular gaps.
-                // The copy has to be pushed back inside by that overhang plus
-                // the skew's own lean, or the first and last blade's text runs
-                // off the screen.
                 const edge =
                   index === 0
                     ? "lg:pl-[6.5rem]"
@@ -470,45 +529,31 @@ export default function WorldCupPage() {
                   >
                     <span className="rb-blade-ghost">{item.short}</span>
 
-                    {/* Darkened foot keeps the copy legible over the colour.
-                        Lighter than it was: the fill now lands on a deep blue
-                        by itself, so a 65% black on top of that was crushing
-                        the bottom third of every blade to near-black and
-                        throwing away the hue it had just arrived at. */}
                     <span
                       aria-hidden="true"
-                      className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/45 to-transparent"
+                      className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/50 via-black/20 to-transparent"
                     />
 
                     <span
                       className={`rb-blade-inner flex flex-col justify-end p-6 text-left lg:p-8 ${edge}`}
                     >
-                      {/* Everything down to the blurb is on the blade at rest.
-                          The name alone left each panel a bare gradient with a
-                          word at the bottom, which is a lot of screen saying
-                          nothing — and a learner choosing a track has to hover
-                          all three to find out what they are. Only the CTA is
-                          held back now, since a chip that appears under the
-                          cursor is what marks the blade as armed. */}
-                      <span className="flex items-center gap-2 text-[0.6875rem] font-extrabold uppercase tracking-[0.14em] text-white/75">
+                      <span className="flex items-center gap-2 text-[0.6875rem] font-extrabold uppercase tracking-[0.14em] text-white/70">
                         <Trophy className="size-3.5" aria-hidden="true" />
                         8-player bracket
                       </span>
 
-                      <span className="mt-3 block font-rb-display text-3xl font-extrabold lowercase leading-none tracking-tight text-white drop-shadow lg:text-5xl">
+                      <span className="mt-3 block font-rb-display text-3xl font-extrabold lowercase leading-none tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)] lg:text-5xl">
                         {item.name}
                       </span>
 
-                      <span className="mt-4 line-clamp-3 block max-w-xs text-sm leading-6 text-white/85">
+                      <span className="mt-3 line-clamp-2 max-w-xs text-sm leading-6 text-white/80">
                         {item.blurb}
                       </span>
 
-                      {/* No "N in queue" chip. The tracks are real
-                          certifications now, and a made-up queue count
-                          attached to one reads as live matchmaking data. */}
                       <span className="rb-blade-detail mt-5 flex flex-wrap items-center gap-3">
-                        <span className="inline-flex items-center rounded-rb-pill bg-white px-4 py-2 text-xs font-extrabold lowercase tracking-wide text-rb-eel">
+                        <span className="inline-flex items-center gap-1.5 rounded-rb-pill bg-white px-4 py-2.5 text-xs font-extrabold lowercase tracking-wide text-rb-eel shadow-lg transition group-hover:shadow-xl">
                           enter queue
+                          <ChevronRight className="size-3.5" aria-hidden="true" />
                         </span>
                       </span>
                     </span>

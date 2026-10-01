@@ -104,7 +104,7 @@ public class LearnerAssessmentController {
         Long learnerId = me(jwt);
         requireClassMemberIfGroupExam(assessmentId, learnerId);
         return assessmentAttemptService.startAttempt(
-                assessmentId, learnerId, request.idempotencyKey());
+                assessmentId, learnerId, request.idempotencyKey(), request.questionIndex());
     }
 
     @PutMapping("/assessment-attempts/{attemptId}/answers")

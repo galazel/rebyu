@@ -27,6 +27,9 @@ public class ProgrammingQuestionConfig {
     @Column(name = "starter_code", columnDefinition = "TEXT")
     private String starterCode;
 
+    @Column(name = "language")
+    private String language;
+
     @OneToMany(mappedBy = "programmingQuestionConfig", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProgrammingTestCase> testCases = new ArrayList<>();
 }

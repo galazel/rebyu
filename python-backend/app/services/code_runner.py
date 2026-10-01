@@ -1,4 +1,4 @@
-"""Runs Python code on Judge0 through the grader's own harness.
+"""Runs code on Judge0 for verification of generated programming questions.
 
 Generation uses this to execute a coding question's reference solution against
 its test inputs, so the expected outputs stored with the question are what a
@@ -20,9 +20,15 @@ from app.domain.code_harness import wrap_python_source
 
 logger = logging.getLogger(__name__)
 
-#: Judge0 CE language id for Python 3.
-PYTHON_LANGUAGE_ID = 71
-#: Judge0 status id for a run that completed normally.
+LANGUAGE_IDS: dict[str, int] = {
+    "C": 50,
+    "C++": 54,
+    "JAVA": 62,
+    "JAVASCRIPT": 63,
+    "PYTHON": 71,
+    "C#": 51,
+}
+
 _ACCEPTED = 3
 
 
@@ -46,17 +52,26 @@ def _decode(value: str | None) -> str:
         return value
 
 
-async def run_python_tests(source: str, test_inputs: list[str]) -> list[CodeRunResult]:
+async def run_tests(
+    source: str, test_inputs: list[str], language: str = "PYTHON"
+) -> list[CodeRunResult]:
     """One result per input, in order. Raises CodeRunnerUnavailable on infra failure."""
     settings = get_settings()
     if not settings.judge0_enabled:
         raise CodeRunnerUnavailable("Judge0 is disabled (JUDGE0_ENABLED=false)")
 
-    wrapped = wrap_python_source(source)
+    lang_upper = language.strip().upper()
+    language_id = LANGUAGE_IDS.get(lang_upper)
+    if language_id is None:
+        raise CodeRunnerUnavailable(f"Unsupported language: {language}")
+
+    if lang_upper == "PYTHON":
+        submitted_source = wrap_python_source(source)
+    else:
+        submitted_source = source
+
     headers = {
         "Content-Type": "application/json",
-        # Judge0 CE sits behind Cloudflare, which rejects the default Python client
-        # user agents outright.
         "User-Agent": "REBYU-question-generator/1.0",
     }
     if settings.judge0_api_key:
@@ -77,8 +92,8 @@ async def run_python_tests(source: str, test_inputs: list[str]) -> list[CodeRunR
                         "/submissions",
                         params={"base64_encoded": "true", "wait": "true"},
                         json={
-                            "source_code": base64.b64encode(wrapped.encode("utf-8")).decode("ascii"),
-                            "language_id": PYTHON_LANGUAGE_ID,
+                            "source_code": base64.b64encode(submitted_source.encode("utf-8")).decode("ascii"),
+                            "language_id": language_id,
                             "stdin": base64.b64encode((test_input or "").encode("utf-8")).decode("ascii"),
                             "cpu_time_limit": settings.judge0_cpu_time_limit_seconds,
                             "memory_limit": settings.judge0_memory_limit_kb,
@@ -99,3 +114,8 @@ async def run_python_tests(source: str, test_inputs: list[str]) -> list[CodeRunR
             return CodeRunResult(ok=False, stdout=stdout, error=error.strip()[-500:])
 
         return list(await asyncio.gather(*(run_one(text) for text in test_inputs)))
+
+
+async def run_python_tests(source: str, test_inputs: list[str]) -> list[CodeRunResult]:
+    """Backwards-compatible wrapper."""
+    return await run_tests(source, test_inputs, "PYTHON")

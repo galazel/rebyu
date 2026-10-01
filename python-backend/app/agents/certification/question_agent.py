@@ -209,30 +209,45 @@ smaller artifacts, not easier thinking.
   than three variations of the same easy case. Difficulty is normally
   AVERAGE or HARD, and estimated_seconds should reflect the real work.
 
-  Every PROGRAMMING item is PYTHON and is graded automatically, so it must be
-  fully specified and runnable:
+  Every PROGRAMMING item is graded automatically by compiling and running it on
+  a Judge0 code runner, so it must be fully specified and runnable. Supported
+  languages: C, C++, Java, JavaScript, Python, C#. Vary the language across
+  questions -- do NOT make every question Python.
 
-    * function_name -- the one Python function (or class) the learner writes.
-      The question must name it.
+    * programming_language -- one of: C, C++, Java, JavaScript, Python, C#.
+      Pick whichever fits the problem best, and spread across languages.
+    * function_name -- the function (or class) the learner writes. The question
+      must name it.
     * rules -- one paragraph stating the signature and EVERY exact thing the
       tests check: return types and formats, exact message strings, rounding,
       ordering and tie-breaking, what to return for empty or invalid input. If a
       test expects "Error: Invalid amount", the rules say so word for word. The
       learner is shown these rules; nothing a test checks may be left unstated.
-    * reference_solution -- a complete, correct Python solution that follows the
-      rules exactly. It is never shown to learners.
+    * reference_solution -- a complete, correct solution IN THE CHOSEN LANGUAGE
+      that follows the rules exactly. It is never shown to learners.
+    * starter_code -- a meaningful skeleton in the chosen language: function
+      signatures, imports, and a comment marking what has to be implemented.
+
+    Test case format depends on the language:
+
+    FOR PYTHON:
     * test_cases -- each input_data is Python code that calls function_name: a
       single call such as `process_payment(-50, {'number': '4111', 'cvv': '123'})`,
       or a few statements ending in a call or a print. Use plain dicts, lists
-      and tuples for data; never rely on a class the question does not define,
-      never on files the question does not create, and never describe a test in
-      prose. Put anything with a variable order (sets, dict built from a set)
-      behind sorted(...) in the rules.
+      and tuples for data; never rely on a class the question does not define.
+      Put anything with a variable order behind sorted(...) in the rules.
+
+    FOR ALL OTHER LANGUAGES (C, C++, Java, JavaScript, C#):
+    * test_cases -- each input_data is PLAIN TEXT fed to stdin. The reference
+      solution reads from stdin and prints to stdout. The solution must include
+      a main function/entry point that reads the input and prints the result.
+      Example: if the function processes two numbers, input_data might be
+      "5 3" and the solution reads them with scanf/Scanner/readline etc.
+
     * expected_output -- write your best value, but it is REPLACED: generation
-      runs reference_solution on the real grader and stores what it prints
-      (the printed value of the final expression, as the Python prompt shows
-      it). A test whose reference run fails is discarded, so make every test
-      pass on your own solution.
+      runs reference_solution on the real grader and stores what it prints.
+      A test whose reference run fails is discarded, so make every test pass
+      on your own solution.
 
   CODE AT PROFESSIONAL SCALE, for the same reason DIAGRAM items must model at
   it. FizzBuzz, reversing a string, summing an array, checking a palindrome

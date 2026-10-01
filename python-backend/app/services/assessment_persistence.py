@@ -116,7 +116,8 @@ def _persist_one_question(session: Session, question: dict[str, Any]) -> int:
 
     elif question_type == "PROGRAMMING":
         repo.insert_programming_config(
-            session, question_id, question.get("starter_code"), question.get("test_cases") or []
+            session, question_id, question.get("starter_code"), question.get("test_cases") or [],
+            language=question.get("programming_language"),
         )
 
     elif question_type == "DIAGRAM":

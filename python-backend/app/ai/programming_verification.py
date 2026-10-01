@@ -7,11 +7,10 @@ contradicted the question's own example, and messages the question never stated
 -- so learners with correct code failed every test.
 
 So the model no longer decides what a test expects. It supplies a reference
-solution, and this step runs that solution on Judge0 through the grader's own
-harness for each test input. What the solution prints becomes the stored
-expected output. The question's rules -- the function name and every exact
-message and format the tests depend on -- are appended to the question text, so
-a learner is told everything the tests check.
+solution, and this step runs that solution on Judge0 for each test input. What
+the solution prints becomes the stored expected output. The question's rules --
+the function name and every exact message and format the tests depend on -- are
+appended to the question text, so a learner is told everything the tests check.
 
 A question is dropped rather than stored broken when its reference solution
 cannot produce at least MIN_PROGRAMMING_TEST_CASES clean runs, or when Judge0
@@ -27,7 +26,7 @@ from app.schemas.certification.question_schema import (
     MIN_PROGRAMMING_TEST_CASES,
     ProgrammingTestCase,
 )
-from app.services.code_runner import CodeRunnerUnavailable, run_python_tests
+from app.services.code_runner import CodeRunnerUnavailable, run_tests
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +41,10 @@ async def verify_programming_questions(questions: list) -> list:
 
     dropped: set[int] = set()
     for question in targets:
+        language = getattr(question, "programming_language", None) or "PYTHON"
         inputs = [case.input_data for case in question.test_cases]
         try:
-            results = await run_python_tests(question.reference_solution or "", inputs)
+            results = await run_tests(question.reference_solution or "", inputs, language)
         except CodeRunnerUnavailable:
             logger.warning(
                 "Judge0 unavailable -- dropping coding question %.60s rather than storing "

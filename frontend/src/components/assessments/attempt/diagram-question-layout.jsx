@@ -29,6 +29,7 @@ export default function DiagramQuestionLayout({
   navigator,
   checker = null,
   editingLocked = false,
+  isChallenge = false,
 }) {
   const [rubric, setRubric] = useState(question.rubric ?? [])
   const [notice, setNotice] = useState(null)
@@ -101,7 +102,7 @@ export default function DiagramQuestionLayout({
     </div>
   )
 
-  const side = (
+  const side = isChallenge ? null : (
     <>
       {/* The item grid is in the header's menu on a phone already. */}
       <SidePanel className="hidden lg:block">{navigator}</SidePanel>
@@ -113,13 +114,15 @@ export default function DiagramQuestionLayout({
     </>
   )
 
+  const tabs = [
+    { id: "problem", label: "Problem", icon: FileText },
+    { id: "workspace", label: "Diagram", icon: Workflow },
+  ]
+  if (!isChallenge) tabs.push({ id: "side", label: "Rubric", icon: ClipboardCheck })
+
   return (
     <WorkspaceShell
-      tabs={[
-        { id: "problem", label: "Problem", icon: FileText },
-        { id: "workspace", label: "Diagram", icon: Workflow },
-        { id: "side", label: "Rubric", icon: ClipboardCheck },
-      ]}
+      tabs={tabs}
       problem={problem}
       workspace={workspace}
       side={side}

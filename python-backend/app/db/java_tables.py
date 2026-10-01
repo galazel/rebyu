@@ -203,6 +203,7 @@ programming_question_configs = Table(
     Column("programming_question_config_id", BigInteger, primary_key=True),
     Column("question_id", BigInteger, nullable=False),
     Column("starter_code", Text),
+    Column("language", Text),
 )
 
 programming_test_cases = Table(

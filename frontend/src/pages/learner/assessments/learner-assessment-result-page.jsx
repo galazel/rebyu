@@ -9,6 +9,7 @@ import {
   ClockIcon,
   HourglassIcon,
   Loader2Icon,
+  Trophy,
   XCircleIcon,
 } from "@/components/icons"
 import { toast } from "sonner"
@@ -30,6 +31,7 @@ import {
   getAssessmentTypeLabel,
   getAttemptResult,
 } from "@/services/assessmentService.js"
+import { getChallengeLeaderboard } from "@/services/challengeService.js"
 import LearnerPremiumGuard from "@/components/learner/learner-premium-guard.jsx"
 import { StudyPlanPrompt } from "@/components/learner/study-plan-prompt.jsx"
 import { FEATURES } from "@/services/subscriptionService.js"
@@ -216,6 +218,77 @@ function StatTile({ label, value, tone }) {
 /* The item's authored difficulty beside its stem: green / amber / red, the
    scale the question bank uses, so a learner can see whether the ones they
    missed were the hard ones. */
+const XP_PER_PROBLEM = 100
+
+function parseChallengeBreakdown(answers, result) {
+  let totalPassed = 0, totalTests = 0
+  let speedSum = 0, efficiencySum = 0, parsed = 0, worstMs = null
+  let diagramMatched = 0, diagramTotal = 0, diagramParsed = 0
+  const feedbacks = (answers ?? []).map((a) => a.feedback).filter(Boolean)
+
+  for (const fb of feedbacks) {
+    const m = fb.match(
+      /correctness (\d+)\/(\d+).*?speed (\d+)%.*?efficiency (\d+)%(?:.*?slowest test (\d+) ms)?/
+    )
+    if (m) {
+      totalPassed += Number(m[1])
+      totalTests += Number(m[2])
+      speedSum += Number(m[3])
+      efficiencySum += Number(m[4])
+      parsed++
+      if (m[5]) worstMs = Math.max(worstMs ?? 0, Number(m[5]))
+      continue
+    }
+    const dm = fb.match(/(\d+) of (\d+) required element/)
+    if (dm) {
+      diagramMatched += Number(dm[1])
+      diagramTotal += Number(dm[2])
+      diagramParsed++
+    }
+  }
+
+  const itemCount = (result.correctCount ?? 0) + (result.incorrectCount ?? 0) + (result.unansweredCount ?? 0)
+  const isBlueprint = diagramParsed > 0 && parsed === 0
+
+  if (isBlueprint) {
+    const correctnessPct = diagramTotal > 0 ? Math.round((diagramMatched / diagramTotal) * 100) : 0
+    const maxXp = itemCount * XP_PER_PROBLEM
+    const totalXp = Math.round((correctnessPct / 100) * maxXp)
+    return { passed: diagramMatched, total: diagramTotal, correctnessPct, speedPct: 0, efficiencyPct: 0, slowestMs: null, correctnessXp: totalXp, speedXp: 0, efficiencyXp: 0, isBlueprint: true }
+  }
+
+  const passed = parsed > 0 ? totalPassed : (result.correctCount ?? 0)
+  const total = parsed > 0 ? totalTests : itemCount
+  const correctnessPct = total > 0 ? Math.round((passed / total) * 100) : 0
+  const speedPct = parsed > 0 ? Math.round(speedSum / parsed) : 0
+  const efficiencyPct = parsed > 0 ? Math.round(efficiencySum / parsed) : 0
+
+  const maxXp = itemCount * XP_PER_PROBLEM
+  const correctnessXp = Math.round((correctnessPct / 100) * 0.6 * maxXp)
+  const speedXp = Math.round((speedPct / 100) * 0.2 * maxXp * (correctnessPct / 100))
+  const efficiencyXp = Math.round((efficiencyPct / 100) * 0.2 * maxXp * (correctnessPct / 100))
+
+  return { passed, total, correctnessPct, speedPct, efficiencyPct, slowestMs: worstMs, correctnessXp, speedXp, efficiencyXp, isBlueprint: false }
+}
+
+const CHALLENGE_TONE_BG = {
+  leaf: "border-rb-leaf/40 bg-rb-leaf-wash",
+  macaw: "border-rb-macaw/40 bg-rb-macaw-wash",
+  bee: "border-rb-bee/40 bg-rb-bee-wash",
+}
+
+function ChallengeScoreTile({ label, value, total, unit, tone }) {
+  return (
+    <div className={cn("rounded-2xl border-2 p-4 text-center", CHALLENGE_TONE_BG[tone] ?? "border-rb-swan bg-rb-polar")}>
+      <p className="text-[11px] font-bold uppercase tracking-wide text-rb-wolf">{label}</p>
+      <p className="mt-1 font-rb-display text-2xl font-extrabold tabular-nums text-rb-eel">
+        {value}{total != null ? <span className="text-base text-rb-wolf"> / {total}</span> : null}
+      </p>
+      <p className="mt-0.5 text-[10px] font-semibold text-rb-wolf">{unit}</p>
+    </div>
+  )
+}
+
 const DIFFICULTY_TONES = {
   EASY: "border-rb-feather/50 bg-rb-feather-wash text-rb-feather-lip",
   AVERAGE: "border-rb-bee/60 bg-rb-bee-wash text-rb-eel",
@@ -253,6 +326,7 @@ export default function LearnerAssessmentResultPage() {
      find them, and after a failed attempt "what did I get wrong" is the only
      question being asked. */
   const [reviewFilter, setReviewFilter] = useState("all")
+  const fromChallengeState = location.state?.fromChallenge === true
 
   const identity = getCurrentLearnerIdentity()
   const currentLearnerQuery = useQuery({
@@ -277,6 +351,15 @@ export default function LearnerAssessmentResultPage() {
   })
 
   const result = resultQuery.data
+  const fromChallenge = fromChallengeState || String(result?.assessmentType ?? "").toUpperCase() === "CHALLENGE"
+
+  const leaderboardQuery = useQuery({
+    queryKey: ["challenge-leaderboard"],
+    queryFn: () => getChallengeLeaderboard(10),
+    enabled: fromChallenge,
+    staleTime: 30_000,
+  })
+
   /* Where both ways out lead -- the header arrow and "continue learning":
      the lesson the learner was reading before the quiz, else the course. The
      arrow used to go to the progress page, which is not where they came from. */
@@ -387,16 +470,155 @@ export default function LearnerAssessmentResultPage() {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-6 px-4 py-6">
+        {fromChallenge ? (
+          <>
+            {/* Challenge score breakdown */}
+            <RebyuCard className="p-6">
+              <h1 className="font-rb-display text-2xl font-extrabold lowercase text-rb-eel">
+                {result.assessmentTitle}
+              </h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Chip tone="macaw">Challenge</Chip>
+                <Chip>Attempt {result.attemptNumber}</Chip>
+                <Chip>
+                  <ClockIcon className="size-3.5" aria-hidden="true" />
+                  {formatDuration(result.durationSeconds)}
+                </Chip>
+              </div>
+
+              {(() => {
+                const breakdown = parseChallengeBreakdown(answers, result)
+                const totalXp = breakdown.correctnessXp + breakdown.speedXp + breakdown.efficiencyXp
+                return (
+                  <>
+                    {/* Total XP */}
+                    <div className="mt-6 flex items-center justify-center">
+                      <div className="text-center">
+                        <p className="font-rb-display text-5xl font-extrabold tabular-nums text-rb-eel">
+                          {totalXp}
+                        </p>
+                        <p className="mt-1 text-sm font-bold text-rb-wolf">
+                          xp earned
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Scoring breakdown */}
+                    {breakdown.isBlueprint ? (
+                      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                        <ChallengeScoreTile
+                          label="Accuracy"
+                          value={`${breakdown.correctnessPct}%`}
+                          total={null}
+                          unit={`${breakdown.passed}/${breakdown.total} elements matched`}
+                          tone="leaf"
+                        />
+                        <ChallengeScoreTile
+                          label="Time"
+                          value={formatDuration(result.durationSeconds)}
+                          total={null}
+                          unit={`Attempt ${result.attemptNumber}`}
+                          tone="macaw"
+                        />
+                      </div>
+                    ) : (
+                      <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                        <ChallengeScoreTile
+                          label="Correctness"
+                          value={`${breakdown.correctnessXp}`}
+                          total={null}
+                          unit={`${breakdown.passed}/${breakdown.total} solved · ${breakdown.correctnessPct}%`}
+                          tone="leaf"
+                        />
+                        <ChallengeScoreTile
+                          label="Speed"
+                          value={`${breakdown.speedXp}`}
+                          total={null}
+                          unit={`${breakdown.speedPct}% · ${formatDuration(result.durationSeconds)}`}
+                          tone="macaw"
+                        />
+                        <ChallengeScoreTile
+                          label="Efficiency"
+                          value={`${breakdown.efficiencyXp}`}
+                          total={null}
+                          unit={`${breakdown.efficiencyPct}%${breakdown.slowestMs != null ? ` · ${breakdown.slowestMs}ms` : ""}`}
+                          tone="bee"
+                        />
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
+
+              {marking ? (
+                <p className="rb-caption mt-4 flex items-start gap-2 rounded-rb-tile border-2 border-rb-feather/40 bg-rb-feather-wash p-3 text-rb-feather-ink" role="status" aria-live="polite">
+                  <Loader2Icon className="mt-0.5 size-3.5 shrink-0 animate-spin" aria-hidden="true" />
+                  Grading your code… this usually takes under a minute.
+                </p>
+              ) : null}
+            </RebyuCard>
+
+            {/* Standings */}
+            <RebyuCard className="p-5">
+              <div className="flex items-center gap-2">
+                <Trophy className="size-5 text-rb-bee" aria-hidden="true" />
+                <h2 className="font-rb-display text-base font-extrabold lowercase text-rb-eel">
+                  standings
+                </h2>
+              </div>
+              {leaderboardQuery.isLoading ? (
+                <div className="mt-4 flex items-center justify-center py-6 text-sm text-rb-wolf">
+                  Loading leaderboard...
+                </div>
+              ) : (
+                <div className="mt-4 space-y-1.5">
+                  {(leaderboardQuery.data ?? []).map((row, i) => (
+                    <div
+                      key={row.rank ?? i}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-3 py-2 text-sm",
+                        row.you
+                          ? "border-2 border-rb-macaw/40 bg-rb-macaw-wash font-bold"
+                          : "bg-rb-polar"
+                      )}
+                    >
+                      <span className="w-6 text-center font-rb-display text-base font-extrabold text-rb-wolf">
+                        {row.rank ?? i + 1}
+                      </span>
+                      <span className="flex-1 truncate text-rb-eel">
+                        {row.name ?? "Learner"}
+                        {row.you ? " (you)" : ""}
+                      </span>
+                      <span className="font-rb-display font-extrabold tabular-nums text-rb-eel">
+                        {row.points ?? 0}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase text-rb-wolf">pts</span>
+                    </div>
+                  ))}
+                  {(leaderboardQuery.data ?? []).length === 0 && (
+                    <p className="py-4 text-center text-sm text-rb-wolf">
+                      No standings yet — be the first!
+                    </p>
+                  )}
+                </div>
+              )}
+            </RebyuCard>
+
+            <div className="flex flex-wrap gap-3">
+              <TactileButton asChild>
+                <Link to="/learner/challenges">back to arenas</Link>
+              </TactileButton>
+              <TactileButton asChild variant="ghost">
+                <Link to={`/learner/assessments/${result.assessmentId}`}>
+                  retake challenge
+                </Link>
+              </TactileButton>
+            </div>
+          </>
+        ) : (
+          <>
         {/* --- Score ------------------------------------------------------- */}
-        {/* The paper as the teacher hands it back: a notebook sheet with the
-            score circled in pen and a stamp in the corner. */}
         <section className="rb-graded-sheet p-6 sm:p-8">
-          {/* Stamped on the level reached, not the paper's pass mark. The
-              sheet right below it says "Proficient — proficiency 56 out of
-              100"; a TRY AGAIN stamp over that is the page contradicting
-              itself, and it is the level that opens the next lesson. A
-              sitting that measured no level still falls back to the mark,
-              because there it is the only verdict there is. */}
           <TeacherStamp
             passed={
               proficiencyRating != null
@@ -429,9 +651,6 @@ export default function LearnerAssessmentResultPage() {
             <div className="min-w-0 flex-1 space-y-5">
               {proficiencyRating != null ? (
                 <div>
-                  {/* The rating is the headline; the count is the evidence.
-                      Both are stated so neither is mistaken for the other: a
-                      rating of 70 is not "70% right". */}
                   <p className="rb-display rb-display-sm">
                     {proficiency.label} — proficiency {proficiencyRating.toFixed(0)} out of 100
                   </p>
@@ -440,9 +659,6 @@ export default function LearnerAssessmentResultPage() {
                     {marking ? " It may still change while the last answers are marked." : ""}
                   </p>
                   <ProficiencyScale rating={proficiencyRating} />
-                  {/* The rating is not a percentage of right answers, and the
-                      first time the two disagree a learner asks why. Said
-                      plainly, once, under the scale. */}
                   <details className="mt-3 rounded-rb-tile border-2 border-rb-swan bg-rb-polar px-3 py-2 text-sm text-rb-eel">
                     <summary className="cursor-pointer font-bold">How is this different from my correct answers?</summary>
                     <div className="rb-caption mt-2 space-y-1.5">
@@ -465,12 +681,9 @@ export default function LearnerAssessmentResultPage() {
                       </p>
                     </div>
                   </details>
-
                 </div>
               ) : (
                 <div>
-                  {/* The gap in words, since the dial already carries it as a
-                      shape. */}
                   {passingScore != null ? (
                     <>
                       <p className="rb-display rb-display-sm">
@@ -501,8 +714,6 @@ export default function LearnerAssessmentResultPage() {
                 </div>
               )}
 
-              {/* One row, however many tiles there are. A fixed three-column
-                  grid left a fourth tile stranded on a line of its own. */}
               <dl className={cn("grid grid-cols-2 gap-3", STAT_COLUMNS[statTiles.length])}>
                 {statTiles.map((tile) => (
                   <StatTile
@@ -530,7 +741,11 @@ export default function LearnerAssessmentResultPage() {
             </p>
           ) : null}
         </section>
+          </>
+        )}
 
+        {!fromChallenge && (
+          <>
         {/* Offered here, and nowhere along the way to the curriculum: the
             diagnostic is what a plan is built from, so this is the first moment
             there is anything to schedule. */}
@@ -1003,6 +1218,8 @@ export default function LearnerAssessmentResultPage() {
             })}
           </ol>
         </section>
+          </>
+        )}
       </main>
     </div>
   )

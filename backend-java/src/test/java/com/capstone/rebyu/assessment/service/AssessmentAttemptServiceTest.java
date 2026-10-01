@@ -192,7 +192,7 @@ class AssessmentAttemptServiceTest {
                 .thenReturn(List.of());
 
         AssessmentAttemptStartResponseDto response =
-                service.startAttempt(5L, 2L, "start-key");
+                service.startAttempt(5L, 2L, "start-key", null);
 
         assertEquals(1, response.questions().size());
         assertEquals(2, response.questions().get(0).choices().size());

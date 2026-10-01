@@ -14,6 +14,7 @@ public record GeneratedQuestionDraftDto(
         GeneratedCheckingMethod checkingMethod,
         String rubricBasedAnswer,
         String starterCode,
+        String programmingLanguage,
         List<GeneratedTestCaseDto> testCases,
         GeneratedDiagramType diagramType,
         String instructions,
@@ -64,6 +65,7 @@ public record GeneratedQuestionDraftDto(
             GeneratedCheckingMethod checkingMethod,
             String rubricBasedAnswer,
             String starterCode,
+            String programmingLanguage,
             List<GeneratedTestCaseDto> testCases,
             GeneratedDiagramType diagramType,
             String instructions,
@@ -73,8 +75,8 @@ public record GeneratedQuestionDraftDto(
     ) {
         this(questionType, suggestedLessonId, suggestedLessonTitle, question,
                 difficulty, choices, correctChoiceIndex, correctAnswer,
-                checkingMethod, rubricBasedAnswer, starterCode, testCases,
-                diagramType, instructions, authoringNotes, imageKey,
+                checkingMethod, rubricBasedAnswer, starterCode, programmingLanguage,
+                testCases, diagramType, instructions, authoringNotes, imageKey,
                 acceptedVariations, List.of());
     }
 
@@ -98,7 +100,7 @@ public record GeneratedQuestionDraftDto(
     ) {
         this(questionType, suggestedLessonId, suggestedLessonTitle, question,
                 difficulty, choices, correctChoiceIndex, correctAnswer,
-                checkingMethod, rubricBasedAnswer, starterCode, testCases,
+                checkingMethod, rubricBasedAnswer, starterCode, null, testCases,
                 diagramType, instructions, authoringNotes, null, null, List.of());
     }
 }

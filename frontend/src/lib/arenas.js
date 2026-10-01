@@ -39,6 +39,18 @@ export const ARENAS = [
       },
       { key: "problems", label: "Roadmap nodes", value: "10", hint: "Circle buttons on the path" },
       { key: "timeLimit", label: "Run time limit (min)", value: "45", hint: "0 for untimed" },
+      {
+        key: "timePerProblem",
+        label: "Time per problem (min)",
+        value: "10",
+        hint: "Countdown timer shown on each problem card",
+      },
+      {
+        key: "pointsPerProblem",
+        label: "Points per problem",
+        value: "10",
+        hint: "Points awarded for each correctly solved problem",
+      },
       { key: "weightCorrect", label: "Weight — correctness (%)", value: "60", hint: "Tests passed" },
       {
         key: "weightSpeed",
@@ -74,6 +86,18 @@ export const ARENAS = [
       },
       { key: "problems", label: "Roadmap nodes", value: "10", hint: "Circle buttons on the path" },
       { key: "timeLimit", label: "Run time limit (min)", value: "60" },
+      {
+        key: "timePerProblem",
+        label: "Time per problem (min)",
+        value: "10",
+        hint: "Countdown timer shown on each problem card",
+      },
+      {
+        key: "pointsPerProblem",
+        label: "Points per problem",
+        value: "10",
+        hint: "Points awarded for each correctly solved problem",
+      },
       {
         key: "passRules",
         label: "Rules to pass a problem (%)",

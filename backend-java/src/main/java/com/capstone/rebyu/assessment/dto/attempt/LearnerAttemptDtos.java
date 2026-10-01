@@ -83,7 +83,8 @@ public final class LearnerAttemptDtos {
 
     public record AssessmentAttemptStartRequestDto(
             @NotNull Long learnerId,
-            String idempotencyKey
+            String idempotencyKey,
+            Integer questionIndex
     ) {
     }
 

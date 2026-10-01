@@ -400,12 +400,14 @@ def insert_text_config(
 
 
 def insert_programming_config(
-    session: Session, question_id: int, starter_code: str | None, test_cases: list[dict[str, Any]]
+    session: Session, question_id: int, starter_code: str | None, test_cases: list[dict[str, Any]],
+    language: str | None = None,
 ) -> None:
+    values: dict[str, Any] = {"question_id": question_id, "starter_code": starter_code}
+    if language:
+        values["language"] = language
     result = session.execute(
-        insert(programming_question_configs).values(
-            question_id=question_id, starter_code=starter_code
-        )
+        insert(programming_question_configs).values(**values)
     )
     config_id = result.inserted_primary_key[0]
     for index, case in enumerate(test_cases or []):

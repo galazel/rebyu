@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useLocation, useNavigate, useParams } from "react-router-dom"
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
 
 import { returnPath } from "@/lib/assessment-return"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -486,6 +486,10 @@ function WorkspaceQuestionPanel({ question, index, answer, onAnswer }) {
 
 export default function LearnerAssessmentAttemptPage() {
   const { examId } = useParams()
+  const [searchParams] = useSearchParams()
+  const questionIndex = searchParams.get("q") != null ? Number(searchParams.get("q")) : null
+  const totalProblems = searchParams.get("total") != null ? Number(searchParams.get("total")) : null
+  const arenaId = searchParams.get("arena")
   const navigate = useNavigate()
   /* Where the learner opened this attempt from. Forwarded to the results page
      below so "continue learning" can return them to the topic they were
@@ -532,13 +536,14 @@ export default function LearnerAssessmentAttemptPage() {
   useEffect(() => {
     if (learnerId == null || startedRef.current) return
     startedRef.current = true
-    const keyName = `rebyu-attempt-key-${examId}-${learnerId}`
+    const keySuffix = questionIndex != null ? `-q${questionIndex}` : ""
+    const keyName = `rebyu-attempt-key-${examId}-${learnerId}${keySuffix}`
     let idempotencyKey = sessionStorage.getItem(keyName)
     if (!idempotencyKey) {
       idempotencyKey = crypto.randomUUID()
       sessionStorage.setItem(keyName, idempotencyKey)
     }
-    startAssessmentAttempt(examId, learnerId, idempotencyKey)
+    startAssessmentAttempt(examId, learnerId, idempotencyKey, questionIndex)
         .then((response) => {
           setAttempt(response)
           // Rehydrate saved draft answers when resuming.
@@ -667,6 +672,8 @@ export default function LearnerAssessmentAttemptPage() {
      rule). A paper whose time ran out is the exception: nothing more can be
      answered, so it goes in as it is. */
   const isDiagnostic = String(attempt?.assessmentType ?? "").toUpperCase() === "DIAGNOSTIC"
+  const isChallenge = String(attempt?.assessmentType ?? "").toUpperCase() === "CHALLENGE"
+  const isWorldCupChallenge = isChallenge && arenaId === "worldcup"
 
   const answeredIds = useMemo(() => {
     const set = new Set()
@@ -814,17 +821,27 @@ export default function LearnerAssessmentAttemptPage() {
        * is hosted at the app root and so survives this navigation, which is
        * what lets the announcement land after it.
        */
-      navigate(`/learner/results/${result.assessmentAttemptId}`, {
-        replace: true,
-        state: { returnTo: returnPath(location) },
-      })
+      const challengeType = String(attempt?.assessmentType ?? "").toUpperCase() === "CHALLENGE"
+      if (challengeType) {
+        navigate(`/learner/results/${result.assessmentAttemptId}`, {
+          replace: true,
+          state: { returnTo: "/learner/challenges", fromChallenge: true },
+        })
+      } else {
+        navigate(`/learner/results/${result.assessmentAttemptId}`, {
+          replace: true,
+          state: { returnTo: returnPath(location) },
+        })
+      }
 
-      announceRewards({
-        queryClient,
-        before,
-        title: "Assessment submitted",
-        fallback: "You had already earned the XP for this assessment.",
-      }).catch(() => {})
+      if (!challengeType) {
+        announceRewards({
+          queryClient,
+          before,
+          title: "Assessment submitted",
+          fallback: "You had already earned the XP for this assessment.",
+        }).catch(() => {})
+      }
       // Refresh the analytics view so mastery/scores reflect this attempt
       // without the learner needing to log out or clear cache.
       queryClient.invalidateQueries({
@@ -1035,8 +1052,9 @@ export default function LearnerAssessmentAttemptPage() {
                 {attempt.assessmentTitle}
               </p>
               <p className="truncate text-xs font-semibold text-rb-wolf">
-                Question {currentIndex + 1} of {questions.length} · Attempt{" "}
-                {attempt.attemptNumber}
+                {isChallenge
+                  ? `Problem ${(questionIndex ?? 0) + 1}${totalProblems ? ` of ${totalProblems}` : ""}`
+                  : `Question ${currentIndex + 1} of ${questions.length} · Attempt ${attempt.attemptNumber}`}
               </p>
             </div>
             <Badge variant="secondary" className="hidden sm:inline-flex">
@@ -1079,33 +1097,37 @@ export default function LearnerAssessmentAttemptPage() {
             </span>
             ) : null}
 
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="lg:hidden"
-                    aria-label="Open item navigation"
-                >
-                  <ListIcon />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="overflow-hidden p-4">
-                <SheetHeader className="p-0 pb-3">
-                  <SheetTitle>Item Navigation</SheetTitle>
-                </SheetHeader>
-                {navigatorPanel}
-              </SheetContent>
-            </Sheet>
+            {!isChallenge && (
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button
+                      variant="outline"
+                      size="icon"
+                      className="lg:hidden"
+                      aria-label="Open item navigation"
+                  >
+                    <ListIcon />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="overflow-hidden p-4">
+                  <SheetHeader className="p-0 pb-3">
+                    <SheetTitle>Item Navigation</SheetTitle>
+                  </SheetHeader>
+                  {navigatorPanel}
+                </SheetContent>
+              </Sheet>
+            )}
 
-            <Button
-                size="sm"
-                className="hidden lg:inline-flex"
-                onClick={() => setFinishOpen(true)}
-                disabled={submitMutation.isPending}
-            >
-              Finish Attempt
-            </Button>
+            {!isChallenge && (
+              <Button
+                  size="sm"
+                  className="hidden lg:inline-flex"
+                  onClick={() => setFinishOpen(true)}
+                  disabled={submitMutation.isPending}
+              >
+                Finish Attempt
+              </Button>
+            )}
           </div>
           </div>
 
@@ -1167,7 +1189,7 @@ export default function LearnerAssessmentAttemptPage() {
                       attemptId={attempt.assessmentAttemptId}
                       attemptQuestionId={currentQuestion.attemptQuestionId}
                       learnerId={learnerId}
-                      navigator={navigatorPanel}
+                      navigator={isChallenge ? null : navigatorPanel}
                       editingLocked={editingLocked}
                   />
                 </div>
@@ -1192,8 +1214,9 @@ export default function LearnerAssessmentAttemptPage() {
                       attemptId={attempt.assessmentAttemptId}
                       attemptQuestionId={currentQuestion.attemptQuestionId}
                       learnerId={learnerId}
-                      navigator={navigatorPanel}
+                      navigator={isChallenge ? null : navigatorPanel}
                       editingLocked={editingLocked}
+                      isChallenge={isChallenge}
                   />
                 </div>
               </div>
@@ -1234,112 +1257,151 @@ export default function LearnerAssessmentAttemptPage() {
                 {/* w-72, not w-64: the navigator is a fixed five columns, and
                     five cards plus their gaps need 288px here to keep each
                     card's points and flag badge unclipped. */}
-                <aside className="hidden min-h-0 w-72 shrink-0 overflow-hidden rounded-2xl border bg-background p-4 lg:block">
-                  {navigatorPanel}
-                </aside>
+                {!isChallenge && (
+                  <aside className="hidden min-h-0 w-72 shrink-0 overflow-hidden rounded-2xl border bg-background p-4 lg:block">
+                    {navigatorPanel}
+                  </aside>
+                )}
               </>
           )}
         </div>
 
         <footer className="flex h-16 shrink-0 items-center justify-between gap-2 border-t bg-background px-4">
-          <Button
-              variant="outline"
-              onClick={() => setCurrentIndex((index) => Math.max(0, index - 1))}
-              disabled={currentIndex === 0}
-          >
-            <ChevronLeftIcon aria-hidden="true" />
-            Previous
-          </Button>
+          {isWorldCupChallenge ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (questionIndex != null && questionIndex > 0) {
+                    navigate(`/learner/assessments/${examId}?q=${questionIndex - 1}${totalProblems ? `&total=${totalProblems}` : ""}${arenaId ? `&arena=${arenaId}` : ""}`)
+                  } else {
+                    navigate("/learner/challenges")
+                  }
+                }}
+              >
+                <ChevronLeftIcon aria-hidden="true" />
+                {questionIndex != null && questionIndex > 0 ? "Previous" : "Back"}
+              </Button>
 
-          <div className="flex items-center gap-3">
-            {currentQuestion ? (
-                /* Labels collapse to their icons on a narrow screen. Three
-                   labelled controls plus Previous overflowed a 375px footer by
-                   65px, and what ran off the right edge was Finish Attempt --
-                   the only one there is at this width. */
+              <span className="text-sm font-semibold tabular-nums text-muted-foreground">
+                {(questionIndex ?? 0) + 1} / {totalProblems ?? "?"}
+              </span>
+
+              <div className="flex items-center gap-2">
                 <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleFlag(currentQuestion.attemptQuestionId)}
-                    disabled={editingLocked}
-                    aria-pressed={flagged.has(currentQuestion.attemptQuestionId)}
-                    aria-label={
-                      flagged.has(currentQuestion.attemptQuestionId)
-                          ? "Flagged for review"
-                          : "Flag for review"
-                    }
+                  onClick={() => setFinishOpen(true)}
+                  disabled={submitMutation.isPending || editingLocked}
                 >
-                  <FlagIcon
-                      className={cn(
-                          flagged.has(currentQuestion.attemptQuestionId) &&
-                          "fill-amber-400 text-amber-500"
-                      )}
-                      aria-hidden="true"
-                  />
-                  <span className="hidden sm:inline">
-                    {flagged.has(currentQuestion.attemptQuestionId)
-                        ? "Flagged"
-                        : "Flag for review"}
-                  </span>
+                  <CheckIcon aria-hidden="true" />
+                  Submit Answer
                 </Button>
-            ) : null}
-            {currentQuestion &&
-            !answeredIds.has(currentQuestion.attemptQuestionId) &&
-            currentIndex < questions.length - 1 ? (
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={skipCurrent}
-                    disabled={editingLocked}
-                    aria-label="Skip this question"
-                >
-                  <SkipForwardIcon aria-hidden="true" />
-                  <span className="hidden sm:inline">Skip</span>
-                </Button>
-            ) : null}
-            <span className="hidden text-sm text-muted-foreground sm:block">
-            {currentIndex + 1} / {questions.length}
-          </span>
-          </div>
-
-          {/* One Finish Attempt on screen, whatever the width.
-
-              The header carries the real one -- it is on every question, so an
-              attempt can be finished early rather than only from the last item
-              -- but it is `lg:inline-flex`, so below lg there is none. This one
-              fills that gap and hides itself again at lg, where showing it put
-              two identical primary buttons on the same screen.
-
-              The slot keeps its width either way, so the footer does not
-              re-centre itself on the last question. Narrower than Previous
-              below `sm`: at a 128px reservation the three parts of the footer
-              added up to more than a 320px screen, and it was Finish Attempt
-              that went over the right edge -- the button this slot exists to
-              show. 96px still holds the balance at 320px and the full width
-              comes back as soon as there is room for it. */}
-          <div className="flex min-w-24 justify-end sm:min-w-32">
-            {currentIndex === questions.length - 1 ? (
-                <Button
-                    className="lg:hidden"
-                    onClick={() => setFinishOpen(true)}
-                    disabled={submitMutation.isPending}
-                >
-                  Finish Attempt
-                </Button>
-            ) : (
-                <Button
+                {questionIndex != null && totalProblems != null && questionIndex < totalProblems - 1 ? (
+                  <Button
                     variant="outline"
-                    onClick={() =>
-                        setCurrentIndex((index) =>
-                            Math.min(questions.length - 1, index + 1)
-                        )
-                    }
-                >
-                  Next
-                  <ChevronRightIcon aria-hidden="true" />
-                </Button>
-            )}
-          </div>
+                    onClick={() => {
+                      navigate(`/learner/assessments/${examId}?q=${questionIndex + 1}&total=${totalProblems}${arenaId ? `&arena=${arenaId}` : ""}`)
+                    }}
+                  >
+                    Next
+                    <ChevronRightIcon aria-hidden="true" />
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          ) : isChallenge ? (
+            <>
+              <span />
+              <Button
+                onClick={() => setFinishOpen(true)}
+                disabled={submitMutation.isPending || editingLocked}
+              >
+                <CheckIcon aria-hidden="true" />
+                Submit Answer
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                  variant="outline"
+                  onClick={() => setCurrentIndex((index) => Math.max(0, index - 1))}
+                  disabled={currentIndex === 0}
+              >
+                <ChevronLeftIcon aria-hidden="true" />
+                Previous
+              </Button>
+
+              <div className="flex items-center gap-3">
+                {currentQuestion ? (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleFlag(currentQuestion.attemptQuestionId)}
+                        disabled={editingLocked}
+                        aria-pressed={flagged.has(currentQuestion.attemptQuestionId)}
+                        aria-label={
+                          flagged.has(currentQuestion.attemptQuestionId)
+                              ? "Flagged for review"
+                              : "Flag for review"
+                        }
+                    >
+                      <FlagIcon
+                          className={cn(
+                              flagged.has(currentQuestion.attemptQuestionId) &&
+                              "fill-amber-400 text-amber-500"
+                          )}
+                          aria-hidden="true"
+                      />
+                      <span className="hidden sm:inline">
+                        {flagged.has(currentQuestion.attemptQuestionId)
+                            ? "Flagged"
+                            : "Flag for review"}
+                      </span>
+                    </Button>
+                ) : null}
+                {currentQuestion &&
+                !answeredIds.has(currentQuestion.attemptQuestionId) &&
+                currentIndex < questions.length - 1 ? (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={skipCurrent}
+                        disabled={editingLocked}
+                        aria-label="Skip this question"
+                    >
+                      <SkipForwardIcon aria-hidden="true" />
+                      <span className="hidden sm:inline">Skip</span>
+                    </Button>
+                ) : null}
+                <span className="hidden text-sm text-muted-foreground sm:block">
+                {currentIndex + 1} / {questions.length}
+              </span>
+              </div>
+
+              <div className="flex min-w-24 justify-end sm:min-w-32">
+                {currentIndex === questions.length - 1 ? (
+                    <Button
+                        className="lg:hidden"
+                        onClick={() => setFinishOpen(true)}
+                        disabled={submitMutation.isPending}
+                    >
+                      Finish Attempt
+                    </Button>
+                ) : (
+                    <Button
+                        variant="outline"
+                        onClick={() =>
+                            setCurrentIndex((index) =>
+                                Math.min(questions.length - 1, index + 1)
+                            )
+                        }
+                    >
+                      Next
+                      <ChevronRightIcon aria-hidden="true" />
+                    </Button>
+                )}
+              </div>
+            </>
+          )}
         </footer>
 
         {/* `rebyu-ds` is repeated on every dialog surface below: Radix portals

@@ -382,15 +382,17 @@ class QuestionDraft(BaseModel):
     # PROGRAMMING
     starter_code: Optional[str] = None
     test_cases: List[ProgrammingTestCase] = Field(default_factory=list)
-    #: The Python function (or class) the learner implements. Every test input
-    #: must call it.
+    #: The function (or class) the learner implements.
     function_name: Optional[str] = None
+    #: The programming language for this question. One of the languages the
+    #: compiler supports: C, C++, Java, JavaScript, Python, C#.
+    programming_language: Optional[str] = None
     #: Every exact rule the tests depend on: the signature, return formats, exact
     #: messages, rounding, ordering. Appended to the question as "Rules for this
     #: question", so a learner is told everything the tests check.
     rules: Optional[str] = None
-    #: A correct Python solution, never shown to learners. Generation runs it on
-    #: Judge0 through the grader's harness and stores what it prints as each
+    #: A correct solution in the question's programming_language, never shown to
+    #: learners. Generation runs it on Judge0 and stores what it prints as each
     #: test's expected output -- see `app.ai.programming_verification`.
     reference_solution: Optional[str] = None
 
@@ -526,20 +528,24 @@ class QuestionDraft(BaseModel):
 
         elif self.question_type == "PROGRAMMING":
             if len(self.test_cases) < MIN_PROGRAMMING_TEST_CASES:
-                # One test case checks that the happy path runs and nothing
-                # else, which is how a "coding question" ends up being a
-                # syntax quiz. Three is the floor for covering the ordinary
-                # case and the edges the problem statement describes.
                 raise ValueError(
                     f"PROGRAMMING must include at least {MIN_PROGRAMMING_TEST_CASES} "
                     f"test cases covering the ordinary case and its edges"
                 )
-            name = (self.function_name or "").strip()
-            if not name.isidentifier():
+            lang = (self.programming_language or "").strip().upper()
+            if not lang:
+                raise ValueError("PROGRAMMING must set programming_language")
+            supported = {"C", "C++", "JAVA", "JAVASCRIPT", "PYTHON", "C#"}
+            if lang not in supported:
                 raise ValueError(
-                    "PROGRAMMING must set function_name to the Python function or class "
-                    "the learner implements"
+                    f"programming_language '{lang}' is not supported; use one of: "
+                    + ", ".join(sorted(supported))
                 )
+            self.programming_language = lang
+
+            name = (self.function_name or "").strip()
+            if not name:
+                raise ValueError("PROGRAMMING must set function_name")
             if not (self.rules or "").strip():
                 raise ValueError(
                     "PROGRAMMING must set rules: the signature and every exact return "
@@ -550,20 +556,25 @@ class QuestionDraft(BaseModel):
             solution = (self.reference_solution or "").strip()
             if not solution:
                 raise ValueError(
-                    "PROGRAMMING must include reference_solution: a correct Python "
+                    "PROGRAMMING must include reference_solution: a correct "
                     "solution the tests are run against"
                 )
-            try:
-                ast.parse(solution)
-            except SyntaxError as error:
-                raise ValueError(f"reference_solution is not valid Python: {error}") from error
-            for index, case in enumerate(self.test_cases, 1):
-                if not _calls(case.input_data, name):
+            if lang == "PYTHON":
+                if not name.isidentifier():
                     raise ValueError(
-                        f"test case {index} must be Python code that calls {name}(...), "
-                        "such as a single call or a few statements ending in one; "
-                        "prose descriptions and bare data cannot be run"
+                        "PROGRAMMING (Python) function_name must be a valid identifier"
                     )
+                try:
+                    ast.parse(solution)
+                except SyntaxError as error:
+                    raise ValueError(f"reference_solution is not valid Python: {error}") from error
+                for index, case in enumerate(self.test_cases, 1):
+                    if not _calls(case.input_data, name):
+                        raise ValueError(
+                            f"test case {index} must be Python code that calls {name}(...), "
+                            "such as a single call or a few statements ending in one; "
+                            "prose descriptions and bare data cannot be run"
+                        )
 
         elif self.question_type == "DIAGRAM":
             if not (self.diagram_type or "").strip():

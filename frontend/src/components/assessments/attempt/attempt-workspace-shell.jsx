@@ -16,7 +16,10 @@ export function WorkspaceShell({ tabs, problem, workspace, side }) {
   const [pane, setPane] = useState("problem")
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col gap-2 lg:grid lg:grid-cols-[minmax(260px,0.85fr)_minmax(0,1.7fr)_minmax(270px,300px)] lg:grid-rows-[minmax(0,1fr)] lg:gap-3">
+    <div className={cn(
+      "relative flex h-full min-h-0 flex-col gap-2 lg:grid lg:grid-rows-[minmax(0,1fr)] lg:gap-3",
+      side ? "lg:grid-cols-[minmax(260px,0.85fr)_minmax(0,1.7fr)_minmax(270px,300px)]" : "lg:grid-cols-[minmax(260px,0.85fr)_minmax(0,2.5fr)]"
+    )}>
       <div
         role="tablist"
         aria-label="Item panes"
@@ -66,14 +69,16 @@ export function WorkspaceShell({ tabs, problem, workspace, side }) {
         {workspace}
       </section>
 
-      <aside
-        className={cn(
-          "min-h-0 flex-1 flex-col gap-3 overflow-y-auto lg:flex",
-          pane === "side" ? "flex" : "hidden"
-        )}
-      >
-        {side}
-      </aside>
+      {side && (
+        <aside
+          className={cn(
+            "min-h-0 flex-1 flex-col gap-3 overflow-y-auto lg:flex",
+            pane === "side" ? "flex" : "hidden"
+          )}
+        >
+          {side}
+        </aside>
+      )}
     </div>
   )
 }

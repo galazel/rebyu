@@ -30,10 +30,14 @@ public abstract class ProgrammingQuestionConfigMapper {
     protected void afterToEntity(ProgrammingQuestionConfigDto dto, @MappingTarget ProgrammingQuestionConfig entity) {
         List<ProgrammingTestCase> testCases = new ArrayList<>();
         if (dto.getTestCases() != null) {
-            for (ProgrammingTestCaseDto tcDto : dto.getTestCases()) {
+            for (int i = 0; i < dto.getTestCases().size(); i++) {
+                ProgrammingTestCaseDto tcDto = dto.getTestCases().get(i);
                 ProgrammingTestCase tc = programmingTestCaseMapper.toEntity(tcDto);
                 tc.setProgrammingTestCaseId(null);
                 tc.setProgrammingQuestionConfig(entity);
+                if (i == 0) {
+                    tc.setSample(true);
+                }
                 testCases.add(tc);
             }
         }

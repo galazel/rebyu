@@ -233,7 +233,7 @@ public class AssessmentAttemptService {
 
     @Transactional
     public AssessmentAttemptStartResponseDto startAttempt(
-            Long examId, Long learnerId, String idempotencyKey) {
+            Long examId, Long learnerId, String idempotencyKey, Integer questionIndex) {
 
         if (learnerId == null) {
             throw new BusinessRuleException.InvalidAssessmentSubmissionException(
@@ -410,6 +410,12 @@ public class AssessmentAttemptService {
                 && !learnerEntitlementService.hasLearnerEntitlement(
                         learnerId, Entitlements.CHALLENGES_ACCESS, null)) {
             questionsToUse = questionsToUse.subList(0, Entitlements.FREE_ARENA_PROBLEM_LIMIT);
+        }
+
+        if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
+                && questionIndex != null
+                && questionIndex >= 0 && questionIndex < questionsToUse.size()) {
+            questionsToUse = List.of(questionsToUse.get(questionIndex));
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -3336,12 +3342,18 @@ public class AssessmentAttemptService {
             ProgrammingRunRequestDto request) {
         Question source = questionRepository
                 .findById(attemptQuestion.getSourceQuestionId()).orElse(null);
-        String stdin = source == null ? "" : loadIndexedProgrammingTestCases(source).stream()
+        List<IndexedTestCase> allCases = source == null ? List.of() : loadIndexedProgrammingTestCases(source);
+        String stdin = allCases.stream()
                 .map(IndexedTestCase::testCase)
                 .filter(ProgrammingTestCase::isSample)
                 .map(ProgrammingTestCase::getInputData)
                 .filter(input -> input != null)
                 .findFirst()
+                .or(() -> allCases.stream()
+                        .map(IndexedTestCase::testCase)
+                        .map(ProgrammingTestCase::getInputData)
+                        .filter(input -> input != null)
+                        .findFirst())
                 .orElse("");
 
         CodeExecutionResultDto result = codeExecutionService.execute(new CodeExecutionRequestDto(
