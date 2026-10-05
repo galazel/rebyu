@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   Activity,
@@ -2396,8 +2397,11 @@ function BackToTopButton() {
       const accessSection = document.getElementById("get-access");
       if (accessSection) {
         const rect = accessSection.getBoundingClientRect();
-        // Starts to appear when the "get access" section enters the viewport
-        setVisible(rect.top <= window.innerHeight * 0.85);
+        // Visible as soon as the "get access" section enters the viewport
+        setVisible(rect.top <= window.innerHeight);
+      } else {
+        // Fallback for pages without the anchor
+        setVisible(window.scrollY > 2500);
       }
     };
 
@@ -2414,26 +2418,31 @@ function BackToTopButton() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  return (
-    <AnimatePresence>
-      {visible && (
-        <motion.button
-          type="button"
-          onClick={scrollToTop}
-          initial={{ opacity: 0, scale: 0.8, y: 14 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.8, y: 14 }}
-          transition={{ duration: 0.24, ease: EASE }}
-          whileHover={{ scale: 1.08, y: -2 }}
-          whileTap={{ scale: 0.94 }}
-          className="group fixed bottom-6 right-6 z-40 flex size-11 items-center justify-center rounded-full border border-rb-swan/80 bg-white/90 text-rb-eel shadow-[0_4px_16px_rgba(0,0,0,0.08)] backdrop-blur-md transition-colors hover:border-rb-macaw/40 hover:text-rb-macaw-lip focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw sm:bottom-8 sm:right-8 sm:size-12 cursor-pointer select-none"
-          aria-label="Back to top"
-          title="Back to top"
-        >
-          <ArrowUp className="size-5 transition-transform duration-200 group-hover:-translate-y-0.5" />
-        </motion.button>
-      )}
-    </AnimatePresence>
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className="rebyu-ds rb-light-only pointer-events-none">
+      <AnimatePresence>
+        {visible && (
+          <motion.button
+            type="button"
+            onClick={scrollToTop}
+            initial={{ opacity: 0, scale: 0.8, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 16 }}
+            transition={{ duration: 0.24, ease: EASE }}
+            whileHover={{ scale: 1.08, y: -2 }}
+            whileTap={{ scale: 0.94 }}
+            className="group pointer-events-auto fixed bottom-6 right-6 z-50 flex size-12 items-center justify-center rounded-full border border-rb-swan/90 bg-white/95 text-rb-eel shadow-[0_6px_24px_rgba(0,0,0,0.12)] backdrop-blur-md transition-colors hover:border-rb-macaw/50 hover:text-rb-macaw-lip focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw sm:bottom-8 sm:right-8 sm:size-13 cursor-pointer select-none"
+            aria-label="Back to top"
+            title="Back to top"
+          >
+            <ArrowUp className="size-5 transition-transform duration-200 group-hover:-translate-y-0.5" />
+          </motion.button>
+        )}
+      </AnimatePresence>
+    </div>,
+    document.body
   );
 }
 
