@@ -16,6 +16,7 @@ import {
   CATALOG_DEPARTMENTS,
   getMergedCertifications,
 } from "@/constants/certifications-catalog.js"
+import { CEBU_UNIVERSITIES } from "@/constants/cebu-universities.js"
 
 import { BrandLogo } from "@/components/brand-logo"
 import {
@@ -171,15 +172,45 @@ export default function InstitutionRequestAccessPage() {
   const [deptDropdownOpen, setDeptDropdownOpen] = useState(false)
   const deptDropdownRef = useRef(null)
 
+  const [institutionDropdownOpen, setInstitutionDropdownOpen] = useState(false)
+  const institutionDropdownRef = useRef(null)
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (deptDropdownRef.current && !deptDropdownRef.current.contains(event.target)) {
         setDeptDropdownOpen(false)
       }
+      if (
+        institutionDropdownRef.current &&
+        !institutionDropdownRef.current.contains(event.target)
+      ) {
+        setInstitutionDropdownOpen(false)
+      }
     }
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
+
+  const filteredUniversities = useMemo(() => {
+    const q = (form.institutionName || "").toLowerCase().trim()
+    if (!q) return CEBU_UNIVERSITIES
+    return CEBU_UNIVERSITIES.filter(
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        u.shortName.toLowerCase().includes(q) ||
+        u.system.toLowerCase().includes(q) ||
+        u.address.toLowerCase().includes(q)
+    )
+  }, [form.institutionName])
+
+  const handleSelectUniversity = (uni) => {
+    setForm((current) => ({
+      ...current,
+      institutionName: uni.name,
+      institutionAddress: uni.address,
+    }))
+    setInstitutionDropdownOpen(false)
+  }
 
   const certificationsQuery = useQuery({
     queryKey: ["certifications"],
@@ -491,14 +522,80 @@ export default function InstitutionRequestAccessPage() {
             description="We use these to verify your institution and to reach you about the request."
           >
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field id="org-name" label="Institution name" className="sm:col-span-2">
-                <input
-                  id="org-name"
-                  className="rb-input"
-                  value={form.institutionName}
-                  onChange={setField("institutionName")}
-                  placeholder="Cebu Institute of Technology"
-                />
+              <Field
+                id="org-name"
+                label="Institution name"
+                hint="Select your specific campus from the dropdown or type a custom institution"
+                className="sm:col-span-2"
+              >
+                <div className="relative" ref={institutionDropdownRef}>
+                  <input
+                    id="org-name"
+                    className="rb-input pr-10"
+                    value={form.institutionName}
+                    onChange={(e) => {
+                      setField("institutionName")(e)
+                      setInstitutionDropdownOpen(true)
+                    }}
+                    onFocus={() => setInstitutionDropdownOpen(true)}
+                    placeholder="e.g. University of Cebu – Lapu-Lapu and Mandaue (UCLM)"
+                    autoComplete="off"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setInstitutionDropdownOpen((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-rb-wolf hover:text-rb-eel transition-colors"
+                    aria-label="Toggle university list"
+                    tabIndex={-1}
+                  >
+                    <ChevronDown
+                      className={`size-4 transition-transform duration-200 ${
+                        institutionDropdownOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {institutionDropdownOpen && (
+                    <div className="absolute left-0 top-full mt-2 w-full max-h-80 overflow-y-auto rounded-2xl border-2 border-rb-swan bg-white p-2 shadow-xl z-50">
+                      {filteredUniversities.length === 0 ? (
+                        <div className="px-3 py-3 text-center">
+                          <p className="text-xs font-semibold text-rb-wolf">
+                            No Cebu universities match "{form.institutionName}"
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-rb-wolf/70">
+                            You can keep typing to use this custom institution name.
+                          </p>
+                        </div>
+                      ) : (
+                        filteredUniversities.map((uni) => (
+                          <button
+                            key={uni.name}
+                            type="button"
+                            onClick={() => handleSelectUniversity(uni)}
+                            className="flex w-full items-start justify-between gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-black/5"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="rounded bg-rb-macaw-wash px-1.5 py-0.5 text-[11px] font-bold text-rb-macaw-lip">
+                                  {uni.shortName}
+                                </span>
+                                <span className="truncate text-sm font-bold text-rb-eel">
+                                  {uni.name}
+                                </span>
+                              </div>
+                              <p className="mt-0.5 truncate text-xs text-rb-wolf">
+                                {uni.address}
+                              </p>
+                            </div>
+                            <span className="shrink-0 text-[11px] text-rb-wolf/70 font-medium pt-1">
+                              {uni.category.split(" ")[0]}
+                            </span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
               </Field>
               <Field
                 id="org-email"
@@ -575,73 +672,54 @@ export default function InstitutionRequestAccessPage() {
             ) : (
               <div className="space-y-6">
                 {/* Department Dropdown Filter */}
-                <div className="flex flex-col gap-3 rounded-2xl border-2 border-rb-swan bg-rb-paper/50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <span className="text-xs font-bold uppercase tracking-wider text-rb-wolf">
-                      Department / Course Program
-                    </span>
-                    <p className="mt-0.5 text-xs font-semibold text-rb-eel">
-                      {activeDept
-                        ? `${displayedCertifications.length} ${
-                            displayedCertifications.length === 1
-                              ? "certification"
-                              : "certifications"
-                          } in ${activeDept.name}`
-                        : "Choose a course or program to view certifications"}
-                    </p>
-                  </div>
-
-                  <div className="relative z-30 w-full shrink-0 sm:w-80" ref={deptDropdownRef}>
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="department-select"
+                    className="block text-xs font-bold uppercase tracking-wider text-rb-wolf"
+                  >
+                    Select department
+                  </label>
+                  <div className="relative z-30 w-full sm:max-w-sm" ref={deptDropdownRef}>
                     <button
+                      id="department-select"
                       type="button"
                       onClick={() => setDeptDropdownOpen((prev) => !prev)}
-                      className="flex w-full items-center justify-between gap-3 rounded-xl border-2 border-rb-swan bg-white px-3.5 py-2.5 shadow-xs transition hover:border-rb-macaw-lip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw-lip"
+                      className="flex h-10 w-full items-center justify-between gap-2.5 rounded-xl border-2 border-rb-swan bg-white px-3 shadow-xs transition hover:border-rb-macaw-lip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw-lip"
                       aria-expanded={deptDropdownOpen}
                       aria-haspopup="listbox"
                     >
-                      <div className="flex min-w-0 items-center gap-2.5 text-left">
+                      <div className="flex min-w-0 items-center gap-2 text-left">
                         {activeDept ? (
                           <>
-                            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-rb-macaw-wash text-xs font-bold text-rb-macaw-lip">
+                            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-rb-macaw-wash text-[11px] font-bold text-rb-macaw-lip">
                               {activeDept.code}
                             </span>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-rb-eel leading-tight">
-                                {activeDept.name}
-                              </p>
-                              <p className="truncate text-xs text-rb-wolf">
-                                {displayedCertifications.length}{" "}
-                                {displayedCertifications.length === 1
-                                  ? "certification"
-                                  : "certifications"}
-                              </p>
-                            </div>
+                            <span className="truncate text-xs font-bold text-rb-eel">
+                              {activeDept.name}
+                            </span>
+                            <span className="shrink-0 text-[11px] font-medium text-rb-wolf">
+                              · {displayedCertifications.length}{" "}
+                              {displayedCertifications.length === 1 ? "cert" : "certs"}
+                            </span>
                           </>
                         ) : (
-                          <div className="flex min-w-0 items-center gap-2.5 text-left">
-                            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-rb-swan bg-rb-paper text-rb-wolf">
-                              <GraduationCap className="size-4" />
+                          <>
+                            <GraduationCap className="size-4 shrink-0 text-rb-wolf" />
+                            <span className="truncate text-xs font-semibold text-rb-wolf">
+                              Choose course or program...
                             </span>
-                            <div className="min-w-0 py-0.5">
-                              <p className="truncate text-sm font-bold text-rb-eel leading-tight">
-                                Select course or program
-                              </p>
-                              <p className="truncate text-xs text-rb-wolf">
-                                Choose department to see certs
-                              </p>
-                            </div>
-                          </div>
+                          </>
                         )}
                       </div>
                       <ChevronDown
-                        className={`size-4 shrink-0 text-rb-wolf transition-transform duration-200 ${
+                        className={`size-3.5 shrink-0 text-rb-wolf transition-transform duration-200 ${
                           deptDropdownOpen ? "rotate-180" : ""
                         }`}
                       />
                     </button>
 
                     {deptDropdownOpen && (
-                      <div className="absolute right-0 top-full mt-2 w-full max-h-80 overflow-y-auto rounded-2xl border-2 border-rb-swan bg-white p-2 shadow-xl z-50">
+                      <div className="absolute left-0 top-full mt-1.5 w-full max-h-80 overflow-y-auto rounded-xl border-2 border-rb-swan bg-white p-1.5 shadow-xl z-50">
                         {CATALOG_DEPARTMENTS.filter((dept) => dept.id !== "all").map((dept) => {
                           const count = allCertifications.filter(
                             (c) => c.department === dept.id
@@ -656,24 +734,24 @@ export default function InstitutionRequestAccessPage() {
                                 setSelectedDept(dept.id)
                                 setDeptDropdownOpen(false)
                               }}
-                              className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left transition ${
+                              className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left transition ${
                                 isSelected
                                   ? "bg-rb-macaw-wash text-rb-macaw-lip font-bold"
                                   : "text-rb-eel hover:bg-black/5"
                               }`}
                             >
                               <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="rounded bg-black/5 px-1.5 py-0.5 text-xs font-bold">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="rounded bg-black/5 px-1 py-0.5 text-[10px] font-bold">
                                     {dept.code}
                                   </span>
-                                  <span className="truncate text-sm">{dept.name}</span>
+                                  <span className="truncate text-xs font-semibold">{dept.name}</span>
                                 </div>
-                                <p className="mt-0.5 truncate text-xs text-rb-wolf">
+                                <p className="mt-0.5 truncate text-[11px] text-rb-wolf">
                                   {dept.description}
                                 </p>
                               </div>
-                              <span className="ml-2 shrink-0 rounded-full border border-rb-swan bg-rb-paper px-2 py-0.5 text-xs font-semibold text-rb-wolf">
+                              <span className="ml-2 shrink-0 rounded-full border border-rb-swan bg-rb-paper px-1.5 py-0.5 text-[10px] font-semibold text-rb-wolf">
                                 {count}
                               </span>
                             </button>
@@ -688,26 +766,26 @@ export default function InstitutionRequestAccessPage() {
                             setSelectedDept("all")
                             setDeptDropdownOpen(false)
                           }}
-                          className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left transition ${
+                          className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left transition ${
                             selectedDept === "all"
                               ? "bg-rb-macaw-wash text-rb-macaw-lip font-bold"
                               : "text-rb-eel hover:bg-black/5"
                           }`}
                         >
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="rounded bg-black/5 px-1.5 py-0.5 text-xs font-bold">
+                            <div className="flex items-center gap-1.5">
+                              <span className="rounded bg-black/5 px-1 py-0.5 text-[10px] font-bold">
                                 ALL
                               </span>
-                              <span className="truncate text-sm font-semibold">
+                              <span className="truncate text-xs font-semibold">
                                 All Departments
                               </span>
                             </div>
-                            <p className="mt-0.5 truncate text-xs text-rb-wolf">
+                            <p className="mt-0.5 truncate text-[11px] text-rb-wolf">
                               Browse certifications across all programs
                             </p>
                           </div>
-                          <span className="ml-2 shrink-0 rounded-full border border-rb-swan bg-rb-paper px-2 py-0.5 text-xs font-semibold text-rb-wolf">
+                          <span className="ml-2 shrink-0 rounded-full border border-rb-swan bg-rb-paper px-1.5 py-0.5 text-[10px] font-semibold text-rb-wolf">
                             {allCertifications.length}
                           </span>
                         </button>
