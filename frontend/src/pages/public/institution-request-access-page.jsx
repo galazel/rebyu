@@ -39,6 +39,35 @@ const EMPTY_FORM = {
   businessDescription: "",
 }
 
+/** A date `months` from today as yyyy-mm-dd, in local time. */
+function isoDate(months = 0) {
+  const date = new Date()
+  date.setMonth(date.getMonth() + months)
+  const pad = (n) => String(n).padStart(2, "0")
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+const CURRENT_YEAR = new Date().getFullYear()
+
+const SCHOOL_YEAR_OPTIONS = [
+  { value: `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`, label: `S.Y. ${CURRENT_YEAR}–${CURRENT_YEAR + 1}` },
+  { value: `${CURRENT_YEAR + 1}-${CURRENT_YEAR + 2}`, label: `S.Y. ${CURRENT_YEAR + 1}–${CURRENT_YEAR + 2}` },
+  { value: `${CURRENT_YEAR + 2}-${CURRENT_YEAR + 3}`, label: `S.Y. ${CURRENT_YEAR + 2}–${CURRENT_YEAR + 3}` },
+  { value: `${CURRENT_YEAR + 3}-${CURRENT_YEAR + 4}`, label: `S.Y. ${CURRENT_YEAR + 3}–${CURRENT_YEAR + 4}` },
+  { value: `${CURRENT_YEAR + 4}-${CURRENT_YEAR + 5}`, label: `S.Y. ${CURRENT_YEAR + 4}–${CURRENT_YEAR + 5}` },
+]
+
+function getDatesFromSchoolYear(startSY, endSY) {
+  const [startYear] = (startSY || `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`).split("-").map(Number)
+  const [, endYear] = (endSY || startSY || `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`).split("-").map(Number)
+
+  const todayIso = isoDate(0)
+  const start = startYear === CURRENT_YEAR ? todayIso : `${startYear}-08-01`
+  const end = `${endYear}-07-31`
+
+  return { start, end }
+}
+
 /* `ShieldCheck` is not in the generated icon map, and the middle step is the
    only place a verification glyph is wanted -- a local mark is cheaper than
    another entry in a generated file. */
@@ -212,18 +241,57 @@ export default function InstitutionRequestAccessPage() {
       }
       return next
     })
-    setDates((current) =>
-      certificationId in current
-        ? current
-        : { ...current, [certificationId]: { start: isoDate(0), end: isoDate(12) } }
-    )
+    setDates((current) => {
+      if (certificationId in current) return current
+      const defaultSY = `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`
+      const { start, end } = getDatesFromSchoolYear(defaultSY, defaultSY)
+      return {
+        ...current,
+        [certificationId]: {
+          startSY: defaultSY,
+          endSY: defaultSY,
+          start,
+          end,
+        },
+      }
+    })
   }
 
-  const setDate = (certificationId, key, value) =>
-    setDates((current) => ({
-      ...current,
-      [certificationId]: { ...current[certificationId], [key]: value },
-    }))
+  const setSchoolYear = (certificationId, type, syValue) => {
+    setDates((current) => {
+      const existing = current[certificationId] || {}
+      const defaultSY = `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`
+      let startSY = existing.startSY || defaultSY
+      let endSY = existing.endSY || startSY
+
+      if (type === "start") {
+        startSY = syValue
+        const startNum = parseInt(startSY.split("-")[0], 10)
+        const endNum = parseInt(endSY.split("-")[0], 10)
+        if (startNum > endNum) {
+          endSY = startSY
+        }
+      } else if (type === "end") {
+        endSY = syValue
+        const startNum = parseInt(startSY.split("-")[0], 10)
+        const endNum = parseInt(endSY.split("-")[0], 10)
+        if (endNum < startNum) {
+          startSY = endSY
+        }
+      }
+
+      const { start, end } = getDatesFromSchoolYear(startSY, endSY)
+      return {
+        ...current,
+        [certificationId]: {
+          startSY,
+          endSY,
+          start,
+          end,
+        },
+      }
+    })
+  }
 
   const setSlots = (certificationId, value) =>
     setSelected((current) => ({ ...current, [certificationId]: value }))
@@ -239,15 +307,25 @@ export default function InstitutionRequestAccessPage() {
 
   const selectedItems = useMemo(
     () =>
-      Object.entries(selected).map(([certificationId, slots]) => ({
-        certificationId: Number(certificationId),
-        requestedSlots: Number(slots),
-        start: dates[certificationId]?.start ?? "",
-        end: dates[certificationId]?.end ?? "",
-        certification: allCertifications.find(
-          (c) => String(c.certificationId) === String(certificationId)
-        ),
-      })),
+      Object.entries(selected).map(([certificationId, slots]) => {
+        const dateInfo = dates[certificationId] || {}
+        const defaultSY = `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`
+        const startSY = dateInfo.startSY || defaultSY
+        const endSY = dateInfo.endSY || startSY
+        const computed = getDatesFromSchoolYear(startSY, endSY)
+
+        return {
+          certificationId: Number(certificationId),
+          requestedSlots: Number(slots),
+          startSY,
+          endSY,
+          start: dateInfo.start || computed.start,
+          end: dateInfo.end || computed.end,
+          certification: allCertifications.find(
+            (c) => String(c.certificationId) === String(certificationId)
+          ),
+        }
+      }),
     [selected, dates, allCertifications]
   )
 
@@ -307,7 +385,7 @@ export default function InstitutionRequestAccessPage() {
     )
       return "Each selected certification needs at least 1 learner slot."
     if (selectedItems.some((item) => !item.start || !item.end))
-      return "Pick an access start and end date for each selected certification."
+      return "Pick an access school year for each selected certification."
     if (selectedItems.some((item) => item.start < isoDate(0)))
       return "An access start date cannot be in the past."
     if (selectedItems.some((item) => item.end <= item.start))
@@ -679,11 +757,8 @@ export default function InstitutionRequestAccessPage() {
                               certification={certification}
                               selected={certification.certificationId in selected}
                               slots={selected[certification.certificationId] ?? ""}
-                              start={dates[certification.certificationId]?.start ?? ""}
-                              end={dates[certification.certificationId]?.end ?? ""}
-                              onDate={(key, value) =>
-                                setDate(certification.certificationId, key, value)
-                              }
+                              startSY={dates[certification.certificationId]?.startSY ?? `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`}
+                              endSY={dates[certification.certificationId]?.endSY ?? `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`}
                               onToggle={() =>
                                 toggleCertification(certification.certificationId)
                               }
@@ -692,6 +767,9 @@ export default function InstitutionRequestAccessPage() {
                               }
                               onNudge={(delta) =>
                                 nudgeSlots(certification.certificationId, delta)
+                              }
+                              onSYChange={(type, val) =>
+                                setSchoolYear(certification.certificationId, type, val)
                               }
                             />
                           ))}
@@ -707,11 +785,8 @@ export default function InstitutionRequestAccessPage() {
                         certification={certification}
                         selected={certification.certificationId in selected}
                         slots={selected[certification.certificationId] ?? ""}
-                        start={dates[certification.certificationId]?.start ?? ""}
-                        end={dates[certification.certificationId]?.end ?? ""}
-                        onDate={(key, value) =>
-                          setDate(certification.certificationId, key, value)
-                        }
+                        startSY={dates[certification.certificationId]?.startSY ?? `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`}
+                        endSY={dates[certification.certificationId]?.endSY ?? `${CURRENT_YEAR}-${CURRENT_YEAR + 1}`}
                         onToggle={() =>
                           toggleCertification(certification.certificationId)
                         }
@@ -720,6 +795,9 @@ export default function InstitutionRequestAccessPage() {
                         }
                         onNudge={(delta) =>
                           nudgeSlots(certification.certificationId, delta)
+                        }
+                        onSYChange={(type, val) =>
+                          setSchoolYear(certification.certificationId, type, val)
                         }
                       />
                     ))}
@@ -769,9 +847,11 @@ export default function InstitutionRequestAccessPage() {
                       <span className="rb-caption w-full text-xs text-rb-wolf">
                         {Number.isFinite(item.requestedSlots) ? item.requestedSlots : 0} slot(s) ×{" "}
                         {formatMoney(pricePerSlot, currency)}
-                        {item.start && item.end
-                          ? ` · ${formatShortDate(item.start)} – ${formatShortDate(item.end)}`
-                          : ""}
+                        {item.startSY && item.endSY
+                          ? ` · S.Y. ${item.startSY === item.endSY ? item.startSY : `${item.startSY} – ${item.endSY}`}`
+                          : item.start && item.end
+                            ? ` · ${formatShortDate(item.start)} – ${formatShortDate(item.end)}`
+                            : ""}
                       </span>
                     </li>
                   ))}
@@ -790,7 +870,7 @@ export default function InstitutionRequestAccessPage() {
                     <span className="rb-numeric text-xl text-rb-eel">{formatMoney(totalAmount, currency)}</span>
                   </div>
                   <p className="rb-caption text-xs text-rb-wolf">
-                    Billed on approval. You receive an invoice by email; access starts on the dates you chose.
+                    Billed on approval. You receive an invoice by email; access aligns with the requested school year.
                   </p>
                 </div>
               </>
@@ -845,19 +925,6 @@ function PublicHeader() {
   )
 }
 
-/**
- * One selectable certification. The toggle is a `role="checkbox"` button rather
- * than a label wrapping a control, because the slot stepper sits in the same
- * card -- inside a label, every press of "+" would also toggle the row off.
- */
-/** A date `months` from today as yyyy-mm-dd, in local time. */
-function isoDate(months) {
-  const date = new Date()
-  date.setMonth(date.getMonth() + months)
-  const pad = (n) => String(n).padStart(2, "0")
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
-
 function formatMoney(value, currency = "PHP") {
   return Number(value ?? 0).toLocaleString("en-PH", { style: "currency", currency, maximumFractionDigits: 0 })
 }
@@ -869,7 +936,17 @@ function formatShortDate(value) {
     : date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
 }
 
-function CertificationRow({ certification, selected, slots, start, end, onToggle, onSlots, onNudge, onDate }) {
+function CertificationRow({
+  certification,
+  selected,
+  slots,
+  startSY,
+  endSY,
+  onToggle,
+  onSlots,
+  onNudge,
+  onSYChange,
+}) {
   const id = certification.certificationId
 
   return (
@@ -917,75 +994,90 @@ function CertificationRow({ certification, selected, slots, start, end, onToggle
       </button>
 
       {selected ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-rb-swan px-5 py-4">
-          <label htmlFor={`slots-${id}`} className="text-sm font-bold text-rb-eel">
-            Learner slots
-          </label>
-          <div className="flex items-center gap-2">
-            <StepperKey label="Remove one learner slot" onClick={() => onNudge(-1)}>
-              &minus;
-            </StepperKey>
-            <input
-              id={`slots-${id}`}
-              type="number"
-              min={1}
-              value={slots}
-              onChange={(event) => onSlots(event.target.value)}
-              className="rb-input w-24 bg-rb-snow text-center font-bold"
-            />
-            <StepperKey label="Add one learner slot" onClick={() => onNudge(1)}>
-              +
-            </StepperKey>
-          </div>
-
-          {/* The access window sits under the slots: how many learners, and
-              for how long. It defaults to a year from today; approval keeps
-              whatever the institution asked for here. */}
-          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor={`start-${id}`} className="text-sm font-bold text-rb-eel">
-                Access start date
+        <div className="border-t border-rb-swan/80 bg-rb-snow/60 px-5 py-3 sm:px-6">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+            {/* Balanced Compact Stepper for Learner Slots */}
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor={`slots-${id}`}
+                className="text-xs font-bold text-rb-eel"
+              >
+                Learner slots
               </label>
-              <input
-                id={`start-${id}`}
-                type="date"
-                value={start}
-                min={isoDate(0)}
-                onChange={(event) => onDate("start", event.target.value)}
-                className="rb-input bg-rb-snow font-bold"
-              />
+              <div className="flex items-center rounded-lg border-2 border-rb-swan bg-white">
+                <button
+                  type="button"
+                  aria-label="Remove one learner slot"
+                  onClick={() => onNudge(-1)}
+                  className="grid size-8 place-items-center text-sm font-bold text-rb-wolf hover:bg-black/5 hover:text-rb-eel transition-colors rounded-l-md"
+                >
+                  &minus;
+                </button>
+                <input
+                  id={`slots-${id}`}
+                  type="number"
+                  min={1}
+                  value={slots}
+                  onChange={(event) => onSlots(event.target.value)}
+                  className="w-14 border-x-2 border-rb-swan py-1 text-center text-xs font-bold text-rb-eel focus:bg-rb-macaw-wash/20 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  aria-label="Add one learner slot"
+                  onClick={() => onNudge(1)}
+                  className="grid size-8 place-items-center text-sm font-bold text-rb-wolf hover:bg-black/5 hover:text-rb-eel transition-colors rounded-r-md"
+                >
+                  +
+                </button>
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor={`end-${id}`} className="text-sm font-bold text-rb-eel">
-                Access end date
-              </label>
-              <input
-                id={`end-${id}`}
-                type="date"
-                value={end}
-                min={start || isoDate(0)}
-                onChange={(event) => onDate("end", event.target.value)}
-                className="rb-input bg-rb-snow font-bold"
-              />
+
+            {/* School Year: Start & End School Year dropdowns */}
+            <div className="flex items-center gap-2.5">
+              <span className="text-xs font-bold text-rb-eel">
+                School year
+              </span>
+              <div className="flex items-center gap-1.5">
+                <div className="relative">
+                  <select
+                    id={`startSY-${id}`}
+                    value={startSY}
+                    onChange={(e) => onSYChange("start", e.target.value)}
+                    className="h-8 appearance-none rounded-lg border-2 border-rb-swan bg-white pl-2.5 pr-7 text-xs font-bold text-rb-eel focus:border-rb-macaw focus:outline-none cursor-pointer"
+                  >
+                    {SCHOOL_YEAR_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-rb-wolf" />
+                </div>
+                <span className="text-xs font-semibold text-rb-wolf">to</span>
+                <div className="relative">
+                  <select
+                    id={`endSY-${id}`}
+                    value={endSY}
+                    onChange={(e) => onSYChange("end", e.target.value)}
+                    className="h-8 appearance-none rounded-lg border-2 border-rb-swan bg-white pl-2.5 pr-7 text-xs font-bold text-rb-eel focus:border-rb-macaw focus:outline-none cursor-pointer"
+                  >
+                    {SCHOOL_YEAR_OPTIONS.filter((opt) => {
+                      const [startNum] = (startSY || "").split("-").map(Number)
+                      const [optNum] = opt.value.split("-").map(Number)
+                      return !startNum || optNum >= startNum
+                    }).map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-rb-wolf" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
       ) : null}
-
     </div>
-  )
-}
-
-/* 56px square, matching the input beside it and the button ladder. */
-function StepperKey({ label, onClick, children }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-      className="grid size-14 shrink-0 place-items-center rounded-rb-tile border-2 border-rb-swan bg-rb-snow text-xl font-bold text-rb-wolf transition-colors hover:border-rb-hare hover:text-rb-eel focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw"
-    >
-      {children}
-    </button>
   )
 }
