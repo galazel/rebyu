@@ -909,9 +909,9 @@ function CertificationRow({ certification, selected, slots, start, end, onToggle
           </div>
 
           {certification.description ? (
-            <span className="rb-caption mt-2 line-clamp-2 block">
+            <p className="mt-1.5 text-xs leading-relaxed text-rb-wolf line-clamp-2">
               {certification.description}
-            </span>
+            </p>
           ) : null}
         </span>
       </button>

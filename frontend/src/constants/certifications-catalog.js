@@ -60,9 +60,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "topcit",
     tone: "macaw",
     summary:
-      "The Test of Practical Competency in IT. Measures software development, database design, networks, and IT project problem solving.",
+      "Performance-driven practical assessment measuring applied software engineering, database modeling, network protocols, cybersecurity, and real-world IT problem-solving.",
     description:
-      "The Test of Practical Competency in IT. Measures software development, database design, networks, and IT project problem solving.",
+      "Performance-driven practical assessment measuring applied software engineering, database modeling, network protocols, cybersecurity, and real-world IT problem-solving.",
     lessons: 96,
     questions: "1,240",
     topics: [
@@ -84,9 +84,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "passport",
     tone: "bee",
     summary:
-      "Japan/PhilNITS entry-level national IT qualification covering Strategy, Management, and Technology fundamentals.",
+      "Foundational IT benchmark testing fundamental computing architecture, software literacy, network & database essentials, information security, and business IT strategy.",
     description:
-      "Japan/PhilNITS entry-level national IT qualification covering Strategy, Management, and Technology fundamentals.",
+      "Foundational IT benchmark testing fundamental computing architecture, software literacy, network & database essentials, information security, and business IT strategy.",
     lessons: 64,
     questions: "980",
     topics: ["Strategy", "Management", "Technology"],
@@ -102,9 +102,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "fe",
     tone: "beetle",
     summary:
-      "Fundamental Information Technology Engineer national qualification for deep computer science, algorithms, and systems architecture.",
+      "Level 2 technical qualification certifying core computer science, algorithm analysis, software design, systems architecture, databases, and network security.",
     description:
-      "Fundamental Information Technology Engineer national qualification for deep computer science, algorithms, and systems architecture.",
+      "Level 2 technical qualification certifying core computer science, algorithm analysis, software design, systems architecture, databases, and network security.",
     lessons: 148,
     questions: "1,860",
     topics: [
@@ -132,9 +132,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "bookkeeper",
     tone: "bee",
     summary:
-      "National Institute of Accounting Technicians (NIAT) credential for computerized double-entry accounting, payroll, and tax compliance.",
+      "NIAT professional credential covering double-entry bookkeeping, general ledgers, trial balance compilation, payroll, and statutory tax compliance.",
     description:
-      "National Institute of Accounting Technicians (NIAT) credential for computerized double-entry accounting, payroll, and tax compliance.",
+      "NIAT professional credential covering double-entry bookkeeping, general ledgers, trial balance compilation, payroll, and statutory tax compliance.",
     lessons: 58,
     questions: "760",
     topics: [
@@ -155,9 +155,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "tax-tech",
     tone: "honey",
     summary:
-      "Philippine Institute of Certified Tax Technicians (PICAT) / NIAT credential for corporate taxation, withholding taxes, and TRAIN law compliance.",
+      "PICAT / NIAT qualification covering Philippine corporate taxation, Value-Added Tax (VAT), withholding taxes, and BIR regulatory compliance.",
     description:
-      "Philippine Institute of Certified Tax Technicians (PICAT) / NIAT credential for corporate taxation, withholding taxes, and TRAIN law compliance.",
+      "PICAT / NIAT qualification covering Philippine corporate taxation, Value-Added Tax (VAT), withholding taxes, and BIR regulatory compliance.",
     lessons: 62,
     questions: "820",
     topics: [
@@ -178,9 +178,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "tax-book",
     tone: "fox",
     summary:
-      "NIAT recognized professional credential blending commercial corporate bookkeeping with Philippine regulatory tax filings.",
+      "NIAT credential integrating commercial corporate bookkeeping with Philippine regulatory tax filings, deductible expenses, and financial audit records.",
     description:
-      "NIAT recognized professional credential blending commercial corporate bookkeeping with Philippine regulatory tax filings.",
+      "NIAT credential integrating commercial corporate bookkeeping with Philippine regulatory tax filings, deductible expenses, and financial audit records.",
     lessons: 54,
     questions: "710",
     topics: [
@@ -201,9 +201,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "rca",
     tone: "sea",
     summary:
-      "Institute of Certified Management Accountants (ICMA) & NIAT certification in manufacturing cost systems, budgeting, and variance analysis.",
+      "ICMA certification covering manufacturing cost accounting, activity-based costing (ABC), job-order costing, and budgetary variance control.",
     description:
-      "Institute of Certified Management Accountants (ICMA) & NIAT certification in manufacturing cost systems, budgeting, and variance analysis.",
+      "ICMA certification covering manufacturing cost accounting, activity-based costing (ABC), job-order costing, and budgetary variance control.",
     lessons: 70,
     questions: "940",
     topics: [
@@ -226,9 +226,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "ccna",
     tone: "sea",
     summary:
-      "Cisco Networking Academy industry certification covering IP routing, Ethernet switching, cybersecurity basics, and network automation.",
+      "Cisco Networking Academy industry certification covering IP routing, Ethernet switching, network security, wireless LANs, and automation.",
     description:
-      "Cisco Networking Academy industry certification covering IP routing, Ethernet switching, cybersecurity basics, and network automation.",
+      "Cisco Networking Academy industry certification covering IP routing, Ethernet switching, network security, wireless LANs, and automation.",
     lessons: 98,
     questions: "1,320",
     topics: [
@@ -250,9 +250,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "mechatronics",
     tone: "beetle",
     summary:
-      "TESDA qualification in industrial automation, electro-pneumatic systems, PLC ladder programming, and robotic machinery servicing.",
+      "TESDA qualification in industrial automation, electro-pneumatic circuits, PLC ladder programming, sensor integration, and robotic servicing.",
     description:
-      "TESDA qualification in industrial automation, electro-pneumatic systems, PLC ladder programming, and robotic machinery servicing.",
+      "TESDA qualification in industrial automation, electro-pneumatic circuits, PLC ladder programming, sensor integration, and robotic servicing.",
     lessons: 74,
     questions: "960",
     topics: [
@@ -273,9 +273,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "eim-ncii",
     tone: "honey",
     summary:
-      "TESDA certification covering residential and commercial building wiring, conduit bending, electrical load calculations, and PEC compliance.",
+      "TESDA certification covering building electrical wiring, conduit bending, load calculations, blueprints, and Philippine Electrical Code compliance.",
     description:
-      "TESDA certification covering residential and commercial building wiring, conduit bending, electrical load calculations, and PEC compliance.",
+      "TESDA certification covering building electrical wiring, conduit bending, load calculations, blueprints, and Philippine Electrical Code compliance.",
     lessons: 66,
     questions: "880",
     topics: [
@@ -296,9 +296,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "industrial-elec",
     tone: "bee",
     summary:
-      "TESDA advanced credential in three-phase industrial electrical power systems, motor controls, distribution switchboards, and protective relaying.",
+      "Advanced credential in three-phase industrial distribution, motor control centers, protective relays, switchgear, and preventive maintenance.",
     description:
-      "TESDA advanced credential in three-phase industrial electrical power systems, motor controls, distribution switchboards, and protective relaying.",
+      "Advanced credential in three-phase industrial distribution, motor control centers, protective relays, switchgear, and preventive maintenance.",
     lessons: 68,
     questions: "850",
     topics: [
@@ -319,9 +319,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "machining",
     tone: "sea",
     summary:
-      "TESDA certification in precision machine shop operations, lathe, milling, surface grinding, and Computer Numerical Control (CNC) machining.",
+      "TESDA qualification covering precision lathe and milling machine operations, engineering tolerances, metrology, and CNC G-code programming.",
     description:
-      "TESDA certification in precision machine shop operations, lathe, milling, surface grinding, and Computer Numerical Control (CNC) machining.",
+      "TESDA qualification covering precision lathe and milling machine operations, engineering tolerances, metrology, and CNC G-code programming.",
     lessons: 65,
     questions: "810",
     topics: [
@@ -342,9 +342,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "construction-nc",
     tone: "fox",
     summary:
-      "TESDA construction competencies covering sanitary plumbing, scaffolding erection, structural blueprint interpretation, and jobsite safety.",
+      "TESDA construction industry competencies covering structural blueprint interpretation, sanitary plumbing, scaffold erection, and jobsite safety.",
     description:
-      "TESDA construction competencies covering sanitary plumbing, scaffolding erection, structural blueprint interpretation, and jobsite safety.",
+      "TESDA construction industry competencies covering structural blueprint interpretation, sanitary plumbing, scaffold erection, and jobsite safety.",
     lessons: 60,
     questions: "750",
     topics: [
@@ -367,9 +367,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "bt-stcw",
     tone: "sea",
     summary:
-      "Mandatory STCW maritime safety foundation covering Personal Survival Techniques (PST), Fire Prevention, Elementary First Aid, and PSSR.",
+      "Mandatory STCW maritime safety foundation covering Personal Survival Techniques (PST), Fire Fighting, Elementary First Aid, and PSSR.",
     description:
-      "Mandatory STCW maritime safety foundation covering Personal Survival Techniques (PST), Fire Prevention, Elementary First Aid, and PSSR.",
+      "Mandatory STCW maritime safety foundation covering Personal Survival Techniques (PST), Fire Fighting, Elementary First Aid, and PSSR.",
     lessons: 80,
     questions: "1,100",
     topics: [
@@ -390,9 +390,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "ssa-isps",
     tone: "beetle",
     summary:
-      "STCW and ISPS Code mandatory training in recognizing maritime security risks, anti-piracy countermeasures, and ship security protocols.",
+      "STCW and ISPS Code mandatory training in recognizing maritime security risks, anti-piracy countermeasures, access control, and shipboard protocols.",
     description:
-      "STCW and ISPS Code mandatory training in recognizing maritime security risks, anti-piracy countermeasures, and ship security protocols.",
+      "STCW and ISPS Code mandatory training in recognizing maritime security risks, anti-piracy countermeasures, access control, and shipboard protocols.",
     lessons: 44,
     questions: "580",
     topics: [
@@ -413,9 +413,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "rfpnw",
     tone: "macaw",
     summary:
-      "STCW Regulation II/4 certification for lookout watchkeeping, magnetic and gyro compass steering commands, and bridge bridge-to-engine handovers.",
+      "STCW Regulation II/4 certification for bridge lookout watchkeeping, gyro/magnetic compass steering orders, and collision avoidance rules.",
     description:
-      "STCW Regulation II/4 certification for lookout watchkeeping, magnetic and gyro compass steering commands, and bridge bridge-to-engine handovers.",
+      "STCW Regulation II/4 certification for bridge lookout watchkeeping, gyro/magnetic compass steering orders, and collision avoidance rules.",
     lessons: 64,
     questions: "840",
     topics: [
@@ -436,9 +436,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "rfpew",
     tone: "plum",
     summary:
-      "STCW Regulation III/4 certification for marine engine room watchkeeping, auxiliary machinery operation, and bilge/ballast management.",
+      "STCW Regulation III/4 certification for marine engine room watchkeeping, auxiliary machinery operations, bilge management, and safety rounds.",
     description:
-      "STCW Regulation III/4 certification for marine engine room watchkeeping, auxiliary machinery operation, and bilge/ballast management.",
+      "STCW Regulation III/4 certification for marine engine room watchkeeping, auxiliary machinery operations, bilge management, and safety rounds.",
     lessons: 64,
     questions: "820",
     topics: [
@@ -461,9 +461,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "cookery",
     tone: "fox",
     summary:
-      "TESDA National Certificate assessed via UCLM TETAC for commercial hot and cold food preparation, culinary fundamentals, and HACCP safety.",
+      "TESDA National Certificate via UCLM TETAC covering hot and cold food preparation, knife skills, HACCP food safety, and culinary cookery.",
     description:
-      "TESDA National Certificate assessed via UCLM TETAC for commercial hot and cold food preparation, culinary fundamentals, and HACCP safety.",
+      "TESDA National Certificate via UCLM TETAC covering hot and cold food preparation, knife skills, HACCP food safety, and culinary cookery.",
     lessons: 72,
     questions: "920",
     topics: [
@@ -485,9 +485,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "front-office",
     tone: "bee",
     summary:
-      "TESDA credential assessed at UCLM TETAC for hotel Property Management Systems (PMS), reservations, guest relations, and night audit.",
+      "TESDA credential in hotel Property Management Systems (PMS), reservations, guest check-in/out, concierge, and night audit procedures.",
     description:
-      "TESDA credential assessed at UCLM TETAC for hotel Property Management Systems (PMS), reservations, guest relations, and night audit.",
+      "TESDA credential in hotel Property Management Systems (PMS), reservations, guest check-in/out, concierge, and night audit procedures.",
     lessons: 56,
     questions: "740",
     topics: [
@@ -508,9 +508,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "housekeeping",
     tone: "fern",
     summary:
-      "TESDA standard covering hotel guestroom staging, sanitization standards, public area maintenance, and linen/fabric care.",
+      "TESDA standard covering hotel guestroom staging, sanitization standards, public area maintenance, chemical safety, and linen care.",
     description:
-      "TESDA standard covering hotel guestroom staging, sanitization standards, public area maintenance, and linen/fabric care.",
+      "TESDA standard covering hotel guestroom staging, sanitization standards, public area maintenance, chemical safety, and linen care.",
     lessons: 50,
     questions: "680",
     topics: [
@@ -531,9 +531,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "bartending",
     tone: "honey",
     summary:
-      "TESDA credential assessed at UCLM TETAC for professional beverage preparation, cocktail mixology, wine service, and bar management.",
+      "TESDA credential in beverage station staging, classic and contemporary cocktail mixology, wine service, and responsible alcohol service.",
     description:
-      "TESDA credential assessed at UCLM TETAC for professional beverage preparation, cocktail mixology, wine service, and bar management.",
+      "TESDA credential in beverage station staging, classic and contemporary cocktail mixology, wine service, and responsible alcohol service.",
     lessons: 52,
     questions: "700",
     topics: [
@@ -579,9 +579,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "bls",
     tone: "beetle",
     summary:
-      "Standard healthcare provider life-saving certification required for clinical rotations, covering CPR, AED use, and airway emergencies.",
+      "Healthcare provider life-saving certification covering high-quality CPR for adults, children, and infants, AED use, and airway emergencies.",
     description:
-      "Standard healthcare provider life-saving certification required for clinical rotations, covering CPR, AED use, and airway emergencies.",
+      "Healthcare provider life-saving certification covering high-quality CPR for adults, children, and infants, AED use, and airway emergencies.",
     lessons: 48,
     questions: "640",
     topics: [
@@ -602,9 +602,9 @@ export const CATALOG_CERTIFICATIONS = [
     wordmark: "acls",
     tone: "fox",
     summary:
-      "Advanced clinical emergency resuscitation covering cardiac rhythm recognition, code team dynamics, airway management, and pharmacology.",
+      "Clinical emergency resuscitation credential covering ECG rhythm recognition, code team dynamics, airway management, and pharmacology.",
     description:
-      "Advanced clinical emergency resuscitation covering cardiac rhythm recognition, code team dynamics, airway management, and pharmacology.",
+      "Clinical emergency resuscitation credential covering ECG rhythm recognition, code team dynamics, airway management, and pharmacology.",
     lessons: 66,
     questions: "860",
     topics: [
@@ -772,7 +772,7 @@ export function detectDepartment(cert) {
  * Merges backend-provided certifications with the catalog so:
  * 1. Real database certification IDs are preserved.
  * 2. All catalog certifications across departments are accessible.
- * 3. Every certification has its course programs (e.g. ["BSMA", "BSBA"]).
+ * 3. Every certification has balanced, uniform descriptions and course programs.
  */
 export function getMergedCertifications(backendCertifications = []) {
   const publishedBackend = (Array.isArray(backendCertifications) ? backendCertifications : [])
@@ -793,7 +793,8 @@ export function getMergedCertifications(backendCertifications = []) {
         certificationId: matchedBackend.certificationId,
         backendId: matchedBackend.certificationId,
         title: matchedBackend.title || catalogItem.title,
-        description: matchedBackend.description || catalogItem.description,
+        // Use balanced catalog description rather than oversized DB text blocks
+        description: catalogItem.description || matchedBackend.description,
         isFromBackend: true,
       }
     }
