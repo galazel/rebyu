@@ -679,15 +679,56 @@ function BrandMark({ light = false }) {
 function LandingNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState(null);
   /* Which link the pointer is on, so one shared pill can slide between them
      rather than seven independent backgrounds fading in and out. */
   const [hoveredNav, setHoveredNav] = useState(null);
 
   useEffect(() => {
-    const update = () => setIsScrolled(window.scrollY > 24);
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      setIsScrolled(scrollY > 24);
+
+      // In the hero/first page fold, no section is active and fonts are not bold
+      if (scrollY < window.innerHeight * 0.45) {
+        setActiveSection(null);
+        return;
+      }
+
+      const sectionIds = [
+        "about",
+        "problem",
+        "how-it-works",
+        "certifications",
+        "features",
+        "get-access",
+      ];
+
+      const headerOffset = 140; // Navbar height + offset
+      let current = null;
+
+      for (let i = sectionIds.length - 1; i >= 0; i--) {
+        const id = sectionIds[i];
+        const el = document.getElementById(id);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= headerOffset) {
+            current = `#${id}`;
+            break;
+          }
+        }
+      }
+
+      setActiveSection(current);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
   }, []);
 
   useEffect(() => {
@@ -760,36 +801,38 @@ function LandingNavbar() {
             className="hidden items-center gap-1 lg:flex"
             onMouseLeave={() => setHoveredNav(null)}
           >
-            {NAV_ITEMS.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                onClick={(e) => handleNavClick(e, item.href)}
-                onMouseEnter={() => setHoveredNav(item.href)}
-                onFocus={() => setHoveredNav(item.href)}
-                className={`relative rounded-rb-pill px-4 py-2 font-rb-display text-[0.9375rem] font-extrabold transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw ${
-                  hoveredNav === item.href
-                    ? "text-rb-eel"
-                    : overHero
+            {NAV_ITEMS.map((item) => {
+              const isActive = !overHero && activeSection === item.href;
+              const isHovered = hoveredNav === item.href;
+
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  onClick={(e) => handleNavClick(e, item.href)}
+                  onMouseEnter={() => setHoveredNav(item.href)}
+                  onFocus={() => setHoveredNav(item.href)}
+                  className={`relative rounded-rb-pill px-4 py-2 font-rb-display text-[0.9375rem] transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw ${
+                    isActive ? "font-bold text-rb-eel" : "font-medium"
+                  } ${
+                    overHero
                       ? "text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]"
-                      : "text-rb-wolf"
-                }`}
-              >
-                {/* Painted before the label and lifted back with a positive
-                    z-index on the text, not a negative one on the pill: the <a>
-                    sets `position` without a `z-index`, so it opens no stacking
-                    context and a negative layer would sink behind the header's
-                    own background. */}
-                {hoveredNav === item.href ? (
-                  <motion.span
-                    layoutId="landing-nav-pill"
-                    className="absolute inset-0 rounded-rb-pill bg-rb-polar"
-                    transition={{ type: "spring", stiffness: 480, damping: 38, mass: 0.7 }}
-                  />
-                ) : null}
-                <span className="relative z-10">{item.label}</span>
-              </a>
-            ))}
+                      : isHovered || isActive
+                        ? "text-rb-eel"
+                        : "text-rb-wolf hover:text-rb-eel"
+                  }`}
+                >
+                  {isHovered ? (
+                    <motion.span
+                      layoutId="landing-nav-pill"
+                      className="absolute inset-0 rounded-rb-pill bg-rb-polar"
+                      transition={{ type: "spring", stiffness: 480, damping: 38, mass: 0.7 }}
+                    />
+                  ) : null}
+                  <span className="relative z-10">{item.label}</span>
+                </a>
+              );
+            })}
           </nav>
 
           <div className="hidden items-center gap-3 lg:flex">
@@ -839,17 +882,22 @@ function LandingNavbar() {
                   animate="show"
                   variants={staggerParent(0.04, 0.06)}
                 >
-                  {NAV_ITEMS.map((item) => (
-                    <motion.a
-                      key={item.href}
-                      href={item.href}
-                      onClick={(e) => handleNavClick(e, item.href)}
-                      variants={fadeUp}
-                      className="rounded-rb-tile px-4 py-3.5 font-rb-display text-lg font-extrabold text-rb-eel transition-colors hover:bg-rb-polar"
-                    >
-                      {item.label}
-                    </motion.a>
-                  ))}
+                  {NAV_ITEMS.map((item) => {
+                    const isActive = activeSection === item.href;
+                    return (
+                      <motion.a
+                        key={item.href}
+                        href={item.href}
+                        onClick={(e) => handleNavClick(e, item.href)}
+                        variants={fadeUp}
+                        className={`rounded-rb-tile px-4 py-3.5 font-rb-display text-lg transition-colors hover:bg-rb-polar ${
+                          isActive ? "font-bold text-rb-eel bg-rb-polar/60" : "font-medium text-rb-wolf"
+                        }`}
+                      >
+                        {item.label}
+                      </motion.a>
+                    );
+                  })}
                 </motion.nav>
                 <div className="mt-4 flex flex-col gap-3">
                   <TactileButton asChild>
