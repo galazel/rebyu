@@ -136,7 +136,7 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
               const Icon = item.icon
               const isOpen = item.key === openKey
               return (
-                <div key={`${item.key}-${index}`} className="w-[280px] shrink-0">
+                <div key={`${item.key}-${index}`} className="w-[280px] min-w-[280px] max-w-[280px] shrink-0">
                   <button
                     type="button"
                     className="rb-folder w-full"
@@ -167,26 +167,27 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
             const Icon = item.icon
             const isOpen = item.key === openKey
             return (
-              <button
-                key={item.key}
-                type="button"
-                className="rb-folder"
-                style={{ "--folder": item.color.face, "--folder-edge": item.color.edge }}
-                aria-expanded={isOpen}
-                aria-controls="rb-folder-spread"
-                onClick={() => toggle(item.key)}
-              >
-                <span className="rb-folder-back" aria-hidden="true">
-                  <span className="rb-folder-tab">{item.tab}</span>
-                </span>
-                <span className="rb-folder-sheet" aria-hidden="true" />
-                <span className="rb-folder-front">
-                  {Icon ? <Icon className="size-7 text-[#4a3516]" aria-hidden="true" /> : null}
-                  <span className="rb-folder-title">{item.title}</span>
-                  <span className="rb-folder-meta">{item.meta}</span>
-                  <span className="rb-folder-hint">{isOpen ? "open below — click to close" : hint}</span>
-                </span>
-              </button>
+              <div key={item.key} className="w-[280px] min-w-[280px] max-w-[280px] shrink-0">
+                <button
+                  type="button"
+                  className="rb-folder w-full"
+                  style={{ "--folder": item.color.face, "--folder-edge": item.color.edge }}
+                  aria-expanded={isOpen}
+                  aria-controls="rb-folder-spread"
+                  onClick={() => toggle(item.key)}
+                >
+                  <span className="rb-folder-back" aria-hidden="true">
+                    <span className="rb-folder-tab">{item.tab}</span>
+                  </span>
+                  <span className="rb-folder-sheet" aria-hidden="true" />
+                  <span className="rb-folder-front">
+                    {Icon ? <Icon className="size-7 text-[#4a3516]" aria-hidden="true" /> : null}
+                    <span className="rb-folder-title">{item.title}</span>
+                    <span className="rb-folder-meta">{item.meta}</span>
+                    <span className="rb-folder-hint">{isOpen ? "open below — click to close" : hint}</span>
+                  </span>
+                </button>
+              </div>
             )
           })}
         </div>
