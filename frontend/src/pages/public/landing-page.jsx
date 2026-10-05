@@ -1138,40 +1138,40 @@ function CertificationSection() {
             </div>
 
             {/* Department / Industry Filter Dropdown */}
-            <div className="relative z-30 shrink-0" ref={dropdownRef}>
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-rb-wolf">
+            <div className="relative z-30 shrink-0 w-full sm:w-80" ref={dropdownRef}>
+              <div className="flex flex-col items-end gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-rb-wolf text-right">
                   Filter by Department
                 </span>
                 <button
                   type="button"
                   onClick={() => setDropdownOpen((prev) => !prev)}
-                  className="flex items-center justify-between gap-3 rounded-2xl border-2 border-rb-sand/90 bg-white px-4 py-2.5 shadow-xs transition hover:border-rb-macaw-lip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw-lip"
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-rb-swan bg-white px-4 py-2.5 shadow-xs transition hover:border-rb-macaw-lip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw-lip"
                   aria-expanded={dropdownOpen}
                   aria-haspopup="listbox"
                 >
-                  <div className="flex items-center gap-2.5 text-left">
-                    <span className="flex size-7 items-center justify-center rounded-lg bg-rb-macaw-wash text-xs font-bold text-rb-macaw-lip">
+                  <div className="flex min-w-0 items-center gap-2.5 text-left">
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-rb-macaw-wash text-xs font-bold text-rb-macaw-lip">
                       {activeDepartment.code}
                     </span>
-                    <div>
-                      <p className="text-sm font-bold text-rb-crow leading-tight">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-rb-eel leading-tight truncate">
                         {activeDepartment.name}
                       </p>
-                      <p className="text-xs text-rb-wolf">
+                      <p className="text-xs text-rb-wolf truncate">
                         {filteredCertifications.length} {filteredCertifications.length === 1 ? "certification" : "certifications"}
                       </p>
                     </div>
                   </div>
                   <ChevronDown
-                    className={`size-4 text-rb-wolf transition-transform duration-200 ${
+                    className={`size-4 shrink-0 text-rb-wolf transition-transform duration-200 ${
                       dropdownOpen ? "rotate-180" : ""
                     }`}
                   />
                 </button>
 
                 {dropdownOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-80 max-h-80 overflow-y-auto rounded-2xl border-2 border-rb-sand bg-white p-2 shadow-xl z-50">
+                  <div className="absolute right-0 top-full mt-2 w-full max-h-80 overflow-y-auto rounded-2xl border-2 border-rb-swan bg-white p-2 shadow-xl z-50">
                     {DEPARTMENTS.map((dept) => {
                       const count = dept.id === "all"
                         ? CERTIFICATIONS.length
@@ -1189,7 +1189,7 @@ function CertificationSection() {
                           className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left transition ${
                             isSelected
                               ? "bg-rb-macaw-wash text-rb-macaw-lip font-bold"
-                              : "text-rb-crow hover:bg-black/5"
+                              : "text-rb-eel hover:bg-black/5"
                           }`}
                         >
                           <div className="min-w-0 flex-1">
@@ -1203,7 +1203,7 @@ function CertificationSection() {
                               {dept.description}
                             </p>
                           </div>
-                          <span className="ml-2 shrink-0 rounded-full bg-rb-paper px-2 py-0.5 text-xs font-semibold text-rb-wolf border border-rb-sand/60">
+                          <span className="ml-2 shrink-0 rounded-full bg-rb-paper px-2 py-0.5 text-xs font-semibold text-rb-wolf border border-rb-swan">
                             {count}
                           </span>
                         </button>
@@ -1226,8 +1226,8 @@ function CertificationSection() {
                   onClick={() => setSelectedDept(dept.id)}
                   className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition ${
                     isSelected
-                      ? "bg-rb-crow text-white shadow-xs"
-                      : "border border-rb-sand bg-white text-rb-wolf hover:border-rb-crow hover:text-rb-crow"
+                      ? "bg-[#123126] text-white shadow-xs"
+                      : "border border-rb-swan bg-white text-rb-eel hover:border-[#123126] hover:text-[#123126]"
                   }`}
                 >
                   {dept.code === "ALL" ? "All Departments" : dept.code}
