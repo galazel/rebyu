@@ -14,6 +14,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
+html {
+    scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html {
+        scroll-behavior: auto;
+    }
+}
+
 :root {
 
     /* REBYU theme. Semantic tokens map onto the Duolingo-derived palette, so

@@ -97,10 +97,7 @@ const NAV_ITEMS = [
      naming each one turned a five-item bar into a table of contents for a page
      the visitor is going to scroll anyway. */
   { label: "features", href: "#features" },
-  /* The one off-page entry: a school or training centre asking for
-     institutional access. It is a route, not an anchor, and a plain <a> gets
-     there fine -- the request page is its own full load anyway. */
-  { label: "get access", href: "/institution/request-access" },
+  { label: "get access", href: "#get-access" },
 ];
 
 const HOW_IT_WORKS = [
@@ -720,6 +717,19 @@ function LandingNavbar() {
     }
   };
 
+  const handleNavClick = (e, href) => {
+    if (href.startsWith("#")) {
+      e.preventDefault();
+      close();
+      const targetId = href.slice(1);
+      const targetEl = document.getElementById(targetId);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        window.history.pushState(null, "", href);
+      }
+    }
+  };
+
   /* Sits on the hero's classroom photo while the page is at the top, so the
      bar is see-through with light text there. Once scrolled over the white
      sections -- or with the mobile menu open -- it takes its solid background
@@ -754,6 +764,7 @@ function LandingNavbar() {
               <a
                 key={item.href}
                 href={item.href}
+                onClick={(e) => handleNavClick(e, item.href)}
                 onMouseEnter={() => setHoveredNav(item.href)}
                 onFocus={() => setHoveredNav(item.href)}
                 className={`relative rounded-rb-pill px-4 py-2 font-rb-display text-[0.9375rem] font-extrabold transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw ${
@@ -832,7 +843,7 @@ function LandingNavbar() {
                     <motion.a
                       key={item.href}
                       href={item.href}
-                      onClick={close}
+                      onClick={(e) => handleNavClick(e, item.href)}
                       variants={fadeUp}
                       className="rounded-rb-tile px-4 py-3.5 font-rb-display text-lg font-extrabold text-rb-eel transition-colors hover:bg-rb-polar"
                     >
