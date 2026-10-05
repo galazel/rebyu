@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Activity,
@@ -1248,15 +1248,66 @@ function CertificationSection() {
 
   const activeDepartment = DEPARTMENTS.find((d) => d.id === selectedDept) || DEPARTMENTS[0];
 
-  const filteredCertifications = selectedDept === "all"
-    ? CERTIFICATIONS
-    : CERTIFICATIONS.filter((c) => c.department === selectedDept);
+  const filteredCertifications = useMemo(() => {
+    return selectedDept === "all"
+      ? CERTIFICATIONS
+      : CERTIFICATIONS.filter((c) => c.department === selectedDept);
+  }, [selectedDept]);
 
-  const rotatingWords = filteredCertifications.map((c) => c.title);
+  const rotatingWords = useMemo(() => {
+    return filteredCertifications.map((c) => c.title);
+  }, [filteredCertifications]);
 
   const headline = selectedDept === "all"
     ? `${filteredCertifications.length} certifications across all colleges, fully built out.`
     : `${filteredCertifications.length} certifications for ${activeDepartment.code}, fully built out.`;
+
+  const shelfItems = useMemo(() => {
+    return filteredCertifications.map((c) => ({
+      key: c.title,
+      tab: c.wordmark,
+      title: c.title,
+      meta: `${c.lessons} lessons · ${c.questions} questions`,
+      icon: c.icon,
+      color: FOLDER[c.tone] || FOLDER.macaw,
+      left: (
+        <>
+          <p className="rb-eyebrow">{c.departmentName || "certification"}</p>
+          <h3 className="rb-display rb-display-md mt-2">{c.title}</h3>
+          <p className="rb-body mt-3 max-w-md">{c.summary}</p>
+          <div className="mt-6 flex gap-8">
+            <span className="text-sm font-bold">
+              <span className="rb-numeric block text-2xl">{c.lessons}</span>
+              lessons
+            </span>
+            <span className="text-sm font-bold">
+              <span className="rb-numeric block text-2xl">{c.questions}</span>
+              questions
+            </span>
+          </div>
+          <TactileButton asChild size="sm" className="mt-8 w-fit">
+            <Link to="/register">
+              start {c.title.toLowerCase()}
+              <ArrowRight className="size-4" />
+            </Link>
+          </TactileButton>
+        </>
+      ),
+      right: (
+        <>
+          <p className="rb-spread-line rb-spread-heading">topics covered</p>
+          <ol className="rb-spread-list">
+            {c.topics.map((topic, i) => (
+              <li key={topic} className="rb-spread-line">
+                <span>{i + 1}.</span>
+                {topic}
+              </li>
+            ))}
+          </ol>
+        </>
+      ),
+    }));
+  }, [filteredCertifications]);
 
   return (
     <section id="certifications" className="relative scroll-mt-24 overflow-hidden bg-white px-5 py-20 lg:px-8 lg:py-28">
@@ -1273,18 +1324,14 @@ function CertificationSection() {
                 <span style={{ fontWeight: 400 }}>certifications</span>
                 <span className="text-rb-wolf/50" style={{ fontWeight: 400 }}>·</span>
                 <RotatingText
-                  key={selectedDept}
                   words={rotatingWords.length > 0 ? rotatingWords : ["certifications"]}
                   className="!font-normal"
                   itemClassName="text-rb-macaw-lip !font-normal"
                 />
               </p>
-              <WordReveal
-                key={headline}
-                as="h2"
-                className="rb-display rb-display-lg mt-3"
-                text={headline}
-              />
+              <h2 className="rb-display rb-display-lg mt-3 transition-opacity duration-200">
+                {headline}
+              </h2>
               <p className="rb-body-lg mt-4 max-w-xl">
                 Every topic below has lessons, practice questions, and assessments already in the
                 system — not a syllabus we plan to fill in later.
@@ -1394,51 +1441,7 @@ function CertificationSection() {
         {/* Folder Shelf / Carousel Container */}
         <div className="mt-12 relative" data-folder-carousel-container>
           <FolderShelf
-            key={selectedDept}
-            items={filteredCertifications.map((c) => ({
-              key: c.title,
-              tab: c.wordmark,
-              title: c.title,
-              meta: `${c.lessons} lessons · ${c.questions} questions`,
-              icon: c.icon,
-              color: FOLDER[c.tone] || FOLDER.macaw,
-              left: (
-                <>
-                  <p className="rb-eyebrow">{c.departmentName || "certification"}</p>
-                  <h3 className="rb-display rb-display-md mt-2">{c.title}</h3>
-                  <p className="rb-body mt-3 max-w-md">{c.summary}</p>
-                  <div className="mt-6 flex gap-8">
-                    <span className="text-sm font-bold">
-                      <span className="rb-numeric block text-2xl">{c.lessons}</span>
-                      lessons
-                    </span>
-                    <span className="text-sm font-bold">
-                      <span className="rb-numeric block text-2xl">{c.questions}</span>
-                      questions
-                    </span>
-                  </div>
-                  <TactileButton asChild size="sm" className="mt-8 w-fit">
-                    <Link to="/register">
-                      start {c.title.toLowerCase()}
-                      <ArrowRight className="size-4" />
-                    </Link>
-                  </TactileButton>
-                </>
-              ),
-              right: (
-                <>
-                  <p className="rb-spread-line rb-spread-heading">topics covered</p>
-                  <ol className="rb-spread-list">
-                    {c.topics.map((topic, i) => (
-                      <li key={topic} className="rb-spread-line">
-                        <span>{i + 1}.</span>
-                        {topic}
-                      </li>
-                    ))}
-                  </ol>
-                </>
-              ),
-            }))}
+            items={shelfItems}
           />
         </div>
       </div>

@@ -26,6 +26,11 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
   const [isDragging, setIsDragging] = useState(false)
   const [tempVisible, setTempVisible] = useState(false)
 
+  // Smooth department transition state
+  const [displayItems, setDisplayItems] = useState(items)
+  const [isFading, setIsFading] = useState(false)
+  const transitionTimerRef = useRef(null)
+
   const scope = useRef(null)
   const timeline = useRef(null)
   const pending = useRef(null)
@@ -36,7 +41,7 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
   const hideTimerRef = useRef(null)
   const pointerStartRef = useRef({ x: 0, scrollLeft: 0, isDown: false, didDrag: false })
 
-  const open = items.find((item) => item.key === openKey)
+  const open = displayItems.find((item) => item.key === openKey)
 
   const prefersReduced = () =>
     typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -102,13 +107,13 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
 
   // Ensure enough items for seamless infinite loop across all viewport widths
   const baseItems = useMemo(() => {
-    if (!items || items.length === 0) return []
-    let list = [...items]
+    if (!displayItems || displayItems.length === 0) return []
+    let list = [...displayItems]
     while (list.length < 5) {
-      list = [...list, ...items]
+      list = [...list, ...displayItems]
     }
     return list
-  }, [items])
+  }, [displayItems])
 
   const cycleWidth = baseItems.length * ITEM_STRIDE
 
@@ -116,6 +121,36 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
   const marqueeItems = useMemo(() => {
     return [...baseItems, ...baseItems, ...baseItems, ...baseItems]
   }, [baseItems])
+
+  // Handle department changes with silky-smooth dissolve
+  useEffect(() => {
+    if (items === displayItems) return
+
+    setIsFading(true)
+    if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current)
+
+    transitionTimerRef.current = setTimeout(() => {
+      setOpenKey(null)
+      setDisplayItems(items)
+
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          const newBase = [...items]
+          while (newBase.length < 5) {
+            newBase.push(...items)
+          }
+          const newCycle = newBase.length * ITEM_STRIDE
+          scrollRef.current.scrollLeft = newCycle
+        }
+        updateThumb()
+        setIsFading(false)
+      })
+    }, 180)
+
+    return () => {
+      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current)
+    }
+  }, [items, displayItems, updateThumb])
 
   const triggerTemporaryVisibility = useCallback(() => {
     setTempVisible(true)
@@ -172,7 +207,7 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
 
   // Marquee auto-scroll loop (pauses on hover, drag, open folder, or reduced motion)
   useEffect(() => {
-    if (!carousel || items.length === 0 || cycleWidth <= 0) return
+    if (!carousel || displayItems.length === 0 || cycleWidth <= 0) return
     if (prefersReduced()) return
 
     let animId
@@ -183,7 +218,7 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
       const dt = (now - lastTime) / 1000
       lastTime = now
 
-      if (!isHovered && !isDragging && openKey === null && scrollRef.current) {
+      if (!isHovered && !isDragging && openKey === null && scrollRef.current && !isFading) {
         const el = scrollRef.current
         el.scrollLeft += speed * dt
         if (el.scrollLeft >= cycleWidth * 2) {
@@ -196,7 +231,7 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
 
     animId = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(animId)
-  }, [carousel, items.length, isHovered, isDragging, openKey, cycleWidth, updateThumb])
+  }, [carousel, displayItems.length, isHovered, isDragging, openKey, cycleWidth, isFading, updateThumb])
 
   const handleScroll = () => {
     const el = scrollRef.current
@@ -304,7 +339,7 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
 
   return (
     <div ref={scope}>
-      {carousel && items.length > 0 ? (
+      {carousel && displayItems.length > 0 ? (
         <div
           className="relative w-full group/shelf"
           onMouseEnter={() => {
@@ -327,7 +362,9 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
             onPointerDown={handleCarouselPointerDown}
             onPointerMove={handleCarouselPointerMove}
             onPointerUp={handleCarouselPointerUp}
-            className="relative w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pt-7 pb-3 cursor-grab active:cursor-grabbing select-none"
+            className={`relative w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pt-7 pb-3 cursor-grab active:cursor-grabbing select-none transition-all duration-300 ease-out ${
+              isFading ? "opacity-0 scale-[0.985] blur-[1px]" : "opacity-100 scale-100 blur-0"
+            }`}
           >
             <div className="flex w-max gap-6 px-4">
               {marqueeItems.map((item, index) => {
@@ -365,8 +402,8 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
 
           {/* Subtle disappearing scrollbar */}
           <div
-            className={`mt-4 flex items-center justify-center transition-opacity duration-500 ease-out ${
-              isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+            className={`mt-4 flex items-center justify-center transition-all duration-300 ease-out ${
+              isFading ? "opacity-0 scale-95" : isVisible ? "opacity-100 scale-100" : "opacity-0 pointer-events-none scale-100"
             }`}
             aria-hidden={!isVisible}
           >
@@ -389,7 +426,7 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
         </div>
       ) : (
         <div className="rb-folder-shelf">
-          {items.map((item) => {
+          {displayItems.map((item) => {
             const Icon = item.icon
             const isOpen = item.key === openKey
             return (
