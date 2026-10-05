@@ -122,6 +122,40 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
     return [...baseItems, ...baseItems, ...baseItems, ...baseItems]
   }, [baseItems])
 
+  const prevProgressRef = useRef(0)
+
+  const updateThumb = useCallback(() => {
+    const el = scrollRef.current
+    const track = trackRef.current
+    const thumb = thumbRef.current
+    if (!el || !track || !thumb || cycleWidth <= 0) return
+
+    const trackWidth = track.clientWidth
+    if (trackWidth <= 0) return
+
+    // Thumb width: proportional to viewport, clamped between 36px and 25% of track
+    const thumbWidth = Math.max(36, Math.min(trackWidth * 0.25, (el.clientWidth / cycleWidth) * trackWidth))
+    thumb.style.width = `${thumbWidth}px`
+
+    const maxTrack = trackWidth - thumbWidth
+    if (maxTrack <= 0) return
+
+    // Progress within the active cycle [0, 1)
+    const relativeScroll = ((el.scrollLeft - cycleWidth) % cycleWidth + cycleWidth) % cycleWidth
+    const progress = Math.max(0, Math.min(1, relativeScroll / cycleWidth))
+
+    // Smooth reset glide when arriving at the end and wrapping back to the first
+    if (prevProgressRef.current > 0.85 && progress < 0.15) {
+      thumb.style.transition = "transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.15s ease"
+    } else {
+      thumb.style.transition = "background-color 0.15s ease"
+    }
+    prevProgressRef.current = progress
+
+    const translateX = progress * maxTrack
+    thumb.style.transform = `translateX(${translateX}px)`
+  }, [cycleWidth])
+
   // Handle department changes with silky-smooth dissolve
   useEffect(() => {
     if (items === displayItems) return
@@ -159,40 +193,6 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
       setTempVisible(false)
     }, 1800)
   }, [])
-
-  const prevProgressRef = useRef(0)
-
-  const updateThumb = useCallback(() => {
-    const el = scrollRef.current
-    const track = trackRef.current
-    const thumb = thumbRef.current
-    if (!el || !track || !thumb || cycleWidth <= 0) return
-
-    const trackWidth = track.clientWidth
-    if (trackWidth <= 0) return
-
-    // Thumb width: proportional to viewport, clamped between 36px and 25% of track
-    const thumbWidth = Math.max(36, Math.min(trackWidth * 0.25, (el.clientWidth / cycleWidth) * trackWidth))
-    thumb.style.width = `${thumbWidth}px`
-
-    const maxTrack = trackWidth - thumbWidth
-    if (maxTrack <= 0) return
-
-    // Progress within the active cycle [0, 1)
-    const relativeScroll = ((el.scrollLeft - cycleWidth) % cycleWidth + cycleWidth) % cycleWidth
-    const progress = Math.max(0, Math.min(1, relativeScroll / cycleWidth))
-
-    // Smooth reset glide when arriving at the end and wrapping back to the first
-    if (prevProgressRef.current > 0.85 && progress < 0.15) {
-      thumb.style.transition = "transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.15s ease"
-    } else {
-      thumb.style.transition = "background-color 0.15s ease"
-    }
-    prevProgressRef.current = progress
-
-    const translateX = progress * maxTrack
-    thumb.style.transform = `translateX(${translateX}px)`
-  }, [cycleWidth])
 
   // Position at middle segment initially so users can scroll left or right immediately
   useEffect(() => {
