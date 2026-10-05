@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import {
   Activity,
   ArrowRight,
+  ArrowUp,
   Award,
   BarChart3,
   BookOpen,
@@ -710,6 +711,14 @@ function LandingNavbar() {
 
   const close = () => setMobileMenuOpen(false);
 
+  const handleBrandClick = (e) => {
+    close();
+    if (window.location.pathname === "/" || window.location.pathname === "/welcome") {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   /* Sits on the hero's classroom photo while the page is at the top, so the
      bar is see-through with light text there. Once scrolled over the white
      sections -- or with the mobile menu open -- it takes its solid background
@@ -727,7 +736,7 @@ function LandingNavbar() {
         }`}
       >
         <div className="mx-auto flex h-20 w-full max-w-[1280px] items-center justify-between gap-6 px-5 lg:px-8">
-          <Link to="/welcome" onClick={close} className="shrink-0">
+          <Link to="/" onClick={handleBrandClick} className="shrink-0" aria-label="Rebyu Home">
             <BrandMark light={overHero} />
           </Link>
 
@@ -2377,6 +2386,47 @@ function Footer() {
   );
 }
 
+/* back to top floating button */
+
+function BackToTopButton() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setVisible(window.scrollY > 400);
+    };
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.button
+          type="button"
+          onClick={scrollToTop}
+          initial={{ opacity: 0, scale: 0.8, y: 14 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.8, y: 14 }}
+          transition={{ duration: 0.24, ease: EASE }}
+          whileHover={{ scale: 1.08, y: -2 }}
+          whileTap={{ scale: 0.94 }}
+          className="group fixed bottom-6 right-6 z-40 flex size-11 items-center justify-center rounded-full border border-rb-swan/80 bg-white/90 text-rb-eel shadow-[0_4px_16px_rgba(0,0,0,0.08)] backdrop-blur-md transition-colors hover:border-rb-macaw/40 hover:text-rb-macaw-lip focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw sm:bottom-8 sm:right-8 sm:size-12 cursor-pointer select-none"
+          aria-label="Back to top"
+          title="Back to top"
+        >
+          <ArrowUp className="size-5 transition-transform duration-200 group-hover:-translate-y-0.5" />
+        </motion.button>
+      )}
+    </AnimatePresence>
+  );
+}
+
 /* page */
 
 export default function LandingPage() {
@@ -2467,6 +2517,7 @@ export default function LandingPage() {
         <AccessSection />
       </main>
       <Footer />
+      <BackToTopButton />
     </div>
   );
 }
