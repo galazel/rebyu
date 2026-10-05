@@ -825,7 +825,11 @@ function LandingNavbar() {
                   {isHovered ? (
                     <motion.span
                       layoutId="landing-nav-pill"
-                      className="absolute inset-0 rounded-rb-pill bg-rb-polar"
+                      className={`absolute inset-0 rounded-rb-pill ${
+                        overHero
+                          ? "bg-white/15 backdrop-blur-md border border-white/20 shadow-sm"
+                          : "bg-black/[0.05] border border-black/[0.04]"
+                      }`}
                       transition={{ type: "spring", stiffness: 480, damping: 38, mass: 0.7 }}
                     />
                   ) : null}
