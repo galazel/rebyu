@@ -137,10 +137,13 @@ function FormSection({ icon: Icon, tone = "feather", title, description, childre
 }
 
 /** Label + control pair. The label is the body face at 700, never the display face. */
-function Field({ id, label, hint, className = "", children }) {
+function Field({ id, label, hint, className = "", disableLabelClick = false, children }) {
   return (
     <div className={`space-y-2 ${className}`}>
-      <label htmlFor={id} className="block text-sm font-bold text-rb-eel">
+      <label
+        htmlFor={disableLabelClick ? undefined : id}
+        className="block text-sm font-bold text-rb-eel"
+      >
         {label}
       </label>
       {children}
@@ -175,6 +178,10 @@ export default function InstitutionRequestAccessPage() {
   const [institutionDropdownOpen, setInstitutionDropdownOpen] = useState(false)
   const institutionDropdownRef = useRef(null)
 
+  const [addressPopoverOpen, setAddressPopoverOpen] = useState(false)
+  const addressPopoverRef = useRef(null)
+  const addressTextareaRef = useRef(null)
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (deptDropdownRef.current && !deptDropdownRef.current.contains(event.target)) {
@@ -185,6 +192,12 @@ export default function InstitutionRequestAccessPage() {
         !institutionDropdownRef.current.contains(event.target)
       ) {
         setInstitutionDropdownOpen(false)
+      }
+      if (
+        addressPopoverRef.current &&
+        !addressPopoverRef.current.contains(event.target)
+      ) {
+        setAddressPopoverOpen(false)
       }
     }
     document.addEventListener("mousedown", handleClickOutside)
@@ -631,14 +644,83 @@ export default function InstitutionRequestAccessPage() {
                   placeholder="+63 32 261 7741"
                 />
               </Field>
-              <Field id="org-address" label="Institution address">
-                <input
-                  id="org-address"
-                  className="rb-input"
-                  value={form.institutionAddress}
-                  onChange={setField("institutionAddress")}
-                  placeholder="N. Bacalso Ave, Cebu City"
-                />
+              <Field
+                id="org-address"
+                label="Institution address"
+                hint="Click field to view or edit full address"
+                disableLabelClick
+              >
+                <div className="relative" ref={addressPopoverRef}>
+                  <input
+                    id="org-address"
+                    className="rb-input"
+                    value={form.institutionAddress}
+                    onChange={setField("institutionAddress")}
+                    onClick={() => setAddressPopoverOpen(true)}
+                    title={form.institutionAddress || "Institution address"}
+                    placeholder="N. Bacalso Ave, Cebu City"
+                    autoComplete="off"
+                  />
+
+                  {addressPopoverOpen && (
+                    <div className="absolute left-0 top-full mt-2 w-full sm:w-[420px] rounded-2xl border-2 border-rb-swan bg-white p-3.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150">
+                      {/* Tooltip pointer caret */}
+                      <div className="absolute -top-2 left-6 size-3.5 rotate-45 border-l-2 border-t-2 border-rb-swan bg-white" />
+
+                      <div className="relative flex items-center justify-between pb-2 border-b border-rb-swan">
+                        <div className="flex items-center gap-1.5">
+                          <span className="flex size-5 items-center justify-center rounded bg-rb-macaw-wash text-rb-macaw-lip">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="size-3">
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                              <circle cx="12" cy="10" r="3" />
+                            </svg>
+                          </span>
+                          <span className="text-xs font-bold text-rb-eel">
+                            Full Institution Address
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-semibold text-rb-wolf">
+                            {form.institutionAddress.length} chars
+                          </span>
+                          {form.institutionAddress && (
+                            <button
+                              type="button"
+                              onClick={() => setForm((c) => ({ ...c, institutionAddress: "" }))}
+                              className="text-[11px] font-bold text-rb-cardinal hover:underline"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="relative mt-2.5">
+                        <textarea
+                          ref={addressTextareaRef}
+                          rows={3}
+                          value={form.institutionAddress}
+                          onChange={setField("institutionAddress")}
+                          placeholder="Complete campus address, building, street, city..."
+                          className="w-full rounded-xl border-2 border-rb-swan bg-rb-paper/40 p-2.5 text-xs font-semibold leading-relaxed text-rb-eel focus:border-rb-macaw focus:bg-white focus:outline-none resize-none"
+                        />
+                      </div>
+
+                      <div className="relative mt-2 flex items-center justify-between">
+                        <span className="text-[11px] text-rb-wolf">
+                          Type here or in the field to edit full length
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setAddressPopoverOpen(false)}
+                          className="rounded-lg bg-rb-macaw-wash px-3 py-1 text-xs font-bold text-rb-macaw-lip hover:bg-rb-macaw hover:text-white transition-colors"
+                        >
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </Field>
               <Field
                 id="org-description"
