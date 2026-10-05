@@ -2392,12 +2392,22 @@ function BackToTopButton() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setVisible(window.scrollY > 400);
+    const checkVisibility = () => {
+      const accessSection = document.getElementById("get-access");
+      if (accessSection) {
+        const rect = accessSection.getBoundingClientRect();
+        // Starts to appear when the "get access" section enters the viewport
+        setVisible(rect.top <= window.innerHeight * 0.85);
+      }
     };
-    handleScroll();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+
+    checkVisibility();
+    window.addEventListener("scroll", checkVisibility, { passive: true });
+    window.addEventListener("resize", checkVisibility, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", checkVisibility);
+      window.removeEventListener("resize", checkVisibility);
+    };
   }, []);
 
   const scrollToTop = () => {
