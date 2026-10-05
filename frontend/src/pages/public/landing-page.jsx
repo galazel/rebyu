@@ -129,12 +129,12 @@ const HOW_IT_WORKS = [
 
 /* UCLM Departments / Colleges and their corresponding non-board level certifications */
 const DEPARTMENTS = [
-  { id: "all", name: "All Departments", code: "ALL", description: "All UCLM non-board certifications across colleges" },
+  { id: "all", name: "All Departments", code: "ALL", description: "All technical & industry certifications across colleges" },
   { id: "ccs", name: "College of Computer Studies", code: "CCS", description: "Information Technology & Computer Science" },
-  { id: "cba", name: "College of Business Administration", code: "CBA", description: "BSA, BSMA, BSBA & NIAT/PICAT Professional Certifications" },
-  { id: "chtm", name: "College of Hospitality and Tourism", code: "CHTM", description: "UCLM TETAC TESDA National Competency (NC II) Credentials" },
+  { id: "cba", name: "College of Business Administration and Accountancy", code: "CBAA", description: "BSA, BSMA, BSBA & Professional Certifications" },
+  { id: "coe", name: "College of Engineering", code: "COE", description: "Computer, Electronics, Electrical, Mechanical & Civil Engineering" },
   { id: "cms", name: "College of Maritime Studies", code: "CMS", description: "STCW Mandatory Training & Maritime Competency Certificates" },
-  { id: "coe", name: "College of Engineering", code: "COE", description: "Cisco Networking & TESDA Engineering Competencies" },
+  { id: "chtm", name: "College of Hospitality and Tourism Management", code: "CHTM", description: "UCLM TETAC TESDA National Competency (NC II) Credentials" },
   { id: "con", name: "College of Nursing", code: "CON", description: "AHA Healthcare BLS/ACLS & TESDA Competencies" },
 ];
 
@@ -442,7 +442,7 @@ const CERTIFICATIONS = [
   // College of Engineering (COE)
   {
     department: "coe",
-    departmentName: "Engineering",
+    departmentName: "College of Engineering",
     title: "Cisco Certified Network Associate (CCNA)",
     wordmark: "ccna",
     tone: "sea",

@@ -24,6 +24,13 @@ export const departmentAbbreviations = {
   "College of Engineering (COE)": "COE",
   COE: "COE",
 
+  // Computer Engineering (CpE)
+  "Computer Engineering": "CpE",
+  "Computer Engineering (CpE)": "CpE",
+  "Department of Computer Engineering": "CpE",
+  CpE: "CpE",
+  CPE: "CpE",
+
   // College of Business Administration (CBA)
   "College of Business Administration": "CBA",
   "College of Business Administration (CBA)": "CBA",
@@ -104,6 +111,14 @@ export const departmentDescriptions = {
     "Offers disciplines like Computer, Electronics and Communications, Electrical, Industrial, and Civil Engineering.",
   COE:
     "Offers disciplines like Computer, Electronics and Communications, Electrical, Industrial, and Civil Engineering.",
+
+  // Computer Engineering (CpE)
+  "Computer Engineering":
+    "Focuses on hardware-software integration, Cisco networking, embedded systems, and digital circuit design.",
+  "Computer Engineering (CpE)":
+    "Focuses on hardware-software integration, Cisco networking, embedded systems, and digital circuit design.",
+  CpE:
+    "Focuses on hardware-software integration, Cisco networking, embedded systems, and digital circuit design.",
 
   // College of Business Administration
   "College of Business Administration":
@@ -230,6 +245,7 @@ export function getDepartmentAbbreviation(name) {
 export const departmentEarthColors = {
   CME: "#2f6b4f", // Deep Forest Green
   COE: "#5c6b73", // Slate Mineral Grey
+  CpE: "#2563eb", // Tech Cobalt Blue
   CBA: "#c9962b", // Warm Ochre
   CCS: "#4a7c59", // Moss Green
   CCJ: "#8b5f7d", // Muted Plum

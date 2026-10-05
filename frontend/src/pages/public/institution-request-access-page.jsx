@@ -1,16 +1,21 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import {
   Building2,
   Check,
   CheckCircle2,
+  ChevronDown,
   ClipboardCheck,
   GraduationCap,
   Loader2,
   Mail,
 } from "@/components/icons"
 import { toast } from "sonner"
+import {
+  CATALOG_DEPARTMENTS,
+  getMergedCertifications,
+} from "@/constants/certifications-catalog.js"
 
 import { BrandLogo } from "@/components/brand-logo"
 import {
@@ -133,18 +138,66 @@ export default function InstitutionRequestAccessPage() {
   const pricePerSlot = Number(pricingQuery.data?.pricePerSlot ?? 149)
   const currency = pricingQuery.data?.currency ?? "PHP"
 
+  const [selectedDept, setSelectedDept] = useState("")
+  const [deptDropdownOpen, setDeptDropdownOpen] = useState(false)
+  const deptDropdownRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (deptDropdownRef.current && !deptDropdownRef.current.contains(event.target)) {
+        setDeptDropdownOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
   const certificationsQuery = useQuery({
     queryKey: ["certifications"],
     queryFn: () => getAllCertifications(),
     staleTime: 5 * 60 * 1000,
   })
 
-  // Institutions can only inquire about published certifications -- drafts are
-  // still being built by the admin (lessons, content, and required assessments)
-  // and the submit endpoint rejects them anyway.
-  const certifications = (
-    Array.isArray(certificationsQuery.data) ? certificationsQuery.data : []
-  ).filter((certification) => certification.status === "PUBLISHED")
+  // Merged certifications catalogue sorted by department and course program,
+  // matching any published certifications from the database.
+  const allCertifications = useMemo(
+    () => getMergedCertifications(certificationsQuery.data),
+    [certificationsQuery.data]
+  )
+
+  const activeDept = useMemo(
+    () => (selectedDept ? CATALOG_DEPARTMENTS.find((d) => d.id === selectedDept) || null : null),
+    [selectedDept]
+  )
+
+  const displayedCertifications = useMemo(() => {
+    if (!selectedDept) return []
+    return selectedDept === "all"
+      ? allCertifications
+      : allCertifications.filter((c) => c.department === selectedDept)
+  }, [allCertifications, selectedDept])
+
+  const groupedCertifications = useMemo(() => {
+    if (selectedDept !== "all") return []
+    const map = new Map()
+    for (const cert of displayedCertifications) {
+      if (!map.has(cert.department)) {
+        map.set(cert.department, [])
+      }
+      map.get(cert.department).push(cert)
+    }
+    return Array.from(map.entries()).map(([deptId, certs]) => {
+      const deptInfo = CATALOG_DEPARTMENTS.find((d) => d.id === deptId) || {
+        id: deptId,
+        name: certs[0]?.departmentName || "Department",
+        code: certs[0]?.departmentCode || deptId.toUpperCase(),
+      }
+      return {
+        department: deptInfo,
+        certifications: certs,
+      }
+    })
+  }, [displayedCertifications, selectedDept])
 
   const setField = (key) => (event) =>
     setForm((current) => ({ ...current, [key]: event.target.value }))
@@ -191,11 +244,11 @@ export default function InstitutionRequestAccessPage() {
         requestedSlots: Number(slots),
         start: dates[certificationId]?.start ?? "",
         end: dates[certificationId]?.end ?? "",
-        certification: certifications.find(
+        certification: allCertifications.find(
           (c) => String(c.certificationId) === String(certificationId)
         ),
       })),
-    [selected, dates, certifications]
+    [selected, dates, allCertifications]
   )
 
   const totalSlots = selectedItems.reduce(
@@ -441,26 +494,237 @@ export default function InstitutionRequestAccessPage() {
                   <Skeleton key={index} className="h-24 rounded-rb-card" />
                 ))}
               </div>
-            ) : certifications.length === 0 ? (
-              <p className="rb-body rounded-rb-card border-2 border-dashed border-rb-swan px-5 py-10 text-center">
-                No certifications are open for partnership right now.
-              </p>
             ) : (
-              <div className="space-y-3">
-                {certifications.map((certification) => (
-                  <CertificationRow
-                    key={certification.certificationId}
-                    certification={certification}
-                    selected={certification.certificationId in selected}
-                    slots={selected[certification.certificationId] ?? ""}
-                    start={dates[certification.certificationId]?.start ?? ""}
-                    end={dates[certification.certificationId]?.end ?? ""}
-                    onDate={(key, value) => setDate(certification.certificationId, key, value)}
-                    onToggle={() => toggleCertification(certification.certificationId)}
-                    onSlots={(value) => setSlots(certification.certificationId, value)}
-                    onNudge={(delta) => nudgeSlots(certification.certificationId, delta)}
-                  />
-                ))}
+              <div className="space-y-6">
+                {/* Department Dropdown Filter */}
+                <div className="flex flex-col gap-3 rounded-2xl border-2 border-rb-swan bg-rb-paper/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold uppercase tracking-wider text-rb-wolf">
+                      Department / Course Program
+                    </span>
+                    <p className="mt-0.5 text-xs font-semibold text-rb-eel">
+                      {activeDept
+                        ? `${displayedCertifications.length} ${
+                            displayedCertifications.length === 1
+                              ? "certification"
+                              : "certifications"
+                          } in ${activeDept.name}`
+                        : "Choose a course or program to view certifications"}
+                    </p>
+                  </div>
+
+                  <div className="relative z-30 w-full shrink-0 sm:w-80" ref={deptDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setDeptDropdownOpen((prev) => !prev)}
+                      className="flex w-full items-center justify-between gap-3 rounded-xl border-2 border-rb-swan bg-white px-3.5 py-2.5 shadow-xs transition hover:border-rb-macaw-lip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw-lip"
+                      aria-expanded={deptDropdownOpen}
+                      aria-haspopup="listbox"
+                    >
+                      <div className="flex min-w-0 items-center gap-2.5 text-left">
+                        {activeDept ? (
+                          <>
+                            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-rb-macaw-wash text-xs font-bold text-rb-macaw-lip">
+                              {activeDept.code}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold text-rb-eel leading-tight">
+                                {activeDept.name}
+                              </p>
+                              <p className="truncate text-xs text-rb-wolf">
+                                {displayedCertifications.length}{" "}
+                                {displayedCertifications.length === 1
+                                  ? "certification"
+                                  : "certifications"}
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex min-w-0 items-center gap-2.5 text-left">
+                            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-rb-swan bg-rb-paper text-rb-wolf">
+                              <GraduationCap className="size-4" />
+                            </span>
+                            <div className="min-w-0 py-0.5">
+                              <p className="truncate text-sm font-bold text-rb-eel leading-tight">
+                                Select course or program
+                              </p>
+                              <p className="truncate text-xs text-rb-wolf">
+                                Choose department to see certs
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <ChevronDown
+                        className={`size-4 shrink-0 text-rb-wolf transition-transform duration-200 ${
+                          deptDropdownOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {deptDropdownOpen && (
+                      <div className="absolute right-0 top-full mt-2 w-full max-h-80 overflow-y-auto rounded-2xl border-2 border-rb-swan bg-white p-2 shadow-xl z-50">
+                        {CATALOG_DEPARTMENTS.filter((dept) => dept.id !== "all").map((dept) => {
+                          const count = allCertifications.filter(
+                            (c) => c.department === dept.id
+                          ).length
+                          const isSelected = dept.id === selectedDept
+
+                          return (
+                            <button
+                              key={dept.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedDept(dept.id)
+                                setDeptDropdownOpen(false)
+                              }}
+                              className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left transition ${
+                                isSelected
+                                  ? "bg-rb-macaw-wash text-rb-macaw-lip font-bold"
+                                  : "text-rb-eel hover:bg-black/5"
+                              }`}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="rounded bg-black/5 px-1.5 py-0.5 text-xs font-bold">
+                                    {dept.code}
+                                  </span>
+                                  <span className="truncate text-sm">{dept.name}</span>
+                                </div>
+                                <p className="mt-0.5 truncate text-xs text-rb-wolf">
+                                  {dept.description}
+                                </p>
+                              </div>
+                              <span className="ml-2 shrink-0 rounded-full border border-rb-swan bg-rb-paper px-2 py-0.5 text-xs font-semibold text-rb-wolf">
+                                {count}
+                              </span>
+                            </button>
+                          )
+                        })}
+
+                        <div className="my-1 border-t border-rb-swan" />
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedDept("all")
+                            setDeptDropdownOpen(false)
+                          }}
+                          className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left transition ${
+                            selectedDept === "all"
+                              ? "bg-rb-macaw-wash text-rb-macaw-lip font-bold"
+                              : "text-rb-eel hover:bg-black/5"
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="rounded bg-black/5 px-1.5 py-0.5 text-xs font-bold">
+                                ALL
+                              </span>
+                              <span className="truncate text-sm font-semibold">
+                                All Departments
+                              </span>
+                            </div>
+                            <p className="mt-0.5 truncate text-xs text-rb-wolf">
+                              Browse certifications across all programs
+                            </p>
+                          </div>
+                          <span className="ml-2 shrink-0 rounded-full border border-rb-swan bg-rb-paper px-2 py-0.5 text-xs font-semibold text-rb-wolf">
+                            {allCertifications.length}
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Main Content: clean empty state initially, or cards when selected */}
+                {!selectedDept ? (
+                  <div className="rounded-2xl border-2 border-dashed border-rb-swan bg-rb-paper/40 px-6 py-12 text-center">
+                    <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-rb-macaw-wash text-rb-macaw-lip">
+                      <GraduationCap className="size-6" />
+                    </div>
+                    <p className="mt-3 text-base font-bold text-rb-eel">
+                      Select course or program
+                    </p>
+                    <p className="mx-auto mt-1 max-w-md text-sm text-rb-wolf">
+                      Choose a department from the drop box above to view and select the industry certifications your learners need.
+                    </p>
+                  </div>
+                ) : displayedCertifications.length === 0 ? (
+                  <p className="rb-body rounded-rb-card border-2 border-dashed border-rb-swan px-5 py-10 text-center">
+                    No certifications found for {activeDept?.name || "this program"}.
+                  </p>
+                ) : selectedDept === "all" ? (
+                  <div className="space-y-6">
+                    {groupedCertifications.map((group) => (
+                      <div key={group.department.id} className="space-y-3">
+                        <div className="flex items-center gap-2.5 pt-2 first:pt-0">
+                          <span className="rounded-md bg-rb-macaw-wash px-2 py-0.5 text-xs font-bold text-rb-macaw-lip">
+                            {group.department.code}
+                          </span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-rb-eel">
+                            {group.department.name}
+                          </span>
+                          <div className="h-px flex-1 bg-rb-swan" />
+                          <span className="text-xs font-semibold text-rb-wolf">
+                            {group.certifications.length}{" "}
+                            {group.certifications.length === 1 ? "cert" : "certs"}
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          {group.certifications.map((certification) => (
+                            <CertificationRow
+                              key={certification.certificationId}
+                              certification={certification}
+                              selected={certification.certificationId in selected}
+                              slots={selected[certification.certificationId] ?? ""}
+                              start={dates[certification.certificationId]?.start ?? ""}
+                              end={dates[certification.certificationId]?.end ?? ""}
+                              onDate={(key, value) =>
+                                setDate(certification.certificationId, key, value)
+                              }
+                              onToggle={() =>
+                                toggleCertification(certification.certificationId)
+                              }
+                              onSlots={(value) =>
+                                setSlots(certification.certificationId, value)
+                              }
+                              onNudge={(delta) =>
+                                nudgeSlots(certification.certificationId, delta)
+                              }
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {displayedCertifications.map((certification) => (
+                      <CertificationRow
+                        key={certification.certificationId}
+                        certification={certification}
+                        selected={certification.certificationId in selected}
+                        slots={selected[certification.certificationId] ?? ""}
+                        start={dates[certification.certificationId]?.start ?? ""}
+                        end={dates[certification.certificationId]?.end ?? ""}
+                        onDate={(key, value) =>
+                          setDate(certification.certificationId, key, value)
+                        }
+                        onToggle={() =>
+                          toggleCertification(certification.certificationId)
+                        }
+                        onSlots={(value) =>
+                          setSlots(certification.certificationId, value)
+                        }
+                        onNudge={(delta) =>
+                          nudgeSlots(certification.certificationId, delta)
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </FormSection>
@@ -487,10 +751,18 @@ export default function InstitutionRequestAccessPage() {
                       key={item.certificationId}
                       className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm"
                     >
-                      <span className="min-w-0 truncate font-bold text-rb-eel">
-                        {item.certification?.title ??
-                          `Certification #${item.certificationId}`}
-                      </span>
+                      <div className="min-w-0 flex items-center gap-1.5 truncate">
+                        {Array.isArray(item.certification?.programs) &&
+                        item.certification.programs.length > 0 ? (
+                          <span className="rounded bg-black/5 px-1.5 py-0.5 text-[11px] font-bold text-rb-macaw-lip">
+                            {item.certification.programs.join(", ")}
+                          </span>
+                        ) : null}
+                        <span className="truncate font-bold text-rb-eel">
+                          {item.certification?.title ??
+                            `Certification #${item.certificationId}`}
+                        </span>
+                      </div>
                       <span className="rb-numeric shrink-0 text-sm text-rb-eel">
                         {formatMoney((Number.isFinite(item.requestedSlots) ? item.requestedSlots : 0) * pricePerSlot, currency)}
                       </span>
@@ -623,14 +895,21 @@ function CertificationRow({ certification, selected, slots, start, end, onToggle
         </span>
 
         <span className="min-w-0 flex-1">
-          <span className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-1">
             <span className="rb-display-sm text-rb-eel">{certification.title}</span>
-            {certification.industry ? (
-              <Chip tone={selected ? "macaw" : "neutral"}>{certification.industry}</Chip>
+
+            {Array.isArray(certification.programs) && certification.programs.length > 0 ? (
+              <p className="text-xs font-medium text-rb-wolf">
+                <span>Covered programs:</span>{" "}
+                <span className={`font-bold transition-colors ${selected ? "text-rb-macaw-lip" : "text-rb-eel"}`}>
+                  {certification.programs.join(", ")}
+                </span>
+              </p>
             ) : null}
-          </span>
+          </div>
+
           {certification.description ? (
-            <span className="rb-caption mt-1.5 line-clamp-2 block">
+            <span className="rb-caption mt-2 line-clamp-2 block">
               {certification.description}
             </span>
           ) : null}
