@@ -946,7 +946,7 @@ function HeroSection() {
       >
         <div className="rb-chalkboard rb-hero-board px-6 pb-16 pt-12 text-center sm:px-16 sm:pb-24 sm:pt-16">
           <motion.p variants={fadeUp} className="rb-chalk-label mx-auto">
-            <Typewriter text="for TOPCIT, IT Passport & FE exam candidates" speed={34} startOnMount />
+            <Typewriter text="for technical & industry certification candidates" speed={34} startOnMount />
           </motion.p>
 
           <motion.h1
@@ -2399,7 +2399,7 @@ function Footer() {
           <div>
             <BrandMark />
             <p className="rb-body mt-4 max-w-xs text-sm">
-              Certification review for TOPCIT, IT Passport, and the FE exam.
+              Comprehensive review for technical and industry certifications.
             </p>
           </div>
 
