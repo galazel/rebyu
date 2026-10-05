@@ -69,6 +69,19 @@ function getDatesFromSchoolYear(startSY, endSY) {
   return { start, end }
 }
 
+function formatSchoolYearRange(startSY, endSY) {
+  if (!startSY && !endSY) return ""
+  if (!endSY || startSY === endSY) {
+    return `S.Y. ${startSY}`
+  }
+  const [startFirst] = (startSY || "").split("-")
+  const [, endSecond] = (endSY || "").split("-")
+  if (startFirst && endSecond) {
+    return `S.Y. ${startFirst}–${endSecond}`
+  }
+  return `S.Y. ${startSY}–${endSY}`
+}
+
 /* `ShieldCheck` is not in the generated icon map, and the middle step is the
    only place a verification glyph is wanted -- a local mark is cheaper than
    another entry in a generated file. */
@@ -989,13 +1002,7 @@ export default function InstitutionRequestAccessPage() {
                       key={item.certificationId}
                       className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-sm"
                     >
-                      <div className="min-w-0 flex items-center gap-1.5 truncate">
-                        {Array.isArray(item.certification?.programs) &&
-                        item.certification.programs.length > 0 ? (
-                          <span className="rounded bg-black/5 px-1.5 py-0.5 text-[11px] font-bold text-rb-macaw-lip">
-                            {item.certification.programs.join(", ")}
-                          </span>
-                        ) : null}
+                      <div className="min-w-0 flex-1 truncate">
                         <span className="truncate font-bold text-rb-eel">
                           {item.certification?.title ??
                             `Certification #${item.certificationId}`}
@@ -1008,7 +1015,7 @@ export default function InstitutionRequestAccessPage() {
                         {Number.isFinite(item.requestedSlots) ? item.requestedSlots : 0} slot(s) ×{" "}
                         {formatMoney(pricePerSlot, currency)}
                         {item.startSY && item.endSY
-                          ? ` · S.Y. ${item.startSY === item.endSY ? item.startSY : `${item.startSY} – ${item.endSY}`}`
+                          ? ` · ${formatSchoolYearRange(item.startSY, item.endSY)}`
                           : item.start && item.end
                             ? ` · ${formatShortDate(item.start)} – ${formatShortDate(item.end)}`
                             : ""}
