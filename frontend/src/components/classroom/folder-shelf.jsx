@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 
@@ -20,8 +20,9 @@ gsap.registerPlugin(useGSAP)
  *   `right` -- the ruled page; give each line `className="rb-spread-line"` so it
  *              is written in on open.
  */
-export function FolderShelf({ items, hint = "click to open" }) {
+export function FolderShelf({ items = [], hint = "click to open", carousel = true }) {
   const [openKey, setOpenKey] = useState(null)
+  const [paused, setPaused] = useState(false)
   const scope = useRef(null)
   const timeline = useRef(null)
   const pending = useRef(null)
@@ -96,36 +97,100 @@ export function FolderShelf({ items, hint = "click to open" }) {
     else setOpenKey(key)
   }
 
+  // Ensure enough items for seamless infinite marquee loop across all viewport widths
+  const baseItems = useMemo(() => {
+    if (!items || items.length === 0) return []
+    let list = [...items]
+    while (list.length < 5) {
+      list = [...list, ...items]
+    }
+    return list
+  }, [items])
+
+  const marqueeItems = useMemo(() => {
+    return [...baseItems, ...baseItems]
+  }, [baseItems])
+
+  const scrollDuration = Math.max(22, baseItems.length * 6)
+
   return (
     <div ref={scope}>
-      <div className="rb-folder-shelf">
-        {items.map((item) => {
-          const Icon = item.icon
-          const isOpen = item.key === openKey
-          return (
-            <button
-              key={item.key}
-              type="button"
-              className="rb-folder"
-              style={{ "--folder": item.color.face, "--folder-edge": item.color.edge }}
-              aria-expanded={isOpen}
-              aria-controls="rb-folder-spread"
-              onClick={() => toggle(item.key)}
-            >
-              <span className="rb-folder-back" aria-hidden="true">
-                <span className="rb-folder-tab">{item.tab}</span>
-              </span>
-              <span className="rb-folder-sheet" aria-hidden="true" />
-              <span className="rb-folder-front">
-                {Icon ? <Icon className="size-7 text-[#4a3516]" aria-hidden="true" /> : null}
-                <span className="rb-folder-title">{item.title}</span>
-                <span className="rb-folder-meta">{item.meta}</span>
-                <span className="rb-folder-hint">{isOpen ? "open below — click to close" : hint}</span>
-              </span>
-            </button>
-          )
-        })}
-      </div>
+      {carousel && items.length > 0 ? (
+        <div
+          className="relative w-full overflow-hidden pt-7 pb-4"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+        >
+          {/* Subtle edge fades for continuous shelf depth */}
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-10 md:w-20 bg-gradient-to-r from-white via-white/80 to-transparent z-10" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-10 md:w-20 bg-gradient-to-l from-white via-white/80 to-transparent z-10" />
+
+          <div
+            className="flex w-max gap-6"
+            style={{
+              animation: `marquee-scroll ${scrollDuration}s linear infinite`,
+              animationPlayState: paused || openKey !== null ? "paused" : "running",
+            }}
+          >
+            {marqueeItems.map((item, index) => {
+              const Icon = item.icon
+              const isOpen = item.key === openKey
+              return (
+                <div key={`${item.key}-${index}`} className="w-[280px] shrink-0">
+                  <button
+                    type="button"
+                    className="rb-folder w-full"
+                    style={{ "--folder": item.color.face, "--folder-edge": item.color.edge }}
+                    aria-expanded={isOpen}
+                    aria-controls="rb-folder-spread"
+                    onClick={() => toggle(item.key)}
+                  >
+                    <span className="rb-folder-back" aria-hidden="true">
+                      <span className="rb-folder-tab">{item.tab}</span>
+                    </span>
+                    <span className="rb-folder-sheet" aria-hidden="true" />
+                    <span className="rb-folder-front">
+                      {Icon ? <Icon className="size-7 text-[#4a3516]" aria-hidden="true" /> : null}
+                      <span className="rb-folder-title">{item.title}</span>
+                      <span className="rb-folder-meta">{item.meta}</span>
+                      <span className="rb-folder-hint">{isOpen ? "open below — click to close" : hint}</span>
+                    </span>
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="rb-folder-shelf">
+          {items.map((item) => {
+            const Icon = item.icon
+            const isOpen = item.key === openKey
+            return (
+              <button
+                key={item.key}
+                type="button"
+                className="rb-folder"
+                style={{ "--folder": item.color.face, "--folder-edge": item.color.edge }}
+                aria-expanded={isOpen}
+                aria-controls="rb-folder-spread"
+                onClick={() => toggle(item.key)}
+              >
+                <span className="rb-folder-back" aria-hidden="true">
+                  <span className="rb-folder-tab">{item.tab}</span>
+                </span>
+                <span className="rb-folder-sheet" aria-hidden="true" />
+                <span className="rb-folder-front">
+                  {Icon ? <Icon className="size-7 text-[#4a3516]" aria-hidden="true" /> : null}
+                  <span className="rb-folder-title">{item.title}</span>
+                  <span className="rb-folder-meta">{item.meta}</span>
+                  <span className="rb-folder-hint">{isOpen ? "open below — click to close" : hint}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {open ? (
         <section

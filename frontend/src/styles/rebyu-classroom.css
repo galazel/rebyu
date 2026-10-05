@@ -759,6 +759,15 @@ body.netacad-overlay-theme {
     box-shadow: 0 1px 3px rgb(20 14 8 / 0.25);
 }
 
+@keyframes marquee-scroll {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-50%);
+    }
+}
+
 /* Folders */
 .rb-folder-shelf {
     display: grid;

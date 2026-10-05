@@ -24,6 +24,7 @@ import {
   Sparkles,
   Star,
   Target,
+  ChevronDown,
   Users,
   X,
   Zap,
@@ -122,10 +123,22 @@ const HOW_IT_WORKS = [
   },
 ];
 
+/* Departments / Colleges and their corresponding industry certifications */
+const DEPARTMENTS = [
+  { id: "all", name: "All Departments", code: "ALL", description: "All industry certifications across colleges" },
+  { id: "ccs", name: "College of Computer Studies", code: "CCS", description: "Information Technology & Computer Science" },
+  { id: "coe", name: "College of Engineering", code: "COE", description: "Mechanical, Civil & Electrical Engineering Software" },
+  { id: "cba", name: "College of Business Administration", code: "CBA", description: "Enterprise ERP, Financial Software & Analytics" },
+  { id: "chtm", name: "College of Hospitality and Tourism", code: "CHTM", description: "Hospitality, Food Safety & Travel Systems" },
+];
+
 /* `wordmark` is set oversized and clipped inside the card header — it does the
    work a photo used to, without the stock-image feel. */
 const CERTIFICATIONS = [
+  // CCS (Computer Studies)
   {
+    department: "ccs",
+    departmentName: "Computer Studies",
     title: "TOPCIT",
     wordmark: "topcit",
     tone: "macaw",
@@ -143,6 +156,8 @@ const CERTIFICATIONS = [
     ],
   },
   {
+    department: "ccs",
+    departmentName: "Computer Studies",
     title: "IT Passport",
     wordmark: "passport",
     tone: "bee",
@@ -154,6 +169,8 @@ const CERTIFICATIONS = [
     topics: ["Strategy", "Management", "Technology"],
   },
   {
+    department: "ccs",
+    departmentName: "Computer Studies",
     title: "FE Exam",
     wordmark: "fe",
     tone: "beetle",
@@ -172,6 +189,213 @@ const CERTIFICATIONS = [
       "System architecture",
       "Project management",
       "IT strategy",
+    ],
+  },
+  // COE (Engineering)
+  {
+    department: "coe",
+    departmentName: "Engineering",
+    title: "SolidWorks Associate (CSWA)",
+    wordmark: "cswa",
+    tone: "beetle",
+    icon: Cpu,
+    summary:
+      "Dassault Systèmes industry certification for 3D parametric mechanical modeling, assembly design, and engineering drawing.",
+    lessons: 85,
+    questions: "1,120",
+    topics: [
+      "Parametric sketch geometry & relations",
+      "Part modeling & boss/cut features",
+      "Assembly creation & mate conditions",
+      "Engineering drawing views & dimensions",
+      "Material properties & mass analysis",
+    ],
+  },
+  {
+    department: "coe",
+    departmentName: "Engineering",
+    title: "Autodesk Revit Architecture",
+    wordmark: "revit",
+    tone: "macaw",
+    icon: Building2,
+    summary:
+      "Autodesk Certified Professional credential covering Building Information Modeling (BIM), 3D architectural modeling, and documentation.",
+    lessons: 92,
+    questions: "1,240",
+    topics: [
+      "BIM concepts & project setup",
+      "Architectural walls, floors & roofs",
+      "Family creation & parametric parameters",
+      "Schedules, material takeoffs & sheets",
+      "Collaboration, worksharing & coordination",
+    ],
+  },
+  {
+    department: "coe",
+    departmentName: "Engineering",
+    title: "Lean Six Sigma Yellow Belt",
+    wordmark: "sixsigma",
+    tone: "honey",
+    icon: Zap,
+    summary:
+      "ASQ/IASSC aligned quality engineering certification covering DMAIC process improvement, defect reduction, and statistical process control.",
+    lessons: 68,
+    questions: "890",
+    topics: [
+      "DMAIC methodology & project charter",
+      "Voice of the customer (VOC) & SIPOC",
+      "Data collection & Pareto analysis",
+      "Root cause analysis & fishbone diagrams",
+      "Statistical process control (SPC) charts",
+    ],
+  },
+  {
+    department: "coe",
+    departmentName: "Engineering",
+    title: "Cisco Industrial IoT",
+    wordmark: "iot",
+    tone: "sea",
+    icon: Network,
+    summary:
+      "Cisco Networking Academy certification for industrial control systems, OT networks, sensor integration, and industrial cybersecurity.",
+    lessons: 75,
+    questions: "980",
+    topics: [
+      "Operational technology (OT) architecture",
+      "Industrial sensors & edge controllers",
+      "Industrial Ethernet & Modbus protocols",
+      "Industrial cybersecurity & network isolation",
+    ],
+  },
+
+  // CBA (Business Administration)
+  {
+    department: "cba",
+    departmentName: "Business Administration",
+    title: "SAP Certified Associate",
+    wordmark: "sap",
+    tone: "fox",
+    icon: Layers,
+    summary:
+      "SAP S/4HANA ERP international certification for enterprise financial accounting, ledger integration, and corporate business workflows.",
+    lessons: 78,
+    questions: "1,050",
+    topics: [
+      "General ledger accounting & chart of accounts",
+      "Accounts payable & accounts receivable",
+      "Asset accounting & depreciation run",
+      "Financial closing & corporate reporting",
+    ],
+  },
+  {
+    department: "cba",
+    departmentName: "Business Administration",
+    title: "Microsoft Excel Expert (MOS)",
+    wordmark: "excel",
+    tone: "sea",
+    icon: BarChart3,
+    summary:
+      "Microsoft Certiport credential in financial modeling, advanced lookup formulas, PivotTables, and dynamic workbook analysis.",
+    lessons: 56,
+    questions: "780",
+    topics: [
+      "Advanced financial formulas & lookup functions",
+      "Dynamic data validation & conditional formatting",
+      "PivotTables, slicers & interactive PivotCharts",
+      "Macro recording & workbook data protection",
+    ],
+  },
+  {
+    department: "cba",
+    departmentName: "Business Administration",
+    title: "Certified Bookkeeper (CB)",
+    wordmark: "bookkeeper",
+    tone: "bee",
+    icon: BarChart3,
+    summary:
+      "National Institute of Accounting Technicians (NIAT) credential for computerized double-entry accounting, payroll, and tax compliance.",
+    lessons: 58,
+    questions: "760",
+    topics: [
+      "Double-entry bookkeeping & journalizing",
+      "Bank reconciliations & adjusting entries",
+      "Payroll administration & statutory deductions",
+      "Preparation of trial balance & financial reports",
+    ],
+  },
+  {
+    department: "cba",
+    departmentName: "Business Administration",
+    title: "QuickBooks Certified User (QBCU)",
+    wordmark: "quickbooks",
+    tone: "honey",
+    icon: FileText,
+    summary:
+      "Intuit Certiport credential validating expertise in cloud accounting, invoicing, vendor management, and financial reporting.",
+    lessons: 48,
+    questions: "620",
+    topics: [
+      "Company file setup & preferences",
+      "Sales, invoicing & customer management",
+      "Vendor expenses & inventory tracking",
+      "Banking feeds & month-end reconciliations",
+    ],
+  },
+
+  // CHTM (Hospitality & Tourism)
+  {
+    department: "chtm",
+    departmentName: "Hospitality & Tourism",
+    title: "ServSafe Food Protection Manager",
+    wordmark: "servsafe",
+    tone: "honey",
+    icon: Medal,
+    summary:
+      "National Restaurant Association (NRA) accredited food safety management certification covering sanitation and HACCP systems.",
+    lessons: 52,
+    questions: "720",
+    topics: [
+      "Foodborne pathogens & cross-contamination prevention",
+      "Personal hygiene, health & handwashing standards",
+      "Time & temperature control for safety (TCS)",
+      "Hazard Analysis Critical Control Point (HACCP) plans",
+      "Safe facility design, cleaning & pest management",
+    ],
+  },
+  {
+    department: "chtm",
+    departmentName: "Hospitality & Tourism",
+    title: "Guest Service Professional (CGSP)",
+    wordmark: "cgsp",
+    tone: "bee",
+    icon: Star,
+    summary:
+      "American Hotel & Lodging Educational Institute (AHLEI) gold-standard credential in guest service delivery and lodging operations.",
+    lessons: 58,
+    questions: "760",
+    topics: [
+      "Core principles of exceptional guest engagement",
+      "Anticipating guest needs & personalized service",
+      "Handling service complaints & service recovery",
+      "Hotel front desk etiquette & communication",
+    ],
+  },
+  {
+    department: "chtm",
+    departmentName: "Hospitality & Tourism",
+    title: "Amadeus GDS Airline Ticketing",
+    wordmark: "amadeus",
+    tone: "sea",
+    icon: Target,
+    summary:
+      "Amadeus Travel Technology certification for global flight reservation systems, passenger name records (PNR), and electronic fares.",
+    lessons: 46,
+    questions: "610",
+    topics: [
+      "Amadeus system navigation & encoding/decoding",
+      "PNR creation, passenger data & special service requests",
+      "Flight availability & schedule lookups",
+      "Airfare quotation, taxes & electronic ticket issuance",
     ],
   },
 ];
@@ -842,51 +1066,191 @@ function CertificationSection() {
      actual topic list on the page. What a reader wants here is "what is in the
      system", and that is the topics. Each certification is a paper folder that
      opens like a book onto its topic list. */
-  /* One folder colour per certification: manila, sage and a dusty blue. */
+  /* Expanded folder colors for each industry certification */
   const FOLDER = {
     macaw: { face: "#ecd29a", edge: "#d5b06b" },
     bee: { face: "#d3e2c4", edge: "#aec79c" },
     beetle: { face: "#efd2c2", edge: "#d9ab93" },
+    fox: { face: "#fcd4b4", edge: "#e8a474" },
+    sea: { face: "#c9e2ea", edge: "#92bed1" },
+    fern: { face: "#d0e6d5", edge: "#9bc4a3" },
+    plum: { face: "#e7d6eb", edge: "#c4a3ca" },
+    honey: { face: "#fae5a8", edge: "#e4be5c" },
   };
+
+  const [selectedDept, setSelectedDept] = useState("all");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const activeDepartment = DEPARTMENTS.find((d) => d.id === selectedDept) || DEPARTMENTS[0];
+
+  const filteredCertifications = selectedDept === "all"
+    ? CERTIFICATIONS
+    : CERTIFICATIONS.filter((c) => c.department === selectedDept);
+
+  const rotatingWords = filteredCertifications.map((c) => c.title);
+
+  const headline = selectedDept === "all"
+    ? `${filteredCertifications.length} certifications across all colleges, fully built out.`
+    : `${filteredCertifications.length} certifications for ${activeDepartment.code}, fully built out.`;
 
   return (
     <section id="certifications" className="relative scroll-mt-24 overflow-hidden bg-white px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal>
-          {/* The eyebrow names the section, the tag beside it cycles the three
-              exams — the same three the cards below spell out. It rotates
-              because the claim in the heading is "three", and a slot that keeps
-              changing is the cheapest way to show a count. */}
-          <p className="rb-eyebrow flex flex-wrap items-center gap-2">
-            certifications
-            <RotatingText
-              words={CERTIFICATIONS.map((c) => c.title)}
-              itemClassName="rounded-rb-pill bg-rb-macaw-wash px-2.5 py-1 text-rb-macaw-lip"
-            />
-          </p>
-          <WordReveal
-            as="h2"
-            className="rb-display rb-display-lg mt-3 max-w-2xl"
-            text="three certifications, fully built out."
-          />
-          <p className="rb-body-lg mt-4 max-w-xl">
-            Every topic below has lessons, practice questions, and assessments already in the
-            system — not a syllabus we plan to fill in later.
-          </p>
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-2xl">
+              {/* The eyebrow names the section, the tag beside it cycles certifications
+                  in the currently selected department */}
+              <p
+                className="rb-eyebrow !font-normal flex flex-wrap items-center gap-2"
+                style={{ fontWeight: 400 }}
+              >
+                <span style={{ fontWeight: 400 }}>certifications</span>
+                <span className="text-rb-wolf/50" style={{ fontWeight: 400 }}>·</span>
+                <RotatingText
+                  key={selectedDept}
+                  words={rotatingWords.length > 0 ? rotatingWords : ["certifications"]}
+                  className="!font-normal"
+                  itemClassName="text-rb-macaw-lip !font-normal"
+                />
+              </p>
+              <WordReveal
+                key={headline}
+                as="h2"
+                className="rb-display rb-display-lg mt-3"
+                text={headline}
+              />
+              <p className="rb-body-lg mt-4 max-w-xl">
+                Every topic below has lessons, practice questions, and assessments already in the
+                system — not a syllabus we plan to fill in later.
+              </p>
+            </div>
+
+            {/* Department / Industry Filter Dropdown */}
+            <div className="relative z-30 shrink-0" ref={dropdownRef}>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-rb-wolf">
+                  Filter by Department
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDropdownOpen((prev) => !prev)}
+                  className="flex items-center justify-between gap-3 rounded-2xl border-2 border-rb-sand/90 bg-white px-4 py-2.5 shadow-xs transition hover:border-rb-macaw-lip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw-lip"
+                  aria-expanded={dropdownOpen}
+                  aria-haspopup="listbox"
+                >
+                  <div className="flex items-center gap-2.5 text-left">
+                    <span className="flex size-7 items-center justify-center rounded-lg bg-rb-macaw-wash text-xs font-bold text-rb-macaw-lip">
+                      {activeDepartment.code}
+                    </span>
+                    <div>
+                      <p className="text-sm font-bold text-rb-crow leading-tight">
+                        {activeDepartment.name}
+                      </p>
+                      <p className="text-xs text-rb-wolf">
+                        {filteredCertifications.length} {filteredCertifications.length === 1 ? "certification" : "certifications"}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronDown
+                    className={`size-4 text-rb-wolf transition-transform duration-200 ${
+                      dropdownOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {dropdownOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-80 max-h-80 overflow-y-auto rounded-2xl border-2 border-rb-sand bg-white p-2 shadow-xl z-50">
+                    {DEPARTMENTS.map((dept) => {
+                      const count = dept.id === "all"
+                        ? CERTIFICATIONS.length
+                        : CERTIFICATIONS.filter((c) => c.department === dept.id).length;
+                      const isSelected = dept.id === selectedDept;
+
+                      return (
+                        <button
+                          key={dept.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDept(dept.id);
+                            setDropdownOpen(false);
+                          }}
+                          className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left transition ${
+                            isSelected
+                              ? "bg-rb-macaw-wash text-rb-macaw-lip font-bold"
+                              : "text-rb-crow hover:bg-black/5"
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-black/5">
+                                {dept.code}
+                              </span>
+                              <span className="text-sm truncate">{dept.name}</span>
+                            </div>
+                            <p className="mt-0.5 text-xs text-rb-wolf truncate">
+                              {dept.description}
+                            </p>
+                          </div>
+                          <span className="ml-2 shrink-0 rounded-full bg-rb-paper px-2 py-0.5 text-xs font-semibold text-rb-wolf border border-rb-sand/60">
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Quick-pill filter chips for fast switching */}
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            {DEPARTMENTS.map((dept) => {
+              const isSelected = dept.id === selectedDept;
+              return (
+                <button
+                  key={dept.id}
+                  type="button"
+                  onClick={() => setSelectedDept(dept.id)}
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition ${
+                    isSelected
+                      ? "bg-rb-crow text-white shadow-xs"
+                      : "border border-rb-sand bg-white text-rb-wolf hover:border-rb-crow hover:text-rb-crow"
+                  }`}
+                >
+                  {dept.code === "ALL" ? "All Departments" : dept.code}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="mt-12">
+        {/* Folder Shelf / Carousel Container */}
+        <div className="mt-12 relative" data-folder-carousel-container>
           <FolderShelf
-            items={CERTIFICATIONS.map((c) => ({
+            key={selectedDept}
+            items={filteredCertifications.map((c) => ({
               key: c.title,
               tab: c.wordmark,
               title: c.title,
               meta: `${c.lessons} lessons · ${c.questions} questions`,
               icon: c.icon,
-              color: FOLDER[c.tone],
+              color: FOLDER[c.tone] || FOLDER.macaw,
               left: (
                 <>
-                  <p className="rb-eyebrow">certification</p>
+                  <p className="rb-eyebrow">{c.departmentName || "certification"}</p>
                   <h3 className="rb-display rb-display-md mt-2">{c.title}</h3>
                   <p className="rb-body mt-3 max-w-md">{c.summary}</p>
                   <div className="mt-6 flex gap-8">
