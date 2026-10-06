@@ -38,6 +38,8 @@ import com.capstone.rebyu.execution.service.CodeExecutionService;
 import com.capstone.rebyu.diagram.dto.DiagramGradingRequestDto;
 import com.capstone.rebyu.challenge.entity.ChallengeArenaConfig;
 import com.capstone.rebyu.challenge.repository.ChallengeArenaConfigRepository;
+import com.capstone.rebyu.challenge.entity.WorldCupMatch;
+import com.capstone.rebyu.challenge.repository.WorldCupMatchRepository;
 import com.capstone.rebyu.challenge.service.ArenaScoring;
 import com.capstone.rebyu.challenge.service.ChallengeArenaService;
 import com.capstone.rebyu.diagram.dto.DiagramGradingResultDto;
@@ -133,6 +135,7 @@ public class AssessmentAttemptService {
     private final RewardService rewardService;
     private final StreakService streakService;
     private final AchievementAwardService achievementAwardService;
+    private final WorldCupMatchRepository worldCupMatchRepository;
 
     /**
      * Outcome-based assessment XP: 30 for finishing, 100 for passing, 200 for
@@ -233,7 +236,7 @@ public class AssessmentAttemptService {
 
     @Transactional
     public AssessmentAttemptStartResponseDto startAttempt(
-            Long examId, Long learnerId, String idempotencyKey, Integer questionIndex) {
+            Long examId, Long learnerId, String idempotencyKey, Integer questionIndex, Long matchId) {
 
         if (learnerId == null) {
             throw new BusinessRuleException.InvalidAssessmentSubmissionException(
@@ -416,6 +419,24 @@ public class AssessmentAttemptService {
                 && questionIndex != null
                 && questionIndex >= 0 && questionIndex < questionsToUse.size()) {
             questionsToUse = List.of(questionsToUse.get(questionIndex));
+        }
+
+        if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
+                && "worldcup".equals(exam.getTargetScope())
+                && matchId != null) {
+            WorldCupMatch match = worldCupMatchRepository.findById(matchId).orElse(null);
+            if (match != null) {
+                int limit = switch (match.getRound()) {
+                    case "QUARTERFINAL" -> 10;
+                    case "SEMIFINAL"    -> 15;
+                    default             -> questionsToUse.size();
+                };
+                if (limit < questionsToUse.size()) {
+                    List<Question> shuffled = new ArrayList<>(questionsToUse);
+                    java.util.Collections.shuffle(shuffled);
+                    questionsToUse = shuffled.subList(0, limit);
+                }
+            }
         }
 
         LocalDateTime now = LocalDateTime.now();

@@ -327,6 +327,7 @@ export default function LearnerAssessmentResultPage() {
      question being asked. */
   const [reviewFilter, setReviewFilter] = useState("all")
   const fromChallengeState = location.state?.fromChallenge === true
+  const isWorldCup = location.state?.isWorldCup === true
 
   const identity = getCurrentLearnerIdentity()
   const currentLearnerQuery = useQuery({
@@ -606,13 +607,17 @@ export default function LearnerAssessmentResultPage() {
 
             <div className="flex flex-wrap gap-3">
               <TactileButton asChild>
-                <Link to="/learner/challenges">back to arenas</Link>
-              </TactileButton>
-              <TactileButton asChild variant="ghost">
-                <Link to={`/learner/assessments/${result.assessmentId}`}>
-                  retake challenge
+                <Link to={isWorldCup ? "/learner/challenges/world-cup" : "/learner/challenges"}>
+                  {isWorldCup ? "back to bracket" : "back to arenas"}
                 </Link>
               </TactileButton>
+              {!isWorldCup && (
+                <TactileButton asChild variant="ghost">
+                  <Link to={`/learner/assessments/${result.assessmentId}`}>
+                    retake challenge
+                  </Link>
+                </TactileButton>
+              )}
             </div>
           </>
         ) : (

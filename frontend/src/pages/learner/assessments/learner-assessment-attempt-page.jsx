@@ -490,6 +490,7 @@ export default function LearnerAssessmentAttemptPage() {
   const questionIndex = searchParams.get("q") != null ? Number(searchParams.get("q")) : null
   const totalProblems = searchParams.get("total") != null ? Number(searchParams.get("total")) : null
   const arenaId = searchParams.get("arena")
+  const matchId = searchParams.get("matchId")
   const navigate = useNavigate()
   /* Where the learner opened this attempt from. Forwarded to the results page
      below so "continue learning" can return them to the topic they were
@@ -543,7 +544,7 @@ export default function LearnerAssessmentAttemptPage() {
       idempotencyKey = crypto.randomUUID()
       sessionStorage.setItem(keyName, idempotencyKey)
     }
-    startAssessmentAttempt(examId, learnerId, idempotencyKey, questionIndex)
+    startAssessmentAttempt(examId, learnerId, idempotencyKey, questionIndex, matchId ? Number(matchId) : null)
         .then((response) => {
           setAttempt(response)
           // Rehydrate saved draft answers when resuming.
@@ -673,7 +674,8 @@ export default function LearnerAssessmentAttemptPage() {
      answered, so it goes in as it is. */
   const isDiagnostic = String(attempt?.assessmentType ?? "").toUpperCase() === "DIAGNOSTIC"
   const isChallenge = String(attempt?.assessmentType ?? "").toUpperCase() === "CHALLENGE"
-  const isWorldCupChallenge = isChallenge && arenaId === "worldcup"
+  const isWorldCupChallenge = false
+  const isSingleProblemChallenge = isChallenge && arenaId !== "worldcup"
 
   const answeredIds = useMemo(() => {
     const set = new Set()
@@ -822,7 +824,15 @@ export default function LearnerAssessmentAttemptPage() {
        * what lets the announcement land after it.
        */
       const challengeType = String(attempt?.assessmentType ?? "").toUpperCase() === "CHALLENGE"
-      if (challengeType) {
+      if (challengeType && matchId) {
+        import("@/services/challengeService.js").then(({ reportWorldCupScore }) => {
+          reportWorldCupScore(matchId, result.assessmentAttemptId, result.percentage ?? 0).catch(() => {})
+        })
+        navigate(`/learner/results/${result.assessmentAttemptId}`, {
+          replace: true,
+          state: { returnTo: "/learner/challenges/world-cup", fromChallenge: true, isWorldCup: true, matchId: Number(matchId) },
+        })
+      } else if (challengeType) {
         navigate(`/learner/results/${result.assessmentAttemptId}`, {
           replace: true,
           state: { returnTo: "/learner/challenges", fromChallenge: true },
@@ -1052,7 +1062,7 @@ export default function LearnerAssessmentAttemptPage() {
                 {attempt.assessmentTitle}
               </p>
               <p className="truncate text-xs font-semibold text-rb-wolf">
-                {isChallenge
+                {isSingleProblemChallenge
                   ? `Problem ${(questionIndex ?? 0) + 1}${totalProblems ? ` of ${totalProblems}` : ""}`
                   : `Question ${currentIndex + 1} of ${questions.length} · Attempt ${attempt.attemptNumber}`}
               </p>
@@ -1097,7 +1107,7 @@ export default function LearnerAssessmentAttemptPage() {
             </span>
             ) : null}
 
-            {!isChallenge && (
+            {!isSingleProblemChallenge && (
               <Sheet>
                 <SheetTrigger asChild>
                   <Button
@@ -1118,7 +1128,7 @@ export default function LearnerAssessmentAttemptPage() {
               </Sheet>
             )}
 
-            {!isChallenge && (
+            {!isSingleProblemChallenge && (
               <Button
                   size="sm"
                   className="hidden lg:inline-flex"
@@ -1189,7 +1199,7 @@ export default function LearnerAssessmentAttemptPage() {
                       attemptId={attempt.assessmentAttemptId}
                       attemptQuestionId={currentQuestion.attemptQuestionId}
                       learnerId={learnerId}
-                      navigator={isChallenge ? null : navigatorPanel}
+                      navigator={isSingleProblemChallenge ? null : navigatorPanel}
                       editingLocked={editingLocked}
                   />
                 </div>
@@ -1214,9 +1224,9 @@ export default function LearnerAssessmentAttemptPage() {
                       attemptId={attempt.assessmentAttemptId}
                       attemptQuestionId={currentQuestion.attemptQuestionId}
                       learnerId={learnerId}
-                      navigator={isChallenge ? null : navigatorPanel}
+                      navigator={isSingleProblemChallenge ? null : navigatorPanel}
                       editingLocked={editingLocked}
-                      isChallenge={isChallenge}
+                      isChallenge={isSingleProblemChallenge}
                   />
                 </div>
               </div>
@@ -1257,7 +1267,7 @@ export default function LearnerAssessmentAttemptPage() {
                 {/* w-72, not w-64: the navigator is a fixed five columns, and
                     five cards plus their gaps need 288px here to keep each
                     card's points and flag badge unclipped. */}
-                {!isChallenge && (
+                {!isSingleProblemChallenge && (
                   <aside className="hidden min-h-0 w-72 shrink-0 overflow-hidden rounded-2xl border bg-background p-4 lg:block">
                     {navigatorPanel}
                   </aside>
@@ -1308,7 +1318,7 @@ export default function LearnerAssessmentAttemptPage() {
                 ) : null}
               </div>
             </>
-          ) : isChallenge ? (
+          ) : isSingleProblemChallenge ? (
             <>
               <span />
               <Button

@@ -334,6 +334,7 @@ public class SecurityConfig {
                         // Arena configuration and its status. Reading says only which
                         // arenas are ready; writing is admin-gated at the controller.
                         .requestMatchers("/api/challenge-arenas/**").authenticated()
+                        .requestMatchers("/api/worldcup/**").authenticated()
                         // Existing application routes keep their current
                         // public behavior; tokens are validated when present.
                         .anyRequest().permitAll()

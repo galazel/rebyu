@@ -227,3 +227,4 @@ volumes:
 networks:
   rebyu-net:
     driver: bridge
+    enable_ipv6: true

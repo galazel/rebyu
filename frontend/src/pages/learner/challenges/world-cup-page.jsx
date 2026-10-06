@@ -1,38 +1,22 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
-import { Award, CalendarDays, ChevronRight, Clock, Crown, Gauge, Lock, Sparkles, Trophy, Users, Zap } from "@/components/icons"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { CalendarDays, ChevronRight, Clock, Lock, Loader2, Shield, Sparkles, Trophy, Users, Zap } from "@/components/icons"
 
 import { ProgressBar, TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { getWorldCupTracks } from "@/lib/arenas.js"
 import { getLearnerPortalData } from "@/services/learnerService.js"
-import { CHALLENGE_ARENAS_KEY, getChallengeArenas } from "@/services/challengeService.js"
+import {
+  CHALLENGE_ARENAS_KEY,
+  getChallengeArenas,
+  joinWorldCupQueue,
+  leaveWorldCupQueue,
+  getWorldCupQueueStatus,
+  getWorldCupBracket,
+  getMyWorldCupBracket,
+  getWorldCupHistory,
+} from "@/services/challengeService.js"
 
-/**
- * World Cup — 8-player synchronised tournament.
- *
- * UI only: the whole journey (track select -> lobby -> bracket -> stats) runs
- * on local timers and fixture data so it can be reviewed before matchmaking,
- * sockets, or scoring exist. Nothing here calls an API.
- *
- * Same shell as CodeStrike and Blueprint Arena — h-20 header, back key, the
- * run's name in lowercase display type — and the same full-height body: a
- * tournament is the whole screen for as long as you are in it, not a panel in
- * the middle of a centred page. The arena's own voice is carried by scale and
- * colour (Fox quarters, Macaw semis, Cardinal final, Bee trophy), not by a
- * second set of type rules.
- */
-
-/* Blade fills stay saturated: they are the one bold moment on a light page,
-   and white type needs the depth to stay legible over the full panel.
- *
- * Two rules hold these together. Each blade STARTS on its own hue — teal, sky,
- * purple — so three tracks read as three choices rather than one wash; and each
- * one LANDS on a deep blue, because the track name is set in white at the foot
- * and a gradient that brightens on the way down puts white type on its own
- * lightest pixel. Running them left-to-right into a pale lilac did both wrongs
- * at once: the blades became interchangeable and the label sat on the lightest
- * corner of the panel. */
 const BLADE_TONE = {
   bee: { bg: "bg-gradient-to-b from-rb-bee via-rb-macaw to-rb-humpback-lip" },
   macaw: { bg: "bg-gradient-to-b from-rb-macaw via-rb-feather to-rb-feather-lip" },
@@ -45,40 +29,17 @@ const TRACK_TONE = {
   beetle: { wash: "bg-rb-beetle-wash", ink: "text-rb-beetle-lip" },
 }
 
-// Tier drives the avatar frame colour, weakest to strongest.
-const TIERS = {
-  bronze: { label: "Bronze", frame: "border-[#c98a4b]", badge: "bg-[#a9722f]" },
-  silver: { label: "Silver", frame: "border-rb-hare", badge: "bg-rb-wolf" },
-  gold: { label: "Gold", frame: "border-rb-bee", badge: "bg-rb-bee-lip" },
-  elite: { label: "Elite", frame: "border-rb-beetle", badge: "bg-rb-beetle-lip" },
+const ROUND_LABELS = {
+  QUARTERFINAL: "Quarterfinals",
+  SEMIFINAL: "Semifinals",
+  FINAL: "Grand Final",
+  COMPLETED: "Completed",
+  ELIMINATED_QUARTERFINAL: "Quarterfinals",
+  ELIMINATED_SEMIFINAL: "Semifinals",
+  ELIMINATED_FINAL: "Grand Final",
 }
 
-const ROSTER = [
-  { name: "You", title: "Cebu Institute", initials: "yo", tier: "gold", you: true },
-  { name: "Rina D.", title: "UP Cebu", initials: "rd", tier: "elite" },
-  { name: "Jed R.", title: "USC", initials: "jr", tier: "silver" },
-  { name: "Maya L.", title: "CIT-U", initials: "ml", tier: "gold" },
-  { name: "Karl V.", title: "UST", initials: "kv", tier: "bronze" },
-  { name: "Ana P.", title: "Ateneo", initials: "ap", tier: "silver" },
-  { name: "Noel S.", title: "Mapúa", initials: "ns", tier: "gold" },
-  { name: "Tin M.", title: "DLSU", initials: "tm", tier: "bronze" },
-]
-
-const AWARDS = [
-  { key: "mvp", label: "Tournament MVP", who: "Rina D.", detail: "4 wins · 96% accuracy", icon: Crown, tone: "bg-rb-bee text-[#4a3600]" },
-  { key: "speed", label: "Speed Demon", who: "Maya L.", detail: "Fastest solve — 41s", icon: Zap, tone: "bg-rb-fox text-white" },
-  { key: "architect", label: "Master Architect", who: "You", detail: "Highest accuracy — 94%", icon: Gauge, tone: "bg-rb-macaw text-white" },
-]
-
-const STANDINGS = [
-  { name: "Rina D.", solved: 12, accuracy: 96, avg: "0:52" },
-  { name: "You", solved: 11, accuracy: 94, avg: "1:04", you: true },
-  { name: "Maya L.", solved: 11, accuracy: 88, avg: "0:41" },
-  { name: "Noel S.", solved: 9, accuracy: 84, avg: "1:12" },
-  { name: "Jed R.", solved: 8, accuracy: 81, avg: "1:20" },
-]
-
-/* lobby line-up */
+/* ──────────────── lobby standee ──────────────── */
 
 function Standee({ player, index }) {
   if (!player) {
@@ -97,51 +58,39 @@ function Standee({ player, index }) {
     )
   }
 
-  const tier = TIERS[player.tier]
-
   return (
     <div className={`rb-standee rb-pop-in ${player.you ? "rb-standee-you" : ""}`}>
-      <span className={`rb-frame ${tier.frame}`} aria-hidden="true">
-        {player.initials}
+      <span className="rb-frame border-rb-feather" aria-hidden="true">
+        {player.displayName?.substring(0, 2)?.toLowerCase() ?? "??"}
       </span>
-
       <p className="mt-4 w-full truncate text-center text-base font-extrabold text-rb-eel">
-        {player.name}
+        {player.displayName}
       </p>
-      <p className="w-full truncate text-center text-xs font-semibold text-rb-wolf">
-        {player.title}
+      <p className="rb-numeric mt-1 text-xs text-rb-wolf">
+        {Math.round(player.points)} pts
       </p>
-
-      <span
-        className={`mt-auto rounded-rb-pill px-3 py-1 text-[0.6875rem] font-extrabold uppercase tracking-wide text-rb-snow ${tier.badge}`}
-      >
-        {tier.label}
-      </span>
     </div>
   )
 }
 
-/* bracket */
+/* ──────────────── bracket ──────────────── */
 
-/* Bracket geometry, in pixels. The elbow connectors are drawn with borders
-   rather than SVG, so every one of these numbers has to agree with the seat
-   height set on `.rb-arena` in the stylesheet:
-     pair height   = 2*SEAT + PAIR_GAP        = 110
-     quarters span = 2*pair + GROUP_GAP       = 260
-     semi gap      = span - 2*SEAT - 2*(pair/2 - SEAT/2) rounded to 106
-   which lands each semifinal seat's centre on the centre of its quarter pair. */
 const SEAT_H = 44
 const PAIR_GAP = 22
 const GROUP_GAP = 40
 const SEMI_GAP = 106
 const SEAT_W = 168
 
-function Seat({ name, variant = "outer" }) {
-  return <div className={`rb-seat rb-seat-${variant}`}>{name}</div>
+function Seat({ name, variant = "outer", isWinner, isLoser, isYou }) {
+  return (
+    <div className={`rb-seat rb-seat-${variant} ${isYou ? "!border-rb-feather !bg-rb-feather-wash" : ""} ${isWinner ? "!font-extrabold" : ""} ${isLoser ? "line-through opacity-50" : ""}`}>
+      {isWinner && <Zap className="mr-1.5 size-3.5 shrink-0 text-amber-500" aria-hidden="true" />}
+      <span className="truncate">{name ?? "—"}</span>
+      {isLoser && <span className="ml-auto text-xs text-red-400" aria-hidden="true">✕</span>}
+    </div>
+  )
 }
 
-/* Elbow connector: out from the seat, down/up to the midpoint, then inward.
-   Drawn with borders rather than SVG so it reflows with the seat rows. */
 function Elbow({ side }) {
   const isLeft = side === "left"
   return (
@@ -162,12 +111,9 @@ function Elbow({ side }) {
 function QuarterPair({ pair, side }) {
   return (
     <div className={`flex items-stretch ${side === "right" ? "flex-row-reverse" : ""}`}>
-      <div
-        className="flex shrink-0 flex-col"
-        style={{ width: SEAT_W, gap: PAIR_GAP }}
-      >
-        {pair.map(([name, alive]) => (
-          <Seat key={name} name={name} variant={alive ? "outer" : "out"} />
+      <div className="flex shrink-0 flex-col" style={{ width: SEAT_W, gap: PAIR_GAP }}>
+        {pair.map((p, i) => (
+          <Seat key={i} name={p.name} variant={p.alive ? "outer" : "out"} isWinner={p.isWinner} isLoser={p.isLoser} isYou={p.isYou} />
         ))}
       </div>
       <Elbow side={side} />
@@ -184,12 +130,10 @@ function BranchSide({ side, quarters, semis }) {
           <QuarterPair key={i} pair={pair} side={side} />
         ))}
       </div>
-
-      {/* semifinal column, vertically centred against its two quarter pairs */}
       <div className={`flex items-stretch ${reverse ? "flex-row-reverse" : ""}`}>
         <div className="flex shrink-0 flex-col" style={{ width: SEAT_W, gap: SEMI_GAP }}>
-          {semis.map(([name, alive]) => (
-            <Seat key={name} name={name} variant={alive ? "inner" : "out"} />
+          {semis.map((p, i) => (
+            <Seat key={i} name={p.name} variant={p.alive ? "inner" : "out"} isWinner={p.isWinner} isLoser={p.isLoser} isYou={p.isYou} />
           ))}
         </div>
         <Elbow side={side} />
@@ -198,21 +142,54 @@ function BranchSide({ side, quarters, semis }) {
   )
 }
 
-function Bracket() {
-  const LEFT_Q = [
-    [["Rina D.", true], ["Karl V.", false]],
-    [["Maya L.", true], ["Tin M.", false]],
-  ]
-  const RIGHT_Q = [
-    [["You", true], ["Ana P.", false]],
-    [["Noel S.", true], ["Jed R.", false]],
-  ]
+function LiveBracket({ bracket, myLearnerId }) {
+  if (!bracket) return null
+
+  const playerMap = {}
+  for (const p of bracket.players) {
+    playerMap[p.learnerId] = p
+  }
+
+  const matchesByRound = {}
+  for (const m of bracket.matches) {
+    if (!matchesByRound[m.round]) matchesByRound[m.round] = []
+    matchesByRound[m.round].push(m)
+  }
+
+  const getName = (id) => playerMap[id]?.displayName ?? "—"
+  const isYou = (id) => id === myLearnerId
+  const qfMatches = (matchesByRound["QUARTERFINAL"] ?? []).sort((a, b) => a.matchIndex - b.matchIndex)
+  const sfMatches = (matchesByRound["SEMIFINAL"] ?? []).sort((a, b) => a.matchIndex - b.matchIndex)
+  const finalMatches = (matchesByRound["FINAL"] ?? []).sort((a, b) => a.matchIndex - b.matchIndex)
+
+  const seatOf = (match, playerId) => ({
+    name: getName(playerId),
+    alive: match.status !== "COMPLETED" || match.winnerLearnerId === playerId,
+    isWinner: match.status === "COMPLETED" && match.winnerLearnerId === playerId,
+    isLoser: match.status === "COMPLETED" && match.winnerLearnerId !== playerId,
+    isYou: isYou(playerId),
+  })
+
+  // Build QF pairs
+  const leftQF = qfMatches.slice(0, 2).map(m => [seatOf(m, m.player1?.learnerId), seatOf(m, m.player2?.learnerId)])
+  const rightQF = qfMatches.slice(2, 4).map(m => [seatOf(m, m.player1?.learnerId), seatOf(m, m.player2?.learnerId)])
+
+  // SF
+  const leftSF = sfMatches.length > 0
+    ? [seatOf(sfMatches[0], sfMatches[0].player1?.learnerId), seatOf(sfMatches[0], sfMatches[0].player2?.learnerId)]
+    : [{ name: "—", alive: true }, { name: "—", alive: true }]
+  const rightSF = sfMatches.length > 1
+    ? [seatOf(sfMatches[1], sfMatches[1].player1?.learnerId), seatOf(sfMatches[1], sfMatches[1].player2?.learnerId)]
+    : [{ name: "—", alive: true }, { name: "—", alive: true }]
+
+  // Final
+  const finalist1 = finalMatches.length > 0 ? getName(finalMatches[0].player1?.learnerId) : "—"
+  const finalist2 = finalMatches.length > 0 ? getName(finalMatches[0].player2?.learnerId) : "—"
 
   return (
     <div className="flex items-center justify-center gap-3">
-      <BranchSide side="left" quarters={LEFT_Q} semis={[["Rina D.", true], ["Maya L.", false]]} />
+      <BranchSide side="left" quarters={leftQF} semis={leftSF} />
 
-      {/* centre stage */}
       <div className="flex w-[260px] shrink-0 flex-col items-center px-2 lg:w-[300px]">
         <div className="rb-halo relative">
           <Trophy
@@ -220,100 +197,199 @@ function Bracket() {
             aria-hidden="true"
           />
         </div>
-
         <div className="mt-5 font-rb-display text-2xl font-extrabold lowercase text-rb-eel">
           the final
         </div>
-
         <div className="mt-5 flex w-full items-center gap-2">
-          <div className="rb-seat rb-seat-final flex-1 justify-center">Rina D.</div>
+          <div className="rb-seat rb-seat-final flex-1 justify-center">{finalist1}</div>
           <span className="font-rb-display text-lg font-extrabold lowercase text-rb-wolf">vs</span>
-          <div className="rb-seat rb-seat-final flex-1 justify-center">You</div>
+          <div className="rb-seat rb-seat-final flex-1 justify-center">{finalist2}</div>
         </div>
-
-        <span className="mt-5 rounded-rb-pill border-2 border-rb-swan bg-rb-polar px-3 py-1.5 text-xs font-bold text-rb-wolf">
-          3:00 per round
-        </span>
+        {bracket.winnerLearnerId ? (
+          <div className="mt-5 rounded-rb-pill bg-rb-bee px-5 py-2 text-sm font-extrabold text-[#4a3600]">
+            🏆 {getName(bracket.winnerLearnerId)} wins!
+          </div>
+        ) : (
+          <span className="mt-5 rounded-rb-pill border-2 border-rb-swan bg-rb-polar px-3 py-1.5 text-xs font-bold text-rb-wolf">
+            {ROUND_LABELS[bracket.currentRound] ?? bracket.currentRound}
+          </span>
+        )}
       </div>
 
-      <BranchSide side="right" quarters={RIGHT_Q} semis={[["You", true], ["Noel S.", false]]} />
+      <BranchSide side="right" quarters={rightQF} semis={rightSF} />
     </div>
   )
 }
 
-/* page */
+/* ──────────────── page ──────────────── */
 
 export default function WorldCupPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [phase, setPhase] = useState("track")
   const [track, setTrack] = useState(null)
-  const [filled, setFilled] = useState(1)
-  const [countdown, setCountdown] = useState(3)
-  const [lobbyClock, setLobbyClock] = useState(40)
+  const [bracket, setBracket] = useState(null)
+  const [myLearnerId, setMyLearnerId] = useState(null)
+  const pollRef = useRef(null)
 
-  /* The blades are this learner's enrolments, not the catalogue. Same query key
-     as the learner layout, so arriving from the challenges page reads the cache
-     rather than refetching the whole portal snapshot. */
   const portalQuery = useQuery({
     queryKey: ["learner-portal-data"],
     queryFn: getLearnerPortalData,
     staleTime: 5 * 60 * 1000,
   })
 
-  /* Whether an admin has published a week. The card on the challenges page
-     already locks an unpublished arena, but this page is reachable by URL, so
-     the same answer is given here rather than running a tournament over
-     questions that do not exist. */
   const arenasQuery = useQuery({
     queryKey: [CHALLENGE_ARENAS_KEY],
     queryFn: getChallengeArenas,
     staleTime: 60_000,
   })
 
+  const historyQuery = useQuery({
+    queryKey: ["worldcup-history"],
+    queryFn: getWorldCupHistory,
+    staleTime: 60_000,
+  })
+
   const worldCup = (arenasQuery.data ?? []).find((row) => row.arenaId === "worldcup") ?? null
-  // Unknown is not unpublished: a slow lookup must not read as a locked arena.
   const locked = arenasQuery.isSuccess && !worldCup?.configured
 
   const tracks = useMemo(
-    () =>
-      getWorldCupTracks(portalQuery.data?.enrolledCertifications ?? [], worldCup?.disabledTrackIds),
+    () => getWorldCupTracks(portalQuery.data?.enrolledCertifications ?? [], worldCup?.disabledTrackIds),
     [portalQuery.data, worldCup?.disabledTrackIds],
   )
 
+  // Extract learner ID from portal data
   useEffect(() => {
-    if (phase !== "lobby" || filled >= 8) return undefined
-    const id = setTimeout(() => setFilled((n) => n + 1), 750)
-    return () => clearTimeout(id)
-  }, [phase, filled])
-
-  useEffect(() => {
-    if (phase !== "lobby") return undefined
-    const id = setInterval(() => setLobbyClock((n) => Math.max(0, n - 1)), 1000)
-    return () => clearInterval(id)
-  }, [phase])
-
-  useEffect(() => {
-    if (phase !== "lobby" || filled < 8) return undefined
-    const id = setTimeout(() => setPhase("found"), 600)
-    return () => clearTimeout(id)
-  }, [phase, filled])
-
-  useEffect(() => {
-    if (phase !== "found") return undefined
-    if (countdown <= 0) {
-      setPhase("bracket")
-      return undefined
+    if (portalQuery.data?.learnerId) {
+      setMyLearnerId(portalQuery.data.learnerId)
     }
-    const id = setTimeout(() => setCountdown((n) => n - 1), 1000)
-    return () => clearTimeout(id)
-  }, [phase, countdown])
+  }, [portalQuery.data])
 
-  const slots = useMemo(
-    () => Array.from({ length: 8 }, (_, i) => (i < filled ? ROSTER[i] : null)),
-    [filled],
-  )
+  // On mount, check for an active bracket the learner is already in
+  useEffect(() => {
+    if (!myLearnerId || phase !== "track") return
+    getMyWorldCupBracket()
+      .then((b) => {
+        if (b) {
+          setBracket(b)
+          setPhase("bracket")
+        }
+      })
+      .catch(() => {})
+  }, [myLearnerId])
 
-  const clock = `00:${String(lobbyClock).padStart(2, "0")}`
+  const [queueSize, setQueueSize] = useState(0)
+  const [queueRequired, setQueueRequired] = useState(8)
+  const QUEUE_TIMEOUT = 120
+  const [queueTimer, setQueueTimer] = useState(QUEUE_TIMEOUT)
+  const timerRef = useRef(null)
+
+  // Join queue mutation
+  const joinMutation = useMutation({
+    mutationFn: (certId) => joinWorldCupQueue(certId),
+    onSuccess: (data) => {
+      setQueueSize(data.queueSize)
+      setQueueRequired(data.required)
+      if (data.activeBracket) {
+        setBracket(data.activeBracket)
+        setPhase("bracket")
+        stopPolling()
+      } else {
+        setPhase("lobby")
+        startPolling(data.certificationId)
+        startTimer()
+      }
+    },
+  })
+
+  // Leave queue mutation
+  const leaveMutation = useMutation({
+    mutationFn: (certId) => leaveWorldCupQueue(certId),
+    onSuccess: () => {
+      setPhase("track")
+      setTrack(null)
+      stopPolling()
+    },
+  })
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+  }, [])
+
+  const startTimer = useCallback(() => {
+    stopTimer()
+    setQueueTimer(QUEUE_TIMEOUT)
+    timerRef.current = setInterval(() => {
+      setQueueTimer(prev => {
+        if (prev <= 1) return 0
+        return prev - 1
+      })
+    }, 1000)
+  }, [stopTimer])
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current)
+      pollRef.current = null
+    }
+    stopTimer()
+  }, [stopTimer])
+
+  const startPolling = useCallback((certId) => {
+    stopPolling()
+    pollRef.current = setInterval(async () => {
+      try {
+        const status = await getWorldCupQueueStatus(certId)
+        setQueueSize(status.queueSize)
+        setQueueRequired(status.required)
+        if (status.activeBracket) {
+          setBracket(status.activeBracket)
+          setPhase("found")
+          stopPolling()
+          // After 3 seconds show bracket
+          setTimeout(() => setPhase("bracket"), 3000)
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 3000)
+  }, [stopPolling])
+
+  // Auto-cancel queue when timer expires
+  useEffect(() => {
+    if (phase === "lobby" && queueTimer === 0) {
+      handleLeaveQueue()
+    }
+  }, [queueTimer, phase])
+
+  // Clean up polling on unmount
+  useEffect(() => () => stopPolling(), [stopPolling])
+
+  // Refresh bracket data periodically when in bracket phase
+  useEffect(() => {
+    if (phase !== "bracket" || !bracket?.bracketId) return undefined
+    const id = setInterval(async () => {
+      try {
+        const updated = await getWorldCupBracket(bracket.bracketId)
+        setBracket(updated)
+      } catch {
+        // ignore
+      }
+    }, 5000)
+    return () => clearInterval(id)
+  }, [phase, bracket?.bracketId])
+
+  const handleTrackSelect = (item) => {
+    setTrack(item)
+    joinMutation.mutate(item.id)
+  }
+
+  const handleLeaveQueue = () => {
+    if (track) leaveMutation.mutate(track.id)
+  }
 
   const thisWeekLabel = useMemo(() => {
     const now = new Date()
@@ -328,324 +404,388 @@ export default function WorldCupPage() {
   const SUBTITLE = {
     track: "Choose your certification track",
     lobby: "Matchmaking · 8-player tournament",
-    found: "Matchmaking · 8-player tournament",
-    bracket: "Knockout bracket · quarter-finals to final",
-    stats: "Tournament results",
+    found: "Match found!",
+    bracket: bracket?.currentRound ? ROUND_LABELS[bracket.currentRound] ?? "Tournament" : "Tournament bracket",
   }
+
+  // Find the player's current match in the bracket
+  const myCurrentMatch = useMemo(() => {
+    if (!bracket || !myLearnerId) return null
+    const currentRound = bracket.currentRound
+    if (currentRound === "COMPLETED") return null
+    return bracket.matches.find(
+      m => m.round === currentRound && (m.player1?.learnerId === myLearnerId || m.player2?.learnerId === myLearnerId)
+    )
+  }, [bracket, myLearnerId])
+
+  // Whether the player has already scored in their current match
+  const hasSubmittedCurrentRound = useMemo(() => {
+    if (!myCurrentMatch || !myLearnerId) return false
+    if (myCurrentMatch.player1?.learnerId === myLearnerId) return myCurrentMatch.player1Score != null
+    if (myCurrentMatch.player2?.learnerId === myLearnerId) return myCurrentMatch.player2Score != null
+    return false
+  }, [myCurrentMatch, myLearnerId])
+
+  // Whether the player is eliminated
+  const isEliminated = useMemo(() => {
+    if (!bracket || !myLearnerId) return false
+    if (bracket.currentRound === "COMPLETED") return bracket.winnerLearnerId !== myLearnerId
+    // Check if they lost in any completed match
+    for (const m of bracket.matches) {
+      if (m.status !== "COMPLETED") continue
+      const isInMatch = m.player1?.learnerId === myLearnerId || m.player2?.learnerId === myLearnerId
+      if (isInMatch && m.winnerLearnerId !== myLearnerId) return true
+    }
+    return false
+  }, [bracket, myLearnerId])
 
   if (locked) {
     return (
-      <div className="rebyu-ds grid min-h-dvh place-items-center bg-rb-polar px-5 py-12">
+      <div className="rebyu-ds grid min-h-dvh place-items-center px-5 py-12" style={{ background: "#0c1018" }}>
         <div className="w-full max-w-lg text-center">
-          <div className="mx-auto grid size-24 place-items-center rounded-full bg-rb-swan">
-            <Lock className="size-12 text-rb-wolf" aria-hidden="true" />
+          <div className="mx-auto grid size-24 place-items-center rounded-full bg-white/[0.06]">
+            <Lock className="size-12 text-white/30" aria-hidden="true" />
           </div>
-          <h1 className="rb-display rb-display-lg mt-6 !text-center">not open yet</h1>
-          <p className="rb-body-lg mt-3">
+          <h1 className="mt-6 font-rb-display text-3xl font-extrabold lowercase text-white">not open yet</h1>
+          <p className="mt-3 text-sm leading-6 text-white/40">
             No Champions Cup week has been published yet. The bracket opens as soon as an
             admin publishes one.
           </p>
-          <TactileButton asChild className="mt-8 w-full">
-            <Link to="/learner/challenges">back to arenas</Link>
-          </TactileButton>
+          <Link
+            to="/learner/challenges"
+            className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-white/10 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/15"
+          >
+            back to arenas
+          </Link>
         </div>
       </div>
     )
   }
 
+  const TRACK_GLOW = {
+    bee: { from: "from-amber-500/20", ring: "ring-amber-400/40", glow: "shadow-amber-500/25" },
+    macaw: { from: "from-emerald-500/20", ring: "ring-emerald-400/40", glow: "shadow-emerald-500/25" },
+    beetle: { from: "from-cyan-500/20", ring: "ring-cyan-400/40", glow: "shadow-cyan-500/25" },
+  }
+
   return (
-    <div className="rebyu-ds rb-arena flex h-dvh flex-col overflow-hidden">
-      {/* Header — adapts per phase. Track select gets a centred hero;
-          lobby/bracket/stats get a compact top bar. */}
-      {phase === "track" ? (
-        <header className="relative shrink-0 overflow-hidden border-b border-rb-swan bg-white">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-rb-bee-wash/60 via-transparent to-transparent"
-          />
-          <div className="relative mx-auto flex max-w-5xl flex-col items-center px-5 pb-7 pt-8 text-center lg:px-8">
-            <span className="grid size-16 place-items-center rounded-2xl bg-gradient-to-br from-rb-bee via-rb-macaw to-rb-feather shadow-lg shadow-rb-macaw/25">
-              <Trophy className="size-8 text-white" aria-hidden="true" />
-            </span>
-            <h1 className="mt-4 font-rb-display text-4xl font-extrabold lowercase tracking-tight text-rb-eel sm:text-5xl">
-              champions cup
-            </h1>
-            <p className="mt-2 max-w-md text-sm leading-6 text-rb-wolf">
-              An 8-player bracket on your certification track — quarterfinals, semis,
-              and a timed grand final.
+    <div className="rebyu-ds rb-arena flex h-dvh flex-col overflow-hidden" style={{ background: "#0c1018" }}>
+      {/* Header — all phases */}
+      <header className="relative z-10 shrink-0">
+        <div className="flex items-center gap-4 px-5 pt-5 pb-4 lg:px-8">
+          <Link to="/learner/challenges" className="grid size-9 place-items-center rounded-xl bg-white/[0.06] text-white/50 transition hover:bg-white/10 hover:text-white">
+            <ChevronRight className="size-4 rotate-180" aria-hidden="true" />
+          </Link>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-3">
+              <Trophy className="size-5 text-amber-400" aria-hidden="true" />
+              <h1 className="font-rb-display text-lg font-extrabold lowercase tracking-tight text-white sm:text-xl">
+                champions cup
+              </h1>
+            </div>
+            <p className="mt-0.5 truncate text-[0.6875rem] font-semibold text-white/40">
+              {SUBTITLE[phase]}
             </p>
-
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-rb-polar px-3.5 py-1.5 text-xs font-bold text-rb-eel">
-                <CalendarDays className="size-3.5 text-rb-wolf" aria-hidden="true" />
-                {thisWeekLabel}
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-rb-polar px-3.5 py-1.5 text-xs font-bold text-rb-eel">
-                <Users className="size-3.5 text-rb-wolf" aria-hidden="true" />
-                8-player bracket
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-rb-polar px-3.5 py-1.5 text-xs font-bold text-rb-eel">
-                <Sparkles className="size-3.5 text-rb-wolf" aria-hidden="true" />
-                3 rounds
-              </span>
-            </div>
-
-            {worldCup?.examId ? (
-              <TactileButton
-                className="mt-6"
-                onClick={() => navigate(`/learner/assessments/${worldCup.examId}`)}
-              >
-                <Zap className="size-4" aria-hidden="true" />
-                play this week
-                <ChevronRight className="size-4" aria-hidden="true" />
-              </TactileButton>
-            ) : null}
           </div>
-
-          <div className="absolute bottom-0 left-0 right-0">
-            <TactileButton
-              asChild
-              variant="ghost"
-              size="sm"
-              className="absolute bottom-3 left-5 lg:left-8"
-            >
-              <Link to="/learner/challenges">back to arenas</Link>
-            </TactileButton>
-          </div>
-        </header>
-      ) : (
-        <div className="flex shrink-0 items-center gap-4 px-5 pt-6 lg:px-8">
-          <div className="min-w-0">
-            <div className="font-rb-display text-xl font-extrabold lowercase text-rb-eel">
-              champions cup
-            </div>
-            <div className="truncate text-xs font-semibold text-rb-wolf">{SUBTITLE[phase]}</div>
-          </div>
-
-          <div className="ml-auto flex items-center gap-3">
-            {phase === "lobby" || phase === "found" ? (
+          <div className="flex items-center gap-3">
+            {phase === "lobby" ? (
               <>
-                <span className="rb-numeric text-sm text-rb-wolf">{filled} / 8 ready</span>
-                <span className="flex items-center gap-1.5 rounded-rb-pill border-2 border-rb-swan bg-rb-polar px-3 py-1.5 text-sm font-bold tabular-nums text-rb-eel">
-                  <Clock className="size-4" aria-hidden="true" />
-                  {clock}
-                </span>
+                <span className="rb-numeric text-sm text-white/50">{queueSize} / {queueRequired}</span>
+                <button
+                  type="button"
+                  onClick={handleLeaveQueue}
+                  className="rounded-xl bg-white/[0.06] px-4 py-2 text-xs font-bold text-white/60 transition hover:bg-red-500/20 hover:text-red-400"
+                >
+                  leave queue
+                </button>
               </>
             ) : null}
             {track ? (
-              <span
-                className={`rounded-rb-pill px-3 py-1.5 text-xs font-bold ${TRACK_TONE[track.tone].wash} ${TRACK_TONE[track.tone].ink}`}
-              >
+              <span className="rounded-xl bg-white/[0.08] px-3.5 py-1.5 text-xs font-bold text-white/70">
                 {track.name}
               </span>
             ) : null}
-            {worldCup?.examId ? (
-              <TactileButton
-                size="sm"
-                onClick={() => navigate(`/learner/assessments/${worldCup.examId}`)}
-              >
-                play this week
-              </TactileButton>
-            ) : null}
-            {phase === "bracket" ? (
-              <TactileButton size="sm" variant="ghost" onClick={() => setPhase("stats")}>
-                view results
-              </TactileButton>
-            ) : null}
-            {phase === "stats" ? (
-              <TactileButton
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setPhase("track")
-                  setTrack(null)
-                  setFilled(1)
-                  setCountdown(3)
-                  setLobbyClock(40)
-                }}
+            {phase === "bracket" && bracket?.currentRound === "COMPLETED" ? (
+              <button
+                type="button"
+                onClick={() => { setPhase("track"); setTrack(null); setBracket(null) }}
+                className="rounded-xl bg-amber-500/20 px-4 py-2 text-xs font-bold text-amber-300 transition hover:bg-amber-500/30"
               >
                 play again
-              </TactileButton>
+              </button>
             ) : null}
           </div>
         </div>
-      )}
+        <div aria-hidden="true" className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      </header>
 
-      {/* The body owns the rest of the viewport. Each phase fills it rather
-          than sitting in a centred column — a tournament with dead space above
-          and below it reads as a widget, not an event. */}
       <main className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:overflow-hidden">
-        {/* ---------------------------------------------------- track select */}
+        {/* ──────── track select ──────── */}
         {phase === "track" && portalQuery.isLoading ? (
           <div className="grid flex-1 place-items-center px-5">
-            <p className="text-sm font-bold text-rb-wolf">Loading your tracks…</p>
+            <Loader2 className="size-6 animate-spin text-white/30" />
           </div>
         ) : null}
 
-        {/* No enrolment, no bracket. The questions come from a certification's
-            own bank, and eight people scored against each other on a syllabus
-            one of them has never opened is not a tournament. */}
         {phase === "track" && !portalQuery.isLoading && tracks.length === 0 ? (
           <div className="grid flex-1 place-items-center px-5 pb-10">
             <div className="max-w-md text-center">
-              <Trophy className="mx-auto size-12 text-rb-hare" aria-hidden="true" />
-              <div className="mt-5 font-rb-display text-2xl font-extrabold lowercase text-rb-eel">
+              <Trophy className="mx-auto size-12 text-white/20" aria-hidden="true" />
+              <div className="mt-5 font-rb-display text-2xl font-extrabold lowercase text-white">
                 no tracks yet
               </div>
-              <p className="mt-3 text-sm leading-6 text-rb-wolf">
+              <p className="mt-3 text-sm leading-6 text-white/50">
                 The Champions Cup is played on a certification you are enrolled in. Enrol in
                 one and its track appears here.
               </p>
-              <TactileButton asChild className="mt-6">
-                <Link to="/learner/certifications">browse certifications</Link>
-              </TactileButton>
+              <Link
+                to="/learner/certifications"
+                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/15"
+              >
+                browse certifications
+              </Link>
             </div>
           </div>
         ) : null}
 
         {phase === "track" && tracks.length > 0 ? (
-          <div className="flex min-h-0 flex-1 flex-col px-5 pt-5 lg:px-8">
-            <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-rb-wolf">
-              Choose your track
-            </p>
-            <div className="rb-blades mt-3 min-h-[480px] flex-1 pb-6 lg:min-h-0">
-              {tracks.map((item, index) => {
-                const tone = BLADE_TONE[item.tone]
-                const edge =
-                  index === 0
-                    ? "lg:pl-[6.5rem]"
-                    : index === tracks.length - 1
-                      ? "lg:pr-[6.5rem]"
-                      : ""
+          <div className="flex min-h-0 flex-1 flex-col px-5 pt-6 lg:px-8">
+            {/* Hero area */}
+            <div className="mx-auto mb-8 max-w-2xl text-center">
+              <div className="relative mx-auto mb-6 grid size-20 place-items-center">
+                <div aria-hidden="true" className="absolute inset-0 animate-pulse rounded-full bg-amber-500/20 blur-xl" />
+                <Trophy className="relative size-10 text-amber-400 drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]" aria-hidden="true" />
+              </div>
+              <h2 className="font-rb-display text-3xl font-extrabold lowercase tracking-tight text-white sm:text-4xl">
+                choose your arena
+              </h2>
+              <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-white/40">
+                Pick your certification track and enter the queue. When 8 challengers are ready,
+                the bracket begins.
+              </p>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-1.5 text-[0.6875rem] font-bold text-white/50">
+                  <CalendarDays className="size-3.5 text-white/30" aria-hidden="true" />
+                  {thisWeekLabel}
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-1.5 text-[0.6875rem] font-bold text-white/50">
+                  <Users className="size-3.5 text-white/30" aria-hidden="true" />
+                  8 players
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-3 py-1.5 text-[0.6875rem] font-bold text-white/50">
+                  <Zap className="size-3.5 text-white/30" aria-hidden="true" />
+                  3 rounds
+                </span>
+              </div>
+            </div>
+
+            {/* Track cards */}
+            <div className="mx-auto grid w-full max-w-4xl flex-1 grid-cols-1 gap-4 pb-8 sm:grid-cols-2 lg:grid-cols-3">
+              {tracks.map((item) => {
+                const glow = TRACK_GLOW[item.tone] ?? TRACK_GLOW.bee
                 return (
                   <button
                     key={item.id}
                     type="button"
-                    className={`rb-blade ${tone.bg}`}
-                    onClick={() => {
-                      setTrack(item)
-                      setPhase("lobby")
-                    }}
+                    disabled={joinMutation.isPending}
+                    onClick={() => handleTrackSelect(item)}
+                    className={`group relative flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-6 text-left transition-all hover:border-white/20 hover:shadow-xl hover:${glow.glow} hover:scale-[1.02] active:scale-[0.98]`}
                   >
-                    <span className="rb-blade-ghost">{item.short}</span>
+                    <div aria-hidden="true" className={`pointer-events-none absolute -top-20 left-1/2 size-40 -translate-x-1/2 rounded-full bg-gradient-to-b ${glow.from} to-transparent blur-3xl transition-opacity group-hover:opacity-100 opacity-50`} />
 
-                    <span
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/50 via-black/20 to-transparent"
-                    />
-
-                    <span
-                      className={`rb-blade-inner flex flex-col justify-end p-6 text-left lg:p-8 ${edge}`}
-                    >
-                      <span className="flex items-center gap-2 text-[0.6875rem] font-extrabold uppercase tracking-[0.14em] text-white/70">
-                        <Trophy className="size-3.5" aria-hidden="true" />
-                        8-player bracket
+                    <div className="relative">
+                      <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.08] px-2.5 py-1 text-[0.625rem] font-extrabold uppercase tracking-widest text-white/40">
+                        <Trophy className="size-3" aria-hidden="true" />
+                        bracket
                       </span>
-
-                      <span className="mt-3 block font-rb-display text-3xl font-extrabold lowercase leading-none tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)] lg:text-5xl">
+                      <h3 className="mt-4 font-rb-display text-2xl font-extrabold lowercase leading-tight tracking-tight text-white lg:text-3xl">
                         {item.name}
-                      </span>
-
-                      <span className="mt-3 line-clamp-2 max-w-xs text-sm leading-6 text-white/80">
+                      </h3>
+                      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-white/40">
                         {item.blurb}
-                      </span>
+                      </p>
+                    </div>
 
-                      <span className="rb-blade-detail mt-5 flex flex-wrap items-center gap-3">
-                        <span className="inline-flex items-center gap-1.5 rounded-rb-pill bg-white px-4 py-2.5 text-xs font-extrabold lowercase tracking-wide text-rb-eel shadow-lg transition group-hover:shadow-xl">
-                          enter queue
-                          <ChevronRight className="size-3.5" aria-hidden="true" />
-                        </span>
+                    <div className="relative mt-auto flex items-center gap-2 pt-6">
+                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-white/10 px-4 py-2.5 text-xs font-extrabold text-white transition group-hover:bg-white group-hover:text-[#0c1018]">
+                        enter queue
+                        <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                       </span>
-                    </span>
+                    </div>
                   </button>
                 )
               })}
             </div>
-          </div>
-        ) : null}
 
-        {/* ----------------------------------------------------------- lobby */}
-        {phase === "lobby" || phase === "found" ? (
-          <div className="flex min-h-0 flex-1 flex-col px-5 pt-6 lg:px-8">
-            <ProgressBar value={(filled / 8) * 100} label="Challengers ready" className="!h-4" />
-
-            {/* the line-up — eight standees stretched across the whole stage */}
-            <div className="mt-5 grid min-h-0 flex-1 auto-rows-[minmax(230px,1fr)] grid-cols-2 items-stretch gap-3 pb-0 sm:grid-cols-4 lg:auto-rows-fr lg:grid-cols-8">
-              {slots.map((player, index) => (
-                <Standee key={index} player={player} index={index} />
-              ))}
-            </div>
-
-            {phase === "found" ? (
-              <div className="fixed inset-0 z-50 grid place-items-center bg-rb-eel/70 px-5">
-                <div className="rb-pop-in text-center">
-                  <div className="font-rb-display text-4xl font-extrabold lowercase text-rb-snow sm:text-6xl">
-                    match found.
-                  </div>
-                  <p className="rb-numeric mt-8 text-8xl text-rb-snow">{countdown}</p>
+            {/* Past tournaments */}
+            {(historyQuery.data ?? []).length > 0 ? (
+              <div className="mx-auto w-full max-w-4xl pb-10">
+                <h3 className="mb-4 font-rb-display text-lg font-extrabold lowercase tracking-tight text-white/70">
+                  past tournaments
+                </h3>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {historyQuery.data.map((h) => (
+                    <div
+                      key={h.bracketId}
+                      className={`flex flex-col gap-3 rounded-2xl border p-5 ${
+                        h.won
+                          ? "border-amber-400/30 bg-amber-500/10"
+                          : "border-white/[0.08] bg-white/[0.04]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white/40">
+                          {new Date(h.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                        </span>
+                        {h.won ? (
+                          <span className="inline-flex items-center gap-1 rounded-lg bg-amber-500/20 px-2 py-0.5 text-[0.625rem] font-extrabold text-amber-300">
+                            <Trophy className="size-3" aria-hidden="true" /> champion
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-lg bg-white/[0.06] px-2 py-0.5 text-[0.625rem] font-bold text-white/40">
+                            <Shield className="size-3" aria-hidden="true" /> {h.bestRound ? ROUND_LABELS[h.bestRound] ?? h.bestRound : "—"}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-end justify-between">
+                        <div>
+                          <p className="rb-numeric text-2xl font-extrabold text-white">
+                            {h.bestScore != null ? Math.round(h.bestScore) : "—"}
+                          </p>
+                          <p className="text-[0.625rem] font-bold text-white/30">best score</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="rb-numeric text-lg font-extrabold text-white/70">{h.rounds ?? "—"}</p>
+                          <p className="text-[0.625rem] font-bold text-white/30">rounds played</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : null}
           </div>
         ) : null}
 
-        {/* --------------------------------------------------------- bracket */}
-        {phase === "bracket" ? (
-          <div className="flex min-h-0 flex-1 flex-col px-5 lg:px-8">
-            {/* Centred in whatever is left of the viewport and scaled up on
-                large screens: the bracket is the screen on this phase. */}
-            <div className="grid min-h-0 flex-1 place-items-center overflow-auto py-6">
-              <div className="origin-center xl:scale-110 2xl:scale-125">
-                <Bracket />
+        {/* ──────── lobby ──────── */}
+        {phase === "lobby" ? (
+          <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-5 lg:px-8">
+            {/* circular countdown */}
+            <div className="relative grid size-40 place-items-center">
+              <div aria-hidden="true" className={`absolute inset-0 rounded-full blur-2xl transition-colors duration-700 ${queueTimer <= 30 ? "bg-red-500/15" : "bg-amber-500/10"}`} />
+              <svg className="absolute inset-0 -rotate-90" viewBox="0 0 160 160">
+                <circle cx="80" cy="80" r="72" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="5" />
+                <circle
+                  cx="80" cy="80" r="72" fill="none"
+                  stroke={queueTimer <= 30 ? "#ef4444" : "#f59e0b"}
+                  strokeWidth="5" strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 72}
+                  strokeDashoffset={2 * Math.PI * 72 * (1 - queueTimer / QUEUE_TIMEOUT)}
+                  className="transition-[stroke-dashoffset] duration-1000 ease-linear"
+                  style={{ filter: `drop-shadow(0 0 8px ${queueTimer <= 30 ? "rgba(239,68,68,0.5)" : "rgba(245,158,11,0.4)"})` }}
+                />
+              </svg>
+              <div className="relative text-center">
+                <span className={`rb-numeric text-4xl font-extrabold ${queueTimer <= 30 ? "text-red-400" : "text-white"}`}>
+                  {Math.floor(queueTimer / 60)}:{String(queueTimer % 60).padStart(2, "0")}
+                </span>
               </div>
+            </div>
+
+            <p className="mt-5 text-sm font-extrabold text-white">Finding opponents…</p>
+            <p className="mt-1 text-xs text-white/30">Queue auto-cancels when the timer runs out</p>
+
+            {/* standee grid */}
+            <div className="mt-10 grid w-full max-w-2xl grid-cols-4 gap-3 sm:grid-cols-8">
+              {Array.from({ length: queueRequired }).map((_, i) => {
+                const filled = i < queueSize
+                return (
+                  <div key={i} className={`flex flex-col items-center gap-2 rounded-2xl border px-2 py-4 transition-all ${filled ? "border-amber-400/30 bg-amber-500/10 rb-pop-in" : "border-dashed border-white/[0.08] bg-white/[0.03]"}`}>
+                    <div className={`grid size-10 place-items-center rounded-full ${filled ? "bg-amber-500 text-[#0c1018]" : "bg-white/[0.06] text-white/20"}`}>
+                      {filled
+                        ? <span className="text-sm font-extrabold">{i + 1}</span>
+                        : <Users className="size-4" aria-hidden="true" />}
+                    </div>
+                    <span className={`text-[0.625rem] font-bold ${filled ? "text-amber-300" : "text-white/20"}`}>
+                      {filled ? (i === 0 ? "you" : "ready") : "—"}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="mt-6 flex items-center gap-2">
+              <span className="rb-numeric text-sm font-bold text-white/60">{queueSize} / {queueRequired}</span>
+              <span className="text-xs text-white/30">players in queue</span>
             </div>
           </div>
         ) : null}
 
-        {/* ----------------------------------------------------------- stats */}
-        {phase === "stats" ? (
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pt-6 pb-8 lg:px-8">
-            <div className="grid gap-5 lg:grid-cols-3">
-              {AWARDS.map((award) => (
-                <div key={award.key} className="rb-card rb-card-raised">
-                  <span className={`grid size-14 place-items-center rounded-2xl ${award.tone}`}>
-                    <award.icon className="size-7" aria-hidden="true" />
-                  </span>
-                  <div className="mt-4 font-rb-display text-lg font-extrabold lowercase text-rb-eel">
-                    {award.label}
-                  </div>
-                  <div className="mt-1 font-bold text-rb-eel">{award.who}</div>
-                  <div className="text-sm font-semibold text-rb-wolf">{award.detail}</div>
-                </div>
-              ))}
-            </div>
-
-            <div className="rb-card rb-card-raised mt-5 flex min-h-0 flex-1 flex-col !p-0">
-              <div className="flex shrink-0 items-center gap-2 border-b-2 border-rb-swan px-5 py-4">
-                <Award className="size-5 text-rb-wolf" aria-hidden="true" />
-                <span className="font-rb-display text-lg font-extrabold lowercase text-rb-eel">
-                  final standings
-                </span>
-                <span className="ml-auto flex gap-4 text-[0.625rem] font-bold uppercase tracking-wide text-rb-wolf">
-                  <span className="w-12 text-right">solved</span>
-                  <span className="w-14 text-right">acc.</span>
-                  <span className="w-14 text-right">avg</span>
-                </span>
+        {/* ──────── match found overlay ──────── */}
+        {phase === "found" ? (
+          <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 px-5">
+            <div className="rb-pop-in text-center">
+              <div aria-hidden="true" className="mx-auto mb-4 size-24 animate-pulse rounded-full bg-amber-500/20 blur-2xl" />
+              <div className="font-rb-display text-4xl font-extrabold lowercase text-amber-400 drop-shadow-[0_0_30px_rgba(245,158,11,0.5)] sm:text-6xl">
+                match found!
               </div>
-              <ul className="min-h-0 flex-1 divide-y divide-rb-swan overflow-y-auto">
-                {STANDINGS.map((row, index) => (
-                  <li
-                    key={row.name}
-                    className={`flex items-center gap-4 px-5 py-4 ${row.you ? "bg-rb-feather-wash" : ""}`}
-                  >
-                    <span className="rb-numeric w-6 text-rb-wolf">{index + 1}</span>
-                    <span className="min-w-0 flex-1 truncate font-bold text-rb-eel">{row.name}</span>
-                    <span className="rb-numeric w-12 text-right text-sm text-rb-wolf">{row.solved}</span>
-                    <span className="rb-numeric w-14 text-right text-sm text-rb-wolf">{row.accuracy}%</span>
-                    <span className="rb-numeric w-14 text-right text-sm text-rb-wolf">{row.avg}</span>
-                  </li>
-                ))}
-              </ul>
+              <p className="mt-4 text-lg text-white/60">Bracket is being formed…</p>
+            </div>
+          </div>
+        ) : null}
+
+        {/* ──────── bracket ──────── */}
+        {phase === "bracket" && bracket ? (
+          <div className="flex min-h-0 flex-1 flex-col px-5 lg:px-8">
+            {/* Action bar for current round */}
+            {myCurrentMatch && !isEliminated && !hasSubmittedCurrentRound ? (
+              <div className="mx-auto mt-4 flex w-full max-w-lg items-center gap-3 rounded-2xl border-2 border-rb-feather bg-rb-feather-wash p-4">
+                <div className="flex-1">
+                  <p className="text-sm font-extrabold text-rb-eel">
+                    Your {ROUND_LABELS[bracket.currentRound]} match is ready!
+                  </p>
+                  <p className="mt-1 text-xs text-rb-wolf">
+                    {myCurrentMatch.questionCount} questions · vs {
+                      myCurrentMatch.player1?.learnerId === myLearnerId
+                        ? myCurrentMatch.player2?.displayName
+                        : myCurrentMatch.player1?.displayName
+                    }
+                  </p>
+                </div>
+                <TactileButton
+                  onClick={() => {
+                    if (worldCup?.examId) {
+                      navigate(`/learner/assessments/${worldCup.examId}?arena=worldcup&matchId=${myCurrentMatch.matchId}`)
+                    }
+                  }}
+                >
+                  <Zap className="size-4" aria-hidden="true" />
+                  play round
+                </TactileButton>
+              </div>
+            ) : null}
+
+            {isEliminated ? (
+              <div className="mx-auto mt-4 flex w-full max-w-lg items-center gap-3 rounded-2xl border-2 border-rb-swan bg-rb-polar p-4">
+                <p className="text-sm font-bold text-rb-wolf">
+                  You've been eliminated. Watch the rest of the bracket!
+                </p>
+              </div>
+            ) : null}
+
+            {hasSubmittedCurrentRound && !isEliminated ? (
+              <div className="mx-auto mt-4 flex w-full max-w-lg items-center gap-3 rounded-2xl border-2 border-rb-swan bg-rb-polar p-4">
+                <Loader2 className="size-5 animate-spin text-rb-wolf" aria-hidden="true" />
+                <p className="text-sm font-bold text-rb-wolf">
+                  Waiting for your opponent to finish…
+                </p>
+              </div>
+            ) : null}
+
+            <div className="grid min-h-0 flex-1 place-items-center overflow-auto py-6">
+              <div className="origin-center xl:scale-110 2xl:scale-125">
+                <LiveBracket bracket={bracket} myLearnerId={myLearnerId} />
+              </div>
             </div>
           </div>
         ) : null}

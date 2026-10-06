@@ -108,9 +108,10 @@ export function getLearnerAssessment(assessmentId, learnerId) {
   return base(`learner/assessments/${assessmentId}?learnerId=${learnerId}`)
 }
 
-export function startAssessmentAttempt(assessmentId, learnerId, idempotencyKey, questionIndex) {
+export function startAssessmentAttempt(assessmentId, learnerId, idempotencyKey, questionIndex, matchId) {
   const data = { learnerId, idempotencyKey }
   if (questionIndex != null) data.questionIndex = questionIndex
+  if (matchId != null) data.matchId = matchId
   return base(`learner/assessments/${assessmentId}/attempts`, {
     method: "POST",
     data,

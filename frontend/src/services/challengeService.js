@@ -121,3 +121,47 @@ export async function clearArenaProblems(arenaId) {
   return base(`challenge-arenas/${arenaId}/problems`, { method: "DELETE" })
 }
 
+// World Cup tournament (learner)
+
+export async function joinWorldCupQueue(certificationId) {
+  return base("worldcup/queue", { method: "POST", data: { certificationId } })
+}
+
+export async function leaveWorldCupQueue(certificationId) {
+  return base(`worldcup/queue?certificationId=${certificationId}`, { method: "DELETE" })
+}
+
+export async function getWorldCupQueueStatus(certificationId) {
+  return base(`worldcup/queue?certificationId=${certificationId}`)
+}
+
+export async function getWorldCupBracket(bracketId) {
+  return base(`worldcup/brackets/${bracketId}`)
+}
+
+export async function getMyWorldCupBracket() {
+  return base("worldcup/my-bracket")
+}
+
+export async function getWorldCupHistory() {
+  return base("worldcup/history")
+}
+
+export async function reportWorldCupScore(matchId, attemptId, score) {
+  return base(`worldcup/matches/${matchId}/score`, {
+    method: "POST",
+    data: { attemptId, score },
+  })
+}
+
+// Test helpers (remove after testing)
+export async function seedWorldCupBots(certificationId, count = 7) {
+  return base("worldcup/test/seed-bots", { method: "POST", data: { certificationId, count } })
+}
+export async function simulateBotScores(bracketId) {
+  return base("worldcup/test/bot-scores", { method: "POST", data: { bracketId } })
+}
+export async function cleanupWorldCupTest() {
+  return base("worldcup/test/cleanup", { method: "POST" })
+}
+
