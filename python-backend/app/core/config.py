@@ -544,21 +544,9 @@ class Settings(BaseSettings):
     # having covered the syllabus is the other half of being ready, and it is
     # the component that keeps an untouched course from scoring well on the
     # strength of one good assessment.
-    readiness_mastery_weight: float = 0.40
-    readiness_progress_weight: float = 0.20
-    # The five assessment buckets share 0.38 between them, ordered by how much
-    # of the certification each one puts under test at a single sitting. The
-    # mock exam is the whole paper under exam conditions, so it leads; the major
-    # exam covers a major category; the middle exam a module. The lesson quiz
-    # sits level with the mock exam despite testing the least, because it is the
-    # only component most learners produce enough of to be a stable signal --
-    # and because practice, review and challenge attempts all land in it.
-    #
-    # Major exams were previously summed into the mock-exam bucket, which let a
-    # good section score stand in for never having sat a full paper. Splitting
-    # them did not change the 0.38 the assessments hold in total, only how it is
-    # divided, so mastery, progress and streak are unaffected.
-    readiness_mock_exam_weight: float = 0.10
+    readiness_mastery_weight: float = 0.20
+    readiness_progress_weight: float = 0.10
+    readiness_mock_exam_weight: float = 0.40
     readiness_quiz_weight: float = 0.10
     readiness_major_exam_weight: float = 0.08
     readiness_middle_exam_weight: float = 0.07
