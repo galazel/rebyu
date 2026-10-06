@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import gsap from "gsap"
 import { useGSAP } from "@gsap/react"
 
@@ -20,13 +20,28 @@ gsap.registerPlugin(useGSAP)
  *   `right` -- the ruled page; give each line `className="rb-spread-line"` so it
  *              is written in on open.
  */
-export function FolderShelf({ items, hint = "click to open" }) {
+export function FolderShelf({ items = [], hint = "click to open", carousel = true }) {
   const [openKey, setOpenKey] = useState(null)
+  const [isHovered, setIsHovered] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [tempVisible, setTempVisible] = useState(false)
+
+  // Smooth department transition state
+  const [displayItems, setDisplayItems] = useState(items)
+  const [isFading, setIsFading] = useState(false)
+  const transitionTimerRef = useRef(null)
+
   const scope = useRef(null)
   const timeline = useRef(null)
   const pending = useRef(null)
 
-  const open = items.find((item) => item.key === openKey)
+  const scrollRef = useRef(null)
+  const trackRef = useRef(null)
+  const thumbRef = useRef(null)
+  const hideTimerRef = useRef(null)
+  const pointerStartRef = useRef({ x: 0, scrollLeft: 0, isDown: false, didDrag: false })
+
+  const open = displayItems.find((item) => item.key === openKey)
 
   const prefersReduced = () =>
     typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -60,19 +75,10 @@ export function FolderShelf({ items, hint = "click to open" }) {
       if (prefersReduced()) tl.progress(1)
       else tl.play()
 
-      /* The spread starts at opacity 0 and only the timeline brings it in. GSAP
-         advances on animation frames, and a browser that stops handing those
-         out (an embedded preview, a tab that was in the background) left the
-         folder marked open with nothing visible under it. If the opening has
-         not moved after a beat, show the finished spread outright. */
       const safety = window.setTimeout(() => {
         if (timeline.current === tl && tl.progress() < 0.05 && !tl.reversed()) tl.progress(1)
       }, 1200)
       return () => window.clearTimeout(safety)
-
-      scope.current
-        ?.querySelector(".rb-spread")
-        ?.scrollIntoView({ behavior: prefersReduced() ? "auto" : "smooth", block: "nearest" })
     },
     { scope, dependencies: [openKey], revertOnUpdate: true },
   )
@@ -96,36 +102,359 @@ export function FolderShelf({ items, hint = "click to open" }) {
     else setOpenKey(key)
   }
 
+  // Each folder card occupies 280px + 24px gap = 304px
+  const ITEM_STRIDE = 304
+
+  // Ensure enough items for seamless infinite loop across all viewport widths
+  const baseItems = useMemo(() => {
+    if (!displayItems || displayItems.length === 0) return []
+    let list = [...displayItems]
+    while (list.length < 5) {
+      list = [...list, ...displayItems]
+    }
+    return list
+  }, [displayItems])
+
+  const cycleWidth = baseItems.length * ITEM_STRIDE
+
+  // 4 segments so there is always abundant runway before hitting browser scroll limits
+  const marqueeItems = useMemo(() => {
+    return [...baseItems, ...baseItems, ...baseItems, ...baseItems]
+  }, [baseItems])
+
+  const prevProgressRef = useRef(0)
+
+  const updateThumb = useCallback(() => {
+    const el = scrollRef.current
+    const track = trackRef.current
+    const thumb = thumbRef.current
+    if (!el || !track || !thumb || cycleWidth <= 0) return
+
+    const trackWidth = track.clientWidth
+    if (trackWidth <= 0) return
+
+    // Thumb width: proportional to viewport, clamped between 36px and 25% of track
+    const thumbWidth = Math.max(36, Math.min(trackWidth * 0.25, (el.clientWidth / cycleWidth) * trackWidth))
+    thumb.style.width = `${thumbWidth}px`
+
+    const maxTrack = trackWidth - thumbWidth
+    if (maxTrack <= 0) return
+
+    // Progress within the active cycle [0, 1)
+    const relativeScroll = ((el.scrollLeft - cycleWidth) % cycleWidth + cycleWidth) % cycleWidth
+    const progress = Math.max(0, Math.min(1, relativeScroll / cycleWidth))
+
+    // Smooth reset glide when arriving at the end and wrapping back to the first
+    if (prevProgressRef.current > 0.85 && progress < 0.15) {
+      thumb.style.transition = "transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.15s ease"
+    } else {
+      thumb.style.transition = "background-color 0.15s ease"
+    }
+    prevProgressRef.current = progress
+
+    const translateX = progress * maxTrack
+    thumb.style.transform = `translateX(${translateX}px)`
+  }, [cycleWidth])
+
+  // Handle department changes with silky-smooth dissolve
+  useEffect(() => {
+    if (items === displayItems) return
+
+    setIsFading(true)
+    if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current)
+
+    transitionTimerRef.current = setTimeout(() => {
+      setOpenKey(null)
+      setDisplayItems(items)
+
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          const newBase = [...items]
+          while (newBase.length < 5) {
+            newBase.push(...items)
+          }
+          const newCycle = newBase.length * ITEM_STRIDE
+          scrollRef.current.scrollLeft = newCycle
+        }
+        updateThumb()
+        setIsFading(false)
+      })
+    }, 180)
+
+    return () => {
+      if (transitionTimerRef.current) clearTimeout(transitionTimerRef.current)
+    }
+  }, [items, displayItems, updateThumb])
+
+  const triggerTemporaryVisibility = useCallback(() => {
+    setTempVisible(true)
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+    hideTimerRef.current = setTimeout(() => {
+      setTempVisible(false)
+    }, 1800)
+  }, [])
+
+  // Position at middle segment initially so users can scroll left or right immediately
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (scrollRef.current && cycleWidth > 0) {
+        scrollRef.current.scrollLeft = cycleWidth
+        updateThumb()
+      }
+    }, 50)
+    return () => clearTimeout(timer)
+  }, [cycleWidth, updateThumb])
+
+  // Marquee auto-scroll loop (pauses on hover, drag, open folder, or reduced motion)
+  useEffect(() => {
+    if (!carousel || displayItems.length === 0 || cycleWidth <= 0) return
+    if (prefersReduced()) return
+
+    let animId
+    let lastTime = performance.now()
+    const speed = 35 // px per second
+
+    const tick = (now) => {
+      const dt = (now - lastTime) / 1000
+      lastTime = now
+
+      if (!isHovered && !isDragging && openKey === null && scrollRef.current && !isFading) {
+        const el = scrollRef.current
+        el.scrollLeft += speed * dt
+        if (el.scrollLeft >= cycleWidth * 2) {
+          el.scrollLeft -= cycleWidth
+        }
+        updateThumb()
+      }
+      animId = requestAnimationFrame(tick)
+    }
+
+    animId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(animId)
+  }, [carousel, displayItems.length, isHovered, isDragging, openKey, cycleWidth, isFading, updateThumb])
+
+  const handleScroll = () => {
+    const el = scrollRef.current
+    if (!el || cycleWidth <= 0) return
+    if (el.scrollLeft >= cycleWidth * 2) {
+      el.scrollLeft -= cycleWidth
+    } else if (el.scrollLeft < cycleWidth) {
+      el.scrollLeft += cycleWidth
+    }
+    updateThumb()
+    triggerTemporaryVisibility()
+  }
+
+  const handleTrackClick = (e) => {
+    if (e.target === thumbRef.current) return
+    const track = trackRef.current
+    const el = scrollRef.current
+    const thumb = thumbRef.current
+    if (!track || !el || !thumb || cycleWidth <= 0) return
+
+    const rect = track.getBoundingClientRect()
+    const clickX = e.clientX - rect.left
+    const thumbW = thumb.clientWidth
+    const maxTrack = track.clientWidth - thumbW
+    if (maxTrack <= 0) return
+
+    const targetProgress = Math.max(0, Math.min(1, (clickX - thumbW / 2) / maxTrack))
+    const targetScroll = cycleWidth + targetProgress * cycleWidth
+
+    el.scrollTo({ left: targetScroll, behavior: "smooth" })
+    triggerTemporaryVisibility()
+  }
+
+  const handleThumbPointerDown = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+    triggerTemporaryVisibility()
+
+    const startX = e.clientX
+    const startScrollLeft = scrollRef.current ? scrollRef.current.scrollLeft : 0
+    const track = trackRef.current
+    const thumb = thumbRef.current
+    const el = scrollRef.current
+    if (!track || !thumb || !el || cycleWidth <= 0) return
+
+    thumb.style.transition = "none"
+    const maxTrack = track.clientWidth - thumb.clientWidth
+
+    const onPointerMove = (moveEvent) => {
+      const deltaX = moveEvent.clientX - startX
+      if (maxTrack > 0) {
+        const deltaProgress = deltaX / maxTrack
+        const targetScroll = startScrollLeft + deltaProgress * cycleWidth
+        el.scrollLeft = targetScroll
+        updateThumb()
+      }
+    }
+
+    const onPointerUp = () => {
+      setIsDragging(false)
+      triggerTemporaryVisibility()
+      window.removeEventListener("pointermove", onPointerMove)
+      window.removeEventListener("pointerup", onPointerUp)
+      window.removeEventListener("pointercancel", onPointerUp)
+    }
+
+    window.addEventListener("pointermove", onPointerMove)
+    window.addEventListener("pointerup", onPointerUp)
+    window.addEventListener("pointercancel", onPointerUp)
+  }
+
+  const handleCarouselPointerDown = (e) => {
+    if (e.button !== 0 && e.pointerType === "mouse") return
+    pointerStartRef.current = {
+      x: e.clientX,
+      scrollLeft: scrollRef.current ? scrollRef.current.scrollLeft : 0,
+      isDown: true,
+      didDrag: false,
+    }
+  }
+
+  const handleCarouselPointerMove = (e) => {
+    if (!pointerStartRef.current.isDown || !scrollRef.current) return
+    const deltaX = e.clientX - pointerStartRef.current.x
+    if (Math.abs(deltaX) > 6) {
+      pointerStartRef.current.didDrag = true
+      setIsDragging(true)
+      scrollRef.current.scrollLeft = pointerStartRef.current.scrollLeft - deltaX
+      updateThumb()
+    }
+  }
+
+  const handleCarouselPointerUp = () => {
+    if (pointerStartRef.current.isDown) {
+      pointerStartRef.current.isDown = false
+      setIsDragging(false)
+      setTimeout(() => {
+        pointerStartRef.current.didDrag = false
+      }, 60)
+    }
+  }
+
+  const isVisible = isHovered || isDragging || tempVisible
+
   return (
     <div ref={scope}>
-      <div className="rb-folder-shelf">
-        {items.map((item) => {
-          const Icon = item.icon
-          const isOpen = item.key === openKey
-          return (
-            <button
-              key={item.key}
-              type="button"
-              className="rb-folder"
-              style={{ "--folder": item.color.face, "--folder-edge": item.color.edge }}
-              aria-expanded={isOpen}
-              aria-controls="rb-folder-spread"
-              onClick={() => toggle(item.key)}
+      {carousel && displayItems.length > 0 ? (
+        <div
+          className="relative w-full group/shelf"
+          onMouseEnter={() => {
+            setIsHovered(true)
+            if (hideTimerRef.current) clearTimeout(hideTimerRef.current)
+          }}
+          onMouseLeave={() => {
+            setIsHovered(false)
+            triggerTemporaryVisibility()
+          }}
+        >
+          {/* Subtle edge fades for continuous shelf depth */}
+          <div className="pointer-events-none absolute inset-y-0 left-0 w-10 md:w-20 bg-gradient-to-r from-white via-white/80 to-transparent z-10" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-10 md:w-20 bg-gradient-to-l from-white via-white/80 to-transparent z-10" />
+
+          {/* Draggable & scrollable carousel row */}
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            onPointerDown={handleCarouselPointerDown}
+            onPointerMove={handleCarouselPointerMove}
+            onPointerUp={handleCarouselPointerUp}
+            className={`relative w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pt-7 pb-3 cursor-grab active:cursor-grabbing select-none transition-all duration-300 ease-out ${
+              isFading ? "opacity-0 scale-[0.985] blur-[1px]" : "opacity-100 scale-100 blur-0"
+            }`}
+          >
+            <div className="flex w-max gap-6 px-4">
+              {marqueeItems.map((item, index) => {
+                const Icon = item.icon
+                const isOpen = item.key === openKey
+                return (
+                  <div key={`${item.key}-${index}`} className="w-[280px] min-w-[280px] max-w-[280px] shrink-0">
+                    <button
+                      type="button"
+                      className="rb-folder w-full"
+                      style={{ "--folder": item.color.face, "--folder-edge": item.color.edge }}
+                      aria-expanded={isOpen}
+                      aria-controls="rb-folder-spread"
+                      onClick={() => {
+                        if (pointerStartRef.current.didDrag) return
+                        toggle(item.key)
+                      }}
+                    >
+                      <span className="rb-folder-back" aria-hidden="true">
+                        <span className="rb-folder-tab">{item.tab}</span>
+                      </span>
+                      <span className="rb-folder-sheet" aria-hidden="true" />
+                      <span className="rb-folder-front">
+                        {Icon ? <Icon className="size-7 text-[#4a3516]" aria-hidden="true" /> : null}
+                        <span className="rb-folder-title">{item.title}</span>
+                        <span className="rb-folder-meta">{item.meta}</span>
+                        <span className="rb-folder-hint">{isOpen ? "open below — click to close" : hint}</span>
+                      </span>
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Subtle disappearing scrollbar */}
+          <div
+            className={`mt-4 flex items-center justify-center transition-all duration-300 ease-out ${
+              isFading ? "opacity-0 scale-95" : isVisible ? "opacity-100 scale-100" : "opacity-0 pointer-events-none scale-100"
+            }`}
+            aria-hidden={!isVisible}
+          >
+            <div
+              ref={trackRef}
+              onClick={handleTrackClick}
+              className="group/track relative flex items-center w-48 sm:w-64 md:w-80 py-3 -my-3 cursor-pointer select-none"
+              title="Drag or click to navigate certifications"
             >
-              <span className="rb-folder-back" aria-hidden="true">
-                <span className="rb-folder-tab">{item.tab}</span>
-              </span>
-              <span className="rb-folder-sheet" aria-hidden="true" />
-              <span className="rb-folder-front">
-                {Icon ? <Icon className="size-7 text-[#4a3516]" aria-hidden="true" /> : null}
-                <span className="rb-folder-title">{item.title}</span>
-                <span className="rb-folder-meta">{item.meta}</span>
-                <span className="rb-folder-hint">{isOpen ? "open below — click to close" : hint}</span>
-              </span>
-            </button>
-          )
-        })}
-      </div>
+              <div className="relative w-full h-1 group-hover/track:h-1.5 rounded-full bg-black/10 transition-[height,background-color] duration-200 overflow-hidden">
+                <div
+                  ref={thumbRef}
+                  onPointerDown={handleThumbPointerDown}
+                  className="absolute top-0 bottom-0 rounded-full bg-[#123126]/35 hover:bg-[#123126]/60 active:bg-[#123126]/80 cursor-grab active:cursor-grabbing transition-[background-color] duration-150"
+                  style={{ width: "48px", transform: "translateX(0px)" }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="rb-folder-shelf">
+          {displayItems.map((item) => {
+            const Icon = item.icon
+            const isOpen = item.key === openKey
+            return (
+              <div key={item.key} className="w-[280px] min-w-[280px] max-w-[280px] shrink-0">
+                <button
+                  type="button"
+                  className="rb-folder w-full"
+                  style={{ "--folder": item.color.face, "--folder-edge": item.color.edge }}
+                  aria-expanded={isOpen}
+                  aria-controls="rb-folder-spread"
+                  onClick={() => toggle(item.key)}
+                >
+                  <span className="rb-folder-back" aria-hidden="true">
+                    <span className="rb-folder-tab">{item.tab}</span>
+                  </span>
+                  <span className="rb-folder-sheet" aria-hidden="true" />
+                  <span className="rb-folder-front">
+                    {Icon ? <Icon className="size-7 text-[#4a3516]" aria-hidden="true" /> : null}
+                    <span className="rb-folder-title">{item.title}</span>
+                    <span className="rb-folder-meta">{item.meta}</span>
+                    <span className="rb-folder-hint">{isOpen ? "open below — click to close" : hint}</span>
+                  </span>
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {open ? (
         <section

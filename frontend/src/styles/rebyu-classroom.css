@@ -759,16 +759,29 @@ body.netacad-overlay-theme {
     box-shadow: 0 1px 3px rgb(20 14 8 / 0.25);
 }
 
+@keyframes marquee-scroll {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-50%);
+    }
+}
+
 /* Folders */
 .rb-folder-shelf {
-    display: grid;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 2rem 1.5rem;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 .rb-folder {
     position: relative;
     display: block;
-    width: 100%;
+    width: 280px;
+    min-width: 280px;
+    max-width: 280px;
+    box-sizing: border-box;
     padding-top: 24px;
     text-align: left;
     cursor: pointer;
@@ -790,13 +803,17 @@ body.netacad-overlay-theme {
     top: -24px;
     left: 0;
     min-width: 42%;
+    max-width: 65%;
     height: 26px;
     padding: 3px 14px 0;
     border-radius: 10px 10px 0 0;
     background: var(--folder-edge);
     font-family: var(--font-rb-display);
-    font-size: 15px;
+    font-size: 14px;
     color: #3d2b12;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .rb-folder-sheet {
     position: absolute;
@@ -816,7 +833,10 @@ body.netacad-overlay-theme {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
-    min-height: 190px;
+    height: 228px;
+    min-height: 228px;
+    max-height: 228px;
+    box-sizing: border-box;
     margin-top: 22px;
     padding: 1.25rem 1.35rem 1.1rem;
     border-radius: 6px 12px 12px 12px;
@@ -834,6 +854,18 @@ body.netacad-overlay-theme {
 .rb-folder:focus-visible .rb-folder-sheet,
 .rb-folder[aria-expanded="true"] .rb-folder-sheet {
     transform: translateY(-16px);
+}
+.rb-folder .rb-folder-title {
+    margin-top: 0.35rem;
+    font-family: var(--font-rb-display);
+    font-size: 1.3rem;
+    line-height: 1.2;
+    color: #2e2210;
+    height: 3.25rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 .rb-folder-title {
     margin-top: 0.4rem;

@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
+  Activity,
   ArrowRight,
+  ArrowUp,
+  Award,
   BarChart3,
   BookOpen,
   Bookmark,
@@ -13,6 +17,7 @@ import {
   Code2,
   Cpu,
   FileText,
+  Flame,
   Gift,
   Heart,
   Layers,
@@ -21,9 +26,12 @@ import {
   MessageCircle,
   Medal,
   Network,
+  Shield,
+  ShieldCheck,
   Sparkles,
   Star,
   Target,
+  ChevronDown,
   Users,
   X,
   Zap,
@@ -89,10 +97,7 @@ const NAV_ITEMS = [
      naming each one turned a five-item bar into a table of contents for a page
      the visitor is going to scroll anyway. */
   { label: "features", href: "#features" },
-  /* The one off-page entry: a school or training centre asking for
-     institutional access. It is a route, not an anchor, and a plain <a> gets
-     there fine -- the request page is its own full load anyway. */
-  { label: "get access", href: "/institution/request-access" },
+  { label: "get access", href: "#get-access" },
 ];
 
 const HOW_IT_WORKS = [
@@ -122,10 +127,24 @@ const HOW_IT_WORKS = [
   },
 ];
 
+/* UCLM Departments / Colleges and their corresponding non-board level certifications */
+const DEPARTMENTS = [
+  { id: "all", name: "All Departments", code: "ALL", description: "All technical & industry certifications across colleges" },
+  { id: "ccs", name: "College of Computer Studies", code: "CCS", description: "Information Technology & Computer Science" },
+  { id: "cba", name: "College of Business Administration and Accountancy", code: "CBAA", description: "BSA, BSMA, BSBA & Professional Certifications" },
+  { id: "coe", name: "College of Engineering", code: "COE", description: "Computer, Electronics, Electrical, Mechanical & Civil Engineering" },
+  { id: "cms", name: "College of Maritime Studies", code: "CMS", description: "STCW Mandatory Training & Maritime Competency Certificates" },
+  { id: "chtm", name: "College of Hospitality and Tourism Management", code: "CHTM", description: "UCLM TETAC TESDA National Competency (NC II) Credentials" },
+  { id: "con", name: "College of Nursing", code: "CON", description: "AHA Healthcare BLS/ACLS & TESDA Competencies" },
+];
+
 /* `wordmark` is set oversized and clipped inside the card header — it does the
    work a photo used to, without the stock-image feel. */
 const CERTIFICATIONS = [
+  // CCS (College of Computer Studies) — retaining strictly the original 3
   {
+    department: "ccs",
+    departmentName: "Computer Studies",
     title: "TOPCIT",
     wordmark: "topcit",
     tone: "macaw",
@@ -143,6 +162,8 @@ const CERTIFICATIONS = [
     ],
   },
   {
+    department: "ccs",
+    departmentName: "Computer Studies",
     title: "IT Passport",
     wordmark: "passport",
     tone: "bee",
@@ -154,6 +175,8 @@ const CERTIFICATIONS = [
     topics: ["Strategy", "Management", "Technology"],
   },
   {
+    department: "ccs",
+    departmentName: "Computer Studies",
     title: "FE Exam",
     wordmark: "fe",
     tone: "beetle",
@@ -172,6 +195,360 @@ const CERTIFICATIONS = [
       "System architecture",
       "Project management",
       "IT strategy",
+    ],
+  },
+
+  // CBA (College of Business Administration and Accountancy: BSA / BSMA / BSBA)
+  {
+    department: "cba",
+    departmentName: "Business Administration",
+    title: "Certified Bookkeeper (CB)",
+    wordmark: "bookkeeper",
+    tone: "bee",
+    icon: BarChart3,
+    summary:
+      "National Institute of Accounting Technicians (NIAT) credential for computerized double-entry accounting, payroll, and tax compliance.",
+    lessons: 58,
+    questions: "760",
+    topics: [
+      "Double-entry bookkeeping & journalizing",
+      "Bank reconciliations & adjusting entries",
+      "Payroll administration & statutory deductions",
+      "Preparation of trial balance & financial reports",
+    ],
+  },
+  {
+    department: "cba",
+    departmentName: "Business Administration",
+    title: "Certified Tax Technician (CTT)",
+    wordmark: "tax-tech",
+    tone: "honey",
+    icon: FileText,
+    summary:
+      "Philippine Institute of Certified Tax Technicians (PICAT) / NIAT credential for corporate taxation, withholding taxes, and TRAIN law compliance.",
+    lessons: 62,
+    questions: "820",
+    topics: [
+      "Income taxation & corporate tax returns",
+      "Value-Added Tax (VAT) & percentage taxes",
+      "Withholding tax administration & remittances",
+      "Tax compliance, audit documentation & BIR rules",
+    ],
+  },
+  {
+    department: "cba",
+    departmentName: "Business Administration",
+    title: "Certified Tax Bookkeeper (CTB)",
+    wordmark: "tax-book",
+    tone: "fox",
+    icon: BarChart3,
+    summary:
+      "NIAT recognized professional credential blending commercial corporate bookkeeping with Philippine regulatory tax filings.",
+    lessons: 54,
+    questions: "710",
+    topics: [
+      "Tax accounting & general ledger reconciliations",
+      "BIR monthly, quarterly & annual filing preparation",
+      "Allowable business deductions & tax liabilities",
+      "Financial statement compilation for tax compliance",
+    ],
+  },
+  {
+    department: "cba",
+    departmentName: "Business Administration",
+    title: "Registered Cost Accountant (RCA)",
+    wordmark: "rca",
+    tone: "sea",
+    icon: Layers,
+    summary:
+      "Institute of Certified Management Accountants (ICMA) & NIAT certification in manufacturing cost systems, budgeting, and variance analysis.",
+    lessons: 70,
+    questions: "940",
+    topics: [
+      "Job order & process costing systems",
+      "Activity-Based Costing (ABC) & overhead allocation",
+      "Cost-Volume-Profit (CVP) & breakeven analysis",
+      "Standard costing & budgetary variance control",
+    ],
+  },
+
+  // CHTM (College of Hospitality and Tourism Management - UCLM TETAC TESDA NC II)
+  {
+    department: "chtm",
+    departmentName: "Hospitality & Tourism",
+    title: "Cookery NC II",
+    wordmark: "cookery",
+    tone: "fox",
+    icon: Flame,
+    summary:
+      "TESDA National Certificate assessed via UCLM TETAC for commercial hot and cold food preparation, culinary fundamentals, and HACCP safety.",
+    lessons: 72,
+    questions: "920",
+    topics: [
+      "Workplace hygiene & safe food handling",
+      "Mise en place, knife skills & kitchen safety",
+      "Stocks, soups, mother sauces & appetizers",
+      "Meat, poultry, seafood & vegetable cookery",
+      "Portion control, food plating & temperature standards",
+    ],
+  },
+  {
+    department: "chtm",
+    departmentName: "Hospitality & Tourism",
+    title: "Front Office Services NC II",
+    wordmark: "front-office",
+    tone: "bee",
+    icon: Star,
+    summary:
+      "TESDA credential assessed at UCLM TETAC for hotel Property Management Systems (PMS), reservations, guest relations, and night audit.",
+    lessons: 56,
+    questions: "740",
+    topics: [
+      "Hotel PMS reservations & booking management",
+      "Guest arrival, registration, check-in & check-out",
+      "Concierge services, inquiries & local tour guidance",
+      "Guest billing, cash handling & night audit procedures",
+    ],
+  },
+  {
+    department: "chtm",
+    departmentName: "Hospitality & Tourism",
+    title: "Housekeeping NC II",
+    wordmark: "housekeeping",
+    tone: "fern",
+    icon: Award,
+    summary:
+      "TESDA standard covering hotel guestroom staging, sanitization standards, public area maintenance, and linen/fabric care.",
+    lessons: 50,
+    questions: "680",
+    topics: [
+      "Guestroom servicing, bed making & turndown service",
+      "Public area deep sanitization & housekeeping inspection",
+      "Commercial laundry operations & fabric care",
+      "Safe handling of cleaning chemicals & equipment maintenance",
+    ],
+  },
+  {
+    department: "chtm",
+    departmentName: "Hospitality & Tourism",
+    title: "Bartending NC II",
+    wordmark: "bartending",
+    tone: "honey",
+    icon: Sparkles,
+    summary:
+      "TESDA credential assessed at UCLM TETAC for professional beverage preparation, cocktail mixology, wine service, and bar management.",
+    lessons: 52,
+    questions: "700",
+    topics: [
+      "Bar station preparation & glassware maintenance",
+      "Classic & contemporary cocktail mixology techniques",
+      "Wine classification, decanting & formal table service",
+      "Responsible service of alcohol & bar inventory control",
+    ],
+  },
+  {
+    department: "chtm",
+    departmentName: "Hospitality & Tourism",
+    title: "Food & Beverage Services NC II",
+    wordmark: "fnb-service",
+    tone: "macaw",
+    icon: Medal,
+    summary:
+      "TESDA qualification for dining room banquet setup, formal table service sequences (American, Russian, French), and customer hospitality.",
+    lessons: 58,
+    questions: "780",
+    topics: [
+      "Dining area preparation & formal table cover layout",
+      "Welcoming guests, seating & taking food orders",
+      "Food and beverage service styles & clearing techniques",
+      "Banquet service workflows & guest check settlement",
+    ],
+  },
+
+  // College of Maritime Studies (STCW Mandatory Training Certificates)
+  {
+    department: "cms",
+    departmentName: "Maritime Studies",
+    title: "Basic Training (BT)",
+    wordmark: "bt-stcw",
+    tone: "sea",
+    icon: ShieldCheck,
+    summary:
+      "Mandatory STCW maritime safety foundation covering Personal Survival Techniques (PST), Fire Prevention, Elementary First Aid, and PSSR.",
+    lessons: 80,
+    questions: "1,100",
+    topics: [
+      "Personal Survival Techniques (PST) & life-saving appliances",
+      "Fire Prevention & Fire Fighting (FPFF) at sea",
+      "Elementary First Aid (EFA) & emergency triage",
+      "Personal Safety & Social Responsibilities (PSSR)",
+    ],
+  },
+  {
+    department: "cms",
+    departmentName: "Maritime Studies",
+    title: "Ship Security Awareness (SSA)",
+    wordmark: "ssa-isps",
+    tone: "beetle",
+    icon: Shield,
+    summary:
+      "STCW and ISPS Code mandatory training in recognizing maritime security risks, anti-piracy countermeasures, and ship security protocols.",
+    lessons: 44,
+    questions: "580",
+    topics: [
+      "ISPS Code framework & security levels (1, 2, 3)",
+      "Threat identification, reconnaissance & reporting",
+      "Access control, searches & contraband detection",
+      "Anti-piracy protocols & shipboard emergency procedures",
+    ],
+  },
+  {
+    department: "cms",
+    departmentName: "Maritime Studies",
+    title: "Ratings Forming Part of a Navigational Watch (RFPNW)",
+    wordmark: "rfpnw",
+    tone: "macaw",
+    icon: Target,
+    summary:
+      "STCW Regulation II/4 certification for lookout watchkeeping, magnetic and gyro compass steering commands, and bridge bridge-to-engine handovers.",
+    lessons: 64,
+    questions: "840",
+    topics: [
+      "Bridge watchkeeping duties & COLREGs lookout rules",
+      "Steering orders, rudder commands & gyro/magnetic heading",
+      "Internal bridge communication & emergency alarms",
+      "IALA buoyage recognition & navigational handover checklist",
+    ],
+  },
+  {
+    department: "cms",
+    departmentName: "Maritime Studies",
+    title: "Radar Simulator Training",
+    wordmark: "radar",
+    tone: "plum",
+    icon: Network,
+    summary:
+      "STCW simulator training in marine radar operation, automatic radar plotting aids (ARPA), collision avoidance, and restricted visibility navigation.",
+    lessons: 60,
+    questions: "800",
+    topics: [
+      "Radar operational controls, tuning & clutter rejection",
+      "Manual plotting, CPA and TCPA calculation",
+      "ARPA target acquisition, tracking & vector displays",
+      "Navigation and collision avoidance in heavy sea & fog",
+    ],
+  },
+
+  // College of Engineering (COE)
+  {
+    department: "coe",
+    departmentName: "College of Engineering",
+    title: "Cisco Certified Network Associate (CCNA)",
+    wordmark: "ccna",
+    tone: "sea",
+    icon: Network,
+    summary:
+      "Cisco Networking Academy industry certification covering IP routing, Ethernet switching, cybersecurity basics, and network automation.",
+    lessons: 98,
+    questions: "1,320",
+    topics: [
+      "Network fundamentals & IPv4/IPv6 subnetting",
+      "VLANs, trunking & inter-VLAN routing",
+      "OSPF routing & IP services (DHCP/DNS/NAT)",
+      "Network security concepts & access control lists (ACLs)",
+      "Automation, REST APIs & software-defined networking",
+    ],
+  },
+  {
+    department: "coe",
+    departmentName: "Engineering",
+    title: "Electrical Installation & Maintenance NC II",
+    wordmark: "eim-ncii",
+    tone: "honey",
+    icon: Zap,
+    summary:
+      "TESDA certification covering residential and commercial building wiring, conduit bending, electrical load calculations, and PEC compliance.",
+    lessons: 66,
+    questions: "880",
+    topics: [
+      "Electrical blueprints & schematic diagrams",
+      "Conduit bending (EMT & PVC) & cable raceway installation",
+      "Wiring devices, circuit breakers & distribution panels",
+      "System testing, troubleshooting & Philippine Electrical Code",
+    ],
+  },
+  {
+    department: "coe",
+    departmentName: "Engineering",
+    title: "Mechatronics Servicing NC II / NC III",
+    wordmark: "mechatronics",
+    tone: "beetle",
+    icon: Cpu,
+    summary:
+      "TESDA qualification in industrial automation, electro-pneumatic systems, PLC ladder programming, and robotic machinery servicing.",
+    lessons: 74,
+    questions: "960",
+    topics: [
+      "Electro-pneumatic circuits & hydraulic actuator systems",
+      "Programmable Logic Controllers (PLC) ladder logic",
+      "Industrial sensors, signal conditioning & servo motors",
+      "Diagnostic testing & automated system commissioning",
+    ],
+  },
+
+  // College of Nursing (CoN)
+  {
+    department: "con",
+    departmentName: "College of Nursing",
+    title: "Basic Life Support (BLS)",
+    wordmark: "bls",
+    tone: "beetle",
+    icon: Heart,
+    summary:
+      "Standard healthcare provider life-saving certification required for clinical rotations, covering CPR, AED use, and airway emergencies.",
+    lessons: 48,
+    questions: "640",
+    topics: [
+      "High-quality adult, child & infant CPR techniques",
+      "Automated External Defibrillator (AED) rapid operation",
+      "Barrier devices, bag-valve-mask (BVM) ventilations",
+      "Relief of foreign-body airway obstruction (choking)",
+    ],
+  },
+  {
+    department: "con",
+    departmentName: "College of Nursing",
+    title: "Advanced Cardiovascular Life Support (ACLS)",
+    wordmark: "acls",
+    tone: "fox",
+    icon: Activity,
+    summary:
+      "Advanced clinical emergency resuscitation covering cardiac rhythm recognition, code team dynamics, airway management, and pharmacology.",
+    lessons: 66,
+    questions: "860",
+    topics: [
+      "Systematic clinical assessment & high-performance team dynamics",
+      "Recognition & management of acute arrhythmias & ECG analysis",
+      "Defibrillation, synchronized cardioversion & transcutaneous pacing",
+      "Cardiac arrest pharmacology & post-cardiac arrest care",
+    ],
+  },
+  {
+    department: "con",
+    departmentName: "College of Nursing",
+    title: "Health Care Services NC II",
+    wordmark: "healthcare",
+    tone: "fern",
+    icon: Award,
+    summary:
+      "TESDA national certification in clinical patient care, vital signs monitoring, bedside assistance, infection control, and sterile protocol.",
+    lessons: 60,
+    questions: "790",
+    topics: [
+      "Accurate vital signs monitoring & clinical charting",
+      "Patient bed mobility, safe transfer techniques & positioning",
+      "Clinical infection prevention & biomedical waste disposal",
+      "Bedside personal care, bathing & comfort measures",
     ],
   },
 ];
@@ -302,15 +679,56 @@ function BrandMark({ light = false }) {
 function LandingNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState(null);
   /* Which link the pointer is on, so one shared pill can slide between them
      rather than seven independent backgrounds fading in and out. */
   const [hoveredNav, setHoveredNav] = useState(null);
 
   useEffect(() => {
-    const update = () => setIsScrolled(window.scrollY > 24);
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      setIsScrolled(scrollY > 24);
+
+      // In the hero/first page fold, no section is active and fonts are not bold
+      if (scrollY < window.innerHeight * 0.45) {
+        setActiveSection(null);
+        return;
+      }
+
+      const sectionIds = [
+        "about",
+        "problem",
+        "how-it-works",
+        "certifications",
+        "features",
+        "get-access",
+      ];
+
+      const headerOffset = 140; // Navbar height + offset
+      let current = null;
+
+      for (let i = sectionIds.length - 1; i >= 0; i--) {
+        const id = sectionIds[i];
+        const el = document.getElementById(id);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= headerOffset) {
+            current = `#${id}`;
+            break;
+          }
+        }
+      }
+
+      setActiveSection(current);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleScroll);
+    };
   }, []);
 
   useEffect(() => {
@@ -332,6 +750,27 @@ function LandingNavbar() {
 
   const close = () => setMobileMenuOpen(false);
 
+  const handleBrandClick = (e) => {
+    close();
+    if (window.location.pathname === "/" || window.location.pathname === "/welcome") {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleNavClick = (e, href) => {
+    if (href.startsWith("#")) {
+      e.preventDefault();
+      close();
+      const targetId = href.slice(1);
+      const targetEl = document.getElementById(targetId);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        window.history.pushState(null, "", href);
+      }
+    }
+  };
+
   /* Sits on the hero's classroom photo while the page is at the top, so the
      bar is see-through with light text there. Once scrolled over the white
      sections -- or with the mobile menu open -- it takes its solid background
@@ -349,7 +788,7 @@ function LandingNavbar() {
         }`}
       >
         <div className="mx-auto flex h-20 w-full max-w-[1280px] items-center justify-between gap-6 px-5 lg:px-8">
-          <Link to="/welcome" onClick={close} className="shrink-0">
+          <Link to="/" onClick={handleBrandClick} className="shrink-0" aria-label="Rebyu Home">
             <BrandMark light={overHero} />
           </Link>
 
@@ -362,35 +801,42 @@ function LandingNavbar() {
             className="hidden items-center gap-1 lg:flex"
             onMouseLeave={() => setHoveredNav(null)}
           >
-            {NAV_ITEMS.map((item) => (
-              <a
-                key={item.href}
-                href={item.href}
-                onMouseEnter={() => setHoveredNav(item.href)}
-                onFocus={() => setHoveredNav(item.href)}
-                className={`relative rounded-rb-pill px-4 py-2 font-rb-display text-[0.9375rem] font-extrabold transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw ${
-                  hoveredNav === item.href
-                    ? "text-rb-eel"
-                    : overHero
+            {NAV_ITEMS.map((item) => {
+              const isActive = !overHero && activeSection === item.href;
+              const isHovered = hoveredNav === item.href;
+
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  onClick={(e) => handleNavClick(e, item.href)}
+                  onMouseEnter={() => setHoveredNav(item.href)}
+                  onFocus={() => setHoveredNav(item.href)}
+                  className={`relative rounded-rb-pill px-4 py-2 font-rb-display text-[0.9375rem] transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw ${
+                    isActive ? "font-bold text-rb-eel" : "font-medium"
+                  } ${
+                    overHero
                       ? "text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]"
-                      : "text-rb-wolf"
-                }`}
-              >
-                {/* Painted before the label and lifted back with a positive
-                    z-index on the text, not a negative one on the pill: the <a>
-                    sets `position` without a `z-index`, so it opens no stacking
-                    context and a negative layer would sink behind the header's
-                    own background. */}
-                {hoveredNav === item.href ? (
-                  <motion.span
-                    layoutId="landing-nav-pill"
-                    className="absolute inset-0 rounded-rb-pill bg-rb-polar"
-                    transition={{ type: "spring", stiffness: 480, damping: 38, mass: 0.7 }}
-                  />
-                ) : null}
-                <span className="relative z-10">{item.label}</span>
-              </a>
-            ))}
+                      : isHovered || isActive
+                        ? "text-rb-eel"
+                        : "text-rb-wolf hover:text-rb-eel"
+                  }`}
+                >
+                  {isHovered ? (
+                    <motion.span
+                      layoutId="landing-nav-pill"
+                      className={`absolute inset-0 rounded-rb-pill ${
+                        overHero
+                          ? "bg-white/15 backdrop-blur-md border border-white/20 shadow-sm"
+                          : "bg-black/[0.05] border border-black/[0.04]"
+                      }`}
+                      transition={{ type: "spring", stiffness: 480, damping: 38, mass: 0.7 }}
+                    />
+                  ) : null}
+                  <span className="relative z-10">{item.label}</span>
+                </a>
+              );
+            })}
           </nav>
 
           <div className="hidden items-center gap-3 lg:flex">
@@ -440,17 +886,22 @@ function LandingNavbar() {
                   animate="show"
                   variants={staggerParent(0.04, 0.06)}
                 >
-                  {NAV_ITEMS.map((item) => (
-                    <motion.a
-                      key={item.href}
-                      href={item.href}
-                      onClick={close}
-                      variants={fadeUp}
-                      className="rounded-rb-tile px-4 py-3.5 font-rb-display text-lg font-extrabold text-rb-eel transition-colors hover:bg-rb-polar"
-                    >
-                      {item.label}
-                    </motion.a>
-                  ))}
+                  {NAV_ITEMS.map((item) => {
+                    const isActive = activeSection === item.href;
+                    return (
+                      <motion.a
+                        key={item.href}
+                        href={item.href}
+                        onClick={(e) => handleNavClick(e, item.href)}
+                        variants={fadeUp}
+                        className={`rounded-rb-tile px-4 py-3.5 font-rb-display text-lg transition-colors hover:bg-rb-polar ${
+                          isActive ? "font-bold text-rb-eel bg-rb-polar/60" : "font-medium text-rb-wolf"
+                        }`}
+                      >
+                        {item.label}
+                      </motion.a>
+                    );
+                  })}
                 </motion.nav>
                 <div className="mt-4 flex flex-col gap-3">
                   <TactileButton asChild>
@@ -495,7 +946,7 @@ function HeroSection() {
       >
         <div className="rb-chalkboard rb-hero-board px-6 pb-16 pt-12 text-center sm:px-16 sm:pb-24 sm:pt-16">
           <motion.p variants={fadeUp} className="rb-chalk-label mx-auto">
-            <Typewriter text="for TOPCIT, IT Passport & FE exam candidates" speed={34} startOnMount />
+            <Typewriter text="for technical & industry certification candidates" speed={34} startOnMount />
           </motion.p>
 
           <motion.h1
@@ -842,85 +1293,228 @@ function CertificationSection() {
      actual topic list on the page. What a reader wants here is "what is in the
      system", and that is the topics. Each certification is a paper folder that
      opens like a book onto its topic list. */
-  /* One folder colour per certification: manila, sage and a dusty blue. */
+  /* Expanded folder colors for each industry certification */
   const FOLDER = {
     macaw: { face: "#ecd29a", edge: "#d5b06b" },
     bee: { face: "#d3e2c4", edge: "#aec79c" },
     beetle: { face: "#efd2c2", edge: "#d9ab93" },
+    fox: { face: "#fcd4b4", edge: "#e8a474" },
+    sea: { face: "#c9e2ea", edge: "#92bed1" },
+    fern: { face: "#d0e6d5", edge: "#9bc4a3" },
+    plum: { face: "#e7d6eb", edge: "#c4a3ca" },
+    honey: { face: "#fae5a8", edge: "#e4be5c" },
   };
+
+  const [selectedDept, setSelectedDept] = useState("all");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const activeDepartment = DEPARTMENTS.find((d) => d.id === selectedDept) || DEPARTMENTS[0];
+
+  const filteredCertifications = useMemo(() => {
+    return selectedDept === "all"
+      ? CERTIFICATIONS
+      : CERTIFICATIONS.filter((c) => c.department === selectedDept);
+  }, [selectedDept]);
+
+  const rotatingWords = useMemo(() => {
+    return filteredCertifications.map((c) => c.title);
+  }, [filteredCertifications]);
+
+  const headline = selectedDept === "all"
+    ? `${filteredCertifications.length} certifications across all colleges, fully built out.`
+    : `${filteredCertifications.length} certifications for ${activeDepartment.code}, fully built out.`;
+
+  const shelfItems = useMemo(() => {
+    return filteredCertifications.map((c) => ({
+      key: c.title,
+      tab: c.wordmark,
+      title: c.title,
+      meta: `${c.lessons} lessons · ${c.questions} questions`,
+      icon: c.icon,
+      color: FOLDER[c.tone] || FOLDER.macaw,
+      left: (
+        <>
+          <p className="rb-eyebrow">{c.departmentName || "certification"}</p>
+          <h3 className="rb-display rb-display-md mt-2">{c.title}</h3>
+          <p className="rb-body mt-3 max-w-md">{c.summary}</p>
+          <div className="mt-6 flex gap-8">
+            <span className="text-sm font-bold">
+              <span className="rb-numeric block text-2xl">{c.lessons}</span>
+              lessons
+            </span>
+            <span className="text-sm font-bold">
+              <span className="rb-numeric block text-2xl">{c.questions}</span>
+              questions
+            </span>
+          </div>
+          <TactileButton asChild size="sm" className="mt-8 w-fit">
+            <Link to="/register">
+              start {c.title.toLowerCase()}
+              <ArrowRight className="size-4" />
+            </Link>
+          </TactileButton>
+        </>
+      ),
+      right: (
+        <>
+          <p className="rb-spread-line rb-spread-heading">topics covered</p>
+          <ol className="rb-spread-list">
+            {c.topics.map((topic, i) => (
+              <li key={topic} className="rb-spread-line">
+                <span>{i + 1}.</span>
+                {topic}
+              </li>
+            ))}
+          </ol>
+        </>
+      ),
+    }));
+  }, [filteredCertifications]);
 
   return (
     <section id="certifications" className="relative scroll-mt-24 overflow-hidden bg-white px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto max-w-[1280px]">
         <div data-landing-reveal>
-          {/* The eyebrow names the section, the tag beside it cycles the three
-              exams — the same three the cards below spell out. It rotates
-              because the claim in the heading is "three", and a slot that keeps
-              changing is the cheapest way to show a count. */}
-          <p className="rb-eyebrow flex flex-wrap items-center gap-2">
-            certifications
-            <RotatingText
-              words={CERTIFICATIONS.map((c) => c.title)}
-              itemClassName="rounded-rb-pill bg-rb-macaw-wash px-2.5 py-1 text-rb-macaw-lip"
-            />
-          </p>
-          <WordReveal
-            as="h2"
-            className="rb-display rb-display-lg mt-3 max-w-2xl"
-            text="three certifications, fully built out."
-          />
-          <p className="rb-body-lg mt-4 max-w-xl">
-            Every topic below has lessons, practice questions, and assessments already in the
-            system — not a syllabus we plan to fill in later.
-          </p>
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-2xl">
+              {/* The eyebrow names the section, the tag beside it cycles certifications
+                  in the currently selected department */}
+              <p
+                className="rb-eyebrow !font-normal flex flex-wrap items-center gap-2"
+                style={{ fontWeight: 400 }}
+              >
+                <span style={{ fontWeight: 400 }}>certifications</span>
+                <span className="text-rb-wolf/50" style={{ fontWeight: 400 }}>·</span>
+                <RotatingText
+                  words={rotatingWords.length > 0 ? rotatingWords : ["certifications"]}
+                  className="!font-normal"
+                  itemClassName="text-rb-macaw-lip !font-normal"
+                />
+              </p>
+              <h2 className="rb-display rb-display-lg mt-3 transition-opacity duration-200">
+                {headline}
+              </h2>
+              <p className="rb-body-lg mt-4 max-w-xl">
+                Every topic below has lessons, practice questions, and assessments already in the
+                system — not a syllabus we plan to fill in later.
+              </p>
+            </div>
+
+            {/* Department / Industry Filter Dropdown */}
+            <div className="relative z-30 shrink-0 w-full sm:w-80" ref={dropdownRef}>
+              <div className="flex flex-col items-end gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-rb-wolf text-right">
+                  Filter by Department
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDropdownOpen((prev) => !prev)}
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl border-2 border-rb-swan bg-white px-4 py-2.5 shadow-xs transition hover:border-rb-macaw-lip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw-lip"
+                  aria-expanded={dropdownOpen}
+                  aria-haspopup="listbox"
+                >
+                  <div className="flex min-w-0 items-center gap-2.5 text-left">
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-rb-macaw-wash text-xs font-bold text-rb-macaw-lip">
+                      {activeDepartment.code}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-rb-eel leading-tight truncate">
+                        {activeDepartment.name}
+                      </p>
+                      <p className="text-xs text-rb-wolf truncate">
+                        {filteredCertifications.length} {filteredCertifications.length === 1 ? "certification" : "certifications"}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronDown
+                    className={`size-4 shrink-0 text-rb-wolf transition-transform duration-200 ${
+                      dropdownOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {dropdownOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-full max-h-80 overflow-y-auto rounded-2xl border-2 border-rb-swan bg-white p-2 shadow-xl z-50">
+                    {DEPARTMENTS.map((dept) => {
+                      const count = dept.id === "all"
+                        ? CERTIFICATIONS.length
+                        : CERTIFICATIONS.filter((c) => c.department === dept.id).length;
+                      const isSelected = dept.id === selectedDept;
+
+                      return (
+                        <button
+                          key={dept.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDept(dept.id);
+                            setDropdownOpen(false);
+                          }}
+                          className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left transition ${
+                            isSelected
+                              ? "bg-rb-macaw-wash text-rb-macaw-lip font-bold"
+                              : "text-rb-eel hover:bg-black/5"
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-black/5">
+                                {dept.code}
+                              </span>
+                              <span className="text-sm truncate">{dept.name}</span>
+                            </div>
+                            <p className="mt-0.5 text-xs text-rb-wolf truncate">
+                              {dept.description}
+                            </p>
+                          </div>
+                          <span className="ml-2 shrink-0 rounded-full bg-rb-paper px-2 py-0.5 text-xs font-semibold text-rb-wolf border border-rb-swan">
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Quick-pill filter chips for fast switching */}
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            {DEPARTMENTS.map((dept) => {
+              const isSelected = dept.id === selectedDept;
+              return (
+                <button
+                  key={dept.id}
+                  type="button"
+                  onClick={() => setSelectedDept(dept.id)}
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition ${
+                    isSelected
+                      ? "bg-[#123126] text-white shadow-xs"
+                      : "border border-rb-swan bg-white text-rb-eel hover:border-[#123126] hover:text-[#123126]"
+                  }`}
+                >
+                  {dept.code === "ALL" ? "All Departments" : dept.code}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="mt-12">
+        {/* Folder Shelf / Carousel Container */}
+        <div className="mt-12 relative" data-folder-carousel-container>
           <FolderShelf
-            items={CERTIFICATIONS.map((c) => ({
-              key: c.title,
-              tab: c.wordmark,
-              title: c.title,
-              meta: `${c.lessons} lessons · ${c.questions} questions`,
-              icon: c.icon,
-              color: FOLDER[c.tone],
-              left: (
-                <>
-                  <p className="rb-eyebrow">certification</p>
-                  <h3 className="rb-display rb-display-md mt-2">{c.title}</h3>
-                  <p className="rb-body mt-3 max-w-md">{c.summary}</p>
-                  <div className="mt-6 flex gap-8">
-                    <span className="text-sm font-bold">
-                      <span className="rb-numeric block text-2xl">{c.lessons}</span>
-                      lessons
-                    </span>
-                    <span className="text-sm font-bold">
-                      <span className="rb-numeric block text-2xl">{c.questions}</span>
-                      questions
-                    </span>
-                  </div>
-                  <TactileButton asChild size="sm" className="mt-8 w-fit">
-                    <Link to="/register">
-                      start {c.title.toLowerCase()}
-                      <ArrowRight className="size-4" />
-                    </Link>
-                  </TactileButton>
-                </>
-              ),
-              right: (
-                <>
-                  <p className="rb-spread-line rb-spread-heading">topics covered</p>
-                  <ol className="rb-spread-list">
-                    {c.topics.map((topic, i) => (
-                      <li key={topic} className="rb-spread-line">
-                        <span>{i + 1}.</span>
-                        {topic}
-                      </li>
-                    ))}
-                  </ol>
-                </>
-              ),
-            }))}
+            items={shelfItems}
           />
         </div>
       </div>
@@ -1805,7 +2399,7 @@ function Footer() {
           <div>
             <BrandMark />
             <p className="rb-body mt-4 max-w-xs text-sm">
-              Certification review for TOPCIT, IT Passport, and the FE exam.
+              Comprehensive review for technical and industry certifications.
             </p>
           </div>
 
@@ -1853,6 +2447,65 @@ function Footer() {
         </span>
       </motion.div>
     </footer>
+  );
+}
+
+/* back to top floating button */
+
+function BackToTopButton() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const checkVisibility = () => {
+      const accessSection = document.getElementById("get-access");
+      if (accessSection) {
+        const rect = accessSection.getBoundingClientRect();
+        // Visible as soon as the "get access" section enters the viewport
+        setVisible(rect.top <= window.innerHeight);
+      } else {
+        // Fallback for pages without the anchor
+        setVisible(window.scrollY > 2500);
+      }
+    };
+
+    checkVisibility();
+    window.addEventListener("scroll", checkVisibility, { passive: true });
+    window.addEventListener("resize", checkVisibility, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", checkVisibility);
+      window.removeEventListener("resize", checkVisibility);
+    };
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className="rebyu-ds rb-light-only pointer-events-none">
+      <AnimatePresence>
+        {visible && (
+          <motion.button
+            type="button"
+            onClick={scrollToTop}
+            initial={{ opacity: 0, scale: 0.8, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 16 }}
+            transition={{ duration: 0.24, ease: EASE }}
+            whileHover={{ scale: 1.08, y: -2 }}
+            whileTap={{ scale: 0.94 }}
+            className="group pointer-events-auto fixed bottom-6 right-6 z-50 flex size-12 items-center justify-center rounded-full border border-rb-swan/90 bg-white/95 text-rb-eel shadow-[0_6px_24px_rgba(0,0,0,0.12)] backdrop-blur-md transition-colors hover:border-rb-macaw/50 hover:text-rb-macaw-lip focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw sm:bottom-8 sm:right-8 sm:size-13 cursor-pointer select-none"
+            aria-label="Back to top"
+            title="Back to top"
+          >
+            <ArrowUp className="size-5 transition-transform duration-200 group-hover:-translate-y-0.5" />
+          </motion.button>
+        )}
+      </AnimatePresence>
+    </div>,
+    document.body
   );
 }
 
@@ -1946,6 +2599,7 @@ export default function LandingPage() {
         <AccessSection />
       </main>
       <Footer />
+      <BackToTopButton />
     </div>
   );
 }
