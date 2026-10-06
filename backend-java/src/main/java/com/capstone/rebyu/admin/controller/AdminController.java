@@ -3,6 +3,7 @@ package com.capstone.rebyu.admin.controller;
 import com.capstone.rebyu.admin.service.AdminMetricsService;
 import com.capstone.rebyu.admin.service.AdminPaymentsService;
 import com.capstone.rebyu.auth.security.RoleGuard;
+import com.capstone.rebyu.notification.service.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,6 +29,7 @@ public class AdminController {
   @Autowired private AdminMetricsService metricsService;
   @Autowired private AdminPaymentsService paymentsService;
   @Autowired private RoleGuard guard;
+  @Autowired private EmailService emailService;
 
   /**
    * Every counter on the admin dashboard, in one payload.
@@ -55,5 +57,24 @@ public class AdminController {
       @AuthenticationPrincipal Jwt jwt) {
     guard.requireAdmin(jwt);
     return ResponseEntity.ok(paymentsService.ledger());
+  }
+
+  /** DEV ONLY — sends a sample badge-of-completion email to the given address. */
+  @PostMapping("/test-badge-email")
+  public ResponseEntity<String> testBadgeEmail(
+      @AuthenticationPrincipal Jwt jwt,
+      @RequestParam String to) {
+    guard.requireAdmin(jwt);
+    emailService.sendBadgeEarned(
+        to,
+        "Test Learner",
+        "IT Passport Exam",
+        "78%",
+        false,
+        4L,
+        "REBYU-CERT-2026-SAMPLE",
+        java.time.LocalDateTime.now()
+    );
+    return ResponseEntity.ok("Sample badge email sent to " + to);
   }
 }

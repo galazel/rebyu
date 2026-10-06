@@ -221,30 +221,85 @@ public class EmailService {
         sendHtml(recipientEmail, subject, text, html);
     }
 
+    /**
+     * Congratulations email sent the moment the learner earns both the badge
+     * and the numbered certificate. It renders a formal "Badge of Completion"
+     * card inside the email body and links to the certificate page.
+     */
     public void sendBadgeEarned(String recipientEmail, String learnerName, String certificationTitle,
-                                String score, boolean hasBadgeImage) {
+                                String score, boolean hasBadgeImage,
+                                Long certificationId, String certificateNumber,
+                                java.time.LocalDateTime issuedAt) {
         String base = frontendUrl.replaceAll("/+$", "");
-        String link = base + "/learner/certifications";
-        String subject = "You earned the " + certificationTitle + " badge on REBYU";
+        String certLink = base + "/learner/certifications/" + certificationId + "/certificate";
+        String badgeImgUrl = base + "/api/certifications/" + certificationId + "/badge";
+        String subject = "Congratulations! You completed " + certificationTitle + " on REBYU";
         String scoreLine = score == null || score.isBlank() ? "" : " with a score of " + score;
+        String dateStr = issuedAt == null ? "" : issuedAt.toLocalDate()
+                .format(java.time.format.DateTimeFormatter.ofPattern("MMMM d, yyyy"));
+
         String text = """
                 Congratulations %s!
 
-                You passed the %s mock exam%s and earned its badge.
+                You have successfully completed the %s review on REBYU%s.
+
+                Certificate No.: %s
+                Date of Completion: %s
+
+                View your Badge of Completion:
                 %s
 
-                See it on your certification card:
-                %s
+                Well done — keep it up!
 
                 REBYU Team
                 """.formatted(learnerName, certificationTitle, scoreLine,
-                hasBadgeImage ? "The badge now shows on your certification card." : "Your badge is recorded on your certification card.",
-                link);
-        String html = frame("<p>Congratulations <b>" + escape(learnerName) + "</b>!</p>"
-                + "<p>You passed the <b>" + escape(certificationTitle) + "</b> mock exam" + escape(scoreLine)
-                + " and earned its badge.</p>"
-                + "<p><a href=\"" + link + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;display:inline-block\">See your badge</a></p>"
-                + "<p style=\"font-size:12px;color:#6b706c\">Your certificate of completion arrives in a separate email.</p>");
+                certificateNumber == null ? "—" : certificateNumber,
+                dateStr, certLink);
+
+        // Badge image block — shown only when the certification has an uploaded image.
+        String badgeBlock = hasBadgeImage
+                ? "<div style=\"text-align:center;margin:16px 0\">"
+                        + "<img src=\"" + badgeImgUrl + "\" alt=\"" + escape(certificationTitle) + " badge\""
+                        + " style=\"width:100px;height:100px;border-radius:50%;border:4px solid #2f6b4f;object-fit:cover\" />"
+                        + "</div>"
+                : "<div style=\"width:80px;height:80px;border-radius:50%;background:#1a5c3a;margin:16px auto;"
+                        + "display:flex;align-items:center;justify-content:center;font-size:30px\">✓</div>";
+
+        String html = frame(
+                // certificate card block
+                "<div style=\"border:2px solid #2f6b4f;border-radius:10px;overflow:hidden;margin-bottom:20px\">"
+                // green top bar
+                + "<div style=\"background:linear-gradient(90deg,#1a5c3a 0%,#2d8c5e 50%,#1a5c3a 100%);height:7px\"></div>"
+                // inner padded area
+                + "<div style=\"padding:24px 28px;text-align:center;font-family:Georgia,'Times New Roman',serif\">"
+                + "<p style=\"margin:0 0 2px;font-size:10px;font-weight:bold;letter-spacing:0.3em;color:#1a5c3a;text-transform:uppercase\">REBYU LEARNING</p>"
+                // decorative dots
+                + "<p style=\"margin:6px 0 10px;color:#1a5c3a;font-size:12px\">· · ·</p>"
+                // title
+                + "<p style=\"margin:0 0 4px;font-size:22px;font-weight:bold;color:#1a5c3a\">Badge of Completion</p>"
+                + "<p style=\"margin:0 0 14px;font-size:12px;color:#6b706c;font-style:italic\">This formally acknowledges that</p>"
+                // badge image
+                + badgeBlock
+                // name
+                + "<p style=\"margin:10px 0 4px;font-size:20px;font-weight:bold;color:#111827\">" + escape(learnerName) + "</p>"
+                + "<p style=\"margin:0 0 4px;font-size:12px;color:#6b706c\">has achieved the badge of completion for</p>"
+                + "<p style=\"margin:0 0 16px;font-size:14px;font-weight:bold;letter-spacing:0.08em;text-transform:uppercase;color:#111827\">" + escape(certificationTitle) + "</p>"
+                // score + cert number row
+                + "<table style=\"width:100%;border-top:1px solid #dce8e2;margin-top:4px;padding-top:14px;font-size:11px;border-collapse:collapse\">"
+                + "<tr>"
+                + (score != null && !score.isBlank() ? "<td style=\"width:50%;padding:8px 4px;border-right:1px solid #dce8e2\"><span style=\"display:block;color:#6b706c;letter-spacing:0.12em;text-transform:uppercase;font-size:9px\">Score</span><b>" + escape(score) + "</b></td>" : "<td style=\"width:50%;padding:8px 4px;border-right:1px solid #dce8e2\"><span style=\"display:block;color:#6b706c;letter-spacing:0.12em;text-transform:uppercase;font-size:9px\">Date</span><b>" + escape(dateStr) + "</b></td>")
+                + "<td style=\"width:50%;padding:8px 4px\"><span style=\"display:block;color:#6b706c;letter-spacing:0.12em;text-transform:uppercase;font-size:9px\">Certificate No.</span><b style=\"font-family:Consolas,Menlo,monospace\">" + escape(certificateNumber == null ? "—" : certificateNumber) + "</b></td>"
+                + "</tr></table>"
+                + "</div>"
+                // green bottom bar
+                + "<div style=\"background:linear-gradient(90deg,#1a5c3a 0%,#2d8c5e 50%,#1a5c3a 100%);height:7px\"></div>"
+                + "</div>"
+                // CTA
+                + "<p style=\"text-align:center\">"
+                + "<a href=\"" + certLink + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:bold;display:inline-block\">View your Badge of Completion</a>"
+                + "</p>"
+                + "<p style=\"font-size:12px;color:#6b706c;text-align:center;margin-top:12px\">Well done — keep it up!</p>"
+        );
         sendHtml(recipientEmail, subject, text, html);
     }
 

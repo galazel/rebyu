@@ -96,7 +96,10 @@ public class CertificationAwardService {
                     "/learner/certifications");
             if (email != null) {
                 try {
-                    emailService.sendBadgeEarned(email, name, title, score, certification.getBadgeImageKey() != null);
+                    emailService.sendBadgeEarned(email, name, title, score,
+                            certification.getBadgeImageKey() != null,
+                            certification.getCertificationId(),
+                            award.getCertificateNumber(), now);
                 } catch (RuntimeException e) {
                     log.warn("Badge email to {} failed: {}", email, e.getMessage());
                 }

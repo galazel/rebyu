@@ -38,6 +38,7 @@ const LearnerSubscriptionPage = lazyRoute(() => import("./pages/learner/subscrip
 const SubscriptionCheckoutResultPage = lazyRoute(() => import("./pages/learner/subscription/subscription-checkout-result-page.jsx"))
 const LearnerCertificationDetailPage = lazyRoute(() => import("./pages/learner/learning/learner-certification-detail-page.jsx"))
 const LearnerCertificationsPage = lazyRoute(() => import("./pages/learner/learning/learner-certifications-page.jsx"))
+const LearnerCertificatePage = lazyRoute(() => import("./pages/learner/learning/learner-certificate-page.jsx"))
 const LearnerChallengesPage = lazyRoute(() => import("./pages/learner/learning/learner-challenges-page.jsx"))
 const LearnerFilesPage = lazyRoute(() => import("./pages/learner/files/learner-files-page.jsx"))
 const LearnerWorkspacePage = lazyRoute(() => import("./pages/learner/workspace/learner-workspace-page.jsx"))
@@ -407,6 +408,10 @@ export function App() {
                     <Route
                         path="certifications/:certificationId"
                         element={<LearnerCertificationDetailPage />}
+                    />
+                    <Route
+                        path="certifications/:certificationId/certificate"
+                        element={<LearnerCertificatePage />}
                     />
                     <Route path="challenges" element={<LearnerChallengesPage />} />
                     <Route path="subscription" element={<LearnerSubscriptionPage />} />

@@ -164,7 +164,7 @@ function CertificationCard({
                   onClick={onAction}
               >
                 {award?.badgeAwardedAt
-                  ? <><CheckCircle className="mr-1.5 inline-block size-4" /> Certification complete</>
+                  ? <><CheckCircle className="mr-1.5 inline-block size-4" /> Review complete</>
                   : enrolled ? "Continue learning" : "View details"}
               </Button>
             </>
@@ -411,9 +411,14 @@ export default function LearnerCertificationsPage() {
   }
 
   // Enrolled cards say "Continue learning" and open the curriculum; the rest
-  // open the certification's details page.
+  // open the certification's details page. Completed cards open the certificate page.
   function handleCertificationAction(certification) {
     const id = getCertificationId(certification)
+    const award = awardByCertification.get(String(id))
+    if (award?.badgeAwardedAt) {
+      navigate(`/learner/certifications/${id}/certificate`)
+      return
+    }
     navigate(
       enrolledCertificationIds.has(String(id))
         ? `/learner/learning/${id}`
