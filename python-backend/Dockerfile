@@ -7,9 +7,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# LibreOffice converts Word reviewers to PDF for the past-paper import
+# (app/papers/convert.py); the fonts are metric-compatible with Calibri,
+# Cambria, Arial and Times so pages break where Word breaks them.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential curl \
        libgl1 libglib2.0-0 libxcb1 \
+       libreoffice-writer-nogui fonts-liberation fonts-crosextra-carlito \
+       fonts-crosextra-caladea fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

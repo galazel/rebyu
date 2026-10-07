@@ -25,6 +25,17 @@ import { cn } from "@/lib/utils"
 const MAX_FILES = 10
 const MAX_SIZE_MB = 50
 
+/* Word, OpenDocument and RTF reviewers are converted to PDF on the server
+   before reading (`asPdf`), so every reader after that sees a PDF. */
+const ACCEPT = [
+    "application/pdf", ".pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx",
+    "application/msword", ".doc",
+    "application/vnd.oasis.opendocument.text", ".odt",
+    "application/rtf", ".rtf",
+].join(",")
+const DOCUMENT_EXTENSION_RE = /\.(pdf|docx?|odt|rtf)$/i
+
 /** The word a file name ends with, and what it makes the file. Longest first. */
 const ROLE_RE = /(?:^|[\s_\-.]+)(answer[\s_\-]*keys?|answers?|ans|keys?|question[\s_\-]*paper|questions?)$/i
 
@@ -33,7 +44,7 @@ const ROLE_RE = /(?:^|[\s_\-.]+)(answer[\s_\-]*keys?|answers?|ans|keys?|question
  * "<Exam title> Questions.pdf" / "<Exam title> Answer Key.pdf".
  */
 export function parseFileName(name) {
-    const base = name.replace(/\.pdf$/i, "").trim()
+    const base = name.replace(DOCUMENT_EXTENSION_RE, "").trim()
     const match = base.match(ROLE_RE)
     if (!match) {
         return { error: 'The name must end with "Questions" or "Answer Key".' }
@@ -165,7 +176,7 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
             getInputProps,
         },
     ] = useFileUpload({
-        accept: "application/pdf,.pdf",
+        accept: ACCEPT,
         initialFiles: [],
         maxFiles: MAX_FILES,
         maxSize: MAX_SIZE_MB * 1024 * 1024,
@@ -210,11 +221,11 @@ export function PdfUploadStep({ onNext, disabled, nextLabel = "Next" }) {
                     </div>
                     <p className="text-sm font-medium text-foreground">Drop your exam papers and answer keys here</p>
                     <p className="mt-1.5 max-w-sm text-xs leading-5 text-muted-foreground">
-                        PDF only. Up to {MAX_FILES} files, {MAX_SIZE_MB} MB each.
+                        PDF or Word (.docx, .doc). Up to {MAX_FILES} files, {MAX_SIZE_MB} MB each.
                     </p>
                     <Button type="button" variant="outline" className="mt-4" disabled={disabled} onClick={openFileDialog}>
                         <UploadIcon aria-hidden="true" className="-ms-1 size-4 opacity-60" />
-                        Select PDFs
+                        Select files
                     </Button>
                 </div>
             </div>

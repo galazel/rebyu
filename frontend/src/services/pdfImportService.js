@@ -83,3 +83,41 @@ export function latestTagJob(certificationId) {
 export function cancelTagJob(jobId) {
     return base(`ai/past-papers/tag-jobs/${jobId}/cancel`, { method: "POST", data: {}, timeout: 30000 })
 }
+
+/**
+ * The file as a PDF. A PDF is returned as it is; a Word (.docx, .doc),
+ * OpenDocument or RTF reviewer is converted on the server (LibreOffice) and
+ * comes back renamed to ".pdf", so every reader after this -- the browser's
+ * rules, the layout reader, figure crops, key pairing by name -- treats it
+ * exactly as a PDF.
+ */
+export async function asPdf(file) {
+    if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") return file
+    const formData = new FormData()
+    formData.append("file", file)
+    let blob
+    try {
+        blob = await base("ai/past-papers/to-pdf", {
+            method: "POST",
+            data: formData,
+            responseType: "blob",
+            // LibreOffice starts per document: a few seconds, more for a long one.
+            timeout: 240000,
+        })
+    } catch (error) {
+        // A blob response hides the server's JSON explanation; read it back.
+        const body = error?.response?.data
+        let message = null
+        if (body instanceof Blob) {
+            try {
+                const parsed = JSON.parse(await body.text())
+                message = parsed.message || parsed.detail || null
+            } catch {
+                message = null
+            }
+        }
+        throw new Error(message || `${file.name} could not be converted to PDF`)
+    }
+    const name = file.name.replace(/\.[^.]+$/, "") + ".pdf"
+    return new File([blob], name, { type: "application/pdf" })
+}

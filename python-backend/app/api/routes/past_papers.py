@@ -24,7 +24,7 @@ import logging
 import re
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -143,6 +143,34 @@ async def parse_paper(
         "weakMatches": sum(1 for d in importable if d.lesson_score < 0.3),
         "questions": [d.as_dict() for d in drafts],
     }
+
+
+@router.post("/to-pdf")
+async def to_pdf_route(file: UploadFile = File(...)):
+    """A Word (.docx, .doc), OpenDocument or RTF reviewer as a PDF, so the
+    import reads it exactly as it reads a PDF. A PDF comes back unchanged.
+    See `app.papers.convert`. Writes nothing."""
+    from starlette.concurrency import run_in_threadpool
+
+    from app.papers.convert import ConversionError, is_document, to_pdf
+
+    data = await file.read()
+    name = file.filename or "file"
+    if not data:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"{name} is empty.")
+    if len(data) > MAX_PDF_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, f"{name} exceeds 40MB.")
+    if data.startswith(b"%PDF"):
+        return Response(content=data, media_type="application/pdf")
+    if not is_document(data):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            f"{name} is not a PDF or a Word document.")
+    try:
+        pdf = await run_in_threadpool(to_pdf, data, file.filename)
+    except ConversionError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            f"{name} could not be converted: {error}") from error
+    return Response(content=pdf, media_type="application/pdf")
 
 
 @router.post("/read-layout")

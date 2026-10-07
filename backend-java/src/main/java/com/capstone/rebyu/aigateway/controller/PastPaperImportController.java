@@ -85,6 +85,19 @@ public class PastPaperImportController {
     }
 
     /**
+     * A Word (.docx, .doc), OpenDocument or RTF reviewer converted to PDF, so
+     * the import page reads it exactly as it reads a PDF. Writes nothing.
+     */
+    @PostMapping(value = "/to-pdf", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
+            produces = MediaType.APPLICATION_PDF_VALUE)
+    public byte[] toPdf(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam("file") MultipartFile file) {
+        requireAdmin(jwt);
+        return pastPaperImportService.toPdf(file);
+    }
+
+    /**
      * The questions on one page of a document the browser cannot read by its
      * fixed layout (afternoon papers, other formats, scans), read by the
      * EXTRACTION vision model. Writes nothing.

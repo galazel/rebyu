@@ -43,6 +43,9 @@ public class PastPaperImportService {
 
     private static final long MAX_PDF_BYTES = 40L * 1024 * 1024;
 
+    /** A converted document's PDF, which pictures can make larger than its source. */
+    private static final int MAX_CONVERTED_BYTES = 64 * 1024 * 1024;
+
     private final @Qualifier("aiWebClient") WebClient aiWebClient;
 
     public Map<String, Object> parse(Long certificationId, String paperName, String kind,
@@ -104,6 +107,47 @@ public class PastPaperImportService {
         } catch (RuntimeException error) {
             log.error("Layout reading failed", error);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "The document could not be read: "
+                    + (error.getMessage() == null ? "the AI service did not answer in time" : error.getMessage()));
+        }
+    }
+
+    /**
+     * A Word, OpenDocument or RTF document converted to PDF by the AI
+     * service (LibreOffice, headless). Read with its own size cap rather
+     * than the client's 16MB codec limit: a reviewer full of pictures
+     * converts to a large PDF.
+     */
+    public byte[] toPdf(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The document is required.");
+        }
+        if (file.getSize() > MAX_PDF_BYTES) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "The document exceeds 40MB.");
+        }
+        MultipartBodyBuilder body = new MultipartBodyBuilder();
+        body.part("file", asResource(file)).filename(filenameOf(file));
+        try {
+            return aiWebClient.post()
+                    .uri("/past-papers/to-pdf")
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(BodyInserters.fromMultipartData(body.build()))
+                    .retrieve()
+                    .bodyToFlux(org.springframework.core.io.buffer.DataBuffer.class)
+                    .as(flux -> org.springframework.core.io.buffer.DataBufferUtils.join(flux, MAX_CONVERTED_BYTES))
+                    .map(buffer -> {
+                        byte[] bytes = new byte[buffer.readableByteCount()];
+                        buffer.read(bytes);
+                        org.springframework.core.io.buffer.DataBufferUtils.release(buffer);
+                        return bytes;
+                    })
+                    .block(Duration.ofMinutes(4));
+        } catch (org.springframework.web.reactive.function.client.WebClientResponseException error) {
+            log.error("Document conversion failed: {}", error.getResponseBodyAsString());
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    detailOf(error.getResponseBodyAsString()));
+        } catch (RuntimeException error) {
+            log.error("Document conversion failed", error);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "The document could not be converted: "
                     + (error.getMessage() == null ? "the AI service did not answer in time" : error.getMessage()));
         }
     }

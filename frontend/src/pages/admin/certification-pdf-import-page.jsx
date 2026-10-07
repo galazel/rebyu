@@ -18,6 +18,16 @@ import {
     UploadIcon,
     X
 } from "@/components/icons"
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -43,7 +53,7 @@ import { PdfUploadStep } from "@/components/question-bank/pdf-upload-step.jsx"
 import { clearDraft, loadDraft, saveDraft } from "@/utils/pdf-import-draft.js"
 import { getAllCertifications } from "@/services/certificationService.js"
 import { uploadQuestionImage } from "@/services/fileService.js"
-import { cancelTagJob, findDuplicates, getTagJob, readDocumentLayout, readDocumentPage, startTagJob } from "@/services/pdfImportService.js"
+import { asPdf, cancelTagJob, findDuplicates, getTagJob, readDocumentLayout, readDocumentPage, startTagJob } from "@/services/pdfImportService.js"
 import {
     activeJobFor,
     addActiveJob,
@@ -1009,6 +1019,7 @@ export default function CertificationPdfImportPage() {
     const [keyBoxFor, setKeyBoxFor] = useState(null)
     const [keyText, setKeyText] = useState("")
     const [uploadOpen, setUploadOpen] = useState(false)
+    const [startOverOpen, setStartOverOpen] = useState(false)
     const [lessons, setLessons] = useState([])
     // The background tagging job this page is following, if any.
     const [tagJob, setTagJob] = useState(null)
@@ -1075,7 +1086,7 @@ export default function CertificationPdfImportPage() {
     }, [certificationId, papers, keys, lessons, restored])
 
     function startOver() {
-        if (!window.confirm("Remove every paper from this import? Questions already saved to the question bank stay there.")) return
+        setStartOverOpen(false)
         latest.current = { papers: [], keys: [] }
         setPapers([])
         setKeys([])
@@ -1113,7 +1124,7 @@ export default function CertificationPdfImportPage() {
     async function addKeyForPaper(file, target) {
         setProgress({ label: `Reading answer key ${file.name}`, percent: 30 })
         try {
-            const read = await readExamPdf(file, null, readDocumentPage, readDocumentLayout)
+            const read = await readExamPdf(await asPdf(file), null, readDocumentPage, readDocumentLayout)
             // Read the same way as a key uploaded with its paper: a key laid
             // out like a paper -- questions with their answers marked --
             // gives its answers too.
@@ -1185,7 +1196,7 @@ export default function CertificationPdfImportPage() {
             let result
             setProgress({ label: `Opening ${pair.paper.name}${label}`, percent: 2 })
             try {
-                result = await readExamPdf(pair.paper, reportProgress(pair.paper), readDocumentPage, readDocumentLayout)
+                result = await readExamPdf(await asPdf(pair.paper), reportProgress(pair.paper), readDocumentPage, readDocumentLayout)
                 if (result.kind === "key") {
                     throw new Error("it is named as questions, but it reads as an answer key -- rename it to end in \"Answer Key\"")
                 }
@@ -1203,7 +1214,7 @@ export default function CertificationPdfImportPage() {
             if (pair.key) {
                 setProgress({ label: `Reading answer key ${pair.key.name}${label}`, percent: 90 })
                 try {
-                    const key = await readExamPdf(pair.key, reportProgress(pair.key), readDocumentPage, readDocumentLayout)
+                    const key = await readExamPdf(await asPdf(pair.key), reportProgress(pair.key), readDocumentPage, readDocumentLayout)
                     // A key laid out like a paper -- questions with their
                     // answers marked -- gives its answers the same way.
                     const keyAnswers = key.kind === "key"
@@ -1634,11 +1645,11 @@ export default function CertificationPdfImportPage() {
                 </div>
                 {papers.length ? (
                     <>
-                        <Button type="button" size="sm" variant="ghost" className="text-destructive" disabled={busy || tagging} onClick={startOver}>
+                        <Button type="button" size="sm" variant="ghost" className="text-destructive" disabled={busy || tagging} onClick={() => setStartOverOpen(true)}>
                             <Trash2 className="mr-2 h-4 w-4" /> Start over
                         </Button>
                         <Button type="button" size="sm" disabled={busy} onClick={() => setUploadOpen(true)}>
-                            <UploadIcon className="mr-2 h-4 w-4" /> Add PDFs
+                            <UploadIcon className="mr-2 h-4 w-4" /> Add files
                         </Button>
                     </>
                 ) : null}
@@ -1825,7 +1836,7 @@ export default function CertificationPdfImportPage() {
                             <input
                                 ref={keyInputRef}
                                 type="file"
-                                accept="application/pdf,.pdf"
+                                accept="application/pdf,.pdf,.docx,.doc,.odt,.rtf"
                                 hidden
                                 onChange={(event) => {
                                     const file = event.target.files?.[0]
@@ -2058,10 +2069,27 @@ export default function CertificationPdfImportPage() {
                 )}
             </div>
 
+            <AlertDialog open={startOverOpen} onOpenChange={setStartOverOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Start over?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Every paper is removed from this import. Questions already saved to the question bank stay there.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction variant="destructive" onClick={startOver}>
+                            Remove every paper
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
                 <DialogContent className="max-h-[calc(100dvh-3rem)] overflow-y-auto sm:max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Add PDFs</DialogTitle>
+                        <DialogTitle>Add files</DialogTitle>
                         <DialogDescription>
                             More papers or answer keys. They are added as new sections; papers already here stay as they are.
                         </DialogDescription>
