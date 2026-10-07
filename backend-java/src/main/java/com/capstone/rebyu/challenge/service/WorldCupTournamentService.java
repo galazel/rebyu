@@ -67,9 +67,7 @@ public class WorldCupTournamentService {
   private final LearnerRepository learnerRepo;
   private final ChallengeStandingsService standingsService;
 
-  // ──────────────────────────────────────────────
   // DTOs
-  // ──────────────────────────────────────────────
 
   public record QueueStatus(
       boolean inQueue,
@@ -108,9 +106,7 @@ public class WorldCupTournamentService {
       double points
   ) {}
 
-  // ──────────────────────────────────────────────
   // Queue
-  // ──────────────────────────────────────────────
 
   @Transactional
   public QueueStatus joinQueue(Long learnerId, Long certificationId) {
@@ -171,9 +167,7 @@ public class WorldCupTournamentService {
     return new QueueStatus(inQueue, size, lobbySize(), certificationId, active);
   }
 
-  // ──────────────────────────────────────────────
   // Bracket
-  // ──────────────────────────────────────────────
 
   @Transactional(readOnly = true)
   public BracketView getActiveBracketForLearner(Long learnerId) {
@@ -285,9 +279,7 @@ public class WorldCupTournamentService {
     }
   }
 
-  // ──────────────────────────────────────────────
   // Internals
-  // ──────────────────────────────────────────────
 
   private WorldCupBracket createBracket(Long certificationId, List<WorldCupQueue> players) {
     // Seed: sort by points descending, pair 1v8, 2v7, 3v6, 4v5

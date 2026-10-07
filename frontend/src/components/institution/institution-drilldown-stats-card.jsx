@@ -284,14 +284,8 @@ export default function InstitutionDrilldownStatsCard({
   }, [])
 
 
-  // -------------------------------------------------------------------------
-  // LEVEL 1: Aggregated Slots & Enrolled Learners per Department
-  // Inner Pie = Total Slots Allotted | Outer Ring = Enrolled Reach % exclusive to each dept
-  // -------------------------------------------------------------------------
-  // -------------------------------------------------------------------------
   // LEVEL 1: Slots & enrolled learners per department
   // Inner Pie = the department's capacity | Outer Ring = its enrolled reach
-  // -------------------------------------------------------------------------
   const level1Data = useMemo(() => {
     return departments
       .map((dept, index) => {
@@ -496,9 +490,7 @@ export default function InstitutionDrilldownStatsCard({
     ? hoveredDept.enrolled
     : totalLevel1Enrolled
 
-  // -------------------------------------------------------------------------
   // LEVEL 2: Certifications in the Selected Department
-  // -------------------------------------------------------------------------
   const level2Data = useMemo(() => {
     if (!selectedDepartment) return []
 
@@ -755,9 +747,7 @@ export default function InstitutionDrilldownStatsCard({
     ? hoveredCert.enrolled
     : totalLevel2Enrolled
 
-  // -------------------------------------------------------------------------
   // LEVEL 3 & 4: Selected Certification Stats & Learners
-  // -------------------------------------------------------------------------
   const level3Data = useMemo(() => {
     if (!selectedCertification) return null
 
@@ -836,12 +826,7 @@ export default function InstitutionDrilldownStatsCard({
     return Math.round(total / level4Learners.length)
   }, [level4Learners])
 
-  // -------------------------------------------------------------------------
   // Summary Stats for Level 1 (Original Mockup Metrics)
-  // -------------------------------------------------------------------------
-  // -------------------------------------------------------------------------
-  // Summary Stats for Level 1 (Original Mockup Metrics)
-  // -------------------------------------------------------------------------
   const level1SummaryStats = useMemo(() => {
     const deptCount = level1Data.length || 1
     const totalEnrolled = totalLevel1Enrolled
@@ -893,12 +878,7 @@ export default function InstitutionDrilldownStatsCard({
   const isLevel1PanelVisible = Boolean(currentActiveDept || isCardHovered)
   const displayLevel1Item = currentActiveDept || lastActiveDept || level1Data[0]
 
-  // -------------------------------------------------------------------------
   // Summary Stats for Level 2 (Certification Level)
-  // -------------------------------------------------------------------------
-  // -------------------------------------------------------------------------
-  // Summary Stats for Level 2 (Certification Level)
-  // -------------------------------------------------------------------------
   const level2SummaryStats = useMemo(() => {
     if (!level2Data.length) {
       return {
@@ -972,9 +952,7 @@ export default function InstitutionDrilldownStatsCard({
   const isLevel2PanelVisible = Boolean(currentActiveCert || isCardHovered)
   const displayLevel2Item = currentActiveCert || lastActiveCert || level2Data[0]
 
-  // -------------------------------------------------------------------------
   // Dynamic Remarks Content per Level (Executive Diagnostic Intelligence)
-  // -------------------------------------------------------------------------
   const remarksData = useMemo(() => {
     if (currentLevel === 1) {
       if (!level1Data.length || totalLevel1Enrolled === 0) {
@@ -1125,9 +1103,7 @@ export default function InstitutionDrilldownStatsCard({
     selectedCertification,
   ])
 
-  // -------------------------------------------------------------------------
   // Handlers for Drill-Down
-  // -------------------------------------------------------------------------
   const handleSelectDepartment = (dept) => {
     setSelectedDepartment(dept)
     setHoveredDept(null)
@@ -1303,9 +1279,7 @@ export default function InstitutionDrilldownStatsCard({
       <div className="relative min-h-0 flex-1 overflow-hidden py-2">
         <AnimatePresence mode="wait" custom={direction}>
             {currentLevel === 1 ? (
-              /* ========================================================= */
               /* LEVEL 1: Dual-Ring Concentric Pie (Slots + Enrolled Reach) */
-              /* ========================================================= */
               <motion.div
                 key="level-1"
                 custom={direction}
@@ -1620,9 +1594,7 @@ export default function InstitutionDrilldownStatsCard({
             )}
               </motion.div>
             ) : currentLevel === 2 ? (
-              /* ========================================================= */
-              /* LEVEL 2: Department Certifications Dual-Ring Chart        */
-              /* ========================================================= */
+              /* LEVEL 2: Department Certifications Dual-Ring Chart */
               <motion.div
                 key="level-2"
                 custom={direction}
@@ -1950,9 +1922,7 @@ export default function InstitutionDrilldownStatsCard({
             )}
               </motion.div>
             ) : currentLevel === 3 ? (
-              /* ========================================================= */
-              /* LEVEL 3: Capacity & Utilization Analytics Command Center   */
-              /* ========================================================= */
+              /* LEVEL 3: Capacity & Utilization Analytics Command Center */
               (() => {
                 const total = level3Data?.totalSlots || 0
                 const enrolled = level3Data?.enrolledInDept || 0
@@ -2148,9 +2118,7 @@ export default function InstitutionDrilldownStatsCard({
                 )
               })()
             ) : (
-              /* ========================================================= */
-              /* LEVEL 4: Learner Progress Breakdown                       */
-              /* ========================================================= */
+              /* LEVEL 4: Learner Progress Breakdown */
               <motion.div
                 key="level-4"
                 custom={direction}

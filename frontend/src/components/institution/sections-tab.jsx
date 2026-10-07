@@ -95,9 +95,7 @@ function fullName(row) {
   return [row.firstName, row.lastName].filter(Boolean).join(" ")
 }
 
-/* ------------------------------------------------------------------ */
-/* CSV import                                                          */
-/* ------------------------------------------------------------------ */
+/* CSV import */
 
 /** Split one CSV/TSV line, honouring double quotes. */
 function splitLine(line, delimiter) {
@@ -214,9 +212,7 @@ function downloadSampleCsv() {
   URL.revokeObjectURL(url)
 }
 
-/* ------------------------------------------------------------------ */
-/* Add learners dialog: manual list + file import                      */
-/* ------------------------------------------------------------------ */
+/* Add learners dialog: manual list + file import */
 
 function AddLearnersDialog({ open, onOpenChange, departmentId, group, section }) {
   const queryClient = useQueryClient()
@@ -476,9 +472,7 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section })
   )
 }
 
-/* ------------------------------------------------------------------ */
-/* Section create / rename dialog                                      */
-/* ------------------------------------------------------------------ */
+/* Section create / rename dialog */
 
 function SectionDialog({ open, onOpenChange, departmentId, section }) {
   const queryClient = useQueryClient()
@@ -556,9 +550,7 @@ function SectionDialog({ open, onOpenChange, departmentId, section }) {
   )
 }
 
-/* ------------------------------------------------------------------ */
-/* One section: its roster and pending invitations                     */
-/* ------------------------------------------------------------------ */
+/* One section: its roster and pending invitations */
 
 function LessonProgressCell({ completed, total, percentage }) {
   if (!total) return <span className="text-sm text-muted-foreground">No lessons yet</span>
@@ -866,9 +858,7 @@ function SectionPanel({
   )
 }
 
-/* ------------------------------------------------------------------ */
-/* The tab                                                             */
-/* ------------------------------------------------------------------ */
+/* The tab */
 
 export function SectionsTab({ departmentId, group }) {
   const queryClient = useQueryClient()
