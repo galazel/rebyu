@@ -19,9 +19,10 @@ same way -- see `no_credit_remaining` below.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Callable
 
-from app.ai import quota
+from app.ai import health, quota
 from app.ai.quota import (
     is_account_daily_cap,
     is_daily_quota_exhausted,
@@ -158,9 +159,14 @@ async def ainvoke_with_fallback(
     for model in available:
         if model in ruled_out:
             continue
+        started = time.monotonic()
         try:
-            return await _ainvoke_once(build_agent(model), payload, config)
+            result = await _ainvoke_once(build_agent(model), payload, config)
+            health.record_success(model, task, time.monotonic() - started)
+            return result
         except Exception as exc:
+            # For the admin AI settings page: what failed, and why.
+            health.record_failure(model, task, exc, time.monotonic() - started)
             # An account-level failure at OpenRouter says nothing about
             # another provider: a chain with "groq:" entries (or, for credit,
             # OpenRouter's :free models) still has somewhere to go, so only

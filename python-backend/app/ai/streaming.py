@@ -11,9 +11,10 @@ first, so a failure after that point ends the stream instead.
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import AsyncIterator
 
-from app.ai import quota
+from app.ai import health, quota
 from app.ai.quota import is_exhausted, mark_exhausted, parse_retry_after
 from app.ai.router import (
     _OUT_OF_CREDIT_COOLDOWN_SECONDS,
@@ -67,6 +68,7 @@ async def astream_with_fallback(messages: list, *, task: str) -> AsyncIterator[s
         if is_exhausted(model):  # set aside by an earlier failure in this loop
             continue
         started = False
+        began = time.monotonic()
         try:
             # No client retries: on a rate limit the client waited out the
             # provider's backoff (17s seen) before trying the same model
@@ -77,10 +79,13 @@ async def astream_with_fallback(messages: list, *, task: str) -> AsyncIterator[s
                     started = True
                     yield text
             if started:
+                health.record_success(model, task, time.monotonic() - began)
                 return
             last_exc = RuntimeError(f"{model} returned no text")
+            health.record_failure(model, task, last_exc, time.monotonic() - began)
             logger.warning("%s streamed no text; trying the next model", model)
         except Exception as exc:  # noqa: BLE001 -- classified below
+            health.record_failure(model, task, exc, time.monotonic() - began)
             if started:
                 raise
             last_exc = exc

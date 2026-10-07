@@ -13,7 +13,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from app.ai import tasks
+from app.ai import health, tasks
+from app.ai.router import _has_key
 from app.ai.catalogue import TASK_INFO, blocked_reason, openrouter_credits, openrouter_models
 from app.ai.overrides import all_overrides, clear_model, set_model
 from app.core.config import get_settings
@@ -79,7 +80,22 @@ def read_settings():
         except Exception:  # noqa: BLE001
             providers[name] = False
 
+    # Every model any feature may use -- its own and its fallbacks -- with what
+    # it has been doing since the AI service started (see app.ai.health).
+    model_health = {}
+    for name in tasks.TASKS:
+        profile = tasks.profile_for(name, settings)
+        for model in profile.chain:
+            if model not in model_health:
+                try:
+                    has_key = _has_key(model, profile)
+                except Exception:  # noqa: BLE001
+                    has_key = False
+                model_health[model] = health.status_of(model, has_key=has_key)
+
     return {
+        "modelHealth": model_health,
+        "healthSince": health.started_at(),
         "credits": openrouter_credits(openrouter.api_key() if providers.get("openrouter") else None),
         "providers": providers,
         "tasks": rows,
