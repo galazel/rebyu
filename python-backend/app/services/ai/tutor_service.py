@@ -71,7 +71,11 @@ async def append_messages(session_id: str, messages: list[dict]):
         if message.get("role") == "user":
             to_append.append(HumanMessage(content=content))
         else:
-            extra = {"action": message["action"]} if message.get("action") else {}
+            extra = {}
+            if message.get("action"):
+                extra["action"] = message["action"]
+            if message.get("resources"):
+                extra["resources"] = message["resources"]
             to_append.append(AIMessage(content=content, additional_kwargs=extra))
 
     await graph.aupdate_state(

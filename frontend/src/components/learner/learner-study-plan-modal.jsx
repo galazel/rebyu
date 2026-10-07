@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { CalendarDays, ChevronLeft, ChevronRight, Sparkles } from "@/components/icons"
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Sparkles } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
 import { STUDY_PLAN_QUERY_KEY, getMyStudyPlans } from "@/services/studyPlanService.js"
 import { describeEvent } from "@/lib/study-plan-events.js"
+import { useStudyPlanDone } from "@/hooks/use-study-plan-done.js"
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
@@ -66,6 +67,7 @@ function formatDayLabel(value) {
 export default function LearnerStudyPlanCalendarPage() {
   const [viewDate, setViewDate] = useState(new Date())
   const [movedToPlan, setMovedToPlan] = useState(false)
+  const isDone = useStudyPlanDone()
 
   const planQuery = useQuery({
     queryKey: [STUDY_PLAN_QUERY_KEY, "mine"],
@@ -258,13 +260,21 @@ export default function LearnerStudyPlanCalendarPage() {
                         row: a single busy day would otherwise set the height of
                         every week on the grid. */}
                     <div className="mt-0.5 min-h-0 flex-1 space-y-0.5 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                      {dayEvents.map((event, index) => (
+                      {dayEvents.map((event, index) => {
+                        // Finished sessions stay on the calendar, crossed out:
+                        // the month still shows what was planned, and that it
+                        // was done.
+                        const done = isDone(event)
+                        return (
                         <div
                           key={`${event.planId ?? ""}-${event.id ?? event.title}-${index}`}
-                          className="border-l-2 border-primary bg-primary/[0.06] px-1.5 py-0.5 text-[10px] font-medium leading-tight text-foreground"
-                          title={`${event.title} · ${labelFor(event)}\n${describeEvent(event)}`}
+                          className={`border-l-2 px-1.5 py-0.5 text-[10px] font-medium leading-tight ${done ? "border-primary/40 bg-muted/50 text-muted-foreground" : "border-primary bg-primary/[0.06] text-foreground"}`}
+                          title={`${event.title} · ${labelFor(event)}${done ? " · Done" : ""}\n${describeEvent(event)}`}
                         >
-                          <p className="truncate">{event.title}</p>
+                          <p className={`flex items-center gap-1 ${done ? "line-through decoration-muted-foreground/70" : ""}`}>
+                            {done ? <Check className="size-2.5 shrink-0 text-primary" aria-label="Done" /> : null}
+                            <span className="truncate">{event.title}</span>
+                          </p>
 
                           {/* Which certification this session belongs to,
                               written out rather than left to a colour -- but
@@ -277,7 +287,8 @@ export default function LearnerStudyPlanCalendarPage() {
                             </p>
                           ) : null}
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 )

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { useLocation, useNavigate, useOutletContext } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import {
@@ -23,10 +23,10 @@ import {
   STUDY_PLAN_QUERY_KEY,
   STUDY_PLAN_TASKS_QUERY_KEY,
   getMyStudyPlans,
-  getStudyPlanTaskStatuses,
   setStudyPlanTaskStatus,
 } from "@/services/studyPlanService.js"
 import { startPomodoro } from "@/lib/pomodoro-store.js"
+import { useStudyPlanDone } from "@/hooks/use-study-plan-done.js"
 
 /* How each kind of session looks. Every entry carries its own words -- a mock
    exam and a lesson are different work, and the icon's colour alone would hide
@@ -109,35 +109,11 @@ export function TodaysPlanTile({ onCreatePlan }) {
      finished anywhere in the app -- a lesson read from the curriculum page
      should not still sit on today's list as something to do. */
   const queryClient = useQueryClient()
-  const outlet = useOutletContext() ?? {}
-  const statusesQuery = useQuery({
-    queryKey: [STUDY_PLAN_TASKS_QUERY_KEY],
-    queryFn: getStudyPlanTaskStatuses,
-    staleTime: 60_000,
-  })
-  const doneTasks = useMemo(
-    () =>
-      new Set(
-        (statusesQuery.data ?? [])
-          .filter((row) => row.status === "COMPLETED")
-          .map((row) => `${row.planId}:${row.eventId}`)
-      ),
-    [statusesQuery.data]
-  )
-  const completedLessonIds = useMemo(
-    () =>
-      new Set(
-        (outlet.data?.lessons ?? []).filter((lesson) => lesson.completed).map((lesson) => String(lesson.lessonId))
-      ),
-    [outlet.data?.lessons]
-  )
+  const isDone = useStudyPlanDone()
   const markDone = useMutation({
     mutationFn: (event) => setStudyPlanTaskStatus({ planId: event.planId, eventId: event.id, status: "COMPLETED" }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [STUDY_PLAN_TASKS_QUERY_KEY] }),
   })
-  const isDone = (event) =>
-    doneTasks.has(event.key) ||
-    (eventKind(event) === "lesson" && event.lessonId != null && completedLessonIds.has(String(event.lessonId)))
 
   /**
    * Opens a lesson where lessons are read now: its topic page, with the outline

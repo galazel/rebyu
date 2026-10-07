@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -12,6 +15,7 @@ from app.db.session import get_db
 from app.graphs.tutor.lesson_context import load_lesson_context, load_source_material
 from app.graphs.tutor.workflow import get_tutor_graph
 from app.services.ai.tutor_service import append_messages, get_conversation
+from app.services.ai.tutor_stream import stream_tutor_answer
 
 logger = logging.getLogger(__name__)
 
@@ -74,8 +78,8 @@ async def append_conversation_messages(payload: AppendMessagesRequest) -> Conver
     return ConversationResponse(messages=await get_conversation(payload.sessionId))
 
 
-@router.post("/chat", response_model=ChatResponse)
-async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
+def _lesson_grounding(db: Session, payload: ChatRequest) -> tuple[str | None, str | None]:
+    """The lesson's content and the source passages matching this question."""
     lesson_context = None
     source_material = None
     if payload.lessonId is not None:
@@ -90,6 +94,14 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
         # lesson as a whole, and the useful passage is the one that matches
         # what was actually asked.
         source_material = load_source_material(db, payload.lessonId, payload.message)
+    return lesson_context, source_material
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
+    # Off the event loop: retrieval embeds and reranks on the CPU, and every
+    # other request would wait behind it.
+    lesson_context, source_material = await asyncio.to_thread(_lesson_grounding, db, payload)
 
     graph = await get_tutor_graph()
     config = {"configurable": {"thread_id": payload.sessionId}}
@@ -106,3 +118,45 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
     last = result["messages"][-1]
     resources = (last.additional_kwargs or {}).get("resources") or []
     return ChatResponse(reply=last.content, sessionId=payload.sessionId, resources=resources)
+
+
+def _sse(event: dict) -> str:
+    """One Server-Sent Event; the type doubles as the SSE event name."""
+    return f"event: {event['type']}\ndata: {json.dumps(event)}\n\n"
+
+
+@router.post("/chat/stream")
+async def chat_stream(payload: ChatRequest, db: Session = Depends(get_db)) -> StreamingResponse:
+    """The answer as Server-Sent Events while it is written: `delta` {text}
+    pieces, then `resources` when there are some, then `done` -- or `error`
+    {message} if no model could answer. See app.services.ai.tutor_stream."""
+    # Loaded before the response starts: the database session does not
+    # outlive the request handler, and the stream runs after it returns.
+    # Off the event loop: retrieval embeds and reranks on the CPU, and every
+    # other request would wait behind it.
+    lesson_context, source_material = await asyncio.to_thread(_lesson_grounding, db, payload)
+
+    async def events():
+        yield ": stream open\n\n"
+        try:
+            async for event in stream_tutor_answer(
+                session_id=payload.sessionId,
+                request=payload.message,
+                lesson_name=payload.lessonName,
+                lesson_context=lesson_context,
+                source_material=source_material,
+            ):
+                yield _sse(event)
+        except Exception:  # noqa: BLE001 -- the learner gets a message, the log the detail
+            logger.exception("Streaming tutor answer failed for %s", payload.sessionId)
+            yield _sse({
+                "type": "error",
+                "message": "The AI tutor could not answer right now. Please try again in a moment.",
+            })
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        # No proxy or browser buffering: the point is that each piece arrives now.
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )

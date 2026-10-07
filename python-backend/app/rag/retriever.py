@@ -66,8 +66,13 @@ def retrieve(
     top_k: int | None = None,
     fetch_k: int | None = None,
     embeddings: Embeddings | None = None,
+    rerank: bool = True,
 ) -> list[Document]:
     """Returns the most relevant chunks for a query within one certification.
+
+    `rerank=False` keeps the vector search's own order and skips the
+    cross-encoder, for a caller someone is waiting on: on this CPU it costs
+    about two seconds even for 20 candidates.
 
     An empty list means "this certification has no knowledge base yet",
     which callers should treat as a degraded-but-valid state rather than an
@@ -85,6 +90,8 @@ def retrieve(
     # No metadata filter needed: the index itself is scoped to one
     # certification, so cross-certification bleed is structurally impossible.
     candidates = index.similarity_search(query, k=fetch_k)
+    if not rerank:
+        return candidates[:top_k]
     return _rerank(query, candidates, top_k)
 
 
@@ -236,8 +243,9 @@ def retrieve_context(
     fetch_k: int | None = None,
     max_chars: int | None = None,
     embeddings: Embeddings | None = None,
+    rerank: bool = True,
 ) -> str:
     """Convenience wrapper: retrieve then format. Returns "" when the
     certification has no indexed knowledge."""
-    documents = retrieve(namespace, query, top_k=top_k, fetch_k=fetch_k, embeddings=embeddings)
+    documents = retrieve(namespace, query, top_k=top_k, fetch_k=fetch_k, embeddings=embeddings, rerank=rerank)
     return format_context(documents, max_chars)

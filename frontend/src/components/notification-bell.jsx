@@ -9,7 +9,7 @@ import {
   Trash2,
   XCircle,
 } from "@/components/icons"
-import { Link } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 
 import { socialTime } from "@/lib/social-time.js"
 
@@ -58,6 +58,11 @@ export function NotificationBell({
   unreadCount,
 }) {
   const visibleItems = items.slice(0, 8)
+  // This portal's own notifications page, so the header stays put.
+  const portal = useLocation().pathname.split("/")[1]
+  const viewAllHref = ["admin", "institution", "learner"].includes(portal)
+    ? `/${portal}/notifications`
+    : "/notifications"
   // The badge counts what is actually unread, not the size of the whole feed --
   // a read backlog should not keep showing as pending.
   const unread =
@@ -106,7 +111,7 @@ export function NotificationBell({
         </DropdownMenuLabel>
         <div className="px-2 pb-2">
           <Button asChild variant="outline" size="sm" className="h-8 w-full justify-center">
-            <Link to="/notifications">
+            <Link to={viewAllHref}>
               View all notifications
               {items.length ? ` (${items.length})` : ""}
             </Link>

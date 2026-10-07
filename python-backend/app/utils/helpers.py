@@ -92,7 +92,7 @@ async def close_checkpointer() -> None:
 def create_id():
     return str(uuid4())
 
-def get_llm(task: str = "question", model: str | None = None):
+def get_llm(task: str = "question", model: str | None = None, max_retries: int | None = None):
     """Builds the chat model for one task.
 
     `task` names the job, not a tier -- "lesson", "curriculum", "question",
@@ -140,6 +140,9 @@ def get_llm(task: str = "question", model: str | None = None):
         # for a lesson's 16k budget, and on providers that bill reserved output
         # or count it toward a rate-limit estimate, asking for it is a real cost.
         max_tokens=profile.max_tokens,
+        # None keeps the client's own retries; 0 lets a caller with its own
+        # fallback move on at once instead of sitting out a rate limit.
+        **({"max_retries": max_retries} if max_retries is not None else {}),
         # OpenRouter's attribution headers, and only OpenRouter's -- they make a
         # generation run identifiable on its activity dashboard when several
         # services share one key. Sent to that provider alone, since Groq and

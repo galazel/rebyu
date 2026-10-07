@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Reveal, motion, popIn } from "@/components/motion/rebyu-motion.jsx"
 
-import { base } from "@/services/base"
+import { API, base, currentAccessToken } from "@/services/base"
 import { generateStudyAid } from "@/services/learnerToolsService.js"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { ProLockCard } from "@/components/learner/pro-gate.jsx"
@@ -86,6 +86,90 @@ function trackRequest(sessionId, entry) {
     }
   })
   return entry
+}
+
+/** No stream could be opened; the caller falls back to the one-shot request. */
+class StreamUnavailable extends Error {}
+
+/**
+ * The tutor's answer as it is written, read from the server's event stream:
+ * each `delta` piece is added to `entry.text` and passed to `entry.onDelta`
+ * (whichever panel is watching), and `resources` arrive at the end. Resolves
+ * to {text, resources}.
+ */
+async function streamTutorAnswer(body, entry) {
+  const token = await currentAccessToken()
+  let response
+  try {
+    response = await fetch(`${API}/ai/tutor/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    })
+  } catch {
+    throw new StreamUnavailable()
+  }
+  if (!response.ok || !response.body) {
+    // A refusal (no Pro, someone else's thread) gets the same answer from the
+    // one-shot request, with its message, so it falls back too.
+    throw new StreamUnavailable()
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffered = ""
+  let resources
+  let finished = false
+
+  const handle = (block) => {
+    let name = "message"
+    const data = []
+    for (const line of block.split(/\r?\n/)) {
+      if (line.startsWith("event:")) name = line.slice(6).trim()
+      else if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""))
+    }
+    if (!data.length) return
+    let event
+    try {
+      event = JSON.parse(data.join("\n"))
+    } catch {
+      return
+    }
+    const type = event.type ?? name
+    if (type === "delta" && event.text) {
+      entry.text += event.text
+      entry.onDelta?.(entry.text)
+    } else if (type === "resources") {
+      resources = event.resources
+    } else if (type === "error") {
+      throw new Error(event.message || "The AI tutor could not answer right now.")
+    } else if (type === "done") {
+      finished = true
+    }
+  }
+
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffered += decoder.decode(value, { stream: true })
+    let match
+    while ((match = /\r?\n\r?\n/.exec(buffered))) {
+      const block = buffered.slice(0, match.index)
+      buffered = buffered.slice(match.index + match[0].length)
+      handle(block)
+    }
+  }
+  if (buffered.trim()) handle(buffered)
+
+  if (!entry.text.trim()) {
+    if (!finished) throw new StreamUnavailable()
+    throw new Error("The AI Tutor did not return a response.")
+  }
+  return { text: entry.text.trim(), resources }
 }
 
 /* What the waiting bubble says, in order; the last one stays. Timed from when
@@ -422,6 +506,12 @@ export function LessonAiTutor({
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [generating, setGenerating] = useState(null)
   const [waitingSince, setWaitingSince] = useState(null)
+  // The answer so far while it is being written; empty until the first words.
+  const [streamText, setStreamText] = useState("")
+  // How much of it is on screen yet, and the finished reply waiting for the
+  // typing to catch up (see the reveal effect below).
+  const [shownLength, setShownLength] = useState(0)
+  const [finishedReply, setFinishedReply] = useState(null)
   const entitlements = useLearnerEntitlements()
   const sessionId = buildTutorSessionId(learnerId, lessonId)
   // Free has no tutor; Pro has a daily allowance of generated quizzes/flashcards.
@@ -490,20 +580,60 @@ export function LessonAiTutor({
     return () => {
       cancelled = true
       const entry = inFlight.get(sessionId)
-      if (entry) entry.listener = null
+      if (entry) {
+        entry.listener = null
+        entry.onDelta = null
+      }
+      setStreamText("")
+      setShownLength(0)
+      setFinishedReply(null)
     }
   }, [lessonId, learnerId, tutorLocked])
+
+  // Types the streamed answer out at a readable pace. The model can write a
+  // whole answer in a second or two, which arrives as one burst; revealing it
+  // a few characters a frame -- faster the further behind it is -- makes the
+  // answer visibly appear while still keeping up with any model.
+  useEffect(() => {
+    if (shownLength >= streamText.length) {
+      if (finishedReply) showReply(finishedReply)
+      return undefined
+    }
+    const frame = requestAnimationFrame(() => {
+      const behind = streamText.length - shownLength
+      const step = Math.min(40, Math.max(2, Math.ceil(behind / 60)))
+      setShownLength((current) => Math.min(streamText.length, current + step))
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [streamText, shownLength, finishedReply])
+
+  function showReply(message) {
+    setMessages((current) => [...current, message])
+    setPending(false)
+    setGenerating(null)
+    setWaitingSince(null)
+    setStreamText("")
+    setShownLength(0)
+    setFinishedReply(null)
+  }
 
   /** Shows `entry` as in progress here, and its reply here when it arrives. */
   function watch(entry) {
     if (entry.kind === "chat") setPending(true)
     else setGenerating(entry.kind)
     setWaitingSince(entry.startedAt)
+    // Reopened mid-answer: carry on from what has been written so far.
+    setStreamText(entry.text ?? "")
+    setShownLength((entry.text ?? "").length)
+    entry.onDelta = (text) => setStreamText(text)
     entry.listener = (message) => {
-      setMessages((current) => [...current, message])
-      setPending(false)
-      setGenerating(null)
-      setWaitingSince(null)
+      if (entry.text) {
+        // Streamed: let the typing finish, then swap in the final message.
+        setStreamText(message.text)
+        setFinishedReply(message)
+      } else {
+        showReply(message)
+      }
     }
   }
 
@@ -526,37 +656,47 @@ export function LessonAiTutor({
 
     setDraft("")
 
-    // Resolves to the message to show -- the answer, or the error -- so the
-    // registry can hand it to whichever panel is open when it arrives.
-    const promise = base(AI_TUTOR_ENDPOINT, {
-      method: "POST",
-      data: {
-        sessionId,
-        lessonName: lessonName,
-        lessonId: lessonId != null ? Number(lessonId) : null,
-        message: question,
-      },
-    })
-        .then((response) => {
+    const body = {
+      sessionId,
+      lessonName: lessonName,
+      lessonId: lessonId != null ? Number(lessonId) : null,
+      message: question,
+    }
+    const entry = { kind: "chat", prompt: question, lessonName, startedAt: Date.now(), text: "" }
+
+    // The one-shot request, for when the stream cannot be opened at all.
+    const askOnce = () =>
+        base(AI_TUTOR_ENDPOINT, { method: "POST", data: body }).then((response) => {
           const answer = String(getTutorResponseText(response)).trim()
           if (!answer) throw new Error("The AI Tutor did not return a response.")
-          const resources = response?.resources ?? response?.data?.resources
-          return {
-            id: createTutorMessageId("assistant"),
-            role: "assistant",
-            text: answer,
-            resources: Array.isArray(resources) && resources.length ? resources : undefined,
-            createdAt: Date.now(),
-          }
+          return { text: answer, resources: response?.resources ?? response?.data?.resources }
         })
+
+    // Resolves to the message to show -- the answer, or the error -- so the
+    // registry can hand it to whichever panel is open when it arrives.
+    entry.promise = streamTutorAnswer(body, entry)
+        .catch((error) => {
+          if (error instanceof StreamUnavailable) return askOnce()
+          throw error
+        })
+        .then(({ text, resources }) => ({
+          id: createTutorMessageId("assistant"),
+          role: "assistant",
+          text,
+          resources: Array.isArray(resources) && resources.length ? resources : undefined,
+          createdAt: Date.now(),
+        }))
         .catch((error) => ({
           id: createTutorMessageId("error"),
           role: "assistant",
-          text: getTutorErrorMessage(error),
+          // Words already written stay; the error goes under them.
+          text: entry.text.trim()
+              ? `${entry.text.trim()}\n\n_${getTutorErrorMessage(error)}_`
+              : getTutorErrorMessage(error),
           createdAt: Date.now(),
         }))
 
-    watch(trackRequest(sessionId, { kind: "chat", prompt: question, lessonName, startedAt: Date.now(), promise }))
+    watch(trackRequest(sessionId, entry))
   }
 
   function handleSubmit(event) {
@@ -831,7 +971,16 @@ export function LessonAiTutor({
                       )
                     })}
 
-                    {pending || generating ? (
+                    {pending && shownLength > 0 ? (
+                        <MessageScrollerItem messageId={`streaming-${lessonId}`} className="mt-5">
+                          <GeminiTutorMessage
+                              message={{ role: "assistant", text: `${streamText.slice(0, shownLength)} ▍` }}
+                              learnerName={learnerName}
+                              isFirstInGroup
+                              isLastInGroup
+                          />
+                        </MessageScrollerItem>
+                    ) : pending || generating ? (
                         <MessageScrollerItem messageId={`thinking-${lessonId}`} className="mt-5">
                           <Message align="start">
                             <MessageContent className="flex-row items-end gap-2.5">

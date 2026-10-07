@@ -8,20 +8,22 @@ import com.capstone.rebyu.aigateway.dto.ChatResponse;
 import com.capstone.rebyu.aigateway.dto.ConversationResponseDto;
 import com.capstone.rebyu.aigateway.dto.LessonGenerationDraftResponseDto;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Flux;
 
 import java.io.IOException;
-import java.util.List;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
-
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -58,6 +60,28 @@ public class AiServiceClient {
             throw new AiServiceException("Tutor chat request failed", e);
         }
     }
+
+    /**
+     * The tutor's answer as Server-Sent Events while it is written (`delta`
+     * pieces, then `resources`, then `done` or `error`). A longer wait than
+     * the client default: the events keep arriving, but the whole answer can
+     * take a while on a fallback model.
+     */
+    public Flux<ServerSentEvent<String>> streamChat(ChatRequest request) {
+        return webClient.post()
+                .uri("/tutor/chat/stream")
+                .accept(MediaType.TEXT_EVENT_STREAM)
+                .bodyValue(request)
+                .httpRequest(httpRequest -> {
+                    reactor.netty.http.client.HttpClientRequest nettyRequest = httpRequest.getNativeRequest();
+                    nettyRequest.responseTimeout(Duration.ofMinutes(3));
+                })
+                .retrieve()
+                .bodyToFlux(SSE);
+    }
+
+    private static final ParameterizedTypeReference<ServerSentEvent<String>> SSE =
+            new ParameterizedTypeReference<>() {};
 
     public ConversationResponseDto getConversation(String sessionId) {
         try {

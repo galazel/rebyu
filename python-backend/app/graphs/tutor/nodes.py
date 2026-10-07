@@ -11,9 +11,21 @@ from app.ai.router import ainvoke_with_fallback
 from app.graphs.tutor.state import TutorState
 
 
-async def answer_question(state: TutorState):
+def build_tutor_messages(state: TutorState, earlier: list) -> list:
+    """The model input for one tutor turn: the lesson, the matching source
+    material, the conversation summary, the recent turns, then the question.
+    Shared by the graph node and the streaming route so both answer from
+    exactly the same context."""
 
     messages = []
+
+    # Always, even when the lesson's content could not be loaded: the tutor
+    # must never ask the learner which lesson they mean when the app knows.
+    if state.get("lessonName"):
+        messages.append(SystemMessage(content=(
+            f'The learner is studying the lesson "{state["lessonName"]}". '
+            "Questions about \"this lesson\" or \"this topic\" mean this lesson."
+        )))
 
     if state.get("lessonContext"):
         messages.append(
@@ -74,7 +86,6 @@ async def answer_question(state: TutorState):
     # The recent turns, so "I don't understand" refers to something: before
     # this, the model saw only the current message and had no way to know what
     # the learner was confused about. Capped to keep the prompt small.
-    earlier = _earlier_turns(state)
     messages.extend(earlier)
 
     messages.append(
@@ -82,6 +93,14 @@ async def answer_question(state: TutorState):
             content=state["request"]
         )
     )
+
+    return messages
+
+
+async def answer_question(state: TutorState):
+
+    earlier = _earlier_turns(state)
+    messages = build_tutor_messages(state, earlier)
 
     # task=TUTOR: without it the router walks the default (question) chain,
     # and the tutor answered on the question model -- a slow reasoning model

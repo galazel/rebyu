@@ -910,12 +910,16 @@ export default function Community() {
     const feedQuery = useQuery({
         queryKey: COMMUNITY_FEED_KEY,
         queryFn: async () => {
+            /* Only the posts are required. The circles, certifications and
+               study items are side panels; one of them failing used to fail
+               the whole query and leave the feed empty with posts to show. */
+            const optional = (promise) => promise.catch(() => [])
             const [nextPosts, nextCircles, nextCertifications, nextStudyItems] =
                 await Promise.all([
                     getCommunityPosts(),
-                    getCommunityCircles(),
-                    getAllCertifications(),
-                    getLibraryItems(),
+                    optional(getCommunityCircles()),
+                    optional(getAllCertifications()),
+                    optional(getLibraryItems()),
                 ])
             return {
                 posts: Array.isArray(nextPosts) ? nextPosts : [],
@@ -926,7 +930,11 @@ export default function Community() {
                 ),
             }
         },
-        initialData: readCommunityFeedSnapshot,
+        /* `undefined`, never null, when there is no snapshot: React Query
+           counts null as data, so the first visit of a session was "loaded"
+           with nothing in it and showed "No community posts found" while the
+           posts were still on their way. */
+        initialData: () => readCommunityFeedSnapshot() ?? undefined,
         initialDataUpdatedAt: 0,
         staleTime: 60_000,
         retry: 1,
@@ -964,8 +972,9 @@ export default function Community() {
         }
     }, [feedQuery.isError, feedQuery.error])
 
-    /* Only a first visit with nothing cached is a wait worth showing. */
-    const isLoading = feedQuery.isLoading
+    /* Only a wait with nothing to show yet is worth showing: a first visit,
+       or a saved snapshot that had no posts while a refresh is on its way. */
+    const isLoading = feedQuery.isLoading || (feedQuery.isFetching && posts.length === 0)
 
     const topicOptions = useMemo(() => {
         const titles = certifications

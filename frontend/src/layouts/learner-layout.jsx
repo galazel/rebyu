@@ -38,7 +38,6 @@ import {
 } from "@/services/learnerAnalyticsService.js"
 import { useAuth } from "@/context/auth-context.jsx"
 import { NotificationBell } from "@/components/notification-bell.jsx"
-import { getMyInvitations } from "@/services/institutionService.js"
 import { usePortalTheme } from "@/hooks/use-portal-theme.js"
 import { useNotifications } from "@/hooks/use-notifications.js"
 import { PortalThemeMenuItem } from "@/components/portal-theme-toggle"
@@ -156,79 +155,11 @@ export default function LearnerLayout() {
     query.data?.identity?.email ??
     authUser?.email ??
     ""
-  const invitationsQuery = useQuery({
-    queryKey: ["learner-notification-invitations", email],
-    queryFn: getMyInvitations,
-    enabled: Boolean(email),
-    refetchInterval: 30_000,
-    staleTime: 15_000,
-    retry: 1,
-  })
-  const certificationById = new Map(
-    (shellData.certifications ?? []).map((certification) => [
-      String(certification.certificationId),
-      certification,
-    ])
-  )
-  const pendingInvitationNotifications = (
-    Array.isArray(invitationsQuery.data) ? invitationsQuery.data : []
-  )
-    /* No filter: the endpoint returns this caller's own PENDING invitations
-       and nothing else. The email/status filter that stood here was the only
-       thing narrowing a platform-wide list, in the browser, after the whole
-       list had already been sent. */
-    .map((invitation) => ({
-      id: `pending-certification-invitation-${invitation.invitationId}`,
-      type: "invitation",
-      title: "You have a certification invitation",
-      description: "An institution invited you to join a certification. Open the invitation email to accept it.",
-      createdAt: invitation.sentAt,
-    }))
-
-  const assignmentNotifications = (shellData.enrollments ?? [])
-    .filter((enrollment) => enrollment.source === "institution")
-    .map((enrollment) => {
-      const certification = certificationById.get(String(enrollment.certificationId))
-      return {
-        id: `institution-certification-${enrollment.certificationId}`,
-        type: "certification",
-        title: "New certification assigned",
-        description: certification?.title ?? certification?.name ?? "Your institution assigned you a certification.",
-        createdAt: enrollment.assignedAt,
-        href: `/learner/certifications/${enrollment.certificationId}`,
-      }
-    })
-  // The persisted feed (the same one admins and institutions see) was never read
-  // here before, so backend-issued notifications never reached learners at all.
+  // The stored feed, the same one admins and institutions see. Invitations and
+  // certification assignments are stored notifications too now, so nothing is
+  // made up here from portal data -- an item that could not be marked read or
+  // deleted, and was missing from the notifications page.
   const inbox = useNotifications()
-  const notifications = [
-    ...inbox.items,
-    ...pendingInvitationNotifications,
-    ...assignmentNotifications,
-  ].sort((a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0))
-
-  // `=== false` rather than `!item.read` deliberately: the invitation and
-  // assignment items below are derived from portal data and carry no read
-  // state at all, so a truthiness test would count them forever. Nothing can
-  // mark them read, and a badge that can never reach zero stops being read as
-  // a count of new things.
-  const unreadCount = notifications.filter((item) => item.read === false).length
-
-  const markAllNotificationsRead = () => {
-    inbox.markAllRead()
-  }
-
-  const openNotification = (item) => {
-    if (typeof item.id === "number") {
-      inbox.open(item)
-      return
-    }
-    if (item.href) navigate(item.href)
-  }
-
-  const deleteNotification = (item) => {
-    inbox.remove(item.id)
-  }
 
   const outletContext = useMemo(
     () => ({
@@ -272,13 +203,13 @@ export default function LearnerLayout() {
       {!isTopicPage ? (
       <PortalTopNavigation role="LEARNER" actions={<>
             <NotificationBell
-              items={notifications}
-              unreadCount={unreadCount}
-              loading={query.isLoading || invitationsQuery.isLoading}
+              items={inbox.items}
+              unreadCount={inbox.unreadCount}
+              loading={inbox.isLoading}
               emptyMessage="Certification invitations and assignments will appear here."
-              onItemOpen={openNotification}
-              onMarkAllRead={markAllNotificationsRead}
-              onDelete={deleteNotification}
+              onItemOpen={inbox.open}
+              onMarkAllRead={inbox.markAllRead}
+              onDelete={(item) => inbox.remove(item.id)}
             />
 
             <DropdownMenu>

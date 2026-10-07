@@ -28,6 +28,7 @@ have to change.
 from __future__ import annotations
 
 import logging
+import time
 import re
 import uuid
 from functools import lru_cache
@@ -241,12 +242,24 @@ def _ensure_collection(namespace: str, embeddings: Embeddings) -> None:
     logger.info("Created Qdrant collection '%s'", namespace)
 
 
+#: Namespaces seen indexed, and when. Checking costs two round trips to
+#: Qdrant (~0.5s from here) on every tutor question; an index does not stop
+#: existing between two questions, and a stale entry only means a search
+#: that finds nothing, which every caller already handles.
+_KNOWN_INDEXED: dict[str, float] = {}
+_KNOWN_INDEXED_SECONDS = 300
+
+
 def load_index(namespace: str, embeddings: Embeddings | None = None) -> QdrantIndex | None:
     """A handle to an existing collection, or None when this certification has
     never been ingested. Returning None (rather than raising) lets callers
     treat "no knowledge base yet" as a normal, non-fatal state."""
-    if not index_exists(namespace):
-        return None
+    seen = _KNOWN_INDEXED.get(namespace)
+    if seen is None or time.monotonic() - seen > _KNOWN_INDEXED_SECONDS:
+        if not index_exists(namespace):
+            _KNOWN_INDEXED.pop(namespace, None)
+            return None
+        _KNOWN_INDEXED[namespace] = time.monotonic()
     return QdrantIndex(get_client(), namespace, resolve_embeddings(embeddings))
 
 

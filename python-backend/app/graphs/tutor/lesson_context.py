@@ -72,6 +72,7 @@ def flatten_lesson_blocks(blocks: Any) -> str:
 #: lesson body. Deliberately smaller than the lesson's own budget: this is
 #: supporting evidence for a chat reply, not a second lesson.
 _SOURCE_CHARS = 4000
+_TUTOR_TOP_K = 6
 
 
 def _certification_of(session: Session, lesson_id: int):
@@ -122,6 +123,13 @@ def load_source_material(session: Session, lesson_id: int, question: str):
             namespace_for(certification_id=certification_id, certification_name=title),
             question,
             max_chars=_SOURCE_CHARS,
+            # Sized for a reply someone is waiting on, not for generation's
+            # defaults (80 candidates reranked to 24). No reranking: it is
+            # CPU-bound and still cost ~2s at 20 candidates, while the lesson
+            # body is the main grounding and only _SOURCE_CHARS of this is used.
+            fetch_k=_TUTOR_TOP_K,
+            top_k=_TUTOR_TOP_K,
+            rerank=False,
         ) or None
     except Exception:
         # A missing or unreadable index must never take the chat down; the

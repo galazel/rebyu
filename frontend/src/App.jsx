@@ -108,6 +108,15 @@ function InstitutionHome() {
     return <Navigate to={target} replace />
 }
 
+/* The notifications page lives inside each portal, so it keeps that portal's
+   header. This old shared address sends whoever opens it to their own. */
+function NotificationsRedirect() {
+    const { user } = useAuth()
+    const role = String(user?.role ?? "").toUpperCase()
+    const portal = role === "ADMIN" ? "admin" : role === "LEARNER" ? "learner" : "institution"
+    return <Navigate to={`/${portal}/notifications`} replace />
+}
+
 function GuestOnlyRoute({ children }) {
     const { user, status } = useAuth()
 
@@ -312,6 +321,7 @@ export function App() {
 
                 <Route path="/admin" element={<DashboardLayout />}>
                     <Route index element={<Certifications />} />
+                    <Route path="notifications" element={<NotificationsPage />} />
                     <Route path="dashboard" element={<AdminDashboard />} />
                     <Route path="challenges" element={<Challenges />} />
                     <Route path="arenas" element={<ArenaConfig />} />
@@ -359,6 +369,7 @@ export function App() {
             <Route element={<ProtectedRoute allowedRoles={["LEARNER"]} />}>
                 <Route path="/learner" element={<LearnerLayout />}>
                     <Route index element={<Navigate to="analytics" replace />} />
+                    <Route path="notifications" element={<NotificationsPage />} />
                     <Route path="dashboard" element={<Navigate to="/learner/analytics" replace />} />
                     <Route path="analytics" element={<LearnerProgressPage />} />
                     <Route path="progress" element={<LearnerProgressPage />} />
@@ -471,6 +482,7 @@ export function App() {
             <Route element={<ProtectedRoute allowedRoles={["INSTITUTION", "DEPARTMENT_HEAD"]} />}>
                 <Route path="/institution" element={<InstitutionLayout />}>
                     <Route index element={<InstitutionHome />} />
+                    <Route path="notifications" element={<NotificationsPage />} />
                     <Route path="dashboard" element={<InstitutionDashboardEntry />} />
                     {/* A department head's home. The path says what the account
                         is: /institution/head was the old spelling and still
@@ -548,8 +560,8 @@ export function App() {
                 </Route>
             </Route>
 
-            {/* The notification feed is per-user, not per-portal, so admin,
-                institution, and learner all share this one page. */}
+            {/* One notifications page for every role, shown inside each
+                portal's layout (above); this address only redirects there. */}
             <Route
                 element={
                     <ProtectedRoute
@@ -557,7 +569,7 @@ export function App() {
                     />
                 }
             >
-                <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/notifications" element={<NotificationsRedirect />} />
             </Route>
 
             <Route path="/403" element={<ForbiddenPage />} />

@@ -286,6 +286,18 @@ public class LearnerService {
         // Lessons already finished on their own count toward the institution seat.
         orgEnrollmentProgressService.sync(enrollment);
 
+        // A real, stored notification. The learner portal used to make one up
+        // from the enrollment list instead, which could never be marked read or
+        // deleted and was missing from the notifications page.
+        if (learner.getUser() != null && institutionCert.getCertification() != null) {
+            notificationService.notify(
+                    learner.getUser(),
+                    "New certification assigned",
+                    institutionCert.getInstitution().getInstitutionName() + " gave you access to "
+                            + institutionCert.getCertification().getTitle() + ".",
+                    "/learner/certifications/" + institutionCert.getCertification().getCertificationId());
+        }
+
         // The invitation was sent by a group leader for a specific group --
         // place the newly-enrolled learner directly into it, so no separate
         // "add to group" step is needed.
