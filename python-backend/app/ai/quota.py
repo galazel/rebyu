@@ -219,6 +219,14 @@ def is_upstream_unavailable(exc: BaseException) -> bool:
     text = _message(exc).lower()
     if status in (502, 503) and any(marker in text for marker in _UPSTREAM_MARKERS):
         return True
+    # The same failure delivered inside a 200: OpenRouter streams the vendor's
+    # error as the body, and langchain-openai raises it as a bare ValueError
+    # with no status at all --
+    #   {'message': 'Upstream error from Nvidia: Service temporarily
+    #    overloaded', 'code': 503, 'metadata': {'error_type': 'provider_overloaded'}}
+    # Left unrecognised it ended the whole run with the rest of the chain unused.
+    if status is None and "upstream error from" in text:
+        return True
     # OpenRouter reports "no endpoints found for <model>" as a 404 when every
     # provider for a slug is offline or filtered out. Same remedy, and unlike a
     # normal 404 it is not a caller mistake.
@@ -257,8 +265,30 @@ def is_request_too_large(exc: BaseException) -> bool:
             "context length exceeded",
             "context_length_exceeded",
             "reduce the length",
+            # The task's completion budget is above this model's output cap
+            # (Groq, qwen3.8-27b: "`max_completion_tokens` must be less than
+            # or equal to `16384`"). Same remedy: a model that takes it.
+            "max_completion_tokens` must be less than",
+            "max_tokens` must be less than",
         )
     )
+
+
+def is_tool_call_rejected(exc: BaseException) -> bool:
+    """True when the provider refused the model's own tool call::
+
+        400 - Tool call validation failed: attempted to call tool 'json'
+        which was not in request.tools  (code: tool_use_failed)
+
+    A property of this model on this request, not of the account or the
+    budget: Groq validates tool calls server-side and gpt-oss sometimes
+    invents a tool name. Once retries have not cured it, another model may
+    well succeed, so the chain advances; nothing is marked spent.
+    """
+    if _status(exc) != 400:
+        return False
+    text = _message(exc).lower()
+    return "tool_use_failed" in text or "tool call validation failed" in text
 
 
 def parse_retry_after(exc: BaseException) -> float | None:

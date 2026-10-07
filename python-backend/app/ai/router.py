@@ -109,6 +109,12 @@ def _provider_of(model: str, profile) -> str:
     return prefix if ":" in model and prefix in PROVIDERS else profile.provider.name
 
 
+def _has_key(model: str, profile) -> bool:
+    from app.ai.tasks import PROVIDERS
+
+    return bool(PROVIDERS[_provider_of(model, profile)].api_key())
+
+
 async def ainvoke_with_fallback(
     build_agent: Callable[..., Any],
     payload: dict,
@@ -123,17 +129,22 @@ async def ainvoke_with_fallback(
     reset time so the caller can report something more useful than a 429.
     """
     profile = profile_for(task)
+    # A fallback on a provider with no key configured is skipped, not fatal:
+    # building its client raises, and the loop below would surface that as the
+    # run's failure while working models were still left in the chain.
+    # `chain` stays whole, for the account-wide marking further down.
     chain = profile.chain
-    available = [model for model in chain if not is_exhausted(model)]
+    usable = [model for model in chain if _has_key(model, profile)] or chain
+    available = [model for model in usable if not is_exhausted(model)]
 
     if not available:
-        wait = min(seconds_until_available(model) for model in chain)
+        wait = min(seconds_until_available(model) for model in usable)
         raise AllModelsExhausted(
             f"All {profile.name} models exhausted ({', '.join(chain)}); "
             f"earliest budget reset in {wait / 60:.0f} min"
         )
 
-    skipped = [model for model in chain if model not in available]
+    skipped = [model for model in usable if model not in available]
     if skipped:
         logger.info("Skipping models still in cooldown: %s", ", ".join(skipped))
 
@@ -170,6 +181,25 @@ async def ainvoke_with_fallback(
                         model, "free-model daily cap" if free_cap else "out of credit", rest[0],
                     )
                     continue
+            if is_out_of_credits(exc) and _provider_of(model, profile) != "openrouter":
+                # Another provider's prepaid balance (Hugging Face's monthly
+                # credit, measured spent after ~10 short calls): a wall for
+                # that provider's slugs only. Its models sit for the cooldown
+                # so a run does not pay one request each to rediscover it.
+                provider = _provider_of(model, profile)
+                sharing = [other for other in chain if _provider_of(other, profile) == provider]
+                rest = [other for other in available if other not in ruled_out and other not in sharing]
+                for spent in sharing:
+                    mark_exhausted(spent, get_settings().ai_quota_cooldown_seconds)
+                if rest:
+                    ruled_out.update(sharing)
+                    last_exc = exc
+                    logger.warning("%s is out of credit (%s); trying %s", provider, model, rest[0])
+                    continue
+                raise OutOfCredits(
+                    f"{provider} refused the request for {model} on account balance, and no "
+                    f"other {profile.name} model is left to try. Provider said: {quota.message_of(exc)}"
+                ) from exc
             if is_account_daily_cap(exc):
                 # Account-wide, like the credits case below: every `:free` slug
                 # shares one daily counter, so the remaining models in this
@@ -212,6 +242,22 @@ async def ainvoke_with_fallback(
                 last_exc = exc
                 logger.warning(
                     "Request exceeds %s's limit outright; trying the next model", model
+                )
+                continue
+            if getattr(exc, "advance_chain", False):
+                # This model, after its retries, still gave no usable answer
+                # (no structured response, or a lesson far too thin): a
+                # property of the model, so the next one is tried.
+                last_exc = exc
+                logger.warning("%s gave no usable answer (%s); trying the next model", model, exc)
+                continue
+            if quota.is_tool_call_rejected(exc):
+                # Retried already (it is a 400 the retry policy resamples);
+                # still refused, so this model cannot produce this answer.
+                # The next model may -- see `quota.is_tool_call_rejected`.
+                last_exc = exc
+                logger.warning(
+                    "%s's tool calls were refused by the provider; trying the next model", model
                 )
                 continue
             if is_upstream_unavailable(exc):

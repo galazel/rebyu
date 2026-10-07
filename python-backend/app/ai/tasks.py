@@ -93,6 +93,15 @@ PROVIDERS: dict[str, Provider] = {
         "https://generativelanguage.googleapis.com/v1beta/openai/",
         ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
     ),
+    # Hugging Face Inference Providers: one token routes to Together,
+    # Fireworks, DeepInfra, Novita... for the large open models (Kimi, GLM,
+    # DeepSeek, Qwen). The free monthly credit is small, so these sit at the
+    # END of chains, as the last stop before giving up.
+    "huggingface": Provider(
+        "huggingface",
+        "https://router.huggingface.co/v1",
+        ("HF_TOKEN", "HUGGINGFACE_API_KEY"),
+    ),
 }
 
 

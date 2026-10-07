@@ -661,3 +661,169 @@ def test_a_question_batch_fits_inside_the_question_budget():
     timeout -- the exact failure `question_batch_size` exists to prevent."""
     settings = get_settings()
     assert settings.question_batch_size * 250 <= settings.ai_question_max_tokens
+
+
+async def test_a_provider_without_a_key_is_skipped_not_fatal(monkeypatch):
+    """Hugging Face sits at the end of chains before anyone has made a token.
+    Reaching it must cost nothing: building its client would raise, and that
+    error used to end the run with working models still left to try."""
+    from types import SimpleNamespace
+
+    import app.ai.router as router
+
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    monkeypatch.delenv("HUGGINGFACE_API_KEY", raising=False)
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    profile = SimpleNamespace(
+        name="question",
+        provider=tasks.PROVIDERS["groq"],
+        chain=["huggingface:moonshotai/Kimi-K3", "groq:openai/gpt-oss-120b"],
+    )
+    monkeypatch.setattr(router, "profile_for", lambda task: profile)
+
+    calls: list[str] = []
+    result = await ainvoke_with_fallback(_factory({}, calls), {"messages": []})
+    assert calls == ["groq:openai/gpt-oss-120b"]
+    assert result == {"structured_response": "ok from groq:openai/gpt-oss-120b"}
+
+
+def test_a_vendor_outage_inside_a_200_is_upstream_unavailable():
+    """OpenRouter puts the vendor's error in a 200 body; langchain-openai
+    raises it as a status-less ValueError. Seen live on nemotron-3-ultra."""
+    exc = ValueError({"message": "Upstream error from Nvidia: Service temporarily overloaded",
+                      "code": 503, "metadata": {"error_type": "provider_overloaded"}})
+    assert quota.is_upstream_unavailable(exc)
+    assert not quota.is_upstream_unavailable(ValueError("could not parse the tool call JSON"))
+
+
+def test_a_completion_budget_over_the_models_cap_moves_on():
+    """Groq caps qwen3.8-27b at 16384 output tokens; a lesson asks for more.
+    The model is fine for smaller calls, so it is skipped, not marked spent."""
+    exc = _FakeRateLimit("`max_completion_tokens` must be less than or equal to `16384`, "
+                         "the maximum value for `max_completion_tokens` is less than the "
+                         "`context_window` for this model", status=400)
+    assert quota.is_request_too_large(exc)
+
+
+async def test_another_providers_spent_credit_skips_only_that_provider(monkeypatch):
+    """Hugging Face's monthly credit ran out mid-chain (402). Its slugs are
+    skipped; the rest of the chain still runs instead of the whole run ending."""
+    from types import SimpleNamespace
+
+    import app.ai.router as router
+
+    monkeypatch.setenv("HF_TOKEN", "test")
+    monkeypatch.setenv("GROQ_API_KEY", "test")
+    profile = SimpleNamespace(
+        name="question",
+        provider=tasks.PROVIDERS["groq"],
+        chain=["huggingface:a/one", "huggingface:b/two", "groq:openai/gpt-oss-120b"],
+    )
+    monkeypatch.setattr(router, "profile_for", lambda task: profile)
+    spent = _FakeRateLimit("You have depleted your monthly included credits.", status=402)
+    calls: list[str] = []
+    result = await ainvoke_with_fallback(
+        _factory({"huggingface:a/one": spent, "huggingface:b/two": spent}, calls), {"messages": []})
+    assert calls == ["huggingface:a/one", "groq:openai/gpt-oss-120b"]
+    assert result == {"structured_response": "ok from groq:openai/gpt-oss-120b"}
+
+
+def _tool_rejection(failed_generation: str):
+    exc = _FakeRateLimit("Tool call validation failed: attempted to call tool 'json' which was not "
+                         "in request.tools", status=400)
+    # The shape the OpenAI SDK actually gives: the response's "error" object,
+    # already unwrapped (measured on Groq, 2026-10).
+    exc.body = {"message": "Tool call validation failed: attempted to call tool 'json' "
+                           "which was not in request.tools", "type": "invalid_request_error",
+                "code": "tool_use_failed", "failed_generation": failed_generation}
+    return exc
+
+
+def test_a_refused_tool_call_is_recognised():
+    assert quota.is_tool_call_rejected(_tool_rejection("{}"))
+    assert not quota.is_tool_call_rejected(_FakeRateLimit("something else", status=400))
+
+
+async def test_a_refused_tool_call_moves_to_the_next_model(monkeypatch):
+    from types import SimpleNamespace
+
+    import app.ai.router as router
+
+    monkeypatch.setenv("GROQ_API_KEY", "test")
+    profile = SimpleNamespace(name="lesson", provider=tasks.PROVIDERS["groq"],
+                              chain=["groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b"])
+    monkeypatch.setattr(router, "profile_for", lambda task: profile)
+    monkeypatch.setattr(router, "_ainvoke_once", lambda agent, payload, config: agent.ainvoke(payload))
+    calls: list[str] = []
+    result = await ainvoke_with_fallback(
+        _factory({"groq:openai/gpt-oss-120b": _tool_rejection("not json")}, calls), {"messages": []})
+    assert calls == ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b"]
+    assert result == {"structured_response": "ok from groq:qwen/qwen3.8-27b"}
+
+
+async def test_a_refused_output_call_holding_a_valid_lesson_is_kept():
+    """gpt-oss hands a whole lesson to a tool it calls "json"; Groq refuses it
+    but returns it as failed_generation. Valid against the schema -> kept."""
+    import json as _json
+
+    from app.ai.invocation import _StructuredAgent
+    from app.schemas.certification.lesson_schema import GeneratedLesson
+
+    lesson = {
+        "title": "TCP/IP", "introduction": "An introduction that is comfortably over forty characters.",
+        "learning_objectives": ["Explain the TCP/IP layers."], "estimated_minutes": 20,
+        "sections": [{"type": "description", "data": {"text": f"Part {i}"}} for i in range(12)],
+        "summary": "A summary that is comfortably over the forty character minimum.",
+    }
+
+    class Refusing:
+        def __init__(self, generation):
+            self.generation = generation
+
+        async def ainvoke(self, payload, config=None):
+            raise _tool_rejection(self.generation)
+
+    good = _json.dumps({"name": "json", "arguments": lesson})
+    kept = await _StructuredAgent(Refusing(good), "lesson", GeneratedLesson).ainvoke({"messages": []})
+    assert kept.title == "TCP/IP" and len(kept.sections) == 12
+
+    # Not a lesson -> the original refusal stands.
+    with pytest.raises(Exception, match="Tool call validation failed"):
+        await _StructuredAgent(Refusing(_json.dumps({"name": "json", "arguments": {"x": 1}})),
+                               "lesson", GeneratedLesson).ainvoke({"messages": []})
+    # No schema given -> never salvaged.
+    with pytest.raises(Exception, match="Tool call validation failed"):
+        await _StructuredAgent(Refusing(good), "lesson").ainvoke({"messages": []})
+
+
+async def test_an_empty_structured_response_is_not_a_success():
+    """Free models returned structured_response=None for a lesson; it was
+    handed back as a success (a None lesson)."""
+    from app.ai.invocation import MissingStructuredResponse, _StructuredAgent
+
+    class Empty:
+        async def ainvoke(self, payload, config=None):
+            return {"messages": [], "structured_response": None}
+
+    with pytest.raises(MissingStructuredResponse):
+        await _StructuredAgent(Empty(), "lesson").ainvoke({"messages": []})
+
+
+async def test_a_model_that_never_answers_hands_over_to_the_next(monkeypatch):
+    """dots-3 returned an empty structured response on every attempt; after
+    its retries the chain moves on instead of the run ending."""
+    from types import SimpleNamespace
+
+    import app.ai.router as router
+    from app.ai.invocation import MissingStructuredResponse
+
+    monkeypatch.setenv("GROQ_API_KEY", "test")
+    profile = SimpleNamespace(name="lesson", provider=tasks.PROVIDERS["groq"],
+                              chain=["groq:dots", "groq:openai/gpt-oss-120b"])
+    monkeypatch.setattr(router, "profile_for", lambda task: profile)
+    monkeypatch.setattr(router, "_ainvoke_once", lambda agent, payload, config: agent.ainvoke(payload))
+    calls: list[str] = []
+    result = await ainvoke_with_fallback(
+        _factory({"groq:dots": MissingStructuredResponse("empty")}, calls), {"messages": []})
+    assert calls == ["groq:dots", "groq:openai/gpt-oss-120b"]
+    assert result == {"structured_response": "ok from groq:openai/gpt-oss-120b"}

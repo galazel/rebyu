@@ -15,6 +15,7 @@ retry decorator of its own.
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 from collections.abc import Iterable
@@ -63,6 +64,10 @@ class MissingStructuredResponse(KeyError):
     `'structured_response'` with no indication of which agent produced it.
     """
 
+    #: Once retries have not produced an answer, the router tries the next
+    #: model rather than ending the run (`app.ai.router`).
+    advance_chain = True
+
     def __str__(self) -> str:
         return self.args[0] if self.args else "Agent returned no structured response."
 
@@ -78,24 +83,39 @@ class _StructuredAgent:
     sitting behind it.
     """
 
-    __slots__ = ("_agent", "_label")
+    __slots__ = ("_agent", "_label", "_schema")
 
-    def __init__(self, agent: Any, label: str) -> None:
+    def __init__(self, agent: Any, label: str, schema: type | None = None) -> None:
         self._agent = agent
         self._label = label
+        self._schema = schema
 
     async def ainvoke(self, payload: dict, config: dict | None = None) -> Any:
-        if config is None:
-            response = await self._agent.ainvoke(payload)
-        else:
-            response = await self._agent.ainvoke(payload, config)
         try:
-            structured = response["structured_response"]
-        except (KeyError, TypeError) as error:
-            raise MissingStructuredResponse(
-                f"{self._label} returned no structured response; "
-                "the model answered without calling its output tool."
-            ) from error
+            if config is None:
+                response = await self._agent.ainvoke(payload)
+            else:
+                response = await self._agent.ainvoke(payload, config)
+        except Exception as error:
+            structured = self._salvage(error)
+            if structured is None:
+                raise
+        else:
+            try:
+                structured = response["structured_response"]
+            except (KeyError, TypeError) as error:
+                raise MissingStructuredResponse(
+                    f"{self._label} returned no structured response; "
+                    "the model answered without calling its output tool."
+                ) from error
+            if structured is None:
+                # Present but empty: seen 2026-10 from free OpenRouter models
+                # (dots-3, nemotron-ultra) on the lesson agent. It used to be
+                # returned as a success -- a None lesson, failing later and
+                # far from the cause.
+                raise MissingStructuredResponse(
+                    f"{self._label} returned an empty structured response."
+                )
 
         # Screened here, inside the retried call, for the same reason the
         # extraction above is: a `GuardrailViolation` is a ValueError, so the
@@ -103,17 +123,112 @@ class _StructuredAgent:
         # method. Doing it in the graph node instead would turn a blockable
         # sample into a failed run.
         guardrails.screen(structured, label=self._label)
+        _require_depth(structured)
+        return structured
+
+    def _salvage(self, error: BaseException) -> Any:
+        """The answer inside a provider's tool-call rejection, when it is one.
+
+        Groq checks tool calls server-side. gpt-oss-120b writes a whole,
+        good lesson and then hands it over through a tool it calls "json"
+        instead of the output tool, so Groq refuses it (`tool_use_failed`)
+        -- and returns the refused call verbatim as `failed_generation`.
+        Measured 2026-10: the content was a complete lesson every time, and
+        the retries that followed burned minutes before the run ended
+        anyway. When those arguments validate against the agent's own output
+        schema they ARE the answer; anything else is left as the failure.
+        Opt-in per caller (`schema`), since only the caller knows the shape.
+        """
+        if self._schema is None:
+            return None
+        arguments = _failed_generation_arguments(error)
+        if arguments is None:
+            return None
+        try:
+            structured = self._schema.model_validate(arguments)
+        except Exception:  # noqa: BLE001 -- not the answer; keep the original failure
+            return None
+        logger.warning(
+            "%s: provider rejected the output tool call (%s); its arguments validate as %s, "
+            "so they are used", self._label, _short(error), self._schema.__name__,
+        )
         return structured
 
 
-def structured(build_agent):
+def _short(error: BaseException) -> str:
+    return str(error).splitlines()[0][:120]
+
+
+def _failed_generation_arguments(error: BaseException) -> dict | None:
+    """The arguments of the tool call a provider refused, from its error body.
+
+    The OpenAI SDK unwraps the response's `"error"` object into `body`, so
+    `failed_generation` is usually top-level there (measured on Groq); the
+    wrapped `{"error": {...}}` shape is accepted too."""
+    body = getattr(error, "body", None)
+    detail = None
+    if isinstance(body, dict):
+        detail = body.get("error") if isinstance(body.get("error"), dict) else body
+    raw = detail.get("failed_generation") if isinstance(detail, dict) else None
+    if not isinstance(raw, str):
+        return None
+    try:
+        call = json.loads(raw)
+    except ValueError:
+        return None
+    arguments = call.get("arguments") if isinstance(call, dict) else None
+    if isinstance(arguments, str):
+        try:
+            arguments = json.loads(arguments)
+        except ValueError:
+            return None
+    return arguments if isinstance(arguments, dict) else None
+
+
+class ThinGeneration(ValueError):
+    """A generated lesson far shallower than asked for. A `ValueError`, so the
+    retry policy resamples it like any other malformed structured output."""
+
+    advance_chain = True
+
+
+def _require_depth(value: Any) -> None:
+    """Refuses a lesson with a fraction of the depth the prompt asked for.
+
+    The schema's anatomy checks are about shape, and `validate_lesson` is an
+    advisory report for the human review -- which an unattended run never
+    stops for. A free model was seen (2026-10) to answer the real lesson
+    prompt with a placeholder: title "Test Lesson", one heading block, an
+    introduction about meeting the forty-character minimum. Every check
+    passed it. Here it is rejected at generation time, inside the retried,
+    fallback-wrapped call, so it is resampled and never stored.
+
+    The floor is a third of `lesson_min_sections`: well under any real
+    lesson, far over a placeholder.
+    """
+    from app.schemas.certification.lesson_schema import GeneratedLesson
+
+    if not isinstance(value, GeneratedLesson):
+        return
+    requested = get_settings().lesson_min_sections
+    floor = max(6, requested // 3)
+    if len(value.sections) < floor:
+        raise ThinGeneration(
+            f"lesson '{value.title}' has {len(value.sections)} content blocks; "
+            f"at least {floor} expected (about {requested} requested)"
+        )
+
+
+def structured(build_agent, schema: type | None = None):
     """Wraps an agent factory so it yields agents that return structured output
     directly, and fail loudly (and retryably) when the model does not produce it.
+    `schema`, when given, lets a provider-rejected output call be recovered --
+    see `_StructuredAgent._salvage`.
     """
     label = getattr(build_agent, "__name__", "agent")
 
     def build(model: str | None = None):
-        return _StructuredAgent(build_agent(model), label)
+        return _StructuredAgent(build_agent(model), label, schema)
 
     return build
 
@@ -162,7 +277,7 @@ def json_output(build_agent, schema: type):
     return build
 
 
-async def invoke_agent(build_agent, prompt: str, *, task: str = "question"):
+async def invoke_agent(build_agent, prompt: str, *, task: str = "question", schema: type | None = None):
     """Invokes any create_agent() factory with a single user message and
     returns its structured response, retrying transient provider failures and
     falling back to another model when one becomes unusable.
@@ -174,7 +289,7 @@ async def invoke_agent(build_agent, prompt: str, *, task: str = "question"):
     write lessons on a model chosen to answer yes/no questions.
     """
     return await ainvoke_with_fallback(
-        structured(build_agent),
+        structured(build_agent, schema),
         {"messages": [HumanMessage(content=prompt)]},
         task=task,
     )

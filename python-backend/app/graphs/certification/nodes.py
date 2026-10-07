@@ -516,6 +516,7 @@ async def _invoke_lesson_agent(state: CertificationState) -> GeneratedLesson:
             source_material=source_material,
         ),
         task=tasks.LESSON,
+        schema=GeneratedLesson,
     )
 
 
