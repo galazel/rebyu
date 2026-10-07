@@ -8,6 +8,9 @@ class TutorState(MessagesState):
 
     lessonContext: str | None
 
+    #: The lesson's name; scopes any related-resource search to it.
+    lessonName: str | None
+
     #: Passages retrieved from the certification's own uploaded documents
     #: that match this turn's question. The tutor answers from these in
     #: preference to its own memory; None when nothing was indexed.

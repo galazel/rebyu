@@ -44,7 +44,10 @@ logger = logging.getLogger(__name__)
 #: over-long avoidance would keep a whole run on its fallback after the primary
 #: recovered. Long enough, though, to spare the remaining lessons in a fan-out
 #: from each paying one failed call to learn the same thing.
-_UPSTREAM_COOLDOWN_SECONDS = 120.0
+_UPSTREAM_COOLDOWN_SECONDS = 120.0
+
+#: How long OpenRouter's paid models are skipped after an out-of-credit refusal.
+_OUT_OF_CREDIT_COOLDOWN_SECONDS = 600
 
 
 class AllModelsExhausted(RuntimeError):
@@ -175,6 +178,12 @@ async def ainvoke_with_fallback(
                         wait = parse_retry_after(exc) or get_settings().ai_quota_cooldown_seconds
                         for spent in sharing:
                             mark_exhausted(spent, wait)
+                    else:
+                        # Credit does not come back on its own: without a
+                        # cooldown every request spends a round trip to hear
+                        # 402 again before reaching a model that can answer.
+                        for spent in sharing:
+                            mark_exhausted(spent, _OUT_OF_CREDIT_COOLDOWN_SECONDS)
                     last_exc = exc
                     logger.warning(
                         "OpenRouter refused %s (%s); trying %s",

@@ -32,6 +32,8 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     sessionId: str
+    #: Related videos and links found for this answer; see app.domain.tutor_resources.
+    resources: list[dict] = []
 
 
 class ConversationMessage(BaseModel):
@@ -40,6 +42,7 @@ class ConversationMessage(BaseModel):
     # Only set on a generated quiz/flashcard turn: the payload the tutor UI
     # re-renders its "Take the quiz" card from after a refresh.
     action: dict | None = None
+    resources: list[dict] | None = None
 
 
 class ConversationResponse(BaseModel):
@@ -96,8 +99,10 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
             "messages": [HumanMessage(content=payload.message)],
             "lessonContext": lesson_context,
             "sourceMaterial": source_material,
+            "lessonName": payload.lessonName,
         },
         config=config,
     )
-    reply = result["messages"][-1].content
-    return ChatResponse(reply=reply, sessionId=payload.sessionId)
+    last = result["messages"][-1]
+    resources = (last.additional_kwargs or {}).get("resources") or []
+    return ChatResponse(reply=last.content, sessionId=payload.sessionId, resources=resources)

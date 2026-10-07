@@ -40,9 +40,12 @@ async def get_conversation(session_id: str):
         # tutor can re-render its "Take the quiz" card after a refresh rather
         # than degrading to a sentence about something the learner can no
         # longer open from here.
-        action = (message.additional_kwargs or {}).get("action")
-        if action:
-            entry["action"] = action
+        extra = message.additional_kwargs or {}
+        if extra.get("action"):
+            entry["action"] = extra["action"]
+        # Related videos and links found for an answer, so they reload with it.
+        if extra.get("resources"):
+            entry["resources"] = extra["resources"]
         conversation.append(entry)
     return conversation
 

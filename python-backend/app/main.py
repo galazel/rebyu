@@ -30,6 +30,20 @@ configure_logging(settings.debug)
 logger = logging.getLogger(__name__)
 
 
+def _warm_retrieval_models() -> None:
+    """Loads the embedder and the reranker into their caches. Never fatal: a
+    model that cannot load here is loaded (or reported) on first use."""
+    try:
+        from app.rag.embeddings import get_embeddings
+        from app.rag.retriever import _get_reranker
+
+        get_embeddings().embed_query("warm-up")
+        _get_reranker()
+        logger.info("Retrieval models loaded")
+    except Exception:
+        logger.warning("Could not preload retrieval models; they load on first use", exc_info=True)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     settings.ensure_directories()
@@ -54,8 +68,13 @@ async def lifespan(_: FastAPI):
     # so RabbitMQ's own redelivery gets first refusal on the runs it owns.
     recovery = asyncio.create_task(run_recovery.run_forever(), name="run-recovery")
 
+    # Load the retrieval models now, off the event loop, instead of on the
+    # first tutor question after every restart -- which waited ~40s for them.
+    warmup = asyncio.create_task(asyncio.to_thread(_warm_retrieval_models), name="model-warmup")
+
     yield
 
+    warmup.cancel()
     recovery.cancel()
     with suppress(asyncio.CancelledError):
         await recovery

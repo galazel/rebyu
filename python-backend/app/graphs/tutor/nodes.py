@@ -1,6 +1,11 @@
+import asyncio
+
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
 from app.agents.tutor.tutor_agent import get_query_agent
+
+from app.ai import tasks
+from app.domain.tutor_resources import asks_for_resources, find_resources, signals_confusion
 from app.ai.invocation import structured
 from app.ai.router import ainvoke_with_fallback
 from app.graphs.tutor.state import TutorState
@@ -66,26 +71,69 @@ async def answer_question(state: TutorState):
             )
         )
 
+    # The recent turns, so "I don't understand" refers to something: before
+    # this, the model saw only the current message and had no way to know what
+    # the learner was confused about. Capped to keep the prompt small.
+    earlier = _earlier_turns(state)
+    messages.extend(earlier)
+
     messages.append(
         HumanMessage(
             content=state["request"]
         )
     )
 
+    # task=TUTOR: without it the router walks the default (question) chain,
+    # and the tutor answered on the question model -- a slow reasoning model
+    # chosen for writing exam items, not for a learner waiting on a reply.
     response = await ainvoke_with_fallback(
         structured(get_query_agent),
         {
             "messages": messages
-        }
+        },
+        task=tasks.TUTOR,
     )
+
+    # Related videos and links: the model's own search when it set one, else
+    # the lesson itself when the learner asked for resources in so many words.
+    query = (getattr(response, "resource_search", None) or "").strip()
+    request = state.get("request")
+    if not query and signals_confusion(request):
+        # Still not clear after an explanation: show it taught another way,
+        # about what they last asked rather than the lesson as a whole.
+        previous = next((m.content for m in reversed(earlier) if m.type == "human"), "")
+        query = f"{previous} explained simply".strip()
+    elif not query and asks_for_resources(request):
+        query = "tutorial explained"
+    resources = await asyncio.to_thread(find_resources, query, state.get("lessonName")) if query else []
 
     return {
         "messages": [
             AIMessage(
-                content=response.response
+                content=response.response,
+                additional_kwargs={"resources": resources} if resources else {},
             )
         ]
     }
+
+
+#: How many earlier messages (learner and tutor) the model sees with a question.
+RECENT_TURNS = 6
+
+
+def _earlier_turns(state: TutorState) -> list:
+    """The conversation just before the current request, oldest first.
+
+    `messages` already ends with the request itself (the chat route adds it),
+    so it is left out here; it is appended separately.
+    """
+    history = [m for m in (state.get("messages") or []) if m.type in ("human", "ai")]
+    if history and history[-1].type == "human" and history[-1].content == state.get("request"):
+        history = history[:-1]
+    return [
+        HumanMessage(content=m.content) if m.type == "human" else AIMessage(content=m.content)
+        for m in history[-RECENT_TURNS:]
+    ]
 
 
 def should_summarize(state: TutorState):
@@ -117,7 +165,8 @@ async def summarize_conversation(state: TutorState):
                 """
                 )
             ]
-        }
+        },
+        task=tasks.TUTOR,
     )
 
     return {

@@ -827,3 +827,24 @@ async def test_a_model_that_never_answers_hands_over_to_the_next(monkeypatch):
         _factory({"groq:dots": MissingStructuredResponse("empty")}, calls), {"messages": []})
     assert calls == ["groq:dots", "groq:openai/gpt-oss-120b"]
     assert result == {"structured_response": "ok from groq:openai/gpt-oss-120b"}
+
+
+def test_the_tutor_walks_the_tutor_chain_not_the_question_chain(monkeypatch):
+    """The tutor called the router without task=, so it answered learners on
+    the question model (a slow reasoning model) instead of the tutor's."""
+    import asyncio
+
+    import app.graphs.tutor.nodes as nodes
+
+    seen = []
+
+    async def fake(build, payload, *, task="question", config=None):
+        seen.append(task)
+        class R:
+            response = "ok"
+        return R()
+
+    monkeypatch.setattr(nodes, "ainvoke_with_fallback", fake)
+    asyncio.run(nodes.answer_question({"request": "hi", "messages": []}))
+    asyncio.run(nodes.summarize_conversation({"messages": []}))
+    assert seen == [tasks.TUTOR, tasks.TUTOR]

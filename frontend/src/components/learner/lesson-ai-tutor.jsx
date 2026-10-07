@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import ReactMarkdown from "react-markdown"
@@ -7,8 +8,10 @@ import {
   ArrowRight,
   BookOpenCheck,
   Layers3,
+  Link,
   Loader2,
   MessageCircle,
+  PlayCircle,
   Plus,
   SendHorizontal,
   Sparkles,
@@ -58,6 +61,73 @@ const AI_TUTOR_APPEND_ENDPOINT = "ai/tutor/conversation/messages"
 // Matches the thread-id convention the tutor itself keys conversations on
 // (see `tutor_service.get_conversation` server-side) so history sent here
 // is the same history a later chat turn appends to.
+/*
+ * Requests in flight, by conversation. Kept outside the component because
+ * closing the tutor unmounts it: with the request held in component state the
+ * reply was thrown away, and reopening mid-wait showed neither the question
+ * nor any sign the tutor was still working. Whichever panel is open for the
+ * conversation when the reply lands receives it; if none is, the learner is
+ * told, and the answer is in the conversation the next time it opens (the
+ * server records it).
+ */
+const inFlight = new Map()
+
+function trackRequest(sessionId, entry) {
+  inFlight.set(sessionId, entry)
+  entry.promise.then((message) => {
+    if (inFlight.get(sessionId) === entry) inFlight.delete(sessionId)
+    if (entry.listener) {
+      entry.listener(message)
+    } else {
+      toast.success(
+          entry.kind === "chat" ? "Your AI tutor replied" : "Your study aid is ready",
+          { description: `Open the tutor in ${entry.lessonName ?? "this lesson"} to see it.` }
+      )
+    }
+  })
+  return entry
+}
+
+/* What the waiting bubble says, in order; the last one stays. Timed from when
+   the request started, so reopening mid-wait carries on rather than restarting. */
+const WAITING_LINES = {
+  chat: [
+    "Thinking...",
+    "Reading the lesson...",
+    "Checking your study materials...",
+    "Putting the answer together...",
+    "Almost there...",
+  ],
+  quiz: [
+    "Getting your quiz ready...",
+    "Picking questions from this lesson...",
+    "Writing the answer explanations...",
+    "Almost there...",
+  ],
+  flashcard: [
+    "Getting your flashcards ready...",
+    "Choosing the key ideas...",
+    "Writing the cards...",
+    "Almost there...",
+  ],
+}
+const WAITING_STEP_MS = 2600
+
+function WaitingLine({ kind, startedAt }) {
+  const lines = WAITING_LINES[kind] ?? WAITING_LINES.chat
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    const timer = setInterval(() => setTick((tick) => tick + 1), 500)
+    return () => clearInterval(timer)
+  }, [])
+
+  const step = Math.floor((Date.now() - (startedAt ?? Date.now())) / WAITING_STEP_MS)
+  return (
+      <span aria-live="polite">{lines[Math.min(step, lines.length - 1)]}</span>
+  )
+}
+
 function buildTutorSessionId(learnerId, lessonId) {
   return `${learnerId ?? "guest"}-${lessonId}`
 }
@@ -177,6 +247,82 @@ function StudyAidActionCard({ action }) {
   )
 }
 
+/* Only web addresses: a resource is rendered as a link, and anything else in
+   its url (javascript:, data:) must never become one. */
+function safeUrl(url) {
+  return /^https?:\/\//i.test(String(url ?? "")) ? url : null
+}
+
+/** Related videos and reading the tutor looked up for an answer. */
+function TutorResources({ resources }) {
+  const videos = resources.filter((item) => item.kind === "video" && safeUrl(item.url))
+  const links = resources.filter((item) => item.kind !== "video" && safeUrl(item.url))
+  if (!videos.length && !links.length) return null
+
+  return (
+      <div className="mt-3 space-y-3">
+        {videos.length ? (
+            <div>
+              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-rb-feather-lip">
+                <PlayCircle className="size-3.5" aria-hidden="true" /> Videos
+              </p>
+              <div className="grid gap-2">
+                {videos.map((video) => (
+                    <a
+                        key={video.url}
+                        href={video.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group flex items-center gap-2.5 rounded-xl border border-rb-swan bg-white p-1.5 pr-2.5 transition hover:border-rb-feather"
+                    >
+                      {safeUrl(video.thumbnail) ? (
+                          <img
+                              src={video.thumbnail}
+                              alt=""
+                              loading="lazy"
+                              className="h-12 w-20 shrink-0 rounded-lg object-cover"
+                          />
+                      ) : (
+                          <span className="grid h-12 w-20 shrink-0 place-items-center rounded-lg bg-rb-feather-wash">
+                            <PlayCircle className="size-5 text-rb-feather" aria-hidden="true" />
+                          </span>
+                      )}
+                      <span className="min-w-0">
+                        <span className="line-clamp-2 text-xs font-bold text-rb-eel group-hover:underline">{video.title}</span>
+                        <span className="block truncate text-[11px] text-rb-wolf">{video.source}</span>
+                      </span>
+                    </a>
+                ))}
+              </div>
+            </div>
+        ) : null}
+
+        {links.length ? (
+            <div>
+              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-rb-feather-lip">
+                <Link className="size-3.5" aria-hidden="true" /> Further reading
+              </p>
+              <ul className="space-y-1.5">
+                {links.map((link) => (
+                    <li key={link.url}>
+                      <a
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block rounded-lg px-1 py-0.5 hover:bg-white"
+                      >
+                        <span className="text-xs font-bold text-rb-feather-lip underline-offset-2 hover:underline">{link.title}</span>
+                        <span className="block truncate text-[11px] text-rb-wolf">{link.source}</span>
+                      </a>
+                    </li>
+                ))}
+              </ul>
+            </div>
+        ) : null}
+      </div>
+  )
+}
+
 function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGroup }) {
   const isLearner = message.role === "user"
 
@@ -220,13 +366,13 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
                 align={isLearner ? "end" : "start"}
                 // A bubble carrying an action card needs the room for it;
                 // Bubble's own `max-w-[80%]` would squeeze the button.
-                className={message.action ? "!max-w-[94%]" : ""}
+                className={message.action || message.resources?.length ? "!max-w-[94%]" : ""}
             >
               <BubbleContent
                   className={
                     isLearner
                       ? `!rounded-2xl ${tailCorner} !border-0 !bg-rb-feather !px-3.5 !py-2.5 !text-white !shadow-none`
-                      : `!rounded-2xl ${tailCorner} ${message.action ? "!w-full" : ""} !border-0 !bg-rb-feather-wash !px-3.5 !py-2.5 !text-rb-eel !shadow-none`
+                      : `!rounded-2xl ${tailCorner} ${message.action || message.resources?.length ? "!w-full" : ""} !border-0 !bg-rb-feather-wash !px-3.5 !py-2.5 !text-rb-eel !shadow-none`
                   }
               >
                 <div className="text-sm font-medium leading-6 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-extrabold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5">
@@ -236,6 +382,7 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
                 </div>
 
                 {message.action ? <StudyAidActionCard action={message.action} /> : null}
+                {message.resources?.length ? <TutorResources resources={message.resources} /> : null}
               </BubbleContent>
             </Bubble>
 
@@ -274,7 +421,9 @@ export function LessonAiTutor({
   const [pending, setPending] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [generating, setGenerating] = useState(null)
+  const [waitingSince, setWaitingSince] = useState(null)
   const entitlements = useLearnerEntitlements()
+  const sessionId = buildTutorSessionId(learnerId, lessonId)
   // Free has no tutor; Pro has a daily allowance of generated quizzes/flashcards.
   const tutorLocked = entitlements.isFree
   const generationLimit = entitlements.aiGenerationDailyLimit
@@ -315,6 +464,7 @@ export function LessonAiTutor({
                 // its "Take the quiz" card rather than leaving a sentence
                 // about something the learner can't open from here.
                 action: entry.action ?? undefined,
+                resources: Array.isArray(entry.resources) ? entry.resources : undefined,
               }))
           )
         })
@@ -323,13 +473,39 @@ export function LessonAiTutor({
           // blank is the right fallback either way.
         })
         .finally(() => {
-          if (!cancelled) setLoadingHistory(false)
+          if (cancelled) return
+          setLoadingHistory(false)
+          // A request sent before the panel was closed: show its question and
+          // the waiting bubble again, and take its reply when it lands.
+          const entry = inFlight.get(sessionId)
+          if (entry) {
+            setMessages((current) => [
+              ...current,
+              { id: createTutorMessageId("learner"), role: "user", text: entry.prompt, createdAt: entry.startedAt },
+            ])
+            watch(entry)
+          }
         })
 
     return () => {
       cancelled = true
+      const entry = inFlight.get(sessionId)
+      if (entry) entry.listener = null
     }
   }, [lessonId, learnerId, tutorLocked])
+
+  /** Shows `entry` as in progress here, and its reply here when it arrives. */
+  function watch(entry) {
+    if (entry.kind === "chat") setPending(true)
+    else setGenerating(entry.kind)
+    setWaitingSince(entry.startedAt)
+    entry.listener = (message) => {
+      setMessages((current) => [...current, message])
+      setPending(false)
+      setGenerating(null)
+      setWaitingSince(null)
+    }
+  }
 
   async function sendTutorMessage(value) {
     const question = String(value ?? "").trim()
@@ -349,47 +525,38 @@ export function LessonAiTutor({
     ])
 
     setDraft("")
-    setPending(true)
 
-    try {
-      const response = await base(AI_TUTOR_ENDPOINT, {
-        method: "POST",
-        data: {
-          sessionId: buildTutorSessionId(learnerId, lessonId),
-          lessonName: lessonName,
-          lessonId: lessonId != null ? Number(lessonId) : null,
-          message: question,
-        },
-      })
-
-      const answer = String(getTutorResponseText(response)).trim()
-
-      if (!answer) {
-        throw new Error("The AI Tutor did not return a response.")
-      }
-
-      setMessages((current) => [
-        ...current,
-        {
-          id: createTutorMessageId("assistant"),
-          role: "assistant",
-          text: answer,
-          createdAt: Date.now(),
-        },
-      ])
-    } catch (error) {
-      setMessages((current) => [
-        ...current,
-        {
+    // Resolves to the message to show -- the answer, or the error -- so the
+    // registry can hand it to whichever panel is open when it arrives.
+    const promise = base(AI_TUTOR_ENDPOINT, {
+      method: "POST",
+      data: {
+        sessionId,
+        lessonName: lessonName,
+        lessonId: lessonId != null ? Number(lessonId) : null,
+        message: question,
+      },
+    })
+        .then((response) => {
+          const answer = String(getTutorResponseText(response)).trim()
+          if (!answer) throw new Error("The AI Tutor did not return a response.")
+          const resources = response?.resources ?? response?.data?.resources
+          return {
+            id: createTutorMessageId("assistant"),
+            role: "assistant",
+            text: answer,
+            resources: Array.isArray(resources) && resources.length ? resources : undefined,
+            createdAt: Date.now(),
+          }
+        })
+        .catch((error) => ({
           id: createTutorMessageId("error"),
           role: "assistant",
           text: getTutorErrorMessage(error),
           createdAt: Date.now(),
-        },
-      ])
-    } finally {
-      setPending(false)
-    }
+        }))
+
+    watch(trackRequest(sessionId, { kind: "chat", prompt: question, lessonName, startedAt: Date.now(), promise }))
   }
 
   function handleSubmit(event) {
@@ -415,10 +582,7 @@ export function LessonAiTutor({
         createdAt: Date.now(),
       },
     ])
-    setGenerating(type)
-
-    try {
-      const item = await generateStudyAid(type, lessonName, Number(lessonId))
+    const promise = generateStudyAid(type, lessonName, Number(lessonId)).then((item) => {
       const isQuiz = type === "quiz"
       const reply = isQuiz
         ? "Your practice quiz is ready. It's saved to your Library too, so you can come back to it any time."
@@ -433,17 +597,6 @@ export function LessonAiTutor({
         label: isQuiz ? "Take the quiz" : "Study the flashcards",
         href: item.route,
       }
-
-      setMessages((current) => [
-        ...current,
-        {
-          id: createTutorMessageId("assistant"),
-          role: "assistant",
-          text: reply,
-          action,
-          createdAt: Date.now(),
-        },
-      ])
 
       // Generation never runs through the chat graph, so nothing would have
       // recorded this exchange -- it survived only in local state and
@@ -463,21 +616,17 @@ export function LessonAiTutor({
         // only the history entry isn't worth interrupting them over.
       })
 
-      entitlements.refetch()
-    } catch (error) {
-      setMessages((current) => [
-        ...current,
-        {
+      return { id: createTutorMessageId("assistant"), role: "assistant", text: reply, action, createdAt: Date.now() }
+    })
+        .catch((error) => ({
           id: createTutorMessageId("error"),
           role: "assistant",
           text: error?.response?.data?.message ?? "The study aid could not be generated.",
           createdAt: Date.now(),
-        },
-      ])
-      entitlements.refetch()
-    } finally {
-      setGenerating(null)
-    }
+        }))
+        .finally(() => entitlements.refetch())
+
+    watch(trackRequest(sessionId, { kind: type, prompt, lessonName, startedAt: Date.now(), promise }))
   }
 
   function handleKeyDown(event) {
@@ -634,6 +783,21 @@ export function LessonAiTutor({
                   <Target className="size-3.5" aria-hidden="true" />
                   <span className="text-xs font-bold">Practice me</span>
                 </TactileButton>
+
+                <TactileButton
+                    variant="snow"
+                    size="sm"
+                    className="!h-auto !gap-1.5 !border-2 !border-rb-feather/30 !bg-white !px-3.5 !py-2 !text-rb-feather-lip hover:!border-rb-feather hover:!bg-rb-feather-wash"
+                    disabled={pending}
+                    onClick={() =>
+                        sendTutorMessage(
+                            "Find videos and websites that explain this lesson well."
+                        )
+                    }
+                >
+                  <PlayCircle className="size-3.5" aria-hidden="true" />
+                  <span className="text-xs font-bold">Find videos & links</span>
+                </TactileButton>
               </div>
             </Reveal>
         ) : (
@@ -681,7 +845,7 @@ export function LessonAiTutor({
                                 <Bubble variant="secondary">
                                   <BubbleContent className="!flex !items-center !gap-2 !rounded-2xl !rounded-bl-md !border-0 !bg-rb-feather-wash !px-3.5 !py-2.5 !text-sm !font-medium !text-rb-wolf !shadow-none">
                                     <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                                    Thinking...
+                                    <WaitingLine kind={generating ?? "chat"} startedAt={waitingSince} />
                                   </BubbleContent>
                                 </Bubble>
                               </div>
