@@ -2,7 +2,10 @@ package com.capstone.rebyu.assessment.controller;
 
 import com.capstone.rebyu.assessment.service.ExamCertificationRepairService;
 import com.capstone.rebyu.assessment.service.ExamCertificationRepairService.ExamWithCert;
+import com.capstone.rebyu.auth.security.RoleGuard;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +24,17 @@ import java.util.Map;
 public class ExamDiagnosticsController {
 
     private final ExamCertificationRepairService repairService;
+    private final RoleGuard guard;
+
+    /**
+     * Admits only administrators, to every handler here. Method security is
+     * off in this application, so this is the gate; SecurityConfig only
+     * requires a signed-in caller.
+     */
+    @ModelAttribute
+    void requireAdmin(@AuthenticationPrincipal Jwt jwt) {
+        guard.requireAdmin(jwt);
+    }
 
     /**
      * List all mock exams and their current certification assignments.

@@ -2,6 +2,7 @@ package com.capstone.rebyu.enrollment.service;
 
 import com.capstone.rebyu.enrollment.entity.LearnerOrder;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -14,8 +15,21 @@ import org.springframework.stereotype.Component;
 @Component
 public class DevSimulatedPaymentVerifier implements PaymentVerificationService {
 
+    /**
+     * Off unless explicitly enabled. Enrollment is free today (the order price
+     * is zero, so verification is never reached), but this bean is active in
+     * every environment: left accepting "SIM-{orderNumber}", the day a
+     * certification gets a price anyone could enroll in it without paying.
+     */
+    @Value("${rebyu.payments.simulated:false}")
+    private boolean enabled;
+
     @Override
     public boolean verify(LearnerOrder order, String paymentReference) {
+        if (!enabled) {
+            log.warn("Simulated payment verification is disabled; refusing order {}", order.getOrderId());
+            return false;
+        }
         boolean valid = paymentReference != null
                 && paymentReference.equals("SIM-" + order.getOrderNumber());
         if (!valid) {

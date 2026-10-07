@@ -3,7 +3,10 @@ package com.capstone.rebyu.user.controller;
 import com.capstone.rebyu.user.dto.UserTypeDto;
 import com.capstone.rebyu.user.service.UserTypeService;
 import jakarta.validation.Valid;
+import com.capstone.rebyu.auth.security.RoleGuard;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -14,6 +17,17 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserTypeController {
     private final UserTypeService userTypeService;
+    private final RoleGuard guard;
+
+    /**
+     * Admits only administrators, to every handler here. Method security is
+     * off in this application, so this is the gate; SecurityConfig only
+     * requires a signed-in caller.
+     */
+    @ModelAttribute
+    void requireAdmin(@AuthenticationPrincipal Jwt jwt) {
+        guard.requireAdmin(jwt);
+    }
 
     @GetMapping
     public List<UserTypeDto> getAll() {

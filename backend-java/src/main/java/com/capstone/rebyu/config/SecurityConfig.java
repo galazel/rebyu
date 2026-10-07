@@ -185,6 +185,9 @@ public class SecurityConfig {
                          * of the day someone notices.
                          */
                         .requestMatchers("/api/admin/**").authenticated()
+                        // The role catalogue: admin-only in its controller; listed here so
+                        // it is never reachable anonymously through the permitAll default.
+                        .requestMatchers("/api/user-types", "/api/user-types/**").authenticated()
                         .requestMatchers("/api/admin/bkt/**", "/api/admin/adaptive/**").authenticated()
                         .requestMatchers("/api/admin/reference/**").authenticated()
                         .requestMatchers("/api/admin/community/reports/**").authenticated()

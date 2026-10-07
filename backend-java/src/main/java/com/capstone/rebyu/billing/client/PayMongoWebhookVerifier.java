@@ -30,6 +30,15 @@ public class PayMongoWebhookVerifier {
     @Value("${paymongo.webhook-secret:}")
     private String webhookSecret;
 
+    /**
+     * Accept unsigned webhooks when no secret is configured. Off by default:
+     * an environment that forgot the secret must refuse webhooks, not treat
+     * every request as a genuine "payment paid" event. Enable only for
+     * isolated local testing.
+     */
+    @Value("${paymongo.allow-unsigned-webhooks:false}")
+    private boolean allowUnsigned;
+
     /** True if a webhook secret is configured at all -- see {@link #verify}. */
     public boolean isConfigured() {
         return webhookSecret != null && !webhookSecret.isBlank();
@@ -41,10 +50,14 @@ public class PayMongoWebhookVerifier {
      */
     public boolean verify(String rawBody, String signatureHeader) {
         if (!isConfigured()) {
-            log.warn("PAYMONGO WEBHOOK SIGNATURE NOT VERIFIED: paymongo.webhook-secret is not set. "
-                    + "Set it from the PayMongo dashboard's webhook signing secret before relying on "
-                    + "this endpoint in anything beyond isolated local testing.");
-            return true;
+            if (allowUnsigned) {
+                log.warn("PAYMONGO WEBHOOK SIGNATURE NOT VERIFIED: paymongo.webhook-secret is not set and "
+                        + "paymongo.allow-unsigned-webhooks is on. Local testing only.");
+                return true;
+            }
+            log.error("Rejected PayMongo webhook: paymongo.webhook-secret is not set. Set it from the "
+                    + "PayMongo dashboard's webhook signing secret.");
+            return false;
         }
         if (signatureHeader == null || signatureHeader.isBlank()) {
             log.warn("Rejected PayMongo webhook: missing Paymongo-Signature header");

@@ -214,19 +214,6 @@ export function App() {
                 element={<AcceptInstitutionInvitationPage />}
             />
 
-            {/* ---------------------------------------------------------------
-                TEMPORARY UI PREVIEW ROUTES — move these three back inside the
-                LEARNER ProtectedRoute block before shipping.
-
-                Public purely so the new arena designs can be opened without
-                signing in. They are full-screen surfaces (like the attempt
-                page) that render local mock data and call no API, so nothing
-                is exposed by leaving them open during review.
-                --------------------------------------------------------------- */}
-            <Route path="/learner/challenges/codestrike" element={<CodeStrikePage />} />
-            <Route path="/learner/challenges/blueprint-arena" element={<BlueprintArenaPage />} />
-            <Route path="/learner/challenges/world-cup" element={<WorldCupPage />} />
-
             {/* Dev-only: renders the real attempt page against fixture data so
                 the landing hero can be re-shot from the actual product. Stripped
                 from production builds. */}
@@ -461,6 +448,10 @@ export function App() {
                 <Route path="/learner/flashcards/:studySetId" element={<LearnerFlashcardAttemptPage />} />
                 <Route path="/learner/practice-history" element={<LearnerPracticeHistoryPage />} />
                 <Route path="/learner/practice-review/:attemptId" element={<LearnerPracticeReviewPage />} />
+                {/* The challenge arenas: full-screen, like the attempt page. */}
+                <Route path="/learner/challenges/codestrike" element={<CodeStrikePage />} />
+                <Route path="/learner/challenges/blueprint-arena" element={<BlueprintArenaPage />} />
+                <Route path="/learner/challenges/world-cup" element={<WorldCupPage />} />
 
                 {/* Sprint Challenge destination — the standalone compiler
                     playground the challenges carousel links to. */}

@@ -38,8 +38,14 @@ public class DepartmentHeadAssignmentController {
     }
 
     @GetMapping("/{id}")
-    public DepartmentHeadAssignmentDto getById(@PathVariable Long id) {
-        return departmentHeadAssignmentService.getById(id);
+    public DepartmentHeadAssignmentDto getById(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
+        // Same access rule as the list above: an id from another institution's
+        // group must not be readable just by guessing it.
+        CurrentUserDto caller = institutionUser(jwt);
+        DepartmentHeadAssignmentDto assignment = departmentHeadAssignmentService.getById(id);
+        departmentService.getAccessibleById(
+                assignment.getDepartmentId(), caller.institutionId(), caller.userId(), isOwner(caller));
+        return assignment;
     }
 
     @PostMapping
