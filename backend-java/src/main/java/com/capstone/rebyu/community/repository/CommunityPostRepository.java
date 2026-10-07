@@ -42,7 +42,6 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
             WITH deleted_comments AS (DELETE FROM community_comments     WHERE post_id = :postId),
                  deleted_likes    AS (DELETE FROM community_post_likes   WHERE post_id = :postId),
                  deleted_saves    AS (DELETE FROM community_saved_posts  WHERE post_id = :postId),
-                 deleted_shares   AS (DELETE FROM community_post_shares  WHERE post_id = :postId),
                  deleted_reports  AS (DELETE FROM community_post_reports WHERE post_id = :postId),
                  deleted_views    AS (DELETE FROM community_post_views   WHERE post_id = :postId)
             DELETE FROM community_posts WHERE post_id = :postId
