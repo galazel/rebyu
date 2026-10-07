@@ -519,6 +519,11 @@ class Settings(BaseSettings):
     smart_learn_middle_exam: float = 0.10
     smart_learn_major_exam: float = 0.12
     smart_learn_mock_exam: float = 0.10
+    # The in-lesson pop-up check re-tests lessons already finished, so it is
+    # recall more than new learning; an AI-tutor quiz is unreviewed, so it
+    # counts for least of all.
+    smart_learn_knowledge_check: float = 0.06
+    smart_learn_generated_quiz: float = 0.05
 
     developing_threshold: float = 0.40
     good_threshold: float = 0.70

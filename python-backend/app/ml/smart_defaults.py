@@ -29,7 +29,9 @@ import pandas as pd
 from app.core.config import get_settings
 
 DIFFICULTIES = ("EASY", "AVERAGE", "HARD")
-ASSESSMENT_TYPES = ("DIAGNOSTIC", "LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM", "MOCK_EXAM")
+ASSESSMENT_TYPES = (
+    "DIAGNOSTIC", "LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM", "MOCK_EXAM", "KNOWLEDGE_CHECK", "GENERATED_QUIZ"
+)
 
 
 @dataclass(frozen=True)
@@ -89,6 +91,8 @@ def smart_defaults() -> SmartDefaults:
             "MIDDLE_EXAM": s.smart_learn_middle_exam,
             "MAJOR_EXAM": s.smart_learn_major_exam,
             "MOCK_EXAM": s.smart_learn_mock_exam,
+            "KNOWLEDGE_CHECK": s.smart_learn_knowledge_check,
+            "GENERATED_QUIZ": s.smart_learn_generated_quiz,
         },
     )
 

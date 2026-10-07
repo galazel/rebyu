@@ -46,6 +46,11 @@ spring:
 
   data:
     redis:
+      # Redis is only a cache and a template here; there are no @RedisHash
+      # repositories. Without this, Spring Data probes all 90 JPA repositories
+      # as Redis candidates and logs one line apiece on startup.
+      repositories:
+        enabled: false
       # Railway's Redis plugin normally exposes REDISHOST/REDISPORT and may
       # also expose REDISUSER/REDISPASSWORD. Keep REDIS_HOST-style names as
       # fallbacks for local or manually configured deployments.
@@ -68,7 +73,6 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
         default_schema: public
         jdbc:

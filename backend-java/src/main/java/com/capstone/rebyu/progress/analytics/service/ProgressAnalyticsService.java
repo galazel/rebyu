@@ -832,11 +832,11 @@ public class ProgressAnalyticsService {
     }
 
     /**
-     * Buckets an exam type for readiness, which grades on five assessment
-     * classes where BKT grades on four.
+     * Buckets an exam type for readiness, which grades on its own five
+     * assessment classes rather than BKT's.
      *
-     * BKT's class set is fixed at DIAGNOSTIC/LESSON_QUIZ/MIDDLE_EXAM/MOCK_EXAM
-     * by a Pydantic {@code Literal} on the mastery-event endpoint, and
+     * BKT's class set is fixed by a Pydantic {@code Literal} on the
+     * mastery-event endpoint, and
      * {@link BktEventFactory#normalizeAssessmentType} exists to satisfy it --
      * so it folds MAJOR_EXAM into MOCK_EXAM. Adding a fifth class there would
      * make every major-exam evidence event fail validation and take the BKT
@@ -847,7 +847,11 @@ public class ProgressAnalyticsService {
      * certification, and averaging the two together let a strong showing on a
      * section stand in for never having sat a full paper. So this delegates for
      * everything except the MAJOR_* aliases, which it peels off into their own
-     * bucket. Every other type keeps exactly the classification it had.
+     * bucket. The other way round, BKT gives the knowledge check and AI-tutor
+     * quizzes classes of their own (for their learn rates), which readiness has
+     * no score slot for, so they fold back into the lesson-quiz bucket they
+     * always counted toward. Every other type keeps exactly the classification
+     * it had.
      */
     private String normalizeReadinessType(String rawExamType) {
         if (rawExamType != null) {
@@ -856,7 +860,11 @@ public class ProgressAnalyticsService {
                 return "MAJOR_EXAM";
             }
         }
-        return bktEventFactory.normalizeAssessmentType(rawExamType);
+        String bktClass = bktEventFactory.normalizeAssessmentType(rawExamType);
+        if ("KNOWLEDGE_CHECK".equals(bktClass) || "GENERATED_QUIZ".equals(bktClass)) {
+            return "LESSON_QUIZ";
+        }
+        return bktClass;
     }
 
     private void putIfPresent(Map<String, Object> request, String key, Double value) {

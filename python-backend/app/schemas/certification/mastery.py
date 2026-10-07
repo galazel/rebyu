@@ -6,7 +6,9 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 Difficulty = Literal["EASY", "AVERAGE", "HARD"]
-AssessmentType = Literal["DIAGNOSTIC", "LESSON_QUIZ", "MIDDLE_EXAM", "MOCK_EXAM"]
+AssessmentType = Literal[
+    "DIAGNOSTIC", "LESSON_QUIZ", "MIDDLE_EXAM", "MOCK_EXAM", "KNOWLEDGE_CHECK", "GENERATED_QUIZ"
+]
 
 
 class MasteryEventCreate(BaseModel):

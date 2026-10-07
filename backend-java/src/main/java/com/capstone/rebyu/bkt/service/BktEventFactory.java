@@ -36,7 +36,8 @@ public class BktEventFactory {
 
     /** FastAPI accepts exactly these learn/forget classes. */
     private static final Set<String> KNOWN_ASSESSMENT = Set.of(
-            "DIAGNOSTIC", "LESSON_QUIZ", "MIDDLE_EXAM", "MOCK_EXAM");
+            "DIAGNOSTIC", "LESSON_QUIZ", "MIDDLE_EXAM", "MOCK_EXAM",
+            "KNOWLEDGE_CHECK", "GENERATED_QUIZ");
 
     /** Maps the project's exam-type vocabulary onto the FastAPI class set. */
     private static final Map<String, String> ASSESSMENT_ALIASES = Map.ofEntries(
@@ -52,6 +53,11 @@ public class BktEventFactory {
             Map.entry("BATTLE", "LESSON_QUIZ"),
             Map.entry("CHALLENGE", "LESSON_QUIZ"),
             Map.entry("CUSTOM", "LESSON_QUIZ"),
+            // Their own classes, each with its own learn rate in FastAPI:
+            // the in-lesson pop-up check, and the AI tutor's study aids.
+            Map.entry("KNOWLEDGE_CHECK", "KNOWLEDGE_CHECK"),
+            Map.entry("GENERATED_QUIZ", "GENERATED_QUIZ"),
+            Map.entry("GENERATED_FLASHCARD", "GENERATED_QUIZ"),
             Map.entry("MODULE_EXAM", "MIDDLE_EXAM"),
             Map.entry("MIDDLE_EXAM", "MIDDLE_EXAM"),
             Map.entry("MIDDLE_CATEGORY_QUIZ", "MIDDLE_EXAM"),
