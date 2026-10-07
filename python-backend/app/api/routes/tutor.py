@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter, Depends
 from langchain_core.messages import HumanMessage
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.security import require_service_key
@@ -23,7 +23,7 @@ router = APIRouter(
 
 
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(min_length=1)
     sessionId: str
     lessonName: str
     lessonId: int | None = None

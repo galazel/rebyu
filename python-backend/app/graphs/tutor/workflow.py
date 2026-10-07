@@ -4,7 +4,7 @@ from langgraph.graph import StateGraph, START, END
 
 
 from app.utils.helpers import get_checkpointer
-from app.graphs.tutor.nodes import check_query, generate, answer_question, summarize_conversation, trim, should_summarize
+from app.graphs.tutor.nodes import answer_question, summarize_conversation, trim, should_summarize
 from app.graphs.tutor.state import TutorState
 
 
@@ -12,24 +12,11 @@ def build_graph(checkpointer):
 
     graph = StateGraph(TutorState)
 
-    graph.add_node("generate_questions", generate)
     graph.add_node("respond_question", answer_question)
     graph.add_node("summarize_conversation", summarize_conversation)
     graph.add_node("trim_conversation", trim)
 
-    graph.add_conditional_edges(
-        START,
-        check_query,
-        {
-            "GENERATE": "generate_questions",
-            "ANSWER": "respond_question",
-        }
-    )
-
-    graph.add_edge(
-        "generate_questions",
-        END
-    )
+    graph.add_edge(START, "respond_question")
 
     graph.add_conditional_edges(
         "respond_question",

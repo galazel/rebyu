@@ -1,48 +1,9 @@
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 
-from app.agents.tutor.tutor_agent import get_generation_agent, get_query_agent
+from app.agents.tutor.tutor_agent import get_query_agent
 from app.ai.invocation import structured
 from app.ai.router import ainvoke_with_fallback
 from app.graphs.tutor.state import TutorState
-
-
-def check_query(state: TutorState):
-    if state.get("request"):
-        return "ANSWER"
-
-    return "GENERATE"
-
-
-async def generate(state: TutorState):
-
-    response = await ainvoke_with_fallback(
-        structured(get_generation_agent),
-        {
-            "messages": [
-                HumanMessage(
-                    content=f"""
-                    Generate an adaptive assessment.
-                    
-                    Learner ID: {state["learnerId"]}
-                    Lesson ID: {state["lessonId"]}
-                    
-                    Instructions:
-                    {state["instructions"]}
-                    
-                    Question Type:
-                    {state["generation_type"]}
-                    
-                    Number of Questions:
-                    {state["items"]}
-                    """
-                )
-            ]
-        }
-    )
-
-    return {
-        "questions": response
-    }
 
 
 async def answer_question(state: TutorState):
