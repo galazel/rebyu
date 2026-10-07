@@ -96,7 +96,8 @@ class AssessmentAttemptServiceTest {
                 new AttemptGradingBatchService(8, 4, 4),
                 adaptiveAttemptService, adaptiveGradingService, adaptivePolicy,
                 mock(com.capstone.rebyu.enrollment.service.CertificationAwardService.class),
-                assessmentEventProducer, rewardService, streakService, achievementAwardService);
+                assessmentEventProducer, rewardService, streakService, achievementAwardService,
+                mock(com.capstone.rebyu.challenge.repository.WorldCupMatchRepository.class));
 
         Certification certification = new Certification();
         certification.setCertificationId(1L);
@@ -192,7 +193,7 @@ class AssessmentAttemptServiceTest {
                 .thenReturn(List.of());
 
         AssessmentAttemptStartResponseDto response =
-                service.startAttempt(5L, 2L, "start-key", null);
+                service.startAttempt(5L, 2L, "start-key", null, null);
 
         assertEquals(1, response.questions().size());
         assertEquals(2, response.questions().get(0).choices().size());

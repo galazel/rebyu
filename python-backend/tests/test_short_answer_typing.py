@@ -289,10 +289,10 @@ def test_every_question_needs_an_item_level_explanation():
 
 
 def test_the_shape_error_is_not_masked_by_the_explanation_error():
-    """A three-choice MCQ must say so, rather than complaining about the
-    explanation count that is a consequence of it."""
-    with pytest.raises(ValueError, match="exactly 4 choices"):
-        _mcq(choices=["a", "b", "c"], correct_choice_index=0)
+    """A two-choice MCQ (the minimum is three) must say so, rather than
+    complaining about the explanation count that is a consequence of it."""
+    with pytest.raises(ValueError, match="between 3 and 9 choices"):
+        _mcq(choices=["a", "b"], correct_choice_index=0)
 
 
 def test_each_choices_own_explanation_is_persisted_to_that_choice():

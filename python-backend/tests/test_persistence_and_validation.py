@@ -200,9 +200,10 @@ def test_checking_method_differs_by_question_type():
 # schema-level structural enforcement
 
 def test_mcq_with_wrong_choice_count_is_rejected():
-    with pytest.raises(ValueError, match="exactly 4 choices"):
-        QuestionDraft(question_type="MCQ", question="Q?", choices=["a", "b", "c"],
-                      correct_choice_index=0)
+    with pytest.raises(ValueError, match="between 3 and 9 choices"):
+        QuestionDraft(question_type="MCQ", question="Q?", choices=["a", "b"],
+                      correct_choice_index=0,
+                      explanation="A sufficiently detailed explanation of the answer.")
 
 
 def test_mcq_with_out_of_range_index_is_rejected():

@@ -195,8 +195,11 @@ async def test_validate_documents_node_fails_with_reason(monkeypatch):
     monkeypatch.setattr(cert_nodes, "_invoke_auditor", _stub_auditor)
     monkeypatch.setattr(cert_nodes, "load_upload", lambda *a, **k: [])
 
+    # A document must be present: with none, validation is skipped by design
+    # (an append run from the admin's instructions alone).
     result = await cert_nodes.validate_documents_node(
-        {"uploaded_files": [], "certification_name": "X", "certification_description": "Y"}
+        {"uploaded_files": [{"content": b"x", "type": "pdf", "filename": "notes.pdf"}],
+         "certification_name": "X", "certification_description": "Y"}
     )
     assert result["status"] == "VALIDATION_FAILED"
     assert "unrelated" in result["error_message"]

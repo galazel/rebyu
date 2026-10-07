@@ -62,7 +62,9 @@ def test_the_exam_structure_is_planned_once_not_per_lesson():
     the first place; this must never become a per-lesson field."""
     assert "exam_structure" not in _lesson_schema()["properties"]
     structure = _tool_schema()["properties"]["exam_structure"]
-    assert set(structure["properties"]) == {"total_items", "question_types", "notes"}
+    assert set(structure["properties"]) == {
+        "total_items", "question_types", "notes", "duration_minutes", "passing_score", "coverage",
+    }
     assert structure.get("required", []) == []
 
 
@@ -570,11 +572,11 @@ def test_autosize_prompt_names_no_counts_and_asks_for_consolidation(autosize_set
     # Consolidation pressure: lessons are ~90% of the generation bill, so the
     # planner is pushed to merge rather than enumerate. Each of these carries a
     # distinct instruction; losing any one of them makes runs more expensive.
-    assert "PRIORITISE, DO NOT ENUMERATE" in block
-    assert "COMBINE AGGRESSIVELY" in block
-    assert "BE DELIBERATELY CONCISE" in block
-    # Categories are consolidated too, not just lessons.
-    assert "Merge near-duplicate categories" in block
+    # Coverage is kept in key_topics and lessons are grouped, not split.
+    assert "COVERAGE LIVES IN key_topics" in block
+    assert "GROUP WHAT IS TAUGHT TOGETHER" in block
+    # Categories follow the documents rather than a fixed scheme.
+    assert "CATEGORIES follow the documents" in block
     # No "3 to 6 Major Categories"-style ask survived.
-    assert "to 6" not in block
+    assert "to 6 Major" not in block
     assert "Exactly" not in block

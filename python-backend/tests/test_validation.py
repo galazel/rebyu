@@ -70,9 +70,10 @@ def codes(report) -> set[str]:
 
 # Structural enforcement (raises -> triggers retry)
 
-def test_mcq_requires_exactly_four_choices():
-    with pytest.raises(ValidationError, match="exactly 4 choices"):
-        mcq(choices=["a", "b", "c"])
+def test_mcq_requires_between_three_and_nine_choices():
+    with pytest.raises(ValidationError, match="between 3 and 9 choices"):
+        mcq(choices=["a", "b"], choice_explanations=[
+            "Correct: a is right because of x.", "Wrong: b confuses y with z."])
 
 
 def test_mcq_requires_correct_choice_index():
@@ -126,6 +127,7 @@ def _coding(**overrides):
         function_name="reverse_text",
         rules="reverse_text(text) returns a new string with the characters in reverse order; '' gives ''.",
         reference_solution="def reverse_text(text):\n    return text[::-1]\n",
+        programming_language="PYTHON",
         test_cases=[
             ProgrammingTestCase(input_data="reverse_text('ab')", expected_output="ba"),
             ProgrammingTestCase(input_data="reverse_text('')", expected_output=""),

@@ -121,7 +121,10 @@ class _Recorder:
     async def ainvoke(self, payload):
         self.calls += 1
         self.payloads.append(payload)
-        return {"structured_response": QuestionBatch(scope="s", questions=[_question()])}
+        # A different stem each call: generation now drops repeats of
+        # questions already written, so one fixed stem empties every batch.
+        return {"structured_response": QuestionBatch(
+            scope="s", questions=[_question(f"Which statement about topic {self.calls} is true?")])}
 
 
 @pytest.fixture()

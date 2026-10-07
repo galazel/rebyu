@@ -137,7 +137,7 @@ async def test_completed_run_cannot_be_restarted():
     run = SimpleNamespace(
         run_id="r1", thread_id="t1", kind="CERTIFICATION", status=registry.COMPLETED
     )
-    with pytest.raises(certification_run.RecoveryError, match="Only failed runs"):
+    with pytest.raises(certification_run.RecoveryError, match="Only failed or stalled runs"):
         await certification_run.prepare_restart(run)
 
 
@@ -370,6 +370,8 @@ def test_run_detail_advertises_recovery(session, routes):
         "can_restart": True,
         "failed_stage": "plan_curriculum",
         "attempt": 1,
+        "stalled": False,
+        "idle_seconds": None,
     }
 
 

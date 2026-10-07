@@ -24,6 +24,7 @@ def _coding(inputs, question="Implement double(n), which returns n times two."):
         function_name="double",
         rules="double(n) returns n * 2 for any integer n.",
         reference_solution="def double(n):\n    return n * 2\n",
+        programming_language="PYTHON",
         test_cases=[ProgrammingTestCase(input_data=i, expected_output="WRONG") for i in inputs],
         explanation="Doubling multiplies the input by two.",
     )
@@ -48,13 +49,13 @@ def _mcq():
 def _fake_runner(monkeypatch, results):
     calls = []
 
-    async def fake(source, inputs):
+    async def fake(source, inputs, language="PYTHON"):
         calls.append((source, list(inputs)))
         if isinstance(results, Exception):
             raise results
         return [results(text) for text in inputs]
 
-    monkeypatch.setattr(verification, "run_python_tests", fake)
+    monkeypatch.setattr(verification, "run_tests", fake)
     return calls
 
 
