@@ -40,6 +40,15 @@ let pending = []
    would arrive in silence with no burst. */
 let nextCardId = 0
 
+/* Whether a card is on screen or waiting. Read by other celebrations (the
+   certification completion modal) so they take their turn after this one
+   rather than opening on top of it. */
+let showing = false
+
+function isCelebrating() {
+  return showing || pending.length > 0
+}
+
 function publishCelebration(card) {
   nextCardId += 1
   const withId = { ...card, id: nextCardId }
@@ -73,6 +82,13 @@ function XpAwardModal() {
 
   const card = queue[0] ?? null
   const dismiss = () => setQueue((current) => current.slice(1))
+
+  useEffect(() => {
+    showing = queue.length > 0
+    return () => {
+      showing = false
+    }
+  }, [queue.length])
 
   /* The card leaves on its own.
 
@@ -351,7 +367,7 @@ function AchievementCard({ card }) {
   )
 }
 
-export { XpAwardModal }
+export { XpAwardModal, isCelebrating }
 
 const PORTAL_KEY = ["learner-portal-data"]
 const REWARDS_KEY = ["learner-rewards"]

@@ -1,4 +1,4 @@
-import React, { useMemo } from "react"
+import React, { useEffect, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
 import {
@@ -221,6 +221,12 @@ export function CertificationCompletionModal({ certification, award, onClose }) 
   const navigate = useNavigate()
   const theme = useChartTheme()
 
+  useEffect(() => {
+    const onKey = (event) => { if (event.key === "Escape") onClose() }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [onClose])
+
   const certId = certification?.certificationId ?? certification?.id
   const certTitle = certification?.title ?? "Certification"
 
@@ -275,7 +281,7 @@ export function CertificationCompletionModal({ certification, award, onClose }) 
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border-2 border-border bg-background shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label={`${certTitle} complete`} className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border-2 border-border bg-background shadow-2xl">
 
         {/* close */}
         <button
@@ -448,6 +454,14 @@ export function CertificationCompletionModal({ certification, award, onClose }) 
             <Button
               className="flex-1 sm:flex-none"
               style={{ background: "var(--color-rb-feather)", color: "#fff" }}
+              onClick={() => { onClose(); navigate(`/learner/certifications/${certId}/certificate`) }}
+            >
+              <Award className="mr-1.5 size-4" />
+              View Certificate
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1 sm:flex-none border-2"
               onClick={() => { onClose(); navigate(`/learner/learning/${certId}`) }}
             >
               <BookOpen className="mr-1.5 size-4" />
@@ -464,7 +478,7 @@ export function CertificationCompletionModal({ certification, award, onClose }) 
             <Button
               variant="outline"
               className="ml-auto flex-none border-2 border-rb-bee text-rb-eel hover:bg-rb-bee-wash"
-              onClick={onClose}
+              onClick={() => { onClose(); navigate("/learner/certifications") }}
             >
               <Award className="mr-1.5 size-4" />
               Back to Certifications

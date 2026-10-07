@@ -11,6 +11,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { Toaster } from "@/components/ui/sonner"
 import { XpAwardModal } from "@/components/learner/xp-award-modal.jsx"
+import { CertificationCompletionHost } from "@/components/learner/certification-completion-host.jsx"
 // Creates the Supabase client, which also picks up a session from an invitation link.
 import "@/lib/supabase.js"
 import { AuthProvider } from "@/context/auth-context.jsx"
@@ -77,6 +78,7 @@ createRoot(rootElement).render(
                     a modal owned by the submitting page would unmount with
                     it. */}
                 <XpAwardModal />
+                <CertificationCompletionHost />
               </AuthProvider>
             </QueryClientProvider>
           </TooltipProvider>
