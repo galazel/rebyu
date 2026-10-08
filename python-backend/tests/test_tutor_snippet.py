@@ -90,3 +90,32 @@ def test_the_current_quoted_question_is_not_repeated_as_an_earlier_turn():
         ],
     }
     assert nodes._earlier_turns(state) == []
+
+
+async def test_an_unreadable_picture_still_gets_an_answer(monkeypatch):
+    calls = []
+
+    async def flaky_stream(messages, *, task):
+        calls.append(task)
+        if task == tasks.TUTOR_VISION:
+            raise RuntimeError("413 Request too large")
+            yield  # pragma: no cover -- makes this an async generator
+        yield "From the quoted text, "
+
+    async def fake_graph():
+        async def aget_state(config):
+            return SimpleNamespace(values={})
+        return SimpleNamespace(aget_state=aget_state)
+
+    async def fake_append(session_id, messages):
+        pass
+
+    monkeypatch.setattr(tutor_stream, "astream_with_fallback", flaky_stream)
+    monkeypatch.setattr(tutor_stream, "get_tutor_graph", fake_graph)
+    monkeypatch.setattr(tutor_stream, "append_messages", fake_append)
+    events = [event async for event in tutor_stream.stream_tutor_answer(
+        session_id="1-2", request="Explain this.", lesson_name="M2M",
+        lesson_context=None, source_material=None, quote="Gateways relay data", image=PICTURE)]
+    assert calls == [tasks.TUTOR_VISION, tasks.TUTOR]
+    assert {"type": "delta", "text": "From the quoted text, "} in events
+    assert events[-1] == {"type": "done"}

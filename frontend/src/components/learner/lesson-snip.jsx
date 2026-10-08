@@ -16,7 +16,9 @@ import { Loader2, Sparkles, X } from "@/components/icons"
  * JPEG data URL (or null). The words travel even when the picture cannot be
  * made, so a text-only model still knows what was asked about. */
 
-const MAX_SIDE = 1600
+// Big enough to read a diagram's labels, small enough that a vision model
+// on a per-minute token budget (Groq) takes it with the question beside it.
+const MAX_SIDE = 1024
 const MAX_QUOTE = 6000
 const PICTURE_TIMEOUT_MS = 8000
 const TRANSPARENT_PIXEL =
@@ -83,6 +85,10 @@ async function pictureOf(root, rect) {
     backgroundColor: "#ffffff",
     imagePlaceholder: TRANSPARENT_PIXEL,
     cacheBust: true,
+    // Embedding web fonts reads every stylesheet's rules, and a browser
+    // refuses that for cross-site ones (Google Fonts) -- console errors and a
+    // slow capture, for lettering a model reads just as well in a fallback font.
+    skipFonts: true,
   })
   const left = Math.max(rect.left, box.left)
   const top = Math.max(rect.top, box.top)
@@ -101,7 +107,28 @@ async function pictureOf(root, rect) {
     (left - box.left) * scale, (top - box.top) * scale, width * scale, height * scale,
     0, 0, out.width, out.height,
   )
+  // Embedded videos and frames cannot be drawn and come out as one flat
+  // colour; a picture of nothing is worse than none.
+  if (isBlank(out)) return null
   return out.toDataURL("image/jpeg", 0.85)
+}
+
+/** Whether a canvas is a single flat colour (sampled on a small grid). */
+function isBlank(canvas) {
+  const probe = document.createElement("canvas")
+  probe.width = 24
+  probe.height = 24
+  const context = probe.getContext("2d")
+  context.drawImage(canvas, 0, 0, 24, 24)
+  const { data } = context.getImageData(0, 0, 24, 24)
+  let min = 255
+  let max = 0
+  for (let i = 0; i < data.length; i += 4) {
+    const light = (data[i] * 299 + data[i + 1] * 587 + data[i + 2] * 114) / 1000
+    if (light < min) min = light
+    if (light > max) max = light
+  }
+  return max - min < 6
 }
 
 /**
@@ -168,7 +195,7 @@ export function LessonSnipOverlay({ target, onCapture, onCancel }) {
     }
     setBusy(false)
     if (!quote && !image) {
-      toast.error("Nothing was captured there. Try a larger area.")
+      toast.error("Nothing readable there (videos and embedded frames can't be captured). Try a nearby area or select the text.")
       onCancel()
       return
     }

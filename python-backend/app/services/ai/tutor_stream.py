@@ -19,6 +19,7 @@ only once the answer is complete.
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -30,6 +31,8 @@ from app.domain.tutor_resources import asks_for_resources, find_resources
 from app.graphs.tutor.nodes import _earlier_turns, build_tutor_messages, with_quote
 from app.graphs.tutor.workflow import get_tutor_graph
 from app.services.ai.tutor_service import append_messages
+
+logger = logging.getLogger(__name__)
 
 #: The model never promises resources: whether a search finds videos, reading,
 #: both or neither is only known after it runs, and "videos are attached
@@ -47,6 +50,25 @@ RESOURCES_ASKED = (
     "name, list or promise specific videos or links."
 )
 NO_RESOURCES_FOUND = "\n\n_I couldn't find related videos or reading for this right now._"
+
+
+#: When no vision model can read the picture, the question still gets an
+#: answer from the text tutor. With quoted words there is plenty to go on;
+#: without, the learner is told why and what to do instead.
+PICTURE_UNREAD_WITH_TEXT = (
+    "The learner attached a picture of part of the lesson, but it could not be read "
+    "this time. Answer from the quoted text and the lesson; do not mention the picture."
+)
+PICTURE_UNREAD = (
+    "The learner attached a picture of part of the lesson, but it could not be read "
+    "this time. Start with one short sentence saying you could not see the picture, "
+    "then help as far as the lesson allows, and suggest selecting the text or "
+    "snipping a slightly larger area."
+)
+
+#: How much lesson text and how many earlier messages ride with a picture.
+_VISION_LESSON_CHARS = 2500
+_VISION_TURNS = 2
 
 
 def snippet_of(quote: str | None, image: str | None, image_key: str | None) -> dict:
@@ -105,9 +127,17 @@ async def stream_tutor_answer(
     snapshot = await graph.aget_state({"configurable": {"thread_id": session_id}})
     values = (snapshot.values or {}) if snapshot else {}
     asked = with_quote(request, quote)
+    if image:
+        # A picture is most of the request already: Groq's vision model
+        # refused one with the whole lesson, the source passages and the
+        # recent turns beside it (413, over its per-minute token limit). The
+        # picture is the subject, so the text around it is cut to the lesson's
+        # opening and the last exchange.
+        lesson_context = (lesson_context or "")[:_VISION_LESSON_CHARS] or None
+        source_material = None
     state = {
         "request": asked,
-        "messages": list(values.get("messages") or []),
+        "messages": list(values.get("messages") or [])[-_VISION_TURNS - 1:] if image else list(values.get("messages") or []),
         "summary": values.get("summary"),
         "lessonContext": lesson_context,
         "sourceMaterial": source_material,
@@ -137,11 +167,31 @@ async def stream_tutor_answer(
     search = asyncio.create_task(asyncio.to_thread(find_resources, query, lesson_name)) if query else None
     answer = ""
     try:
-        async for piece in astream_with_fallback(
-            messages, task=tasks.TUTOR_VISION if image else tasks.TUTOR
-        ):
-            answer += piece
-            yield {"type": "delta", "text": piece}
+        try:
+            async for piece in astream_with_fallback(
+                messages, task=tasks.TUTOR_VISION if image else tasks.TUTOR
+            ):
+                answer += piece
+                yield {"type": "delta", "text": piece}
+        except Exception:
+            # No vision model could take the picture (out of credit, rate
+            # limited, too large) and nothing was written yet: answer on the
+            # text tutor instead of failing the question.
+            if not image or answer:
+                raise
+            logger.warning("No vision model could read a snip for %s; answering without it", session_id)
+            text_only = [
+                SystemMessage(content=STREAMING_SYSTEM_PROMPT),
+                *turn[:-1],
+                SystemMessage(content=PICTURE_UNREAD_WITH_TEXT if quote else PICTURE_UNREAD),
+                SystemMessage(content=NO_RESOURCE_TALK),
+                *([SystemMessage(content=RESOURCES_ASKED)] if asks_for_resources(request) else []),
+                SystemMessage(content=BREVITY),
+                HumanMessage(content=asked),
+            ]
+            async for piece in astream_with_fallback(text_only, task=tasks.TUTOR):
+                answer += piece
+                yield {"type": "delta", "text": piece}
     except BaseException:
         if search:
             search.cancel()

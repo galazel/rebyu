@@ -214,10 +214,13 @@ class Settings(BaseSettings):
     ai_tutor_vision_provider: str = "openrouter"
     ai_tutor_vision_model: str = "google/gemini-2.5-flash"
     ai_tutor_vision_fallbacks: str = (
-        "groq:qwen/qwen3.8-27b,google/gemma-4-31b-it:free,"
-        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free,openai/gpt-4.1-mini"
+        "groq:qwen/qwen3.8-27b,google/gemma-4-31b-it:free,thinkingmachines/inkling:free,"
+        "google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free,"
+        "openai/gpt-4.1-mini"
     )
-    ai_tutor_vision_max_tokens: int = 2000
+    #: Small on purpose: Groq counts the answer allowance toward its per-minute
+    #: token limit along with the picture, and a brief answer needs far less.
+    ai_tutor_vision_max_tokens: int = 700
     ai_tutor_vision_temperature: float = 0.3
 
     #: Marks written and coded answers while the learner waits on the results
