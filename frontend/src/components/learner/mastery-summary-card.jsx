@@ -4,10 +4,6 @@ import { getMyMastery } from '@/services/learnerAnalyticsService'
 import { MasteryIndicator } from './mastery-indicator'
 import { LearnerLoadingSkeleton, LearnerEmptyState } from './learner-ui'
 
-/**
- * Mastery Summary Card - displays overall mastery statistics
- * Shows average mastery, mastery level counts, and study velocity
- */
 export function MasterySummaryCard({ className = '' }) {
   const { data: mastery, isLoading } = useQuery({
     queryKey: ['myMastery'],
@@ -77,9 +73,6 @@ export function MasterySummaryCard({ className = '' }) {
         </div>
       </div>
 
-      {/* Two up on a phone. Four 78px cells left "Learning" and "Mastered"
-          wider than the box holding them, so the labels under the numbers were
-          clipped and the row read as four unlabelled counts. */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatItem
           icon={Target}

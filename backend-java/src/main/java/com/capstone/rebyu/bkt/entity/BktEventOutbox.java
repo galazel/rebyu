@@ -16,14 +16,6 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-/**
- * One durable BKT mastery event awaiting delivery to the FastAPI BKT service.
- *
- * <p>Rows are inserted inside the assessment submission transaction (see
- * {@code BktOutboxService}) and consumed asynchronously by
- * {@code BktEventDispatcher}. {@code eventId} is deterministic and unique so a
- * re-enqueue or a re-delivery never duplicates mastery evidence.
- */
 @Entity
 @Table(name = "bkt_event_outbox")
 @Getter
@@ -37,11 +29,9 @@ public class BktEventOutbox {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Deterministic identity: attempt + attempt-question + grade version. */
     @Column(name = "event_id", nullable = false, length = 200, unique = true)
     private String eventId;
 
-    /** Groups every event produced by one submitted attempt. */
     @Column(name = "batch_id", length = 120)
     private String batchId;
 
@@ -54,7 +44,6 @@ public class BktEventOutbox {
     @Column(name = "exam_id")
     private Long examId;
 
-    /** Attempt id, used as the stable "exam result" grouping for reconciliation. */
     @Column(name = "exam_result_id")
     private Long examResultId;
 
@@ -65,7 +54,6 @@ public class BktEventOutbox {
     @Builder.Default
     private String eventType = "MASTERY";
 
-    /** Serialized {@code BktMasteryEvent} forwarded verbatim to FastAPI. */
     @Column(name = "payload_json", nullable = false, columnDefinition = "TEXT")
     private String payloadJson;
 

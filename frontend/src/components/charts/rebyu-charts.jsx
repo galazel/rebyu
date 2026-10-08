@@ -21,37 +21,12 @@ import {
   YAxis,
 } from "recharts"
 
-/**
- * Shared portal chart kit.
- *
- * One categorical order, fixed and never cycled: azure → teal → orange →
- * violet. Both mode palettes were run through the colour-vision validator
- * rather than eyeballed — light passes every check except contrast-vs-surface
- * (which is why every chart here ships a labelled legend carrying the number,
- * the required relief), and dark passes clean inside its own lightness band.
- * A fifth category is never a new hue: it folds into "Other" in neutral ink.
- *
- * One y-axis per chart, always. Two measures of different scale get two charts.
- */
 
 const LIGHT = {
   series: ["#2f6b4f", "#c9962b", "#c8553d", "#8b5f7d"],
   other: "#AFAFAF",
-  // Deliberately outside `series`: these are statuses, not categories, so
-  // `seriesColor` must never hand them out. `danger` is the cardinal the
-  // design system already uses for a wrong answer (`--color-rb-cardinal`), so
-  // "you are in trouble here" reads the same in a chart as anywhere else.
-  // `success` is the one green the system commits to (`--color-rb-feather`
-  // under `.rb-a11y`); the default brand palette is blue-led and carries no
-  // other green, so inventing a brighter one would have been a new hue.
   danger: "#FF4B4B",
   success: "#3F8F02",
-  // Text-safe counterparts, for a mastery figure printed *as type* rather than
-  // drawn as a bar. They are not interchangeable: `#FF9600` is a fine bar fill
-  // and only ~1.9:1 against a tile wash, which fails even the 3:1 large-text
-  // floor — so the band most learners sit in would have been the one nobody
-  // could read. Verified against every wash a mastery-toned tile can take
-  // (cardinal #FFECEC, fox #FFF1E0, leaf #EDF7E3).
   statusInk: { weak: "#C62828", developing: "#8A4F00", strong: "#33660A" },
   ink: { primary: "#4B4B4B", secondary: "#777777", muted: "#AFAFAF" },
   grid: "#E5E5E5",
@@ -64,8 +39,6 @@ const DARK = {
   other: "#6B6B6B",
   danger: "#D62C2C",
   success: "#5CA82F",
-  // Against the dark washes (cardinal #3A1618, fox #3A2A12, leaf #1E2E14) the
-  // same reasoning runs the other way: type has to be lighter than the fill.
   statusInk: { weak: "#FF8A8A", developing: "#FFB35C", strong: "#8ED14F" },
   ink: { primary: "#E8E8E8", secondary: "#A8A8A8", muted: "#7A7A7A" },
   grid: "#3A3A3A",
@@ -73,7 +46,6 @@ const DARK = {
   track: "#333333",
 }
 
-/** Follows the theme provider, which writes `dark` onto the root element. */
 export function useChartTheme() {
   const [isDark, setIsDark] = useState(
     () =>
@@ -94,49 +66,13 @@ export function useChartTheme() {
   return isDark ? DARK : LIGHT
 }
 
-/** Assign by position in the caller's series list — never by rank or value. */
 export function seriesColor(theme, index) {
   return index < theme.series.length ? theme.series[index] : theme.other
 }
 
-/**
- * Where a mastery score sits on the weak → developing → strong scale.
- *
- * Exported as numbers rather than inlined so the bar, any future badge, and
- * the copy that explains them cannot drift apart. Both bounds are exclusive:
- * 25 is developing, 50 is strong.
- */
 export const MASTERY_BANDS = { weak: 25, developing: 50 }
 
-/**
- * Mastery as a status, not a category.
- *
- * The categorical rule above — colour by position, never by value — is exactly
- * right for a series and exactly wrong here: a mastery bar has one meaning per
- * band, and a learner reads red as "this one is in trouble", not as "this one
- * is the third topic". So this is a separate, deliberately small scale.
- *
- * Red → orange → green is the requested scale and it is also the hardest trio
- * for the commonest colour-vision deficiencies, where red and green converge.
- * That makes the band a supporting signal only, never the message: every
- * caller draws the percentage beside the bar, which is the same relief the
- * categorical palette leans on its legend for. Bar *length* carries it too,
- * which a legend cannot.
- */
-/**
- * Which band a score falls in: "weak", "developing", "strong", or null when
- * there is no score at all.
- *
- * The one place the thresholds are applied. Everything that varies by band —
- * fill, ink, tile tone, the confidence tier on a row — reads this rather than
- * re-testing the numbers, so a bar and the label beside it cannot end up
- * disagreeing about which band the same score is in.
- */
 export function masteryBand(value) {
-  // `null` is checked before the cast, not after: `Number(null)` is 0, which
-  // is finite, so an absent mastery would otherwise land in the weakest band —
-  // the loudest "you are failing this" the scale has, for a topic nobody
-  // scored.
   if (value == null) {
     return null
   }
@@ -166,39 +102,11 @@ export function masteryColor(theme, value) {
   }
 }
 
-/**
- * The same three bands, shaded for type instead of for fill.
- *
- * Use this wherever the score is *written* — a headline figure, a badge — and
- * `masteryColor` wherever it is drawn. Reusing the fill colours on text is the
- * mistake this exists to prevent: they are chosen to read as areas against a
- * neutral track, and the orange band in particular does not clear the 3:1
- * large-text floor on a tinted tile.
- */
 export function masteryInk(theme, value) {
   const band = masteryBand(value)
   return band ? theme.statusInk[band] : theme.ink.secondary
 }
 
-/**
- * Where a readiness score sits on the needs-review → exam-ready scale.
- *
- * These four are the backend's own bands, not a second opinion invented for the
- * UI: `readiness_service._level` in the Python service cuts at exactly 85 / 70 /
- * 50 and names them `needs_review`, `developing`, `nearly_ready`, `exam_ready`.
- * It computes the level on every call and the Java analytics service then reads
- * only `readiness_score` off the response and drops it, so the frontend has the
- * number without the word and has to re-derive it here.
- *
- * That is a duplicated threshold and it can drift -- if the service's cuts move,
- * these must move with them. The fix is for `computeReadiness` to carry
- * `readiness_level` through to the DTO, after which this reads the field
- * instead of the number.
- *
- * Separate from `MASTERY_BANDS` on purpose. Mastery asks "do you know this
- * topic" over one lesson; readiness asks "could you pass the exam" over a whole
- * certification, and 60% means very different things in the two sentences.
- */
 export const READINESS_BANDS = { developing: 50, nearlyReady: 70, examReady: 85 }
 
 const READINESS_META = {
@@ -228,12 +136,10 @@ export function readinessBand(value) {
   return "needs_review"
 }
 
-/** The band as words: a short status and the sentence that explains it. */
 export function readinessMeta(value) {
   return READINESS_META[readinessBand(value)] ?? null
 }
 
-/** For the gauge arc. Follows `masteryColor`'s reasoning: status, not series. */
 export function readinessColor(theme, value) {
   switch (readinessBand(value)) {
     case "needs_review":
@@ -249,14 +155,6 @@ export function readinessColor(theme, value) {
   }
 }
 
-/**
- * The same four bands, shaded for type.
- *
- * `statusInk` only has three entries, keyed to the mastery scale, so the two
- * blue-and-green bands borrow from it rather than adding a fourth: nearly-ready
- * takes the series azure (which is chosen to carry type) and exam-ready the
- * strong ink.
- */
 export function readinessInk(theme, value) {
   switch (readinessBand(value)) {
     case "needs_review":
@@ -272,7 +170,6 @@ export function readinessInk(theme, value) {
   }
 }
 
-/* shell */
 
 export function ChartPanel({
   title,
@@ -313,7 +210,6 @@ export function ChartPanel({
   )
 }
 
-/** Sample data must never be mistaken for a real reading. */
 export function SampleChip({ label = "sample data" }) {
   return (
     <span className="inline-flex shrink-0 items-center rounded-full bg-rb-fox-wash px-2 py-0.5 font-rb-display text-[0.625rem] font-extrabold lowercase tracking-wide text-rb-fox-lip">
@@ -322,11 +218,6 @@ export function SampleChip({ label = "sample data" }) {
   )
 }
 
-/**
- * The value key. Brand hues sit under 3:1 against the surface, so identity
- * never rests on colour alone — swatch, name, and the number it turns on, the
- * number in text ink rather than the series colour.
- */
 export function ChartLegend({ items, note }) {
   return (
     <div className="mt-4">
@@ -391,17 +282,7 @@ function axisProps(theme) {
   }
 }
 
-/* line */
 
-/**
- * Change over time. `series` is [{ key, name }] — colour comes from position,
- * so filtering the list out from under it never repaints the survivors.
- *
- * @param showLegend  set false when the caller already names each series
- *   beside the chart. This draws two legends when left on -- recharts' own
- *   above the axis and the kit's footer below it -- which is fine when the
- *   chart stands alone and is pure duplication when it does not.
- */
 export function TrendLineChart({
   data,
   xKey,
@@ -412,7 +293,6 @@ export function TrendLineChart({
   ticks,
   legendNote,
   showLegend = true,
-  // Off for dense series (a month of days), where a dot per point is noise.
   dot = true,
 }) {
   const theme = useChartTheme()
@@ -472,9 +352,7 @@ export function TrendLineChart({
   )
 }
 
-/* area */
 
-/** Volume over time. Stacked segments keep a 2px surface gap between fills. */
 export function TrendAreaChart({
   data,
   xKey,
@@ -553,27 +431,7 @@ export function TrendAreaChart({
   )
 }
 
-/* bar */
 
-/**
- * Magnitude across categories. Two states, not a value ramp: at-or-above the
- * target vs below it — ordering carries priority, colour only says which side
- * of the line a bar landed on.
- */
-/**
- * One line per band on a category axis, clipped with an ellipsis.
- *
- * Recharts' own tick wraps a long label onto as many lines as it needs, and
- * the band it sits in does not grow to match: four-line certification names
- * ran into the names above and below them until the axis was unreadable. The
- * legend under every one of these charts already carries each name in full, so
- * the axis only has to say which bar is which -- a clipped line does that, and
- * a `<title>` keeps the whole name reachable on hover and to a screen reader.
- *
- * Width is estimated at 0.58em per character, which is close enough for the
- * 11px semibold the axis uses; a couple of characters either way only changes
- * where the ellipsis lands.
- */
 function CategoryTick({ x, y, payload, width, fill }) {
   const label = String(payload?.value ?? "")
   const maxCharacters = Math.max(6, Math.floor((width ?? 100) / (11 * 0.58)))
@@ -612,9 +470,6 @@ export function BarBreakdownChart({
 }) {
   const theme = useChartTheme()
   if (!data?.length) return <ChartEmpty />
-  // A fixed ceiling (100 for percentages) keeps the scale honest and the target
-  // line on the chart; left to itself the axis stopped at the highest bar, so a
-  // 75% target on a chart topping out at 28% was never drawn.
   const domain = domainMax != null ? [0, domainMax] : undefined
 
   const [above, below] = [seriesColor(theme, 0), seriesColor(theme, 2)]
@@ -710,22 +565,7 @@ export function BarBreakdownChart({
   )
 }
 
-/* stacked bar */
 
-/**
- * One row per category, split into named parts that add up to that row's
- * total — the shape for "how are the people on this programme doing", where
- * the split matters as much as the total and a second chart per programme
- * would be unreadable.
- *
- * Not a donut: a donut can only ever draw one category, so comparing four
- * programmes meant four rings, and a ring with a single non-zero slice (which
- * is what a young cohort always produces) says nothing at all.
- *
- * @param series  [{ key, name }] — colour follows position, never value, so
- *                filtering an empty part out never repaints the survivors.
- * @param totalKey  optional key printed at the end of each legend row.
- */
 export function StackedBarChart({
   data,
   categoryKey,
@@ -775,8 +615,6 @@ export function StackedBarChart({
                 stackId="parts"
                 barSize={barSize}
                 fill={seriesColor(theme, index)}
-                // Only the outer end is rounded, or every segment reads as its
-                // own separate bar and the row stops looking like one whole.
                 radius={index === last ? [0, 4, 4, 0] : 0}
               />
             ))}
@@ -798,9 +636,7 @@ export function StackedBarChart({
   )
 }
 
-/* donut */
 
-/** Parts of a whole — at most four named slices, the tail folded into Other. */
 export function DonutChart({
   data,
   nameKey = "name",
@@ -870,15 +706,7 @@ export function DonutChart({
   )
 }
 
-/* gauge */
 
-/** A single headline that happens to have a ceiling — one number, one arc. */
-/**
- * @param color  arc fill. Defaults to the first series hue; pass a status
- *               colour (`readinessColor`, `masteryColor`) when the value means
- *               something on a scale rather than being one series among several.
- * @param valueInk  colour for the big number, when it should follow the arc.
- */
 export function RadialGauge({
   value,
   label,
@@ -950,9 +778,7 @@ export function RadialGauge({
   )
 }
 
-/* compact mark */
 
-/** Inline trend for a stat tile. Decorative — the tile carries the number. */
 export function Sparkline({ data, dataKey = "value", height = 44 }) {
   const theme = useChartTheme()
   if (!data?.length) return null
@@ -974,12 +800,6 @@ export function Sparkline({ data, dataKey = "value", height = 44 }) {
   )
 }
 
-/**
- * BeadedRadialGauge - 10-dot C-shaped arc gauge.
- * Layout: left-side C-arc with the % number INSIDE the arc opening,
- * and label/sublabel sitting below the number outside the arc.
- * Matches the reference image exactly.
- */
 export function BeadedRadialGauge({
   value = 0,
   max = 100,
@@ -992,36 +812,25 @@ export function BeadedRadialGauge({
   const bounded = Math.max(0, Math.min(max, Number(value) || 0))
   const pct = max > 0 ? (bounded / max) * 100 : 0
 
-  // Tier color based on percentage ranges
   const activeColor =
     color ||
     (pct >= 75
-      ? "#009688"   // Teal   — 76-100%
+      ? "#009688"
       : pct >= 50
-      ? "#3b82f6"   // Blue   — 51-75%
+      ? "#3b82f6"
       : pct >= 25
-      ? "#f59e0b"   // Amber  — 26-50%
-      : "#eb6b56")  // Coral  —  0-25%
+      ? "#f59e0b"
+      : "#eb6b56")
 
-  // ── Arc geometry ──────────────────────────────────────────────────────────
-  // The C-arc is a left-facing semicircle (opens to the right).
-  // i=0  → 270° → BOTTOM (x=CX, y=CY+R)  ← fills first at low %
-  // i=9  → 90°  → TOP    (x=CX, y=CY-R)  ← fills last
-  // i=5  → 180° → LEFTMOST (x=CX-R, y=CY)
   const COUNT = 10
-  const CX = 72         // arc centre-x; top & bottom dots sit at x=CX
-  const CY = 80         // arc centre-y; arc spans CY±R vertically
-  const R = 64          // radius — bigger arc
-  const DOT_R = 9       // dot circle radius
-  const STROKE_W = 3.5  // dot stroke width
+  const CX = 72
+  const CY = 80
+  const R = 64
+  const DOT_R = 9
+  const STROKE_W = 3.5
 
-  // SVG is trimmed to exactly CX pixels wide.
-  // The top & bottom dots (x=CX) render AT the right edge of the SVG.
-  // Because overflow:visible is set, the right-half of those edge dots
-  // renders outside the SVG box — creating the visual "inside the arc" look
-  // when the text block begins right at x=CX.
-  const SVG_W = CX      // 62px — trimmed at the arc's open mouth
-  const SVG_H = CY * 2  // 140px — full arc height
+  const SVG_W = CX
+  const SVG_H = CY * 2
 
   const dots = useMemo(() => {
     const list = []
@@ -1029,11 +838,10 @@ export function BeadedRadialGauge({
 
     for (let i = 0; i < COUNT; i++) {
       const t = COUNT > 1 ? i / (COUNT - 1) : 0
-      const angleDeg = 270 - t * 180   // 270° → 90° (CCW through left)
+      const angleDeg = 270 - t * 180
       const angleRad = (angleDeg * Math.PI) / 180
       const x = CX + R * Math.cos(angleRad)
       const y = CY - R * Math.sin(angleRad)
-      // i=0 is BOTTOM → fills first for low percentages
       const isFilled = i < activeCount
 
       list.push({
@@ -1051,7 +859,6 @@ export function BeadedRadialGauge({
       className={`inline-flex items-center min-w-0 ${className}`}
       style={{ height: `${SVG_H}px` }}
     >
-      {/* ── Left: C-shaped arc (SVG trimmed to the arc mouth at x=CX) ── */}
       <svg
         viewBox={`0 0 ${SVG_W} ${SVG_H}`}
         style={{ height: `${SVG_H}px`, width: `${SVG_W}px`, flexShrink: 0 }}
@@ -1078,7 +885,6 @@ export function BeadedRadialGauge({
         ))}
       </svg>
 
-      {/* ── Centre: large % number inside the arc, label below ── */}
       <div
         className="flex flex-col justify-end min-w-0"
         style={{ marginLeft: '-18px' }}
@@ -1090,7 +896,6 @@ export function BeadedRadialGauge({
           {Math.round(bounded)}%
         </div>
 
-        {/* ── Label sits below the % number ── */}
         {label && (
           <div
             className="mt-1 text-xs font-bold leading-tight text-slate-600 dark:text-slate-300"

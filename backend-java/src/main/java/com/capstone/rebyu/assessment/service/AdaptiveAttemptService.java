@@ -57,23 +57,6 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
-/**
- * The adaptive session: one question at a time, chosen by the engine from
- * what the learner has answered so far.
- *
- * <p>Sits beside {@link AssessmentAttemptService} in its package so it can
- * reuse the same snapshot builder and the same graders -- there is exactly one
- * way an answer is marked in this system, and this class does not add a
- * second. What it adds is everything between two answers: the ability update
- * (IRT), the knowledge-state update (BKT), the item's own learning (online
- * difficulty), and the choice of what to ask next.
- *
- * <p>Every item is marked as it is answered, final-round items (programming,
- * diagram, critical thinking) included: the learner waits on the grader and
- * sees the verdict, and the ability estimate moves before the next problem
- * is chosen, so the paper adapts to its last item. Submit only closes the
- * session; the background marker remains for anything a grader left pending.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -94,52 +77,23 @@ public class AdaptiveAttemptService {
     private final AssessmentAttemptAnswerRepository attemptAnswerRepository;
     private final ObjectMapper objectMapper;
 
-    /*
-     * The candidate pool of an exam -- every question in its scope with its
-     * item parameters -- cached for a few minutes. Building it is the widest
-     * query in the session (a mock exam's scope is the whole certification),
-     * and it is needed after every answer to pick the next item; the bank
-     * does not change between two answers.
-     */
     private record CachedPool(List<QuestionSelectionView> views, Map<Long, Candidate> candidates,
                               java.time.Instant at) {
     }
 
-    /*
-     * Questions served recently, whole (choices and configs loaded), keyed by
-     * id. The item chosen for a learner is loaded once when it is served and
-     * read again from here when it is marked one request later -- against a
-     * database in another region every round trip saved is felt. Detached
-     * entities, read only; nothing here is ever saved back.
-     */
     private final Map<Long, Question> questionCache = new java.util.concurrent.ConcurrentHashMap<>();
     private static final int QUESTION_CACHE_MAX = 4000;
 
-    /*
-     * A question's parts and rubric, loaded with it: a short-answer item with
-     * blanks is asked for its parts when it is served and again when it is
-     * marked, and a written item for its rubric -- two queries each time,
-     * against the same rows. Keyed like questionCache and cleared with it.
-     */
     private final Map<Long, AssessmentAttemptService.SnapshotContext> contextCache = new java.util.concurrent.ConcurrentHashMap<>();
 
-    /*
-     * What each served item looked like when it went out, keyed by
-     * attempt-question id. An answer moves the next reserve item into the
-     * asked position, and the client already holds that item from when it was
-     * served -- so nothing is re-read to name it; on a miss (another node, a
-     * restart) it is read from the database as before.
-     */
     private final Map<Long, LearnerAttemptQuestionDto> servedCache = new java.util.concurrent.ConcurrentHashMap<>();
     private static final int SERVED_CACHE_MAX = 20000;
 
     private static final java.time.Duration POOL_TTL = java.time.Duration.ofMinutes(5);
     private final Map<Long, CachedPool> poolCache = new java.util.concurrent.ConcurrentHashMap<>();
 
-    // Start
 
     @Transactional
-    /** Everything a session needs before its first item: pool, seed, exposure, targets. */
     private record Session(com.capstone.rebyu.common.PhaseTimer timer, AdaptiveSessionState state,
                            QuestionBankSizeService.BankSize size, LearnerAbilityService.Seed seed,
                            int target, int finalRound) {}
@@ -156,14 +110,8 @@ public class AdaptiveAttemptService {
 
         String examType = exam.getExamType().getExamTypeText();
         int target = policy.targetCount(examType);
-        /* Sized per type -- a quiz ends on 2, a topic exam on 5, a unit exam on
-           10 -- and still capped by the workspace items the bank actually
-           holds, so a thin bank shortens the round rather than failing. */
         int finalRound = Math.min(policy.finalRoundCount(examType), size.workspace());
         int mainTarget = Math.max(1, target - finalRound);
-        /* A thin bank still runs, just shorter: repeats are what the tiers are
-           for, but a paper of ten from a bank of four would be nothing but
-           repeats, so the target is capped at what the bank can carry. */
         mainTarget = Math.min(mainTarget, Math.max(1, size.main()));
         target = mainTarget + finalRound;
 
@@ -191,10 +139,6 @@ public class AdaptiveAttemptService {
         state.setParamsByLesson(new LinkedHashMap<>(seed.paramsByLesson()));
         state.setPoolCountByLesson(poolCountByLesson);
         state.setPoolCountByType(poolCountByType);
-        /* A category exam is where BKT sets the target: half the paper on the
-           lessons the learner is weak on, the rest across the category. A
-           lesson quiz has one lesson, and the mock and diagnostic must mirror
-           the real exam, so they stay in proportion to the bank. */
         if (AdaptivePolicy.isCategoryExam(examType)) {
             java.util.Set<Long> weak = new LinkedHashSet<>();
             state.setTargetShareByLesson(AdaptiveItemSelector.focusPlan(
@@ -203,9 +147,6 @@ public class AdaptiveAttemptService {
             state.setWeakLessonIds(weak);
         }
 
-        /* What this learner has met before, in any attempt of anything, and
-           what was on their last attempt of this very exam. Snapshotted now so
-           the tiers do not shift under the session as it writes its own rows. */
         List<Long> poolIds = pool.stream().map(QuestionSelectionView::getQuestionId).toList();
         Set<Long> seen = new LinkedHashSet<>();
         Long lastAttemptId = attemptRepository
@@ -216,11 +157,6 @@ public class AdaptiveAttemptService {
                 .map(AssessmentAttempt::getAssessmentAttemptId)
                 .orElse(null);
         Set<Long> lastAttemptIds = new LinkedHashSet<>();
-        /* The pass over the bank this learner is on. Questions served since
-           it began are "seen this cycle"; if what is left cannot fill this
-           paper's main round, the pass rolls over here and the whole bank is
-           fresh again -- nothing is repeated within a pass while the bank
-           can help it, and the paper still fills. */
         LearnerBankCycle cycle = bankCycles.findByLearnerIdAndCertificationId(learnerId, certificationId)
                 .orElseGet(() -> LearnerBankCycle.builder()
                         .learnerId(learnerId).certificationId(certificationId)
@@ -297,8 +233,6 @@ public class AdaptiveAttemptService {
                 .build();
         attempt = attemptRepository.save(attempt);
 
-        /* Only the first item: every later one is chosen after the answer
-           before it is marked (see answer). */
         List<LearnerAttemptQuestionDto> served = serveMany(attempt, state, 1 + AdaptiveSessionState.START_RESERVE);
         if (served.isEmpty()) {
             throw new BusinessRuleException.InvalidAssessmentSubmissionException(
@@ -314,14 +248,6 @@ public class AdaptiveAttemptService {
         return attempt;
     }
 
-    /**
-     * The mock exam: the engine picks the whole paper now, the learner sits
-     * it as a formal paper (item navigation, flags, review) and it is marked
-     * at submit like any fixed paper. Same seed, same exposure tiers, same
-     * selector as the live session -- so a retake is a fresh set chosen for
-     * where the learner is now -- but every pick is made before the first
-     * answer, at the seeded ability.
-     */
     public AssessmentAttempt startAssembledPaper(Exam exam, Long learnerId, int attemptNumber, String idempotencyKey) {
         Session session = prepareSession(exam, learnerId);
         AdaptiveSessionState state = session.state();
@@ -337,9 +263,6 @@ public class AdaptiveAttemptService {
                 .expiresAt(exam.getDurationMinutes() != null ? now.plusMinutes(exam.getDurationMinutes()) : null)
                 .idempotencyKey(idempotencyKey != null && !idempotencyKey.isBlank()
                         ? idempotencyKey : UUID.randomUUID().toString())
-                /* Not adaptive to the client: no one-at-a-time runner, no
-                   per-answer marking. The engine's state is kept on the row
-                   so submit can update the learner model from the marks. */
                 .adaptive(false)
                 .thetaStart(session.seed().mu0())
                 .thetaCurrent(session.seed().mu0())
@@ -362,12 +285,6 @@ public class AdaptiveAttemptService {
         return attempt;
     }
 
-    /**
-     * Learner-model update for an assembled paper, once submit has marked it:
-     * the same IRT step and BKT update the live session applies per answer,
-     * replayed over the paper in display order. Unanswered items count as
-     * wrong, as they do on the score.
-     */
     @Transactional
     public void onAssembledPaperSubmitted(AssessmentAttempt attempt,
                                           List<AssessmentAttemptQuestion> items,
@@ -426,14 +343,6 @@ public class AdaptiveAttemptService {
         return fresh;
     }
 
-    /*
-     * Loads the pool's questions, whole, into the question and parts caches
-     * off the request thread. The next item is chosen only after the answer
-     * before it is marked, in the request that records that answer, so
-     * serving it must be cheap: with the pool warm it is one insert instead
-     * of one insert and two reads against a database in another region.
-     * One warm at a time; a pool already warm costs nothing.
-     */
     private final java.util.concurrent.ExecutorService warmer = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "adaptive-pool-warmer");
         t.setDaemon(true);
@@ -460,7 +369,6 @@ public class AdaptiveAttemptService {
         });
     }
 
-    // Answer
 
     @Transactional
     public AdaptiveAnswerResponseDto answer(Long attemptId, Long learnerId, AttemptAnswerDraftDto draft) {
@@ -472,18 +380,6 @@ public class AdaptiveAttemptService {
                 batch.next(), batch.queued(), batch.enteringFinalRound(), batch.completed());
     }
 
-    /**
-     * Takes every answer the client has queued, in the order given, in one
-     * request. A learner who answers faster than one round trip per item
-     * used to build a backlog the client drained one request at a time, and
-     * once it fell three behind the next question was not there yet; now the
-     * whole backlog costs one request, and the reserve is topped up once at
-     * the end rather than after each answer.
-     *
-     * <p>Each answer must be for the item being asked at its turn; one that
-     * is not is a replay (answered again, returned as it was) or out of
-     * order (refused). The verdicts come back keyed by item.
-     */
     @Transactional
     public AdaptiveAnswersResponseDto answerAll(Long attemptId, Long learnerId, List<AttemptAnswerDraftDto> drafts) {
         AssessmentAttempt attempt = attempts.requireOwnedAttempt(attemptId, learnerId);
@@ -499,7 +395,6 @@ public class AdaptiveAttemptService {
         com.capstone.rebyu.common.PhaseTimer timer = com.capstone.rebyu.common.PhaseTimer.start(
                 "adaptive answer attempt=" + attemptId + " x" + drafts.size(), log);
 
-        /* The items answered, in one read. */
         Map<Long, AssessmentAttemptQuestion> items = new LinkedHashMap<>();
         for (AssessmentAttemptQuestion q : attemptQuestionRepository.findAllById(
                 drafts.stream().map(AttemptAnswerDraftDto::attemptQuestionId).distinct().toList())) {
@@ -516,8 +411,6 @@ public class AdaptiveAttemptService {
                 throw new BusinessRuleException.InvalidAssessmentSubmissionException(
                         "That question is not on this paper.");
             }
-            /* Only the item being asked can be answered; anything else is a
-               replay (the same answer arriving twice) or an out-of-order request. */
             if (!Objects.equals(attempt.getCurrentQuestionId(), item.getAttemptQuestionId())) {
                 Optional<AssessmentAttemptAnswer> existing = attemptAnswerRepository
                         .findByAttempt_AssessmentAttemptIdAndAttemptQuestion_AttemptQuestionId(
@@ -538,8 +431,6 @@ public class AdaptiveAttemptService {
                         "Choose or type an answer first.");
             }
 
-            /* The item being asked has no answer row yet -- one would have
-               made this a replay above -- so it is written, not looked up. */
             AssessmentAttemptAnswer answer = AssessmentAttemptAnswer.builder().attempt(attempt).attemptQuestion(item).build();
             answer.setLearnerAnswer(draft.learnerAnswer());
             answer.setSelectedChoiceId(draft.selectedChoiceId());
@@ -551,21 +442,9 @@ public class AdaptiveAttemptService {
             answer.setLastSavedAt(savedAt);
             answer = attemptAnswerRepository.save(answer);
 
-            /* Final-round items are marked here too, the moment they are
-               answered -- the written, coded or drawn answer goes to its
-               grader, the learner sees the verdict, and the ability moves
-               before the next problem is chosen. They used to be saved and
-               marked together at submit, which kept the learner from waiting
-               on a grader between problems but also kept the paper from
-               adapting through its last stretch. The wait is the price of a
-               paper that adapts to the end, and the learner sees "Marking". */
             verdicts.put(item.getAttemptQuestionId(), gradeNow(attempt, item, answer, state));
             state.setAnsweredCount(state.getAnsweredCount() + 1);
 
-            /* What comes next is chosen now, from an ability that includes
-               the answer just marked: this is the adaptive step. A reserve
-               served earlier (a session started under the old look-ahead)
-               is used up first. */
             next = null;
             if (!state.getQueuedAttemptQuestionIds().isEmpty()) {
                 next = servedDto(attempt, state.getQueuedAttemptQuestionIds().remove(0));
@@ -587,9 +466,6 @@ public class AdaptiveAttemptService {
         }
         com.capstone.rebyu.common.PhaseTimer.mark(timer, "save + mark");
 
-        /* Only what is newly served goes back: the client keeps every item it
-           was handed, keyed by position, so the reserve it already holds is
-           not read and sent again. */
         List<LearnerAttemptQuestionDto> reserve = List.of();
         if (attempt.getCurrentQuestionId() != null) {
             reserve = topUpReserve(attempt, state);
@@ -602,13 +478,6 @@ public class AdaptiveAttemptService {
         return new AdaptiveAnswersResponseDto(verdicts, progressOf(attempt, state), next, reserve, enteringFinal, state.done());
     }
 
-    /**
-     * Keeps RESERVE_DEPTH items served behind the one being asked, and returns
-     * every reserve item (old and new) so the client can hold all of them.
-     * Two ahead rather than one: the client shows a reserve the instant an
-     * answer is given, and with a slow link one item was not always back in
-     * time for the next press.
-     */
     private List<LearnerAttemptQuestionDto> topUpReserve(AssessmentAttempt attempt, AdaptiveSessionState state) {
         int wanted = AdaptiveSessionState.RESERVE_DEPTH - state.getQueuedAttemptQuestionIds().size();
         if (wanted <= 0 || state.getServedCount() >= state.getTargetCount()) return List.of();
@@ -619,7 +488,6 @@ public class AdaptiveAttemptService {
         return served;
     }
 
-    /** The item as it was served, from memory when possible. */
     private LearnerAttemptQuestionDto servedDto(AssessmentAttempt attempt, Long attemptQuestionId) {
         LearnerAttemptQuestionDto cached = servedCache.get(attemptQuestionId);
         if (cached != null) return cached;
@@ -632,7 +500,6 @@ public class AdaptiveAttemptService {
         servedCache.put(dto.attemptQuestionId(), dto);
     }
 
-    /** A second delivery of an answer already taken: the same response, nothing recomputed. */
     private AdaptiveAnswerResponseDto replay(
             AssessmentAttempt attempt, AdaptiveSessionState state,
             AssessmentAttemptQuestion item, AssessmentAttemptAnswer answer) {
@@ -670,13 +537,9 @@ public class AdaptiveAttemptService {
         attempts.scoreAnswer(item, answer, batch, sources, subs);
         attemptAnswerRepository.save(answer);
 
-        /* The engine's view of the response. An objective item is 1 or 0
-           (2PL); a written, coded or drawn answer is the share it was marked
-           at (partial credit). The verdict is only for the tallies. */
         double score = attempts.scoreOf(item, answer);
         boolean correct = attempts.countsAsCorrect(answer);
 
-        // IRT: ability
         ItemParams params = itemParamsOf(attempt.getExam(), source);
         state.getResponses().add(new AdaptiveSessionState.ResponseRecord(
                 source.getQuestionId(), item.getLessonId(), params, correct, score));
@@ -690,7 +553,6 @@ public class AdaptiveAttemptService {
         attempt.setThetaCurrent(theta);
         attempt.setThetaSe(se);
 
-        // BKT: knowledge of this lesson
         Long lessonId = item.getLessonId();
         if (lessonId != null) {
             BktModel.Params bkt = state.getParamsByLesson().getOrDefault(lessonId, defaultBkt());
@@ -717,10 +579,6 @@ public class AdaptiveAttemptService {
         return verdictOf(attempt, item, answer, source, source == null ? Map.of() : contextOf(List.of(source)).subQuestionsByParentId());
     }
 
-    /**
-     * The parts and rubric of these questions, read once per question. A
-     * multiple-choice question has neither and is never asked.
-     */
     private AssessmentAttemptService.SnapshotContext contextOf(List<Question> questions) {
         List<Question> missing = new ArrayList<>();
         Map<Long, List<Question>> subs = new LinkedHashMap<>();
@@ -752,11 +610,6 @@ public class AdaptiveAttemptService {
         return new AssessmentAttemptService.SnapshotContext(subs, rubric);
     }
 
-    /**
-     * What the learner is told about the item just answered. The correct
-     * answer and its explanation are released only when the assessment
-     * releases answers -- that setting keeps its meaning here.
-     */
     private AdaptiveVerdictDto verdictOf(
             AssessmentAttempt attempt, AssessmentAttemptQuestion item, AssessmentAttemptAnswer answer,
             Question source, Map<Long, List<Question>> subs) {
@@ -784,29 +637,13 @@ public class AdaptiveAttemptService {
                 correctChoiceId, correctChoiceText, acceptedAnswer, explanation, answer.getFeedback(), subReviews);
     }
 
-    // Selection
 
-    /**
-     * Picks and snapshots the next item. Returns null when the pool for the
-     * current stage is exhausted, which ends the session early.
-     */
-    /**
-     * Picks and snapshots the next {@code count} items in one pass: every
-     * choice is made in memory first (selection reads only the pool and the
-     * session), then the chosen questions are loaded with one query and their
-     * parts with another, and only then is each item written. Serving them one
-     * at a time cost a load and a parts query per item, which at a database
-     * in another region was most of what a learner waited for at the start.
-     * Fewer than asked come back when the pool for a stage runs dry.
-     */
     private List<LearnerAttemptQuestionDto> serveMany(AssessmentAttempt attempt, AdaptiveSessionState state, int count) {
         record Pick(Candidate candidate, Selection selection, boolean finalRound, int position) {
         }
         List<Pick> picks = new ArrayList<>();
         Map<Long, Candidate> pool = cachedPool(attempt.getExam()).candidates();
         for (int i = 0; i < count && state.getServedCount() < state.getTargetCount(); i++) {
-            /* An item's round is its position on the paper: the last
-               finalRoundCount slots are the final round. */
             boolean finalRound = state.getServedCount() + 1 > state.getMainCount();
             List<Candidate> candidates = pool.values().stream().filter(c -> c.workspace() == finalRound).toList();
             AdaptiveItemSelector.Settings settings = new AdaptiveItemSelector.Settings(
@@ -869,7 +706,6 @@ public class AdaptiveAttemptService {
         return served;
     }
 
-    /** These questions, whole, from the cache or one query for the rest. */
     private Map<Long, Question> loadQuestions(List<Long> ids) {
         Map<Long, Question> out = new LinkedHashMap<>();
         List<Long> missing = new ArrayList<>();
@@ -887,13 +723,6 @@ public class AdaptiveAttemptService {
         return out;
     }
 
-    /**
-     * The answer key rides with a main-round item so the client can mark the
-     * answer the instant it is given, without a round trip. Only when the
-     * assessment releases answers, and never for a final-round item, whose
-     * marking is a grader's job.
-     */
-    /** Adds the answer key to a served item's DTO where one applies (start/resume response). */
     public LearnerAttemptQuestionDto decorate(AssessmentAttempt attempt, AssessmentAttemptQuestion item, LearnerAttemptQuestionDto dto) {
         return withKey(attempt, item, dto);
     }
@@ -941,7 +770,6 @@ public class AdaptiveAttemptService {
         return out;
     }
 
-    // Item parameters: from the authored difficulty level alone
 
     private ItemParams itemParamsOf(Exam exam, Question source) {
         Candidate cached = cachedPool(exam).candidates().get(source.getQuestionId());
@@ -963,15 +791,10 @@ public class AdaptiveAttemptService {
         persistLearner(attempt, state);
     }
 
-    /* The learner's ability and knowledge states, written once the session
-       is over. Writing them after every answer cost two round trips an item;
-       the attempt row carries the running theta meanwhile, and an abandoned
-       attempt is not evidence the next session should start from anyway. */
     private void persistLearner(AssessmentAttempt attempt, AdaptiveSessionState state) {
         abilities.persistSkillStates(attempt.getLearnerId(), state);
     }
 
-    /** Called by submit once the paper is scored: the final-round items now have marks too. */
     @Transactional
     public void onSubmitted(AssessmentAttempt attempt) {
         AdaptiveSessionState state = loadState(attempt);
@@ -985,12 +808,6 @@ public class AdaptiveAttemptService {
         scheduleReplenishment(attempt, state);
     }
 
-    /**
-     * After a session: if this learner has now met most of a level's pool,
-     * ask for more at that level. Off the request thread and in its own
-     * transaction -- the learner's result page does not wait on it, and a
-     * failure to ask changes nothing about the exam.
-     */
     private void scheduleReplenishment(AssessmentAttempt attempt, AdaptiveSessionState state) {
         try {
             Exam exam = attempt.getExam();

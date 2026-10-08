@@ -8,11 +8,6 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
-/**
- * One rubric line for a subjectively-graded question (diagram / descriptive).
- * Learner-safe to expose the name and max points; awarded points and feedback
- * are only revealed after evaluation and when the assessment allows it.
- */
 @Entity
 @Table(name = "question_rubric_criteria")
 @Data

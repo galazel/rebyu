@@ -19,16 +19,8 @@ import {
   submitPracticeAnswer,
 } from "@/services/practiceService"
 
-/* Long enough to actually try to remember, short enough that you commit to an
-   answer instead of reading the question forty times. When it runs out the card
-   flips itself -- the recall attempt is over either way, and the rating that
-   follows is the honest record of how it went. */
 const RECALL_SECONDS = 25
 
-/* Generated answers are not one line. A card face is a fixed box, so the type
-   steps down as the text grows and the face scrolls past the point where even
-   the smallest step would spill -- the alternative was an answer running out of
-   the bottom of the card and over the rating buttons. */
 function faceType(text) {
   const length = String(text ?? "").length
   if (length > 320) return "text-base sm:text-xl"
@@ -65,10 +57,6 @@ export default function LearnerFlashcardAttemptPage() {
           setAttempt(nextAttempt)
         }
       })
-      /* The server says why -- an enrollment that is no longer active, a set
-         that is gone -- and swallowing it left the learner staring at a blank
-         card with nothing to act on. The generic line stays as the fallback
-         for a failure that carries no message of its own. */
       .catch((error) =>
         toast.error(apiMessage(error, "This flashcard set could not be opened."))
       )
@@ -79,9 +67,6 @@ export default function LearnerFlashcardAttemptPage() {
 
   const reveal = useCallback(() => setFlipped(true), [])
 
-  /* Paused once the card is face up: the clock times the recall, not the
-     rating, and a countdown ticking while you decide between Hard and Good is
-     pressure on the wrong decision. */
   const remaining = useQuestionClock({
     seconds: RECALL_SECONDS,
     index,
@@ -224,8 +209,6 @@ export default function LearnerFlashcardAttemptPage() {
         </div>
       </button>
 
-      {/* Rating IS the next button. The old screen asked for a rating and then
-          asked again for Next, and the second click carried no decision. */}
       <div className="py-6">
         <p className="pb-3 text-center font-rb-display text-xs font-extrabold uppercase tracking-wide text-white/60">
           {flipped ? "How well did you remember it?" : "Answer first, then rate your recall"}

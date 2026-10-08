@@ -9,11 +9,6 @@ import java.time.LocalDateTime;
 
 public interface GenerationRequestRepository extends JpaRepository<GenerationRequest, Long> {
 
-    /**
-     * Whether a bank top-up at this level is already open or recent for the
-     * certification: pending, in progress, or finished (either way) since
-     * {@code since}. The level is matched inside the request's JSON params.
-     */
     @Query("""
             SELECT COUNT(r) > 0 FROM GenerationRequest r
             WHERE r.certificationId = :certificationId

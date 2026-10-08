@@ -119,7 +119,6 @@ export default function Component() {
 
   return (
     <div className="flex flex-col gap-2">
-      {}
       <div
         className="flex min-h-56 flex-col items-center not-data-[files]:justify-center rounded-xl border border-input border-dashed p-4 transition-colors has-[input:focus]:border-ring has-[input:focus]:ring-[3px] has-[input:focus]:ring-ring/50 data-[files]:hidden data-[dragging=true]:bg-accent/50"
         data-dragging={isDragging || undefined}
@@ -153,7 +152,6 @@ export default function Component() {
       </div>
       {files.length > 0 && (
         <>
-          {}
           <div className="flex items-center justify-between gap-2">
             <h3 className="font-medium text-sm">Files ({files.length})</h3>
             <div className="flex gap-2">

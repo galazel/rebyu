@@ -23,9 +23,6 @@ import {
   revokeSubscription,
 } from "@/services/subscriptionService.js"
 
-/* The first two tabs are the Pro approval queue (LEARNER_SUBSCRIPTIONS); the
-   last two are the payment ledger, which also folds in certification purchases
-   (LEARNER_ORDERS). One page for "who has paid us", whichever way they did. */
 const TABS = [
   { id: "awaiting", label: "Awaiting approval" },
   { id: "pro", label: "Pro subscriptions" },
@@ -204,7 +201,6 @@ function PaymentStatus({ status }) {
   return <span className={`text-xs font-bold ${tone}`}>{status}</span>
 }
 
-/** The full ledger: one row per payment, searchable. */
 function PaymentsTable({ rows, onlyKind }) {
   const [search, setSearch] = useState("")
   const scoped = useMemo(() => rows.filter((row) => !onlyKind || row.kind === onlyKind), [rows, onlyKind])
@@ -286,15 +282,6 @@ function PaymentsTable({ rows, onlyKind }) {
   )
 }
 
-/**
- * Payments: who has paid us, and the Pro approval queue.
- *
- * PayMongo runs in test mode, so a paid Pro checkout is not real money: each
- * one waits in the first tab until an admin approves (Pro starts then) or
- * rejects it with a note the learner sees. The ledger tabs list every payment
- * from both tables -- certification orders and Pro subscriptions -- in full;
- * the dashboard tile only ever shows the latest eight.
- */
 export default function AdminSubscriptionsPage() {
   const [tab, setTab] = useState("awaiting")
   const query = useQuery({
@@ -322,8 +309,6 @@ export default function AdminSubscriptionsPage() {
   const proRows = rows.filter((row) => (tab === "awaiting" ? row.awaitingApproval : true))
   const isLedgerTab = tab === "certifications" || tab === "all"
 
-  /* One file with the analytics on top and the full ledger underneath, so a
-     spreadsheet reader gets the same picture as this page. */
   const exportCsv = () => {
     const stamp = new Date().toISOString()
     downloadCsv(

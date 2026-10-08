@@ -35,8 +35,6 @@ PAPER = "#ffffff"
 WASH = "#f7faf5"
 ACCENTS = ("#58a700", "#1f7a8c", "#ff9600", "#2b8a3e", "#ce4a4a", "#7a6a2e")
 
-#: Average glyph advance as a fraction of font size. Slightly generous, so a
-#: line of wide letters still fits inside its box.
 GLYPH_WIDTH = 0.56
 MAX_POINTS = 5
 MAX_ITEMS = 6
@@ -183,6 +181,6 @@ def draw_and_store_figure(query: str, context: dict | None = None) -> str | None
         key = f"{STORAGE_PREFIX}/{uuid.uuid4().hex}.svg"
         upload_object_bytes(key, draw_figure(title, points, items).encode("utf-8"), "image/svg+xml")
         return key
-    except Exception as error:  # storage down, bad text: the block keeps no picture
+    except Exception as error:
         logger.warning("Could not draw a figure for %r: %s", query, error)
         return None

@@ -2,7 +2,6 @@ package com.capstone.rebyu.execution.dto;
 
 import java.util.List;
 
-/** One code-execution request: a learner's source against a set of test cases. */
 public record CodeExecutionRequestDto(
         String language,
         String sourceCode,

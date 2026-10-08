@@ -17,15 +17,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Keeps an institution enrollment's stored progress equal to the learner's
- * real finished lessons in that certification.
- *
- * <p>The column used to be written as 0 when the seat was assigned and never
- * again, so every institution stat that averaged it read 0%. Lesson progress
- * belongs to the learner, not the seat, so a learner who studied the
- * certification on their own before being invited arrives with it counted.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -35,7 +26,6 @@ public class OrgEnrollmentProgressService {
     private final LessonRepository lessonRepository;
     private final LearnerCompletedLessonRepository completedLessonRepository;
 
-    /** Recomputes every institution seat this learner holds for the certification. */
     @Transactional
     public void sync(Long learnerId, Long certificationId) {
         if (learnerId == null || certificationId == null) return;
@@ -45,7 +35,6 @@ public class OrgEnrollmentProgressService {
         if (!rows.isEmpty()) apply(rows, learnerId, certificationId);
     }
 
-    /** Recomputes one seat, e.g. the one an accepted invitation just created. */
     @Transactional
     public void sync(InstitutionCertificationLearner row) {
         Long certificationId = certificationIdOf(row);
@@ -53,7 +42,6 @@ public class OrgEnrollmentProgressService {
         apply(List.of(row), row.getLearner().getLearnerId(), certificationId);
     }
 
-    /** Brings seats that predate this service up to date once at startup. Idempotent. */
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void backfill() {

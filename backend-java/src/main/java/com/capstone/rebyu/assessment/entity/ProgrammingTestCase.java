@@ -27,7 +27,6 @@ public class ProgrammingTestCase {
     @Column(name = "expected_output", nullable = false, columnDefinition = "TEXT")
     private String expectedOutput;
 
-    /** Learner-visible sample case: its input may be shown; others stay hidden. */
     @Column(name = "is_sample", nullable = false)
     private boolean isSample = false;
 }

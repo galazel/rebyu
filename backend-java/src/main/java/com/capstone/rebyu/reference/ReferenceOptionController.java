@@ -17,10 +17,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Set;
 
-/**
- * The stored pick-lists. Reading is public (a select on a public form needs
- * them); adding and retiring entries is for admins.
- */
 @RestController
 @RequiredArgsConstructor
 public class ReferenceOptionController {
@@ -46,7 +42,6 @@ public class ReferenceOptionController {
                 .map(o -> new OptionDto(o.getReferenceOptionId(), o.getLabel(), o.isActive())).toList();
     }
 
-    /** Adds an entry, or re-activates one retired earlier under the same label. */
     @PostMapping("/api/admin/reference/{kind}")
     public OptionDto add(@AuthenticationPrincipal Jwt jwt, @PathVariable String kind, @RequestBody CreateDto body) {
         requireAdmin(jwt);
@@ -60,7 +55,6 @@ public class ReferenceOptionController {
         return new OptionDto(option.getReferenceOptionId(), option.getLabel(), true);
     }
 
-    /** Retires an entry: hidden from the selects, kept so existing rows that name it still read. */
     @DeleteMapping("/api/admin/reference/{kind}/{id}")
     public void retire(@AuthenticationPrincipal Jwt jwt, @PathVariable String kind, @PathVariable Long id) {
         requireAdmin(jwt);

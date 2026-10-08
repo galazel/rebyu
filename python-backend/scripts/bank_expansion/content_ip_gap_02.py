@@ -12,7 +12,6 @@ CERTIFICATION_ID = 4
 
 QUESTIONS = {
 
-    # 714 -- Other laws, guidelines, and engineer ethics
     714: [
         mcq("HARD",
             "An engineer finds a serious safety defect and management decides not to disclose it. What do professional codes require?",
@@ -86,7 +85,6 @@ QUESTIONS = {
             "Compliance includes rules the organisation has adopted for itself. Adopting a standard and then ignoring it is a compliance failure."),
     ],
 
-    # 741 -- System configuration
     741: [
         mcq("HARD",
             "A company relies on RAID 1 mirroring and has no other copy of its data. Ransomware encrypts the server. What happens?",
@@ -160,7 +158,6 @@ QUESTIONS = {
             "Clients request and servers provide, which centralises both control and the consequences of failure."),
     ],
 
-    # 736 -- Programming and programming languages
     736: [
         mcq("AVERAGE",
             "Which statement correctly distinguishes a compiler from an interpreter?",
@@ -234,7 +231,6 @@ QUESTIONS = {
             "Machine language is specific to a processor's instruction set. A high-level program is translated separately for each target."),
     ],
 
-    # 709 -- OR and IE
     709: [
         mcq("HARD",
             "A product sells for 800 with a variable cost of 500, against fixed costs of 600,000. What is the break-even volume?",

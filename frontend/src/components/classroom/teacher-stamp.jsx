@@ -4,15 +4,6 @@ import { useGSAP } from "@gsap/react"
 
 gsap.registerPlugin(useGSAP)
 
-/**
- * The teacher's rubber stamp on a marked page: green "passed" or red "try
- * again". It comes down onto the sheet a moment after the page opens, the way
- * the stamp lands at the end of the graded notebook on the landing page, and
- * sits in the sheet's top-right corner.
- *
- * Decorative: the pass/fail state is always also written as text on the page,
- * so the stamp carries an accessible name but no information of its own.
- */
 export function TeacherStamp({ passed, className = "" }) {
   const ref = useRef(null)
 

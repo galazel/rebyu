@@ -100,7 +100,6 @@ class StudyPracticeServiceTest {
                 .build();
     }
 
-    // submitAnswer
 
     @Test
     void submitAnswer_correctChoice_upsertsWithIsCorrectTrue() {
@@ -125,8 +124,6 @@ class StudyPracticeServiceTest {
         service.submitAnswer(LEARNER_ID, ATTEMPT_ID, ITEM_ID, "5", null);
         service.submitAnswer(LEARNER_ID, ATTEMPT_ID, ITEM_ID, "4", null);
 
-        // Both submissions route through the same upsert repository method (ON CONFLICT DO UPDATE
-        // in the underlying native query) -- re-answering never creates a second answer row.
         verify(answers, times(2)).upsertAnswer(eq(ATTEMPT_ID), eq(ITEM_ID), anyString(), anyString(), anyBoolean(), anyInt(), any());
     }
 
@@ -148,7 +145,6 @@ class StudyPracticeServiceTest {
                 () -> service.submitAnswer(LEARNER_ID, ATTEMPT_ID, ITEM_ID, "4", null));
     }
 
-    // completeAttempt
 
     @Test
     void completeAttempt_allCorrect_scoresFullMarksAndAwardsReward() {
@@ -190,7 +186,7 @@ class StudyPracticeServiceTest {
     void completeAttempt_notAllItemsAnswered_throws() {
         when(attempts.findByAttemptIdAndLearner_LearnerId(ATTEMPT_ID, LEARNER_ID))
                 .thenReturn(Optional.of(inProgressAttempt()));
-        when(answers.countByAttempt_AttemptId(ATTEMPT_ID)).thenReturn(1L); // totalItems=2
+        when(answers.countByAttempt_AttemptId(ATTEMPT_ID)).thenReturn(1L);
 
         assertThrows(IllegalArgumentException.class, () -> service.completeAttempt(LEARNER_ID, ATTEMPT_ID));
     }
@@ -204,7 +200,6 @@ class StudyPracticeServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.completeAttempt(LEARNER_ID, ATTEMPT_ID));
     }
 
-    // startAttempt: what a shared study set needs, and what it must not
 
     private GeneratedStudySet studySetEntity(String source, String studyType) {
         Certification certification = new Certification();
@@ -225,9 +220,6 @@ class StudyPracticeServiceTest {
         return set;
     }
 
-    /* The community copy is the learner's own set; requiring an enrollment in
-       the sharer's certification made every shared study set unopenable for
-       exactly the learners a share is for. */
     @Test
     void startAttempt_communityCopy_needsNoEnrollmentAndIsTaggedCommunityQuiz() {
         when(studySets.findByStudySetIdAndLearnerIdWithItems(STUDY_SET_ID, LEARNER_ID))

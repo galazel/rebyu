@@ -32,42 +32,7 @@ import {
   saveArenaProblems,
 } from "@/services/challengeService.js"
 
-/**
- * Authoring surface for one arena's problem set.
- *
- * Deliberately not a second question builder: the editors, the per-type data
- * shapes, and the validation are the ones the certification Question Bank uses,
- * imported from `question-editors`. An arena problem IS a question — a
- * CodeStrike problem is the PROGRAMMING editor with its test cases, a Blueprint
- * problem is the DIAGRAM editor with its reference canvas — so forking them
- * would leave two definitions of "a valid programming question" to drift apart.
- *
- * What this adds on top is what an arena needs and a lesson question does not:
- * a reward line per problem (points, XP) sitting in a strip above each editor
- * rather than inside it, so the editor stays the shared component.
- *
- * The two shapes an arena's set can take:
- *
- * - A **roadmap** (CodeStrike, Blueprint Arena). The run is the path of
- *   numbered circle buttons in `problem-grid`, and a node is a stage the
- *   learner clears by answering every question in it — `arena.questionsPerNode`
- *   of them. So this groups the editors under their node rather than listing
- *   them flat: authoring node 3 means authoring the ten questions behind
- *   circle 3, and a node short of its quota is a stage that cannot be cleared.
- *
- * - A **mock exam** (World Cup). No path, no nodes: a bracket round is an exam
- *   sat against seven other people, so its problems are one flat list drawn
- *   from a single certification. That certification is chosen once for the
- *   whole set — a run whose questions each named a different certification
- *   would not be a track at all.
- *
- * The saved set is reloaded on open -- every question back in its editor, in
- * its node -- so an arena is built up over several sittings. Saving writes only
- * new or edited problems to the bank; an untouched one is re-linked by its id,
- * so saving twice does not duplicate the bank.
- */
 
-/** Defaults per problem. Points score the run, XP feeds the learner's level. */
 const DEFAULT_REWARD = { points: "10", xp: "25" }
 
 function createNode() {
@@ -76,16 +41,11 @@ function createNode() {
 
 export default function ArenaProblemBuilder({ arena, status, settings }) {
   const queryClient = useQueryClient()
-  // One shape in state for both arenas: a mock-exam arena is a single unnamed
-  // node, so grouping never needs a second code path here or in the endpoint.
   const [nodes, setNodes] = useState(() => [createNode()])
   const [errors, setErrors] = useState({})
   const [nodeErrors, setNodeErrors] = useState({})
   const [certificationId, setCertificationId] = useState("")
   const [certificationError, setCertificationError] = useState("")
-  /* Arena problems are ordinary questions, and a question must belong to a
-     lesson -- `questions.lesson_id` is NOT NULL. So authoring one needs a
-     lesson to file it under, even though a run never shows which. */
   const [lessonId, setLessonId] = useState("")
   const [lessonError, setLessonError] = useState("")
   const [saving, setSaving] = useState(false)
@@ -93,9 +53,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
   const questionsPerNode = Number(arena.questionsPerNode) || 0
   const isRoadmap = questionsPerNode > 0
 
-  /** For a roadmap this is the number of circle buttons on the path -- the
-   *  saved setting, so changing it on the Settings tab moves this target; for
-   *  a mock exam there is no such field and the set is open-ended. */
   const targetNodes = isRoadmap
     ? Number(
         settings?.problems ??
@@ -104,9 +61,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
       )
     : 0
 
-  /* The saved set, rebuilt into editor shape. Each non-MCQ question needs its
-     own config fetch, so this is one query that resolves once everything is
-     rebuilt rather than a flicker of half-filled editors. */
   const savedQuery = useQuery({
     queryKey: [CHALLENGE_ARENAS_KEY, arena.id, "problems"],
     queryFn: async () => {
@@ -119,7 +73,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
       )
       return rebuilt.filter((item) => item.problem)
     },
-    // Hydrated once; a background refetch must not overwrite unsaved edits.
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   })
@@ -151,19 +104,12 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
     [arena.questionTypes],
   )
 
-  /* Every arena needs one now, tracked or not: the problem set is saved as a
-     CHALLENGE exam and an exam belongs to a certification. `tracked` still
-     decides matchmaking; it no longer decides whether authoring needs a home. */
   const { data: certifications = [] } = useQuery({
     queryKey: ["admin-certifications", "arena-problems"],
     queryFn: () => getAllCertifications(),
     staleTime: 5 * 60 * 1000,
   })
 
-  /* The chosen certification's lessons, flattened out of its curriculum tree.
-     Taken from the certification already fetched rather than listing every
-     lesson on the platform: a lesson from another certification would be
-     rejected by the server anyway, so it should not be offered. */
   const lessons = useMemo(() => {
     const certification = certifications.find(
       (item) => String(item.certificationId) === String(certificationId),
@@ -188,8 +134,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
   function removeNode(nodeId) {
     setNodes((current) => {
       const remaining = current.filter((node) => node.id !== nodeId)
-      // A roadmap with no nodes has nothing to author into, so the last one
-      // empties rather than disappearing.
       return remaining.length > 0 ? remaining : [createNode()]
     })
   }
@@ -231,8 +175,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
     }))
   }
 
-  /** The editors call `onDataChange` with an updater, not a value — they edit
-   *  deep paths and need the current data to merge into. */
   function updateProblemData(nodeId, problemId, update) {
     updateNode(nodeId, (node) => ({
       ...node,
@@ -248,9 +190,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
     }))
   }
 
-  /** The bank's own validator, plus the rules that are the arena's: a reward
-   *  has to be a positive number, a roadmap node has to be full, and a tracked
-   *  arena's set has to name the certification it is drawn from. */
   function saveProblems() {
     const nextErrors = {}
 
@@ -276,15 +215,7 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
       missingCertification ? "Choose the certification these problems come from." : "",
     )
 
-    /* An *empty* node is a circle the learner can open onto nothing, so it
-       blocks the save. A node merely short of the target does not.
 
-       This used to demand exactly `questionsPerNode` in every node, which for
-       a ten-node path meant authoring a hundred questions before anything
-       could be saved at all -- an arena could not be built up over several
-       sittings, or opened with a smaller set while the rest was written. The
-       count is still shown per node and in the summary, as a target to work
-       towards rather than a gate. */
     const nextNodeErrors = {}
     if (isRoadmap) {
       nodes.forEach((node, index) => {
@@ -323,16 +254,10 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
       return
     }
 
-    /* Two steps, in this order, because the second needs the ids the first
-       creates: every problem is saved to the question bank exactly as the bank
-       itself saves it -- same endpoints, same per-type follow-ups -- and only
-       then is the arena told which questions it runs. */
     setSaving(true)
     void (async () => {
       try {
         const saved = []
-        // problem id -> the bank id it now runs, so the editors can be told
-        // they are saved and a second save re-links instead of re-writing.
         const savedIds = new Map()
 
         for (const node of nodes) {
@@ -349,7 +274,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
           }
         }
 
-        // No time limit sent: the server uses the arena's saved setting.
         const status = await saveArenaProblems(arena.id, {
           certificationId: Number(certificationId),
           problems: saved,
@@ -366,8 +290,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
           })),
         )
 
-        // Not the problems query: it is this screen's hydration source, and
-        // refetching it would be ignored anyway.
         await queryClient.invalidateQueries({ queryKey: [CHALLENGE_ARENAS_KEY], exact: true })
 
         toast.success(`${arena.name} is live`, {
@@ -376,10 +298,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
           } saved. Learners can enter this arena now.`,
         })
       } catch (error) {
-        /* Partial saves are possible here: the questions are written one at a
-           time and the arena is only told about them at the end. Saying so
-           beats a bare failure, because re-saving writes a fresh set rather
-           than resuming this one. */
         toast.error("Could not save the arena", {
           description:
             error?.response?.data?.message ??
@@ -401,7 +319,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
     0,
   )
 
-  /** The reward strip and the editor, shared by both shapes. */
   function renderProblem(node, problem, index) {
     const questionType = QUESTION_TYPES.find((type) => type.id === problem.typeId)
     if (!questionType) return null
@@ -411,8 +328,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
 
     return (
       <div key={problem.id} className="space-y-2">
-        {/* Reward sits above the editor, not inside it: the editor is shared
-            with the question bank, where a question carries none. */}
         <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3">
           <div className="w-24">
             <Label htmlFor={`${problem.id}-points`} className="text-xs font-bold">
@@ -513,11 +428,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
 
   return (
     <div className="space-y-5">
-      {/* One certification for the whole set — a bracket is a track, and every
-          player in it is answering from the same syllabus. */}
-      {/* Where the problems live. Shown for every arena, not just the tracked
-          one: the set is saved as a CHALLENGE exam, an exam belongs to a
-          certification, and every question belongs to a lesson. */}
       <div className="rounded-xl border-2 border-border bg-card p-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -533,8 +443,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
               value={certificationId}
               onValueChange={(value) => {
                 setCertificationId(value)
-                // The lesson list is the certification's, so it cannot survive
-                // a change of certification.
                 setLessonId("")
               }}
             >
@@ -635,8 +543,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
           ) : null}
         </div>
 
-        {/* Disabled while saving: the questions are written one at a time, so
-            a second press mid-run would author the whole set twice. */}
         <Button
           size="sm"
           onClick={saveProblems}
@@ -649,8 +555,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
 
       {isRoadmap ? (
         <>
-          {/* A node per circle button on the learner's path, authored as its own
-              block. Ten flat editors gave no clue which stage a question sat in. */}
           {nodes.map((node, nodeIndex) => {
             const full = node.problems.length >= questionsPerNode
             const nodeError = nodeErrors[node.id]
@@ -661,7 +565,6 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
                 className="rounded-2xl border-2 border-border bg-card p-4"
               >
                 <div className="flex flex-wrap items-center gap-3">
-                  {/* Numbered circle, as it reads on the path. */}
                   <span className="grid size-10 shrink-0 place-items-center rounded-full border-2 border-border bg-muted font-rb-display text-base font-extrabold">
                     {nodeIndex + 1}
                   </span>

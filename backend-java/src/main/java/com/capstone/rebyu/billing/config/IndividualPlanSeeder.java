@@ -18,15 +18,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Makes sure the two learner plans exist: Free and Pro.
- *
- * <p>Flyway never runs in this project, so the plan rows the billing code was
- * written against were never there -- the subscription page had nothing to
- * show and checkout had nothing to buy. Idempotent: an existing plan keeps its
- * price and name (an admin may have changed them); only missing plans and
- * missing entitlement rows are added.
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -41,7 +32,6 @@ public class IndividualPlanSeeder {
             Entitlements.BASIC_LEARNING,
             Entitlements.BASIC_COMPLETION_TRACKING);
 
-    /** Code -> limit (null for a plain feature flag). */
     private static final Map<String, Integer> PRO_FEATURES = new LinkedHashMap<>();
 
     static {
@@ -82,7 +72,6 @@ public class IndividualPlanSeeder {
             FREE_FEATURES.forEach(code -> ensureEntitlement(free, code, null));
             PRO_FEATURES.forEach((code, limit) -> ensureEntitlement(pro, code, limit));
         } catch (RuntimeException ex) {
-            // Never block startup over seed data.
             log.error("Could not seed the learner plans", ex);
         }
     }

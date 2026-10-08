@@ -14,15 +14,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/**
- * Which pass over a certification's bank this learner is on.
- *
- * <p>A learner's sessions draw questions they have not met in the current
- * cycle. When what is left cannot fill a paper -- the bank is used up and
- * no top-up has landed -- the cycle rolls over: everything counts as fresh
- * again and, within the new cycle, nothing repeats until it too is used up.
- * Every attempt records the cycle it drew from.
- */
 @Entity
 @Table(
         name = "learner_bank_cycles",
@@ -45,11 +36,9 @@ public class LearnerBankCycle {
     @Column(name = "certification_id", nullable = false)
     private Long certificationId;
 
-    /** 1 for the first pass over the bank, and one more each time it rolls over. */
     @Column(name = "cycle_no", nullable = false)
     private int cycleNo;
 
-    /** Questions served at or after this moment count as seen in this cycle. */
     @Column(name = "started_at", nullable = false)
     private LocalDateTime startedAt;
 }

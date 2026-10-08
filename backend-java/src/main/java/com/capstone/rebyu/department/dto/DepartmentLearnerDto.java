@@ -20,21 +20,15 @@ public class DepartmentLearnerDto {
     @NotNull
     private Long institutionCertLearnerId;
 
-    // Read-only, denormalized from the referenced institution_cert_learner so the
-    // authority UI can display and cross-check the learner without extra calls.
     private Long institutionCertId;
     private Long learnerId;
 
-    // Always overwritten server-side from the caller's JWT (see
-    // DepartmentLearnerController.create), so must stay nullable --
-    // the client never supplies it.
     private Long assignedBy;
 
     private LocalDateTime assignedAt;
 
     private DepartmentLearner.Status status = DepartmentLearner.Status.active;
 
-    // Peer-leader distinction within the group; defaults to a regular member.
     private DepartmentLearner.Role role = DepartmentLearner.Role.member;
 
     private LocalDateTime removedAt;

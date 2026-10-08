@@ -32,29 +32,10 @@ import {
     AlertTitle,
 } from "@/components/ui/alert"
 
-/* Creating only.
-   This drawer used to do double duty: a one-page create form, and a two-step
-   edit form carrying a whole category tree. Editing now happens on the
-   certification page itself, where every name is edited where it is shown and
-   each level adds and removes its own items -- so the second mode, its step
-   navigation, and the tree editor behind it are gone rather than left as a
-   second way to do the same thing. Two editors writing the same rows through
-   two different payload builders is how one of them quietly starts wiping what
-   the other remembered to send.
 
-   What is left is what generation actually needs: what the certification is,
-   and the documents to read. */
 
-/* How closely the admin wants to supervise the build.
 
-   The graph was written review-first: it pauses after the curriculum, after
-   every category, after every lesson, and again for each exam and the question
-   bank. That is right when someone intends to shape the material as it is
-   written, and wrong the rest of the time — an unattended run stops at the
-   first checkpoint and waits, so "start it and check back later" produced a
-   certification that had generated one thing and then sat still.
 
-   So it is a choice, made here, before anything starts. */
 const REVIEW_MODES = [
     {
         value: "auto",
@@ -120,7 +101,6 @@ function ReviewModeChoice({ value, onChange, disabled }) {
     )
 }
 
-/** Elapsed time as m:ss -- a clock, because that is what it is. */
 function formatElapsed(totalSeconds) {
     const minutes = Math.floor(totalSeconds / 60)
     const seconds = totalSeconds % 60
@@ -161,27 +141,12 @@ export default function CertificationFormDrawer({
     const [submissionError, setSubmissionError] = useState("")
 
     const [sourceDocuments, setSourceDocuments] = useState([])
-    /* The badge artwork, or null. Sent along with the documents so a
-       certification is born with its emblem rather than picking one up later. */
     const [badgeImage, setBadgeImage] = useState(null)
     const [uploadPercent, setUploadPercent] = useState(0)
-    /* Seconds since the upload finished and the server started reading the
-       documents. The only thing this screen can honestly report about that
-       stretch, and the only thing that distinguishes it from a dead request. */
     const [processingSeconds, setProcessingSeconds] = useState(0)
-    /* Unattended by default: it is what an admin wants nearly every time, and
-       the supervised alternative is one click away and clearly labelled. */
     const [reviewMode, setReviewMode] = useState("auto")
     const [questionTypes, setQuestionTypes] = useState([])
-    /* Required, and seeded with a workable default rather than left blank.
-       The bank is the largest and most expensive thing a run produces, and the
-       size it used to take came from .env -- a number nobody filling in this
-       form could see, let alone predict. Asking for it outright is the honest
-       version. */
     const [questionBankSize, setQuestionBankSize] = useState("300")
-    /* Also required. The configured curriculum knobs MULTIPLY (majors x
-       middles x lessons), so the old behaviour produced a lesson total that
-       could not be worked out from anything on screen. */
     const [lessonCount, setLessonCount] = useState("40")
 
     const {
@@ -206,8 +171,6 @@ export default function CertificationFormDrawer({
             ),
     })
 
-    /* Ticks only while the server is reading the documents, and resets between
-       attempts so a second upload never shows the first one's clock. */
     const isProcessing = isBusy && uploadPercent >= 100
     useEffect(() => {
         if (!isProcessing) {
@@ -256,8 +219,6 @@ export default function CertificationFormDrawer({
         setSubmissionError("")
     }
 
-    // Identity-stable so the upload step's reporting effect does not re-fire on
-    // every render of this modal.
     const handleDocumentsChange = useCallback((documents) => {
         setSourceDocuments(documents)
         setSubmissionError((current) =>
@@ -265,16 +226,6 @@ export default function CertificationFormDrawer({
         )
     }, [])
 
-    /**
-     * Save the certification and hand its documents to AI generation in one
-     * request.
-     *
-     * There is no manual alternative. A certification is a curriculum plus
-     * twenty-odd lessons and their assessments; typing that structure by hand
-     * produced empty shells that then had to be generated anyway, so the form
-     * asks for the two things generation actually needs — what the
-     * certification is, and the documents to read.
-     */
     async function handleGenerate() {
         const detailsValidationErrors =
             validateCertificationDetails(certificationDetails)
@@ -291,9 +242,6 @@ export default function CertificationFormDrawer({
             return
         }
 
-        /* Both sizes are required. Generation is long and expensive, and a run
-           started on a number the admin never chose is one they only find out
-           about at the end. */
         const bank = Number(questionBankSize)
         if (!questionBankSize || !Number.isFinite(bank) || bank < 10 || bank > 5000) {
             setSubmissionError("Enter a question bank size between 10 and 5000.")
@@ -327,21 +275,8 @@ export default function CertificationFormDrawer({
 
             await onSaved?.(savedCertification)
 
-            /* Queued, so this drawer's job is done: get out of the way.
 
-               It used to swap the form for the live transcript and keep the
-               admin here, on the theory that generation is a conversation they
-               steer. In practice the first thing it shows is a single running
-               step under a screenful of empty space, and it holds the whole
-               panel hostage to a build that runs on the server whether anyone
-               watches or not. The certification appears in the list marked
-               "Generating" with its own View progress, which is where watching
-               belongs -- and leaves the admin free to start the next one.
 
-               Closed directly rather than through `handleModalChange`, whose
-               guard refuses to close while a mutation is in flight: whether
-               that guard sees the settled value depends on which render's
-               closure is running, and this close must not be a coin toss. */
             onOpenChange(false)
             resetForm()
 
@@ -366,57 +301,26 @@ export default function CertificationFormDrawer({
         <Drawer
             open={open}
             onOpenChange={handleModalChange}
-            // Right, not bottom: this panel is tall content -- a form that
-            // scrolls -- and a bottom sheet caps itself at 80vh with a drag
-            // handle eating the top of it.
             direction="right"
         >
             {trigger && <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
 
-            {/* The `data-[vaul-drawer-direction=right]:` prefix is load-bearing:
-                DrawerContent ships its right-hand width as
-                `data-[vaul-drawer-direction=right]:sm:max-w-sm` (384px), and a
-                plain `sm:max-w-none` does not override it -- tailwind-merge
-                treats a different variant chain as a separate utility, so the
-                panel stayed clamped no matter what width was set. Same trap the
-                Dialog version hit with `sm:max-w-lg`.
 
-                No explicit height: `direction="right"` pins the panel with
-                `inset-y-0`, so it is already full-height. */}
             <DrawerContent
                 className={cn(
                     "flex flex-col gap-0 overflow-hidden p-0",
-                    /* Every width carries the direction prefix, for the
-                       reason the note above gives: the primitive sets
-                       `data-[vaul-drawer-direction=right]:w-3/4`, an attribute
-                       selector, and a bare `lg:w-[50vw]` loses to it on
-                       specificity rather than on order. Written unprefixed,
-                       this drawer opened at three quarters of the window and
-                       looked like nothing had changed. */
                     "data-[vaul-drawer-direction=right]:sm:max-w-none",
                     "data-[vaul-drawer-direction=right]:w-[96vw]",
                     "data-[vaul-drawer-direction=right]:sm:w-[92vw]",
                     "data-[vaul-drawer-direction=right]:lg:w-[50vw]",
                 )}
             >
-                {/* Unlike DialogContent, DrawerContent renders no close button
-                    of its own, so the header carries one. It lives inside the
-                    header rather than the panel because the panel's body is the
-                    scroll container -- a key placed on the panel would scroll
-                    away with the content.
 
-                    `py-4` rather than `py-5`: the close button is absolutely
-                    positioned at `top-4`, so anything else vertically centres
-                    the title against it. */}
                 <DrawerHeader className="relative gap-1 border-b border-border px-5 py-4 pr-14 text-left sm:px-6">
                     <DrawerTitle className="text-lg">
                         Create Certification
                     </DrawerTitle>
 
-                    {/* Rendered even with nothing to show: vaul is Radix Dialog
-                        underneath, which warns when a panel has no description,
-                        and an unlabelled panel is a real gap for a screen reader
-                        rather than just noise in the console. */}
                     <DrawerDescription className="sr-only">
                         Certification details and source documents.
                     </DrawerDescription>
@@ -432,9 +336,6 @@ export default function CertificationFormDrawer({
                     </DrawerClose>
                 </DrawerHeader>
 
-                {/* One column, one scroll: what the certification is, then the
-                    documents to build it from, in the order you would say
-                    them. */}
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 sm:px-6">
                     <div className="space-y-8">
                         <CertificationDetails
@@ -444,9 +345,6 @@ export default function CertificationFormDrawer({
                             disabled={isBusy}
                         />
 
-                        {/* The badge comes right after the identity fields: it
-                            is part of what the certification is, not part of
-                            how it is built. */}
                         <div className="border-t border-border pt-8">
                             <BadgeUploadStep
                                 value={badgeImage}
@@ -462,8 +360,6 @@ export default function CertificationFormDrawer({
                             />
                         </div>
 
-                        {/* Before the review-mode choice: this decides what
-                            gets built, that decides whether you watch it. */}
                         <div className="border-t border-border pt-8">
                             <QuestionTypeChoice
                                 value={questionTypes}
@@ -545,9 +441,6 @@ export default function CertificationFormDrawer({
                     </div>
                 </div>
 
-                {/* A plain footer rather than `DialogFooter`: that primitive is
-                    a right-aligned button row, and this needs an error alert
-                    and an upload meter stacked above the action. */}
                 <div className="flex flex-col gap-3 border-t border-border bg-background px-5 py-4 sm:px-6">
                     {submissionError && (
                         <Alert variant="destructive" className="relative pr-12">
@@ -570,23 +463,8 @@ export default function CertificationFormDrawer({
                         </Alert>
                     )}
 
-                    {/* Two phases, and only the first has a percentage.
-                        Uploading reports real bytes. What follows -- the server
-                        reading each PDF, pulling its figures out and storing
-                        them -- reports nothing, because it all happens inside
-                        the one request and nothing comes back until it ends.
 
-                        That silence is the whole problem: the bar sat full and
-                        the button said "Starting…" for minutes, which is what a
-                        crashed request looks like too, so the honest reading
-                        was that it had died.
 
-                        So the second phase shows elapsed time instead of a
-                        percentage. A number that keeps moving is proof the
-                        request is alive, and no percentage is invented for work
-                        that cannot be measured from here -- a bar creeping to
-                        90% and stopping would be a lie that looks worse the
-                        longer it holds. */}
                     {isBusy && (
                         <div className="space-y-1.5">
                             <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
@@ -605,9 +483,6 @@ export default function CertificationFormDrawer({
                             {uploadPercent < 100 ? (
                                 <Progress value={uploadPercent} className="h-1.5" />
                             ) : (
-                                /* Indeterminate: the work has no knowable
-                                   fraction, so the bar says "running" rather
-                                   than claiming a position in it. */
                                 <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
                                     <div className="h-full w-1/3 animate-[loading-sweep_1.4s_ease-in-out_infinite] rounded-full bg-primary" />
                                 </div>

@@ -36,15 +36,8 @@ from dbsession import open_session
 PARSED_DIR = os.environ.get("PAPERS_PARSED_DIR", "/app/scripts/fe_papers/parsed/")
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
-#: How many of a lesson's existing questions contribute to its profile. Enough
-#: to characterise the lesson, capped so that a lesson holding sixty questions
-#: does not dominate the encode step.
 MAX_PROFILE_QUESTIONS = 40
 
-#: A question's similarity to a lesson is the mean of its best few matches
-#: against that lesson's texts. One is too noisy -- a single near-duplicate
-#: pulls the whole decision -- and averaging all of them washes out a lesson
-#: whose remit is broad.
 TOP_K = 3
 
 

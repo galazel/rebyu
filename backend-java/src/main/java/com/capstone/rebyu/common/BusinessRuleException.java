@@ -1,9 +1,5 @@
 package com.capstone.rebyu.common;
 
-/**
- * Base type for learner-safe business rule violations. Messages are shown to
- * end users, so they must never contain internals, keys, or stack details.
- */
 public abstract class BusinessRuleException extends RuntimeException {
 
     protected BusinessRuleException(String message) {
@@ -58,12 +54,6 @@ public abstract class BusinessRuleException extends RuntimeException {
         }
     }
 
-    /**
-     * A curriculum node an admin asked to delete still has graded learner
-     * records under it. Deleting it would take away attempts and results that
-     * a learner -- or the institution that bought the certification -- is
-     * entitled to keep, so the delete is refused and the reason is named.
-     */
     public static class CurriculumNodeInUseException extends BusinessRuleException {
         public CurriculumNodeInUseException(String message) {
             super(message);
@@ -100,7 +90,6 @@ public abstract class BusinessRuleException extends RuntimeException {
         }
     }
 
-    /** A certification badge upload that is missing, too large, or not an image. */
     public static class InvalidBadgeImageException extends BusinessRuleException {
         public InvalidBadgeImageException(String message) {
             super(message);

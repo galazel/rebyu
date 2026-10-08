@@ -18,18 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Admin operations for the BKT outbox and reconciliation, restricted to the ADMIN role.
- *
- * <p>The restriction is enforced by {@link RoleGuard}, not by the
- * {@code @PreAuthorize} annotations this class used to carry -- method security
- * is not enabled in this application, so those never ran. A local {@code
- * requireAdmin} did the real work, but it raised {@code IllegalArgumentException}
- * for both a missing token and a non-admin caller, which surfaces as 400 Bad
- * Request: the request was refused, but it read to the client as malformed
- * rather than unauthorized, and to a log reader as a client bug rather than an
- * access attempt. The shared guard answers 401 and 403.
- */
 @RestController
 @RequestMapping("/api/admin/bkt")
 @RequiredArgsConstructor
@@ -53,11 +41,6 @@ public class BktAdminController {
 
     @GetMapping("/outbox")
     public List<BktOutboxAdminView> byStatus(
-            // FAILED is a reserved, not-yet-used status (see BktOutboxStatus)
-            // -- the dispatcher only ever produces PENDING/PROCESSING/
-            // PROCESSED/DEAD_LETTER, so defaulting here to FAILED silently
-            // returned nothing. DEAD_LETTER is the status admins actually
-            // need to see by default.
             @RequestParam(defaultValue = "DEAD_LETTER") BktOutboxStatus status,
             @RequestParam(defaultValue = "100") int limit,
             @AuthenticationPrincipal Jwt jwt) {

@@ -12,18 +12,9 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
     List<Lesson> findByMiddleCategory_MajorCategory_Certification_CertificationId(Long certificationId);
 
-    /**
-     * Official lessons only -- excludes lessons an Institution group authored
-     * under its own major categories. Admin-side flows (AI generation, publish
-     * validation) must never read or write a group's own content.
-     */
     List<Lesson> findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(
             Long certificationId);
 
-    /**
-     * The certification's official lessons as ids only -- see
-     * {@link CurriculumLessonIdView} for why this is not the entity query.
-     */
     @Query("SELECT l.lessonId AS lessonId, "
             + "mc.middleCategoryId AS middleCategoryId, "
             + "maj.majorCategoryId AS majorCategoryId "

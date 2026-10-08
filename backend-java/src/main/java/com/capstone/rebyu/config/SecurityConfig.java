@@ -24,9 +24,6 @@ import org.springframework.security.web.header.writers.HstsHeaderWriter;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    // Only LearnerProfileService's change-password/delete-account flow needs
-    // this (accounts are otherwise authenticated via Cognito, not a local
-    // password check) -- nothing previously defined this bean at all.
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -43,22 +40,10 @@ public class SecurityConfig {
                         .addHeaderWriter(new HstsHeaderWriter())
                 )
                 .authorizeHttpRequests(authorize -> authorize
-                        // Current-user synchronization always requires a
-                        // validated Cognito access token.
                         .requestMatchers("/api/auth/**").authenticated()
-                        // Accepting an invitation must identify the learner
-                        // from a validated token (never from the request body),
-                        // so a missing/invalid token returns 401.
                         .requestMatchers(org.springframework.http.HttpMethod.POST,
                                 "/api/learners/accept-invitation").authenticated()
-                        // Progress analytics resolves the learner strictly from
-                        // the validated token — never from a client-supplied id.
                         .requestMatchers("/api/learners/me/**").authenticated()
-                        // Admin partnership review, institution group/authority/
-                        // assignee management, and invitation sending all now
-                        // resolve the caller's identity/institution from the
-                        // token — never from client-supplied institutionId/
-                        // createdBy/assignedBy fields.
                         .requestMatchers("/api/admin/partnership-requests/**").authenticated()
                         .requestMatchers("/api/departments/**").authenticated()
                         .requestMatchers("/api/department-head-assignments/**").authenticated()
@@ -66,252 +51,58 @@ public class SecurityConfig {
                         .requestMatchers("/api/institution/invitations/**").authenticated()
                         .requestMatchers("/api/institution/certification-access").authenticated()
                         .requestMatchers("/api/institution/partnership-requests/**").authenticated()
-                        // Tenant-scoped institution portal reads: institutionId is resolved
-                        // from the caller's JWT and every list is filtered to that tenant
-                        // server-side, replacing the old browser-side filtering of global lists.
                         .requestMatchers("/api/institution/me/**").authenticated()
-                        // License/entitlement reads: institutionId is JWT-derived at the
-                        // controller now, but this path previously had no auth requirement
-                        // here either -- any unauthenticated caller could read any
-                        // institution's billing/entitlement data by guessing an id. Block
-                        // anonymous access here too.
                         .requestMatchers("/api/institution/license", "/api/institution/license/**",
                                 "/api/institution/entitlements").authenticated()
-                        // Tenant/user-scoped portal reads (JWT-derived learnerId/userId).
                         .requestMatchers("/api/learners/me/portal").authenticated()
-                        // Flat cross-tenant/cross-user lists that no scoped flow uses anymore --
-                        // their controllers now require ADMIN; block anonymous access here too.
                         .requestMatchers("/api/institution-certificates/**").authenticated()
                         .requestMatchers("/api/institution-certification-learners/**").authenticated()
-                        // Exam-result reads are admin-only at the controller; managers/learners
-                        // read their own via the scoped portal endpoints. Block anonymous here too.
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/exam-results/**").authenticated()
-                        // User reads are admin-only at the controller; block anonymous here too.
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/users", "/api/users/*").authenticated()
-                        // Learner-certification reads are admin-only at the controller; block anonymous here too.
                         .requestMatchers(org.springframework.http.HttpMethod.GET,
                                 "/api/learner-certifications", "/api/learner-certifications/*").authenticated()
-                        // These controllers had NO auth anywhere -- neither here nor at the
-                        // controller -- until this pass: every learner record, every
-                        // institution's profile/billing/verification/invoice data, and every
-                        // learner's per-question exam detail row was readable and writable
-                        // by any unauthenticated caller. Now admin-only at the controller;
-                        // block anonymous access here too.
                         .requestMatchers("/api/learners", "/api/learners/*").authenticated()
                         .requestMatchers("/api/institutions/**").authenticated()
                         .requestMatchers("/api/department-heads/**").authenticated()
-                        // A user's own in-app notifications -- never public.
                         .requestMatchers("/api/notifications/**").authenticated()
-                        // Achievements: /me is JWT-derived, the rest is admin-only at the
-                        // controller. Awards themselves are made server-side as learners
-                        // earn them, so nothing here should ever be reachable anonymously.
                         .requestMatchers("/api/learner-achievements/**").authenticated()
-                        // A learner's own study plans -- learnerId is JWT-derived at the
-                        // controller, so anonymous access has nothing to resolve.
                         .requestMatchers("/api/study-plans/**").authenticated()
-                        // Recall sessions mint a real, learner-owned exam out of the
-                        // questions that learner has been getting wrong. Anonymous
-                        // access has no learner to build one for, and the paper itself
-                        // reveals someone's weak spots -- never reachable without a token.
                         .requestMatchers("/api/recall-sessions/**").authenticated()
-                        // A learner's own spaced-repetition memory state: what they
-                        // are due to review and how well they recalled it. Same rule.
                         .requestMatchers("/api/review-sessions/**").authenticated()
-                        // A learner's own exam countdown and study notes -- same rule.
                         .requestMatchers("/api/study-desk/**").authenticated()
-                        // learnerId is now JWT-derived at the controller instead of a
-                        // client-supplied request param; block anonymous access here too.
                         .requestMatchers("/api/learner/analytics/**").authenticated()
-                        /*
-                         * The REST of /api/learner -- everything that is not
-                         * /analytics -- had no authentication at all.
-                         *
-                         * Only the analytics subtree above was ever listed, so the
-                         * three other controllers mounted on this prefix fell through
-                         * to the permitAll default and were reachable by anyone on the
-                         * internet, with the acting learner named in a query parameter
-                         * or request body:
-                         *
-                         *   LearnerAssessmentController  -- read any learner's
-                         *     assessment, START an attempt as them, write answers into
-                         *     it, SUBMIT it, and read the graded result (answer keys
-                         *     included, where the exam releases them). Its programming
-                         *     /run endpoint also handed anonymous callers a Judge0
-                         *     code-execution backend.
-                         *   LearnerEnrollmentController  -- PURCHASE a certification as
-                         *     any learner and confirm payment on any transaction.
-                         *   LearnerEntitlementController -- read any learner's
-                         *     subscription and entitlement state.
-                         *
-                         * A prefix is a poor place to keep a security boundary when new
-                         * controllers keep arriving under it, so this matches the whole
-                         * subtree rather than each controller's own paths. The
-                         * controllers additionally resolve the learner from the token
-                         * and ignore whatever id the client sent, so authentication
-                         * here and authorization there are independent -- neither alone
-                         * is load-bearing.
-                         */
                         .requestMatchers("/api/learner/**").authenticated()
-                        // Generic scaffolding CRUD for partnership requests/items was
-                        // previously fully public and unfiltered -- anyone could read
-                        // every institution's contact info across every tenant with
-                        // no auth. The real flows are the tenant-scoped transaction
-                        // and admin-review endpoints above; this path is admin-only now.
                         .requestMatchers("/api/partnership-requests/**").authenticated()
                         .requestMatchers("/api/partnership-request-items/**").authenticated()
-                        // BKT outbox retry/reconcile trigger real backend side effects and
-                        // had no auth at all (neither here nor in the controller) -- anyone
-                        // on the public internet could force-retry or reconcile mastery events.
-                        /*
-                         * The WHOLE admin subtree, not a list of the parts of it
-                         * somebody remembered.
-                         *
-                         * Only specific children were listed, so AdminController
-                         * itself -- mounted on the bare /api/admin prefix -- fell
-                         * through to the permitAll default. It carried
-                         * @PreAuthorize("hasRole('ADMIN')") at class level, which
-                         * does nothing here because method security is not enabled,
-                         * so both of its endpoints answered 200 to anyone:
-                         *
-                         *   /api/admin/metrics  -- every platform counter: user and
-                         *     learner totals, enrollments, institutions, attempt and
-                         *     pass rates, gross sales.
-                         *   /api/admin/payments -- the payments ledger, with each
-                         *     paying learner's NAME, EMAIL, payment reference and
-                         *     amount.
-                         *
-                         * Matching the subtree rather than its members means a new
-                         * admin controller is covered the day it is written instead
-                         * of the day someone notices.
-                         */
                         .requestMatchers("/api/admin/**").authenticated()
-                        // The role catalogue: admin-only in its controller; listed here so
-                        // it is never reachable anonymously through the permitAll default.
                         .requestMatchers("/api/user-types", "/api/user-types/**").authenticated()
                         .requestMatchers("/api/admin/bkt/**", "/api/admin/adaptive/**").authenticated()
                         .requestMatchers("/api/admin/reference/**").authenticated()
                         .requestMatchers("/api/admin/community/reports/**").authenticated()
-                        // The learner-facing community fell through to permitAll and was
-                        // held shut only by every handler remembering to call me(jwt).
-                        // Anonymous access is blocked here so a new handler that forgets
-                        // is not publicly reachable.
                         .requestMatchers("/api/community/**").authenticated()
-                        // The AI tutor is Pro and costs money per call; it was public.
                         .requestMatchers("/api/ai/tutor", "/api/ai/tutor/**").authenticated()
-                        // Past-paper import writes questions into a certification's
-                        // bank. Listed here rather than left to @PreAuthorize on the
-                        // controller: this application never enables method security,
-                        // so those annotations do nothing, and `anyRequest().permitAll()`
-                        // below would otherwise leave these endpoints open. The
-                        // controller additionally checks for the ADMIN role.
                         .requestMatchers("/api/ai/past-papers/**").authenticated()
-                        /*
-                         * Workflow runs drive the AI generation pipeline: listing
-                         * runs, streaming their output, and cancelling, retrying or
-                         * restarting them. Restarting spends money on the provider,
-                         * and the run payloads are unreleased certification content.
-                         * Only /api/ai/tutor and /api/ai/past-papers were listed, so
-                         * this controller -- ADMIN-only by intent, via an inert
-                         * class-level @PreAuthorize -- was fully public.
-                         */
                         .requestMatchers("/api/ai/workflows/**").authenticated()
-                        /*
-                         * A learner's own mastery, streak and notification settings.
-                         * All three controllers relied solely on @PreAuthorize
-                         * ("hasRole('LEARNER')") and were never listed here, so they
-                         * fell through to permitAll. They answered 500 rather than
-                         * 401 to an anonymous caller -- the handler ran and
-                         * dereferenced a null Jwt -- which is reachability, not
-                         * protection.
-                         */
                         .requestMatchers("/api/bkt/**").authenticated()
                         .requestMatchers("/api/streaks/**").authenticated()
                         .requestMatchers("/api/notification-preferences/**").authenticated()
-                        /*
-                         * The WHOLE AI subtree. Only /tutor, /past-papers and
-                         * /workflows had been listed, so the generation endpoints
-                         * -- /api/ai/curriculum/generate, /api/ai/lessons/generate,
-                         * /api/ai/questions/generate and the /api/ai/documents
-                         * corpus (upload and DELETE included) -- were public. Each
-                         * generate call spends money with the model provider and
-                         * writes curriculum. Two of those controllers did not take
-                         * a Jwt at all. Matching the subtree also means the next AI
-                         * controller is covered before it is written.
-                         */
                         .requestMatchers("/api/ai/**").authenticated()
-                        /*
-                         * Generic scaffolding CRUD that never had authentication of
-                         * any kind -- no matcher here, no check in the controller,
-                         * no identity resolved from the token. Each exposes GET,
-                         * POST, PUT and DELETE over whole tables:
-                         *
-                         *   /api/learner-orders, /api/learner-order-details -- every
-                         *     learner's purchase records, readable AND writable.
-                         *   /api/learner-completed-lessons -- progress, with the
-                         *     learner named in the path: anyone could mark any
-                         *     lesson complete for anyone.
-                         *   /api/exam-questions -- the question list of any exam.
-                         *   /api/learner-invitations -- every institution's
-                         *     outstanding invitations.
-                         *   /api/achievements, /api/exam-types, /api/leaderboards --
-                         *     catalogue and ranking data, writable by anyone.
-                         *
-                         * Authentication is the floor, not the finished job: these
-                         * still take a learner id from the client rather than the
-                         * token, so a signed-in learner can still address another
-                         * learner's row. That is tenant scoping and is tracked
-                         * separately; blocking anonymous access is what closes the
-                         * hole that is open to the whole internet.
-                         */
                         .requestMatchers("/api/learner-orders/**", "/api/learner-order-details/**").authenticated()
                         .requestMatchers("/api/learner-completed-lessons/**").authenticated()
                         .requestMatchers("/api/learner-invitations/**").authenticated()
                         .requestMatchers("/api/exam-questions/**", "/api/exam-types/**").authenticated()
                         .requestMatchers("/api/achievements/**", "/api/leaderboards/**").authenticated()
-                        /*
-                         * Learner-owned tooling and state that already resolves the
-                         * learner from the token in every handler, but was never
-                         * listed here -- so the protection was one forgotten me(jwt)
-                         * away, and anonymous callers reached the handlers (answering
-                         * 500 on a null Jwt rather than 401). /api/learner-tools
-                         * includes library file upload and delete; /api/subscription
-                         * includes checkout and cancel.
-                         */
                         .requestMatchers("/api/learner-practice/**", "/api/learner-tools/**").authenticated()
                         .requestMatchers("/api/dashboard-layout/**", "/api/gamification/**").authenticated()
                         .requestMatchers("/api/subscription/**").authenticated()
                         .requestMatchers("/api/institution/files/**").authenticated()
-                        /*
-                         * /api/subscription-plans is deliberately NOT listed. It
-                         * serves the individual and institutional price lists to the
-                         * signed-out pricing page, reads no identity and returns no
-                         * per-customer data.
-                         */
                         .requestMatchers("/api/admin/subscriptions/**", "/api/admin/subscriptions").authenticated()
-                        // The question bank (including choices/correct answers) had no
-                        // auth at all -- anyone could read, create, edit, or delete any
-                        // question. Now admin- or institution-scoped at the controller;
-                        // block anonymous access here too.
                         .requestMatchers("/api/questions/**").authenticated()
-                        // Same defect on the per-type answer-key endpoints (choices,
-                        // short-answer/descriptive keys, programming test cases, diagram
-                        // reference answers) -- had zero auth, now admin- or
-                        // institution-scoped at the controller; block anonymous access here too.
                         .requestMatchers("/api/choices/**").authenticated()
                         .requestMatchers("/api/text-question-configs/**").authenticated()
                         .requestMatchers("/api/programming-question-configs/**").authenticated()
                         .requestMatchers("/api/diagram-question-configs/**").authenticated()
-                        // Exams had no auth at all -- anyone could create/edit/publish/
-                        // delete any assessment platform-wide, and list every exam with
-                        // its settings. Writes are admin-only at the controller; the list
-                        // and detail reads are only ever made by signed-in pages (admin,
-                        // institution, learner), so nothing anonymous is left here.
                         .requestMatchers("/api/exams", "/api/exams/**").authenticated()
-                        // Certification/category/lesson WRITES had no auth at all -- anyone
-                        // could create/edit/delete/publish any certification, category, or
-                        // lesson platform-wide. Now admin-only at the controller; block
-                        // anonymous writes here too. GET stays open -- the catalog is browsed
-                        // from the public partnership-request page and by every signed-in role.
                         .requestMatchers(org.springframework.http.HttpMethod.POST,
                                 "/api/certifications", "/api/certifications/generate",
                                 "/api/major-categories", "/api/middle-categories", "/api/lessons").authenticated()
@@ -321,60 +112,20 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.DELETE,
                                 "/api/certifications/**", "/api/major-categories/**",
                                 "/api/middle-categories/**", "/api/lessons/**").authenticated()
-                        // File view/download stay public (embedded directly as <img src>/
-                        // download links with no Authorization header attached), but
-                        // uploading (content-planting) and deleting an arbitrary file by
-                        // key are both destructive/integrity-sensitive and admin-only.
                         .requestMatchers(org.springframework.http.HttpMethod.DELETE,
                                 "/api/files").authenticated()
                         .requestMatchers(org.springframework.http.HttpMethod.POST,
                                 "/api/files/upload", "/api/files/upload/certification",
                                 "/api/files/upload/question-image").authenticated()
-                        // The challenge board names other learners, and the
-                        // record is the caller's own: both require a real token
-                        // rather than falling through to the permitAll default.
                         .requestMatchers("/api/challenges/**").authenticated()
-                        // Arena configuration and its status. Reading says only which
-                        // arenas are ready; writing is admin-gated at the controller.
                         .requestMatchers("/api/challenge-arenas/**").authenticated()
                         .requestMatchers("/api/worldcup/**").authenticated()
-                        // Existing application routes keep their current
-                        // public behavior; tokens are validated when present.
                         .anyRequest().permitAll()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
                 .build();
     }
 
-    /**
-     * Decoder bound to the Supabase project: validates the ES256 signature
-     * against the project JWKS, the issuer, expiry, and that the token belongs
-     * to a signed-in user (audience and role "authenticated").
-     *
-     * <p>The notes below were written for Cognito and hold unchanged for
-     * Supabase, which also publishes its keys at {@code {issuer}/.well-known/jwks.json}.
-     *
-     * <p>Built from the JWKS URI rather than by OIDC discovery. {@code
-     * JwtDecoders.fromIssuerLocation} fetches {@code
-     * /.well-known/openid-configuration} <em>while this bean is being
-     * created</em>, which made a reachable Cognito a hard precondition for the
-     * application starting at all: a single slow response there and the context
-     * failed, the container exited, and every service in the stack went down
-     * with it. That happened repeatedly in practice while nothing was wrong
-     * with the pool, the network, or this application -- a momentary read
-     * timeout was enough.
-     *
-     * <p>Discovery only ever told us two things: where the JWKS lives, and that
-     * the issuer matches. The first is a fixed, documented path under the
-     * issuer for every Cognito pool. The second is still enforced below, by
-     * {@code JwtValidators.createDefaultWithIssuer} on every token. So nothing
-     * is trusted that was not trusted before -- the key set is simply fetched
-     * when a token first needs verifying, and cached by the decoder thereafter.
-     *
-     * <p>The failure mode moves from "the application will not start" to "the
-     * first request or two fail while Cognito is unreachable, and recover on
-     * their own". That is the same outage, survived instead of amplified.
-     */
     @Bean
     public JwtDecoder jwtDecoder(
             @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}") String issuerUri
@@ -382,14 +133,9 @@ public class SecurityConfig {
         NimbusJwtDecoder decoder = NimbusJwtDecoder
                 .withJwkSetUri(jwkSetUri(issuerUri))
                 .jwsAlgorithm(SignatureAlgorithm.ES256)
-                // Explicit timeouts: the key set is fetched on the first token,
-                // and a slow first TLS handshake to Supabase otherwise failed
-                // that sign-in outright. Cached by the decoder afterwards.
                 .restOperations(jwksClient())
                 .build();
 
-        // Only a signed-in user's token -- not a project API key, which is also
-        // a JWT the same project can sign.
         OAuth2TokenValidator<Jwt> tokenUseIsAccess = jwt -> {
             boolean userAudience = jwt.getAudience() != null && jwt.getAudience().contains("authenticated");
             if (userAudience && "authenticated".equals(jwt.getClaimAsString("role"))) {
@@ -414,14 +160,6 @@ public class SecurityConfig {
         return new org.springframework.web.client.RestTemplate(factory);
     }
 
-    /**
-     * Where the sign-in provider publishes its signing keys.
-     *
-     * <p>{@code {issuer}/.well-known/jwks.json} is fixed for every pool -- it
-     * is what discovery would have reported. Derived rather than configured so
-     * there is no second setting that can disagree with the issuer and point
-     * token verification at the wrong pool's keys.
-     */
     private static String jwkSetUri(String issuerUri) {
         if (issuerUri == null || issuerUri.isBlank()) {
             throw new IllegalStateException(

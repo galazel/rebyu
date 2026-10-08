@@ -7,28 +7,10 @@ import { Skeleton } from "@/components/ui/skeleton"
 import AssessmentsTab from "@/components/assessments/admin/assessments-tab.jsx"
 import { getAllCertifications } from "@/services/certificationService.js"
 
-/**
- * One certification's assessments, on its own page.
- *
- * <p>They sat at the bottom of the certification page, below the whole
- * curriculum -- a table you search, filter and open rows of, reachable only by
- * scrolling past everything else on a page about something else. The question
- * bank was moved out for the same reason and this is the same frame: a header
- * that says which certification you are in, a way back, and the workspace.
- *
- * <p>The publishing checklist stays behind on the certification page, because
- * what it is really about is whether the certification can go live. Its
- * "Create ..." buttons now navigate here and hand the request over in router
- * state, so the flow from a missing requirement to the dialog that fills it is
- * the one it always was, one page further along.
- */
 export default function CertificationAssessmentsPage() {
   const { id: certificationId } = useParams()
   const location = useLocation()
 
-  /* The same key the certification page reads under, so arriving from it costs
-     nothing -- the list is already in cache and this page draws immediately.
-     Entered by URL, it is one fetch, the same one that page would have made. */
   const { data: certifications = [], isLoading } = useQuery({
     queryKey: ["admin-certifications", "certification-page"],
     queryFn: () => getAllCertifications(),
@@ -43,10 +25,6 @@ export default function CertificationAssessmentsPage() {
     [certifications, certificationId],
   )
 
-  /* Read once, on mount. The checklist's button navigates here with the
-     assessment it wants created; holding it in state rather than reading
-     location on every render means going back and forward through history
-     cannot silently reopen a dialog the admin already dealt with. */
   const [createRequest, setCreateRequest] = useState(
     () => location.state?.createAssessment ?? null,
   )
@@ -59,9 +37,6 @@ export default function CertificationAssessmentsPage() {
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Assessments
           </p>
-          {/* A skeleton rather than a placeholder sentence while the list is in
-              flight -- a real name that is then replaced by a different real
-              name reads as an answer that turned out to be wrong. */}
           {isLoading ? (
             <Skeleton className="mt-0.5 h-4 w-48 rounded-rb-control" />
           ) : (
@@ -72,15 +47,7 @@ export default function CertificationAssessmentsPage() {
         </div>
       </header>
 
-      {/* Bounded, not scrolling. The workspace inside is the only thing that
-          scrolls, and it can only size itself against a parent whose height is
-          already decided -- `min-h-0` is what stops this flex child from
-          growing to fit its content and pushing the page taller instead.
 
-          No width cap and no auto margins: on its own page the window is the
-          container. A max-width here just puts back the inset that moving off
-          the certification page was meant to remove -- the same note the
-          question bank carries, for the same reason. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-3 sm:px-6">
         <div className="flex min-h-0 w-full flex-1 flex-col">
           {isLoading && !certification ? (

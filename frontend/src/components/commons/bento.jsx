@@ -1,35 +1,13 @@
-/**
- * Bento layout primitives.
- *
- * A bento is a mosaic, not a grid of equal boxes: tile size is what says which
- * number matters. The grid runs on a six-column track with a fixed base row, so
- * a tile can claim 1–6 columns and 1–4 rows and still land on the same rhythm.
- *
- * ONE RULE when composing a grid: work in *bands* whose columns add up to six,
- * and write the tiles in reading order within each band. Auto-placement cannot
- * invent a tile to plug a hole, so a band that adds up to five leaves a ragged
- * gap that drags every band below it out of alignment. A band may be
- * 2+4, 4+2, 2+2+2, 3+3, 6, or a wide tile beside a stack (4 + [1+1] + 2) —
- * vary them, that alternation is what makes the mosaic read as designed.
- *
- * Colour is the other half of it. A `tone` fills the whole tile with that
- * accent's wash and prints its ink on top — the same tone set the arena cards
- * use, so a filled tile and a bubble card are recognisably the same family.
- */
 
 const TILE_TONES = {
   plain: "border-border bg-card text-foreground",
   macaw: "border-rb-macaw/30 bg-rb-macaw-wash text-rb-eel dark:bg-[#12283d] dark:text-rb-snow",
   beetle: "border-rb-beetle/30 bg-rb-beetle-wash text-rb-eel dark:bg-[#2a1f3a] dark:text-rb-snow",
   fox: "border-rb-fox/30 bg-rb-fox-wash text-rb-eel dark:bg-[#3a2a12] dark:text-rb-snow",
-  // Doing well. The counterpart to `cardinal` below, so a tile whose subject is
-  // a score can be filled by how that score is going.
   leaf: "border-rb-leaf/30 bg-rb-leaf-wash text-rb-eel dark:bg-[#1e2e14] dark:text-rb-snow",
   bee: "border-rb-bee/30 bg-rb-bee-wash text-rb-eel dark:bg-[#12333a] dark:text-rb-snow",
   feather:
     "border-rb-feather/30 bg-rb-feather-wash text-rb-eel dark:bg-[#152744] dark:text-rb-snow",
-  // Urgency. Reserved for a tile whose subject is something going wrong --
-  // a critical or high-priority topic -- so red keeps meaning "act on this".
   cardinal:
     "border-rb-cardinal/40 bg-rb-cardinal-wash text-rb-eel dark:bg-[#3a1618] dark:text-rb-snow",
   ink: "border-rb-eel bg-rb-eel text-rb-snow",
@@ -45,8 +23,6 @@ const TONE_INK = {
   ink: "text-rb-hare",
 }
 
-/* Spans are looked up rather than interpolated — Tailwind only emits classes it
-   can see written out in full. */
 const COL_SPAN = {
   1: "lg:col-span-1",
   2: "lg:col-span-2",
@@ -74,23 +50,6 @@ export function BentoGrid({ className = "", children }) {
   )
 }
 
-/**
- * @param tone  key of TILE_TONES — "plain" is the ordinary card surface
- * @param col   columns to claim at lg and up (1–6)
- * @param row   rows to claim at lg and up (1–5)
- */
-/**
- * The loading state for a tile's body.
- *
- * Every tile on the analytics board was rolling its own -- an `animate-pulse`
- * div at 10px here, 12px there, three rows in one and one row in another, and
- * only some of them labelled for assistive tech. Side by side on the same board
- * they read as three different things loading in three different ways.
- *
- * One shape, one rhythm, announced once. `rows` is the only knob, because the
- * only honest difference between these tiles while loading is how much content
- * is about to arrive.
- */
 export function BentoSkeleton({ rows = 2, className = "" }) {
   return (
     <div className={`mt-4 space-y-2 ${className}`} role="status" aria-label="Loading">
@@ -121,7 +80,6 @@ export function BentoTile({
   )
 }
 
-/** The headline shape: a label, one big number, and an optional footnote. */
 export function BentoStat({ tone = "plain", col = 2, row = 1, icon: Icon, label, value, hint, children }) {
   const valueSize = hint
     ? "text-4xl sm:text-5xl"
@@ -140,33 +98,15 @@ export function BentoStat({ tone = "plain", col = 2, row = 1, icon: Icon, label,
         ) : null}
       </div>
 
-      {/* An optional mark -- a gauge, a donut, a sparkline -- placed ABOVE the
-          number rather than below it. The number carries `mt-auto`, so it is
-          pinned to the bottom of the tile and everything else shares the space
-          left over; a child rendered after it would be pushed past the bottom
-          edge, and the tile clips. Here it fills exactly the gap that a tall
-          tile with a single figure would otherwise leave blank. */}
       {children ? <div className="mt-3 min-w-0">{children}</div> : null}
 
-      {/* The number is the point of the tile, so it is sized to fill whatever
-          width the tile has. A one-column tile is only about 120px of content
-          wide, so it stops one step short of the full display size — far enough
-          up that it still reads as the same emphasis as its wider neighbours.
 
-          A tile carrying a hint steps down one more. The base row is a fixed
-          176px and the tile clips what does not fit, so at the full display
-          size a hint that wraps to a second line — which it does at any
-          narrower-than-ideal column — was pushed out of the bottom of the
-          card and simply disappeared. */}
       <p
         className={`mt-auto font-rb-display font-extrabold leading-[0.9] tracking-tight tabular-nums ${valueSize}`}
       >
         {value}
       </p>
 
-      {/* The hint is clamped to one line on purpose. The row is fixed height
-          and the tile clips, so a hint long enough to wrap would lose its
-          second line silently — an ellipsis at least says there was more. */}
       {hint ? (
         <p
           className={`mt-1 line-clamp-1 text-xs font-semibold leading-snug ${
@@ -180,21 +120,6 @@ export function BentoStat({ tone = "plain", col = 2, row = 1, icon: Icon, label,
   )
 }
 
-/** Section heading used inside a plain tile that holds a list or a chart. */
-/**
- * One tile's header, and the only way a tile on a board should get one.
- *
- * <p>Takes the shape the institution and admin boards already use: an icon in
- * a tinted square, a small kicker naming the kind of thing, the title, an
- * optional line of help, and a rule under the lot. Tiles that wrote their own
- * heading drifted -- some lowercase, some title case, some with a hint, some
- * with an icon and some without -- and a board of nine cards that each
- * introduce themselves differently reads as nine widgets rather than one
- * page.
- *
- * <p>`icon` and `kicker` are optional so the older call sites keep working
- * unchanged while they are converted.
- */
 export function BentoHeading({ icon: Icon, kicker, title, hint, action, chip }) {
   return (
     <div className="mb-3 flex items-start justify-between gap-2 border-b border-border/60 pb-2.5">
@@ -205,10 +130,6 @@ export function BentoHeading({ icon: Icon, kicker, title, hint, action, chip }) 
           </span>
         ) : null}
         <div className="min-w-0">
-          {/* An `h3`, matching the institution board's header exactly. As a
-              `p` it was picking up the body face while the same label over
-              there took the display one, so two headers built to the same
-              spec still did not look alike. */}
           {kicker ? (
             <h3 className="text-[10px] font-bold uppercase leading-tight tracking-wider text-emerald-700 dark:text-emerald-400">
               {kicker}
@@ -218,11 +139,6 @@ export function BentoHeading({ icon: Icon, kicker, title, hint, action, chip }) 
             <h2 className="truncate font-rb-display text-sm font-extrabold lowercase">{title}</h2>
             {chip ?? null}
           </div>
-          {/* Wraps rather than truncating. On a one-column tile the hints are
-              wider than the card, and an ellipsis there cut the sentence
-              mid-word ("Days left against your plan's tar…") -- which is
-              worse than a second line, because the second line costs nothing
-              and the clipped sentence costs the meaning. */}
           {hint ? (
             <p className="mt-0.5 text-[11px] font-medium leading-snug text-muted-foreground">
               {hint}
@@ -230,9 +146,6 @@ export function BentoHeading({ icon: Icon, kicker, title, hint, action, chip }) 
           ) : null}
         </div>
       </div>
-      {/* `shrink-0`: the action is a control, and flex was letting it be
-          squeezed until "view calendar" read "view calend". The title beside
-          it truncates instead, which is the right one to give up. */}
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
   )

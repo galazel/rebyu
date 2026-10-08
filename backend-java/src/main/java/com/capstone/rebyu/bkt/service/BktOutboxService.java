@@ -23,11 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Writes and manages BKT outbox rows. {@link #enqueueForAttempt} runs inside the
- * assessment submission transaction (transactional outbox); the claim/finalize
- * helpers back the asynchronous dispatcher.
- */
 @Slf4j
 @RequiredArgsConstructor
 @Service
@@ -39,14 +34,7 @@ public class BktOutboxService {
     private final BktProperties properties;
     private final ObjectMapper objectMapper;
 
-    // Producer side — inside the submission transaction
 
-    /**
-     * Creates one PENDING event per final, graded, lesson-mapped answer. Idempotent
-     * by deterministic event id, so a re-submit or reconciliation never duplicates
-     * evidence. Must never break the submission: all failures are swallowed and
-     * logged (the assessment result is already the source of truth).
-     */
     public int enqueueForAttempt(
             AssessmentAttempt attempt,
             List<AssessmentAttemptQuestion> questions,
@@ -69,15 +57,12 @@ public class BktOutboxService {
                 AssessmentAttemptAnswer answer =
                         answersByQuestionId.get(question.getAttemptQuestionId());
 
-                /* Settled before the source question is loaded: loading one pulls
-                   its three configs with it, and a question that can never be
-                   evidence, or already is, has no use for any of that. */
                 if (answer == null || answer.isPendingManualEvaluation() || question.getLessonId() == null) {
-                    continue; // unanswered / pending grading / no lesson mapping
+                    continue;
                 }
                 if (alreadyEnqueued.contains(eventFactory.buildEventId(
                         attemptId, question.getAttemptQuestionId(), 1))) {
-                    continue; // already enqueued (idempotent)
+                    continue;
                 }
 
                 Question sourceQuestion = questionRepository
@@ -112,26 +97,19 @@ public class BktOutboxService {
             }
             return created;
         } catch (Exception e) {
-            // Analytics evidence is best-effort; reconciliation will recover it.
             log.warn("Could not enqueue BKT events for attempt {}: {}",
                     attempt.getAssessmentAttemptId(), e.getMessage());
             return 0;
         }
     }
 
-    /**
-     * Enqueues one already-built event from a producer that doesn't go
-     * through {@link #enqueueForAttempt} (e.g. AI-tutor/community practice
-     * quizzes) -- same idempotency-by-event-id and PENDING-row shape as the
-     * primary path, without duplicating the outbox-row construction.
-     */
     public boolean enqueueEvent(BktMasteryEvent event, String batchId, Long certificationId, Long examResultId) {
         if (!properties.isEnabled()) {
             return false;
         }
         try {
             if (outboxRepository.existsByEventId(event.sourceEventId())) {
-                return false; // already enqueued (idempotent)
+                return false;
             }
             outboxRepository.save(BktEventOutbox.builder()
                     .eventId(event.sourceEventId())
@@ -147,16 +125,11 @@ public class BktOutboxService {
                     .build());
             return true;
         } catch (Exception e) {
-            // Analytics evidence is best-effort; reconciliation will recover it.
             log.warn("Could not enqueue BKT event {}: {}", event.sourceEventId(), e.getMessage());
             return false;
         }
     }
 
-    /**
-     * Admin retry: force FAILED / DEAD_LETTER rows back to PENDING for immediate
-     * redelivery. Idempotency on the FastAPI side keeps this safe.
-     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int resetForRetry(List<Long> ids) {
         int reset = 0;
@@ -171,13 +144,7 @@ public class BktOutboxService {
         return reset;
     }
 
-    // Consumer side — own transactions, called by the dispatcher
 
-    /**
-     * Atomically claims up to {@code limit} deliverable rows using SKIP LOCKED and
-     * flips them to PROCESSING. REQUIRES_NEW so the claim commits before the HTTP
-     * call, releasing the row lock immediately.
-     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public List<BktEventOutbox> claimBatch(int limit, String workerId) {
         List<BktEventOutbox> claimed =
@@ -204,10 +171,6 @@ public class BktOutboxService {
         }
     }
 
-    /**
-     * Records a delivery failure with exponential backoff. Rows past the retry
-     * ceiling move to DEAD_LETTER for admin reconciliation.
-     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markRetry(List<Long> ids, String error) {
         LocalDateTime now = LocalDateTime.now();
@@ -226,13 +189,6 @@ public class BktOutboxService {
         }
     }
 
-    /**
-     * Moves rows straight to DEAD_LETTER, bypassing the retry counter/backoff
-     * entirely. For failures that can never succeed on their own (e.g. a
-     * payload that fails to deserialize) -- retrying those with
-     * {@link #markRetry} would just burn through {@code maxRetries} attempts
-     * and up to the full backoff ceiling before reaching the same outcome.
-     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markDeadLetter(List<Long> ids, String error) {
         for (BktEventOutbox row : outboxRepository.findAllById(ids)) {
@@ -243,7 +199,6 @@ public class BktOutboxService {
         }
     }
 
-    /** initial * 2^(attempts-1), capped at the configured maximum. */
     long backoffSeconds(int attempts) {
         long delay = (long) properties.getRetryInitialDelaySeconds()
                 * (1L << Math.min(attempts - 1, 20));

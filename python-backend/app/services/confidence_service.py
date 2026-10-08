@@ -38,7 +38,7 @@ def compute_confidence(
     weight_total = 0.0
     for row in rows:
         evidence = (row.correct_count or 0) + (row.incorrect_count or 0)
-        weight = min(5, max(1, evidence))  # cap so one lesson can't dominate
+        weight = min(5, max(1, evidence))
         weighted_sum += row.mastery_probability * weight
         weight_total += weight
         if row.mastery_probability >= settings.mastered_threshold:

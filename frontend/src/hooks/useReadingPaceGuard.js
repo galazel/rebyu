@@ -1,52 +1,18 @@
 import { useCallback, useEffect, useRef } from "react"
 
-/** The span of recent scrolling a flick is judged over. */
 const WINDOW_MS = 1600
 
-/**
- * How many screen heights of downward travel inside that window counts as
- * racing through the lesson rather than reading it. Reading a screen takes a
- * learner many seconds; two screens in a second and a half is someone
- * flicking past it.
- */
 const RUSH_SCREENS = 1.5
 
-/** Moving faster than this is too fast for a section passed to count as read. */
 const SKIM_SCREENS = 1.2
 
-/**
- * The second, slower pattern: passive skimming. Nobody flicks, the page just
- * keeps moving at a pace no one can read at -- a screen every couple of
- * seconds, sustained. Judged over a longer window so a single fast scroll to
- * find a heading is not mistaken for it.
- */
 const PASSIVE_WINDOW_MS = 6000
 const PASSIVE_SCREENS = 2
 
-/**
- * Only scrolling the learner is doing themselves counts. A wheel, a touch drag,
- * the scrollbar or a scrolling key within this long before the scroll event marks it as
- * theirs; a table-of-contents link, "next lesson" or the page's own scrollTo
- * never does, so those are never mistaken for skimming.
- */
 const GESTURE_MS = 500
 
 const SCROLL_KEYS = new Set(["PageDown", "ArrowDown", " ", "Spacebar", "End"])
 
-/**
- * Notices a learner racing down a lesson instead of studying it, whether as
- * one flick to the bottom or as steady scrolling too fast to be reading.
- *
- * `onRush(since)` fires when downward travel inside the short window passes
- * RUSH_SCREENS, or inside the long one passes PASSIVE_SCREENS; `since` is the
- * `performance.now()` time the rush began, so the
- * caller can take back anything that was recorded during it. `isRushing()`
- * answers "is the learner moving too fast for what just scrolled past to count
- * as read?" and is meant to be asked by the section-reading check. `pause(ms)`
- * mutes the guard, e.g. while the page itself scrolls back to the top.
- *
- * Scrolling back up is never judged: going back to re-read is studying.
- */
 export function useReadingPaceGuard({ enabled, onRush }) {
   const samples = useRef([])
   const lastGesture = useRef(0)
@@ -54,13 +20,6 @@ export function useReadingPaceGuard({ enabled, onRush }) {
   const onRushRef = useRef(onRush)
   onRushRef.current = onRush
 
-  /* Travel is summed from one scroll event to the next, not read as "where
-     the page is now minus where it was". A single jump bigger than a screen
-     is not the learner scrolling: it is the browser keeping the view steady
-     while an image or an opened panel above changes the page's height, or a
-     scroll-snap settling. Counting those is what flagged a learner who had
-     only nudged the wheel. The scrollbar is the exception -- a fast drag
-     really does move a screen or more per event. */
   const lastY = useRef(null)
   const draggingBar = useRef(false)
 
@@ -113,11 +72,6 @@ export function useReadingPaceGuard({ enabled, onRush }) {
       if (SCROLL_KEYS.has(event.key)) gesture()
     }
 
-    /* Dragging the page's scrollbar (or clicking its track or arrows) is the
-       learner's scrolling too, but sends no wheel or key event. A press past
-       the document's width is on the scrollbar; it counts as a gesture until
-       the button is released. Chrome often swallows the mouseup that ends a
-       scrollbar drag, so the next move with no button held also ends it. */
     const onMouseDown = (event) => {
       if (event.clientX >= document.documentElement.clientWidth) {
         draggingBar.current = true

@@ -8,12 +8,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
-/**
- * Thin trigger: descriptive/critical-thinking answer grading is performed
- * entirely by the Python AI backend. Empty means the AI could not produce a
- * trustworthy score — the caller leaves the answer pending rather than
- * fabricating one.
- */
 @Service
 @RequiredArgsConstructor
 public class AiAnswerGradingService {

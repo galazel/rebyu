@@ -17,15 +17,11 @@ import java.time.LocalDateTime;
 public class DepartmentDto {
     private Long departmentId;
 
-    // Always overwritten server-side from the caller's JWT (see
-    // DepartmentController.create), so must stay nullable -- the client
-    // never supplies it.
     private Long institutionId;
 
     @NotNull
     private Long institutionCertId;
 
-    /** Read-only certification behind the group's institution allocation. */
     private Long certificationId;
 
     @NotBlank
@@ -39,11 +35,8 @@ public class DepartmentDto {
     @Min(1)
     private Integer totalSlots;
 
-    // Read-only: how many of totalSlots are already reserved by this group's
-    // own pending/accepted invitations.
     private Integer usedSlots;
 
-    // Same as institutionId: always overwritten server-side, must stay nullable.
     private Long createdBy;
 
     private LocalDateTime createdAt;

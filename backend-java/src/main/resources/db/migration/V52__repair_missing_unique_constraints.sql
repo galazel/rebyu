@@ -1,19 +1,4 @@
--- Repairs UNIQUE constraints that exist in earlier migrations but are missing
--- from databases where Hibernate's `ddl-auto: update` created the table first.
---
--- Hibernate creates tables, columns and primary keys, but it does NOT add a
--- UNIQUE constraint that only exists in a migration file -- it only creates the
--- ones declared on the entity via @Table(uniqueConstraints = ...). Any table
--- Hibernate materialised before its Flyway migration ran therefore ends up
--- without one, and every `ON CONFLICT (...)` upsert written against it fails at
--- runtime with 42P10 "no unique or exclusion constraint matching the ON
--- CONFLICT specification" -- taking the whole transaction down with it.
---
--- Each block below is guarded, so this is a no-op on a database that was built
--- by migrations alone.
 
--- V31: what makes RewardService.awardXp idempotent. Without it, every XP award
--- (lesson completion, assessment submission) threw and rolled back its caller.
 DELETE FROM learner_reward_ledger a
     USING learner_reward_ledger b
 WHERE a.reward_ledger_id > b.reward_ledger_id
@@ -40,10 +25,6 @@ BEGIN
     END IF;
 END $$;
 
--- Balances are the running sum of the ledger, and the failed inserts above were
--- rolled back with their paired balance updates, so no XP was silently lost or
--- double-counted. Re-derive anyway: it is cheap, and it is the only way to be
--- certain the two agree after a period where the award path was throwing.
 UPDATE learner_reward_balances b
 SET xp_balance        = GREATEST(0, COALESCE(l.xp, 0)),
     coin_balance      = GREATEST(0, COALESCE(l.coins, 0)),
@@ -59,7 +40,6 @@ FROM (
 ) l
 WHERE l.learner_id = b.learner_id;
 
--- V30: LearnerPracticeAnswerRepository's answer upsert.
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -83,7 +63,6 @@ BEGIN
     END IF;
 END $$;
 
--- V32: CommunityPostReportRepository's "one report per learner per post" upsert.
 DO $$
 BEGIN
     IF NOT EXISTS (

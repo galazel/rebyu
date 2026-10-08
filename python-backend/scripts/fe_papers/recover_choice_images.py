@@ -64,9 +64,6 @@ from dbsession import open_session
 PARSED_DIR = os.environ.get("PAPERS_PARSED_DIR", "/app/scripts/fe_papers/parsed/")
 RENDER_DIR = os.environ.get("PAPERS_RENDER_DIR", "/app/scripts/fe_papers/rendered/")
 
-#: How many questions may be in flight at the agent at once. The provider is
-#: rate limited and an import is not urgent; this keeps a paper to a steady
-#: trickle rather than a burst that gets throttled and retried.
 CONCURRENCY = 4
 
 
@@ -88,7 +85,6 @@ def find_question(db, paper, number):
          where q.parent_question_id is null
            and position(:cite in q.question_text) > 0
          limit 2"""), {"cite": citation_of(paper, number)}).fetchall()
-    # Two matches means the citation is ambiguous; changing either is a guess.
     if len(row) != 1:
         return None
     question_id = row[0][0]
@@ -119,8 +115,6 @@ async def run(paper, commit):
     if commit:
         client, bucket = _s3()
 
-    # Only the candidates: several figures, several choices, and the geometry
-    # did not already call them options. Everything else costs nothing.
     candidates = [
         record for record in records
         if len(record.get("figures") or []) >= 2
@@ -173,8 +167,6 @@ async def run(paper, commit):
             if commit:
                 client.put_object(Bucket=bucket, Key=key, Body=data,
                                   ContentType="image/png")
-                # The text here is scraped drawing labels, never an option
-                # anyone wrote -- it is what made the choices unreadable.
                 db.execute(text("""
                     update choices set image_key = :key, choice_text = ''
                      where choice_id = :cid"""),
@@ -193,9 +185,6 @@ async def run(paper, commit):
                 db.execute(text("update questions set image_key = :key where question_id = :q"),
                            {"key": key, "q": question_id})
         else:
-            # Every figure turned out to be an option: the stem has no figure
-            # of its own, and leaving the old composite would show the learner
-            # all four answers above the four answers.
             record["image_key"] = None
             if commit:
                 db.execute(text("update questions set image_key = null where question_id = :q"),

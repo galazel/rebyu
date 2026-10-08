@@ -25,10 +25,6 @@ function getCertificationCategory(certification) {
   return certification?.industry ?? certification?.category ?? "Technology"
 }
 
-/* Counted exactly as the certification's own page counts it -- majors, the
-   middle categories under them, and the lessons under those. The catalog was
-   the only surface that showed a certification without saying how big it is,
-   which is most of what "do I want this" turns on. */
 function getCertificationSize(certification) {
   const majors = getCertificationModules(certification) ?? []
   const modules = majors.reduce(
@@ -54,20 +50,6 @@ function getCertificationDescription(certification) {
   )
 }
 
-/* The same bubble card the admin challenges arenas use — gradient cap,
-   bubbles, icon medallion, wash body — so a certification reads as one card
-   design wherever it shows up across the learner portal. */
-/* No progress on these cards. This is the catalog -- what exists, what it is
-   about, and whether you are in it -- and progress is a question about your
-   own study, which My Learning is the page for. Carrying a percentage here
-   also meant a second surface to keep in step with the analytics board every
-   time the definition of "done" moved. */
-/**
- * What the learner has earned on this certification, over the card body.
- * The badge is the admin's uploaded artwork when there is one, else the
- * award mark; the certificate is named by its number so the card matches
- * the email that carried it.
- */
 function EarnedStrip({ certificationId, award }) {
   if (!award) return null
   const hasBadge = award.badgeAwardedAt != null
@@ -109,7 +91,6 @@ function CertificationCard({
                            }) {
   const category = getCertificationCategory(certification)
   const tone = toneForCertification(certification)
-  // Same tone the cap uses, so the button belongs to this card.
   const palette = BUBBLE_TONES[tone] ?? BUBBLE_TONES.macaw
   const size = getCertificationSize(certification)
 
@@ -119,10 +100,6 @@ function CertificationCard({
           cap="flat"
           body="card"
           icon={GraduationCap}
-          /* The certification's own name, bled off the cap. Every card in this
-             catalog is the same blue with the same mortarboard on it, so until
-             the eye reaches the title underneath there is nothing to tell one
-             track from another. */
           wordmark={getCertificationTitle(certification)}
           eyebrow={category}
           title={
@@ -217,11 +194,6 @@ function CategoryFilter({
                 const checked = selectedCategories.has(category)
 
                 return (
-                    /* A selectable row rather than a bare checkbox on a line of
-                       grey text: the whole row is the target, it carries how
-                       many certifications are behind it, and a chosen one is
-                       filled rather than merely ticked -- the same treatment
-                       every other filter in the portal uses. */
                     <label
                         key={category}
                         className={`flex cursor-pointer items-start gap-2.5 rounded-rb-tile border-2 px-2.5 py-2 text-sm leading-5 transition-colors ${
@@ -260,9 +232,6 @@ export default function LearnerCertificationsPage() {
   const certifications = data.certifications ?? []
   const enrolledCertifications = data.enrolledCertifications ?? []
 
-  /* Earned badges/certificates, keyed by certification. Its own query: it is
-     small, changes only when a mock exam is passed, and the layout's payload
-     should not grow for a strip most cards never show. */
   const awardsQuery = useQuery({ queryKey: ["learner-awards"], queryFn: getMyAwards, staleTime: 0, retry: 1 })
   const awardByCertification = useMemo(() => {
     const map = new Map()
@@ -410,8 +379,6 @@ export default function LearnerCertificationsPage() {
     )
   }
 
-  // Enrolled cards say "Continue learning" and open the curriculum; the rest
-  // open the certification's details page. Completed cards open the certificate page.
   function handleCertificationAction(certification) {
     const id = getCertificationId(certification)
     const award = awardByCertification.get(String(id))
@@ -430,9 +397,6 @@ export default function LearnerCertificationsPage() {
 
   return (
       <div className="w-full min-w-0 space-y-7 pb-10">
-        {/* The page had no heading at all -- it opened on a filter rail and a
-            row of cards, so the one screen in the portal that answers "what
-            can I study here" never said so. */}
         <header>
           <h1 className="font-rb-display text-2xl font-extrabold lowercase text-foreground">
             certifications
@@ -512,11 +476,6 @@ export default function LearnerCertificationsPage() {
                 />
             ) : (
                 <>
-                  {/* A fourth column past 1536px. Three across a wide desktop gave each
-                      card ~530px under a fixed 128px cap, which reads as a stretched
-                      banner rather than a card -- the arena card is designed around a
-                      roughly square cap. Capping the width by adding a column keeps the
-                      proportion instead of letting the card grow to fill the row. */}
                   <section className="grid grid-cols-1 items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                     {visibleCertifications.map((certification, index) => {
                       const certificationId = getCertificationId(certification)
@@ -559,7 +518,6 @@ export default function LearnerCertificationsPage() {
           </main>
         </div>
 
-        {/* The study-plan generator, rendered by the shared gate hook. */}
       </div>
   )
 }

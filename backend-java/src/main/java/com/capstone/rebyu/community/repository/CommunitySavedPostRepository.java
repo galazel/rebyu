@@ -11,7 +11,6 @@ import java.util.List;
 
 public interface CommunitySavedPostRepository extends JpaRepository<CommunitySavedPost, CommunityPostMemberId> {
 
-    /** Insert rather than save() -- see the note on CommunityPostLikeRepository.addLike. */
     @Modifying
     @Query(value = """
             INSERT INTO community_saved_posts(post_id, learner_id, created_at)

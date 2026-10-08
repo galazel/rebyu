@@ -21,11 +21,9 @@ public class WorldCupMatch {
   @Column(name = "bracket_id", nullable = false)
   private Long bracketId;
 
-  /** QUARTERFINAL, SEMIFINAL, FINAL */
   @Column(name = "round", length = 20, nullable = false)
   private String round;
 
-  /** 0-based position within the round (QF: 0-3, SF: 0-1, Final: 0) */
   @Column(name = "match_index", nullable = false)
   private int matchIndex;
 
@@ -47,7 +45,6 @@ public class WorldCupMatch {
   @Column(name = "player2_score")
   private Double player2Score;
 
-  /** WAITING, IN_PROGRESS, COMPLETED */
   @Column(name = "status", length = 20, nullable = false)
   private String status;
 

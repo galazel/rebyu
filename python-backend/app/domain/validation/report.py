@@ -19,11 +19,8 @@ from pydantic import BaseModel, Field
 
 
 class Severity(str, Enum):
-    #: Blocks nothing, but an admin should look.
     WARNING = "WARNING"
-    #: Strongly suggests regeneration.
     ERROR = "ERROR"
-    #: Purely informational (e.g. distribution stats).
     INFO = "INFO"
 
 
@@ -31,16 +28,12 @@ class ValidationIssue(BaseModel):
     code: str
     severity: Severity
     message: str
-    #: Indices into the validated batch, when the issue is about specific
-    #: questions rather than the batch as a whole.
     question_indices: list[int] = Field(default_factory=list)
     context: dict[str, Any] = Field(default_factory=dict)
 
 
 class ValidationReport(BaseModel):
     issues: list[ValidationIssue] = Field(default_factory=list)
-    #: 0-100. A blunt single number for the dashboard; the issues list is
-    #: the real signal.
     score: int = 100
     stats: dict[str, Any] = Field(default_factory=dict)
 

@@ -33,8 +33,6 @@ logger = logging.getLogger(__name__)
 WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
 
-#: Wikimedia's robot policy requires a named client with a way to reach it.
-#: Anything else -- including a browser disguise -- is answered 403.
 USER_AGENT = "REBYU-lesson-media/1.0 (https://rebyu.online)"
 
 MIN_BYTES = 3000
@@ -49,7 +47,6 @@ STOPWORDS = {
     "process", "illustration", "infographic",
 }
 
-#: File names that are page chrome, not content.
 JUNK = re.compile(
     r"(icon|logo|wiki|commons|edit|padlock|ambox|question book|crystal|nuvola|"
     r"symbol|flag of|stub|disambig|portal|emblem|barnstar|folder|magnify|"
@@ -170,6 +167,6 @@ def find_image(query: str) -> dict | None:
                     "https://en.wikipedia.org/wiki/" + article.replace(" ", "_") if article
                     else "https://commons.wikimedia.org/")
                 return {"url": candidate["url"], "sourceUrl": source, "sourceName": "Wikimedia Commons"}
-    except Exception as error:  # network, JSON, anything: fall back to a drawing
+    except Exception as error:
         logger.warning("Wikimedia image lookup for %r failed: %s", query, error)
     return None

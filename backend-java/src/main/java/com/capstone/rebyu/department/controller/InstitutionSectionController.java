@@ -27,13 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/**
- * Sections of a department: the department head's own subdivisions of the
- * learners in one institution group.
- *
- * Same access rule as announcements -- the institution owner or an active
- * department head of this group -- via {@link DepartmentService#getAccessibleById}.
- */
 @RestController
 @RequestMapping("/api/departments/{departmentId}/sections")
 @RequiredArgsConstructor
@@ -60,7 +53,6 @@ public class InstitutionSectionController {
             long pendingInvitationCount) {
     }
 
-    /** Body of a move: the section to put the learner in, or null for "no section". */
     public record MoveRequest(Long sectionId) {
     }
 
@@ -117,15 +109,6 @@ public class InstitutionSectionController {
         return toDto(sections.save(section));
     }
 
-    /**
-     * Deletes the section outright. Its learners stay in the department,
-     * unsectioned; pending invitations sent for it still land the learner in
-     * the department.
-     *
-     * The two updates are not optional bookkeeping -- department_learners and
-     * learner_invitations are the only two tables holding a section_id, and
-     * both must be detached before the row goes or the FK refuses the delete.
-     */
     @DeleteMapping("/{sectionId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Transactional
@@ -142,7 +125,6 @@ public class InstitutionSectionController {
         sections.delete(section);
     }
 
-    /** Moves one learner (by assignee id) into a section, or out of all sections with a null id. */
     @PatchMapping("/assignees/{assigneeId}")
     @Transactional
     public Map<String, Object> move(

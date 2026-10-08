@@ -16,13 +16,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-/**
- * Converts only objective, lesson-linked quiz answers into the existing BKT
- * outbox contract, via the same {@link BktEventFactory}/{@link
- * BktOutboxService} the formal-assessment path uses -- so difficulty/
- * assessment-type normalization and outbox-row construction stay in one
- * place instead of being reimplemented here.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j

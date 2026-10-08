@@ -4,7 +4,6 @@ import com.capstone.rebyu.bkt.entity.BktEventOutbox;
 
 import java.time.LocalDateTime;
 
-/** Admin-safe projection of an outbox row (excludes the full payload). */
 public record BktOutboxAdminView(
         Long id,
         String eventId,

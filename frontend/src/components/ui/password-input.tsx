@@ -4,12 +4,6 @@ import { Eye, EyeOffIcon } from "@/components/icons"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
-/**
- * Password field with a show/hide toggle.
- *
- * The toggle is skipped by Tab so it never sits between the password field
- * and the submit button; it stays labelled for screen readers and clickable.
- */
 function PasswordInput({
   className,
   ...props

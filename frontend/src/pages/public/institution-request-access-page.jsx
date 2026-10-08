@@ -40,7 +40,6 @@ const EMPTY_FORM = {
   businessDescription: "",
 }
 
-/** A date `months` from today as yyyy-mm-dd, in local time. */
 function isoDate(months = 0) {
   const date = new Date()
   date.setMonth(date.getMonth() + months)
@@ -82,9 +81,6 @@ function formatSchoolYearRange(startSY, endSY) {
   return `S.Y. ${startSY}–${endSY}`
 }
 
-/* `ShieldCheck` is not in the generated icon map, and the middle step is the
-   only place a verification glyph is wanted -- a local mark is cheaper than
-   another entry in a generated file. */
 function ShieldCheckMark(props) {
   return (
     <svg
@@ -102,10 +98,6 @@ function ShieldCheckMark(props) {
   )
 }
 
-/* The three things that happen after the button is pressed. This used to be a
-   sentence inside the intro paragraph, which is the one place nobody reads it:
-   the anxiety of a partnership form is not knowing what you have just started,
-   and a three-step strip answers that before the first field. */
 const PROCESS = [
   {
     icon: ClipboardCheck,
@@ -124,7 +116,6 @@ const PROCESS = [
   },
 ]
 
-/** Section frame: icon tile, display heading, body, rule above. Used twice. */
 function FormSection({ icon: Icon, tone = "feather", title, description, children }) {
   const TONES = {
     feather: "bg-rb-feather-wash text-rb-feather-lip",
@@ -149,7 +140,6 @@ function FormSection({ icon: Icon, tone = "feather", title, description, childre
   )
 }
 
-/** Label + control pair. The label is the body face at 700, never the display face. */
 function Field({ id, label, hint, className = "", disableLabelClick = false, children }) {
   return (
     <div className={`space-y-2 ${className}`}>
@@ -167,15 +157,11 @@ function Field({ id, label, hint, className = "", disableLabelClick = false, chi
 
 export default function InstitutionRequestAccessPage() {
   const [form, setForm] = useState(EMPTY_FORM)
-  // certificationId -> requested slots (string while editing)
   const [selected, setSelected] = useState({})
-  // certificationId -> { start, end } as yyyy-mm-dd
   const [dates, setDates] = useState({})
   const [error, setError] = useState("")
   const [confirmation, setConfirmation] = useState(null)
 
-  /* The per-slot rate comes from the server so this quote and the invoice
-     never drift apart; 149 is the fallback while it loads. */
   const pricingQuery = useQuery({
     queryKey: ["partnership-pricing"],
     queryFn: getPartnershipPricing,
@@ -239,15 +225,11 @@ export default function InstitutionRequestAccessPage() {
   }
 
   const certificationsQuery = useQuery({
-    // Its own key: this list includes coming-soon certifications, which every
-    // other ["certifications"] reader must not see.
     queryKey: ["certifications", "request-access"],
     queryFn: () => getAllCertifications(undefined, { includeComingSoon: true }),
     staleTime: 5 * 60 * 1000,
   })
 
-  // Merged certifications catalogue sorted by department and course program,
-  // matching any published certifications from the database.
   const allCertifications = useMemo(
     () => getMergedCertifications(certificationsQuery.data),
     [certificationsQuery.data]
@@ -291,7 +273,6 @@ export default function InstitutionRequestAccessPage() {
     setForm((current) => ({ ...current, [key]: event.target.value }))
 
   const toggleCertification = (certificationId) => {
-    // Coming-soon certifications are shown, never selectable.
     const certification = allCertifications.find(
       (c) => String(c.certificationId) === String(certificationId)
     )
@@ -360,8 +341,6 @@ export default function InstitutionRequestAccessPage() {
   const setSlots = (certificationId, value) =>
     setSelected((current) => ({ ...current, [certificationId]: value }))
 
-  /* The stepper works on the number, but the field stays a string while the
-     visitor is typing -- nudging an empty or half-typed box starts from 0. */
   const nudgeSlots = (certificationId, delta) =>
     setSelected((current) => {
       const parsed = Number(current[certificationId])
@@ -508,8 +487,6 @@ export default function InstitutionRequestAccessPage() {
     <main className="rebyu-ds rb-light-only min-h-dvh bg-rb-polar text-rb-eel">
       <PublicHeader />
 
-      {/* The classroom, with the invitation chalked on the board and the three
-          steps pinned up underneath it as sticky notes. */}
       <section className="rb-classroom-photo px-5 py-14 sm:px-8 lg:py-20">
         <div className="mx-auto max-w-[1120px]">
           <div className="rb-chalkboard px-6 pb-16 pt-10 text-center sm:px-12">
@@ -547,7 +524,6 @@ export default function InstitutionRequestAccessPage() {
         onSubmit={handleSubmit}
         className="mx-auto grid max-w-[1120px] gap-10 px-5 py-14 sm:px-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-12 lg:py-16"
       >
-        {/* The application itself, written on a sheet of notebook paper. */}
         <div className="rb-graded-sheet space-y-10 p-6 sm:p-10">
           <FormSection
             icon={Building2}
@@ -684,7 +660,6 @@ export default function InstitutionRequestAccessPage() {
 
                   {addressPopoverOpen && (
                     <div className="absolute left-0 top-full mt-2 w-full sm:w-[420px] rounded-2xl border-2 border-rb-swan bg-white p-3.5 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150">
-                      {/* Tooltip pointer caret */}
                       <div className="absolute -top-2 left-6 size-3.5 rotate-45 border-l-2 border-t-2 border-rb-swan bg-white" />
 
                       <div className="relative flex items-center justify-between pb-2 border-b border-rb-swan">
@@ -773,7 +748,6 @@ export default function InstitutionRequestAccessPage() {
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Department Dropdown Filter */}
                 <div className="space-y-1.5">
                   <label
                     htmlFor="department-select"
@@ -896,7 +870,6 @@ export default function InstitutionRequestAccessPage() {
                   </div>
                 </div>
 
-                {/* Main Content: clean empty state initially, or cards when selected */}
                 {!selectedDept ? (
                   <div className="rounded-2xl border-2 border-dashed border-rb-swan bg-rb-paper/40 px-6 py-12 text-center">
                     <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-rb-macaw-wash text-rb-macaw-lip">
@@ -988,9 +961,6 @@ export default function InstitutionRequestAccessPage() {
           </FormSection>
         </div>
 
-        {/* The summary follows the form down the page: on a long form the
-            running total and the submit key are the two things you want within
-            reach at every scroll position, not only at the bottom. */}
         <aside className="lg:sticky lg:top-28 lg:self-start">
           <div className="rb-sticky rb-sticky-yellow !p-6 sm:!p-7">
             <span className="rb-pushpin" aria-hidden="true" />
@@ -1084,7 +1054,6 @@ export default function InstitutionRequestAccessPage() {
   )
 }
 
-/* pieces */
 
 function PublicHeader() {
   return (
@@ -1122,7 +1091,6 @@ function CertificationRow({
   onSYChange,
 }) {
   const id = certification.certificationId
-  // Listed so schools can see what is planned, but not requestable yet.
   const comingSoon = certification.available === false
 
   return (
@@ -1186,7 +1154,6 @@ function CertificationRow({
       {selected ? (
         <div className="border-t border-rb-swan/80 bg-rb-snow/60 px-5 py-3 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-            {/* Balanced Compact Stepper for Learner Slots */}
             <div className="flex items-center gap-3">
               <label
                 htmlFor={`slots-${id}`}
@@ -1222,7 +1189,6 @@ function CertificationRow({
               </div>
             </div>
 
-            {/* School Year: Start & End School Year dropdowns */}
             <div className="flex items-center gap-2.5">
               <span className="text-xs font-bold text-rb-eel">
                 School year

@@ -54,8 +54,6 @@ const ACCOUNT_TABS = [
   { id: "security", label: "Security", icon: Shield },
 ]
 
-/* The server's own defaults, mirrored so the switches have something to draw
-   before the first read lands. Field names are the entity's. */
 const DEFAULT_PREFERENCES = {
   dailyReminder: true,
   dailyReminderTime: "09:00",
@@ -77,19 +75,6 @@ function ledgerLabel(reason) {
   }
 }
 
-/**
- * Whether this browser is currently connected.
- *
- * <p>The dot beside a learner's picture says "reachable now", and for the
- * person looking at their own profile the honest source of that is their own
- * connection -- the server's idea of who is online is a five-minute window
- * refreshed by a heartbeat, which would keep the dot green for minutes after
- * the wifi dropped.
- *
- * <p>A hidden tab still counts as online: the person has not gone anywhere,
- * and a dot that flickered every time they looked at another window would be
- * reporting attention rather than presence.
- */
 function useOnline() {
   const [online, setOnline] = useState(() =>
     typeof navigator === "undefined" ? true : navigator.onLine !== false
@@ -126,12 +111,6 @@ function achievementDescription(achievement) {
   return achievement?.description ?? achievement?.achievementDescription ?? "Learning milestone earned in REBYU."
 }
 
-/**
- * One certification badge: the image the admin uploaded for the
- * certification, earned by passing its mock exam, with the certificate number
- * beneath when one was issued. Rendered the way the certifications page
- * renders it, so the badge looks the same wherever the learner meets it.
- */
 function CertificationBadgeMark({ award }) {
   const earnedAt = award.badgeAwardedAt ?? award.certificateAwardedAt
   return (
@@ -157,9 +136,6 @@ function CertificationBadgeMark({ award }) {
 
 function AchievementMark({ achievement }) {
   const image = achievementBadge(achievement)
-  // Locked badges are shown, not hidden: what is left to earn is half of why a
-  // badge wall is worth looking at. They read as unreachable through the
-  // greyscale/opacity treatment rather than by being absent.
   const earned = achievement?.earned !== false
   return (
     <div
@@ -208,17 +184,11 @@ export default function LearnerAccountPage() {
   const queryClient = useQueryClient()
   const entitlements = useLearnerEntitlements()
 
-  /* Read once into state rather than calling `isSoundEnabled()` during render:
-     localStorage is outside React, so a bare read would not re-render the
-     switch when it changed and the control would fight the user. */
   const [soundOn, setSoundOn] = useState(() => isSoundEnabled())
 
   const toggleSound = (value) => {
     setSoundOn(value)
     setSoundEnabled(value)
-    /* Turning it on plays it. A toggle for something you cannot hear from the
-       settings page is a toggle you have to earn an achievement to test, and
-       the press is itself the gesture the autoplay policy wants. */
     if (value) playAchievementChime()
   }
   const learner = data.learner
@@ -230,18 +200,9 @@ export default function LearnerAccountPage() {
 
   const online = useOnline()
 
-  /* The stored key is turned into a viewable link the same way every other
-     upload is; the link is short-lived, so it is resolved here rather than
-     kept on the identity the key rides in on. */
   const [avatarBusy, setAvatarBusy] = useState(false)
-  /* Set locally right after an upload so the new picture is on screen before
-     the round trip that fetches its link; null otherwise, so the resolved one
-     shows. */
   const [freshAvatarUrl, setFreshAvatarUrl] = useState(null)
   const avatarInputRef = useRef(null)
-  /* The shell serves the learner row when the portal call has landed and the
-     signed-in identity before it has, and the key rides on both -- so it is
-     read from whichever is present rather than from one and hoped for. */
   const avatarKey = learner?.avatarKey ?? data.identity?.avatarKey ?? user?.avatarKey ?? null
 
   const resolvedAvatarUrl = useAvatarUrl(avatarKey)
@@ -249,16 +210,12 @@ export default function LearnerAccountPage() {
 
   async function onPickAvatar(event) {
     const file = event.target.files?.[0]
-    // Cleared straight away so choosing the same file twice still fires.
     event.target.value = ""
     if (!file) return
 
     setAvatarBusy(true)
     try {
       const { avatarKey: nextKey } = await uploadMyAvatar(file)
-      /* Shown from the local file rather than waiting on a fresh signed link:
-         the bytes are already here, and the round trip would leave the old
-         picture on screen after the new one was saved. */
       setFreshAvatarUrl(URL.createObjectURL(file))
       if (nextKey) queryClient.invalidateQueries()
       toast.success("Profile picture updated.")
@@ -292,10 +249,6 @@ export default function LearnerAccountPage() {
     phoneNumber: user?.phoneNumber ?? "",
   })
 
-  /* Everything the other tabs act on, read from the server rather than
-     described in prose. The three tabs below used to be text: "usage is not
-     tracked", "password changes are managed by your provider" -- true
-     sentences about endpoints that exist. */
   const balanceQuery = useQuery({
     queryKey: ["learner-reward-balance"],
     queryFn: getMyRewardBalance,
@@ -319,9 +272,6 @@ export default function LearnerAccountPage() {
     queryFn: () => getLearnerSubscription(learner.learnerId),
     enabled: learner?.learnerId != null,
     staleTime: 60_000,
-    /* A learner who has never subscribed has no row to read, and retrying that
-       three times is three requests to learn the same "no" twice more. The tab
-       renders fully without it -- entitlements carry the plan. */
     retry: false,
   })
 
@@ -339,12 +289,7 @@ export default function LearnerAccountPage() {
 
   const canSave = Boolean(learner?.learnerId && user?.userId)
   const featureList = useMemo(() => [...entitlements.features].sort(), [entitlements.features])
-  // The whole catalog, earned first -- the count beside the header is the
-  // earned ones, not the size of the catalog.
   const achievements = Array.isArray(data?.achievements) ? data.achievements : []
-  // Badges earned by passing a certification's mock exam. Their own row above
-  // the milestone achievements: a certification badge is the thing a learner
-  // set out to earn, not one milestone among eight.
   const awardsQuery = useQuery({ queryKey: ["learner-awards"], queryFn: getMyAwards, staleTime: 60_000, retry: 1 })
   const certificationBadges = (Array.isArray(awardsQuery.data) ? awardsQuery.data : [])
     .filter((award) => award.badgeAwardedAt != null || award.certificateAwardedAt != null)
@@ -359,8 +304,6 @@ export default function LearnerAccountPage() {
     mutationFn: async () => {
       if (!canSave) throw new Error("Your learner profile could not be resolved.")
 
-      // The learner's own endpoint. The admin-only PUT /learners/{id} and
-      // /users/{id} this used to call refused every save.
       return updateMyProfile({
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
@@ -370,8 +313,6 @@ export default function LearnerAccountPage() {
     },
     onSuccess: async (saved) => {
       toast.success("Profile updated")
-      // Patched straight into the portal cache: the server keeps a short-lived
-      // copy of the portal, so a refetch alone could show the old name for a bit.
       queryClient.setQueryData(["learner-portal-data"], (portal) =>
         portal
           ? {
@@ -393,9 +334,6 @@ export default function LearnerAccountPage() {
     setForm((previous) => ({ ...previous, [field]: value }))
   }
 
-  /* The endpoint replaces all five fields from the body, so a single toggle
-     still sends the whole set -- sending one field would reset the other four
-     to whatever the request left null. */
   const preferenceMutation = useMutation({
     mutationFn: (next) => updateMyNotificationPreferences(next),
     onMutate: async (next) => {
@@ -485,11 +423,6 @@ export default function LearnerAccountPage() {
         >
           <SectionHeader title="Profile details" description="Update how your learner identity appears across REBYU." />
           <div className="p-4 sm:p-6">
-            {/* Shown whether or not any have been earned, for the same reason
-                the achievements below are: a wall with nothing on it still
-                says what there is to win, where a section that disappears
-                until you have one reads as though certifications carry no
-                badge at all. */}
             <section className="border-b border-border/70 pb-5 sm:pb-6">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0"><h3 className="text-[15px] font-semibold sm:text-base">Certification badges</h3><p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm">Earned by passing a certification's mock exam.</p></div>
@@ -548,7 +481,6 @@ export default function LearnerAccountPage() {
           <div className="grid gap-5 p-5 sm:p-6">
             <label className="max-w-xl space-y-2">
               <span className="text-sm font-medium">Email address</span>
-              {/* Read-only: the email is the sign-in identity. */}
               <Input type="email" value={form.email} readOnly disabled />
               <span className="block text-xs text-muted-foreground">
                 This is the email you sign in with, so it can't be changed here.
@@ -693,9 +625,6 @@ export default function LearnerAccountPage() {
                   <ChevronRight className="ml-1 size-4" />
                 </Button>
 
-                {/* Cancelling is the one billing action that belongs here
-                    rather than on the plans page: it needs no plan choice, and
-                    it is what someone opens account settings to do. */}
                 {canCancel ? (
                   <Button
                       variant="outline"
@@ -798,12 +727,6 @@ export default function LearnerAccountPage() {
               }
           />
 
-          {/* Not one of the four above: those are account preferences that
-              travel with the learner, and this one is a property of the device
-              in front of them. Muting a shared laptop should not mute the phone
-              they study on. It is here because this is where a learner comes
-              looking for "stop making noise at me", not because it shares their
-              storage. */}
           <PreferenceRow
             title="Achievement sound"
             description="Play a short chime when you unlock an achievement. Saved on this device only."
@@ -937,11 +860,7 @@ export default function LearnerAccountPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 sm:space-y-6">
       <header className="border-b border-border/70">
-        {/* A student ID row: photo beside the name at every width. Stacking a
-            96px avatar over the name spent a phone's whole first screen on it. */}
         <div className="flex items-center gap-3 pb-4 sm:gap-5 sm:pb-6">
-          {/* The picture is the control: clicking it is how everywhere else
-              lets you change one, so there is no separate button to find. */}
           <div className="relative shrink-0">
             <button
               type="button"
@@ -960,9 +879,6 @@ export default function LearnerAccountPage() {
               </span>
             </button>
 
-            {/* Sits on the rim, the way a status dot does everywhere: a ring in
-                the page background so it reads as a dot on the picture rather
-                than a hole punched in it. */}
             <span
               className={`absolute bottom-0.5 right-0.5 size-3 rounded-full ring-2 ring-background sm:size-4 ${
                 online ? "bg-rb-leaf" : "bg-muted-foreground"
@@ -984,7 +900,6 @@ export default function LearnerAccountPage() {
             <p className="truncate font-heading text-lg font-semibold leading-tight tracking-tight sm:text-2xl">{fullName}</p>
             <p className="truncate text-xs text-muted-foreground sm:mt-1 sm:text-base">@{learner?.username || "learner"}</p>
             <div className="mt-1.5 flex min-w-0 items-center gap-2 sm:mt-3"><Badge variant="secondary" className="shrink-0 px-1.5 py-0 text-[10px] sm:px-2 sm:py-0.5 sm:text-xs">Learner</Badge><span className="truncate text-xs text-muted-foreground sm:text-sm">{user?.email || "Learner account"}</span></div>
-            {/* Offered only once there is one to remove. */}
             {avatarUrl ? (
               <button
                 type="button"

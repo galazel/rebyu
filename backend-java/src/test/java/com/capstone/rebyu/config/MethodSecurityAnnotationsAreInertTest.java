@@ -15,55 +15,14 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Fails if a method-security annotation is reintroduced while method security
- * is switched off.
- *
- * <h2>The bug this exists to prevent</h2>
- *
- * <p>This application has never called {@code @EnableMethodSecurity}. Without
- * it Spring registers no authorization interceptor, so {@code @PreAuthorize}
- * and friends are silently inert -- and because the security filter chain ends
- * in {@code anyRequest().permitAll()}, an endpoint whose only protection was
- * such an annotation was reachable by anyone on the internet.
- *
- * <p>That is not hypothetical. Six controllers were in exactly that state, and
- * {@code GET /api/admin/payments} -- annotated {@code hasRole('ADMIN')} at
- * class level -- returned every paying learner's name, email address and
- * payment reference to an unauthenticated request. The annotation is the worst
- * kind of defect: it makes the code read as protected during review.
- *
- * <p>Enabling method security is not a drop-in fix either, which is why this
- * test asserts absence rather than presence. {@code hasRole('ADMIN')} requires
- * a granted authority {@code ROLE_ADMIN}; the role here is a column on the
- * REBYU user resolved from the token subject, and no authority is derived from
- * it. Turning method security on without also writing an authorities converter
- * would make every annotated endpoint refuse its own administrators.
- *
- * <p>So the project's rule is: authorization is an explicit call to {@code
- * RoleGuard} in the handler, and authentication is a request matcher in {@code
- * SecurityConfig}. This test holds that line. If method security is ever
- * properly enabled -- annotations plus a converter that grants {@code ROLE_*}
- * authorities, plus tests proving an admin is still admitted -- delete this
- * test in the same change.
- */
 class MethodSecurityAnnotationsAreInertTest {
 
     private static final Path MAIN_JAVA = Path.of("src", "main", "java");
 
-    /**
-     * Matches the annotation only where it is used, not where it is discussed.
-     *
-     * <p>Anchored to the start of a line, so the several javadoc comments that
-     * name these annotations in order to explain why they are absent do not
-     * register as uses of them -- in a comment the {@code @} is always preceded
-     * by the {@code *} of the comment body.
-     */
     private static final Pattern ANNOTATION = Pattern.compile(
             "^\\s*@(PreAuthorize|PostAuthorize|PostFilter|PreFilter|Secured|RolesAllowed)\\b",
             Pattern.MULTILINE);
 
-    /** Same anchoring, for the switch that would make the above meaningful. */
     private static final Pattern ENABLING = Pattern.compile(
             "^\\s*@Enable(Global)?MethodSecurity\\b", Pattern.MULTILINE);
 

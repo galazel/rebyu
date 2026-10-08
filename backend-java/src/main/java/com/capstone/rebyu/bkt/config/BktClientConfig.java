@@ -15,10 +15,6 @@ import java.time.Duration;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
 
-/**
- * Wires the internal WebClient used to reach the FastAPI BKT service and turns
- * on scheduling for the outbox dispatcher.
- */
 @Configuration
 @EnableScheduling
 @EnableConfigurationProperties(BktProperties.class)
@@ -41,24 +37,6 @@ public class BktClientConfig {
         return builder.build();
     }
 
-    /**
-     * Fan-out pool for the analytics board's BKT reads.
-     *
-     * <p>The progress-analytics endpoint needs four independent answers from
-     * this service. Asked one after another they cost the sum of four round
-     * trips; asked together they cost the slowest one. The calls are pure HTTP
-     * with no database or transaction involvement, so running them off the
-     * request thread is safe.
-     *
-     * <p>Deliberately bounded, and deliberately CALLER_RUNS. Each task holds a
-     * thread for as long as the BKT read takes (up to
-     * {@code bkt.read-timeout-ms}), so an unbounded pool under load would be a
-     * thread per in-flight analytics request times four. When the pool and its
-     * queue are full the submitting request thread runs the task itself: the
-     * fan-out degrades back to the sequential behaviour it replaced instead of
-     * throwing, which is the right failure mode for a read that already
-     * tolerates the service being down entirely.
-     */
     @Bean("bktAnalyticsExecutor")
     public Executor bktAnalyticsExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();

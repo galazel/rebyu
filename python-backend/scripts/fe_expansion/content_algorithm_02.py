@@ -21,7 +21,6 @@ from figures import fig
 MAJOR = "Basic Theory"
 MIDDLE = "Algorithm and Programming"
 
-# Lesson 3: Programming
 
 _prog_sections = [
     ("From Algorithm to Program", [

@@ -71,17 +71,9 @@ public class CommunityController {
         return service.shareStudyItem(me(jwt), libraryItemId, request.circleId());
     }
 
-    /**
-     * Starts the viewer's own attempt at a shared quiz or flashcard set.
-     *
-     * <p>Returns the copy's study type alongside the attempt: the two kinds are
-     * played on different pages, and the client cannot tell them apart from the
-     * attempt alone.
-     */
     @PostMapping("/posts/{postId}/practice")
     public SharedPractice startSharedPractice(@AuthenticationPrincipal Jwt jwt, @PathVariable Long postId) {
         Long learnerId = me(jwt);
-        // The author practising their own shared set is not using the community.
         if (!service.isPostAuthor(postId, learnerId)) {
             entitlements.requireLearnerEntitlement(
                     learnerId, com.capstone.rebyu.billing.entitlement.Entitlements.COMMUNITY_FULL_ACCESS, null);
@@ -96,10 +88,6 @@ public class CommunityController {
 
     public record SharedPractice(Long id, Long studySetId, String status, int totalItems, String studyType) {}
 
-    /**
-     * Marks a shared quiz, flashcard set or reviewer as opened by this learner,
-     * and hands back the post's new view count so the card can update in place.
-     */
     @PostMapping("/posts/{postId}/view")
     public Map<String, Long> recordView(@AuthenticationPrincipal Jwt jwt, @PathVariable Long postId) {
         return Map.of("views", service.recordView(me(jwt), postId));
@@ -111,11 +99,10 @@ public class CommunityController {
         service.reportPost(me(jwt), postId, request);
     }
 
-    /** Upload a PDF/DOCX before creating a post; the returned key is passed as attachmentKey. */
     @PostMapping(value = "/posts/attachment", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Map<String, Object> uploadAttachment(
             @AuthenticationPrincipal Jwt jwt, @RequestParam("file") MultipartFile file) {
-        me(jwt); // require an authenticated learner even though the upload itself is stateless
+        me(jwt);
         return Map.of("attachmentKey", service.uploadAttachment(file), "attachmentSize", file.getSize());
     }
 

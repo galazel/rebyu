@@ -17,7 +17,6 @@ public interface GeneratedStudySetRepository extends JpaRepository<GeneratedStud
     Optional<GeneratedStudySet> findByStudySetIdAndLearnerIdWithItems(
             @Param("studySetId") Long studySetId, @Param("learnerId") Long learnerId);
 
-    /** Fetches the full lesson/middle-category/major-category chain in one query for BKT evidence mapping. */
     @Query("""
             SELECT s FROM GeneratedStudySet s
             JOIN FETCH s.lesson l JOIN FETCH l.middleCategory m JOIN FETCH m.majorCategory
@@ -28,10 +27,6 @@ public interface GeneratedStudySetRepository extends JpaRepository<GeneratedStud
     Optional<GeneratedStudySet> findFirstByLearner_LearnerIdAndSourceAndGenerationVersion(
             Long learnerId, String source, String generationVersion);
 
-    /**
-     * The titles one learner has already used for sets of one kind against one
-     * lesson -- what a fresh generation has to avoid being named the same as.
-     */
     @Query("""
             SELECT s.title FROM GeneratedStudySet s
             WHERE s.learner.learnerId = :learnerId

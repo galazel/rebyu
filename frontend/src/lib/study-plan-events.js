@@ -1,32 +1,6 @@
-/**
- * Building a study plan: which lessons, on which days, and what each session
- * asks of the learner.
- *
- * The plan is built from the certification's real curriculum, not a handful of
- * topic names:
- *
- *   1. Every unfinished lesson is scheduled. Completed lessons are skipped.
- *      Weakest first (mastery under 40%), then untouched lessons in course
- *      order -- so prerequisites still come before what builds on them -- then
- *      the ones already partly known.
- *   2. The pace fits the calendar. Study days up to the readiness date
- *      ("Ready 2 weeks before the exam") are counted, and the lessons are
- *      spread over them: 1 to 3 per study day. If even 3 a day cannot cover
- *      them, the plan says so instead of quietly running out of days.
- *   3. Two phases. Learning until the readiness date; consolidation after it --
- *      reviews of the weakest lessons, weekly mock exams, a final mock five
- *      days out, and a light last day before the exam.
- *   4. The technique shapes each day: spaced repetition brings lessons back 1, 3
- *      and 7 days later; active recall adds a quiz on the previous day's
- *      lessons; Pomodoro sizes each lesson as focus blocks.
- *
- * Every event carries a `detail` sentence, so Today's plan and the calendar say
- * what to actually do.
- */
 
 const DEFAULT_STUDY_TIME = "19:00"
 
-/** Days before the exam that new lessons should be finished by. */
 const READINESS_DAYS = {
   "Ready 1 week before the exam": 7,
   "Ready 2 weeks before the exam": 14,
@@ -37,7 +11,6 @@ const READINESS_DAYS = {
 const MAX_LESSONS_PER_DAY = 3
 const WEAK_MASTERY = 40
 const PARTLY_KNOWN_MASTERY = 70
-/** Completed lessons below this are still reviewed in consolidation. */
 const REVIEW_MASTERY = 60
 const SPACED_REVIEW_OFFSETS = [1, 3, 7]
 const MAX_REVIEWS_PER_DAY = 2
@@ -70,7 +43,6 @@ function daysBetween(from, to) {
   return Math.round((to.getTime() - from.getTime()) / 86_400_000)
 }
 
-/** "07:30" -> "7:30 AM". Null for anything that is not a valid HH:mm. */
 function clockLabel(value) {
   const match = /^(\d{1,2}):(\d{2})$/.exec(String(value ?? "").trim())
   if (!match) return null
@@ -87,7 +59,6 @@ function studyDaysPerWeek(value) {
   return match ? Number(match[0]) : 5
 }
 
-/** A lesson as the planner handles it, from a curriculum row, a topic ref, or a plain title. */
 function toLesson(row, masteryByLesson) {
   if (typeof row === "string") {
     return { lessonId: null, middleCategoryId: null, title: row.trim(), completed: false, mastery: null }
@@ -104,24 +75,12 @@ function toLesson(row, masteryByLesson) {
   }
 }
 
-/** Weakest first, then untouched in course order, then partly known, then strong. */
 function studyRank(lesson) {
   if (lesson.mastery == null) return 1
   if (lesson.mastery < WEAK_MASTERY) return 0
   return lesson.mastery < PARTLY_KNOWN_MASTERY ? 2 : 3
 }
 
-/**
- * Builds a plan's sessions and a summary of its pace.
- *
- * @param curriculum       the certification's lessons in course order, each
- *   `{ lessonId, middleCategoryId, name|title, completed }`
- * @param masteryByLesson  `{ [lessonId]: mastery % }` from the analytics service
- * @param readiness        one of the form's readiness options
- * @param priorityTopics   used only when there is no curriculum to plan from
- * @param studyTime        an exact "HH:mm" for this schedule (per certification)
- * @returns {{ events: object[], summary: object }}
- */
 export function planStudy({
   calendarStart,
   targetExamDate,
@@ -153,7 +112,6 @@ export function planStudy({
     detail: "The day of your certification exam. Rest well the night before -- no new studying today.",
   }
 
-  /* what to study */
   const source = Array.isArray(curriculum) && curriculum.length > 0 ? curriculum : priorityTopics ?? []
   const seen = new Set()
   const lessons = []
@@ -176,7 +134,6 @@ export function planStudy({
     toStudy.push({ lessonId: null, middleCategoryId: null, title: "Core certification lesson", mastery: null, order: 0 })
   }
 
-  // Weakest known lessons first; completed-but-shaky ones included.
   const weakPool = lessons
     .filter((lesson) => lesson.mastery != null && lesson.mastery < REVIEW_MASTERY)
     .sort((a, b) => a.mastery - b.mastery)
@@ -194,7 +151,6 @@ export function planStudy({
     }
   }
 
-  /* which days are study days (same rule the main loop uses) */
   const studyFlags = []
   {
     const cursor = new Date(startDate)
@@ -209,16 +165,10 @@ export function planStudy({
     }
   }
 
-  /* the pace */
-  // Consolidation gets the readiness days, but never more than 40% of the plan.
   const consolidationDays = Math.min(READINESS_DAYS[readiness] ?? 7, Math.floor(totalDays * 0.4))
   const learningEndIndex = Math.max(1, totalDays - consolidationDays)
   const learningStudyDays = Math.max(1, studyFlags.slice(0, learningEndIndex).filter(Boolean).length)
   const lessonsPerDay = Math.min(MAX_LESSONS_PER_DAY, Math.max(1, Math.ceil(toStudy.length / learningStudyDays)))
-  /* Fewer lessons than study days: space them out so new material keeps coming
-     up to the readiness date, with lighter review days in between -- instead of
-     cramming every lesson into the first weeks and then reviewing the same few
-     for two months. At most two review days between lessons. */
   const studyGap =
     lessonsPerDay > 1 ? 1 : Math.min(3, Math.max(1, Math.floor(learningStudyDays / Math.max(1, toStudy.length))))
   const warning =
@@ -226,7 +176,6 @@ export function planStudy({
       ? `${toStudy.length} lessons do not fit before your readiness date even at ${MAX_LESSONS_PER_DAY} a day, so some run into review time. Add study days or choose a later exam date.`
       : null
 
-  /* the days */
   const events = []
   const base = (date) => ({ dateKey: dayKey(date), time: timeLabel, at, technique })
   const lessonFields = (lesson) => ({
@@ -240,14 +189,14 @@ export function planStudy({
   let lessonsEndIndex = null
   let previousDayLessons = []
   let lastMockDay = -99
-  let midpointMockPlaced = toStudy.length < 6 // too few lessons for a midpoint check
+  let midpointMockPlaced = toStudy.length < 6
   let readinessMockPlaced = false
   let finalMockPlaced = totalDays < 10
   let consolidationCursor = 0
   let learningDayIndex = 0
   let betweenCursor = 0
   const studied = []
-  const reviewQueue = [] // { lesson, dueDay, round }
+  const reviewQueue = []
 
   const current = new Date(startDate)
   for (let dayIndex = 0; dayIndex < totalDays && events.length < MAX_EVENTS; dayIndex += 1, current.setDate(current.getDate() + 1)) {
@@ -260,7 +209,6 @@ export function planStudy({
       const inConsolidation = dayIndex >= learningEndIndex
       const lessonsLeft = queueIndex < toStudy.length
 
-      /* -- mock exams -- */
       const mockReason =
         daysLeft <= FINAL_MOCK_DAYS_OUT && daysLeft >= 2 && !finalMockPlaced
           ? "final"
@@ -293,7 +241,6 @@ export function planStudy({
           lessonTitle: null,
         })
       } else if (daysLeft === 1) {
-        /* -- the day before the exam: light, weakest two only -- */
         weakPool.slice(0, 2).forEach((lesson, k) =>
           events.push({
             id: `${id}-final-${k}`,
@@ -306,7 +253,6 @@ export function planStudy({
           })
         )
       } else if (lessonsLeft && learningDayIndex % studyGap === 0) {
-        /* -- learning: today's lessons, at the planned pace -- */
         const todays = toStudy.slice(queueIndex, queueIndex + lessonsPerDay)
         queueIndex += todays.length
         if (queueIndex >= toStudy.length) lessonsEndIndex = dayIndex
@@ -347,8 +293,6 @@ export function planStudy({
         previousDayLessons = todays
         studied.push(...todays)
       } else if (lessonsLeft) {
-        /* -- a day between lessons: go back over one of the last few lessons.
-           Spaced repetition already schedules its own reviews for these days. -- */
         if (technique !== "spaced-repetition" && studied.length > 0) {
           const recent = studied.slice(-3)
           const lesson = recent[betweenCursor % recent.length]
@@ -367,7 +311,6 @@ export function planStudy({
           })
         }
       } else {
-        /* -- consolidation: the weakest lessons again, then everything studied -- */
         const pool = weakPool.length > 0 ? weakPool : toStudy
         const picks = []
         for (let k = 0; k < Math.min(MAX_REVIEWS_PER_DAY, pool.length); k += 1) {
@@ -392,7 +335,6 @@ export function planStudy({
 
       if (lessonsLeft) learningDayIndex += 1
 
-      /* -- spaced reviews that have come due (not on mock or final days) -- */
       if (technique === "spaced-repetition" && !events[events.length - 1]?.id.endsWith("-mock") && daysLeft > 1) {
         const todaysIds = new Set(
           events.filter((event) => event.dateKey === dayKey(current)).map((event) => event.lessonTitle)
@@ -456,12 +398,10 @@ export function planStudy({
   }
 }
 
-/** The sessions alone, for callers that do not need the summary. */
 export function generateStudyEvents(options) {
   return planStudy(options).events
 }
 
-/** How each event type reads, for plans old and new. */
 export const EVENT_TYPE_LABELS = {
   lesson: "lesson",
   review: "review",
@@ -471,12 +411,6 @@ export const EVENT_TYPE_LABELS = {
   exam: "exam day",
 }
 
-/**
- * Plans saved before events carried a `detail` still need to say what a
- * session is -- the "Mock exam checkpoint" on an older plan in particular,
- * which never explained itself. The target-exam marker was also typed "mock"
- * back then, so it is recognised by id.
- */
 export function eventKind(event) {
   return event?.id === "target-exam" || String(event?.id ?? "").endsWith("-target-exam")
     ? "exam"

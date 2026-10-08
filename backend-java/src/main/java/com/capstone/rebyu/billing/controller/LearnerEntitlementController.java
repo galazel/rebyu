@@ -10,15 +10,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * Learner-facing entitlement + subscription reads.
- *
- * <p>The learner is the token's, never the query parameter's. "Follows the
- * existing learner-endpoint convention" is what the convention used to be, and
- * on a path with no authentication it meant anyone could read any learner's
- * plan, subscription state and entitlements by incrementing a number. Premium
- * enforcement still happens in the services that guard each feature, not here.
- */
 @RestController
 @RequestMapping("/api/learner")
 @RequiredArgsConstructor
@@ -27,7 +18,6 @@ public class LearnerEntitlementController {
     private final LearnerEntitlementService learnerEntitlementService;
     private final CognitoAuthService auth;
 
-    /** The learner making this request, from the token and nothing else. */
     private Long me(Jwt jwt) {
         if (jwt == null) {
             throw new IllegalArgumentException("Authentication is required");

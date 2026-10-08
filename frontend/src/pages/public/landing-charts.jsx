@@ -13,24 +13,11 @@ import {
   YAxis,
 } from "recharts"
 
-/**
- * Landing page charts — real plots, not CSS bars.
- *
- * Palette is the brand's own categorical order, validated for colour-vision
- * deficiency before use (Feather → Macaw → Fox → Beetle → Humpback; worst
- * adjacent pair ΔE 26.2 protan, 29.6 normal). Because the brand hues sit under
- * 3:1 against the surface, every chart ships a legend plus direct labels — the
- * required relief, so identity never rests on colour alone.
- *
- * One y-axis per chart, always. Two measures of different scale get two charts.
- */
 
 const INK = { primary: "#4B4B4B", secondary: "#777777", muted: "#AFAFAF" }
 const GRID = "#E5E5E5"
 const SURFACE = "#FFFFFF"
 
-// Spreadsheet-chart colours: the charts sit in a spreadsheet window
-// (`LaptopSheet`), so they wear the defaults a student would recognise from one.
 const SERIES = {
   feather: "#2f7d55",
   macaw: "#c9962b",
@@ -47,11 +34,6 @@ const axisProps = {
 
 const legendStyle = { fontSize: 13, fontWeight: 700, color: INK.secondary }
 
-/**
- * Value key. The brand hues sit under 3:1 against the surface, so every chart
- * owes the reader a visible label set — this is it: swatch, series name, and
- * the number the story turns on, in text ink rather than the series colour.
- */
 export function ValueKey({ items, note }) {
   return (
     <div className="mt-4">
@@ -98,10 +80,7 @@ function ChartTooltip({ active, payload, label, suffix = "%" }) {
   )
 }
 
-/* problem */
 
-// Ebbinghaus-shaped retention. Two series, one axis, both direct-labelled at
-// their endpoint so the gap reads without matching colours to a key.
 export const RETENTION = [
   { day: "Day 0", cram: 100, spaced: 100 },
   { day: "Day 3", cram: 58, spaced: 88 },
@@ -162,7 +141,6 @@ export function RetentionChart() {
   )
 }
 
-/* solution */
 
 export const MASTERY = [
   { week: "W1", databases: 22, networks: 30, os: 41, programming: 55 },
@@ -225,10 +203,7 @@ export function MasteryChart() {
   )
 }
 
-/* features */
 
-// Two states, not a value ramp: at-or-above target vs below. Ordering carries
-// priority; colour only says whether the bar has cleared the line.
 const DOMAINS = [
   { domain: "Databases", mastery: 38 },
   { domain: "Networks", mastery: 44 },
@@ -304,20 +279,7 @@ export function DomainMasteryChart() {
   )
 }
 
-/* score across retakes */
 
-/**
- * The dashboard's "score across retakes" tile, on the landing page.
- *
- * One line per assessment, plotted against attempt number rather than against
- * a date: the question a retake answers is "did the score move", and calendar
- * spacing turns that into a chart about when somebody studied instead. The
- * dashboard plots it the same way, and its hint says so -- "a rising line is a
- * score you moved."
- *
- * The pass mark is drawn rather than described. A score chart with no pass mark
- * makes the reader do the comparison the chart exists to make for them.
- */
 export const RETAKES = [
   { attempt: "1st", databases: 41, networks: 52 },
   { attempt: "2nd", databases: 58, networks: 61 },

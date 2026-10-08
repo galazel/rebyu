@@ -1,26 +1,6 @@
 import { CheckCircle2, Loader2, Sparkles } from "@/components/icons"
 import { cn } from "@/lib/utils"
 
-/**
- * Progress for the hand-off between clicking Generate and landing in the
- * generation workspace.
- *
- * Driven by real state, not a timer. The version this replaces advanced its
- * steps every 4 seconds regardless of what the backend was doing, so it would
- * claim "Queuing the curriculum build" whether or not that had happened — and
- * on a slow upload it sat on the last step looking finished while the request
- * was still in flight.
- *
- * Only three things actually happen here, and all three are observable:
- *
- *   1. bytes upload            -> real percentage from axios
- *   2. the server ingests them -> upload done, response not back yet
- *   3. the build is queued     -> response returned, navigating away
- *
- * Generation itself is deliberately not represented: it runs for minutes in the
- * background and has its own live timeline in the workspace. Showing it here
- * would duplicate that, and worse, would go stale the moment this modal closes.
- */
 export function GenerationHandoffProgress({ phase, uploadPercent, fileCount }) {
   if (phase === "idle") return null
 
@@ -55,9 +35,6 @@ export function GenerationHandoffProgress({ phase, uploadPercent, fileCount }) {
         <span className="text-sm font-medium">Starting AI generation</span>
       </div>
 
-      {/* A determinate bar while bytes are moving; indeterminate afterwards,
-          because server-side ingestion reports no percentage and a bar that
-          keeps creeping would be inventing information. */}
       <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
         {phase === "uploading" ? (
           <div

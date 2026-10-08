@@ -6,7 +6,6 @@ import { motion } from "framer-motion"
 import { CalendarDays, UsersRound, X } from "@/components/icons"
 import { ClassBody, ClassHeader, useMyClasses } from "@/components/learner/learner-class-panel.jsx"
 
-/** A progress ring: the certification's completion, drawn once, in one place. */
 function ProgressDonut({ value }) {
   const percent = Math.max(0, Math.min(100, Math.round(value ?? 0)))
   const radius = 26
@@ -42,15 +41,6 @@ function ProgressDonut({ value }) {
 const dockButton =
   "relative grid size-12 place-items-center rounded-full border-2 border-rb-swan bg-rb-snow text-rb-eel shadow-[var(--comic-shadow-sm)] transition-colors hover:bg-rb-polar focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rb-macaw"
 
-/**
- * The curriculum page's controls, stacked in the bottom-right corner: the class
- * (when the learner is in one), the study calendar, and the progress ring at the
- * base. The class opens as a card above the stack rather than living in the page.
- *
- * Portaled to <body>: the route wrapper keeps a transform applied, which would
- * otherwise pin this to the page instead of the window (see LearnerMobileNavigation).
- * Sits above the mobile tab bar below `lg`.
- */
 export function CurriculumDock({ certificationId, progress, showCalendar }) {
   const classes = useMyClasses(certificationId)
   const [classOpen, setClassOpen] = useState(false)

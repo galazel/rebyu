@@ -12,12 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * A question's answer choices (including which one is correct) -- had no
- * authentication at all, the same defect class the question bank itself had
- * (see QuestionController). Now admin- or institution-scoped like every other
- * question-authoring endpoint.
- */
 @RestController
 @RequestMapping("/api/choices")
 @RequiredArgsConstructor

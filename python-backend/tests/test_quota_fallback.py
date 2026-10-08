@@ -34,9 +34,6 @@ from app.ai.router import (
 )
 from app.core.config import get_settings
 
-#: Chains are per task now, so the models under test are read from the
-#: configured table rather than hard-coded. `question` is used because it is
-#: the task with the longest chain, which every fallback test needs.
 TASK = tasks.QUESTION
 CHAIN = model_chain(TASK)
 PRIMARY, FALLBACK = CHAIN[0], CHAIN[1]
@@ -72,7 +69,6 @@ def _clear_quota_state():
     quota.reset()
 
 
-# classification
 
 def test_daily_limit_is_recognised():
     assert quota.is_daily_quota_exhausted(_FakeRateLimit(DAILY_MESSAGE))
@@ -119,7 +115,6 @@ def test_non_rate_limit_errors_are_unaffected():
     assert not quota.is_daily_quota_exhausted(_FakeRateLimit("bad request", status=400))
 
 
-# reset-time parsing
 
 def test_parses_composite_duration_from_message():
     seconds = quota.parse_retry_after(_FakeRateLimit(DAILY_MESSAGE))
@@ -175,7 +170,6 @@ def test_returns_none_when_no_duration_present():
     assert quota.parse_retry_after(_FakeRateLimit("Rate limit reached")) is None
 
 
-# exhaustion registry
 
 def test_model_is_skipped_until_its_cooldown_expires():
     assert not quota.is_exhausted(PRIMARY)
@@ -195,7 +189,6 @@ def test_a_shorter_limit_cannot_shorten_an_existing_cooldown():
     assert quota.seconds_until_available(PRIMARY) == pytest.approx(3600, abs=1)
 
 
-# model chain
 
 @pytest.mark.parametrize("task", tasks.TASKS)
 def test_chain_puts_the_tasks_own_model_first_and_deduplicates(task):
@@ -267,7 +260,6 @@ def test_legacy_agent_type_names_still_resolve(alias, expected):
     assert model_chain(alias) == model_chain(expected)
 
 
-# fallback behaviour
 
 class _Agent:
     """Fails with `error` if given one, else records the call and succeeds."""
@@ -349,15 +341,6 @@ async def test_config_is_forwarded_to_the_agent():
     assert seen["config"] == {"configurable": {"thread_id": "7-3"}}
 
 
-# a request bigger than the model's whole allowance
-#
-# The third failure mode, and the one that killed a live run outright:
-#
-#   413 - Request too large for model `llama-3.1-8b-instant` ... on tokens
-#   per minute (TPM): Limit 6000, Requested 6332
-#
-# Not "the budget is spent" (next minute's is full and still too small) and
-# not a 429, so it matched neither the retry policy nor the fallback loop.
 
 TOO_LARGE_MESSAGE = (
     "Request too large for model `llama-3.1-8b-instant` in organization `org_x` "
@@ -433,12 +416,6 @@ async def test_an_oversized_request_still_defers_to_a_real_exhaustion():
         await ainvoke_with_fallback(_factory(errors, []), {"messages": []})
 
 
-# an account with no credit
-#
-# The one failure the fallback chain must NOT walk. Credit is billed per
-# account, so the second model fails exactly as the first did -- five more
-# requests to reach a misleading "all models exhausted", which points the
-# operator at the model table instead of at the billing page.
 
 def _no_credit(status: int = 402):
     return _FakeRateLimit("Insufficient credits. Add more credits to continue.", status=status)
@@ -502,18 +479,6 @@ async def test_no_credit_falls_to_the_free_models_when_nothing_else_is_listed(mo
     assert calls == ["paid/one", "free/one:free"]
 
 
-# the free tier's account-wide daily cap
-#
-# Observed live. Every `:free` slug shares ONE per-account counter, so this
-# looks like per-model daily exhaustion and behaves like the credits case:
-#
-#   429 - Rate limit exceeded: free-models-per-day. Add 10 credits to unlock
-#   1000 free model requests per day
-#   X-RateLimit-Limit: 50, X-RateLimit-Remaining: 0
-#   limit_source: openrouter_free_tier_daily
-#
-# Before this was classified, the router walked the chain and spent one request
-# per model rediscovering a single account-wide fact.
 
 FREE_CAP_MESSAGE = (
     "Rate limit exceeded: free-models-per-day. Add 10 credits to unlock "
@@ -585,11 +550,6 @@ async def test_the_daily_cap_marks_every_model_so_later_calls_fail_fast():
     assert calls == [], "no request at all should be spent while the cap holds"
 
 
-# an upstream vendor outage
-#
-# OpenRouter reached the vendor and the vendor failed. Gateway-shaped, but
-# really a per-model failure: the other models in the chain sit behind
-# different companies and are unaffected.
 
 def _upstream_down(status: int = 502):
     return _FakeRateLimit("Provider returned error", status=status)
@@ -628,7 +588,6 @@ async def test_a_failing_vendor_is_remembered_for_the_rest_of_the_fan_out():
     assert calls == [FALLBACK]
 
 
-# per-task completion budgets
 
 def test_each_task_reserves_a_budget_matched_to_its_output():
     """`max_tokens` is a reservation, and on providers that bill or rate-limit
@@ -731,8 +690,6 @@ async def test_another_providers_spent_credit_skips_only_that_provider(monkeypat
 def _tool_rejection(failed_generation: str):
     exc = _FakeRateLimit("Tool call validation failed: attempted to call tool 'json' which was not "
                          "in request.tools", status=400)
-    # The shape the OpenAI SDK actually gives: the response's "error" object,
-    # already unwrapped (measured on Groq, 2026-10).
     exc.body = {"message": "Tool call validation failed: attempted to call tool 'json' "
                            "which was not in request.tools", "type": "invalid_request_error",
                 "code": "tool_use_failed", "failed_generation": failed_generation}
@@ -787,11 +744,9 @@ async def test_a_refused_output_call_holding_a_valid_lesson_is_kept():
     kept = await _StructuredAgent(Refusing(good), "lesson", GeneratedLesson).ainvoke({"messages": []})
     assert kept.title == "TCP/IP" and len(kept.sections) == 12
 
-    # Not a lesson -> the original refusal stands.
     with pytest.raises(Exception, match="Tool call validation failed"):
         await _StructuredAgent(Refusing(_json.dumps({"name": "json", "arguments": {"x": 1}})),
                                "lesson", GeneratedLesson).ainvoke({"messages": []})
-    # No schema given -> never salvaged.
     with pytest.raises(Exception, match="Tool call validation failed"):
         await _StructuredAgent(Refusing(good), "lesson").ainvoke({"messages": []})
 

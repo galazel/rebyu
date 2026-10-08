@@ -15,7 +15,6 @@ from figures import fig
 MAJOR = "Development Technology"
 MIDDLE = "System Development Technology"
 
-# Lesson 5: Object-oriented design and UML
 
 _oo_sections = [
     ("Organising Software Around Things", [
@@ -722,7 +721,6 @@ LESSON_DEV_OO = lesson(
         ],
     ))
 
-# Lesson 6: Construction
 
 _build_sections = [
     ("Turning Design Into Code", [

@@ -38,16 +38,9 @@ certifications = Table(
     Column("title", String(150)),
     Column("description", Text),
     Column("industry", String),
-    # smallint, not text. Java's Certification entity declares
-    # `CertificationStatus status` with no @Enumerated(EnumType.STRING), so
-    # JPA falls back to ORDINAL and persists the enum's position:
-    # PUBLISHED=0, DRAFT=1. Verified against the live schema.
     Column("status", SmallInteger),
     Column("date_created", DateTime),
     Column("date_updated", DateTime),
-    # Shape of the real exam, researched by the curriculum planner:
-    # {total_items, question_types[], notes}. NULL means unknown -- readers
-    # fall back to the configured mock_exam_questions. See V51.
     Column("exam_structure", JSONB),
 )
 
@@ -103,9 +96,6 @@ lessons = Table(
     Column("lesson_id", BigInteger, primary_key=True),
     Column("middle_category_id", BigInteger, nullable=False),
     Column("name", String(150), nullable=False),
-    # jsonb, not text: Java's Lesson entity annotates this
-    # @JdbcTypeCode(SqlTypes.JSON). Passing a str here fails with
-    # "column is of type jsonb but expression is of type character varying".
     Column("lesson_component_structure", JSONB, nullable=False),
 )
 
@@ -147,8 +137,6 @@ exams = Table(
     Column("status", String(20)),
     Column("description", Text),
     Column("instructions", Text),
-    # Scope: exactly one of these is set (or none, for certification-wide
-    # exams like the mock/diagnostic).
     Column("lesson_id", BigInteger),
     Column("middle_category_id", BigInteger),
     Column("major_category_id", BigInteger),
@@ -163,16 +151,7 @@ questions = Table(
     Column("question_type", String(30), nullable=False),
     Column("difficulty_level", String(10), nullable=False),
     Column("question_text", Text, nullable=False),
-    # NOT NULL in Java's schema: every question belongs to exactly one
-    # lesson. Multi-lesson artifacts (major/middle quizzes, mock exams, the
-    # bank) therefore have to resolve each question to a specific lesson --
-    # see app/domain/persistence/questions.py.
     Column("lesson_id", BigInteger, nullable=False),
-    # Set on the parts of a critical-thinking item, pointing at the parent
-    # question they belong to. NULL for every ordinary question. Java reads
-    # the set back by this column and grades it as one; without it declared
-    # here an insert naming it fails as an unknown column rather than writing
-    # a sub-question.
     Column("parent_question_id", BigInteger),
     Column("created_at", DateTime),
 )
@@ -223,10 +202,6 @@ diagram_question_configs = Table(
     Column("question_id", BigInteger, nullable=False),
     Column("diagram_type", String(30), nullable=False),
     Column("instructions", Text),
-    # Both NOT NULL in Java's schema, but the generator produces neither --
-    # it emits only diagram_type and instructions. Written empty so an
-    # approved diagram question is not silently dropped; auto-grading such a
-    # question is not possible until a reference diagram is supplied.
     Column("reference_diagram_xml", Text, nullable=False),
     Column("reference_diagram_json", JSONB, nullable=False),
 )

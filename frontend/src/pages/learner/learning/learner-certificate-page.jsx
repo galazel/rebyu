@@ -27,7 +27,6 @@ import { getMyAwards, getCurrentLearnerIdentity } from "@/services/learnerServic
 import { getProgressAnalytics } from "@/services/learnerAnalyticsService.js"
 import { masteryColor, useChartTheme } from "@/components/charts/rebyu-charts.jsx"
 
-/* ── helpers ──────────────────────────────────────────────────────────────── */
 
 function scoreLabel(n) {
   if (n == null) return "No data"
@@ -78,11 +77,8 @@ function deriveAssessmentInsights(scoreTrend) {
   return { mostAttempted, bestScore, worstScore, mostWrong }
 }
 
-/* ── certificate badge seal (stamp) ───────────────────────────────────────── */
 
 function CertStamp({ certificationId, award }) {
-  // Always try the certification's own badge; the drawn seal is only the
-  // fallback for a certification that has no badge uploaded (the endpoint 404s).
   const [badgeFailed, setBadgeFailed] = React.useState(false)
   const hasBadgeImage = !badgeFailed
   return (
@@ -119,7 +115,6 @@ function CertStamp({ certificationId, award }) {
   )
 }
 
-/* ── ornamental frame corner ───────────────────────────────────────────── */
 
 function FrameCorner({ className }) {
   return (
@@ -131,7 +126,6 @@ function FrameCorner({ className }) {
   )
 }
 
-/* ── section header ───────────────────────────────────────────────────────── */
 
 function SectionHead({ icon: Icon, children }) {
   return (
@@ -142,7 +136,6 @@ function SectionHead({ icon: Icon, children }) {
   )
 }
 
-/* ── insight card ─────────────────────────────────────────────────────────── */
 
 function InsightCard({ icon: Icon, iconColor, label, title, subtitle, badge }) {
   return (
@@ -162,7 +155,6 @@ function InsightCard({ icon: Icon, iconColor, label, title, subtitle, badge }) {
   )
 }
 
-/* ── module mastery bar chart ─────────────────────────────────────────────── */
 
 function CategoryChart({ rows, theme }) {
   const majors = (rows ?? []).filter(r => r.categoryLevel === "MAJOR")
@@ -192,7 +184,6 @@ function CategoryChart({ rows, theme }) {
   )
 }
 
-/* ── main page ────────────────────────────────────────────────────────────── */
 
 export default function LearnerCertificatePage() {
   const { certificationId } = useParams()
@@ -230,7 +221,6 @@ export default function LearnerCertificatePage() {
   const overallPct = d.overallMasteryPercentage != null ? Math.round(d.overallMasteryPercentage) : null
   const avgScore = d.averageAssessmentScore != null ? Math.round(d.averageAssessmentScore) : null
 
-  // Mock exam score: best (highest) attempt across all mock exam submissions.
   const mockExamPct = useMemo(() => {
     const mockAttempts = (d.scoreTrend ?? []).filter(
       pt => pt.assessmentType === "MOCK_EXAM" || pt.assessmentType === "MOCK"
@@ -258,8 +248,6 @@ export default function LearnerCertificatePage() {
 
   const SERIF = 'Georgia, "Times New Roman", serif'
   const GREEN = "#1a5c3a"
-  // Sizes are in cqw of the document itself, so the whole sheet scales as one
-  // piece to whatever room the viewport leaves -- the floor keeps phones legible.
   const sz = (cqw, min) => `max(${min}px, ${cqw}cqw)`
 
   const stats = [
@@ -271,7 +259,6 @@ export default function LearnerCertificatePage() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 lg:h-[calc(100dvh-8.5rem)]">
-      {/* ── toolbar ─────────────────────────────────────────────────────── */}
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <button
           type="button"
@@ -310,8 +297,6 @@ export default function LearnerCertificatePage() {
       </div>
 
       {view === "badge" ? (
-        /* ══ FORMAL BADGE OF COMPLETION ═══════════════════════════════════
-           Landscape A-series sheet (1.414 : 1) fitted to the room left. */
         <div className="flex min-h-0 flex-1 items-center justify-center lg:[container-type:size]">
           <article
             className="w-full bg-white p-[6px] lg:aspect-[1.414/1] lg:w-[min(100cqw,calc(100cqh*1.414))]"
@@ -327,7 +312,6 @@ export default function LearnerCertificatePage() {
                 <FrameCorner className="bottom-[1cqw] right-[1cqw] rotate-180" />
                 <FrameCorner className="bottom-[1cqw] left-[1cqw] -rotate-90" />
 
-                {/* heading */}
                 <header className="flex flex-col items-center">
                   <p className="font-bold uppercase" style={{ fontSize: sz(1.05, 9), letterSpacing: "0.45em", color: GREEN }}>
                     REBYU Learning
@@ -345,7 +329,6 @@ export default function LearnerCertificatePage() {
                   </p>
                 </header>
 
-                {/* recipient */}
                 <section className="flex w-full flex-col items-center">
                   {isLoading ? (
                     <div className="h-10 w-64 animate-pulse rounded bg-muted/40" />
@@ -367,7 +350,6 @@ export default function LearnerCertificatePage() {
                   )}
                 </section>
 
-                {/* record of achievement */}
                 <dl
                   className="grid w-full grid-cols-2 sm:grid-cols-4"
                   style={{ borderTop: "1px solid #dce8e2", borderBottom: "1px solid #dce8e2", padding: "0.9cqw 0" }}
@@ -387,7 +369,6 @@ export default function LearnerCertificatePage() {
                   ))}
                 </dl>
 
-                {/* date line · certification badge · number line */}
                 <footer className="grid w-full grid-cols-[1fr_auto_1fr] items-end" style={{ gap: "4cqw" }}>
                   <div>
                     <p style={{ fontFamily: SERIF, fontSize: sz(1.4, 12), color: "#111827" }}>{fmtDate(certDate)}</p>
@@ -416,7 +397,6 @@ export default function LearnerCertificatePage() {
           </article>
         </div>
       ) : (
-        /* ══ PERFORMANCE SUMMARY ═══════════════════════════════════════════ */
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
       {isLoading ? (
         <div className="grid gap-5 lg:grid-cols-[3fr_2fr]">
@@ -432,16 +412,13 @@ export default function LearnerCertificatePage() {
       ) : (
         <div className="grid gap-5 lg:grid-cols-[3fr_2fr]">
 
-          {/* LEFT */}
           <div className="space-y-5">
 
-            {/* Module Mastery */}
             <div className="rounded-xl border border-border bg-card p-5">
               <SectionHead icon={Layers3}>Module Mastery</SectionHead>
               <CategoryChart rows={d.categoryMastery} theme={theme} />
             </div>
 
-            {/* Assessment Insights */}
             <div className="rounded-xl border border-border bg-card p-5">
               <SectionHead icon={Zap}>Assessment Insights</SectionHead>
               <div className="space-y-2.5">
@@ -494,10 +471,8 @@ export default function LearnerCertificatePage() {
             </div>
           </div>
 
-          {/* RIGHT */}
           <div className="space-y-5">
 
-            {/* Areas to Improve */}
             <div className="rounded-xl border border-border bg-card p-5">
               <SectionHead icon={AlertTriangle}>
                 Areas to Improve
@@ -532,7 +507,6 @@ export default function LearnerCertificatePage() {
               )}
             </div>
 
-            {/* Lesson Mastery Highlights */}
             <div className="rounded-xl border border-border bg-card p-5">
               <SectionHead icon={BookOpen}>Lesson Mastery Highlights</SectionHead>
               <div className="space-y-2.5">

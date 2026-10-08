@@ -44,14 +44,6 @@ def calculate_readiness(session: Session, payload: ReadinessRequest) -> Readines
         ("lesson_progress", payload.lesson_progress_score, settings.readiness_progress_weight),
         ("streak", payload.streak_score, settings.readiness_streak_weight),
     ]
-    # Divide by every configured weight, not only the components the learner
-    # happens to have.
-    #
-    # Renormalising over what exists meant a missing component was removed from
-    # the calculation rather than counted as outstanding -- so a learner who had
-    # sat nothing but a diagnostic had that diagnostic's 3% stretched across the
-    # whole score and came out 100% ready. Work not yet done now contributes
-    # nothing, which is what "not ready yet" means.
     total_weight = sum(weight for _, _, weight in configured)
     if total_weight <= 0:
         total_weight = 1.0
@@ -60,9 +52,6 @@ def calculate_readiness(session: Session, payload: ReadinessRequest) -> Readines
     readiness = 0.0
     for name, score, weight in configured:
         normalized = weight / total_weight
-        # An absent component is reported at zero rather than omitted, so the
-        # breakdown names what is still outstanding instead of going quiet
-        # about it.
         effective = 0.0 if score is None else float(score)
         contribution = effective * normalized
         readiness += contribution

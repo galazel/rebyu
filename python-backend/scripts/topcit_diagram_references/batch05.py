@@ -14,7 +14,6 @@ COMPONENT_LEGEND = [
 ]
 
 
-# cfg 36, ERD
 def srs_structure():
     d = Diagram("Halcyon Rail - Requirements Specification Model",
                 "Entity-relationship diagram (model answer)")
@@ -101,7 +100,6 @@ what question the auditor can answer because of that, and what would be lost if 
 the specification were simply overwritten each time."""
 
 
-# cfg 37, ACTIVITY_DIAGRAM
 def modular_design_activity():
     d = Diagram("Modular Design - Decomposition and Review",
                 "UML activity diagram (model answer)")
@@ -176,7 +174,6 @@ raise cohesion tends to raise coupling. State in one sentence what a designer is
 actually optimising, and why the process loops rather than running once."""
 
 
-# cfg 38, UML_COMPONENT
 def event_driven_components():
     d = Diagram("Meridian Logistics - Event-Driven Component Architecture",
                 "UML component diagram (model answer)")
@@ -251,7 +248,6 @@ one thing this design buys you and one thing it costs you, and name the \
 consistency property that is given up."""
 
 
-# cfg 39, ERD
 def change_control():
     d = Diagram("Vantage Systems - Change Control Records",
                 "Entity-relationship diagram (model answer)")
@@ -336,7 +332,6 @@ sentence what real situation that cardinality is modelling, and how you would \
 find the decision that currently stands."""
 
 
-# cfg 40, ERD
 def veterinary_conceptual():
     d = Diagram("Ashgrove Veterinary - Conceptual Data Model",
                 "Entity-relationship diagram (model answer)")
@@ -420,7 +415,6 @@ belongs on Procedure and not on Treatment at the conceptual level.
 real situation the zero case represents."""
 
 
-# cfg 41, ERD
 def temporal_employment():
     d = Diagram("Brightwell Group - Temporal Employment Model",
                 "Entity-relationship diagram (model answer)")
@@ -506,7 +500,6 @@ integrity rule that must hold across each set of rows, and why the database \
 alone cannot enforce it."""
 
 
-# cfg 42, ACTIVITY_DIAGRAM
 def normalisation_activity():
     d = Diagram("Normalisation - Unnormalised Form to Third Normal Form",
                 "UML activity diagram (model answer)")
@@ -596,7 +589,6 @@ sentence why the order matters, and what the recorded reason protects the next \
 architect from."""
 
 
-# cfg 43, FLOWCHART
 def dikw_pipeline():
     d = Diagram("Corvus Analytics - From Raw Data to Decision",
                 "Flowchart (model answer)")
@@ -670,7 +662,6 @@ why that step is what makes the process a cycle rather than a pipeline, and what
 is lost if it is skipped."""
 
 
-# cfg 44, ACTIVITY_DIAGRAM
 def denormalisation_activity():
     d = Diagram("Warehouse Design - Denormalisation Decision",
                 "UML activity diagram (model answer)")
@@ -749,7 +740,6 @@ one sentence what fails if that logic is omitted, and name the property that \
 normalisation was protecting in the first place."""
 
 
-# cfg 45, ERD
 def star_schema():
     d = Diagram("Kestrel Retail - Sales Dimensional Model",
                 "Entity-relationship diagram, star schema (model answer)")

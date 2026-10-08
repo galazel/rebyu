@@ -1,12 +1,3 @@
-/**
- * One rulebook and one payload shape for editing a certification.
- *
- * The edit drawer used to own both. It is no longer the only editor -- the
- * certification page renames its own headings, categories and lessons in place
- * -- and two editors writing the same row through two different payload
- * builders is how a rename starts wiping fields the other one remembered to
- * send. Both import from here.
- */
 
 import { mapCertificationToModuleStructure } from "@/utils/certification-structure"
 
@@ -16,7 +7,6 @@ export const MAX_TITLE_LENGTH = 150
 export const MIN_DESCRIPTION_LENGTH = 20
 export const MAX_DESCRIPTION_LENGTH = 2000
 
-/* Placeholders a select can hand back looking like a real answer. */
 export const INVALID_INDUSTRY_VALUES = new Set([
   "",
   "all",
@@ -27,7 +17,6 @@ export const INVALID_INDUSTRY_VALUES = new Set([
   "null",
 ])
 
-/** The shape Spring's LocalDateTime binder accepts -- no zone, no Z. */
 export function formatLocalDateTime(date = new Date()) {
   const pad = (value) => String(value).padStart(2, "0")
 
@@ -46,7 +35,6 @@ export function hasMeaningfulText(value) {
   return /[\p{L}\p{N}]/u.test(value)
 }
 
-/** @returns an error string, or "" when the value is acceptable. */
 export function validateCertificationTitle(value) {
   const title = normalizeText(value)
 
@@ -85,7 +73,6 @@ export function validateCertificationIndustry(value) {
   return ""
 }
 
-/** A category or lesson name. The tree rejects blanks; nothing else. */
 export function validateStructureName(value, label = "Name") {
   const name = normalizeText(value)
 
@@ -112,14 +99,6 @@ export function validateCertificationDetails(details) {
   return errors
 }
 
-/**
- * The category tree as `PUT /certifications/{id}` wants it.
- *
- * Ids are kept so the server updates rows rather than replacing them, and
- * `lessonComponentStructure` is carried through untouched: the endpoint
- * rebuilds the whole tree from what it is sent, and a lesson sent without its
- * content is a lesson whose content is gone.
- */
 export function toCategoryPayload(certification) {
   return mapCertificationToModuleStructure(certification).map((major) => {
     const majorPayload = {
@@ -155,11 +134,6 @@ export function toCategoryPayload(certification) {
   })
 }
 
-/**
- * The whole body for an update, built from the certification as the client
- * holds it. Pass the already-edited object -- this does not merge changes, it
- * serialises what it is given.
- */
 export function toCertificationUpdatePayload(certification) {
   return {
     certificationId: certification.certificationId ?? certification.id,

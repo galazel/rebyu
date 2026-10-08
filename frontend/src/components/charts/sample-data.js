@@ -1,15 +1,5 @@
-/**
- * Placeholder series for the dashboard chart previews.
- *
- * These are invented numbers, shaped to look plausible so the layout can be
- * judged before the analytics endpoints exist. Every panel that renders them
- * carries a "sample data" chip — nothing here should ever be read as a real
- * measurement, and each block names the endpoint that will replace it.
- */
 
-/* learner */
 
-// replace with: GET /api/learners/me/analytics/xp-history
 export const LEARNER_XP_TREND = [
   { week: "W1", xp: 320, target: 400 },
   { week: "W2", xp: 465, target: 400 },
@@ -21,7 +11,6 @@ export const LEARNER_XP_TREND = [
   { week: "W8", xp: 815, target: 400 },
 ]
 
-// replace with: GET /api/learners/me/analytics/mastery-by-domain (BKT)
 export const LEARNER_DOMAIN_MASTERY = [
   { domain: "Databases", mastery: 38 },
   { domain: "Networks", mastery: 46 },
@@ -31,7 +20,6 @@ export const LEARNER_DOMAIN_MASTERY = [
   { domain: "Foundation", mastery: 92 },
 ]
 
-// replace with: GET /api/learners/me/analytics/study-minutes
 export const LEARNER_STUDY_MIX = [
   { day: "Mon", lessons: 24, practice: 18, assessments: 0 },
   { day: "Tue", lessons: 31, practice: 22, assessments: 15 },
@@ -42,7 +30,6 @@ export const LEARNER_STUDY_MIX = [
   { day: "Sun", lessons: 12, practice: 16, assessments: 0 },
 ]
 
-// replace with: GET /api/learners/me/analytics/answer-outcomes
 export const LEARNER_ANSWER_MIX = [
   { name: "First try", value: 214 },
   { name: "After a retry", value: 96 },
@@ -50,7 +37,6 @@ export const LEARNER_ANSWER_MIX = [
   { name: "Skipped", value: 18, isOther: true },
 ]
 
-// replace with: GET /api/learners/me/analytics/mastery-trend (BKT)
 export const LEARNER_MASTERY_TREND = [
   { week: "W1", databases: 22, programming: 55 },
   { week: "W2", databases: 28, programming: 63 },
@@ -60,9 +46,7 @@ export const LEARNER_MASTERY_TREND = [
   { week: "W6", databases: 38, programming: 79 },
 ]
 
-/* challenges */
 
-// replace with: GET /api/challenges/me/score-history
 export const CHALLENGE_SCORE_TREND = [
   { run: "R1", codestrike: 96, blueprint: 74 },
   { run: "R2", codestrike: 118, blueprint: 88 },
@@ -72,16 +56,13 @@ export const CHALLENGE_SCORE_TREND = [
   { run: "R6", codestrike: 181, blueprint: 164 },
 ]
 
-// replace with: GET /api/challenges/me/summary
 export const CHALLENGE_ARENA_MIX = [
   { name: "CodeStrike", value: 14 },
   { name: "Blueprint Arena", value: 9 },
   { name: "Champions Cup", value: 4 },
 ]
 
-/* admin */
 
-// replace with: GET /api/admin/analytics/growth
 export const ADMIN_GROWTH_TREND = [
   { month: "Feb", learners: 420, institutions: 6 },
   { month: "Mar", learners: 610, institutions: 8 },
@@ -91,7 +72,6 @@ export const ADMIN_GROWTH_TREND = [
   { month: "Jul", learners: 1880, institutions: 23 },
 ]
 
-// replace with: GET /api/admin/analytics/enrollment-mix
 export const ADMIN_ENROLLMENT_MIX = [
   { name: "TOPCIT", value: 640 },
   { name: "FE Exam", value: 415 },
@@ -99,7 +79,6 @@ export const ADMIN_ENROLLMENT_MIX = [
   { name: "Other tracks", value: 173, isOther: true },
 ]
 
-// replace with: GET /api/admin/analytics/attempt-volume
 export const ADMIN_ATTEMPT_VOLUME = [
   { month: "Feb", practice: 1240, assessments: 310 },
   { month: "Mar", practice: 1680, assessments: 425 },
@@ -109,7 +88,6 @@ export const ADMIN_ATTEMPT_VOLUME = [
   { month: "Jul", practice: 3925, assessments: 1043 },
 ]
 
-// replace with: GET /api/admin/analytics/pass-rate
 export const ADMIN_PASS_RATE_BY_CERT = [
   { certification: "IT Passport", passRate: 81 },
   { certification: "TOPCIT", passRate: 68 },
@@ -117,9 +95,7 @@ export const ADMIN_PASS_RATE_BY_CERT = [
   { certification: "AP Exam", passRate: 44 },
 ]
 
-/* institution */
 
-// replace with: GET /api/institution/me/analytics/seat-usage
 export const INSTITUTION_SEAT_TREND = [
   { month: "Feb", assigned: 42, active: 31 },
   { month: "Mar", assigned: 58, active: 44 },
@@ -129,14 +105,12 @@ export const INSTITUTION_SEAT_TREND = [
   { month: "Jul", assigned: 120, active: 97 },
 ]
 
-// replace with: GET /api/institution/me/analytics/completion-mix
 export const INSTITUTION_COMPLETION_MIX = [
   { name: "Completed", value: 46 },
   { name: "In progress", value: 58 },
   { name: "Not started", value: 16, isOther: true },
 ]
 
-// replace with: GET /api/institution/me/analytics/group-progress
 export const INSTITUTION_GROUP_PROGRESS = [
   { group: "BSIT 4A", completion: 78 },
   { group: "BSIT 4B", completion: 64 },
@@ -144,7 +118,6 @@ export const INSTITUTION_GROUP_PROGRESS = [
   { group: "Night class", completion: 39 },
 ]
 
-// replace with: GET /api/institution/me/analytics/activity
 export const INSTITUTION_ACTIVITY_TREND = [
   { week: "W1", lessons: 210, practice: 148, assessments: 42 },
   { week: "W2", lessons: 265, practice: 172, assessments: 51 },

@@ -28,8 +28,6 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        // 127.0.0.1, not localhost: Node resolves localhost to ::1 first, and Docker
-        // Desktop resets IPv6 connections to a published port.
         target: "http://127.0.0.1:8080",
         changeOrigin: true,
         configure: (proxy) => {

@@ -24,23 +24,6 @@ import ProgrammingQuestionLayout from "./programming-question-layout.jsx"
 import DiagramQuestionLayout from "./diagram-question-layout.jsx"
 import { FinalRoundInterstitial } from "./final-round-interstitial.jsx"
 
-/**
- * The adaptive assessment, one question at a time.
- *
- * Nothing here is a list: the learner sees the question the engine chose,
- * answers it, sees at once whether it was right (main round), and the next
- * question -- chosen from that answer -- takes its place. There is no
- * navigator, no flagging, no skipping and no going back, because the
- * sequence does not exist until it is walked.
- *
- *   ANSWERING -> GRADING -> REVEALED -> (Next) ANSWERING ...
- *                                    -> FINAL_INTRO -> ANSWERING (final) ...
- *                                    -> COMPLETED -> the page submits.
- *
- * Final-round items (programming, diagram, critical thinking) are marked on
- * submit like every other item -- the grader runs while the learner waits,
- * the verdict shows, and the paper keeps adapting through the last problem.
- */
 export function AdaptiveAttemptRunner({
   attempt,
   learnerId,
@@ -59,24 +42,17 @@ export function AdaptiveAttemptRunner({
     [attempt.questions, initialProgress?.currentAttemptQuestionId],
   )
 
-  /* Everything served past the current item comes back in `questions`. */
   const initialReserve = useMemo(
     () => (attempt.questions ?? []).filter((q) => initialCurrent && (q.displayOrder ?? 0) > (initialCurrent.displayOrder ?? 0)),
     [attempt.questions, initialCurrent],
   )
   const initialQueued = initialReserve[0] ?? null
 
-  /* The current item and everything already served with it: on a resume the
-     whole reserve is in hand before the first render. */
   useEffect(() => {
     prefetchAuthedMedia([initialCurrent, ...initialReserve].flatMap(questionMediaKeys))
   }, [initialCurrent, initialReserve])
 
   const [current, setCurrent] = useState(initialCurrent)
-  /* Items the server has served but the learner has not reached, by their
-     position on the paper. The one after the current is shown the moment the
-     current is done, while the server records the answer and serves another
-     reserve in the background. */
   const reserveRef = useRef(new Map(initialReserve.map((q) => [q.displayOrder, q])))
   const [queued, setQueued] = useState(initialQueued)
   const [progress, setProgress] = useState(initialProgress)
@@ -88,8 +64,6 @@ export function AdaptiveAttemptRunner({
   const [phase, setPhase] = useState(() =>
     initialProgress?.stage === "DONE" || !initialCurrent ? "COMPLETED" : "ANSWERING",
   )
-  /* The in-flight recording of the last answer. Answers are sent one after
-     another -- the server insists each is for the question it is asking. */
   const pendingRef = useRef(Promise.resolve(null))
   const [awaitingServer, setAwaitingServer] = useState(false)
   const [failure, setFailure] = useState(null)
@@ -97,16 +71,11 @@ export function AdaptiveAttemptRunner({
   const failedRef = useRef(false)
 
   const total = progress?.total ?? 0
-  /* Position of the item on screen; the server's own count lags by the
-     answer still in flight. */
   const answeredCount = current ? Math.max(0, (current.displayOrder ?? 1) - 1) : (progress?.answered ?? 0)
 
-  /* Completion hands the paper to the page, which submits it and opens the
-     result. Once, however many renders see the state. */
   useEffect(() => {
     if (phase === "COMPLETED" && !finishedRef.current) {
       finishedRef.current = true
-      /* The last answer may still be in flight; submit only once it is recorded. */
       pendingRef.current.then(() => onFinish?.())
     }
   }, [phase, onFinish])
@@ -118,11 +87,6 @@ export function AdaptiveAttemptRunner({
   const answered = current ? isAnswered(current, draft, isMultipleChoice) : false
   const finalItem = current?.stage === "FINAL"
 
-  /* Answers waiting to go to the server. One request is in flight at a
-     time and takes everything queued while the previous one was out: a
-     learner who answers faster than a round trip costs one request per
-     burst, not one per answer, so the server's reserve of questions served
-     ahead is never drained by a backlog of single posts. */
   const outboxRef = useRef([])
   const inFlightRef = useRef(false)
 
@@ -140,11 +104,6 @@ export function AdaptiveAttemptRunner({
         for (const served of [response.next, ...(response.queued ?? [])]) {
           if (served && !answeredIds.has(served.attemptQuestionId)) {
             reserveRef.current.set(served.displayOrder, served)
-            /* The figure is fetched now, while the learner is still on the
-               item before it. Served ahead but fetched on arrival, a scanned
-               table appeared a beat after the stem and the choices -- on a
-               running clock, a question you start answering before you can
-               see what it is about. */
             prefetchAuthedMedia(questionMediaKeys(served))
           }
         }
@@ -155,10 +114,6 @@ export function AdaptiveAttemptRunner({
         }
       })
       .catch((error) => {
-        /* The server did not take the answers, so the paper on screen and
-           the paper on record have parted: stop here rather than let the
-           learner answer questions that will never count. Reloading resumes
-           from the server's own position. */
         failedRef.current = true
         setFailure(error?.response?.data?.message ?? "Could not record that answer. Please check your connection.")
         setPhase("FAILED")
@@ -170,9 +125,6 @@ export function AdaptiveAttemptRunner({
       })
   }
 
-  /* Queues an answer for the server. Resolves to the server's response for
-     this item once its batch is back; the reserve items the batch carries
-     are kept by position. */
   function record(item, answerDraft) {
     const send = new Promise((resolve, reject) => {
       outboxRef.current.push({ item, answerDraft, resolve, reject })
@@ -185,11 +137,6 @@ export function AdaptiveAttemptRunner({
 
   const checkRef = useRef(null)
 
-  /**
-   * Marks the current answer. With the key on hand the verdict is immediate
-   * and the server is told in the background; without one (a resumed item,
-   * blanks with several parts) the server's marking is awaited.
-   */
   async function check(override) {
     if (!current || phase !== "ANSWERING") return
     const answerDraft = override ?? draft ?? {}
@@ -202,7 +149,6 @@ export function AdaptiveAttemptRunner({
       setPhase("REVEALED")
       playMark(local.isCorrect)
       record(item, answerDraft).then((response) => {
-        /* The server is the marker of record; if it disagrees, it wins. */
         if (response?.verdict && response.verdict.isCorrect !== local.isCorrect) setVerdict(response.verdict)
       }).catch(() => {})
       return
@@ -225,14 +171,10 @@ export function AdaptiveAttemptRunner({
 
   checkRef.current = check
 
-  /* Moves to the item after the current one; if the server has not served
-     it yet, waits for the answer in flight, which brings it. */
   async function advance() {
     const position = (current?.displayOrder ?? 0) + 1
     let next = reserveRef.current.get(position) ?? null
     if (!next) {
-      /* Nothing served ahead yet (slow link): keep the marked card on screen
-         with the button showing it is fetching, rather than a loading page. */
       setAwaitingServer(true)
       await pendingRef.current
       setAwaitingServer(false)
@@ -276,9 +218,6 @@ export function AdaptiveAttemptRunner({
   }
 
   if (phase === "COMPLETED" || isSubmitting) {
-    /* A couple of seconds while the paper is closed and the result built;
-       a small card, not the full classroom loading screen with a fake
-       percentage -- that read as a long wait for a short one. */
     return (
       <div className="rebyu-ds flex h-dvh items-center justify-center bg-rb-polar p-6">
         <div className="flex items-center gap-3 rounded-rb-card border-2 border-rb-swan bg-rb-snow px-6 py-5 shadow-[var(--comic-shadow-sm)]">
@@ -380,12 +319,6 @@ export function AdaptiveAttemptRunner({
         </div>
       ) : current ? (
         <main className="min-h-0 flex-1 overflow-y-auto">
-          {/* Sized to be answered without scrolling. A question the learner
-              has to scroll through is one they answer from the half of it
-              they can see -- and with a figure above the choices, scrolling
-              hides the very thing the choices are about. The card is built
-              to fit the viewport instead: tighter padding, a stem at reading
-              size rather than display size, and a figure capped in height. */}
           <div className="mx-auto w-full max-w-4xl px-4 py-4 sm:py-5">
             <div key={current.attemptQuestionId} className="rounded-rb-card border-2 border-rb-swan bg-rb-snow p-4 shadow-[var(--comic-shadow-sm)] sm:p-6">
               <div className="mb-3 flex items-center gap-2">
@@ -395,11 +328,6 @@ export function AdaptiveAttemptRunner({
               </div>
 
               <QuestionStem text={current.question} />
-              {/* Capped, not full-width: these figures are scans of a past
-                  paper, and at the card's full width a five-row table pushed
-                  the choices off the screen on its own. Height is what has to
-                  be bounded, so the cap is in vh; `w-auto` keeps the scan's
-                  own proportions and it is centred rather than stretched. */}
               <AuthedImage
                 imageKey={current.questionImageKey}
                 alt="Question reference"
@@ -422,7 +350,6 @@ export function AdaptiveAttemptRunner({
                           onClick={() => {
                             if (revealed || grading) return
                             setAnswer({ selectedChoiceId: choice.choiceId })
-                            /* Duolingo-style: picking a choice is the answer. */
                             if (current.answerKey?.correctChoiceId != null) {
                               queueMicrotask(() => checkRef.current?.({ ...(draft ?? {}), selectedChoiceId: choice.choiceId }))
                             }
@@ -452,8 +379,6 @@ export function AdaptiveAttemptRunner({
                           </span>
                           <span className="flex-1">
                             {choice.choiceText}
-                            {/* Not zoomable: the enlarge control is a button, and inside the choice
-                                button one click both answered and zoomed. */}
                             <AuthedImage imageKey={choice.imageKey} className="mt-2 max-h-32 w-auto rounded-lg object-contain mix-blend-multiply" placeholderClassName="mt-2 h-16 w-full max-w-[10rem]" />
                           </span>
                         </button>
@@ -551,8 +476,6 @@ export function AdaptiveAttemptRunner({
   )
 }
 
-/* The workspace items' footer. Marked on submit like every other item: the
-   verdict shows here, and the button then moves on. */
 function FinalRoundFooter({ onSubmit, onNext, busy, revealed, verdict, last }) {
   return (
     <div className="mt-3 shrink-0 rounded-2xl border-2 border-rb-swan bg-rb-snow px-4 py-3">
@@ -631,19 +554,6 @@ function ProgressBar({ answered, total, mainTotal }) {
   )
 }
 
-/**
- * The question asked, with its licence citation set apart from it.
- *
- * Every past-paper stem carries a required source line -- "Source: (2011S,
- * IP, Q69) -- adapted: ...". It is part of the text and has to stay, but at
- * the stem's own size it reads as a second paragraph of the question and
- * costs three lines of a card that has to fit a figure and four choices.
- * Split off and set small and muted, it is still there to be read and no
- * longer competes with the thing being asked.
- *
- * The split is textual only; nothing is reworded, dropped or abbreviated.
- * A stem with no citation renders exactly as before.
- */
 function QuestionStem({ text }) {
   const full = String(text ?? "")
   const at = full.search(/\s*Source:\s*\(/)
@@ -670,7 +580,6 @@ function typeLabel(question) {
   return type.replaceAll("_", " ").toLowerCase()
 }
 
-/* The mark, heard: right and wrong each have a short sound of their own. */
 function playMark(isCorrect) {
   if (isCorrect) playCorrectMark()
   else playWrongMark()
@@ -685,7 +594,6 @@ function isAnswered(question, draft, isMultipleChoice) {
   return Boolean(draft.learnerAnswer?.trim() || draft.submittedCode?.trim() || draft.diagramSubmissionData)
 }
 
-/* The instant marking, from the key that came with the question. */
 function localVerdict(question, answerDraft, isMultipleChoice) {
   const key = question?.answerKey
   if (!key) return null
@@ -725,7 +633,6 @@ function fromDraftDto(saved) {
       out.subAnswers = JSON.parse(saved.learnerAnswer)
       out.learnerAnswer = null
     } catch {
-      /* Plain text that happens to start with a brace. */
     }
   }
   return out

@@ -12,12 +12,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * One entry of a stored pick-list: an industry a certification belongs to,
- * a department name an institution can group learners under. These were
- * constants in the frontend; stored, an admin can add to them without a
- * release and every select reads the same list.
- */
 @Entity
 @Table(
         name = "reference_options",

@@ -1,6 +1,3 @@
--- Single-row, admin-editable gamification configuration. Replaces the values that
--- were hardcoded in RewardService (reward amounts, conversion rate, AI credit cost,
--- monthly Pro grant). The id = 1 CHECK enforces exactly one settings row.
 CREATE TABLE gamification_settings (
     id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
     tutor_quiz_xp INTEGER NOT NULL DEFAULT 15 CHECK (tutor_quiz_xp >= 0),

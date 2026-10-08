@@ -10,15 +10,9 @@ import java.util.List;
 
 public interface LearnerNoteRepository extends JpaRepository<LearnerNote, Long> {
 
-    /** Oldest first: a checklist reads in the order it was written. */
     List<LearnerNote> findByLearner_LearnerIdAndCertificationIdOrderByCreatedAtAsc(
             Long learnerId, Long certificationId);
 
-    /**
-     * Clear-all and clear-completed in one statement each. Deleting row by row
-     * from the browser leaves a half-cleared list behind whenever one request
-     * fails, which is exactly what "clear all" must not do.
-     */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM LearnerNote n WHERE n.learner.learnerId = :learnerId "
             + "AND n.certificationId = :certificationId")

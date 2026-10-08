@@ -15,7 +15,6 @@ CERTIFICATION_ID = 13
 
 QUESTIONS = {
 
-    # 423 -- Enterprise Solutions: ERP, SCM, and CRM
     423: [
         mcq("HARD",
             "An organization implementing ERP must choose between changing its processes to match the package and customizing the package. What is the usual argument against heavy customization?",
@@ -47,7 +46,6 @@ QUESTIONS = {
             "The three face inward, upstream, and downstream respectively. Overlap exists at the edges, which is why integration between them is where most of the implementation effort goes."),
     ],
 
-    # 424 -- IT Strategy Planning: ISP, ISMP, and Enterprise Architecture
     424: [
         mcq("AVERAGE",
             "What is the primary purpose of information strategy planning?",
@@ -79,7 +77,6 @@ QUESTIONS = {
             "Strategy states direction; the master plan states how and when. Producing one without the other leaves either intent with no route or activity with no rationale."),
     ],
 
-    # 425 -- IT Business Adoption: In-House Development versus Packages
     425: [
         mcq("HARD",
             "Which factor most strongly favours building a system in-house rather than buying a package?",
@@ -111,7 +108,6 @@ QUESTIONS = {
             "Past a certain point the organization has bought a package and is maintaining bespoke software, with the disadvantages of both models and the benefits of neither."),
     ],
 
-    # 426 -- IT Outsourcing and Sourcing Models
     426: [
         mcq("HARD",
             "Which capability must an organization retain even when IT operations are fully outsourced?",
@@ -143,7 +139,6 @@ QUESTIONS = {
             "Negotiating transition assistance and data return while alternatives still exist is far cheaper than negotiating them during a dispute."),
     ],
 
-    # 401 -- Project Quality Management and Control
     401: [
         mcq("HARD",
             "Which pair correctly distinguishes quality assurance from quality control?",
@@ -175,7 +170,6 @@ QUESTIONS = {
             "Late inspection finds defects after their cost has already been incurred. Building quality in is cheaper, which is the whole argument for prevention over appraisal."),
     ],
 
-    # 402 -- Project Support Services
     402: [
         mcq("AVERAGE",
             "What is the primary role of a project management office?",
@@ -207,7 +201,6 @@ QUESTIONS = {
             "The value is only realized if lessons are retrieved at planning time. A repository that is written to and never read is a filing exercise."),
     ],
 
-    # 403 -- Technical Proposal Evaluation
     403: [
         mcq("HARD",
             "One bidder proposes an unfamiliar architecture that scores poorly against criteria written around the expected approach. What should the panel do?",
@@ -239,7 +232,6 @@ QUESTIONS = {
             "Any bidder can assert capability. Evidence of having delivered comparable work is the cheapest available check on that assertion."),
     ],
 
-    # 404 -- Partnership and Subcontract Management
     404: [
         mcq("HARD",
             "A prime contractor subcontracts part of a delivery. Who remains accountable to the client for that part?",
@@ -271,7 +263,6 @@ QUESTIONS = {
             "Ambiguity is costless until the work succeeds. Settling ownership and licence rights before creation is far cheaper than litigating them afterwards."),
     ],
 
-    # 389 -- IT Business Operations
     389: [
         mcq("AVERAGE",
             "Which measure best indicates that IT operations support the business effectively?",
@@ -296,7 +287,6 @@ QUESTIONS = {
             "The catalogue is the live shop window; the portfolio is the full investment picture, which is what supports decisions about what to build and what to retire."),
     ],
 
-    # 390 -- Key Performance Indicators
     390: [
         mcq("HARD",
             "A team is measured solely on tickets closed per day, and quality falls. What does this illustrate?",
@@ -321,7 +311,6 @@ QUESTIONS = {
             "A measure nobody can move is a fact, not an indicator. Ownership and controllability are what make it worth reporting."),
     ],
 
-    # 391 -- Business Problem Solving
     391: [
         mcq("HARD",
             "A team repeatedly fixes the same operational problem. Which technique addresses the recurrence?",
@@ -346,7 +335,6 @@ QUESTIONS = {
             "Confirming the effect is what converts an assumed fix into a known one, and it is the step most often skipped once attention moves on."),
     ],
 
-    # 392 -- Technical Document Types and Processes
     392: [
         mcq("AVERAGE",
             "What should determine the level of detail in a technical document?",
@@ -371,7 +359,6 @@ QUESTIONS = {
             "Stale documentation is worse than none: absent documentation prompts a question, while confidently wrong documentation is acted on."),
     ],
 
-    # 393 -- Requirements Documentation
     393: [
         mcq("AVERAGE",
             "Why should a requirements document record the rationale behind a requirement?",
@@ -396,7 +383,6 @@ QUESTIONS = {
             "Acceptance criteria convert an intention into something testable, which is the difference between a requirement and a wish."),
     ],
 
-    # 394 -- Request for Information (RFI)
     394: [
         mcq("AVERAGE",
             "At what stage of a procurement is an RFI appropriate?",
@@ -421,7 +407,6 @@ QUESTIONS = {
             "The RFI informs the requirement and the budget. Binding commitments belong to the RFP and contract stages, where the requirement is settled."),
     ],
 
-    # 395 -- Business Plan Development
     395: [
         mcq("AVERAGE",
             "Which element does a reader of a business plan typically scrutinize most closely?",
@@ -446,7 +431,6 @@ QUESTIONS = {
             "A plan with no competitors identified usually signals that the market has not been examined rather than that none exist."),
     ],
 
-    # 396 -- Technical Presentations
     396: [
         mcq("AVERAGE",
             "What should determine the structure of a technical presentation?",
@@ -471,7 +455,6 @@ QUESTIONS = {
             "Preparing for the hard question usually improves the argument before it is ever delivered, which is the larger part of the benefit."),
     ],
 
-    # 397 -- Project Management Fundamentals
     397: [
         mcq("HARD",
             "In the triple constraint, a client requests additional scope with no change to time or budget. What must the project manager do?",
@@ -496,7 +479,6 @@ QUESTIONS = {
             "The charter is the mandate. Without it the manager has responsibility without the authority to commit the resources the work requires."),
     ],
 
-    # 398 -- Project Scheduling and Resources
     398: [
         mcq("HARD",
             "Two activities need the same specialist in the same week, and the schedule assumed both could proceed. What is required?",
@@ -521,7 +503,6 @@ QUESTIONS = {
             "A point estimate implies a precision that early-stage knowledge does not support, and it is the figure that then gets treated as a commitment."),
     ],
 
-    # 399 -- System Requirements Management
     399: [
         mcq("AVERAGE",
             "What does bidirectional traceability allow a project to answer?",
@@ -546,7 +527,6 @@ QUESTIONS = {
             "Every project eventually meets a constraint. Priorities set in advance decide what survives; priorities set under pressure are decided by whoever is loudest."),
     ],
 
-    # 400 -- Performance and Quality Requirements
     400: [
         mcq("HARD",
             "A performance requirement states an average response time of one second. Why is an average a weak specification?",

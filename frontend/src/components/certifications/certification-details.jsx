@@ -20,11 +20,6 @@ import {
 
 import { REFERENCE_INDUSTRY, useReferenceOptions } from "@/services/referenceService.js"
 
-/* From the shared rulebook, not redeclared here. This file's own copy had
-   drifted to a 300-character description while `validateCertificationDetails`
-   -- the check that actually decides whether the form submits, and the one the
-   certification page edits against -- allowed 2000. The field stopped you
-   typing at 300 for a limit nothing enforced. */
 import {
   MAX_DESCRIPTION_LENGTH,
   MAX_TITLE_LENGTH,
@@ -32,16 +27,6 @@ import {
   MIN_TITLE_LENGTH,
 } from "@/utils/certification-edit"
 
-/**
- * `disabled` locks every control at once.
- *
- * The drawer starts a generation and keeps the form on screen while the job is
- * queued and handed off. Editing the name or the description during that
- * window changes nothing about the run -- the payload was sent when the button
- * was pressed -- so the field is a control that silently does not work, and
- * the admin only finds out when the finished certification carries the text
- * they thought they had replaced.
- */
 function CertificationDetails({ value, onChange, errors = {}, disabled = false }) {
   const { options: industries } = useReferenceOptions(REFERENCE_INDUSTRY)
   function updateField(fieldName, fieldValue) {
@@ -54,7 +39,6 @@ function CertificationDetails({ value, onChange, errors = {}, disabled = false }
   return (
       <FieldSet className="w-full">
         <FieldGroup className="gap-5">
-          {}
           <Field>
             <FieldLabel htmlFor="certification-title">
               Certification Name
@@ -92,7 +76,6 @@ function CertificationDetails({ value, onChange, errors = {}, disabled = false }
           </Field>
 
           <FieldGroup className="grid grid-cols-1 gap-5">
-            {}
             <Field>
               <FieldLabel htmlFor="certification-industry">
                 Industry
@@ -178,9 +161,6 @@ function CertificationDetails({ value, onChange, errors = {}, disabled = false }
             )}
           </Field>
 
-          {/* No cover field at all. The cover is the certification's name on
-              blue, drawn on the cards — there is nothing to upload and nothing
-              to decide, so the form does not mention it. */}
         </FieldGroup>
       </FieldSet>
   )

@@ -11,7 +11,6 @@ import java.util.Optional;
 public interface DepartmentLearnerRepository extends JpaRepository<DepartmentLearner, Long> {
     List<DepartmentLearner> findByDepartment_DepartmentId(Long departmentId);
 
-    /** A learner's own group memberships -- the learner side of a class. */
     List<DepartmentLearner> findByInstitutionCertLearner_Learner_LearnerIdAndStatus(
             Long learnerId, DepartmentLearner.Status status);
 
@@ -21,12 +20,9 @@ public interface DepartmentLearnerRepository extends JpaRepository<DepartmentLea
     boolean existsByDepartmentAndInstitutionCertLearner(
             Department department, InstitutionCertificationLearner institutionCertLearner);
 
-    // Regardless of status -- used to reactivate an archived assignment
-    // instead of colliding with it on re-add.
     Optional<DepartmentLearner> findByDepartmentAndInstitutionCertLearner(
             Department department, InstitutionCertificationLearner institutionCertLearner);
 
-    // Per-group rollups (institution member dashboard)
 
     interface GroupProgress {
         Long getDepartmentId();
@@ -36,13 +32,6 @@ public interface DepartmentLearnerRepository extends JpaRepository<DepartmentLea
         long getCompletedLearners();
     }
 
-    /**
-     * Completion per group across one institution, in one query.
-     *
-     * Only active assignees in active groups count: an archived assignment is
-     * history, and letting it drag a group's average down would misreport the
-     * people actually being taught right now.
-     */
     @org.springframework.data.jpa.repository.Query("""
             SELECT g.departmentId AS departmentId,
                    g.departmentName AS departmentName,
@@ -63,7 +52,6 @@ public interface DepartmentLearnerRepository extends JpaRepository<DepartmentLea
             @org.springframework.data.repository.query.Param("institutionId") Long institutionId,
             @org.springframework.data.repository.query.Param("asOf") java.time.LocalDateTime asOf);
 
-    // Group membership per assignment (institution learner roster)
 
     interface AssignmentGroup {
         Long getInstitutionCertLearnerId();
@@ -71,15 +59,6 @@ public interface DepartmentLearnerRepository extends JpaRepository<DepartmentLea
         String getDepartmentName();
     }
 
-    /**
-     * The group each assignment belongs to, across one institution, in one query.
-     *
-     * Active assignees in active groups only, matching groupProgressByInstitution
-     * above: an archived membership is history, and showing it on the roster
-     * would name a group the learner is no longer being taught in. A learner
-     * with no active membership simply has no row here -- the roster reads that
-     * as "not in a group" rather than inventing one.
-     */
     @org.springframework.data.jpa.repository.Query("""
             SELECT l.institutionCertLearnerId AS institutionCertLearnerId,
                    g.departmentId AS departmentId,
@@ -94,19 +73,6 @@ public interface DepartmentLearnerRepository extends JpaRepository<DepartmentLea
     List<AssignmentGroup> assignmentGroupsByInstitution(
             @org.springframework.data.repository.query.Param("institutionId") Long institutionId);
 
-    /**
-     * The assignment rows taught by a given set of departments.
-     *
-     * <p>This is what makes a department head's analytics theirs rather than
-     * the institution's. Every rollup downstream is keyed on assignment ids,
-     * so scoping once here scopes the roster, the programmes, the weak topics
-     * and the hardest papers together -- they cannot drift apart the way four
-     * separately-filtered queries would.
-     *
-     * <p>Active memberships in active departments only, matching the two
-     * queries above: an archived membership is history, and a head who no
-     * longer teaches someone should not still be reading their marks.
-     */
     @org.springframework.data.jpa.repository.Query("""
             SELECT l.institutionCertLearnerId
             FROM DepartmentLearner a

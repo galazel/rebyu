@@ -33,8 +33,6 @@ const QUESTION_TYPE_LABELS = {
   DIAGRAM: "Diagram",
 }
 
-// Builds lessonId -> { lesson, middleCategory, majorCategory } lookup from the
-// certification tree so questions can be scoped and filtered per certification.
 export function buildLessonIndex(certification) {
   const index = new Map()
 
@@ -63,8 +61,6 @@ export default function AssessmentQuestionPickerDialog({
                                                          initialLessonId = null,
                                                          initialMiddleCategoryId = null,
                                                          initialMajorCategoryId = null,
-                                                         // When set, this group's own questions are
-                                                         // offered alongside the official ones.
                                                          ownerDepartmentId = null,
                                                        }) {
   const [search, setSearch] = useState("")
@@ -111,8 +107,6 @@ export default function AssessmentQuestionPickerDialog({
 
     return new Set(
         list
-            // When editing, this exam's own questions are managed locally via
-            // the current selection — don't treat them as "used elsewhere".
             .filter(
                 (examQuestion) =>
                     currentExamId == null ||
@@ -139,17 +133,14 @@ export default function AssessmentQuestionPickerDialog({
 
     return list
         .filter((question) => {
-          // Scope to this certification and exclude sub-questions.
           const entry = lessonIndex.get(question.lessonId)
 
           if (!entry) return false
 
           if (question.parentQuestionId != null) return false
 
-          // Hide questions already added in this current dialog.
           if (alreadySelectedIds.has(question.questionId)) return false
 
-          // Hide questions already used by any saved assessment.
           if (usedQuestionIds.has(String(question.questionId))) return false
 
           if (
@@ -287,9 +278,6 @@ export default function AssessmentQuestionPickerDialog({
       return
     }
 
-    // Important:
-    // Do not call onOpenChange(false) here.
-    // The parent AssessmentDialog will receive the questions and close this picker safely.
     onAddQuestions(selectedQuestions)
   }
 

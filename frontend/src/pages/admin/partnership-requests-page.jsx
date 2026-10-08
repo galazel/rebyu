@@ -65,14 +65,12 @@ const STATUS_VARIANT = {
 
 function formatDate(value) {
   if (!value) return "—"
-  // A bare yyyy-mm-dd is read as local midnight, not UTC, so it never slips a day.
   const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value)
   return Number.isNaN(d.getTime())
     ? "—"
     : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
 }
 
-/** What each kind of request is called, wherever it is named. */
 const REQUEST_TYPE_LABEL = {
   NEW: "Partnership request",
   ADDITIONAL: "Additional access request",
@@ -86,7 +84,7 @@ export default function PartnershipRequests() {
   const [statusFilter, setStatusFilter] = useState("ALL")
   const [detailId, setDetailId] = useState(null)
   const [remarks, setRemarks] = useState("")
-  const [confirm, setConfirm] = useState(null) // { action: "approve" | "reject", id }
+  const [confirm, setConfirm] = useState(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const { sort, toggle, sortRows } = useTableSort()
@@ -105,8 +103,6 @@ export default function PartnershipRequests() {
   const requests = Array.isArray(listQuery.data) ? listQuery.data : []
 
   const counts = useMemo(() => {
-    // Summary cards always reflect the full set, so fetch counts from the rows
-    // when no status filter is applied; otherwise show the filtered figure.
     const base = { PENDING: 0, APPROVED: 0, REJECTED: 0 }
     requests.forEach((r) => {
       if (r.status in base) base[r.status] += 1
@@ -190,12 +186,6 @@ export default function PartnershipRequests() {
   const canReview =
     detail && (detail.status === "PENDING" || detail.status === "UNDER_REVIEW")
 
-  /* What was asked for. The request says so itself now; the fall-back reads it
-     off the line items, for rows submitted before it did -- a certification the
-     institution already holds slots for is one the server tops up rather than
-     creates. */
-  /* A cancellation grants nothing: no slots, no invoice, no access. Every
-     other kind of request is some amount of "yes, have this". */
   const isCancellation = detail?.requestType === "CANCELLATION"
   const isTopUp =
     detail?.requestType === "ADDITIONAL" ||
@@ -204,19 +194,12 @@ export default function PartnershipRequests() {
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-      {/* Three counts on one line rather than three cards on a grid: each held
-          a single number, and a card's job is to separate things that would
-          otherwise run together -- which spacing already does here. */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-10 gap-y-3 border-b border-border pb-4">
         <SummaryCard icon={Clock} label="Pending" value={counts.PENDING} />
         <SummaryCard icon={CheckCircle2} label="Approved" value={counts.APPROVED} />
         <SummaryCard icon={XCircle} label="Rejected" value={counts.REJECTED} />
       </div>
 
-      {/* One table, scrolled sideways on a narrow screen. The duplicate card
-          list this page used to render below md is gone: it was a second copy
-          of every row to keep in step, and a request is read by comparing
-          slots and dates down a column, which cards cannot do. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <TableCard className="flex min-h-0 flex-1 flex-col">
         <TableToolbar
@@ -239,9 +222,6 @@ export default function PartnershipRequests() {
           </Select>
         </TableToolbar>
 
-        {/* The rows scroll, the pager does not: with a short list the page still
-            ends where the window does rather than leaving the pager stranded
-            halfway up a blank page. */}
         <div className="min-h-0 flex-1 overflow-auto">
           <Table>
             <TableHeader>
@@ -339,7 +319,6 @@ export default function PartnershipRequests() {
       </TableCard>
       </div>
 
-      {/* Detail dialog */}
       <Dialog
         open={detailId != null}
         onOpenChange={(open) => {
@@ -352,10 +331,6 @@ export default function PartnershipRequests() {
         <DialogContent className="max-h-[calc(100dvh-4rem)] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {/* The request's own word for itself, except where it says NEW
-                  only because it predates the column -- a row whose lines add
-                  to slots already held is an addition whatever it calls
-                  itself. */}
               {detail?.requestType && detail.requestType !== "NEW"
                 ? REQUEST_TYPE_LABEL[detail.requestType]
                 : isTopUp
@@ -375,8 +350,6 @@ export default function PartnershipRequests() {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* The details sit on a paper card pinned to the board: dim chalk
-                  on dark green was unreadable at this size. */}
               <section className="space-y-2 rounded-lg bg-card p-4 text-sm shadow-sm">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">Institution</h3>
                 <Row label="Name" value={detail.institutionName} />
@@ -392,8 +365,6 @@ export default function PartnershipRequests() {
                 </div>
               </section>
 
-              {/* A cancellation has no line items -- it asks for nothing. The
-                  empty table that rendered here read as data failing to load. */}
               <section
                 className={`space-y-2 rounded-lg bg-card p-4 shadow-sm ${
                   isCancellation ? "hidden" : ""
@@ -425,10 +396,6 @@ export default function PartnershipRequests() {
                         <span className="block text-xs text-muted-foreground">
                           {item.existingSlots != null ? "+" : ""}
                           {item.requestedSlots} slot(s) × {money(item.unitPrice ?? detail.pricePerSlot ?? 149, detail.currency)}
-                          {/* What they hold now and what approving makes it.
-                              "10 slots" alone cannot be told apart from a
-                              request to be cut down to 10, and approving is
-                              not reversible. */}
                           {item.existingSlots != null ? (
                             <span className="block text-muted-foreground">
                               {item.existingSlots} held → {item.existingSlots + Number(item.requestedSlots ?? 0)} after approval
@@ -505,7 +472,6 @@ export default function PartnershipRequests() {
         </DialogContent>
       </Dialog>
 
-      {/* Approve / reject confirmation */}
       <AlertDialog open={confirm != null} onOpenChange={(open) => !open && setConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

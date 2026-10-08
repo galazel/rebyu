@@ -71,14 +71,6 @@ const studyWindowOptions = [
     "Late night · 10:00 PM",
 ]
 
-/* The clock time behind each window, as 24-hour HH:mm.
- *
- * The window is a sentence ("Evening · 7:00 PM") because that is what reads
- * well in a form. A scheduler cannot fire on a sentence, and re-parsing that
- * string at trigger time would make the plan's copy load-bearing -- reword the
- * option and every scheduled session silently stops firing. So the machine
- * time is stored on each event beside the words, and the two are derived from
- * one place here. */
 const STUDY_WINDOW_TIMES = {
     "Morning · 7:00 AM": "07:00",
     "Afternoon · 2:00 PM": "14:00",
@@ -112,13 +104,8 @@ const studyTechniques = [
 
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
-/** What an overall plan is named wherever a certification title would go. */
 export const OVERALL_CERTIFICATION_LABEL = "All certifications"
 
-/* How many weak topics an overall plan carries into the schedule.
-   Uncapped, this is every certification's worst topics concatenated, which
-   turns the priority section into a wall of badges and gives the generator a
-   rotation so long that nothing is ever revisited before the exam. */
 const OVERALL_PRIORITY_TOPIC_LIMIT = 12
 
 function parseDate(value) {
@@ -192,11 +179,6 @@ function buildMonthDays(viewDate) {
     })
 }
 
-/**
- * A certification's lessons in course order, with whether each is completed --
- * from the learner portal snapshot every learner page already has. By id when
- * there is one; by title for the page version that picks a course by name.
- */
 function curriculumFor(lessons, certificationId, certificationTitle = null) {
     return (Array.isArray(lessons) ? lessons : []).filter((lesson) =>
         certificationId != null
@@ -205,7 +187,6 @@ function curriculumFor(lessons, certificationId, certificationTitle = null) {
     )
 }
 
-/** `{ [lessonId]: mastery % }` from the analytics service's per-lesson rows. */
 function masteryMap(rows) {
     const map = {}
     for (const row of Array.isArray(rows) ? rows : []) {
@@ -224,15 +205,6 @@ function shortDate(dateKey) {
         : date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
 
-/**
- * Weak-topic rows reduced to unique lessons, in the order given.
- *
- * The lesson id travels with the title because the schedule is not only read by
- * people: a recall session scheduled against a topic needs to ask the server for
- * *that lesson's* questions, and a title is not something you can look a lesson
- * up by. De-duplicated on title, since the same lesson can appear under more
- * than one id across certifications.
- */
 function topicRefs(rows) {
     const seen = new Set()
     const refs = []
@@ -248,7 +220,6 @@ function topicRefs(rows) {
     return refs
 }
 
-/** Worst-first across certifications; unknown mastery sorts last, not as zero. */
 function byWeakestFirst(a, b) {
     return (
         (a?.masteryPercentage ?? Number.POSITIVE_INFINITY) -
@@ -287,11 +258,6 @@ function FormInput({ label, value, onChange, type = "text", min, max, error }) {
                 {label}
             </Label>
 
-            {/* `min`/`max` are handed to the native date picker so out-of-range
-                days are unselectable rather than merely rejected afterwards.
-                They are a convenience, not the guard -- a date can still be
-                typed straight into the field, which is why `handleGeneratePlan`
-                checks the range as well. */}
             <Input
                 type={type}
                 value={value}
@@ -311,13 +277,6 @@ function FormInput({ label, value, onChange, type = "text", min, max, error }) {
     )
 }
 
-/**
- * A study technique, as a selectable tile.
- *
- * Selection is carried by fill and a ring rather than by a border swap: with
- * every tile outlined, the selected one differed only in border colour, which
- * is the weakest signal available and left the grid reading as a wall of boxes.
- */
 function TechniqueCard({ technique, selected, onSelect }) {
     const Icon = technique.icon
 
@@ -326,9 +285,6 @@ function TechniqueCard({ technique, selected, onSelect }) {
             type="button"
             onClick={onSelect}
             aria-pressed={selected}
-            /* Solid paper, not a translucent tint: inside the chalkboard dialog
-               only solid surfaces get dark ink, and a see-through card left pale
-               chalk text on a pale card. The pick is a yellow chalk outline. */
             className={`h-full rounded-2xl border-2 bg-card p-4 text-left shadow-sm transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                 selected ? "border-rb-bee ring-4 ring-rb-bee/40" : "border-transparent hover:border-rb-swan"
             }`}
@@ -530,17 +486,6 @@ function StudyPlanCalendar({
     )
 }
 
-/**
- * @param lockedCertification  when the generator is opened for one
- *   certification, its title -- the picker is replaced by that name, since the
- *   plan being built is for the course the learner just opened
- * @param certificationId      that certification's id, which is what the
- *   diagnostic's priority topics are read against
- * @param overall              the plan covers every enrolled certification
- *   rather than one -- there is no course to pick, and the priority topics are
- *   pooled from every certification's diagnostic instead of one certification's
- * @param generating           whether the parent is still saving the plan
- */
 export function StudyPlanContent({
     onPlanGenerated,
     lockedCertification,
@@ -557,12 +502,6 @@ export function StudyPlanContent({
         [data?.certifications]
     )
 
-    /* Which certifications an overall plan covers. Null means "not chosen yet",
-       which reads as all of them -- a learner who opens the generator and
-       changes nothing gets a plan over everything they are enrolled in, and
-       only a deliberate uncheck narrows it. Derived rather than seeded through
-       an effect so a certification arriving late is covered by that default
-       instead of being missed by a one-shot initialisation. */
     const [chosenCertificationIds, setChosenCertificationIds] = useState(null)
 
     const enrolledCertifications = useMemo(() => {
@@ -583,8 +522,6 @@ export function StudyPlanContent({
         if (chosenCertificationIds == null) {
             return enrolledIds
         }
-        // Filtered against what is currently enrolled: a certification the
-        // learner leaves while the dialog is open must not stay in the plan.
         const enrolled = new Set(enrolledIds)
         return chosenCertificationIds.filter((id) => enrolled.has(id))
     }, [enrolledCertifications, chosenCertificationIds])
@@ -598,15 +535,7 @@ export function StudyPlanContent({
         })
     }
 
-    /* When each certification is studied. Certifications are not sat on the
-       same day, so one shared exam date would schedule every one of them
-       backwards from whichever exam happens to be last -- the nearer exams
-       would get a calendar that runs long past them. Each carries its own
-       window, and the schedule for each is built between its own two dates.
 
-       Held only for the ones the learner has actually edited; the rest fall
-       back to the shared defaults below, so a plan can still be generated
-       without touching a single date field. */
     const [certificationDates, setCertificationDates] = useState({})
 
     function datesFor(id) {
@@ -620,16 +549,11 @@ export function StudyPlanContent({
         }))
     }
 
-    /** A certification whose calendar would start after its own exam. */
     function certificationDatesOutOfOrder(id) {
         const { calendarStart: from, targetExamDate: to } = datesFor(id)
         return Boolean(from) && Boolean(to) && from > to
     }
 
-    /* What the plan is called wherever a course title would go. "All
-       certifications" only when it really is all of them -- saying that over a
-       narrowed selection would misdescribe the plan on the calendar it is
-       saved to. */
     const overallCertificationLabel = useMemo(() => {
         if (!overall) {
             return null
@@ -648,19 +572,12 @@ export function StudyPlanContent({
         return `${count} certifications`
     }, [overall, selectedCertificationIds, enrolledCertifications])
 
-    /* Either kind of fixed heading: the course the generator was opened for, or
-       the chosen set for an overall plan. Both replace the single-course picker
-       -- in the first case the course is already decided, and in the second the
-       plan spans more than one. */
     const certificationLabel = overall
         ? overallCertificationLabel
         : lockedCertification
 
     const [certification, setCertification] = useState(certificationLabel ?? "")
     const [courseGoal, setCourseGoal] = useState("Complete a full reviewer")
-    // Dated from today rather than from fixed literals. The defaults used to be
-    // hardcoded calendar dates, which quietly went stale -- a plan whose first
-    // study block is already in the past schedules nothing the learner can do.
     const [targetExamDate, setTargetExamDate] = useState(() => toDateKey(addDays(new Date(), 90)))
     const [targetReadiness, setTargetReadiness] = useState(readinessOptions[1])
     const [examPriority, setExamPriority] = useState(priorityOptions[0])
@@ -682,17 +599,6 @@ export function StudyPlanContent({
         }
     }, [certification, certificationOptions, certificationLabel])
 
-    /**
-     * The topics the diagnostic says to study first.
-     *
-     * From the certification's progress analytics, which is where the
-     * diagnostic's result actually lands: the BKT service turns the attempt
-     * into a per-lesson mastery probability and priority tag, and
-     * `weakestTopics` is that list already sorted worst-first. This used to
-     * rummage through the portal payload for a dozen speculative field names
-     * (`weakTopics`, `diagnosticResult.weakLessons`, ...) that nothing ever
-     * sets, so it came back empty no matter how many diagnostics were sat.
-     */
     const analyticsQuery = useQuery({
         queryKey: progressAnalyticsQueryKey(String(certificationId ?? "")),
         queryFn: () => getProgressAnalytics(certificationId),
@@ -700,19 +606,8 @@ export function StudyPlanContent({
         staleTime: 60_000,
     })
 
-    /* An overall plan asks the same question of every certification it covers.
-       There is no cross-certification analytics endpoint -- analytics is scoped
-       to one certification by design -- so this fans out over the chosen ones.
-       The keys are the shared ones, so the certification the analytics board is
-       already showing is answered from cache rather than fetched a second time.
 
-       Following the selection rather than the enrolment means unchecking a
-       certification takes its topics out of the plan, which is the whole point
-       of choosing: the schedule is built from these topics.
 
-       Reduced inside `combine` rather than in a `useMemo` afterwards: the array
-       `useQueries` returns is a fresh one on every render, so a memo keyed on it
-       would recompute every time regardless and only look memoized. */
     const overallPriorities = useQueries({
         queries: selectedCertificationIds.map((id) => ({
             queryKey: progressAnalyticsQueryKey(id),
@@ -720,13 +615,7 @@ export function StudyPlanContent({
             staleTime: 60_000,
         })),
         combine: (results) => {
-            /* Kept per certification as well as pooled. Each certification is
-               scheduled over its own dates, so its sessions have to be built
-               from its own weak topics -- a pooled rotation would drop another
-               certification's lessons into this one's study window.
 
-               Zipped by position: `useQueries` returns results in the order the
-               queries were given, which is the order of the selected ids. */
             const byCertification = {}
             const masteryByCertification = {}
             results.forEach((result, index) => {
@@ -741,12 +630,6 @@ export function StudyPlanContent({
                 byCertification,
                 masteryByCertification,
 
-                /* The pooled view, for the priority-topics section: one list of
-                   what to work on first across the whole plan. Re-sorted because
-                   concatenating sorted lists does not give a sorted one -- the
-                   order would otherwise follow whichever certification answered
-                   first, so a strong topic from one could outrank a critical
-                   topic from another. */
                 topics: topicRefs(
                     results
                         .flatMap((result) =>
@@ -757,9 +640,6 @@ export function StudyPlanContent({
                         .sort(byWeakestFirst)
                 ).slice(0, OVERALL_PRIORITY_TOPIC_LIMIT),
 
-                /* One certification still computing is enough to call the whole
-                   pool pending: the topics on screen are not yet the worst ones
-                   overall, they are the worst of whatever has answered so far. */
                 pending: results.some(
                     (result) => result.isLoading || result.data?.bktAvailable === false
                 ),
@@ -785,8 +665,6 @@ export function StudyPlanContent({
 
     const priorityTopics = overall ? overallPriorities.topics : singleCertificationTopics
 
-    // Told apart so the empty state can say which it is: mastery still being
-    // computed is a wait, no certification is a different situation entirely.
     const priorityTopicsPending = overall
         ? overallPriorities.pending
         : Boolean(certificationId) &&
@@ -796,24 +674,12 @@ export function StudyPlanContent({
         return studyTechniques.find((item) => item.id === selectedTechnique)
     }, [selectedTechnique])
 
-    /* The calendar has to begin before the exam it is preparing for. Compared
-       as plain YYYY-MM-DD strings: both come from date inputs in that format,
-       so lexicographic order is chronological and there is no timezone to get
-       wrong. Equal dates are allowed -- a single-day crash plan is odd, but it
-       is not incoherent. */
     const datesOutOfOrder = overall
         ? selectedCertificationIds.some(certificationDatesOutOfOrder)
         : Boolean(calendarStart) && Boolean(targetExamDate) && calendarStart > targetExamDate
 
-    /* A plan over nothing is not a plan: the schedule is built from the chosen
-       certifications' weak topics, so with none chosen the generator would fall
-       back to its generic placeholder topic and produce a calendar that names
-       no actual lesson. */
     const noCertificationsSelected = overall && selectedCertificationIds.length === 0
 
-    /* The preview's one date. An overall plan has several, so it shows the last
-       of them -- when the whole plan is done -- rather than the shared field,
-       which is hidden in that mode and would report a date nothing uses. */
     const previewExamDate = overall
         ? selectedCertificationIds
               .map((id) => datesFor(id).targetExamDate)
@@ -821,8 +687,6 @@ export function StudyPlanContent({
               .reduce((latest, value) => (value > latest ? value : latest), "") || "—"
         : targetExamDate
 
-    /* The pace, worked out live by the same planner that saves the plan, so
-       the preview says whether the lessons fit before anything is generated. */
     const pacePreview = useMemo(() => {
         const entries = overall
             ? selectedCertificationIds.map((id) => ({
@@ -861,19 +725,10 @@ export function StudyPlanContent({
             return
         }
 
-        // Belt and braces alongside the pickers' own min/max: a date typed
-        // directly into the field bypasses those entirely, and a calendar
-        // starting after the exam produces a plan with no study days at all --
-        // `generateStudyEvents` loops `while (currentDate <= examDate)`, which
-        // never runs, leaving only the target-exam marker.
         if (datesOutOfOrder) {
             return
         }
 
-        /* One schedule per certification, over that certification's own dates
-           and from its own weak topics, then merged. Generating once over a
-           shared window would prepare every certification for whichever exam
-           sits last, which is wrong for all the earlier ones. */
         const certificationPlans = overall
             ? selectedCertificationIds.map((id) => ({
                   certificationId: Number(id),
@@ -893,7 +748,6 @@ export function StudyPlanContent({
                       studyDays,
                       studyWindow,
                       studyWindowTimes: STUDY_WINDOW_TIMES,
-                      // The time picked for this certification, when there is one.
                       studyTime: entry.studyTime ?? null,
                       selectedTechniqueInfo,
                       readiness: targetReadiness,
@@ -925,10 +779,6 @@ export function StudyPlanContent({
             ? plannedByCertification.flatMap(({ entry, planned }) =>
                   planned.events.map((event) => ({
                       ...event,
-                      /* Namespaced: the planner numbers events from one per
-                         schedule, so without this every certification would
-                         contribute an "event-1" and React would see duplicate
-                         keys on the calendar. */
                       id: `${entry.certificationId}-${event.id}`,
                       certificationId: entry.certificationId,
                       certification: entry.title,
@@ -936,10 +786,6 @@ export function StudyPlanContent({
               )
             : singlePlanned.events
 
-        /* The plan's outer span. For an overall plan that is the earliest start
-           and the latest exam across its certifications -- what the study
-           calendar prints as the range, and what the countdown falls back to
-           when it cannot find the certification's own entry. */
         const planCalendarStart = overall
             ? certificationPlans
                   .map((entry) => entry.calendarStart)
@@ -956,22 +802,13 @@ export function StudyPlanContent({
 
         const nextPlan = {
             certification,
-            /* Which certifications the plan covers and when each is studied,
-               carried in the schedule itself. The row has one nullable
-               certificationId, which cannot hold a set -- and the schedule is
-               already where everything else about a plan lives, so this
-               survives a reload with it and needs no schema change. Numbers, to
-               match the ids everything else compares against. */
             ...(overall
                 ? {
                       certificationIds: selectedCertificationIds.map(Number),
                       certificationPlans,
                   }
                 : null),
-            // When the plan was made, so sessions already past at that moment
-            // are never opened automatically (see isStale).
             generatedAt: new Date().toISOString(),
-            // The pace each schedule was built at, kept for showing and review.
             summaries: overall
                 ? plannedByCertification.map(({ entry, planned }) => ({
                       certificationId: entry.certificationId,
@@ -1031,21 +868,12 @@ export function StudyPlanContent({
 
     return (
         <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_300px]">
-            {/* Left: the form, as flat sections separated by space rather than
-                by nested bordered cards. The old markup put a Card inside a
-                Card inside a bordered section, so every group announced itself
-                with an outline and nothing read as more important than
-                anything else. */}
             <main className="min-w-0 space-y-8">
                 <section>
                     <p className="text-sm font-bold uppercase tracking-wider text-foreground">
                         Course and target
                     </p>
 
-                    {/* Its own full-width block rather than a cell in the grid
-                        below: this is a list that grows with the learner's
-                        enrolments, and squeezed into a half-width column it
-                        would scroll inside a box the size of a text input. */}
                     {overall ? (
                         <div className="mt-4 space-y-3">
                             <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -1081,10 +909,6 @@ export function StudyPlanContent({
                                                         : "bg-muted/50 hover:bg-muted"
                                                 }`}
                                             >
-                                                {/* The whole row is the label, so the
-                                                    title is part of the hit area rather
-                                                    than the 24px box being the only way
-                                                    to tick one. */}
                                                 <Label
                                                     htmlFor={`study-plan-certification-${row.id}`}
                                                     className="flex cursor-pointer items-center gap-3 text-sm font-medium"
@@ -1098,12 +922,6 @@ export function StudyPlanContent({
                                                     <span className="min-w-0 leading-snug">{row.title}</span>
                                                 </Label>
 
-                                                {/* Shown on ticking rather than always:
-                                                    dates for a certification the plan
-                                                    does not cover are two fields that
-                                                    change nothing, and every enrolment
-                                                    carrying them would bury the choice
-                                                    itself under a wall of date pickers. */}
                                                 {checked ? (
                                                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                                                         <FormInput
@@ -1136,10 +954,6 @@ export function StudyPlanContent({
                                                             }
                                                         />
 
-                                                        {/* Its own time of day: one
-                                                            certification in the morning,
-                                                            another in the evening. Until
-                                                            changed it is 7:00 PM. */}
                                                         <div className="sm:col-span-2">
                                                             <FormInput
                                                                 label="Study time"
@@ -1165,11 +979,7 @@ export function StudyPlanContent({
                     ) : null}
 
                     <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                        {/* An overall plan has already said which certifications
-                            it covers, above. */}
                         {overall ? null : lockedCertification ? (
-                            // Opened for one certification: the course is decided,
-                            // and a picker would only offer a way to plan the wrong one.
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold text-foreground">
                                     Certification
@@ -1194,8 +1004,6 @@ export function StudyPlanContent({
                             onChange={setCourseGoal}
                         />
 
-                        {/* Per certification for an overall plan, up in the
-                            selection above -- each exam is sat on its own day. */}
                         {overall ? null : (
                             <FormInput
                                 label="Target exam date"
@@ -1232,15 +1040,7 @@ export function StudyPlanContent({
                         Schedule
                     </p>
 
-                    {/* "Preferred study window" used to appear up in the section
-                        above as well, both controls bound to the same state --
-                        two inputs for one value, which is a bug however it is
-                        laid out. It lives here, with the rest of the timing. */}
                     <div className={`mt-4 grid gap-4 ${overall ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
-                        {/* Also per certification for an overall plan: each one
-                            starts when the learner means to begin it. Study days
-                            and the preferred hour stay shared -- those describe
-                            the learner's week, not any one course. */}
                         {overall ? null : (
                             <FormInput
                                 label="Calendar starts"
@@ -1263,8 +1063,6 @@ export function StudyPlanContent({
                             options={studyDaysOptions}
                         />
 
-                        {/* An overall plan sets a study time on each certification
-                            above, so a shared default here would only repeat it. */}
                         {overall ? null : (
                             <FormSelect
                                 label="Preferred study time"
@@ -1347,9 +1145,6 @@ export function StudyPlanContent({
                     </p>
                 </section>
 
-                {/* One action, at the end of the form it completes. There were
-                    two "generate" buttons doing the same thing, and a "Save as
-                    draft" beside them that was wired to nothing at all. */}
                 <div className="flex justify-end">
                     <Button
                         className="gap-2"
@@ -1368,8 +1163,6 @@ export function StudyPlanContent({
                 </div>
             </main>
 
-            {/* Right: what the plan currently amounts to, updating as the form
-                is filled. Sticky, so it stays readable while the form scrolls. */}
             <aside className="min-w-0 xl:sticky xl:top-0 xl:self-start">
                 <div className="overflow-hidden rounded-2xl bg-card p-5 shadow-sm">
                     <div className="flex items-center gap-2 text-muted-foreground">
@@ -1451,11 +1244,6 @@ export function StudyPlanContent({
     )
 }
 
-/**
- * No premium guard: the study plan is part of the study flow every learner
- * goes through after their diagnostic, not an upsell. Gating it meant a Free
- * learner clicked "Continue", got nothing, and had no way to know why.
- */
 export function StudyPlanGenerator({
     onPlanGenerated,
     lockedCertification,

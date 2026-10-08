@@ -4,11 +4,6 @@ import { useQuery } from "@tanstack/react-query"
 import { getCurrentLearnerIdentity } from "@/services/learnerService.js"
 import { getLearnerEntitlements } from "@/services/subscriptionService.js"
 
-/**
- * Central learner entitlement hook. The backend decides access; this hook just
- * exposes it. Missing subscription resolves to Free. `certificationId` narrows
- * institution-sponsored coverage to a specific certification when provided.
- */
 export function useLearnerEntitlements(certificationId) {
   const identity = getCurrentLearnerIdentity()
   const learnerId = identity?.learnerId ?? null
@@ -37,9 +32,7 @@ export function useLearnerEntitlements(certificationId) {
       personalStatus: data?.personalStatus ?? null,
       currentPeriodEnd: data?.currentPeriodEnd ?? null,
       cancelAtPeriodEnd: Boolean(data?.cancelAtPeriodEnd),
-      // Paid through PayMongo, waiting for an admin to approve it.
       awaitingApproval: Boolean(data?.awaitingApproval),
-      // Known to be on Free: false while loading, so nothing flashes locked.
       isFree: learnerId != null && !query.isLoading && !query.isError && (data?.accessSource ?? "FREE") === "FREE",
       aiGenerationsUsedToday: Number(data?.aiGenerationsUsedToday ?? 0),
       aiGenerationDailyLimit: Number(data?.aiGenerationDailyLimit ?? 0),

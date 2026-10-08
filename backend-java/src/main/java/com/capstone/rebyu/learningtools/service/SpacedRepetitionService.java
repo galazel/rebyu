@@ -23,42 +23,17 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Spaced repetition: what is due for review today, and when each item comes
- * back.
- *
- * <h3>The algorithm</h3>
- * SM-2, the algorithm behind SuperMemo and Anki. Chosen over inventing a
- * schedule because the behaviour asked for — recalled material returning later,
- * forgotten material returning sooner — is exactly what it does, and it is
- * well understood enough that its numbers can be reasoned about rather than
- * tuned by guess.
- *
- * <p>The learner's four self-ratings map onto SM-2's quality scale:
- * {@code AGAIN}=2 (a lapse), {@code HARD}=3, {@code GOOD}=4, {@code EASY}=5.
- * These are the same four ratings the flashcard player already collects — a
- * field REBYU stored and never read. It is read now.
- *
- * <h3>Where items come from</h3>
- * A learner cannot review material they have never met, so the queue is seeded
- * from their own answering history: questions missed first, then anything else
- * they have answered on the certification. Seeding happens when a session runs
- * short, not on a schedule, so the queue only grows as fast as it is actually
- * worked through.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SpacedRepetitionService {
 
-  /** SM-2's starting ease, and the floor it may never drop through. */
   private static final double INITIAL_EASE = 2.5;
   private static final double MINIMUM_EASE = 1.3;
 
   private static final int DEFAULT_SIZE = 20;
   private static final int MAX_SIZE = 50;
 
-  /** The interval after a first and second successful recall, in days. */
   private static final int FIRST_INTERVAL = 1;
   private static final int SECOND_INTERVAL = 6;
 
@@ -68,7 +43,6 @@ public class SpacedRepetitionService {
   private final QuestionRepository questions;
   private final JdbcTemplate jdbc;
 
-  /** One card in a review session. */
   public record ReviewCard(
       Long questionId,
       String question,
@@ -84,14 +58,6 @@ public class SpacedRepetitionService {
       Long questionId, String grade, int repetitions, int intervalDays,
       double easeFactor, LocalDate dueOn) {}
 
-  /**
-   * What the learner should review now.
-   *
-   * <p>Items already due come first and in due order — the longest overdue is
-   * the most likely to have decayed. Only if that leaves the session short is
-   * anything new pulled in, so a learner with a real backlog works through the
-   * backlog rather than being handed fresh material on top of it.
-   */
   @Transactional
   public ReviewQueue dueCards(Long learnerId, Long certificationId, Long lessonId, Integer size) {
     if (certificationId == null) {
@@ -104,8 +70,6 @@ public class SpacedRepetitionService {
         .findByLearner_LearnerIdAndCertificationIdAndDueOnLessThanEqualOrderByDueOnAsc(
             learnerId, certificationId, today);
 
-    // The scheduled topic first when the plan named one, without dropping the
-    // rest -- an overdue item elsewhere is still overdue.
     if (lessonId != null) {
       due = new ArrayList<>(due);
       due.sort((a, b) -> {
@@ -130,13 +94,6 @@ public class SpacedRepetitionService {
     return new ReviewQueue(toCards(session), dueCount, seeded);
   }
 
-  /**
-   * Records how well an item was recalled and schedules its return.
-   *
-   * <p>The item is created on the spot if it is not tracked yet: a card can be
-   * graded straight out of a freshly seeded session, and requiring a separate
-   * "start tracking" call would just be a round trip that can fail halfway.
-   */
   @Transactional
   public ReviewOutcome grade(Long learnerId, Long questionId, String grade) {
     int quality = qualityOf(grade);
@@ -156,20 +113,9 @@ public class SpacedRepetitionService {
         saved.getIntervalDays(), saved.getEaseFactor(), saved.getDueOn());
   }
 
-  /**
-   * SM-2, applied in place.
-   *
-   * <p>A lapse (quality below 3) resets the repetition count and brings the
-   * item back tomorrow — that is the whole "forgotten material returns sooner"
-   * half of the behaviour. Ease is adjusted on every review including lapses,
-   * so an item the learner repeatedly fails keeps shortening its own intervals
-   * rather than bouncing back to a six-day gap the moment it is recalled once.
-   */
   private void apply(LearnerReviewItem item, int quality, LocalDate today) {
     double ease = item.getEaseFactor() <= 0 ? INITIAL_EASE : item.getEaseFactor();
 
-    // SM-2's ease adjustment, verbatim: a perfect recall nudges ease up, a
-    // laboured one drags it down, and the curve steepens the worse it gets.
     ease = ease + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
     item.setEaseFactor(Math.max(MINIMUM_EASE, ease));
 
@@ -194,7 +140,6 @@ public class SpacedRepetitionService {
     item.setUpdatedAt(LocalDateTime.now());
   }
 
-  /** Adds untracked questions to the queue, missed ones first. */
   private List<LearnerReviewItem> seed(
       Long learnerId, Long certificationId, Long lessonId, int wanted, LocalDate today) {
 
@@ -203,8 +148,6 @@ public class SpacedRepetitionService {
     candidates.addAll(history.missedQuestionIds(learnerId, certificationId, null));
     candidates.addAll(history.answeredQuestionIds(learnerId, certificationId));
 
-    // Only when the learner has answered nothing yet: reviewing material never
-    // seen is not review, so this is a last resort rather than a normal source.
     if (candidates.isEmpty() && lessonId != null) {
       candidates.addAll(scopeQuestionIds(lessonId));
     }
@@ -242,7 +185,6 @@ public class SpacedRepetitionService {
     item.setRepetitions(0);
     item.setIntervalDays(0);
     item.setEaseFactor(INITIAL_EASE);
-    // Due immediately: it was pulled in because it needs reviewing now.
     item.setDueOn(today);
     item.setLapses(0);
     item.setCreatedAt(LocalDateTime.now());
@@ -267,14 +209,6 @@ public class SpacedRepetitionService {
         .toList();
   }
 
-  /**
-   * Turns tracked items into answerable cards.
-   *
-   * <p>The answer is resolved the same way the mistakes bank resolves it — a
-   * short-answer config's answer, else the correct choice's text. Showing it is
-   * the point: a review card is revealed and self-rated, not marked. One query
-   * for the whole session rather than per card.
-   */
   private List<ReviewCard> toCards(List<LearnerReviewItem> items) {
     if (items.isEmpty()) return List.of();
 
@@ -325,7 +259,6 @@ public class SpacedRepetitionService {
     return cards;
   }
 
-  /** The learner's rating, on SM-2's 0–5 quality scale. */
   private static int qualityOf(String grade) {
     return switch (grade == null ? "" : grade.trim().toUpperCase()) {
       case "AGAIN" -> 2;

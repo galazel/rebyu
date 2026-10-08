@@ -67,13 +67,6 @@ function getLearnerDisplayName(learner) {
   return full || learner.username || `Learner #${learner.learnerId}`
 }
 
-/**
- * Dropping a certification, with what it destroys stated first.
- *
- * The server is asked what would go before anything goes: the counts shown
- * here come from the same walk of the same relationships that the delete then
- * performs, so this is not an estimate of the damage, it is the damage.
- */
 function DropCertificationDialog({ allocation, title, onClose }) {
   const queryClient = useQueryClient()
   const [reason, setReason] = useState("")
@@ -154,9 +147,6 @@ function DropCertificationDialog({ allocation, title, onClose }) {
                       lose their owner.
                     </p>
                   ) : null}
-                  {/* The refund window is the one part of this an admin
-                      cannot infer from the table, and the one they will be
-                      asked about afterwards. */}
                   {Number(impact.refundable) > 0 ? (
                     <p>
                       <strong>

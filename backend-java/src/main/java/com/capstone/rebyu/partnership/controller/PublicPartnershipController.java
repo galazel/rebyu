@@ -15,10 +15,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Transaction One (public, no authentication): submit a partnership request
- * and check its status. No institution account is created or granted here.
- */
 @RestController
 @RequestMapping("/api/public/partnership-requests")
 @RequiredArgsConstructor
@@ -26,7 +22,6 @@ public class PublicPartnershipController {
 
     private final PublicPartnershipService publicPartnershipService;
 
-    /** The per-slot rate the request form quotes, so the form and the invoice never disagree. */
     @GetMapping("/pricing")
     public java.util.Map<String, Object> pricing() {
         return java.util.Map.of(

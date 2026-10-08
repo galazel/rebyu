@@ -67,18 +67,6 @@ import {
   sendInstitutionInvitations,
 } from "@/services/partnershipService.js"
 
-/**
- * The Sections tab of a department workspace.
- *
- * A department head splits the department's learners into sections (a class,
- * a block, a batch) and adds learners per section: typed in one at a time, or
- * in bulk from a CSV/TSV/TXT file. "Adding" a learner is sending them an
- * invitation -- accounts are created when they accept -- so each section shows
- * both its enrolled learners and the invitations still out.
- *
- * Learners the department already had before sections existed sit under
- * "Not in a section" and can be moved into one from the row.
- */
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const NO_SECTION = "__none__"
@@ -95,9 +83,7 @@ function fullName(row) {
   return [row.firstName, row.lastName].filter(Boolean).join(" ")
 }
 
-/* CSV import */
 
-/** Split one CSV/TSV line, honouring double quotes. */
 function splitLine(line, delimiter) {
   const cells = []
   let current = ""
@@ -122,15 +108,6 @@ function splitLine(line, delimiter) {
   return cells.map((cell) => cell.trim())
 }
 
-/**
- * Learners out of a spreadsheet export.
- *
- * Accepts a header row (email / e-mail, first name / firstname / given name,
- * last name / lastname / surname / family name, or a single "name" column) in
- * any order, or no header at all -- then the first email-looking cell is the
- * email and the other cells are the name. One learner per line; blank lines
- * and lines with no email are reported back rather than silently dropped.
- */
 export function parseLearnerFile(text) {
   const lines = text.replace(/^﻿/, "").split(/\r?\n/).filter((line) => line.trim() !== "")
   if (lines.length === 0) return { learners: [], problems: ["The file is empty."] }
@@ -212,7 +189,6 @@ function downloadSampleCsv() {
   URL.revokeObjectURL(url)
 }
 
-/* Add learners dialog: manual list + file import */
 
 function AddLearnersDialog({ open, onOpenChange, departmentId, group, section }) {
   const queryClient = useQueryClient()
@@ -472,7 +448,6 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section })
   )
 }
 
-/* Section create / rename dialog */
 
 function SectionDialog({ open, onOpenChange, departmentId, section }) {
   const queryClient = useQueryClient()
@@ -550,7 +525,6 @@ function SectionDialog({ open, onOpenChange, departmentId, section }) {
   )
 }
 
-/* One section: its roster and pending invitations */
 
 function LessonProgressCell({ completed, total, percentage }) {
   if (!total) return <span className="text-sm text-muted-foreground">No lessons yet</span>
@@ -565,13 +539,6 @@ function LessonProgressCell({ completed, total, percentage }) {
   )
 }
 
-/**
- * The one achievement a department head asks about first: has this learner
- * sat the certification's mock exam and passed it. Shown only on a real pass
- * -- an absent badge means "not yet", which is also what a learner with no
- * attempt at all should read as, so there is no "failed" variant here.
- */
-/** Up to two initials, standing in until a picture loads or where there is none. */
 function rosterInitials(name) {
   const parts = String(name ?? "").trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return "?"
@@ -756,9 +723,6 @@ function SectionPanel({
                         onClick={() => navigate(`/institution/departments/${departmentId}/learners/${row.learnerId}`)}
                       >
                         <div className="flex items-center gap-3">
-                          {/* A face is quicker to find in a list than a name
-                              is to read. Initials underneath, so an expired
-                              link still identifies the row. */}
                           <span className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-[11px] font-bold text-muted-foreground">
                             {rosterInitials(row.name)}
                             {rosterAvatars[row.avatarKey] ? (
@@ -858,11 +822,10 @@ function SectionPanel({
   )
 }
 
-/* The tab */
 
 export function SectionsTab({ departmentId, group }) {
   const queryClient = useQueryClient()
-  const [dialog, setDialog] = useState(null) // { section } | null
+  const [dialog, setDialog] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
 
   const sectionsQuery = useQuery({

@@ -22,16 +22,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-/**
- * Deterministic (non-AI) diagram grader. Parses the admin's reference
- * draw.io diagram and the learner's submission into structural graphs
- * ({@code DiagramGraphExtractor}), then greedily matches the learner's
- * nodes/edges against the reference's by label similarity, node type,
- * direction, and cardinality — awarding weighted partial credit per
- * required element. Never fabricates a score: an unusable reference (no
- * nodes) reports INVALID_REFERENCE so the caller leaves the answer pending
- * rather than penalizing the learner for an authoring gap.
- */
 @Service
 @RequiredArgsConstructor
 public class DiagramGradingService {
@@ -42,8 +32,6 @@ public class DiagramGradingService {
 
     private static final Pattern KEY_MARKER = Pattern.compile(
             "\\b(pk|fk)\\b|primary key|foreign key|\\(pk\\)|\\(fk\\)");
-    // Whitespace/string-boundary delimited (not \b) so a token ending in a
-    // non-word character like "*" still matches at the end of a label.
     private static final Pattern CARDINALITY = Pattern.compile(
             "(?:^|\\s)(0\\.\\.1|1\\.\\.1|0\\.\\.\\*|1\\.\\.\\*|0\\.\\.n|1\\.\\.n|1\\.\\.m|\\*|n|m)(?:\\s|$)");
     private static final Pattern TOKEN_SPLIT = Pattern.compile("[^a-z0-9]+");
@@ -83,25 +71,6 @@ public class DiagramGradingService {
                     "No diagram content was submitted.", List.of());
         }
 
-        /* Node matching, best pair first -- not reference order first.
-         *
-         * The old loop walked the reference in document order and let each
-         * node take the best learner node still unclaimed. On a diagram where
-         * two required entities have overlapping names that hands the wrong
-         * one out: reference "Order" is considered first, takes the learner's
-         * "Order Item" on a 0.7 substring similarity, and reference "Order
-         * Item" -- which the learner drew exactly right -- is then left with
-         * whatever remains, usually nothing. The learner loses a mark on an
-         * element they got perfectly right, and which one they lose depends on
-         * the order the admin happened to draw the reference in.
-         *
-         * Sorting every (reference, learner) pair by similarity and assigning
-         * the strongest first makes an exact match always win the node it
-         * belongs to. It also makes assignment order-independent, and it keeps
-         * the one-to-one rule that stops a learner's duplicate boxes from
-         * being counted twice. A pair below the credit threshold can still be
-         * assigned, but only after every stronger pair has been -- so it never
-         * takes a node some other reference element could have scored on. */
         record Pairing(int refIndex, DiagramGraphDto.Node learnerNode, double similarity) {}
 
         List<Pairing> pairings = new ArrayList<>();
@@ -142,8 +111,6 @@ public class DiagramGradingService {
             }
         }
 
-        // One learner edge answers at most one required relationship, the same
-        // way one learner node answers at most one required element.
         Set<String> usedLearnerEdgeIds = new HashSet<>();
         List<EdgeScore> edgeScores = new ArrayList<>();
         for (DiagramGraphDto.Edge refEdge : reference.edges()) {
@@ -164,9 +131,6 @@ public class DiagramGradingService {
             learnerNodesById.put(node.id(), node);
         }
 
-        // Accumulate in full precision and round only the final total — if
-        // every element rounded to 2dp first, a maxPoints that doesn't
-        // divide evenly (e.g. 10/3) would lose cents even on a perfect match.
         BigDecimal earnedRaw = BigDecimal.ZERO;
         List<ElementResultDto> elementResults = new ArrayList<>();
         int matchedNodes = 0;
@@ -210,17 +174,6 @@ public class DiagramGradingService {
         return new DiagramGradingResultDto("GRADED", earned, maxPoints, feedback, elementResults);
     }
 
-    /**
-     * Scores one required node, and says in the learner's own terms what it
-     * lost marks for.
-     *
-     * <p>The reason matters as much as the number here. A learner looking at a
-     * partially credited element used to see a tick, a smaller number of
-     * points, and nothing about which of the three separate things this method
-     * docks for -- an inexact label, a missing key marker, the wrong kind of
-     * shape -- actually happened. Those are different mistakes with different
-     * fixes, and the score alone cannot tell them apart.
-     */
     private NodeScore scoreNodeMatch(DiagramGraphDto.Node refNode, DiagramGraphDto.Node matched, double similarity) {
         if (matched == null || similarity < SIM_WEAK) {
             return new NodeScore(false, "NONE", 0.0, null,
@@ -244,8 +197,6 @@ public class DiagramGradingService {
             reasons.add("The label only loosely resembles the expected one.");
         }
 
-        // A required primary/foreign key element whose match doesn't itself
-        // carry a key marker got the label right but missed the key semantic.
         if (hasKeyMarker(refNode.labelKey()) && !hasKeyMarker(matched.labelKey())) {
             base *= 0.6;
             reasons.add("This element should be marked as a key (PK or FK); yours is not.");
@@ -271,8 +222,6 @@ public class DiagramGradingService {
             Set<String> usedLearnerEdgeIds) {
         String matchedSource = refToLearnerNodeId.get(refEdge.sourceId());
         String matchedTarget = refToLearnerNodeId.get(refEdge.targetId());
-        // A relationship can't exist if either endpoint's required node was
-        // never matched in the learner's diagram.
         if (matchedSource == null || matchedTarget == null) {
             return new EdgeScore(false, "NONE", 0.0, null,
                     "This relationship could not be checked: one of the elements it connects "
@@ -298,9 +247,6 @@ public class DiagramGradingService {
             reasons.add("It points the opposite way to the expected relationship.");
         }
         if (!labelGood) {
-            // Cardinality is the half of an ERD label learners most often get
-            // wrong, and "the label does not match" is not a useful thing to
-            // read when the words are right and only the multiplicity is off.
             Optional<String> expectedCardinality = cardinalityToken(refEdge.labelKey());
             Optional<String> drawnCardinality = cardinalityToken(found.labelKey());
             if (expectedCardinality.isPresent() && !expectedCardinality.equals(drawnCardinality)) {
@@ -347,19 +293,6 @@ public class DiagramGradingService {
         return edge.label() == null || edge.label().isBlank() ? base : base + " (" + edge.label() + ")";
     }
 
-    /**
-     * The best still-unclaimed learner edge running between two nodes.
-     *
-     * <p>Two things this settles that taking the first match did not. A learner
-     * edge already credited to another required relationship is skipped, so one
-     * drawn line cannot satisfy two of them -- between a pair of entities that
-     * the reference connects twice ("places" and "cancels" between Customer and
-     * Order), a learner who drew one arrow used to be paid for both. And where
-     * the learner did draw both, the one whose label actually matches is
-     * preferred over whichever came first in the file, so parallel
-     * relationships are told apart by what they say rather than by document
-     * order.
-     */
     private DiagramGraphDto.Edge bestEdge(
             List<DiagramGraphDto.Edge> edges,
             String sourceId,
@@ -394,12 +327,6 @@ public class DiagramGradingService {
         return textGood;
     }
 
-    /**
-     * 0.0–1.0 label similarity. Both blank is a perfect match (nothing was
-     * required); exact match is perfect; a substring relationship scores
-     * 0.6–0.8; otherwise falls back to word-level Jaccard overlap, scaled
-     * down since it's the weakest signal.
-     */
     private double labelSimilarity(String a, String b) {
         String x = a == null ? "" : a.trim();
         String y = b == null ? "" : b.trim();
@@ -436,7 +363,6 @@ public class DiagramGradingService {
         return matcher.find() ? Optional.of(matcher.group(1)) : Optional.empty();
     }
 
-    /** Generic, count-based feedback — never echoes reference labels/structure. */
     private String buildFeedback(int matchedNodes, int totalNodes, int matchedEdges, int totalEdges) {
         StringBuilder feedback = new StringBuilder();
         feedback.append(matchedNodes).append(" of ").append(totalNodes)

@@ -1,10 +1,3 @@
-/**
- * The languages a lesson's code block can be marked with. Keys are what the
- * lesson JSON stores (and what the generator is told to use); each maps to the
- * highlight.js grammar it is coloured with. Kept small on purpose: grammars
- * are registered one by one so the lesson page does not ship all of
- * highlight.js for a few samples.
- */
 import javascript from "react-syntax-highlighter/dist/esm/languages/hljs/javascript"
 import typescript from "react-syntax-highlighter/dist/esm/languages/hljs/typescript"
 import python from "react-syntax-highlighter/dist/esm/languages/hljs/python"

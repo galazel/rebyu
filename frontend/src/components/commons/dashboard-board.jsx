@@ -7,16 +7,6 @@ import "react-grid-layout/css/styles.css"
 import "react-resizable/css/styles.css"
 import "./dashboard-board.css"
 
-/**
- * The board's own width, measured continuously.
- *
- * Not `WidthProvider`, which the library ships for this: it reads `offsetWidth`
- * once on mount and then only re-checks on a *window* resize. Mounted inside a
- * layout that is still settling -- this page renders behind an entitlement
- * guard and a loading branch -- it measures near zero and stays there, which
- * collapses every tile into a sliver. A ResizeObserver on the container sees
- * the real width whenever it changes, window resize or not.
- */
 function useContainerWidth() {
   const ref = useRef(null)
   const [width, setWidth] = useState(0)
@@ -42,16 +32,6 @@ const BREAKPOINTS = { lg: 1024, md: 768, sm: 640, xs: 480, xxs: 0 }
 const ROW_HEIGHT = 176
 const MARGIN = [20, 20]
 
-/**
- * Places the default tile table on the six-column board. Only used until the
- * learner arranges the board themselves.
- *
- * A tile may name its own default spot with `x`/`y`, which is how the shipped
- * board is composed -- packing left to right can only ever produce full bands,
- * and the default arrangement deliberately leaves a short tile beside a tall
- * one. Tiles without coordinates still pack into the next free run, so a tile
- * added later lands somewhere sensible without anyone placing it by hand.
- */
 function defaultLayout(tiles) {
   let x = 0
   let y = 0
@@ -62,8 +42,6 @@ function defaultLayout(tiles) {
     const h = tile.row ?? 1
 
     if (Number.isInteger(tile.x) && Number.isInteger(tile.y)) {
-      // Packing continues below anything explicitly placed, so a coordinate-less
-      // tile never lands on top of one.
       y = Math.max(y, tile.y + h)
       rowHeight = 0
       x = 0
@@ -83,36 +61,11 @@ function defaultLayout(tiles) {
   })
 }
 
-/**
- * The learner's analytics board: tiles placed by coordinate, dragged and
- * resized freely.
- *
- * Coordinates rather than a sortable sequence, which is what this replaced. A
- * sortable grid can only reorder, and with tiles of different sizes CSS grid
- * back-fills the gaps -- so a tile dropped in a chosen spot would slide
- * somewhere else, which reads as the board fighting you.
- *
- * Tiles do settle upward after a move (`compactType="vertical"`). Leaving gaps
- * exactly where they fall is the stricter reading of "put it where I want", but
- * in practice one move opens a hole the board then keeps, and the page reads as
- * broken rather than arranged.
- *
- * @param tiles     [{ id, col, row, element }] — defaults for a fresh board
- * @param layout    saved [{ id, x, y, w, h }]
- * @param editing   whether tiles can be dragged and resized
- * @param onLayoutChange  called with the full layout after a move or resize
- */
 export function DashboardBoard({ tiles, layout, editing = false, onLayoutChange }) {
   const [containerRef, width] = useContainerWidth()
   const byId = useMemo(() => new Map(tiles.map((tile) => [tile.id, tile])), [tiles])
 
   const currentLayout = useMemo(() => {
-    // Every coordinate has to be present and whole. A row saved by an earlier
-    // version of this board carried `col`/`row` instead of `x/y/w/h`, and those
-    // entries parse into nulls -- handing react-grid-layout an item without
-    // coordinates puts the tile somewhere arbitrary rather than failing, which
-    // reads as the layout having been lost. Treated as unmentioned instead, so
-    // the tile takes its default place.
     const saved = (layout ?? []).filter(
       (item) =>
         byId.has(item.id) &&
@@ -120,8 +73,6 @@ export function DashboardBoard({ tiles, layout, editing = false, onLayoutChange 
     )
     const savedIds = new Set(saved.map((item) => item.id))
 
-    // Tiles the saved board does not mention keep their default placement, so
-    // shipping a new tile later never breaks an arrangement someone made.
     const missing = tiles.filter((tile) => !savedIds.has(tile.id))
     const fallback = defaultLayout(missing)
     const lowest = saved.reduce((max, item) => Math.max(max, item.y + item.h), 0)
@@ -142,8 +93,6 @@ export function DashboardBoard({ tiles, layout, editing = false, onLayoutChange 
   return (
     <div ref={containerRef} className="w-full">
       {width === 0 ? (
-        // Nothing is rendered until the width is known: laying tiles out
-        // against a guessed width and then re-flowing is a visible jump.
         <div className="h-96" aria-hidden="true" />
       ) : (
     <Responsive
@@ -155,18 +104,10 @@ export function DashboardBoard({ tiles, layout, editing = false, onLayoutChange 
       rowHeight={ROW_HEIGHT}
       margin={MARGIN}
       containerPadding={[0, 0]}
-      // Dragging is on a handle: these tiles hold buttons, checkboxes and
-      // selectable text, and a whole-surface drag target swallows all of it.
       draggableHandle=".rebyu-board-handle"
       isDraggable={editing}
       isResizable={editing}
       resizeHandles={["se"]}
-      // Tiles settle upward after every move, so the board never keeps a hole
-      // where one used to be. Placement is still the learner's -- what they
-      // choose is the order and which tiles share a row -- but the page stays
-      // a page rather than becoming a scatter of cards with gaps between them.
-      // (`null` here, which leaves gaps exactly as dropped, is what made the
-      // board look broken the moment anything was moved.)
       compactType="vertical"
       preventCollision={false}
       allowOverlap={false}

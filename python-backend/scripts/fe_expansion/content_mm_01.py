@@ -18,7 +18,6 @@ from figures import fig
 MAJOR = "Technology Element"
 MIDDLE = "Multimedia"
 
-# Lesson 1: Multimedia technology
 
 _mt_sections = [
     ("What Makes Media Different", [

@@ -2,8 +2,6 @@ import { base } from "./base"
 
 export const DEFAULT_GENERATION_TARGET = 100
 
-// Pass ownerDepartmentId to author a question that belongs to one Institution group
-// (only that group sees/uses it). Omit it for official, platform-wide questions.
 export async function saveQuestion(question, ownerDepartmentId) {
     const query = ownerDepartmentId != null ? `?ownerDepartmentId=${ownerDepartmentId}` : ""
     return await base(`questions${query}`, {
@@ -32,14 +30,6 @@ export async function getQuestionsByLesson(lessonId, includeDepartmentId) {
     })
 }
 
-// Omit includeDepartmentId for official questions only (what every existing caller
-// does). Pass a group id to also include that group's own questions -- the
-// caller must be able to act on that group, enforced server-side.
-//
-// certificationId narrows the read to one certification's lessons. Omitted,
-// this is the whole-bank read every existing caller makes; passed, the server
-// does the narrowing the caller would otherwise do over every question on the
-// platform.
 export async function getQuestions(includeDepartmentId, certificationId) {
     const params = new URLSearchParams()
     if (includeDepartmentId != null) params.set("includeDepartmentId", includeDepartmentId)
@@ -50,11 +40,6 @@ export async function getQuestions(includeDepartmentId, certificationId) {
     })
 }
 
-/**
- * Scope-derived eligible questions for an assessment, excluding any already
- * assigned to `examId`. Pass only the scope ids relevant to the assessment
- * type (lesson > middle > major > certification); the backend resolves scope.
- */
 export async function getEligibleQuestions({
     certificationId,
     majorId,
@@ -73,17 +58,6 @@ export async function getEligibleQuestions({
     return await base(`questions/eligible?${params.toString()}`, { method: "GET" })
 }
 
-/**
- * Generates editable question drafts (never saved automatically).
- * Returns { questions, analysis, warnings }.
- *
- * Options:
- * - sourceMode: CERTIFICATION_KNOWLEDGE | UPLOADED_FILES | COMBINED
- *   (omitted → the backend resolves a sensible default)
- * - questionCounts: legacy explicit per-type counts; when omitted the AI
- *   chooses suitable question types from the grounded source material.
- * - targetQuestionCount: soft target when no explicit counts are given.
- */
 export async function generateQuestionsFromFiles(
     certificationId,
     files,

@@ -42,8 +42,6 @@ public class DepartmentLearnerController {
 
     @GetMapping("/{id}")
     public DepartmentLearnerDto getById(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
-        // Same access rule as the list above: an id from another institution's
-        // group must not be readable just by guessing it.
         CurrentUserDto caller = requireInstitutionCaller(jwt);
         DepartmentLearnerDto learner = departmentLearnerService.getById(id);
         departmentService.getAccessibleById(

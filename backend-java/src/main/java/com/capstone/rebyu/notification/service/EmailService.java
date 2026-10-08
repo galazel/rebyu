@@ -25,7 +25,6 @@ public class EmailService {
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
-    /** The Resend API key, which is also the SMTP password. */
     @Value("${spring.mail.password:}")
     private String resendApiKey;
 
@@ -66,11 +65,6 @@ public class EmailService {
         sendHtml(recipientEmail, subject, text, html);
     }
 
-    /**
-     * The welcome sent when a partnership request is approved: what was
-     * granted, what it costs, and a button to the invoice. Sign-in details
-     * arrive separately (see sendTemporaryPassword / Cognito).
-     */
     public void sendPartnershipWelcome(
             boolean existingPartner,
             String recipientEmail,
@@ -83,9 +77,6 @@ public class EmailService {
     ) {
         String base = frontendUrl.replaceAll("/+$", "");
         String invoiceUrl = base + invoicePath;
-        /* An institution that already has access is not being welcomed and its
-           account is not "ready" -- it has been signing in for months. Same
-           invoice, same link, different first line. */
         String subject = existingPartner
                 ? "Your REBYU request (" + referenceNumber + ") is approved - invoice ready to pay"
                 : "Welcome to REBYU, " + institutionName + " - your partnership is approved";
@@ -141,17 +132,6 @@ public class EmailService {
         sendHtml(recipientEmail, subject, text, html);
     }
 
-    /** Sent when a learner passes a certification's mock exam: the badge is theirs. */
-    /**
-     * Sent when an admin rejects a partnership request.
-     *
-     * The approval has had an email since the beginning; the rejection had only
-     * an in-app notice, which an institution that submitted a request and then
-     * closed the tab never sees -- and which a public applicant, having no
-     * account yet, cannot receive at all. A decision either way is worth the
-     * same message, and an unexplained "no" is the one most likely to be
-     * chased, so the admin's remarks ride along when there are any.
-     */
     public void sendPartnershipRejected(
             String recipientEmail,
             String institutionName,
@@ -187,10 +167,6 @@ public class EmailService {
         sendHtml(recipientEmail, subject, text, html);
     }
 
-    /**
-     * Sent when a partnership ends: access is already gone by the time this
-     * arrives, so it says so plainly and states what happened to the money.
-     */
     public void sendPartnershipCancelled(
             String recipientEmail,
             String institutionName,
@@ -221,11 +197,6 @@ public class EmailService {
         sendHtml(recipientEmail, subject, text, html);
     }
 
-    /**
-     * Congratulations email sent the moment the learner earns both the badge
-     * and the numbered certificate. It renders a formal "Badge of Completion"
-     * card inside the email body and links to the certificate page.
-     */
     public void sendBadgeEarned(String recipientEmail, String learnerName, String certificationTitle,
                                 String score, boolean hasBadgeImage,
                                 Long certificationId, String certificateNumber,
@@ -256,7 +227,6 @@ public class EmailService {
                 certificateNumber == null ? "—" : certificateNumber,
                 dateStr, certLink);
 
-        // Badge image block — shown only when the certification has an uploaded image.
         String badgeBlock = hasBadgeImage
                 ? "<div style=\"text-align:center;margin:16px 0\">"
                         + "<img src=\"" + badgeImgUrl + "\" alt=\"" + escape(certificationTitle) + " badge\""
@@ -266,35 +236,25 @@ public class EmailService {
                         + "display:flex;align-items:center;justify-content:center;font-size:30px\">✓</div>";
 
         String html = frame(
-                // certificate card block
                 "<div style=\"border:2px solid #2f6b4f;border-radius:10px;overflow:hidden;margin-bottom:20px\">"
-                // green top bar
                 + "<div style=\"background:linear-gradient(90deg,#1a5c3a 0%,#2d8c5e 50%,#1a5c3a 100%);height:7px\"></div>"
-                // inner padded area
                 + "<div style=\"padding:24px 28px;text-align:center;font-family:Georgia,'Times New Roman',serif\">"
                 + "<p style=\"margin:0 0 2px;font-size:10px;font-weight:bold;letter-spacing:0.3em;color:#1a5c3a;text-transform:uppercase\">REBYU LEARNING</p>"
-                // decorative dots
                 + "<p style=\"margin:6px 0 10px;color:#1a5c3a;font-size:12px\">· · ·</p>"
-                // title
                 + "<p style=\"margin:0 0 4px;font-size:22px;font-weight:bold;color:#1a5c3a\">Badge of Completion</p>"
                 + "<p style=\"margin:0 0 14px;font-size:12px;color:#6b706c;font-style:italic\">This formally acknowledges that</p>"
-                // badge image
                 + badgeBlock
-                // name
                 + "<p style=\"margin:10px 0 4px;font-size:20px;font-weight:bold;color:#111827\">" + escape(learnerName) + "</p>"
                 + "<p style=\"margin:0 0 4px;font-size:12px;color:#6b706c\">has achieved the badge of completion for</p>"
                 + "<p style=\"margin:0 0 16px;font-size:14px;font-weight:bold;letter-spacing:0.08em;text-transform:uppercase;color:#111827\">" + escape(certificationTitle) + "</p>"
-                // score + cert number row
                 + "<table style=\"width:100%;border-top:1px solid #dce8e2;margin-top:4px;padding-top:14px;font-size:11px;border-collapse:collapse\">"
                 + "<tr>"
                 + (score != null && !score.isBlank() ? "<td style=\"width:50%;padding:8px 4px;border-right:1px solid #dce8e2\"><span style=\"display:block;color:#6b706c;letter-spacing:0.12em;text-transform:uppercase;font-size:9px\">Score</span><b>" + escape(score) + "</b></td>" : "<td style=\"width:50%;padding:8px 4px;border-right:1px solid #dce8e2\"><span style=\"display:block;color:#6b706c;letter-spacing:0.12em;text-transform:uppercase;font-size:9px\">Date</span><b>" + escape(dateStr) + "</b></td>")
                 + "<td style=\"width:50%;padding:8px 4px\"><span style=\"display:block;color:#6b706c;letter-spacing:0.12em;text-transform:uppercase;font-size:9px\">Certificate No.</span><b style=\"font-family:Consolas,Menlo,monospace\">" + escape(certificateNumber == null ? "—" : certificateNumber) + "</b></td>"
                 + "</tr></table>"
                 + "</div>"
-                // green bottom bar
                 + "<div style=\"background:linear-gradient(90deg,#1a5c3a 0%,#2d8c5e 50%,#1a5c3a 100%);height:7px\"></div>"
                 + "</div>"
-                // CTA
                 + "<p style=\"text-align:center\">"
                 + "<a href=\"" + certLink + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:bold;display:inline-block\">View your Badge of Completion</a>"
                 + "</p>"
@@ -303,7 +263,6 @@ public class EmailService {
         sendHtml(recipientEmail, subject, text, html);
     }
 
-    /** Sent alongside the badge email, separately: the numbered certificate of completion. */
     public void sendCertificateIssued(String recipientEmail, String learnerName, String certificationTitle,
                                       String certificateNumber, String score, java.time.LocalDateTime issuedAt,
                                       Attachment certificatePdf) {
@@ -341,7 +300,6 @@ public class EmailService {
         sendHtmlWithAttachment(recipientEmail, subject, text, html, certificatePdf);
     }
 
-    /** First sign-in details for an account REBYU created, as the Cognito email used to send. */
     public void sendTemporaryPassword(String recipientEmail, String temporaryPassword, String signInUrl) {
         String text = """
                 Hello,
@@ -366,14 +324,12 @@ public class EmailService {
         sendHtml(recipientEmail, "Your temporary password", text, html);
     }
 
-    /** The REBYU wordmark as an email header, linked to the site. */
     public String logoHeader() {
         String base = frontendUrl.replaceAll("/+$", "");
         return "<a href=\"" + base + "\" style=\"display:inline-block;margin:0 0 14px;"
                 + "font-size:20px;font-weight:bold;letter-spacing:.04em;color:#2f6b4f;text-decoration:none\">REBYU</a>";
     }
 
-    /** The standard REBYU email frame: paper, white card, logo on top, body inside. */
     public String frame(String bodyHtml) {
         return "<div style=\"font-family:Arial,Helvetica,sans-serif;background:#f4f1ea;padding:24px\">"
                 + "<div style=\"max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e3ddd0;border-radius:14px;padding:24px;color:#2c3a33\">"
@@ -384,14 +340,8 @@ public class EmailService {
         return value == null ? "" : value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
     }
 
-    /** An HTML email with a plain-text fallback (the text alone over SMTP). */
-    /** One file riding on an email: its name, MIME type and bytes. */
     public record Attachment(String filename, String contentType, byte[] bytes) {}
 
-    /**
-     * Like {@link #sendHtml} with a file attached. Resend takes attachments
-     * as base64 in the same JSON; SMTP needs a MIME multipart message.
-     */
     public void sendHtmlWithAttachment(String to, String subject, String text, String html, Attachment attachment) {
         if (attachment == null) {
             sendHtml(to, subject, text, html);
@@ -442,11 +392,6 @@ public class EmailService {
                 + ",\"html\":" + json(html) + "}");
     }
 
-    /**
-     * Sends through Resend's HTTPS API when a Resend key is configured, and over
-     * SMTP otherwise. Railway blocks outbound SMTP, so on the live server every
-     * SMTP send failed -- the temporary-password and invitation emails never left.
-     */
     private void send(SimpleMailMessage message) {
         if (resendApiKey == null || resendApiKey.isBlank()) {
             mailSender.send(message);

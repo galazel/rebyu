@@ -17,7 +17,6 @@ from figures import fig
 MAJOR = "Technology Element"
 MIDDLE = "Network"
 
-# Lesson 1: Network architecture
 
 _arch_sections = [
     ("Why Layers", [
@@ -766,7 +765,6 @@ LESSON_NET_ARCH = lesson(
         ],
     ))
 
-# Lesson 2: Data communication and control
 
 _comm_sections = [
     ("Getting Data Across a Medium", [

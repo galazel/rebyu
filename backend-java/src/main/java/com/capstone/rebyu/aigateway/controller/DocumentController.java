@@ -23,17 +23,6 @@ public class DocumentController {
     private final DocumentIngestionService documentIngestionService;
     private final RoleGuard guard;
 
-    /**
-     * Admits only administrators, to every handler on this controller.
-     *
-     * <p>A {@code @ModelAttribute} method runs before each handler in its
-     * own controller, so a handler added later is covered without anyone
-     * remembering to guard it. This class previously took no {@code Jwt}
-     * at all and {@code /api/ai/documents} was not listed in SecurityConfig,
-     * so the whole knowledge corpus was public: listable, uploadable and
-     * DELETABLE by anyone. It is the retrieval corpus the AI tutor answers
-     * from, so planting a document there edits what the tutor teaches.
-     */
     @ModelAttribute
     void requireAdmin(@AuthenticationPrincipal Jwt jwt) {
         guard.requireAdmin(jwt);

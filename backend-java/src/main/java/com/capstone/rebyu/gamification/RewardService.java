@@ -14,7 +14,6 @@ import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 
-/** Server-authoritative balances. The append-only ledger makes awards idempotent and auditable. */
 @Service
 @RequiredArgsConstructor
 public class RewardService {
@@ -34,7 +33,6 @@ public class RewardService {
         return toBalance(balances.findById(learnerId).orElseThrow());
     }
 
-    /** One configurable-size grant per active Pro learner per calendar month. */
     @Transactional
     public void grantMonthlyProAiCredits(Long learnerId) {
         if (!entitlements.hasActiveProSubscription(learnerId)) return;
@@ -65,7 +63,6 @@ public class RewardService {
         return new Conversion(balance(learnerId), credits, true);
     }
 
-    /** Charges the configured AI-generation cost per idempotency key. Returns false when already charged. */
     @Transactional
     public boolean spendAiCredit(Long learnerId, String requestKey) {
         ensureBalance(learnerId);
@@ -135,14 +132,6 @@ public class RewardService {
         return new PracticeReward(xp, coins, true);
     }
 
-    /**
-     * Flat-amount XP award for a one-off milestone (lesson completion, assessment
-     * completion, ...). Idempotent on {@code sourceKey}: a caller that fires
-     * twice for the same key (e.g. a retried request, or a lesson re-marked
-     * complete) only ever credits the balance once.
-     *
-     * @return whether this call actually credited XP, or was a no-op duplicate
-     */
     @Transactional
     public boolean awardXp(Long learnerId, int xp, String reason, String sourceKey) {
         if (xp <= 0) return false;

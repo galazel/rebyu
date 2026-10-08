@@ -21,10 +21,6 @@ import {
   submitPracticeAnswer,
 } from "@/services/practiceService"
 
-/* How long each kind of item gets. A multiple-choice item is a recognition
-   task -- twenty seconds is long enough to read four options and short enough
-   that you answer rather than deliberate. Typed recall needs longer because it
-   needs typing. */
 const MCQ_SECONDS = 20
 const RECALL_SECONDS = 30
 
@@ -84,10 +80,6 @@ export default function LearnerPracticeAttemptPage() {
   const isLast = studySet && index === studySet.items.length - 1
   const choices = useMemo(() => (item ? choicesOf(item) : []), [item])
 
-  /* The clock's own reading at the moment the answer was locked in. Reading
-     `remaining` when the points are awarded would score whatever the clock had
-     ticked down to by the time the request came back, which turns a slow
-     network into a lower score. */
   const remainingRef = useRef(seconds)
 
   const lockIn = useCallback(
@@ -123,9 +115,6 @@ export default function LearnerPracticeAttemptPage() {
     [attempt, flashcardRating, isFlashcard, isSaving, item, locked, seconds]
   )
 
-  /* Time up is an answer: whatever is in the box goes, blank included, and the
-     server scores blank as wrong. Leaving the question open instead would make
-     the clock decorative. */
   const remaining = useQuestionClock({
     seconds,
     index,
@@ -196,9 +185,6 @@ export default function LearnerPracticeAttemptPage() {
             You got {completion.score} of {completion.totalItems} correct.
           </p>
 
-          {/* Two numbers, told apart. The percentage above is the attempt as the
-              server recorded it; this one is the round's own game score and is
-              not saved anywhere. */}
           <p className="mt-4 font-rb-display text-lg font-extrabold text-rb-fox">
             {score.toLocaleString()} speed points
             <span className="ml-2 align-middle text-xs font-bold uppercase tracking-wide text-white/50">
@@ -339,8 +325,6 @@ export default function LearnerPracticeAttemptPage() {
         </div>
       )}
 
-      {/* The verdict, full width under the tiles: at this size a learner is
-          looking at the middle of the screen, not at a line of small type. */}
       {locked ? (
         <div
           className={`mt-6 rounded-2xl p-5 text-center ${

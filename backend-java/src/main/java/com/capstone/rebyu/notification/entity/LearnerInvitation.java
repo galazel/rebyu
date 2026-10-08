@@ -37,15 +37,10 @@ public class LearnerInvitation {
     @JoinColumn(name = "learner_id")
     private Learner learner;
 
-    // The group this invitation places the learner into on acceptance. Nullable
-    // only for invitations sent before groups scoped this flow; every new
-    // invitation is sent by (and requires) a group leader.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "department_id")
     private Department department;
 
-    // The group leader who sent this invitation -- used to attribute the
-    // resulting DepartmentLearner row on acceptance.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invited_by")
     private User invitedBy;
@@ -53,9 +48,6 @@ public class LearnerInvitation {
     @Column(nullable = false, length = 254)
     private String email;
 
-    // Optional: captured when the inviter provides the learner's name (like
-    // NetAcad's first/last/email invite). Used to greet the invite and to
-    // backfill the learner's profile name on acceptance if it's still blank.
     @Column(name = "first_name", length = 100)
     private String firstName;
 
@@ -74,7 +66,6 @@ public class LearnerInvitation {
     @Column(name = "accepted_at")
     private LocalDateTime acceptedAt;
 
-    /** Section the learner is placed into on acceptance, when the invite was sent for one. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "section_id")
     private com.capstone.rebyu.department.entity.InstitutionSection section;

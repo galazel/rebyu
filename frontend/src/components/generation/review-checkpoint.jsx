@@ -16,18 +16,6 @@ import { ValidationReport } from "./validation-report"
 import { VersionHistory } from "./version-history"
 import { stageLabel } from "./task-status"
 
-/**
- * The review pause, announced inline at the tail of the transcript.
- *
- * Modelled on a terminal permission prompt: the run has stopped exactly here, so
- * the notice appears exactly here — one line saying what is waiting and a button
- * to open it. The artifact itself needs room to be read properly, which a lane
- * in a scrolling feed cannot give it, so reading and deciding happen in a modal
- * sized for the job.
- *
- * The amber left edge is the only strong colour in the transcript. It is what
- * makes "the run is waiting on you" visible from a glance at the scrollbar.
- */
 export function ReviewCheckpoint({
   review,
   versions,
@@ -51,9 +39,6 @@ export function ReviewCheckpoint({
 
   const position = total ? `${(index ?? 0) + 1} of ${total}` : null
 
-  // Every decision moves the run on, so none of them leave anything to look at.
-  // A dialog left open over the next item's transcript would show a stale
-  // artifact with live buttons.
   const submit = (decision) => {
     setOpen(false)
     onSubmit?.(decision)
@@ -87,9 +72,6 @@ export function ReviewCheckpoint({
       </section>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        {/* `sm:max-w-none` is load-bearing: DialogContent ships with
-            `sm:max-w-lg`, and an unprefixed `max-w-none` does not override it —
-            tailwind-merge treats the two breakpoints as separate utilities. */}
         <DialogContent className="flex h-[88vh] w-[96vw] max-w-none flex-col gap-0 overflow-hidden p-0 sm:w-[92vw] sm:max-w-none lg:w-[84vw] xl:w-[72rem]">
           <DialogHeader className="gap-1.5 border-b border-border px-6 py-4 pr-14 text-left">
             <DialogTitle className="flex flex-wrap items-center gap-2.5 text-lg">
@@ -124,9 +106,6 @@ export function ReviewCheckpoint({
             </div>
           </div>
 
-          {/* The decision stays pinned below the content: an admin who has just
-              read to the bottom of a twenty-question batch should not have to
-              scroll back up to act on it. */}
           <div className="border-t border-border bg-background px-6 py-4">
             <ReviewActions
               payload={payload}

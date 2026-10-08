@@ -11,18 +11,6 @@ import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Verifies the {@code Paymongo-Signature} header PayMongo attaches to every
- * webhook delivery, so a forged POST to the webhook URL (which is otherwise
- * a public, unauthenticated endpoint by necessity) can't be treated as a
- * real payment event.
- *
- * <p>Header format: {@code t=<unix_ts>,te=<test_mode_hex_hmac>,li=<live_mode_hex_hmac>}.
- * The signed content is {@code "<unix_ts>.<raw_body>"}, HMAC-SHA256'd with
- * the endpoint's signing secret (from the PayMongo dashboard), hex-encoded.
- * Only one of te/li is populated depending on whether the secret used is a
- * test or live signing secret.
- */
 @Slf4j
 @Component
 public class PayMongoWebhookVerifier {
@@ -30,24 +18,13 @@ public class PayMongoWebhookVerifier {
     @Value("${paymongo.webhook-secret:}")
     private String webhookSecret;
 
-    /**
-     * Accept unsigned webhooks when no secret is configured. Off by default:
-     * an environment that forgot the secret must refuse webhooks, not treat
-     * every request as a genuine "payment paid" event. Enable only for
-     * isolated local testing.
-     */
     @Value("${paymongo.allow-unsigned-webhooks:false}")
     private boolean allowUnsigned;
 
-    /** True if a webhook secret is configured at all -- see {@link #verify}. */
     public boolean isConfigured() {
         return webhookSecret != null && !webhookSecret.isBlank();
     }
 
-    /**
-     * @return true if the signature is valid, or if no secret is configured
-     *     (logged loudly so this can't silently stay unverified forever).
-     */
     public boolean verify(String rawBody, String signatureHeader) {
         if (!isConfigured()) {
             if (allowUnsigned) {

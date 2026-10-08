@@ -27,11 +27,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Tenant-scoped read model for the institution portal. Every list is filtered to the
- * caller's own institution on the server (never the client), closing the cross-tenant
- * leak where the portal fetched flat global lists and filtered them in the browser.
- */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -68,9 +63,6 @@ public class InstitutionPortalService {
                         .toList();
 
 
-        /* Which group each assignment sits in. One query for the whole
-           institution rather than one per learner -- the roster names the group
-           on every row, and doing that per row is a request per learner. */
         List<GroupMembershipDto> groupMemberships =
                 groupAssigneeRepository.assignmentGroupsByInstitution(institutionId).stream()
                         .map(row -> new GroupMembershipDto(
@@ -81,35 +73,17 @@ public class InstitutionPortalService {
                 invitationService.listInvitations(institutionId), groupMemberships);
     }
 
-    /**
-     * Exam results for one learner, but only if that learner actually belongs to the
-     * caller's institution. Cross-tenant/unknown learners are reported as "not found"
-     * so a manager can't probe or read another institution's learner results.
-     */
     public List<ExamResultDto> learnerExamResults(Long institutionId, Long learnerId) {
         requireOwnLearner(institutionId, learnerId);
         return examResultRepository.findByLearner_LearnerId(learnerId).stream()
                 .map(examResultMapper::toDto).toList();
     }
 
-    /**
-     * The badges and certificates one of the caller's own learners has earned.
-     *
-     * <p>The same rows {@code /api/learners/me/awards} serves a learner about
-     * themselves, read here by the institution that enrolled them -- a
-     * department head reviewing a learner should not have to ask them for a
-     * screenshot of their own badge wall.
-     */
     public List<CertificationAwardService.AwardDto> learnerAwards(Long institutionId, Long learnerId) {
         requireOwnLearner(institutionId, learnerId);
         return awardService.awardsOf(learnerId, id -> certificationRepository.findById(id).orElse(null));
     }
 
-    /**
-     * Rejects a learner outside the caller's tenant as a 404 rather than a 403:
-     * to this institution the learner does not exist, and saying "forbidden"
-     * would confirm the id belongs to someone.
-     */
     private void requireOwnLearner(Long institutionId, Long learnerId) {
         if (!institutionCertLearnerRepository.existsByLearner_LearnerIdAndInstitutionCert_Institution_InstitutionId(learnerId, institutionId)) {
             throw new EntityNotFoundException("Learner not found in this institution: " + learnerId);

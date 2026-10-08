@@ -6,14 +6,6 @@ import { playFinalRoundBell } from "@/lib/sound.js"
 
 const HOLD_MS = 2800
 
-/**
- * The bell between the main round and the final round.
- *
- * A full-page takeover in the style of the award modal: the ground fades in,
- * the words punch in with a boxing-poster spring, the bell rings, confetti
- * falls. It leaves on its own after a short hold, or the moment the learner
- * clicks -- it announces a transition, it does not ask a question.
- */
 export function FinalRoundInterstitial({ open, onContinue, count }) {
   const firedRef = useRef(false)
 

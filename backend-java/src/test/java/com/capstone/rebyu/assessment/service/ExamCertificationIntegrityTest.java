@@ -15,13 +15,6 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.*;
 
-/**
- * Verifies that mock exams are correctly assigned to their certifications.
- *
- * <p>When a learner takes a mock exam in certification A, the attempt should
- * appear in certification A's analytics, not in another certification's. This
- * test ensures the exam records have the correct certification foreign key.
- */
 @SpringBootTest
 @ActiveProfiles("test")
 public class ExamCertificationIntegrityTest {
@@ -35,8 +28,6 @@ public class ExamCertificationIntegrityTest {
     @Test
     void mockExamsAreCorrectlyAssignedToCertifications() {
         List<Exam> allMocks = examRepository.findByCertification_CertificationId(null).stream()
-                // (Overload doesn't exist yet; this test will drive the implementation)
-                // For now, we'll fetch all exams and filter manually
                 .filter(e -> "MOCK_EXAM".equals(
                         (e.getExamType() != null) ? e.getExamType().getExamTypeText() : null))
                 .collect(Collectors.toList());
@@ -44,7 +35,6 @@ public class ExamCertificationIntegrityTest {
         Map<String, List<Exam>> byTitle = allMocks.stream()
                 .collect(Collectors.groupingBy(Exam::getTitle));
 
-        // Each mock exam title should belong to exactly one certification
         for (String title : byTitle.keySet()) {
             List<Exam> examsWithTitle = byTitle.get(title);
             if (examsWithTitle.size() > 1) {
@@ -63,10 +53,6 @@ public class ExamCertificationIntegrityTest {
                 .allMatch(v -> v.size() == 1, "Each mock exam title appears in exactly one certification");
     }
 
-    /**
-     * Diagnostic: list all mock exams and their certification assignments.
-     * Use this to debug cross-certification leaks.
-     */
     @Test
     void listMockExamAssignments() {
         List<Exam> allExams = examRepository.findAll();

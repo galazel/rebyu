@@ -12,11 +12,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Learner-scoped progress analytics. The learner id is always resolved from
- * the validated Cognito access token -- never accepted from the client -- so a
- * learner can only ever request their own analytics.
- */
 @RestController
 @RequestMapping("/api/learners/me/certifications")
 @RequiredArgsConstructor

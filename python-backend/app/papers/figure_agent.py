@@ -47,8 +47,6 @@ from app.utils.helpers import get_llm
 
 logger = logging.getLogger(__name__)
 
-#: Deliberately small. The reply is three short fields, and a vision model
-#: given room to narrate will describe the diagram instead of classifying it.
 _MAX_CHOICES = 8
 
 SYSTEM = """You are looking at one question from a printed IT certification
@@ -120,10 +118,6 @@ def _parse(body: str, choice_letters: int) -> FigureVerdict:
         logger.warning("Figure agent reply missing fields: %r", data)
         return FigureVerdict.unknown()
 
-    # A count that disagrees with the paper is the model guessing, not seeing:
-    # a question with four lettered options cannot have seven option pictures.
-    # Rejected rather than clamped, because clamping would invent an
-    # assignment of pictures to letters that nothing verified.
     if are_choices and not (2 <= count <= min(choice_letters, _MAX_CHOICES)):
         logger.info(
             "Figure agent said %d option pictures for %d choices; ignoring",
@@ -166,8 +160,6 @@ async def read_question_figures(
             ]),
         ])
     except Exception:
-        # An import must survive the AI being unavailable; the geometric
-        # answer is still a usable one.
         logger.exception("Figure agent call failed; keeping the geometric split")
         return FigureVerdict.unknown()
 

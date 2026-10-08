@@ -36,8 +36,6 @@ async def handle_assessment_submitted(payload: dict) -> None:
         body = (f"{'Passed' if passed else 'Did not pass'} -- you scored {percentage:.0f}% on "
                 f"{attempt['exam_title']} (attempt #{attempt['attempt_number']}).")
     else:
-        # The Java side publishes only after the score is saved, so this is a
-        # safety net, not a state: there is no manual-review step to wait on.
         body = f"Your results for {attempt['exam_title']} (attempt #{attempt['attempt_number']}) are ready."
 
     with SessionLocal() as session:

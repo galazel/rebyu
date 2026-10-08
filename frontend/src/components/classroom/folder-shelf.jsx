@@ -6,27 +6,12 @@ import { X } from "@/components/icons"
 
 gsap.registerPlugin(useGSAP)
 
-/**
- * A row of closed paper folders. Clicking one lays it open below the row like a
- * book: the cover swings over to the left, a couple of loose sheets riffle after
- * it, and the notes on the right-hand page are written in line by line.
- *
- * Driven by one GSAP timeline per opened folder, so closing is the same motion
- * played backwards. Below `md` there is no room for a spread; the cover lifts
- * away instead and the two pages stack.
- *
- * items: [{ key, tab, title, meta, icon, color: { face, edge }, left, right }]
- *   `left`  -- inside of the cover (identity, call to action)
- *   `right` -- the ruled page; give each line `className="rb-spread-line"` so it
- *              is written in on open.
- */
 export function FolderShelf({ items = [], hint = "click to open", carousel = true }) {
   const [openKey, setOpenKey] = useState(null)
   const [isHovered, setIsHovered] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [tempVisible, setTempVisible] = useState(false)
 
-  // Smooth department transition state
   const [displayItems, setDisplayItems] = useState(items)
   const [isFading, setIsFading] = useState(false)
   const transitionTimerRef = useRef(null)
@@ -102,10 +87,8 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
     else setOpenKey(key)
   }
 
-  // Each folder card occupies 280px + 24px gap = 304px
   const ITEM_STRIDE = 304
 
-  // Ensure enough items for seamless infinite loop across all viewport widths
   const baseItems = useMemo(() => {
     if (!displayItems || displayItems.length === 0) return []
     let list = [...displayItems]
@@ -117,7 +100,6 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
 
   const cycleWidth = baseItems.length * ITEM_STRIDE
 
-  // 4 segments so there is always abundant runway before hitting browser scroll limits
   const marqueeItems = useMemo(() => {
     return [...baseItems, ...baseItems, ...baseItems, ...baseItems]
   }, [baseItems])
@@ -133,18 +115,15 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
     const trackWidth = track.clientWidth
     if (trackWidth <= 0) return
 
-    // Thumb width: proportional to viewport, clamped between 36px and 25% of track
     const thumbWidth = Math.max(36, Math.min(trackWidth * 0.25, (el.clientWidth / cycleWidth) * trackWidth))
     thumb.style.width = `${thumbWidth}px`
 
     const maxTrack = trackWidth - thumbWidth
     if (maxTrack <= 0) return
 
-    // Progress within the active cycle [0, 1)
     const relativeScroll = ((el.scrollLeft - cycleWidth) % cycleWidth + cycleWidth) % cycleWidth
     const progress = Math.max(0, Math.min(1, relativeScroll / cycleWidth))
 
-    // Smooth reset glide when arriving at the end and wrapping back to the first
     if (prevProgressRef.current > 0.85 && progress < 0.15) {
       thumb.style.transition = "transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), background-color 0.15s ease"
     } else {
@@ -156,7 +135,6 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
     thumb.style.transform = `translateX(${translateX}px)`
   }, [cycleWidth])
 
-  // Handle department changes with silky-smooth dissolve
   useEffect(() => {
     if (items === displayItems) return
 
@@ -194,7 +172,6 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
     }, 1800)
   }, [])
 
-  // Position at middle segment initially so users can scroll left or right immediately
   useEffect(() => {
     const timer = setTimeout(() => {
       if (scrollRef.current && cycleWidth > 0) {
@@ -205,14 +182,13 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
     return () => clearTimeout(timer)
   }, [cycleWidth, updateThumb])
 
-  // Marquee auto-scroll loop (pauses on hover, drag, open folder, or reduced motion)
   useEffect(() => {
     if (!carousel || displayItems.length === 0 || cycleWidth <= 0) return
     if (prefersReduced()) return
 
     let animId
     let lastTime = performance.now()
-    const speed = 35 // px per second
+    const speed = 35
 
     const tick = (now) => {
       const dt = (now - lastTime) / 1000
@@ -351,11 +327,9 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
             triggerTemporaryVisibility()
           }}
         >
-          {/* Subtle edge fades for continuous shelf depth */}
           <div className="pointer-events-none absolute inset-y-0 left-0 w-10 md:w-20 bg-gradient-to-r from-white via-white/80 to-transparent z-10" />
           <div className="pointer-events-none absolute inset-y-0 right-0 w-10 md:w-20 bg-gradient-to-l from-white via-white/80 to-transparent z-10" />
 
-          {/* Draggable & scrollable carousel row */}
           <div
             ref={scrollRef}
             onScroll={handleScroll}
@@ -400,7 +374,6 @@ export function FolderShelf({ items = [], hint = "click to open", carousel = tru
             </div>
           </div>
 
-          {/* Subtle disappearing scrollbar */}
           <div
             className={`mt-4 flex items-center justify-center transition-all duration-300 ease-out ${
               isFading ? "opacity-0 scale-95" : isVisible ? "opacity-100 scale-100" : "opacity-0 pointer-events-none scale-100"

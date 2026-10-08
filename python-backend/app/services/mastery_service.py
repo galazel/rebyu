@@ -137,15 +137,6 @@ def process_mastery_event(session: Session, payload: MasteryEventCreate) -> Mast
     if duplicate is not None:
         return duplicate
 
-    # A concurrent first-ever event for the same learner+lesson can race here:
-    # both requests see no existing LearnerLessonMastery row (nothing to lock
-    # with SELECT ... FOR UPDATE), both attempt an insert, and the loser hits
-    # the table's (learner_id, lesson_id) primary-key conflict on commit. That
-    # is a different event (different source_event_id) than the one already
-    # committed, so the plain "is this a duplicate delivery" check above can't
-    # catch it. Retry once: by the time we retry, the winner's row exists, so
-    # this attempt's SELECT ... FOR UPDATE finds and locks it instead of
-    # trying a second blind insert.
     last_error: IntegrityError | None = None
     for attempt in range(2):
         try:
@@ -168,7 +159,6 @@ def process_mastery_event(session: Session, payload: MasteryEventCreate) -> Mast
                 continue
             raise
 
-    # Unreachable, but keeps type-checkers happy about a guaranteed return/raise above.
     raise last_error  # pragma: no cover
 
 
@@ -191,9 +181,6 @@ def _process_mastery_event_once(session: Session, payload: MasteryEventCreate) -
     )
     previous_level = mastery.mastery_level if mastery else None
 
-    # The same Bayes-rule-plus-forgetting update pyBKT applies at each step,
-    # in plain Python so one event costs one row. The parameters are the
-    # Smart Defaults (see app.ml.smart_defaults); there is no fitted model.
     fallback_prior = mastery.mastery_probability if mastery else parameters.prior
     result = update_mastery(
         mastery_before=fallback_prior,
@@ -235,7 +222,6 @@ def _process_mastery_event_once(session: Session, payload: MasteryEventCreate) -
         mastery.last_event_id = payload.source_event_id
         mastery.last_updated = now
 
-    # Evidence counters + curriculum path (kept current from each event).
     if payload.is_correct:
         mastery.correct_count = (mastery.correct_count or 0) + 1
     else:
@@ -267,7 +253,6 @@ def _process_mastery_event_once(session: Session, payload: MasteryEventCreate) -
     )
     session.add(event)
 
-    # Audit trail for result-page mastery changes and analytics.
     session.add(
         LearnerLessonMasteryHistory(
             event_id=payload.source_event_id,
@@ -286,7 +271,6 @@ def _process_mastery_event_once(session: Session, payload: MasteryEventCreate) -
             created_at=now,
         )
     )
-    # Idempotency ledger with a deterministic payload hash for conflict detection.
     session.add(
         BktProcessedEvent(
             event_id=payload.source_event_id,
@@ -299,8 +283,6 @@ def _process_mastery_event_once(session: Session, payload: MasteryEventCreate) -
         )
     )
 
-    # Recalculate the lesson priority and roll it up into the parent middle and
-    # major categories, in the SAME transaction. Requires the curriculum path.
     if payload.certification_id is not None:
         session.flush()
         computed = priority_service.compute_lesson_priority(mastery, settings)

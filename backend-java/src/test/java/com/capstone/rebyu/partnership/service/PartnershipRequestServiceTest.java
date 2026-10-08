@@ -82,7 +82,6 @@ class PartnershipRequestServiceTest {
         return dto;
     }
 
-    // 1: client-supplied status that differs from the persisted status is discarded
     @Test
     void update_dtoStatusDiffersFromExisting_preservesOriginalStatus() {
         when(partnershipRequestRepository.findById(REQUEST_ID))
@@ -100,7 +99,6 @@ class PartnershipRequestServiceTest {
         assertEquals(PartnershipRequest.Status.PENDING, captor.getValue().getStatus());
     }
 
-    // 2: normal case, dto status matches existing status
     @Test
     void update_dtoStatusMatchesExisting_savesSameStatus() {
         when(partnershipRequestRepository.findById(REQUEST_ID))
@@ -113,7 +111,6 @@ class PartnershipRequestServiceTest {
         assertEquals(PartnershipRequest.Status.UNDER_REVIEW, result.getStatus());
     }
 
-    // 3: updating a non-existent id throws EntityNotFoundException
     @Test
     void update_nonExistentId_throwsEntityNotFoundException() {
         when(partnershipRequestRepository.findById(REQUEST_ID)).thenReturn(Optional.empty());

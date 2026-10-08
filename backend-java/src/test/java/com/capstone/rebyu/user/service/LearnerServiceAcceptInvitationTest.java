@@ -112,7 +112,6 @@ class LearnerServiceAcceptInvitationTest {
         assertEquals(100L, response.enrollmentId());
         assertEquals(LearnerInvitation.Status.ACCEPTED, inv.getStatus());
         assertEquals(9L, inv.getLearner().getLearnerId());
-        // Slots are NOT changed on acceptance (reserved at send time).
         verify(institutionCertRepository, never()).save(any());
     }
 
@@ -161,7 +160,6 @@ class LearnerServiceAcceptInvitationTest {
                 () -> service.acceptInvitation(9L, INVITED_EMAIL, RAW_TOKEN));
         assertEquals(InvitationAcceptanceException.Code.INVITATION_EXPIRED, ex.code());
         assertEquals(LearnerInvitation.Status.EXPIRED, inv.getStatus());
-        // Exactly one reserved slot restored: 4 -> 3.
         assertEquals(3, inv.getInstitutionCert().getUsedSlots());
         verify(institutionCertRepository).save(inv.getInstitutionCert());
     }

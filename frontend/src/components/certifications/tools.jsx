@@ -47,18 +47,6 @@ function useObjectUrl(file) {
     return url
 }
 
-/**
- * An already-uploaded file as a URL an `<img>` can load.
- *
- * `getDownloadUrl` alone is not enough: `/files/download` calls `requireAuth`,
- * and a browser sends no Authorization header on an `<img src>`, so the
- * request comes back `400 Authentication is required` and renders broken. The
- * bytes have to come through `base()` -- which does attach the bearer token --
- * and reach the tag as an object URL.
- *
- * AI-sourced media is stored as a public absolute URL rather than a storage
- * key, so those pass through without a fetch.
- */
 function useStoredFileUrl(key) {
     const isAbsolute = Boolean(key) && /^https?:\/\//.test(key)
     const [url, setUrl] = useState("")
@@ -91,20 +79,6 @@ function useStoredFileUrl(key) {
     return isAbsolute ? key : url
 }
 
-/**
- * An already-uploaded video as a URL a `<video>` can play.
- *
- * Same problem {@link useStoredFileUrl} solves, and a different answer. The
- * preview was pointed straight at `/files/download`, which needs an
- * Authorization header a `<video src>` never sends, so an admin reopening a
- * lesson they had already saved a video into got the player's dark backing and
- * no frames -- a picture of a video. Fetching it whole like an image is no fix
- * either: playback would wait for the last byte, seeking would not work at all,
- * and the endpoint refuses anything over 12 MB.
- *
- * A presigned URL carries its own signature and is served with range support,
- * so the preview behaves like a video player rather than a download.
- */
 function useStoredVideoUrl(key) {
     const isAbsolute = Boolean(key) && /^https?:\/\//.test(key)
     const [url, setUrl] = useState("")
@@ -175,20 +149,6 @@ function RemoveButton({ children = "Remove", onClick, disabled = false }) {
     )
 }
 
-/**
- * Wrapper around one placed tool in the lesson canvas.
- *
- * The tool's name and blurb are not drawn on the block: you can see what an
- * image card or a tab set is by looking at it, and a grey "Intro image card /
- * A smaller heading, description, and image in one combined block." bar on top
- * of every block buried the actual lesson content. The title is kept as the
- * section's accessible name so the block is still identifiable non-visually.
- *
- * A single hairline ring is the only edge drawn here. Everything nested inside
- * uses tint and spacing instead of more outlines -- borders inside borders
- * inside borders were what made this editor feel like a stack of boxes rather
- * than a page.
- */
 function ToolShell({ title, description, onDelete, children, className = "" }) {
     return (
         <section
@@ -202,12 +162,6 @@ function ToolShell({ title, description, onDelete, children, className = "" }) {
     )
 }
 
-/**
- * Label for a repeatable group (list items, tabs, cards), paired with its Add
- * button. The label stays because it names what the button adds; the blurb
- * underneath ("New items start blank so you can type directly.") is dropped --
- * it restated what is obvious the moment you click Add.
- */
 function SectionHeading({ title, action }) {
     return (
         <div className="flex items-center justify-between gap-3">
@@ -243,10 +197,6 @@ function TextAreaField({ value, onChange, placeholder, rows = 4, className = "" 
 
 function ImageUploadArea({ data, onDataChange, title = "Upload an image" }) {
     const selectedImage = data?.file ?? null
-    // Same split as the video area: a freshly dropped file plays from its own
-    // object URL, a saved key has to come through the token. This was calling
-    // getDownloadUrl, which `useStoredFileUrl` exists precisely to replace --
-    // so an admin reopening a lesson saw a broken image where their upload was.
     const uploadedImagePreview = useObjectUrl(selectedImage)
     const storedImageUrl = useStoredFileUrl(selectedImage ? "" : data?.imageKey)
     const previewUrl = uploadedImagePreview || storedImageUrl
@@ -306,8 +256,6 @@ function ImageUploadArea({ data, onDataChange, title = "Upload an image" }) {
 
 function VideoUploadArea({ data, onDataChange, title = "Upload a video" }) {
     const selectedVideo = data?.file ?? null
-    // A file just dropped is already in the browser and plays from its own
-    // object URL; one that was saved earlier has to be signed first.
     const uploadedVideoPreview = useObjectUrl(selectedVideo)
     const storedVideoUrl = useStoredVideoUrl(selectedVideo ? "" : data?.videoKey)
     const previewUrl = uploadedVideoPreview || storedVideoUrl
@@ -867,11 +815,6 @@ export function VideoTool({ data, onDataChange, onDelete }) {
     )
 }
 
-/**
- * The heading + description pair the compound tools share. Its own label and
- * blurb are dropped for the same reason as ToolShell's: the field placeholders
- * already say what goes where, so the explanation was pure repetition.
- */
 function CombinedHeaderFields({ data, onDataChange, title }) {
     return (
         <div className="space-y-1" aria-label={title || undefined}>
@@ -978,19 +921,6 @@ export function IntroImageCardTool({ data, onDataChange, onDelete }) {
     )
 }
 
-/**
- * Editor for the table block.
- *
- * The grid of inputs mirrors the table it produces, so what an author edits
- * looks like what a learner reads. Rows and columns are added and removed at
- * the ends rather than by dragging: a certification table is written once from
- * source material, not rearranged, and a drag handle per cell would cost far
- * more than it earns here.
- *
- * The two structures are kept in step by `columns` being the single authority
- * on width -- every row's `cells` array is resized to match whenever a column
- * is added or removed, so a malformed row can never reach the renderer.
- */
 function TableEditor({ data, onDataChange }) {
     const columns = data?.columns ?? []
     const rows = data?.rows ?? []
@@ -1024,7 +954,6 @@ function TableEditor({ data, onDataChange }) {
         onDataChange({
             ...data,
             columns: [...columns, { id: createId("column"), label: "" }],
-            // Every row grows with the header, so the two never disagree.
             rows: rows.map((row) => ({ ...row, cells: [...(row.cells ?? []), ""] })),
         })
     }
@@ -1069,8 +998,6 @@ function TableEditor({ data, onDataChange }) {
                 }
             />
 
-            {/* The editor scrolls sideways for the same reason the rendered
-                table does: a wide table must not push the page out. */}
             <div className="overflow-x-auto pb-1">
                 <div className="min-w-max space-y-2">
                     <div className="grid gap-2" style={gridTemplate}>
@@ -1174,8 +1101,6 @@ export function CodeTool({ data, onDataChange, onDelete }) {
                 />
             </div>
 
-            {/* A real textarea with the tab key kept as indentation: code is
-                the one field where Tab must not move focus. */}
             <textarea
                 value={toolData.code ?? ""}
                 onChange={(event) => onDataChange({ ...toolData, code: event.target.value })}
@@ -1447,20 +1372,6 @@ export function MediaTextBlockTool({ data, onDataChange, onDelete }) {
     )
 }
 
-/**
- * Image with hotspots -- an admin-only tool.
- *
- * Deliberately absent from the AI lesson catalogue in
- * `python-backend/app/agents/certification/lesson_agent.py`: placing a pin
- * means knowing where a thing sits in a specific picture, and the generator
- * only ever supplies an image *query*, never the pixels. A model can invent
- * plausible coordinates for an image it has never seen, which is the one
- * failure mode this tool cannot survive -- a mislabelled diagram teaches the
- * wrong thing with full confidence. So it is authored by hand or not at all.
- *
- * Coordinates are percentages of the image box, not pixels, so a pin stays on
- * its feature at every rendered width.
- */
 function HotspotEditor({ data, onDataChange }) {
     const hotspots = data?.hotspots ?? []
     const selectedFile = data?.file ?? null
@@ -1469,8 +1380,6 @@ function HotspotEditor({ data, onDataChange }) {
     const previewUrl = uploadedPreview || storedPreview
 
     const [selectedId, setSelectedId] = useState(null)
-    // Set while a pin is being dragged, so the image's own click handler knows
-    // not to read the drag's mouseup as "place a new pin here".
     const [draggingId, setDraggingId] = useState(null)
 
     const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -1485,9 +1394,6 @@ function HotspotEditor({ data, onDataChange }) {
             const imageFile = acceptedFiles[0]
             if (!imageFile) return
 
-            // Pins survive a re-upload: the usual reason to replace an image is
-            // a better version of the same diagram, and silently discarding the
-            // labels would punish that.
             onDataChange({ ...data, file: imageFile, imageKey: "" })
         },
     })
@@ -1509,7 +1415,6 @@ function HotspotEditor({ data, onDataChange }) {
         if (selectedId === hotspotId) setSelectedId(null)
     }
 
-    /** Pointer position as a percentage of the image box, clamped to it. */
     function toPercentage(event, element) {
         const bounds = element.getBoundingClientRect()
         const x = ((event.clientX - bounds.left) / bounds.width) * 100
@@ -1538,9 +1443,6 @@ function HotspotEditor({ data, onDataChange }) {
         const surface = event.currentTarget.parentElement
         if (!surface) return
 
-        // Pointer capture on the surface, not the pin: the cursor routinely
-        // outruns a 28px target mid-drag, and without capture the pin is
-        // dropped the moment that happens.
         surface.setPointerCapture(event.pointerId)
         setDraggingId(hotspotId)
 
@@ -1559,8 +1461,6 @@ function HotspotEditor({ data, onDataChange }) {
             surface.releasePointerCapture(event.pointerId)
             surface.removeEventListener("pointermove", handleMove)
             surface.removeEventListener("pointerup", handleUp)
-            // Cleared after the event loop settles, so the click this pointerup
-            // synthesises still sees `draggingId` set and is ignored.
             setTimeout(() => setDraggingId(null), 0)
         }
 
@@ -1610,8 +1510,6 @@ function HotspotEditor({ data, onDataChange }) {
                 </div>
             </div>
 
-            {/* `touch-none` so a drag on a touch device moves the pin instead of
-                scrolling the page out from under it. */}
             <div
                 onClick={handleSurfaceClick}
                 className="relative w-full cursor-crosshair touch-none select-none overflow-hidden rounded-xl bg-muted/40"

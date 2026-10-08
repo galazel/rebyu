@@ -41,17 +41,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/**
- * How the institution's own people are actually doing.
- *
- * Scoped to one institution throughout -- the roster is derived from that
- * institution's assignment rows, and every rollup is keyed on those learner ids,
- * so a member of another tenant cannot appear here even by accident.
- *
- * The rollups (attempts, lessons) are each a single batched query over the whole
- * roster rather than a query per member. A per-member loop is the obvious way to
- * write this and it is what makes a large institution's dashboard crawl.
- */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -66,55 +55,18 @@ public class InstitutionLearningStatsService {
     private final com.capstone.rebyu.enrollment.repository.LearnerCertificationAwardRepository awardRepository;
     private final AssessmentAttemptAnswerRepository attemptAnswerRepository;
 
-    /**
-     * Where a window is not given, one wide enough to mean "all of it".
-     *
-     * Sentinels rather than nullable bounds in the queries: a JPQL
-     * `:from IS NULL OR ...` has to be type-inferred by Hibernate on every
-     * one of these, and getting it wrong fails at runtime on a dashboard
-     * rather than at compile time here.
-     */
     private static final LocalDateTime ALL_TIME_START = LocalDateTime.of(1970, 1, 1, 0, 0);
     private static final LocalDateTime ALL_TIME_END = LocalDateTime.of(9999, 12, 31, 23, 59, 59);
 
-    /** Every learner the institution has, for an owner or administrator. */
     public InstitutionLearningStatsDto learningStats(Long institutionId) {
         return learningStats(institutionId, null, null, null);
     }
 
-    /**
-     * The same statistics, narrowed to the departments the caller actually
-     * teaches.
-     *
-     * <p>A department head was being handed the whole institution: the roster,
-     * the weakest topics, the hardest papers and every certification the
-     * institution had ever bought seats on, including ones nobody in their
-     * department is sitting. That is both a tenant leak within the institution
-     * and unreadable -- a head cannot act on a programme they do not run.
-     *
-     * <p>Scoping happens once, on the assignment rows, because every figure
-     * below is derived from them. Certifications are then taken from the
-     * surviving assignments rather than from the institution's seat rows, so a
-     * programme appears here only if somebody in these departments is on it.
-     *
-     * @param departmentIds  null for the whole institution; an empty list
-     *                       means a head with no departments, who correctly
-     *                       sees nothing rather than everything
-     */
     public InstitutionLearningStatsDto learningStats(
             Long institutionId, Collection<Long> departmentIds, LocalDateTime from, LocalDateTime to) {
 
-        /* The window is read two ways, because the figures are two kinds of
-           thing.
 
-           Activity -- attempts sat, lessons finished, answers marked -- is
-           counted *within* [start, end]: it happened on a date.
 
-           Standing facts -- who is enrolled, who has passed -- are taken *as
-           of* `end`. Enrolment is not an event that stops counting when the
-           week turns over: someone enrolled last March is still enrolled this
-           week, and filtering them to the window would report an empty
-           department for every period but the one they signed up in. */
         LocalDateTime start = from == null ? ALL_TIME_START : from;
         LocalDateTime end = to == null ? ALL_TIME_END : to;
 
@@ -134,14 +86,10 @@ public class InstitutionLearningStatsService {
                     .toList();
         }
 
-        /* Nobody who had not yet been enrolled. Without this, stepping back to
-           a month before the cohort existed still showed the cohort. */
         assignments = assignments.stream()
                 .filter(a -> a.getAssignedAt() == null || !a.getAssignedAt().isAfter(end))
                 .toList();
 
-        // Insertion-ordered so the roster is stable between reloads even before
-        // the sort below, which makes diffing a dashboard by eye possible.
         Set<Long> learnerIds = assignments.stream()
                 .map(assignment -> assignment.getLearner().getLearnerId())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
@@ -190,8 +138,6 @@ public class InstitutionLearningStatsService {
                     lessonsDone.getOrDefault(learnerId, 0L)));
         }
 
-        // Least progress first: the dashboard exists to find who needs help, and
-        // that reading should not require sorting the table by hand every visit.
         members.sort(Comparator.comparing(
                         (MemberLearningStatsDto m) -> m.averageProgress() == null
                                 ? BigDecimal.ZERO
@@ -199,12 +145,6 @@ public class InstitutionLearningStatsService {
                 .thenComparing(MemberLearningStatsDto::name,
                         Comparator.nullsLast(String::compareToIgnoreCase)));
 
-        /* The certifications these seat rows are for. Both difficulty lists are
-           bounded by it as well as by learner: the same people sit papers on
-           certifications nobody here teaches them -- their own enrolments --
-           and those answers were surfacing as topics "the department is
-           failing". A cohort on IT Passport alone was being shown TOPCIT and
-           FE. */
         Set<Long> certificationIds = institutionCerts.stream()
                 .map(InstitutionCertificate::getCertification)
                 .filter(java.util.Objects::nonNull)
@@ -219,14 +159,6 @@ public class InstitutionLearningStatsService {
                 hardestAssessments(learnerIds, certificationIds, start, end));
     }
 
-    /**
-     * The distinct seat blocks these assignments sit on, in a stable order.
-     *
-     * <p>A seat block with nobody from the caller's departments on it is not
-     * one of their programmes, so it never reaches the dashboard -- which is
-     * the difference between "we teach two certifications" and a list of every
-     * allocation the institution's finance office has ever signed.
-     */
     private List<InstitutionCertificate> seatRowsBehind(
             List<InstitutionCertificationLearner> assignments) {
         Map<Long, InstitutionCertificate> byId = new LinkedHashMap<>();
@@ -239,29 +171,15 @@ public class InstitutionLearningStatsService {
         return List.copyOf(byId.values());
     }
 
-    /** Answers needed on a topic before the cohort's accuracy on it means anything. */
     private static final long MIN_TOPIC_ANSWERS = 3;
 
-    /** How many rows each of the two difficulty lists returns. */
     private static final int DIFFICULTY_LIST_LIMIT = 5;
 
-    /**
-     * The topics this roster gets wrong most often, least accurate first.
-     *
-     * <p>Thin evidence is excluded rather than ranked: a topic answered once,
-     * wrongly, is 0% accurate and would top this list every time while saying
-     * nothing about the cohort. The learner count travels with each row so a
-     * topic one person struggled with is not read as a department-wide gap.
-     */
     private List<CertificationTopicsDto> hardestTopics(
             Collection<Long> learnerIds, Collection<Long> certificationIds,
             LocalDateTime from, LocalDateTime to) {
         if (learnerIds.isEmpty() || certificationIds.isEmpty()) return List.of();
 
-        /* Grouped by programme rather than pooled. A department teaches
-           courses, and "the weakest topics" pooled across all of them answers
-           a question nobody asked: a head fixing the IT Passport syllabus
-           cannot act on a list where three of the five rows are TOPCIT. */
         Map<Long, List<TopicDifficultyDto>> byCertification =
                 attemptAnswerRepository.topicDifficulty(learnerIds, certificationIds, MIN_TOPIC_ANSWERS, from, to).stream()
                         .filter(row -> row.getCertificationId() != null)
@@ -289,29 +207,17 @@ public class InstitutionLearningStatsService {
                             worst.get(0).certificationTitle(),
                             worst);
                 })
-                // The programme with the most topics in trouble goes first.
                 .sorted(Comparator.comparingInt((CertificationTopicsDto c) -> c.topics().size()).reversed()
                         .thenComparing(CertificationTopicsDto::certificationTitle,
                                 Comparator.nullsLast(String::compareToIgnoreCase)))
                 .toList();
     }
 
-    /**
-     * The assessments this roster does worst on, lowest pass rate first.
-     *
-     * <p>Ranked by pass rate rather than mean score because passing is the
-     * thing being measured: a paper everyone scrapes through at 76% is not a
-     * problem, and one everyone fails at 74% is.
-     */
     private List<CertificationAssessmentsDto> hardestAssessments(
             Collection<Long> learnerIds, Collection<Long> certificationIds,
             LocalDateTime from, LocalDateTime to) {
         if (learnerIds.isEmpty() || certificationIds.isEmpty()) return List.of();
 
-        /* Grouped by programme, like the topics above and for the same
-           reason: a head fixing one course cannot act on a ranking where the
-           worst papers belong to a different one, and the two lists sitting
-           side by side on the dashboard should be read the same way. */
         record Outcome(Long certificationId, String certificationTitle, AssessmentOutcomeDto exam) {}
 
         Map<Long, List<Outcome>> byCertification =
@@ -349,26 +255,12 @@ public class InstitutionLearningStatsService {
                             outcomes.get(0).certificationTitle(),
                             worst);
                 })
-                // The programme with the most papers in trouble goes first.
                 .sorted(Comparator.comparingInt((CertificationAssessmentsDto c) -> c.assessments().size()).reversed()
                         .thenComparing(CertificationAssessmentsDto::certificationTitle,
                                 Comparator.nullsLast(String::compareToIgnoreCase)))
                 .toList();
     }
 
-    /**
-     * Per-certification rollup: who is on each programme and how they are
-     * doing on it.
-     *
-     * <p>Built from the assignments already loaded rather than a query per
-     * certification -- the rows say which learner sits on which programme and
-     * how far along they are, so the only thing that has to be fetched is who
-     * has passed.
-     *
-     * <p>Revoked assignments are left out of every figure. A seat taken back
-     * is not a learner failing to progress, and counting them would drag a
-     * programme's average down for people who are no longer on it.
-     */
     private List<CertificationStatsDto> certificationStats(
             List<InstitutionCertificate> institutionCerts,
             List<InstitutionCertificationLearner> assignments,
@@ -393,15 +285,11 @@ public class InstitutionLearningStatsService {
                 .collect(Collectors.groupingBy(
                         a -> a.getInstitutionCert().getCertification().getCertificationId()));
 
-        /* Every award for these learners in one read. Asking per assignment
-           was a query each, which on a full roster is the whole page. */
         Set<String> passedPairs = awardRepository
                 .findByLearnerIdIn(assignments.stream()
                         .map(a -> a.getLearner().getLearnerId())
                         .collect(Collectors.toSet()))
                 .stream()
-                // As of the end of the period: a credential awarded in
-                // December is not a pass the department had in March.
                 .filter(award -> award.getCreatedAt() == null || !award.getCreatedAt().isAfter(to))
                 .map(award -> award.getLearnerId() + ":" + award.getCertificationId())
                 .collect(Collectors.toSet());
@@ -429,9 +317,6 @@ public class InstitutionLearningStatsService {
                 }
             }
 
-            /* Passing is a kind of progress, so someone who has passed is not
-               also counted as in progress -- the three states add up to the
-               enrolled count, which is what makes the row readable. */
             var scores = scoreByCertification.get(certificationId);
 
             int inProgress = Math.max(0, started - passed);
@@ -456,34 +341,16 @@ public class InstitutionLearningStatsService {
                             : Math.round(100f * scores.getPassedAttempts() / scores.getAttempts())));
         }
 
-        // Busiest programme first: a department looks at where its people are.
         rows.sort(Comparator.comparingInt(CertificationStatsDto::enrolled).reversed()
                 .thenComparing(CertificationStatsDto::title,
                         Comparator.nullsLast(String::compareToIgnoreCase)));
         return rows;
     }
 
-    /**
-     * Completion per learning group, for the group-analytics panels.
-     *
-     * A group with assignees but no recorded progress reports a real 0, not a
-     * null: the rows exist and their progress genuinely is zero, which is a
-     * different situation from a group nobody has been assigned to.
-     */
     public List<DepartmentProgressDto> groupProgress(Long institutionId) {
         return groupProgress(institutionId, null, null);
     }
 
-    /**
-     * The same rollup, narrowed to the departments the caller teaches.
-     *
-     * <p>Filtered here rather than in the browser: the page was fetching every
-     * department in the institution and dropping the ones it did not own,
-     * which means the names and figures of other people's departments were on
-     * the wire and in the cache whether or not they were drawn.
-     *
-     * @param departmentIds  null for the whole institution
-     */
     public List<DepartmentProgressDto> groupProgress(
             Long institutionId, Collection<Long> departmentIds, LocalDateTime asOf) {
         Set<Long> mine = departmentIds == null ? null : Set.copyOf(departmentIds);
@@ -571,8 +438,6 @@ public class InstitutionLearningStatsService {
                 activeMembers++;
             }
             if (member.averageScore() != null) {
-                // Weighted by attempts so a member with one graded attempt does
-                // not move the institution's average as much as one with forty.
                 scoreTotal += member.averageScore() * member.gradedAttempts();
                 scoreWeight += member.gradedAttempts();
             }

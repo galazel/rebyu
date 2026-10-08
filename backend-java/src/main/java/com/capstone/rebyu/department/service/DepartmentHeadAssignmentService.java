@@ -60,8 +60,6 @@ public class DepartmentHeadAssignmentService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Department not found: " + dto.getDepartmentId()));
 
-        // Cross-tenant guard: the group must belong to the caller's own institution.
-        // Reported as "not found" (not a 403) so callers can't probe other tenants' groups.
         if (group.getInstitution() == null
                 || callerInstitutionId == null
                 || !group.getInstitution().getInstitutionId().equals(callerInstitutionId)) {
@@ -81,16 +79,6 @@ public class DepartmentHeadAssignmentService {
         return result;
     }
 
-    /**
-     * Leading a group makes someone an institution member, so their account type
-     * is corrected here as well as at provisioning time. Accounts predating the
-     * DEPARTMENT_HEAD role were all created as plain INSTITUTION, and a leader
-     * can also be added from an account that already existed for another
-     * reason, so neither path can be relied on to have set it already.
-     *
-     * The institution's own INSTITUTION account is deliberately left alone: an
-     * owner who also leads a group stays the owner.
-     */
     private void promoteToDepartmentHead(Long userId) {
         if (userId == null) {
             return;
@@ -121,19 +109,12 @@ public class DepartmentHeadAssignmentService {
                 userId, CognitoAuthService.DEPARTMENT_HEAD_USER_TYPE);
     }
 
-    /** An owner/primary contact holds the institution's own account. */
     private boolean isInstitutionOwnAccount(User user) {
         return departmentHeadRepository.findByUser_UserId(user.getUserId()).stream()
                 .anyMatch(member -> member.isPrimaryContact()
                         || member.getHeadRole() == DepartmentHead.HeadRole.owner);
     }
 
-    /**
-     * Re-adding a user who was previously archived as an authority for this group must
-     * revive their existing row rather than insert a new one -- the DB now only enforces
-     * uniqueness among active rows (uq_institution_group_authority_active), so inserting a
-     * fresh row here would create a duplicate membership the database no longer blocks.
-     */
     private DepartmentHeadAssignment reactivate(DepartmentHeadAssignment existing, DepartmentHeadAssignmentDto dto) {
         if (existing.getStatus() == DepartmentHeadAssignment.Status.active) {
             throw new BusinessRuleException.DepartmentRuleException(
@@ -155,7 +136,6 @@ public class DepartmentHeadAssignmentService {
         return entity;
     }
 
-    /** Archive (soft-remove) an authority assignment. */
     public void delete(Long id, Long callerInstitutionId) {
         log.info("Removing institution group authority id: {}", id);
         DepartmentHeadAssignment entity = findEntity(id);

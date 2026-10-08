@@ -16,7 +16,6 @@ from figures import fig
 MAJOR = "Technology Element"
 MIDDLE = "Database"
 
-# Lesson 1: Database architecture
 
 _arch_sections = [
     ("What a Database Management System Is For", [
@@ -808,7 +807,6 @@ LESSON_DB_ARCH = lesson(
         ],
     ))
 
-# Lesson 2: Database design
 
 _design_sections = [
     ("From Requirements to Tables", [

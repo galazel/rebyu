@@ -23,7 +23,6 @@ function lessonTitle(lesson) {
   return lesson?.name ?? lesson?.title ?? "Untitled lesson"
 }
 
-/** Flattens the certification tree into an ordered list of lessons. */
 function flattenLessons(certification) {
   const out = []
   for (const major of certification?.majorCategory ?? []) {
@@ -36,19 +35,10 @@ function flattenLessons(certification) {
   return out
 }
 
-/**
- * Read-only certification content viewer for department heads, modelled on
- * the Cisco Networking Academy reader: a left "Course Outline" sidebar
- * (search + collapsible modules + lessons) and the selected lesson's content
- * on the right. Deliberately NO progress bar / completion state -- a member
- * reviews the material, they don't "complete" it.
- */
 export default function InstitutionCertificationViewerPage() {
   const { certificationId } = useParams()
   const certId = Number(certificationId)
   const [searchParams] = useSearchParams()
-  // Optional group context: when present, the member's own group content is
-  // mixed in too (server-authorized), otherwise just the official curriculum.
   const departmentId = searchParams.get("departmentId") ? Number(searchParams.get("departmentId")) : undefined
 
   const [outlineQuery, setOutlineQuery] = useState("")
@@ -70,7 +60,6 @@ export default function InstitutionCertificationViewerPage() {
 
   const allLessons = useMemo(() => flattenLessons(certification), [certification])
 
-  // Default to the first lesson once the tree loads.
   const activeLesson =
     allLessons.find((lesson) => lesson.lessonId === activeLessonId) ?? allLessons[0] ?? null
 
@@ -120,7 +109,6 @@ export default function InstitutionCertificationViewerPage() {
       </div>
 
       <div className="flex min-h-0 flex-1">
-        {/* Left: course outline */}
         {sidebarOpen ? (
           <aside className="flex w-full max-w-xs shrink-0 flex-col border-r border-border bg-muted/20">
             <div className="border-b border-border p-3">
@@ -142,7 +130,6 @@ export default function InstitutionCertificationViewerPage() {
                 const majorLessons = middles.flatMap((m) => m.lessons ?? [])
                 const majorOpen = !collapsedMajors.has(major.majorCategoryId)
 
-                // When searching, only show majors that contain a match.
                 const matchingLessons = majorLessons.filter((lesson) =>
                   lessonTitle(lesson).toLowerCase().includes(query)
                 )
@@ -219,7 +206,6 @@ export default function InstitutionCertificationViewerPage() {
           </aside>
         ) : null}
 
-        {/* Right: lesson content */}
         <main className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-3xl px-6 py-8">
             {activeLesson ? (

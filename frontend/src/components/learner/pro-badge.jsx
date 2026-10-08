@@ -2,7 +2,6 @@ import { SparklesIcon } from "@/components/icons"
 
 import { cn } from "@/lib/utils"
 
-// Small "Pro" marker for premium features.
 export default function ProBadge({ className }) {
   return (
     <span

@@ -36,8 +36,6 @@ from app.db.session import SessionLocal
 
 CERTIFICATION_ID = 13
 
-#: Words too common in exam prose to carry any signal about what a question
-#: is actually about. Without this every stem looks 30% similar to every other.
 STOPWORDS = {
     "a", "an", "and", "are", "as", "at", "be", "been", "by", "can", "for",
     "from", "has", "have", "in", "into", "is", "it", "its", "of", "on", "or",
@@ -47,19 +45,10 @@ STOPWORDS = {
     "correct", "describes", "statement", "true", "about",
 }
 
-#: Above this Jaccard overlap two question stems are reported as the same
-#: question. Tuned by hand against the existing bank: genuine duplicates land
-#: near 0.75, questions that merely share a topic land around 0.3.
 QUESTION_SIMILARITY = 0.6
 
-#: Above this share of repeated section headings a lesson is reported as
-#: covering ground an existing lesson already covers.
 SECTION_OVERLAP = 0.34
 
-#: Section headings every lesson in the bank carries. They are scaffolding,
-#: not subject matter, and counting them made two lessons on entirely
-#: different topics look 41% identical -- which is a report nobody can act on.
-#: Normalised the same way section headings are, so word order does not matter.
 STRUCTURAL_SECTIONS = {
     "introduction",
     "learning objectives",
@@ -97,9 +86,6 @@ def normalise_section(name):
                   flags=re.IGNORECASE)
     normalised = " ".join(sorted(words(name)))
 
-    # Scaffolding is dropped rather than compared. A heading may be phrased
-    # loosely ("Key Takeaways for ISMS Frameworks"), so a normalised structural
-    # name is treated as a match when it is contained in the heading.
     structural = {" ".join(sorted(words(s))) for s in STRUCTURAL_SECTIONS}
     heading_words = words(name)
     for candidate in structural:
@@ -155,8 +141,6 @@ def main():
         module = importlib.import_module("content_%s" % batch)
         print("== %s" % batch)
 
-        # A batch may introduce several lessons at once, so new lessons are
-        # compared against each other as well as against the database.
         batch_sections = []
         batch_questions = []
 
@@ -180,9 +164,6 @@ def main():
                 if not sections:
                     continue
                 shared = new_sections & sections
-                # Measured against the NEW lesson's own size: the question is
-                # how much of what this lesson teaches is already taught, not
-                # how much of the old lesson it happens to touch.
                 ratio = len(shared) / max(len(new_sections), 1)
                 if ratio >= SECTION_OVERLAP:
                     worst.append((ratio, other_name, middle_title, sorted(shared)[:6]))

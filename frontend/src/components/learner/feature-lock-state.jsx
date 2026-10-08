@@ -2,7 +2,6 @@ import { Link } from "react-router-dom"
 import { LockIcon } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
-// Reusable lock card shown above a blurred premium-content preview.
 export default function FeatureLockState({
   title = "Pro Feature",
   description = "This feature requires a Pro subscription. Upgrade to unlock it.",

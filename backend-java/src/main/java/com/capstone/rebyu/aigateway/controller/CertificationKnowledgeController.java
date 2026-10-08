@@ -10,10 +10,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * Learner/admin-safe knowledge base status. Exposes only counts — never
- * vectors, chunk contents, prompts, or private file content.
- */
 @RestController
 @RequestMapping("/api/certifications")
 @RequiredArgsConstructor

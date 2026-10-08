@@ -49,7 +49,6 @@ export default function ProfileSettingsPage() {
           <h1 className="text-4xl font-bold">Profile Settings</h1>
         </div>
 
-        {/* Profile Information */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>Profile Information</CardTitle>
@@ -101,7 +100,6 @@ export default function ProfileSettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Change Password */}
         <Card className="mb-8">
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -157,7 +155,6 @@ export default function ProfileSettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Delete Account */}
         <Card className="border-red-200 bg-red-50">
           <CardHeader>
             <div className="flex items-center gap-2">

@@ -24,12 +24,6 @@ import {
   verifyInvoicePayment,
 } from "@/services/institutionService.js"
 
-/**
- * The institution's invoices: the list at /institution/invoices and one
- * invoice at /institution/invoices/:invoiceId (the link the welcome email
- * carries). Amounts are what the partnership request quoted -- a flat rate
- * per learner slot per certification.
- */
 
 function money(value, currency = "PHP") {
   if (value == null) return "—"
@@ -49,9 +43,6 @@ function InvoiceDetail({ invoiceId }) {
     queryFn: () => getMyInstitutionInvoice(invoiceId),
   })
 
-  /* Back from PayMongo. The redirect carries no proof of payment, so the
-     server is asked to check the session; the URL flag is cleared either way
-     so a refresh does not re-run it. */
   useEffect(() => {
     const outcome = searchParams.get("payment")
     if (!outcome) return
@@ -73,24 +64,12 @@ function InvoiceDetail({ invoiceId }) {
     setSearchParams(next, { replace: true })
   }, [])
 
-  /* And again whenever an unpaid invoice is opened at all, not only on the
-     redirect back.
-     
-     The `?payment=success` flag is the only proof we get that someone paid,
-     and it survives exactly one page load -- the effect above strips it. Lose
-     that load (the tab is closed at PayMongo, the redirect is interrupted, the
-     link is opened again from the email later, or verification answers "not
-     yet" because the provider has not settled) and nothing ever asks again.
-     The invoice then sits unpaid forever while the money is gone, which is
-     what happened to REBYU-INV-202609-000001. Asking on open costs one request
-     on an unpaid invoice and is idempotent server-side: without a checkout
-     session it is a no-op, and an already-paid invoice is left alone. */
   const invoiceStatus = query.data?.status
   const verifiedOnOpen = useRef(false)
   useEffect(() => {
     if (verifiedOnOpen.current) return
     if (!invoiceStatus || invoiceStatus === "paid") return
-    if (searchParams.get("payment")) return // the effect above owns this load
+    if (searchParams.get("payment")) return
     verifiedOnOpen.current = true
     verifyInvoicePayment(invoiceId)
       .then((invoice) => {
@@ -99,8 +78,6 @@ function InvoiceDetail({ invoiceId }) {
         queryClient.invalidateQueries({ queryKey: ["institution-invoices"] })
         toast.success("Payment received. Thank you!")
       })
-      // Silent: nobody asked for this check, so a failure is not theirs to act
-      // on. The Pay button is still there if it really is unpaid.
       .catch(() => {})
   }, [invoiceStatus])
 
@@ -144,14 +121,8 @@ function InvoiceDetail({ invoiceId }) {
         }
       />
 
-      {/* The invoice itself, one template shared by every invoice REBYU
-          issues, and the only thing that reaches paper -- see
-          styles/rebyu-print.css. */}
       <InvoiceDocument invoice={invoice} />
 
-      {/* Paying is an action on the page, not part of the document: it means
-          nothing once printed, and it disappears the moment the invoice is
-          settled. */}
       {invoice.status !== "paid" ? (
         <div className="print:hidden mx-auto w-full max-w-[52rem] space-y-2">
           <Button

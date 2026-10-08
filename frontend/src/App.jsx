@@ -49,9 +49,6 @@ const LearnerMistakeBankPage = lazyRoute(() => import("./pages/learner/mistakes/
 const LearnerCommunityPage = lazyRoute(() => import("./pages/learner/community/learner-community-qa.jsx"))
 const LearnerAccountPage = lazyRoute(() => import("./pages/learner/dashboard/learner-account-page.jsx"))
 const LearnerAssessmentAttemptPage = lazyRoute(() => import("./pages/learner/assessments/learner-assessment-attempt-page.jsx"))
-// Dev-only screenshot harness for the landing hero. Never routed in a
-// production build (see the guarded <Route> below), so this chunk is only ever
-// requested by a developer opening the preview URL.
 const AttemptPreviewPage = lazyRoute(() => import("./pages/dev/attempt-preview-page.jsx"))
 const LearnerAssessmentResultPage = lazyRoute(() => import("./pages/learner/assessments/learner-assessment-result-page.jsx"))
 const LearnerAssessmentHistoryPage = lazyRoute(() => import("./pages/learner/assessments/learner-assessment-history-page.jsx"))
@@ -71,9 +68,6 @@ const InstitutionCertificationDetailPage = lazyRoute(() => import("./pages/insti
 const InstitutionCertificationViewerPage = lazyRoute(() => import("./pages/institution/certifications/institution-certification-viewer-page.jsx"))
 const InstitutionAssessmentBuilderPage = lazyRoute(() => import("./pages/institution/certifications/institution-assessment-builder-page.jsx"))
 const DepartmentsPage = lazyRoute(() => import("./pages/institution/departments/institution-departments-page.jsx"))
-// Profile, Partnership, License, Billing and Files are one tabbed page --
-// see institution-account-page.jsx. The five paths are kept so existing links
-// still resolve; each one opens its own tab.
 const InstitutionAccountPage = lazyRoute(() => import("./pages/institution/account/institution-account-page.jsx"))
 const InstitutionInvoicesPage = lazyRoute(() => import("./pages/institution/account/institution-invoices-page.jsx"))
 const InstitutionRequestAccessPage = lazyRoute(() => import("./pages/public/institution-request-access-page.jsx"))
@@ -98,18 +92,12 @@ const NotificationsPage = lazyRoute(() => import("./pages/notifications-page.jsx
 const NotFoundPage = lazyRoute(() => import("./pages/public/not-found-page.jsx"))
 const ForbiddenPage = lazyRoute(() => import("./pages/public/forbidden-page.jsx"))
 
-// Owners land on the institution dashboard; department heads land on their own
-// workspace list -- they never see the institution-wide dashboard. Ownership is
-// decided by isInstitutionOwner, not by the membership row alone: a
-// DEPARTMENT_HEAD account with no row used to read as an owner here.
 function InstitutionHome() {
     const { user } = useAuth()
     const target = isInstitutionOwner(user) ? "dashboard" : "department-head"
     return <Navigate to={target} replace />
 }
 
-/* The notifications page lives inside each portal, so it keeps that portal's
-   header. This old shared address sends whoever opens it to their own. */
 function NotificationsRedirect() {
     const { user } = useAuth()
     const role = String(user?.role ?? "").toUpperCase()
@@ -133,48 +121,16 @@ function GuestOnlyRoute({ children }) {
 
 function InstitutionDashboardEntry() {
     const { user } = useAuth()
-    // A department head is sent to their own path rather than shown their
-    // dashboard at the institution's URL -- the address bar should say which
-    // of the two accounts is signed in.
     return isInstitutionOwner(user)
         ? <InstitutionDashboardPage />
         : <Navigate to="/institution/department-head" replace />
 }
 
-/**
- * Route transition.
- *
- * A CSS animation, not a motion component, even though the rest of the app
- * animates with framer. This element wraps *every page*, and a JS-driven
- * entrance means the whole app sits at `opacity: 0` until an animation frame
- * runs. Anything that stops frames arriving — a throttled background tab, a
- * paused renderer, framer failing to start — leaves a blank window rather than
- * an unanimated one. A CSS keyframe cannot fail that way: it either runs or the
- * declaration is ignored and the page is simply visible.
- *
- * Deliberately enter-only: exiting means holding the old page mounted while the
- * new one loads, which fights `Suspense` on lazily-loaded routes and delays
- * every navigation by the length of the exit.
- *
- * Keyed on `pathname` only, not `search` — restarting the animation when a
- * query param changes would flash the page on every filter change.
- */
 function RouteTransition({ children }) {
     const { pathname } = useLocation()
     const ref = useRef(null)
 
-    // Restart the animation by removing and re-adding the class, rather than by
-    // keying this element on `pathname`. A changing key would remount the whole
-    // subtree on every navigation — including the shared portal layouts, which
-    // hold search state, open sheets, and the portal data query — so moving
-    // between two pages of the same layout would tear down and rebuild the
-    // layout around them. Reading `offsetWidth` between the two is what forces
-    // the reflow that makes the browser treat it as a new animation.
     useEffect(() => {
-        // A new page opens at its top. Without this the window kept the previous
-        // page's scroll offset, so a link near the foot of the landing page
-        // opened the next page already scrolled to its bottom. A link to an
-        // anchor (#section) is left alone so it still lands on that section.
         if (!window.location.hash) window.scrollTo({ top: 0, left: 0, behavior: "instant" })
 
         const node = ref.current
@@ -194,8 +150,6 @@ function RouteTransition({ children }) {
 
 export function App() {
     return (
-      /* Outside Suspense, so it catches the import failures Suspense re-throws
-         rather than sitting inside the tree that unmounts. */
       <RouteErrorBoundary>
       <Suspense fallback={<LoadingSignal />}>
         <RouteTransition>
@@ -206,13 +160,8 @@ export function App() {
             <Route path="/register" element={<GuestOnlyRoute><RegisterPage /></GuestOnlyRoute>} />
             <Route path="/verify-email" element={<GuestOnlyRoute><VerifyEmailPage /></GuestOnlyRoute>} />
             <Route path="/forgot-password" element={<GuestOnlyRoute><ForgotPasswordPage /></GuestOnlyRoute>} />
-            {/* Not guest-only: an invitation link signs the account in before the
-                password exists, and a guest-only route bounced that session straight
-                to its dashboard -- the password was never set, so signing in on any
-                other device failed. */}
             <Route path="/set-new-password" element={<SetNewPasswordPage />} />
 
-            {/* Public: institution representatives request Institution access with no account. */}
             <Route
                 path="/institution/request-access"
                 element={<InstitutionRequestAccessPage />}
@@ -223,18 +172,10 @@ export function App() {
                 element={<AcceptInstitutionInvitationPage />}
             />
 
-            {/* Dev-only: renders the real attempt page against fixture data so
-                the landing hero can be re-shot from the actual product. Stripped
-                from production builds. */}
             {import.meta.env.DEV ? (
                 <Route path="/__preview/attempt/:examId" element={<AttemptPreviewPage />} />
             ) : null}
 
-            {/* Dev-only: the study workspace, outside the login gate so the
-                screen can be reviewed while it is still UI-only. Wrapped in the
-                two classes the learner shell carries -- without `rebyu-ds` the
-                design-system tokens do not resolve and the page reviews in the
-                wrong colours. Stripped from production builds. */}
             {import.meta.env.DEV ? (
                 <>
                     <Route
@@ -272,51 +213,30 @@ export function App() {
                 </>
             ) : null}
 
-            {/* Dev-only: the boot screen, held on screen. It normally shows for
-                a few hundred milliseconds during Suspense, which is not long
-                enough to review it. Stripped from production builds. */}
             {import.meta.env.DEV ? (
                 <Route path="/__preview/loading" element={<LoadingScreen />} />
             ) : null}
 
-            {/* Dev-only: the portal loading skeletons, held on screen for review. */}
             {import.meta.env.DEV ? (
                 <Route path="/__preview/skeletons" element={<SkeletonPreviewPage />} />
             ) : null}
 
             <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
-                {/* The certification's question bank, on its own page for the
-                    same reason: a library you filter, scan and open one row of
-                    is a workspace, and it was sharing a tab strip with the
-                    curriculum it has nothing to do with. */}
                 <Route
                     path="/admin/certification/:id/question-bank"
                     element={<CertificationQuestionBank />}
                 />
 
-                {/* Importing questions from exam paper PDFs: a page of its own,
-                    because reviewing a hundred read-back questions is its own
-                    job, apart from writing one by hand in the builder. */}
                 <Route
                     path="/admin/certification/:id/question-bank/import"
                     element={<CertificationPdfImport />}
                 />
 
-                {/* The assessments, out here for the same reason again: a
-                    searchable, filterable table of things you open one at a
-                    time was living below the entire curriculum on a page about
-                    the curriculum. The publishing checklist stays behind --
-                    that one is about whether the certification can go live. */}
                 <Route
                     path="/admin/certification/:id/assessments"
                     element={<CertificationAssessments />}
                 />
 
-                {/* The lesson editor. It was already a full-viewport tool --
-                    100dvh, its own header, its own way back -- but mounted
-                    inside the dashboard shell, so the portal chrome sat above
-                    it and `.rebyu-page` padded it in. It belongs out here with
-                    the other builders. */}
                 <Route path="/admin/lessons/:name/create" element={<CreateLessons />} />
 
                 <Route path="/admin" element={<DashboardLayout />}>
@@ -325,14 +245,7 @@ export function App() {
                     <Route path="dashboard" element={<AdminDashboard />} />
                     <Route path="challenges" element={<Challenges />} />
                     <Route path="arenas" element={<ArenaConfig />} />
-                    {/* Each arena authors its own problems: three builders on
-                        one page was three screens of editors in a column. */}
                     <Route path="arenas/:arenaId" element={<ArenaDetail />} />
-                    {/* No standalone /admin/question-bank. Questions only mean
-                        something against a certification's own curriculum, and
-                        the same builder is embedded in that certification's
-                        Question Bank tab -- a global list made you pick the
-                        certification again after arriving. */}
                     <Route path="institutions" element={<Institutions />} />
                     <Route
                         path="institutions/:id"
@@ -340,7 +253,6 @@ export function App() {
                     />
                     <Route path="partnership-requests" element={<PartnershipRequests />} />
                     <Route path="subscriptions" element={<AdminSubscriptions />} />
-                    {/* Same page: the Pro queue and the full payment ledger live together. */}
                     <Route path="payments" element={<AdminSubscriptions />} />
                     <Route path="community" element={<CommunityModeration />} />
                     <Route path="reference-lists" element={<ReferenceLists />} />
@@ -348,16 +260,6 @@ export function App() {
                     <Route path="pricing" element={<PricingManagement />} />
                     <Route path="rewards" element={<RewardsManagement />} />
                     <Route path="seed-challenges" element={<SeedChallenges />} />
-                    {/* BKT delivery status is withdrawn from the admin portal.
-                        The page and its service still exist -- re-register this
-                        route to bring it back. */}
-                    {/* No standalone generation workspace. A run is watched in
-                        the modal that started it -- the InlineGenerationMonitor
-                        renders the same transcript, review checkpoints and
-                        recovery panel without leaving the certification. */}
-                    {/* Gamification settings are withdrawn from the admin
-                        portal. The page and its service still exist --
-                        re-register this route to bring it back. */}
                     <Route path="learners" element={<Learners />} />
                     <Route
                         path="certification/:id"
@@ -375,24 +277,16 @@ export function App() {
                     <Route path="progress" element={<LearnerProgressPage />} />
                     <Route path="learning" element={<LearnerLearningPage />} />
 
-                    {/* Diagnostic gate. This must match the path used in learner-learning-page.jsx. */}
                     <Route
                         path="learning/:certificationId/diagnostic"
                         element={<LearnerDiagnosticGatePage />}
                     />
 
-                    {/* Opening an enrolled certification from My Learning lands
-                        on its curriculum: units as bands, opening to topics,
-                        opening to the lessons/quizzes/assessments inside them.
-                        This path used to render the My Learning *list* again,
-                        so clicking a certification showed the same page back. */}
                     <Route
                         path="learning/:certificationId"
                         element={<LearnerCertificationCurriculumPage />}
                     />
 
-                    {/* One middle category, start to finish: outline, lesson
-                        content, AI tutor. */}
                     <Route
                         path="learning/:certificationId/topics/:middleCategoryId"
                         element={<LearnerTopicPage />}
@@ -414,26 +308,8 @@ export function App() {
                     <Route path="challenges" element={<LearnerChallengesPage />} />
                     <Route path="subscription" element={<LearnerSubscriptionPage />} />
                     <Route path="library" element={<LearnerFilesPage />} />
-                    {/* Own-material study: upload a document and work through it
-                        with the tutor. Sits beside the library because both are the
-                        learner's own material rather than the curriculum. */}
-                    {/* The study workspace (Flashcard Builder, Quiz Builder,
-                        Upload & Learn) is BUILT BUT NOT RELEASED. Its learner
-                        routes are withheld deliberately -- the three screens are
-                        the interface only, with no extraction or tutor behind
-                        them, so shipping them would put a feature in front of
-                        learners that cannot do what it says.
 
-                        The pages stay in the tree and stay reviewable at
-                        /__preview/workspace* in development. To release: restore
-                        the four <Route> lines below and the "Study workspace"
-                        item in learner-layout.jsx's account menu.
 
-                        <Route path="workspace" element={<LearnerWorkspacePage />} />
-                        <Route path="workspace/flashcards" element={<FlashcardBuilderPage />} />
-                        <Route path="workspace/quiz" element={<QuizBuilderPage />} />
-                        <Route path="workspace/learn" element={<UploadAndLearnPage />} />
-                    */}
                     <Route path="mistakes" element={<LearnerMistakeBankPage />} />
                     <Route path="community" element={<LearnerCommunityPage />} />
                     <Route path="account" element={<LearnerAccountPage />} />
@@ -452,26 +328,18 @@ export function App() {
                     path="/learner/assessments/:examId/history"
                     element={<LearnerAssessmentHistoryPage />}
                 />
-                {/* A shared reviewer, read full-page in the study
-                    workspace's own reader rather than in a dialog. */}
                 <Route path="/learner/community/reviewer/:postId" element={<CommunityReviewerPage />} />
                 <Route path="/learner/practice/:studySetId" element={<LearnerPracticeAttemptPage />} />
                 <Route path="/learner/flashcards/:studySetId" element={<LearnerFlashcardAttemptPage />} />
                 <Route path="/learner/practice-history" element={<LearnerPracticeHistoryPage />} />
                 <Route path="/learner/practice-review/:attemptId" element={<LearnerPracticeReviewPage />} />
-                {/* The challenge arenas: full-screen, like the attempt page. */}
                 <Route path="/learner/challenges/codestrike" element={<CodeStrikePage />} />
                 <Route path="/learner/challenges/blueprint-arena" element={<BlueprintArenaPage />} />
                 <Route path="/learner/challenges/world-cup" element={<WorldCupPage />} />
 
-                {/* Sprint Challenge destination — the standalone compiler
-                    playground the challenges carousel links to. */}
                 <Route path="/challenges" element={<CompilerArea />} />
 
 
-                {/* PayMongo hosted-checkout redirect targets (success_url/cancel_url
-                    built server-side in PayMongoClient). The success page is what
-                    actually activates the subscription via /subscription/verify. */}
                 <Route path="/subscription/success" element={<SubscriptionCheckoutResultPage />} />
                 <Route
                     path="/subscription/cancel"
@@ -484,43 +352,24 @@ export function App() {
                     <Route index element={<InstitutionHome />} />
                     <Route path="notifications" element={<NotificationsPage />} />
                     <Route path="dashboard" element={<InstitutionDashboardEntry />} />
-                    {/* A department head's home. The path says what the account
-                        is: /institution/head was the old spelling and still
-                        redirects, so older links keep working. The per-department
-                        workspace route is defined with the department routes below. */}
                     <Route path="department-head" element={<DepartmentHeadDashboardPage />} />
                     <Route path="programs" element={<DepartmentHeadProgramsPage />} />
                     <Route path="head" element={<Navigate to="/institution/department-head" replace />} />
-                    {/* The roster only. Its per-learner detail page was reached
-                        from a "View" action that no longer exists -- an
-                        institution sees who is on a certification and which
-                        group teaches them, not an individual's performance
-                        record. The group workspace is where a leader works with
-                        a learner. */}
                     <Route path="learners" element={<InstitutionLearnersPage />} />
                     <Route
                         path="certifications"
                         element={<InstitutionCertificationsPage />}
                     />
-                    {/* Curriculum, groups, and invitations for one certification
-                        allocation -- content, group creation, and invitations all
-                        live within the certification they belong to. */}
                     <Route
                         path="certifications/:institutionCertId"
                         element={<InstitutionCertificationDetailPage />}
                     />
-                    {/* Deep-linked from a specific certification on the
-                        Certifications page (?institutionCertId=...) -- groups are
-                        always created/viewed in the context of one
-                        certification allocation. */}
                     <Route path="departments" element={<DepartmentsPage />} />
                     <Route path="departments/:departmentId" element={<InstitutionDepartmentWorkspacePage />} />
                     <Route
                         path="departments/:departmentId/learners/:learnerId"
                         element={<InstitutionDepartmentLearnerPage />}
                     />
-                    {/* Full-page assessment builder (details + question builder),
-                        replacing the old modal. Edit reuses the same page. */}
                     <Route
                         path="departments/:departmentId/assessments/new"
                         element={<InstitutionAssessmentBuilderPage />}
@@ -529,39 +378,23 @@ export function App() {
                         path="departments/:departmentId/assessments/:examId/edit"
                         element={<InstitutionAssessmentBuilderPage />}
                     />
-                    {/* Read-only Cisco-style two-pane content reader (outline +
-                        lesson body). ?departmentId= mixes in the group's own content. */}
                     <Route
                         path="certifications/:certificationId/view"
                         element={<InstitutionCertificationViewerPage />}
                     />
-                    {/* The question bank belongs to department heads, inside their
-                        department workspace; the institution account has none. */}
                     <Route path="question-bank" element={<Navigate to="/institution/certifications" replace />} />
                     <Route path="profile" element={<InstitutionAccountPage />} />
-                    {/* License and Files are gone: the plan card repeated the
-                        partnership record and the file shelf was empty. Old
-                        links land on the account page. */}
                     <Route path="license" element={<Navigate to="/institution/partnership" replace />} />
                     <Route path="files" element={<Navigate to="/institution/profile" replace />} />
-                    {/* Analytics is not a second page. It was a separate route
-                        that recomputed the same cohort figures from a second read
-                        of the same data, next to trend panels on placeholder
-                        series -- so the two could disagree and one of them was
-                        invented. Same arrangement as the learner portal, where
-                        /learner/dashboard and /learner/analytics are one board. */}
                     <Route path="analytics" element={<Navigate to="/institution/dashboard" replace />} />
                     <Route path="partnership" element={<InstitutionAccountPage />} />
                     <Route path="billing" element={<Navigate to="/institution/invoices" replace />} />
-                    {/* Invoices: the list, and the one the approval email links to. */}
                     <Route path="invoices" element={<InstitutionInvoicesPage />} />
                     <Route path="invoices/:invoiceId" element={<InstitutionInvoicesPage />} />
                     <Route path="institution" element={<InstitutionAccountPage />} />
                 </Route>
             </Route>
 
-            {/* One notifications page for every role, shown inside each
-                portal's layout (above); this address only redirects there. */}
             <Route
                 element={
                     <ProtectedRoute

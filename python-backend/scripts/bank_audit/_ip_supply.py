@@ -38,8 +38,6 @@ rows = db.execute(text("""
       join major_categories m on m.major_category_id = mc.major_category_id
      where m.certification_id = 4 and q.parent_question_id is null""")).fetchall()
 
-# The licence citation is appended to question_text as "(YearSeason, ...)",
-# so a past-paper question is identifiable without a source column.
 cited = [r[0] for r in rows if r[0] and re.search(r"\((19|20)\d{2}[AS]\s*,", r[0])]
 seasons = {}
 for t in cited:

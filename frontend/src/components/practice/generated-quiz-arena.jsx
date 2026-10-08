@@ -10,34 +10,7 @@ import {
   useQuestionClock,
 } from "@/components/practice/kahoot-arena.jsx"
 
-/**
- * A generated quiz, played rather than sat.
- *
- * <p>The attempt runner behind this is the one every REBYU assessment uses --
- * item navigator, flags, skips, autosave, a server-issued clock for the whole
- * paper. That is right for a mock exam and far too much furniture for the
- * ten-question quiz the tutor generates from a lesson: an exam hall for a
- * warm-up.
- *
- * <p>This is the same attempt with the same endpoints -- answers still autosave
- * through the page's own `setAnswer`, and finishing still submits the same
- * payload for the same server-side grading. What changes is the framing: one
- * question filling the window, four coloured tiles, and a clock per question.
- *
- * <h3>Where the verdict between questions comes from</h3>
- * The browser still does not mark the paper. A locked choice is sent to
- * {@code /choice/{attemptQuestionId}/check}, which marks it the same way
- * submission will and answers with what it made of it, so the tile that lights
- * up and the score at the end cannot disagree. The choices in this page carry
- * no correct flag and never have -- reading one off the payload would put the
- * answers in the page for anyone with a network tab open.
- *
- * <p>Which choice was right, and why, arrive only when the exam releases its
- * answers. Where it does not, the learner is still told whether theirs stood:
- * they have locked it and cannot change it, and that much is theirs to know.
- */
 
-/** Per question. Enough to read four options, not enough to deliberate. */
 const QUESTION_SECONDS = 20
 
 function isMultipleChoice(question) {
@@ -61,20 +34,10 @@ export function GeneratedQuizArena({
   isSubmitting,
   remainingSeconds,
 }) {
-  /* Locked per question, not per answer: a tile can be changed until the clock
-     stops or the learner moves on, and after that the question is done. This is
-     the arena's own state -- the attempt still holds the answer itself. */
   const [lockedIds, setLockedIds] = useState(() => new Set())
 
-  /* The server's marking of each locked choice, by question. Kept here rather
-     than on the attempt because it is what this runner shows, not part of the
-     answer: the attempt is still marked in full at submission. */
   const [verdicts, setVerdicts] = useState(() => ({}))
 
-  /* Questions whose marking is still in flight. Next waits on this: the check
-     is a round trip, and without it a fast learner locks an answer and is on
-     the next question before the verdict lands -- which is the whole reason
-     they were shown one. */
   const [checkingIds, setCheckingIds] = useState(() => new Set())
 
   const question = questions[currentIndex]
@@ -89,9 +52,6 @@ export function GeneratedQuizArena({
       if (!question) return
       setLockedIds((current) => new Set(current).add(question.attemptQuestionId))
 
-      /* Only a choice can be marked this way, and only one that was actually
-         picked: a question the clock ran out on has nothing to send, and is
-         marked unanswered at submission like any other. */
       if (selectedChoiceId == null || !onCheckChoice) return
       const questionId = question.attemptQuestionId
       setCheckingIds((current) => new Set(current).add(questionId))
@@ -99,14 +59,7 @@ export function GeneratedQuizArena({
         .then((result) => {
           if (result) setVerdicts((current) => ({ ...current, [questionId]: result }))
         })
-        /* A verdict that does not arrive costs the learner the feedback, not
-           the question: the answer is already saved, and submission marks it
-           regardless. Falling back to the old "marked at the end" line is a
-           better failure than a tile that never resolves. */
         .catch(() => {})
-        /* Cleared either way. Leaving it set on a failed check would hold Next
-           down for good and strand the learner on a question they have already
-           answered -- a lost verdict must not cost them the quiz. */
         .finally(() => {
           setCheckingIds((current) => {
             const next = new Set(current)
@@ -118,9 +71,6 @@ export function GeneratedQuizArena({
     [question, onCheckChoice]
   )
 
-  /* Time up locks whatever is selected, blank included -- an unanswered
-     question is submitted unanswered and marked wrong, the same as it would be
-     on the standard runner when the paper's clock runs out. */
   const remaining = useQuestionClock({
     seconds: QUESTION_SECONDS,
     index: currentIndex,
@@ -179,11 +129,6 @@ export function GeneratedQuizArena({
               label={choice.choiceText}
               selected={answer?.selectedChoiceId === choice.choiceId}
               disabled={locked || isSubmitting}
-              /* Once the server has answered: the right tile lights up, the
-                 learner's own stays lit so they can see what they picked
-                 against it, and the rest step back. Until then -- or where
-                 the exam withholds its answers -- only the picked tile stays
-                 lit, exactly as before. */
               state={
                 !locked
                   ? "idle"
@@ -234,10 +179,6 @@ export function GeneratedQuizArena({
         </div>
       )}
 
-      {/* Said once, plainly. With a verdict it is the verdict; without one --
-          a typed answer, a question the clock took, or a check that did not
-          come back -- it is still the old promise, so a learner watching a
-          tile dim never concludes the quiz is broken. */}
       {locked ? (
         <div className="mt-6 text-center">
           {verdict ? (
@@ -277,11 +218,6 @@ export function GeneratedQuizArena({
             : ""}
         </p>
 
-        {/* Held while the marking is in flight. Moving on before the verdict
-            lands skips the one thing the check exists to show, and on the last
-            question it would submit the paper over the top of it. A question
-            with nothing to check -- a typed answer, or one the clock took
-            unanswered -- never sets `checking`, so it is not held at all. */}
         <Button
           size="lg"
           disabled={!locked || checking || isSubmitting}

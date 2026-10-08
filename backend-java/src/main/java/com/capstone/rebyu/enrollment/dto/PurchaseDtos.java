@@ -5,7 +5,6 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/** DTOs for Transaction One: certification purchase and enrollment. */
 public final class PurchaseDtos {
 
     private PurchaseDtos() {

@@ -11,7 +11,6 @@ import reactor.netty.http.client.HttpClient;
 
 import java.time.Duration;
 
-/** Wires the WebClient used to reach the Judge0 code-execution API. */
 @Configuration
 @EnableConfigurationProperties(Judge0Properties.class)
 public class Judge0ClientConfig {

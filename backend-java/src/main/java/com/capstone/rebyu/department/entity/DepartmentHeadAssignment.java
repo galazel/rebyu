@@ -9,11 +9,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-// Uniqueness is enforced by a partial index (uq_institution_group_authority_active,
-// scoped to status='active') rather than a @Table-level constraint here, so a
-// user removed as an authority can be re-assigned without colliding with their
-// own archived row. Do not add a uniqueConstraints attribute back -- Hibernate's
-// ddl-auto=update would create its own non-partial constraint alongside it.
 @Entity
 @Table(name = "department_head_assignments")
 @Data

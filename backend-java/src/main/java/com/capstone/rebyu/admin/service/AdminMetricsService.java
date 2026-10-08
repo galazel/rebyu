@@ -27,24 +27,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-/**
- * The platform counters behind the admin dashboard.
- *
- * One endpoint of aggregates rather than the six global list fetches the page
- * used to do. Counting `GET /learners` in the browser means shipping every
- * learner row to an admin's laptop to learn a single number, and it grows
- * without bound; these are `COUNT`/`SUM` queries that stay the same size as the
- * platform does.
- *
- * Everything here is a real query. Nothing on this dashboard is sample data --
- * a figure that cannot be sourced is reported as null and rendered as a dash,
- * which is honest in a way that a plausible-looking placeholder is not.
- */
 @Service
 @RequiredArgsConstructor
 public class AdminMetricsService {
 
-    /** Statuses that mean money is actually being collected. */
     private static final List<BillingStatus> LIVE_BILLING =
             List.of(BillingStatus.ACTIVE, BillingStatus.TRIALING);
 
@@ -60,7 +46,6 @@ public class AdminMetricsService {
     private final InstitutionalLicenseRepository licenseRepository;
     private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
-    /** One month of the growth chart. Money is pesos; counts are rows begun that month. */
     public record MonthTrend(
             String month,
             long newUsers,
@@ -70,7 +55,6 @@ public class AdminMetricsService {
             BigDecimal proRevenue,
             long proApprovals) {}
 
-    /** One row of the "Pro payments" feed. */
     public record ProPaymentDto(
             Long subscriptionId,
             String invoiceNumber,
@@ -80,7 +64,6 @@ public class AdminMetricsService {
             LocalDateTime paidAt,
             String status) {}
 
-    /** Pro subscription money and queue, all-time and recent. */
     public record ProMetrics(
             BigDecimal approvedRevenue,
             BigDecimal approvedRevenueLast30Days,
@@ -90,7 +73,6 @@ public class AdminMetricsService {
             long paymentsLast30Days,
             List<ProPaymentDto> recentPayments) {}
 
-    /** Who is on which plan right now. */
     public record PlanMix(long freeLearners, long proLearners, long awaitingApproval) {}
 
     public record PeopleMetrics(
@@ -121,14 +103,12 @@ public class AdminMetricsService {
             long activeSubscriptions,
             long activeLicenses) {}
 
-    /** One bar of the "learners per certification" chart. */
     public record CertificationEnrolmentDto(
             Long certificationId,
             String title,
             long learners,
             long enrollments) {}
 
-    /** One row of the "learners who paid" feed. */
     public record PaymentDto(
             Long orderId,
             String orderNumber,
@@ -155,10 +135,6 @@ public class AdminMetricsService {
                 learnersPerCertification(), recentPayments(), trends(), planMix(), pro());
     }
 
-    /**
-     * The last six calendar months, oldest first, zero-filled so the line does
-     * not skip a quiet month. Five grouped queries rather than a query per month.
-     */
     private List<MonthTrend> trends() {
         java.time.YearMonth current = java.time.YearMonth.now();
         java.time.YearMonth first = current.minusMonths(5);
@@ -174,8 +150,6 @@ public class AdminMetricsService {
             try {
                 jdbc.query(sql, rs -> { row.accept(rs); }, java.sql.Timestamp.valueOf(from));
             } catch (RuntimeException ignored) {
-                // A missing table or column leaves that series at zero rather
-                // than taking the whole dashboard down.
             }
         };
         each.accept("select to_char(date_trunc('month', joined_at), 'YYYY-MM') m, count(*) c from users "
@@ -289,7 +263,6 @@ public class AdminMetricsService {
             pro = active == null ? 0 : active;
             awaiting = pending == null ? 0 : pending;
         } catch (RuntimeException ignored) {
-            // Leave the split at "everyone is free" if billing is unreadable.
         }
         return new PlanMix(Math.max(learners - pro, 0), pro, awaiting);
     }
@@ -305,12 +278,6 @@ public class AdminMetricsService {
                 .toList();
     }
 
-    /**
-     * The latest completed orders, with the payer named.
-     *
-     * Only `completed` orders count as a payment. A pending order is an intent,
-     * and listing one here would report money that has not arrived.
-     */
     private List<PaymentDto> recentPayments() {
         return orderRepository.findTop8ByStatusOrderByPaidAtDesc(LearnerOrder.Status.completed)
                 .stream()
@@ -344,8 +311,6 @@ public class AdminMetricsService {
                 userRepository.count(),
                 userRepository.countByAccountStatus(User.AccountStatus.active),
                 learnerRepository.count(),
-                // Distinct people, not enrollment rows: a learner holding three
-                // active certifications is one person currently studying.
                 learnerCertificationRepository
                         .countDistinctLearnersByStatus(LearnerCertification.Status.active),
                 learnerCertificationRepository.countByStatus(LearnerCertification.Status.active));
@@ -370,8 +335,6 @@ public class AdminMetricsService {
         return new AssessmentMetrics(
                 graded,
                 passed,
-                // Null rather than 0% when nothing has been graded: "no data" and
-                // "everyone failed" are different facts and must not look alike.
                 graded == 0 ? null : (int) Math.round(passed * 100.0 / graded),
                 average == null ? null : (int) Math.round(average),
                 attemptRepository.countByStatusAndSubmittedAtGreaterThanEqual(
@@ -389,7 +352,6 @@ public class AdminMetricsService {
                 licenseRepository.countByLicenseStatusIn(LIVE_BILLING));
     }
 
-    /** SUM over no rows is null in SQL; zero is the truthful reading for sales. */
     private BigDecimal money(BigDecimal value) {
         return (value == null ? BigDecimal.ZERO : value).setScale(2, RoundingMode.HALF_UP);
     }

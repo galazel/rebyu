@@ -1,5 +1,3 @@
--- Example query for constructing the source_event_id sent to POST /api/v1/bkt/mastery/events.
--- The event identifier must remain stable so retries are idempotent.
 
 SELECT
     CONCAT(

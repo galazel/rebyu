@@ -41,10 +41,6 @@ def test_start_run_twice_for_same_thread_opens_an_attempt_instead_of_duplicating
     assert second.last_seq == 2
     assert len(registry.list_runs(session)) == 1
 
-    # Recorded as a restart, not a resume: every caller of start_run begins a
-    # graph from the top, so a second call is a second attempt. Marking the
-    # boundary is what lets the timeline show the current attempt instead of
-    # stacking every attempt this thread ever made.
     last = registry.list_events(session, second.run_id)[-1]
     assert last.event_type == registry.EVT_WORKFLOW_RESTARTED
     assert last.payload == {"attempt": 2}, "the original execution was attempt 1"
@@ -121,7 +117,6 @@ def test_transition_on_unknown_thread_returns_none_rather_than_inventing_a_run(s
     assert registry.mark_completed(session, "never-registered") is None
 
 
-# event sequence / replay
 
 def test_seq_is_monotonic_and_gapless(session):
     run = registry.start_run(session, thread_id="t-6", kind="CERTIFICATION")
@@ -174,7 +169,6 @@ def test_two_runs_have_independent_sequences(session):
     assert [e.seq for e in registry.list_events(session, b.run_id)] == [1]
 
 
-# listing / filtering
 
 def test_list_filters_by_status_and_certification(session):
     registry.start_run(session, thread_id="f-1", kind="CERTIFICATION", certification_id=1)
@@ -193,7 +187,6 @@ def test_list_is_newest_first(session):
     assert set(threads) == {"o-1", "o-2"}
 
 
-# concurrent emitters
 
 def test_two_sessions_that_both_loaded_the_run_get_distinct_seqs(session_factory):
     """The live 500: a Retry click landed while a resume was mid-flight
@@ -209,8 +202,6 @@ def test_two_sessions_that_both_loaded_the_run_get_distinct_seqs(session_factory
         run_id = run.run_id
 
     with session_factory() as a, session_factory() as b:
-        # Both load the run *before* either writes -- the stale reads that made
-        # the Python-side increment unsafe.
         run_a = registry.get_run(a, run_id)
         run_b = registry.get_run(b, run_id)
         assert run_a.last_seq == run_b.last_seq

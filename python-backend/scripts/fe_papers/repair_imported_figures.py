@@ -84,8 +84,6 @@ def plan(doc, record):
     had_options = bool(record.get("choice_images"))
 
     if had_options and not options:
-        # Options found by the vision agent, which split_figures never sees:
-        # cut the whole figure region at its letters.
         figures = record.get("figures") or []
         pages = {f["page"] for f in figures}
         if len(pages) == 1 and figures:
@@ -191,7 +189,6 @@ def main():
                 counts["skipped"] += 1
                 continue
 
-            # Text: the banner tail, and scraped labels on picture options.
             text_fixes = {}
             for letter, value in record["choices"].items():
                 cleaned = BANNER_TAIL_RE.sub("", value or "")

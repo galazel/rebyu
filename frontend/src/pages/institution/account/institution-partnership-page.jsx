@@ -68,39 +68,7 @@ import {
 } from "@/services/institutionService.js"
 import { getPartnershipPricing } from "@/services/partnershipService.js"
 
-/**
- * The institution's partnership: every request it has made, as one table --
- * what was asked for, what it costs, where it stands, and when access runs
- * out.
- *
- * Three things an institution does from here, all of them the same request
- * form in a different mode:
- *
- * <ul>
- *   <li><b>Request more</b> -- more learner slots on a certification it already
- *       has, or one it does not. This is what the header button offers once the
- *       institution holds any access at all; "Request Partnership" is a thing
- *       you do once, and an institution that is already partnered was being
- *       asked to do it again.</li>
- *   <li><b>Renew</b> -- the same certifications and slots, fresh window.</li>
- *   <li><b>Pay</b> -- the invoice that approval raises.</li>
- * </ul>
- *
- * All three ride the one submission endpoint. The server does the rest:
- * submitting notifies every admin, approval raises an invoice and emails it,
- * and paying it tops up the existing allocation -- slots added, never
- * overwritten, and the access window only ever widened
- * (InstitutionAccessGrantService). So a top-up needs no new plumbing; it only
- * needed saying out loud on this page.
- */
 
-/**
- * A Date as the yyyy-mm-dd the API and <input type="date"> both want, read off
- * the local calendar.
- *
- * Not `toISOString().slice(0, 10)`, which converts to UTC first: Manila is
- * UTC+8, so any morning before 8am "today" came out as yesterday.
- */
 function toLocalDate(date) {
   const month = String(date.getMonth() + 1).padStart(2, "0")
   const day = String(date.getDate()).padStart(2, "0")
@@ -109,7 +77,6 @@ function toLocalDate(date) {
 
 const TODAY = () => toLocalDate(new Date())
 
-/** yyyy-mm-dd, `months` from today. */
 function monthsFromToday(months) {
   const date = new Date()
   date.setMonth(date.getMonth() + Number(months))
@@ -138,7 +105,6 @@ function apiMessage(error, fallback) {
   return error?.response?.data?.message ?? error?.message ?? fallback
 }
 
-/** Whole months between two ISO dates, at least 1 -- what the form asks for. */
 function monthsBetween(startDate, endDate) {
   if (!startDate || !endDate) return 12
   const start = new Date(startDate)
@@ -149,7 +115,6 @@ function monthsBetween(startDate, endDate) {
   return months > 0 ? months : 12
 }
 
-/** The latest access end date across a request's items. */
 function accessEndsOn(request) {
   const ends = (request.items ?? [])
     .map((item) => item.requestedAccessEndDate)
@@ -180,8 +145,6 @@ const INTENT_COPY = {
     description:
       "Add learner slots to a certification you already have, or add one you do not. Remove any line you are not asking for.",
     submit: "Submit request",
-    // Labelled for what the number means here: these are added to the
-    // allocation, not a new total that replaces it.
     slotsLabel: "Add slots",
   },
 }
@@ -191,12 +154,8 @@ function RequestPartnershipDialog({ open, onOpenChange, data, seed, intent = "ne
   const [items, setItems] = useState(() => [defaultItem()])
   const [error, setError] = useState("")
 
-  // One idempotency key per open dialog: a double-click cannot create two
-  // requests, and the whole request+items submission is atomic on the server.
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
 
-  // The dialog is remounted per opening (`key` on the caller), so seeding from
-  // props at first render is enough -- no effect that races the user's typing.
   const [seeded, setSeeded] = useState(false)
   if (!seeded) {
     setSeeded(true)
@@ -207,8 +166,6 @@ function RequestPartnershipDialog({ open, onOpenChange, data, seed, intent = "ne
     mutationFn: () =>
       submitPartnershipRequestTransaction({
         idempotencyKey,
-        // What the reference gets prefixed with, and what the admin screen
-        // calls it: PR- a first partnership, AD- more of one, RN- a renewal.
         requestType: REQUEST_TYPE[intent] ?? "NEW",
         items: items.map((item) => ({
           certificationId: Number(item.certificationId),
@@ -257,8 +214,6 @@ function RequestPartnershipDialog({ open, onOpenChange, data, seed, intent = "ne
       setError("Give every line item a start and end date.")
       return
     }
-    // The same rule the server enforces, said here so a bad window costs a
-    // glance rather than a round trip.
     if (items.some((item) => item.endDate < item.startDate)) {
       setError("An access end date cannot be before its start date.")
       return
@@ -267,15 +222,10 @@ function RequestPartnershipDialog({ open, onOpenChange, data, seed, intent = "ne
     submitMutation.mutate()
   }
 
-  // Only published certifications can be requested -- the submit endpoint
-  // rejects drafts, so don't offer them here either.
   const certifications = [...data.certificationById.values()].filter(
     (certification) => certification.status === "PUBLISHED"
   )
 
-  /* The same per-slot rate the invoice will be raised at, read from the server
-     so this quote and the bill cannot drift apart. The public request form
-     reads it from here too. */
   const pricingQuery = useQuery({
     queryKey: ["partnership-pricing"],
     queryFn: getPartnershipPricing,
@@ -298,12 +248,6 @@ function RequestPartnershipDialog({ open, onOpenChange, data, seed, intent = "ne
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="max-h-[45vh] space-y-3 overflow-y-auto pr-1">
             {items.map((item, index) => (
-              /* Two bands rather than one row of five controls. Two date fields
-                 need about 300px between them, which a single row cannot spare
-                 without squeezing the certification select down to the width of
-                 the word "Select" -- the shape this row had when it carried a
-                 84px "Months" box instead. The certification names the line; the
-                 numbers and dates sit under it. */
               <div key={index} className="space-y-3 rounded-lg border p-3">
                 <div className="flex items-end gap-2">
                   <div className="min-w-0 flex-1 space-y-1.5">
@@ -372,8 +316,6 @@ function RequestPartnershipDialog({ open, onOpenChange, data, seed, intent = "ne
                     <Input
                       id={`pr-end-${index}`}
                       type="date"
-                      /* Never before the day it starts -- the same rule the
-                         server applies, enforced by the picker itself. */
                       min={item.startDate || undefined}
                       value={item.endDate ?? ""}
                       onChange={(event) =>
@@ -396,8 +338,6 @@ function RequestPartnershipDialog({ open, onOpenChange, data, seed, intent = "ne
             Add certification
           </Button>
 
-          {/* What it costs and what happens next, stated before they submit
-              rather than discovered when the invoice arrives. */}
           <div className="rounded-lg border bg-muted/40 p-3 text-sm">
             <div className="flex items-baseline justify-between gap-3">
               <span className="font-semibold">
@@ -444,7 +384,6 @@ function RequestPartnershipDialog({ open, onOpenChange, data, seed, intent = "ne
   )
 }
 
-/** The certifications and slots of one request, stacked inside its cell. */
 function RequestItems({ request, certificationById }) {
   const items = Array.isArray(request.items) ? request.items : []
   if (items.length === 0) {
@@ -476,12 +415,8 @@ export default function InstitutionPartnershipPage() {
   const queryClient = useQueryClient()
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelReason, setCancelReason] = useState("")
-  // Remounts the dialog per opening, so each renewal seeds cleanly and gets a
-  // fresh idempotency key.
   const [dialogKey, setDialogKey] = useState(0)
 
-  // Institution-scoped endpoint (institutionId derived server-side from the JWT) --
-  // NOT the unfiltered generic CRUD list, which would leak every tenant's requests.
   const requestsQuery = useQuery({
     queryKey: ["partnership-request-transactions"],
     queryFn: getPartnershipRequestTransactions,
@@ -489,9 +424,6 @@ export default function InstitutionPartnershipPage() {
     retry: 1,
   })
 
-  // The invoice a request's approval raised, so the row can price it and offer
-  // the payment. Its absence is normal (nothing approved yet), so a failure
-  // here only costs the amount column, never the table.
   const invoicesQuery = useQuery({
     queryKey: ["institution-invoices"],
     queryFn: getMyInstitutionInvoices,
@@ -505,7 +437,6 @@ export default function InstitutionPartnershipPage() {
     for (const invoice of list) {
       if (invoice.partnershipRequestId == null) continue
       const held = map.get(invoice.partnershipRequestId)
-      // Newest invoice wins: a renewal of the same request is what to pay.
       if (!held || new Date(invoice.issuedAt) > new Date(held.issuedAt)) {
         map.set(invoice.partnershipRequestId, invoice)
       }
@@ -553,9 +484,6 @@ export default function InstitutionPartnershipPage() {
       (request.items ?? []).map((item) => ({
         certificationId: String(item.certificationId),
         slots: item.slots ?? 1,
-        // A renewal runs from today for as long as the original did -- the old
-        // window has run out, which is what is being renewed. Both dates are
-        // editable from here.
         startDate: TODAY(),
         endDate: monthsFromToday(
           monthsBetween(item.requestedAccessStartDate, item.requestedAccessEndDate)
@@ -565,10 +493,6 @@ export default function InstitutionPartnershipPage() {
     )
   }
 
-  /* Whatever the institution already holds, each line blank and ready for a
-     number of *additional* slots, on the window that allocation already runs
-     to. Lines they are not topping up get removed; a certification they do not
-     hold yet gets added with the form's own "Add certification" button. */
   const holdings = useMemo(
     () =>
       data.institutionCerts.filter((cert) =>
@@ -586,9 +510,6 @@ export default function InstitutionPartnershipPage() {
       holdings.map((cert) => ({
         certificationId: String(cert.certificationId),
         slots: "",
-        // The extra seats ride the window this allocation already runs to, so
-        // asking for more slots does not quietly extend it. Both dates are
-        // editable, and the server only ever widens a window, never shortens it.
         startDate: TODAY(),
         endDate: cert.accessExpiryDate || monthsFromToday(12),
       })),
@@ -615,18 +536,12 @@ export default function InstitutionPartnershipPage() {
         title="Partnership"
         subtitle="Every request your institution has made: what it covers, what it costs, and when access ends."
         actions={
-          /* "Request Partnership" is something you do once. An institution that
-             already holds access wants more of it -- more slots, or another
-             certification -- so that is what the button offers them. */
           holdings.length > 0 ? (
             <div className="flex items-center gap-2">
               <Button onClick={requestMore}>
                 <PlusIcon aria-hidden="true" />
                 Request more access
               </Button>
-              {/* Ending the partnership is deliberately the quietest control
-                  on the page: it is rare, it is not reversible, and it is not
-                  what anyone came here to do. */}
               <Button
                 variant="ghost"
                 className="text-muted-foreground hover:text-destructive"
@@ -749,11 +664,6 @@ export default function InstitutionPartnershipPage() {
                               Pay now
                             </Button>
                           ) : null}
-                          {/* Only an approved request has a window to renew.
-                              On a pending one it offered to renew something
-                              nobody had agreed to yet, and on a rejected one it
-                              offered to renew a refusal -- both would have gone
-                              in as a fresh request at full price. */}
                           {request.status === "APPROVED" ? (
                             <Button
                               size="sm"
@@ -780,8 +690,6 @@ export default function InstitutionPartnershipPage() {
         </Card>
       )}
 
-      {/* Says what actually happens, in the order it happens, before asking.
-          Every clause here is a thing the server really does on approval. */}
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

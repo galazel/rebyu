@@ -11,17 +11,6 @@ import java.util.Optional;
 
 public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAttempt, Long> {
 
-    /**
-     * Reconciliation: of the {@code window} most recently submitted attempts, the
-     * ids of those with fewer outbox events than answers that should be evidence
-     * (graded, not pending manual marking, mapped to a lesson).
-     *
-     * <p>Counted in the database and returned as bare ids on purpose. The job used
-     * to load every one of those attempts whole -- question snapshots, submitted
-     * code, diagrams, run results, and each source question with its configs --
-     * every fifteen minutes, to find out that nearly all of them were already
-     * done. That re-read was the bulk of the database's outbound data transfer.
-     */
     @Query(value = """
             SELECT a.assessment_attempt_id
             FROM (SELECT assessment_attempt_id, submitted_at
@@ -65,17 +54,14 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
     List<AssessmentAttempt> findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
             Long learnerId, Long certificationId, AssessmentAttempt.Status status);
 
-    /** Past graded attempts of this exam by this learner, for adaptive retake analysis. */
     List<AssessmentAttempt> findByExam_ExamIdAndLearnerIdAndStatus(
             Long examId, Long learnerId, AssessmentAttempt.Status status);
 
-    // Platform aggregates (admin dashboard)
 
     long countByStatus(AssessmentAttempt.Status status);
 
     long countByStatusAndPassed(AssessmentAttempt.Status status, Boolean passed);
 
-    /** Mean percentage across graded attempts. Null when nothing is graded yet. */
     @org.springframework.data.jpa.repository.Query("""
             SELECT AVG(a.percentage) FROM AssessmentAttempt a
             WHERE a.status = :status AND a.percentage IS NOT NULL
@@ -86,9 +72,7 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
     long countByStatusAndSubmittedAtGreaterThanEqual(
             AssessmentAttempt.Status status, java.time.LocalDateTime since);
 
-    // Per-learner rollups (institution dashboard)
 
-    /** One row per learner. Projection interface so the rollup stays in SQL. */
     interface LearnerAttemptStats {
         Long getLearnerId();
         long getAttempts();
@@ -97,13 +81,6 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
         java.time.LocalDateTime getLastSubmittedAt();
     }
 
-    /**
-     * Graded-attempt statistics for a whole roster in one query.
-     *
-     * Batched on purpose: the institution dashboard renders a row per member,
-     * and doing this per learner is the N+1 that makes a 200-seat institution's
-     * dashboard take seconds.
-     */
     @org.springframework.data.jpa.repository.Query("""
             SELECT a.learnerId AS learnerId,
                    COUNT(a) AS attempts,
@@ -121,7 +98,6 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
             @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
             @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to);
 
-    /** One certification across a roster: how it is being scored, not just finished. */
     interface CertificationScoreRow {
         Long getCertificationId();
         Double getAverageScore();
@@ -129,18 +105,6 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
         long getPassedAttempts();
     }
 
-    /**
-     * Average score and attempt outcomes per certification, across a roster.
-     *
-     * <p>Completion says how much of a programme a cohort has worked through;
-     * this says how well they are doing it. A department can be 80% through a
-     * certification and averaging 40% on its papers, and only one of those two
-     * numbers is a warning.
-     *
-     * <p>Grouped through the exam's certification rather than the learner's
-     * assignment, so a score counts toward the programme whose paper was
-     * actually sat.
-     */
     @org.springframework.data.jpa.repository.Query("""
             SELECT a.exam.certification.certificationId AS certificationId,
                    AVG(a.percentage) AS averageScore,
@@ -158,7 +122,6 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
             @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
             @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to);
 
-    /** One assessment across a roster: how often it was sat, passed, and at what score. */
     interface ExamOutcomeRow {
         Long getExamId();
         String getExamTitle();
@@ -172,22 +135,6 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
         long getLearners();
     }
 
-    /**
-     * How each assessment is actually going across a group of learners.
-     *
-     * <p>A department can see one overall pass rate but not which paper is
-     * carrying it. An assessment nearly everybody fails is either the hardest
-     * point in the course or a badly built exam, and both are worth knowing;
-     * neither is visible in an average.
-     *
-     * <p>Bounded by certification as well as by learner, for the same reason
-     * as the topic query: these learners also sit papers on certifications
-     * the caller does not teach, and those are not the caller's hardest
-     * assessments.
-     *
-     * <p>Distinct learners travel with the attempt count so a paper one person
-     * sat five times is not mistaken for one five people struggled with.
-     */
     @org.springframework.data.jpa.repository.Query("""
             SELECT a.exam.examId AS examId,
                    a.exam.title AS examTitle,
@@ -215,21 +162,12 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
             @org.springframework.data.repository.query.Param("from") java.time.LocalDateTime from,
             @org.springframework.data.repository.query.Param("to") java.time.LocalDateTime to);
 
-    /** One row per learner who has ever passed a mock exam on a certification. */
     interface LearnerMockExamResult {
         Long getLearnerId();
         Double getBestScore();
         java.time.LocalDateTime getPassedAt();
     }
 
-    /**
-     * Best passing mock-exam result per learner, for a whole roster in one
-     * query -- same batching reason as {@link #statsByLearnerIds}: the section
-     * roster renders a row per learner, and asking per learner is an N+1.
-     *
-     * Restricted to MOCK_EXAM attempts on the group's own certification, so a
-     * pass on some other certification's paper can never light up this badge.
-     */
     @org.springframework.data.jpa.repository.Query("""
             SELECT a.learnerId AS learnerId,
                    MAX(a.percentage) AS bestScore,
@@ -246,7 +184,6 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
             @org.springframework.data.repository.query.Param("learnerIds") java.util.Collection<Long> learnerIds,
             @org.springframework.data.repository.query.Param("certificationId") Long certificationId);
 
-    /** Submitted attempts whose background marking has not finished -- the sweep's worklist. */
     List<AssessmentAttempt> findByStatusAndGradingPendingTrueAndSubmittedAtBefore(
             AssessmentAttempt.Status status, java.time.LocalDateTime before);
 }

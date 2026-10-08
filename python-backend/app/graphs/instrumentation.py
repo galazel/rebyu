@@ -55,18 +55,6 @@ def _emit(
             if run is None:
                 return
 
-            # Keep the run row pointing at the node actually executing.
-            #
-            # Events carried the stage and the row did not, so `current_stage`
-            # held whatever last set it explicitly -- a review submission, or a
-            # retry, which sets it to the step being retried. A run retried at
-            # plan_curriculum therefore reported "Planning the curriculum" for
-            # the rest of its life, and the certification card says exactly
-            # that while the live view shows lesson 8 of 28.
-            #
-            # Only on node start: the completion event fires as the node ends,
-            # and taking the stage from that would leave the row naming a step
-            # that has already finished.
             if event_type == registry.EVT_NODE_STARTED and run.current_stage != stage:
                 run.current_stage = stage
 
@@ -80,16 +68,11 @@ def _emit(
                 payload=payload,
             )
             session.commit()
-            # Published only after the commit: broadcasting first would push an
-            # event to live clients that a rollback then erased, and a client
-            # cannot un-render what it has already drawn.
             registry.publish_event(run.run_id, event)
     except Exception:
         logger.debug("Could not emit %s for stage %s", event_type, stage, exc_info=True)
 
 
-#: Per-item loop stages, mapped to the state cursor and the plan total that
-#: bound them. Anything absent is a once-per-run node with no "of N".
 _LOOP_PHASES = {
     "MAJOR": ("major_cursor", "majors"),
     "MIDDLE": ("middle_cursor", "middles"),
@@ -160,10 +143,6 @@ def instrument(node: Callable, stage: str) -> Callable:
         @functools.wraps(node)
         async def async_wrapper(state: dict, *args: Any, **kwargs: Any):
             thread_id = state.get("thread_id")
-            # Between-node cancellation check. An in-flight LLM call cannot be
-            # aborted, so this boundary is the tightest bound available -- and
-            # it belongs here rather than in individual nodes, which is how
-            # cancelling during document validation used to do nothing.
             _halt_if_cancelled(thread_id, stage)
             _emit(
                 thread_id, registry.EVT_NODE_STARTED, stage=stage,

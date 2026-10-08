@@ -1,10 +1,6 @@
 import { TrendingUp, TrendingDown } from "@/components/icons"
 import { MasteryIndicator } from './mastery-indicator'
 
-/**
- * Mastery Change Display - shows how mastery changed after an assessment
- * Displays before/after mastery levels with visual progression
- */
 export function MasteryChangeDisplay({
   masteryBefore,
   masteryAfter,
@@ -36,7 +32,6 @@ export function MasteryChangeDisplay({
       </div>
 
       <div className="flex items-center justify-between gap-6">
-        {/* Before */}
         <div className="flex flex-col items-center gap-3">
           <p className="text-xs font-medium text-muted-foreground">Before</p>
           <MasteryIndicator level={levelBefore} showLabel={false} size="lg" />
@@ -48,7 +43,6 @@ export function MasteryChangeDisplay({
           </div>
         </div>
 
-        {/* Arrow & Change */}
         <div className="flex flex-col items-center gap-2">
           {improved ? (
             <TrendingUp className="w-6 h-6 text-green-600" />
@@ -66,7 +60,6 @@ export function MasteryChangeDisplay({
           </span>
         </div>
 
-        {/* After */}
         <div className="flex flex-col items-center gap-3">
           <p className="text-xs font-medium text-muted-foreground">After</p>
           <MasteryIndicator level={levelAfter} showLabel={false} size="lg" />
@@ -79,7 +72,6 @@ export function MasteryChangeDisplay({
         </div>
       </div>
 
-      {/* Progress bar */}
       <div className="mt-6">
         <div className="h-2 bg-muted rounded-full overflow-hidden">
           <div
@@ -93,7 +85,6 @@ export function MasteryChangeDisplay({
         </div>
       </div>
 
-      {/* Level change badge */}
       {levelBefore !== levelAfter && (
         <div className="mt-4">
           <p className="text-sm font-medium text-foreground mb-2">
@@ -126,9 +117,6 @@ function getMasteryLevelName(level) {
   return levels[Math.min(level || 0, 4)]
 }
 
-/**
- * Compact version for result summaries
- */
 export function MasteryChangeCompact({
   masteryBefore,
   masteryAfter,

@@ -15,12 +15,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * Reads stay public (browsed platform-wide). WRITES had no auth at all --
- * now either ADMIN (official content, ownerDepartmentId omitted) or an Institution
- * Member acting on their own group's content (ownerDepartmentId required, checked
- * against the caller's own group access -- see MajorCategoryService).
- */
 @RestController
 @RequestMapping("/api/major-categories")
 @RequiredArgsConstructor

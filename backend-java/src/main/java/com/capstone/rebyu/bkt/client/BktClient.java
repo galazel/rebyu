@@ -16,10 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Typed, blocking client for the internal FastAPI BKT service. All failures are
- * surfaced as {@link BktServiceException} and never as raw reactive errors.
- */
 @Slf4j
 @Component
 public class BktClient {
@@ -30,10 +26,6 @@ public class BktClient {
         this.webClient = bktWebClient;
     }
 
-    /**
-     * Forward a batch of final mastery events. FastAPI de-duplicates by
-     * source_event_id, so re-sending an already-processed batch is safe.
-     */
     public void sendBatch(BktMasteryEventBatch batch) {
         String correlationId = UUID.randomUUID().toString();
         try {
@@ -56,7 +48,6 @@ public class BktClient {
         }
     }
 
-    /** Learner mastery across all lessons (optionally filtered), for analytics. */
     public LearnerMasteryView getLearnerMastery(Long learnerId, List<Long> lessonIds) {
         try {
             return webClient.get()
@@ -77,24 +68,20 @@ public class BktClient {
         }
     }
 
-    /** Weighted readiness. Body/response are passed through as generic maps. */
     public Map<String, Object> computeReadiness(Map<String, Object> request) {
         return postMap("/analytics/readiness", request, "compute readiness");
     }
 
-    /** Lesson → middle → major priority hierarchy for a learner + certification. */
     public Map<String, Object> getPriorities(Long learnerId, Long certificationId) {
         return getMap("/priorities/learners/" + learnerId + "/certifications/" + certificationId,
                 "load priorities");
     }
 
-    /** Certification confidence summary for a learner. */
     public Map<String, Object> getConfidence(Long learnerId, Long certificationId) {
         return getMap("/priorities/learners/" + learnerId + "/certifications/"
                 + certificationId + "/confidence", "load confidence");
     }
 
-    /** Typed lesson-level priorities for a learner + certification. */
     public List<LessonPriorityView> getLessonPriorities(Long learnerId, Long certificationId) {
         try {
             return webClient.get()
@@ -110,7 +97,6 @@ public class BktClient {
         }
     }
 
-    /** Typed certification confidence summary for a learner. */
     public ConfidenceView getConfidenceView(Long learnerId, Long certificationId) {
         try {
             return webClient.get()
@@ -125,7 +111,6 @@ public class BktClient {
         }
     }
 
-    /** Mastery history events for a learner + certification. */
     public List<MasteryHistoryView> getMasteryHistory(Long learnerId, Long certificationId) {
         try {
             return webClient.get()
@@ -142,18 +127,6 @@ public class BktClient {
     }
 
     @SuppressWarnings("unchecked")
-    /**
-     * Erases every BKT record held against a learner id.
-     *
-     * <p>Called when a learner is provisioned, because learner ids are not
-     * unique over time: the application database has been reset while the BKT
-     * store was not, so ids restarted from 1 on top of surviving mastery rows.
-     * A new account then opened on a stranger's record -- 98% mastery of a
-     * lesson it had never seen, with 89 answers behind it.
-     *
-     * <p>Idempotent, and a no-op for a genuinely fresh id. Anything it does
-     * find belonged to an account that no longer exists.
-     */
     public Map<String, Object> purgeLearnerState(Long learnerId) {
         try {
             return webClient.delete()

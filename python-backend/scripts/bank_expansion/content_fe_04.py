@@ -15,7 +15,6 @@ CERTIFICATION_ID = 14
 
 QUESTIONS = {
 
-    # 501 -- Information Systems Strategy and Enterprise Architecture
     501: [
         mcq("AVERAGE",
             "What are the four conventional architecture domains of an enterprise architecture?",
@@ -33,7 +32,6 @@ QUESTIONS = {
             "A target with no baseline gives no route. The gap analysis is what converts an architecture from a picture into a plan."),
     ],
 
-    # 502 -- Business Process Analysis and Modelling
     502: [
         mcq("AVERAGE",
             "In BPMN, what does a gateway represent?",
@@ -51,7 +49,6 @@ QUESTIONS = {
             "Steps whose rationale has been forgotten are often controls someone added for a reason. Removing before understanding is how a process improvement becomes an incident."),
     ],
 
-    # 503 -- Solution Business: Cloud, Outsourcing and Service Models
     503: [
         mcq("HARD",
             "Under the shared responsibility model for IaaS, which is the customer's responsibility?",
@@ -69,7 +66,6 @@ QUESTIONS = {
             "The shift is capex to opex and commitment to elasticity. For a steady, predictable load over years, owning can still be cheaper."),
     ],
 
-    # 504 -- System Utilisation Promotion and Evaluation
     504: [
         mcq("AVERAGE",
             "Why is user adoption measured after a system is deployed?",
@@ -87,7 +83,6 @@ QUESTIONS = {
             "Persistent workarounds are evidence about the requirements, not about the users. The old tool is doing something the new system does not."),
     ],
 
-    # 505 -- Computerisation Planning and Investment Appraisal
     505: [
         mcq("HARD",
             "An investment costs 300,000 and returns 100,000 per year. What is its simple payback period?",
@@ -105,7 +100,6 @@ QUESTIONS = {
             "The discount rate expresses the opportunity cost of capital. A project returning less than that rate destroys value even while showing an accounting profit."),
     ],
 
-    # 506 -- Requirements Definition from the Client Side
     506: [
         mcq("AVERAGE",
             "What is the client's responsibility when defining requirements for a procured system?",
@@ -123,7 +117,6 @@ QUESTIONS = {
             "Specifying the current solution rather than the need buys a more expensive copy of what already exists, including the parts nobody liked."),
     ],
 
-    # 507 -- Procurement Planning: RFI, RFP and Supplier Selection
     507: [
         mcq("AVERAGE",
             "What distinguishes an RFP from an RFI?",
@@ -141,7 +134,6 @@ QUESTIONS = {
             "Delivery risk is not only technical. The cheapest bid from a supplier who will not survive the contract is the most expensive outcome available."),
     ],
 
-    # 508 -- Business Strategy Techniques and Competitive Analysis
     508: [
         mcq("HARD",
             "In Porter's five forces, what increases the bargaining power of buyers?",
@@ -159,7 +151,6 @@ QUESTIONS = {
             "Focus narrows the competitive scope deliberately, and may pursue either cost or differentiation within that segment. It is a scope choice rather than a third kind of advantage."),
     ],
 
-    # 509 -- Marketing: Segmentation, Mix and Pricing
     509: [
         mcq("AVERAGE",
             "What are the four elements of the traditional marketing mix?",
@@ -177,7 +168,6 @@ QUESTIONS = {
             "Skimming recovers development cost from the least price-sensitive buyers first. Penetration does the opposite, pricing low to win share quickly."),
     ],
 
-    # 510 -- Business Strategy Goals and Evaluation
     510: [
         mcq("AVERAGE",
             "What does a balanced scorecard add to purely financial measurement?",
@@ -195,7 +185,6 @@ QUESTIONS = {
             "Local optimization is the classic failure: purchasing hits its cost target with a cheaper supplier while production absorbs the defect rate."),
     ],
 
-    # 511 -- Business Management Systems: ERP, SCM, CRM and BI
     511: [
         mcq("AVERAGE",
             "What is the defining architectural feature of an ERP system?",
@@ -213,7 +202,6 @@ QUESTIONS = {
             "Operational reports describe the present state of one system. BI integrates across systems and time so that trends and comparisons become answerable."),
     ],
 
-    # 512 -- Planning a Technology Development Strategy
     512: [
         mcq("AVERAGE",
             "What does a technology roadmap communicate?",
@@ -231,7 +219,6 @@ QUESTIONS = {
             "Waiting until the value is proven means entering without the capability that takes years to build. The investment buys the option to act later."),
     ],
 
-    # 513 -- Technology Development Plans and Innovation Management
     513: [
         mcq("HARD",
             "What characterizes a disruptive innovation in the established sense?",
@@ -249,7 +236,6 @@ QUESTIONS = {
             "The gate's value lies in being willing to stop. A process where nothing is ever killed is a budgeting ritual rather than a control."),
     ],
 
-    # 514 -- Business Systems and Administrative Applications
     514: [
         mcq("AVERAGE",
             "What does a payroll system's period-end processing typically require that daily processing does not?",
@@ -267,7 +253,6 @@ QUESTIONS = {
             "Attribution is a legal and control requirement in these systems, not a diagnostic convenience -- which is why the trail is designed in rather than logged incidentally."),
     ],
 
-    # 515 -- Engineering Systems and Production Management
     515: [
         mcq("HARD",
             "MRP explodes a production plan against which two inputs?",
@@ -285,7 +270,6 @@ QUESTIONS = {
             "Pull from real consumption is what keeps inventory low. A forecast-driven push produces exactly the buffer stock the method exists to remove."),
     ],
 
-    # 516 -- e-Business: EC, Electronic Payment and Digital Marketing
     516: [
         mcq("AVERAGE",
             "What does payment tokenization achieve for an online merchant?",
@@ -303,7 +287,6 @@ QUESTIONS = {
             "Traffic without conversion is cost. The rate connects marketing spend to the outcome it is meant to produce."),
     ],
 
-    # 517 -- Consumer Appliances and Embedded Consumer Systems
     517: [
         mcq("AVERAGE",
             "What characterizes a real-time embedded system?",
@@ -321,7 +304,6 @@ QUESTIONS = {
             "The update channel is the most privileged interface a device has. Signing and verifying the image is what stops it becoming the easiest way in."),
     ],
 
-    # 518 -- Industrial Devices, IoT and Control Equipment
     518: [
         mcq("HARD",
             "Why is patching an industrial control system harder than patching office IT?",
@@ -339,7 +321,6 @@ QUESTIONS = {
             "The programmable logic controller runs a fixed scan cycle, which is what makes its timing predictable enough to control physical equipment safely."),
     ],
 
-    # 519 -- Management and Organisation Theory
     519: [
         mcq("AVERAGE",
             "What does a matrix organization structure create for its members?",
@@ -357,7 +338,6 @@ QUESTIONS = {
             "Hygiene factors prevent dissatisfaction; motivators such as achievement and recognition are what produce satisfaction. Treating pay as a motivator is the common misreading."),
     ],
 
-    # 520 -- Operations Research and Industrial Engineering
     520: [
         mcq("HARD",
             "A product sells for 500 with variable cost 300, against fixed costs of 400,000. What is the break-even volume?",
@@ -375,7 +355,6 @@ QUESTIONS = {
             "It is an allocation technique: how to distribute limited resources to maximize or minimize a stated objective, given constraints that bound the feasible region."),
     ],
 
-    # 521 -- Accounting and Financial Affairs for Engineers
     521: [
         mcq("HARD",
             "Equipment costs 1,200,000 with a residual value of 200,000 and a 5-year life. What is the annual straight-line depreciation?",
@@ -393,7 +372,6 @@ QUESTIONS = {
             "The balance sheet is a snapshot of assets, liabilities and equity on a date. The income and cash flow statements cover a period between two such dates."),
     ],
 
-    # 522 -- Intellectual Property Rights in IT
     522: [
         mcq("HARD",
             "Two developers independently write programs implementing the same published algorithm. What does copyright allow?",
@@ -411,7 +389,6 @@ QUESTIONS = {
             "Trademarks protect signs that distinguish goods in the market, and can be renewed indefinitely while the mark remains in use."),
     ],
 
-    # 523 -- Laws on Information Security and Cybercrime
     523: [
         mcq("HARD",
             "An employee with legitimate credentials accesses records unrelated to their duties. How is this generally characterized?",
@@ -429,7 +406,6 @@ QUESTIONS = {
             "The deadline usually runs from becoming aware rather than from fully understanding the breach, which is why an incident plan must exist in advance."),
     ],
 
-    # 524 -- Laws on Labour and Commercial Transactions
     524: [
         mcq("HARD",
             "Under a worker dispatch arrangement, who directs the dispatched worker's daily tasks?",
@@ -447,7 +423,6 @@ QUESTIONS = {
             "The test is the completed result against subordination to direction. It determines who carries the risk of the work and what protections apply."),
     ],
 
-    # 525 -- Other Laws, Guidelines and Engineer Ethics
     525: [
         mcq("HARD",
             "An engineer discovers a serious safety defect that management decides not to disclose. What does professional ethics generally require?",
@@ -465,7 +440,6 @@ QUESTIONS = {
             "The problem is not the interest but the undisclosed interest. Disclosure lets others judge whether the judgement can be relied on."),
     ],
 
-    # 526 -- Standardisation and Standards Bodies
     526: [
         mcq("AVERAGE",
             "Which body publishes the ISO/IEC joint standards covering information technology?",

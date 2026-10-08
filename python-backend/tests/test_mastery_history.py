@@ -32,7 +32,6 @@ def _row(
 def test_history_returns_events_in_ascending_order(client, session_factory) -> None:
     base = datetime(2026, 7, 1, tzinfo=timezone.utc)
     with session_factory() as session:
-        # Inserted out of order to make sure the endpoint sorts, not just echoes.
         session.add_all(
             [
                 _row(learner_id=1, certification_id=10, lesson_id=101, created_at=base + timedelta(days=2)),
@@ -90,7 +89,6 @@ def test_history_respects_limit(client, session_factory) -> None:
     assert response.status_code == 200, response.text
     body = response.json()
     assert len(body) == 100
-    # Default limit keeps the most recent rows (highest offsets => latest created_at).
     final_masteries = [item["final_mastery"] for item in body]
     expected = [round(i / 200, 4) for i in range(20, 120)]
     assert final_masteries == expected

@@ -26,13 +26,10 @@ from app.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
 
-#: How long a finished or abandoned job is kept for the page to collect.
 TTL_SECONDS = 7 * 24 * 3600
-#: A running job that has not written for this long is taken as interrupted.
 STALE_SECONDS = 10 * 60
 
 _redis = None
-#: Running tasks, kept referenced so asyncio does not collect them mid-run.
 _tasks: set[asyncio.Task] = set()
 
 
@@ -54,8 +51,6 @@ def _latest_key(certification_id: int) -> str:
 
 
 async def _save(job: dict) -> None:
-    # A cancel is written by another request; the running job's own copy
-    # must not overwrite it with its older "not cancelled".
     if not job.get("cancelled"):
         raw = await _client().get(_key(job["id"]))
         if raw and json.loads(raw).get("cancelled"):
@@ -85,8 +80,6 @@ async def start_job(certification_id: int, papers: list[dict]) -> dict:
 
     Each paper is {paperId, name, questions: [text], stems: [text]}.
     """
-    # One job per certification: the one still running is stopped, so two
-    # never tag the same papers at once.
     previous = await latest_job(certification_id)
     if previous and previous["status"] == "running":
         await cancel_job(previous["id"])
@@ -129,8 +122,7 @@ async def _run(job: dict, papers: list[dict]) -> None:
 
     try:
         for index, paper in enumerate(papers):
-            # Cancelled from the page: the flag is in Redis, not in this copy.
-            await _save(job)  # also picks up a cancel made meanwhile
+            await _save(job)
             if job.get("cancelled"):
                 job["status"] = "cancelled"
                 await _save(job)
@@ -139,9 +131,6 @@ async def _run(job: dict, papers: list[dict]) -> None:
             entry["status"] = "tagging"
             await _save(job)
             try:
-                # The factory, not a session: a connection is taken for each
-                # short database step and handed back, never held through
-                # the model calls and their rate-limit waits.
                 tags, lessons = await tag_questions(
                     SessionLocal, job["certificationId"], paper["questions"], budget=JOB_BATCH_BUDGET)
                 session = SessionLocal()

@@ -1,9 +1,3 @@
--- Transactional outbox for Bayesian Knowledge Tracing (BKT) mastery events.
---
--- The assessment submission transaction writes rows here in the SAME commit as
--- the exam result. A scheduled dispatcher later claims PENDING rows with
--- SELECT ... FOR UPDATE SKIP LOCKED and forwards them to the internal FastAPI
--- BKT service. FastAPI de-duplicates by event_id, so retries are safe.
 CREATE TABLE IF NOT EXISTS bkt_event_outbox (
     id                BIGSERIAL PRIMARY KEY,
     event_id          VARCHAR(200) NOT NULL,
@@ -28,11 +22,9 @@ CREATE TABLE IF NOT EXISTS bkt_event_outbox (
         CHECK (status IN ('PENDING', 'PROCESSING', 'PROCESSED', 'FAILED', 'DEAD_LETTER'))
 );
 
--- Claim path: pending rows whose backoff window has elapsed, oldest first.
 CREATE INDEX IF NOT EXISTS ix_bkt_outbox_status_retry
     ON bkt_event_outbox (status, next_retry_at, created_at);
 
--- Reconciliation / audit lookups.
 CREATE INDEX IF NOT EXISTS ix_bkt_outbox_learner
     ON bkt_event_outbox (learner_id);
 CREATE INDEX IF NOT EXISTS ix_bkt_outbox_exam_result

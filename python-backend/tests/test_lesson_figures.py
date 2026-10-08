@@ -37,7 +37,7 @@ def test_the_drawn_figure_is_valid_svg_and_keeps_every_line_inside_the_figure():
     ElementTree.fromstring(svg)
     for x, size, body in re.findall(r'<text x="([\d.]+)"[^>]*font-size="([\d.]+)"[^>]*>([^<]*)</text>', svg):
         if body.isdigit():
-            continue  # the step numbers, centred in their circles
+            continue
         assert float(x) + len(body) * float(size) * GLYPH_WIDTH <= WIDTH - 20, body
 
 

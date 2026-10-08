@@ -28,9 +28,6 @@ class Base(DeclarativeBase):
     `java_tables.py`.
     """
 
-    # SQLite (the test database) has no schemas, so qualifying there would
-    # produce `bkt.workflow_runs` against a database that cannot have it.
-    # `test_schema_qualification` covers the Postgres shape directly instead.
     metadata = MetaData(
         schema=None
         if get_settings().database_url.startswith("sqlite")

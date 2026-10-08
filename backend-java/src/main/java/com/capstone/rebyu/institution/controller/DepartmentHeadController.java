@@ -20,9 +20,6 @@ public class DepartmentHeadController {
     private final DepartmentHeadService departmentHeadService;
     private final CognitoAuthService auth;
 
-    // institutionId in getByInstitutionId is a client-supplied path value with no
-    // ownership check possible here yet, so this whole controller is admin-only
-    // until a JWT-derived, self-service institution-manager view exists.
     @GetMapping
     public List<DepartmentHeadDto> getAll(@AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);

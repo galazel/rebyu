@@ -1,5 +1,3 @@
--- Reference data required by the application after a clean database reset.
--- All inserts are idempotent so the migration is safe to run once per schema.
 
 INSERT INTO public.user_types (user_type_text)
 VALUES

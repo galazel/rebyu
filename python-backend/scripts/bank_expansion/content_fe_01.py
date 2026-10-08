@@ -15,7 +15,6 @@ CERTIFICATION_ID = 14
 
 QUESTIONS = {
 
-    # 427 -- Discrete Mathematics: Radix, Numeric Representation and Precision
     427: [
         mcq("AVERAGE",
             "What is the decimal value of the 8-bit two's complement number 11110110?",
@@ -33,7 +32,6 @@ QUESTIONS = {
             "0.1 in binary is 0.0001100110011... recurring. The stored value is the nearest representable one, which is why repeated addition of 0.1 drifts from the expected total."),
     ],
 
-    # 428 -- Applied Mathematics: Probability, Statistics and Optimisation
     428: [
         mcq("AVERAGE",
             "Two fair dice are thrown. What is the probability that the total is 7?",
@@ -51,7 +49,6 @@ QUESTIONS = {
             "Series components must all work, so reliabilities multiply: 0.9 x 0.9 = 0.81. The same two components in parallel would give 1 - 0.1 x 0.1 = 0.99."),
     ],
 
-    # 429 -- Theory of Information, Coding and Automata
     429: [
         mcq("AVERAGE",
             "How many distinct symbols can be represented using 7 bits?",
@@ -69,7 +66,6 @@ QUESTIONS = {
             "The machine must distinguish three situations: nothing useful seen, an 'a' just seen, and 'ab' just completed. Fewer states cannot tell those cases apart."),
     ],
 
-    # 430 -- Theory of Communications
     430: [
         mcq("AVERAGE",
             "A parity bit can detect which kind of error?",
@@ -87,7 +83,6 @@ QUESTIONS = {
             "Four levels carry log2(4) = 2 bits per symbol, so 2400 symbols per second gives 4800 bit/s. Baud and bit rate coincide only when each symbol carries one bit."),
     ],
 
-    # 431 -- Theory of Measurement and Control Systems
     431: [
         mcq("AVERAGE",
             "What characterizes feedback control as distinct from feedforward control?",
@@ -105,7 +100,6 @@ QUESTIONS = {
             "Sampling below twice the highest frequency causes aliasing, where a high frequency is indistinguishable from a lower one -- an error no later processing can undo."),
     ],
 
-    # 432 -- Data Structures
     432: [
         mcq("AVERAGE",
             "Which operation is O(1) on a singly linked list but O(n) on an array?",
@@ -123,7 +117,6 @@ QUESTIONS = {
             "After the pushes the stack is 5,3,8,1 with 1 on top. Popping twice removes 1 and 8; pushing 7 and popping it leaves 3 on top."),
     ],
 
-    # 433 -- Algorithms
     433: [
         mcq("AVERAGE",
             "What is the worst-case time complexity of binary search on a sorted array of n elements?",
@@ -141,7 +134,6 @@ QUESTIONS = {
             "Quicksort degrades to O(n^2) in the worst case; heap sort is O(n log n) but not stable; selection sort is O(n^2). Merge sort is both, at the cost of extra space."),
     ],
 
-    # 434 -- Programming: Structure, Style, Data Types
     434: [
         mcq("AVERAGE",
             "What does passing an argument by reference allow that passing by value does not?",
@@ -159,7 +151,6 @@ QUESTIONS = {
             "A static local has function scope but program lifetime. An automatic local is created and destroyed on each call, which is why it cannot carry state forward."),
     ],
 
-    # 435 -- Programming Languages: Compilation and Paradigms
     435: [
         mcq("AVERAGE",
             "Which phase of compilation detects that a variable is used before it is declared?",
@@ -177,7 +168,6 @@ QUESTIONS = {
             "The trade is startup speed and flexibility against execution speed. Interpreters can also begin executing before reaching a later syntax error, which compilers never do."),
     ],
 
-    # 436 -- Markup and Other Languages
     436: [
         mcq("AVERAGE",
             "Which statement about XML and JSON is correct?",
@@ -195,7 +185,6 @@ QUESTIONS = {
             "The alt text is the image's textual equivalent. Omitting it on an informative image removes the content entirely for anyone not seeing the image."),
     ],
 
-    # 437 -- The Processor
     437: [
         mcq("AVERAGE",
             "A 5-stage pipeline with no stalls processes instructions at what steady-state rate?",
@@ -213,7 +202,6 @@ QUESTIONS = {
             "Data hazards are resolved by forwarding or by stalling. Control hazards come from branches and structural hazards from a resource two stages need at once."),
     ],
 
-    # 438 -- Memory
     438: [
         mcq("HARD",
             "A cache has a 95% hit rate, 2 ns hit time, and 100 ns miss penalty. What is the average access time?",
@@ -231,7 +219,6 @@ QUESTIONS = {
             "Temporal and spatial locality are what make the hierarchy work. Fast memory is more expensive per byte, which is exactly why there is only a little of it."),
     ],
 
-    # 439 -- Buses and Interconnects
     439: [
         mcq("AVERAGE",
             "What does bus arbitration resolve?",
@@ -249,7 +236,6 @@ QUESTIONS = {
             "64 bits is 8 bytes, so 8 x 200 x 10^6 = 1.6 GB/s. This is the ceiling before protocol overhead and arbitration, not an achievable sustained figure."),
     ],
 
-    # 440 -- Input/Output Interfaces and Device Control
     440: [
         mcq("AVERAGE",
             "What advantage does DMA provide over programmed I/O?",
@@ -267,7 +253,6 @@ QUESTIONS = {
             "Polling wastes cycles proportional to how rarely the device is ready. For a very fast device the interrupt overhead can invert this, which is why polling is not always wrong."),
     ],
 
-    # 441 -- Input/Output Devices and Peripherals
     441: [
         mcq("AVERAGE",
             "Which characteristic distinguishes an SSD from a hard disk drive in performance terms?",
@@ -285,7 +270,6 @@ QUESTIONS = {
             "1920 x 1080 = 2,073,600 pixels, at 3 bytes each gives about 6.2 MB. Double buffering doubles the requirement."),
     ],
 
-    # 442 -- System Configuration
     442: [
         mcq("HARD",
             "Two servers each with availability 0.99 are configured in parallel with automatic failover. What is the combined availability?",
@@ -303,7 +287,6 @@ QUESTIONS = {
             "The ladder runs cold, warm, hot, with recovery time falling and cost rising at each step. The right choice follows from the recovery time objective."),
     ],
 
-    # 443 -- System Evaluation Indexes
     443: [
         mcq("HARD",
             "A system has an MTBF of 480 hours and an MTTR of 20 hours. What is its availability?",
@@ -321,7 +304,6 @@ QUESTIONS = {
             "Throughput and response time are distinct and can move in opposite directions: batching raises throughput while making each individual response slower."),
     ],
 
-    # 444 -- Operating Systems
     444: [
         mcq("HARD",
             "Four processes arrive together with burst times 6, 2, 8 and 4. Under shortest-job-first on one processor, what is the average waiting time?",
@@ -339,7 +321,6 @@ QUESTIONS = {
             "All four Coffman conditions must hold simultaneously, which is why deadlock prevention works by breaking any single one of them."),
     ],
 
-    # 445 -- Middleware, Runtimes and Shared Services
     445: [
         mcq("AVERAGE",
             "What problem does message-oriented middleware primarily solve?",
@@ -357,7 +338,6 @@ QUESTIONS = {
             "Reachability is not the same as usefulness. A cache or listener list holding references indefinitely leaks despite the collector working exactly as designed."),
     ],
 
-    # 446 -- File Systems, Directories and Backup
     446: [
         mcq("HARD",
             "A full backup runs weekly and incremental backups daily. To restore Thursday's state, what is required?",
@@ -375,7 +355,6 @@ QUESTIONS = {
             "The journal is written before the change so an interrupted operation can be completed or discarded on restart, rather than leaving the structure half-updated."),
     ],
 
-    # 447 -- Development Tools, Build Chains and Testing Environments
     447: [
         mcq("AVERAGE",
             "What does a linker do that a compiler does not?",
@@ -393,7 +372,6 @@ QUESTIONS = {
             "Reproducibility lets anyone confirm that a shipped binary corresponds to the published source, which is what makes supply-chain verification possible at all."),
     ],
 
-    # 448 -- Open Source Software, Licensing and Adoption
     448: [
         mcq("HARD",
             "What obligation does a strong copyleft licence typically impose when modified software is distributed?",
@@ -411,7 +389,6 @@ QUESTIONS = {
             "An abandoned dependency with an incompatible licence is a liability regardless of how good the code is today."),
     ],
 
-    # 449 -- Hardware: Logic Circuits and Semiconductors
     449: [
         mcq("AVERAGE",
             "What is the output of a two-input XOR gate when both inputs are 1?",

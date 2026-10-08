@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** Transaction Two: admin review of partnership requests. */
 @RestController
 @RequestMapping("/api/admin/partnership-requests")
 @RequiredArgsConstructor
@@ -78,7 +77,6 @@ public class AdminPartnershipController {
         }
     }
 
-    // Records who reviewed the request from the authenticated caller.
     private String reviewerName(Jwt jwt) {
         CurrentUserDto user = auth.syncCurrentUser(jwt, jwt.getTokenValue());
         return user.email();

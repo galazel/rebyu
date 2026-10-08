@@ -45,7 +45,6 @@ from app.rag.store import add_documents, count, delete_index, namespace_for
 PARSED_DIR = "/app/scripts/fe_papers/parsed/"
 PDF_DIR = "/app/scripts/fe_papers/pdf/"
 
-#: Which certification each paper belongs to, by filename marker.
 CERTIFICATIONS = {"_FE": (14, "FE Exam"), "_IP": (4, "IT Passport Exam")}
 
 
@@ -151,9 +150,6 @@ def main():
         print("\n%s -> %s: %d documents, %d chunks"
               % (certification_name, namespace, len(documents), len(chunks)))
         if args.commit:
-            # Batched: embedding several thousand chunks in one call holds
-            # every vector in memory at once, and this container has been
-            # killed by exactly that before.
             added = 0
             for start in range(0, len(chunks), 256):
                 added += add_documents(namespace, chunks[start:start + 256])

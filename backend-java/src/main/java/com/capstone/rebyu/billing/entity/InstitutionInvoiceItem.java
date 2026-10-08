@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-/** One certification line on an institution invoice: slots × unit price, with the access window bought. */
 @Entity
 @Table(name = "institution_invoice_items")
 @Data
@@ -30,7 +29,6 @@ public class InstitutionInvoiceItem {
     @Column(name = "certification_id", nullable = false)
     private Long certificationId;
 
-    /** Snapshot at issue time, so a later rename does not rewrite history. */
     @Column(name = "certification_title", nullable = false, length = 150)
     private String certificationTitle;
 

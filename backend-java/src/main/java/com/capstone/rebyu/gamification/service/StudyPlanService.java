@@ -17,21 +17,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-/**
- * The learner's study plan, for one certification or across all of them.
- *
- * <p>A null {@code certificationId} is the overall plan -- one schedule covering
- * everything the learner is enrolled in, built from the analytics page. It is
- * optional: nothing requires a learner to have one, and it neither replaces nor
- * is replaced by the per-certification plans.
- *
- * <p>The schedule itself is built in the browser (see the study-plan generator:
- * it turns the diagnostic's priority topics, the target exam date, and the
- * chosen study days into dated events). This service is where that result is
- * kept, which is the whole difference between a plan and a form the learner
- * filled in once -- before this it lived in React state and was gone on
- * reload, and the stub here saved an empty {@code "{}"} schedule.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -46,12 +31,10 @@ public class StudyPlanService {
   private final LearnerRepository learnerRepository;
   private final ObjectMapper mapper;
 
-  /** One scheduled task's state, as the scheduler reads it. */
   public record TaskStatusDto(
       Long planId, String eventId, String status,
       LocalDateTime startedAt, LocalDateTime completedAt) {}
 
-  /** What the browser sends after generating: the plan, whole. */
   public record SavePlanRequest(Long certificationId, String goal, Map<String, Object> schedule) {}
 
   public record StudyPlanDto(
@@ -62,26 +45,11 @@ public class StudyPlanService {
       String status,
       LocalDateTime createdAt) {}
 
-  /**
-   * Stores a freshly generated plan, retiring whatever the learner was
-   * following for that certification.
-   *
-   * <p>Regenerating is a normal thing to do -- an exam date moves, a diagnostic
-   * is retaken -- so the previous plan is marked ABANDONED rather than deleted:
-   * "what was I following in March" stays answerable, and only one plan per
-   * certification is ever ACTIVE.
-   */
   @Transactional
   public StudyPlanDto savePlan(Long learnerId, SavePlanRequest request) {
     Learner learner = learnerRepository.findById(learnerId)
         .orElseThrow(() -> new EntityNotFoundException("Learner not found: " + learnerId));
 
-    // A plan replaces the one it regenerates within its own scope: a
-    // certification's plan retires that certification's, and the overall plan
-    // (no certificationId -- built from the analytics page across everything
-    // the learner is enrolled in) retires the previous overall one. The two
-    // scopes do not retire each other, so keeping an overall plan alongside a
-    // per-certification one is a supported thing to do.
     List<StudyPlan> superseded = request.certificationId() == null
         ? planRepository.findByLearner_LearnerIdAndCertificationIdIsNullAndStatus(learnerId, ACTIVE)
         : planRepository.findByLearner_LearnerIdAndCertificationIdAndStatus(
@@ -106,15 +74,6 @@ public class StudyPlanService {
     return toDto(saved);
   }
 
-  /**
-   * The plan the learner is currently following: for one certification when an
-   * id is given, otherwise their most recent one -- which is what the calendar
-   * page shows, since it is not scoped to a certification.
-   *
-   * @return null when there is no active plan, which is a normal state and not
-   *         an error -- it is exactly what tells the curriculum page to offer
-   *         the generator
-   */
   @Transactional(readOnly = true)
   public StudyPlanDto activePlan(Long learnerId, Long certificationId) {
     return (certificationId == null
@@ -125,17 +84,6 @@ public class StudyPlanService {
         .orElse(null);
   }
 
-  /**
-   * The learner's active overall plan -- the one spanning several
-   * certifications rather than belonging to one.
-   *
-   * <p>Asked for by name rather than by passing a null certificationId to
-   * {@link #activePlan}, which means "newest of any scope" and would hand back
-   * a certification's own plan whenever one is more recent.
-   *
-   * @return null when there is none, which is the normal case: an overall plan
-   *         is optional
-   */
   @Transactional(readOnly = true)
   public StudyPlanDto overallPlan(Long learnerId) {
     return planRepository
@@ -151,13 +99,6 @@ public class StudyPlanService {
         .stream().map(this::toDto).toList();
   }
 
-  /**
-   * Every task status the learner has recorded, across all their plans.
-   *
-   * <p>All of them in one call because the scheduler watches every active plan
-   * at once: fetched per plan, this would be a request per plan on every page
-   * load, to answer one question.
-   */
   @Transactional(readOnly = true)
   public List<TaskStatusDto> taskStatuses(Long learnerId) {
     return taskStatusRepository.findByLearner_LearnerId(learnerId).stream()
@@ -167,13 +108,6 @@ public class StudyPlanService {
         .toList();
   }
 
-  /**
-   * Records what has become of one scheduled task.
-   *
-   * <p>Upserted on (plan, event): a task is started, then finished, and the
-   * second call must move the same row rather than add a second opinion about
-   * the same session.
-   */
   @Transactional
   public TaskStatusDto setTaskStatus(Long learnerId, Long planId, String eventId, String status) {
     String normalised = status == null ? "" : status.trim().toUpperCase();
@@ -188,8 +122,6 @@ public class StudyPlanService {
     StudyPlan plan = planRepository.findById(planId)
         .orElseThrow(() -> new EntityNotFoundException("Study plan not found: " + planId));
 
-    // Another learner's plan is reported as simply not found, matching
-    // completePlan -- never confirming that someone else's plan exists.
     if (learnerId == null || plan.getLearner() == null
         || !plan.getLearner().getLearnerId().equals(learnerId)) {
       throw new EntityNotFoundException("Study plan not found: " + planId);
@@ -197,16 +129,6 @@ public class StudyPlanService {
 
     LocalDateTime now = LocalDateTime.now();
 
-    /* Upserted in one statement rather than read-then-save.
-     *
-     * The host reports IN_PROGRESS as the activity opens and COMPLETED as it
-     * finishes, and a remount fires that pair again -- so two writers routinely
-     * arrive for the same (plan, event) at once, both find no row, and the
-     * second dies on `uk_study_plan_task_plan_event`. The casualty was usually
-     * the COMPLETED write, which left the task unfinished and the scheduler
-     * offering it again no matter how many times the learner had done it.
-     * Letting the database resolve the conflict is what makes the two
-     * converge. See `upsertStatus` for how the timestamps are preserved. */
     taskStatusRepository.upsertStatus(
         planId,
         plan.getLearner().getLearnerId(),
@@ -216,8 +138,6 @@ public class StudyPlanService {
         StudyPlanTaskStatus.COMPLETED.equals(normalised) ? now : null,
         now);
 
-    // Read back rather than assumed: the row that exists now is the merge of
-    // this write and whatever else got there first.
     StudyPlanTaskStatus saved = taskStatusRepository
         .findByPlan_PlanIdAndEventId(planId, eventId)
         .orElseThrow(() -> new IllegalStateException(
@@ -231,7 +151,6 @@ public class StudyPlanService {
     StudyPlan plan = planRepository.findById(planId)
         .orElseThrow(() -> new EntityNotFoundException("Study plan not found: " + planId));
     if (learnerId == null || !plan.getLearner().getLearnerId().equals(learnerId)) {
-      // Another learner's plan is reported as simply not found.
       throw new EntityNotFoundException("Study plan not found: " + planId);
     }
     plan.setCompletedAt(LocalDateTime.now());
@@ -254,9 +173,6 @@ public class StudyPlanService {
         schedule = mapper.readValue(plan.getSchedule(), Map.class);
       }
     } catch (Exception e) {
-      // A plan whose JSON cannot be parsed still exists and still has a goal
-      // and a status; returning it without its schedule beats 500-ing the
-      // curriculum page it is read from.
       log.warn("Study plan {} has an unreadable schedule: {}", plan.getPlanId(), e.getMessage());
     }
     return new StudyPlanDto(

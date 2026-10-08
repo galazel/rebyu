@@ -28,8 +28,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "topcit_expansion"))
 
 import diagram_kit as dk  # noqa: E402
 
-#: Prefixed so FE figures never collide with the TOPCIT ones already in the
-#: same public directory.
 PREFIX = "fe-"
 PUBLIC_PATH = "/lesson-media/%s%s.svg"
 
@@ -50,24 +48,6 @@ def fig(slug):
     return PUBLIC_PATH % (PREFIX, slug)
 
 
-# overflow guard
-#
-# `fields` draws its segment labels as single-line text at a fixed position and
-# does NOT wrap, so an over-long label silently runs under the neighbouring
-# segment. That is invisible in the generated markup and shows up only in the
-# rendered figure, which nobody opens for ninety-five lessons -- so it is
-# measured here and fails at import instead.
-#
-# There is deliberately no equivalent guard for `diagram_kit.table`. Nothing in
-# this curriculum draws a table as an SVG any more: the lesson renderer gained
-# a real `table` block, and real table markup is selectable, searchable,
-# reflows to the reader's font size and scrolls sensibly on a phone, none of
-# which a picture of a table does. Tabular material uses `builders.table`.
-#
-# The width estimate is deliberately crude. These are system-font sans labels
-# at 12-13.5px, where an average glyph is close to 0.55em; a real measurement
-# would need a font engine, and the point is only to catch the label that is
-# obviously too long, not to typeset.
 
 _CHAR_EM = 0.56
 
@@ -91,7 +71,6 @@ def fields(title, segments, caption=None, footer=None):
     return dk.fields(title, segments, caption, footer)
 
 
-# Basic Theory -> Basic Theory
 
 register("radix-conversion", dk.flow(
     "Converting decimal 45 to binary by repeated division",
@@ -115,10 +94,6 @@ register("twos-complement", dk.flow(
     note="Applying the same two steps to 1111 1011 returns 0000 0101, so the "
          "procedure is its own inverse. The leading bit is the sign."))
 
-# The sign field is one bit of thirty-two, so a proportional segment for it is
-# about 26px wide -- too narrow for any real label, which is why the field
-# names here are single letters and the expansion lives in the footer. Naming
-# them in full inside the boxes overflows into the neighbouring segment.
 register("float-layout", fields(
     "IEEE 754 single precision: 32 bits, three fields",
     [("S", "1", 1, dk.RED),
@@ -199,7 +174,6 @@ register("set-operations", dk.compare(
            "principle, and it is examined."))
 
 
-# Basic Theory -> Basic Theory, lesson 2: applied mathematics
 
 register("distributions", dk.compare(
     "The three distributions the syllabus names",
@@ -252,7 +226,6 @@ register("graph-basics", dk.compare(
            "adjacency list stores each vertex's neighbours and is far smaller "
            "for a sparse graph."))
 
-# Basic Theory -> Basic Theory, lesson 3: theory of information
 
 register("ad-conversion", dk.flow(
     "Analogue to digital conversion",
@@ -287,7 +260,6 @@ register("automaton-states", dk.flow(
          "the accepting S2 and a 0 stays at S1. From S2 a 0 returns to S1 "
          "and a 1 returns to S0. Only the current state is remembered."))
 
-# Basic Theory -> Basic Theory, lesson 4: theory of communications
 
 register("modulation-schemes", dk.compare(
     "Modulating a carrier: three properties can be varied",
@@ -326,7 +298,6 @@ register("transmission-modes", dk.compare(
     footer="Switched Ethernet gives every host its own collision domain, "
            "which is what made full duplex the default."))
 
-# Basic Theory -> Basic Theory, lesson 5: measurement and control
 
 register("control-loop", dk.cycle(
     "The feedback control loop",
@@ -362,7 +333,6 @@ register("sensor-actuator", dk.flow(
          "are already approximations of a continuous quantity."))
 
 
-# Basic Theory -> Algorithm and Programming
 
 register("array-vs-list", dk.compare(
     "Contiguous storage against linked storage",
@@ -500,7 +470,6 @@ register("markup-family", dk.flow(
          "and a report."))
 
 
-# Computer System -> Computer Component
 
 register("cpu-blocks", dk.flow(
     "The processor's functional units",
@@ -600,7 +569,6 @@ register("io-methods", dk.compare(
            "sets up the transfer, does other work, and is told once when the "
            "whole block has landed."))
 
-# Computer System -> System Component
 
 register("system-configurations", dk.compare(
     "Arranging more than one machine",
@@ -633,7 +601,6 @@ register("availability-timeline", dk.timeline(
            "which is why redundancy and automated failover beat chasing the "
            "last few failures."))
 
-# Computer System -> Software
 
 register("process-states", dk.flow(
     "The states a process moves between",
@@ -675,7 +642,6 @@ register("filesystem-tree", dk.tiers(
            "directory and means different things depending on where you "
            "are."))
 
-# Computer System -> Hardware
 
 register("logic-gates-circuit", dk.flow(
     "A half adder, built from two gates",
@@ -704,7 +670,6 @@ register("flip-flop", dk.compare(
            "state and clocking are the heart of sequential design."))
 
 
-# Computer System -> Computer Component, buses and I/O
 
 register("bus-structure", dk.hub_spoke(
     "The system bus connects everything",
@@ -744,7 +709,6 @@ register("io-device-classes", dk.compare(
            "receive a frame."))
 
 
-# Computer System -> Software
 
 register("os-layers", dk.stack(
     "Where the operating system sits",
@@ -824,7 +788,6 @@ register("licence-spectrum", dk.compare(
            "commercial licence would be."))
 
 
-# Technology Element -> Human Interface
 
 register("interaction-styles", dk.compare(
     "Ways a person can drive a system",
@@ -869,7 +832,6 @@ register("feedback-loop-ui", dk.flow(
          "acknowledge a press gets pressed again, which is how duplicate "
          "orders and double payments are created."))
 
-# Technology Element -> Multimedia
 
 register("colour-models", dk.compare(
     "Two ways to specify a colour",
@@ -972,7 +934,6 @@ register("raster-vs-vector", dk.split_planes(
            "as a raster."))
 
 
-# Technology Element -> Database
 
 register("three-schema", dk.stack(
     "The three-schema architecture",
@@ -1093,7 +1054,6 @@ register("warehouse-flow", dk.flow(
          "denormalised for reads."))
 
 
-# Technology Element -> Network
 
 register("network-scale", dk.compare(
     "Networks by the ground they cover",
@@ -1325,7 +1285,6 @@ register("web-request", dk.flow(
          "step is slow comes before changing anything."))
 
 
-# Technology Element -> Security
 
 register("cia-triad", dk.compare(
     "The three properties security protects",
@@ -1581,7 +1540,6 @@ register("eal-scale", dk.tiers(
            "confidence gained -- an economic boundary, not a technical one."))
 
 
-# Development Technology
 
 register("development-lifecycle", dk.flow(
     "The development life cycle",
@@ -1856,7 +1814,6 @@ register("dev-environments", dk.flow(
          "differed from production in a way nobody had written down."))
 
 
-# Project Management
 
 register("project-constraints", dk.split_planes(
     "The constraints, and what happens when one moves",
@@ -2055,7 +2012,6 @@ register("team-development", dk.flow(
          "conversation, usually until something is at stake."))
 
 
-# Service Management
 
 register("service-lifecycle", dk.cycle(
     "The service lifecycle",
@@ -2196,7 +2152,6 @@ register("internal-control", dk.tiers(
            "are documented rather than operating, and an auditor tests "
            "operation rather than documentation."))
 
-# System Strategy
 
 register("enterprise-architecture", dk.stack(
     "The layers of enterprise architecture",
@@ -2274,7 +2229,6 @@ register("investment-appraisal", dk.compare(
            "projects in predictable ways."))
 
 
-# Business Strategy
 
 register("swot-grid", dk.compare(
     "Analysing a position",

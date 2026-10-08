@@ -2,17 +2,11 @@ package com.capstone.rebyu.aigateway.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-/**
- * Configuration for the internal Python AI backend integration. URLs and
- * secrets come from the environment; nothing is hardcoded.
- */
 @ConfigurationProperties(prefix = "ai")
 public class AiServiceProperties {
 
-    /** Python base URL including the API prefix, e.g. http://localhost:8000/api/v1/ai. */
     private String serviceUrl = "http://localhost:8000/api/v1/ai";
 
-    /** Internal service key sent as X-Service-Key. Empty disables the header. */
     private String apiKey = "";
 
     private int connectTimeoutMs = 5000;

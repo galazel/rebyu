@@ -12,11 +12,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-/**
- * The signed-in learner's study notes, scoped to one certification. The learner
- * is always resolved from the validated token, never from the request, so one
- * learner can neither read nor edit another's notes.
- */
 @RestController
 @RequestMapping("/api/study-desk")
 @RequiredArgsConstructor
@@ -43,7 +38,6 @@ public class StudyDeskController {
         return studyDeskService.addNote(me(jwt), certificationId, request.body());
     }
 
-    /** Tick/untick, or edit the text. Omitted fields are left alone. */
     @PatchMapping("/notes/{noteId}")
     public StudyDeskService.NoteDto updateNote(
             @AuthenticationPrincipal Jwt jwt,
@@ -58,7 +52,6 @@ public class StudyDeskController {
         studyDeskService.deleteNote(me(jwt), noteId);
     }
 
-    /** Clear all of this certification's notes, or only the ticked ones. */
     @DeleteMapping("/notes")
     public Map<String, Integer> clearNotes(
             @AuthenticationPrincipal Jwt jwt,
@@ -67,7 +60,6 @@ public class StudyDeskController {
         return Map.of("deleted", studyDeskService.clearNotes(me(jwt), certificationId, completedOnly));
     }
 
-    /** The learner's analytics board. Empty means "use the page defaults". */
     @GetMapping("/dashboard-layout")
     public Map<String, List<StudyDeskService.TilePlacement>> dashboardLayout(
             @AuthenticationPrincipal Jwt jwt) {

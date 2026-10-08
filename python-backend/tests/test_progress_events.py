@@ -62,10 +62,6 @@ class TestProgressContext:
         assert "item_number" not in context
 
     def test_the_curriculum_node_reports_the_plan_it_just_produced(self):
-        # The wrapper only sees the state from *before* the node ran, where
-        # there is no curriculum yet. Without reading the result, the first
-        # event carrying a denominator would be the next node's -- so the bar
-        # stayed indeterminate through a review pause that can last hours.
         context = _progress_context({}, "plan_curriculum", {"curriculum": _curriculum()})
 
         assert context["plan"] == {"majors": 2, "middles": 4, "lessons": 12}
@@ -74,8 +70,6 @@ class TestProgressContext:
         assert _progress_context({}, "validate_documents") is None
 
     def test_an_item_with_no_plan_still_reports_its_position(self):
-        # A run resumed from a checkpoint whose curriculum did not survive
-        # should still say "lesson 4", just without the "of 12".
         context = _progress_context({"lesson_cursor": 3}, "lesson_validate")
 
         assert context == {"item_index": 3, "item_number": 4}

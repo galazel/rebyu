@@ -21,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** Transaction Three: institution learner invitations and slot management. */
 @RestController
 @RequestMapping("/api/institution")
 @RequiredArgsConstructor
@@ -35,8 +34,6 @@ public class InstitutionInvitationController {
         return invitationService.certificationAccess(myInstitutionId(jwt));
     }
 
-    // Only the target group's leader may send its invitations -- the
-    // institution account itself does not invite learners directly.
     @PostMapping("/invitations")
     public SendInvitationsResponse send(
             @AuthenticationPrincipal Jwt jwt,
@@ -48,7 +45,6 @@ public class InstitutionInvitationController {
         return invitationService.sendInvitations(trusted);
     }
 
-    /** Read-only across the whole institution -- the owner keeps visibility here. */
     @GetMapping("/invitations")
     public List<InvitationDto> list(@AuthenticationPrincipal Jwt jwt) {
         return invitationService.listInvitations(myInstitutionId(jwt));

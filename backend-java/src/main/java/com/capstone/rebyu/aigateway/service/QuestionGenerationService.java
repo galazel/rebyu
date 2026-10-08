@@ -23,16 +23,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Thin trigger: question drafting is performed entirely by the Python AI
- * backend's async LangGraph workflow, triggered by the RabbitMQ message
- * published here. Java validates the request against real certification/
- * lesson data, stores any uploaded source files, and publishes the trigger
- * -- it no longer calls the AI synchronously or persists drafts itself
- * (that is now the consumer's job; see python-backend's
- * app/messaging/handlers/question_generation.py, which writes approved
- * drafts to its own generated_question_drafts table).
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor

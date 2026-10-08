@@ -30,7 +30,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
-/** The study plan's mock exam covers finished lessons only, and needs at least one. */
 class PlanMockExamTest {
 
   ExamRepository exams = mock(ExamRepository.class);
@@ -70,7 +69,6 @@ class PlanMockExamTest {
   @Test
   void usesOnlyFinishedLessonsAndSpreadsAcrossThem() {
     when(completed.completedLessonIds(7L, 4L)).thenReturn(List.of(10L, 20L));
-    // Lesson 10 has a big bank, lesson 20 a small one; lesson 30 is not finished.
     List<QuestionSelectionView> big = views(1000, 40);
     List<QuestionSelectionView> small = views(2000, 5);
     when(eligible.resolveScopeViews(isNull(), any(), any(), eq(10L))).thenReturn(big);
@@ -93,7 +91,7 @@ class PlanMockExamTest {
     ArgumentCaptor<Long> ids = ArgumentCaptor.forClass(Long.class);
     verify(questions, times(10)).getReferenceById(ids.capture());
     long fromSmallLesson = ids.getAllValues().stream().filter(id -> id >= 2000).count();
-    assertThat(fromSmallLesson).isGreaterThanOrEqualTo(3); // not crowded out by the big lesson
+    assertThat(fromSmallLesson).isGreaterThanOrEqualTo(3);
 
     ArgumentCaptor<Exam> exam = ArgumentCaptor.forClass(Exam.class);
     verify(exams).save(exam.capture());
@@ -110,7 +108,7 @@ class PlanMockExamTest {
   private static QuestionSelectionView view(long id) {
     QuestionSelectionView view = mock(QuestionSelectionView.class);
     when(view.getQuestionId()).thenReturn(id);
-    when(view.getOwnerDepartmentId()).thenReturn(null); // Mockito would otherwise answer 0L, a "private group"
+    when(view.getOwnerDepartmentId()).thenReturn(null);
     when(view.getQuestionText()).thenReturn("Distinct question number " + id + " about topic " + (id * 7919));
     return view;
   }

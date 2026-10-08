@@ -29,15 +29,6 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * The admin AI settings page: the OpenRouter credit balance, which model each
- * AI task uses and where in REBYU it runs, and choosing a different model per
- * task.
- *
- * <p>ADMIN ONLY, checked here from the caller's token -- method security is
- * off in this application, so an annotation would protect nothing. The
- * {@code /api/ai/**} subtree is also authenticated in SecurityConfig.
- */
 @RestController
 @RequestMapping("/api/ai/settings")
 @RequiredArgsConstructor
@@ -64,7 +55,6 @@ public class AiSettingsController {
         CurrentUserDto user = requireAdmin(jwt);
         Map<String, Object> request = new HashMap<>();
         request.put("model", body.get("model"));
-        // Who changed it -- from the token, never from the request body.
         request.put("updatedBy", user.email());
         return call(HttpMethod.PUT, "/ai-settings/" + task, request);
     }
@@ -97,7 +87,6 @@ public class AiSettingsController {
         }
     }
 
-    /** FastAPI's {"detail": "..."} body, or the body itself. */
     private static String detailOf(String body) {
         if (body == null || body.isBlank()) return "The AI service gave no explanation.";
         Matcher matcher = Pattern.compile("\"detail\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").matcher(body);

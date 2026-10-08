@@ -15,7 +15,7 @@ import AuthShell from "./auth-shell.jsx"
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
 
-  const [step, setStep] = useState("request") // request | confirm
+  const [step, setStep] = useState("request")
   const [email, setEmail] = useState("")
   const [code, setCode] = useState("")
   const [newPassword, setNewPassword] = useState("")

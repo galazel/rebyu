@@ -24,12 +24,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * The learner's side of an institution group ("class"): which group they were
- * invited into, what its leader has announced, and the assessments the leader
- * published for it. Until this existed a learner who accepted an invitation saw
- * nothing of the group at all -- only the official curriculum.
- */
 @RestController
 @RequestMapping("/api/learners/me")
 @RequiredArgsConstructor
@@ -54,7 +48,6 @@ public class LearnerClassController {
                                List<ClassAssessment> assessments) {
     }
 
-    /** Every active class the learner is in, optionally narrowed to one certification. */
     @GetMapping("/classes")
     @Transactional(readOnly = true)
     public List<LearnerClass> myClasses(
@@ -82,7 +75,6 @@ public class LearnerClassController {
                                  LocalDateTime createdAt, String departmentName, String authorName) {
     }
 
-    /** Announcements from every active class the learner is in, newest pinned first. */
     @GetMapping("/announcements")
     @Transactional(readOnly = true)
     public List<MyAnnouncement> myAnnouncements(
@@ -98,22 +90,12 @@ public class LearnerClassController {
                 .toList();
     }
 
-    /**
-     * One published department assessment, with where the learner stands on
-     * it. The nested list inside {@link LearnerClass} says what exists; this
-     * says what to do about it, which is what a page listing them needs.
-     */
     public record MyClassAssessment(Long examId, String title, String examType, Integer durationMinutes,
                                     Integer totalQuestions, BigDecimal passingScore, String departmentName,
                                     Long certificationId, String lastAttemptStatus, BigDecimal lastScore,
                                     LocalDateTime lastSubmittedAt, int attemptsTaken) {
     }
 
-    /**
-     * The assessments every active class of the learner's has published, the
-     * way {@code /announcements} flattens that class's posts. Ordered by
-     * class, then by the assessment's own order within it.
-     */
     @GetMapping("/class-assessments")
     @Transactional(readOnly = true)
     public List<MyClassAssessment> myClassAssessments(

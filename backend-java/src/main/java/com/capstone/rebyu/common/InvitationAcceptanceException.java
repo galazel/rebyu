@@ -2,10 +2,6 @@ package com.capstone.rebyu.common;
 
 import org.springframework.http.HttpStatus;
 
-/**
- * Focused exception for the invitation-acceptance flow. Carries a stable
- * error code the frontend switches on and the HTTP status to return.
- */
 public class InvitationAcceptanceException extends RuntimeException {
 
     public enum Code {

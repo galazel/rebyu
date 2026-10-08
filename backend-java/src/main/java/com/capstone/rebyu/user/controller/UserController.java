@@ -20,8 +20,6 @@ public class UserController {
     private final UserService userService;
     private final CognitoAuthService auth;
 
-    // Reading the full user list / arbitrary user records exposes every account, so
-    // reads are admin-only. Learners read their own account via /api/learners/me/portal.
     @GetMapping
     public List<UserDto> getAll(@AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);

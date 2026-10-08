@@ -65,11 +65,6 @@ function MessageScrollerItem({
     <MessageScrollerPrimitive.Item
       data-slot="message-scroller-item"
       scrollAnchor={scrollAnchor}
-      // No `content-visibility:auto` / `contain-intrinsic-size` here: skipping
-      // off-screen render laid each item out at the 10rem placeholder height,
-      // so a taller message's bubble border was painted at the placeholder box
-      // while its text reflowed past it. Threads here are short enough that the
-      // virtualization wasn't buying anything.
       className={cn("min-w-0 shrink-0", className)}
       {...props}
     />

@@ -26,7 +26,6 @@ public class WorldCupQueue {
   @Column(name = "certification_id", nullable = false)
   private Long certificationId;
 
-  /** Points used for matchmaking (from challenge standings). */
   @Column(name = "points", nullable = false)
   private double points;
 

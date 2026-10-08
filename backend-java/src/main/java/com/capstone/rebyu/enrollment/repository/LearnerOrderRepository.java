@@ -12,10 +12,8 @@ public interface LearnerOrderRepository extends JpaRepository<LearnerOrder, Long
 
     long countByStatus(LearnerOrder.Status status);
 
-    /** Most recent payments, newest first -- the admin dashboard's payments feed. */
     java.util.List<LearnerOrder> findTop8ByStatusOrderByPaidAtDesc(LearnerOrder.Status status);
 
-    /** Gross sales. Returns null when nothing has been paid for yet. */
     @org.springframework.data.jpa.repository.Query("""
             SELECT SUM(o.totalAmount) FROM LearnerOrder o
             WHERE o.status = :status
@@ -23,7 +21,6 @@ public interface LearnerOrderRepository extends JpaRepository<LearnerOrder, Long
     java.math.BigDecimal sumTotalAmountByStatus(
             @org.springframework.data.repository.query.Param("status") LearnerOrder.Status status);
 
-    /** Same, restricted to orders paid on or after `since` -- the period figure. */
     @org.springframework.data.jpa.repository.Query("""
             SELECT SUM(o.totalAmount) FROM LearnerOrder o
             WHERE o.status = :status AND o.paidAt >= :since

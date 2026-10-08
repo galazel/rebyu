@@ -54,7 +54,6 @@ def transaction_pooler_url():
                 url = match.group(1).strip()
     if not url:
         raise RuntimeError("no DATABASE_URL available")
-    # Same host and database, different pooler mode.
     return url.replace(":5432/", ":6543/")
 
 
@@ -69,8 +68,6 @@ def main():
         pool_pre_ping=True,
         pool_size=1,
         max_overflow=0,
-        # Transaction pooling hands back a different server connection after
-        # each commit, so a statement prepared on one is absent on the next.
         connect_args={"prepare_threshold": None},
     )
     Session = sessionmaker(bind=engine)

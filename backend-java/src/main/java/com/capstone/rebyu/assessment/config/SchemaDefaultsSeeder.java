@@ -49,9 +49,6 @@ public class SchemaDefaultsSeeder implements ApplicationRunner {
               END IF;
             END $$""",
 
-            // The status is an ordinal and Hibernate's generated check only
-            // allowed PUBLISHED (0) and DRAFT (1); ddl-auto=update never
-            // widens an existing check, so COMING_SOON (2) is allowed here.
             """
             DO $$ BEGIN
               ALTER TABLE certifications DROP CONSTRAINT IF EXISTS certifications_status_check;

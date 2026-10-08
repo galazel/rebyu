@@ -17,7 +17,6 @@ from figures import fig
 MAJOR = "System Strategy"
 MIDDLE = "System Strategy"
 
-# Lesson 1: Information systems strategy
 
 _strat_sections = [
     ("Technology in Service of Something", [
@@ -706,7 +705,6 @@ LESSON_SYS_STRAT = lesson(
         ],
     ))
 
-# Lesson 2: Business process analysis
 
 _bpa_sections = [
     ("Understanding How Work Happens", [

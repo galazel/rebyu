@@ -29,10 +29,6 @@ public class SubscriptionCheckoutController {
     private final com.capstone.rebyu.billing.repository.LearnerSubscriptionRepository learnerSubscriptionRepository;
     private final CognitoAuthService auth;
 
-    /**
-     * Initiate PayMongo hosted checkout for a subscription plan.
-     * Returns the PayMongo checkout URL.
-     */
     @PostMapping("/checkout/{planId}")
     public ResponseEntity<?> initiateCheckout(
             @PathVariable Long planId,
@@ -58,8 +54,6 @@ public class SubscriptionCheckoutController {
                     .body(Map.of("error", payMongoClient.disabledReason(), "message", payMongoClient.disabledReason()));
         }
 
-        // One subscription at a time: a second checkout while one is live or
-        // still waiting for review would take a second payment for nothing.
         var current = learnerSubscriptionRepository.findFirstByLearner_LearnerIdOrderByCreatedAtDesc(user.learnerId());
         if (current.isPresent() && current.get().isAwaitingApproval()) {
             String message = "Your Pro payment is already waiting for an admin to approve it.";
@@ -90,19 +84,6 @@ public class SubscriptionCheckoutController {
                 : Map.of("checkout_url", checkoutUrl, "session_id", sessionId));
     }
 
-    /**
-     * Verify payment status after learner returns from hosted checkout, and
-     * activate the subscription if it's paid. This is the primary activation
-     * path (called by the frontend right after redirect) rather than relying
-     * solely on the webhook, which can't reach this server at all in local
-     * dev and isn't guaranteed to arrive promptly even in production.
-     * Idempotent: safe to call more than once for the same session.
-     */
-    /**
-     * Verify the learner's most recent checkout, for a return from PayMongo that
-     * carries no session id. Checks the id the browser kept first, then the one
-     * the server remembers.
-     */
     @GetMapping("/verify-latest")
     public ResponseEntity<?> verifyLatest(
             @RequestParam(required = false) String sessionId,
@@ -155,9 +136,6 @@ public class SubscriptionCheckoutController {
         Long metadataPlanId = metadata != null && metadata.get("planId") != null
                 ? Long.valueOf(String.valueOf(metadata.get("planId"))) : null;
 
-        // Never activate a subscription for anyone other than the checkout's
-        // original owner, even if the caller somehow knows/guesses another
-        // learner's session id.
         if (metadataLearnerId == null || metadataPlanId == null || !metadataLearnerId.equals(user.learnerId())) {
             log.warn("Checkout session {} metadata does not match caller learnerId={}", sessionId, user.learnerId());
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "This checkout session does not belong to you"));
@@ -176,10 +154,6 @@ public class SubscriptionCheckoutController {
         ));
     }
 
-    /**
-     * Cancel the caller's active subscription. Access continues until the
-     * already-paid period ends (cancel-at-period-end), not immediately.
-     */
     @PostMapping("/cancel")
     public ResponseEntity<?> cancelSubscription(@AuthenticationPrincipal Jwt jwt) {
         if (jwt == null) {
@@ -200,9 +174,6 @@ public class SubscriptionCheckoutController {
         }
     }
 
-    /**
-     * Get available subscription plans.
-     */
     @GetMapping("/plans")
     public ResponseEntity<?> getPlans() {
         var plans = subscriptionPlanRepository.findAll();

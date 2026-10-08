@@ -1,7 +1,5 @@
 import { base } from "./base"
 
-// B2C entitlements + plans. The backend is the source of truth; the frontend
-// never derives premium access from localStorage.
 export function getLearnerEntitlements(learnerId, certificationId) {
   const params = new URLSearchParams({ learnerId })
   if (certificationId != null) params.set("certificationId", certificationId)
@@ -16,8 +14,6 @@ export function getIndividualPlans() {
   return base("subscription-plans/individual")
 }
 
-// Checkout lifecycle: initiate -> PayMongo hosted checkout -> redirect back
-// to /subscription/success or /subscription/cancel -> verify.
 export function initiateCheckout(planId) {
   return base(`subscription/checkout/${planId}`, { method: "POST" })
 }
@@ -39,7 +35,6 @@ export function getInstitutionalPlans() {
   return base("subscription-plans/institutional")
 }
 
-// Institution (B2B) license reads
 export function getInstitutionLicense(institutionId) {
   return base(`institution/license?institutionId=${institutionId}`)
 }
@@ -48,7 +43,6 @@ export function getInstitutionLicenseUsage(institutionId) {
   return base(`institution/license/usage?institutionId=${institutionId}`)
 }
 
-// Well-known premium feature codes (must match backend Entitlements)
 export const FEATURES = {
   DETAILED_PROGRESS: "DETAILED_PROGRESS",
   PROGRESS_ANALYTICS: "PROGRESS_ANALYTICS",
@@ -67,16 +61,13 @@ export const FEATURES = {
   WORLD_CUP_ACCESS: "WORLD_CUP_ACCESS",
 }
 
-/** Problems a Free learner may sit in CodeStrike and Blueprint Arena (matches the backend). */
 export const FREE_ARENA_PROBLEM_LIMIT = 5
 
-/** True when an API error is the backend saying "this is Pro". */
 export function isPremiumError(error) {
   const code = error?.response?.data?.code
   return code === "PREMIUM_ACCESS_REQUIRED" || code === "DAILY_LIMIT_REACHED"
 }
 
-// Admin review queue for Pro (PayMongo runs in test mode, so an admin approves each one).
 export function getAdminSubscriptions() {
   return base("admin/subscriptions")
 }
@@ -93,16 +84,10 @@ export function revokeSubscription(id) {
   return base(`admin/subscriptions/${id}/revoke`, { method: "POST" })
 }
 
-/**
- * Everyone who has paid, from both tables: completed certification orders
- * (LEARNER_ORDERS) and paid Pro subscriptions (LEARNER_SUBSCRIPTIONS).
- * Shape: { payers, certificationOrders, proPayments, certificationRevenue, proRevenue, payments[] }.
- */
 export function getAdminPayments() {
   return base("admin/payments")
 }
 
-// Admin pricing management
 export function getAdminPlans() {
   return base("admin/pricing/plans")
 }
@@ -138,7 +123,6 @@ export function updateAdminPartnershipPricing(pricePerSlot) {
   return base("admin/pricing/partnership", { method: "PUT", data: { pricePerSlot } })
 }
 
-// Admin rewards management
 export function getAdminRewards() {
   return base("admin/rewards")
 }

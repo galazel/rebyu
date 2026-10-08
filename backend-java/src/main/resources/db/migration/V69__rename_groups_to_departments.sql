@@ -1,9 +1,3 @@
--- Institution groups become departments, and the staff accounts that run
--- them become department heads -- in the schema, not just the labels.
---
--- Everything here is a RENAME: rows, foreign keys, indexes and constraints
--- are kept; only names change. Each step is guarded so the migration is safe
--- to re-run and safe on a database that was already partly renamed.
 
 DO $$
 DECLARE
@@ -122,5 +116,4 @@ BEGIN
     END LOOP;
 END $$;
 
--- The login role of a non-owner institution account.
 UPDATE public.user_types SET user_type_text = 'DEPARTMENT_HEAD' WHERE user_type_text = 'INSTITUTION_MEMBER';

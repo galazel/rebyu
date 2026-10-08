@@ -30,12 +30,6 @@ from app.graphs.instrumentation import instrument
 
 logger = logging.getLogger(__name__)
 
-# Review decisions the admin can return.
-#
-# The original brief specifies Approve / Edit Manually / Improve with AI /
-# Regenerate / Reject; Q4 later added Approve Remaining to cut repetitive
-# clicks. This is the union of both -- a UI may surface a subset, but the
-# graph supports all six.
 APPROVE = "approve"
 REJECT = "reject"
 REGENERATE = "regenerate"
@@ -45,14 +39,9 @@ IMPROVE = "improve"
 
 ALL_ACTIONS = [APPROVE, EDIT, IMPROVE, REGENERATE, REJECT, APPROVE_REMAINING]
 
-#: The workspace calls REJECT "Skip", which describes the effect better: the
-#: item is left out and the walk moves on, rather than the run failing. Both
-#: spellings are accepted on the wire so the UI vocabulary and the graph's
-#: internal vocabulary can each stay natural.
 SKIP = "skip"
 _ACTION_ALIASES = {SKIP: REJECT}
 
-#: What a client may send, including aliases.
 ACCEPTED_ACTIONS = [*ALL_ACTIONS, SKIP]
 
 
@@ -60,10 +49,7 @@ def normalize_action(action: str | None) -> str:
     """Maps wire vocabulary onto the graph's canonical actions."""
     return _ACTION_ALIASES.get(action, action or APPROVE)
 
-#: Move to the next item.
 _ADVANCING = {APPROVE, REJECT, APPROVE_REMAINING}
-#: Re-run generation for the same item. IMPROVE differs from REGENERATE only
-#: in that it carries admin instructions the generator reads.
 _REGENERATING = {REGENERATE, IMPROVE}
 
 
@@ -71,19 +57,10 @@ _REGENERATING = {REGENERATE, IMPROVE}
 class LoopPhase:
     """One phase of the per-item walk."""
 
-    #: "MAJOR" | "MIDDLE" | "LESSON" -- also the auto-approve scope key.
     scope: str
-    #: State key holding this phase's cursor.
     cursor_key: str
-    #: Extracts the ordered item list for this phase from the curriculum.
     items_of: Callable[[dict], list[Any]]
-    #: Human label for one item, used in review payloads and logs.
     label_of: Callable[[Any], str]
-    #: Optional boundary test: True while the item under the cursor still
-    #: belongs to the parent currently being walked. The lesson phase uses it
-    #: to stop at the end of a middle category so that category's quiz can be
-    #: written from the lessons just authored, rather than running through
-    #: every lesson in the certification first. Absent means "walk to the end".
     in_scope: Callable[[CertificationState], bool] | None = None
 
     @property
@@ -132,8 +109,6 @@ def make_gate_router(phase: LoopPhase):
     """Continue through this phase, or fall through to the next one."""
 
     def route(state: CertificationState) -> str:
-        # The cooperative cancellation boundary. Between items rather than
-        # mid-generation, because an in-flight LLM call cannot be aborted.
         if is_cancel_requested(state.get("thread_id")):
             logger.info("%s phase halting: run was cancelled", phase.scope)
             return "cancelled"
@@ -183,7 +158,6 @@ def _quality_feedback(reports: list[dict]) -> str:
     ]
     rank = {"ERROR": 0, "WARNING": 1, "INFO": 2}
     issues.sort(key=lambda i: rank.get(str(i.get("severity")).upper(), 3))
-    # Enough to act on without burying the instruction that matters most.
     return "\n".join(f"- {i.get('code')}: {i.get('message')}" for i in issues[:8])
 
 
@@ -243,7 +217,6 @@ def make_review_node(phase: LoopPhase):
         index = current_index(state, phase)
 
         if auto_approving(state, phase.scope):
-            # No reviewer to read the quality report, so the gate reads it.
             retry = _auto_quality_retry(state, phase, index, label)
             if retry is not None:
                 return retry
@@ -257,16 +230,12 @@ def make_review_node(phase: LoopPhase):
                 "item_index": index,
                 "item_total": len(phase.items_of(state.get("curriculum", {}) or {})),
                 "payload": _payload_for(state, phase),
-                # Artifact and its quality report travel together.
                 "validation_report": state.get("validation_report"),
                 "actions": ALL_ACTIONS,
-                # Prior versions of this artifact, so the reviewer can
-                # compare or restore rather than only accept-or-regenerate.
                 "versions": versions_for(state, phase, index),
             }
         )
 
-        # Accept either a bare string or {"action": ...}.
         raw = decision if isinstance(decision, str) else (decision or {}).get("action", APPROVE)
         action = normalize_action(raw)
 
@@ -284,9 +253,6 @@ def make_review_node(phase: LoopPhase):
             update["review_edited_payload"] = (
                 decision.get("payload") if isinstance(decision, dict) else None
             )
-            # A restore is an edit whose payload happens to be an earlier
-            # version. Carrying the source revision lets it be recorded as
-            # RESTORED rather than masquerading as hand-written work.
             update["review_restored_from"] = (
                 decision.get("restored_from") if isinstance(decision, dict) else None
             )
@@ -324,8 +290,6 @@ def make_advance_node(phase: LoopPhase):
     def advance(state: CertificationState):
         return {
             phase.cursor_key: current_index(state, phase) + 1,
-            # Cleared so the next item's review can't inherit this one's
-            # decision or report.
             "review_decision": None,
             "validation_report": None,
             "review_instructions": None,
@@ -381,10 +345,6 @@ def register_phase(
     to be written before the lessons they test existed.
     """
     workflow.add_node(phase.gate, make_gate_node(phase))
-    # Generation and validation are instrumented so the workspace timeline shows
-    # "lesson 3 of 20, validating" with real durations. Gate/advance are
-    # no-op bookkeeping and review already emits review.waiting, so neither is
-    # wrapped -- they would only add noise to the panel a human reads.
     workflow.add_node(phase.validate, instrument(validate_node, phase.validate))
     workflow.add_node(phase.review, make_review_node(phase))
     workflow.add_node(phase.advance, make_advance_node(phase))
@@ -414,8 +374,6 @@ def register_phase(
         make_review_router(phase),
         {"advance": phase.advance, "regenerate": first, "edit": edit_name},
     )
-    # A manual edit is accepted as-is and moves on; it is not re-validated,
-    # because the reviewer's judgement supersedes the automated checks.
     workflow.add_edge(edit_name, phase.advance)
     if advance_router is not None:
         workflow.add_conditional_edges(phase.advance, advance_router, advance_targets)
@@ -423,19 +381,10 @@ def register_phase(
         workflow.add_edge(phase.advance, phase.gate)
 
 
-# version history
-# Versions are written to `workflow_events`, not carried in graph state.
-# Holding each artifact in state meant every regeneration added a blob that
-# LangGraph then re-serialized into every later checkpoint -- the same write
-# amplification file bytes caused before step 5. State keeps only a
-# reference; the artifact is fetched from the event log by the REST/WS API.
 
 SOURCE_AI_GENERATED = "AI_GENERATED"
 SOURCE_AI_IMPROVED = "AI_IMPROVED"
 SOURCE_MANUAL_EDIT = "MANUAL_EDIT"
-#: Restoring an earlier version appends a *new* version carrying the old
-#: artifact rather than rewinding the log. The history stays append-only, so
-#: "we went back to r2 after r5 went wrong" remains visible afterwards.
 SOURCE_RESTORED = "RESTORED"
 
 
@@ -492,8 +441,6 @@ def record_version(
                     instructions=instructions,
                 )
         except Exception:
-            # Version history is an audit aid; losing an entry must not fail
-            # the generation that produced it.
             logger.exception("Failed to record version %s r%d", key, revision)
 
     if ref is None:

@@ -25,11 +25,6 @@ public class S3Config {
     @Value("${aws.s3.region}")
     private String region;
 
-    /**
-     * Blank for AWS S3. Set for an S3-compatible store such as Cloudflare R2
-     * ({@code https://<account-id>.r2.cloudflarestorage.com}); keys stay the same
-     * shape, only where requests go changes.
-     */
     @Value("${aws.s3.endpoint:}")
     private String endpoint;
 
@@ -41,8 +36,6 @@ public class S3Config {
         return endpoint != null && !endpoint.isBlank();
     }
 
-    /* Path-style (endpoint/bucket/key) rather than bucket-as-subdomain, which is
-       what S3-compatible stores reliably accept, for signed URLs included. */
     private static S3Configuration pathStyle() {
         return S3Configuration.builder().pathStyleAccessEnabled(true).build();
     }
@@ -59,7 +52,6 @@ public class S3Config {
         return builder.build();
     }
 
-    /** Used to mint short-lived presigned GET URLs so private files are never served via a public key. */
     @Bean
     public S3Presigner s3Presigner() {
         S3Presigner.Builder builder = S3Presigner.builder()

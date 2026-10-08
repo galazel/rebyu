@@ -31,7 +31,6 @@ export function InstitutionPageHeader({ title, subtitle, actions }) {
   )
 }
 
-/** Matches LearnerStatCard so a tile reads the same in either portal. */
 const STAT_TONES = {
   macaw: "bg-rb-macaw-wash text-rb-macaw-lip",
   feather: "bg-rb-feather-wash text-rb-feather-lip",
@@ -68,19 +67,12 @@ export function InstitutionStatCard({ icon: Icon, label, value, hint, tone = "ma
 }
 
 export function InstitutionLoadingSkeleton({ rows = 4 }) {
-  /* Inline, not the full-screen loading board. This is used inside pages that
-     are already on screen -- a tab's panel, a section waiting on its data --
-     and covering the whole app for that made every tab click look like
-     leaving the page. The board stays for the app booting and a route's code
-     loading, which is what it is for. */
 
   return <InlineLoading rows={rows} />
 }
 
 export function InstitutionErrorState({ title, description, onRetry }) {
   return (
-    /* A pink sticky note pinned in place -- the same object the learner portal
-       and the landing page use. */
     <div className="rb-sticky rb-sticky-pink mt-4 text-center">
       <span className="rb-pushpin" aria-hidden="true" />
       <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-white/60 text-rb-cardinal-lip">
@@ -124,19 +116,16 @@ export function InstitutionEmptyState({ icon: Icon = Inbox, title, description, 
 }
 
 const STATUS_BADGE_VARIANTS = {
-  // invitation
   PENDING: "secondary",
   ACCEPTED: "default",
   DECLINED: "destructive",
   EXPIRED: "outline",
   REVOKED: "outline",
-  // partnership
   UNDER_REVIEW: "secondary",
   MEETING_SCHEDULED: "secondary",
   APPROVED: "default",
   REJECTED: "destructive",
   CANCELLED: "outline",
-  // invoice / allocation (lowercase enums in backend)
   issued: "secondary",
   payment_submitted: "secondary",
   paid: "default",
@@ -147,7 +136,6 @@ const STATUS_BADGE_VARIANTS = {
   expired: "outline",
   pending: "secondary",
   suspended: "destructive",
-  // access-window states derived on the client (see accessWindowStatus)
   upcoming: "secondary",
   expiring_soon: "secondary",
   awaiting_payment: "destructive",
@@ -164,7 +152,6 @@ export function InstitutionStatusBadge({ status }) {
   )
 }
 
-/** Days from today (local midnight) to a yyyy-mm-dd date; negative when past. */
 function daysUntil(value) {
   if (!value) return null
   const date = new Date(`${String(value).slice(0, 10)}T00:00:00`)
@@ -174,19 +161,6 @@ function daysUntil(value) {
   return Math.round((date - today) / 86_400_000)
 }
 
-/**
- * What an allocation's access window says about it today.
- *
- * The row's stored `status` never flips on its own: an allocation approved
- * for a year still reads "active" the day after it ends. Access is not cut
- * off -- learners keep what they enrolled in -- but the institution should
- * see that the window it asked for has closed. So the label is worked out
- * from the dates here, and only overrides "active"; a suspended or cancelled
- * allocation keeps saying so whatever the calendar says.
- *
- * Returns { status, detail }: status is one of upcoming | active |
- * expiring_soon | expired (or the stored one), detail a short human line.
- */
 export function accessWindowStatus(allocation, { soonDays = 30 } = {}) {
   const stored = allocation?.status ?? null
   if (stored === "pending") return { status: "awaiting_payment", detail: "Pay the invoice to activate" }
@@ -211,7 +185,6 @@ export function accessWindowStatus(allocation, { soonDays = 30 } = {}) {
   return { status: stored ?? "active", detail: toEnd != null ? `${toEnd} days left` : null }
 }
 
-/** The allocation badge, labelled by its access window rather than its stored status. */
 export function AccessWindowBadge({ allocation }) {
   return <InstitutionStatusBadge status={accessWindowStatus(allocation).status} />
 }

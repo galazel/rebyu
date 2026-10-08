@@ -71,17 +71,5 @@ input[type="search"]::-webkit-search-cancel-button {
 }
 
 
-/* ---------------------------------------------------------------------------
-   Diagram editor shell (DiagramArea)
 
-   react-drawio hardcodes the <iframe> style and ignores a style prop, so the
-   only way to size or move the editor is CSS against its own class name.
 
-   The editor fills its shell, sidebar included. There is no shapes drawer:
-   draw.io positions its canvas with JavaScript, so anything that hides the
-   sidebar from the outside has to move the whole iframe, and a palette that
-   slides in and out from a handle of our own was more editor furniture than
-   the one it was hiding.
-   --------------------------------------------------------------------------- */
-/* `.rb-diagram-shell` moved to src/index.css, which is the stylesheet
-   this app actually bundles. */

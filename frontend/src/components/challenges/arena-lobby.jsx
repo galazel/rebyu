@@ -68,7 +68,6 @@ export function ArenaLobby({ arenaId, name, blurb, icon: Icon = Trophy, tone }) 
 
   return (
     <div className="rebyu-ds min-h-dvh bg-rb-polar">
-      {/* Hero header */}
       <div className="relative overflow-hidden border-b border-rb-swan bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-5 lg:px-8">
           <div className="flex items-center gap-4">
@@ -90,7 +89,6 @@ export function ArenaLobby({ arenaId, name, blurb, icon: Icon = Trophy, tone }) 
             <Link to="/learner/challenges">back to arenas</Link>
           </TactileButton>
         </div>
-        {/* Summary pills */}
         {configured && (
           <div className="mx-auto flex max-w-5xl gap-2 px-5 pb-5 lg:px-8">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-rb-polar px-3 py-1.5 text-xs font-bold text-rb-eel">
@@ -178,11 +176,9 @@ function ProblemCard({ index, arenaId, examId, timePerProblem, pointsPerProblem,
       to={`/learner/assessments/${examId}?q=${index}&total=${totalProblems}&arena=${arenaId}`}
       className="group relative flex flex-col overflow-hidden rounded-2xl border-2 border-rb-swan bg-white transition hover:border-rb-feather/50 hover:shadow-md"
     >
-      {/* Difficulty indicator bar */}
       <div className={`h-1 w-full ${DIFFICULTY_COLORS[difficulty] ?? DIFFICULTY_COLORS.AVERAGE}`} />
 
       <div className="flex flex-1 flex-col p-4">
-        {/* Top row: number + difficulty badge */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <span className="grid size-9 place-items-center rounded-lg bg-rb-polar font-rb-display text-base font-extrabold text-rb-wolf">
@@ -201,7 +197,6 @@ function ProblemCard({ index, arenaId, examId, timePerProblem, pointsPerProblem,
           </span>
         </div>
 
-        {/* Stats row */}
         <div className="mt-3 flex items-center gap-3 text-[11px] font-semibold text-rb-wolf">
           <span className="inline-flex items-center gap-1">
             {arenaId === "codestrike" ? (
@@ -223,7 +218,6 @@ function ProblemCard({ index, arenaId, examId, timePerProblem, pointsPerProblem,
           </span>
         </div>
 
-        {/* Timer */}
         <div className="mt-3 flex items-center justify-between rounded-xl bg-rb-polar px-3 py-2">
           <div className="flex items-center gap-1.5 text-xs font-bold text-rb-wolf">
             <Clock className="size-3.5" aria-hidden="true" />
@@ -234,7 +228,6 @@ function ProblemCard({ index, arenaId, examId, timePerProblem, pointsPerProblem,
           </span>
         </div>
 
-        {/* CTA hint */}
         <div className="mt-3 flex items-center justify-center gap-1 text-[11px] font-bold text-rb-wolf opacity-0 transition group-hover:opacity-100">
           Start solving
           <ChevronRight className="size-3" aria-hidden="true" />

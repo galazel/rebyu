@@ -16,13 +16,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
-/**
- * The emails a Pro purchase sends: the invoice as soon as PayMongo confirms the
- * payment, and a short "Pro is on" note when an admin approves it.
- *
- * <p>Both are sent after the transaction commits, so a payment that fails to
- * save never mails an invoice, and a failed email never undoes a payment.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -43,8 +36,6 @@ public class InvoiceEmailService {
                 subscription.getLearnerSubscriptionId());
     }
 
-    /* The recipient and plan are read now, inside the transaction, because the
-       lazy learner/user/plan cannot be loaded once it has committed. */
     public void sendInvoiceAfterCommit(LearnerSubscription subscription) {
         Recipient to = recipient(subscription);
         String planName = subscription.getSubscriptionPlan().getPlanName();
@@ -260,7 +251,6 @@ public class InvoiceEmailService {
         return new Recipient(name, learner.getUser().getEmail());
     }
 
-    /* The server runs in UTC; learners read Philippine time. */
     private static String manila(LocalDateTime at) {
         return at.atZone(java.time.ZoneId.systemDefault())
                 .withZoneSameInstant(AiGenerationQuotaService.LEARNER_ZONE)

@@ -25,13 +25,9 @@ public class MajorCategoryDto {
     @Size(max = 150)
     private String title;
 
-    // NULL = official, platform-wide content. Read-only here -- ownership is
-    // set exclusively via the create endpoint's ownerDepartmentId query param,
-    // never accepted directly from this DTO's create/update body.
     private Long ownerDepartmentId;
 
     private List<MiddleCategoryDto> middleCategory;
 
-    /** Major-category-scoped exams (e.g. the major category assessment). */
     private List<ExamSummaryDto> exams;
 }

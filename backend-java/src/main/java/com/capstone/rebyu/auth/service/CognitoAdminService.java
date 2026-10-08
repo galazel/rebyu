@@ -19,17 +19,6 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Account administration against Supabase Auth: inviting the login accounts
- * REBYU creates for people, and removing a sign-in when an account is deleted.
- *
- * <p>The name is kept from when sign-in ran on Amazon Cognito, so its callers
- * did not all have to change with the provider. The subject it deals in is now
- * the Supabase user id, stored in the same {@code users.cognito_sub} column.
- *
- * <p>Calls the Auth admin REST API with the project's secret key, which never
- * leaves the backend.
- */
 @Slf4j
 @Service
 public class CognitoAdminService {
@@ -58,20 +47,9 @@ public class CognitoAdminService {
         this.siteUrl = stripSlash(siteUrl);
     }
 
-    /** Outcome of an institution account provisioning attempt. */
     public record ProvisionResult(boolean emailed, String cognitoSub, String note) {
     }
 
-    /**
-     * Removes the sign-in behind a subject, so a deleted account cannot come
-     * back. Without this, CognitoAuthService re-provisions a User and Learner
-     * for any still-valid token whose subject it does not recognise.
-     *
-     * <p>Best effort by design: the database rows are already gone by the time
-     * this runs, and an unreachable Supabase must not undo that. A missing user
-     * -- including an account last signed in through Cognito, which Supabase
-     * never had -- is the desired end state, not a failure.
-     */
     public void deleteAccount(String subject) {
         if (subject == null || subject.isBlank()) {
             return;
@@ -96,20 +74,6 @@ public class CognitoAdminService {
         }
     }
 
-    /**
-     * Creates the login account for someone REBYU is creating an account for,
-     * the way it worked on Cognito: the account gets a temporary password,
-     * REBYU emails it, and the first sign-in asks for a new one.
-     *
-     * <p>It used to send a Supabase invitation link instead. That link is
-     * single-use and signs in only the browser that opens it, so opening it on a
-     * phone (or a mail scanner opening it first) left an account with no
-     * password that could not sign in anywhere else.
-     *
-     * <p>An address that already has a sign-in is left alone, unless it is one of
-     * those invited accounts that never got a password -- that one is given a
-     * temporary password now, so it can finally sign in.
-     */
     public ProvisionResult createInstitutionAccount(String email, String givenName, String familyName) {
         String temporaryPassword = temporaryPassword();
         try {
@@ -144,11 +108,6 @@ public class CognitoAdminService {
                 "The account was saved, but its sign-in could not be created. Send credentials manually.");
     }
 
-    /**
-     * Re-sends first sign-in details to an account created by invitation link
-     * that never set a password. Anyone who has set their own password is left
-     * alone.
-     */
     public ProvisionResult recoverPasswordlessInvite(String email) {
         try {
             String user = findUserJson(email);
@@ -190,11 +149,6 @@ public class CognitoAdminService {
         }
     }
 
-    /**
-     * Whether Supabase holds a sign-in for this address. Empty when Supabase
-     * could not be asked, so the caller can fall back to a neutral message
-     * rather than guess.
-     */
     public java.util.Optional<Boolean> hasSignIn(String email) {
         try {
             return java.util.Optional.of(findUserJson(email) != null);
@@ -204,7 +158,6 @@ public class CognitoAdminService {
         }
     }
 
-    /** The admin API's user object for an address, or null. Paged; REBYU has few sign-ins. */
     private String findUserJson(String email) throws Exception {
         String wanted = "\"email\":\"" + email.trim().toLowerCase() + "\"";
         for (int page = 1; page <= 50; page++) {
@@ -238,7 +191,6 @@ public class CognitoAdminService {
         }
     }
 
-    /** 14 characters covering upper, lower, digit and symbol, so any password rule accepts it. */
     private static String temporaryPassword() {
         String upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
         String lower = "abcdefghijkmnpqrstuvwxyz";
@@ -274,7 +226,6 @@ public class CognitoAdminService {
         return trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
     }
 
-    /** A JSON string literal. */
     private static String quote(String value) {
         StringBuilder out = new StringBuilder("\"");
         for (char c : value.toCharArray()) {

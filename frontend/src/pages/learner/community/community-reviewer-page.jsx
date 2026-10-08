@@ -8,30 +8,7 @@ import { fetchFileBlob, getFileViewLink } from "@/services/fileService"
 import { ProLockCard } from "@/components/learner/pro-gate.jsx"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 
-/**
- * A shared community reviewer, read full-page.
- *
- * <p>The feed used to open a reviewer in a dialog, which is the wrong shape for
- * the thing: a reviewer is a document someone sits and reads, and it was being
- * given a box in the middle of the screen with the feed showing round the edges.
- * This is the same reader the study workspace uses — title bar, control rail,
- * pages in a scroller — so a shared reviewer and an uploaded one are read the
- * same way, in the same place, with the same controls.
- *
- * <p>How the bytes arrive depends on what the reader needs to do with them:
- *
- * <ul>
- *   <li>A <b>PDF</b> is handed to the browser's viewer as a presigned URL, so
- *       storage streams it directly. This is what makes a large file work at
- *       all — an 81 MB reviewer pulled through the API as one buffer is what
- *       exhausted the server and answered 500.</li>
- *   <li><b>Word</b> and <b>text</b> have to be parsed in JavaScript, so those
- *       do come back as bytes, through the authenticated endpoint. Its 12 MB
- *       ceiling is far above anything of that kind.</li>
- * </ul>
- */
 
-/** What the reader needs of a file, for something that is not a File. */
 function readerDocument({ name, title, size, previewUrl, images, blob, fileKey, uploader, circle }) {
     return {
         name,
@@ -42,24 +19,16 @@ function readerDocument({ name, title, size, previewUrl, images, blob, fileKey, 
         uploader,
         circle,
         text: () => (blob ? blob.text() : Promise.resolve("")),
-        // A PDF streams from its presigned URL; its bytes are only fetched if
-        // the reader cannot load that URL itself.
         arrayBuffer: () =>
             blob ? blob.arrayBuffer() : fetchFileBlob(fileKey).then((fetched) => fetched.arrayBuffer()),
     }
 }
 
-/**
- * PDFs and images are read straight from storage by a presigned URL: pdf.js
- * streams a PDF in ranges, and an image needs nothing but an <img src>. Word and
- * text files have to be parsed in the browser, so they still come back as bytes.
- */
 function isStreamable(name) {
     const extension = String(name ?? "").toLowerCase().split(".").pop()
     return ["pdf", "png", "jpg", "jpeg", "gif", "webp"].includes(extension)
 }
 
-/** Pages of a shared file a Free learner can read before the preview stops. */
 const FREE_PREVIEW_PAGES = 2
 
 export default function CommunityReviewerPage() {
@@ -67,7 +36,6 @@ export default function CommunityReviewerPage() {
     const { postId } = useParams()
     const [params] = useSearchParams()
 
-    // A post sharing several images repeats key and name once per image.
     const keys = params.getAll("key").filter(Boolean)
     const names = params.getAll("name")
     const keysSignature = keys.join("\n")
@@ -137,7 +105,6 @@ export default function CommunityReviewerPage() {
                 objectUrlRef.current = null
             }
         }
-        // keysSignature stands in for keys/names, which are new arrays every render.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [keysSignature, name])
 
@@ -159,7 +126,6 @@ export default function CommunityReviewerPage() {
         [state, name, size, fileKey, uploader, circle, isImageSet, keys.length]
     )
 
-    // No in-page back control: the browser's own back button returns to the feed.
     const backControl = null
 
     return (

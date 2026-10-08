@@ -16,12 +16,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Resolves the questions eligible for an assessment from its curriculum scope
- * (lesson / middle / major / certification), excluding those already assigned
- * to the given exam. Scope is derived server-side from the most specific id
- * provided — arbitrary frontend lesson lists are never trusted.
- */
 @Service
 @RequiredArgsConstructor
 public class EligibleQuestionService {
@@ -29,13 +23,6 @@ public class EligibleQuestionService {
     private final QuestionRepository questionRepository;
     private final ExamQuestionRepository examQuestionRepository;
 
-    /**
-     * @param includeDepartmentId omitted -> official questions only (unchanged
-     *                       behavior); passed -> that group's own questions are
-     *                       offered too. Another group's questions are never
-     *                       eligible. The caller's access to the group is
-     *                       checked in the controller.
-     */
     @Transactional(readOnly = true)
     public List<EligibleQuestionDto> getEligible(
             Long certificationId, Long majorId, Long middleId, Long lessonId, Long examId,
@@ -57,12 +44,6 @@ public class EligibleQuestionService {
                 .toList();
     }
 
-    /**
-     * Resolves the exam's curriculum scope into its full candidate question
-     * pool (top-level questions only), most-specific id wins. Public so other
-     * scope-derived question selection (e.g. adaptive retake selection) can
-     * reuse the exact same scope resolution instead of reimplementing it.
-     */
     public List<Question> resolveScope(Long certificationId, Long majorId, Long middleId, Long lessonId) {
         if (lessonId != null) {
             return questionRepository
@@ -84,16 +65,6 @@ public class EligibleQuestionService {
                 "Provide a certificationId, majorId, middleId, or lessonId to resolve eligible questions.");
     }
 
-    /**
-     * The same scope resolution as {@link #resolveScope}, returning flat
-     * projections instead of entities.
-     *
-     * <p>Prefer this wherever the caller is sifting a candidate pool rather
-     * than using every question it gets back. Resolving a scope as entities
-     * costs three extra queries per question (see {@link QuestionSelectionView});
-     * over a whole certification's bank that is thousands of round trips to
-     * choose a few dozen questions.
-     */
     public List<QuestionSelectionView> resolveScopeViews(
             Long certificationId, Long majorId, Long middleId, Long lessonId) {
         if (lessonId != null) {

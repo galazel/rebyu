@@ -1,10 +1,9 @@
-# PHASE 4: Security Headers Configuration
 
 security:
   headers:
     hsts:
       enabled: true
-      max-age: 31536000  # 1 year
+      max-age: 31536000
       include-subdomains: true
       preload: true
     csp:
@@ -21,10 +20,8 @@ security:
         base-uri: ["'self'"]
         form-action: ["'self'"]
 
-    # X-Frame-Options (Clickjacking protection)
     x-frame-options: DENY
 
-    # X-Content-Type-Options (MIME sniffing protection)
     x-content-type-options: nosniff
     x-xss-protection: "1; mode=block"
     referrer-policy: "strict-origin-when-cross-origin"
@@ -41,7 +38,7 @@ cors:
   allow-credentials: true
 rate-limiting:
   enabled: true
-  default-limit: 100  # per minute
+  default-limit: 100
   burst-size: 10
   endpoints:
     /api/auth/login:
@@ -65,5 +62,5 @@ encryption:
 audit:
   enabled: true
   log-all-mutations: true
-  retention-days: 2555  # 7 years
+  retention-days: 2555
   immutable: true

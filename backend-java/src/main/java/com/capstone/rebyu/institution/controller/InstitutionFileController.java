@@ -19,7 +19,6 @@ public class InstitutionFileController {
     @GetMapping public List<InstitutionFileService.FileView> list(@AuthenticationPrincipal Jwt jwt) { return files.list(me(jwt).institutionId()); }
     @PostMapping @ResponseStatus(HttpStatus.CREATED) public InstitutionFileService.FileView upload(@AuthenticationPrincipal Jwt jwt, @RequestParam("file") MultipartFile file) { CurrentUserDto user=me(jwt); return files.upload(user.institutionId(), user.userId(), file); }
     @DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) { files.delete(me(jwt).institutionId(), id); }
-    /** Short-lived presigned download URL, scoped to the caller's own institution (404 otherwise). */
     @GetMapping("/{id}/download-url") public Map<String, String> downloadUrl(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) { return Map.of("url", files.downloadUrl(me(jwt).institutionId(), id)); }
     private CurrentUserDto me(Jwt jwt) { if(jwt==null) throw new IllegalArgumentException("Authentication is required"); CurrentUserDto user=auth.syncCurrentUser(jwt,jwt.getTokenValue()); if(user.institutionId()==null) throw new IllegalArgumentException("Institution access is required"); return user; }
 }

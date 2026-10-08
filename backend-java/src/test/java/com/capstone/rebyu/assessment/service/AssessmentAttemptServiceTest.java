@@ -53,10 +53,6 @@ class AssessmentAttemptServiceTest {
     @Mock private AssessmentAttemptQuestionRepository attemptQuestionRepository;
     @Mock private AssessmentAttemptAnswerRepository attemptAnswerRepository;
     @Mock private LearnerCertificationRepository learnerCertificationRepository;
-    /* The institution-sponsored route into an assessment. Left unstubbed on
-       purpose: Mockito's default `false` is "not sponsored", so these tests keep
-       reaching the gate through their own direct enrollment, which is what they
-       are about. */
     @Mock private InstitutionCertificationLearnerRepository institutionCertificationLearnerRepository;
     @Mock private ExamResultRepository examResultRepository;
     @Mock private AssessmentAttemptExecutionRepository attemptExecutionRepository;
@@ -147,9 +143,6 @@ class AssessmentAttemptServiceTest {
                 .findFirstByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
                         anyLong(), anyLong(), any()))
                 .thenReturn(Optional.of(enrollment));
-        // The shared exam fixture is a MOCK_EXAM, which resolveLockReason gates
-        // behind a Pro/institutional entitlement; grant it so these tests can
-        // exercise start/submit without also modeling billing.
         lenient().when(learnerEntitlementService.hasLearnerEntitlement(anyLong(), any(), anyLong()))
                 .thenReturn(true);
     }
@@ -168,10 +161,6 @@ class AssessmentAttemptServiceTest {
                 .examQuestionId(50L).exam(exam).question(mcqQuestion).displayOrder(1).build();
         when(examQuestionRepository.findByExam_ExamIdOrderByDisplayOrderAsc(5L))
                 .thenReturn(List.of(link));
-        // A first attempt now fetches its questions whole in one query rather
-        // than walking each ExamQuestion's lazy proxy (Question drags three
-        // EAGER one-to-one configs behind it, so the proxy walk cost three
-        // extra round trips per question).
         when(questionRepository.findForAttemptByIdIn(List.of(100L)))
                 .thenReturn(List.of(mcqQuestion));
         when(attemptRepository.save(any())).thenAnswer(inv -> {
@@ -197,7 +186,6 @@ class AssessmentAttemptServiceTest {
 
         assertEquals(1, response.questions().size());
         assertEquals(2, response.questions().get(0).choices().size());
-        // The snapshot JSON must not leak correctness flags or explanations.
         String snapshotJson = savedSnapshots.get(0).getQuestionDataSnapshot();
         assertFalse(snapshotJson.contains("correct"));
         assertFalse(snapshotJson.contains("explanation"));
@@ -230,8 +218,6 @@ class AssessmentAttemptServiceTest {
                 .thenReturn(List.of(snapshot));
         when(attemptQuestionRepository.findById(1L)).thenReturn(Optional.of(snapshot));
         lenient().when(questionRepository.findById(100L)).thenReturn(Optional.of(mcqQuestion));
-        // getResult loads the paper's source questions in ONE batched query now,
-        // not findById per item -- see AssessmentAttemptService.getResult.
         lenient().when(questionRepository.findForAttemptByIdIn(List.of(100L)))
                 .thenReturn(List.of(mcqQuestion));
 
@@ -250,7 +236,6 @@ class AssessmentAttemptServiceTest {
         when(attemptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(examResultRepository.existsById(any())).thenReturn(false);
 
-        // Learner picks the correct choice; the client sends no scores.
         SubmitAssessmentAttemptRequestDto request =
                 new SubmitAssessmentAttemptRequestDto(2L, List.of(
                         new AttemptAnswerDraftDto(1L, null, 1000L, null, null, null)));
@@ -262,7 +247,6 @@ class AssessmentAttemptServiceTest {
         assertEquals(1, result.correctCount());
         assertEquals(AssessmentAttempt.Status.SUBMITTED, attempt.getStatus());
 
-        // A second submit returns the existing result without re-scoring.
         AssessmentAttemptResultDto again = service.submitAttempt(77L, request);
         assertEquals(result.percentage(), again.percentage());
         verify(examResultRepository, times(1)).save(any());
@@ -316,8 +300,6 @@ class AssessmentAttemptServiceTest {
                 .findByAttempt_AssessmentAttemptIdOrderByDisplayOrderAsc(82L))
                 .thenReturn(List.of(snapshot));
         lenient().when(questionRepository.findById(100L)).thenReturn(Optional.of(mcqQuestion));
-        // getResult loads the paper's source questions in ONE batched query now,
-        // not findById per item -- see AssessmentAttemptService.getResult.
         lenient().when(questionRepository.findForAttemptByIdIn(List.of(100L)))
                 .thenReturn(List.of(mcqQuestion));
 
@@ -337,8 +319,6 @@ class AssessmentAttemptServiceTest {
 
         assertNull(result.answers().get(0).correctChoiceText());
         assertNull(result.answers().get(0).explanation());
-        // The learner's own selection is always visible, regardless of the
-        // release setting — only the answer key is gated.
         assertEquals("Plan Do Check Act", result.answers().get(0).selectedChoiceText());
     }
 
@@ -362,8 +342,6 @@ class AssessmentAttemptServiceTest {
                 .totalPoints(BigDecimal.TEN).earnedPoints(new BigDecimal("9.00"))
                 .durationSeconds(280)
                 .build();
-        // Retakes never remove or overwrite earlier attempts — both rows
-        // must come back, most recent attempt number first.
         when(attemptRepository.findByExam_ExamIdAndLearnerIdOrderByAttemptNumberDesc(5L, 2L))
                 .thenReturn(List.of(newer, older));
 
@@ -385,12 +363,10 @@ class AssessmentAttemptServiceTest {
                 .attemptQuestionId(1L).attempt(attempt).questionType("DESCRIPTIVE").displayOrder(1).build();
         AssessmentAttemptQuestion shortAnswer = AssessmentAttemptQuestion.builder()
                 .attemptQuestionId(2L).attempt(attempt).questionType("SHORT_ANSWER").displayOrder(2).build();
-        // Half marks on the essay: half an item, not a wrong answer.
         AssessmentAttemptAnswer essay = new AssessmentAttemptAnswer();
         essay.setLearnerAnswer("Some of it");
         essay.setIsCorrect(false);
         essay.setCredit(new BigDecimal("0.5000"));
-        // 0.75 on a short answer clears the verdict threshold: a whole item.
         AssessmentAttemptAnswer term = new AssessmentAttemptAnswer();
         term.setLearnerAnswer("b tree");
         term.setIsCorrect(false);
@@ -450,8 +426,6 @@ class AssessmentAttemptServiceTest {
                 .thenReturn(List.of(snapshot));
         when(attemptQuestionRepository.findById(2L)).thenReturn(Optional.of(snapshot));
         lenient().when(questionRepository.findById(200L)).thenReturn(Optional.of(descriptiveQuestion));
-        // getResult loads the paper's source questions in ONE batched query now,
-        // not findById per item -- see AssessmentAttemptService.getResult.
         lenient().when(questionRepository.findForAttemptByIdIn(List.of(200L)))
                 .thenReturn(List.of(descriptiveQuestion));
 
@@ -470,9 +444,6 @@ class AssessmentAttemptServiceTest {
         when(attemptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(examResultRepository.existsById(any())).thenReturn(false);
 
-        // The AI grader awards partial credit and feedback — auto-finalized,
-        // no admin review step. It marks out of one unit; the paper's 10
-        // points weight that share.
         when(aiAnswerGradingService.grade(any())).thenReturn(Optional.of(
                 new com.capstone.rebyu.aigateway.dto.AnswerGradingResultDto(
                         new BigDecimal("0.70"),
@@ -486,9 +457,6 @@ class AssessmentAttemptServiceTest {
 
         AssessmentAttemptResultDto result = service.submitAttempt(78L, request);
 
-        // Partial credit must reach the total even though isCorrect isn't
-        // TRUE for a partially-graded descriptive answer (regression guard
-        // for the earlier isCorrect-gated sum bug).
         assertEquals(0, new BigDecimal("7.00").compareTo(result.earnedPoints()));
         assertEquals(0, new BigDecimal("70.00").compareTo(result.percentage()));
         assertEquals(0, result.pendingCount());
@@ -522,13 +490,8 @@ class AssessmentAttemptServiceTest {
         when(programmingQuestionConfigRepository.findByQuestion_QuestionId(300L))
                 .thenReturn(Optional.of(config));
         lenient().when(questionRepository.findById(300L)).thenReturn(Optional.of(programmingParent));
-        // getResult loads the paper's source questions in ONE batched query now,
-        // not findById per item -- see AssessmentAttemptService.getResult.
         lenient().when(questionRepository.findForAttemptByIdIn(List.of(300L)))
                 .thenReturn(List.of(programmingParent));
-        // Neither config resolves for the diagram check, so this parent is
-        // correctly routed to Judge0 (analytical/diagram detection in
-        // resolveCriticalThinkingType only trips on the diagram config).
         lenient().when(diagramQuestionConfigRepository.findByQuestion_QuestionId(300L))
                 .thenReturn(Optional.empty());
 
@@ -574,8 +537,6 @@ class AssessmentAttemptServiceTest {
             return execution;
         });
 
-        // Judge0 (via CodeExecutionService) is deterministic and not AI: one
-        // sample test passes, one hidden test fails — partial credit only.
         CodeExecutionResultDto judge0Result = new CodeExecutionResultDto(
                 "COMPLETED", "5", null, 12L, 3456L, 1, 2,
                 List.of(
@@ -588,13 +549,11 @@ class AssessmentAttemptServiceTest {
 
         ExecutionResultDto response = service.runProgramming(79L, 3L, request);
 
-        // The program's own output comes back, and nothing about the tests.
         assertEquals("5", response.stdout());
         assertNull(response.passedTests());
         assertNull(response.totalTests());
         assertTrue(response.tests().isEmpty());
 
-        // One execution, fed the first sample's input, with no expected output.
         org.mockito.ArgumentCaptor<com.capstone.rebyu.execution.dto.CodeExecutionRequestDto> sent =
                 org.mockito.ArgumentCaptor.forClass(com.capstone.rebyu.execution.dto.CodeExecutionRequestDto.class);
         verify(codeExecutionService).execute(sent.capture());
@@ -602,7 +561,6 @@ class AssessmentAttemptServiceTest {
         assertEquals("2 3", sent.getValue().testCases().get(0).inputData());
         assertNull(sent.getValue().testCases().get(0).expectedOutput());
 
-        // A run is never a verdict: no score, no stored result on the answer.
         AssessmentAttemptAnswer saved = answers.get(0);
         assertNull(saved.getCredit());
         assertNull(saved.getIsCorrect());
@@ -634,21 +592,12 @@ class AssessmentAttemptServiceTest {
                 .referenceDiagramXml(diagramXml("Student", "Course", "enrolls in 1..*"))
                 .referenceDiagramJson("{}")
                 .build();
-        // The config has to be ON the entity, not only behind the repository.
-        // resolveCriticalThinkingType reads source.getDiagramQuestionConfig()
-        // to decide this is a DIAGRAM item at all, and in production the entity
-        // arrives carrying it -- findForAttemptByIdIn fetches it in its graph.
-        // Stubbing only the repository left the config invisible to that check,
-        // so the item was never queued for structural grading and came back
-        // unscored with no element breakdown.
         diagramParent.setDiagramQuestionConfig(diagramConfig);
         lenient().when(diagramQuestionConfigRepository.findByQuestion_QuestionId(400L))
                 .thenReturn(Optional.of(diagramConfig));
         lenient().when(programmingQuestionConfigRepository.findByQuestion_QuestionId(400L))
                 .thenReturn(Optional.empty());
         lenient().when(questionRepository.findById(400L)).thenReturn(Optional.of(diagramParent));
-        // getResult loads the paper's source questions in ONE batched query now,
-        // not findById per item -- see AssessmentAttemptService.getResult.
         lenient().when(questionRepository.findForAttemptByIdIn(List.of(400L)))
                 .thenReturn(List.of(diagramParent));
 
@@ -692,7 +641,6 @@ class AssessmentAttemptServiceTest {
         when(attemptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(examResultRepository.existsById(any())).thenReturn(false);
 
-        // Learner draws a structurally identical (exact-match) diagram.
         SubmitAssessmentAttemptRequestDto request = new SubmitAssessmentAttemptRequestDto(2L, List.of(
                 new AttemptAnswerDraftDto(5L, null, null, null, null,
                         diagramXml("Student", "Course", "enrolls in 1..*"))));
@@ -704,10 +652,8 @@ class AssessmentAttemptServiceTest {
         assertNotNull(result.answers().get(0).feedback());
         verify(aiAnswerGradingService, never()).grade(any());
 
-        // Learners must see WHICH required elements matched, and what they
-        // themselves drew for each — not just the final score.
         List<DiagramElementReviewDto> elements = result.answers().get(0).diagramElements();
-        assertEquals(3, elements.size()); // 2 required nodes + 1 required edge
+        assertEquals(3, elements.size());
         assertTrue(elements.stream().allMatch(DiagramElementReviewDto::matched));
         assertTrue(elements.stream()
                 .anyMatch(e -> "Student".equals(e.expectedDescription())
@@ -729,21 +675,12 @@ class AssessmentAttemptServiceTest {
                 .referenceDiagramXml(diagramXml("Student", "Course", "enrolls in 1..*"))
                 .referenceDiagramJson("{}")
                 .build();
-        // The config has to be ON the entity, not only behind the repository.
-        // resolveCriticalThinkingType reads source.getDiagramQuestionConfig()
-        // to decide this is a DIAGRAM item at all, and in production the entity
-        // arrives carrying it -- findForAttemptByIdIn fetches it in its graph.
-        // Stubbing only the repository left the config invisible to that check,
-        // so the item was never queued for structural grading and came back
-        // unscored with no element breakdown.
         diagramParent.setDiagramQuestionConfig(diagramConfig);
         lenient().when(diagramQuestionConfigRepository.findByQuestion_QuestionId(401L))
                 .thenReturn(Optional.of(diagramConfig));
         lenient().when(programmingQuestionConfigRepository.findByQuestion_QuestionId(401L))
                 .thenReturn(Optional.empty());
         lenient().when(questionRepository.findById(401L)).thenReturn(Optional.of(diagramParent));
-        // getResult loads the paper's source questions in ONE batched query now,
-        // not findById per item -- see AssessmentAttemptService.getResult.
         lenient().when(questionRepository.findForAttemptByIdIn(List.of(401L)))
                 .thenReturn(List.of(diagramParent));
 
@@ -787,7 +724,6 @@ class AssessmentAttemptServiceTest {
         when(attemptRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(examResultRepository.existsById(any())).thenReturn(false);
 
-        // Learner draws only "Student" — "Course" and the relationship are missing.
         String learnerXml = "<mxGraphModel><root>"
                 + "<mxCell id=\"0\"/><mxCell id=\"1\" parent=\"0\"/>"
                 + "<mxCell id=\"2\" value=\"Student\" style=\"rounded=0;\" vertex=\"1\" parent=\"1\">"
@@ -811,7 +747,6 @@ class AssessmentAttemptServiceTest {
         assertTrue(studentNode.matched());
         assertEquals("Student", studentNode.learnerDescription());
 
-        // The relationship can't exist without both endpoints.
         DiagramElementReviewDto edge = elements.stream()
                 .filter(e -> "EDGE".equals(e.kind()))
                 .findFirst().orElseThrow();
@@ -885,12 +820,9 @@ class AssessmentAttemptServiceTest {
                         new SubmitAssessmentAttemptRequestDto(999L, List.of())));
     }
 
-    // what "already checked" is allowed to mean at submit
 
-    /** The review returned by the most recent {@link #submitProgrammingWithStoredVerdict}. */
     private AssessmentAttemptResultDto lastProgrammingResult;
 
-    /** The same SHA-256 hex the service stamps a stored verdict with. */
     private static String codeHash(String code) throws Exception {
         byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
                 .digest(code.getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -901,11 +833,6 @@ class AssessmentAttemptServiceTest {
         return hex.toString();
     }
 
-    /**
-     * Wires up a one-question programming paper whose answer already carries a
-     * full-marks Check verdict stamped with {@code gradedCodeHash}, and submits
-     * {@code submittedCode} against it. Returns the answer as it was left.
-     */
     private AssessmentAttemptAnswer submitProgrammingWithStoredVerdict(
             String gradedCodeHash, String submittedCode, CodeExecutionResultDto rerun) {
 
@@ -951,15 +878,10 @@ class AssessmentAttemptServiceTest {
         when(attemptQuestionRepository.findByAttempt_AssessmentAttemptIdOrderByDisplayOrderAsc(91L))
                 .thenReturn(List.of(snapshot));
 
-        // The verdict a Check left behind, stamped with the code it came from.
         AssessmentAttemptAnswer existing = AssessmentAttemptAnswer.builder()
                 .attemptAnswerId(900L)
                 .attempt(attempt)
                 .attemptQuestion(snapshot)
-                // The same code the submit carries, so upsertAnswers treats the
-                // item as untouched and leaves the stored verdict alone. What is
-                // under test is what the scorer does with a verdict it has kept:
-                // whether it checks that the verdict belongs to this code.
                 .submittedCode(submittedCode)
                 .programmingLanguage("Python")
                 .isCorrect(true)
@@ -996,12 +918,6 @@ class AssessmentAttemptServiceTest {
         return answers.get(0);
     }
 
-    /**
-     * Check is a button pressed mid-solution. A verdict from the code as it was
-     * then must not be the mark for the code as it is at submit -- here the
-     * learner checked a working version, then replaced it, and the replacement
-     * fails half the tests.
-     */
     @Test
     void submitRegradesProgrammingWhenTheCodeChangedSinceCheck() {
         stubActiveEnrollment();
@@ -1016,14 +932,11 @@ class AssessmentAttemptServiceTest {
                 "hash-of-code-the-learner-has-since-replaced", "print('new and broken')", rerun);
 
         verify(codeExecutionService, atLeastOnce()).execute(any());
-        // Half the tests passed -- the re-run's verdict, not the stored full
-        // credit from the version that passed everything.
         assertEquals(0, new BigDecimal("0.5000").compareTo(answer.getCredit()));
         assertFalse(answer.getIsCorrect());
         assertFalse(answer.isPendingManualEvaluation());
     }
 
-    /** Unchanged code keeps its verdict: no second trip to Judge0 for an answer already decided. */
     @Test
     void submitKeepsTheCheckVerdictWhenTheCodeIsUnchanged() throws Exception {
         stubActiveEnrollment();
@@ -1037,12 +950,6 @@ class AssessmentAttemptServiceTest {
         assertTrue(answer.getIsCorrect());
     }
 
-    /**
-     * A question that says it is a diagram is graded as a diagram, even when a
-     * programming config is still hanging off it from before it was converted.
-     * Resolution used to read the configs only, and the programming check came
-     * first -- so the learner's draw.io XML was posted to Judge0 as source code.
-     */
     @Test
     void diagramTypedQuestionIsGradedStructurallyDespiteALeftoverProgrammingConfig() {
         stubActiveEnrollment();
@@ -1058,7 +965,6 @@ class AssessmentAttemptServiceTest {
                 .referenceDiagramJson("{}")
                 .build();
         diagramParent.setDiagramQuestionConfig(diagramConfig);
-        // The leftover: authored when this was still a coding item.
         diagramParent.setProgrammingQuestionConfig(ProgrammingQuestionConfig.builder()
                 .programmingQuestionConfigId(13L)
                 .testCases(new ArrayList<>())
@@ -1118,11 +1024,6 @@ class AssessmentAttemptServiceTest {
         assertEquals(3, result.answers().get(0).diagramElements().size());
     }
 
-    /**
-     * A wrong program has to say which case it broke on. Sample cases show what
-     * went in and what came out; a hidden case's input stays hidden, because
-     * that is the part of a coding item that has to.
-     */
     @Test
     void programmingReviewShowsEveryTestCaseInFullAfterSubmission() {
         stubActiveEnrollment();
@@ -1151,15 +1052,11 @@ class AssessmentAttemptServiceTest {
         ProgrammingTestReviewDto hidden = tests.get(1);
         assertFalse(hidden.sample());
         assertFalse(hidden.passed());
-        // After submission a hidden case is shown in full, like a sample: its
-        // input, what was expected (answers are released on this exam) and
-        // what the program printed.
         assertEquals("10 20", hidden.input());
         assertEquals("30", hidden.expectedOutput());
         assertEquals("31", hidden.actualOutput());
     }
 
-    /** The expected output is answer-key material, gated like the MCQ key. */
     @Test
     void programmingReviewWithholdsExpectedOutputWhenAnswersAreNotReleased() {
         stubActiveEnrollment();
@@ -1177,7 +1074,6 @@ class AssessmentAttemptServiceTest {
                 lastProgrammingResult.answers().get(0).programmingTests().get(0);
         assertEquals("2 3", sample.input());
         assertNull(sample.expectedOutput());
-        // Their own program's output on a case they can already see is theirs.
         assertEquals("5", sample.actualOutput());
     }
 }

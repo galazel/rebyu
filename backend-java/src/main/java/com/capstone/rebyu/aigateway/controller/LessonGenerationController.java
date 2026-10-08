@@ -20,12 +20,6 @@ import java.util.List;
 @RequestMapping("/api/ai/lessons")
 @RequiredArgsConstructor
 public class LessonGenerationController {
-    /*
-     * ADMIN ONLY, AND CHECKED IN CODE. This controller took no Jwt at all and
-     * /api/ai/lessons was not among the authenticated paths in SecurityConfig,
-     * so /generate was reachable by anyone: an anonymous caller could spend
-     * money with the model provider and write drafts into any lesson by id.
-     */
 
     private final LessonGenerationService lessonGenerationService;
     private final RoleGuard guard;

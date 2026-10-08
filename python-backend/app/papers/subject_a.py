@@ -34,30 +34,16 @@ import pymupdf
 PDF_DIR = os.environ.get("PAPERS_PDF_DIR", "/app/scripts/fe_papers/pdf/")
 OUT_DIR = os.environ.get("PAPERS_PARSED_DIR", "/app/scripts/fe_papers/parsed/")
 
-#: Drawings smaller than this in either dimension are page furniture -- rule
-#: lines under headers, underscores marking a blank, the box around a letter.
 MIN_FIGURE_WIDTH = 40
 MIN_FIGURE_HEIGHT = 18
 
-#: A question's figure region is padded by this much so that a diagram's
-#: outermost stroke and its labels are not clipped.
 FIGURE_PAD = 6
 
 CHOICE_RE = re.compile(r"^\s*([a-h])\)\s*(.*)$")
 QUESTION_RE = re.compile(r"^\s*Q(\d+)\.\s*(.*)$")
 
-#: Finds a choice marker anywhere in a line, not only at its start. Choices
-#: laid out side by side across the page arrive as one joined row --
-#: "a) 20.1  b) 25.725  c) 30.725  d) 74.1" -- and matching only at the start
-#: would fold three of the four into the first choice's text.
 INLINE_CHOICE_RE = re.compile(r"(?:(?<=\s)|^)([a-h])\)(?=\s|$)")
 
-#: The same marker with its bracket missing. A handful of choices across these
-#: papers extract as a bare "c" where the page shows "c)", so requiring the
-#: bracket loses that choice AND every choice after it, because the sequence
-#: never reaches the next expected letter. Accepted only when the letter is
-#: exactly the one expected next and at least one choice has already been
-#: seen, which is narrow enough not to fire on ordinary prose.
 LOOSE_CHOICE_RE = re.compile(r"(?:(?<=\s)|^)([a-h])(?=\s)")
 
 
@@ -83,17 +69,8 @@ def answer_key(path):
     return answers
 
 
-#: Two text lines whose vertical centres are within this many points belong to
-#: the same visual row. It matters more than it sounds: a choice marker "a)"
-#: and the choice text beside it are separate blocks whose baselines differ by
-#: about a point, and often the TEXT sits marginally higher than its own
-#: marker. Sorted by raw y, every choice on such a page is shifted by one --
-#: the first choice's text is absorbed into the stem and the last marker ends
-#: up empty, silently producing four wrong answers.
 ROW_TOLERANCE = 5
 
-#: A horizontal gap this wide between two fragments of the same row means they
-#: are separate columns rather than continuing text.
 COLUMN_GAP = 24
 
 
@@ -119,12 +96,6 @@ def page_lines(page):
         else:
             rows.append((centre, [(text, rect)]))
 
-    # Fragments on the same row that are separated by a wide horizontal gap
-    # are columns of a table, not a sentence split in two. "Combination"
-    # questions -- pick the row that fills blanks A, B and C -- are laid out
-    # exactly this way and often unruled, so without a separator their choices
-    # read as "analog digital analog" and the column each value belongs to is
-    # lost. Joining with a pipe keeps that structure in plain text.
     out = []
     for _, members in rows:
         members.sort(key=lambda item: item[1].x0)
@@ -162,8 +133,6 @@ def _cluster(rects, gap=14):
         remaining.append(union)
         groups = remaining
 
-    # One pass is not always enough: two clusters can become adjacent only
-    # after a third merges into one of them.
     changed = True
     while changed:
         changed = False
@@ -181,10 +150,6 @@ def _cluster(rects, gap=14):
     return groups
 
 
-#: How far above or beside a figure a text line may sit and still be part of
-#: it. A diagram's labels and a table's caption are ordinary text that no
-#: drawing operation covers, so a crop bounded by the strokes alone slices the
-#: top off every self-loop label and every "Table 1" caption.
 LABEL_REACH = 16
 
 
@@ -202,15 +167,7 @@ def figure_rects(page, lines=None):
     if lines is None:
         lines = page_lines(page)
 
-    # Grow each group over the text that belongs to it, repeating until it
-    # stops growing: a caption pulled in on one pass can bring a second line
-    # of the same caption within reach on the next.
     for index, group in enumerate(groups):
-        # The cap is measured against the ORIGINAL cluster and never moves.
-        # Re-measuring it each pass lets the region ratchet outward in steps
-        # that are each individually small, and a table whose rules span the
-        # text column then swallows the stem above it -- leaving the question
-        # with no text at all and the whole page inside its "figure".
         limit = pymupdf.Rect(group.x0 - 2 * LABEL_REACH,
                              group.y0 - 2 * LABEL_REACH,
                              group.x1 + 2 * LABEL_REACH,
@@ -232,14 +189,8 @@ def figure_rects(page, lines=None):
     return [_whole_lines_only(group, lines) for group in groups]
 
 
-#: A text line counts as "part of the figure" once this much of its height is
-#: inside the crop. Below it the line is the stem's, and the crop is pulled
-#: back off it instead.
 LINE_KEEP_SHARE = 0.5
 
-#: How far real ink can fall outside a reported line bbox, in points. Ascenders
-#: and descenders routinely do; without this margin a crop that clears every
-#: bbox still shaves the tops or bottoms off the row beyond it.
 LINE_INK_SLACK = 3.0
 
 
@@ -259,13 +210,6 @@ def _whole_lines_only(group, lines):
     clear it. Either way the crop never bisects a line, and it can only move
     by the height of one line, so a table cannot ratchet out over the stem.
     """
-    # Tested against a slightly grown box, and the edge moved slightly past
-    # the line it clears. A reported line bbox is tight to the glyph boxes the
-    # font declares, and real ink -- an ascender, a descender, an italic tail
-    # -- lands a point or two outside it. Testing on the exact rect therefore
-    # leaves a line whose bbox sits just clear of the crop while its ink does
-    # not, which renders as a strip of glyph tops or bottoms along the edge:
-    # the crop looks cut even though no bbox was crossed.
     probe = pymupdf.Rect(group.x0, group.y0 - LINE_INK_SLACK,
                          group.x1, group.y1 + LINE_INK_SLACK)
     for _, rect in lines:
@@ -273,9 +217,6 @@ def _whole_lines_only(group, lines):
             continue
         overlap = min(group.y1, rect.y1) - max(group.y0, rect.y0)
         if rect.height > 0 and overlap / rect.height >= LINE_KEEP_SHARE:
-            # Only the edge the line actually lies beyond moves. Slackening
-            # both would undo a retreat already made at the other end, and
-            # hand the crop straight back the line it had just cleared.
             if rect.y0 < group.y0:
                 group.y0 = rect.y0 - LINE_INK_SLACK
             if rect.y1 > group.y1:
@@ -283,9 +224,9 @@ def _whole_lines_only(group, lines):
             group.x0 = min(group.x0, rect.x0)
             group.x1 = max(group.x1, rect.x1)
         elif rect.y1 <= group.y1 and rect.y1 - group.y0 > -LINE_INK_SLACK:
-            group.y0 = rect.y1 + LINE_INK_SLACK   # clear the line above
+            group.y0 = rect.y1 + LINE_INK_SLACK
         elif rect.y0 >= group.y0 and group.y1 - rect.y0 > -LINE_INK_SLACK:
-            group.y1 = rect.y0 - LINE_INK_SLACK   # stop short of the line below
+            group.y1 = rect.y0 - LINE_INK_SLACK
     return group
 
 
@@ -303,9 +244,6 @@ def parse(name):
     key = answer_key(answers_pdf)
     doc = pymupdf.open(questions_pdf)
 
-    # Pass one: find where every question starts. A question may begin on one
-    # page and run onto the next, so spans are recorded as (page, y) pairs and
-    # resolved afterwards.
     candidates = []
     per_page = {}
     for index in range(doc.page_count):
@@ -316,11 +254,6 @@ def parse(name):
             if match:
                 candidates.append((int(match.group(1)), index, rect.y0))
 
-    # Every paper prints a worked SAMPLE question in its instructions, and it
-    # is numbered "Q1." as well. Taking the first Q1 therefore imports the
-    # sample -- with the real Q1's answer letter attached to it, which is
-    # worse than importing nothing. The real Q1 is the last one printed before
-    # the first Q2, so the sequence is anchored there and walked forward.
     first_q2 = next((c for c in candidates if c[0] == 2), None)
     q1s = [c for c in candidates if c[0] == 1]
     if first_q2 is not None:
@@ -344,10 +277,6 @@ def parse(name):
         else:
             end_page, end_y = doc.page_count - 1, doc[doc.page_count - 1].rect.y1
 
-        # Figures first: their labels are text too, and must be kept out of
-        # the stem. A state diagram contributes "S1 S2 0/0 1/1" in an order
-        # governed by drawing, not by reading, and pasted into the stem it is
-        # indistinguishable from the question's own words.
         spans = []
         for index in range(page_index, end_page + 1):
             top = y0 if index == page_index else 0
@@ -371,14 +300,6 @@ def parse(name):
             figure_by_page.setdefault(figure["page"], []).append(
                 pymupdf.Rect(figure["rect"]))
 
-        # Collect the question's lines across every page it spans.
-        #
-        # Figure-internal text is dropped only until the first choice marker.
-        # Past that point the clustering is no longer trustworthy as a filter:
-        # a choice list laid out as a grid is itself a mesh of ruled lines, so
-        # it clusters into a "figure" and dropping its text would silently
-        # discard the answers. Before the first marker the same rule is what
-        # keeps a state diagram's labels out of the stem.
         body = []
         seen_choice = False
         for index, top, bottom in spans:
@@ -404,10 +325,6 @@ def parse(name):
             if re.fullmatch(r"\s*-?\s*\d+\s*-?\s*", line) and len(line) < 6:
                 continue
 
-            # Split a row carrying several markers into its parts, accepting a
-            # marker only when it is the next letter in sequence -- "a)" inside
-            # a choice's own prose ("options a) and b) differ") must not start
-            # a new choice.
             pieces, cursor = [], 0
             while True:
                 match = None
@@ -452,9 +369,6 @@ def parse(name):
             empty cells of a choice that is really a picture.
             """
             value = re.sub(r"^Q\d+\.\s*", "", value)
-            # The section banner printed between two questions ("Answer
-            # questions Q66 through Q100 concerning strategy.") reads as the
-            # tail of the last choice before it.
             value = re.sub(r"\s*Answer (?:the )?questions? Q\d+ through Q\d+ "
                            r"concerning [\w ]+\.?\s*$", "", value, flags=re.I)
             value = re.sub(r"\s*\|\s*", " | ", value)

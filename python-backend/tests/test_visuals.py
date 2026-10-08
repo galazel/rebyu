@@ -92,8 +92,6 @@ def test_docx_captures_embedded_figure_with_dimensions():
     assert capture["height"] == 300
     assert capture["content_type"] == "image/png"
     assert capture["source_file"] == "sample.docx"
-    # A DOCX has no pages until layout, and `loaders` calls the whole file page
-    # 1 -- visuals must agree or a figure cannot be tied back to its text.
     assert capture["page"] == 1
     assert capture["bbox"] is None
 

@@ -24,10 +24,6 @@ def build_question_bank_graph(checkpointer):
     InMemorySaver instead of requiring a live Postgres."""
     workflow = StateGraph(QuestionBankState)
 
-    # The three nodes that do real work are instrumented, so the workspace
-    # timeline shows batch progress with durations instead of a spinner.
-    # apply_edit/reject/commit are fast state transitions and await_batch_review
-    # already emits review.waiting.
     workflow.add_node("resolve_scope", instrument(resolve_scope_node, "resolve_scope"))
     workflow.add_node("generate_batch", instrument(generate_batch_node, "generate_batch"))
     workflow.add_node("validate_batch", instrument(validate_batch_node, "validate_batch"))
@@ -38,8 +34,6 @@ def build_question_bank_graph(checkpointer):
 
     workflow.add_edge(START, "resolve_scope")
     workflow.add_edge("resolve_scope", "generate_batch")
-    # Validate before review so the admin sees the artifact and its quality
-    # report together, rather than judging raw output by eye.
     workflow.add_edge("generate_batch", "validate_batch")
     workflow.add_edge("validate_batch", "await_batch_review")
 
@@ -54,12 +48,7 @@ def build_question_bank_graph(checkpointer):
         },
     )
 
-    # Goes straight to commit rather than back through validate_batch: that
-    # would re-enter await_batch_review and force the admin to review their
-    # own edit. apply_edit_node re-validates inline instead.
     workflow.add_edge("apply_edit", "commit_batch")
-    # A rejected batch just re-pauses for the admin's next decision; it does
-    # not auto-regenerate (that's what "Regenerate"/"Improve with AI" are for).
     workflow.add_edge("reject_batch", "await_batch_review")
 
     workflow.add_conditional_edges(

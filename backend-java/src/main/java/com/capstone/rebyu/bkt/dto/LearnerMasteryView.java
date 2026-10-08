@@ -5,11 +5,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
-/**
- * Learner mastery projection returned to the frontend. Mirrors the FastAPI
- * {@code LearnerMasteryListResponse} but is re-exposed through Spring Boot so
- * the browser never talks to FastAPI directly.
- */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record LearnerMasteryView(
         List<Item> items,

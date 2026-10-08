@@ -20,18 +20,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Deterministic, non-AI programming grader: runs a learner's code through
- * Judge0 for each test case and compares stdout to the expected output
- * exactly (trailing-whitespace tolerant). Never invents a result — Judge0
- * failures/unavailability surface as status UNAVAILABLE.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class CodeExecutionService {
 
-    // Stable Judge0 CE language ids for the languages this project offers.
     private static final Map<String, Integer> LANGUAGE_IDS = Map.of(
             "C", 50,
             "C++", 54,
@@ -44,7 +37,7 @@ public class CodeExecutionService {
 
     private static final int STATUS_COMPILATION_ERROR = 6;
     private static final int STATUS_TIME_LIMIT_EXCEEDED = 5;
-    private static final int STATUS_ACCEPTED_THRESHOLD = 4; // >=4 means Judge0 itself flagged an issue
+    private static final int STATUS_ACCEPTED_THRESHOLD = 4;
 
     private final Judge0Client judge0Client;
     private final Judge0Properties properties;
@@ -141,7 +134,6 @@ public class CodeExecutionService {
             }
 
             if (statusId >= STATUS_ACCEPTED_THRESHOLD) {
-                // Runtime error, internal error, or exec-format error.
                 if (firstRuntimeError == null) {
                     firstRuntimeError = firstNonBlank(stderr, message,
                             result.status() == null ? "Runtime error." : result.status().description());
@@ -151,8 +143,6 @@ public class CodeExecutionService {
                 continue;
             }
 
-            // statusId 1-3: queued/processing/accepted — with wait=true this is
-            // always a completed run by the time we read it, so compare stdout.
             boolean testPassed = testCase.expectedOutput() == null
                     || stripTrailingWhitespace(stdout).equals(stripTrailingWhitespace(testCase.expectedOutput()));
             if (testPassed) passed++;
@@ -180,24 +170,6 @@ public class CodeExecutionService {
                 syntheticSingleRun ? List.of() : testResults);
     }
 
-    /**
-     * Python test cases are usually code, not stdin data.
-     *
-     * <p>Generated test cases are written as calls against the learner's code --
-     * {@code process_payment(100, {...})}, or a few statements ending in
-     * {@code print(acct.withdraw(120))} -- and they were being piped to the
-     * program as stdin. The program never read them, printed its own demo, and
-     * every submission failed every test however correct it was.
-     *
-     * <p>When a graded Python test's input parses as Python and contains a call,
-     * it is run as a test harness instead: the learner's code is loaded with its
-     * own prints silenced, then the test code runs in the same namespace. A test
-     * that is a single expression has its value printed (as the Python REPL
-     * would, via {@code print}); a block of statements prints for itself.
-     * Anything else -- plain data like {@code "2 3"} -- is still fed to stdin
-     * and the learner's program runs as written. Run (no expected output) is
-     * never wrapped, so it always shows what the learner's program prints.
-     */
     private String sourceFor(String language, String sourceCode, TestCaseInputDto testCase) {
         if (testCase.expectedOutput() == null || language == null
                 || !"PYTHON".equals(language.trim().toUpperCase(Locale.ROOT))) {

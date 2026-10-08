@@ -14,15 +14,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * Reads stay public (browsed platform-wide). WRITES had no auth at all --
- * now either ADMIN (official content) or an Institution Member acting on
- * their own group's content, authorized by walking up to the ancestor
- * MajorCategory's ownerDepartment -- see LessonService. This includes the lesson
- * body editing endpoints (saveLessonComponent), since a member authoring
- * their own lesson needs to actually be able to edit its content, not just
- * create the shell.
- */
 @RestController
 @RequestMapping("/api/lessons")
 @RequiredArgsConstructor

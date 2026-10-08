@@ -17,7 +17,6 @@ MAJOR = "Corporate and Legal Affairs"
 MIDDLE = "Legal Affairs"
 
 
-# Lesson 1: Intellectual property rights in IT
 
 _ip_sections = [
     ("What the Law Protects", [
@@ -813,7 +812,6 @@ LESSON_IP = lesson(
     ))
 
 
-# Lesson 2: Laws on information security and cybercrime
 
 _cyber_sections = [
     ("Where Law Meets Security", [

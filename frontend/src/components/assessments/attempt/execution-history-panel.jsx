@@ -31,8 +31,6 @@ function formatWhen(value) {
   })
 }
 
-// Recent runs for this item: when, in which language, and whether it ran.
-// No test counts -- runs are not checked against the test cases mid-attempt.
 export default function ExecutionHistoryPanel({ executions, loading }) {
   const list = Array.isArray(executions) ? executions : []
 

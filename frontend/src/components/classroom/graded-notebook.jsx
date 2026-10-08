@@ -7,18 +7,6 @@ import { PenCircle, PenMark, PenUnderline } from "@/components/classroom/pen-mar
 
 gsap.registerPlugin(useGSAP, ScrollTrigger)
 
-/**
- * Mastery shown as an open spiral notebook the teacher has just marked.
- *
- * Left page: every scored topic written on the ruled lines, weakest first, with
- * a highlighter bar for its mastery, the score circled in red pen, a tick or a
- * cross, and a short remark. Right page: the teacher's notes -- the topic to
- * study first, exam readiness, and whatever is taped in (`children`).
- *
- * When the notebook scrolls into view GSAP fills the highlighter bars and draws
- * the red-pen strokes in, and finally the teacher's "checked" stamp comes down on
- * the page. Every value is also plain text, so nothing depends on the ink.
- */
 
 const MARKS = {
   CRITICAL_PRIORITY: { kind: "cross", remark: "see me!", label: "Critical priority" },
@@ -56,9 +44,6 @@ export function GradedNotebook({ topics, notAssessed = 0, readiness, tone, child
           { autoAlpha: 0, scale: 0.7, rotation: -10, duration: 0.3, stagger: 0.07, ease: "back.out(2)" },
           "-=1.2",
         )
-        // Last, the teacher's hand brings the stamp down: it presses, the mark
-        // is left on the page and the notebook takes the knock, then the hand
-        // lifts away.
         .set(".rb-nb-stamp", { autoAlpha: 0 }, 0)
         .fromTo(
           ".rb-nb-stamper",
@@ -137,7 +122,6 @@ export function GradedNotebook({ topics, notAssessed = 0, readiness, tone, child
             <span className="rb-nb-stamp-bottom">★ keep going ★</span>
           </div>
 
-          {/* The teacher's hand holding the rubber stamp; only seen while GSAP plays it. */}
           <div className="rb-nb-stamper" aria-hidden="true">
             <svg viewBox="0 0 170 290">
               <rect x="58" y="-10" width="54" height="84" fill="#2f6b4f" />

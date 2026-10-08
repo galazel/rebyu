@@ -14,12 +14,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/**
- * Bayesian Knowledge Tracing state: the probability this learner knows this
- * lesson's skill, as the in-session engine last left it. The analytics
- * service keeps its own mastery record from the same evidence; this one is
- * what the next assessment seeds itself from without a network call.
- */
 @Entity
 @Table(
         name = "learner_skill_states",

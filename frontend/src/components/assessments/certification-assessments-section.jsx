@@ -49,8 +49,6 @@ const TYPE_COPY = {
   },
 }
 
-// Contextual assessment entry points for a certification. Renders nothing
-// when the certification has no assessments — no fake cards.
 export default function CertificationAssessmentsSection({
   certificationId,
   learnerId,
@@ -134,10 +132,6 @@ export default function CertificationAssessmentsSection({
             action: "Start Assessment",
           }
           const lastAttempt = attempts[0] ?? null
-          // The diagnostic is a one-time placement check, so once it has been
-          // sat there is no "Retake" to offer. The server refuses the start
-          // anyway (`resolveLockReason`); offering the button just walked the
-          // learner into an error toast.
           const diagnosticSpent = typeText === "DIAGNOSTIC" && attempts.length > 0
           return (
             <article

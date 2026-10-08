@@ -16,12 +16,6 @@ public class BulkImportService {
 
   public record ImportResult(Long id, String status, int totalRows, int successCount, int errorCount, List<String> errors) {}
 
-  // NOTE: Learner has no email/account fields of its own -- those live on the
-  // linked User (email, password hash, Cognito sub), which this stub does not
-  // create. This method is not wired to any controller yet; provisioning a
-  // real sign-in-capable account per imported row still needs a product
-  // decision (Cognito admin-create vs. invite email) before that part can be
-  // implemented for real.
   @Transactional
   public ImportResult importLearnersFromCSV(String csvContent, Long orgId) {
     long importId = System.currentTimeMillis();
@@ -37,7 +31,6 @@ public class BulkImportService {
       while ((line = reader.readLine()) != null) {
         rowNum++;
 
-        // Parse header
         if (rowNum == 1) {
           headers = line.split(",");
           continue;

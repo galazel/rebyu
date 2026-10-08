@@ -8,8 +8,6 @@ from sqlalchemy import text
 
 from app.db.session import SessionLocal
 
-# Lessons that existed before the expansion started. Anything above this id was
-# added by scripts in this directory.
 FIRST_NEW_LESSON_ID = 405
 
 db = SessionLocal()

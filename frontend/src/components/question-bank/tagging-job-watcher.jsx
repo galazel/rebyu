@@ -8,12 +8,6 @@ import { activeJobs, notify, removeActiveJob } from "@/utils/tag-job-registry.js
 const POLL_MS = 20000
 const FINISHED = new Set(["done", "failed", "cancelled", "interrupted"])
 
-/**
- * Says when a background tagging job finishes, from anywhere in the admin
- * area: the admin started "Tag with AI" on the import page and went on to
- * other work. The import page applies the results itself when it is next
- * opened; this only tells the admin it is time to.
- */
 export function TaggingJobWatcher() {
     const navigate = useNavigate()
     const location = useLocation()
@@ -23,7 +17,6 @@ export function TaggingJobWatcher() {
         async function check() {
             for (const job of activeJobs()) {
                 const page = `/admin/certification/${job.certificationId}/question-bank/import`
-                // The import page reports its own job.
                 if (location.pathname === page) continue
                 let current
                 try {

@@ -52,7 +52,6 @@ def _q(**overrides):
     return base
 
 
-# lesson resolution (the questions.lesson_id NOT NULL problem)
 
 def test_lesson_index_normalizes_names():
     index = build_lesson_index(LESSONS)
@@ -125,7 +124,6 @@ def test_category_name_resolves_exactly_and_by_unique_substring():
 
     assert resolve_category_id("Development Technology", index) == 7
     assert resolve_category_id("  management  ", index) == 8
-    # "Technology" appears in exactly one category.
     assert resolve_category_id("Technology", index) == 7
 
 
@@ -138,8 +136,6 @@ def test_ambiguous_or_unknown_category_resolves_to_none():
         "middle_category_id",
     )
 
-    # Pinning to the wrong category would satisfy one requirement and strand
-    # the other, so an ambiguous match must stay null.
     assert resolve_category_id("Network", index) is None
     assert resolve_category_id("Databases", index) is None
     assert resolve_category_id("", index) is None
@@ -156,7 +152,6 @@ def test_flat_blocks_are_grouped_into_sections_by_heading():
 
     assert [s["sectionName"] for s in sections] == ["Introduction", "Testing"]
     assert [b["type"] for b in sections[0]["content"]] == ["description"]
-    # `subheading` stays a content block -- only `heading` breaks a section.
     assert [b["type"] for b in sections[1]["content"]] == ["subheading", "description"]
 
 
@@ -197,7 +192,6 @@ def test_checking_method_differs_by_question_type():
     assert checking_method_for("DESCRIPTIVE") == "AI_SEMANTIC"
 
 
-# schema-level structural enforcement
 
 def test_mcq_with_wrong_choice_count_is_rejected():
     with pytest.raises(ValueError, match="between 3 and 9 choices"):
@@ -238,7 +232,6 @@ def test_valid_question_passes():
     assert draft.bloom_level == "UNDERSTAND"
 
 
-# batch validation
 
 def test_duplicate_detection_catches_rephrasings():
     a = _q(question="What is the primary purpose of a database index?")

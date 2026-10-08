@@ -79,7 +79,6 @@ function getCertification(location) {
   )
 }
 
-/** Which endpoint removes which kind of node. */
 const DELETERS = {
   major: deleteMajorCategory,
   middle: deleteMiddleCategory,
@@ -101,66 +100,29 @@ export default function ViewCertificationAdmin() {
       getCertification(location)
   )
 
-  /* The certification is handed over in router state when you arrive from the
-     list, which is instant and saves a round trip. But state does not survive a
-     refresh, a bookmark, or the back button off one of this page's own
-     workspaces -- and the page answered all three with "Certification not
-     found", which is a lie: the certification is there, the state that carried
-     it is not. So the id in the URL is the fallback, and the URL always
-     survives. */
   const { data: certifications = [], isLoading: isLoadingCertifications } = useQuery({
     queryKey: ["admin-certifications", "certification-page"],
     queryFn: () => getAllCertifications(),
     staleTime: 5 * 60 * 1000,
   })
 
-  /* Why this certification is empty, when the reason is a rejected run.
-     Without it the page can only offer "add a major category to start
-     building", which is advice for a certification nobody has filled in yet
-     -- not for one whose generation was refused because the documents were
-     about a different subject. */
   const { byCertificationId: generationRuns } = useActiveGenerations()
 
-  /* Resolved during render, not in an effect. An effect would leave the first
-     frame with nothing to show -- and with the list already cached there is no
-     loading flag to hide behind, so that frame rendered "Certification not
-     found" before correcting itself.
 
-     The override is whatever this page has been handed or has changed locally:
-     router state on arrival, and the edits made here. The fetched copy is what
-     the URL alone can reach. */
   const fetchedCertification = certifications.find(
       (item) =>
           String(item.certificationId ?? item.id) === String(routeCertificationId)
   )
 
-  /* Merged, not replaced.
 
-     The override used to win outright, which made it responsible for being a
-     whole certification every time anyone wrote to it. It only takes one
-     handler doing `{ ...current, oneField }` where `current` is null -- which
-     is what it is on any arrival without router state -- for the override to
-     become a stub with no title and no majorCategory, and for that stub to
-     beat a perfectly good fetched copy. Publishing did exactly that, and it
-     surfaced as the curriculum disappearing, which points nowhere near state.
 
-     Merging makes a partial override harmless: it can only override the fields
-     it actually carries, and everything it omits still comes from the fetched
-     copy. An override for a *different* certification is dropped rather than
-     mixed in -- the effect below clears those, but it runs after the render
-     that would have blended two certifications into one.
 
-     Memoised so this stays one object across renders; nothing here depends on
-     its identity today, but handing children a fresh object on every keystroke
-     in an inline editor is a cost with no upside. */
   const overrideId =
       certificationOverride?.certificationId ?? certificationOverride?.id
 
   const certification = useMemo(() => {
     if (
         certificationOverride &&
-        // No id at all means a partial for the page we are on; only an id that
-        // names a different certification disqualifies the override.
         (overrideId == null ||
             String(overrideId) === String(routeCertificationId))
     ) {
@@ -173,25 +135,11 @@ export default function ViewCertificationAdmin() {
   const [isGenerateMoreOpen, setIsGenerateMoreOpen] = useState(false)
   const [isWatchingGeneration, setIsWatchingGeneration] = useState(false)
 
-  /* The node a delete has been asked for, held until it is confirmed.
-     `{ kind, id, name, detail }` -- one dialog for all three levels, because
-     three dialogs saying the same sentence about different nouns is three
-     places for the warning to drift. */
   const [pendingDelete, setPendingDelete] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  /* The assessments tab's reads, started as soon as the certification opens
-     rather than when the tab is clicked.
 
-     The tab's content is unmounted while another tab is showing, so its queries
-     could not begin until the click -- which is why opening it always meant
-     watching four requests resolve behind skeleton rows. Nothing here depends
-     on them, so warming them costs the page nothing and gives the tab its data
-     already in hand.
 
-     The id comes from the route rather than the fetched certification so the
-     exam read can start on the first render, before the certification itself
-     has arrived. */
   useEffect(() => {
     prefetchAssessmentData(queryClient, routeCertificationId)
   }, [queryClient, routeCertificationId])
@@ -209,14 +157,6 @@ export default function ViewCertificationAdmin() {
     })
   }, [location.key])
 
-  /* Router state wins when it is there -- arriving from the list carries the
-     certification with it, which saves a round trip. What this must NOT do is
-     blank the certification when state is absent: it ran after the fallback
-     below and undid it in the same commit, and because neither effect's
-     dependencies had changed by the end of it, nothing re-ran and the page sat
-     on "Certification not found" while holding the id that would have found it.
-     Coming back from the question bank or the lesson editor is exactly that
-     case -- a fresh location.key with no state attached. */
   useEffect(() => {
     const fromRouterState = getCertification(location)
 
@@ -225,8 +165,6 @@ export default function ViewCertificationAdmin() {
       return
     }
 
-    // Only clear an override that belongs to a different certification;
-    // clearing it simply falls back to the fetched copy.
     setCertification((current) =>
         current &&
         String(current.certificationId ?? current.id) ===
@@ -236,19 +174,6 @@ export default function ViewCertificationAdmin() {
     )
   }, [location.key, routeCertificationId])
 
-  /**
-   * One edit, saved where it was made.
-   *
-   * `produce` returns the certification as it should be after the change; this
-   * serialises the whole thing and PUTs it, because that endpoint rebuilds the
-   * certification from what it is sent. Sending a partial tree there does not
-   * leave the rest alone -- it deletes it -- which is why every edit on this
-   * page goes out as the complete, current certification with one field
-   * different.
-   *
-   * The server's own copy comes back and wins: it carries the ids of anything
-   * it created and the shape it actually stored.
-   */
   async function saveCertificationEdit(produce, successMessage) {
     const next = produce(certification)
     const payload = toCertificationUpdatePayload(next)
@@ -266,8 +191,6 @@ export default function ViewCertificationAdmin() {
     toast.success(successMessage)
   }
 
-  /* The three tree renames, each rebuilding only the branch it touches so the
-     objects either side keep their identity. */
   function renameMajorCategory(majorIndex, title) {
     return saveCertificationEdit(
         (current) => ({
@@ -332,23 +255,11 @@ export default function ViewCertificationAdmin() {
     )
   }
 
-  /**
-   * Re-read the certification from the server and let that copy win.
-   *
-   * Adds and deletes go through the per-node endpoints, which return only the
-   * node they touched -- the ids of anything the server minted, and the shape
-   * of the tree after a branch was removed, are only knowable by asking again.
-   * Patching the local tree instead would work right up until a lesson was
-   * added and immediately renamed, with no id to rename it by.
-   */
   async function refreshCertification() {
     await queryClient.invalidateQueries({ queryKey: ["admin-certifications"] })
     setCertification(null)
   }
 
-  /* The three adds. Each throws on failure rather than toasting: InlineAdd
-     keeps the field open and shows the message, so a rejected name is still
-     there to correct. */
   async function addMajor(title) {
     await addMajorCategory({
       certificationId: certification.certificationId ?? certification.id,
@@ -370,8 +281,6 @@ export default function ViewCertificationAdmin() {
     toast.success("Lesson added")
   }
 
-  /* Deleting is the one thing on this page that is not undoable, so it is the
-     one thing that asks first. Everything else saves the moment it is typed. */
   function requestDelete(pending) {
     setPendingDelete(pending)
   }
@@ -386,9 +295,6 @@ export default function ViewCertificationAdmin() {
       setPendingDelete(null)
       toast.success(`${pendingDelete.name} deleted`)
     } catch (error) {
-      // The server refuses a node that has graded learner records under it and
-      // names what is in the way; that sentence is the whole point, so it is
-      // shown rather than replaced with "could not delete".
       toast.error("Could not delete", {
         description: apiMessage(error, "Something went wrong."),
       })
@@ -397,10 +303,6 @@ export default function ViewCertificationAdmin() {
     }
   }
 
-  /* Everything the tree can do, in one object. Passed down whole because the
-     alternative is eight props repeated at each of the two levels, where the
-     only thing a reader learns from the repetition is that they were spelled
-     the same both times. */
   const curriculumActions = {
     renameMajor: renameMajorCategory,
     renameMiddle: renameMiddleCategory,
@@ -410,10 +312,6 @@ export default function ViewCertificationAdmin() {
     requestDelete,
   }
 
-  /* The checklist's "Create ..." and "Fix ..." buttons, now that the
-     assessments they act on live on their own page. The request rides along in
-     router state and that page opens the dialog on arrival, so the admin still
-     gets one click from a missing requirement to the form that fills it. */
   function handleCreateAssessment(request) {
     navigate(`/admin/certification/${certification.certificationId}/assessments`, {
       state: {
@@ -425,19 +323,8 @@ export default function ViewCertificationAdmin() {
     })
   }
 
-  /* The page's own shape, greyed out -- not a sentence in the middle of an
-     empty screen.
 
-     This wait is not short: the certification comes from a list read that
-     crosses to a database in another region, and a centred "Loading
-     certification..." on a blank page gives an admin nothing to look at and no
-     idea whether it is nearly done or broken. Drawing the header band, the
-     action row and a few curriculum rows means the layout does not jump when
-     the data lands, and the page reads as loading rather than as empty.
 
-     The blue band is the real one (`bg-rb-feather`, same as the header below),
-     so the first thing on screen is already correct rather than a grey box
-     that is replaced a second later. */
   if (!certification && isLoadingCertifications) {
     return (
         <section
@@ -506,12 +393,7 @@ export default function ViewCertificationAdmin() {
   const generationRun = generationRuns.get(certificationKey)
   const generationError = generationErrorOf(generationRun)
 
-  /* A run against THIS certification, still going.
 
-     The list page has always been able to watch a build; this page could not,
-     which is backwards -- this is where an admin lands to see what a
-     certification contains, and during a build it is the page whose content is
-     changing under them. They had to go back to the list to watch it. */
   const isGenerating =
       Boolean(generationRun) &&
       !["COMPLETED", "FAILED", "CANCELLED"].includes(generationRun.status)
@@ -685,12 +567,6 @@ export default function ViewCertificationAdmin() {
             <section className="mb-10">
 
               {majorCategories.length === 0 && generationError ? (
-                  /* The rejected case, told properly. An empty curriculum has
-                     two very different causes -- nobody has built it yet, or a
-                     generation was refused -- and only one of them is fixed by
-                     adding a category. The auditor's own sentence is quoted in
-                     full rather than summarised, because it names the specific
-                     mismatch it found between the documents and the topic. */
                   <div className="rounded-3xl border border-destructive/30 bg-destructive/5 p-8 shadow-sm sm:p-10">
                     <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
                       <Layers3 className="h-7 w-7" />
@@ -730,9 +606,6 @@ export default function ViewCertificationAdmin() {
                       curriculum.
                     </p>
 
-                    {/* The empty state said "add a major category" and gave no
-                        way to add one, which is a dead end wearing an
-                        instruction. */}
                     <div className="mt-6 flex justify-center">
                       <InlineAdd
                           label="Major category"
@@ -774,16 +647,7 @@ export default function ViewCertificationAdmin() {
                   certificationId={certification?.certificationId}
                   isPublished={certification?.status === "PUBLISHED"}
                   onCreateAssessment={handleCreateAssessment}
-                  /* Based on the certification actually on screen, not on the
-                     override alone.
 
-                     The override is null whenever this page was reached
-                     without router state -- a refresh, a bookmark, the back
-                     arrow off the assessments or question bank page -- and
-                     spreading null left `{ status: "PUBLISHED" }`: no id, no
-                     title, no majorCategory. That stub then beat the fetched
-                     copy in the resolution below it, so publishing blanked the
-                     curriculum it had just published. */
                   onPublished={() =>
                       setCertification((current) => ({
                         ...(current ?? certification),
@@ -801,9 +665,6 @@ export default function ViewCertificationAdmin() {
             certification={certification}
         />
 
-        {/* The same monitor the certification list opens, mounted here so a
-            build can be watched from the page it is building. Same component,
-            not a second implementation, so the two cannot drift. */}
         <Dialog open={isWatchingGeneration} onOpenChange={setIsWatchingGeneration}>
           <DialogContent className="flex max-h-[calc(100dvh-4rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
             <DialogHeader className="px-4 pt-4 pb-3 sm:px-6">
@@ -819,8 +680,6 @@ export default function ViewCertificationAdmin() {
                     onClose={() => setIsWatchingGeneration(false)}
                     onFinished={() => {
                       setIsWatchingGeneration(false)
-                      /* The curriculum on the page behind this just changed --
-                         new majors, lessons and assessments have landed. */
                       queryClient.invalidateQueries({ queryKey: ["admin-certifications"] })
                       queryClient.invalidateQueries({ queryKey: ["workflow-runs", "active"] })
                     }}
@@ -829,10 +688,6 @@ export default function ViewCertificationAdmin() {
           </DialogContent>
         </Dialog>
 
-        {/* Named, counted, and specific about what else goes with it. A
-            confirmation that says "are you sure?" and nothing else is a
-            keystroke, not a decision -- and deleting a major category takes
-            every module, lesson, quiz and question beneath it. */}
         <AlertDialog
             open={Boolean(pendingDelete)}
             onOpenChange={(open) => {
@@ -859,10 +714,6 @@ export default function ViewCertificationAdmin() {
               <AlertDialogAction
                   disabled={isDeleting}
                   onClick={(event) => {
-                    // The dialog closes itself on action; this one has to stay
-                    // open until the request comes back, because the server can
-                    // still refuse -- a node with graded learner records under
-                    // it is not deletable, and that message belongs here.
                     event.preventDefault()
                     void confirmDelete()
                   }}
@@ -892,8 +743,6 @@ function MajorCategorySection({
   return (
       <section className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Only the title is editable -- "Major Category 3" is this
-              category's position in the list, not a name someone chose. */}
           <InlineEditable
               value={majorCategory.title}
               label="Major category title"
@@ -961,13 +810,6 @@ function MajorCategorySection({
   )
 }
 
-/**
- * The one destructive control on this page, so it looks like one.
- *
- * Quiet until hovered -- the same reasoning as the edit pencil, except the
- * hover state is red rather than neutral, because the two sit inches apart and
- * the cost of confusing them is not symmetric.
- */
 function DeleteNodeButton({ onClick, label, disabled = false, className = "" }) {
   return (
       <button
@@ -983,7 +825,6 @@ function DeleteNodeButton({ onClick, label, disabled = false, className = "" }) 
   )
 }
 
-/** "2 modules and 5 lessons", or "" when the node is a leaf. */
 function describeSubtree(middleCount, lessonCount) {
   const parts = []
   if (middleCount > 0) {
@@ -1025,11 +866,6 @@ function MiddleCategoryCard({
 
   return (
       <article className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
-        {/* The whole header used to be one button, which is why the title
-            could not be edited in place: a pencil inside a button is a button
-            inside a button, which the browser will not nest and a screen
-            reader cannot announce. The toggle is now the chevron and the line
-            beside it; the title sits outside it and owns its own edit. */}
         <div className="flex items-start justify-between gap-4 px-5 py-5">
           <div className="min-w-0">
             <InlineEditable

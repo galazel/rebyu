@@ -12,16 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * The signed-in learner's own study plans. Every learnerId is resolved from the
- * validated token -- never taken from the request -- so one learner can neither
- * read nor overwrite another's plan.
- *
- * <p>The role check is the explicit {@code me()} resolution below rather than
- * {@code @PreAuthorize("hasRole('LEARNER')")}, which is what this controller
- * used to carry: method security is not enabled in SecurityConfig, so that
- * annotation enforced nothing at all.
- */
 @RestController
 @RequestMapping("/api/study-plans")
 @RequiredArgsConstructor
@@ -30,7 +20,6 @@ public class StudyPlanController {
   private final StudyPlanService studyPlanService;
   private final CognitoAuthService auth;
 
-  /** Saves a generated plan, replacing whatever was active for that certification. */
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
   public StudyPlanService.StudyPlanDto save(
@@ -39,14 +28,6 @@ public class StudyPlanController {
     return studyPlanService.savePlan(me(jwt), request);
   }
 
-  /**
-   * The plan currently being followed, or {@code null} when there is none.
-   *
-   * <p>With {@code certificationId}, that certification's plan. With
-   * {@code scope=overall}, the plan that spans several certifications. With
-   * neither, the learner's most recent plan whatever its scope -- which is what
-   * the study calendar shows, since it is not scoped to a certification.
-   */
   @GetMapping("/me/active")
   public StudyPlanService.StudyPlanDto active(
       @AuthenticationPrincipal Jwt jwt,
@@ -63,13 +44,11 @@ public class StudyPlanController {
     return studyPlanService.getUserPlans(me(jwt));
   }
 
-  /** Every task status the learner has recorded, across all their plans. */
   @GetMapping("/me/tasks")
   public List<StudyPlanService.TaskStatusDto> taskStatuses(@AuthenticationPrincipal Jwt jwt) {
     return studyPlanService.taskStatuses(me(jwt));
   }
 
-  /** Records that a scheduled task was started, finished, or passed over. */
   @PutMapping("/{planId}/tasks/{eventId}/status")
   public StudyPlanService.TaskStatusDto setTaskStatus(
       @AuthenticationPrincipal Jwt jwt,

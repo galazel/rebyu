@@ -27,27 +27,21 @@ logger = logging.getLogger(__name__)
 
 MAX_VIDEOS = 3
 MAX_LINKS = 3
-#: When one kind finds nothing, the other fills its place up to this many.
 MAX_TOTAL = 5
-#: Words a search query keeps. A whole question -- or a pasted paragraph of the
-#: lesson -- sinks a video search; the topic and the concept are what match.
 MAX_QUERY_WORDS = 12
 
-#: What a learner might ask for when they want outside material.
 _RESOURCE_NOUN = (
     r"(videos?|vids?|youtube|yt|clips?|links?|urls?|articles?|readings?|reads|"
     r"tutorials?|guides?|sources?|resources?|materials?|websites?|sites?|blogs?|"
     r"docs|documentation|references?|courses?|lectures?|podcasts?|books?)"
 )
 
-#: Asking for something: the verbs and openers that turn a noun into a request.
 _REQUEST_WORD = (
     r"(give|show|send|share|recommend|suggest|find|search|look\s+up|get|got|need|want|"
     r"have|any|some|good|best|more|other|extra|additional|where|link\s+me|"
     r"pakita|pahingi|bigyan|hanapan|paki)"
 )
 
-#: Phrases that are a request for outside material on their own.
 _RESOURCE_PHRASE = re.compile(
     r"\b(further\s+reading|read(ing)?\s+more|learn\s+more|study\s+more|more\s+info(rmation)?|"
     r"where\s+can\s+i\s+(learn|read|study|watch|find)|something\s+to\s+(watch|read)|"
@@ -55,16 +49,12 @@ _RESOURCE_PHRASE = re.compile(
     re.IGNORECASE,
 )
 
-#: A request word, then (within a few words) a resource word: "can you give me
-#: a couple of good videos", "any links?", "pakita mo ko ng video".
 _RESOURCE_REQUEST = re.compile(
     r"\b" + _REQUEST_WORD + r"\b(\W+\w+){0,5}?\W+" + _RESOURCE_NOUN + r"\b"
     r"|^\W*" + _RESOURCE_NOUN + r"\W*(pls|please|po)?\W*$",
     re.IGNORECASE,
 )
 
-#: Course vocabulary that contains a resource word but is not a request:
-#: "the data link layer", "a linked list", "link-state routing".
 _NOT_A_REQUEST = re.compile(
     r"\b(data[\s-]?links?|link[\s-]?(layer|state|local|aggregation|budget)|linked\s+lists?|"
     r"site[\s-]?to[\s-]?site|(web|remote|branch|cell|dr)\s+sites?|source\s+(code|address|port|ip)|"
@@ -73,8 +63,6 @@ _NOT_A_REQUEST = re.compile(
 )
 
 
-#: A learner saying the explanation did not land. Another explanation in the
-#: same voice often will not either, so these also bring videos and reading.
 CONFUSION = re.compile(
     r"(\bi\s*(still\s+)?(do\s*n[o']?t|dont|cannot|can'?t)\s+(understand|get\s+it|get\s+this|follow)|"
     r"\bstill\s+(confused|lost|don'?t\s+get)|\bi'?m\s+(confused|lost)|\bconfusing\b|"
@@ -97,7 +85,6 @@ def signals_confusion(message: str | None) -> bool:
     return bool(message and CONFUSION.search(message))
 
 
-#: Filler that carries no topic: how a question is asked, not what about.
 _FILLER = re.compile(
     r"\b(i'?m asking about this part of the lesson|explain( this)?( part of the lesson)?|"
     r"can you|could you|please|what is|what are|what does|how does|how do|why does|why do|"
@@ -148,11 +135,9 @@ def _videos(topic: str, limit: int = MAX_VIDEOS) -> list[dict]:
     return videos
 
 
-#: Wikimedia refuses requests without an identifying User-Agent.
 _WIKI_HEADERS = {"User-Agent": "REBYU-AI-Tutor/1.0 (educational review platform; contact via rebyu.app)"}
 
 
-#: Words that make sense to a web search but sink an encyclopedia search.
 _HOW_TO_WORDS = re.compile(
     r"\b(tutorials?|explained|explanation|videos?|youtube|guides?|courses?|lessons?|"
     r"examples?|basics|introduction|intro|how to|for beginners|step by step)\b",
@@ -188,16 +173,11 @@ def _links(topic: str, lesson_name: str | None = None, limit: int = MAX_LINKS) -
         results = serper_search(topic, num=8)
     except Exception as error:  # noqa: BLE001 -- extras, never the answer
         logger.warning("Tutor link search failed (%s); falling back to Wikipedia", error)
-        # By the lesson, not the question: an encyclopedia search on a whole
-        # sentence ("what does the /26 mean ... explained simply") matches
-        # something generic, where the lesson's own name finds its articles.
         return _wikipedia(lesson_name or topic, limit)
     links, seen = [], set()
     for result in results:
         url = result.get("link") or ""
         host = urlparse(url).netloc.lower().removeprefix("www.")
-        # Videos come from the YouTube search; one link per site keeps the
-        # list varied.
         if not url.startswith(("https://", "http://")) or "youtube.com" in host or host in seen:
             continue
         seen.add(host)
@@ -210,7 +190,6 @@ def _links(topic: str, lesson_name: str | None = None, limit: int = MAX_LINKS) -
         })
         if len(links) >= limit:
             break
-    # Searched but nothing usable came back: the encyclopedia still has the topic.
     return links or _wikipedia(lesson_name or topic, limit)
 
 

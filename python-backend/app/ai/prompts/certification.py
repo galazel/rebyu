@@ -32,11 +32,6 @@ Reference Materials:
 {context}
 """.rstrip()
 
-    # Carried on the prompt rather than in the system prompt because the
-    # system prompt is built once, when the agent is created and cached,
-    # while this number is the admin's answer for THIS run. Stated as an
-    # exact total, since "3 to 5 per topic" multiplies out to a range wide
-    # enough that the admin cannot predict what they will get.
     if total_lessons:
         prompt += f"""
 
@@ -107,11 +102,6 @@ here and skipped is a topic the learner is never taught anywhere, because no
 other lesson is responsible for it. Give each one its own section or sections.
 """.strip()
 
-    # Source precedence, stated where the material is, not in the system
-    # prompt: the admin uploaded these documents so that the certification
-    # would be built from THEM. Searching first and reading them second is how
-    # a course ends up teaching a topic in terminology the real exam does not
-    # use, while the exam's own syllabus sits unread in the index.
     if source_material:
         prompt += f"""
 
@@ -143,8 +133,6 @@ No source material was indexed for this lesson. Write it from your own
 knowledge of the certification, and use `search_more_lesson_info` to ground
 anything you are not certain of."""
 
-    # Carried as its own field rather than appended to the topic list, so
-    # reviewer prose can never be mistaken for a topic the lesson must cover.
     feedback = lesson.get("review_feedback")
     if feedback:
         prompt += (

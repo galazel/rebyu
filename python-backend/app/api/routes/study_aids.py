@@ -23,9 +23,6 @@ router = APIRouter(
     dependencies=[Depends(require_service_key)],
 )
 
-#: Fixed rather than caller-configurable -- the learner tools UI offers no
-#: count picker, and a hard cap here is what makes "exactly 10" a guarantee
-#: rather than a suggestion the model can ignore.
 ITEM_COUNT = 10
 
 _TYPES = ("quiz", "flashcard")
@@ -65,8 +62,6 @@ async def generate(payload: StudyAidRequest, db: Session = Depends(get_db)) -> S
         try:
             lesson_context = load_lesson_context(db, payload.lessonId)
         except Exception:
-            # Same degrade-not-fail posture as the tutor chat route: a lookup
-            # failure shouldn't stop generation, just make it less specific.
             logger.exception(
                 "Failed to load lesson %s for study aid generation", payload.lessonId
             )
@@ -79,8 +74,5 @@ async def generate(payload: StudyAidRequest, db: Session = Depends(get_db)) -> S
         task="tutor",
     )
 
-    # Belt and suspenders: the prompt asks for exactly ITEM_COUNT, but nothing
-    # stops a model from over- or under-delivering, so the cap is enforced
-    # here rather than trusted to instruction-following.
     result.items = result.items[:ITEM_COUNT]
     return result

@@ -14,8 +14,6 @@ sys.path.insert(0, "/app/scripts/topcit_expansion")
 import glob
 import os
 
-# Discovered rather than listed: a batch added later would otherwise never be
-# checked, which is exactly when the check is most useful.
 BATCHES = sorted(
     os.path.basename(path)[len("content_"):-len(".py")]
     for path in glob.glob("/app/scripts/topcit_expansion/content_*.py"))

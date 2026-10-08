@@ -23,7 +23,6 @@ public class AdminPricingController {
     private final SubscriptionPlanService planService;
     private final CognitoAuthService auth;
 
-    // ── Plans ────────────────────────────────────────────────────────────
 
     public record UpdatePlanRequest(
             String planName,
@@ -87,7 +86,6 @@ public class AdminPricingController {
                 request.isCustomPricing());
     }
 
-    // ── Entitlements ─────────────────────────────────────────────────────
 
     @PutMapping("/plans/{id}/entitlements")
     public SubscriptionPlanDto updateEntitlements(@AuthenticationPrincipal Jwt jwt,
@@ -105,7 +103,6 @@ public class AdminPricingController {
         planService.deleteEntitlement(planId, code);
     }
 
-    // ── Partnership pricing ──────────────────────────────────────────────
 
     @GetMapping("/partnership")
     public Map<String, Object> getPartnershipPricing(@AuthenticationPrincipal Jwt jwt) {
@@ -125,7 +122,6 @@ public class AdminPricingController {
                 "currency", InstitutionInvoiceService.CURRENCY);
     }
 
-    // ── Auth ─────────────────────────────────────────────────────────────
 
     private CurrentUserDto requireAdmin(Jwt jwt) {
         if (jwt == null) {

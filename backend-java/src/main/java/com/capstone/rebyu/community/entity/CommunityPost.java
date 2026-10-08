@@ -33,7 +33,6 @@ public class CommunityPost {
     @JoinColumn(name = "circle_id")
     private CommunityCircle circle;
 
-    /** discussion | quizzes | notes | docx | circle (see V24 CHECK constraint). */
     @Column(name = "post_type", nullable = false, length = 24)
     private String postType;
 
@@ -49,29 +48,19 @@ public class CommunityPost {
     @Column(name = "attachment_type", length = 16)
     private String attachmentType;
 
-    /** S3 key of a real uploaded PDF/DOCX; null when the post has no attachment. */
     @Column(name = "attachment_key", length = 500)
     private String attachmentKey;
 
-    /** Byte size of the uploaded reviewer, for the feed's "PDF · 1.2 MB" label (V57). */
     @Column(name = "attachment_size")
     private Long attachmentSize;
 
-    /**
-     * Every file of a post that shares more than one (several images), as a JSON
-     * array of {name, key, size}. The single attachment_* columns above still hold
-     * the first file, so a post with one file -- every post before this column --
-     * reads exactly as it always did. Null when the post has at most one file.
-     */
     @Column(name = "attachments_json", columnDefinition = "TEXT")
     private String attachmentsJson;
 
-    /** Set when this post shares a generated quiz/flashcard set (V29). */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shared_library_item_id")
     private LearnerLibraryItem sharedLibraryItem;
 
-    /** VISIBLE | HIDDEN (see V33 CHECK constraint). */
     @Column(name = "moderation_status", nullable = false, length = 16)
     @Builder.Default
     private String moderationStatus = "VISIBLE";

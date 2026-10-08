@@ -1,11 +1,6 @@
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
-/**
- * Shared weak → mastered scale, on the same rb-* accent tokens Bento/mastery
- * tiles use elsewhere — so a "weak" pill on the mistakes bank reads as the
- * same severity as a "weak" tile on the progress dashboard.
- */
 export const MASTERY_TONE = {
   weak: {
     label: "Weak",

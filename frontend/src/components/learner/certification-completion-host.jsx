@@ -7,23 +7,6 @@ import { CertificationCompletionModal } from "@/components/learner/certification
 import { isCelebrating } from "@/components/learner/xp-award-modal.jsx"
 import { getMyAwards } from "@/services/learnerService.js"
 
-/**
- * Opens the certification completion modal the first time a learner is seen
- * with a newly earned certification.
- *
- * A certification is completed by passing its mock exam: the backend awards
- * the badge and certificate while grading the attempt and emails them, but
- * nothing in the app marked the moment. Hosted at the app root, beside
- * `<XpAwardModal>`, because the results page the attempt lands on sits
- * outside the learner layout -- and a host there would miss exactly the
- * screen where it matters.
- *
- * Awards are re-read on every learner navigation. One that is recent and not
- * yet shown on this browser opens the modal once, after any XP/achievement
- * cards have played (`isCelebrating`), and never in the middle of an exam.
- * "Shown" lives in localStorage per learner; the recency window keeps a new
- * device or cleared storage from replaying certificates earned long ago.
- */
 
 const RECENT_MS = 7 * 24 * 60 * 60 * 1000
 const seenKey = (learnerId) => `rebyu:celebrated-certifications:${learnerId}`
@@ -44,11 +27,9 @@ function markSeen(learnerId, award) {
     seen.add(awardKey(award))
     localStorage.setItem(seenKey(learnerId), JSON.stringify([...seen]))
   } catch {
-    /* Storage unavailable: it may show again, which is harmless. */
   }
 }
 
-/** An attempt in progress -- never interrupted. Its history page is fine. */
 function isTakingAnExam(pathname) {
   return /^\/learner\/assessments\/[^/]+\/?$/.test(pathname)
 }
@@ -69,7 +50,6 @@ export function CertificationCompletionHost() {
   })
   const { refetch } = awardsQuery
 
-  // Re-read on navigation: passing a mock exam lands on its results page.
   useEffect(() => {
     if (isLearner && inLearnerPortal) refetch()
   }, [pathname, isLearner, inLearnerPortal, refetch])
@@ -88,7 +68,6 @@ export function CertificationCompletionHost() {
       .sort((a, b) => new Date(a.badgeAwardedAt) - new Date(b.badgeAwardedAt))[0] ?? null
   }, [awardsQuery.data, isLearner, learnerId, dismissed])
 
-  // Wait for the XP/achievement cards to finish, and for the exam to end.
   useEffect(() => {
     if (open || !candidate || isTakingAnExam(pathname)) return undefined
     const tryOpen = () => {

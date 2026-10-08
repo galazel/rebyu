@@ -10,13 +10,6 @@ import org.springframework.data.repository.query.Param;
 public interface LearnerMistakeReviewRepository
         extends JpaRepository<LearnerMistakeReview, LearnerMistakeReviewId> {
 
-    /**
-     * Insert, not save(): the id is assigned, so save() takes merge() and merge
-     * cannot resolve the id-only learner/question stubs. ON CONFLICT makes a
-     * re-tick idempotent, and reviewed_at is written explicitly rather than
-     * leaned on as a column default — Hibernate's ddl-auto does not carry the
-     * migration's DEFAULT over.
-     */
     @Modifying
     @Query(value = """
             INSERT INTO learner_mistake_reviews(learner_id, source_question_id, reviewed_at)

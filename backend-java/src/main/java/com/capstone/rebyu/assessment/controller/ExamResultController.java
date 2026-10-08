@@ -21,9 +21,6 @@ public class ExamResultController {
     private final ExamResultService examResultService;
     private final CognitoAuthService auth;
 
-    // Cross-learner results data: the unfiltered list/lookup exposes every learner's
-    // exam results, so reads are admin-only. Learners read their own via
-    // /api/learners/me/portal; institution managers via /api/institution/me/learners/{id}/exam-results.
     @GetMapping
     public List<ExamResultDto> getAll(@AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);

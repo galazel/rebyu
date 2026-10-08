@@ -11,13 +11,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-/**
- * The signed-in user's arrangement of a dashboard, for boards outside the learner
- * analytics page (which keeps its own learner-scoped endpoint under /study-desk).
- *
- * The user is always resolved from the validated token, so one account can neither
- * read nor overwrite another's arrangement.
- */
 @RestController
 @RequestMapping("/api/dashboard-layout")
 @RequiredArgsConstructor
@@ -28,7 +21,6 @@ public class DashboardLayoutController {
 
     public record LayoutRequest(List<DashboardLayoutService.TilePlacement> tiles) {}
 
-    /** Empty tiles means "no arrangement saved" -- the page uses its defaults. */
     @GetMapping
     public Map<String, List<DashboardLayoutService.TilePlacement>> layout(
             @AuthenticationPrincipal Jwt jwt, @RequestParam String board) {

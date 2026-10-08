@@ -18,14 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Learner-facing BKT analytics. The browser calls Spring Boot only; Spring Boot
- * calls the internal FastAPI BKT service. FastAPI is never exposed to learners.
- *
- * <p>learnerId is always resolved from the authenticated JWT, never trusted
- * from the request, so a caller can never read another learner's mastery data
- * by supplying someone else's id.
- */
 @RestController
 @RequestMapping("/api/learner/analytics")
 @RequiredArgsConstructor
@@ -34,7 +26,6 @@ public class LearnerAnalyticsController {
     private final LearnerMasteryService learnerMasteryService;
     private final CognitoAuthService auth;
 
-    /** All lesson mastery for the caller, optionally filtered to specific lessons. */
     @GetMapping("/mastery")
     public LearnerMasteryView getMastery(
             @AuthenticationPrincipal Jwt jwt,
@@ -42,24 +33,19 @@ public class LearnerAnalyticsController {
         return learnerMasteryService.getMastery(myLearnerId(jwt), lessonIds);
     }
 
-    /** Weighted certification readiness for the caller. Proxies the FastAPI readiness endpoint. */
     @PostMapping("/readiness")
     public Map<String, Object> getReadiness(
             @AuthenticationPrincipal Jwt jwt, @RequestBody Map<String, Object> request) {
-        // learner_id is never taken from the request body -- always the caller.
-        // FastAPI's ReadinessRequest schema expects snake_case.
         request.put("learner_id", myLearnerId(jwt));
         return learnerMasteryService.getReadiness(request);
     }
 
-    /** Lesson → middle → major priority hierarchy for the caller's certification. */
     @GetMapping("/priorities/certifications/{certificationId}")
     public Map<String, Object> getPriorities(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long certificationId) {
         return learnerMasteryService.getPriorities(myLearnerId(jwt), certificationId);
     }
 
-    /** Certification confidence summary for the caller. */
     @GetMapping("/confidence/certifications/{certificationId}")
     public Map<String, Object> getConfidence(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long certificationId) {

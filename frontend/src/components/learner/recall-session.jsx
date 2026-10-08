@@ -6,20 +6,6 @@ import { Brain, Loader2 } from "@/components/icons"
 import { createRecallSession } from "@/services/recallService.js"
 import { returnState } from "@/lib/assessment-return"
 
-/**
- * The Active Recall session: a paper built from what this learner keeps getting
- * wrong, opened without them having to go and find it.
- *
- * <p>The exam is minted on open and then handed to the ordinary attempt runner
- * at {@code /learner/assessments/:examId}. Recreating a question-answering UI
- * here would mean a second implementation of autosave, grading, timing and
- * every question type -- and the one place a learner sits an exam should be the
- * same place whatever put it in front of them.
- *
- * <p>It is minted rather than pre-built because the selection is only true at
- * the moment it is asked for: a paper assembled last week would re-test
- * mistakes the learner has since fixed and miss the ones they have since made.
- */
 export function RecallSession({ task, certificationId, onStarted, onDismiss }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -27,9 +13,6 @@ export function RecallSession({ task, certificationId, onStarted, onDismiss }) {
   const [state, setState] = useState({ status: "building" })
   const [starting, setStarting] = useState(false)
 
-  /* Minted once per opening. Without the guard React's development double-mount
-     would create two exams for one scheduled session, and the learner would sit
-     one while the other sat abandoned in their history. */
   const startedRef = useRef(false)
 
   useEffect(() => {
@@ -40,8 +23,6 @@ export function RecallSession({ task, certificationId, onStarted, onDismiss }) {
 
     createRecallSession({
       certificationId,
-      // The lesson the plan scheduled, when the event names one -- its
-      // questions are preferred over the rest of the certification's.
       lessonId: task?.lessonId ?? null,
     })
       .then((session) => {
@@ -80,8 +61,6 @@ export function RecallSession({ task, certificationId, onStarted, onDismiss }) {
             ?? state.error?.message
             ?? "Please try again."}
         </p>
-        {/* Not marked complete: nothing was recalled, so the session stays
-            outstanding and will be offered again. */}
         <Button variant="outline" onClick={onDismiss}>
           Close
         </Button>
@@ -102,9 +81,6 @@ export function RecallSession({ task, certificationId, onStarted, onDismiss }) {
           {session.itemCount} {session.itemCount === 1 ? "question" : "questions"} ready
         </p>
 
-        {/* Says which kind of paper this is. A learner with no history yet is
-            not sitting a recall test, and telling them it is one would
-            misdescribe both the questions and a poor score on them. */}
         <p className="mt-1 max-w-sm text-sm leading-6 text-muted-foreground">
           {session.basis === "coverage"
             ? "You have no missed questions on this certification yet, so this is a spread across its topics to find your starting point."
@@ -117,10 +93,6 @@ export function RecallSession({ task, certificationId, onStarted, onDismiss }) {
           disabled={starting}
           onClick={async () => {
             setStarting(true)
-            /* Awaited: the attempt runner is outside the layout that owns the
-               scheduler, so navigating first killed the "this session is
-               done" write on its way out and the task was offered again the
-               next time the learner landed anywhere. */
             await onStarted?.()
             navigate(`/learner/assessments/${session.examId}`, {
               state: returnState(location),

@@ -38,11 +38,6 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Learner community: discussion/resource posts, study circles, likes, saves,
- * and comments. Backed by JPA entities/repositories over the {@code community_*}
- * tables (V24/V25/V27/V29/V32-V34).
- */
 @Service
 @RequiredArgsConstructor
 public class CommunityService {
@@ -50,7 +45,6 @@ public class CommunityService {
     private static final List<String> ALLOWED_POST_TYPES =
             List.of("discussion", "quiz", "flashcard", "quizzes", "notes", "docx");
 
-    /** Post types with something to open, and so something to count opens of. */
     private static final List<String> VIEWABLE_POST_TYPES =
             List.of("quiz", "flashcard", "quizzes", "notes", "docx");
 
@@ -67,25 +61,17 @@ public class CommunityService {
     private final LearnerRepository learnerRepository;
     private final S3StorageService s3StorageService;
 
-    /** Most files one post can carry (a set of images shared together). */
     static final int MAX_ATTACHMENTS = 10;
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    /** One uploaded file of a post: its original name, storage key and byte size. */
     public record Attachment(String name, String key, Long size) {}
 
-    /**
-     * {@code attachments} lists every file when a post shares several (images);
-     * the single attachment fields still describe the first, and are all a post
-     * with one file sends.
-     */
     public record PostRequest(
             String postType, String title, String description, Long circleId,
             String attachmentName, String attachmentType, String attachmentKey, Long attachmentSize,
             List<Attachment> attachments) {}
 
-    /** {@code visibility} is "PUBLIC" or "PRIVATE"; anything else, or absent, means public. */
     public record CircleRequest(String name, String description, String topic, String visibility) {}
 
     public record CommentRequest(String body, Long parentCommentId) {}
@@ -206,38 +192,13 @@ public class CommunityService {
         return postById(learnerId, saved.getPostId());
     }
 
-    /**
-     * What a shared post actually points at.
-     *
-     * <p>{@code store} is EXAM for a shared quiz and STUDY_SET for shared
-     * flashcards, because the two generation paths persist into different
-     * tables (see {@code LearnerToolsController#generate}); {@code studyType}
-     * is what the client needs to know which player to open.
-     */
     public record SharedStudyTarget(String store, Long id, String studyType) {}
 
-    /** Where a generated library item's own "open it" route points. */
     private static final Map<String, String> STUDY_ROUTE_PREFIXES = Map.of(
             "/learner/assessments/", "EXAM",
             "/learner/flashcards/", "STUDY_SET",
-            // Written by no current generation path; kept so the first shares,
-            // made when quizzes were still persisted as study sets, still open.
             "/learner/practice/", "STUDY_SET");
 
-    /**
-     * Records that this learner opened what a post shares, and returns how many
-     * learners now have.
-     *
-     * <p>Counted per learner, not per click (see {@link CommunityPostView}), and
-     * only for the post types that carry something to open -- a discussion has
-     * no "open" to speak of, so a view count on one would only ever be a count
-     * of scrolls past it.
-     *
-     * <p>An author opening their own post is not a view of it. Otherwise every
-     * post starts at 1 the moment its author checks how it looks, and the
-     * number a learner is being shown -- how many other people found this
-     * useful -- quietly includes the one person it cannot mean.
-     */
     @Transactional
     public long recordView(Long learnerId, Long postId) {
         CommunityPost post = requirePostVisible(postId);
@@ -250,18 +211,10 @@ public class CommunityService {
         return postViewRepository.countByPost_PostId(postId);
     }
 
-    /**
-     * Resolves what a post shares without disclosing it directly to the client.
-     * Transactional because it walks the lazy sharedLibraryItem association -- outside a
-     * session that walk throws instead of returning the item.
-     */
     @Transactional(readOnly = true)
     public SharedStudyTarget sharedStudyTarget(Long postId) {
         CommunityPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("This post does not contain an answerable study set"));
-        // Must match the moderation_status='VISIBLE' guard in posts() -- a hidden post (e.g.
-        // flagged for leaked exam content or copyright) must stop being copyable into new
-        // learners' study sets, not just stop appearing in the feed.
         if (!"VISIBLE".equals(post.getModerationStatus())
                 || !List.of("quiz", "flashcard").contains(post.getPostType())
                 || post.getSharedLibraryItem() == null) {
@@ -297,9 +250,6 @@ public class CommunityService {
 
     @Transactional
     public void deletePost(Long learnerId, Long postId) {
-        // Authorise first: deletePostWithEngagement clears the post's comments and
-        // reactions unconditionally, so it must never run for a post the caller
-        // does not own.
         CommunityPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new EntityNotFoundException("Post not found: " + postId));
         if (!post.getAuthor().getLearnerId().equals(learnerId)) {
@@ -317,7 +267,6 @@ public class CommunityService {
         reportRepository.upsertReport(postId, learnerId, request.reason(), blankToNull(request.details()));
     }
 
-    /** Read-only transaction: the view walks each report's lazy post and reporter. */
     @Transactional(readOnly = true)
     public List<ReportView> reports(String status) {
         String normalized = status == null || status.isBlank() ? "OPEN" : status.toUpperCase();
@@ -386,7 +335,6 @@ public class CommunityService {
         return notificationRepository.deleteAllForLearner(learnerId);
     }
 
-    /** Another learner's notification is reported as simply not found, never as forbidden. */
     private LearnerCommunityNotification requireOwnedNotification(Long learnerId, Long notificationId) {
         LearnerCommunityNotification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new EntityNotFoundException("Notification not found: " + notificationId));
@@ -396,7 +344,6 @@ public class CommunityService {
         return notification;
     }
 
-    /** Uploads a PDF/DOCX attachment and returns its key. Call before {@link #createPost}. */
     public String uploadAttachment(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("A file is required");
@@ -408,9 +355,7 @@ public class CommunityService {
         }
     }
 
-    // Upvotes / saves
 
-    /** Counts shown under a post, recomputed after the viewer changes one of them. */
     public record PostCounts(long reactions, long saves, boolean active) {}
 
     private PostCounts counts(Long postId, boolean active) {
@@ -442,9 +387,7 @@ public class CommunityService {
         return counts(postId, true);
     }
 
-    // Comments
 
-    /** Read-only transaction: mapComment reads each author's name through a lazy proxy. */
     @Transactional(readOnly = true)
     public List<Comment> comments(Long learnerId, Long postId) {
         requirePostVisible(postId);
@@ -458,8 +401,6 @@ public class CommunityService {
         CommunityPost post = requirePostVisible(postId);
         requireText(request.body(), "Comment");
         CommunityComment parent = request.parentCommentId() == null ? null : commentRef(request.parentCommentId());
-        // The real author, not an id-only stub: the response is rendered straight into
-        // the thread, and a stub has no name to show until the page is reloaded.
         Learner author = learnerRepository.findById(learnerId)
                 .orElseThrow(() -> new EntityNotFoundException("Learner not found: " + learnerId));
         CommunityComment comment = CommunityComment.builder()
@@ -469,27 +410,11 @@ public class CommunityService {
                 .body(request.body().trim())
                 .build();
         Comment saved = mapComment(commentRepository.save(comment), learnerId);
-        // Every comment is its own event, so these are not de-duplicated the way
-        // an upvote is -- two replies are two things worth reading.
         notifyAuthor(post, learnerId, "New comment on your post",
                 fullName(author) + " commented on \"" + post.getTitle() + "\".", false);
         return saved;
     }
 
-    /**
-     * Removes one comment, and any replies to it.
-     *
-     * <p>Either the person who wrote it or the person whose post it is on may
-     * delete it. The post's author already has a blunter version of this --
-     * deleting the post takes the whole thread with it -- so withholding the
-     * ability to remove one comment would only push them towards the larger
-     * action.
-     *
-     * <p>A mismatched post is refused rather than ignored: the id pair comes
-     * from a URL, and quietly deleting a comment that belongs to a different
-     * post because the comment id happened to be right is exactly the sort of
-     * thing that is discovered much later.
-     */
     @Transactional
     public void deleteComment(Long learnerId, Long postId, Long commentId) {
         CommunityComment comment = commentRepository.findById(commentId)
@@ -508,15 +433,7 @@ public class CommunityService {
         commentRepository.deleteWithReplies(commentId);
     }
 
-    // Author notifications
 
-    /**
-     * Tells a post's author that someone engaged with it. Silent when the actor
-     * is the author: nobody needs telling about their own upvote.
-     *
-     * @param deduplicate skip when this exact line already exists for the author,
-     *                    so un-liking and liking again does not notify twice
-     */
     private void notifyAuthor(CommunityPost post, Long actorLearnerId, String title, String body, boolean deduplicate) {
         Long authorId = post.getAuthor().getLearnerId();
         if (authorId.equals(actorLearnerId)) {
@@ -533,7 +450,6 @@ public class CommunityService {
                 .build());
     }
 
-    /** The acting learner's display name, for the notification line. */
     private String actorName(Long learnerId) {
         return learnerRepository.findById(learnerId)
                 .map(CommunityService::fullName)
@@ -561,10 +477,6 @@ public class CommunityService {
                 .name(request.name().trim())
                 .description(request.description().trim())
                 .topic(request.topic().trim())
-                /* Public unless private is asked for by name. A circle whose
-                   visibility arrives missing or unrecognised is the ordinary
-                   one, not the hidden one: a typo should not quietly create a
-                   room nobody can find their way into. */
                 .visibility(CommunityCircle.PRIVATE.equalsIgnoreCase(
                         request.visibility() == null ? null : request.visibility().trim())
                         ? CommunityCircle.PRIVATE
@@ -574,23 +486,10 @@ public class CommunityService {
 
         circleMemberRepository.addMember(saved.getCircleId(), learnerId);
 
-        /* Creating a circle used to announce itself into the feed. Making a
-           circle is not saying something, and the post said nothing the
-           circle's own row in the sidebar does not -- so it read as the
-           owner's first post rather than as a room opening, and it was the
-           top of their feed either way. The circle is discoverable as a
-           circle; anyone with something to say can post in it. */
 
         return circleById(learnerId, saved.getCircleId());
     }
 
-    /**
-     * Deletes a circle the caller owns, along with the posts written in it.
-     * The posts go explicitly: the circle_id FK is ON DELETE SET NULL (V24), so
-     * without this the discussions written inside it would survive as orphans
-     * in the global feed after the circle they belong to is gone.
-     * Members cascade with the circle.
-     */
     @Transactional
     public void deleteCircle(Long learnerId, Long circleId) {
         CommunityCircle circle = circleRepository.findById(circleId)
@@ -603,7 +502,6 @@ public class CommunityService {
         circleRepository.delete(circle);
     }
 
-    /** Owners are always members and cannot leave their own circle. Returns the joined state. */
     @Transactional
     public boolean toggleJoin(Long learnerId, Long circleId) {
         CommunityCircle circle = circleRepository.findById(circleId)
@@ -625,7 +523,6 @@ public class CommunityService {
         }
     }
 
-    // Mapping / helpers
 
     private static Post mapPostRow(CommunityPostRow row) {
         return new Post(row.getPostId(), row.getAuthorName(), initials(row.getAuthorName()),
@@ -647,7 +544,6 @@ public class CommunityService {
         }
     }
 
-    /** The post's file list, or empty for a post with at most one file. */
     static List<Attachment> readAttachments(String json) {
         if (json == null || json.isBlank()) {
             return List.of();
@@ -681,11 +577,6 @@ public class CommunityService {
                 + " " + (learner.getLastName() == null ? "" : learner.getLastName());
     }
 
-    /**
-     * A managed reference, not a hand-built stub: an id-only entity instance is a
-     * detached object as far as Hibernate is concerned, and writing one into an
-     * association is a persistence hazard rather than a shortcut.
-     */
     private Learner learnerRef(Long learnerId) {
         return learnerRepository.getReferenceById(learnerId);
     }
@@ -708,7 +599,6 @@ public class CommunityService {
         return ref;
     }
 
-    /** "for-you" is the client's "no filter" tab; treat it (and blank) as no type filter. */
     private static String normalizeFilter(String value, String noiseValue) {
         if (value == null || value.isBlank() || value.equals(noiseValue)) {
             return null;
@@ -726,7 +616,6 @@ public class CommunityService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    /** First letter of up to two whitespace-separated name tokens, uppercased. Safe on blank tokens. */
     private static String initials(String name) {
         if (name == null || name.isBlank()) {
             return "?";

@@ -32,31 +32,8 @@ public class LearnerDto {
     @Size(max = 50)
     private String lastName;
 
-    /**
-     * Object key of the profile picture, or null for the initials that stand in
-     * before one is uploaded.
-     *
-     * <p>Unvalidated and never read on the way in: it is set by uploading a
-     * picture, not by sending a string. A learner editing their name must not
-     * be able to point their avatar at an arbitrary key by adding a field to
-     * the request.
-     */
     private String avatarKey;
 
-    /*
-     * Read-only, and deliberately unvalidated.
-     *
-     * These describe a learner rather than define one: they live on the user
-     * record and on enrolments, and the service fills them on the way out. A
-     * constraint here would reject a create or update that never intended to
-     * send them -- the request would 400 before the field it complains about
-     * was ever going to be read.
-     *
-     * They exist because the admin learner table has columns for them. Without
-     * them it rendered "No email provided", "Not affiliated" and a 0% bar for
-     * every learner on the platform -- placeholders standing in for data the
-     * database had all along.
-     */
     private String email;
     private String status;
     private LocalDateTime joinedAt;

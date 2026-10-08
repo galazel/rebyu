@@ -1,7 +1,3 @@
-/**
- * Shared catalog of departments (colleges) and their course programs,
- * mapped to their technical & industry certifications based on university curricula.
- */
 
 export const CATALOG_DEPARTMENTS = [
   {
@@ -49,7 +45,6 @@ export const CATALOG_DEPARTMENTS = [
 ]
 
 export const CATALOG_CERTIFICATIONS = [
-  // 💻 College of Computer Studies (CCS)
   {
     id: 13,
     department: "ccs",
@@ -121,7 +116,6 @@ export const CATALOG_CERTIFICATIONS = [
     status: "PUBLISHED",
   },
 
-  // 📊 College of Business Administration and Accountancy (CBAA)
   {
     id: 206,
     department: "cba",
@@ -215,7 +209,6 @@ export const CATALOG_CERTIFICATIONS = [
     status: "PUBLISHED",
   },
 
-  // ⚙️ College of Engineering (COE)
   {
     id: 201,
     department: "coe",
@@ -356,7 +349,6 @@ export const CATALOG_CERTIFICATIONS = [
     status: "PUBLISHED",
   },
 
-  // 🚢 College of Maritime Studies (CMS)
   {
     id: 215,
     department: "cms",
@@ -450,7 +442,6 @@ export const CATALOG_CERTIFICATIONS = [
     status: "PUBLISHED",
   },
 
-  // 🛎️ College of Hospitality and Tourism Management (CHTM)
   {
     id: 210,
     department: "chtm",
@@ -568,7 +559,6 @@ export const CATALOG_CERTIFICATIONS = [
     status: "PUBLISHED",
   },
 
-  // 🩺 College of Nursing (CON)
   {
     id: 219,
     department: "con",
@@ -640,9 +630,6 @@ export const CATALOG_CERTIFICATIONS = [
   },
 ]
 
-/**
- * Normalizes title for loose comparison (e.g. "IT Passport Exam" <-> "PhilNITS IT Passport").
- */
 function normalizeTitle(str = "") {
   return String(str)
     .toLowerCase()
@@ -651,9 +638,6 @@ function normalizeTitle(str = "") {
     .replace(/[^a-z0-9]/g, "")
 }
 
-/**
- * Detects department and programs for any arbitrary certification object.
- */
 export function detectDepartment(cert) {
   const combined = `${cert.title || ""} ${cert.description || ""} ${cert.industry || ""}`.toLowerCase()
 
@@ -768,17 +752,6 @@ export function detectDepartment(cert) {
   }
 }
 
-/**
- * The request page's list: every certification the backend has that is
- * published (requestable) or coming soon (shown, not requestable), each dressed
- * with its catalog entry's college, programs and balanced description.
- *
- * The backend decides what exists and whether it can be requested; the catalog
- * only adds presentation. Matched on the normalized title alone: the catalog's
- * own ids are placeholders that can collide with real database ids, and the
- * old partial-title match paired "FE Exam" ("fe") with any title containing
- * those letters ("lifesupport").
- */
 export function getMergedCertifications(backendCertifications = []) {
   const listed = (Array.isArray(backendCertifications) ? backendCertifications : []).filter(
     (c) => c.status === "PUBLISHED" || c.status === "COMING_SOON"
@@ -811,7 +784,6 @@ export function getMergedCertifications(backendCertifications = []) {
       certificationId: b.certificationId,
       backendId: b.certificationId,
       title: b.title,
-      // The catalog's balanced description over an oversized database text block.
       description: catalogItem?.description || b.description || "",
       status: b.status,
       available: b.status === "PUBLISHED",
@@ -819,7 +791,6 @@ export function getMergedCertifications(backendCertifications = []) {
     }
   })
 
-  // College order, then what can be requested now, then by title.
   const deptOrder = CATALOG_DEPARTMENTS.map((d) => d.id)
   merged.sort((a, b) => {
     const aOrder = deptOrder.indexOf(a.department)

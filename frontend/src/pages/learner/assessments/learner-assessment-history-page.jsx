@@ -44,31 +44,9 @@ function formatDate(value) {
   })
 }
 
-/* ------------------------------------------------------------- standing
- *
- * Proficiency is the verdict this page reports, not the pass mark.
- *
- * An adaptive sitting measures a level (0..100) and the curriculum opens on
- * that level, so a learner who reached Proficient has done the thing the
- * system asked of them -- even when the raw percentage on the day sat under
- * the paper's pass mark, which it often does, because the engine keeps
- * feeding harder items until it finds the edge of what they know. Stamping
- * "not passed" across that attempt reports a failure that the rest of the
- * system does not agree happened.
- *
- * Percentage and the pass flag remain for sittings that measured no
- * proficiency -- a fixed institution paper, or a row written before ratings
- * were recorded. There, the pass mark really is the only verdict there is.
- */
 
-/** The rating from which a sitting counts as Proficient (see IrtModel). */
 const PROFICIENT_RATING = 50
 
-/**
- * What one attempt is worth: `{ rating, label, cleared, measured }`.
- * `cleared` is the proficiency test where there is a proficiency, and the
- * pass flag only where there is not.
- */
 function standingOf(attempt) {
   const raw = attempt?.proficiency?.rating
   const rating = raw == null ? null : Number(raw)
@@ -83,16 +61,6 @@ function standingOf(attempt) {
   }
 }
 
-/**
- * The run of attempts, as a shape.
- *
- * A list of figures one card apart is not comparable at a glance, and
- * comparing attempts is the entire reason this page exists. Bars are in the
- * order they were sat -- oldest at the left -- so improvement reads left to
- * right, and each is coloured by whether that attempt passed rather than by
- * height, because the pass mark is the only threshold that matters here and the
- * summary payload does not carry its value.
- */
 function AttemptTrend({ attempts }) {
   if (attempts.length < 2) return null
 
@@ -101,11 +69,6 @@ function AttemptTrend({ attempts }) {
       <p className="rb-graded-heading">proficiency by attempt</p>
       <div className="mt-4 flex items-end gap-2 sm:gap-3">
         {attempts.map((attempt) => {
-          /* Proficiency where the sitting measured one, percentage only as a
-             fallback for sittings that did not. Both are 0..100, so the run
-             stays comparable either way -- but plotting raw percentage for an
-             adaptive paper draws the difficulty of the draw as if it were
-             progress. */
           const rating = attempt.proficiency?.rating
           const value = Math.min(100, Math.max(0,
             Number(rating ?? attempt.percentage ?? 0)))
@@ -117,16 +80,12 @@ function AttemptTrend({ attempts }) {
               <span className="rb-numeric text-xs text-rb-wolf">
                 {rating == null ? `${value.toFixed(0)}%` : value.toFixed(0)}
               </span>
-              {/* Fixed-height well so every bar is measured against the same
-                  100%, not against the tallest score in the run. */}
               <div className="flex h-24 w-full items-end border-b-2 border-dashed border-[#cfc6b3] px-2">
                 <div
                   className={cn(
                     "w-full rounded-[6px]",
                     standingOf(attempt).cleared ? "rb-highlight-pass" : "rb-highlight-fail"
                   )}
-                  /* A floor of 4px so a zero-scoring attempt is still a mark on
-                     the page rather than a gap in the run. */
                   style={{ height: `max(4px, ${value}%)` }}
                 />
               </div>
@@ -141,9 +100,7 @@ function AttemptTrend({ attempts }) {
   )
 }
 
-/** One figure in the summary strip. */
 function SummaryTile({ label, value, caption, tone = "neutral" }) {
-  /* A tally in the margin, in the teacher's pen colour for that figure. */
   return (
     <div className={cn("rb-grade-tally", `is-${tone}`)}>
       <dt>{label}</dt>
@@ -153,7 +110,6 @@ function SummaryTile({ label, value, caption, tone = "neutral" }) {
   )
 }
 
-/* How many marked questions a page shows before pointing to the full result. */
 const PAGE_ANSWER_LIMIT = 6
 
 function answerMark(answer) {
@@ -162,15 +118,6 @@ function answerMark(answer) {
   return answer.isCorrect ? { kind: "check", state: "correct" } : { kind: "cross", state: "incorrect" }
 }
 
-/**
- * One page of the attempt notebook: that attempt's own marked paper.
- *
- * The summary (number, status, date, points, circled score) comes from the
- * attempts list; the tallies and the marked questions are that attempt's
- * result, fetched when its page is opened. The query key is the result page's,
- * so turning to a page you have already looked at -- or opening "view details"
- * from it -- reads from cache instead of fetching again.
- */
 function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
   const inProgress = attempt.submittedAt == null
   const percentage = Number(attempt.percentage ?? 0)
@@ -198,7 +145,6 @@ function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
                 In progress
               </Chip>
             ) : standing.measured ? (
-              /* The level reached, which is what the curriculum reads. */
               <Chip tone={standing.cleared ? "leaf" : "fox"}>
                 {standing.cleared ? (
                   <CheckCircle2Icon className="size-3" aria-hidden="true" />
@@ -246,10 +192,6 @@ function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
         </div>
 
         {inProgress ? null : (
-          /* Remounted with every page, so the score stamps down again each
-             time a page is turned to. */
-          /* Circled in the margin: the proficiency reached, or the raw
-             percentage when the sitting measured none. */
           <div className={cn("rb-grade-score rb-grade-score-sm", standing.cleared ? "is-pass" : "is-fail")}>
             <PenCircle />
             <span className="rb-grade-score-value">
@@ -334,10 +276,6 @@ function AttemptPage({ attempt, learnerId, examId, isHighest, isLatest }) {
   )
 }
 
-// Every retake is stored separately and never overwritten — this page lists
-// the full history so a learner can compare attempts before opening one for
-// full review. Highlights the highest-scoring and most recent attempts,
-// since progress/analytics elsewhere may use either depending on config.
 export default function LearnerAssessmentHistoryPage() {
   const { examId } = useParams()
 
@@ -366,18 +304,6 @@ export default function LearnerAssessmentHistoryPage() {
   const submitted = attempts.filter((attempt) => attempt.submittedAt != null)
   const assessmentTitle = attempts[0]?.assessmentTitle ?? "Assessment"
 
-  /* Ranked on proficiency, and shown as proficiency.
-   *
-   * The raw percentage is how many of the items served happened to be right,
-   * and an adaptive paper does not serve the same items twice -- an easy run
-   * scoring 80% is a weaker sitting than a hard one scoring 60%, so ordering
-   * attempts by percentage ranks the luck of the draw. Proficiency is the
-   * measure the engine actually produces (IrtModel.rating, 0..100) and the one
-   * the curriculum gates on, so it is what "best" should mean here too.
-   *
-   * Percentage is kept as the sub-caption: it answers "how did that sitting
-   * go", which is a fair question, just not the one the headline figure
-   * should be answering. */
   const ratingOf = (attempt) =>
     attempt?.proficiency?.rating == null ? null : Number(attempt.proficiency.rating)
 
@@ -385,9 +311,6 @@ export default function LearnerAssessmentHistoryPage() {
     ? submitted.reduce((best, attempt) => {
         const a = ratingOf(attempt)
         const b = ratingOf(best)
-        // Falls back to percentage only while neither sitting measured a
-        // proficiency -- a fixed paper, or a row written before ratings were
-        // recorded.
         if (a == null && b == null) {
           return Number(attempt.percentage ?? 0) > Number(best.percentage ?? 0) ? attempt : best
         }
@@ -403,8 +326,6 @@ export default function LearnerAssessmentHistoryPage() {
   const everCleared = submitted.some((attempt) => standingOf(attempt).cleared)
   const inProgressCount = attempts.length - submitted.length
 
-  /* Oldest first for the trend, whatever order the list arrives in: a run that
-     reads right-to-left would show improvement as decline. */
   const chronological = [...submitted].reverse()
 
   return (
@@ -419,8 +340,6 @@ export default function LearnerAssessmentHistoryPage() {
       </header>
 
       <main className="mx-auto max-w-4xl space-y-6 px-4 py-6">
-        {/* The front sheet of the file: every attempt marked, a stamp once
-            there is something to stamp. */}
         <section className="rb-graded-sheet p-6 sm:p-8">
           {submitted.length > 0 ? <TeacherStamp passed={everCleared} /> : null}
           <h1 className="rb-display rb-display-md pr-28 sm:pr-36">{assessmentTitle}</h1>
@@ -470,9 +389,6 @@ export default function LearnerAssessmentHistoryPage() {
 
           <TactileButton asChild className="mt-6">
             <Link to={`/learner/assessments/${examId}`}>
-              {/* Labelled for what the button will actually do. An unfinished
-                  attempt is resumed in place, not started over, and calling
-                  that "retake" is how a learner ends up afraid to press it. */}
               {inProgressCount > 0
                 ? "resume attempt"
                 : submitted.length > 0
@@ -496,8 +412,6 @@ export default function LearnerAssessmentHistoryPage() {
               </p>
             </div>
           ) : (
-            /* One notebook page per attempt, oldest first, opened on the most
-               recent. Turning a page is how you compare attempts. */
             <AttemptFlipbook
               initialIndex={attempts.length - 1}
               pages={[...attempts].reverse().map((attempt) => {

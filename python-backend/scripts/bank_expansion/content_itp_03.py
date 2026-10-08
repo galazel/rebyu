@@ -16,7 +16,6 @@ CERTIFICATION_ID = 4
 
 QUESTIONS = {
 
-    # 9 -- Service Management Frameworks and SLA
     9: [
         mcq("EASY",
             "What does an SLA (Service Level Agreement) define?",
@@ -139,7 +138,6 @@ QUESTIONS = {
             "CSI closes the loop: measures are reviewed, improvement opportunities identified, changes made and then measured again. It is the PDCA cycle applied to service management."),
     ],
 
-    # 10 -- Service Support and Desk Operations
     10: [
         mcq("EASY",
             "What is the primary role of a service desk?",
@@ -262,7 +260,6 @@ QUESTIONS = {
             "Major incidents get their own procedure because the coordination and communication load is what actually determines recovery time, not the technical fix alone."),
     ],
 
-    # 11 -- Information Security Measures and Technologies
     11: [
         mcq("AVERAGE",
             "Which control combination provides multi-factor authentication?",
@@ -385,7 +382,6 @@ QUESTIONS = {
             "Test environments are typically less protected than production, so copying real customer data into them extends the exposure. Masking preserves the shape of the data without the risk."),
     ],
 
-    # 12 -- Security Operations and Incident Response
     12: [
         mcq("EASY",
             "What is the first priority when a security incident is detected?",

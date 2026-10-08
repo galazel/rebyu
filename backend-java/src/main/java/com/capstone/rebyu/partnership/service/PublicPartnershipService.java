@@ -28,13 +28,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Transaction One (public): an institution representative — with no account —
- * submits a partnership request from the landing page. The request stores the
- * institution details and requested certification slots, is saved atomically
- * as PENDING, and grants NO institution account, role, or access. The Institution
- * record is created only when an admin approves (Transaction Two).
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -59,28 +52,12 @@ public class PublicPartnershipService {
         String institutionName = request.institutionName().trim();
         LocalDateTime now = LocalDateTime.now();
 
-        // This is a public, unauthenticated endpoint: there is no client session to
-        // persist a client-supplied key across retries the way
-        // PartnershipRequestTransactionService.submit() does for authenticated
-        // institution clients. Instead, derive a deterministic key from the
-        // submission content itself (institution email + name + the current day
-        // bucket), so a genuine double-click or network retry within the same day
-        // collides with the first request, while the same institution submitting
-        // again days later is treated as a new, legitimate request.
         String idempotencyKey = computeIdempotencyKey(email, institutionName, now);
         Optional<PartnershipRequest> existingByKey = requestRepository.findByIdempotencyKey(idempotencyKey);
         if (existingByKey.isPresent()) {
-            // Idempotent retry: return the original request's response as if this
-            // call had succeeded, rather than treating it as a conflict.
             return toResponse(existingByKey.get());
         }
 
-        // Prevent stacking duplicate pending requests from the same institution.
-        // Best-effort check-then-act guard only: two concurrent submissions with
-        // DIFFERENT content (so they don't collide on the idempotency key above)
-        // could both pass this check before either commits. Fully closing that race
-        // would need a partial unique index on (institution_email) WHERE status =
-        // 'PENDING', added in a future migration.
         if (requestRepository.existsByInstitutionEmailIgnoreCaseAndStatus(
                 email, PartnershipRequest.Status.PENDING)) {
             throw new BusinessRuleException.InvalidPartnershipRequestException(
@@ -119,10 +96,6 @@ public class PublicPartnershipService {
             Certification certification = certificationRepository.findById(item.certificationId())
                     .orElseThrow(() -> new BusinessRuleException.InvalidPartnershipRequestException(
                             "A selected certification is no longer available."));
-            // Only published certifications (fully built -- lessons, content, and
-            // the required assessments -- see CertificationService publish gate)
-            // can be inquired about; drafts aren't offered to institutions yet.
-            // COMING_SOON is listed on the request page but not requestable.
             if (certification.getStatus() == Certification.CertificationStatus.COMING_SOON) {
                 throw new BusinessRuleException.InvalidPartnershipRequestException(
                         certification.getTitle() + " is coming soon and cannot be requested yet.");
@@ -167,7 +140,6 @@ public class PublicPartnershipService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "No partnership request matches that reference number and email."));
 
-        // Only surface admin remarks once a decision has been made.
         boolean decided = request.getStatus() == PartnershipRequest.Status.APPROVED
                 || request.getStatus() == PartnershipRequest.Status.REJECTED;
 
@@ -180,7 +152,6 @@ public class PublicPartnershipService {
         );
     }
 
-    /** Every admin gets an in-app notification -- this is the only new-request signal admins have today. */
     private void notifyAdmins(PartnershipRequest request) {
         for (var admin : userRepository.findByUserType_UserTypeText(ADMIN_USER_TYPE)) {
             notificationService.notify(
@@ -201,13 +172,6 @@ public class PublicPartnershipService {
         return candidate;
     }
 
-    /**
-     * Deterministic idempotency key for a public submission: a SHA-256 hex digest
-     * of the normalized institution email, institution name, and a coarse
-     * day-level time bucket. Same-day resubmissions of the same institution
-     * details collide (recognized as a repeat); resubmissions on a later day do
-     * not (treated as a new request).
-     */
     private String computeIdempotencyKey(String normalizedEmail, String institutionName, LocalDateTime submittedAt) {
         String dayBucket = submittedAt.toLocalDate().toString();
         String normalized = normalizedEmail + "|" + institutionName + "|" + dayBucket;
@@ -228,7 +192,6 @@ public class PublicPartnershipService {
         }
     }
 
-    /** Maps an existing request to the same response shape as a successful submission. */
     private PublicPartnershipRequestResponse toResponse(PartnershipRequest partnershipRequest) {
         List<PartnershipRequestItem> items =
                 itemRepository.findByPartnershipRequest_RequestId(partnershipRequest.getRequestId());

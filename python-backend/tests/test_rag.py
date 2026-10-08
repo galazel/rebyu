@@ -85,7 +85,7 @@ def ns(monkeypatch):
     for namespace in created:
         try:
             store.delete_index(namespace)
-        except Exception:  # a leaked test collection is harmless
+        except Exception:
             pass
 
 
@@ -105,7 +105,6 @@ def test_chunking_respects_boundaries_and_stamps_metadata():
         assert chunk.metadata["page"] == 3
         assert "chunk_index" in chunk.metadata
 
-    # Old implementation sliced blindly every N chars and cut mid-word.
     assert not any(chunk.page_content.startswith(" ") for chunk in chunks)
 
 
@@ -113,7 +112,6 @@ def test_chunking_empty_input_returns_empty():
     assert chunk_documents([]) == []
 
 
-# namespacing
 
 def test_namespace_prefers_id_and_slugifies_name():
     assert namespace_for(certification_id=12) == "cert_12"
@@ -121,7 +119,6 @@ def test_namespace_prefers_id_and_slugifies_name():
     assert namespace_for() == "cert-unknown"
 
 
-# store
 
 def test_add_documents_creates_then_appends(stub, ns):
     ns = ns(1)
@@ -133,7 +130,6 @@ def test_add_documents_creates_then_appends(stub, ns):
     add_documents(ns, [Document(page_content="database indexing", metadata={})], embeddings=stub)
 
     index = load_index(ns, stub)
-    # Appended, not replaced: both chunks must survive.
     assert count(ns) == 2
 
 
@@ -162,7 +158,6 @@ def test_delete_index(stub, ns):
     assert delete_index(ns) is False
 
 
-# retrieval
 
 def test_retrieve_returns_scoped_results(stub, monkeypatch, ns):
     monkeypatch.setattr(get_settings(), "rag_rerank_enabled", False, raising=False)

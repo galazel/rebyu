@@ -12,13 +12,6 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Learner-scoped portal snapshot. Every list is filtered to the authenticated learner
- * server-side, replacing the old browser-side filtering of global lists (all learners,
- * all users, all completed lessons, all exam results, all org allocations).
- *
- * Includes gamification (XP, coins) and BKT mastery state.
- */
 public record LearnerPortalDto(
         LearnerDto learner,
         UserDto user,
@@ -27,22 +20,13 @@ public record LearnerPortalDto(
         List<ExamResultDto> examResults,
         List<InstitutionCertificationLearnerDto> institutionCertLearners,
         List<InstitutionCertificateDto> institutionCertificates,
-        // The whole achievement catalog with this learner's earned ones flagged,
-        // so the portal can show both what they have and what is left to chase.
         List<LearnerAchievementViewDto> achievements,
-        // Gamification
         Long totalXp,
         BigDecimal coinBalance,
         Long aiCreditsRemaining,
-        // BKT mastery per certification (certificationId -> mastery level 0-4)
         Map<Long, Integer> masteryByMasteryByCertification,
-        // Lessons read and assessments passed per enrolled certification,
-        // counted by ProgressAnalyticsService -- the same rules the analytics
-        // board uses. Sent from here so the My Learning cards stop deriving a
-        // second, lesson-only progress figure in the browser.
         List<CertificationProgressDto> certificationProgress
 ) {
-    // Convenience constructor without gamification (backwards compatible)
     public LearnerPortalDto(
             LearnerDto learner,
             UserDto user,

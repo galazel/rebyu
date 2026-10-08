@@ -48,7 +48,6 @@ import InstitutionDrilldownStatsCard from "@/components/institution/institution-
 import { getDepartmentColor, getDepartmentAbbreviation } from "@/constants/departments.js"
 import { DateRangeNavigator } from "@/components/commons/date-range-navigator.jsx"
 
-/** The three lines, named once so the chart and its legend cannot disagree. */
 const TREND_SERIES = [
   { key: "lessons", name: "Lessons completed" },
   { key: "attempts", name: "Graded attempts" },
@@ -66,7 +65,6 @@ const EMPTY_DASHBOARD = {
   invitations: { pending: 0, recent: [] },
 }
 
-/** Not-yet-measured reads as a dash. A zero would claim a fact we do not have. */
 function count(value) {
   return value == null ? "—" : Number(value).toLocaleString()
 }
@@ -75,13 +73,6 @@ function percent(value, digits = 0) {
   return value == null ? "—" : `${Number(value).toFixed(digits)}%`
 }
 
-/**
- * The local calendar date, as the API's `from`/`to` want it.
- *
- * Not `toISOString().slice(0, 10)`: that converts to UTC first, so anyone east
- * of Greenwich asking for "today" would send yesterday. Manila is UTC+8, which
- * is every hour of the working day.
- */
 function isoDate(date) {
   if (!date) return null
   const month = String(date.getMonth() + 1).padStart(2, "0")
@@ -89,11 +80,6 @@ function isoDate(date) {
   return `${date.getFullYear()}-${month}-${day}`
 }
 
-/**
- * A trend bucket's label, at the resolution the server bucketed by -- it picks
- * hour, day or month from the length of the range, so the axis never has to
- * choose between 24 labels and 365 of them.
- */
 function bucketLabel(value, granularity) {
   if (!value) return ""
   const at = new Date(value)
@@ -107,10 +93,6 @@ function bucketLabel(value, granularity) {
   return at.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
-/**
- * Standardized premium card header matching the institution analytics standard:
- * Icon badge (rounded-lg with emerald tint) + uppercase kicker + bold title + hint/chips.
- */
 function DashboardCardHeader({
   icon: Icon,
   kicker,
@@ -156,15 +138,6 @@ function DashboardCardHeader({
   )
 }
 
-/**
- * One supporting figure on the "At a glance" strip.
- *
- * Deliberately smaller than a `BentoStat`: these are the numbers you read after
- * the three gauges, not instead of them, and giving each one a card of its own
- * was what turned the top of this board into a wall of boxes. No border, no
- * fill -- the strip's own tile is the container, and the icon is muted so a row
- * of five does not read as five buttons.
- */
 function Figure({ icon: Icon, label, value, hint, alert = false }) {
   return (
     <div className="flex min-w-0 items-start gap-3">
@@ -199,15 +172,7 @@ export default function InstitutionDashboardPage() {
     useOutletContext()
   const layout = useDashboardLayout("institution")
 
-  /* The period selected above the board. Held here rather than inside the
-     navigator because it is a query parameter: the navigator used to be a shell
-     that moved a label and changed nothing.
 
-     Seeded with the navigator's own default -- this year -- so the first render
-     asks for the same range the navigator reports back on mount. Starting empty
-     would fetch twice, and the query cannot simply wait for the navigator: the
-     loading branch below renders a skeleton in its place, so nothing would ever
-     mount to report a range. */
   const [range, setRange] = useState(() => {
     const now = new Date()
     return {
@@ -220,20 +185,10 @@ export default function InstitutionDashboardPage() {
   const from = isoDate(range?.from)
   const to = isoDate(range?.to)
 
-  /* One read, one snapshot. The board used to stitch four together -- learning
-     stats, group stats, the department list and the portal overview -- and then
-     fill in everything the joins between them did not carry: a department with
-     no slots was drawn as ten, seats came from a stored counter that had drifted
-     from the roster, and a learner's practice on a certification the institution
-     never licensed counted towards its pass rate. Every figure below is now
-     counted from the rows themselves, server-side, so two tiles reading the same
-     thing cannot disagree. */
   const dashboardQuery = useQuery({
     queryKey: ["institution-dashboard", institution?.institutionId, from, to],
     queryFn: () => getInstitutionDashboard({ from, to }),
     enabled: institution?.institutionId != null,
-    // Keep the board on screen while a new period loads; a full skeleton on
-    // every arrow press reads as the page reloading rather than as a filter.
     placeholderData: (previous) => previous,
     retry: 1,
   })
@@ -261,12 +216,6 @@ export default function InstitutionDashboardPage() {
     [dashboard.trend, dashboard.range]
   )
 
-  /* What the period adds up to. The chart's own legend states the *last*
-     bucket, which on any range that ends quietly -- a month read on its last
-     day, a year read in January -- puts three zeros under a line with a visible
-     spike in it. Lessons and attempts sum; active learners cannot, because the
-     same person active in two buckets is one learner, so that one comes from
-     the summary, which counts them distinctly across the whole range. */
   const trendTotals = useMemo(
     () => ({
       lessons: trendData.reduce((sum, point) => sum + Number(point.lessons ?? 0), 0),
@@ -333,7 +282,6 @@ export default function InstitutionDashboardPage() {
             className="relative overflow-hidden border border-teal-500/35 bg-cover bg-center shadow-xs text-white"
             style={{ backgroundImage: "url('/images/cards/learner-capacity-card-bg.jpg')" }}
           >
-            {/* Left-side scrim overlay for clear text contrast */}
             <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent pointer-events-none" />
 
             <div className="relative z-10 flex h-full flex-col justify-between">
@@ -393,9 +341,7 @@ export default function InstitutionDashboardPage() {
                 title="Institutional Average Progress"
               />
 
-              {/* Main Content: Left Hero (Radial Gauge + Big %) & Right 2x2 Metric Grid */}
               <div className="my-auto grid grid-cols-1 items-center gap-4 sm:grid-cols-12 py-1">
-                {/* Left Column (5 cols): Beaded Ring Gauge & Stat Hero (styled like reference) */}
                 <div className="sm:col-span-5 flex items-center justify-center pl-4 min-w-0">
                   <BeadedRadialGauge
                     value={Number(summary.averageProgress) || 0}
@@ -403,7 +349,6 @@ export default function InstitutionDashboardPage() {
                   />
                 </div>
 
-                {/* Right Column (7 cols): 2x2 Grid of Key Learning Metrics */}
                 <div className="grid grid-cols-2 gap-2 sm:col-span-7">
                   <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
                     <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -447,7 +392,6 @@ export default function InstitutionDashboardPage() {
                 </div>
               </div>
 
-              {/* Bottom Cohort Status Summary */}
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-1.5">
@@ -471,13 +415,6 @@ export default function InstitutionDashboardPage() {
         ),
       },
       {
-        /* Six one-row stat boxes used to sit here -- lessons, attempts, score,
-           certs, pending invitations, needing support -- each with its own
-           border, its own icon chip and its own 48px number. Side by side they
-           read as six things of equal weight, which is exactly what they are
-           not: they are the supporting figures under the three gauges above.
-           One strip states them in a row, so the board has three headline
-           tiles and one line of detail rather than nine competing boxes. */
         id: "ent-key-figures",
         col: 6,
         row: 1,
@@ -519,9 +456,6 @@ export default function InstitutionDashboardPage() {
                 label="Needing support"
                 value={count(summary.needingSupport)}
                 hint="Unfinished, below 30%"
-                /* The one figure on this strip that is a call to action rather
-                   than a record of what happened, so it is the one allowed to
-                   carry colour. */
                 alert={summary.needingSupport > 0}
               />
             </dl>
@@ -581,11 +515,6 @@ export default function InstitutionDashboardPage() {
         ),
       },
       {
-        /* The one tile the period selector above the board exists for. Progress
-           is current state and cannot be replayed over time, so this plots what
-           the institution's learners actually did inside the range -- bucketed
-           by hour, day or month by the server, whichever the range's length
-           calls for. */
         id: "ent-activity-trend",
         col: 6,
         row: 2,
@@ -599,9 +528,6 @@ export default function InstitutionDashboardPage() {
               title="Lessons, Attempts & Active Learners"
               hint="Work done inside the selected period, on certifications this institution licenses."
             />
-            {/* Lines, not stacked areas: three counts on very different
-                scales -- a year of lessons against a handful of learners --
-                and a stack would add them into a total nobody asked for. */}
             <TrendLineChart
               data={trendData}
               xKey="label"
@@ -673,14 +599,14 @@ export default function InstitutionDashboardPage() {
                 <div className="min-h-0 flex-1 overflow-x-auto [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)] md:[mask-image:none]">
                   <table className="w-full text-sm" style={{ minWidth: 680 }}>
                     <colgroup>
-                      <col style={{ width: "22%" }} />   {/* Department */}
-                      <col style={{ width: "10%" }} />   {/* Learners */}
-                      <col style={{ width: "18%" }} />   {/* Avg Progress */}
-                      <col style={{ width: "10%" }} />   {/* Completed */}
-                      <col style={{ width: "10%" }} />   {/* In Progress */}
-                      <col style={{ width: "10%" }} />   {/* Lessons */}
-                      <col style={{ width: "10%" }} />   {/* Attempts */}
-                      <col style={{ width: "10%" }} />   {/* Avg Score */}
+                      <col style={{ width: "22%" }} />
+                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "18%" }} />
+                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "10%" }} />
+                      <col style={{ width: "10%" }} />
                     </colgroup>
                     <thead className="sticky top-0 bg-background z-10">
                       <tr className="border-b border-transparent text-xs font-semibold text-muted-foreground">
@@ -700,7 +626,6 @@ export default function InstitutionDashboardPage() {
                           key={row.departmentId ?? "unassigned"}
                           className="border-b border-border/40 hover:bg-muted/40 transition-colors duration-150"
                         >
-                          {/* Department name with open-ring badge */}
                           <td className="py-2.5 pl-2 pr-3">
                             <div className="flex items-center gap-2.5 min-w-0">
                               <span
@@ -718,7 +643,6 @@ export default function InstitutionDashboardPage() {
                             </div>
                           </td>
 
-                          {/* Learner count - centered */}
                           <td className="py-2.5 px-2 text-center">
                             <div className="flex justify-center">
                               <span className="inline-flex items-center gap-1 rounded-full border border-border/40 bg-muted/30 px-2 py-0.5 text-xs font-semibold tabular-nums">
@@ -728,7 +652,6 @@ export default function InstitutionDashboardPage() {
                             </div>
                           </td>
 
-                          {/* Avg progress bar — smooth rounded ends */}
                           <td className="py-2.5 px-3">
                             <div className="flex items-center gap-2 max-w-[130px]">
                               <Progress
@@ -742,31 +665,26 @@ export default function InstitutionDashboardPage() {
                             </div>
                           </td>
 
-                          {/* Completed - centered */}
                           <td className="py-2.5 px-2 text-center tabular-nums text-xs">
                             <span className="font-semibold text-emerald-700 dark:text-emerald-400">
                               {count(row.completed)}
                             </span>
                           </td>
 
-                          {/* In progress - centered */}
                           <td className="py-2.5 px-2 text-center tabular-nums text-xs">
                             <span className={`font-semibold ${row.inProgress > 0 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`}>
                               {count(row.inProgress)}
                             </span>
                           </td>
 
-                          {/* Lessons - centered */}
                           <td className="py-2.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
                             {count(row.lessonsCompleted)}
                           </td>
 
-                          {/* Attempts - centered */}
                           <td className="py-2.5 px-2 text-center tabular-nums text-xs text-muted-foreground">
                             {count(row.gradedAttempts)}
                           </td>
 
-                          {/* Avg score - centered */}
                           <td className="py-2.5 px-2 text-center tabular-nums text-xs font-semibold text-foreground">
                             {percent(row.averageScore)}
                           </td>
@@ -946,7 +864,6 @@ export default function InstitutionDashboardPage() {
         <InstitutionErrorState onRetry={dashboardQuery.refetch} />
       ) : (
         <>
-          {/* Toolbar row: Date range navigator directly above the big card, rearrange controls on the right */}
           <div className="relative z-30 flex flex-wrap items-center justify-between gap-4 mb-2.5">
             <div className="w-full md:w-[calc(50%-10px)]">
               <DateRangeNavigator className="w-full" onRangeChange={handleRangeChange} />
@@ -968,11 +885,6 @@ export default function InstitutionDashboardPage() {
             </div>
           </div>
 
-          {/* The four chart panels that used to sit here were fed from
-              components/charts/sample-data.js -- invented months, invented group
-              names, a donut whose centre read "120 learners" regardless of the
-              roster. They are replaced by the institution's own figures rather
-              than kept behind a "sample data" chip. */}
           <DashboardBoard
             tiles={tiles}
             layout={layout.tileLayout}

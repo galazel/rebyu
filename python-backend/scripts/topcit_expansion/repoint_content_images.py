@@ -22,7 +22,6 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-#: Image constant -> the slug of the drawn figure that replaces it.
 CONSTANTS = {
     "OSI_DIAGRAM": "osi-reference-model",
     "ENCAP_DIAGRAM": "encapsulation",
@@ -69,7 +68,6 @@ PATH = '"/lesson-media/%s.svg"'
 def rewrite(source):
     changed = 0
 
-    # The constant is a parenthesised split string; collapse it to one path.
     for name, slug in CONSTANTS.items():
         pattern = re.compile(r"^%s = \([^)]*\)\s*$" % re.escape(name), re.MULTILINE)
         replacement = "%s = %s" % (name, PATH % slug)
@@ -80,14 +78,12 @@ def rewrite(source):
         source, count = simple.subn(replacement, source)
         changed += count
 
-    # A figure we drew has no external source to credit.
     source, calls = re.subn(
         r"image\((\w+_DIAGRAM),\s*\w+_SOURCE,\s*\"[^\"]*\"\)",
         r"image(\1)",
         source,
     )
 
-    # The now-unused source constants would fail lint and confuse the next reader.
     source = re.sub(r"^\w+_SOURCE = \([^)]*\)\s*\n", "", source, flags=re.MULTILINE)
     source = re.sub(r'^\w+_SOURCE = "[^"]*"\s*\n', "", source, flags=re.MULTILINE)
 

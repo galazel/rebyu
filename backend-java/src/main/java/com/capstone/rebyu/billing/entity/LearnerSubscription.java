@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/** A learner's personal (B2C) subscription to an individual plan. */
 @Entity
 @Table(name = "learner_subscriptions")
 @Data
@@ -58,11 +57,6 @@ public class LearnerSubscription {
     @Column(name = "ended_at")
     private LocalDateTime endedAt;
 
-    /*
-     * The admin review step. PayMongo runs in test mode, so a "paid" checkout is
-     * not money: a paid subscription waits in PENDING until an admin approves it
-     * (ACTIVE, period starts then) or rejects it (CANCELED, with a note).
-     */
     @Column(name = "amount_paid", precision = 12, scale = 2)
     private java.math.BigDecimal amountPaid;
 
@@ -78,8 +72,6 @@ public class LearnerSubscription {
     @Column(name = "review_note", length = 500)
     private String reviewNote;
 
-    /* A rejected payment is sent back. The refund id is PayMongo's; null on a
-       rejection means the refund could not be made and must be done by hand. */
     @Column(name = "refund_id", length = 100)
     private String refundId;
 
@@ -92,12 +84,10 @@ public class LearnerSubscription {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    /** Paid through checkout and waiting for an admin to approve it. */
     public boolean isAwaitingApproval() {
         return status == BillingStatus.PENDING && paidAt != null;
     }
 
-    /** Active only while its status grants access AND the period has not lapsed. */
     public boolean isCurrentlyActive() {
         if (!status.grantsAccess()) {
             return false;

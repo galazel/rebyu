@@ -27,8 +27,6 @@ public class LearnerReadSectionService {
                 .toList();
     }
 
-    // Idempotent by design: the lesson's scroll check calls this every time a
-    // section's sentinel crosses the fold, not just the first time.
     public void markRead(Long learnerId, Long lessonId, String sectionKey) {
         LearnerReadSectionId id = new LearnerReadSectionId();
         id.setLearnerId(learnerId);

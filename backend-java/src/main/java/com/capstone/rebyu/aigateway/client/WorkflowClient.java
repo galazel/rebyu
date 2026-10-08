@@ -16,18 +16,6 @@ import reactor.core.publisher.Flux;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Client for the Python AI backend's workflow-run registry: which generation
- * runs exist, what each has done, which are paused for a human, and the live
- * event stream behind the Generation Workspace.
- *
- * <p>Payloads are passed through as {@code Map}/{@code String} rather than
- * mirrored into DTOs. This is a proxy: Java does not interpret a validation
- * report or a generated lesson, it forwards them. Mirroring Python's artifact
- * shapes here would recreate exactly the ~70 tool-mirror DTOs Phase 1 deleted,
- * and every prompt change in Python would become a Java compile error for no
- * added safety.
- */
 @Slf4j
 @Component
 public class WorkflowClient {
@@ -73,11 +61,6 @@ public class WorkflowClient {
         }, "Fetch versions for run " + runId);
     }
 
-    /**
-     * The artifact a paused run is asking a human to judge, with its validation
-     * report and version refs. Lives in the LangGraph interrupt rather than the
-     * event log, so it needs its own fetch.
-     */
     public Map<String, Object> getPendingReview(String runId) {
         return get(uri -> uri.path("/workflows/{runId}/review").build(runId),
                 "Fetch pending review for run " + runId);
@@ -87,16 +70,6 @@ public class WorkflowClient {
         return postToRun("/workflows/{runId}/cancel", runId, "Cancel workflow run ");
     }
 
-    /**
-     * Stops and erases everything the AI service holds for a certification:
-     * its generation runs (cancelled first, then deleted with their event
-     * logs) and its indexed document vectors.
-     *
-     * <p>Called when a certification is deleted. Without it, a run in flight
-     * kept authoring lessons and questions against rows that no longer
-     * existed, and its timeline stayed in the generation workspace pointing at
-     * a certification nobody could open.
-     */
     public Map<String, Object> purgeCertification(Long certificationId) {
         try {
             return webClient.delete()
@@ -109,56 +82,26 @@ public class WorkflowClient {
         }
     }
 
-    /**
-     * Re-runs the single step a failed run died on, keeping everything before
-     * it. LangGraph checkpoints after every superstep, so the thread is still
-     * parked with the failed node pending.
-     */
     public Map<String, Object> retryRun(String runId) {
         return postToRun("/workflows/{runId}/retry", runId, "Retry workflow run ");
     }
 
-    /**
-     * Discards a failed run's checkpoints and starts it again from step one,
-     * re-reading the certification's documents so anything uploaded since the
-     * failure is picked up.
-     */
     public Map<String, Object> restartRun(String runId) {
         return postToRun("/workflows/{runId}/restart", runId, "Restart workflow run ");
     }
 
-    /**
-     * Submits a reviewer's decision for a certification run paused at a HITL
-     * checkpoint. {@code decision} carries action plus any instructions, edited
-     * payload, or restored-from revision.
-     */
     public Map<String, Object> resumeCertification(String threadId, Map<String, Object> decision) {
         return post("/certification/{threadId}/resume", threadId, decision);
     }
 
-    /**
-     * Switches a certification run between supervised and unattended while it
-     * is running, so an admin who no longer wants to be asked at every
-     * checkpoint can let it finish on its own.
-     */
     public Map<String, Object> setCertificationReviewMode(String threadId, Map<String, Object> body) {
         return post("/certification/{threadId}/review-mode", threadId, body);
     }
 
-    /** The question-bank equivalent, which reviews a whole batch at a time. */
     public Map<String, Object> reviewQuestionBatch(String threadId, Map<String, Object> decision) {
         return post("/question-bank/{threadId}/review", threadId, decision);
     }
 
-    /**
-     * Opens Python's SSE timeline for one run.
-     *
-     * <p>Returned as a {@link Flux} rather than blocked on, because the caller
-     * relays it to a browser as it arrives. {@code lastEventId} is forwarded so
-     * a reconnecting browser's replay cursor reaches Python intact -- without
-     * it, a reconnect would re-send the whole history and the timeline would
-     * render duplicates.
-     */
     public Flux<ServerSentEvent<String>> streamTimeline(String runId, String lastEventId) {
         WebClient.RequestHeadersSpec<?> request = webClient.get()
                 .uri(uri -> uri.path("/workflows/{runId}/stream").build(runId))
@@ -192,7 +135,6 @@ public class WorkflowClient {
         }
     }
 
-    /** A bodyless POST addressed by run id -- cancel, retry, restart. */
     private Map<String, Object> postToRun(String path, String runId, String what) {
         try {
             return webClient.post()
@@ -207,15 +149,6 @@ public class WorkflowClient {
         }
     }
 
-    /**
-     * Turns Python's error response into one the browser can act on.
-     *
-     * <p>A 4xx here is a decision, not a malfunction: "only failed runs can be
-     * retried", "that run was cancelled". Collapsing it into a 500 threw away
-     * both the status and the sentence explaining it, so the workspace could
-     * only show a generic failure. 5xx stays an {@link AiServiceException} —
-     * that really is Python breaking.
-     */
     private RuntimeException refusal(WebClientResponseException e, String fallback) {
         if (!e.getStatusCode().is4xxClientError()) {
             return new AiServiceException(fallback, e);
@@ -226,14 +159,11 @@ public class WorkflowClient {
                 detailOf(e).orElse(fallback));
     }
 
-    /** FastAPI puts the human-readable reason in {@code detail}. */
     private Optional<String> detailOf(WebClientResponseException e) {
         try {
             Object detail = e.getResponseBodyAs(Map.class).get("detail");
             return detail == null ? Optional.empty() : Optional.of(String.valueOf(detail));
         } catch (Exception ignored) {
-            // A non-JSON or unexpected body is not worth failing over -- the
-            // caller's fallback message still names the action that failed.
             return Optional.empty();
         }
     }

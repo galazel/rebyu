@@ -46,7 +46,6 @@ public class LearnerCertification {
     @Column(nullable = false, length = 20)
     private Status status = Status.active;
 
-    /** Set once the learner submits the certification's diagnostic assessment. */
     @Column(name = "diagnostic_completed_at")
     private LocalDateTime diagnosticCompletedAt;
 

@@ -22,7 +22,7 @@ public class AuditService {
     log.setEntityId(entityId);
     log.setDetails(details);
     log.setTimestamp(LocalDateTime.now());
-    log.setIpAddress("unknown"); // Would extract from request context in real impl
+    log.setIpAddress("unknown");
     auditLogRepository.save(log);
   }
 

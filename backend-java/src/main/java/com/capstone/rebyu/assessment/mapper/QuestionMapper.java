@@ -24,19 +24,9 @@ public abstract class QuestionMapper {
     @Mapping(source = "createdBy.userId", target = "createdByUserId")
     @Mapping(source = "createdBy.email", target = "createdByEmail")
     @Mapping(source = "ownerDepartment.departmentId", target = "ownerDepartmentId")
-    // Derived below rather than mapped: it has no column of its own.
     @Mapping(target = "criticalThinkingType", ignore = true)
     public abstract QuestionDto toDto(Question entity);
 
-    /**
-     * Tells the two workspace task kinds apart by which config the question
-     * carries.
-     *
-     * <p>`question_type` says only CRITICAL_THINKING for both, so a reader with
-     * the DTO alone could not distinguish a coding task from a modelling one.
-     * The one-to-one config is the distinguishing fact, and it is already
-     * loaded with the entity.
-     */
     @AfterMapping
     protected void afterToDto(Question entity, @MappingTarget QuestionDto dto) {
         if (entity.getProgrammingQuestionConfig() != null) {
@@ -46,8 +36,6 @@ public abstract class QuestionMapper {
         }
     }
 
-    // createdBy/createdAt are never taken from client input -- the service
-    // sets them explicitly from the authenticated caller on create.
     @Mapping(source = "lessonId", target = "lesson.lessonId")
     @Mapping(target = "parentQuestion", ignore = true)
     @Mapping(target = "choices", ignore = true)

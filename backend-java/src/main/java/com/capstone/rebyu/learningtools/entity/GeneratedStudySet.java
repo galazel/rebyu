@@ -40,14 +40,12 @@ public class GeneratedStudySet {
     @JoinColumn(name = "lesson_id", nullable = false)
     private Lesson lesson;
 
-    /** QUIZ | FLASHCARD (see V30 CHECK constraint). */
     @Column(name = "study_type", nullable = false, length = 24)
     private String studyType;
 
     @Column(nullable = false, length = 180)
     private String title;
 
-    /** TUTOR_AI | COMMUNITY (see V30 CHECK constraint). */
     @Column(nullable = false, length = 24)
     @Builder.Default
     private String source = "TUTOR_AI";

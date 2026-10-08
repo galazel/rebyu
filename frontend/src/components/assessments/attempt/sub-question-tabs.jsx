@@ -4,8 +4,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
-// Tabbed editor for critical-thinking sub-questions. Answers are kept in the
-// parent's answer state and submitted together with the whole assessment.
 export default function SubQuestionTabs({
   subQuestions,
   answers,

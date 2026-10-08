@@ -29,15 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Thin trigger: curriculum generation itself is performed entirely by the
- * Python AI backend's async LangGraph workflow, triggered by the RabbitMQ
- * message published here. This class only creates/clears the certification
- * shell, records the source documents, and publishes the trigger -- it does
- * not call the AI or persist AI-generated structure itself, since that is
- * now the consumer's job (see python-backend's
- * app/messaging/handlers/certification_generation.py).
- */
 @Slf4j
 @Service
 public class CurriculumGenerationService {
@@ -76,14 +67,6 @@ public class CurriculumGenerationService {
         this.objectMapper = objectMapper;
     }
 
-    /**
-     * Creates a bare certification shell and hands off the actual curriculum
-     * generation to the Python AI backend's LangGraph workflow via the
-     * RabbitMQ trigger below -- Java no longer calls the AI synchronously or
-     * persists AI-generated structure itself (that would race with, and
-     * duplicate, whatever the async consumer writes). The returned DTO has
-     * an empty category list until the consumer completes generation.
-     */
     @Transactional
     public CertificationDto generateForNewCertification(
             CertificationDto dto,
@@ -92,11 +75,7 @@ public class CurriculumGenerationService {
             Long triggeredByUserId,
             String reviewMode,
             List<String> questionTypes,
-            /* How many question-bank items to author, or null to keep the
-               configured size. */
             Integer questionBankSize,
-            /* How many lessons the curriculum should hold in total, or null
-               to keep the configured per-category ranges. */
             Integer lessonCount
     ) throws IOException {
         aiUploadValidator.validate(files);
@@ -113,19 +92,11 @@ public class CurriculumGenerationService {
                 lessonCount);
         publishAfterCommit(request.getGenerationRequestId(), certificationId);
 
-        // Ingest the source so the async consumer (and later, per-lesson
-        // generation) can read it back by certification id.
         ingestFiles(files, certificationId);
 
         return self.fetchCertificationDto(certificationId);
     }
 
-    /**
-     * Same async hand-off as {@link #generateForNewCertification}, but for
-     * an existing certification: the current structure is cleared first
-     * (ordinary data cleanup, not AI) so the consumer inserts into a clean
-     * slate instead of appending to stale rows.
-     */
     @Transactional
     public CertificationDto generateForExistingCertification(
             Long certificationId,
@@ -152,25 +123,6 @@ public class CurriculumGenerationService {
         return self.fetchCertificationDto(certificationId);
     }
 
-    /**
-     * Adds to a certification instead of rebuilding it.
-     *
-     * <p>The difference from {@link #generateForExistingCertification} is the
-     * one thing that method does first: it clears the structure. That is right
-     * when an admin wants the curriculum rebuilt, and destructive when they
-     * want another domain added -- and until now those were the same button,
-     * so extending a certification meant re-authoring every lesson already
-     * paid for and losing every question and assessment attached to them.
-     *
-     * <p>Nothing is deleted here. The new documents are ingested alongside the
-     * existing ones, and the consumer is told to plan only what they add; the
-     * persistence layer already matches on name, so anything the planner does
-     * repeat is skipped rather than duplicated.
-     *
-     * <p>No {@code assertStructureReplaceable} check either: that guard exists
-     * to stop an admin destroying a published certification's structure, and
-     * an append destroys nothing.
-     */
     @Transactional
     public CertificationDto appendToExistingCertification(
             Long certificationId,
@@ -179,17 +131,9 @@ public class CurriculumGenerationService {
             Long triggeredByUserId,
             String reviewMode,
             List<String> questionTypes,
-            /* How many question-bank items to author, or null to keep the
-               configured size. */
             Integer questionBankSize,
-            /* How many lessons the curriculum should hold in total, or null
-               to keep the configured per-category ranges. */
             Integer lessonCount
     ) throws IOException {
-        // Documents are optional here: an admin may add from instructions
-        // alone ("Add the Business and Ethics domain"), and the planner works
-        // from its own knowledge and research. One of the two is required --
-        // with neither there is nothing to say what to add.
         boolean hasFiles = files != null && files.stream().anyMatch(f -> f != null && !f.isEmpty());
         if (hasFiles) {
             aiUploadValidator.validate(files);
@@ -214,32 +158,8 @@ public class CurriculumGenerationService {
         return self.fetchCertificationDto(certificationId);
     }
 
-    /**
-     * Queues the generation request, but only once the surrounding transaction
-     * has actually committed.
-     *
-     * Publishing inline was a dual-write race, and a reliably losing one. These
-     * methods are {@code @Transactional}, and the publish sat before
-     * {@code ingestFiles(...)} â€” which uploads to S3 and extracts images, so it
-     * can run for many seconds. The consumer received the message immediately,
-     * looked up the generation request, and found nothing, because the inserting
-     * transaction had not committed yet:
-     *
-     *   WARNING | generation_request 5 or certification 5 not found, dropping message
-     *
-     * Every generation was lost this way. The window was wide enough that it
-     * failed essentially every time rather than intermittently, which is the
-     * only reason it was easy to spot.
-     *
-     * Registering on {@code afterCommit} means the message is published exactly
-     * when the data it refers to becomes visible to other connections. If the
-     * transaction rolls back, no message is sent at all â€” previously a rollback
-     * still left a message pointing at a row that never existed.
-     */
     private void publishAfterCommit(Long generationRequestId, Long certificationId) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            // No surrounding transaction (a direct call, or a test): publishing
-            // immediately is correct and there is nothing to wait for.
             generationRequestProducer.publishCertificationGenerationRequested(
                     generationRequestId, certificationId);
             return;
@@ -335,11 +255,6 @@ public class CurriculumGenerationService {
         return contexts;
     }
 
-    /**
-     * Anything other than an explicit "auto" is supervised. Unrecognised input
-     * must not silently turn a run the admin meant to review into one that
-     * finishes without them.
-     */
     private String normalizeReviewMode(String reviewMode) {
         return reviewMode != null && "auto".equalsIgnoreCase(reviewMode.trim()) ? "auto" : "guided";
     }
@@ -360,29 +275,10 @@ public class CurriculumGenerationService {
                 null, null, null);
     }
 
-    /** Build the whole curriculum from scratch. */
     static final String MODE_REPLACE = "replace";
 
-    /**
-     * Add to what is already there.
-     *
-     * <p>Read by the Python consumer, which plans against the existing
-     * curriculum and asks only for what the new documents add -- so the lesson
-     * agent never re-authors a lesson that exists. Recorded on the request row
-     * rather than the queue message, for the same reason reviewMode is: a
-     * retry re-reads this row, and a retry that quietly turned an append into
-     * a replace would delete the certification it was meant to extend.
-     */
     static final String MODE_APPEND = "append";
 
-    /**
-     * @param questionTypes the formats the admin ticked (MCQ, SHORT_ANSWER,
-     *        DESCRIPTIVE, CRITICAL_THINKING), or null/empty to let the planner
-     *        research them. Recorded on the request row rather than the queue
-     *        message so a retry keeps the admin's answer -- a retry that lost
-     *        it would silently rebuild the certification with different
-     *        question formats than the one being repaired.
-     */
     private GenerationRequest recordGenerationRequest(
             Long certificationId, GenerationRequest.RequestType type, String additionalInstructions,
             Long triggeredByUserId, String reviewMode, String mode, List<String> questionTypes,
@@ -391,27 +287,10 @@ public class CurriculumGenerationService {
         try {
             paramsJson = objectMapper.writeValueAsString(Map.of(
                     "additionalInstructions", additionalInstructions == null ? "" : additionalInstructions,
-                    // Read back by Python when it seeds the run: "guided"
-                    // pauses at every review checkpoint, "auto" generates
-                    // straight through. Recorded on the request rather than
-                    // sent on the queue message so a retry or restart -- which
-                    // re-reads this row -- keeps the admin's choice.
                     "reviewMode", normalizeReviewMode(reviewMode),
                     "mode", mode,
-                    // Empty list = "the planner decides", which is what every
-                    // run did before this was offered.
                     "questionTypes", questionTypes == null ? List.of() : questionTypes,
-                    // How many bank questions this run should author. Empty
-                    // string = "use the configured size", which is what every
-                    // run did before the create form offered the number. The
-                    // bank is the most expensive artefact a run produces and
-                    // its size was previously only changeable by editing .env
-                    // and restarting, so it was effectively fixed for everyone.
                     "questionBankSize", questionBankSize == null ? "" : questionBankSize,
-                    // How many lessons the whole curriculum should hold. Empty
-                    // string = keep the configured per-level ranges, which
-                    // MULTIPLY out to a total no admin could predict from the
-                    // form.
                     "lessonCount", lessonCount == null ? "" : lessonCount));
         } catch (Exception e) {
             paramsJson = null;

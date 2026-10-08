@@ -9,12 +9,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/**
- * A section inside a department (institution group): the department head's
- * own subdivision -- a class, a batch, a block -- that learners are invited
- * into and tracked under. Archiving a section keeps its learners in the
- * department; only the grouping goes.
- */
 @Entity
 @Table(name = "institution_sections",
         indexes = @Index(name = "ix_institution_sections_group", columnList = "department_id"))

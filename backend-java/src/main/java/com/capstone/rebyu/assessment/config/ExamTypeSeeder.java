@@ -14,64 +14,21 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Guarantees the assessment types the application cannot function without.
- *
- * <p>These were seeded only by Flyway migrations (V8, V16). That is fine when
- * Flyway runs — but this database has no {@code flyway_schema_history} table
- * at all, so it never did: the schema came from Hibernate {@code ddl-auto:
- * update}, which creates tables from entities and knows nothing about the
- * INSERTs in a migration file. The result was an {@code exam_types} table that
- * existed and was empty, and a certification generation that produced seven
- * assessments and saved none of them:
- *
- * <pre>
- *   exam_type 'LESSON_QUIZ' is not seeded; 'Introduction to ... Quiz' was not saved.
- * </pre>
- *
- * <p>Reference data an application depends on to store its own output should
- * not be contingent on which schema tool happened to run, so it is asserted at
- * startup instead. Idempotent: only missing rows are inserted, so this is a
- * no-op on a database where the migrations did run.
- *
- * <p>Deliberately additive. Nothing is renamed or deleted — {@code QUIZ} and
- * {@code MODULE_EXAM} from V8 predate the major/middle/lesson scopes and may
- * still be attached to existing exams.
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class ExamTypeSeeder implements ApplicationRunner {
 
-    /**
-     * The scopes the generation pipeline emits, from
-     * {@code app.domain.persistence.exam_type_for_scope} in the Python
-     * service. Every one of these must resolve to a row or that assessment is
-     * silently dropped.
-     */
     private static final List<String> REQUIRED_TYPES = List.of(
             "DIAGNOSTIC",
             "MOCK_EXAM",
             "MAJOR_EXAM",
             "MIDDLE_EXAM",
             "LESSON_QUIZ",
-            // The AI tutor's "generate a quiz/flashcards" action
-            // (LearnerToolsController#generate) writes real exams/questions
-            // under these types instead of the bespoke practice-set tables.
             "GENERATED_QUIZ",
             "GENERATED_FLASHCARD",
-            // The study plan's Active Recall session: a learner-owned exam
-            // assembled from questions they have already got wrong or barely
-            // mastered, rather than authored for a certification.
             "RECALL",
-            // An IT Olympics arena's problem set. One exam per arena, which is
-            // what lets a challenge run be graded by the ordinary attempt
-            // engine instead of a second scoring path.
             "CHALLENGE",
-            // The pop-up knowledge check served while a learner is reading a
-            // lesson, assembled from lessons they have already finished. A real
-            // exam for the same reason RECALL is one: it is the only way the
-            // attempt engine will grade five questions of mixed type.
             "KNOWLEDGE_CHECK");
 
     private final ExamTypeRepository examTypeRepository;

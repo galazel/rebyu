@@ -24,24 +24,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Persists the AI tutor's "generate a quiz" / "generate flashcards" output as
- * a real, attemptable exam -- the same {@code exams}/{@code questions}/
- * {@code choices}/{@code text_question_configs} tables a lesson's own quiz
- * lives in, under the {@code GENERATED_QUIZ}/{@code GENERATED_FLASHCARD} exam
- * types (see {@link com.capstone.rebyu.assessment.config.ExamTypeSeeder}).
- *
- * <p>A quiz item becomes an {@code MCQ} question with real {@link Choice}
- * rows; a flashcard becomes a {@code SHORT_ANSWER} question with a
- * {@link TextQuestionConfig} holding the answer -- exactly how every other
- * short-answer question in REBYU is graded, via
- * {@code AssessmentAttemptService#scoreAnswer}.
- *
- * <p>Published immediately rather than left {@code DRAFT}: unlike
- * certification-content generation (which an admin reviews before
- * publishing), there is no review step in the tutor's real-time "make me a
- * quiz" flow -- the learner asked for it and is standing right there.
- */
 @Service
 @RequiredArgsConstructor
 public class GeneratedAssessmentService {
@@ -49,26 +31,8 @@ public class GeneratedAssessmentService {
     public static final String QUIZ_EXAM_TYPE = "GENERATED_QUIZ";
     public static final String FLASHCARD_EXAM_TYPE = "GENERATED_FLASHCARD";
 
-    /**
-     * The target scope stamped on a practice exam. Named so the readers that
-     * need to tell practice from curriculum can key off this constant rather
-     * than repeat the literal — see
-     * {@code ProgressAnalyticsService#tutorPracticeMarker}.
-     */
     public static final String GENERATED_TARGET_SCOPE = "GENERATED";
 
-    /**
-     * Longest answer that can fairly be marked by exact string comparison.
-     *
-     * Mirrors {@code SHORT_ANSWER_MAX_WORDS} in the Python generator's
-     * {@code question_schema.py}, which reclassifies any longer short answer
-     * as DESCRIPTIVE for exactly this reason: past a handful of words an
-     * answer is prose, and prose has many correct spellings and no canonical
-     * one. This path never goes through that schema -- flashcards are built
-     * here, in Java, straight from the tutor's response -- so the same limit
-     * has to be applied here or the rule holds on one generation path and not
-     * the other.
-     */
     private static final int EXACT_MATCH_MAX_WORDS = 6;
 
     private final LessonRepository lessons;
@@ -77,10 +41,6 @@ public class GeneratedAssessmentService {
     private final QuestionRepository questions;
     private final ExamQuestionRepository examQuestions;
 
-    /** One generated item, already validated -- a quiz item carries
-     * `choices`/`correctAnswer`; a flashcard carries `answer` and leaves
-     * those empty. Kept generic so the controller's JSON parsing stays in
-     * one place regardless of which shape came back from the AI service. */
     public record GeneratedQuestionItem(
             String questionText,
             List<String> choices,
@@ -91,7 +51,6 @@ public class GeneratedAssessmentService {
 
     public record GeneratedExam(Long examId, String title, Long certificationId, int itemCount) {}
 
-    /** @see GeneratedTitles#notAlreadyUsed */
     private String titleNotAlreadyUsed(
             String base, Long learnerId, Long lessonId, String examTypeText) {
         return GeneratedTitles.notAlreadyUsed(base, exams
@@ -132,19 +91,6 @@ public class GeneratedAssessmentService {
 
         String uniqueTitle = titleNotAlreadyUsed(title.trim(), learnerId, lessonId, examTypeText);
 
-        // `lesson` and `learner` are both set -- this exam belongs to exactly
-        // this learner's request against exactly this lesson, and is
-        // findable by either. `targetScope("GENERATED")` (a non-empty,
-        // non-matching value) is what keeps it out of two places that key off
-        // scope rather than lesson_id, despite lesson_id being set:
-        //  - ExamService#enforceUniqueness's LESSON-scope uniqueness check
-        //    now excludes generated exams explicitly (existsOfficialByLessonId),
-        //    but a belt-and-suspenders non-"LESSON" scope keeps this exam out
-        //    of any *other* scope-keyed logic that isn't generated-aware yet.
-        //  - curriculum-model.js's LESSON_SCOPES groups any exam whose scope
-        //    resolves to "LESSON" as *the* lesson's quiz tile; "GENERATED"
-        //    doesn't match, so a practice quiz never silently replaces the
-        //    official one in the curriculum UI.
         LocalDateTime now = LocalDateTime.now();
         Exam exam = Exam.builder()
                 .certification(certification)
@@ -184,11 +130,6 @@ public class GeneratedAssessmentService {
         validateQuizItem(item);
 
         Question question = newQuestion(lesson, "MCQ", item);
-        // Question.choices has a field initializer (`= new ArrayList<>()`),
-        // but Lombok's @Builder ignores field initializers unless the field
-        // is marked @Builder.Default -- it isn't here -- so a builder-built
-        // Question's `choices` is null, not an empty list. Set a real one
-        // before adding to it.
         List<Choice> choices = new ArrayList<>();
         question.setChoices(choices);
         for (String choiceText : item.choices()) {
@@ -206,18 +147,6 @@ public class GeneratedAssessmentService {
             throw new IllegalArgumentException("Every flashcard needs an answer");
         }
 
-        /* A flashcard answer is whatever the tutor wrote, and for a "define
-         * X" card that is a sentence, not a term. Marked by exact string
-         * comparison it is unanswerable -- the learner has to reproduce the
-         * model's wording verbatim, punctuation included -- so a long answer
-         * is graded on meaning instead. `AssessmentAttemptService#scoreAnswer`
-         * already routes SHORT_ANSWER + AI_SEMANTIC through the same grader
-         * descriptive answers use; the card stays a card, it just stops being
-         * impossible.
-         *
-         * Short answers keep EXACT_MATCH: "3NF" or "404" should be marked on
-         * the string, not sent to a model that might accept a near miss.
-         */
         String answer = item.answer().trim();
         boolean exactlyMatchable = answer.split("\\s+").length <= EXACT_MATCH_MAX_WORDS;
 

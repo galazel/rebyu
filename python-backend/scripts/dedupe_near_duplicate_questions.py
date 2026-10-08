@@ -120,7 +120,6 @@ def main():
                 repoint(db, "learner_review_items", "source_question_id",
                         survivor, loser, "learner_id")
 
-                # The loser's own children. Nothing cascades in this schema.
                 for table in ("choices", "text_question_configs",
                               "programming_question_configs", "diagram_question_configs",
                               "question_rubric_criteria"):

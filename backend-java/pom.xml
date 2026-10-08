@@ -161,9 +161,6 @@
 			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
 
-		<!-- Raw PDF/DOCX parsing for QuestionSourceImageService's embedded-image
-		     extraction (previously pulled in transitively via the now-removed
-		     langchain4j-document-parser-* artifacts). -->
 		<dependency>
 			<groupId>org.apache.pdfbox</groupId>
 			<artifactId>pdfbox</artifactId>

@@ -1,11 +1,6 @@
--- Mark which programming test cases are learner-visible samples (input may be
--- shown); all others stay hidden (label only, never expected output).
 ALTER TABLE public.programming_test_cases
     ADD COLUMN IF NOT EXISTS is_sample BOOLEAN NOT NULL DEFAULT FALSE;
 
--- Execution history for a learner's Run/Check actions on a programming item.
--- The executor itself is not yet wired (no sandbox), so rows are recorded with
--- an UNAVAILABLE status and never carry a fabricated score.
 CREATE TABLE IF NOT EXISTS public.assessment_attempt_executions (
     execution_id           BIGSERIAL   PRIMARY KEY,
     assessment_attempt_id  BIGINT      NOT NULL REFERENCES public.assessment_attempts(assessment_attempt_id),

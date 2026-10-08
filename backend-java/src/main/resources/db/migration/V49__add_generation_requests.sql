@@ -1,6 +1,3 @@
--- Persisted record of an admin-triggered AI generation request (Phase 5:
--- RabbitMQ producers publish only this row's id, not the full request
--- payload; the consumer re-fetches params from here by id).
 CREATE TABLE IF NOT EXISTS generation_requests (
     generation_request_id BIGSERIAL PRIMARY KEY,
     certification_id BIGINT NOT NULL REFERENCES certifications(certification_id),

@@ -30,8 +30,6 @@ public class PartnershipRequestItem {
     @Column(nullable = false)
     private Integer slots;
 
-    // Optional on a public request; the admin sets the real access window on
-    // approval.
     @Column(name = "requested_access_start_date")
     private java.time.LocalDate requestedAccessStartDate;
 

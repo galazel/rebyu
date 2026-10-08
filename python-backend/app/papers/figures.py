@@ -37,7 +37,7 @@ PARSED_DIR = os.environ.get("PAPERS_PARSED_DIR", "/app/scripts/fe_papers/parsed/
 RENDER_DIR = os.environ.get("PAPERS_RENDER_DIR", "/app/scripts/fe_papers/rendered/")
 
 ZOOM = 3.0
-GAP = 18  # white space between stacked figures in a composite
+GAP = 18
 
 
 def _pixmap(doc, figure):
@@ -95,11 +95,6 @@ def split_figures(record):
         tail = figures[-len(letters):]
         return figures[:-len(letters)], dict(zip(letters, tail))
 
-    # A question whose options are pictures does not always LOOK empty: the
-    # labels drawn inside each picture (axis marks, "C=2") extract as text and
-    # land in the choice, so emptiness alone misses it. The reliable signal is
-    # geometric -- the trailing figures are a grid of near-identical boxes,
-    # one per option, which ordinary illustrations never are.
     if len(figures) >= len(letters) >= 2:
         tail = figures[-len(letters):]
         widths = [f["rect"][2] - f["rect"][0] for f in tail]
@@ -111,12 +106,8 @@ def split_figures(record):
     return figures, {}
 
 
-#: A section banner -- "Answer questions Q66 through Q100 concerning
-#: strategy." -- is a ruled box, so it clusters as a figure, and it sits
-#: between two questions, so the one before it claims it.
 BANNER_RE = re.compile(r"Answer (?:the )?questions? Q\d+ through Q\d+ concerning", re.I)
 
-#: An option letter as the paper prints it beside a picture or in a list.
 OPTION_LABEL_RE = re.compile(r"^\(?([a-h])\)$")
 
 
@@ -212,8 +203,6 @@ def label_cut(page, region, letters):
     return options
 
 
-#: What is left of a stem figure once its answer rows are cut away, below
-#: which there is nothing of it to show.
 MIN_STEM_HEIGHT = 12
 
 
@@ -234,17 +223,13 @@ def _stem_regions(doc, stem_figures, letters, options_top=None):
         by_page.setdefault(figure["page"], []).append(pymupdf.Rect(figure["rect"]))
 
     out = []
-    for page_index, rects in by_page.items():  # reading order, as parsed
+    for page_index, rects in by_page.items():
         page = doc[page_index]
         region = rects[0]
         for rect in rects[1:]:
             region = region | rect
 
         top = None
-        # Looked for a little outside the figure too: a cluster often ends
-        # partway through the answer rows or just right of the letters, and
-        # with only one letter inside it the list was not recognised
-        # (2010S Q42 kept "a) A->C->E->G  b) A->D->H" under its network).
         around = pymupdf.Rect(region.x0 - 25, region.y0, region.x1, region.y1 + 40) & page.rect
         labels = [label for _, label in _label_words(page, around, letters)
                   if label.y0 < region.y1]
@@ -254,10 +239,6 @@ def _stem_regions(doc, stem_figures, letters, options_top=None):
             bound = options_top[page_index]
             top = bound if top is None else min(top, bound)
         if top is not None and region.y0 < top < region.y1:
-            # Above the first lettered answer. An answer TABLE keeps its
-            # header row this way, and should: the choices are its rows
-            # joined with "|", and the header is what says which column is
-            # which ("Source (From) | Destination (To)").
             region = pymupdf.Rect(region.x0, region.y0, region.x1, top - 3)
         elif top is not None and top <= region.y0:
             continue
@@ -268,7 +249,6 @@ def _stem_regions(doc, stem_figures, letters, options_top=None):
         bounds = ink[0]
         for mark in ink[1:]:
             bounds = bounds | mark
-        # Nothing of substance left: it was only ever the answer list.
         if bounds.height < MIN_STEM_HEIGHT:
             continue
         out.append({"page": page_index, "rect": list(region)})
@@ -340,15 +320,8 @@ def split_figures_on_page(doc, record):
     }
 
 
-#: Zoom for the page image the vision agent reads. Lower than the 3x used for
-#: stored figures: the agent is judging layout -- how many separate pictures
-#: are there, do they line up with the choices -- not reading fine labels, and
-#: every pixel is tokens.
 AGENT_ZOOM = 2.0
 
-#: Margin around the question's figures in the image the agent sees, in points.
-#: Wide enough to include the lettered choices printed beside or beneath them,
-#: which is the evidence for "one picture per option".
 AGENT_MARGIN = 40
 
 
@@ -383,13 +356,8 @@ def question_region_png(doc, record):
     ).tobytes("png")
 
 
-#: The narrowest band of blank paper that counts as a boundary between two
-#: option pictures, in points. Below this it is the gap between two nodes of
-#: one diagram, not the gutter between two diagrams.
 MIN_CUT_GAP = 9.0
 
-#: Ink thinner than this in both dimensions is a stray mark -- an axis tick, a
-#: stray underscore -- and letting it bridge a gutter merges two options.
 MIN_INK = 1.5
 
 
@@ -459,9 +427,6 @@ def _tighten(page, part):
     bounds = ink[0]
     for mark in ink[1:]:
         bounds = bounds | mark
-    # A wider left margin than the others: the option's own letter ("a)",
-    # "b)") is set to the left of its diagram, outside the ink the cut was
-    # measured from, and a symmetric 2pt margin clips it to a bare ")".
     return pymupdf.Rect(
         bounds.x0 - 14, bounds.y0 - 2, bounds.x1 + 2, bounds.y1 + 2
     ) & part
@@ -569,9 +534,6 @@ def xy_cut(page, region, count):
     if any(part is None or part.is_empty for part in tightened):
         return None
 
-    # Reading order: top row left-to-right, then the next row. Banded by the
-    # median height so a picture sitting slightly low is not read as its own
-    # row -- which would letter a 2x2 grid a, c, b, d.
     band = sorted(part.height for part in tightened)[len(tightened) // 2] or 1
     return sorted(tightened, key=lambda r: (round(r.y0 / band), r.x0))
 
@@ -606,47 +568,28 @@ async def split_figures_assisted(doc, record):
     if not verdict.confident or not verdict.figures_are_choices:
         return stem_figures, choice_figures, verdict
 
-    # The agent says these are the options. The TRAILING `choice_count`
-    # figures are taken, in reading order, which is the same assignment the
-    # geometric path makes -- the agent settled whether they are options, not
-    # which picture belongs to which letter, because it was never shown the
-    # letters in a form it could map.
     count = min(verdict.choice_count, len(letters))
     if count < 2:
         return stem_figures, choice_figures, verdict
 
-    # The agent settled WHAT these pictures are. It is not asked where they
-    # are: the stored figure rects are clusters of nearby strokes, and on a
-    # grid of option diagrams those clusters routinely straddle two options
-    # -- so slicing the trailing `count` of them apart yields fragments of
-    # two diagrams each, which is worse than the single composite it replaces.
-    #
-    # The region is re-cut from the whitespace instead, which is what
-    # actually separates one option from the next.
     page_index = figures[0]["page"]
     on_page = [f for f in figures if f["page"] == page_index]
     region = pymupdf.Rect(on_page[0]["rect"])
     for figure in on_page[1:]:
         region = region | pymupdf.Rect(figure["rect"])
 
-    # The printed letters first -- they say which picture is which -- and
-    # the whitespace only where they cannot be found.
     labelled = label_cut(doc[page_index], region, letters[:count])
     if labelled:
         parts = [labelled[letter] for letter in letters[:count]]
     else:
         parts = xy_cut(doc[page_index], region, count)
     if not parts:
-        # It would not divide cleanly. Keeping the composite is honest; four
-        # crops at guessed boundaries are not.
         return stem_figures, choice_figures, verdict
 
     options = {
         letter: {"page": page_index, "rect": list(part)}
         for letter, part in zip(letters[:count], parts)
     }
-    # Every figure on this page became an option, so the stem keeps only what
-    # was on any other page -- normally nothing.
     remaining = [f for f in figures if f["page"] != page_index]
     return remaining, options, verdict
 

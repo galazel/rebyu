@@ -46,7 +46,6 @@ def upgrade() -> None:
     op.create_index("ix_workflow_runs_certification_id", "workflow_runs", ["certification_id"])
     op.create_index("ix_workflow_runs_generation_request_id", "workflow_runs", ["generation_request_id"])
     op.create_index("ix_workflow_runs_status", "workflow_runs", ["status"])
-    # Backs the dashboard's default query: newest runs in a given status.
     op.create_index("ix_workflow_runs_status_started", "workflow_runs", ["status", "started_at"])
 
     op.create_table(
@@ -64,7 +63,6 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["run_id"], ["workflow_runs.run_id"], ondelete="CASCADE"),
         sa.UniqueConstraint("run_id", "seq", name="uq_workflow_events_run_seq"),
     )
-    # Backs replay-from-last_seq.
     op.create_index("ix_workflow_events_run_seq", "workflow_events", ["run_id", "seq"])
 
 

@@ -34,12 +34,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Learner-scoped read model for the learner portal. Every list is filtered to the
- * authenticated learner/user server-side, closing the leak where the portal fetched
- * flat global lists (all learners, users, completed lessons, exam results, org
- * allocations) and filtered them in the browser.
- */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -69,34 +63,11 @@ public class LearnerPortalService {
         return learnerRepository.findById(learnerId).map(learnerMapper::toDto).orElse(null);
     }
 
-    // Overrides the class-level readOnly=true: RewardService.balance() below
-    // calls ensureBalance(), a native upsert (@Modifying INSERT ... ON
-    // CONFLICT) that joins this method's transaction rather than starting its
-    // own. Under a read-only transaction that INSERT is rejected by the
-    // database, which is what turned this endpoint into a 500 the moment the
-    // XP balance lookup was added.
     @Transactional
     public LearnerPortalDto portal(Long learnerId, Long userId) {
         return portal(learnerId, userId, true);
     }
 
-    /**
-     * Just the progress rows, for callers that want the numbers and not the
-     * snapshot.
-     *
-     * <p>Progress is the expensive part of the portal and the part the shell
-     * cannot afford to wait on, so it is fetched on its own: My Learning's
-     * cards render from the cheap payload and fill their bars in when this
-     * lands. Reuses the portal's own path so there is one definition of which
-     * certifications count as enrolled.
-     *
-     * <p>Read-write, for the reason spelled out on {@link #portal(Long, Long)}
-     * above: the snapshot this delegates to reaches RewardService.balance(),
-     * whose ensureBalance() upsert joins the caller's transaction. Calling it
-     * from here is self-invocation, so that method's own annotation never
-     * applies -- this one governs, and under `readOnly = true` the database
-     * rejects the INSERT and the endpoint 500s. It did exactly that.
-     */
     @Transactional
     public List<CertificationProgressDto> certificationProgress(Long learnerId, Long userId) {
         return portal(learnerId, userId, true).certificationProgress();
@@ -113,8 +84,6 @@ public class LearnerPortalService {
         List<InstitutionCertificationLearner> institutionCertLearnerEntities =
                 institutionCertLearnerRepository.findByLearner_LearnerId(learnerId);
 
-        // The learner's own certification allocations, deduped -- these are the only
-        // org certificates the portal needs (to map institutionCertId -> certificationId).
         Map<Long, InstitutionCertificate> institutionCertsById = new LinkedHashMap<>();
         for (InstitutionCertificationLearner row : institutionCertLearnerEntities) {
             InstitutionCertificate institutionCert = row.getInstitutionCert();
@@ -130,27 +99,13 @@ public class LearnerPortalService {
         java.math.BigDecimal coinBalance = java.math.BigDecimal.valueOf(rewardBalance.coins());
         Long aiCreditsRemaining = (long) rewardBalance.aiCredits();
 
-        // Reuse these learner-scoped reads throughout the portal response.
-        // The portal is a cold-load endpoint, so repeating the same queries
-        // after calculating progress adds latency without changing the result.
         List<LearnerCertification> learnerCertifications =
                 learnerCertificationRepository.findByLearner_LearnerId(learnerId);
         List<com.capstone.rebyu.progress.entity.LearnerCompletedLesson> completedLessons =
                 completedLessonRepository.findByLearner_LearnerId(learnerId);
 
-        // Fetch BKT mastery state per certification (stubbed for now)
         Map<Long, Integer> masteryByCertification = new java.util.HashMap<>();
 
-        /* Progress per enrolled certification, counted once, server-side.
-         *
-         * Both routes into a certification count: a self-purchased enrollment
-         * writes learner_certifications, an institution-sponsored one writes
-         * only institution_certification_learners, and a learner can hold
-         * both. Deduped, or a certification held twice would be counted twice.
-         *
-         * This is the counts only -- no BKT, no readiness, no mastery rows (see
-         * ProgressAnalyticsService.progressFor) -- so it stays a handful of
-         * queries per certification rather than the analytics board's work. */
         Set<Long> enrolledCertificationIds = new LinkedHashSet<>();
         for (LearnerCertification enrollment : learnerCertifications) {
             if (enrollment.getStatus() == LearnerCertification.Status.active
@@ -195,21 +150,6 @@ public class LearnerPortalService {
 
     private record CachedPortal(LearnerPortalDto value, long expiresAt) {}
 
-    /**
-     * Empties the hot cache.
-     *
-     * <p>The cache is {@code static}, so it outlives any one instance of this
-     * service -- including between tests in the same JVM, where one test's
-     * portal answers the next one's call for the same (learner, user) and the
-     * second test silently asserts against the first test's data. That is what
-     * it did: the dedup test read back an empty org-certificate list built by
-     * the test above it, and passed or failed on execution order.
-     *
-     * <p>Exposed for that, and only that. Nothing in production should clear
-     * this -- entries expire on their own after
-     * {@value #HOT_CACHE_TTL_MILLIS}ms, and a caller that needs certainly-fresh
-     * data should not be reading a 30-second cache in the first place.
-     */
     static void clearHotCacheForTests() {
         HOT_CACHE.clear();
     }

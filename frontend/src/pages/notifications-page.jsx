@@ -28,23 +28,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useNotifications } from "@/hooks/use-notifications.js"
 
-/**
- * What kind of thing a notification is, and therefore what it looks like.
- *
- * Every row wore the same bell in the same blue, so a feed of forty was forty
- * identical rows and the only way to tell an achievement from a graded exam was
- * to read the sentence. The kind carries an icon and a tone instead, which is
- * the fastest read on the page.
- *
- * Matched on the title, because the payload has no type: `NotificationDto` is
- * `(id, title, body, href, createdAt, read)` and nothing upstream classifies
- * these. The patterns below cover every producer there currently is -- the two
- * in `assessment_events.py`, the four in `NotificationService`, and the two the
- * learner layout synthesises -- and anything unrecognised keeps the bell, so a
- * new producer degrades to today's appearance rather than to a hole. The
- * honest fix is a `type` column on the notification; until there is one, this
- * is a presentation-layer guess and is written to fail safely.
- */
 const KINDS = [
   {
     test: /^results ready/i,
@@ -85,9 +68,6 @@ function kindOf(item) {
   return KINDS.find((kind) => kind.test.test(title)) ?? DEFAULT_KIND
 }
 
-/* The clock time alone on the row, because the date is on the group heading
-   above it. Every row carrying "Aug 17, 2026, 6:58 AM" spent a line of each
-   notification restating the same date thirty times. */
 function formatClock(value) {
   const date = new Date(value ?? "")
   if (Number.isNaN(date.getTime())) return ""
@@ -106,11 +86,6 @@ function formatDayLabel(value) {
   const today = startOfDay(now)
   const day = startOfDay(date)
 
-  /* Yesterday is built from the calendar, not by subtracting 24 hours: a clock
-     change makes a local day 23 or 25 hours long, and on those two days a
-     fixed 86,400,000 would miss -- labelling yesterday's notifications with a
-     date while today's said "Today". `setDate(0)` rolls back across month and
-     year boundaries on its own. */
   const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).getTime()
 
   if (day === today) return "Today"
@@ -121,14 +96,6 @@ function formatDayLabel(value) {
   }).format(date)
 }
 
-/**
- * Consecutive runs of notifications from the same day.
- *
- * A run, not a bucket keyed by date: the list is already sorted newest-first,
- * so walking it keeps that order without a second sort, and an item with an
- * unparseable date falls into whatever run it is sitting in rather than being
- * collected into a stray "Earlier" group at the end.
- */
 function groupByDay(items) {
   const groups = []
 
@@ -146,11 +113,6 @@ function groupByDay(items) {
   return groups
 }
 
-/**
- * The full notification history for whoever is signed in -- one page shared by
- * the admin, institution, and learner portals, since the feed itself is
- * per-user rather than per-portal. The bell in every layout links here.
- */
 export default function NotificationsPage() {
   const [confirmClearAll, setConfirmClearAll] = useState(false)
   const inbox = useNotifications()
@@ -182,10 +144,6 @@ export default function NotificationsPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-5 py-8 sm:px-6">
-      {/* Back on its own line. It used to sit inside the title block, which
-          pushed the title down while the actions stayed pinned to the top of
-          the row -- so the two buttons lined up with the back link rather than
-          with the heading they act on. */}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
@@ -263,14 +221,7 @@ export default function NotificationsPage() {
             </CardContent>
           </Card>
         ) : (
-          /* Day groups, and hairlines instead of a bordered card. Thirty rows
-             in one framed block is a wall; the headings break it into runs the
-             eye can land in, and they are the reason each row now needs only a
-             clock time. */
           <div className="space-y-8">
-            {/* Keyed by position too: an item with an unreadable date labels
-                its run "Earlier", and two of those can occur non-consecutively,
-                which would collide on the label alone. */}
             {groupByDay(items).map((group, index) => (
               <section key={`${group.label}-${index}`}>
                 <h2 className="mb-1 font-rb-display text-xs font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
@@ -283,18 +234,11 @@ export default function NotificationsPage() {
                       key={`${item.source ?? "inbox"}-${item.id}`}
                       className="group relative flex items-start"
                     >
-                      {/* `pr-11` reserves the delete button's gutter, so the
-                          timestamp column ends before it -- otherwise the
-                          button faded in directly on top of the time. */}
                       <button
                         type="button"
                         onClick={() => open(item)}
                         className="flex min-w-0 flex-1 items-start gap-3 rounded-rb-tile py-4 pl-3 pr-11 text-left transition-colors hover:bg-accent"
                       >
-                        {/* Unread as a dot on the icon, not a "New" badge after
-                            the title: the badge sat in the text flow and moved
-                            with every title length, so a column of them
-                            zig-zagged down the page. */}
                         <span
                           className={`relative mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-rb-tile ${kindOf(item).tone}`}
                         >
@@ -311,9 +255,6 @@ export default function NotificationsPage() {
                         </span>
 
                         <span className="min-w-0 flex-1">
-                          {/* Title and time on one line, the time hard right --
-                              a fixed column to read down, rather than a third
-                              line under every notification. */}
                           <span className="flex items-baseline gap-3">
                             <span
                               className={`min-w-0 flex-1 truncate text-sm ${
@@ -344,8 +285,6 @@ export default function NotificationsPage() {
                         ) : null}
                       </button>
 
-                      {/* Absolute, so the row's text does not reflow when the
-                          button fades in on hover. */}
                       <button
                         type="button"
                         onClick={() => remove(item)}
@@ -374,10 +313,6 @@ export default function NotificationsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            {/* Destructive, because the sentence above it says "permanently
-                removed. This cannot be undone." A confirm that reads as the
-                same friendly blue as "Save" gives the eye no warning that this
-                one is the irreversible one. */}
             <AlertDialogAction
               variant="destructive"
               onClick={() => {

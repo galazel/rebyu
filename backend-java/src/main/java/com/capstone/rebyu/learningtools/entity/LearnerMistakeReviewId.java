@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 import java.io.Serial;
 import java.io.Serializable;
 
-/** (learner_id, source_question_id) composite key for the mistakes bank. */
 @Embeddable
 @Data
 @NoArgsConstructor

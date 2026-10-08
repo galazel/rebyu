@@ -6,21 +6,6 @@ import lombok.Data;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-/**
- * One week of the World Cup: the certification its bracket runs on, and a
- * question set per bracket stage.
- *
- * <p>Weekly because everyone sits the same tournament at once -- by next week
- * this week's questions are out in the world, so each week is authored fresh.
- * Per stage because the same eight players meet at quarterfinals, semis and the
- * final; one shared set would have the finalists answering questions they had
- * already seen.
- *
- * <p>The questions themselves are ordinary bank questions. {@code stagesJson}
- * records only which ones each stage runs: {@code {"quarterfinal":[12,13],...}}.
- * Publishing copies the set into the World Cup's CHALLENGE exam, which is what
- * learners actually sit; a draft never reaches them.
- */
 @Data
 @Entity
 @Table(
@@ -32,14 +17,12 @@ public class WorldCupEdition {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long editionId;
 
-  /** The Monday the week starts on. */
   @Column(name = "week_start", nullable = false)
   private LocalDate weekStart;
 
   @Column(name = "certification_id", nullable = false)
   private Long certificationId;
 
-  /** Where new questions are filed: {@code questions.lesson_id} is NOT NULL. */
   @Column(name = "lesson_id", nullable = false)
   private Long lessonId;
 

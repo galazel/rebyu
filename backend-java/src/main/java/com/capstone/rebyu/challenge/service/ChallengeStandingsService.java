@@ -21,20 +21,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
 
-/**
- * Challenge standings, computed server-side.
- *
- * <p>A challenge run is an ordinary assessment attempt on an arena's
- * CHALLENGE exam. A submitted run contributes its percentage score to the
- * learner's total; runs still in progress are excluded rather than counted as
- * zero -- a challenge you are part-way through is not a result.
- */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ChallengeStandingsService {
 
-    /** Nobody reads past the first page of a leaderboard; the cap is the API's. */
     private static final int MAX_LEADERBOARD_ROWS = 50;
     private static final int RECENT_ACTIVITY_ROWS = 8;
 
@@ -98,13 +89,6 @@ public class ChallengeStandingsService {
                 recent);
     }
 
-    /**
-     * Every learner who has finished at least one challenge, best first.
-     *
-     * <p>Ties break on best single score, then on the learner id -- without the
-     * last one two learners on identical figures could swap places between two
-     * requests, which reads as the board being unstable rather than tied.
-     */
     private List<Standing> standings() {
         Map<Long, int[]> totals = new LinkedHashMap<>();
         for (AssessmentAttempt run : attempts.findByStatusAndExam_ExamType_ExamTypeText(
@@ -133,15 +117,6 @@ public class ChallengeStandingsService {
                 .toList();
     }
 
-    /**
-     * A display name, never an email.
-     *
-     * <p>A leaderboard is the one learner-facing surface that shows other
-     * learners, so it shows the least it can: a chosen username, or a first
-     * name and last initial. Falling through to the email address -- which the
-     * old browser-side version could do, since it had the whole learner record
-     * -- would publish it to every other learner on the platform.
-     */
     private String displayName(Learner learner) {
         String username = learner.getUsername();
         if (username != null && !username.isBlank()) {
@@ -163,7 +138,6 @@ public class ChallengeStandingsService {
         return percentage == null ? null : percentage.intValue();
     }
 
-    /** Consecutive days up to today (or yesterday) with at least one run. */
     private int streakDays(List<AssessmentAttempt> runs) {
         Set<LocalDate> days = new HashSet<>();
         for (AssessmentAttempt run : runs) {
@@ -175,9 +149,6 @@ public class ChallengeStandingsService {
             return 0;
         }
 
-        // Starting at yesterday when today is empty is deliberate: a streak is
-        // only broken once a whole day passes with nothing in it, so playing
-        // yesterday and not yet today still reads as a live streak.
         LocalDate cursor = LocalDate.now();
         if (!days.contains(cursor)) {
             cursor = cursor.minusDays(1);

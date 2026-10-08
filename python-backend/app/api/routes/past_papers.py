@@ -42,8 +42,6 @@ logger = logging.getLogger(__name__)
 
 MAX_PDF_BYTES = 40 * 1024 * 1024
 
-#: The citation is built from this, so it is validated rather than trusted:
-#: a wrong label produces a wrong attribution on every question in the paper.
 PAPER_NAME_RE = re.compile(r"^\d{4}[ASas]_(FE-[AB]|FE_(AM|PM)|IP)$")
 
 
@@ -85,8 +83,6 @@ class ReadPageRequest(BaseModel):
 class SuggestLessonsRequest(BaseModel):
     certificationId: int
     questions: list[str] = Field(default_factory=list, max_length=500)
-    #: The question stems alone, for duplicate detection; the full texts above
-    #: carry the options too, which the bank's stored text does not.
     stems: list[str] = Field(default_factory=list, max_length=500)
 
 
@@ -187,7 +183,6 @@ async def read_layout_route(file: UploadFile = File(...)):
 
     data = await _read(file)
     try:
-        # CPU-bound for tens of seconds; off the event loop.
         return await run_in_threadpool(read_document, data)
     except Exception as error:  # noqa: BLE001 -- surfaced to the admin
         logger.exception("Layout reading failed for %s", file.filename)
@@ -259,8 +254,6 @@ async def tag_questions_route(request: SuggestLessonsRequest):
 class TagJobPaper(BaseModel):
     paperId: str = Field(max_length=300)
     name: str = Field(default="", max_length=300)
-    #: Each question's number on the page, in the order of `questions`: the
-    #: page applies a paper's tags by number when it collects them.
     nums: list[int | str] = Field(default_factory=list, max_length=500)
     questions: list[str] = Field(default_factory=list, max_length=500)
     stems: list[str] = Field(default_factory=list, max_length=500)
@@ -344,8 +337,6 @@ def import_questions(request: ImportRequest):
     added = skipped = 0
     session = SessionLocal()
     try:
-        # Every lesson must belong to the certification being imported into;
-        # a draft edited in the browser is not trusted to say so.
         allowed = {row[0] for row in session.execute(text("""
             select l.lesson_id from lessons l
               join middle_categories mc on mc.middle_category_id = l.middle_category_id
@@ -364,8 +355,6 @@ def import_questions(request: ImportRequest):
                     status.HTTP_400_BAD_REQUEST,
                     f"Answer '{item.answer}' is not one of the options provided.")
 
-            # The citation is appended here rather than trusted from the
-            # client, so an edited draft cannot arrive without one.
             stem = item.stem.strip()
             if item.citation and item.citation not in stem:
                 stem = stem + "\n\n" + item.citation.strip()

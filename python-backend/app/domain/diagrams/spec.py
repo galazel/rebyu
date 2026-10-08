@@ -28,11 +28,9 @@ from app.domain.diagrams.mxgraph import (
     Diagram,
 )
 
-#: Relationship notations, in the model's vocabulary rather than draw.io's.
 EdgeKind = Literal["association", "aggregation", "composition",
                    "generalisation", "dependency"]
 
-#: Node shapes for process, component and use case diagrams.
 NodeShape = Literal["box", "action", "decision", "start", "end", "terminator",
                     "bar", "actor", "usecase", "component", "boundary"]
 
@@ -44,9 +42,6 @@ _EDGE_KIND_TO_STYLE = {
     "dependency": "dep",
 }
 
-#: Diagram types drawn as a top-down process rather than a free layout. These
-#: read down the page, so the renderer stacks them and puts branch targets to
-#: the right instead of using the general grid.
 _PROCESS_TYPES = {"ACTIVITY_DIAGRAM", "FLOWCHART"}
 
 
@@ -127,8 +122,6 @@ class DiagramSpec(BaseModel):
                 diagram.node(node.key, node.label, node.lines, x, y, width,
                              abstract=node.abstract)
             elif node.shape == "boundary":
-                # A boundary contains the others, so it is sized generously
-                # and drawn first-come; overlap here is intended.
                 diagram.shape(node.key, node.label, "boundary", x, y, 520, 620)
             elif node.shape == "bar":
                 diagram.shape(node.key, "", "bar", x, y, 10, 180)
@@ -138,8 +131,6 @@ class DiagramSpec(BaseModel):
 
         known = {node.key for node in self.nodes}
         for edge in self.edges:
-            # Dropped rather than raised on: one edge naming a node that was
-            # never declared should not cost the whole reference.
             if edge.source not in known or edge.target not in known:
                 continue
             diagram.edge(
@@ -201,8 +192,6 @@ def _layout(nodes, diagram_type) -> dict[str, tuple[int, int, int]]:
             y += _shape_height(node.shape) + 45
         return positions
 
-    # Grid. Row height follows the tallest box in the row, so a ten-attribute
-    # class does not overlap whatever is below it.
     columns = 4 if len(nodes) > 6 else 3
     x_step, y_cursor, row_height, column = 300, 100, 0, 0
     for node in nodes:

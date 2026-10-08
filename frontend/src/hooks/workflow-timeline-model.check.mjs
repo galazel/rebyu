@@ -1,12 +1,3 @@
-/**
- * Checks for the timeline reduction. Run with:
- *
- *   node src/hooks/workflow-timeline-model.check.mjs
- *
- * Plain node rather than a test framework: the repo has no frontend test
- * runner, and adding one for a single pure module would be a larger decision
- * than it deserves. The module is deliberately import-free so this works.
- */
 import assert from "node:assert/strict"
 import {
   applyEventToRun, buildTasks, findCurrentTask, mergeEvents, terminalStatus,

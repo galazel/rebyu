@@ -1,16 +1,3 @@
-/**
- * Dummy problem sets for the arena runs.
- *
- * These stand in for the arena-problems endpoint that does not exist yet. They
- * are shaped exactly like the questions `learner-assessment-attempt-page` hands
- * to `ProgrammingQuestionLayout` / `DiagramQuestionLayout` — same field names,
- * same `attemptQuestionId` key — so when the endpoint lands, only where the
- * array comes from changes, not how the run renders it.
- *
- * Nothing here is scored. The run/check stubs below replay a fixed result set
- * so the environment can be reviewed end to end; no judge exists yet, and a
- * fake pass rate would be worse than none.
- */
 
 const CODESTRIKE_TITLES = [
   "Two Sum",
@@ -61,8 +48,6 @@ export const CODESTRIKE_PROBLEMS = CODESTRIKE_TITLES.map((title, index) => ({
   difficultyLevel: DIFFICULTIES[index],
   points: 10,
   starterCode: "public class Solution {\n    // your code here\n}\n",
-  // Shaped for TestCasesPanel: sample cases expand to show their input, hidden
-  // ones never expose theirs. Same contract as a real attempt.
   testCases: [
     { index: 0, label: "Sample case 1", sample: true, input: "[2, 7, 11, 15], target 9", status: "NOT_RUN" },
     { index: 1, label: "Sample case 2", sample: true, input: "[3, 2, 4], target 6", status: "NOT_RUN" },
@@ -72,10 +57,6 @@ export const CODESTRIKE_PROBLEMS = CODESTRIKE_TITLES.map((title, index) => ({
   subQuestions: [],
 }))
 
-/* `diagramType` values are the canonical ids from `DIAGRAM_TYPE_OPTIONS`, not
-   invented labels: `DiagramArea` scopes the draw.io sidebar by that id and
-   silently falls back to ERD for anything it does not recognise, so a
-   "SEQUENCE" typo would open a sequence problem in the ER shape library. */
 const BLUEPRINT_PROBLEMS_RAW = [
   ["Scalable order processing", "UML_COMPONENT", "Design a system that accepts client orders, authenticates each request, and persists them. Traffic must be distributed, and reads should not hit the database directly."],
   ["Class diagram — library system", "UML_CLASS", "Model the classes behind a library: members, titles, copies, and loans, with the relationships and multiplicities between them."],
@@ -106,14 +87,6 @@ export const BLUEPRINT_PROBLEMS = BLUEPRINT_PROBLEMS_RAW.map(
   }),
 )
 
-/**
- * A stubbed judge for one problem, in the shape the layout's real runner
- * returns. Results are scripted and say so: there is no executor, and a fake
- * pass rate is worse than an honest "not scored".
- *
- * `createdAt` is passed in rather than stamped here so the fixtures stay pure;
- * the caller supplies it at run time.
- */
 export function makeProgrammingRunner(problem) {
   const executions = []
 
@@ -122,8 +95,6 @@ export function makeProgrammingRunner(problem) {
 
     const tests = (problem.testCases ?? []).map((testCase, index) => ({
       ...testCase,
-      // Sample cases pass, the last hidden one fails, so the panel shows both
-      // states rather than a uniform column of ticks.
       status: !submitted ? "NOT_RUN" : index < 3 ? "PASSED" : "FAILED",
     }))
 
@@ -152,14 +123,6 @@ export function makeProgrammingRunner(problem) {
   }
 }
 
-/**
- * One runner per problem, built once at module load.
- *
- * Identity matters: the layout's execution-history effect depends on the runner
- * it was handed, so a runner constructed inside render would be a new object
- * every pass and the effect would re-fire forever. Keying them here also gives
- * each problem its own execution history, which is what a real attempt has.
- */
 export const CODESTRIKE_RUNNERS = Object.fromEntries(
   CODESTRIKE_PROBLEMS.map((problem) => [
     problem.attemptQuestionId,
@@ -167,8 +130,6 @@ export const CODESTRIKE_RUNNERS = Object.fromEntries(
   ]),
 )
 
-/** The structural rules a Blueprint problem is marked against, in the shape
- *  `RubricPanel` renders. Unscored until a submission exists. */
 const BLUEPRINT_RULES = [
   "Client reaches the load balancer",
   "API gateway sits behind the load balancer",
@@ -184,7 +145,6 @@ export async function checkBlueprintDiagram(submission) {
     rubric: BLUEPRINT_RULES.map((name, index) => ({
       name,
       maxPoints: 2,
-      // Last rule unmet, so a partially-correct diagram is what the panel shows.
       awardedPoints: drawn ? (index < 4 ? 2 : 0) : null,
       feedback: drawn
         ? index < 4

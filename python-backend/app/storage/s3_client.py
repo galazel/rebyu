@@ -21,10 +21,6 @@ def get_s3_client():
     endpoint = settings.aws_s3_endpoint_url.strip() or None
     config = None
     if endpoint:
-        # S3-compatible stores (Cloudflare R2): path-style addressing, and
-        # checksums only where the API requires them -- boto3 >= 1.36 adds
-        # CRC checksum headers to every request by default, which such stores
-        # may not accept.
         config = Config(
             signature_version="s3v4",
             s3={"addressing_style": "path"},

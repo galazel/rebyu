@@ -35,11 +35,6 @@ import {
 import { certificationBadgeUrl } from "@/services/certificationService.js"
 import { useAvatarUrl } from "@/hooks/use-avatar-url.js"
 
-/**
- * Every figure on this page comes from ProgressAnalyticsService, which already
- * returns 0-100 percentages -- so these are used as-is. Nothing is rescaled:
- * treating a small value as a 0-1 fraction would turn a genuine 1% into 100%.
- */
 function toPercent(value) {
   const number = Number(value)
   return Number.isFinite(number) ? number : null
@@ -99,7 +94,6 @@ function TopicList({ title, description, icon: Icon, topics, tone }) {
 }
 
 
-/** Up to two initials for the avatar; falls back to a neutral mark. */
 function initialsOf(name) {
   const parts = String(name ?? "").trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return "—"
@@ -109,7 +103,6 @@ function initialsOf(name) {
     .join("")
 }
 
-/** One figure in the profile column: label, value, and what it is measured against. */
 function ProfileStat({ icon: Icon, label, value, hint }) {
   return (
     <div className="flex items-center gap-3 px-3 py-2.5">
@@ -125,18 +118,8 @@ function ProfileStat({ icon: Icon, label, value, hint }) {
   )
 }
 
-/** Weeks of history the activity grid covers, matching a year at a glance. */
 const ACTIVITY_WEEKS = 53
 
-/**
- * Five steps of one hue, absence through busiest.
- *
- * <p>Mixed against the card rather than hard-coded so the ramp follows the
- * theme: `--color-rb-leaf` is a mid green in light mode and a lighter one in
- * dark, so in both the cell gets further from the surface as the count rises.
- * Step 0 is the neutral track, not the palest green -- "nothing happened" is
- * absence, not a small amount, and GitHub's own grid says it the same way.
- */
 const ACTIVITY_STEPS = [
   "var(--color-muted, #ebedf0)",
   "color-mix(in srgb, var(--color-rb-leaf) 28%, transparent)",
@@ -145,14 +128,12 @@ const ACTIVITY_STEPS = [
   "var(--color-rb-leaf)",
 ]
 
-/** Local-date key; `toISOString` would bucket a late-evening attempt into tomorrow. */
 function dayKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
     date.getDate()
   ).padStart(2, "0")}`
 }
 
-/** 0 for a quiet day, then 1..4 by how busy it was. */
 function activityStep(count) {
   if (!count) return 0
   if (count === 1) return 1
@@ -161,18 +142,6 @@ function activityStep(count) {
   return 4
 }
 
-/**
- * A year of assessment activity as a contribution grid -- a column per week,
- * a row per weekday, the shade carrying how many attempts were submitted.
- *
- * <p>It answers a question no score chart on this page does: not how well the
- * learner did, but whether they are turning up at all, and in what rhythm. A
- * fortnight of blank columns before an exam is the kind of thing a department
- * head wants to catch while it is still fixable.
- *
- * <p>Count, not score, decides the shade: mixing the two would make a single
- * excellent attempt look like a quiet week.
- */
 function ActivityGrid({ attempts }) {
   const { weeks, monthLabels, total, activeDays } = useMemo(() => {
     const counts = new Map()
@@ -182,8 +151,6 @@ function ActivityGrid({ attempts }) {
       counts.set(key, (counts.get(key) ?? 0) + 1)
     }
 
-    // End on the Saturday of this week so the last column is never a stub,
-    // then walk back whole weeks from there.
     const end = new Date()
     end.setHours(0, 0, 0, 0)
     end.setDate(end.getDate() + (6 - end.getDay()))
@@ -212,10 +179,6 @@ function ActivityGrid({ attempts }) {
         days.push({ key, date, count, future })
         cursor.setDate(cursor.getDate() + 1)
       }
-      // One label per month, on the first week that starts inside it. A
-      // partial leading month goes unlabelled on purpose: labelling week 0
-      // regardless printed it a column away from the next month's label, and
-      // the two ran together as "SepOct".
       const first = days[0].date
       if (first.getDate() <= 7) {
         const name = first.toLocaleDateString(undefined, { month: "short" })
@@ -229,9 +192,6 @@ function ActivityGrid({ attempts }) {
 
   return (
     <div>
-      {/* Left-aligned and scrolled rather than centred: centring a grid that
-          can outgrow its container risks clipping the leading weeks, and a
-          year of columns reads left-to-right from the oldest week anyway. */}
       <div className="overflow-x-auto pb-1">
         <div className="min-w-max">
           <div className="flex gap-[3px] pl-8 text-[10px] text-muted-foreground">
@@ -298,17 +258,12 @@ function ActivityGrid({ attempts }) {
   )
 }
 
-/** LESSON_QUIZ -> "Lesson quiz". Unknown types are shown as they arrive. */
 function formatAssessmentType(type) {
   if (!type) return null
   const words = String(type).replaceAll("_", " ").toLowerCase()
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
-/**
- * Passed or not, said in words and an icon as well as colour -- a pass is not
- * legible as "the green one" to a reader who cannot separate the two hues.
- */
 function AttemptOutcome({ passed }) {
   if (passed == null) return null
   const Icon = passed ? CircleCheckIcon : CircleAlertIcon
@@ -324,11 +279,6 @@ function AttemptOutcome({ passed }) {
   )
 }
 
-/**
- * How the latest attempt compares with the first. Only shown once there are
- * two attempts to compare -- a single sitting has no movement, and calling it
- * "0" would read as "did not improve" rather than "has not retaken".
- */
 function AttemptMovement({ attempts }) {
   if (attempts.length < 2) return null
   const delta = Math.round(attempts[attempts.length - 1].score - attempts[0].score)
@@ -343,25 +293,8 @@ function AttemptMovement({ attempts }) {
   )
 }
 
-/**
- * The run of attempts, as a shape -- the same reading the learner gets of
- * their own history on the assessment history page: oldest at the left so
- * improvement reads left to right, every bar measured against the same fixed
- * 100% well rather than against the tallest in the run, and coloured by
- * whether that attempt passed rather than by its height.
- *
- * <p>It borrows that page's highlighter fills, which are global, but not its
- * `rb-graded-sheet` paper or `rb-graded-heading` ink: both are scoped to the
- * classroom design system, and the sheet forces a 3.75rem left padding for
- * punch-holes whose custom properties this portal never defines. The shape is
- * the part worth sharing; the paper would arrive broken.
- */
 function AttemptBars({ attempts }) {
   return (
-    /* Fixed-width columns rather than flex-1: this panel is half of a wide
-       main column, and a learner with two attempts would otherwise get two
-       slabs the width of a hand. Scrolls instead of shrinking once a run is
-       long enough to outgrow the panel. */
     <div className="mt-4 flex items-end gap-2 overflow-x-auto pb-1 sm:gap-3">
       {attempts.map((attempt) => {
         const value = Math.min(100, Math.max(0, Number(attempt.score) || 0))
@@ -383,16 +316,12 @@ function AttemptBars({ attempts }) {
                 {attempt.correctCount}/{attempt.itemCount}
               </span>
             ) : null}
-            {/* Fixed-height well so every bar is measured against the same
-                100%, not against the tallest score in the run. */}
             <div className="flex h-24 w-full items-end border-b-2 border-dashed border-border px-1.5">
               <div
                 className={cn(
                   "w-full rounded-[6px]",
                   attempt.passed ? "rb-highlight-pass" : "rb-highlight-fail"
                 )}
-                /* A floor of 4px so a zero-scoring attempt is still a mark on
-                   the page rather than a gap in the run. */
                 style={{ height: `max(4px, ${value}%)` }}
               />
             </div>
@@ -406,14 +335,6 @@ function AttemptBars({ attempts }) {
   )
 }
 
-/**
- * One assessment and every attempt on it.
- *
- * <p>Every attempt is drawn, including a lone one: in this idiom a single bar
- * in its well still reads as "sat once, scored this", and the head came here
- * to see the attempts rather than to be shown a number when there is only
- * one.
- */
 function AssessmentAttemptPanel({ group }) {
   const { attempts } = group
   const best = Math.max(...attempts.map((attempt) => attempt.score))
@@ -441,17 +362,6 @@ function AssessmentAttemptPanel({ group }) {
   )
 }
 
-/**
- * Every assessment this learner has sat, each with its own attempts.
- *
- * <p>Small multiples rather than one long bar list: the previous chart put
- * every attempt of every assessment on a single axis, so "Mock Exam (try 2)"
- * sat between two unrelated quizzes and the one comparison worth making -- a
- * retake against its own first attempt -- was the one the eye could not make.
- *
- * <p>Ordered by most recent activity, so what the learner is working on now is
- * at the top rather than whatever they sat first.
- */
 function AssessmentResultsSection({ groups }) {
   if (groups.length === 0) {
     return (
@@ -499,12 +409,6 @@ function AssessmentResultsSection({ groups }) {
   )
 }
 
-/**
- * One earned credential: the badge image the admin uploaded for the
- * certification, the date it was awarded, and the certificate number when one
- * was issued. Drawn the way the learner's own badge wall draws it, so a
- * department head and the learner are looking at the same object.
- */
 function CredentialMark({ award }) {
   const earnedAt = award.badgeAwardedAt ?? award.certificateAwardedAt
   const score = Number(award.scorePercentage)
@@ -535,16 +439,6 @@ function CredentialMark({ award }) {
   )
 }
 
-/**
- * What this learner has actually walked away with. The figures above are
- * progress; this is the outcome -- a badge is only written once the mock exam
- * is passed (see CertificationAwardService), so an empty card here is a
- * meaningful "not yet", not missing data.
- *
- * <p>Its own query rather than a field on the analytics DTO: awards are earned
- * against a certification, not against the department this page is scoped to,
- * and a failure to load them should cost the card, not the page.
- */
 function CredentialsCard({ query }) {
   const awards = (Array.isArray(query.data) ? query.data : []).filter(
     (award) => award.badgeAwardedAt != null || award.certificateAwardedAt != null
@@ -588,18 +482,11 @@ function CredentialsCard({ query }) {
   )
 }
 
-/**
- * One learner's statistics, for the leader of the group they belong to. Reached
- * by clicking a row in the group's Learners tab. Read-only: this is a
- * monitoring view, so nothing here changes the learner's record.
- */
 export default function InstitutionDepartmentLearnerPage() {
   const { departmentId, learnerId } = useParams()
   const departmentIdNumber = Number(departmentId)
   const learnerIdNumber = Number(learnerId)
 
-  // The roster already carries the learner's name, so this avoids a second
-  // per-learner lookup just to title the page.
   const rosterQuery = useQuery({
     queryKey: ["department-learner-roster", departmentIdNumber],
     queryFn: () => getGroupLearnerRoster(departmentIdNumber),
@@ -613,8 +500,6 @@ export default function InstitutionDepartmentLearnerPage() {
     retry: 1,
   })
 
-  // Kept out of the page's loading gate: a slow or failed award lookup should
-  // not hold back the statistics, which are what this page is mainly for.
   const awardsQuery = useQuery({
     queryKey: ["group-learner-awards", learnerIdNumber],
     queryFn: () => getGroupLearnerAwards(learnerIdNumber),
@@ -633,25 +518,14 @@ export default function InstitutionDepartmentLearnerPage() {
   const backToGroup = `/institution/departments/${departmentId}?tab=learners`
 
 
-  /* `scoreTrend` already excludes the AI tutor's practice quizzes and
-     flashcards -- the backend drops anything `tutorPracticeMarker` recognises
-     before building it -- so this is the curriculum's own assessments only.
-     One point per submitted attempt, which is what lets a retake be grouped
-     against its own first sitting rather than against the next exam along. */
   const gradedAttempts = useMemo(
     () => (analytics?.scoreTrend ?? []).filter((point) => point.percentage != null),
     [analytics?.scoreTrend]
   )
 
-  /* Grouped by `examId` -- the id, not the title, because two assessments in a
-     certification may legitimately share a name and merging them would invent
-     a retake that never happened. Titles are still the fallback for a point
-     that arrives without an id. */
   const assessmentGroups = useMemo(() => {
     const byExam = new Map()
     for (const point of gradedAttempts) {
-      // The DTO's field is `assessmentTitle`; this once read `examTitle`, which
-      // never existed, so every label said "Assessment".
       const title = point.assessmentTitle ?? "Assessment"
       const key = point.examId ?? `title:${title}`
       if (!byExam.has(key)) {
@@ -671,8 +545,6 @@ export default function InstitutionDepartmentLearnerPage() {
         score: Math.round(Number(point.percentage) * 10) / 10,
         passed: point.passed,
         takenOn: submittedAt ? submittedAt.toLocaleDateString() : null,
-        /* The marks behind the percentage. Older attempts were recorded
-           without them, so both have to be present to be shown. */
         correctCount: point.correctCount,
         itemCount: point.itemCount,
       })
@@ -684,8 +556,6 @@ export default function InstitutionDepartmentLearnerPage() {
     return [...byExam.values()]
       .map((group) => ({
         ...group,
-        // Attempt order, not submission order: a late-graded first attempt
-        // should still read as "Try 1" on the left.
         attempts: [...group.attempts].sort(
           (a, b) => (a.attemptNumber ?? 0) - (b.attemptNumber ?? 0)
         ),
@@ -722,16 +592,9 @@ export default function InstitutionDepartmentLearnerPage() {
   const totalAttempts = analytics?.totalAssessmentAttempts ?? 0
 
   return (
-    /* A profile, not a report: who the learner is stays pinned in the left
-       column while the right scrolls through what they have been doing. The
-       identity and the headline figures do not move, so a head reading down
-       the activity never loses track of whose it is. */
     <div className="grid gap-6 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] lg:h-[calc(100dvh-6rem)]">
       <aside className="space-y-4 lg:overflow-y-auto">
         <div>
-          {/* Their picture where they have uploaded one. The initials stay
-              underneath rather than being swapped out, so a link that has
-              expired leaves the learner recognisable. */}
           <div className="relative flex size-20 items-center justify-center overflow-hidden rounded-full border-2 border-border bg-muted sm:size-24">
             <span className="font-heading text-2xl font-bold text-muted-foreground sm:text-3xl">
               {initials}
@@ -752,8 +615,6 @@ export default function InstitutionDepartmentLearnerPage() {
           </p>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {/* The roster already carries this learner's mock-exam result, so
-                the badge costs no extra call. */}
             {learner?.mockExamPassed ? (
               <Badge className="gap-1">
                 <AwardIcon className="size-3.5" aria-hidden="true" />
@@ -773,9 +634,6 @@ export default function InstitutionDepartmentLearnerPage() {
           </Button>
         </div>
 
-        {/* The same four figures the page has always led with, as a list
-            rather than a card row: in a column this narrow the cards were all
-            chrome and no number. */}
         <dl className="divide-y divide-border/60 rounded-lg border border-border/60">
           <ProfileStat
             icon={BookOpen}
@@ -800,9 +658,6 @@ export default function InstitutionDepartmentLearnerPage() {
           <ProfileStat
             icon={TargetIcon}
             label="Average score"
-            /* Across graded attempts, not across assessments: an unattempted
-               assessment has no score to average in, and counting it as zero
-               would report a failure that has not happened. */
             value={formatPercent(analytics?.averageAssessmentScore)}
             hint={totalAttempts ? `Mean of ${totalAttempts} graded` : "No graded attempt yet"}
           />
@@ -836,10 +691,6 @@ export default function InstitutionDepartmentLearnerPage() {
 
         <TopicList
           title="Weakest topics"
-          /* Says which measure is on screen. With the mastery service
-             answering these are modelled over time; without it they are the
-             learner's marks, which is a blunter thing and should not be
-             presented as the same one. */
           description={
             analytics?.bktAvailable === false
               ? "Where this learner needs the most help — least accurate first, from their marked answers."

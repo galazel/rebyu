@@ -130,22 +130,6 @@ class EnrollmentTransactionServiceTest {
         verify(enrollmentRepository, never()).save(any());
     }
 
-    /*
-     * The "paid purchase stays pending" half of this test was deleted rather
-     * than repaired: `purchase` cannot produce a pending order any more.
-     * Certification prices are legacy data and access is gated by subscriptions
-     * now, so the method pins `price = BigDecimal.ZERO` and completes a free
-     * enrollment on every call -- which is what
-     * `freeEnrollmentCreatesOneCompletedTransactionAndActiveEnrollment` above
-     * asserts. Keeping the old expectation would have meant asserting a branch
-     * that no longer exists.
-     *
-     * The payment-verification guard is a different matter: `confirmPayment` is
-     * still reachable for orders that ARE pending (the PayMongo checkout flow
-     * creates them), and it must still refuse to enroll anyone on an
-     * unverified reference. That half survives here, given a pending order
-     * directly instead of trying to get `purchase` to make one.
-     */
     @Test
     void unverifiedPaymentIsRejectedAndEnrollsNobody() {
         LearnerOrder order = LearnerOrder.builder()
@@ -174,13 +158,12 @@ class EnrollmentTransactionServiceTest {
         verify(enrollmentRepository, never()).save(any());
     }
 
-    /** An order belonging to someone else is not confirmable, and is not even acknowledged. */
     @Test
     void confirmingAnotherLearnersOrderIsRefused() {
         LearnerOrder order = LearnerOrder.builder()
                 .orderId(12L)
                 .orderNumber("ORD-OTHER")
-                .learner(learner)          // learnerId 2
+                .learner(learner)
                 .orderedAt(LocalDateTime.now())
                 .status(LearnerOrder.Status.pending)
                 .build();

@@ -25,41 +25,19 @@ public class LearnerAchievementController {
     private final CognitoAuthService auth;
     private final RewardService rewardService;
 
-    /** Just what the reward pop-ups diff before and after an action. */
     public record MyRewardsDto(Long totalXp, List<LearnerAchievementViewDto> achievements) {}
 
-    /**
-     * The signed-in learner's own badge wall: the whole catalog, with the ones
-     * they have unlocked flagged. The learner is resolved from the JWT -- an
-     * id in the path would let anyone read (and, before this, write) somebody
-     * else's progress.
-     */
     @GetMapping("/me")
     public List<LearnerAchievementViewDto> myAchievements(@AuthenticationPrincipal Jwt jwt) {
         return achievementAwardService.catalogFor(me(jwt));
     }
 
-    /**
-     * XP and badges only. The pop-ups used to read the whole learner portal
-     * payload before and after every action -- dozens of queries to learn two
-     * things -- which is why an award appeared seconds after it was earned.
-     */
     @GetMapping("/me/rewards")
     public MyRewardsDto myRewards(@AuthenticationPrincipal Jwt jwt) {
         Long learnerId = me(jwt);
         return new MyRewardsDto(rewardService.balance(learnerId).xp(), achievementAwardService.catalogFor(learnerId));
     }
 
-    // Admin-only maintenance. Achievements are awarded server-side by
-    // AchievementAwardService as learners earn them; these endpoints exist to
-    // correct data, never as the way a badge is normally granted. An open POST
-    // here let any learner hand themselves any achievement, and an open GET by
-    // path id let them read anyone else's.
-    //
-    // Gated with the explicit requireAdmin() check the rest of this codebase
-    // uses (CertificationController, ExamController, ...) rather than
-    // @PreAuthorize: method security is not enabled in SecurityConfig, so the
-    // annotation would look like a guard while enforcing nothing.
 
     @GetMapping
     public List<LearnerAchievementDto> getAll(@AuthenticationPrincipal Jwt jwt) {

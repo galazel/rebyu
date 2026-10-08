@@ -31,9 +31,6 @@ from app.services import workflow_registry as registry
 
 logger = logging.getLogger(__name__)
 
-#: How long to wait for a live event before doing a catch-up poll. The
-#: broadcaster is process-local, so with several uvicorn workers an event
-#: emitted in another worker only arrives via this poll.
 IDLE_TIMEOUT_SECONDS = 10.0
 
 
@@ -48,11 +45,6 @@ def run_summary(run) -> dict[str, Any]:
         "progress_pct": run.progress_pct,
         "error_message": run.error_message,
         "last_seq": run.last_seq,
-        # When the run last recorded anything. A client that attaches to a run
-        # started hours ago -- reopened from the certifications list, or after
-        # the admin signed back in -- cannot tell a busy run from an abandoned
-        # one by watching its own connection, because both look like a live
-        # stream with nothing arriving. This is the only evidence of that.
         "updated_at": run.updated_at.isoformat() if run.updated_at else None,
     }
 
@@ -90,24 +82,10 @@ async def stream_events(run_id: str, last_seq: int = 0) -> AsyncIterator[dict[st
         yield {"type": "error", "message": f"No workflow run {run_id}"}
         return
 
-    # Subscribe *before* yielding the snapshot, so an event emitted in the gap
-    # between reading history and starting to listen is queued, not lost.
     broadcaster = get_broadcaster()
     queue = broadcaster.subscribe(run_id)
 
     try:
-        # The replayed history is streamed as individual event frames rather
-        # than embedded in the snapshot. Embedding it made the *first* frame
-        # grow with the run: at 150 events it reached 284 KB, past the 256 KB
-        # in-memory buffer the Java relay's WebClient decodes each SSE frame
-        # into. The relay then failed the stream, the browser reconnected, and
-        # got the same oversized frame again -- a permanent reconnect loop
-        # whose only symptom was an empty timeline, and one that any long run
-        # was guaranteed to reach eventually.
-        #
-        # Live events already went one per frame, so this simply makes replay
-        # behave like the steady state. `events` stays in the snapshot message
-        # for shape compatibility; clients merge by seq either way.
         yield {"type": "snapshot", "run": run, "events": []}
         seen = last_seq
         for replayed in missed:
@@ -115,7 +93,6 @@ async def stream_events(run_id: str, last_seq: int = 0) -> AsyncIterator[dict[st
             yield {"type": "event", "event": replayed}
 
         if _is_terminal(run["status"]) and seen >= run["last_seq"]:
-            # Nothing further will ever arrive; don't hold the connection.
             yield {"type": "complete", "status": run["status"]}
             return
 
@@ -134,8 +111,6 @@ async def stream_events(run_id: str, last_seq: int = 0) -> AsyncIterator[dict[st
                 yield {"type": "heartbeat"}
                 continue
 
-            # Out-of-order or already-delivered events are dropped: the
-            # client's view must stay monotonic.
             if event["seq"] <= seen:
                 continue
             seen = event["seq"]

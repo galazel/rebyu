@@ -31,11 +31,6 @@ OUT = "/app/scripts/fe_papers/ip_syllabus.json"
 
 MAJOR_RE = re.compile(r"^MAJOR CATEGORY\s*(\d+)\s*:\s*(.+?)\s*$", re.I)
 MIDDLE_RE = re.compile(r"^MIDDLE CATEGORY\s*(\d+)\s*:\s*(.+?)\s*$", re.I)
-#: A topic heading is a bare number followed by its title, and the title is
-#: frequently broken across several text runs -- one syllabus heading arrives
-#: as nine separate lines, a word each. The number is therefore matched alone
-#: and the title assembled from the rows that follow it, up to the "[Goal]"
-#: line that every topic body opens with.
 TOPIC_NUMBER_RE = re.compile(r"^(\d{1,2})\.\s*(.*)$")
 BODY_MARKERS = ("[Goal]", "[Description]", "Sample terms")
 
@@ -44,8 +39,6 @@ def main():
     doc = pymupdf.open(PDF)
     lines = []
     for index in range(doc.page_count):
-        # Row-grouped rather than raw, so a heading split across text runs is
-        # reassembled before anything tries to read it.
         rows, current, last_centre = [], [], None
         for value, rect in page_lines(doc[index]):
             centre = (rect.y0 + rect.y1) / 2
@@ -67,7 +60,6 @@ def main():
     seen_topics = set()
 
     for page, line in lines:
-        # The contents pages repeat every heading; skip them.
         if page < 9:
             continue
         match = MAJOR_RE.match(line)
@@ -91,8 +83,6 @@ def main():
         if match and middle is not None:
             number, title = int(match.group(1)), match.group(2).strip()
             if not title:
-                # Title is on the following rows; take them until the body
-                # starts.
                 position = lines.index((page, line))
                 parts = []
                 for _, following in lines[position + 1:position + 6]:
@@ -102,10 +92,6 @@ def main():
                 title = " ".join(parts).strip()
             if not title or len(title) > 110:
                 continue
-            # Topic numbers run as one continuous sequence across the whole
-            # syllabus, so the only acceptable next heading is exactly one
-            # more than the last. Anything else is a numbered list inside a
-            # topic's own body, of which there are many.
             expected = (max(seen_topics) + 1) if seen_topics else 1
             if number != expected:
                 continue

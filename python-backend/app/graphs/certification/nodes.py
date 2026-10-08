@@ -43,14 +43,6 @@ load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 logger = logging.getLogger(__name__)
 
 
-# Exact question counts per assessment type.
-#
-# Read from settings at call time rather than bound at import, so the same
-# value reaches the generation prompt and the expected-count check in
-# `_validate_latest_quiz` -- asking for 5 and then validating against 10 would
-# report every quiz as short. Configurable because assessments dominate a run's
-# token cost (280 questions at the defaults, whatever the curriculum's size),
-# so they are what has to come down when the AI budget is the constraint.
 def lesson_quiz_count() -> int:
     return get_settings().lesson_quiz_questions
 
@@ -63,18 +55,6 @@ def major_quiz_count() -> int:
     return get_settings().major_quiz_questions
 
 
-#: The diagnostic is 40 items for every certification, deliberately fixed.
-#:
-#: It is not imitating the real paper -- the mock does that, at whatever length
-#: the paper actually is. The diagnostic exists to place a learner across the
-#: whole syllabus before they start, and that job wants the SAME length every
-#: time: it is the baseline every later score is read against, and a baseline
-#: whose length moves with the certification is not comparable between them.
-#: Forty is long enough to touch every lesson of a real curriculum and short
-#: enough to sit before studying anything.
-#:
-#: Layout still follows the real exam (see generate_diagnostic_exam_node) --
-#: same question types, fixed count.
 DIAGNOSTIC_EXAM_ITEMS = 40
 
 
@@ -114,16 +94,6 @@ def question_bank_count(curriculum: dict | None = None, requested: int | None = 
     lessons = len(_flatten_lessons(curriculum or {}))
 
     if per_lesson <= 0:
-        # The flat total, but never fewer questions than there are lessons.
-        #
-        # The bank is what adaptive learning draws on, and mastery is tracked
-        # PER LESSON: a lesson with no bank question of its own can never be
-        # practised, retaken or measured, so the learner's mastery of it stays
-        # unknown forever. A flat 100 across 75 lessons is fine; the same 100
-        # across 140 would leave 40 lessons permanently invisible to BKT.
-        #
-        # Raising the floor keeps that impossible without anyone having to
-        # notice the curriculum grew.
         return max(settings.question_bank_questions, lessons)
 
     if lessons <= 0:
@@ -163,11 +133,6 @@ async def capture_document_visuals_node(state: CertificationState):
 async def document_ingestion_node(state: CertificationState):
     logger.info("Document ingestion started")
 
-    # PDF parsing, embedding, and FAISS writes are CPU-bound and release no
-    # GIL time voluntarily -- run them off the event loop so a large upload
-    # can't stall every other in-flight request.
-    # An append from instructions alone has nothing to index: the planner
-    # retrieves from what the certification already holds, and researches.
     if not (state.get("document_refs") or state.get("uploaded_files")):
         logger.info("No documents to ingest; continuing from the instructions")
         return {"vector_store_id": _namespace(state), "status": "DOCUMENT_PROCESSING_COMPLETED"}
@@ -191,10 +156,6 @@ async def document_ingestion_node(state: CertificationState):
 
     return {
         "vector_store_id": namespace,
-        # Drop any inline bytes now that the content is indexed. Nothing
-        # downstream reads the raw files again (generation retrieves from
-        # FAISS), so keeping them would re-serialize the whole upload into
-        # every remaining checkpoint for no benefit.
         "uploaded_files": [],
         "status": "DOCUMENT_PROCESSING_COMPLETED",
     }
@@ -213,8 +174,6 @@ async def _invoke_auditor(state: CertificationState, combined_samples: str):
 async def validate_documents_node(state: CertificationState):
     logger.info("Document validation started")
 
-    # Only the first ~300 chars of each file are needed to judge relevance,
-    # so this deliberately parses rather than indexes.
     sample_texts = []
     for ref in state.get("document_refs") or []:
         pages = await asyncio.to_thread(fetch_document_ref, ref)
@@ -232,9 +191,6 @@ async def validate_documents_node(state: CertificationState):
 
     combined_samples = "\n\n---\n\n".join(sample_texts)
 
-    # No documents at all: an append from the admin's instructions alone.
-    # There is nothing to judge, and the planner works from the instructions
-    # and its own research -- the check is for uploads that do not match.
     if not sample_texts and not (state.get("document_refs") or state.get("uploaded_files")):
         logger.info("No documents to validate; continuing from the instructions")
         return {"status": "VALIDATION_PASSED"}
@@ -259,14 +215,6 @@ def route_after_validation(state: CertificationState) -> str:
 
 
 async def _invoke_curriculum_agent(state: CertificationState, context: str) -> Curriculum:
-    # `invoke_json_agent`, not `invoke_agent`: the planner answers in plain
-    # JSON so a sample that stops before its closing brackets is repaired here
-    # rather than rejected upstream as `tool_use_failed`. See
-    # `app.agents.certification.curriculum_agent`.
-    # Adding to a certification rather than building one. Stated as part of the
-    # context so it needs no second prompt template: the planner is told what
-    # exists and asked for the difference, and everything downstream then works
-    # on that difference alone.
     instructions = (state.get("additional_instructions") or "").strip()
     if instructions:
         context = (
@@ -311,16 +259,6 @@ async def curriculum_planning_agent_node(state: CertificationState):
     logger.info("Curriculum planning started")
 
     try:
-        # No metadata filter: the index is already scoped to this
-        # certification, so cross-certification bleed is impossible by
-        # construction rather than by post-filtering.
-        #
-        # Balanced, not top-ranked. This is the one retrieval in the run whose
-        # job is coverage rather than relevance -- it decides which domains
-        # exist at all, and a document it does not see becomes a domain the
-        # certification does not have. Plain top-k let one file take every
-        # slot: six TOPCIT documents, one per domain, produced a three-major
-        # curriculum because only three files survived the ranking.
         context = await asyncio.to_thread(
             retrieve_balanced_context,
             _namespace(state),
@@ -463,9 +401,6 @@ def _flatten_middles(curriculum: dict) -> list[tuple[dict, dict]]:
     return pairs
 
 
-#: How much retrieved source material one lesson prompt carries. Large enough
-#: to hold the passages a lesson is actually about, small enough to leave the
-#: lesson agent its output budget.
 LESSON_CONTEXT_CHARS = 12000
 
 
@@ -506,8 +441,6 @@ def _lesson_source_material(state: CertificationState) -> str:
 
 
 async def _invoke_lesson_agent(state: CertificationState) -> GeneratedLesson:
-    # Off the event loop: retrieval embeds the query and searches FAISS, both
-    # CPU-bound, and several lessons are generated concurrently.
     source_material = await asyncio.to_thread(_lesson_source_material, state)
     return await invoke_agent(
         get_lesson_generation_agent,
@@ -569,9 +502,6 @@ async def generate_diagnostic_exam_node(state: CertificationState):
     context = _content_for_lessons(state, _flatten_lessons(curriculum)) or _curriculum_outline(
         curriculum
     )
-    # The real paper's shape, same source the mock reads. The diagnostic is the
-    # mock's layout at a fixed length: a learner should meet the exam's formats
-    # here, before studying, rather than for the first time at the end.
     context = _with_exam_structure(_with_existing_curriculum(context, state), state)
 
     batch = await invoke_question_agent(
@@ -585,10 +515,6 @@ async def generate_diagnostic_exam_node(state: CertificationState):
             f"{performance_quota(researched_question_types(state, UNKNOWN_EXAM_QUESTION_TYPES), DIAGNOSTIC_EXAM_ITEMS)}"
             f"{blank_format_rule(state)}{mcq_style_rule(state)}"
             f"{SUB_QUESTION_RULE} "
-            # An even spread, not an easy-weighted one. The diagnostic exists
-            # to locate a learner on the scale before teaching, and a paper
-            # with no HARD items cannot tell an Advanced learner from a
-            # Proficient one -- it just marks them both correct.
             + difficulty_quota_rule(DIAGNOSTIC_EXAM_ITEMS)
             + " Set lesson_ref on each question to the lesson it tests.",
         ),
@@ -612,13 +538,6 @@ def _exam_structure(state: CertificationState) -> dict:
     return (state.get("curriculum", {}) or {}).get("exam_structure") or {}
 
 
-#: What the mock exam falls back to when the planner could not determine the
-#: real paper's shape. MCQ only, deliberately: every other type needs semantic
-#: or manual grading, and guessing that an unknown exam contains programming or
-#: diagramming tasks produces an exam that is both wrong and expensive to mark.
-#: MCQ is the one format every certification uses and the only one that grades
-#: itself, so it is the safe default -- breadth over the whole syllabus rather
-#: than a guess at the paper's format.
 UNKNOWN_EXAM_QUESTION_TYPES = "MCQ"
 
 
@@ -662,18 +581,9 @@ def _with_exam_structure(context: str, state: CertificationState) -> str:
     return "Real exam structure:\n" + "\n".join(lines) + "\n\n" + context
 
 
-#: What each checkbox in the create form means in generator terms.
-#:
-#: "Critical thinking" is one choice to an admin and two types to the
-#: generator: a programming task and a diagramming task are both
-#: CRITICAL_THINKING once stored (see `_WORKSPACE_TYPES` in
-#: assessment_persistence), so the box that turns them on turns on both.
 QUESTION_TYPE_CHOICES = {
     "MCQ": ["MCQ"],
     "SHORT_ANSWER": ["SHORT_ANSWER"],
-    # A fill-in-the-blank item IS a SHORT_ANSWER once stored -- each blank is
-    # marked by exact string match, which is what SHORT_ANSWER means here. The
-    # difference is the shape of the stem, which `blank_format_rule` asks for.
     "FILL_IN_BLANK": ["SHORT_ANSWER"],
     "DESCRIPTIVE": ["DESCRIPTIVE"],
     "CRITICAL_THINKING": ["PROGRAMMING", "DIAGRAM"],
@@ -698,8 +608,6 @@ def blank_format_rule(state: CertificationState) -> str:
     if "FILL_IN_BLANK" not in chosen:
         return ""
     if "SHORT_ANSWER" in chosen:
-        # Both ticked: the paper has plain short answers as well, so this is a
-        # share rather than a rule about every one of them.
         return (
             " FILL-IN-THE-BLANK REQUIRED: at least half of the SHORT_ANSWER items must be "
             "TERM PLACEMENT items -- a short passage that defines two to four concepts "
@@ -718,7 +626,6 @@ def blank_format_rule(state: CertificationState) -> str:
     )
 
 
-#: Shares of a batch that must be written in each of these formats.
 TYPED_BLANK_SHARE = "a quarter"
 SCENARIO_SHARE = "a third"
 
@@ -846,10 +753,6 @@ async def generate_mock_exam_node(state: CertificationState):
     context = _content_for_lessons(state, _flatten_lessons(curriculum)) or _curriculum_outline(
         curriculum
     )
-    # The whole researched shape, not just the free-text notes: count, types,
-    # time, pass mark and examined weighting. Coverage especially -- a mock
-    # sampled from the syllabus rather than the paper's own weighting tests the
-    # wrong proportions however good the individual items are.
     context = _with_exam_structure(_with_existing_curriculum(context, state), state)
 
     if not known:
@@ -894,28 +797,11 @@ def await_mock_exam_review_node(state: CertificationState):
     )
 
 
-#: Share of a paper that must be performance items when the exam uses them.
-#:
-#: Naming the permitted types is not enough and never was. "This exam uses
-#: these question types ONLY: MCQ, SHORT_ANSWER, DESCRIPTIVE, PROGRAMMING" is
-#: permission, and a model handed permission writes the cheap types: TOPCIT's
-#: mock came back 24 MCQ, 21 descriptive, 20 short answer and ZERO programming,
-#: from a list that allowed programming. The bank did the same -- 3 programming
-#: and 1 diagram out of 72.
-#:
-#: A performance item is several paragraphs of scenario plus starter code or a
-#: reference model, so left to its own judgement the model always has a reason
-#: to write one fewer. The only thing that changes the outcome is a required
-#: count, stated per type.
 PERFORMANCE_ITEM_SHARE = 0.20
 
-#: Types that need the quota above; the rest are cheap enough to write freely.
 PERFORMANCE_TYPES = ("PROGRAMMING", "DIAGRAM")
 
 
-#: The three levels the adaptive engine understands. IrtModel maps them to
-#: b = -1.5 / 0.0 / +1.5, so these labels ARE the item difficulty parameter --
-#: not a tag on the side of one.
 DIFFICULTY_LEVELS = ("EASY", "AVERAGE", "HARD")
 
 
@@ -925,9 +811,6 @@ def difficulty_quota(total: int) -> dict[str, int]:
         return {level: 0 for level in DIFFICULTY_LEVELS}
     base, extra = divmod(total, 3)
     quota = {level: base for level in DIFFICULTY_LEVELS}
-    # One or two spares go to AVERAGE first, then EASY -- never twice to the
-    # same level, which would hand a paper of 2 both spares and ask for no
-    # EASY and no HARD at all.
     for level in ("AVERAGE", "EASY")[:extra]:
         quota[level] += 1
     return quota
@@ -975,8 +858,6 @@ def performance_quota(types: str, total: int) -> str:
     if not wanted or total <= 0:
         return ""
 
-    # At least one each -- a share that rounds to zero on a short paper would
-    # reintroduce exactly the problem this exists to fix.
     each = max(1, round(total * PERFORMANCE_ITEM_SHARE / len(wanted)))
     parts = ", ".join(f"at least {each} {t}" for t in wanted)
     return (
@@ -988,7 +869,6 @@ def performance_quota(types: str, total: int) -> str:
     )
 
 
-#: Share of an exam's MCQs that must WORK something out rather than recall it.
 MCQ_WORK_ITEM_SHARE = 0.25
 
 
@@ -1025,14 +905,6 @@ def mcq_format_quota(types: str, total: int) -> str:
     )
 
 
-#: Multi-part items on the two whole-certification papers.
-#:
-#: The agent's system prompt already says performance items take sub-questions,
-#: but neither the mock nor the diagnostic ever asked for them, and a general
-#: rule competes with a specific instruction that does not mention it. These
-#: are also the two papers where parts matter most: they imitate a real
-#: examination, and a real examination's performance section is a scenario
-#: followed by questions about it, not a lone prompt with a box.
 SUB_QUESTION_RULE = (
     " Every PROGRAMMING and DIAGRAM item, and any DESCRIPTIVE item built on a "
     "scenario, MUST carry 2 to 4 entries in sub_questions -- the parts asked "
@@ -1077,26 +949,15 @@ def _lesson_performance_rule(state: CertificationState) -> str:
 async def generate_question_bank_node(state: CertificationState):
     scope = f"Adaptive learning question bank for {state['certification_name']}"
     curriculum = state.get("curriculum", {}) or {}
-    # The bank feeds practice, remediation and adaptive retakes, so what it
-    # over- and under-samples is what a learner ends up drilling. Sampling the
-    # syllabus alone drills whatever has the most lessons; the exam's own
-    # weighting is the thing worth rehearsing against.
     context = _with_exam_structure(_curriculum_outline(curriculum), state)
 
     settings = get_settings()
     requested = state.get("requested_bank_size")
     total = question_bank_count(curriculum, requested)
-    # An admin-typed total replaces the per-lesson RATE as well as the size.
-    # Left in, the prompt below would say "generate exactly 120 questions: 5
-    # for every one of the 63 lessons" -- two numbers that cannot both be
-    # satisfied, and the model picks one.
     per_lesson = 0 if requested else settings.question_bank_questions_per_lesson
     lessons = len(_flatten_lessons(curriculum))
 
     if per_lesson > 0 and lessons > 0:
-        # Stated per lesson AND as a total. The per-lesson figure is what makes
-        # the distribution even; the total is what stops the model stopping
-        # early, which it does when given only a rate.
         spread = (
             f"Generate exactly {total} questions: {per_lesson} for EVERY ONE of the "
             f"{lessons} lessons in the curriculum, with none left without its own "
@@ -1105,11 +966,6 @@ async def generate_question_bank_node(state: CertificationState):
             "the knowledge check, or mastery tracking, so it is wasted work. "
         )
     elif lessons > 0:
-        # A flat pool still has to reach every lesson. Told only "distribute
-        # across major categories", the model clusters on whatever it found
-        # most to say about, and lessons at the tail of the syllabus get
-        # nothing -- which the per-lesson readers then experience as a lesson
-        # with no questions at all.
         spread = (
             f"Generate exactly {total} questions covering ALL {lessons} lessons "
             "in the curriculum. EVERY lesson must get at least one question "
@@ -1126,10 +982,6 @@ async def generate_question_bank_node(state: CertificationState):
             "tests. "
         )
 
-    # The bank practises what the exam examines, so it uses the certification's
-    # own formats -- and is held to the same minimums as the mock. Left as "use
-    # all supported types" it produced 3 programming items and 1 diagram out of
-    # 72, which is not a bank a learner can practise those formats from.
     bank_types = researched_question_types(
         state, "MCQ, SHORT_ANSWER, DESCRIPTIVE, PROGRAMMING, DIAGRAM"
     )
@@ -1158,20 +1010,9 @@ async def generate_question_bank_node(state: CertificationState):
 
 
 def await_question_bank_review_node(state: CertificationState):
-    # No `expected` for the bank on purpose. Its total is dedupe-limited by
-    # design -- each batch only sees the last 40 stems already written, so a
-    # 500-question ask lands somewhat under -- and a COUNT_MISMATCH warning on
-    # every single run would be noise the gate has to discount rather than
-    # signal. The exams are the opposite: a mock exam of the wrong length is
-    # not the exam it imitates.
     return _await_review(state, "QUESTION_BANK", state.get("question_bank", []))
 
 
-# Per-item review loop nodes (Phase 2b step 12)
-#
-# One item at a time, so an admin can approve category 1 and reject category
-# 2. Categories generate only a quiz -- per Q2 they are organizational and
-# carry no instructional content; only lessons are authored.
 
 from app.domain.validation import validate_lesson, validate_question_batch  # noqa: E402
 from app.graphs.certification.review_loop import (  # noqa: E402
@@ -1198,22 +1039,6 @@ MIDDLE_PHASE = LoopPhase(
 )
 
 
-# nested traversal
-#
-# The walk is bottom-up and interleaved:
-#
-#     for each major:
-#         for each middle:
-#             for each lesson:  content -> 10-question quiz
-#             middle quiz, from those lessons' content
-#         major quiz, from every lesson under the major
-#     question bank -> diagnostic exam -> mock exam
-#
-# It used to be three independent passes (all majors, then all middles, then
-# all lessons), which meant every category quiz was written before a single
-# lesson existed and had nothing to draw on but the category's one-line
-# description. The predicates below are what curve the three flat loops into
-# this nested one; see `register_phase`'s `in_scope` and `advance_router`.
 
 
 def _lesson_belongs_to_current_middle(state: CertificationState) -> bool:
@@ -1245,18 +1070,7 @@ def route_after_major_advance(state: CertificationState) -> str:
     return "exams"
 
 
-# lesson content as quiz context
-#
-# Category quizzes are generated *after* the lessons beneath them, and are
-# built from what those lessons actually say rather than from the category's
-# one-line description. Previously a 50-question major quiz was written from
-# `major["description"]` -- a single sentence -- so it tested the category's
-# title rather than its teaching, and could ask about material no lesson
-# covered. The graph order in `workflow.py` exists to make this possible.
 
-#: Per-lesson and total ceilings on assembled quiz context. A major category
-#: can hold 20 lessons; sending all of them whole would exceed the model's
-#: rate limit outright (see `router.RequestTooLarge`).
 _LESSON_CONTEXT_CHARS = 2500
 _QUIZ_CONTEXT_CHARS = 20000
 
@@ -1489,22 +1303,11 @@ async def _author_lesson(
     major, middle = _lesson_parents(curriculum, index)
 
     if feedback:
-        # `build_lesson_prompt` renders this as its own section; it used to be
-        # concatenated onto the lesson's generation instructions, which put
-        # reviewer prose inside a field describing the lesson's own content.
         lesson = {**lesson, "review_feedback": feedback}
 
     scoped = {**state, "major": major, "middle": middle, "lesson": lesson}
     result = await _invoke_lesson_agent(scoped)
 
-    # The model states what each picture should show; the searches run here,
-    # off the event loop, where a failed lookup costs an illustration rather
-    # than the lesson. See `app.domain.lesson_media`.
-    # The figures captured from the uploaded documents are offered first, so
-    # a lesson is illustrated by its own source material where that material
-    # has a picture of the thing. `capture_document_visuals_node` has been
-    # capturing and uploading these since it was written; until now nothing
-    # read them back, so every one was paid for and discarded.
     result.sections = await asyncio.to_thread(
         resolve_media, result.sections, state.get("document_visuals")
     )
@@ -1598,8 +1401,6 @@ async def lesson_content_node(state: CertificationState):
     curriculum = state.get("curriculum", {}) or {}
     index = current_index(state, LESSON_PHASE)
 
-    # Written on an earlier pass. Hand it over and drop it, so the state does
-    # not carry finished lessons twice.
     content_ahead = dict(state.get("lesson_content_ahead") or {})
     if str(index) in content_ahead:
         logger.info("Lesson %s was written ahead; using it", index + 1)
@@ -1611,9 +1412,6 @@ async def lesson_content_node(state: CertificationState):
     feedback = state.get("review_instructions")
     width = 1 if feedback else _read_ahead_width(state)
 
-    # Never past the end of the phase, and never past the current parent: the
-    # walk hands over to a middle category's exam at its boundary, and lessons
-    # beyond it may be reviewed, edited or never reached.
     remaining = _lessons_left_in_parent(curriculum, index)
     width = max(1, min(width, remaining))
 
@@ -1629,10 +1427,6 @@ async def lesson_content_node(state: CertificationState):
         return_exceptions=True,
     )
 
-    # The current lesson is the one the walk is waiting on, so a failure there
-    # is raised and handled the way a single-lesson failure always was. A
-    # failure further ahead is dropped instead: nothing is parked for it, and
-    # the walk produces it normally when it arrives.
     if isinstance(results[0], BaseException):
         raise results[0]
 
@@ -1651,8 +1445,6 @@ async def lesson_content_node(state: CertificationState):
         quiz_ahead[key] = result["quiz"]
         audit_ahead[key] = result["audit"]
 
-    # This lesson's own quiz and audit are parked under its index too: the walk
-    # is between nodes, and the quiz node runs next and collects it.
     quiz_ahead[str(index)] = results[0]["quiz"]
     audit_ahead[str(index)] = results[0]["audit"]
 
@@ -1670,11 +1462,6 @@ async def lesson_quiz_generate_node(state: CertificationState):
     lesson = generated[index] if index < len(generated) else {}
     name = lesson.get("name") or (current_item(state, LESSON_PHASE) or {}).get("name", "")
 
-    # Built alongside the lesson, in the same read-ahead task. Collect it and
-    # drop it rather than paying for it a second time.
-    #
-    # Skipped when the reviewer sent this lesson back: the parked quiz was
-    # written against the content they rejected.
     quiz_ahead = dict(state.get("lesson_quiz_ahead") or {})
     if str(index) in quiz_ahead and not state.get("review_instructions"):
         return {
@@ -1685,8 +1472,6 @@ async def lesson_quiz_generate_node(state: CertificationState):
     return {"lesson_quizzes": [await _quiz_for(state, {**lesson, "name": name})]}
 
 
-#: certification_id -> (read at, stems). Mid-run flushes add to the database
-#: only what the state already lists, so a stale read costs nothing.
 _STORED_STEMS: dict[int, tuple[float, list[str]]] = {}
 _STORED_STEMS_TTL_SECONDS = 600
 
@@ -1792,9 +1577,6 @@ def major_validate_node(state: CertificationState):
         "validation_report": _validate_latest_quiz(
             state.get("major_quizzes"), index, major_quiz_count()
         ),
-        # Recorded here rather than in the generator: validation runs after
-        # every generation, so one place covers first pass, regenerate, and
-        # improve-with-AI alike.
         "version_refs": record_version(
             state, MAJOR_PHASE, artifact=artifact,
             source=source_for_decision(state),
@@ -1869,12 +1651,6 @@ async def lesson_validate_node(state: CertificationState):
         state.get("lesson_quizzes"), index, lesson_quiz_count()
     )
 
-    # Scoped to this one lesson: auditing the whole set on every iteration
-    # would re-judge already-approved lessons and grow cost quadratically.
-    #
-    # Run alongside the lesson in the read-ahead task where there is one, and
-    # collected here. A rejected lesson is re-audited: the parked verdict
-    # judged the content the reviewer sent back.
     audit_ahead = dict(state.get("lesson_audit_ahead") or {})
     alignment = None
     consumed_audit = False
@@ -1908,8 +1684,6 @@ async def lesson_validate_node(state: CertificationState):
         "status": "LESSON_VALIDATED",
     }
     if consumed_audit:
-        # Written back only when one was taken, so an ordinary run does not
-        # rewrite this map into every checkpoint for no reason.
         update["lesson_audit_ahead"] = audit_ahead
     return update
 
@@ -1919,9 +1693,6 @@ def _nth_entry(items: list | None, index: int):
     return items[index] if index < len(items) else None
 
 
-# applying a reviewer's manual edit
-# Each phase writes its artifact to a different state key, so the loop is
-# told how to apply an edit rather than guessing.
 
 def apply_major_edit(state: CertificationState, payload) -> dict:
     major = current_item(state, MAJOR_PHASE) or {}

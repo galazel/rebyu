@@ -58,7 +58,6 @@ def main(apply: bool) -> int:
                     lister(session, row["certification_id"]), column
                 )
 
-            # Titles are written as "<Category Name> Exam".
             name = row["title"].removesuffix(" Exam")
             category_id = resolve_category_id(name, indexes[cache_key])
 

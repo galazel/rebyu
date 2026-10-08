@@ -48,7 +48,6 @@ async def workflow_timeline(
     settings = get_settings()
     expected = settings.service_api_key
     if expected and key != expected:
-        # Rejected before accept, so no session is established.
         await websocket.close(code=4401)
         return
 

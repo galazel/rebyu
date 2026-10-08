@@ -18,7 +18,6 @@ CERTIFICATION_ID = 4
 
 QUESTIONS = {
 
-    # 712 -- Laws on security
     712: [
         mcq("AVERAGE",
             "An employee with valid credentials browses customer records unrelated to any task assigned to them. How is this best characterised?",
@@ -92,7 +91,6 @@ QUESTIONS = {
             "These laws generally cover the trade in credentials as well as the access itself, because the first enables the second."),
     ],
 
-    # 723 -- Solution business
     723: [
         mcq("HARD",
             "An organisation rents virtual machines from a cloud provider under IaaS. Who is responsible for patching the guest operating system?",
@@ -166,7 +164,6 @@ QUESTIONS = {
             "Responsibility for one's own data and compliance never transfers, whichever service model is used."),
     ],
 
-    # 713 -- Laws on labor and transaction
     713: [
         mcq("HARD",
             "Under a worker dispatch arrangement, who directs the worker's daily tasks?",
@@ -240,7 +237,6 @@ QUESTIONS = {
             "Distance selling rules commonly provide a cancellation window, precisely because the buyer could not inspect the goods first."),
     ],
 
-    # 732 -- Applied mathematics
     732: [
         mcq("AVERAGE",
             "Salaries in a small company are mostly similar, but one director earns ten times the rest. Which measure best describes a typical salary?",

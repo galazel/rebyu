@@ -27,11 +27,6 @@ public class TextQuestionConfig {
     @Column(name = "checking_method", nullable = false, length = 30)
     private String checkingMethod = "EXACT_MATCH";
 
-    /**
-     * Optional exact-match alternatives, one per line. Any line that matches the
-     * learner's normalized answer scores as correct, e.g. correctAnswer "SQL"
-     * with a variation "Structured Query Language".
-     */
     @Column(name = "accepted_variations", columnDefinition = "TEXT")
     private String acceptedVariations;
 }

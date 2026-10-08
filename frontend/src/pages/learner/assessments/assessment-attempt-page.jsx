@@ -10,7 +10,7 @@ export default function AssessmentAttemptPage() {
   const { attempt, startAttempt, submitAnswer, submitAttempt, loading } = useAssessment()
   const [currentQuestion, setCurrentQuestion] = useState(0)
   const [answers, setAnswers] = useState({})
-  const [timeLeft, setTimeLeft] = useState(3600) // 1 hour
+  const [timeLeft, setTimeLeft] = useState(3600)
 
   useEffect(() => {
     if (assessmentId && !attempt) {
@@ -53,7 +53,6 @@ export default function AssessmentAttemptPage() {
 
   if (!attempt) return <div className="p-8 text-center">Loading assessment...</div>
 
-  // Mock questions (replace with actual questions from backend)
   const mockQuestions = [
     {
       id: 1,
@@ -86,7 +85,6 @@ export default function AssessmentAttemptPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold">Assessment: React Fundamentals</h1>
@@ -100,7 +98,6 @@ export default function AssessmentAttemptPage() {
           </div>
         </div>
 
-        {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex justify-between mb-2">
             <span className="text-sm font-medium">Progress</span>
@@ -114,7 +111,6 @@ export default function AssessmentAttemptPage() {
           </div>
         </div>
 
-        {/* Question Card */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="text-2xl">{question.text}</CardTitle>
@@ -171,7 +167,6 @@ export default function AssessmentAttemptPage() {
           </CardContent>
         </Card>
 
-        {/* Navigation */}
         <div className="flex items-center justify-between">
           <button
             onClick={() => setCurrentQuestion(Math.max(0, currentQuestion - 1))}
@@ -218,7 +213,6 @@ export default function AssessmentAttemptPage() {
           )}
         </div>
 
-        {/* Warning */}
         {timeLeft < 300 && (
           <div className="mt-8 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-600" />

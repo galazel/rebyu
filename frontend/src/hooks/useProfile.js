@@ -2,9 +2,6 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import profileService from '@/services/profileService'
 
-/**
- * Hook for managing learner profile updates
- */
 export function useProfile() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)

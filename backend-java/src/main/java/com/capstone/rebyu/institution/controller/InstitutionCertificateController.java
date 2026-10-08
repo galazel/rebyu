@@ -24,9 +24,6 @@ public class InstitutionCertificateController {
     private final InstitutionAccessTeardownService teardownService;
     private final CognitoAuthService auth;
 
-    // Cross-tenant allocation data: the unfiltered list exposes every institution's
-    // certificate allocations, so it's admin-only. Institutions read their own via
-    // /api/institution/me/overview; learners via /api/learners/me/portal.
     @GetMapping
     public List<InstitutionCertificateDto> getAll(@AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
@@ -58,26 +55,12 @@ public class InstitutionCertificateController {
         return institutionCertificateService.update(id, dto);
     }
 
-    /**
-     * What dropping this allocation would destroy, and what it would refund.
-     * Asked before {@link #delete}, so nobody removes three departments and two
-     * learners' enrolments on the strength of a row in a table.
-     */
     @GetMapping("/{id}/impact")
     public Impact impact(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
         return teardownService.describe(id);
     }
 
-    /**
-     * Drops a certification from an institution: the allocation, its
-     * departments, enrolments and invitations, and a refund of what was paid
-     * for it.
-     *
-     * <p>This used to be {@code repository.delete(...)} with no checks -- on an
-     * allocation with learners on it that either failed on a foreign key or
-     * stranded them, and it never returned a peso. Call {@code /impact} first.
-     */
     @DeleteMapping("/{id}")
     public TeardownResult delete(
             @PathVariable Long id,

@@ -31,24 +31,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-/**
- * Marks, off the request thread, the answers an adaptive attempt was
- * submitted with still open: code (a test runner), diagrams (a structural
- * comparison), written answers (a model call). Each takes seconds; the
- * learner has their provisional result already and this fills it in.
- *
- * <p>One transaction per attempt, on a small pool. The graders themselves
- * run concurrently inside it exactly as they do at a synchronous submit
- * ({@link AssessmentAttemptService#prepareGradingBatch}). When every mark is
- * in, the totals are recomputed and everything that hangs off a final
- * score -- XP, achievements, the result row, the diagnostic gate, the BKT
- * evidence -- is run by the same {@code finalizeSubmission} the synchronous
- * path uses. The learner is told through the bell.
- *
- * <p>A crash mid-way leaves {@code grading_pending} set; the sweep picks
- * such attempts up again a minute later, so no paper stays provisional
- * because a server restarted.
- */
 @Slf4j
 @Service
 public class AdaptiveGradingService {
@@ -94,7 +76,6 @@ public class AdaptiveGradingService {
         this.executor = pool;
     }
 
-    /** Queues the attempt's open answers for marking. Safe to call more than once. */
     public void gradeInBackground(Long attemptId) {
         if (attemptId == null || !inFlight.add(attemptId)) {
             return;
@@ -115,7 +96,6 @@ public class AdaptiveGradingService {
         }
     }
 
-    /** Anything left provisional for over a minute is picked up again. */
     @Scheduled(fixedDelayString = "${adaptive.grading-sweep-ms:120000}", initialDelayString = "60000")
     public void sweep() {
         List<AssessmentAttempt> stale = attemptRepository.findByStatusAndGradingPendingTrueAndSubmittedAtBefore(
@@ -184,13 +164,6 @@ public class AdaptiveGradingService {
                 attempt.getPercentage(), attempt.getPassed(), attemptId);
     }
 
-    /**
-     * The final-round items are marked here, after submit, so their evidence
-     * reaches the ability estimate here too: the same step the main round
-     * took per answer, applied in paper order to the items that were still
-     * open, from the ability the main round ended on. The standard error is
-     * recomputed over every item on the paper.
-     */
     private void moveAbility(AssessmentAttempt attempt, List<AssessmentAttemptQuestion> questions,
                              Map<Long, AssessmentAttemptAnswer> answersByQuestion, Set<Long> justMarked,
                              Map<Long, Question> sources) {

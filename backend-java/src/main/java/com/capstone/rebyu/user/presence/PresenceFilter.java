@@ -14,13 +14,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-/**
- * Marks the caller as seen on every signed-in request.
- *
- * <p>Ordered just after Spring Security (-100), so the token is already
- * verified, and ahead of the Redis response cache, so a request answered from
- * cache still counts as the user being here.
- */
 @Component
 @Order(-99)
 @RequiredArgsConstructor

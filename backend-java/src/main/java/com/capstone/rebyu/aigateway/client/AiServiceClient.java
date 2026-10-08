@@ -27,17 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Typed, blocking client for the internal Python AI backend (FastAPI +
- * LangGraph). Java only triggers generation/grading/chat here and persists
- * whatever Python returns — no LLM calls happen in this codebase anymore.
- *
- * <p>Certification and question generation moved off this client entirely in
- * Phase 5/6 -- they're triggered by an async RabbitMQ message instead (see
- * CurriculumGenerationService/QuestionGenerationService). What remains here
- * is what's still genuinely synchronous: tutor chat, per-lesson draft
- * generation, answer grading, and study aids.
- */
 @Slf4j
 @Component
 public class AiServiceClient {
@@ -61,12 +50,6 @@ public class AiServiceClient {
         }
     }
 
-    /**
-     * The tutor's answer as Server-Sent Events while it is written (`delta`
-     * pieces, then `resources`, then `done` or `error`). A longer wait than
-     * the client default: the events keep arriving, but the whole answer can
-     * take a while on a fallback model.
-     */
     public Flux<ServerSentEvent<String>> streamChat(ChatRequest request) {
         return webClient.post()
                 .uri("/tutor/chat/stream")
@@ -133,16 +116,6 @@ public class AiServiceClient {
         }
     }
 
-    /**
-     * How long to wait for one answer to be marked.
-     *
-     * Generous on purpose. Submission now blocks on grading and the learner is
-     * held on a loading screen while it runs, so the right trade here is to
-     * wait rather than to give up: an answer that takes twelve seconds to mark
-     * is a slow mark, while a timeout is a zero the learner did not earn.
-     * Grading runs concurrently per question, so this is the cost of the
-     * slowest single answer, not of the paper.
-     */
     private static final Duration GRADING_TIMEOUT = Duration.ofSeconds(60);
 
     public Optional<AnswerGradingResultDto> gradeAnswer(AnswerGradingRequestDto request) {
@@ -155,11 +128,6 @@ public class AiServiceClient {
                     .block(GRADING_TIMEOUT);
             return Optional.ofNullable(result);
         } catch (WebClientResponseException e) {
-            /* A 4xx is the service telling us the request itself is wrong --
-               a missing route, a bad payload, a rejected key. Retrying cannot
-               change any of those, and doing so cost three extra round trips
-               and several seconds on every written answer. Raised so the
-               caller stops immediately instead of trying again. */
             if (e.getStatusCode().is4xxClientError()) {
                 log.error("Answer grading rejected with {} -- not retrying. "
                                 + "Check that POST /assessments/grade-answer exists on the AI service.",
@@ -170,11 +138,6 @@ public class AiServiceClient {
             log.warn("Answer grading failed with {} -- retryable", e.getStatusCode(), e);
             return Optional.empty();
         } catch (Exception e) {
-            /* Everything else -- timeouts, connection refusals, 5xx -- is worth
-               another try. Logged with its type, not just its message:
-               `getMessage()` alone is empty or useless for most WebClient
-               failures, which is why a slow service and a dead one arrived here
-               looking identical. */
             log.warn("Answer grading request failed [{}]: {}",
                     e.getClass().getSimpleName(), e.getMessage(), e);
             return Optional.empty();

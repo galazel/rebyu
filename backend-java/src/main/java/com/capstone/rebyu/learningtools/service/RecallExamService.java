@@ -35,38 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Assembles the study plan's Active Recall session: an exam built out of what
- * this learner has actually struggled with.
- *
- * <h3>Why it is a real exam</h3>
- * The attempt engine has no exam-less path -- {@code AssessmentAttempt.exam} is
- * a non-null FK and {@code startAttempt} refuses anything that is not a
- * PUBLISHED exam with questions. Minting a real, learner-owned exam (the same
- * thing the AI tutor's practice quizzes do, see {@link GeneratedAssessmentService})
- * means the whole existing machinery applies unchanged: the attempt runner,
- * grading, the lesson breakdown, XP, and the BKT mastery events a recall
- * session ought to feed back into.
- *
- * <p>Unlike that service, this one assembles <em>existing</em> questions rather
- * than authoring new ones. Recall is only meaningful against material the
- * learner has already met -- inventing fresh questions would test something
- * else entirely.
- *
- * <h3>What gets picked</h3>
- * In order, until the paper is full:
- * <ol>
- *   <li>questions from the scheduled topic that were answered incorrectly</li>
- *   <li>anything else answered incorrectly on this certification, most-missed
- *       first</li>
- *   <li>questions from the weakest lessons by BKT mastery</li>
- *   <li>anything else from the scheduled topic</li>
- *   <li>anything else on the certification, so a paper is still produced for a
- *       learner with no history yet</li>
- * </ol>
- * Each tier only fills what the ones above it left, so a learner with thirty
- * outstanding mistakes sits twenty of those and never reaches the filler.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -74,20 +42,12 @@ public class RecallExamService {
 
   public static final String RECALL_EXAM_TYPE = "RECALL";
 
-  /**
-   * Stamped instead of a curriculum scope, for the same reason
-   * {@link GeneratedAssessmentService#GENERATED_TARGET_SCOPE} is: a value that
-   * is not "LESSON" keeps this paper out of uniqueness checks and out of the
-   * curriculum UI's lesson-quiz tiles. A recall session is the learner's own,
-   * and must never look like the certification's official assessment.
-   */
   public static final String RECALL_TARGET_SCOPE = "RECALL";
 
   private static final int DEFAULT_SIZE = 20;
   private static final int MAX_SIZE = 50;
   private static final int MOCK_DEFAULT_SIZE = 30;
 
-  /** Below this mastery a lesson is worth re-testing. */
   private static final double WEAK_MASTERY_CEILING = 0.7;
 
   private final LearnerQuestionHistoryService history;
@@ -114,9 +74,6 @@ public class RecallExamService {
     Certification certification = certifications.findById(certificationId)
         .orElseThrow(() -> new EntityNotFoundException("Certification not found: " + certificationId));
 
-    /* Ordered, de-duplicating, and capped as it fills: a LinkedHashSet is what
-       makes "each tier fills only what the ones above left" fall out of the
-       insertion order rather than needing bookkeeping per tier. */
     Set<Long> chosen = new LinkedHashSet<>();
     String basis = "history";
 
@@ -134,30 +91,16 @@ public class RecallExamService {
     }
 
     if (chosen.size() < target) {
-      // Nothing to recall yet -- a first-time learner still gets a paper, and
-      // the basis says why, so the UI can be honest about what this is.
       if (chosen.isEmpty()) {
         basis = "coverage";
       }
       addUpTo(chosen, scopeQuestionIds(certificationId, null), target);
     }
 
-    /* Ids are not enough to tell two questions apart.
 
-       The bank holds genuine copies -- the same wording saved under several
-       ids, mostly from repeated generation runs -- so a LinkedHashSet of ids
-       de-duplicates none of them and the paper asked the same question twice.
-       Seven recall sessions in this database did exactly that.
 
-       Dropping the copies here rather than while filling keeps the tier order
-       above intact and costs one query: the tiers decide what belongs on the
-       paper, and this decides which of the survivors are actually distinct. */
     List<Long> distinct = stemDistinct(chosen);
 
-    /* Removing copies leaves the paper short, so it is topped up from the
-       certification -- skipping everything already on it, by id and by stem
-       alike. Without this a learner whose weak areas happen to be the
-       duplicated ones would get a visibly shorter session for it. */
     if (distinct.size() < target) {
       Set<Long> used = new LinkedHashSet<>(distinct);
       List<Set<String>> usedTokens = tokensOf(distinct);
@@ -203,8 +146,6 @@ public class RecallExamService {
         .targetScope(RECALL_TARGET_SCOPE)
         .publishedAt(now)
         .updatedAt(now)
-        // The point of recall is finding out what you no longer know, which is
-        // worthless without being told immediately which ones those were.
         .releaseAnswersAfterSubmit(true)
         .build());
 
@@ -225,19 +166,6 @@ public class RecallExamService {
         exam.getExamId(), exam.getTitle(), certificationId, distinct.size(), basis);
   }
 
-  /**
-   * The study plan's mock exam: a timed paper over every lesson this learner has
-   * finished in the certification, and nothing they have not.
-   *
-   * <p>The certification's official mock exam unlocks only once the whole
-   * curriculum is done, so a plan that schedules "mock exam" every two weeks
-   * would otherwise point at something locked. This checks what has been
-   * covered so far instead. Questions are dealt round-robin across the finished
-   * lessons so a lesson with a large bank cannot crowd out the rest.
-   *
-   * <p>Minted as the learner's own RECALL-type paper, not a MOCK_EXAM: it must
-   * not count as the certification's official mock in readiness or analytics.
-   */
   @Transactional
   public RecallExam createPlanMockExam(Long learnerId, Long certificationId, Integer size) {
     if (certificationId == null) {
@@ -266,7 +194,6 @@ public class RecallExamService {
       throw new IllegalStateException("The lessons you have finished have no questions yet");
     }
 
-    // Round-robin, a few spare per slot so removing text copies below still fills the paper.
     Set<Long> dealt = new LinkedHashSet<>();
     int limit = target * 2;
     for (int round = 0; dealt.size() < limit; round++) {
@@ -327,14 +254,6 @@ public class RecallExamService {
     return history.missedQuestionIds(learnerId, certificationId, lessonId);
   }
 
-  /**
-   * Questions from the lessons BKT rates weakest.
-   *
-   * <p>Degrades to nothing when the BKT service is unavailable rather than
-   * failing the request: a recall session built only from past mistakes is a
-   * worse session, not a broken one, and refusing to start would make an
-   * optional study feature depend on an optional service being up.
-   */
   private List<Long> weakLessonQuestionIds(Long learnerId, Long certificationId, Set<Long> alreadyChosen) {
     LearnerMasteryService.LessonPrioritiesResult priorities =
         mastery.getLessonPrioritiesForAnalytics(learnerId, certificationId);
@@ -363,30 +282,13 @@ public class RecallExamService {
     return picked;
   }
 
-  /** Every official question in a scope, as ids only. */
   private List<Long> scopeQuestionIds(Long certificationId, Long lessonId) {
     return eligibleQuestions.resolveScopeViews(certificationId, null, null, lessonId).stream()
-        // Another institution group's private questions are never eligible
-        // here: this paper is assembled for the learner, with no group context
-        // to check them against.
         .filter(view -> view.getOwnerDepartmentId() == null)
         .map(QuestionSelectionView::getQuestionId)
         .toList();
   }
 
-  /**
-   * The given ids with text-duplicates removed, first occurrence kept.
-   *
-   * <p>Order is the tiers' order, which is the whole point of keeping the first
-   * of each copy: the earliest occurrence is the one the highest-priority tier
-   * put there.
-   *
-   * <p>One query, on the projection rather than the entity -- see
-   * {@link QuestionSelectionView} for why loading questions in bulk is not free.
-   * An id whose row cannot be read is kept rather than dropped: it may simply
-   * be outside this projection's scope, and losing it silently would shorten
-   * the paper for a reason nobody could see.
-   */
   private List<Long> stemDistinct(Set<Long> ids) {
     if (ids.isEmpty()) {
       return new ArrayList<>();
@@ -411,7 +313,6 @@ public class RecallExamService {
     return distinct;
   }
 
-  /** Whether this question is one already on the paper, exactly or edited. */
   private static boolean isCopy(Set<String> candidate, List<Set<String>> kept) {
     for (Set<String> existing : kept) {
       if (candidate.equals(existing) || QuestionStem.sameQuestion(candidate, existing)) {
@@ -421,7 +322,6 @@ public class RecallExamService {
     return false;
   }
 
-  /** The word sets already on the paper, so a top-up cannot reintroduce a copy. */
   private List<Set<String>> tokensOf(List<Long> ids) {
     List<Set<String>> tokens = new ArrayList<>();
     if (ids.isEmpty()) {
@@ -436,7 +336,6 @@ public class RecallExamService {
     return tokens;
   }
 
-  /** Whole-certification candidates as views, so a top-up can compare stems. */
   private List<QuestionSelectionView> certificationCandidates(Long certificationId) {
     return eligibleQuestions.resolveScopeViews(certificationId, null, null, null).stream()
         .filter(view -> view.getOwnerDepartmentId() == null)
@@ -450,7 +349,6 @@ public class RecallExamService {
     }
   }
 
-  /** Diagnostics for the caller, kept out of the response contract. */
   public Map<String, Object> describe(RecallExam exam) {
     return Map.of("examId", exam.examId(), "itemCount", exam.itemCount(), "basis", exam.basis());
   }

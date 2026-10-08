@@ -50,20 +50,8 @@ _CENT = Decimal("0.01")
 _ZERO = Decimal("0")
 _HUNDRED = Decimal("100")
 
-#: Longest learner answer sent to the model, per answer.
-#:
-#: A written answer box has no length limit, and the tutor task's completion
-#: budget is 2000 tokens against a context that also has to hold the question,
-#: the reference answer and every sibling sub-answer. Truncating is better than
-#: the alternative it replaces: an over-long submission that overflows the
-#: context fails the whole item, and failing is what produces the unmarked
-#: answer this service exists to prevent. Generous enough that no genuine essay
-#: answer reaches it.
 _MAX_ANSWER_CHARS = 6000
 
-#: Delimiters around learner text. Any occurrence inside the answer itself is
-#: neutralised before the prompt is built -- otherwise a learner could close
-#: the block early and have the rest of their submission read as prompt.
 _ANSWER_BEGIN = "----- LEARNER ANSWER BEGIN -----"
 _ANSWER_END = "----- LEARNER ANSWER END -----"
 
@@ -81,7 +69,6 @@ class IncompleteGrading(ValueError):
     """
 
 
-# scoring
 
 
 def _points(value: Decimal | float | int | None) -> Decimal:
@@ -126,13 +113,11 @@ def _feedback_or_default(text: str | None, default: str = _NO_FEEDBACK) -> str:
     return _clean(text) or default
 
 
-# prompt
 
 
 def _plain(points: Decimal) -> str:
     """A point total without trailing zeros -- "3" and "2.5", never "3.00"."""
     normalized = points.normalize()
-    # `normalize()` renders a whole number in exponent form (5 -> 5E+1 for 50).
     return f"{normalized:f}"
 
 
@@ -225,7 +210,6 @@ def build_sub_question_prompt(
     return "\n\n".join(parts)
 
 
-# invocation
 
 
 class _CompletenessChecked:
@@ -278,7 +262,6 @@ async def _invoke(build_agent, prompt: str) -> AnswerVerdict:
     )
 
 
-# entry point
 
 
 async def grade_answer(request: AnswerGradingRequest) -> AnswerGradingResult:
@@ -295,10 +278,6 @@ async def grade_answer(request: AnswerGradingRequest) -> AnswerGradingResult:
 async def _grade_single(request: AnswerGradingRequest) -> AnswerGradingResult:
     max_points = _points(request.maxPoints)
 
-    # A blank submission is the one score that needs no model: there is nothing
-    # to read, the mark is 0 whatever the rubric says, and calling out to a
-    # model to be told so costs a request and a few seconds of the learner's
-    # loading screen per empty box.
     if not _clean(request.learnerAnswer):
         return AnswerGradingResult(earnedPoints=0.0, feedback=_BLANK_FEEDBACK)
 
@@ -328,10 +307,6 @@ async def _grade_sub_questions(
             ],
         )
 
-    # Every sub-question goes to the model, including the unanswered ones:
-    # dropping them would renumber the rest, and the numbering is how a mark
-    # finds its way back to a sub-question id. Blanks are forced to 0 below,
-    # after the model has spoken, so a stray mark on an empty box cannot stand.
     verdict = await _invoke(
         _completeness_checked(len(sub_questions)),
         build_sub_question_prompt(request, sub_questions),
@@ -351,8 +326,6 @@ async def _grade_sub_questions(
                 )
             )
             continue
-        # Present by construction -- `_completeness_checked` refuses a verdict
-        # that is missing any index -- so this is a guard, not a fallback.
         scored = by_index[position]
         earned = points_for_percent(scored.scorePercent, sub_max)
         total += earned
@@ -364,10 +337,6 @@ async def _grade_sub_questions(
             )
         )
 
-    # The total is the sum of the parts, not the model's own top-level
-    # percentage. Java stores the two separately and never re-adds them, so
-    # deriving the total is what keeps a result page from showing a breakdown
-    # that does not add up to its own header.
     parent_max = _points(request.maxPoints)
     if parent_max > _ZERO:
         total = min(total, parent_max)

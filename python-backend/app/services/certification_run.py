@@ -79,8 +79,6 @@ def _notify(context: RunContext, title: str, body: str) -> None:
     with SessionLocal() as session:
         repo.insert_notification(
             session, user_id=context.triggered_by_user_id, title=title, body=body,
-            # The certification's own admin page; the catalog (/admin) when
-            # the run never resolved one. There is no /admin/certifications.
             href=f"/admin/certification/{context.certification_id}" if context.certification_id else "/admin",
         )
 
@@ -101,9 +99,6 @@ def _persist_curriculum(certification_id: int, curriculum: dict) -> None:
     of every category and lesson.
     """
     with SessionLocal() as session:
-        # Written even when the planner returned nothing useful, so a rerun
-        # that *does* find the exam's shape overwrites a stale value rather
-        # than leaving the old one in place.
         structure = curriculum.get("exam_structure")
         if structure and (structure.get("total_items") or structure.get("question_types")):
             repo.update_certification_exam_structure(session, certification_id, structure)
@@ -175,9 +170,6 @@ def fail(
             with SessionLocal() as session:
                 repo.delete_empty_certification(session, context.certification_id)
         except Exception:
-            # The run has already been recorded as failed; the admin is told
-            # why either way. A shell left behind is untidy, not broken, and is
-            # not worth turning into a second failure.
             logger.exception(
                 "Could not remove certification %s after a rejected run",
                 context.certification_id,
@@ -235,9 +227,6 @@ def finalize(context: RunContext, result: dict) -> dict[str, Any]:
         return {"outcome": registry.WAITING_FOR_REVIEW, "stage": stage}
 
     if result.get("status") == "VALIDATION_FAILED":
-        # Nothing was generated, so nothing is lost by taking the empty
-        # certification with it -- and leaving it behind is what blocks a retry
-        # under the same name.
         return fail(
             context,
             result.get("error_message")
@@ -250,17 +239,12 @@ def finalize(context: RunContext, result: dict) -> dict[str, Any]:
         return fail(context, "Generation completed without a usable curriculum.")
 
     if not context.persists_to_java:
-        # A direct-upload run: no certification row to attach output to. The
-        # caller gets the artifacts in the HTTP response.
         with SessionLocal() as session:
             registry.mark_completed(session, context.thread_id)
         return {"outcome": registry.COMPLETED, "exams": 0, "bank_questions": 0}
 
     _persist_curriculum(context.certification_id, curriculum)
 
-    # Curriculum alone used to be the end of it -- the generated quizzes,
-    # exams, and question bank were discarded with the checkpoint. Persist
-    # them too, as DRAFT, so nothing an admin approved is lost.
     with SessionLocal() as session:
         summary = persist_generated_assessments(session, context.certification_id, result)
     for warning in summary["warnings"]:
@@ -268,10 +252,6 @@ def finalize(context: RunContext, result: dict) -> dict[str, Any]:
 
     stranded = _stranded_output(summary)
     if stranded:
-        # The run did the work and the storage layer dropped it. Reporting
-        # COMPLETED here is how a certification came to show two lessons and
-        # no assessments while the log said success -- the drops were only
-        # ever warnings, and warnings scroll past.
         return fail(
             context,
             "Generation succeeded but its output was not saved: "
@@ -347,11 +327,6 @@ async def set_review_mode(thread_id: str, mode: str) -> str:
     graph = await get_certification_graph()
     config = _thread_config(thread_id)
 
-    # Written twice if the first write does not stick. A run that is mid-node
-    # writes its own state when that node returns, and an update that lands
-    # inside that window is superseded -- rare, but the cost of losing it is
-    # the reviewer being asked again at the next checkpoint, having explicitly
-    # said not to be.
     for attempt in (1, 2):
         await graph.aupdate_state(config, {"review_mode": mode})
         snapshot = await graph.aget_state(config)
@@ -454,8 +429,6 @@ async def rescue_partial_output(context: RunContext) -> dict[str, Any]:
 
     curriculum = values.get("curriculum") or {}
     if not curriculum.get("majorCategories"):
-        # Nothing has been planned yet, so there is nothing to keep. The
-        # certification row stays as it is.
         return {"saved": False, "reason": "nothing generated yet"}
 
     try:
@@ -498,17 +471,6 @@ def _kept_note(saved: dict[str, Any]) -> str:
     return f" Everything generated so far was saved as drafts ({detail}); retrying continues from there."
 
 
-#: Threads this process is executing right now.
-#:
-#: `updated_at` says when a run last recorded something, which is enough to
-#: spot an abandoned run but not enough to protect a live one: a run that has
-#: just started, or one on a genuinely long step, is quiet without being dead.
-#: This is the direct answer for the only process that can know it -- the one
-#: holding the asyncio task -- and it is what stops recovery, or a redelivered
-#: queue message, from putting a second driver on a thread already being driven.
-#:
-#: Deliberately in-memory: its whole purpose is to be empty after a restart,
-#: because a restart is precisely when nothing is being driven any more.
 _DRIVEN_THREADS: set[str] = set()
 
 
@@ -552,32 +514,12 @@ async def advance(context: RunContext, graph_input: Any) -> tuple[dict[str, Any]
     try:
         result = await graph.ainvoke(graph_input, config=_thread_config(context.thread_id))
     except RunCancelled as cancelled:
-        # Already CANCELLED in the registry -- the graph is unwinding on
-        # purpose. Marking it FAILED here would report a reviewer's own
-        # decision as a generator bug, and offer to retry the work they just
-        # stopped.
         logger.info("Certification run %s stopped: %s", context.thread_id, cancelled)
-        # Stopping a run is not throwing its output away: an admin who stops a
-        # run at lesson 40 keeps those 40 lessons.
         saved = await rescue_partial_output(context)
         raise RunFailed(
             {"outcome": registry.CANCELLED, "error": str(cancelled), "saved": saved}
         ) from cancelled
     except asyncio.CancelledError:
-        # NOT covered by `except Exception` -- CancelledError is a
-        # BaseException, so before this clause existed a cancelled task skipped
-        # every rescue below and the run's output died with the task.
-        #
-        # That is not a hypothetical either. The queue consumer runs this
-        # inside the message handler, so when RabbitMQ's consumer timeout
-        # closed the channel out from under a long run, the task was cancelled
-        # and everything it had generated was lost -- three times over on
-        # 2026-08-31, leaving an empty certification each time.
-        #
-        # Rescue first, then re-raise: cancellation must still propagate (the
-        # caller and the event loop both need to see it), but the lessons that
-        # were already written belong in the database, not in a discarded
-        # task's memory.
         logger.warning(
             "Certification run %s was cancelled mid-flight; saving what it built",
             context.thread_id,
@@ -596,9 +538,6 @@ async def advance(context: RunContext, graph_input: Any) -> tuple[dict[str, Any]
             {**fail(context, str(error), kept=_kept_note(saved)), "saved": saved}
         ) from error
     finally:
-        # Released as soon as the graph returns or raises. Finalisation below
-        # is database work measured in milliseconds, and holding the claim
-        # across it would only delay a legitimate recovery.
         _DRIVEN_THREADS.discard(context.thread_id)
 
     return result, finalize(context, result)
@@ -619,34 +558,13 @@ async def execute(context: RunContext, graph_input: Any) -> dict[str, Any]:
     return outcome
 
 
-# recovery
 
-#: Statuses a run can always be retried or restarted from.
 RECOVERABLE_STATUSES = {registry.FAILED}
 
 
-#: How quiet a run must be before reconciliation will touch it. Comfortably
-#: longer than the gap between a node finishing and the next one starting --
-#: including a rate-limit backoff, which routinely idles a healthy run for
-#: tens of seconds without emitting anything.
 RECONCILE_AFTER_IDLE_SECONDS = 180.0
 
 
-#: How long a RUNNING run must emit nothing before it is treated as abandoned
-#: rather than busy.
-#:
-#: A run is driven by an in-process asyncio task, so *nothing* survives the
-#: process it was started in. Kill the service mid-generation and the registry
-#: row is left claiming RUNNING forever with no one executing it -- and because
-#: only FAILED runs were recoverable, that run was a permanent dead end: no
-#: retry, no restart, and a certification stuck on "Generating…" for good.
-#:
-#: Every node boundary records an event, which bumps `updated_at`. Silence for
-#: this long therefore means no node has started or finished in that window,
-#: which no healthy run does -- the longest single step (deep lesson authoring)
-#: is minutes, not this. Set well above the reconcile threshold because being
-#: late to adopt an orphan costs a wait, while adopting a live run would put two
-#: drivers on one thread.
 STALLED_AFTER_IDLE_SECONDS = 900.0
 
 
@@ -693,8 +611,6 @@ def is_recoverable(run) -> bool:
     if run.kind != "CERTIFICATION":
         return False
     if is_being_driven(run.thread_id):
-        # Whatever the row says, this process is executing it. Offering Retry
-        # here would start a second driver on a thread that is very much alive.
         return False
     return run.status in RECOVERABLE_STATUSES or is_stalled(run)
 
@@ -738,10 +654,6 @@ async def reconcile(run) -> dict[str, Any]:
     if run.status != registry.WAITING_FOR_REVIEW:
         return {"reconciled": False, "reason": f"Run is {run.status}, not awaiting review."}
 
-    # Every event bumps `updated_at`, so a run that is emitting anything is a
-    # run still doing something. Repairing one is how a *live* run twice got
-    # marked failed while it was mid-generation. A genuinely stranded run has
-    # nothing left to emit, so waiting out the grace period costs it nothing.
     idle_for = _seconds_since(run.updated_at)
     if idle_for < RECONCILE_AFTER_IDLE_SECONDS:
         return {
@@ -770,10 +682,6 @@ async def reconcile(run) -> dict[str, Any]:
             "Reconciling run %s: claimed WAITING_FOR_REVIEW, but %s is pending with no interrupt",
             run.run_id, stage,
         )
-        # This checkpoint holds real output -- the resume died after the run
-        # had generated its way to a review. Marking it failed without saving
-        # that first is how an hour of authoring became an empty
-        # certification.
         saved = await rescue_partial_output(context)
         return {
             "reconciled": True,
@@ -819,8 +727,6 @@ async def adopt_orphan(run) -> dict[str, Any]:
     snapshot = await graph.aget_state(_thread_config(run.thread_id))
 
     if snapshot is None or not snapshot.values:
-        # Nothing to resume from. Failing it is what makes Restart available,
-        # which re-reads the certification's documents and begins again.
         logger.warning("Orphaned run %s has no checkpoint to resume from", run.run_id)
         return {
             "action": "failed",
@@ -858,8 +764,6 @@ async def adopt_orphan(run) -> dict[str, Any]:
         with SessionLocal() as session:
             attempt = registry.attempt_number(session, run.run_id)
             registry.mark_retrying(session, run.thread_id, stage=stage, attempt=attempt)
-        # `None` resumes the pending step rather than starting over, so the
-        # minutes of ingestion and generation already paid for are kept.
         return {"action": "resumed", "stage": stage, "outcome": await execute(context, None)}
 
     logger.info("Orphaned run %s had finished; applying the outcome it never reported", run.run_id)
@@ -904,9 +808,6 @@ def _guard(run, action: str) -> None:
         )
     if not is_recoverable(run):
         if run.status == registry.RUNNING:
-            # Distinct from the generic refusal: this run *will* become
-            # recoverable on its own if it really is dead, and saying so stops
-            # an admin hammering the button.
             raise RecoveryError(
                 f"Run {run.run_id} is still executing. It becomes recoverable "
                 f"after {int(STALLED_AFTER_IDLE_SECONDS / 60)} minutes of silence."
@@ -990,8 +891,6 @@ async def prepare_restart(run) -> tuple[RunContext, dict]:
             "certification_description": certification["description"] or "",
             "industry": certification["industry"] or "",
             "document_refs": document_refs_from(documents),
-            # Restarting keeps the supervision choice the run was started
-            # with, so an unattended run does not come back asking for review.
             "review_mode": review_mode_from(_params_of(generation_request)),
             "status": "STARTED",
         }
@@ -1017,10 +916,6 @@ async def prepare_restart(run) -> tuple[RunContext, dict]:
     if values.get("certification_id") is not None:
         seed["certification_id"] = values["certification_id"]
 
-    # `uploaded_files` is deliberately cleared once ingested, so a run that
-    # got past ingestion no longer carries its own bytes. Refusing is the
-    # honest outcome: restarting without documents would quietly generate a
-    # curriculum from the title alone.
     document_refs = values.get("document_refs") or []
     uploaded_files = values.get("uploaded_files") or []
     if not document_refs and not uploaded_files:

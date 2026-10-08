@@ -6,12 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { verifyLatestCheckout } from "@/services/subscriptionService.js"
 
-/**
- * Landing page for both PayMongo redirect outcomes (success_url/cancel_url).
- * On success, calls /subscription/verify/{sessionId}, which is what actually
- * activates the subscription server-side -- this page isn't just a status
- * display, it's the primary activation trigger.
- */
 export default function SubscriptionCheckoutResultPage({ canceled = false }) {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -27,8 +21,6 @@ export default function SubscriptionCheckoutResultPage({ canceled = false }) {
     } catch {
       stored = null
     }
-    // PayMongo returns here without a usable session id, so the one saved
-    // before redirecting (or the server's own record) is what gets checked.
     const id = sessionId && sessionId.startsWith("cs_") ? sessionId : stored
 
     let cancelled = false
@@ -39,7 +31,6 @@ export default function SubscriptionCheckoutResultPage({ canceled = false }) {
           try {
             localStorage.removeItem("rebyu_checkout_session")
           } catch {
-            // nothing to clean up
           }
           setState("approval")
         } else if (result?.status === "success") {

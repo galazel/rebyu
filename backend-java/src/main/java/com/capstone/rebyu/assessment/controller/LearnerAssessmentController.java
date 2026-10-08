@@ -17,30 +17,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * Learner-safe assessment endpoints. Responses never contain answer keys,
- * rubrics, or reference diagram data before submission.
- *
- * <p>The acting learner is always {@link #me}, resolved from the validated
- * access token. Every request here still CARRIES a {@code learnerId} -- as a
- * query parameter or a {@code @NotNull} field on the body -- and every one of
- * them is now ignored.
- *
- * <p>It was previously the only thing deciding whose attempt was being read or
- * written, on a path that required no authentication at all, so changing a
- * number in the URL was enough to open someone else's assessment, answer it,
- * submit it, and read the graded result. The service layer's ownership check
- * (`requireOwnedAttempt`) was already correct and always had been -- it
- * compares the attempt's learner against the id it is handed, which is exactly
- * as trustworthy as that id. Handing it the token's learner is what makes it
- * mean something.
- *
- * <p>The fields are deliberately left on the DTOs rather than deleted. They are
- * {@code @NotNull}, and validation runs BEFORE any handler body, so removing
- * them from the contract would reject every request the current frontend
- * sends with a 400 before this class ever ran. They are accepted, unread, and
- * overwritten.
- */
 @RestController
 @RequestMapping("/api/learner")
 @RequiredArgsConstructor
@@ -52,10 +28,6 @@ public class LearnerAssessmentController {
     private final com.capstone.rebyu.assessment.repository.ExamRepository examRepository;
     private final com.capstone.rebyu.department.repository.DepartmentLearnerRepository groupAssignees;
 
-    /**
-     * A group's own assessment is for that group's learners. Nothing checked
-     * this: any learner who knew or guessed the exam id could open and sit it.
-     */
     private void requireClassMemberIfGroupExam(Long assessmentId, Long learnerId) {
         examRepository.findById(assessmentId).ifPresent(exam -> {
             if (exam.getOwnerDepartment() != null && !groupAssignees
@@ -67,13 +39,6 @@ public class LearnerAssessmentController {
         });
     }
 
-    /**
-     * The learner making this request, from the token and nothing else.
-     *
-     * <p>Mirrors {@code LearnerAnalyticsController.myLearnerId}; the resolve is
-     * cached per request by {@code CognitoAuthService}, so calling it in every
-     * handler costs one lookup per HTTP request rather than one per call.
-     */
     private Long me(Jwt jwt) {
         if (jwt == null) {
             throw new IllegalArgumentException("Authentication is required");
@@ -185,10 +150,6 @@ public class LearnerAssessmentController {
                         me(jwt), request.diagramData(), request.diagramType()));
     }
 
-    /**
-     * Marks one locked choice answer mid-attempt, for runners that show a
-     * verdict between questions instead of only at the end.
-     */
     @PostMapping("/assessment-attempts/{attemptId}/choice/{attemptQuestionId}/check")
     public ChoiceCheckResultDto checkChoice(
             @PathVariable Long attemptId,
@@ -199,11 +160,6 @@ public class LearnerAssessmentController {
                 new ChoiceCheckRequestDto(me(jwt), request.selectedChoiceId()));
     }
 
-    /**
-     * One answer of an adaptive session: marked at once (main round) or saved
-     * for the final marking (final round), and the next question comes back
-     * with it.
-     */
     @PostMapping("/assessment-attempts/{attemptId}/adaptive/answer")
     public AdaptiveAnswerResponseDto answerAdaptive(
             @AuthenticationPrincipal Jwt jwt,
@@ -212,7 +168,6 @@ public class LearnerAssessmentController {
         return adaptiveAttemptService.answer(attemptId, me(jwt), request.answer());
     }
 
-    /** Every answer the client has queued, in order, in one request. */
     @PostMapping("/assessment-attempts/{attemptId}/adaptive/answers")
     public AdaptiveAnswersResponseDto answerAdaptiveAll(
             @AuthenticationPrincipal Jwt jwt,

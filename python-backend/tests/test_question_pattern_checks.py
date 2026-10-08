@@ -115,7 +115,6 @@ def test_varied_openings_are_not_flagged():
     assert "REPETITIVE_QUESTION_OPENINGS" not in _codes([_mcq(i, correct=i % 4) for i in range(12)])
 
 
-# programming and diagram tasks
 
 
 def _programming(text: str, test_cases: int) -> dict:
@@ -183,7 +182,6 @@ def test_a_diagram_question_with_a_real_scenario_is_not_flagged():
     assert "THIN_DIAGRAM_TASK" not in _codes(batch)
 
 
-# the schema floor
 
 
 def test_the_schema_rejects_a_programming_question_with_one_test_case():
@@ -202,7 +200,6 @@ def test_the_schema_rejects_a_programming_question_with_one_test_case():
         )
 
 
-# The question bank must read like a professional certification paper.
 
 
 def test_the_prompt_demands_hard_scenario_questions_not_definitions():
@@ -216,16 +213,13 @@ def test_the_prompt_demands_hard_scenario_questions_not_definitions():
     """
     from app.agents.certification.question_agent import SYSTEM_PROMPT
 
-    # Skewed hard, with an explicit mix so the model cannot default to easy.
     assert "10% EASY, 40% AVERAGE, 50% HARD" in SYSTEM_PROMPT
     assert "If you are\n  unsure whether a question is AVERAGE or HARD, make it harder." in SYSTEM_PROMPT
 
-    # Scenario-first, technical, judgement over recall.
     assert "SITUATIONAL and TECHNICAL" in SYSTEM_PROMPT
     assert "Test judgement, not recall" in SYSTEM_PROMPT
     assert "working practitioner" in SYSTEM_PROMPT
 
-    # Higher-order Bloom levels rather than REMEMBER/UNDERSTAND.
     assert "APPLY, ANALYZE or EVALUATE" in SYSTEM_PROMPT
 
 
@@ -290,7 +284,6 @@ def test_the_prompt_forbids_defaulting_to_article_openings():
 
     assert "Vary how each stem OPENS" in SYSTEM_PROMPT
     assert "most stems should NOT open with an article" in SYSTEM_PROMPT
-    # Concrete alternatives, so "vary it" is actionable rather than a wish.
     assert "second person" in SYSTEM_PROMPT
     assert "inverted" in SYSTEM_PROMPT
     assert "imperative" in SYSTEM_PROMPT
@@ -311,5 +304,4 @@ def test_performance_items_are_framed_as_real_systems():
     assert "THE SCENARIO CARRIES THE DIFFICULTY" in SYSTEM_PROMPT
     assert "REQUIRE A DESIGN DECISION" in SYSTEM_PROMPT
     assert "MATCH THE ARTEFACT TO THE PROBLEM" in SYSTEM_PROMPT
-    # The scenario must not pre-solve the model for the learner.
     assert "Never pre-solve it by" in SYSTEM_PROMPT

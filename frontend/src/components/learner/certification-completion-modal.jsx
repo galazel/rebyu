@@ -33,7 +33,6 @@ import {
 } from "@/services/learnerAnalyticsService.js"
 import { masteryColor, useChartTheme } from "@/components/charts/rebyu-charts.jsx"
 
-/* ── helpers ──────────────────────────────────────────────────────────────── */
 
 function pct(n) {
   return n == null ? "—" : `${Math.round(Number(n))}%`
@@ -59,13 +58,11 @@ function priorityBg(tag) {
   }
 }
 
-/* ── stamp SVG ────────────────────────────────────────────────────────────── */
 
 function CompletionStamp({ hasBadgeImage, certificationId, award }) {
   if (hasBadgeImage) {
     return (
       <div className="relative flex items-center justify-center">
-        {/* outer ring */}
         <div className="absolute inset-0 rounded-full border-[3px] border-dashed border-rb-feather/50 opacity-60" />
         <img
           src={`${certificationBadgeUrl(certificationId)}?v=${encodeURIComponent(award?.badgeAwardedAt ?? "")}`}
@@ -76,34 +73,26 @@ function CompletionStamp({ hasBadgeImage, certificationId, award }) {
     )
   }
 
-  /* Drawn stamp — no badge image uploaded */
   return (
     <svg
       viewBox="0 0 180 180"
       className="size-36 drop-shadow-lg"
       aria-label="Certification complete stamp"
     >
-      {/* outer dashed ring */}
       <circle cx="90" cy="90" r="84" fill="none" stroke="#2f6b4f" strokeWidth="3" strokeDasharray="6 4" />
-      {/* filled disc */}
       <circle cx="90" cy="90" r="76" fill="#2f6b4f" />
-      {/* inner ring */}
       <circle cx="90" cy="90" r="70" fill="none" stroke="#ffffff" strokeWidth="1.5" opacity="0.4" />
-      {/* top arc text: REBYU */}
       <path id="topArc" d="M 28,90 A 62,62 0 0,1 152,90" fill="none" />
       <text fontSize="10" fontWeight="700" fill="#ffffff" letterSpacing="3" fontFamily="sans-serif">
         <textPath href="#topArc" startOffset="50%" textAnchor="middle">· REBYU CERTIFIED ·</textPath>
       </text>
-      {/* check mark */}
       <path d="M74 88 L85 100 L108 75" fill="none" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-      {/* CERTIFIED big text */}
       <text x="90" y="118" textAnchor="middle" fontSize="13" fontWeight="900" fill="#ffffff" fontFamily="sans-serif" letterSpacing="1">
         CERTIFIED
       </text>
       <text x="90" y="133" textAnchor="middle" fontSize="10" fontWeight="700" fill="#b6e8c9" fontFamily="sans-serif" letterSpacing="2">
         COMPLETE
       </text>
-      {/* bottom arc text */}
       <path id="btmArc" d="M 22,90 A 68,68 0 0,0 158,90" fill="none" />
       <text fontSize="9" fontWeight="600" fill="#b6e8c9" letterSpacing="2" fontFamily="sans-serif">
         <textPath href="#btmArc" startOffset="50%" textAnchor="middle">★ WELL DONE ★</textPath>
@@ -112,7 +101,6 @@ function CompletionStamp({ hasBadgeImage, certificationId, award }) {
   )
 }
 
-/* ── module bar chart ─────────────────────────────────────────────────────── */
 
 function ModuleChart({ areas, theme }) {
   const majorAreas = areas.filter(a => a.categoryType === "MAJOR")
@@ -149,7 +137,6 @@ function ModuleChart({ areas, theme }) {
   )
 }
 
-/* ── lesson weakness list ─────────────────────────────────────────────────── */
 
 function WeaknessList({ areas }) {
   const weakLessons = areas
@@ -198,7 +185,6 @@ function WeaknessList({ areas }) {
   )
 }
 
-/* ── stat tile ────────────────────────────────────────────────────────────── */
 
 function StatTile({ icon: Icon, label, value, sub, accent }) {
   return (
@@ -215,7 +201,6 @@ function StatTile({ icon: Icon, label, value, sub, accent }) {
   )
 }
 
-/* ── main modal ───────────────────────────────────────────────────────────── */
 
 export function CertificationCompletionModal({ certification, award, onClose }) {
   const navigate = useNavigate()
@@ -276,14 +261,12 @@ export function CertificationCompletionModal({ certification, award, onClose }) 
   ).length
 
   return (
-    /* backdrop */
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div role="dialog" aria-modal="true" aria-label={`${certTitle} complete`} className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border-2 border-border bg-background shadow-2xl">
 
-        {/* close */}
         <button
           type="button"
           onClick={onClose}
@@ -293,13 +276,10 @@ export function CertificationCompletionModal({ certification, award, onClose }) 
           <X className="size-4" />
         </button>
 
-        {/* hero header — green banner */}
         <div className="relative flex flex-col items-center gap-4 overflow-hidden bg-rb-feather px-6 pb-8 pt-10 text-white sm:flex-row sm:items-start sm:pb-10">
-          {/* decorative circles */}
           <div className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full bg-white/10" />
           <div className="pointer-events-none absolute -left-6 bottom-0 size-24 rounded-full bg-white/5" />
 
-          {/* stamp */}
           <div className="relative z-10 shrink-0">
             <CompletionStamp
               hasBadgeImage={!!award?.hasBadgeImage}
@@ -308,7 +288,6 @@ export function CertificationCompletionModal({ certification, award, onClose }) 
             />
           </div>
 
-          {/* title block */}
           <div className="relative z-10 min-w-0 text-center sm:text-left">
             <p className="text-xs font-bold uppercase tracking-[0.15em] opacity-75">
               Certification Complete
@@ -330,10 +309,8 @@ export function CertificationCompletionModal({ certification, award, onClose }) 
           </div>
         </div>
 
-        {/* scrollable body */}
         <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-7">
 
-          {/* stat row */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatTile
               icon={BookOpen}
@@ -365,7 +342,6 @@ export function CertificationCompletionModal({ certification, award, onClose }) 
             />
           </div>
 
-          {/* module performance chart */}
           <section className="mt-6">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
               <Layers3 className="size-4" aria-hidden />
@@ -384,7 +360,6 @@ export function CertificationCompletionModal({ certification, award, onClose }) 
             )}
           </section>
 
-          {/* lesson weaknesses */}
           <section className="mt-6">
             <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
               <AlertTriangle className="size-4" aria-hidden />
@@ -401,7 +376,6 @@ export function CertificationCompletionModal({ certification, award, onClose }) 
             )}
           </section>
 
-          {/* overall confidence breakdown if available */}
           {(confidence.weakCount > 0 || confidence.strongCount > 0) && (
             <section className="mt-6">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
@@ -449,7 +423,6 @@ export function CertificationCompletionModal({ certification, award, onClose }) 
             </section>
           )}
 
-          {/* action buttons */}
           <div className="mt-7 flex flex-wrap items-center gap-3 border-t border-border pt-5">
             <Button
               className="flex-1 sm:flex-none"

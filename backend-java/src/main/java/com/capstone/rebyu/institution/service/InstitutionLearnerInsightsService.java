@@ -26,41 +26,17 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/**
- * Lets a group's leader monitor the learners assigned to that group.
- *
- * Every existing analytics entry point resolves the learner from the caller's
- * own token, so none of them can answer "how is one of my learners doing".
- * These methods take a learner id explicitly and gate it on the caller
- * genuinely leading a group that learner belongs to -- reusing
- * {@link DepartmentService#getAccessibleById} for the tenant + owner-or-
- * active-leader check rather than re-implementing it, so this surface can never
- * drift from the one the rest of the group endpoints enforce.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class InstitutionLearnerInsightsService {
 
-    /**
-     * One row of the group's learner table.
-     *
-     * Carries a real completed-lesson count rather than the enrollment's
-     * progress_percentage / the learner's readiness_score and confidence_level:
-     * nothing in the codebase ever writes those three columns, so a table built
-     * on them would show 0% for every learner and read as "everyone is
-     * failing" instead of "not measured". Readiness and confidence appear on
-     * the per-learner page, where ProgressAnalyticsService computes them live.
-     */
     public record DepartmentLearnerRow(
             Long departmentLearnerId,
             Long learnerId,
             Long institutionCertLearnerId,
             String name,
             String username,
-            /* Their profile picture, so a head scanning a roster recognises a
-               face rather than reading two initials off a coloured disc. Null
-               until they upload one. */
             String avatarKey,
             String email,
             String status,
@@ -68,9 +44,6 @@ public class InstitutionLearnerInsightsService {
             int completedLessonCount,
             int totalLessonCount,
             Double completionPercentage,
-            // Whether this learner has passed a mock exam on the group's own
-            // certification, and the best score they passed with. Null score
-            // with a false flag = never passed one.
             boolean mockExamPassed,
             Double bestMockExamScore,
             LocalDateTime mockExamPassedAt,
@@ -86,17 +59,11 @@ public class InstitutionLearnerInsightsService {
     private final LearnerCompletedLessonRepository learnerCompletedLessonRepository;
     private final AssessmentAttemptRepository assessmentAttemptRepository;
 
-    /**
-     * The group's active learners with the cheap per-learner figures the table
-     * shows. Deliberately avoids the full analytics computation -- that runs
-     * per learner and is far too heavy to fan out across a whole roster.
-     */
     @Transactional(readOnly = true)
     public List<DepartmentLearnerRow> groupRoster(
             Long departmentId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
         Department group = requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
 
-        // Counted once for the whole roster rather than per learner.
         Long certificationId = certificationIdOf(group);
         int totalLessons = certificationId == null ? 0 : lessonRepository
                 .findByMiddleCategory_MajorCategory_Certification_CertificationId(certificationId)
@@ -107,7 +74,6 @@ public class InstitutionLearnerInsightsService {
                 .filter(assignee -> assignee.getStatus() == DepartmentLearner.Status.active)
                 .toList();
 
-        // One query for the whole roster rather than one per learner.
         List<Long> learnerIds = active.stream()
                 .map(this::learnerOf)
                 .filter(java.util.Objects::nonNull)
@@ -130,12 +96,6 @@ public class InstitutionLearnerInsightsService {
                 .toList();
     }
 
-    /**
-     * Full analytics for one learner -- weak topics, curriculum progress,
-     * readiness and confidence. The certification is taken from the group's own
-     * allocation rather than the caller, so a leader can only ever pull figures
-     * for the certification their group is actually enrolled in.
-     */
     @Transactional(readOnly = true)
     public ProgressAnalyticsResponse learnerAnalytics(
             Long departmentId, Long learnerId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
@@ -150,12 +110,6 @@ public class InstitutionLearnerInsightsService {
         return progressAnalyticsService.getProgressAnalytics(learnerId, certificationId);
     }
 
-    /**
-     * Unassigns a learner from the group and returns their reserved slot. The
-     * account, its enrollment, and all progress history are left untouched --
-     * removing someone from a group is an institutional change, not a reason
-     * to destroy their record, and they can be added back later.
-     */
     @Transactional
     public void removeFromGroup(
             Long departmentId, Long learnerId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
@@ -169,7 +123,6 @@ public class InstitutionLearnerInsightsService {
         assignee.setRemovedAt(LocalDateTime.now());
         departmentLearnerRepository.save(assignee);
 
-        // Mirrors how a cancelled invitation restores its slot; never negative.
         group.setUsedSlots(Math.max(0, group.getUsedSlots() - 1));
         departmentRepository.save(group);
 
@@ -177,11 +130,6 @@ public class InstitutionLearnerInsightsService {
                 learnerId, departmentId, callerUserId);
     }
 
-    /**
-     * Throws EntityNotFoundException unless the caller owns this institution or
-     * actively leads this group -- reported as "not found" so a caller can't
-     * probe which group ids exist in other tenants.
-     */
     private Department requireDepartmentAccess(
             Long departmentId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
         departmentService.getAccessibleById(departmentId, institutionId, callerUserId, callerIsOwner);
@@ -189,7 +137,6 @@ public class InstitutionLearnerInsightsService {
                 .orElseThrow(() -> new EntityNotFoundException("Department not found: " + departmentId));
     }
 
-    /** A leader may only read learners actually assigned to the group they lead. */
     private void requireAssignedToGroup(Long departmentId, Long learnerId) {
         if (activeAssignee(departmentId, learnerId).isEmpty()) {
             throw new EntityNotFoundException("Learner not assigned to this group: " + learnerId);
@@ -248,7 +195,6 @@ public class InstitutionLearnerInsightsService {
         );
     }
 
-    /** Name first, username as the fallback -- never the raw e-mail address. */
     private String displayName(Learner learner) {
         if (learner == null) {
             return "Unknown learner";

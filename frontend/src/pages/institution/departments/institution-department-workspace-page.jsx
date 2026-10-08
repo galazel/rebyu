@@ -82,13 +82,6 @@ function lessonTitle(lesson) {
   return lesson?.name ?? lesson?.title ?? "Untitled lesson"
 }
 
-/**
- * Read-only rendering of the official curriculum, mirroring the admin's
- * ViewCertificationAdmin design (numbered "Major Category N:" headings,
- * collapsible middle-category cards, numbered lesson rows) so the curriculum
- * looks the same in both places. No edit/create actions here -- an Institution
- * Member views the official curriculum but cannot change it.
- */
 function OfficialMiddleCard({ middleCategory, buildLessonHref }) {
   const [isOpen, setIsOpen] = useState(false)
   const lessons = asArray(middleCategory?.lessons)
@@ -276,9 +269,6 @@ function AnnouncementsTab({ departmentId }) {
         </CardContent>
       </Card>
 
-      {/* Inline, not the full-screen loading board: this is one tab of a page
-          that is already on screen, and covering the whole app to load a short
-          list made switching tabs look like leaving the page. */}
       {announcementsQuery.isLoading ? (
         <InstitutionLoadingSkeleton rows={2} />
       ) : announcementsQuery.isError ? (
@@ -331,8 +321,6 @@ function AnnouncementsTab({ departmentId }) {
 
 function InlineNameInput({ placeholder, onSubmit, onCancel, isPending, className }) {
   const [value, setValue] = useState("")
-  // Enter and blur can both fire on the same commit (e.g. Enter then unmount
-  // blur); guard so the create only happens once.
   const doneRef = useRef(false)
 
   const commit = () => {
@@ -371,8 +359,6 @@ function InlineNameInput({ placeholder, onSubmit, onCancel, isPending, className
   )
 }
 
-/* The tabs this page offers, in the order they are shown. ?tab= is only
-   honoured when it names one of them. */
 const VALID_TABS = [
   "curriculum",
   "assessments",
@@ -401,9 +387,6 @@ export default function InstitutionDepartmentWorkspacePage() {
     onError: (err) => toast.error(backendMessage(err, "Unable to delete this assessment.")),
   })
 
-  // Learners can never attempt (or even see) a DRAFT exam -- AssessmentAttemptService
-  // blocks both paths server-side -- so a group's own assessment needs this
-  // explicit publish step before their students can access it.
   const publishExamMutation = useMutation({
     mutationFn: (examId) => publishExam(examId),
     onSuccess: () => {
@@ -413,9 +396,6 @@ export default function InstitutionDepartmentWorkspacePage() {
     onError: (err) => toast.error(backendMessage(err, "Unable to publish this assessment.")),
   })
 
-  /* The other half of publish. Without it a mistake in a published paper could
-     only be deleted, taking its attempts with it; archiving takes it off the
-     learners' list and leaves the record intact. */
   const unpublishExamMutation = useMutation({
     mutationFn: (examId) => archiveExam(examId),
     onSuccess: () => {
@@ -435,17 +415,12 @@ export default function InstitutionDepartmentWorkspacePage() {
     queryFn: () => getDepartmentLearners({ departmentId: id }),
     enabled: Number.isFinite(id),
   })
-  // includeDepartmentId mixes this group's own authored content in alongside the
-  // official curriculum -- omitted everywhere else in the app, so every
-  // other reader is unaffected. See CertificationController/Service.
   const certificationsQuery = useQuery({
     queryKey: ["certifications", "group", id],
     queryFn: () => getAllCertifications(id),
     enabled: Number.isFinite(id),
     staleTime: 5 * 60_000,
   })
-  // includeDepartmentId mixes this group's own exams in alongside the official
-  // ones -- omitted everywhere else, so no other reader is affected.
   const examsQuery = useQuery({
     queryKey: ["exams", "group", id],
     queryFn: () => getExams(id),
@@ -457,9 +432,6 @@ export default function InstitutionDepartmentWorkspacePage() {
     queryFn: getExamTypes,
     staleTime: 5 * 60_000,
   })
-  // Only fetched to power the "view assessment content" preview dialog --
-  // getExamQuestions() returns the join rows for every exam, so it's
-  // filtered down to the previewed exam's rows inside the dialog itself.
   const examQuestionsQuery = useQuery({
     queryKey: ["exam-questions"],
     queryFn: getExamQuestions,
@@ -507,8 +479,6 @@ export default function InstitutionDepartmentWorkspacePage() {
       item?.certificationId === group?.institutionCertId
   )
   const learners = asArray(assigneesQuery.data).filter((item) => item?.status === "active")
-  // The official curriculum tree excludes this group's own authored content
-  // (that lives in the Content tab); only platform-wide majors appear here.
   const officialMajors = asArray(certification?.majorCategory).filter(
     (major) => major && major.ownerDepartmentId == null
   )
@@ -529,14 +499,9 @@ export default function InstitutionDepartmentWorkspacePage() {
     asArray(questionsQuery.data).map((question) => [question?.questionId, question])
   )
   const examQuestions = asArray(examQuestionsQuery.data)
-  // Official assessments for this certification -- diagnostics, mock exams,
-  // and other exam types the admin published. Read-only here, same as the
-  // rest of the official curriculum.
   const certificationExams = asArray(examsQuery.data).filter(
     (exam) => exam && exam.certificationId === certification?.certificationId && exam.status === "PUBLISHED"
   )
-  // This group's own exams -- kept separate from the official list above,
-  // visible only within this workspace.
   const ownGroupExams = asArray(examsQuery.data).filter((exam) => exam && exam.ownerDepartmentId === id)
 
   return (
@@ -562,8 +527,6 @@ export default function InstitutionDepartmentWorkspacePage() {
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
         </TabsList>
 
-        {/*
-        */}
         <TabsContent value="curriculum" className="mt-5 space-y-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -617,8 +580,6 @@ export default function InstitutionDepartmentWorkspacePage() {
             </div>
           )}
 
-          {/* Official assessments belong with the official curriculum -- the
-              Assessments tab is only for this group's own (institution-owned) exams. */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
@@ -745,13 +706,10 @@ export default function InstitutionDepartmentWorkspacePage() {
           )}
         </TabsContent>
 
-        {/* Kept at value="learners" so existing ?tab=learners links still open it. */}
         <TabsContent value="learners" className="mt-5">
           <SectionsTab departmentId={id} group={group} />
         </TabsContent>
 
-        {/* Moved here from the institution account: writing questions is the
-            department head's work, for the certification their department studies. */}
         <TabsContent value="question-bank" className="mt-5 space-y-4">
           <p className="text-sm text-muted-foreground">
             Add questions to any lesson in this certification. You can edit or delete

@@ -283,8 +283,6 @@ export function LearnerPageHeader({ title, subtitle, children }) {
 
 export function LearnerEmptyState({ icon: Icon = BookOpen, title, description, action }) {
   return (
-    /* A sticky note pinned where the content would be -- the same object the
-       landing page uses, so an empty page still looks like the classroom. */
     <div className="rb-sticky rb-sticky-yellow mx-auto mt-4 min-h-56 w-full max-w-md items-center justify-center text-center">
       <span className="rb-pushpin" aria-hidden="true" />
       <span className="grid size-12 place-items-center rounded-2xl bg-white/60 text-rb-macaw-lip">
@@ -319,12 +317,9 @@ export function LearnerErrorState({ title = "Could not load data", error, onRetr
 }
 
 export function LearnerLoadingSkeleton() {
-  /* Inline for the same reason as InstitutionLoadingSkeleton: a section of an
-     open page waiting on data should not cover the whole app. */
   return <InlineLoading />
 }
 
-/** Tone keys the icon chip to the metric so a row of tiles is scannable. */
 const STAT_TONES = {
   macaw: "bg-rb-macaw-wash text-rb-macaw-lip",
   feather: "bg-rb-feather-wash text-rb-feather-lip",
@@ -356,11 +351,6 @@ export function LearnerStatCard({ icon: Icon = Award, label, value, helper, tone
   )
 }
 
-/**
- * @param color  fill colour; defaults to the app primary. Cards pass their own
- *               tone so the bar belongs to the card it sits in rather than
- *               being the one blue thing on a violet card.
- */
 export function ProgressBar({ value = 0, color }) {
   const width = Math.max(0, Math.min(100, Number(value) || 0))
   return (
@@ -380,14 +370,7 @@ export function CertificationProgressCard({ certification, lessons, onContinue, 
   const completed = related.filter((lesson) => lesson.completed).length
   const percent = related.length ? Math.round((completed / related.length) * 100) : 0
 
-  /* Same bubble card the challenge arenas use — the certification is the
-     entity, so it keeps one tone wherever it appears. */
   const tone = toneForCertification(certification)
-  /* The card's own colour, reused by the call to action and the bar. A blue
-     button on a violet card was the one element that had not been told which
-     card it belonged to. `solid` is a darkened shade of the tone, not the cap
-     colour: white label text on the cap's own blue/violet/cyan sits between
-     2.4:1 and 2.5:1, well under the 4.5:1 a button label needs. */
   const palette = BUBBLE_TONES[tone] ?? BUBBLE_TONES.macaw
 
   return (
@@ -433,21 +416,6 @@ export function CertificationProgressCard({ certification, lessons, onContinue, 
   )
 }
 
-/**
- * One tone for every certification: `feather`, the brand blue.
- *
- * This used to hash a certification into one of four hues so a track kept its
- * own colour across pages. It was stable, but it was not consistent — three
- * learner surfaces and the admin console each drew the same catalog in a
- * different set of colours, and the blue on the certification covers matched
- * none of them. Hue here was decorative by its own admission, so it is not
- * worth four palettes: cap, button and progress fill now all speak `feather`,
- * the same blue the covers and the admin arenas wear.
- *
- * Kept as a function rather than inlined — the callers ask "what colour is
- * this certification", which is still the right question, and the answer can
- * become per-industry later without any of them changing.
- */
 export function toneForCertification() {
   return "feather"
 }
@@ -502,9 +470,6 @@ export function WeakTopicCard({ topic }) {
   )
 }
 
-/* These three used to be hand-rolled SVG on hardcoded zinc hex. They now render
-   through the shared chart kit, so the portal and the landing page plot on one
-   palette and one set of mark specs. The prop shapes are unchanged. */
 
 export function LineChartCard({ title, data }) {
   const points = (data ?? [])

@@ -3,11 +3,6 @@ package com.capstone.rebyu.bkt.dto;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/**
- * Mastery history event returned to the frontend. Mirrors the FastAPI
- * mastery history response shape but is re-exposed through Spring Boot so the
- * browser never talks to FastAPI directly.
- */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record MasteryHistoryView(
         @JsonProperty("mastery_history_id") String masteryHistoryId,

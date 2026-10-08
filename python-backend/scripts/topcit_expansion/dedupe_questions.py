@@ -37,29 +37,18 @@ from sqlalchemy import text
 
 from app.db.session import SessionLocal
 
-#: (keep, retire) -- the older of each pair is kept.
 DUPLICATE_PAIRS = [
-    (2422, 2870),   # SHORT_ANSWER, Data Link Layer sublayer flow control
-    (2654, 2802),   # SHORT_ANSWER, IT business operations resource function
-    (2693, 3180),   # DESCRIPTIVE, importance of technical documentation
+    (2422, 2870),
+    (2654, 2802),
+    (2693, 3180),
 ]
 
-#: Pairs that ask one topic in two formats. These were left alone on the first
-#: pass, because an MCQ and a descriptive on the same concept test different
-#: abilities and sit in different exams. They are retired now at the owner's
-#: instruction. The survivor is the one already used by more exams, tie-broken
-#: to the older id, so that re-pointing disturbs the fewest papers.
-#:
-#: Note the consequence, which is real: an exam that carried the MCQ now
-#: carries the descriptive, or vice versa. Item counts are unchanged but the
-#: mix of question types in those papers shifts by one.
 CROSS_FORMAT_PAIRS = [
-    (2196, 2504),   # keep MCQ, retire DESCRIPTIVE - requirements specification
-    (2978, 3081),   # keep DESCRIPTIVE, retire MCQ - requirements documentation
-    (2999, 3193),   # keep MCQ, retire DESCRIPTIVE - executive summary
+    (2196, 2504),
+    (2978, 3081),
+    (2999, 3193),
 ]
 
-#: Child rows that belong to a question and must go with it.
 CHILD_TABLES = [
     ("choices", "question_id"),
     ("text_question_configs", "question_id"),
@@ -68,9 +57,6 @@ CHILD_TABLES = [
     ("diagram_question_configs", "question_id"),
 ]
 
-#: Rows that reference a question but belong to a LEARNER. If any exist the
-#: question is not retired at all -- deleting it would corrupt somebody's
-#: attempt history or their mistake review queue.
 LEARNER_TABLES = [
     ("learner_exam_details", "question_id"),
     ("learner_mistake_reviews", "source_question_id"),
@@ -127,9 +113,6 @@ def main():
                   % (learner_rows, retire_id))
             continue
 
-        # Which exams would need re-pointing, and does any of them already
-        # hold the survivor? Re-pointing into such an exam would list the same
-        # question twice.
         moving = db.execute(text("""
             select eq.exam_id, e.title
               from public.exam_questions eq

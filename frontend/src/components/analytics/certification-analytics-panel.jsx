@@ -41,8 +41,6 @@ function MasteryBar({ value }) {
   )
 }
 
-/* The four mastery bands, in the order they read as a scale. Colour is a second
-   channel only -- every band is labelled with its name and count underneath. */
 const MASTERY_BANDS = [
   { key: "masteredCount", label: "Mastered", bar: "bg-rb-feather", dot: "bg-rb-feather" },
   { key: "goodCount", label: "Good", bar: "bg-rb-macaw", dot: "bg-rb-macaw" },
@@ -55,15 +53,6 @@ function bandCount(confidence, key) {
   return Number.isFinite(value) && value > 0 ? value : 0
 }
 
-/**
- * Whether the confidence payload actually describes anything.
- *
- * The endpoint answers with a fully-formed object of zeros while the dispatcher
- * is still working through a submission, so "not null" is not the same as "has
- * data". Without this the panel printed `Confidence 0/100` and `Weak 0` beside
- * its own "still being calculated" notice -- a hard zero that reads as a
- * measurement of the learner rather than an absence of one.
- */
 function hasConfidenceData(confidence) {
   if (isUnavailable(confidence)) return false
 
@@ -75,13 +64,6 @@ function hasConfidenceData(confidence) {
   return graded > 0 || Number(confidence.totalLessons ?? 0) > 0
 }
 
-/**
- * The four bands as one bar, sized by how many lessons sit in each.
- *
- * A row of four counts says how many lessons are weak; it does not say whether
- * that is most of the certification or a corner of it. The bar is the shape of
- * the certification, which is the thing worth seeing at a glance.
- */
 function MasteryDistribution({ confidence }) {
   const segments = MASTERY_BANDS.map((band) => ({
     ...band,
@@ -131,12 +113,6 @@ function MasteryDistribution({ confidence }) {
   )
 }
 
-/**
- * Learner-facing BKT analytics for one certification: confidence, the highest
- * priority areas (with reasons + next action), and weak lessons. Degrades to a
- * "being calculated" state while the async dispatcher is still processing the
- * latest submission.
- */
 export default function CertificationAnalyticsPanel({ learnerId, certificationId }) {
   const enabled = learnerId != null && certificationId != null
 
@@ -178,9 +154,6 @@ export default function CertificationAnalyticsPanel({ learnerId, certificationId
     .sort((a, b) => (a.masteryProbability ?? 0) - (b.masteryProbability ?? 0))
     .slice(0, 6)
 
-  /* Two separate absences. Priorities can be missing while confidence is
-     present and vice versa, so each is asked its own question rather than one
-     flag standing in for both. */
   const showConfidence = hasConfidenceData(confidence)
   const processing = !loading && !hasPriorityData && !showConfidence
 
@@ -222,7 +195,6 @@ export default function CertificationAnalyticsPanel({ learnerId, certificationId
           </div>
         ) : (
           <>
-            {/* Confidence, only once there is something behind it. */}
             {showConfidence ? (
               <div className="rounded-xl border bg-muted/30 p-4">
                 <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
@@ -238,10 +210,6 @@ export default function CertificationAnalyticsPanel({ learnerId, certificationId
                     </p>
                   </div>
 
-                  {/* How much of the certification has actually been measured.
-                      A high confidence over a tenth of the syllabus means
-                      something different from the same number over all of it,
-                      and the score alone cannot say which this is. */}
                   {Number(confidence.coveragePercentage ?? 0) > 0 ? (
                     <p className="text-xs text-muted-foreground">
                       {Number(confidence.coveragePercentage).toFixed(0)}% of lessons
@@ -270,7 +238,6 @@ export default function CertificationAnalyticsPanel({ learnerId, certificationId
               </div>
             ) : null}
 
-            {/* Highest-priority areas */}
             {focusAreas.length > 0 ? (
               <div className="space-y-2">
                 <h3 className="text-sm font-semibold">Review these first</h3>
@@ -289,10 +256,6 @@ export default function CertificationAnalyticsPanel({ learnerId, certificationId
                             {area.categoryType}
                           </span>
                         </div>
-                        {/* Not truncated. These two lines are the whole reason
-                            the row is worth reading -- clipped to one line they
-                            became "Mastery is at 31% -- this is one of your..."
-                            and told the learner nothing. */}
                         {area.primaryReason ? (
                           <p className="mt-1 text-xs leading-5 text-muted-foreground">
                             {area.primaryReason}
@@ -315,7 +278,6 @@ export default function CertificationAnalyticsPanel({ learnerId, certificationId
               </div>
             ) : null}
 
-            {/* Weak lessons */}
             {weakLessons.length > 0 ? (
               <div className="space-y-2">
                 <h3 className="text-sm font-semibold">Weak lessons</h3>

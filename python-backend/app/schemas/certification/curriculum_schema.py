@@ -59,8 +59,6 @@ def _coerce_str_list(value: Any) -> Any:
     return value
 
 
-#: A list of strings that also accepts a single string, in the JSON schema
-#: the provider validates against as well as in pydantic.
 StrList = Annotated[
     List[str],
     BeforeValidator(_coerce_str_list),
@@ -90,58 +88,27 @@ class ExamStructure(BaseModel):
     that made the planner's tool call fail.
     """
 
-    #: Items in the real exam. 0 means "the planner did not know", and the
-    #: configured `mock_exam_questions` is used instead.
     total_items: int = 0
-    #: e.g. ["MCQ", "SHORT_ANSWER", "DESCRIPTIVE", "PROGRAMMING", "DIAGRAM"].
     question_types: StrList = []
 
-    #: How long the real paper allows, in minutes. 0 means unknown.
-    #:
-    #: Promoted out of `notes` because it is used, not just displayed: the mock
-    #: exam is stored with this as its duration, so a learner sitting one is
-    #: under the same clock as the real thing. Time pressure is part of what a
-    #: mock is for -- 100 items in 100 minutes is a different exam from 100
-    #: items untimed.
     duration_minutes: int = 0
 
-    #: The pass mark as a percentage. 0 means unknown; the exam default (70)
-    #: is used instead. A certification that passes at 60 or 80 gives a learner
-    #: a false read on their readiness if the mock keeps saying 70.
     passing_score: float = 0.0
 
-    #: What the paper covers and in what proportion -- the official domains and
-    #: their weightings, as stated by the certification body. Separate from the
-    #: curriculum's own shape: the syllabus is what gets taught, this is what
-    #: gets *examined*, and the two are not always weighted alike. Read when
-    #: building the diagnostic, the mock and the question bank so all three
-    #: sample the exam's emphasis rather than the syllabus's.
     coverage: str = ""
 
-    #: Anything else that shapes the paper: sections, ordering, sub-question
-    #: structure, permitted materials.
     notes: str = ""
 
 
 class Lesson(BaseModel):
     name: str
-    #: Defaulted rather than required: an omitted objective is worth far less
-    #: than a rejected curriculum, and the lesson agent can derive one from
-    #: the name and topics.
     learning_objective: str = ""
-    #: The whole of what the planner says *about* a lesson. Replaces the
-    #: former `lessonGenerationInstructions` object -- one flat array of
-    #: strings instead of twelve nested fields, which is the difference
-    #: between a curriculum the model can emit and one it cannot.
     key_topics: StrList = []
 
 
 class MiddleCategory(BaseModel):
     name: str
     description: str = ""
-    #: Optional purely so the provider's schema check lets a mis-nested major
-    #: category through to `_hoist_majors`, which repairs it. A middle category
-    #: that still has no lessons after the repair is dropped there.
     lessons: List[Lesson] = []
 
 
@@ -220,39 +187,17 @@ def _hoist_majors(node: dict) -> List[dict]:
         if _is_misnested_major(child):
             hoisted.extend(_hoist_majors(child))
         elif isinstance(child, dict) and child.get("lessons"):
-            # Repair the level below on the way past: a middle category can
-            # have further middle categories buried in its `lessons`, and one
-            # pass over the tree fixes both depths.
             middles.extend(_hoist_middles(child))
 
     repaired = {**node, "middleCategories": middles}
     return [repaired, *hoisted] if middles else hoisted
 
 
-#: The floor a curriculum has to clear to be worth building a certification on.
-#: A live TOPCIT run produced one major category, two middles and two lessons
-#: total -- structurally valid, and useless as a syllabus.
-#:
-#: Derived from what the prompt asks for rather than hard-coded, because the
-#: ask is configurable (`curriculum_min_majors` and friends) so the whole
-#: workflow can be exercised on a small AI budget. A fixed floor would reject
-#: a deliberately one-lesson test run as a bad sample and resample it forever.
-#: At the shipped ask -- 3-6 majors, 2-4 middles, 3-5 lessons -- these ratios
-#: reproduce exactly the hand-picked 2 majors / 6 lessons this started with.
-#:
-#: Deliberately enforced *here* and not in the JSON schema the provider
-#: validates: adding `minItems` there would turn an under-sized sample into a
-#: `tool_use_failed` 400, which is neither retryable in a useful way nor
-#: legible. A ValueError raised locally is classed as malformed output and
-#: resampled -- see `app.ai.retry`.
 _MAJOR_FLOOR_RATIO = 0.6
 _LESSON_FLOOR_RATIO = 0.33
 
 
 def required_major_categories() -> int:
-    # Under autosize the planner is told to size from the document, so a thin
-    # source is *supposed* to produce a small plan. Holding it to a floor
-    # derived from knobs it was never given would resample a correct answer.
     if get_settings().curriculum_autosize:
         return 1
     return max(1, math.ceil(get_settings().curriculum_min_majors * _MAJOR_FLOOR_RATIO))
@@ -279,9 +224,6 @@ def _allocate_lessons(asked: dict, cap: int) -> dict:
     """
     keys = list(asked)
 
-    # More middle categories than the cap has lessons for. One each for as many
-    # as fit, taken a major at a time, so what survives still spans the
-    # certification instead of stopping partway through the first domain.
     if len(keys) > cap:
         by_major: dict = {}
         for key in keys:
@@ -307,12 +249,6 @@ def _allocate_lessons(asked: dict, cap: int) -> dict:
         keep[key] += whole
         remainders.append((exact - whole, key))
 
-    # Hand the rounding leftovers to whoever was shortchanged most, and break
-    # ties across the majors rather than along them. Ordering ties by raw key
-    # walks the plan front to back, so every leftover lands in the first major
-    # or two and the last domain is reliably the shallowest -- an artefact of
-    # the arithmetic, not a judgement about the material. Ranking by position
-    # WITHIN a major first interleaves them instead.
     def _fair_order(entry):
         remainder, (major_index, middle_index) = entry
         return (-remainder, middle_index, major_index)
@@ -351,7 +287,6 @@ def _enforce_total_lesson_backstop(majors: List[Any]) -> List[Any]:
     if cap <= 0:
         return majors
 
-    # (major index, middle index) -> the lessons the planner put there.
     asked: dict = {}
     for major_index, major in enumerate(majors):
         if not isinstance(major, dict):
@@ -382,8 +317,6 @@ def _enforce_total_lesson_backstop(majors: List[Any]) -> List[Any]:
             allowed = keep.get(key, 0)
             if allowed > 0:
                 middles.append({**mid, "lessons": asked[key][:allowed]})
-        # A major whose middles were all cut carries no lessons; dropping it
-        # keeps the plan structurally valid rather than leaving an empty shell.
         if middles:
             trimmed.append({**major, "middleCategories": middles})
 
@@ -424,11 +357,6 @@ def _enforce_ceiling(majors: List[Any]) -> List[Any]:
     """
     settings = get_settings()
 
-    # Autosize: the per-level caps are not applied at all -- the planner was
-    # asked to derive the shape from the document, and trimming it back to
-    # numbers it was never shown would silently undo that. Only the
-    # total-lesson backstop survives, and only to prevent a runaway plan
-    # draining the account mid-build (the 2026-08-24 incident above).
     if settings.curriculum_autosize:
         return _enforce_total_lesson_backstop(majors)
 
@@ -555,15 +483,9 @@ class Curriculum(BaseModel):
                 repaired.append(major)
 
         if majors and not repaired:
-            # Every branch was empty. Raising here (rather than returning an
-            # unusable curriculum) is a ValueError, which `app.ai.retry` treats
-            # as malformed output and resamples.
             raise ValueError("Curriculum contains no lessons.")
 
         if majors:
-            # Ceiling before floor: trimming can only reduce the plan, and the
-            # floor has to judge what will actually be built, not what the
-            # planner proposed and never gets used.
             repaired = _enforce_ceiling(repaired)
             _require_breadth(repaired)
 

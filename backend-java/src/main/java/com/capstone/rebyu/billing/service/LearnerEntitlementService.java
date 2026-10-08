@@ -23,18 +23,11 @@ import java.util.Optional;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Centralized learner (B2C) entitlement authority. Missing subscription = Free.
- * Combines personal Pro with institution-sponsored coverage. The caller passes
- * a learnerId already resolved from the authenticated identity — never a raw
- * client value used as proof of identity.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class LearnerEntitlementService {
 
-    /** Always granted to any authenticated learner. */
     private static final Set<String> FREE_FEATURES = Set.of(
             Entitlements.CERTIFICATION_BROWSING,
             Entitlements.LESSON_ACCESS,
@@ -109,9 +102,6 @@ public class LearnerEntitlementService {
         Set<String> institutionalFeatures = institutionalCoverage(learnerId, certificationId);
         boolean institutionalActive = !institutionalFeatures.isEmpty();
         features.addAll(institutionalFeatures);
-        // A sponsored learner studies on the institution's licence: everything
-        // that separates Free from Pro comes with it, whatever else the licence
-        // plan lists.
         if (institutionalActive) {
             features.addAll(SPONSORED_LEARNER_FEATURES);
         }
@@ -143,7 +133,6 @@ public class LearnerEntitlementService {
                 features.contains(Entitlements.AI_TUTOR) ? dailyGenerationLimit(learnerId, subscription) : 0);
     }
 
-    /** Tutor generations allowed per day: the Pro plan's limit row, else the default. */
     @Transactional(readOnly = true)
     public int dailyGenerationLimit(Long learnerId) {
         return dailyGenerationLimit(learnerId, getCurrentLearnerSubscription(learnerId).orElse(null));
@@ -165,21 +154,11 @@ public class LearnerEntitlementService {
         return Entitlements.DEFAULT_DAILY_AI_GENERATIONS;
     }
 
-    /** Whether the learner holds any paid access at all (personal Pro or a sponsor's licence). */
     @Transactional(readOnly = true)
     public boolean isPro(Long learnerId) {
         return getEffectiveEntitlements(learnerId, null).accessSource() != AccessSource.FREE;
     }
 
-    /*
-     * The feature set a gate last computed for a learner, kept briefly. The
-     * assessment gate asks this on every open and the answer costs three to
-     * six queries (subscription, plan, sponsoring institutions and their
-     * licences) -- on a database in another region, most of a second before
-     * the first question. Fifteen seconds is short enough that a subscription
-     * approved just now opens its features on the next open; the entitlement
-     * DTO the UI shows is not cached and stays exact.
-     */
     private static final java.time.Duration GATE_CACHE_TTL = java.time.Duration.ofSeconds(15);
     private record CachedFeatures(Set<String> features, java.time.Instant at) {
     }
@@ -208,11 +187,6 @@ public class LearnerEntitlementService {
         }
     }
 
-    /**
-     * Institution-sponsored features for this learner. Coverage requires an
-     * active org-cert-learner assignment whose institution holds an active
-     * license; when a certification is given, the assignment must match it.
-     */
     private Set<String> institutionalCoverage(Long learnerId, Long certificationId) {
         Set<String> features = new HashSet<>();
         for (InstitutionCertificationLearner assignment :

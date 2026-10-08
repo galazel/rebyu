@@ -8,14 +8,6 @@ function parseDay(value) {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-/**
- * The target exam date a plan holds for one certification, or null.
- *
- * Overall plans carry a `certificationPlans` entry per certification, each with
- * its own start and exam date. Plans built before that existed, and plans for a
- * single certification, have no such list -- those fall back to the plan's own
- * top-level date, which for them is the right answer anyway.
- */
 function examDateFor(plan, certificationId) {
   const entries = plan?.schedule?.certificationPlans
 
@@ -33,8 +25,6 @@ function examDateFor(plan, certificationId) {
 function daysUntil(date) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  // Whole days, so "1 day to go" means tomorrow rather than some number of
-  // hours the learner has to interpret.
   return Math.round((date - today) / 86_400_000)
 }
 
@@ -47,25 +37,9 @@ function formatExamDate(date) {
   })
 }
 
-/**
- * Days until the exam the learner is preparing for.
- *
- * Read-only: the date comes from the target exam date on their study plan,
- * which is where they set it and what the whole schedule is built backwards
- * from. A second place to edit it would let the countdown and the plan disagree
- * about when the exam is.
- *
- * Once the date passes the tile does not keep counting into negatives or
- * silently vanish -- it says the exam has been and gone, which is the honest
- * thing to show and points at the plan that needs updating.
- */
 export function ExamCountdownTile({ certificationId }) {
   const { plan, isLoading } = useCertificationStudyPlan(certificationId)
 
-  /* This certification's own exam date where the plan carries one. An overall
-     plan schedules each certification between its own two dates and records the
-     latest of them at the top level, so reading that top-level date would count
-     down to whichever exam is last rather than to this one. */
   const examDate = parseDay(
     examDateFor(plan, certificationId) ?? plan?.schedule?.targetExamDate
   )
@@ -74,7 +48,6 @@ export function ExamCountdownTile({ certificationId }) {
   const today = days === 0
 
   return (
-    // Half the band, beside the notes tile.
     <BentoTile col={3} row={2}>
       <BentoHeading
         icon={CalendarDays}

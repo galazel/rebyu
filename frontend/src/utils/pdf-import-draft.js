@@ -1,15 +1,3 @@
-/**
- * The PDF import page's work in progress, kept in the browser so a refresh
- * does not throw it away.
- *
- * IndexedDB rather than localStorage: a folder of past papers is thousands of
- * questions with their figures as data URLs -- hundreds of megabytes, where
- * localStorage stops at about five. Each paper is its own record, written only
- * when it changed, so marking one answer does not rewrite every paper.
- *
- * Every call swallows its own failure (private window, storage full, blocked
- * site data): the page works without it, it just forgets on refresh.
- */
 
 const DB_NAME = "rebyu-pdf-import"
 const PAPERS = "papers"
@@ -51,7 +39,6 @@ function run(storeNames, mode, work) {
 
 const paperKey = (certificationId, paperId) => `${certificationId}::${paperId}`
 
-/** `{ papers, keys, lessons }` saved for this certification, or null. */
 export async function loadDraft(certificationId) {
     try {
         const meta = await run([META], "readonly", (tx) => tx.objectStore(META).get(String(certificationId)))
@@ -76,10 +63,6 @@ export async function loadDraft(certificationId) {
     }
 }
 
-/**
- * Writes what changed since the last save: `changed` papers are written,
- * `removed` paper ids deleted, and the order, keys and lessons replaced.
- */
 export async function saveDraft(certificationId, { changed, removed, order, keys, lessons }) {
     try {
         await run([PAPERS, META], "readwrite", (tx) => {
@@ -95,7 +78,6 @@ export async function saveDraft(certificationId, { changed, removed, order, keys
     }
 }
 
-/** Forgets this certification's import. */
 export async function clearDraft(certificationId) {
     try {
         const meta = await run([META], "readonly", (tx) => tx.objectStore(META).get(String(certificationId)))
@@ -104,6 +86,5 @@ export async function clearDraft(certificationId) {
             tx.objectStore(META).delete(String(certificationId))
         })
     } catch {
-        // Nothing to forget, or storage is unavailable.
     }
 }

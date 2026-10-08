@@ -39,8 +39,6 @@ public class DepartmentHeadAssignmentController {
 
     @GetMapping("/{id}")
     public DepartmentHeadAssignmentDto getById(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
-        // Same access rule as the list above: an id from another institution's
-        // group must not be readable just by guessing it.
         CurrentUserDto caller = institutionUser(jwt);
         DepartmentHeadAssignmentDto assignment = departmentHeadAssignmentService.getById(id);
         departmentService.getAccessibleById(
@@ -55,7 +53,6 @@ public class DepartmentHeadAssignmentController {
             @AuthenticationPrincipal Jwt jwt) {
         Long callerInstitutionId = myInstitutionId(jwt);
         requireOwner(institutionUser(jwt));
-        // Never trust assignedBy from the client -- always the authenticated caller.
         dto.setAssignedBy(callerUserId(jwt));
         return departmentHeadAssignmentService.create(dto, callerInstitutionId);
     }
@@ -82,7 +79,6 @@ public class DepartmentHeadAssignmentController {
         return user;
     }
 
-    // Records who actually performed the assignment from the authenticated caller.
     private Long callerUserId(Jwt jwt) {
         if (jwt == null) {
             throw new IllegalArgumentException("Authentication is required");

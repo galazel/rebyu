@@ -65,13 +65,12 @@ public class WorldCupTournamentController {
     return tournament.reportScore(matchId, learnerId(jwt), attemptId, score);
   }
 
-  // ── TEST ENDPOINTS (remove after testing) ──
 
   @PostMapping("/test/seed-bots")
   public Map<String, Object> seedBots(
       @AuthenticationPrincipal Jwt jwt,
       @RequestBody Map<String, Object> body) {
-    learnerId(jwt); // auth check
+    learnerId(jwt);
     Long certificationId = ((Number) body.get("certificationId")).longValue();
     int count = body.get("count") != null ? ((Number) body.get("count")).intValue() : 7;
     return tournament.seedBotPlayers(certificationId, count);

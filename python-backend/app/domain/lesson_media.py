@@ -42,17 +42,10 @@ from app.tools.certification.web_search import serper_image_search, youtube_sear
 
 logger = logging.getLogger(__name__)
 
-#: How many image candidates to fetch per query before picking one. Serper's
-#: #1 result is frequently a generic stock/social repost that merely ranks
-#: well, not the best match for the query -- asking for a few and scoring them
-#: catches that without a second network round-trip per block.
 _IMAGE_CANDIDATES = 5
 
 _DIAGRAM_HINTS = {"diagram", "chart", "graph", "architecture", "illustration", "infographic", "schematic"}
 
-#: Domains that routinely surface in image search but are reposts/social
-#: shares rather than the original educational source -- rarely a good match
-#: for a lesson's technical query.
 _LOW_SIGNAL_DOMAINS = {
     "pinterest.com", "pinimg.com", "tumblr.com", "imgur.com",
     "facebook.com", "instagram.com", "twitter.com", "x.com", "reddit.com",
@@ -60,8 +53,6 @@ _LOW_SIGNAL_DOMAINS = {
 
 _STOPWORDS = {"the", "a", "an", "of", "for", "and", "or", "to", "in", "on", "with", "vs"}
 
-#: A browser-shaped request, because hotlink blocks answer anything else
-#: differently -- and it is a browser that will load the image in the lesson.
 _IMAGE_CHECK_HEADERS = {
     "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"),
@@ -126,7 +117,7 @@ def _search_serper_image(query: str) -> dict | None:
     """The best-scoring Serper image that actually loads, or None."""
     try:
         candidates = serper_image_search(_search_terms(query), num=_IMAGE_CANDIDATES)
-    except Exception as error:  # no key, no credits, network
+    except Exception as error:
         logger.warning("Serper image search for %r failed: %s", query, error)
         return None
     for image in _ranked_candidates(query, candidates or []):
@@ -136,9 +127,6 @@ def _search_serper_image(query: str) -> dict | None:
             return {"url": url, "sourceUrl": source_url, "sourceName": image.get("source") or _domain(source_url)}
     return None
 
-#: `data` key holding the request -> (resolved URL key, source page URL key,
-#: source name key). The source keys let the renderer credit where a picture
-#: came from instead of showing an unattributed image.
 MEDIA_REQUESTS = {
     "imageQuery": ("imageKey", "imageSourceUrl", "imageSourceName"),
     "videoQuery": ("videoKey", "videoSourceUrl", "videoSourceName"),
@@ -146,18 +134,11 @@ MEDIA_REQUESTS = {
 
 _EMPTY_RESULT = {"url": "", "sourceUrl": "", "sourceName": ""}
 
-#: Block fields a drawn figure can be written from, besides the query itself.
 _CONTEXT_FIELDS = ("title", "description", "smallHeader", "supportingTitle", "supportingDescription")
 
 
-#: The share of a request's words a captured figure's surrounding text must
-#: contain before it counts as a picture of that thing. Low enough that
-#: "requirement management process diagram" matches a figure captioned
-#: "Figure 3.2 The requirements management process", high enough that a
-#: figure sharing one common word does not.
 _DOCUMENT_MATCH_SHARE = 0.5
 
-#: Words too common in a request to be evidence of anything.
 _MATCH_STOPWORDS = frozenset({
     "a", "an", "the", "of", "for", "and", "or", "to", "in", "on", "with",
     "diagram", "chart", "figure", "illustration", "image", "picture",
@@ -207,8 +188,6 @@ def _match_document_visual(query: str, visuals: list[dict] | None) -> dict | Non
     return {
         "url": visual["s3_key"],
         "sourceUrl": "",
-        # Credited to the document it came from, so an admin reviewing the
-        # lesson can see the picture is the source material's own.
         "sourceName": visual.get("source_file") or "Uploaded document",
     }
 
@@ -224,7 +203,6 @@ def _search_image(query: str, context: dict | None = None) -> dict:
         return {"url": found["url"], "sourceUrl": found["sourceUrl"], "sourceName": found["sourceName"]}
 
     key = draw_and_store_figure(query, context)
-    # A drawn figure is ours, so it carries no source to credit.
     return {"url": key or "", "sourceUrl": "", "sourceName": ""}
 
 
@@ -242,14 +220,6 @@ def _search_video(query: str, context: dict | None = None) -> dict:
 _SEARCHERS = {"imageQuery": _search_image, "videoQuery": _search_video}
 
 
-#: How many media lookups run at once for one lesson.
-#:
-#: A lesson asks for five to seven pictures and each search is a round trip of
-#: a second or two, so resolving them one at a time spent ten to fifteen
-#: seconds per lesson waiting -- minutes across a curriculum, for work that has
-#: no order to it. Kept modest because the search provider rate-limits, and
-#: because a burst that trips the limit costs illustrations rather than saving
-#: time.
 _MEDIA_WORKERS = 5
 
 
@@ -261,13 +231,11 @@ def _resolve_one(request_key: str, query: str, context: dict | None = None) -> d
     """
     try:
         return _SEARCHERS[request_key](query, context)
-    except Exception as error:  # network, quota, malformed response
+    except Exception as error:
         logger.warning("Media search for %r failed: %s", query, error)
         return dict(_EMPTY_RESULT)
 
 
-#: List fields whose entries a drawn figure lays out as labelled boxes, and the
-#: keys an entry's name and explanation live under in each block type.
 _ITEM_FIELDS = ("gridItems", "items", "cards")
 _ITEM_NAME_KEYS = ("title", "frontTitle", "label", "text")
 _ITEM_DETAIL_KEYS = ("description", "content", "backTitle")
@@ -349,10 +317,6 @@ def resolve_media(sections: list[dict], document_visuals: list[dict] | None = No
     wanted = _collect_requests(sections)
     resolved: dict[tuple[str, str], dict] = {}
 
-    # Carried on each request's context rather than as a parameter through
-    # every searcher: the searchers are looked up by name out of _SEARCHERS
-    # and share one signature, and widening that signature for one source
-    # would touch the video path too, which has no use for it.
     if document_visuals:
         for context in wanted.values():
             if isinstance(context, dict):
@@ -365,9 +329,6 @@ def resolve_media(sections: list[dict], document_visuals: list[dict] | None = No
                 for (request_key, query), context in wanted.items()
             }
             for future in as_completed(futures):
-                # _resolve_one swallows its own failures, so this cannot raise
-                # -- but a pool that died would, and that must not lose the
-                # lesson either.
                 try:
                     resolved[futures[future]] = future.result()
                 except Exception as error:

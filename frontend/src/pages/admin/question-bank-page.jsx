@@ -123,41 +123,16 @@ const questionTypeLabels = {
     SHORT_ANSWER: "Short Answer",
     DESCRIPTIVE: "Descriptive",
     CRITICAL_THINKING: "Critical Thinking",
-    // Written by AI generation, which stores the workspace type directly
-    // rather than as CRITICAL_THINKING + criticalThinkingType the way the
-    // manual builder does. Unlabelled, the Type column showed the raw enum.
     PROGRAMMING: "Programming",
     DIAGRAM: "Diagram",
 };
 
-/**
- * The stored types each filter option should match.
- *
- * Two paths write these and they disagree: the manual builder saves a
- * programming task as CRITICAL_THINKING with criticalThinkingType=PROGRAMMING,
- * while AI generation saves it as PROGRAMMING. Java treats all three as
- * workspace items when grading (`isWorkspaceType`), so the difference is a
- * storage detail -- but the filter compared the stored value to the option
- * verbatim, so "Critical Thinking" matched none of the generated ones and
- * there was no option that did. A TOPCIT bank holding 13 programming tasks and
- * a diagram reported "No questions found".
- */
 const QUESTION_TYPE_FILTER_MATCHES = {
     CRITICAL_THINKING: ["CRITICAL_THINKING", "PROGRAMMING", "DIAGRAM"],
     PROGRAMMING: ["PROGRAMMING"],
     DIAGRAM: ["DIAGRAM"],
 };
 
-/**
- * Which workspace task a question is, as the server reports it.
- *
- * `questionType` alone cannot answer this: AI generation stores every
- * programming task AND every diagram task as CRITICAL_THINKING, with the
- * difference held in the one-to-one config. `criticalThinkingType` is derived
- * server-side from that config (see QuestionMapper). Falling back to
- * `questionType` keeps the manual builder working, which does write
- * PROGRAMMING/DIAGRAM directly.
- */
 function workspaceKindOf(question) {
     return question?.criticalThinkingType ?? question?.questionType ?? null;
 }
@@ -166,9 +141,6 @@ function matchesQuestionTypeFilter(question, filterValue) {
     if (filterValue === ALL_FILTER_VALUE) return true;
     const questionType = typeof question === "string" ? question : question?.questionType;
 
-    // Programming and Diagram are subsets of CRITICAL_THINKING rather than
-    // stored types of their own, so they are matched on the derived kind. The
-    // earlier version compared them against questionType and matched nothing.
     if (filterValue === "PROGRAMMING" || filterValue === "DIAGRAM") {
         return workspaceKindOf(typeof question === "string" ? null : question) === filterValue
             || questionType === filterValue;
@@ -459,13 +431,6 @@ function updateDataAtPath(data, path, value) {
     return update(data, 0);
 }
 
-/**
- * A draft with its chosen images stored and their keys filled in.
- *
- * The builder keeps a picked image as a File in `image`, but the save only
- * ever sent `imageKey` -- so a figure attached in the builder was dropped
- * without a word. Uploaded here, before the question is written.
- */
 async function withUploadedImages(data) {
     const next = { ...data };
     if (data.image) {
@@ -545,7 +510,6 @@ function validateQuestionData(typeId, data) {
         choices.forEach((choice, index) => {
             const letter = String.fromCharCode(65 + index);
 
-            // A pictured choice -- a graph, a circuit -- is its image.
             if (isBlank(choice.choiceText) && !choice.image && !choice.imageKey) {
                 errors[`choices.${index}.choiceText`] = `Choice ${letter} is required.`;
             }
@@ -1942,17 +1906,10 @@ function QuestionFileGeneratorDialog({
                                          isGenerating = false,
                                      }) {
     const maxFiles = 10;
-    // Matches AiUploadValidator.MAX_FILE_SIZE_BYTES and the certification
-    // uploader. A real handbook runs past 10MB -- TOPCIT's Business guide is
-    // 12.2MB -- and a stricter client cap just refuses a file the server
-    // would have taken.
     const maxSizeMB = 50;
     const maxSize = maxSizeMB * 1024 * 1024;
 
     const [submitError, setSubmitError] = useState("");
-    /* No setup here: this dialog only takes previous exams. The count, type
-       and difficulty split are fixed -- the AI picks the types the papers
-       support, and the default target is split evenly across the levels. */
     const generationOptions = {
         total: DEFAULT_GENERATION_TARGET,
         questionType: "AUTO",
@@ -2017,7 +1974,6 @@ function QuestionFileGeneratorDialog({
     }
 
     async function handleGenerate() {
-        // Previous exams are the whole input here, so at least one is required.
         const selectedDocuments = files.map((item) => item.file);
 
         setSubmitError("");
@@ -2439,9 +2395,6 @@ const QuestionCardWrapper = React.memo(function QuestionCardWrapper({
     );
 });
 
-// `certificationId` locks the bank to a single certification: the certification
-// pickers disappear and every tab works against that one. Passed in when the
-// bank is embedded as a tab on the view-certification page.
 function QuestionBank({
     certificationId = null,
     embedded = false,
@@ -2453,9 +2406,6 @@ function QuestionBank({
     const isLockedToCertification = Boolean(lockedCertificationId);
 
     const [activeTab, setActiveTab] = useState(initialTab);
-    // Sub-mode inside the single Question Builder tab. "" shows the centered
-    // Create Manually / Generate with AI chooser; selecting one swaps the same
-    // builder area in place (manual form vs AI generation interface).
     const [builderMode, setBuilderMode] = useState(initialBuilderMode);
 
     const [filterCertificationId, setFilterCertificationId] =
@@ -2510,12 +2460,6 @@ function QuestionBank({
 
     const [questionForm, setQuestionForm] = useState(null);
 
-    /* The same key the page framing this bank reads under, so the two share
-       one fetch. They were on different keys for the identical call, which
-       meant every visit here fetched the certification list twice over -- once
-       to title the header, once to fill the pickers -- and the second copy was
-       never the one on screen first. Still under the "admin-certifications"
-       prefix, so the invalidations that follow a certification edit reach it. */
     const {
         data: certifications = [],
         isPending,
@@ -2526,24 +2470,13 @@ function QuestionBank({
         staleTime: 5 * 60 * 1000,
     });
 
-    /* Scoped to the certification this bank is locked to, rather than fetched
-       whole and narrowed below.
 
-       The filter further down still discards everything outside this
-       certification's lessons, so the displayed set is unchanged -- what
-       changes is that the discarding no longer happens after every question on
-       the platform has been read, mapped and sent. Unlocked (no certification
-       passed), this is the whole-bank read it always was. */
     const {
         data: allQuestions = [],
         isPending: isQuestionsPending,
         isError: isQuestionsError,
         refetch: refetchQuestions,
     } = useQuery({
-        /* "certification" is in the key, not just the id: the assessment
-           question picker already caches under ["questions", <departmentId>], and a
-           bare id here would collide with a group id that happened to match --
-           two different reads quietly sharing one cache entry. */
         queryKey: ["questions", "certification", lockedCertificationId || null],
         queryFn: () =>
             getQuestions(
@@ -2615,9 +2548,6 @@ function QuestionBank({
                 return false;
             }
 
-            // The whole question, not just its type: Programming and Diagram
-            // are told apart by `criticalThinkingType`, which the type string
-            // alone does not carry.
             if (!matchesQuestionTypeFilter(question, filterQuestionType)) {
                 return false;
             }
@@ -2976,14 +2906,10 @@ function QuestionBank({
         });
     }
 
-    // The PDF import page belongs to one certification: this bank's own, or
-    // the one picked in the builder.
     const importCertificationId =
         lockedCertificationId || selectedCertification?.certificationId || "";
 
     const submitQuestions = async () => {
-        // Sent with each save so the backend verifies the lesson belongs to this
-        // certification before persisting the question.
         const certificationId = selectedCertification?.certificationId ?? null;
         for (const draft of questions) {
             const question = { ...draft, data: await withUploadedImages(draft.data) };
@@ -3136,11 +3062,6 @@ function QuestionBank({
         try {
             setIsGeneratingQuestions(true);
 
-            /*
-             * The backend reads the uploaded documents, detects the topics, chooses
-             * appropriate question types, and returns editable draft DTOs only.
-             * It must not save any question to the database during generation.
-             */
             const generationResponse = await generateQuestionsFromFiles(
                 certificationId,
                 selectedDocuments,
@@ -3229,13 +3150,6 @@ OUTPUT RULES:
                 },
             );
 
-            // Question generation now runs asynchronously in the background
-            // (see the RabbitMQ-driven Python consumer) -- this response only
-            // confirms the request was queued. Nothing above ever appears
-            // directly in this response, so there are no drafts to add to
-            // the builder yet; the notification bell announces completion,
-            // and reviewed drafts land in a separate review step (backend
-            // generated_question_drafts) once Phase 8+ wires that surface.
             setIsQuestionFileGeneratorOpen(false);
 
             showFeedbackDialog({
@@ -3310,10 +3224,6 @@ OUTPUT RULES:
             className={
                 embedded
                     ? "flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border/80 bg-muted/20 py-0 md:h-[calc(100dvh-12rem)]"
-                    /* Fills whatever it is handed. It used to subtract a fixed
-                       8rem for a portal header that is not there on its own
-                       page, which left a strip of dead space under the table
-                       and made the list shorter than the window. */
                     : "flex min-h-0 flex-1 flex-col bg-muted/20 py-0 md:overflow-hidden"
             }
         >
@@ -3392,9 +3302,6 @@ OUTPUT RULES:
                     value="all-questions"
                     className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden py-3 data-[state=inactive]:hidden"
                 >
-                    {/* Capped only when embedded in a portal page. On its own
-                        page the window is the container, and a 1800px cap just
-                        reintroduced the inset the full-page move removed. */}
                     <div
                         className={
                             embedded
@@ -3402,13 +3309,6 @@ OUTPUT RULES:
                                 : "flex min-h-0 w-full flex-1 flex-col gap-3 px-4 sm:px-6"
                         }
                     >
-                        {/* The filters were a card with a heading and a
-                            paragraph explaining that a filter filters, wrapped
-                            around a panel holding three dropdowns -- four
-                            nested surfaces and roughly 180px of height spent
-                            before the first question. They are a toolbar now:
-                            the controls say what they do, and the height they
-                            gave back goes to the list. */}
                         <div className="flex shrink-0 flex-col gap-2">
                                 <div className="sr-only">
                                     <h3>Refine your library</h3>
@@ -3578,11 +3478,6 @@ OUTPUT RULES:
                                 </div>
                         </div>
 
-                        {/* One bordered surface for the list, and the only
-                            thing on the page that scrolls. The page itself no
-                            longer does: the filters stay put at the top and
-                            the rows move under a header that stays with
-                            them. */}
                         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-background">
                             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/70 px-4 py-2">
                                 <h3 className="text-sm font-semibold text-foreground">Question library</h3>
@@ -3874,10 +3769,6 @@ OUTPUT RULES:
                         </div>
                     ) : (
                         <div className="flex min-h-0 flex-1 flex-col gap-3">
-                            {/* The manual/AI switch lives in the toolbar above,
-                                once. Repeating it here as a second pill row put
-                                the same two choices on screen twice, one under
-                                the other. */}
                             {builderMode === "generate" ? (
                                 <div className="flex min-h-0 flex-1 flex-col gap-3">
                                     <div className="shrink-0 space-y-2">

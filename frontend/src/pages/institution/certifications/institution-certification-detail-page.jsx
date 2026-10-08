@@ -40,7 +40,6 @@ function asArray(value) {
   return Array.isArray(value) ? value : []
 }
 
-/** One published assessment, wherever it sits in the tree. */
 function ExamRow({ exam, label, className = "" }) {
   return (
     <div
@@ -57,7 +56,6 @@ function ExamRow({ exam, label, className = "" }) {
   )
 }
 
-/** A collapsible row: header on the left, chevron on the right, children when open. */
 function AccordionRow({ title, meta, defaultOpen = false, level = 0, children }) {
   const [isOpen, setIsOpen] = useState(defaultOpen)
   return (
@@ -87,15 +85,6 @@ function countLabel(count, noun) {
   return `${count} ${noun}${count === 1 ? "" : "s"}`
 }
 
-/**
- * The curriculum with its assessments in place: each lesson quiz under its
- * lesson, each module exam under its module, each major exam under its major,
- * and the certification-wide ones (diagnostic, mock) as the last section.
- *
- * It used to be a flat "Certification assessments" list under the tree, which
- * put a lesson quiz next to the mock exam with nothing saying where in the
- * course either belonged.
- */
 function MiddleCategoryRow({ middleCategory, examsFor, typeLabel, onAddQuestion }) {
   const lessons = middleCategory.lessons ?? []
   const middleExams = examsFor("middle", middleCategory.middleCategoryId)
@@ -224,8 +213,6 @@ export default function InstitutionCertificationDetailPage() {
   )
 
   const [activeTab, setActiveTab] = useState("curriculum")
-  // Lesson handed to the Question Bank tab by the "Add Question" button next to
-  // a lesson in the curriculum -- it opens the tab with the form already up.
 
   const examsQuery = useQuery({
     queryKey: ["exams"],
@@ -243,10 +230,6 @@ export default function InstitutionCertificationDetailPage() {
   const certificationExams = asArray(examsQuery.data).filter(
     (exam) => exam.certificationId === institutionCert?.certificationId && exam.status === "PUBLISHED"
   )
-  /* Exams keyed by where they sit. Scope is decided by the most specific id
-     the exam carries: a lesson quiz also names its module and major, and must
-     only show under the lesson. Anything with no id at all is
-     certification-wide -- the diagnostic and the mock exam. */
   const examsByScope = useMemo(() => {
     const index = { lesson: new Map(), middle: new Map(), major: new Map(), certification: [] }
     const push = (map, key, exam) => map.set(key, [...(map.get(key) ?? []), exam])
@@ -261,7 +244,6 @@ export default function InstitutionCertificationDetailPage() {
   }, [examsQuery.data, institutionCert?.certificationId])
   const examsFor = (scope, id) => examsByScope[scope].get(id) ?? []
   const typeLabel = (exam) => examTypeById.get(exam.examTypeId) ?? "Assessment"
-  /* Diagnostic first (it is sat before studying), mock exam last. */
   const scopeRank = (exam) => {
     const label = String(typeLabel(exam)).toUpperCase()
     return label.includes("DIAGNOSTIC") ? 0 : label.includes("MOCK") ? 2 : 1
@@ -382,9 +364,6 @@ export default function InstitutionCertificationDetailPage() {
                 />
               ))}
 
-              {/* The certification-wide exams close the accordion the way
-                  they close the course: a diagnostic before you start and the
-                  mock exam at the end. */}
               {certificationWideExams.length ? (
                 <AccordionRow
                   level={0}

@@ -83,14 +83,10 @@ function backendMessage(error, fallback) {
 const OTHER_DEPARTMENT = "__other__"
 
 function CreateGroupDialog({ open, onOpenChange, institutionCerts, certificationById, lockedInstitutionCertId, departments = [] }) {
-  /* The department names on offer come from the stored list an admin keeps,
-     not a free text box: one vocabulary across every institution, and no
-     "CCS" beside "College of Computer Studies". */
   const { options: departmentOptions } = useReferenceOptions(REFERENCE_DEPARTMENT)
   const queryClient = useQueryClient()
   const [institutionCertId, setInstitutionCertId] = useState("")
   const [departmentName, setDepartmentName] = useState("")
-  /* "Other" in the select opens a text box; the typed name is what is sent. */
   const [departmentChoice, setDepartmentChoice] = useState("")
   const [departmentDescription, setDepartmentDescription] = useState("")
   const [totalSlots, setTotalSlots] = useState("")
@@ -100,8 +96,6 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
     (institutionCert) => String(institutionCert.institutionCertId) === institutionCertId
   )
 
-  // Arriving from a specific certification's card: the allocation is fixed,
-  // not picked from a dropdown.
   useEffect(() => {
     if (open) {
       setInstitutionCertId(lockedInstitutionCertId != null ? String(lockedInstitutionCertId) : "")
@@ -117,10 +111,6 @@ function CreateGroupDialog({ open, onOpenChange, institutionCerts, certification
     setError("")
   }
 
-  /* What this allocation still has to give: its total less what the
-     departments already under it were given. The field is capped at that,
-     and opens on it, so an institution sees at a glance how much is left
-     rather than the allocation's whole size. */
   const allocatedSlots = departments
     .filter((group) => String(group.institutionCertId) === String(institutionCertId))
     .reduce((sum, group) => sum + Number(group.totalSlots ?? 0), 0)
@@ -345,9 +335,6 @@ function ManageGroupDialog({
   const [learnerInviteLast, setLearnerInviteLast] = useState("")
   const [editingSlots, setEditingSlots] = useState(false)
   const [slotsInput, setSlotsInput] = useState("")
-  /* Name and description, edited in place. The name is picked from the
-     stored department list like it was at creation, with "Other" for a name
-     the list does not hold. */
   const [editingDetails, setEditingDetails] = useState(false)
   const [nameChoice, setNameChoice] = useState("")
   const [nameInput, setNameInput] = useState("")
@@ -447,12 +434,7 @@ function ManageGroupDialog({
   const activeAuthorities = authorities.filter((a) => a.status === "active")
   const activeAssignees = assignees.filter((a) => a.status === "active")
 
-  // Only this group's leader may invite/cancel its learner invitations -- the
-  // institution account itself is read-only here.
   const isLeader = activeAuthorities.some((a) => a.userId === user?.userId)
-  // Assigning/removing a group's leader (and creating a new leader's account)
-  // is an institution-management action -- owner-only, same as Billing/
-  // Partnership/Institution profile.
   const isOwner = isInstitutionOwner(user)
 
   const departmentInvitations = (Array.isArray(invitations) ? invitations : []).filter(
@@ -461,9 +443,6 @@ function ManageGroupDialog({
   const pendingGroupInvitations = departmentInvitations.filter((inv) => inv.status === "PENDING")
 
   const institutionCert = institutionCertById?.get(group?.institutionCertId)
-  // The group's own slot cap is the binding constraint a leader actually
-  // faces (never more than the certification's own remaining slots either --
-  // the backend enforces both).
   const groupTotalSlots = group?.totalSlots ?? 0
   const groupUsedSlots = group?.usedSlots ?? 0
   const remainingSlots = Math.max(0, groupTotalSlots - groupUsedSlots)
@@ -472,8 +451,6 @@ function ManageGroupDialog({
     activeAssignees.map((a) => a.institutionCertLearnerId)
   )
 
-  // Only learners that already hold access to THIS group's certification and are
-  // not already in the group can be added — mirrors the backend invariant.
   const availableLearners = useMemo(
     () =>
       assignments.filter(
@@ -599,8 +576,6 @@ function ManageGroupDialog({
     onError: (err) => toast.error(backendMessage(err, "Unable to update this learner's role.")),
   })
 
-  // Prefer the member's name (captured when their account was provisioned),
-  // falling back to email for members created before names were stored.
   const memberLabel = (memberUserId) => {
     const member = userById.get(memberUserId)
     if (!member) return `User #${memberUserId}`
@@ -622,7 +597,6 @@ function ManageGroupDialog({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Name and description */}
           {isOwner ? (
             <section className="rounded-lg border p-3">
               {editingDetails ? (
@@ -711,7 +685,6 @@ function ManageGroupDialog({
             </section>
           ) : null}
 
-          {/* Slots */}
           <section className="flex items-center justify-between gap-3 rounded-lg border p-3">
             <div>
               <p className="text-sm font-medium">
@@ -755,7 +728,6 @@ function ManageGroupDialog({
             ) : null}
           </section>
 
-          {/* Authorities */}
           <section className="space-y-3">
             <div className="flex items-center gap-2">
               <UserCog className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -905,7 +877,6 @@ function ManageGroupDialog({
             )}
           </section>
 
-          {/* Invitations */}
           <section className="space-y-3">
             <div className="flex items-center gap-2">
               <Mail className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -985,7 +956,6 @@ function ManageGroupDialog({
             )}
           </section>
 
-          {/* Learners */}
           <section className="space-y-3">
             <div className="flex items-center gap-2">
               <Users2 className="size-4 text-muted-foreground" aria-hidden="true" />
@@ -1089,8 +1059,6 @@ function ManageGroupDialog({
         </div>
       </DialogContent>
 
-      {/* Deleting archives the department: its rows stay for the record,
-          the learners in it lose the grouping, and it leaves this list. */}
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1127,9 +1095,6 @@ export default function DepartmentsPage() {
     useOutletContext()
   const institutionId = institution?.institutionId
   const [searchParams] = useSearchParams()
-  // Reached from a specific certification's card on the Certifications page --
-  // groups are always created/viewed in the context of one allocation. Without
-  // this param (a stale bookmark, e.g.), every group across the org is shown.
   const scopedInstitutionCertIdParam = searchParams.get("institutionCertId")
   const scopedInstitutionCertId = scopedInstitutionCertIdParam ? Number(scopedInstitutionCertIdParam) : null
 
@@ -1154,8 +1119,6 @@ export default function DepartmentsPage() {
 
   const members = Array.isArray(membersQuery.data) ? membersQuery.data : []
 
-  // Member/authority labels come from the tenant-scoped members list (which carries
-  // each member's name and email) -- no global users fetch needed.
   const userById = useMemo(
     () => new Map(members.map((m) => [m.userId, m])),
     [members]

@@ -39,10 +39,6 @@ public class DepartmentController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public DepartmentDto create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody DepartmentDto dto) {
-        // Never trust institutionId/createdBy from the client body -- a caller
-        // could otherwise spoof another tenant or impersonate another user
-        // when creating a group. Resolve both from the authenticated caller
-        // and overwrite whatever was supplied in the request.
         CurrentUserDto user = institutionUser(jwt);
         requireOwner(user);
         Long institutionId = user.institutionId();

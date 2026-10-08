@@ -223,9 +223,6 @@ def create_content_accordion_block(small_header: str, description: str, items: l
         "data": {
             "smallHeader": small_header,
             "description": description,
-            # Same normalisation as the standalone accordion: this block's own
-            # `description` is the section intro and stays, but an item's
-            # description is its body and belongs on `content`.
             "items": _accordion_items(items)
         }
     }
@@ -370,12 +367,6 @@ lesson_search_tools = [
     search_more_lesson_info,
 ]
 
-#: What the lesson agent actually gets. The two media searches are deliberately
-#: absent: their result has to end up *inside* the structured answer, and the
-#: model resolves that by writing the call where the URL belongs
-#: (`"imageKey": "<function=search_educational_image{...`), which the provider
-#: rejects. `app.domain.lesson_media` runs those searches afterwards instead.
-#: Research stays, because its result is material to read, not a value to embed.
 lesson_research_tools = [
     search_more_lesson_info,
 ]

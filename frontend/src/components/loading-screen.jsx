@@ -4,22 +4,6 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion"
 import { isDepartmentHeadUser } from "@/context/auth-context.jsx"
 import { TraySupplies } from "@/components/classroom/tray-supplies.jsx"
 
-/**
- * Boot screen — the classroom.
- *
- * The painted classroom fills the window, softly out of focus, and a chalkboard
- * stands in the middle of it. Each status message is written onto the board in
- * chalk, left to right, and a chalk bar under it fills as the wait goes on.
- *
- * The bar is a real progress bar that finishes: while loading it creeps toward
- * 90%, and when `finishing` turns on it fills to 100%, holds a beat, fades the
- * screen out and calls `onFinished`. The app drives that through
- * `LoadingOverlayProvider` (`overlay` = fixed over everything); rendered on its
- * own (the dev preview) it simply keeps creeping.
- *
- * The board and photo are ornament: the message is announced through a stable
- * visually-hidden live region.
- */
 
 const MESSAGES = [
   { tag: "confidence", text: "Building your confidence...", tone: "macaw" },
@@ -28,8 +12,6 @@ const MESSAGES = [
   { tag: "challenge", text: "Loading your next challenge...", tone: "fox" },
 ]
 
-/* Each portal waits on different work, so each says so. The learner's copy
-   above stays the default; these are picked by the signed-in role. */
 export const INSTITUTION_MESSAGES = [
   { tag: "institution", text: "Opening your institution...", tone: "macaw" },
   { tag: "learners", text: "Gathering your learners' progress...", tone: "beetle" },
@@ -58,7 +40,6 @@ export const GUEST_MESSAGES = [
   { tag: "almost", text: "Almost ready...", tone: "fox" },
 ]
 
-/** The waiting copy for whoever is signed in. */
 export function messagesForUser(user) {
   const role = String(user?.role ?? "").toUpperCase()
   if (!role) return GUEST_MESSAGES
@@ -70,7 +51,6 @@ export function messagesForUser(user) {
   return MESSAGES
 }
 
-/** Copy for the wait after submitting an assessment: the real grading stages. */
 export const GRADING_MESSAGES = [
   { tag: "answers", text: "Checking your answers...", tone: "macaw" },
   { tag: "written", text: "Marking your written responses...", tone: "beetle" },
@@ -78,7 +58,6 @@ export const GRADING_MESSAGES = [
   { tag: "score", text: "Totalling your score...", tone: "bee" },
 ]
 
-/** Copy for the wait before an attempt opens. */
 export const ATTEMPT_MESSAGES = [
   { tag: "paper", text: "Setting out your paper...", tone: "macaw" },
   { tag: "questions", text: "Picking your questions...", tone: "beetle" },
@@ -89,12 +68,6 @@ export const ATTEMPT_MESSAGES = [
 const FILL_MS = 650
 const FADE_MS = 350
 
-/**
- * @param messages    Optional replacement for the boot copy -- e.g.
- *                    `GRADING_MESSAGES` while a submission is being marked.
- * @param overlay     Fixed over the whole app instead of in the page flow.
- * @param finishing   Loading is done: fill the bar, fade out, then `onFinished`.
- */
 export function LoadingScreen({ messages = MESSAGES, overlay = false, finishing = false, onFinished }) {
   const [messageIndex, setMessageIndex] = useState(0)
   const [progress, setProgress] = useState(4)
@@ -103,8 +76,6 @@ export function LoadingScreen({ messages = MESSAGES, overlay = false, finishing 
   const finished = useRef(onFinished)
   finished.current = onFinished
 
-  // Modulo'd rather than indexed directly: the interval keeps counting against
-  // the list that was current when it was scheduled.
   const list = messages?.length ? messages : MESSAGES
   const current = list[messageIndex % list.length]
 
@@ -116,8 +87,6 @@ export function LoadingScreen({ messages = MESSAGES, overlay = false, finishing 
     return () => clearInterval(id)
   }, [reduced, list.length])
 
-  // Still loading: creep toward 90%, slowing as it gets closer. Never moves
-  // backwards if loading resumes after the bar had already filled.
   useEffect(() => {
     if (finishing) return undefined
     setLeaving(false)
@@ -127,7 +96,6 @@ export function LoadingScreen({ messages = MESSAGES, overlay = false, finishing 
     return () => clearInterval(id)
   }, [finishing])
 
-  // Done: fill to 100%, let it be seen full, fade, then hand back.
   useEffect(() => {
     if (!finishing) return undefined
     setProgress(100)
@@ -143,9 +111,6 @@ export function LoadingScreen({ messages = MESSAGES, overlay = false, finishing 
 
   return (
     <div
-      /* `rb-classroom-face` keeps the hand-drawn identity here. The rest of
-         the product moved to one typeface, and this screen is the exception
-         on purpose: it is the curtain before the app, not part of it. */
       className={`rebyu-ds rb-light-only rb-classroom-face isolate flex h-svh w-full items-center justify-center overflow-hidden bg-[#2a2118] px-4 transition-opacity ${
         overlay ? "fixed inset-0 z-[300]" : "relative"
       } ${leaving ? "opacity-0" : "opacity-100"}`}
@@ -165,7 +130,6 @@ export function LoadingScreen({ messages = MESSAGES, overlay = false, finishing 
             <motion.p
               key={finishing ? "ready" : messageIndex}
               className="rb-chalk text-[clamp(1.75rem,4.5vw,2.75rem)] leading-tight"
-              /* Written left to right, like chalk on a board. */
               initial={reduced ? false : { clipPath: "inset(0 100% 0 0)", opacity: 1 }}
               animate={{ clipPath: "inset(0 0% 0 0)", opacity: 1 }}
               exit={reduced ? undefined : { opacity: 0, transition: { duration: 0.2 } }}
@@ -176,8 +140,6 @@ export function LoadingScreen({ messages = MESSAGES, overlay = false, finishing 
           </AnimatePresence>
         </div>
 
-        {/* The chalk bar: fills as the wait goes on, and finishes before the
-            screen leaves. */}
         <div className="mx-auto mt-8 flex max-w-sm items-center gap-3">
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/15">
             <div

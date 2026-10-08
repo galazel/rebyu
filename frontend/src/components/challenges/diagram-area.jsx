@@ -31,10 +31,6 @@ function normalizeXml(xml) {
     return typeof xml === "string" && xml.trim() ? xml : EMPTY_GRID_DIAGRAM
 }
 
-// The editor is a remote iframe (embed.diagrams.net), so its first paint costs
-// a full app download. Warming DNS/TLS for that origin as soon as any diagram
-// screen imports this module takes a chunk off that first load; the browser
-// HTTP cache covers every load after it.
 const DRAWIO_ORIGIN = "https://embed.diagrams.net"
 
 if (
@@ -51,17 +47,6 @@ if (
     }
 }
 
-// draw.io renders inside an iframe Tailwind can't reach, but it does accept a
-// stylesheet over its configuration message. Two config keys carry one: `css`
-// is injected ahead of the app's own stylesheets, `customCss` is appended to
-// the head after them. This sends the same sheet through both, because the
-// first version of this theme went through `css` alone and lost most of its
-// declarations to draw.io's own later rules -- the editor still came up in
-// stock grey, which is what "it looks like draw.io bolted onto the page" was.
-//
-// Everything below is `!important` and states REBYU's surface tokens as
-// literals (Google Sans, swan borders, snow panels, feather accent, polar
-// hover), since var() has no meaning inside that document.
 const DRAWIO_THEME_CSS = `
   .geEditor, .geEditor *, .geDialog, .geDialog *, .mxWindow, .mxWindow *,
   .geSidebarTooltip, .geSidebarTooltip * {
@@ -149,12 +134,6 @@ const DRAWIO_THEME_CSS = `
   }
 `
 
-/**
- * `documentId` identifies the diagram being edited (e.g. an attempt question
- * id). Changing it swaps the canvas contents *in place* through the embed's
- * load action instead of tearing the iframe down — moving between diagram
- * questions used to re-download the whole draw.io app every time.
- */
 export default function DiagramArea({
                                         diagramType = "ERD",
                                         initialXml,
@@ -188,13 +167,10 @@ export default function DiagramArea({
         }
     }, [])
 
-    // Only a change of shape libraries needs a new iframe URL, and several
-    // diagram types share one preset — switching UML class -> use case is free.
     useEffect(() => {
         setIsLoading(true)
     }, [toolPreset.libs])
 
-    // Same iframe, different document.
     useEffect(() => {
         if (documentId === documentIdRef.current) {
             return
@@ -239,18 +215,8 @@ export default function DiagramArea({
                     className="absolute inset-0 z-10 flex flex-col bg-card"
                     aria-live="polite"
                 >
-                    {/* Traces the editor's real furniture, so the swap when it
-                        loads is a fill-in rather than a re-layout: a toolbar
-                        across the top, the shape library down the left with
-                        its search field and collapsed groups, and the grid
-                        canvas filling the rest.
 
-                        The previous skeleton drew a right-hand panel the
-                        editor does not have and a plain white canvas, so the
-                        page visibly rearranged itself at the moment the
-                        editor appeared. */}
                     <div className="flex h-11 shrink-0 items-center gap-2 border-b border-rb-swan bg-rb-polar px-3">
-                        {/* Left cluster: panel, page, then the undo/redo/delete group. */}
                         <div className="h-5 w-5 rounded bg-rb-swan motion-safe:animate-pulse" />
                         <div className="h-5 w-5 rounded bg-rb-swan motion-safe:animate-pulse" />
                         <div className="mx-1 h-5 w-px bg-rb-swan" />
@@ -261,23 +227,14 @@ export default function DiagramArea({
                             />
                         ))}
                         <div className="flex-1" />
-                        {/* Right cluster: comment and zoom, then the two
-                            trailing icons. */}
                         <div className="h-5 w-5 rounded bg-rb-swan motion-safe:animate-pulse" />
                         <div className="h-5 w-5 rounded bg-rb-swan motion-safe:animate-pulse" />
                     </div>
 
                     <div className="flex min-h-0 flex-1">
                         <div className="hidden w-56 shrink-0 flex-col gap-3 border-r border-rb-swan bg-rb-polar p-3 sm:flex">
-                            {/* Search field. */}
                             <div className="h-8 rounded-lg border border-rb-swan bg-card" />
 
-                            {/* The collapsed shape groups, and nothing else:
-                                the Scratchpad and the "More Shapes" pill this
-                                used to trace are both gone from the editor
-                                now, and drawing furniture the learner will
-                                never see is the same re-layout on load that
-                                the skeleton exists to avoid. */}
                             {Array.from({ length: 3 }).map((_, item) => (
                                 <div
                                     key={item}
@@ -286,9 +243,6 @@ export default function DiagramArea({
                             ))}
                         </div>
 
-                        {/* Canvas. The grid is drawn rather than left blank so
-                            the drawing area reads as a drawing area while it
-                            is still empty. */}
                         <div
                             className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center"
                             style={{
@@ -322,12 +276,6 @@ export default function DiagramArea({
                 urlParameters={{
                     ui: "simple",
                     sidebar: 1,
-                    // `libraries` is not the shape palette -- that is `sidebar`
-                    // plus `libs`. It is draw.io's *custom* library machinery:
-                    // the Scratchpad, "New Library", "Open Library". None of it
-                    // survives an attempt, and the Scratchpad's "Drag elements
-                    // here" drop zone sat at the top of the palette as the
-                    // first thing a learner saw.
                     libraries: 0,
                     libs: toolPreset.libs,
                     format: 0,
@@ -353,25 +301,12 @@ export default function DiagramArea({
                         "exit",
                     ],
                     css: DRAWIO_THEME_CSS,
-                    // Same sheet, appended after draw.io's own stylesheets
-                    // instead of before them -- see DRAWIO_THEME_CSS.
                     customCss: DRAWIO_THEME_CSS,
-                    // The Scratchpad, "New Library" and "Open Library". None of
-                    // it survives an attempt, and the Scratchpad's "Drag
-                    // elements here" drop zone sat at the top of the palette as
-                    // the first thing a learner saw.
-                    //
-                    // draw.io caches the whole configuration in localStorage
-                    // under `version`, so a browser that met an older build
-                    // keeps whatever that build said until the string moves --
-                    // which is why this reads v3 below and not v2.
                     enableCustomLibraries: false,
                     defaultGridEnabled: true,
                     defaultGridSize: 10,
                     defaultPageVisible: false,
                     override: true,
-                    // draw.io caches a configuration under its version string,
-                    // so this has to move whenever the theme does.
                     version: `rebyu-diagram-editor-v3-${toolPreset.libs}`,
                 }}
             />

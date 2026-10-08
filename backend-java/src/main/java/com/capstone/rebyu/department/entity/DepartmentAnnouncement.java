@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/** A message a group's leader posts to that group. Archived rather than deleted. */
 @Entity
 @Table(name = "department_announcements", indexes = @Index(name = "ix_department_announcements_department", columnList = "department_id"))
 @Data
@@ -30,8 +29,6 @@ public class DepartmentAnnouncement {
     @JoinColumn(name = "department_id", nullable = false)
     private Department department;
 
-    // Nullable: an announcement outlives the account that wrote it
-    // (see AccountDeletionService's attribution columns).
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private User createdBy;

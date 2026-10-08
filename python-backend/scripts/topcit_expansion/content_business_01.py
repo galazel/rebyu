@@ -16,7 +16,6 @@ MID_BIZ_FUNDAMENTALS = 126
 ERP_DIAGRAM = "/lesson-media/erp-shared-database.svg"
 SCM_DIAGRAM = "/lesson-media/supply-chain.svg"
 EA_DIAGRAM = "/lesson-media/enterprise-architecture.svg"
-# Enterprise Solutions: ERP, SCM, and CRM
 
 _ent_sections = [
     ("Why Enterprise Solutions Exist", [
@@ -715,7 +714,6 @@ LESSON_ENTERPRISE = {
 }
 
 
-# IT Strategy Planning: ISP, ISMP, and Enterprise Architecture
 
 _isp_sections = [
     ("Why IT Needs a Plan of Its Own", [

@@ -12,19 +12,6 @@ import {
 
 export const COMMUNITY_NOTIFICATIONS_QUERY_KEY = ["learner-community-notifications"]
 
-/**
- * The learner-only community feed (upvotes, replies, moderation), which lives in
- * its own table and is merged into the bell alongside the generic inbox.
- *
- * It has to be a peer of `useNotifications` rather than folded into it: the ids
- * come from `learner_community_notifications` and collide with the inbox table's
- * ids, so every write has to be routed to the feed the row actually belongs to.
- * Sending a community id to the inbox endpoints is exactly what produced
- * "Notification not found" on delete.
- *
- * `enabled` is false for admin/institution users, who have no learner row and
- * would only get an error from the endpoint.
- */
 export function useCommunityNotifications({ enabled = true } = {}) {
   const queryClient = useQueryClient()
 
@@ -42,8 +29,6 @@ export function useCommunityNotifications({ enabled = true } = {}) {
     [queryClient]
   )
 
-  // Tagged by source so callers can route reads and deletes to this feed's
-  // endpoints instead of the inbox's.
   const items = (Array.isArray(query.data) ? query.data : []).map((notification) => ({
     ...notification,
     source: "community",

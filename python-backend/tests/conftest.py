@@ -13,7 +13,6 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import create_app
 
-# Register all models before create_all.
 from app.db import models  # noqa: F401,E402
 
 
@@ -41,20 +40,12 @@ def session_factory():
         poolclass=StaticPool,
     )
 
-    # Our tables are schema-qualified (`bkt.workflow_runs`) so that queries do
-    # not depend on `search_path`, which is session state and silently fails to
-    # apply through connection poolers. SQLite has no schemas, but an ATTACHed
-    # database serves the same syntax -- so tests exercise the *same* qualified
-    # SQL that runs against Postgres instead of an unqualified variant that
-    # would hide exactly the bug this qualification exists to prevent.
     schema = Base.metadata.schema
     if schema:
         @event.listens_for(engine, "connect")
         def _attach_schema(dbapi_connection, _record):
             dbapi_connection.execute(f"ATTACH DATABASE ':memory:' AS {schema}")
 
-        # StaticPool reuses one connection, and it was opened before the
-        # listener was registered.
         engine.dispose()
 
     Base.metadata.create_all(engine)

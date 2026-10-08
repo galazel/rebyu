@@ -1,17 +1,3 @@
-/**
- * Data-table chrome.
- *
- * One shape for every list in the product: a plain white card holding a
- * toolbar, the rows, and a numbered pager. Not a grid of cards — a table reads
- * down a column, and comparing values down a column is the entire reason a list
- * is a list. Cards make the reader compare across boxes instead.
- *
- * The three parts are separate exports rather than one <DataTable rows columns>
- * component on purpose: every page here renders genuinely different cells
- * (avatars, progress bars, status pills, row menus), and a column-config API
- * would end up taking a render function per column anyway. These give a page
- * the chrome and leave the <tbody> alone.
- */
 
 import { useMemo, useState } from "react"
 import {
@@ -34,26 +20,8 @@ import { TableHead } from "@/components/ui/table"
 
 export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
-/**
- * Surface classes for a plain <Card> that holds a table, so those pages match
- * TableCard instead of out-weighing it.
- *
- * Card's default is a 2px border plus the design system's 2px solid "lip"
- * shadow. That reads well on a small tile, but a table is the widest surface
- * on its page: at that size the lip is a bar under the whole panel, and the
- * heavy border is a crate. A data panel sits flat -- the rows are the content,
- * not the box.
- */
 export const TABLE_SURFACE = "border border-border/70 shadow-none"
 
-/**
- * The card the toolbar, table, and pager sit in.
- *
- * One hairline, not the 2px cage this used to draw. At full page width a heavy
- * border reads as a crate around the data rather than an edge to it, and it
- * was competing with the rules the toolbar, header band and pager already put
- * across the same surface.
- */
 export function TableCard({ className = "", children }) {
   return (
     <div className={`overflow-hidden rounded-rb-card border border-border/70 bg-card ${className}`}>
@@ -62,10 +30,6 @@ export function TableCard({ className = "", children }) {
   )
 }
 
-/**
- * "Show [n] entries" on the left, search on the right, and room between them
- * for a page's own filters.
- */
 export function TableToolbar({
   pageSize,
   onPageSizeChange,
@@ -121,10 +85,6 @@ export function TableToolbar({
   )
 }
 
-/**
- * A header cell that sorts. `sort` is the {key, direction} state and `onSort`
- * takes the column key — see useTableSort below, which owns both.
- */
 export function SortableHead({ column, label, sort, onSort, className = "", align = "left" }) {
   const isActive = sort?.key === column
   const Arrow = !isActive
@@ -138,16 +98,7 @@ export function SortableHead({ column, label, sort, onSort, className = "", alig
       <button
         type="button"
         onClick={() => onSort(column)}
-        /* Type comes from the table head it sits in -- size, weight and colour
-           all inherited -- so a sortable column reads exactly like a plain one.
-           It used to set its own `text-[13px] font-bold uppercase tracking-wide`,
-           which is why admin tables shouted INSTITUTION / REFERENCE while every
-           institution table beside them said Request / Certifications. Sorting
-           is an affordance on a heading, not a different kind of heading.
 
-           The active and hover states lean on weight and opacity rather than
-           swapping in `text-foreground`, which would have dropped the portal's
-           heading colour on exactly the column someone is using. */
         className={`group inline-flex items-center gap-1 transition-opacity hover:opacity-80 ${
           isActive ? "opacity-100" : "opacity-90"
         } ${align === "right" ? "flex-row-reverse" : ""}`}
@@ -165,7 +116,6 @@ export function SortableHead({ column, label, sort, onSort, className = "", alig
   )
 }
 
-/** A plain header cell, so unsortable columns still match the sortable ones. */
 export function PlainHead({ label, className = "", align = "left" }) {
   return (
     <TableHead className={`${className} ${align === "right" ? "text-right" : ""}`}>
@@ -174,11 +124,6 @@ export function PlainHead({ label, className = "", align = "left" }) {
   )
 }
 
-/**
- * Sort state plus the comparator. `accessors` maps a column key to a function
- * returning the value to sort on, so a column can sort on something other than
- * what it renders (a date's timestamp, a name's surname).
- */
 export function useTableSort(initialKey = null, initialDirection = "asc") {
   const [sort, setSort] = useState(
     initialKey ? { key: initialKey, direction: initialDirection } : null
@@ -187,8 +132,6 @@ export function useTableSort(initialKey = null, initialDirection = "asc") {
   function toggle(key) {
     setSort((current) => {
       if (current?.key !== key) return { key, direction: "asc" }
-      /* Third click clears the sort — the list returns to whatever order the
-         server sent, which is usually "newest first" and worth getting back. */
       if (current.direction === "asc") return { key, direction: "desc" }
       return null
     })
@@ -205,7 +148,7 @@ export function useTableSort(initialKey = null, initialDirection = "asc") {
       const right = read(b)
 
       if (left == null && right == null) return 0
-      if (left == null) return 1 /* blanks sink, in either direction */
+      if (left == null) return 1
       if (right == null) return -1
 
       if (typeof left === "number" && typeof right === "number") {
@@ -219,7 +162,6 @@ export function useTableSort(initialKey = null, initialDirection = "asc") {
   return { sort, toggle, sortRows }
 }
 
-/** Windowed page numbers: 1 … 4 5 6 … 12, never more than seven slots. */
 function pageWindow(page, totalPages) {
   if (totalPages <= 7) {
     return Array.from({ length: totalPages }, (_, index) => index + 1)
@@ -241,7 +183,6 @@ function pageWindow(page, totalPages) {
   return withGaps
 }
 
-/** Previous · numbered pages · Next, with the counted range beside it. */
 export function TablePagination({
   page,
   totalPages,

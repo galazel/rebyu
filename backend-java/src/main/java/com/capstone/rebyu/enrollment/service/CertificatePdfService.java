@@ -12,15 +12,6 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-/**
- * The certificate of completion as a PDF, attached to the certificate email.
- *
- * PLACEHOLDER: a single landscape page carrying the certificate number and
- * the learner's name in plain type, so the attachment exists and can be
- * opened while the real design is pending. Swap the body of {@link #render}
- * for the designed template when it is ready; the email and the award flow
- * do not need to change.
- */
 @Service
 public class CertificatePdfService {
 

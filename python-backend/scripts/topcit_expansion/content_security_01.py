@@ -16,7 +16,6 @@ MID_SEC_FUNDAMENTALS = 123
 SYMMETRIC_DIAGRAM = "/lesson-media/symmetric-encryption.svg"
 ASYMMETRIC_DIAGRAM = "/lesson-media/asymmetric-encryption.svg"
 HASH_DIAGRAM = "/lesson-media/hash-function.svg"
-# Cryptography Fundamentals: Symmetric and Asymmetric Encryption
 
 _crypto_sections = [
     ("What Cryptography Is Actually For", [
@@ -767,7 +766,6 @@ LESSON_CRYPTO = {
 }
 
 
-# Hash Functions and Message Integrity
 
 _hash_sections = [
     ("What a Hash Function Is", [

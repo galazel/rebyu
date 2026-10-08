@@ -30,11 +30,6 @@ public class DepartmentService {
     private final InstitutionCertificateRepository institutionCertificateRepository;
     private final DepartmentMapper departmentMapper;
 
-    // institutionId is always the JWT-derived caller (never client-supplied and
-    // never optional here) so this can never fall through to a global fetch.
-    // institutionCertId, when given, narrows further -- but only within that same
-    // institution, so a caller can't read another tenant's groups by guessing
-    // an institutionCertId that belongs to a different institution.
     @Transactional(readOnly = true)
     public List<DepartmentDto> getAll(Long institutionId, Long institutionCertId) {
         List<Department> groups = departmentRepository.findByInstitution_InstitutionId(institutionId);
@@ -46,10 +41,6 @@ public class DepartmentService {
         return groups.stream().map(departmentMapper::toDto).toList();
     }
 
-    /**
-     * Owners may see every group in their institution. Other Institution Members
-     * receive only the groups for which they are an active authority.
-     */
     @Transactional(readOnly = true)
     public List<DepartmentDto> getAccessible(
             Long institutionId, Long userId, boolean owner, Long institutionCertId) {
@@ -94,19 +85,12 @@ public class DepartmentService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "InstitutionCertificate not found: " + dto.getInstitutionCertId()));
 
-        // The org cert allocation referenced by the group must belong to the
-        // SAME institution the caller was resolved to -- otherwise a caller
-        // could create a group under an allocation owned by another tenant.
         Long institutionCertInstitutionId = institutionCert.getInstitution() != null
                 ? institutionCert.getInstitution().getInstitutionId() : null;
         if (!Objects.equals(dto.getInstitutionId(), institutionCertInstitutionId)) {
             throw new EntityNotFoundException("InstitutionCertificate not found: " + dto.getInstitutionCertId());
         }
 
-        // A single group can't be handed more slots than the certification
-        // allocation itself has -- a real (if generous) sanity bound. It does
-        // NOT sum across sibling groups; that would require re-validating every
-        // other group whenever one changes.
         if (dto.getTotalSlots() > institutionCert.getTotalSlots()) {
             throw new BusinessRuleException.DepartmentRuleException(
                     "This group can have at most " + institutionCert.getTotalSlots()
@@ -115,10 +99,6 @@ public class DepartmentService {
 
         Department entity = departmentMapper.toEntity(dto);
         entity.setDepartmentId(null);
-        // The mapper builds DETACHED stubs for the institutionCert/institution FKs (id
-        // set, @Version null). Persisting the group against those stubs throws
-        // "uninitialized version value 'null'". Attach the managed institutionCert we
-        // already loaded (and its managed institution) instead.
         entity.setInstitutionCert(institutionCert);
         entity.setInstitution(institutionCert.getInstitution());
         entity.setCreatedAt(dto.getCreatedAt() != null ? dto.getCreatedAt() : LocalDateTime.now());
@@ -131,8 +111,6 @@ public class DepartmentService {
 
     public DepartmentDto update(Long id, DepartmentDto dto, Long callerInstitutionId) {
         log.info("Updating institution group id: {}", id);
-        // Mutate editable fields only; createdBy/createdAt/institution/institutionCert/
-        // usedSlots are immutable here -- usedSlots only changes via invitations.
         Department entity = findEntity(id);
         requireSameInstitution(entity, callerInstitutionId);
         entity.setDepartmentName(dto.getDepartmentName());

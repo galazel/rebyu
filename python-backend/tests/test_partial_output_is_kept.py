@@ -137,7 +137,6 @@ def test_matching_ignores_case_and_spacing(curriculum_repo):
     assert len(curriculum_repo.lessons) == 2
 
 
-# assessments
 
 
 class _FakeAssessmentRepo:
@@ -148,7 +147,6 @@ class _FakeAssessmentRepo:
         self.exams: list[dict] = []
         self.questions: list[dict] = []
 
-    # reads
     def list_certification_lessons(self, session, certification_id):
         return list(self._lessons)
 
@@ -168,7 +166,6 @@ class _FakeAssessmentRepo:
     def get_exam_type_id(self, session, exam_type_text):
         return 1
 
-    # writes
     def insert_question(self, session, *, lesson_id, question_type, difficulty, question_text, **_):
         self.questions.append({"question_text": question_text, "lesson_id": lesson_id})
         return len(self.questions)
@@ -288,7 +285,6 @@ def test_the_second_save_adds_what_the_first_run_had_not_generated(assessment_re
     assert "Second bank question?" in [q["question_text"] for q in assessment_repo.questions]
 
 
-# the rescue itself
 
 
 async def test_a_failed_run_saves_what_it_had(monkeypatch):

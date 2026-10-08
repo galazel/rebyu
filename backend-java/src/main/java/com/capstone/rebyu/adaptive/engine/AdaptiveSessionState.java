@@ -11,11 +11,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Everything the engine needs between two answers, serialised as JSON onto
- * the attempt. Rebuilt from this on every request, so the engine holds no
- * memory of its own and a restarted server changes nothing.
- */
 @Data
 @NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -25,11 +20,9 @@ public class AdaptiveSessionState {
     public static final String STAGE_FINAL = "FINAL";
     public static final String STAGE_DONE = "DONE";
 
-    /** Prior over ability the session started from. */
     private double mu0;
     private double sigma0;
 
-    /** Current ability estimate and its uncertainty. */
     private double theta;
     private double se;
 
@@ -40,56 +33,33 @@ public class AdaptiveSessionState {
     private int answeredCount;
     private String stage = STAGE_MAIN;
 
-    /** BKT knowledge state per lesson, and the parameters it is tracked with. */
     private Map<Long, Double> pKnownByLesson = new LinkedHashMap<>();
     private Map<Long, BktModel.Params> paramsByLesson = new LinkedHashMap<>();
 
-    /** Pool composition per lesson (main-pool candidates), for coverage. */
     private Map<Long, Integer> poolCountByLesson = new LinkedHashMap<>();
 
-    /**
-     * The share of the paper each lesson is owed. Null or empty means
-     * "in proportion to the pool"; a focused exam sets it so the weak lessons
-     * hold their share and the rest split what remains.
-     */
     private Map<Long, Double> targetShareByLesson = new LinkedHashMap<>();
-    /** The lessons the focus is on, for the selection reason and the result. */
     private Set<Long> weakLessonIds = new LinkedHashSet<>();
     private Map<Long, Integer> servedCountByLesson = new LinkedHashMap<>();
 
-    /** Question-type mix of the main pool and of what has been served, for balance. */
     private Map<String, Integer> poolCountByType = new LinkedHashMap<>();
     private Map<String, Integer> servedCountByType = new LinkedHashMap<>();
 
     private List<Long> servedQuestionIds = new ArrayList<>();
     private List<ResponseRecord> responses = new ArrayList<>();
 
-    /** Questions this learner had met in any attempt when the session began. */
     private Set<Long> seenQuestionIds = new LinkedHashSet<>();
-    /** Of those, the ones met in the current pass over the bank (see LearnerBankCycle). */
     private Set<Long> cycleSeenQuestionIds = new LinkedHashSet<>();
     private int bankCycle = 1;
-    /** Questions served on any earlier attempt of this exam, so a retake never repeats one while it can help it. */
     private Set<Long> thisExamQuestionIds = new LinkedHashSet<>();
-    /** Questions on the learner's most recent submitted attempt of this exam. */
     private Set<Long> lastAttemptQuestionIds = new LinkedHashSet<>();
 
-    /** Normalised stems of everything served, so a twin under another id is not served too. */
     private List<String> servedStems = new ArrayList<>();
 
-    /** Items served behind the current one (attempt-question ids), in paper order. */
     private List<Long> queuedAttemptQuestionIds = new ArrayList<>();
 
-    /**
-     * How many items are kept served ahead of the one being asked. Zero: an
-     * item served ahead is chosen without the answer before it, and on a
-     * paper of thirty that lag is what the learner notices ("I got it right
-     * and the next one was no harder"). The next item is chosen after each
-     * answer is marked, in the same request that records it.
-     */
     public static final int RESERVE_DEPTH = 0;
 
-    /** How many are served ahead at the start, beyond the first item. */
     public static final int START_RESERVE = 0;
 
     public Long getQueuedAttemptQuestionId() {
@@ -105,7 +75,6 @@ public class AdaptiveSessionState {
         private double b;
         private double c;
         private boolean correct;
-        /** Share of the item earned, 0..1; the objective items send 0 or 1. */
         private double score;
 
         public ResponseRecord(Long questionId, Long lessonId, IrtModel.ItemParams item, boolean correct) {

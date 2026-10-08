@@ -68,7 +68,6 @@ def codes(report) -> set[str]:
     return {issue.code for issue in report.issues}
 
 
-# Structural enforcement (raises -> triggers retry)
 
 def test_mcq_requires_between_three_and_nine_choices():
     with pytest.raises(ValidationError, match="between 3 and 9 choices"):
@@ -216,7 +215,6 @@ def test_defaults_keep_generation_working_without_new_metadata():
     assert q.source_chunk_ids == []
 
 
-# Quality reporting (advisory)
 
 def test_empty_batch_is_an_error():
     report = validate_question_batch([])
@@ -286,9 +284,6 @@ def test_genuinely_blank_choice_is_flagged():
 
 
 def test_flags_missing_explanations():
-    # Dicts, not drafts: the schema now rejects an unexplained question at
-    # generation time, so this advisory check only ever sees one that arrived
-    # from somewhere else.
     report = validate_question_batch(
         [mcq_dict(explanation=""), mcq_dict(question="Another?", explanation="")]
     )

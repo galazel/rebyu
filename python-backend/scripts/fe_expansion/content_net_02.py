@@ -17,7 +17,6 @@ from figures import fig
 MAJOR = "Technology Element"
 MIDDLE = "Network"
 
-# Lesson 3: Protocols, addressing and routing
 
 _proto_sections = [
     ("What a Protocol Has to Agree", [
@@ -765,7 +764,6 @@ LESSON_NET_PROTO = lesson(
         ],
     ))
 
-# Lesson 4: Network management and troubleshooting
 
 _mgmt_sections = [
     ("What Managing a Network Involves", [

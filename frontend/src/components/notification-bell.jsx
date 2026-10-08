@@ -30,9 +30,6 @@ const iconByType = {
   invitation: Mail,
 }
 
-// The notifications table has no `type` column -- these rows (assessment
-// results, retakes, and the Phase 6 AI generation consumers) are told apart
-// client-side by their title prefix instead.
 const iconByTitlePrefix = [
   [/^Curriculum ready|^Questions ready/, Sparkles],
   [/^Generation failed/, XCircle],
@@ -58,13 +55,10 @@ export function NotificationBell({
   unreadCount,
 }) {
   const visibleItems = items.slice(0, 8)
-  // This portal's own notifications page, so the header stays put.
   const portal = useLocation().pathname.split("/")[1]
   const viewAllHref = ["admin", "institution", "learner"].includes(portal)
     ? `/${portal}/notifications`
     : "/notifications"
-  // The badge counts what is actually unread, not the size of the whole feed --
-  // a read backlog should not keep showing as pending.
   const unread =
     typeof unreadCount === "number"
       ? unreadCount
@@ -171,9 +165,6 @@ export function NotificationBell({
                       onClick={(event) => {
                         event.preventDefault()
                         event.stopPropagation()
-                        // The whole item, not just the id: ids are only unique
-                        // within a feed, so the caller needs `source` to know
-                        // which endpoint the row belongs to.
                         onDelete(item)
                       }}
                       aria-label={`Delete notification: ${item.title}`}

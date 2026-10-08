@@ -6,13 +6,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
-/**
- * One row per user per day they used REBYU.
- *
- * <p>{@code users.last_seen_at} only knows the present moment; the admin
- * dashboard's weekly, monthly and yearly "active users" lines are counted
- * from these rows.
- */
 @Entity
 @Table(
         name = "user_activity_days",

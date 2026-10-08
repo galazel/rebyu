@@ -58,11 +58,6 @@ public class InstitutionFileService {
         storage.deleteFile(entity.getStorageKey());
     }
 
-    /**
-     * A short-lived presigned download URL, but only if the file belongs to the caller's
-     * institution. This replaces exposing the raw storage key via the public generic
-     * /api/files/download endpoint (which any anonymous caller could hit).
-     */
     @Transactional(readOnly = true)
     public String downloadUrl(Long institutionId, Long fileId) {
         InstitutionFile entity = files.findByInstitutionFileIdAndInstitution_InstitutionId(fileId, institutionId)

@@ -20,7 +20,6 @@ def test_mastery_event_is_processed_and_idempotent(client) -> None:
     assert first_body["duplicate"] is False
     assert first_body["mastery_after"] > 0.30
     assert first_body["attempt_count"] == 1
-    # Smart Defaults for a HARD item on a lesson quiz.
     assert first_body["parameters_used"]["guess"] == 0.20
     assert first_body["parameters_used"]["slip"] == 0.15
     assert first_body["parameters_used"]["learn"] == 0.08

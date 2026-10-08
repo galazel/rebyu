@@ -5,25 +5,9 @@ import { cn } from "@/lib/utils"
 import { buildTranscript } from "@/hooks/workflow-timeline-model"
 import { TaskStatusIcon, formatDuration, stageLabel, taskStatusLabel } from "./task-status"
 
-/**
- * A generation run as one scrolling transcript.
- *
- * This replaced a Timeline / Review / Versions / Activity tab strip. Tabs were
- * wrong for the same reason they would be wrong in a terminal: the run is a
- * sequence, and the review pause is a moment *in* that sequence, not a separate
- * place. With tabs, the pause happened somewhere the reviewer was not looking —
- * the timeline just stopped moving, and the only hint was a dot on a tab. The
- * artifact and its decision now arrive inline at the tail of the feed, in the
- * position where the run is actually waiting.
- *
- * Steps nest under the unit of work they belong to (see `buildTranscript`), and
- * finished groups collapse to a single line, so the live work stays near the
- * bottom instead of being pushed off by eighty rows of completed history.
- */
 export function GenerationTranscript({
   tasks,
   currentTaskId,
-  /** Rendered at the tail of the feed — the pending review, if there is one. */
   children,
   emptyMessage = "Waiting for the first step to start…",
   className,
@@ -33,13 +17,6 @@ export function GenerationTranscript({
   const pinnedToBottom = useRef(true)
   const hasTail = Boolean(children)
 
-  // Follow the tail while the reviewer is at the bottom, but stop the moment
-  // they scroll up to read something — a feed that yanks itself back down
-  // mid-read is worse than no autoscroll at all.
-  //
-  // `hasTail` rather than `children`: a JSX element is a new object every
-  // render, which would make this fire on every render instead of when the feed
-  // actually grew.
   useEffect(() => {
     if (pinnedToBottom.current) {
       endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" })
@@ -61,8 +38,6 @@ export function GenerationTranscript({
             key={group.id}
             group={group}
             currentTaskId={currentTaskId}
-            // The tail group is where the run is now, so it stays open. Earlier
-            // groups collapse: their steps are history the reviewer can ask for.
             defaultOpen={index === groups.length - 1}
           />
         ))}
@@ -82,8 +57,6 @@ export function GenerationTranscript({
 function TranscriptGroup({ group, currentTaskId, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen)
 
-  // A group that starts collapsed and then goes live opens itself; the reviewer
-  // closing it again is respected, because this only fires on the transition.
   const wasDefaultOpen = useRef(defaultOpen)
   useEffect(() => {
     if (defaultOpen && !wasDefaultOpen.current) setOpen(true)
@@ -113,9 +86,6 @@ function TranscriptGroup({ group, currentTaskId, defaultOpen }) {
 
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
           {group.label}
-          {/* "3 of 20" once the curriculum is known, "#3" before then: the
-              total is what says whether the run is nearly done, and a bare
-              "#3" was the number that read as least informative in the feed. */}
           {group.itemNumber ? (
             <span className="ml-1.5 font-mono text-xs font-normal tabular-nums text-muted-foreground">
               {group.itemTotal ? `${group.itemNumber} of ${group.itemTotal}` : `#${group.itemNumber}`}
@@ -127,8 +97,6 @@ function TranscriptGroup({ group, currentTaskId, defaultOpen }) {
           <span className="shrink-0 text-xs text-muted-foreground">{stepCount} steps</span>
         ) : null}
 
-        {/* Falls back to the status so a collapsed group with nothing timed yet
-            still says something — a blank right edge read as a broken row. */}
         <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
           {group.durationMs != null
             ? formatDuration(group.durationMs)
@@ -195,13 +163,6 @@ function TranscriptStep({ step, isCurrent }) {
   )
 }
 
-/**
- * The line at the bottom of the transcript, in the spirit of a terminal's status
- * line: what is happening right now, how long it has been happening, and the
- * controls for it. Sticky so it stays readable while the feed scrolls, because
- * "is this still running?" is the question asked most often and it should never
- * require scrolling to answer.
- */
 export function GenerationStatusBar({
   status,
   stage,
@@ -209,9 +170,7 @@ export function GenerationStatusBar({
   live,
   connected,
   terminal,
-  /** `runProgress()` output. Omit to draw the bar-less status line. */
   progress,
-  /** `{ number, total }` for the item being generated, when inside a loop. */
   item,
   actions,
   className,
@@ -254,18 +213,6 @@ export function GenerationStatusBar({
   )
 }
 
-/**
- * How far through the run is, as a bar.
- *
- * Indeterminate until the curriculum is planned: until then the run genuinely
- * has no denominator (see `runProgress`), and a bar guessing at one would be
- * inventing a number the reviewer has no way to check. A sweeping bar says
- * "working, length unknown" instead.
- *
- * The percentage is repeated as text beside it, because a bar alone is only
- * readable to within about a quarter and "is this a third done or nearly
- * finished" is the entire question being asked.
- */
 function RunProgressBar({ percent, done, total, className }) {
   const indeterminate = percent == null
 
@@ -295,7 +242,6 @@ function RunProgressBar({ percent, done, total, className }) {
   )
 }
 
-/** Milliseconds since `startedAt`, ticking while `active`. */
 function useElapsedMs(startedAt, active) {
   const [now, setNow] = useState(() => Date.now())
 

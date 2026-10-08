@@ -49,9 +49,6 @@ class LearnerPortalServiceTest {
 
     @BeforeEach
     void setUp() {
-        // LearnerPortalService caches portals in a STATIC map for 30s, so
-        // without this each test answers from whatever the previous one cached
-        // for the same (learner, user) and the suite passes or fails on order.
         LearnerPortalService.clearHotCacheForTests();
 
         learnerRepository = mock(LearnerRepository.class);
@@ -63,8 +60,6 @@ class LearnerPortalServiceTest {
         institutionCertMapper = mock(InstitutionCertificateMapper.class);
 
         rewardService = mock(RewardService.class);
-        // The portal reports XP/coins/credits now; without a balance it NPEs
-        // before it reaches anything these tests are actually asserting.
         when(rewardService.balance(LEARNER_ID)).thenReturn(new RewardService.Balance(0L, 0L, 0));
 
         service = new LearnerPortalService(learnerRepository, mock(LearnerMapper.class), userRepository,
@@ -111,8 +106,6 @@ class LearnerPortalServiceTest {
 
         LearnerPortalDto result = service.portal(LEARNER_ID, USER_ID);
 
-        // Two distinct org certs (100, 200) -- the duplicate 100 is collapsed, and only
-        // the learner's own allocations are mapped (never a global org-cert fetch).
         assertEquals(2, result.institutionCertificates().size());
         verify(institutionCertMapper, org.mockito.Mockito.times(2)).toDto(any());
     }

@@ -1,7 +1,3 @@
--- Backend-driven rubric criteria for subjectively-evaluated questions
--- (diagram, descriptive). The learner attempt panel renders these instead of
--- hardcoding categories in the frontend. Awarded points are filled in later by
--- manual/AI evaluation; they are never sent to the learner before evaluation.
 CREATE TABLE IF NOT EXISTS public.question_rubric_criteria (
     rubric_criterion_id BIGSERIAL    PRIMARY KEY,
     question_id         BIGINT       NOT NULL REFERENCES public.questions(question_id) ON DELETE CASCADE,

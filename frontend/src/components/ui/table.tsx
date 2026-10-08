@@ -6,12 +6,6 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div
       data-slot="table-container"
-      /* No border here on purpose. Every table in the product already sits
-         inside a bordered surface (a Card, a TableCard, a rounded panel), and
-         a self-drawn edge landed a second hairline directly against that
-         surface's own border -- the doubled rules are what made these read as
-         boxes stacked inside boxes. The surface owns the frame; the table owns
-         the rows. */
       className="relative w-full overflow-x-auto"
     >
       <table
@@ -27,8 +21,6 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      /* A faint band separates the header from the rows, so the single
-         hairline beneath it is all the structure the head needs. */
       className={cn(
         "bg-muted/40 [&_tr]:border-b [&_tr]:border-border/60 [&_tr]:hover:bg-transparent",
         className

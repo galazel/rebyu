@@ -9,8 +9,6 @@ import java.util.Optional;
 public interface PlanEntitlementRepository extends JpaRepository<PlanEntitlement, Long> {
     List<PlanEntitlement> findBySubscriptionPlan_SubscriptionPlanId(Long subscriptionPlanId);
 
-    // Safe as an Optional: (subscription_plan_id, entitlement_code) is a unique
-    // constraint on plan_entitlements, so this can only ever match 0 or 1 row.
     Optional<PlanEntitlement> findBySubscriptionPlan_SubscriptionPlanIdAndEntitlementCode(
             Long subscriptionPlanId, String entitlementCode);
 }

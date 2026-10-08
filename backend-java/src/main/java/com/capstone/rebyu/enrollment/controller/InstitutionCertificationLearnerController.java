@@ -21,8 +21,6 @@ public class InstitutionCertificationLearnerController {
     private final InstitutionCertificationLearnerService institutionCertificationLearnerService;
     private final CognitoAuthService auth;
 
-    // Cross-tenant learner-allocation data: the unfiltered list exposes which learners
-    // hold which certifications across every institution, so it's admin-only.
     @GetMapping
     public List<InstitutionCertificationLearnerDto> getAll(@AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);

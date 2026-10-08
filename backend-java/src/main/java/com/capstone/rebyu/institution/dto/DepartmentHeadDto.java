@@ -20,12 +20,8 @@ public class DepartmentHeadDto {
     @NotNull
     private Long userId;
 
-    // Read-only, denormalized from the member's user account so the org portal can
-    // label members/authorities without fetching the global users list.
     private String email;
 
-    // Captured at invite time so members/authorities can be shown by name
-    // rather than just an email address. Null for pre-existing members.
     private String firstName;
     private String lastName;
 

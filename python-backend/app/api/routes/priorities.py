@@ -28,7 +28,6 @@ router = APIRouter(
 
 
 def _sort_key(row: LearnerCategoryPriority):
-    # Default learner ordering: most urgent first, then highest score.
     rank = ps.SEVERITY.get(row.priority_tag, -1)
     return (-rank, -row.priority_score)
 

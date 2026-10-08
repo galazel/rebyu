@@ -23,16 +23,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-#: Below this many words two stems must match exactly. "What does SCM stand
-#: for?" and "What does CRM stand for?" share every word but one.
 MIN_TOKENS_FOR_FUZZY = 8
 
-#: Shared/combined words above which two longer stems are edits of one another.
 DUPLICATE_OVERLAP = 0.85
 
-#: Enough when one stem is the other with words only added, none replaced --
-#: every word of the shorter is still there, so nothing was swapped for
-#: something else. "CRM" against "ERP" fails this: neither contains the other.
 INSERTION_OVERLAP = 0.75
 
 NEGATION = "not"

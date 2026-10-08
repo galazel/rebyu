@@ -59,12 +59,6 @@ class InstitutionPortalServiceTest {
 
         when(institutionCertRepository.findByInstitution_InstitutionId(INSTITUTION_ID)).thenReturn(List.of());
         when(invitationService.listInvitations(INSTITUTION_ID)).thenReturn(List.of());
-        /*
-         * Stubbed, not left as a bare mock: `overview` streams this result
-         * straight away, so the default null would NPE before any assertion in
-         * these tests is reached. Empty is also the honest default here -- these
-         * tests are about which learners are fetched, not about grouping.
-         */
         when(groupAssigneeRepository.assignmentGroupsByInstitution(INSTITUTION_ID)).thenReturn(List.of());
     }
 
@@ -84,8 +78,6 @@ class InstitutionPortalServiceTest {
 
         OverviewDto result = service.overview(INSTITUTION_ID);
 
-        // Deduped learner ids from this institution's assignments only -- never a
-        // global fetch.
         verify(learnerRepository).findByLearnerIdIn(Set.of(11L, 22L));
         verify(learnerRepository, never()).findAll();
         assertEquals(2, result.learners().size());

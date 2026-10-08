@@ -54,21 +54,16 @@ MOCK_EXAM_TYPE_ID = 2
 MIDDLE_EXAM_ITEMS = 20
 MAJOR_EXAM_ITEMS = 30
 
-#: The real paper: 60 Subject A items in 90 minutes, 20 Subject B in 100.
 MOCK_SUBJECT_A_ITEMS = 60
 MOCK_SUBJECT_B_ITEMS = 20
 MOCK_DURATION_MINUTES = 190
 
-#: 600 of 1000 in each subject. Stored as a percentage, which is what
-#: `exams.passing_score` holds everywhere else in the product.
 PASSING_SCORE = 60
 
-#: Two minutes an item plus reading time, matching the lesson quizzes.
 def _minutes(items):
     return 2 * items + 5
 
 
-# reading
 
 def certification_id(db):
     found = db.execute(text(
@@ -111,7 +106,6 @@ def questions_by_lesson(db, lesson_ids):
     return grouped
 
 
-# selecting
 
 def spread(pools, wanted, seed):
     """Take `wanted` ids round-robin across `pools`, a list of id lists.
@@ -144,14 +138,10 @@ def spread(pools, wanted, seed):
             if len(picked) >= wanted:
                 break
 
-    # The order questions are ASKED in is shuffled separately, so a paper does
-    # not walk the syllabus lesson by lesson and hand the candidate the topic
-    # of each item for free.
     rng.shuffle(picked)
     return picked
 
 
-# writing
 
 def upsert_exam(db, cert_id, title, exam_type_id, target_scope, question_ids,
                 duration_minutes=None, description=None,
@@ -236,7 +226,6 @@ def main():
 
     banks = questions_by_lesson(db, {r[4] for r in rows})
 
-    # Group the curriculum once; every exam below is a different slice of it.
     middles, majors = {}, {}
     for major_id, major_title, middle_id, middle_title, lesson_id, _name in rows:
         middles.setdefault((major_id, middle_id, middle_title), []).append(lesson_id)
@@ -261,10 +250,6 @@ def main():
         if not available:
             continue
         exam_title = "%s Unit Exam" % title
-        # A category with fewer questions than the target gets a shorter
-        # paper rather than none: content arrives in batches, and an exam a
-        # learner can sit now beats one that appears when the last lesson
-        # lands. `--rebuild` grows it later.
         wanted = min(MIDDLE_EXAM_ITEMS, available)
         picked = spread(pools, wanted, exam_title)
         _exam_id, mark = upsert_exam(
@@ -290,10 +275,6 @@ def main():
         print("  %s %-46s %2d item(s) from %d lesson(s)"
               % (mark, exam_title[:46], len(picked), len(lessons)))
 
-    # diagnostic
-    # One item per lesson, so a learner's first sitting produces a signal for
-    # every lesson in the curriculum rather than a deep reading of a few. That
-    # is what the adaptive engine needs from it.
     print("\nDiagnostic")
     lesson_pools = [banks.get(r[4], []) for r in rows]
     diagnostic_title = "FE Exam Diagnostic"
@@ -308,11 +289,6 @@ def main():
         print("  %s %-46s %2d item(s), one per lesson"
               % (mark, diagnostic_title, len(picked)))
 
-    # mock exam
-    # Shaped like the real paper rather than like the curriculum. Subject A
-    # samples the whole syllabus; Subject B is concentrated on Algorithm and
-    # Programming with a security component, which is what the published
-    # format specifies.
     print("\nMock exam")
     subject_b_titles = ("Algorithm and Programming", "Security")
     b_pools, a_pools = [], []
@@ -325,8 +301,6 @@ def main():
 
     subject_a = spread(a_pools or b_pools, MOCK_SUBJECT_A_ITEMS, "FE mock A")
     subject_b = spread(b_pools or a_pools, MOCK_SUBJECT_B_ITEMS, "FE mock B")
-    # Subject A first, then Subject B, because that is the order the paper is
-    # sat in and the two halves are not interchangeable.
     picked = subject_a + subject_b
     if picked:
         _exam_id, mark = upsert_exam(

@@ -20,8 +20,6 @@ PAIRS = [
     (2693, 3180), (2978, 3081), (2999, 3193),
 ]
 
-# Every table that points at questions, so nothing is deleted that something
-# else still references.
 referencing = db.execute(text("""
     select tc.table_name, kcu.column_name
       from information_schema.table_constraints tc

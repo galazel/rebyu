@@ -17,15 +17,15 @@ topologies, split-field bit layouts and a recovery timeline. Colours are the
 REBYU tokens so the figures sit inside the lesson rather than on top of it.
 """
 
-INK = "#4b4b4b"        # rb-eel
-MUTED = "#777777"      # rb-wolf
-FAINT = "#afafaf"      # rb-hare
-LINE = "#e5e5e5"       # rb-swan
-BLUE = "#1cb0f6"       # rb-macaw
-DEEP = "#1b6ef3"       # rb-feather
-RED = "#ff4b4b"        # rb-cardinal
-ORANGE = "#ff9600"     # rb-fox
-TEAL = "#00b8d4"       # rb-bee
+INK = "#4b4b4b"
+MUTED = "#777777"
+FAINT = "#afafaf"
+LINE = "#e5e5e5"
+BLUE = "#1cb0f6"
+DEEP = "#1b6ef3"
+RED = "#ff4b4b"
+ORANGE = "#ff9600"
+TEAL = "#00b8d4"
 PAPER = "#ffffff"
 WASH = "#f7f9fc"
 
@@ -69,9 +69,6 @@ def split_words(body, per_line):
     return lines
 
 
-#: Average advance of a system-ui glyph as a fraction of the font size. SVG has
-#: no text wrapping, so line breaks are decided by estimated width; the figure
-#: is slightly generous so a line of wide letters still fits its box.
 GLYPH_WIDTH = 0.56
 
 
@@ -134,9 +131,6 @@ def plain_line(x1, y1, x2, y2, colour=LINE, dashed=False, width=2):
 
 
 def render(height, body, title, caption=None):
-    # Title and caption wrap to the figure's width. Every archetype lays its
-    # body out below a two-line heading (from y=88), so any extra heading lines
-    # push the whole body down by the same amount instead of overlapping it.
     usable = WIDTH - 56
     title_lines = split_words(title, chars_per_line(usable, 19))
     caption_lines = split_words(caption, chars_per_line(usable, 13)) if caption else []
@@ -159,7 +153,6 @@ def render(height, body, title, caption=None):
     )
 
 
-# Archetypes
 
 def stack(title, layers, caption=None, numbered=True, right_note=None):
     """Vertical layered model -- OSI, a policy hierarchy, architecture tiers."""
@@ -245,9 +238,6 @@ def cycle(title, steps, caption=None, centre=None):
                     % (x, y, PAPER, accent))
         body.append('<circle cx="%s" cy="%s" r="16" fill="%s"/>' % (x, y - 26, accent))
         body.append(text(x, y - 21, index + 1, 12, 800, PAPER, "middle"))
-        # The subtitle is deliberately not drawn: a 52px circle cannot hold it
-        # without spilling over its own edge and across the arrows. The stage
-        # name is what the figure needs to carry; the detail is in the prose.
         body.append(wrap(None, split_words(name, 13), x, y + 4, 11.5, 700, INK, "middle", 13))
     return render(440, "".join(body), title, caption)
 

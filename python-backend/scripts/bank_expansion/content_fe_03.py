@@ -15,7 +15,6 @@ CERTIFICATION_ID = 14
 
 QUESTIONS = {
 
-    # 469 -- System Requirements Definition and Stakeholder Needs
     469: [
         mcq("AVERAGE",
             "What is the main purpose of stakeholder identification during requirements definition?",
@@ -33,7 +32,6 @@ QUESTIONS = {
             "Security requirements must name what is protected, against whom, and to what standard. 'Secure' as a bare adjective can neither fail nor pass a test."),
     ],
 
-    # 470 -- Systems Architecture Design and Hardware/Software Allocation
     470: [
         mcq("AVERAGE",
             "What does hardware/software allocation decide during architecture design?",
@@ -51,7 +49,6 @@ QUESTIONS = {
             "Budgeting a system-level target across components is what makes it actionable -- each component knows its share, and the shares can be summed and checked."),
     ],
 
-    # 471 -- Software Requirements Definition and Specification
     471: [
         mcq("AVERAGE",
             "Which statement describes a well-formed software requirement?",
@@ -69,7 +66,6 @@ QUESTIONS = {
             "A constraint such as 'must run on the existing database' is legitimate but should be visibly a constraint, so that it can be challenged when its reason lapses."),
     ],
 
-    # 472 -- Software Architecture Design and Detailed Design
     472: [
         mcq("HARD",
             "Which measure of a module design indicates that a change is likely to remain local?",
@@ -87,7 +83,6 @@ QUESTIONS = {
             "The interface is the contract. Everything not in it is free to change, which is exactly the freedom information hiding is meant to preserve."),
     ],
 
-    # 473 -- Object-Oriented Design and UML Modelling
     473: [
         mcq("HARD",
             "In a UML class diagram, what does a filled diamond at one end of an association indicate?",
@@ -105,7 +100,6 @@ QUESTIONS = {
             "Substitutability is what makes polymorphism safe. A subclass that strengthens preconditions or weakens postconditions violates it and breaks callers written against the base type."),
     ],
 
-    # 474 -- Software Construction: Coding, Review and Unit Testing
     474: [
         mcq("HARD",
             "A function takes an integer 1-100 and behaves differently above 50. Which boundary values should a test set include?",
@@ -123,7 +117,6 @@ QUESTIONS = {
             "A stub substitutes for something called; a driver substitutes for something calling. The pair lets a unit be tested before its neighbours exist."),
     ],
 
-    # 475 -- Software Integration and Qualification Testing
     475: [
         mcq("HARD",
             "Top-down integration testing requires which supporting component?",
@@ -141,7 +134,6 @@ QUESTIONS = {
             "Integration is exactly when previously correct behaviour breaks, because assumptions between modules meet for the first time."),
     ],
 
-    # 476 -- System Integration, System Testing and Installation
     476: [
         mcq("AVERAGE",
             "What distinguishes system testing from integration testing?",
@@ -159,7 +151,6 @@ QUESTIONS = {
             "The comparison is the point: discrepancies surface while the old system is still authoritative. It is the most expensive changeover method and the safest."),
     ],
 
-    # 477 -- Acceptance Support and Handover
     477: [
         mcq("AVERAGE",
             "Who decides whether acceptance criteria have been met?",
@@ -177,7 +168,6 @@ QUESTIONS = {
             "A system handed over without the means to run it is not handed over. The support burden simply stays with the builder informally."),
     ],
 
-    # 478 -- Maintenance, Evolution and Disposal
     478: [
         mcq("AVERAGE",
             "What must be considered when a system is disposed of at end of life?",
@@ -195,7 +185,6 @@ QUESTIONS = {
             "Unchanged software in a changing world becomes progressively less fit -- new operating systems, new integrations, new regulations -- which is why adaptive maintenance exists."),
     ],
 
-    # 479 -- Development Processes and Methods
     479: [
         mcq("HARD",
             "Which characteristic of a project most strongly argues against a pure waterfall approach?",
@@ -213,7 +202,6 @@ QUESTIONS = {
             "It is a coordination mechanism for the team, not a reporting one for anyone else. When it becomes the latter, it stops surfacing impediments honestly."),
     ],
 
-    # 480 -- Intellectual Property in Software Development
     480: [
         mcq("HARD",
             "A contractor develops software under contract with no clause addressing intellectual property. What is the typical risk for the client?",
@@ -231,7 +219,6 @@ QUESTIONS = {
             "Copyright arises on creation and covers the expression. An underlying invention may be separately patentable, but that requires filing and is not automatic."),
     ],
 
-    # 481 -- Development Environment Management
     481: [
         mcq("AVERAGE",
             "Why should development, test and production environments be kept separate?",
@@ -249,7 +236,6 @@ QUESTIONS = {
             "Manually maintained environments diverge in ways nobody records, producing the 'works on test' failure. A versioned definition makes them reproducible and reviewable."),
     ],
 
-    # 482 -- Configuration Management and Change Control
     482: [
         mcq("HARD",
             "What is the purpose of a configuration baseline?",
@@ -267,7 +253,6 @@ QUESTIONS = {
             "Without that link, diagnosing a production defect begins with guessing which code is running, which is where the investigation should end rather than start."),
     ],
 
-    # 483 -- Project Management Foundations
     483: [
         mcq("AVERAGE",
             "Which characteristic distinguishes a project from routine operations?",
@@ -285,7 +270,6 @@ QUESTIONS = {
             "Architecture and scope decisions lock in most of the eventual spend. By the time the money is being paid out, the decisions that determined it are behind you."),
     ],
 
-    # 484 -- Project Integration Management
     484: [
         mcq("AVERAGE",
             "What does integrated change control ensure?",
@@ -303,7 +287,6 @@ QUESTIONS = {
             "The plan is the how; the schedule is one of its products. Treating the schedule as the plan leaves risk, quality and communication unmanaged by default."),
     ],
 
-    # 485 -- Project Stakeholder Management
     485: [
         mcq("HARD",
             "A stakeholder has high interest but low influence over a project. What engagement approach fits?",
@@ -321,7 +304,6 @@ QUESTIONS = {
             "A stakeholder map fixed at initiation describes an organization that no longer exists by delivery, which is when engagement matters most."),
     ],
 
-    # 486 -- Project Scope Management and the WBS
     486: [
         mcq("HARD",
             "What does the 100% rule state about a work breakdown structure?",
@@ -339,7 +321,6 @@ QUESTIONS = {
             "The exclusions do most of the work. An assumption that something is out of scope, unrecorded, is a dispute waiting for acceptance."),
     ],
 
-    # 487 -- Project Resource Management
     487: [
         mcq("AVERAGE",
             "What does a RACI matrix clarify?",
@@ -357,7 +338,6 @@ QUESTIONS = {
             "Over-allocation is not a stretch target; it is an arithmetic impossibility in the plan. Resolving it produces a date that can actually be met."),
     ],
 
-    # 488 -- Project Time Management: Scheduling, Critical Path and PERT
     488: [
         mcq("HARD",
             "A PERT activity has optimistic 4, most likely 7 and pessimistic 16 days. What is its expected duration?",
@@ -375,7 +355,6 @@ QUESTIONS = {
             "Total float is the delay an activity can absorb without moving the end date. Zero float is the definition of critical."),
     ],
 
-    # 489 -- Project Cost Management and Earned Value
     489: [
         mcq("HARD",
             "A project has PV 100,000, EV 80,000 and AC 90,000. What do the variances indicate?",
@@ -393,7 +372,6 @@ QUESTIONS = {
             "CPI is EV divided by AC. Below one means value is being earned more slowly than money is being spent, which is the definition of a cost overrun in progress."),
     ],
 
-    # 490 -- Project Risk Management
     490: [
         mcq("AVERAGE",
             "What is the purpose of a risk register?",
@@ -411,7 +389,6 @@ QUESTIONS = {
             "EMV is probability times impact. It is useful for comparing and reserving against risks, but no single risk ever costs its EMV -- it costs zero or 50,000."),
     ],
 
-    # 491 -- Project Quality Management
     491: [
         mcq("AVERAGE",
             "What distinguishes prevention costs from appraisal costs?",
@@ -429,7 +406,6 @@ QUESTIONS = {
             "Appraisal finds defects that prevention would have stopped being created. Without shifting spend upstream, the failure cost never falls and the inspection burden never lifts."),
     ],
 
-    # 492 -- Project Procurement Management
     492: [
         mcq("HARD",
             "Which contract type places the greatest cost risk on the seller?",
@@ -447,7 +423,6 @@ QUESTIONS = {
             "T&M suits exploratory or small-scale work where writing a precise specification would cost more than the work. It leaves cost risk with the buyer, so it needs active management."),
     ],
 
-    # 493 -- Project Communications Management
     493: [
         mcq("HARD",
             "A project team grows from 5 to 10 members. How does the number of communication channels change?",
@@ -465,7 +440,6 @@ QUESTIONS = {
             "Communication that is not planned defaults to whoever asks loudest, which leaves the stakeholders who do not ask uninformed until they escalate."),
     ],
 
-    # 494 -- Service Management Foundations and the Service Lifecycle
     494: [
         mcq("AVERAGE",
             "What defines a service in service management terms?",
@@ -483,7 +457,6 @@ QUESTIONS = {
             "Designing before deciding what the service is for produces capability nobody asked for, delivered at a cost nobody justified."),
     ],
 
-    # 495 -- Service Design and Service Transition
     495: [
         mcq("AVERAGE",
             "What does availability management design for beyond uptime percentage?",
@@ -501,7 +474,6 @@ QUESTIONS = {
             "Deciding how to retreat while calm is far better than deciding during an outage. A change without a way back is a change that cannot be safely attempted."),
     ],
 
-    # 496 -- Service Management Processes
     496: [
         mcq("HARD",
             "A recurring incident is resolved each time by the same workaround. Which process should be engaged?",
@@ -519,7 +491,6 @@ QUESTIONS = {
             "Speed of restoration is the goal, and it is deliberately distinct from understanding the cause. Conflating them delays the restoration users are waiting for."),
     ],
 
-    # 497 -- Service Operation, Service Desk and Support
     497: [
         mcq("AVERAGE",
             "How are incident priority levels usually derived?",
@@ -537,7 +508,6 @@ QUESTIONS = {
             "With volume flat, the change is in what first line can handle -- often staff turnover or a knowledge base that has not kept pace with change."),
     ],
 
-    # 498 -- Facility Management and Data Centre Infrastructure
     498: [
         mcq("HARD",
             "What does a UPS provide that a standby generator does not?",
@@ -555,7 +525,6 @@ QUESTIONS = {
             "A PUE of 1.0 would mean every watt reaches the IT load. The excess above 1.0 is cooling, lighting and distribution losses."),
     ],
 
-    # 499 -- System Audit: Purpose, Process and Evidence
     499: [
         mcq("HARD",
             "Why must a system auditor be independent of the system being audited?",
@@ -573,7 +542,6 @@ QUESTIONS = {
             "Evidence obtained directly by the auditor outranks evidence supplied by the party being examined, and a conclusion must not exceed what the evidence supports."),
     ],
 
-    # 500 -- Internal Control and IT Governance
     500: [
         mcq("AVERAGE",
             "What is the purpose of segregation of duties as an internal control?",

@@ -47,7 +47,6 @@ public class WorldCupTournamentService {
   private static final String STATUS_IN_PROGRESS = "IN_PROGRESS";
   private static final String STATUS_COMPLETED = "COMPLETED";
 
-  /** nodeIndex in the exam's question layout: 1=QF, 2=SF, 3=Final */
   private static final Map<String, Integer> ROUND_NODE = Map.of(
       ROUND_QF, 1,
       ROUND_SF, 2,
@@ -67,7 +66,6 @@ public class WorldCupTournamentService {
   private final LearnerRepository learnerRepo;
   private final ChallengeStandingsService standingsService;
 
-  // DTOs
 
   public record QueueStatus(
       boolean inQueue,
@@ -106,7 +104,6 @@ public class WorldCupTournamentService {
       double points
   ) {}
 
-  // Queue
 
   @Transactional
   public QueueStatus joinQueue(Long learnerId, Long certificationId) {
@@ -118,7 +115,6 @@ public class WorldCupTournamentService {
       return queueStatus(learnerId, certificationId);
     }
 
-    // Check if already in an active bracket for this cert
     BracketView active = findActiveBracket(learnerId, certificationId);
     if (active != null) {
       return new QueueStatus(false, 0, lobbySize(), certificationId, active);
@@ -137,7 +133,6 @@ public class WorldCupTournamentService {
     entry.setJoinedAt(LocalDateTime.now());
     queueRepo.save(entry);
 
-    // Try to form a bracket
     int required = lobbySize();
     List<WorldCupQueue> waiting = queueRepo.findByCertificationIdOrderByPointsDesc(certificationId);
     if (waiting.size() >= required) {
@@ -167,7 +162,6 @@ public class WorldCupTournamentService {
     return new QueueStatus(inQueue, size, lobbySize(), certificationId, active);
   }
 
-  // Bracket
 
   @Transactional(readOnly = true)
   public BracketView getActiveBracketForLearner(Long learnerId) {
@@ -252,7 +246,6 @@ public class WorldCupTournamentService {
     return matchView(match);
   }
 
-  /** Called after a challenge attempt is submitted to auto-report the score. */
   @Transactional
   public void onAttemptSubmitted(Long attemptId, Long learnerId, double percentage) {
     AssessmentAttempt attempt = attemptRepo.findById(attemptId).orElse(null);
@@ -262,7 +255,6 @@ public class WorldCupTournamentService {
     if (exam == null || !"CHALLENGE".equalsIgnoreCase(exam.getExamType().getExamTypeText())) return;
     if (!ARENA_ID.equals(exam.getTargetScope())) return;
 
-    // Find this learner's active bracket and current match
     Long certId = exam.getCertification() != null ? exam.getCertification().getCertificationId() : null;
     if (certId == null) return;
 
@@ -279,10 +271,8 @@ public class WorldCupTournamentService {
     }
   }
 
-  // Internals
 
   private WorldCupBracket createBracket(Long certificationId, List<WorldCupQueue> players) {
-    // Seed: sort by points descending, pair 1v8, 2v7, 3v6, 4v5
     List<WorldCupQueue> sorted = new ArrayList<>(players);
     sorted.sort(Comparator.comparingDouble(WorldCupQueue::getPoints).reversed());
 
@@ -294,7 +284,6 @@ public class WorldCupTournamentService {
     bracket.setCurrentRound(ROUND_QF);
     bracket.setCreatedAt(LocalDateTime.now());
 
-    // Link to current edition if any
     editionRepo.findAllByOrderByWeekStartDesc().stream()
         .filter(e -> e.isPublished() && Objects.equals(e.getCertificationId(), certificationId))
         .findFirst()
@@ -302,7 +291,6 @@ public class WorldCupTournamentService {
 
     WorldCupBracket saved = bracketRepo.save(bracket);
 
-    // Create QF matches: 1v8, 2v7, 3v6, 4v5
     int half = playerIds.size() / 2;
     for (int i = 0; i < half; i++) {
       WorldCupMatch match = new WorldCupMatch();
@@ -323,12 +311,10 @@ public class WorldCupTournamentService {
   private void resolveMatch(WorldCupMatch match) {
     double s1 = match.getPlayer1Score();
     double s2 = match.getPlayer2Score();
-    // Higher score wins; tie goes to player1 (higher seed)
     match.setWinnerLearnerId(s1 >= s2 ? match.getPlayer1Id() : match.getPlayer2Id());
     match.setStatus(STATUS_COMPLETED);
     match.setCompletedAt(LocalDateTime.now());
 
-    // Check if all matches in this round are done
     WorldCupBracket bracket = bracketRepo.findById(match.getBracketId()).orElse(null);
     if (bracket == null) return;
 
@@ -350,7 +336,6 @@ public class WorldCupTournamentService {
     int currentIdx = ROUND_ORDER.indexOf(currentRound);
 
     if (currentIdx >= ROUND_ORDER.size() - 1) {
-      // Final is done
       bracket.setCurrentRound(ROUND_COMPLETED);
       bracket.setWinnerLearnerId(winners.get(0));
       bracket.setCompletedAt(LocalDateTime.now());
@@ -363,7 +348,6 @@ public class WorldCupTournamentService {
     bracket.setCurrentRound(nextRound);
     bracketRepo.save(bracket);
 
-    // Create next round matches: pair winners in order
     for (int i = 0; i < winners.size() / 2; i++) {
       WorldCupMatch match = new WorldCupMatch();
       match.setBracketId(bracket.getBracketId());
@@ -395,7 +379,6 @@ public class WorldCupTournamentService {
     Map<Long, Learner> learners = learnerRepo.findAllById(playerIds).stream()
         .collect(Collectors.toMap(Learner::getLearnerId, l -> l));
 
-    // Get challenge points for each player
     Map<Long, Double> pointsMap = new HashMap<>();
     for (Long pid : playerIds) {
       try {
@@ -458,7 +441,6 @@ public class WorldCupTournamentService {
   }
 
   private int questionCountForRound(String round, Long bracketId) {
-    // QF=10, SF=15, Final=based on exam questions in stage 3
     if (ROUND_QF.equals(round)) return 10;
     if (ROUND_SF.equals(round)) return 15;
     if (ROUND_FINAL.equals(round)) {
@@ -527,7 +509,6 @@ public class WorldCupTournamentService {
     }
   }
 
-  // ── TEST METHODS (remove after testing) ──
 
   @Transactional
   public Map<String, Object> seedBotPlayers(Long certificationId, int count) {
@@ -563,7 +544,6 @@ public class WorldCupTournamentService {
           || Objects.equals(match.getPlayer2Id(), realLearnerId);
 
       if (hasReal) {
-        // Score only the bot side
         if (Objects.equals(match.getPlayer1Id(), realLearnerId) && match.getPlayer2Score() == null) {
           match.setPlayer2Score(Math.random() * 60);
           if (match.getPlayer1Score() != null) { resolveMatch(match); resolved++; }
@@ -574,7 +554,6 @@ public class WorldCupTournamentService {
           matchRepo.save(match);
         }
       } else {
-        // Both bots: give random scores and resolve
         if (match.getPlayer1Score() == null) match.setPlayer1Score(Math.random() * 100);
         if (match.getPlayer2Score() == null) match.setPlayer2Score(Math.random() * 100);
         resolveMatch(match);
@@ -587,7 +566,6 @@ public class WorldCupTournamentService {
 
   @Transactional
   public void cleanupTestData() {
-    // Delete bot queue entries and brackets containing bots
     queueRepo.findAll().stream()
         .filter(q -> q.getLearnerId() < 0)
         .forEach(queueRepo::delete);

@@ -40,8 +40,6 @@ from app.papers.subject_a import PDF_DIR, _whole_lines_only, page_lines
 PARSED_DIR = os.environ.get("PAPERS_PARSED_DIR", "/app/scripts/fe_papers/parsed/")
 RENDER_DIR = os.environ.get("PAPERS_RENDER_DIR", "/app/scripts/fe_papers/rendered/")
 
-#: A rect that moves less than this is the same crop; re-uploading it would
-#: spend a request to change nothing anyone can see.
 MOVED_EPSILON = 0.5
 
 
@@ -52,8 +50,6 @@ def snap(doc, lines_by_page, figure):
         lines_by_page[page] = page_lines(doc[page])
     before = pymupdf.Rect(figure["rect"])
     after = _whole_lines_only(pymupdf.Rect(before), lines_by_page[page])
-    # Clamped to the page: a snap that grew over the edge would render a
-    # band of blank paper rather than more of the figure.
     after = after & doc[page].rect
     moved = max(abs(after.x0 - before.x0), abs(after.y0 - before.y0),
                 abs(after.x1 - before.x1), abs(after.y1 - before.y1))
@@ -94,8 +90,6 @@ def run(name, commit):
             continue
         changed_records += 1
 
-        # Re-render exactly the way the original render split them, so a
-        # question whose options are pictures keeps its per-choice keys.
         stem_figures, choice_figures = split_figures_on_page(doc, record)
 
         if stem_figures and record.get("image_key"):

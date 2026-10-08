@@ -1,17 +1,3 @@
--- The third face of the V52/V53 problem: Hibernate's `ddl-auto: update` creates a
--- foreign key from the entity mapping, and the mapping carries no ON DELETE rule.
--- So on any community table Hibernate materialised first, V24's
--- "REFERENCES community_posts(post_id) ON DELETE CASCADE" came out as a plain
--- NO ACTION key with a generated name (fklrj6e98eodhkxqxolyyqowvbc and friends).
---
--- The visible symptom: deleting a post that has comments fails with 23503
--- instead of taking its comments with it. Every child of community_posts has the
--- same defect, and so does circle membership.
---
--- For each (child, column, parent) below: drop whatever foreign key currently
--- links that column to that parent, whatever it is named, then add ours back
--- with the intended ON DELETE rule and a deterministic name. Dropping first
--- makes this idempotent and safe to re-run.
 DO $$
 DECLARE
     spec RECORD;

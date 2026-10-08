@@ -12,11 +12,6 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * A lesson's BKT parameters: the trained ones from the model service when it
- * has them, the configured defaults otherwise. Cached for a few minutes so a
- * sixty-item mock exam does not ask the service sixty times.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor

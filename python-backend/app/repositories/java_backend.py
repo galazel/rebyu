@@ -109,8 +109,6 @@ def delete_empty_certification(session: Session, certification_id: int) -> bool:
         )
         return False
 
-    # The figures captured out of each document before ingestion hang off
-    # knowledge_documents; without this the parent delete is what raised.
     session.execute(
         text(
             "DELETE FROM knowledge_document_images WHERE knowledge_document_id IN "
@@ -232,11 +230,6 @@ def insert_notification(session: Session, user_id: int, title: str, body: str, h
     session.commit()
 
 
-# assessment persistence (Phase 2b)
-# Everything generated -- curriculum, questions, and the exams that group
-# them -- is written back into Java's schema so it is usable by the learner
-# app, the adaptive retake selector, and BKT, rather than living only in a
-# LangGraph checkpoint.
 
 def list_certification_lessons(session: Session, certification_id: int) -> list[dict[str, Any]]:
     """All lessons under a certification, for resolving a question's
@@ -416,7 +409,6 @@ def insert_programming_config(
                 programming_question_config_id=config_id,
                 input_data=case.get("input_data", ""),
                 expected_output=case.get("expected_output", ""),
-                # First case is the worked example shown to the learner.
                 is_sample=(index == 0),
             )
         )
@@ -477,26 +469,10 @@ def insert_exam(
             certification_id=certification_id,
             exam_type_id=exam_type_id,
             title=title,
-            # NOT `is_generated`. That column does not mean "an AI wrote this"
-            # -- Java reads it as "this is one learner's on-demand tutor
-            # practice deck", set only by GeneratedAssessmentService, which
-            # also stamps a learner_id and targetScope="GENERATED".
-            #
-            # Setting it here marked every AI-authored *curriculum* exam as
-            # throwaway practice, and the places that filter practice out then
-            # filtered out the real curriculum with it: a certification's
-            # assessment count came back 0, so the learner dashboard reported
-            # "no assessments" and called a certification complete with its
-            # quizzes, unit exams and mock exam all unsat.
             is_generated=False,
-            # DRAFT so nothing reaches learners until an admin publishes it.
             status="DRAFT",
             total_questions=total_questions,
             passing_score=passing_score,
-            # NULL means untimed, which is what every generated exam was.
-            # Carried through for the mock and the diagnostic so a learner
-            # sits them under the real paper's clock -- time pressure is half
-            # of what makes a mock worth sitting.
             duration_minutes=duration_minutes,
             target_scope=target_scope,
             lesson_id=lesson_id,
@@ -661,7 +637,6 @@ def delete_question_if_unused(session: Session, question_id: int) -> bool:
                 text("DELETE FROM question_rubric_criteria WHERE question_id = :id"),
                 {"id": question_id},
             )
-            # The parts of a critical-thinking item, then the item.
             for child in session.execute(
                 select(questions.c.question_id).where(questions.c.parent_question_id == question_id)
             ).scalars():

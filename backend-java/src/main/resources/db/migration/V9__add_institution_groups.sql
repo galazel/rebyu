@@ -1,6 +1,3 @@
--- Institution learner groups: an institution carves a certification allocation
--- (organization_certificate) into groups, assigns a teacher/authority/co-admin
--- to each group, and that authority adds the institution's learners to the group.
 
 CREATE TABLE IF NOT EXISTS public.institution_groups (
     institution_group_id BIGSERIAL    PRIMARY KEY,
@@ -17,8 +14,6 @@ CREATE TABLE IF NOT EXISTS public.institution_groups (
 CREATE INDEX IF NOT EXISTS idx_institution_groups_institution ON public.institution_groups(institution_id);
 CREATE INDEX IF NOT EXISTS idx_institution_groups_org_cert ON public.institution_groups(org_cert_id);
 
--- The teacher/authority/co-admin responsible for a group. The institution assigns
--- this authority; the authority (not the institution) manages the group learners.
 CREATE TABLE IF NOT EXISTS public.institution_group_authorities (
     institution_group_authority_id BIGSERIAL   PRIMARY KEY,
     institution_group_id           BIGINT      NOT NULL REFERENCES public.institution_groups(institution_group_id),
@@ -34,8 +29,6 @@ CREATE TABLE IF NOT EXISTS public.institution_group_authorities (
 CREATE INDEX IF NOT EXISTS idx_egr_authorities_group ON public.institution_group_authorities(institution_group_id);
 CREATE INDEX IF NOT EXISTS idx_egr_authorities_user ON public.institution_group_authorities(user_id);
 
--- Learners placed into a group. Each row must reference an existing
--- organization_certification_learner belonging to the same org_cert as the group.
 CREATE TABLE IF NOT EXISTS public.institution_group_assignees (
     institution_group_assignee_id BIGSERIAL   PRIMARY KEY,
     institution_group_id          BIGINT      NOT NULL REFERENCES public.institution_groups(institution_group_id),

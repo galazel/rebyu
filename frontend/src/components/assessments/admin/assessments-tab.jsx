@@ -53,7 +53,6 @@ import { getQuestions } from "@/services/questionService.js"
 import AssessmentDialog from "./assessment-dialog.jsx"
 import AssessmentPreviewDialog from "./assessment-preview-dialog.jsx"
 
-// Matches the question bank's page size, so the two libraries page alike.
 const PAGE_SIZE = 10
 
 const ASSESSMENT_FILTER_TYPES = [
@@ -80,46 +79,13 @@ function normalizeAssessmentType(value) {
   return type
 }
 
-/**
- * The reads this tab is assembled from, declared once.
- *
- * <p>They live out here because the certification page warms them the moment
- * it opens, and a prefetch only lands in the cache the tab reads if the key and
- * the fetcher match it exactly. Written twice they would eventually differ by a
- * character, the prefetch would silently fill a cache nothing reads, and the
- * tab would go back to loading -- with nothing to show that it had.
- */
-/* Kept, not re-fetched on sight.
 
-   Two of these are whole-table reads -- every exam question and every question
-   on the platform -- and they were on the client's defaults: stale immediately,
-   dropped from the cache five minutes after the last component using them
-   unmounted. So leaving the certification and coming back re-ran all four, and
-   any detour longer than five minutes came back to skeleton rows, on data that
-   changes when an admin edits an assessment and not otherwise.
 
-   Fifteen minutes fresh, an hour before collection. Everything that writes
-   here already invalidates these keys by hand (see the mutations below), so a
-   change an admin makes still shows immediately -- what this stops is the
-   re-fetching that no change prompted. */
 const ASSESSMENT_CACHE = {
   staleTime: 15 * 60 * 1000,
   gcTime: 60 * 60 * 1000,
 }
 
-/**
- * This certification's exams, filtered by the server rather than fetched whole
- * and filtered here.
- *
- * <p>The id is coerced to a number because the key must be byte-identical
- * between the page's prefetch (which has the id as a string, off the URL) and
- * the tab's read (which has it as a number, off the certification) -- keyed on
- * the raw value those are two different queries, and the tab would load from
- * scratch next to a warmed cache it never looks at.
- *
- * <p>Still under the "exams" key prefix, so every existing
- * {@code invalidateQueries(["exams"])} in the app still reaches it.
- */
 function examsQueryFor(certificationId) {
   const id = certificationId == null ? null : Number(certificationId)
   return {
@@ -129,9 +95,6 @@ function examsQueryFor(certificationId) {
   }
 }
 
-/* The two whole-platform reads. Only the edit and preview dialogs need them --
-   the table is drawn entirely from the two reads above -- so they are kept out
-   of the table's loading gate below and merely warmed in the background. */
 const DETAIL_QUERIES = {
   examQuestions: {
     queryKey: ["exam-questions"],
@@ -147,15 +110,6 @@ const EXAM_TYPES_QUERY = {
   ...ASSESSMENT_CACHE,
 }
 
-/**
- * Warms the tab's cache ahead of the click that opens it.
- *
- * <p>Not awaited: this is work done on the chance the tab is opened, so it must
- * never hold up the page that starts it. If a fetch fails the tab simply loads
- * the way it used to -- {@code prefetchQuery} swallows the error rather than
- * caching one, so a warm-up failure cannot turn into an error state on a tab
- * the user has not even opened.
- */
 export function prefetchAssessmentData(queryClient, certificationId) {
   if (certificationId != null) {
     void queryClient.prefetchQuery(examsQueryFor(certificationId))
@@ -173,8 +127,6 @@ export function useAssessmentData(certificationId) {
   const questionsQuery = useQuery(DETAIL_QUERIES.questions)
 
   return useMemo(() => {
-    // The server already scoped this to the certification; the filter stays as
-    // a guard for a cache entry written by some other caller under this key.
     const exams = (Array.isArray(examsQuery.data) ? examsQuery.data : []).filter(
         (exam) => exam.certificationId === certificationId
     )
@@ -220,14 +172,7 @@ export function useAssessmentData(certificationId) {
       examTypeByIdText,
       examQuestions: displayedExamQuestions,
       questionById,
-      /* Only what the table itself is drawn from.
 
-         It used to also wait on the two whole-platform reads -- every exam
-         question and every question in the bank -- which is why an admin sat
-         on skeleton rows long after the handful of assessments on this page
-         had arrived. Nothing in the table depends on them: the per-row
-         question count comes off the exam's own questionIds. They gate only
-         the dialogs that actually read them, via isDetailLoading. */
       isLoading: examsQuery.isLoading || examTypesQuery.isLoading,
       isDetailLoading: examQuestionsQuery.isLoading || questionsQuery.isLoading,
       isError: examsQuery.isError,
@@ -252,11 +197,6 @@ export function useAssessmentData(certificationId) {
   ])
 }
 
-/**
- * The assessments workspace. It fills the height it is given and scrolls only
- * its own rows, so it must be laid out inside a flex column that has a bounded
- * height -- see the page that mounts it.
- */
 export default function AssessmentsTab({
                                          certification,
                                          createRequest,
@@ -282,8 +222,6 @@ export default function AssessmentsTab({
   const [previewTarget, setPreviewTarget] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
 
-  // Publishing-requirement buttons open the exact assessment or existing
-  // invalid assessment that needs attention.
   useEffect(() => {
     if (!createRequest || data.isLoading) return
 
@@ -324,12 +262,6 @@ export default function AssessmentsTab({
   }, [createRequest, data.exams, data.isLoading, onCreateRequestHandled])
 
   const deleteMutation = useMutation({
-    /* One request. This used to fire a DELETE per exam_questions row first,
-       because the join rows were thought to block the exam delete on the FK --
-       but ExamService.delete already clears them itself, in the same
-       transaction, before deleting the exam. The per-row calls were doing that
-       work twice over the network, and they needed the whole-platform
-       exam-questions read loaded to know what to delete. */
     mutationFn: (exam) => deleteExam(exam.examId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["exams"] })
@@ -357,8 +289,6 @@ export default function AssessmentsTab({
             exam,
             typeText,
             normalizedType: normalizeAssessmentType(typeText),
-            // Off the exam's own questionIds, so the count is right as soon as
-            // the exam list lands -- no waiting on the exam-questions read.
             questionCount: Array.isArray(exam.questionIds)
                 ? exam.questionIds.length
                 : 0,
@@ -385,9 +315,6 @@ export default function AssessmentsTab({
       [rows, page]
   )
 
-  /* Filtering down to fewer pages than you are standing on leaves you looking
-     at an empty table with rows above it. Clamping to the last page that still
-     exists is what the question bank does, and for the same reason. */
   useEffect(() => {
     setPage((current) => Math.min(current, pageCount))
   }, [pageCount])
@@ -425,10 +352,6 @@ export default function AssessmentsTab({
           </Select>
         </div>
 
-        {/* One bordered surface for the list, and the only thing here that
-            scrolls. The filters stay put above it and the rows move under a
-            header that stays with them -- the same shell the question bank
-            uses, so the two libraries behave alike. */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/80 bg-background">
           <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/70 px-4 py-2">
             <h3 className="text-sm font-semibold text-foreground">
@@ -458,10 +381,6 @@ export default function AssessmentsTab({
               </TableHeader>
 
               <TableBody>
-                {/* Every non-row state inside the table rather than instead of
-                    it: the columns stay on screen while the rows are loading,
-                    missing or filtered away, so the surface does not resize
-                    under the cursor each time the list changes. */}
                 {data.isLoading || data.isError || paginatedRows.length === 0 ? (
                     <TableRow className="hover:bg-transparent">
                       <TableCell colSpan={7} className="h-[390px]">
@@ -506,10 +425,6 @@ export default function AssessmentsTab({
                 ) : (
                     paginatedRows.map(({ exam, typeText, questionCount }) => (
                         <TableRow key={exam.examId}>
-                          {/* Titled, so a name too long for the column can
-                              still be read -- it truncates with no other way
-                              to see the rest. Same treatment the question
-                              bank gives its question text. */}
                           <TableCell className="max-w-[360px]">
                             <p
                                 className="truncate font-medium text-foreground"
@@ -703,9 +618,6 @@ export default function AssessmentsTab({
               <AlertDialogCancel disabled={deleteMutation.isPending}>
                 Cancel
               </AlertDialogCancel>
-              {/* `variant`, not hand-painted colours: the destructive variant
-                  carries the border and lip the design system gives it, which a
-                  bare `bg-destructive` class silently skipped. */}
               <AlertDialogAction
                   variant="destructive"
                   onClick={(event) => {

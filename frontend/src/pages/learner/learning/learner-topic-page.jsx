@@ -83,26 +83,7 @@ import {
   TopicPageSkeleton,
 } from "@/components/learner/learning-skeletons.jsx"
 
-/**
- * The study surface: one middle category, start to finish.
- *
- * Three columns — outline, content, tutor — but the third only exists when it
- * is asked for. A tutor panel pinned open costs a third of the reading width
- * for a conversation most learners are not having, so it is a circular key in
- * the corner that opens the column, and the content re-centres when it closes.
- *
- * The outline is one middle category rather than the whole certification. This
- * page is entered from a topic, and listing four units' worth of lessons in the
- * rail made the thing you are actually studying a small part of a long list.
- * Lessons carry their own sections and their own quick check nested underneath,
- * so the outline doubles as the position indicator inside a long lesson.
- *
- * A lesson's quiz belongs to the lesson, not to the topic: it is rendered at
- * the foot of the lesson and nested under it in the rail. Only the unit
- * assessment is a track entry of its own.
- */
 
-/* data */
 
 function useIsXl() {
   const [isXl, setIsXl] = useState(
@@ -119,7 +100,6 @@ function useIsXl() {
   return isXl
 }
 
-/** Ordered run a learner walks: lesson, lesson, …, then the unit assessment. */
 function buildTrack(middle) {
   const track = middle.lessons.map((lesson) => ({ ...lesson, kind: "lesson" }))
 
@@ -135,7 +115,6 @@ function buildTrack(middle) {
   return track
 }
 
-/** The structure JSON gives sections a name and a tool list, not always an id. */
 function readSectionsOf(structure) {
   const parsed = parseLessonStructure(structure).map((section, index) => ({
     ...section,
@@ -144,11 +123,6 @@ function readSectionsOf(structure) {
     tools: Array.isArray(section.content) ? section.content : [],
   }))
 
-  // netacad's course intros fold "what this covers" straight into the intro
-  // rather than giving Learning Objectives (and Prerequisites) a heading of
-  // their own. Every generated lesson orders them adjacently starting with
-  // Introduction, so merge whichever of the two follow it into one section --
-  // and one read-tracking key.
   const merged = []
   for (let index = 0; index < parsed.length; index += 1) {
     const current = parsed[index]
@@ -185,7 +159,6 @@ function readSectionsOf(structure) {
   return merged
 }
 
-/* outline */
 
 const ROW_ICON = { lesson: BookOpen, assessment: ClipboardCheck }
 
@@ -204,21 +177,15 @@ function OutlineRow({
   locked,
 }) {
   const Icon = ROW_ICON[item.kind] ?? BookOpen
-  // A lesson opens to what is inside it: its sections, then its quick check.
   const hasChildren = item.kind === "lesson" && (sections.length > 0 || Boolean(item.quiz))
 
   return (
-    // A variant participant, so the parent <StaggerList> can time its entrance.
     <motion.li variants={fadeUp}>
       <div
         className={`relative flex items-center gap-1 transition-colors ${
           active ? "bg-rb-macaw-wash" : "hover:bg-rb-polar"
         }`}
       >
-        {/* One shared bar that travels between rows rather than a border that
-            blinks off one and on at the next. `layoutId` is what makes the
-            move continuous — this is the clearest signal in the rail that you
-            changed lesson rather than opened a different page. */}
         {active ? (
           <motion.span
             layoutId="rail-active"
@@ -227,11 +194,6 @@ function OutlineRow({
             aria-hidden="true"
           />
         ) : null}
-        {/* Reserves the width the active bar occupies, so a row does not shift
-            when it becomes active. Dropped while collapsed: there it is the
-            only thing left of the icon, and 4px of spacer plus the row's 4px
-            gap push every icon 8px right of the rail's centre -- which is what
-            made the collapsed icons look off-axis against the toggle above. */}
         {!collapsed ? <span className="w-1 shrink-0" aria-hidden="true" /> : null}
         <button
           type="button"
@@ -283,19 +245,8 @@ function OutlineRow({
           ) : null}
         </button>
 
-        {/* The lesson's priority, as a bookmark on the row.
-            Where the words used to be: a full "🔴 Critical" pill under every
-            lesson turned the rail into a column of coloured labels, each one as
-            loud as the lesson name above it.
 
-            On finished lessons too. Completion says the pages were read;
-            mastery says whether they stuck, and it keeps moving -- score zero
-            on the unit exam and a lesson ticked off last week is critical
-            today. That is exactly when the mark is worth having, so hiding it
-            on completion hid it from the learner who most needed it.
 
-            Rides the row's right edge, outside the select button, so it is a
-            mark on the row rather than another thing inside the target. */}
         {item.kind === "lesson" && item.priorityTag ? (
           <span className={collapsed ? "absolute right-0.5 top-1" : "pr-2"}>
             <PriorityBookmark
@@ -351,19 +302,8 @@ function OutlineRow({
             )
           })}
 
-          {/* The quick check closes the lesson, so it is the last child rather
-              than the next sibling. Given an icon of its own — a section is a
-              heading you scroll to, a quiz is something you answer. */}
           {item.quiz ? (
             <li>
-              {/* A button that opens the lesson, not a bare `#quiz-N` anchor.
-                  *
-                  * The quiz band is rendered only for the lesson currently on
-                  * screen, so the anchor's target does not exist while any
-                  * other lesson is open -- and a hash link to a missing target
-                  * does nothing at all. From every lesson but one, clicking
-                  * "Quick check" was dead. Selecting the lesson first puts its
-                  * band on the page; the scroll then has something to find. */}
               <button
                 type="button"
                 onClick={() => onSelect(item, { scrollTo: `quiz-${item.quiz.examId}` })}
@@ -417,17 +357,7 @@ function Outline({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-rb-snow">
-      {/* RB_TOPBAR_H, shared with the lesson header in <LessonView>. The two
-          sit side by side at the top of the page, so their bottom borders read
-          as one continuous rule across the screen -- but only if both are
-          exactly this tall. Anything that would grow this box (the progress
-          readout, previously in here) belongs below it instead, otherwise the
-          rule steps down over the outline and the alignment is lost the moment
-          a topic title wraps.
 
-          `justify-center` when collapsed, not `justify-between`: with the
-          title gone the toggle is the only child, and `between` pins a lone
-          child to the left of the rail instead of centring it in it. */}
       <div
         className={`flex h-[var(--rb-topbar-h)] shrink-0 items-center border-b-2 border-rb-swan ${
           collapsed ? "justify-center px-2" : "gap-2 px-4"
@@ -458,11 +388,6 @@ function Outline({
         </button>
       </div>
 
-      {/* Moved out of the header above so that box can hold a fixed height.
-          Pinned to RB_SUBBAR_H from xl up -- the width at which the outline is
-          actually beside the lesson column and the two rules have to agree.
-          Below xl the outline is a drawer over the page, nothing to align to,
-          so it keeps its natural padding. */}
       {!collapsed ? (
         <div className="shrink-0 border-b-2 border-rb-swan px-4 py-3">
           <div className="flex items-baseline justify-between">
@@ -476,8 +401,6 @@ function Outline({
       ) : null}
 
       <nav className="min-h-0 flex-1 overflow-y-auto py-2" aria-label="Topic outline">
-        {/* `amount: 0` — the rail is on screen from the moment the page mounts,
-            so there is nothing to scroll into view. */}
         <StaggerList as="ul" stagger={0.045} amount={0}>
           {track.map((item) => {
             if (item.kind === "lesson") lessonNumber += 1
@@ -492,9 +415,6 @@ function Outline({
                 expanded={expanded.has(item.id)}
                 onSelect={onSelect}
                 onToggle={toggle}
-                // Sections are only known for the lesson currently open — the
-                // structure is fetched per lesson, and prefetching every one to
-                // fill the rail would be a request per row.
                 sections={item.id === activeId ? activeSections : []}
                 mastery={masteryByLessonId?.get(String(item.id))}
                 readSections={readSections}
@@ -509,13 +429,7 @@ function Outline({
   )
 }
 
-/* centre */
 
-/**
- * A section's tick. Scrolling past the end of a section ticks it; the tick is
- * also a button, because progress that can only be earned by scrolling cannot
- * be corrected by a learner who skimmed ahead and came back.
- */
 function ReadCheck({ done, label, onToggle, pending, disabled = false, size = "size-8" }) {
   return (
     <motion.button
@@ -526,8 +440,6 @@ function ReadCheck({ done, label, onToggle, pending, disabled = false, size = "s
       aria-label={label}
       title={label}
       whileTap={disabled ? undefined : { scale: 0.88 }}
-      // The pop only fires on the transition into done, so ticking is
-      // rewarding and unticking is quiet.
       animate={done ? { scale: [1, 1.3, 1] } : { scale: 1 }}
       transition={
         done ? { duration: 0.42, ease: [0.34, 1.56, 0.64, 1] } : { duration: 0.18 }
@@ -549,9 +461,6 @@ function ReadCheck({ done, label, onToggle, pending, disabled = false, size = "s
   )
 }
 
-/* How much *reading* a section holds. Media keys are skipped -- an S3 object
-   key is a long string that represents no reading at all, and counting it made
-   a section with one image look denser than three paragraphs. */
 const MEDIA_KEY = /(Key|Url)$/
 
 function textVolume(value) {
@@ -568,31 +477,6 @@ function textVolume(value) {
   return 0
 }
 
-/**
- * Which surface a section sits on.
- *
- * Alternating, not content-derived. One section per screen means two surfaces
- * are never visible at once, so any scheme keyed on the section's *contents*
- * cannot be perceived as a scheme -- it just looks arbitrary. Worse, it clumps:
- * a run of similar sections produces a run of identical screens and the
- * background stops signalling that you moved at all. Alternating guarantees
- * every snap lands somewhere visibly different, which is the clearest
- * transition cue this layout has.
- *
- * Both alternates are light. The obvious version of this pairs white with the
- * deep blue, but that puts half a lesson's prose in reverse -- fine for a line
- * of emphasis, tiring for eight paragraphs, and body copy is where legibility
- * matters most.
- *
- * The deep blue is kept as an exception for sections short enough that
- * reversing them out is emphasis rather than endurance. It overrides whichever
- * alternate its position would otherwise have given it -- a statement should
- * look like a statement wherever it falls in the order.
- *
- * A section carrying an image or video is never a statement however little
- * text it has: the media is the content, and reversing it onto a saturated
- * panel fights it.
- */
 function sectionTone(section, index) {
   const hasMedia = section.tools.some(
     (tool) =>
@@ -604,51 +488,19 @@ function sectionTone(section, index) {
   return index % 2 === 0 ? "plain" : "wash"
 }
 
-/* Each tone also carries the colours for the section's own furniture: the
-   eyebrow above the title and the rule under it. Kept here rather than derived
-   at the call site so a tone stays one decision -- adding a fourth surface
-   means filling in one object, not hunting four conditionals through the JSX.
 
-   There was a third: a huge ghost numeral in the bottom-left corner of every
-   section, repeating the number the eyebrow states in words directly above the
-   title. Removed -- on a section whose copy did not fill the screen it was the
-   loudest thing on it, and it said nothing the eyebrow had not.
 
-   Plain and wash share one accent. They used to differ -- Fox on plain, Macaw
-   on wash -- on the reasoning that the alternation should be felt rather than
-   merely present. In a portal that is Azure everywhere else, what that produced
-   was an orange rule under one heading and a blue rule under the next, in the
-   same lesson, with nothing about the content to explain the switch: it read as
-   inconsistency, not rhythm. The alternation still runs, carried by the surface
-   the section sits on, which is the part that separates them. */
 const SECTION_TONE = {
   statement: {
-    /* Surface only. Geometry -- the bleed, the padding, the full-screen
-       height -- is shared by every section and lives on the element itself;
-       a tone that also carried padding could disagree with its neighbours
-       and shift the copy sideways on every snap. */
     shell: "bg-rb-feather-lip",
     heading: "text-white",
     eyebrow: "text-white/70",
     rule: "bg-white/30",
-    /* Reversing the tools out of the panel has to be done from outside them:
-       LessonTool renders body copy in `text-foreground`/`text-muted-foreground`
-       and knows nothing about sitting on a dark surface, and it is shared with
-       the admin preview and the institution viewer, so it cannot be taught about
-       this one place.
-       Scoped to the tools wrapper rather than the whole section on purpose --
-       `[&_h2]` from the section would also catch the section's own title, and
-       the heading tool's accent panel would land a light wash behind it.
-       That accent panel is the reason for the bg/border overrides: left alone
-       it paints a pale block under white text. */
     content:
       "[&_h2]:text-white [&_h2]:border-white/50 [&_h2]:bg-white/10 " +
       "[&_h3]:text-white [&_p]:text-white/90 [&_li]:text-white/90 " +
       "[&_strong]:text-white [&_a]:text-white [&_a]:underline " +
       "[&_.text-muted-foreground]:text-white/85 " +
-      /* List bullets and number chips carry a chart accent, which is tuned
-         for a light card and goes muddy on this blue. Same reason as the
-         rules above: the renderer is shared and cannot know it landed here. */
       "[&_[data-marker]]:!bg-white/25 [&_[data-marker]]:!text-white",
   },
   wash: {
@@ -658,10 +510,6 @@ const SECTION_TONE = {
     rule: "bg-rb-macaw",
     content: "",
   },
-  /* No background of its own -- it is the page showing through, and that is
-     what makes the alternation read. The old top hairline is gone with it:
-     alternating surfaces already separate the sections, and a rule between
-     two of them just drew a seam. */
   plain: {
     shell: "",
     heading: "text-rb-eel",
@@ -697,27 +545,14 @@ function LessonView({
   const articleRef = useRef(null)
   const headerRef = useRef(null)
 
-  /* The scroll handler below is bound once per lesson, but it has to test the
-     current tick state. Through a ref rather than the prop, or the effect would
-     rebind on every one of the fifteen sections as it ticks. */
   const readSectionsRef = useRef(readSections)
   readSectionsRef.current = readSections
 
-  /* The sticky header's height, published as a custom property the sections
-     below size themselves against.
-     Measured rather than hardcoded: the chip row wraps to two lines on narrow
-     viewports and gains a chip when a lesson has a quiz or a priority tag, so
-     any constant would be right at one width and wrong at the next -- leaving
-     sections either overflowing the screen or snapping their heading under the
-     bar. */
   useEffect(() => {
     const header = headerRef.current
     const article = articleRef.current
     if (!header || !article) return undefined
 
-    // offsetHeight, not the entry's contentRect: the header carries `py-4` and
-    // a 2px bottom border, and the content box excludes both -- sizing against
-    // it would leave every section 34px too tall.
     const observer = new ResizeObserver(() => {
       article.style.setProperty("--lesson-header-h", `${header.offsetHeight}px`)
     })
@@ -726,16 +561,7 @@ function LessonView({
     return () => observer.disconnect()
   }, [])
 
-  /* Sentinels sit at the *end* of each section and at the end of the lesson, so
-     a section ticks once you have scrolled past its last paragraph rather than
-     the moment its heading appears.
 
-     Measured against the current scroll position on every scroll, rather than
-     with an IntersectionObserver. An observer only reports *transitions*, so
-     anything jumped over between two frames — End, a table-of-contents link, a
-     fast flick — is never reported, and sections stayed unticked under a lesson
-     that was plainly finished. A position test asks "is this above the line
-     now?", which is true however you got there. */
   useEffect(() => {
     const root = articleRef.current
     if (!root || sections.length === 0) return undefined
@@ -749,13 +575,6 @@ function LessonView({
         }
       })
 
-      /* Reaching the end is necessary but not sufficient.
-         This used to read "reaching the end means every section above it was
-         passed" and back-fill all of them, which is only true of someone who
-         scrolled there. A table-of-contents link, the End key, or one fast
-         flick jumps the sentinel into view having passed nothing, and the
-         lesson ticked all fifteen sections and completed itself unread.
-         Each section now has to have crossed the line on its own. */
       const end = root.querySelector("[data-read-lesson]")
       if (!end || end.getBoundingClientRect().top >= line) return
 
@@ -765,9 +584,6 @@ function LessonView({
       }
     }
 
-    // Not run on mount on purpose: a lesson short enough to fit on one screen
-    // would mark itself complete before it had been read. Those are what the
-    // tick buttons are for.
     window.addEventListener("scroll", check, { passive: true })
     window.addEventListener("resize", check)
 
@@ -777,24 +593,7 @@ function LessonView({
     }
   }, [sections, onReadSection, onReadLesson])
 
-  /* Nothing left outstanding, so do not ask for another lap.
-     Sitting the quick check leaves the lesson and comes back to the top of it,
-     with every section restored as read from the server. The only thing that
-     had been outstanding was the quiz, and it is now done -- but completion
-     hung on the end sentinel crossing the line again, so finishing the quiz
-     meant scrolling the whole lesson a second time to be told something you
-     had already finished.
 
-     None of the guarantees move. Every section still had to cross the line on
-     its own to be recorded (a jump to the end still back-fills nothing), and
-     the quiz still has to have been sat -- `onReadLesson` is gated on
-     `quizPending` at its own end too. This only drops the requirement to prove
-     it twice. */
-  /* Fired at most once per lesson. `onReadLesson` already declines while the
-     request is in flight, but a request that *fails* clears that flag without
-     setting the lesson done -- and since the flag is a dependency here, the
-     effect would re-run and retry forever. The scroll check never had this
-     problem: it needs a fresh scroll event to fire again. */
   const autoCompletedRef = useRef(false)
 
   useEffect(() => {
@@ -804,9 +603,6 @@ function LessonView({
   useEffect(() => {
     if (autoCompletedRef.current) return
     if (quizPending) return
-    // Sitting the lesson's quick check is proof enough that it was studied:
-    // the lesson completes as soon as the check has been taken, without
-    // waiting on every section to be ticked again.
     const quizTaken = Boolean(lessonItem.quiz)
     if (!quizTaken) {
       if (sections.length === 0) return
@@ -830,22 +626,11 @@ function LessonView({
   return (
     <article
       ref={articleRef}
-      // Fallback until the ResizeObserver above reports the real height, so the
-      // first paint is close rather than full-viewport-plus-a-header tall.
       style={{ "--lesson-header-h": "116px" }}
       className="w-full px-4 pb-10 sm:px-6 lg:px-8"
     >
-      {/* RB_TOPBAR_H again -- see the note in <Outline>. This bar and the
-          outline's own header are the two halves of one rule across the top of
-          the page, so the height lives in a variable on the page root rather
-          than being set twice and drifting. The chips that used to sit in here
-          are their own bar below: a second row of content is what made this
-          box a head taller than the outline beside it. */}
       <div ref={headerRef} className="sticky top-0 z-10 -mx-4 border-b-2 border-rb-swan bg-rb-snow/95 px-4 shadow-[0_1px_0_rgba(0,0,0,0.02)] backdrop-blur supports-[backdrop-filter]:bg-rb-snow/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <div className="flex h-[var(--rb-topbar-h)] items-center justify-between gap-2 sm:gap-4">
-          {/* The outline lives in a drawer below xl. Its opener sits in this
-              sticky bar so it is always in reach -- in a bar of its own above
-              the lesson it scrolled away with the first swipe. */}
           {onOpenOutline ? (
             <button
               type="button"
@@ -867,10 +652,6 @@ function LessonView({
             </h1>
           </div>
 
-          {/* Feather, the portal's primary: this is the one key in the header,
-              and Macaw is the focus/secondary blue. Two different blues on the
-              same page for the same weight of action is what made the header
-              look like it belonged to another screen. */}
           {backTo ? (
             <TactileButton asChild variant="feather" size="sm" className="shrink-0">
               <Link to={backTo} aria-label="Back to curriculum">
@@ -882,15 +663,8 @@ function LessonView({
         </div>
       </div>
 
-      {/* Full width, not capped. The cap moved down onto the things inside it,
-          because the section bands have to reach the column's edges while
-          their copy stays at a readable measure -- a wrapper capping both
-          cannot do that. */}
       <div className="w-full">
         {loading ? (
-        /* Switching lessons used to drop the column to a single spinner line,
-           so the page collapsed to nothing and sprang back. Same blocks as the
-           topic skeleton, in the measure the sections themselves take. */
         <div
           className="mx-auto mt-10 w-full max-w-6xl px-5 sm:px-8"
           role="status"
@@ -908,40 +682,19 @@ function LessonView({
         </div>
       ) : (
         <>
-          {/* Bled to the column edges with the same negative margins the
-              sticky header and the quick-check band above already use, so a
-              section reads as a full band of the page rather than one more
-              card in the reading column.
 
-              No `space-y`: gaps between full-bleed bands show up as strips of
-              page colour cutting across the run, which is exactly the seam the
-              old `divide-y` was removed for. The alternating surfaces are what
-              separate sections. */}
           <div className="-mx-4 mt-6 sm:-mx-6 lg:-mx-8">
             {sections.map((section, sectionIndex) => {
               const tone = SECTION_TONE[sectionTone(section, sectionIndex)]
 
               return (
-                /* Each section rises as it is reached. `once` matters here more
-                   than anywhere: re-animating body copy on the way back up
-                   would make re-reading the lesson unpleasant. */
                 <Reveal
                   as="section"
                   key={section.key}
                   id={section.key}
                   amount={0.05}
-                  /* One section per screen, snapping into place, its content
-                     centred in the screen it occupies.
-                     `min-h` is measured against the space *below* the sticky
-                     lesson header, not the whole viewport, so a section fills
-                     the screen exactly instead of overflowing it by the height
-                     of the bar sitting on top of it. The scroll margin matches
-                     that offset: scroll margin is what the snap position is
-                     measured from, so without it a snapped heading lands
-                     underneath the header. */
                   className={`relative flex min-h-[calc(100dvh-var(--lesson-header-h))] snap-start scroll-mt-[var(--lesson-header-h)] flex-col justify-center overflow-hidden px-4 py-14 sm:px-6 lg:px-8 ${tone.shell}`}
                 >
-                  {/* The band runs edge to edge; its copy does not. */}
                   <div className="relative mx-auto w-full max-w-6xl">
                     <p
                       className={`text-[11px] font-bold uppercase tracking-[0.16em] ${tone.eyebrow}`}
@@ -953,9 +706,6 @@ function LessonView({
                       {section.name}
                     </h2>
 
-                    {/* A short rule rather than a full-width one: it reads as a
-                        mark under the title, not as a divider cutting the
-                        screen in half. */}
                     <span
                       aria-hidden="true"
                       className={`mt-4 block h-1.5 w-14 rounded-full ${tone.rule}`}
@@ -970,8 +720,6 @@ function LessonView({
                     ))}
                   </div>
 
-                  {/* Trailing sentinel: scrolling past this ticks the section
-                      above it. */}
                   <span aria-hidden="true" data-read-section={section.key} className="block h-px" />
                 </Reveal>
               )
@@ -981,9 +729,6 @@ function LessonView({
       )}
       </div>
 
-      {/* The lesson's own quick check, bled to the column edges so the band
-          reads as a change of activity rather than one more card in the
-          reading column. */}
       {lessonItem.quiz ? (
         <div className="-mx-4 mt-10 sm:-mx-6 lg:-mx-8">
           <QuizBand
@@ -996,15 +741,10 @@ function LessonView({
         </div>
       ) : null}
 
-      {/* End of the lesson. The tick goes green on its own when you get here —
-          the sentinel below it is what the scroll check watches — and can also
-          be pressed, so a learner who jumped to the end can still set it. */}
       <div className="mx-auto w-full max-w-6xl">
       <motion.div
         id="lesson-complete"
         aria-live="polite"
-        // A single settle when the lesson lands, so finishing registers as an
-        // event rather than a colour swap you might not look up for.
         animate={lessonDone ? { scale: [1, 1.015, 1] } : { scale: 1 }}
         transition={{ duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
         className={`mt-12 flex items-center gap-4 rounded-rb-card border-2 p-5 transition-colors ${
@@ -1026,10 +766,6 @@ function LessonView({
           onToggle={onToggleLesson}
         />
 
-        {/* The card names what is actually outstanding. It used to announce
-            "You reached the end of this lesson" over a quick check that had
-            never been opened, which is how a lesson came to read as complete
-            with its quiz untouched. */}
         <div className="min-w-0">
           <p className="font-rb-display text-base font-extrabold text-rb-eel">
             {lessonDone
@@ -1068,26 +804,7 @@ function LessonView({
   )
 }
 
-/**
- * How a learner stands on one exam, in the two lines they actually need: the
- * sitting the road is gated on, and whether it opened the road.
- *
- * Shared by the lesson's quick check and the topic's unit assessment because
- * they are gated the same way -- on a proficiency, read off the BEST sitting
- * (see `examStanding`). The assessment splash used to say none of this: it
- * quoted the paper's pass mark, which decides nothing, and never reported a
- * rating at all, so a learner who had cleared the unit exam could not tell
- * from the splash that the next topic was open.
- *
- * `opens` is what clearing this paper unlocks, in the learner's terms --
- * "next lesson" for a quick check, "next topic" for a unit assessment.
- */
 function StandingBand({ standing, latest, best, opens }) {
-  /* The card leads with the sitting the road is gated on -- the best one --
-     because a learner reading "your last attempt: 30, reach 50" while the
-     next lesson sits open has been told two different things. The latest
-     sitting still appears when it is not the best, as a second line: it is
-     how they did today, which is worth knowing and is not the verdict. */
   const shown = best ?? latest
   if (!shown && !(standing?.taken && !standing.cleared)) return null
 
@@ -1098,23 +815,15 @@ function StandingBand({ standing, latest, best, opens }) {
         ? shown.rating >= PROFICIENT_RATING
         : shown.passed
 
-  /* Only when it says something the headline does not. */
   const retakeToShow =
     latest && best && latest.attemptNo !== best.attemptNo ? latest : null
 
   return (
     <>
-      {/* How the best sitting actually went -- the same sitting the gate
-          reads (see `examStanding`), so a rating shown here is also what
-          opens or shuts the road past this paper. */}
       {shown ? (
         <div
           className={cn(
             "mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-rb-control border-2 px-3 py-2",
-            /* Coloured by the level reached, which is what opens the road --
-               not by the paper's pass mark, which an adaptive sitting
-               routinely lands under while measuring a real and perfectly
-               good level. */
             cleared
               ? "border-rb-feather/50 bg-rb-feather-wash"
               : "border-rb-fox/40 bg-rb-fox-wash",
@@ -1128,10 +837,6 @@ function StandingBand({ standing, latest, best, opens }) {
               ? `proficiency ${Math.round(shown.rating)} / 100${shown.label ? ` · ${shown.label}` : ""}`
               : `${Math.round(shown.score ?? 0)}%`}
           </span>
-          {/* The verdict in the learner's terms. Where a level was measured
-              that level IS the verdict, so the card says whether it opens the
-              road rather than stamping "not passed" on a sitting the
-              curriculum is perfectly happy with. */}
           <span
             className={cn(
               "text-sm font-bold",
@@ -1152,9 +857,6 @@ function StandingBand({ standing, latest, best, opens }) {
             </span>
           ) : null}
 
-          {/* Today's sitting, when it is not the one that counts. Said
-              plainly, and without a verdict attached: a practice retake that
-              went badly does not take anything away. */}
           {retakeToShow ? (
             <span className="w-full text-xs font-semibold text-rb-wolf">
               Latest retake:{" "}
@@ -1167,12 +869,8 @@ function StandingBand({ standing, latest, best, opens }) {
         </div>
       ) : null}
 
-      {/* Why the road is still shut after a sitting: this paper has to be
-          cleared at a proficient level before the next stop opens. */}
       {standing?.taken && !standing.cleared ? (
         <p className="mt-3 rounded-rb-control border-2 border-rb-fox/40 bg-rb-fox-wash px-3 py-2 text-sm font-bold text-rb-eel">
-          {/* `reason` already reads as a sentence about proficiency; it only
-              needs its first letter. */}
           {standing.reason.charAt(0).toUpperCase() + standing.reason.slice(1)}.
           Retake it to open the {opens}.
         </p>
@@ -1181,22 +879,9 @@ function StandingBand({ standing, latest, best, opens }) {
   )
 }
 
-/**
- * A lesson's quick check, on the "test your skills" layout: a coloured band
- * with one card floating on it.
- *
- * A launcher rather than an inline question set. The quiz is a real published
- * exam and answering it means an attempt — scored, recorded, retryable — which
- * is what the attempt engine already does. Rendering our own radio buttons here
- * would produce a score the backend never sees.
- */
 function QuizBand({ quiz, taken, standing, latest, best }) {
-  /* Where the quiz hands the learner back. They are part-way through this
-     topic, so finishing sends them here rather than to the certification's
-     roadmap. */
   const location = useLocation()
   return (
-    // data-no-snip: a quiz is not something to hand the AI tutor.
     <section id={`quiz-${quiz.examId}`} data-no-snip className="scroll-mt-8 bg-rb-bee px-5 py-12 sm:px-10 lg:px-14">
       <div className="w-full">
         <Reveal amount={0.2}>
@@ -1226,9 +911,6 @@ function QuizBand({ quiz, taken, standing, latest, best }) {
           <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               [CircleHelp, `${quiz.totalQuestions} questions`],
-              /* What actually opens the next lesson. The paper's own pass
-                 mark is not the gate any more, so quoting it here sent
-                 learners chasing a number that decides nothing. */
               [CheckCircle2, `proficiency ${PROFICIENT_RATING} to continue`],
               [Clock, quiz.durationMinutes ? `${quiz.durationMinutes} minutes` : "Self-paced"],
               [Zap, `up to ${ASSESSMENT_MAX_XP} XP`],
@@ -1243,13 +925,7 @@ function QuizBand({ quiz, taken, standing, latest, best }) {
             ))}
           </ul>
 
-          {/* "start" is a lie once there is an attempt behind it, and the
-              learner is the one person who knows it -- they sat this quiz and
-              the page offered to start it as though nothing had happened.
 
-              The history link appears only alongside a retake: with no attempts
-              yet it would lead to an empty page, and offering it would suggest
-              there was something to see. */}
           <div className="mt-8 flex flex-col items-center gap-3">
             <TactileButton asChild variant="macaw">
               <Link
@@ -1276,16 +952,6 @@ function QuizBand({ quiz, taken, standing, latest, best }) {
   )
 }
 
-/**
- * The unit assessment splash: what it takes to clear it, how the learner
- * stands, and one key.
- *
- * Gated exactly as a lesson's quick check is -- on reaching Proficient on the
- * BEST sitting -- so it reports the same thing in the same words. It used to
- * quote the paper's own pass mark and nothing else, which is a number the road
- * no longer reads, and it showed no attempt at all: a learner who had already
- * cleared this exam met a splash that could have been their first visit.
- */
 function AssessmentView({
   exam,
   position,
@@ -1297,18 +963,12 @@ function AssessmentView({
   best,
   onOpenOutline,
 }) {
-  // Same reasoning as QuizBand: finishing returns to this topic.
   const location = useLocation()
 
   return (
     <div className="w-full pb-10">
-      {/* Same sticky frame the lesson view wears, so stepping from the last
-          lesson onto the assessment does not drop the title and the way out. */}
       <div className="sticky top-0 z-10 border-b-2 border-rb-swan bg-rb-snow/95 px-5 shadow-[0_1px_0_rgba(0,0,0,0.02)] backdrop-blur supports-[backdrop-filter]:bg-rb-snow/80 sm:px-10 lg:px-14">
         <div className="flex h-[var(--rb-topbar-h)] items-center justify-between gap-2 sm:gap-4">
-          {/* The outline lives in a drawer below xl. Its opener sits in this
-              sticky bar so it is always in reach -- in a bar of its own above
-              the lesson it scrolled away with the first swipe. */}
           {onOpenOutline ? (
             <button
               type="button"
@@ -1330,10 +990,6 @@ function AssessmentView({
             </h1>
           </div>
 
-          {/* Feather, the portal's primary: this is the one key in the header,
-              and Macaw is the focus/secondary blue. Two different blues on the
-              same page for the same weight of action is what made the header
-              look like it belonged to another screen. */}
           {backTo ? (
             <TactileButton asChild variant="feather" size="sm" className="shrink-0">
               <Link to={backTo} aria-label="Back to curriculum">
@@ -1354,8 +1010,6 @@ function AssessmentView({
       >
         <p className="rb-display rb-display-sm">assessment</p>
 
-        {/* The rule draws itself in — a small piece of choreography that makes
-            the splash feel authored rather than printed. */}
         <motion.span
           className="mt-5 block h-1.5 rounded-full bg-rb-fox"
           initial={{ width: 0 }}
@@ -1370,16 +1024,11 @@ function AssessmentView({
           sitting is the one that counts. Good luck!
         </p>
 
-        {/* Where they stand, on the sitting the gate reads. The same band the
-            quick check wears, because it is the same gate. */}
         <StandingBand standing={standing} latest={latest} best={best} opens="next topic" />
 
         <ul className="mt-8 grid gap-3 sm:grid-cols-3">
           {[
             [ClipboardCheck, `${exam.totalQuestions} questions`],
-            /* What actually opens the next topic. The paper's own pass mark is
-               not the gate any more, so quoting it here sent learners chasing
-               a number that decides nothing. */
             [CheckCircle2, `proficiency ${PROFICIENT_RATING} to continue`],
             [Clock, exam.durationMinutes ? `${exam.durationMinutes} minutes` : "Unlimited attempts"],
           ].map(([Icon, label]) => (
@@ -1419,14 +1068,10 @@ function AssessmentView({
   )
 }
 
-/* page */
 
-/* One grey block, one pulse, everywhere on this page. Two loading states drawn
-   at two different rhythms read as two different things happening. */
 export default function LearnerTopicPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  // Warm the XP/badge snapshot so an award pops up the moment it is earned.
   useEffect(() => {
     prefetchRewards(queryClient).catch(() => {})
   }, [queryClient])
@@ -1438,8 +1083,6 @@ export default function LearnerTopicPage() {
   const [activeId, setActiveId] = useState(null)
   const [outlineCollapsed, setOutlineCollapsed] = useState(false)
   const [tutorOpen, setTutorOpen] = useState(false)
-  // Asking the tutor about part of the lesson: the reading area, whether the
-  // snip tool is out, and the snippet on its way to the tutor's composer.
   const readingRef = useRef(null)
   const [snipping, setSnipping] = useState(false)
   const [tutorSnippet, setTutorSnippet] = useState(null)
@@ -1456,19 +1099,9 @@ export default function LearnerTopicPage() {
     (item) => String(item.certificationId) === String(certificationId),
   )
 
-  /* The locks on this page are computed from the shell's portal payload --
-     which lesson quizzes have been CLEARED. That payload is fetched once, when
-     the shell mounts, and seeded from a persisted snapshot before that; moving
-     between lessons never refreshes it. So a learner could pass a quiz, come
-     back, and be told by the rail that they had not: the rule was right and
-     the data behind it was from before their attempt.
 
-     Refetched on entering a topic, which is exactly when these locks are about
-     to be drawn. One request per topic opened, against a gate that is wrong
-     until it happens. */
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: ["learner-portal-data"] })
-    // Once per mount: re-running this on every render would refetch forever.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -1495,11 +1128,6 @@ export default function LearnerTopicPage() {
     [data?.lessons],
   )
 
-  /* Which exams this learner has already sat -- one entry per exam, however
-     many attempts are behind it. Read off `examResults` exactly as the
-     curriculum page does, so the two screens cannot disagree about whether
-     something has been taken. "Taken", note, not "passed": a failed attempt
-     still means the launcher must offer a retake rather than a first go. */
   const takenExamIds = useMemo(
     () =>
       new Set(
@@ -1510,9 +1138,6 @@ export default function LearnerTopicPage() {
     [data?.examResults],
   )
 
-  // Same per-lesson priority tags the curriculum page shows -- fetched here
-  // too so the rail (which is entered directly, not only by drilling in from
-  // the curriculum page) can show them on each lesson as well.
   const masteryQuery = useQuery({
     queryKey: ["learner-progress-analytics", certificationId],
     queryFn: () => getProgressAnalytics(certificationId),
@@ -1528,10 +1153,6 @@ export default function LearnerTopicPage() {
     return map
   }, [masteryQuery.data])
 
-  /* Mastery kept beside the tag rather than folded into it: the tag is what the
-     bookmark is coloured by, the probability is what its tooltip says when a
-     learner wants the number behind the colour. `buildCurriculum` only carries
-     tags, so this stays a lookup of its own. */
   const lessonMasteryById = useMemo(() => {
     const map = new Map()
     for (const topic of masteryQuery.data?.lessonPriorities ?? []) {
@@ -1563,16 +1184,7 @@ export default function LearnerTopicPage() {
 
   const track = useMemo(() => (middle ? buildTrack(middle) : []), [middle])
 
-  /* Land on the first unfinished lesson rather than always on lesson one —
-     unless `?lesson=` names one, which is how links that recommend a specific
-     lesson (the analytics board's "study now") open the thing they named. A
-     recommendation is for one lesson in particular, and without this the page
-     would quietly open a different one whenever an earlier lesson in the same
-     topic was still unfinished.
 
-     The requested lesson is honoured only if it is actually in this topic's
-     track; a stale or hand-edited id falls through to the usual behaviour
-     rather than leaving the page with nothing selected. */
   useEffect(() => {
     if (activeId || track.length === 0) return
 
@@ -1618,16 +1230,8 @@ export default function LearnerTopicPage() {
     enabled: Boolean(activeLessonId) && Boolean(data?.learnerId),
   })
 
-  // Keys already confirmed saved on the server for the active lesson, so the
-  // scroll check (which fires on every scroll frame) doesn't re-POST a
-  // section that is already marked read.
   const persistedReadRef = useRef(new Set())
 
-  /* The lessons are walked in order. A lesson is shut until the one before it
-     is done -- read, and its quiz cleared -- and the topic's own exam until
-     every lesson is. `lockedBy` names the item holding it shut. Defined after
-     `isDone`; a function declaration is hoisted, the values are read at call
-     time. */
   function lockedBy(item) {
     const position = track.findIndex((entry) => entry.id === item.id)
     if (position <= 0) return null
@@ -1647,25 +1251,8 @@ export default function LearnerTopicPage() {
     return true
   }
 
-  /* Cleared, which is what the rail above gates on: the lesson read AND its
-     quiz cleared.
-     *
-     * This used to be `locallyDone.has(id) || lessonById.get(id)?.completed`
-     * -- reading alone. The quiz was never consulted, so a learner who failed
-     * the quick check walked straight into the next lesson while the card on
-     * screen read "Quiz not passed yet. Retake it to open the next lesson."
-     * The rail said one thing and did another.
-     *
-     * `locallyDone` still counts, but only to carry the moment between
-     * finishing a lesson and the server confirming it; it cannot substitute
-     * for the quiz, so it is ANDed with the same clearing test rather than
-     * short-circuiting it. */
   const isDone = useCallback(
     (lessonId) => {
-      /* `wasLessonCompletedThisSession` carries the same moment as
-         `locallyDone`, but across a navigation: leaving the topic and coming
-         back used to drop it, and the portal payload behind
-         `lessonById` is being refetched at exactly that moment. */
       const read =
         locallyDone.has(lessonId) ||
         wasLessonCompletedThisSession(lessonId) ||
@@ -1678,22 +1265,14 @@ export default function LearnerTopicPage() {
     [locallyDone, lessonById, track, data?.examResults],
   )
 
-  /* When each section was recorded as read in this sitting, so a rush can take
-     back exactly the sections it raced past and nothing read before it. */
   const readAtRef = useRef(new Map())
 
-  /* The pop-up challenge has exactly one trigger: the pace guard below
-     catching the learner skimming. Five questions from the lesson on screen,
-     played inside the modal. */
   const knowledgeCheck = useSkimChallenge({
     learnerId: data?.learnerId,
     lessonId: activeLessonId,
     enabled: Boolean(data?.learnerId),
   })
 
-  /* Development only: `?skim=1` springs the challenge on open, so it can be
-     worked on without fooling the pace guard by hand. Stripped from
-     production builds. */
   useEffect(() => {
     if (!import.meta.env.DEV) return
     if (new URLSearchParams(location.search).get("skim") === "1" && data?.learnerId && activeLessonId) {
@@ -1702,9 +1281,6 @@ export default function LearnerTopicPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search, data?.learnerId, activeLessonId])
 
-  /* A rapid pass does not count as reading: the sections raced through are
-     taken back, and the lesson is a strike towards the challenge, which comes
-     only after the learner has skimmed more than two lessons in a row. */
   const lessonFinished = activeLessonId ? isDone(activeLessonId) : false
   const paceGuard = useReadingPaceGuard({
     enabled:
@@ -1737,19 +1313,11 @@ export default function LearnerTopicPage() {
       markLessonComplete({
         learnerId: data?.learnerId,
         lessonId: Number(lessonId),
-        // The backend's `completedAt` is a LocalDateTime and rejects an ISO
-        // string with a trailing `Z` (offset) — see markSectionRead below,
-        // which never had this bug because it doesn't send a timestamp.
         completedAt: new Date().toISOString().slice(0, 19),
       }),
-    // Before the request: the announcement diffs the portal payload, and this
-    // completion is what moves it.
-    // The tick goes green straight away; the request confirms it behind the
-    // scenes and takes it back only if it fails.
     onMutate: (lessonId) => {
       rememberLessonCompleted(lessonId)
       setLocallyDone((current) => new Set(current).add(lessonId))
-      // A lesson finished at a reading pace ends any run of skimmed lessons.
       knowledgeCheck.clearStrikes()
       return snapshotRewards(queryClient)
     },
@@ -1775,11 +1343,8 @@ export default function LearnerTopicPage() {
     },
   })
 
-  // Stable identities: the lesson's scroll check is rebuilt whenever these
-  // change, and a fresh closure each render would tear it down on every tick.
   const readSection = useCallback(
     (key) => {
-      // Passed while racing down the page: seen, not read.
       if (paceGuard.isRushing()) return
 
       setReadSections((current) => (current.has(key) ? current : new Set(current).add(key)))
@@ -1822,15 +1387,7 @@ export default function LearnerTopicPage() {
     [activeLessonId, readSections],
   )
 
-  /* The snap container has to be the element that actually scrolls, and on this
-     page that is the document -- the sidebars are `sticky`, the centre column
-     is not its own scrollport. So the property goes on <html>, scoped to this
-     page's lifetime rather than living in the stylesheet where it would snap
-     every other page too.
 
-     `proximity`, not `mandatory`: a section longer than the screen still has to
-     be scrollable to its end, and mandatory snapping fights a learner trying to
-     read the bottom of one by yanking them to the next. */
   useEffect(() => {
     const root = document.documentElement
     const previous = root.style.scrollSnapType
@@ -1844,45 +1401,18 @@ export default function LearnerTopicPage() {
   const alreadyDone = activeLessonId ? isDone(activeLessonId) : false
   const completing = completeMutation.isPending
 
-  /* A lesson that carries a quick check is not finished until that check has
-     been sat.
-     The sentinel that completes a lesson sits *below* the quiz band, so
-     scrolling to the bottom of the page proved only that the learner had
-     scrolled past the quiz -- and the lesson completed, paid out its XP, and
-     ticked itself in the outline with the five questions never opened.
-     "Taken", not "passed", deliberately: a failed attempt is still an attempt,
-     and the retake lives on the same launcher. Matching `takenExamIds`, which
-     the curriculum page reads the same way, so the two screens cannot disagree
-     about whether something has been sat. */
   const activeQuiz = active?.kind === "lesson" ? active.quiz : null
-  /* Pending until CLEARED -- passed, and at a proficient level when the
-     sitting measured one -- not merely sat. A quiz failed, or passed at a
-     low rating, leaves the lesson unfinished and the next lesson shut; the
-     launcher offers the retake. `takenExamIds` still decides first go vs
-     retake. */
   const quizStanding = activeQuiz ? examStanding(data?.examResults, activeQuiz.examId) : null
-  // The sitting they just finished, as opposed to their best one.
   const quizLatest = activeQuiz ? latestSitting(data?.examResults, activeQuiz.examId) : null
-  // The sitting the road is gated on, which the card leads with.
   const quizBest = activeQuiz ? bestSitting(data?.examResults, activeQuiz.examId) : null
   const quizPending = Boolean(activeQuiz) && !quizStanding?.cleared
 
-  // Two entry points, deliberately different: the scroll check only ever
-  // *sets* (reaching the end twice must not re-post), the button is what a
-  // learner presses and is a no-op once the lesson is already recorded.
-  // Both are gated on the quick check, so neither route can complete around it.
   const readLesson = useCallback(() => {
     if (!activeLessonId || alreadyDone || completing || quizPending || !data?.learnerId) return
-    // Already sent once in this tab. `alreadyDone` reads the portal payload,
-    // which is stale for as long as the refetch on mount takes.
     if (wasLessonCompletedThisSession(activeLessonId)) return
     completeMutation.mutate(activeLessonId)
   }, [activeLessonId, alreadyDone, completing, quizPending, data?.learnerId, completeMutation])
 
-  // Seed per-lesson reading state from the server once it loads, so refreshing
-  // the page (or coming back to a lesson) restores the ticks instead of
-  // starting empty. Resets immediately on lesson change so the previous
-  // lesson's ticks don't flash under the new one while the fetch is in flight.
   useEffect(() => {
     const saved = new Set(readSectionsQuery.data ?? [])
     readAtRef.current = new Map()
@@ -1946,11 +1476,6 @@ export default function LearnerTopicPage() {
     )
   }
 
-  /* The tutor is a lesson companion: it answers from the lesson's own
-     material. On the unit assessment there is no material to answer from and
-     no help to be had mid-exam, so it is not offered at all -- not the panel,
-     not the sheet, not the floating opener. `tutorOpen` is left alone so the
-     panel comes back on its own when the learner steps onto a lesson again. */
   const tutorVisible = tutorOpen && active?.kind === "lesson"
 
   const columns = outlineCollapsed
@@ -1978,11 +1503,6 @@ export default function LearnerTopicPage() {
           window.scrollTo({ top: 0 })
           return
         }
-        /* Scrolled after the lesson has actually rendered. The band being
-           aimed at belongs to the lesson just selected, so it is not in the
-           document yet on this tick -- looking for it now finds nothing and
-           the click appears to do nothing, which is the bug this is fixing.
-           Falls back to the top of the lesson if the band never appears. */
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             const target = document.getElementById(options.scrollTo)
@@ -1999,23 +1519,13 @@ export default function LearnerTopicPage() {
   )
 
   return (
-    // `--rb-topbar-h` is the height of BOTH top bars -- the outline's header
-    // and the lesson header in the column beside it. Declared once here, on
-    // the ancestor of both, so the rule they draw across the top of the page
-    // stays one unbroken line instead of two that have to be kept in sync by
-    // hand.
     <div className="rebyu-ds min-h-dvh w-full bg-rb-polar" style={{ "--rb-topbar-h": "72px" }}>
       <div className={`grid min-h-dvh ${columns}`}>
-        {/* ---------------------------------------------------------- left */}
         <aside className="hidden min-h-0 border-r-2 border-rb-swan xl:block">
           <div className="sticky top-0 h-dvh">{outline}</div>
         </aside>
 
-        {/* -------------------------------------------------------- centre */}
         <main ref={readingRef} className="min-w-0 bg-rb-snow">
-          {/* Crossfade between a lesson and the unit assessment. Keyed on the
-              item so switching rows in the rail reads as the content changing
-              under a fixed frame, rather than the page reloading. */}
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={active?.id}
@@ -2081,7 +1591,6 @@ export default function LearnerTopicPage() {
           </AnimatePresence>
         </main>
 
-        {/* --------------------------------------------------------- right */}
         {tutorVisible && isXl ? (
           <aside className="hidden min-h-0 border-l-2 border-rb-swan xl:block">
             <div className="sticky top-0 h-dvh overflow-hidden">
@@ -2100,19 +1609,8 @@ export default function LearnerTopicPage() {
         ) : null}
       </div>
 
-      {/* The circle, portaled straight to <body>. Hidden while the tutor
-          column is open (no second control to open it needed) and while the
-          mobile outline Sheet is open (it would otherwise render on top of
-          that Sheet's overlay).
 
-          Portaled rather than rendered inline: every route is wrapped by
-          `RouteTransition` (the `.rb-route-enter` class), whose entrance
-          keyframe applies a real `transform`, and a transformed ancestor pins
-          a `position: fixed` descendant to itself instead of the viewport.
 
-          `z-[60]`, one step above the Sheets' `z-50`, keeps it clickable in the
-          moment right after a Sheet closes, while Radix still has the closed
-          Sheet's portal mounted for its exit animation. */}
       {createPortal(
         <AnimatePresence>
           {!tutorVisible && !railOpen && active?.kind === "lesson" ? (
@@ -2135,8 +1633,6 @@ export default function LearnerTopicPage() {
         document.body,
       )}
 
-      {/* Narrow windows get the outline and the tutor as sheets rather than
-          columns — three columns on a laptop leaves nothing for the reading. */}
       <Sheet open={railOpen} onOpenChange={setRailOpen}>
         <SheetContent side="left" className="rebyu-ds p-0">
           <SheetTitle className="sr-only">Topic outline</SheetTitle>
@@ -2160,11 +1656,6 @@ export default function LearnerTopicPage() {
         </SheetContent>
       </Sheet>
 
-      {/* Asking the tutor about part of the lesson -- only on a lesson, where
-          the tutor is offered at all. Selecting text shows "Ask AI tutor";
-          the snip tool takes a box of anything, diagrams and tables included. */}
-      {/* Not while the knowledge check is up: its questions are to be answered,
-          not handed to the tutor. */}
       {active?.kind === "lesson" && !knowledgeCheck.offer ? (
         <>
           <SelectionAskButton target={readingRef} onAsk={askTutorAbout} />
@@ -2192,7 +1683,6 @@ export default function LearnerTopicPage() {
         </>
       ) : null}
 
-      {/* The skim challenge, fired by the pace guard. */}
       <LessonKnowledgeCheck
         open={Boolean(knowledgeCheck.offer)}
         lessonId={activeLessonId}
@@ -2204,8 +1694,6 @@ export default function LearnerTopicPage() {
         answerKey={knowledgeCheck.offer?.answerKey ?? []}
         onDismiss={knowledgeCheck.dismiss}
         onReadAgain={() => {
-          /* The page's own scroll, not the learner's: muted for the guard so
-             the jump to the top is never read as a flick. */
           paceGuard.pause?.(2000)
           window.scrollTo({ top: 0, behavior: "smooth" })
         }}

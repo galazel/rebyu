@@ -1,19 +1,3 @@
-/**
- * Fixture attempt for the dev-only screenshot harness.
- *
- * Shaped exactly like the `AttemptDto` the backend returns from
- * POST /learner/assessments/{id}/attempts, so the real attempt page renders it
- * without knowing it is not talking to a server. Same contract the arena run
- * fixtures follow (`components/challenges/arena-run-fixtures.js`).
- *
- * It exists so the landing hero can carry screenshots of the genuine
- * assessment workspace — real components, real CSS — rather than a hand-built
- * lookalike that drifts from the product every time the attempt page changes.
- *
- * The five showcased items sit at indices 11-15 inside a 24-item exam: the
- * navigator grid only looks like a real mock exam when there are real items
- * around the one on screen.
- */
 
 const FILLER_PROMPTS = [
   "Which layer of the OSI model is responsible for end-to-end delivery?",
@@ -57,7 +41,6 @@ function fillerQuestion(id, promptIndex) {
   }
 }
 
-/* The five items the hero showcases, in the order the carousel cycles them. */
 
 const MCQ = {
   attemptQuestionId: 1200,
@@ -132,7 +115,6 @@ const DIAGRAM = {
   ],
 }
 
-/** The showcased items, keyed for `?item=<id>` on the preview URL. */
 export const SHOWCASE = [
   { id: "mcq", label: "Multiple Choice", attemptQuestionId: 1200 },
   { id: "short-answer", label: "Short Answer", attemptQuestionId: 1300 },
@@ -170,9 +152,6 @@ const SOLUTION_CODE =
   "            return False\n" +
   "    return True\n"
 
-/* A part-built ERD: the two entities placed and the junction between them still
-   missing its cardinality, which is what a learner's canvas looks like halfway
-   through the item. draw.io reads this straight from `initialXml`. */
 function erdCell(id, label, x, y, width = 160, height = 90) {
   return (
     `<mxCell id="${id}" value="${label}" ` +
@@ -193,11 +172,7 @@ const DIAGRAM_XML =
   'edge="1" parent="1" source="course" target="enrollment"><mxGeometry relative="1" as="geometry"/></mxCell>' +
   "</root></mxGraphModel>"
 
-/* Answers already given, so the screenshots show work in progress rather than
-   five empty surfaces. Keyed by attemptQuestionId, as the server returns them.
 
-   Sub-answers ride in `learnerAnswer` as a JSON object, which is the shape the
-   attempt page rehydrates them from — not an invention of this fixture. */
 const SAVED_ANSWERS = {
   1200: { attemptQuestionId: 1200, selectedChoiceId: 12002 },
   1300: { attemptQuestionId: 1300, learnerAnswer: "Second Normal Form" },
@@ -226,14 +201,6 @@ const SAVED_ANSWERS = {
   ),
 }
 
-/**
- * Built per call so the exam clock always starts from the same time remaining.
- *
- * `currentAttemptQuestionId` is how the harness opens straight onto one
- * question type: the attempt page already resumes at whatever item the server
- * says was last viewed, so a screenshot of the programming environment needs no
- * clicking — just a different id.
- */
 export function buildAttemptFixture(currentAttemptQuestionId = null) {
   return {
     assessmentAttemptId: 90210,

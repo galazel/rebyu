@@ -19,7 +19,6 @@ def _id():
     return str(uuid.uuid4())
 
 
-# blocks
 
 def desc(text):
     return {"type": "description", "data": {"text": text}}
@@ -128,9 +127,6 @@ def lesson_structure(name, intro, objectives, minutes, sections,
                      desc("Estimated study time: %d minutes" % minutes)]},
     ]
     for section_name, blocks in sections:
-        # `grid` and `cards` each return a LIST of blocks now rather than one
-        # block, so a section's content may arrive with lists nested inside
-        # it. Flattening here keeps every content module unchanged.
         flattened = []
         for block in blocks:
             if isinstance(block, list):
@@ -144,7 +140,6 @@ def lesson_structure(name, intro, objectives, minutes, sections,
     return structure
 
 
-# questions
 
 def mcq(difficulty, question, choices, explanation):
     """choices: [(text, is_correct)] with exactly one correct."""

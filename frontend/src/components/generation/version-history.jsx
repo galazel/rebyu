@@ -4,18 +4,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-/**
- * Every version of the artifact under review, with a side-by-side diff and a way
- * back to any of them.
- *
- * Versions are append-only: restoring r1 after r5 records a *new* r6 carrying
- * r1's content rather than deleting r2–r5. So this list stays an accurate record
- * of what was tried — "we went back to the first draft" is itself information
- * worth keeping.
- *
- * Sized by its content, not by its container. It used to stretch to `h-full`,
- * which only worked as a tab panel; inside the review card it collapsed flat.
- */
 
 const SOURCE_LABELS = {
   AI_GENERATED: { label: "AI generated", variant: "outline" },
@@ -44,8 +32,6 @@ export function VersionHistory({ versions, onRestore, restoring, disabled, class
   const comparing = left && right && left.revision !== right.revision
 
   const toggleCompare = (revision) => {
-    // Two clicks select a pair; a third starts over. Simpler than checkboxes and
-    // matches how people actually compare — pick one, pick the other.
     if (leftRev === revision) return setLeftRev(null)
     if (rightRev === revision) return setRightRev(null)
     if (leftRev == null) return setLeftRev(revision)

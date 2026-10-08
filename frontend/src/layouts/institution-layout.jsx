@@ -36,8 +36,6 @@ export default function InstitutionLayout() {
   usePortalTheme()
   const navigate = useNavigate()
   const { user, logout: authLogout } = useAuth()
-  // A signed-in institution account is scoped to its own institution via the
-  // institutionId from /api/auth/me.
   const authInstitutionId = user?.institutionId ?? null
 
   const scopedQuery = useQuery({
@@ -66,12 +64,7 @@ export default function InstitutionLayout() {
   )
 
   const orgName = institution?.institutionName ?? "Institution"
-  // A department head has no Institution page; their departments are in the
-  // header navigation instead. The account's user type decides this, not its
-  // membership row -- see isDepartmentHeadUser.
   const isDepartmentHead = isDepartmentHeadUser(user)
-  // Pass the account's real role through so the header can tell the
-  // institution's own account apart from one it created for a member.
   const portalRole = (user?.role ?? "").toUpperCase() === "DEPARTMENT_HEAD"
     ? "DEPARTMENT_HEAD"
     : "INSTITUTION"
@@ -122,9 +115,6 @@ export default function InstitutionLayout() {
                  </span>
                </DropdownMenuLabel>
                <DropdownMenuSeparator />
-               {/* One entry. "Profile" and "Settings" were two items onto what
-                   is now one tabbed page -- and /institution/settings had no
-                   route behind it at all, so it fell through to the 404. */}
                {isDepartmentHead ? null : (
                  <>
                    <DropdownMenuItem onClick={() => navigate("/institution/profile")}>
@@ -144,8 +134,6 @@ export default function InstitutionLayout() {
            </DropdownMenu>
       </>} />
 
-        {/* The boundary sits here rather than around the router, so the top
-            nav stays put while the next page's chunk arrives. */}
         <main className="rebyu-page">
           <Suspense fallback={<PortalPageSkeleton />}>
             <Outlet context={outletContext} />

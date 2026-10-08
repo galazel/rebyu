@@ -33,17 +33,6 @@ public class PaymentWebhookService {
     private final NotificationService notifications;
     private final PayMongoClient payMongo;
 
-    /**
-     * Activate (or idempotently re-confirm) a subscription from a completed
-     * PayMongo Hosted Checkout Session. This is the one path both the
-     * frontend's post-redirect verify call AND the webhook delivery funnel
-     * into, so whichever arrives first does the work and the second is a
-     * no-op -- there is no dependency on webhook delivery actually reaching
-     * this server (which, in local/test-mode dev, it usually can't).
-     *
-     * <p>{@code providerReference} is the checkout session id: stable, unique
-     * per attempt, and already used as the idempotency key.
-     */
     public LearnerSubscription activateFromCheckoutSession(
             Long learnerId, Long planId, String providerReference) {
         Optional<LearnerSubscription> existing =
@@ -58,9 +47,6 @@ public class PaymentWebhookService {
 
         LocalDateTime now = LocalDateTime.now();
 
-        // Paid, but not yet Pro: PayMongo is in test mode, so an admin approves
-        // every subscription before it grants anything. The period starts on
-        // approval, not here, so the wait does not eat into the paid month.
         LearnerSubscription subscription = LearnerSubscription.builder()
                 .learner(Learner.builder().learnerId(learnerId).build())
                 .subscriptionPlan(plan)
@@ -74,15 +60,12 @@ public class PaymentWebhookService {
                 .build();
 
         LearnerSubscription saved = learnerSubscriptionRepository.save(subscription);
-        // Only a newly recorded payment gets an invoice; the duplicate delivery
-        // (return page + webhook) returned above without reaching here.
         invoiceEmails.sendInvoiceAfterCommit(saved);
         log.info("Checkout paid for learner={} plan={} session={}; awaiting admin approval",
                 learnerId, planId, providerReference);
         return saved;
     }
 
-    /** Admin approval: the subscription becomes Pro from this moment. */
     public LearnerSubscription approve(Long subscriptionId, Long adminUserId) {
         LearnerSubscription subscription = requireAwaitingApproval(subscriptionId);
         LocalDateTime now = LocalDateTime.now();
@@ -102,7 +85,6 @@ public class PaymentWebhookService {
         return saved;
     }
 
-    /** Admin rejection: nothing is granted, and the learner sees the note. */
     public LearnerSubscription reject(Long subscriptionId, Long adminUserId, String note) {
         LearnerSubscription subscription = requireAwaitingApproval(subscriptionId);
         LocalDateTime now = LocalDateTime.now();
@@ -115,13 +97,9 @@ public class PaymentWebhookService {
         subscription.setUpdatedAt(now);
         log.info("Subscription {} rejected by user {}", subscriptionId, adminUserId);
 
-        // Nothing was granted, so the money goes back: the payment behind the
-        // checkout session is refunded in full through PayMongo.
         refund(subscription, "REBYU subscription rejected: " + (subscription.getReviewNote() == null ? "not approved" : subscription.getReviewNote()));
 
         LearnerSubscription saved = learnerSubscriptionRepository.save(subscription);
-        // The learner hears about it the same two ways an approval reaches
-        // them: an email, and the bell in the portal.
         invoiceEmails.sendRejectionAfterCommit(saved);
         String reason = saved.getReviewNote();
         String refundLine = saved.getRefundId() != null ? " Your payment has been refunded." : "";
@@ -145,13 +123,6 @@ public class PaymentWebhookService {
         subscription.setRefundedAt(LocalDateTime.now());
     }
 
-    /**
-     * Run daily: settles every Pro subscription whose paid period has lapsed.
-     * One the learner cancelled simply ends. One they kept is renewed for
-     * another period, the way a card on file would be charged -- in test mode
-     * PayMongo's hosted checkout keeps no card, so the renewal is recorded
-     * and invoiced without a real charge.
-     */
     @org.springframework.scheduling.annotation.Scheduled(cron = "0 15 0 * * *", zone = "Asia/Manila")
     public void settleLapsedPeriods() {
         LocalDateTime now = LocalDateTime.now();
@@ -182,7 +153,6 @@ public class PaymentWebhookService {
         }
     }
 
-    /* Resolved inside the transaction: the subscription only holds a learner id. */
     private void notifyLearner(LearnerSubscription subscription, String title, String body) {
         Long learnerId = subscription.getLearner() == null ? null : subscription.getLearner().getLearnerId();
         if (learnerId == null) return;
@@ -191,7 +161,6 @@ public class PaymentWebhookService {
                 .ifPresent(user -> notifications.notify(user, title, body, "/learner/subscription"));
     }
 
-    /** Ends a Pro subscription at once (admin), e.g. to reset a test account. */
     public LearnerSubscription revoke(Long subscriptionId, Long adminUserId) {
         LearnerSubscription subscription = learnerSubscriptionRepository.findById(subscriptionId)
                 .orElseThrow(() -> new EntityNotFoundException("Subscription not found: " + subscriptionId));
@@ -217,7 +186,6 @@ public class PaymentWebhookService {
         return subscription;
     }
 
-    /** Cancel-at-period-end: access continues until the paid period lapses. */
     public LearnerSubscription cancelAtPeriodEnd(Long learnerId) {
         LearnerSubscription subscription = learnerSubscriptionRepository
                 .findFirstByLearner_LearnerIdOrderByCreatedAtDesc(learnerId)
@@ -240,17 +208,10 @@ public class PaymentWebhookService {
             case QUARTERLY -> start.plusMonths(3);
             case SEMI_ANNUAL -> start.plusMonths(6);
             case ANNUAL -> start.plusYears(1);
-            // NONE (free) and CUSTOM (institution-negotiated) have no fixed
-            // renewal cadence enforced here.
             case NONE, CUSTOM -> null;
         };
     }
 
-    /**
-     * checkout_session.payment.paid: the real PayMongo event for the Hosted
-     * Checkout Sessions flow this app actually uses. sessionData is the
-     * checkout session object nested under the event (data.attributes.data).
-     */
     public void handleCheckoutSessionPaymentPaid(JsonNode sessionData) {
         String sessionId = sessionData.path("id").asText();
         JsonNode metadata = sessionData.path("attributes").path("metadata");
@@ -265,12 +226,6 @@ public class PaymentWebhookService {
         activateFromCheckoutSession(learnerId, planId, sessionId);
     }
 
-    /**
-     * A one-time checkout charge failed. There is no subscription to update
-     * yet at this point (activation only happens on success), so this is
-     * purely observability for now -- surfaced here instead of silently
-     * dropped like before.
-     */
     public void handleChargeFailed(JsonNode chargeData) {
         String chargeId = chargeData.path("id").asText();
         JsonNode metadata = chargeData.path("attributes").path("metadata");
@@ -278,11 +233,6 @@ public class PaymentWebhookService {
         log.warn("PayMongo charge failed: chargeId={} learnerId={}", chargeId, learnerId);
     }
 
-    /**
-     * Legacy charge.updated/charge.succeeded handling, kept for PayMongo
-     * event shapes that carry a flat charge object with metadata directly on
-     * data.attributes (as opposed to the nested checkout-session shape).
-     */
     public void handleChargeUpdated(JsonNode chargeData) {
         String chargeId = chargeData.path("id").asText();
         String status = chargeData.path("attributes").path("status").asText();
@@ -297,7 +247,6 @@ public class PaymentWebhookService {
         }
     }
 
-    /** subscription.updated: kept for forward-compatibility if a real recurring PayMongo Subscription is ever created. */
     public void handleSubscriptionUpdated(JsonNode subscriptionData) {
         String payMongoSubId = subscriptionData.path("id").asText();
         String status = subscriptionData.path("attributes").path("status").asText();

@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 import java.io.Serial;
 import java.io.Serializable;
 
-/** Shared (post_id, learner_id) composite key shape for likes and saves. */
 @Embeddable
 @Data
 @NoArgsConstructor

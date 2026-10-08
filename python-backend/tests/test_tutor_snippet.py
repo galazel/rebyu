@@ -64,7 +64,6 @@ async def test_a_picture_goes_to_the_vision_chain_as_an_image_part(monkeypatch):
     question = seen["messages"][-1]
     assert question.content[1] == {"type": "image_url", "image_url": {"url": PICTURE}}
     assert "Device domain" in question.content[0]["text"]
-    # Stored without the picture itself.
     assert saved["messages"][0]["snippet"] == {"quote": "Device domain", "image": True, "imageKey": None}
     assert events[-1] == {"type": "done"}
 

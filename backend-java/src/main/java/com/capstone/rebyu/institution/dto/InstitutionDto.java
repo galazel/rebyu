@@ -27,8 +27,6 @@ public class InstitutionDto {
     @Size(max = 100)
     private String industry;
 
-    // Lombok names this property "verified"; the portal pages read isVerified,
-    // so every institution showed "Verification pending" even once approved.
     @com.fasterxml.jackson.annotation.JsonProperty("isVerified")
     private boolean isVerified = false;
 
@@ -45,8 +43,6 @@ public class InstitutionDto {
 
     private LocalDateTime joinedAt;
 
-    // Display-only aggregates for the admin institutions list; computed in
-    // InstitutionService, never accepted on create/update.
     private Integer learnerCount;
     private Integer certificationCount;
     private String status;

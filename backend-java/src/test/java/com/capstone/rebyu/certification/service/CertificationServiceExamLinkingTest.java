@@ -57,7 +57,6 @@ class CertificationServiceExamLinkingTest {
         certification.setCertificationId(certId);
         when(certificationRepository.findByIdWithFullTree(certId)).thenReturn(Optional.of(certification));
 
-        // DTO tree the mapper would normally produce.
         LessonDto lessonDto = new LessonDto();
         lessonDto.setLessonId(lessonId);
         MiddleCategoryDto middleDto = new MiddleCategoryDto();

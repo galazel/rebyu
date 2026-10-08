@@ -52,7 +52,7 @@ def read_settings():
         recommended = []
         for model_id, note in info["recommended"]:
             if models and model_id not in by_id:
-                continue  # withdrawn by OpenRouter -- never offer it
+                continue
             recommended.append({**by_id.get(model_id, {"id": model_id, "name": model_id}), "note": note})
         rows.append({
             "task": name,
@@ -80,8 +80,6 @@ def read_settings():
         except Exception:  # noqa: BLE001
             providers[name] = False
 
-    # Every model any feature may use -- its own and its fallbacks -- with what
-    # it has been doing since the AI service started (see app.ai.health).
     model_health = {}
     for name in tasks.TASKS:
         profile = tasks.profile_for(name, settings)

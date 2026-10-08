@@ -19,24 +19,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Keeps the bank ahead of the learners drawing on it.
- *
- * <p>An adaptive paper consumes items per difficulty level -- a learner at
- * HARD drains the HARD pool and touches nothing else -- so a bank that is
- * large in total still runs dry at one level, and from then on that
- * learner's retakes repeat. This watches each finished session: when a
- * learner has now met more than {@code replenishSeenShare} of a level's pool
- * for a certification, it asks the AI pipeline for another batch at that
- * level, unattended and audited for duplicates on the Python side.
- *
- * <p>Best effort, by design. The request is a row and a queue message; the
- * exam never waits on it, and if the pipeline is down or out of credit the
- * request fails on its own and the engine goes on serving the bank it has,
- * repeating least-recently-seen items. One open request per certification
- * and level at a time, and none within a cooldown of the last, so a class
- * sitting the same exam cannot fan out into dozens.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -51,17 +33,12 @@ public class BankReplenishmentService {
     private final GenerationRequestProducer producer;
     private final ObjectMapper objectMapper;
 
-    /** How much of a level a learner has met, and what to top it up by. */
     public record LevelUse(String level, int pool, int seen, int paperLength) {
         public double share() {
             return pool == 0 ? 1.0 : (double) seen / pool;
         }
     }
 
-    /**
-     * Per level, how much of this pool the learner has now seen.
-     * {@code paperLength} sizes the top-up: one more fresh paper's worth.
-     */
     public static Map<String, LevelUse> usage(Collection<Candidate> pool, Set<Long> seen, int paperLength) {
         Map<String, int[]> counts = new LinkedHashMap<>();
         for (Candidate c : pool) {
@@ -82,11 +59,6 @@ public class BankReplenishmentService {
         return "AVERAGE";
     }
 
-    /**
-     * Requests a batch for every level this learner has nearly used up.
-     * Runs in its own transaction so a failure here can never roll back the
-     * submit that called it.
-     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void replenishIfDepleted(Long certificationId, String certificationTitle, Map<String, LevelUse> usage) {
         if (!properties.isReplenishEnabled() || certificationId == null) return;

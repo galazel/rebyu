@@ -23,15 +23,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * The two things about this purge that are not obvious from reading it: what it
- * counts as in scope, and what order it deletes in.
- *
- * Both were wrong in the shape this replaced. Deleting a module through the
- * whole-tree PUT scoped nothing at all and simply hit a foreign key; scoping the
- * obvious way -- by the lessons underneath -- still leaves the module's own
- * category assessment pointing at it, and fails the same way one step later.
- */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class CurriculumSubtreeServiceTest {
@@ -41,7 +32,6 @@ class CurriculumSubtreeServiceTest {
 
     private CurriculumSubtreeService service;
 
-    /** Every statement the service issued, in the order it issued them. */
     private final List<String> statements = new ArrayList<>();
 
     @BeforeEach
@@ -54,7 +44,6 @@ class CurriculumSubtreeServiceTest {
         });
         when(query.setParameter(anyString(), any())).thenReturn(query);
         when(query.executeUpdate()).thenReturn(0);
-        // No learner activity unless a test says otherwise.
         when(query.getSingleResult()).thenReturn(0L);
 
         service = new CurriculumSubtreeService(entityManager);
@@ -107,11 +96,6 @@ class CurriculumSubtreeServiceTest {
                 firstMatching("DELETE FROM exams"));
     }
 
-    /**
-     * The order is the whole point of doing this in SQL rather than leaving it
-     * to JPA: each of these pairs is a foreign key, and getting one backwards
-     * is the constraint violation that made deleting impossible before.
-     */
     @Test
     void deletesChildrenBeforeTheRowsTheyPointAt() {
         service.clearFor(CurriculumSubtreeService.Node.LESSON, 11L);
@@ -123,8 +107,6 @@ class CurriculumSubtreeServiceTest {
         assertTrue(indexOf("DELETE FROM questions WHERE parent_question_id")
                 < indexOf("DELETE FROM questions WHERE question_id"),
                 "a follow-up question has to go before the question it hangs off");
-        // exam_questions references questions as well as exams, so the whole
-        // exam side has to be gone before any question is touched.
         assertTrue(indexOf("DELETE FROM exams") < indexOf("DELETE FROM choices"));
     }
 
@@ -148,8 +130,6 @@ class CurriculumSubtreeServiceTest {
                 BusinessRuleException.CurriculumNodeInUseException.class,
                 () -> service.clearFor(CurriculumSubtreeService.Node.LESSON, 11L));
 
-        // The check runs before the first delete, so a refusal cannot leave a
-        // node half-stripped -- which would be worse than not deleting it.
         assertTrue(statements.stream().noneMatch(sql -> sql.startsWith("DELETE")),
                 "nothing may be deleted once the node is known to be in use");
         verify(entityManager, never()).flush();

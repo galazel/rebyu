@@ -3,16 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { Upload } from "@/components/icons"
 import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 
-/**
- * The parts all three workspace features share.
- *
- * <p>Flashcard Builder, Quiz Builder and Upload & Learn are separate features
- * with separate screens, but every one of them starts the same way: the learner
- * hands over a document. Keeping one dropzone, one set of accepted formats and
- * one size limit here means the three cannot drift into accepting different
- * things, which is the kind of difference nobody notices until a file works on
- * one screen and is refused on another.
- */
 
 export const ACCEPTED_EXTENSIONS = [".pdf", ".doc", ".docx", ".txt"]
 export const ACCEPT_ATTRIBUTE = ACCEPTED_EXTENSIONS.join(",")
@@ -30,12 +20,6 @@ export function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-/**
- * Holds the uploaded file for one feature, with validation and cleanup.
- *
- * <p>The object URL backs the reader's preview and has to be released by hand,
- * or every replaced file leaks its blob for the life of the tab.
- */
 export function useUploadedFile() {
   const [file, setFile] = useState(null)
   const [error, setError] = useState(null)
@@ -71,12 +55,6 @@ export function useUploadedFile() {
   return { file, error, accept, clear }
 }
 
-/**
- * The drop target every feature opens on.
- *
- * @param title    what this particular feature will do with the file
- * @param subtitle one line under it, in the feature's own words
- */
 export function UploadDropzone({ onFile, error, icon: Icon = Upload, title, subtitle }) {
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef(null)
@@ -126,7 +104,6 @@ export function UploadDropzone({ onFile, error, icon: Icon = Upload, title, subt
             onChange={(event) => {
               const chosen = event.target.files?.[0]
               if (chosen) onFile(chosen)
-              // Cleared so choosing the same file twice still fires onChange.
               event.target.value = ""
             }}
           />
@@ -145,7 +122,6 @@ export function UploadDropzone({ onFile, error, icon: Icon = Upload, title, subt
   )
 }
 
-/** The heading every feature screen carries, with a way back to the hub. */
 export function FeatureHeader({ title, subtitle, backTo = "/learner/workspace", children }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 lg:px-6">
@@ -160,12 +136,6 @@ export function FeatureHeader({ title, subtitle, backTo = "/learner/workspace", 
   )
 }
 
-/**
- * The standing note that none of this reaches a server yet.
- *
- * <p>Said once per screen, plainly. A workspace that looked finished but
- * quietly did nothing would waste the time of whoever tested it next.
- */
 export function NotConnectedNote({ children }) {
   return (
     <p className="mx-4 mb-6 rounded-rb-card border-2 border-border bg-card p-4 text-sm font-medium leading-6 text-rb-wolf lg:mx-6">

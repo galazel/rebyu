@@ -17,23 +17,7 @@ import {
   saveTextQuestion,
 } from "@/services/questionService.js"
 
-/**
- * One flat set of authored arena questions.
- *
- * The unit every arena is built from: a roadmap node holds one of these, and so
- * does a World Cup bracket stage. Extracted so the reward strip, the editor
- * wiring and the "what a valid arena question is" rule exist once rather than
- * once per arena shape.
- *
- * The editors themselves are the certification Question Bank's, imported from
- * `question-editors` — an arena question IS a question. What this adds is the
- * reward line (points, XP), which sits in a strip above each editor rather than
- * inside it so the editor stays the shared component.
- *
- * Controlled: the owner holds the list and decides what a full set means.
- */
 
-/** Defaults per question. Points score the round, XP feeds the learner's level. */
 const DEFAULT_REWARD = { points: "10", xp: "25" }
 
 export function createArenaQuestion(questionType) {
@@ -50,12 +34,6 @@ export function allowedQuestionTypes(typeIds) {
   return QUESTION_TYPES.filter((type) => typeIds.includes(type.id))
 }
 
-/**
- * The bank's own validator plus the rules that are the arena's: a reward has to
- * be a positive number. Returns errors keyed by question id, so a caller can
- * merge several sets (every stage of a bracket, every node of a path) into one
- * map without them colliding.
- */
 export function validateArenaQuestions(problems) {
   const errors = {}
 
@@ -77,13 +55,6 @@ export function validateArenaQuestions(problems) {
   return errors
 }
 
-/**
- * A saved arena problem, back in the editor's shape.
- *
- * `existingQuestionId` is what keeps a re-save from duplicating the bank: an
- * untouched problem is re-linked by id, and only one whose content was edited
- * (`edited`, set by the editors) is written again as a new question.
- */
 export async function arenaQuestionFromSaved(row) {
   const rebuilt = await reconstructQuestionData(row.question, [
     row.question,
@@ -113,7 +84,6 @@ const QUESTION_API = {
   saveDiagramQuestion,
 }
 
-/** The bank id an arena problem runs: the saved one if untouched, else a new write. */
 export async function saveArenaQuestion(problem, { lessonId, certificationId }) {
   if (problem.existingQuestionId && !problem.edited) {
     return problem.existingQuestionId
@@ -161,8 +131,6 @@ export default function QuestionSetEditor({
     )
   }
 
-  /** The editors call `onDataChange` with an updater, not a value — they edit
-   *  deep paths and need the current data to merge into. */
   function updateData(id, update) {
     onChange(
       problems.map((problem) =>

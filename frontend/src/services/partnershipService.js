@@ -1,12 +1,9 @@
 import { base } from "./base"
 
-// Transaction One (public): submit a partnership request from the landing page
-// and check its status. No authentication required.
 export function submitPublicPartnershipRequest(payload) {
   return base("public/partnership-requests", { method: "POST", data: payload })
 }
 
-/** { pricePerSlot, currency } -- the flat per-slot rate the invoice will use. */
 export function getPartnershipPricing() {
   return base("public/partnership-requests/pricing")
 }
@@ -18,7 +15,6 @@ export function getPublicPartnershipStatus({ referenceNumber, institutionEmail }
   })
 }
 
-// Transaction Two (admin): review partnership requests.
 export function getAdminPartnershipRequests(status) {
   const query = status && status !== "ALL" ? `?status=${status}` : ""
   return base(`admin/partnership-requests${query}`)
@@ -42,15 +38,10 @@ export function rejectPartnershipRequest(requestId, remarks) {
   })
 }
 
-// Transaction Three (institution): certification access + learner invitations.
 export function getInstitutionCertificationAccess(institutionId) {
   return base(`institution/certification-access?institutionId=${institutionId}`)
 }
 
-// Sent by a group's leader only -- departmentId is required; the
-// certification/slots are derived server-side from the group. `learners` is a
-// list of { firstName, lastName, email } (name optional, email required).
-// sectionId is optional: when given, accepted learners land in that section.
 export function sendInstitutionInvitations({ departmentId, learners, sectionId = null }) {
   return base("institution/invitations", {
     method: "POST",
@@ -62,8 +53,6 @@ export function getInstitutionInvitations(institutionId) {
   return base(`institution/invitations?institutionId=${institutionId}`)
 }
 
-// Only the invitation's own department head may cancel it; institutionId is
-// resolved from the caller's JWT server-side, never a client param.
 export function cancelInstitutionInvitation(invitationId) {
   return base(`institution/invitations/${invitationId}/cancel`, { method: "PUT" })
 }

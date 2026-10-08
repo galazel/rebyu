@@ -58,8 +58,6 @@ def create_short_answer_question(
         "imageKey": image_key,
         "correctAnswer": correct_answer,
         "checkingMethod": "EXACT_MATCH",
-        # The blanks of a fill-in-the-blank. Empty for an ordinary short
-        # answer, which has one expected answer and no parts.
         "subQuestions": sub_questions or [],
         "difficulty": difficulty
     }

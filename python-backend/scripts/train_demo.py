@@ -3,8 +3,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-# This script is intended for local testing without Redis. It still uses the
-# configured database so migrations must be applied first.
 os.environ.setdefault("CELERY_TASK_ALWAYS_EAGER", "true")
 
 from app.db.session import SessionLocal  # noqa: E402

@@ -11,8 +11,6 @@ import java.math.BigDecimal;
 @Entity
 @Table(
         name = "exam_questions",
-        /* The exam's authored question list, read on every start and on every
-           eligibility check. */
         indexes = @Index(name = "ix_exam_question_exam", columnList = "exam_id"))
 @Data
 @NoArgsConstructor
@@ -34,12 +32,6 @@ public class ExamQuestion {
     @Column(name = "display_order", nullable = false)
     private Integer displayOrder;
 
-    /**
-     * Weight of this question in THIS assessment, set by the institution
-     * member who authored the paper. Null on official assessments, whose
-     * items all count the same -- the adaptive engine measures ability, not
-     * a weighted total.
-     */
     @Column(name = "points", precision = 5, scale = 2)
     private BigDecimal points;
 }

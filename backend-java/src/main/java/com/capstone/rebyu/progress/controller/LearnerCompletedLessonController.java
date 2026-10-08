@@ -12,22 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * A learner's record of which lessons they have finished reading.
- *
- * <p>Every route here names a learner id, and until this pass none of them
- * checked whose it was -- nor was the path listed in the security
- * configuration, so the whole table was readable and writable with no token at
- * all. Signing in was not the end of the problem: the id comes from the URL or
- * the request body, so any authenticated learner could mark lessons complete
- * for a classmate, un-complete them, or read their progress by changing a
- * number.
- *
- * <p>The id is therefore resolved through {@link RoleGuard#requireLearnerScope}
- * on every route: a learner may act only as themselves, an administrator may
- * act for anyone. The cross-learner listing is admin-only, because no learner
- * flow reads it and "every learner's progress" is not a learner's to see.
- */
 @RestController
 @RequestMapping("/api/learner-completed-lessons")
 @RequiredArgsConstructor
@@ -54,8 +38,6 @@ public class LearnerCompletedLessonController {
     public LearnerCompletedLessonDto create(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody LearnerCompletedLessonDto dto) {
-        // Overwritten rather than merely validated: the body is the client's,
-        // and the token is the only trustworthy statement of who is asking.
         dto.setLearnerId(guard.requireLearnerScope(jwt, dto.getLearnerId()));
         return learnerCompletedLessonService.create(dto);
     }

@@ -24,8 +24,6 @@ def record_batch_version(
     instructions: str | None = None,
 ) -> list[dict]:
     """Writes one batch version to the event log; returns the ref to append."""
-    # Batches are numbered by how many have already been committed, so an
-    # improve/regenerate cycle keeps revising the same batch number.
     batch_number = (state.get("generated_count", 0) or 0) // max(state.get("batch_size", 20), 1)
     key = f"{BATCH_KEY_PREFIX}:{batch_number}"
     existing = state.get("version_refs") or []
@@ -50,7 +48,6 @@ def record_batch_version(
             if ref is not None:
                 return [ref]
         except Exception:
-            # An audit aid must never fail the generation it describes.
             logger.exception("Failed to record batch version %s r%d", key, revision)
 
     return [{

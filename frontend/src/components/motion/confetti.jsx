@@ -3,26 +3,6 @@ import { createPortal } from "react-dom"
 
 import { useReducedMotion } from "@/components/motion/rebyu-motion.jsx"
 
-/**
- * A confetti burst, on a canvas, with no dependency behind it.
- *
- * `@tsparticles/*` is already installed and could do this, but it is a general
- * particle engine configured through a large options object and mounted as a
- * React tree of its own -- several hundred KB and a container lifecycle to
- * manage, for one burst of paper that lives two seconds. The whole effect is
- * "spawn N rectangles, apply gravity and drag, rotate, fade", which is the
- * function below.
- *
- * Drawn into a portal at <body>, not inside whatever opened it. The award modal
- * is the caller, and Radix centres its content with a `translate` -- a
- * transformed ancestor becomes the containing block for `position: fixed`, so a
- * canvas rendered inside the dialog would be pinned to the dialog's box and
- * clipped to it rather than covering the viewport.
- *
- * The colours are the design system's tone solids: the same set the bubble
- * cards, badges and buttons are drawn in, so the paper belongs to the product
- * rather than arriving from a library's default palette.
- */
 
 const COLORS = ["#2f6b4f", "#e9b949", "#c8553d", "#8a5a33", "#8b5f7d", "#4f8a78", "#f4f1e8"]
 
@@ -36,8 +16,6 @@ function createParticles(width, height) {
   const particles = []
 
   for (let index = 0; index < PARTICLE_COUNT; index += 1) {
-    /* Two cannons angled inward from the lower corners, which is the shape that
-       reads as celebration -- confetti dropped from the top reads as snow. */
     const fromLeft = index % 2 === 0
     const angle = (fromLeft ? -60 : -120) * (Math.PI / 180) + (Math.random() - 0.5) * 0.9
     const speed = 13 + Math.random() * 11
@@ -47,7 +25,6 @@ function createParticles(width, height) {
       y: height * 0.98,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      // Rectangles rather than squares, so rotation reads as paper flipping.
       w: 6 + Math.random() * 6,
       h: 9 + Math.random() * 8,
       rotation: Math.random() * Math.PI * 2,
@@ -59,11 +36,6 @@ function createParticles(width, height) {
   return particles
 }
 
-/**
- * @param fire  a value that starts a burst whenever it changes to something
- *              truthy -- pass the thing being celebrated, so a second award
- *              re-fires rather than the effect running once per mount
- */
 export function Confetti({ fire }) {
   const canvasRef = useRef(null)
   const reduced = useReducedMotion()
@@ -79,8 +51,6 @@ export function Confetti({ fire }) {
       return undefined
     }
 
-    // Backing store in device pixels, drawing in CSS pixels: on a 2x display a
-    // 1x canvas is visibly soft, and the paper is small enough to show it.
     const ratio = Math.min(window.devicePixelRatio || 1, 2)
     const width = window.innerWidth
     const height = window.innerHeight
@@ -132,16 +102,11 @@ export function Confetti({ fire }) {
     }
   }, [fire, reduced])
 
-  // No canvas at all unless something is being celebrated: this host is mounted
-  // at the app root for the whole session, and a full-viewport canvas sitting
-  // over every page is worth avoiding even when it cannot be clicked through.
   if (!fire || reduced || typeof document === "undefined") {
     return null
   }
 
   return createPortal(
-    /* Above the dialog overlay (z-50) and inert to the pointer: the "keep
-       going" button sits under this canvas and has to stay clickable. */
     <canvas
       ref={canvasRef}
       aria-hidden="true"

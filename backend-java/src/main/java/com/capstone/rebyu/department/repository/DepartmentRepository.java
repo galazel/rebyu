@@ -15,7 +15,6 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
 
     long countByInstitution_InstitutionIdAndStatus(Long institutionId, Department.Status status);
 
-    /** Active groups a non-owner institution member is actively authorized to manage. */
     @Query("""
             SELECT DISTINCT g
             FROM Department g

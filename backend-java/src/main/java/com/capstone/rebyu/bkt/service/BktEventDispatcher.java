@@ -16,14 +16,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Polls the BKT outbox and forwards claimed batches to the FastAPI service.
- *
- * <p>Runs outside any submission transaction, so an unavailable BKT service can
- * never roll back a completed assessment. Claiming uses SKIP LOCKED, so multiple
- * backend instances cooperate safely. Delivery failures back off exponentially
- * and eventually dead-letter.
- */
 @Slf4j
 @Component
 public class BktEventDispatcher {
@@ -76,9 +68,6 @@ public class BktEventDispatcher {
             }
         }
 
-        // A corrupt payload can never succeed; dead-letter it directly instead
-        // of burning through the normal retry/backoff cycle for a failure
-        // that retrying can never fix.
         if (!undeserializable.isEmpty()) {
             outboxService.markDeadLetter(undeserializable, "Unparseable outbox payload");
             ids.removeAll(undeserializable);
@@ -109,7 +98,6 @@ public class BktEventDispatcher {
             try {
                 events.add(objectMapper.readValue(row.getPayloadJson(), BktMasteryEvent.class));
             } catch (Exception ignored) {
-                // already dead-lettered above
             }
         }
         return events;

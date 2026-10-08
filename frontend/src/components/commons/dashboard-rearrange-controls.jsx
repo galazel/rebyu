@@ -7,17 +7,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 
-/**
- * The control cluster that puts a board into arrange mode.
- *
- * Read left to right:
- * 1. Reset layout (ghost, low emphasis)
- * 2. Cancel (outline, neutral dismiss)
- * 3. Done (primary solid with checkmark)
- *
- * All controls share identical 32px (h-8) height, text-xs font sizing,
- * and harmonious padding to prevent visual disproportions.
- */
 export function DashboardRearrangeControls({
   rearranging,
   onStart,

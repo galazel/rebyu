@@ -60,8 +60,6 @@ import { deleteLearner, getAllLearners } from "@/services/adminLearnerService"
 
 const ALL_FILTER_VALUE = "all"
 
-// Replace this with data from your learner service.
-// The component also accepts a `learners` prop.
 const DEMO_LEARNERS = [
   {
     learnerId: 1,
@@ -297,8 +295,6 @@ export default function Learners({
   })
 
   const deleteMutation = useMutation({
-    // Not getLearnerId: that falls back to a synthetic row key for display, and
-    // a DELETE addressed to "learner-3" is not a delete of anything.
     mutationFn: (learner) => deleteLearner(learner.learnerId ?? learner.id),
     onSuccess: (_result, learner) => {
       setPendingDelete(null)
@@ -378,8 +374,6 @@ export default function Learners({
     typeFilter,
   ])
 
-  /* Sorting runs on the filtered set, so a sort never pulls in a row the
-     filters excluded. Accessors read the same fallbacks the cells render. */
   const sortedLearners = useMemo(
       () =>
           sortRows(filteredLearners, {
@@ -481,9 +475,6 @@ export default function Learners({
 
   return (
       <section className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-        {/* Counts and the one action on a single line: the button had a row of
-            its own above a row of bordered panels, so the page opened with two
-            bands of chrome before any learner. */}
         <div className="flex shrink-0 flex-wrap items-center gap-x-10 gap-y-3 border-b border-border pb-4">
           <div className="flex items-baseline gap-2">
             <Users className="self-center h-4 w-4 text-primary" />
@@ -530,10 +521,6 @@ export default function Learners({
           </Button>
         </div>
 
-        {/* The table fills what the summary strip leaves, inside the portal's
-            own gutter -- the same inset every other admin page's content sits
-            in. The rows are what scrolls; the toolbar and the pager stay put
-            at the card's two edges. */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <TableCard className="flex min-h-0 flex-1 flex-col">
             <TableToolbar
@@ -594,9 +581,6 @@ export default function Learners({
               </Select>
             </TableToolbar>
 
-            {/* The rows scroll, the pager does not: with a short list the page still
-                ends where the window does rather than leaving the pager stranded
-                halfway up a blank page. */}
             <div className="min-h-0 flex-1 overflow-auto">
               <Table>
                 <TableHeader>
@@ -852,7 +836,6 @@ export default function Learners({
           </TableCard>
         </div>
 
-        {/* Deletion is total and has no undo, so it is spelled out before it runs. */}
         <AlertDialog
             open={pendingDelete != null}
             onOpenChange={(open) => !open && setPendingDelete(null)}

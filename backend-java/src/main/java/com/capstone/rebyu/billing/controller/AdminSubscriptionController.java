@@ -16,13 +16,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * The admin's review queue for Pro.
- *
- * <p>Checkout runs against PayMongo's test mode, so a "paid" session is not
- * money and does not grant Pro on its own. It lands here as PENDING, and an
- * admin approves (Pro starts now) or rejects it.
- */
 @RestController
 @RequestMapping("/api/admin/subscriptions")
 @RequiredArgsConstructor

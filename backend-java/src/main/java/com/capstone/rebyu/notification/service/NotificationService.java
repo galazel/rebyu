@@ -13,13 +13,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.OffsetDateTime;
 import java.util.List;
 
-/**
- * Generic in-app notifications for any role (ADMIN/INSTITUTION/LEARNER) --
- * the partnership-request and invitation lifecycle events all land here.
- * Deliberately parallel to community.CommunityService's learner-only
- * notification methods rather than merged with them, since those are
- * scoped to Learner (not User) and back a different table.
- */
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -32,7 +25,6 @@ public class NotificationService {
             Long id, String title, String body, String href, OffsetDateTime createdAt, boolean read) {
     }
 
-    /** Fire-and-forget: a notification is a side effect, never a reason to fail the caller's own action. */
     public void notify(User user, String title, String body, String href) {
         if (user == null) {
             return;
@@ -47,12 +39,6 @@ public class NotificationService {
         pushAfterCommit(user.getUserId(), toDto(saved));
     }
 
-    /**
-     * Live-pushes only once the surrounding transaction actually commits. Several
-     * callers create a notification partway through work that can still roll back
-     * (an invitation whose e-mail send fails, for one) -- pushing inline would
-     * announce an event to the browser that the database then discarded.
-     */
     private void pushAfterCommit(Long userId, NotificationDto dto) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
             streamService.push(userId, dto);
@@ -66,7 +52,6 @@ public class NotificationService {
         });
     }
 
-    /** The user's whole feed, newest first. */
     @Transactional(readOnly = true)
     public List<NotificationDto> forUser(Long userId) {
         return notificationRepository.findByUser_UserIdOrderByCreatedAtDesc(userId).stream()
@@ -99,10 +84,6 @@ public class NotificationService {
         return notificationRepository.deleteAllForUser(userId);
     }
 
-    /**
-     * Another user's notification is reported as simply not found, so an id probe
-     * can't confirm that a given notification exists.
-     */
     private Notification requireOwned(Long userId, Long notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new EntityNotFoundException("Notification not found: " + notificationId));

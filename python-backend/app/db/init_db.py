@@ -1,7 +1,6 @@
 from app.db.base import Base
 from app.db.session import engine
 
-# Import models so SQLAlchemy registers all tables.
 from app.db import models  # noqa: F401
 
 

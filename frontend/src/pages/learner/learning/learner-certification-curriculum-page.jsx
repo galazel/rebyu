@@ -56,40 +56,6 @@ import { getProgressAnalytics } from "@/services/learnerAnalyticsService.js"
 import { PROFICIENT_RATING, buildCurriculum, examStanding, hasSatDiagnostic } from "./curriculum-model.js"
 import { LoadingSignal } from "@/components/loading-overlay.jsx"
 
-/**
- * The curriculum a learner lands on after opening an enrolled certification.
- *
- * A road, not a table of contents.
- *
- * This was a stack of unit bands, each opening an accordion of topics, each
- * opening a list of lessons -- three levels of disclosure between arriving and
- * pressing the thing you came to press, and no answer at all to "where was I?"
- * without opening them. The curriculum is a sequence, so it is drawn as one:
- * every topic and exam is a stop on a dotted trail that swings down the page,
- * a sticky banner names the unit whose stretch you are in, and the first
- * unfinished stop carries a start bubble.
- *
- * A stop is a single target with a single action -- a topic opens the topic
- * surface, an exam opens the attempt. The lessons and quizzes inside a topic
- * are not repeated here: the topic page is where they live, and listing them
- * twice is what made this page a directory in the first place.
- *
- * The road is walked in order. A unit opens only once every unit above it is
- * finished, so unit two stands grey while unit one still has lessons in it.
- * Ordering used to be a suggestion here -- but the order is the whole output of
- * the diagnostic, and a priority order nobody has to follow is a ranking, not a
- * plan. Before the diagnostic the entire road is locked. Either way a locked
- * stop shakes when pressed and names the gate holding it.
- *
- * Every unit is on screen at once: one continuous scroll from the first topic
- * to the final. No accordion, no "show all units" -- a road you have to unroll
- * a section at a time is a table of contents wearing a path, and the lock is
- * what keeps the whole thing from reading as a wall.
- *
- * Nothing on it is a card. Units are separated by a rule and a name in the
- * unit's colour, not by a slab you press to open; the only objects on the page
- * are the stops themselves.
- */
 
 const TONE = {
   macaw: {
@@ -154,25 +120,7 @@ const TONE = {
   },
 }
 
-/* pieces */
 
-/** One row inside an opened topic. Not a control — the icon and the label say
- *  what the item is, and the topic above it is what the learner acts on.
- *
- *  A div, not an li: the `<StaggerItem>` around it supplies the list item, and
- *  an li inside an li is invalid. */
-/**
- * What finishing this row pays, in the row itself.
- *
- * Awards are idempotent server-side, so once a row is done the pill switches
- * from a promise ("+100 XP") to a receipt and drops its saturated fill -- a
- * banked reward should not keep advertising itself as available.
- *
- * `upTo` marks a variable award (assessments pay by outcome: 30 finished,
- * 100 passed, 200 perfect). There the number is a ceiling rather than a
- * figure, and once earned the pill drops it entirely rather than quoting a
- * total the learner may not have reached.
- */
 function XpPill({ amount, earned, upTo = false }) {
   const label = earned
     ? (upTo ? "XP earned" : `${amount} XP`)
@@ -197,58 +145,24 @@ function XpPill({ amount, earned, upTo = false }) {
   )
 }
 
-/* the path */
 
-/**
- * The trail's geometry.
- *
- * Fixed numbers rather than a fluid column: the nodes are a fixed size, so a
- * column that stretched with the viewport would stretch the curve between them
- * and the road would wander differently on every screen. A fixed-width column,
- * centred, is also what makes the swing read as a road at all -- the eye needs
- * the same amplitude every time it comes back around.
- */
-/* How often, and for how long, the road asks whether mastery has finished
-   computing after the diagnostic. Each ask re-reads the learner's analytics. */
 const MASTERY_POLL_MS = 10_000
 const MASTERY_POLL_WINDOW_MS = 3 * 60_000
 
 const PATH_WIDTH = 480
-/* The name no longer hangs below the node -- it stands beside it -- so a row
-   only has to be as tall as the node itself plus the gap the connector needs
-   to read as a line between two stops. That is most of where the page's old
-   length went: 208px per stop with the lower half reserved for text that is
-   now in space the row already had. */
 const PATH_ROW = 188
 
-/* The node is an isometric plinth, not a disc: a top face in the unit's colour
-   with two shaded faces under it, and the icon standing on top. `PLINTH_H` is
-   the top face alone (2:1, which is what makes it read as isometric rather
-   than as a squashed square) and `PLINTH_D` the extruded depth beneath it. */
 const NODE_W = 160
 const PLINTH_H = 80
 const PLINTH_D = 24
-/* How far the icon floats above the plinth's centre. Sitting it flat on the
-   face made it look printed on; lifted, it reads as standing there. */
 const ICON_LIFT = 36
 const NODE_H = PLINTH_H + PLINTH_D + ICON_LIFT
 
-/* The final sits on a bigger plinth than anything else on the road.
 
-   It is not one more exam in a longer list -- it is the thing the whole
-   certification has been walking towards, and at the same size as the unit
-   exam above it the summit read as another stop that happened to come last.
-   One scale, applied to every dimension of the node at once, so the plinth
-   keeps its 2:1 isometric face and the icon keeps standing the same distance
-   above it. The row it occupies grows to match, or the taller plinth would
-   push into the stop above. */
 const NODE_SCALE_GRAND = 1.34
 const PATH_ROW_GRAND = 238
 
-/** Every measurement of one node, at its own size. */
 function nodeDims(node, narrow = false) {
-  /* The phone's stops are smaller as well as closer together: at full size two
-     plinths 44px either side of the centre very nearly touch. */
   const scale = (node?.grand ? NODE_SCALE_GRAND : 1) * (narrow ? NARROW_NODE_SCALE : 1)
   const plinthH = Math.round(PLINTH_H * scale)
   const plinthD = Math.round(PLINTH_D * scale)
@@ -263,55 +177,26 @@ function nodeDims(node, narrow = false) {
   }
 }
 
-/** How much vertical room a stop takes on the road. */
 function rowHeight(node, narrow = false) {
   const base = node?.grand ? PATH_ROW_GRAND : PATH_ROW
   if (!narrow) return base
-  /* The name sits under the stop here rather than beside it, so the row has to
-     carry it. The node itself is smaller, which gives some of that back. */
   const dims = nodeDims(node, true)
   return Math.round(dims.h + NARROW_LABEL_H + 34)
 }
 
-/** The height of a whole stretch of road, for the box the nodes are laid in. */
 function stretchHeight(nodes, narrow = false) {
   return nodes.reduce((total, node) => total + rowHeight(node, narrow), 0)
 }
 
-/* A two-position zig-zag, not the old eight-step swing.
 
-   The swing existed to keep a *centred* column moving. Now that each stop
-   carries its name out to one side, the side itself is the rhythm: left stop,
-   right stop, and the label always on the outer edge where there is nothing to
-   collide with. An eight-step swing on top of that would put two consecutive
-   nodes on the same side with their labels overlapping. */
 const PATH_OFFSETS = [104, -104]
 
-/* the same road, on a phone */
 
-/**
- * The road's second layout, for screens too narrow to stand a name beside a
- * stop.
- *
- * The wide road is a 440px column with a 210px name hanging off one side or
- * the other, so its real footprint is about 760px. On a 375px phone that is
- * not something scaling fixes: shrunk to fit, the names arrive at about seven
- * pixels and stop being readable, and a stop whose name cannot be read is not
- * a stop.
- *
- * So a phone gets the arrangement this road had before the names moved out to
- * the side -- each name centred *under* its own stop -- and pays for it in
- * height, which is the dimension a phone has to spare. Everything else is
- * kept: the zig-zag, the curve between stops, the plinths. Narrower, because
- * a full-width swing on a phone puts the outer stops under the screen edge.
- */
 const NARROW_PATH_WIDTH = 288
 const NARROW_OFFSETS = [50, -50]
 const NARROW_NODE_SCALE = 0.92
-/** Room under a stop for its name, its meta line and any pill it carries. */
 const NARROW_LABEL_H = 84
 
-/** The width the road's column occupies. */
 function pathWidthOf(narrow) {
   return narrow ? NARROW_PATH_WIDTH : PATH_WIDTH
 }
@@ -321,55 +206,22 @@ function offsetAt(index, narrow = false) {
   return offsets[index % offsets.length]
 }
 
-/**
- * Which side of the node its name stands on, or "below" on a phone.
- *
- * Returned rather than inferred at each call site so there is one answer to
- * "where does the name go", and the trail, the stops and the skeleton cannot
- * disagree about it.
- */
 function labelSideAt(index, narrow = false) {
   if (narrow) return "below"
   return offsetAt(index) > 0 ? "right" : "left"
 }
 
-/**
- * Whether the road is drawing in its narrow layout.
- *
- * Context rather than a prop: the stops, the trail behind them and the boxes
- * they are laid in all have to agree, and they are not in one place to be
- * passed a prop through. A stale `false` here is the wide road on a phone,
- * which is the bug this exists to prevent, so the default is deliberately the
- * layout that cannot be silently wrong -- the provider always sets it.
- */
 const NarrowRoadContext = createContext(false)
 
 function useNarrowRoad() {
   return useContext(NarrowRoadContext)
 }
 
-/**
- * The narrowest viewport the wide road actually fits in.
- *
- * Measured from the road rather than borrowed from the type scale. From the
- * centre outward: the swing (88), half a plinth (66), the gap to the name (16)
- * and the name itself (210) -- 380 either side, so 760 of road, and the page's
- * padding takes it to 800.
- *
- * Tailwind's `sm` (640px) was the obvious breakpoint and the wrong one: it
- * turns the wide road back on 160px before there is room for it, which put
- * every name half off the screen between 640 and 800. Below this the road uses
- * its narrow layout, whatever the type around it is doing.
- */
 const ROAD_LABEL_W = 210
 const ROAD_LABEL_GAP = 16
-/* Measured out from the centre of the screen, which the column is centred on:
-   the swing, then half a plinth, then the gap, then the name. Doubled for the
-   other side, plus the page's own padding. */
 const ROAD_WIDE_MIN_WIDTH =
   2 * (Math.max(...PATH_OFFSETS.map(Math.abs)) + NODE_W / 2 + ROAD_LABEL_GAP + ROAD_LABEL_W) + 40
 
-/** Whether this viewport is too narrow to stand names beside the stops. */
 function useIsNarrowViewport() {
   const query = `(max-width: ${ROAD_WIDE_MIN_WIDTH - 1}px)`
   const [narrow, setNarrow] = useState(
@@ -388,45 +240,15 @@ function useIsNarrowViewport() {
   return narrow
 }
 
-/**
- * The road behind the nodes.
- *
- * Drawn from the same offsets the nodes are placed with, so the two can never
- * disagree: each segment is a vertical-tangent cubic, which is what gives the
- * road its S-bends rather than the corners a polyline would put between them.
- *
- * A hairline rather than the fat line of dots it used to be. The dots were
- * competing with the stops for attention on a page whose whole subject is the
- * stops -- a road is context, and context should be the quietest thing on the
- * page. It also lands lower now, at the plinths' feet rather than through the
- * middle of the icons, so the nodes stand *on* it instead of being threaded
- * onto it.
- */
 function PathTrail({ items, start = 0 }) {
   const narrow = useNarrowRoad()
   if (items.length < 2) return null
 
-  /* The middle of the plinth's top face, not its bottom edge.
 
-     Anchoring at the bottom edge (`ICON_LIFT + PLINTH_H`) put the stroke's
-     round cap just outside the plinth's own footprint, so the road did not
-     quite end *under* the thing it connects. Whenever a node was occluded --
-     which happens to the first node of every unit, the moment the sticky unit
-     banner scrolls over it -- that cap was left hanging below the banner with
-     nothing attached to it: a line running to a stop that is no longer on
-     screen. Anchored half a face higher the cap is always beneath the plinth,
-     so an occluded node takes its road end with it and the remaining curve is
-     cut cleanly by the banner's edge instead of stopping in mid-air. */
-  /* Walked rather than multiplied, because the rows are no longer all the same
-     height: the final stands on a bigger plinth in a taller row, and a road
-     drawn on `PATH_ROW * index` would run to where that stop used to be. */
   let top = 0
   const points = items.map((node, index) => {
     const dims = nodeDims(node, narrow)
     const row = rowHeight(node, narrow)
-    /* The stop sits at the top of its row on a phone, because the rest of the
-       row is its name -- so the road has to meet it there rather than half way
-       down a box that is mostly text. */
     const nodeTop = narrow ? top + 16 : top + (row - dims.h) / 2
     const y = nodeTop + dims.lift + dims.plinthH / 2
     top += row
@@ -450,9 +272,6 @@ function PathTrail({ items, start = 0 }) {
       height={stretchHeight(items, narrow)}
       aria-hidden="true"
     >
-      {/* Swan is the border grey and disappears against the page on its own;
-          mixed toward Hare it holds as a hairline without ever competing with
-          what is standing on it. */}
       <path
         d={d}
         fill="none"
@@ -464,19 +283,6 @@ function PathTrail({ items, start = 0 }) {
   )
 }
 
-/**
- * "start" over the node the learner is on.
- *
- * The one node out of a whole certification that answers "where was I?", so it
- * is the only one that gets a label of its own. It hops rather than pulses: a
- * pulse is what every other alert on this page does, and the point is that
- * this one is an invitation.
- *
- * Above the node now rather than beside it. Beside was a workaround for names
- * that hung below their nodes and left no room overhead; the names have moved
- * out to the sides, so the bubble can sit where it points straight down at the
- * thing it is talking about.
- */
 function StartBubble({ tone }) {
   return (
     <motion.span
@@ -492,9 +298,6 @@ function StartBubble({ tone }) {
         start
       </span>
 
-      {/* The tail, pointing down at the plinth. One triangle rather than the
-          two the old outlined bubble needed -- a solid fill has no border for
-          a second triangle to read through. */}
       <span
         className="absolute left-1/2 top-full size-0 -translate-x-1/2 border-x-8 border-x-transparent border-t-8"
         style={{ borderTopColor: tone.lipVar }}
@@ -503,18 +306,6 @@ function StartBubble({ tone }) {
   )
 }
 
-/**
- * The plinth a stop stands on.
- *
- * Three faces of one box in isometric projection: a 2:1 rhombus on top and the
- * two extruded sides beneath it, each a step darker so the light reads as
- * coming from the upper left. Drawn rather than fetched — an image per node
- * would be a network request per stop and a licence per illustration, and a
- * drawn plinth takes the unit's own colour, which a stock illustration cannot.
- *
- * `face`/`lip` are the unit's tone, so a plinth belongs to its unit the same
- * way the banner above it does.
- */
 function Plinth({ face, lip, top, w, h, d }) {
   return (
     <svg
@@ -525,7 +316,6 @@ function Plinth({ face, lip, top, w, h, d }) {
       viewBox={`0 0 ${w} ${h + d}`}
       aria-hidden="true"
     >
-      {/* Sides first so the top face draws over their shared edges. */}
       <path d={`M 0 ${h / 2} L ${w / 2} ${h} L ${w / 2} ${h + d} L 0 ${h / 2 + d} Z`} fill={lip} />
       <path
         d={`M ${w} ${h / 2} L ${w / 2} ${h} L ${w / 2} ${h + d} L ${w} ${h / 2 + d} Z`}
@@ -536,17 +326,6 @@ function Plinth({ face, lip, top, w, h, d }) {
   )
 }
 
-/**
- * A topic on the road is a book: closed until it is finished, open once it is.
- *
- *   not started / current  closed book in the unit's colour
- *   part-way through       closed book with a ribbon bookmark sticking out
- *   finished               open book, pages written, ribbon in the gutter
- *   locked                 closed grey book (the node adds a lock)
- *
- * Drawn in one 132 x 116 box and scaled to the node, outlined like the rest of
- * the drawn school objects. Exams and the final keep their plinths.
- */
 const BOOK_INK = "#2c2a26"
 
 export function TopicBook({ state, face, lip, reading = false }) {
@@ -563,17 +342,14 @@ export function TopicBook({ state, face, lip, reading = false }) {
 
       {open ? (
         <g transform="rotate(-6 66 66)" strokeLinejoin="round" strokeLinecap="round">
-          {/* cover under the pages */}
           <path
             d="M 4 42 C 28 36 50 38 66 48 C 82 38 104 36 128 42 L 129 90 C 106 84 84 86 66 96 C 48 86 26 84 3 90 Z"
             fill={face}
             stroke={BOOK_INK}
             strokeWidth="2.5"
           />
-          {/* page edges */}
           <path d="M 9 84 C 28 78 50 80 64 90 L 64 94 C 50 84 28 82 9 88 Z" fill="#e4ddcb" />
           <path d="M 123 84 C 104 78 82 80 68 90 L 68 94 C 82 84 104 82 123 88 Z" fill="#e4ddcb" />
-          {/* pages */}
           <path
             d="M 64 44 C 50 34 28 32 9 38 L 9 84 C 28 78 50 80 64 90 Z"
             fill="#fdfcf8"
@@ -587,7 +363,6 @@ export function TopicBook({ state, face, lip, reading = false }) {
             strokeWidth="2.5"
           />
           <path d="M 56 42 L 66 46 L 66 90 L 56 84 Z" fill="rgb(44 42 38 / 0.08)" />
-          {/* written lines */}
           <g stroke="#b3a88f" strokeWidth="2.4" fill="none">
             <path d="M 18 46 C 30 42 44 43 55 49" />
             <path d="M 18 55 C 30 51 44 52 55 58" />
@@ -598,14 +373,11 @@ export function TopicBook({ state, face, lip, reading = false }) {
             <path d="M 84 65 C 94 61 104 61 114 64" />
             <path d="M 77 76 C 88 70 102 69 114 73" />
           </g>
-          {/* ribbon */}
           <path d="M 86 86 L 95 83 L 95 104 L 90.5 99 L 86 105 Z" fill="#e0506a" stroke={BOOK_INK} strokeWidth="2" />
         </g>
       ) : (
         <g strokeLinejoin="round" strokeLinecap="round">
-          {/* back cover slab */}
           <path d="M 6 62 L 66 92 L 126 62 L 126 76 L 66 106 L 6 76 Z" fill={lip} stroke={BOOK_INK} strokeWidth="2.5" />
-          {/* page block */}
           <path d="M 12 58 L 66 85 L 120 58 L 120 72 L 66 99 L 12 72 Z" fill="#f4efe2" stroke={BOOK_INK} strokeWidth="2" />
           <g stroke="#d6ccb4" strokeWidth="1.2">
             <path d="M 16 63 L 66 88" />
@@ -616,10 +388,8 @@ export function TopicBook({ state, face, lip, reading = false }) {
           {reading ? (
             <path d="M 84 80 L 93 76 L 93 104 L 88.5 99 L 84 105 Z" fill="#e0506a" stroke={BOOK_INK} strokeWidth="2" />
           ) : null}
-          {/* front cover: edge, then the top face */}
           <path d="M 6 50 L 66 80 L 126 50 L 126 56 L 66 86 L 6 56 Z" fill={lip} stroke={BOOK_INK} strokeWidth="2.5" />
           <path d="M 6 50 L 66 20 L 126 50 L 66 80 Z" fill={face} stroke={BOOK_INK} strokeWidth="2.5" />
-          {/* title label on the cover */}
           <path d="M 44 50 L 70 37 L 88 46 L 62 59 Z" fill="rgb(255 255 255 / 0.4)" />
         </g>
       )}
@@ -627,14 +397,6 @@ export function TopicBook({ state, face, lip, reading = false }) {
   )
 }
 
-/**
- * How far through a topic the learner is.
- *
- * A rail under the name, not a ring around the node. The ring was drawn on the
- * node's bounding circle, and the node is no longer a circle -- traced around a
- * plinth it read as an ellipse floating behind the icon. Under the name it also
- * sits with the other things the label already says about the stop.
- */
 function NodeProgress({ value }) {
   const pct = Math.max(0, Math.min(100, value))
 
@@ -650,18 +412,6 @@ function NodeProgress({ value }) {
   )
 }
 
-/**
- * One stop on the road: a topic, a unit exam, or the final mock.
- *
- * Four states, and the difference between them is carried by the face rather
- * than by a badge: done is the unit's colour with a check, current is the
- * unit's colour under a "start" bubble, open is a white key with the colour on
- * its rim, locked is grey. A learner scanning the column should be able to see
- * where they stopped without reading a word.
- *
- * The key physics are the design system's: 2px rim, a solid lip under the face,
- * and the whole thing travelling down onto the lip when pressed.
- */
 function PathNode({ node, index, onSelect, onLocked }) {
   const shake = useAnimationControls()
   const tone = TONE[node.tone]
@@ -674,22 +424,11 @@ function PathNode({ node, index, onSelect, onLocked }) {
   const narrow = useNarrowRoad()
   const dims = nodeDims(node, narrow)
 
-  /* A finished exam is not finished the way a finished topic is. Reading a
-     topic is done once; an assessment can always be sat again, and the whole
-     point of the retake loop is that sitting it again is what a learner does
-     next. A check told them there was nothing left here. This says the stop is
-     still live -- every exam on this road (unit exams and the final mock) is
-     retakeable, and the one-shot diagnostic is a gate rather than a node, so it
-     never reaches this. */
   const retakeable = done && node.kind === "exam"
-  /* Topics are books (closed until finished, open once done); exams and the
-     final keep their plinths. */
   const bookish = node.kind === "topic" && !node.grand
 
   function press() {
     if (locked) {
-      // The dialog explains the lock, but it opens elsewhere on screen. The
-      // shake answers where the finger already is.
       shake.start({ x: [0, -8, 8, -6, 6, -3, 3, 0], transition: { duration: 0.45 } })
       onLocked(node)
       return
@@ -697,13 +436,7 @@ function PathNode({ node, index, onSelect, onLocked }) {
     onSelect(node)
   }
 
-  /* Three faces from one tone. The top catches the light, the near side is the
-     tone itself and the far side is its lip, which is the same solid-shadow
-     colour the buttons use -- so a plinth is lit by the same lamp as every
-     other control in the system rather than by one invented here.
 
-     A stop the learner has not opened is a pale plinth with its colour kept for
-     the icon standing on it; locked is grey throughout. */
   const filled = done || current
   const faces = locked
     ? {
@@ -733,23 +466,12 @@ function PathNode({ node, index, onSelect, onLocked }) {
 
   return (
     <div className="relative" style={{ height: rowHeight(node, narrow) }}>
-      {/* Sized to the node and nothing else. The name hangs off it absolutely
-          rather than sitting beside it in flow: in flow the *pair* is what gets
-          centred on the row, so a long topic name would drag the plinth off the
-          line the road is drawn along -- and by a different amount for every
-          node, depending on how long its name was.
 
-          Both axes in one inline transform rather than mixing a utility with
-          it: an inline `transform` replaces the class's outright, so a
-          `-translate-y-1/2` here would simply be dropped. */}
       <div
         className={narrow ? "absolute left-1/2 top-4" : "absolute left-1/2 top-1/2"}
         style={{
           width: dims.w,
           height: dims.h,
-          /* Horizontal only on a phone: the row's remaining height is the
-             name's, so the stop is pinned to the top of the row rather than
-             centred in a box it no longer fills. */
           transform: narrow
             ? `translateX(calc(-50% + ${offsetAt(index, narrow)}px))`
             : `translate(calc(-50% + ${offsetAt(index)}px), -50%)`,
@@ -758,14 +480,7 @@ function PathNode({ node, index, onSelect, onLocked }) {
         <motion.div animate={shake} className="relative h-full">
           {current ? <StartBubble tone={tone} /> : null}
 
-          {/* The one node that has to be found before anything else can happen
-              gets a halo. Never on a locked board -- a beacon on something that
-              will not open is just irritating.
 
-              An ellipse rather than the circle it was: on the ground under an
-              isometric plinth, a circle is seen at the same 2:1 squash as the
-              plinth's own top face. A true circle read as a bubble hanging in
-              front of the node instead of light pooling around its foot. */}
           {current ? (
             <motion.span
               className={`pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-[50%] ${tone.face} opacity-25`}
@@ -776,10 +491,6 @@ function PathNode({ node, index, onSelect, onLocked }) {
             />
           ) : null}
 
-          {/* The plinth is the button. It travels down onto its own depth when
-              pressed, the way every key in the system travels onto its lip --
-              here the depth is drawn rather than cast, so the movement is the
-              whole of the press and there is no shadow to shrink alongside it. */}
           <button
             type="button"
             onClick={press}
@@ -806,18 +517,7 @@ function PathNode({ node, index, onSelect, onLocked }) {
               />
             )}
 
-            {/* Standing on the plinth, not printed on it: the object is lifted
-                clear of the top face and carries its own drop shadow onto it,
-                which is what sells the two as objects in one space.
 
-                `node.art` is the seam for real illustration. Nothing sets it
-                yet — an icon is the fallback, not the plan — but a topic that
-                names an image gets that image standing on its plinth instead,
-                so putting drawn objects on this road is a matter of filling the
-                field in `curriculum-model.js` rather than of touching this
-                component. Kept out of the state branches deliberately: a topic
-                that is done or locked still shows its own object, and the
-                plinth beneath it is what carries the state. */}
             {bookish ? (
               locked ? (
                 <span
@@ -832,24 +532,7 @@ function PathNode({ node, index, onSelect, onLocked }) {
               className={`absolute left-1/2 grid -translate-x-1/2 place-items-center drop-shadow-[0_6px_3px_rgb(0_0_0/0.18)] ${iconInk}`}
               style={{ top: 0, width: dims.w, height: dims.lift + dims.plinthH / 2 }}
             >
-              {/* The icon always renders; the illustration covers it when there
-                  is one. That order is what makes the fallback real -- an image
-                  that 404s or that a slow connection never delivers hides
-                  itself and uncovers the icon, rather than leaving an empty
-                  plinth where a stop should be. */}
               {node.grand ? (
-                /* The final keeps its trophy in every state, and wears the
-                   state as a badge instead.
-                   
-                   The branches below swap a node's icon out for its state,
-                   which is right for a road of interchangeable topics: one
-                   locked lesson is much like another, and what you need to know
-                   is that it is shut. The mock exam is not interchangeable with
-                   anything -- it is the one stop the whole certification is
-                   pointing at -- and on a locked road it was rendering as the
-                   same grey padlock as the lesson two plinths above it, only
-                   bigger. The plinth still carries the state, and so does the
-                   badge; the trophy carries which stop this is. */
                 <span className="relative grid place-items-center">
                   <Icon className="size-14" aria-hidden="true" />
 
@@ -896,9 +579,6 @@ function PathNode({ node, index, onSelect, onLocked }) {
             </span>
             )}
 
-            {/* A topic the plan says is urgent -- finished or not. The same red
-                dot the old list used, kept because it is the one thing on a
-                node that priority order has to be able to say. */}
             {node.urgent && !locked ? (
               <motion.span
                 className="absolute right-1 size-5 rounded-full bg-rb-cardinal ring-4 ring-rb-polar"
@@ -911,15 +591,7 @@ function PathNode({ node, index, onSelect, onLocked }) {
           </button>
         </motion.div>
 
-        {/* The name beside the node, on whichever side the zig-zag has put it —
-            always the outer one, where there is nothing for it to collide with.
-            A stop can be a topic, a unit exam or the final, and which one it is
-            decides whether the learner has ten minutes or an hour, so it is
-            named rather than left to its icon.
 
-            `pointer-events-none` so a two-line name never covers a neighbouring
-            node as a click target -- the plinth is the control, the label only
-            says what it is. */}
         <div
           className={`pointer-events-none absolute ${
             side === "below"
@@ -930,9 +602,7 @@ function PathNode({ node, index, onSelect, onLocked }) {
           }`}
           style={
             side === "below"
-              ? /* Under the plinth's own foot, not under the box: the box
-                   includes the lift the icon floats on, so measuring from its
-                   bottom would leave the name hanging away from the stop. */
+              ?
                 { top: dims.lift + dims.plinthH + dims.plinthD + 10 }
               : { top: dims.lift, height: dims.plinthH, display: "grid", alignContent: "center" }
           }
@@ -945,15 +615,10 @@ function PathNode({ node, index, onSelect, onLocked }) {
             <p className="mt-1 text-[12px] font-bold text-rb-wolf">{node.meta}</p>
           ) : null}
 
-          {/* Only where it says something: a topic part-way through. A rail at
-              0% or 100% is the state the plinth already carries. */}
           {node.progress != null && node.progress > 0 && node.progress < 100 ? (
             <NodeProgress value={node.progress} />
           ) : null}
 
-          {/* Only on the exams. A topic pays per lesson, which is a number that
-              belongs on the lessons themselves; an exam is one sitting for one
-              award, so the road can state it. */}
           {node.xp && !locked ? (
             <span className={`mt-1 inline-flex ${side === "below" ? "justify-center" : ""}`}>
               <XpPill amount={node.xp} earned={done} upTo />
@@ -965,42 +630,6 @@ function PathNode({ node, index, onSelect, onLocked }) {
   )
 }
 
-/**
- * Where one unit's stretch of road ends and the next begins.
- *
- * A name and a rule, not a card. This was a saturated slab you pressed to
- * unroll the unit beneath it -- which made every unit a poster, and made the
- * page a stack of six of them with the road hidden inside. Nothing here is a
- * control: the stops are the only things on this page you press, and the unit
- * is a caption over the stretch they belong to.
- *
- * Sticky, because the road is now one continuous scroll and a learner four
- * stops down has no other way to know which unit they are in. It paints the
- * page's own ground rather than sitting on a transparent offset, so the nodes
- * disappear cleanly behind it instead of sliding through a gap above it. The
- * offset clears the one sticky thing above it -- the portal nav (`top-0`, 4rem).
- *
- * The unit's colour survives as the rule and the eyebrow. That is enough to
- * tell two stretches apart without giving either one a poster.
- */
-/**
- * The ground the road is drawn on.
- *
- * The page was one flat sheet of `rb-polar` with a dotted trail down the
- * middle of it, which reads as a diagram rather than as somewhere you are
- * going. This gives the road a sky: a faint dot grid for texture, and three
- * soft washes of the palette's own colours placed away from the trail so they
- * never sit behind a node's label.
- *
- * Fixed rather than scrolled, so the road travels through it instead of
- * dragging it along -- the stops move, the ground stays, which is what makes a
- * long scroll feel like distance covered.
- *
- * Every colour is a `--color-rb-*` token, so the dark theme's overrides apply
- * to this for free. Opacities are deliberately far below the nodes': this has
- * to survive being looked past, and a backdrop that competes with the stop a
- * learner is trying to read is worse than no backdrop.
- */
 function PathBackdrop() {
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
@@ -1026,8 +655,6 @@ function PathBackdrop() {
 
         <rect width="100%" height="100%" fill="url(#rb-dots)" />
 
-        {/* Kept to the margins: the trail runs down the middle of an 820px
-            column, and a wash centred there would sit behind the labels. */}
         <circle cx="8%" cy="18%" r="320" fill="url(#rb-wash-a)" />
         <circle cx="94%" cy="52%" r="380" fill="url(#rb-wash-b)" />
         <circle cx="14%" cy="88%" r="300" fill="url(#rb-wash-c)" />
@@ -1040,28 +667,8 @@ function UnitMarker({ major, locked, complete, exam, examTaken, wipes }) {
   const tone = TONE[major.tone]
 
   return (
-    /* The band above it is what stops two captions being on screen at once.
-       Each caption is sticky inside its own <section>, so unit one stays
-       pinned until unit one's stretch ends -- and unit two's caption arrives
-       *underneath* it rather than pushing it off, leaving both units named at
-       the top of the page through the whole handover. The `before` band is an
-       opaque strip the height of the caption, sitting directly above it, so
-       the arriving caption wipes the outgoing one as it comes up. The stretch
-       above carries matching bottom padding (`pb-24`) so the band never has a
-       node to cover. */
     <div className="sticky top-[4.25rem] z-20 bg-rb-polar pb-2 pt-4">
-      {/* The wiper. Without it two captions sit on screen through every
-          handover: each caption is sticky inside its own <section>, so unit
-          one stays pinned until unit one's stretch ends, and unit two's
-          caption rides up *underneath* it rather than pushing it off. This is
-          an opaque strip of the page's own ground, exactly as tall as the
-          caption and sitting directly above it, so the arriving caption wipes
-          the outgoing one on its way up. The stretch above carries matching
-          bottom padding, so the strip never has a node to cover.
 
-          A real element rather than a `before:` utility -- that variant is not
-          generated in this build, so the pseudo-element silently never
-          painted. */}
       {wipes ? (
         <span
           aria-hidden="true"
@@ -1088,8 +695,6 @@ function UnitMarker({ major, locked, complete, exam, examTaken, wipes }) {
           </h2>
         </div>
 
-        {/* One status, stated once: the gate while it is shut, the count while
-            it is open, and a receipt once there is nothing left in the unit. */}
         <div className="shrink-0 text-right">
           <p
             className={`flex items-center justify-end gap-1.5 text-xs font-extrabold ${
@@ -1111,10 +716,6 @@ function UnitMarker({ major, locked, complete, exam, examTaken, wipes }) {
             )}
           </p>
 
-          {/* Outside any button, because there is no button any more -- the
-              marker is text, and this is the one link in it. Only once the
-              exam has actually been sat: history nobody has made yet is a
-              page of nothing. */}
           {exam && examTaken && !locked ? (
             <Link
               to={`/learner/assessments/${exam.examId}/history`}
@@ -1126,8 +727,6 @@ function UnitMarker({ major, locked, complete, exam, examTaken, wipes }) {
         </div>
       </div>
 
-      {/* The unit's colour, at the weight of a rule. Grey while the unit is
-          shut, so a locked stretch reads as grey from its caption down. */}
       <span
         className={`mt-2 block h-[3px] rounded-rb-pill ${locked ? "bg-rb-swan" : tone.face}`}
       />
@@ -1135,27 +734,12 @@ function UnitMarker({ major, locked, complete, exam, examTaken, wipes }) {
   )
 }
 
-/**
- * Every stop on a unit's road, in study order: its topics, then its unit exam.
- *
- * A topic is done when every lesson in it is; an exam when the learner has a
- * result for it. `current` is decided by the caller across the whole
- * certification, because there is only ever one place you are up to.
- */
-/**
- * The " · 2 attempts" tail on an exam's meta line, or "" before it is ever sat.
- *
- * Left off at zero deliberately: "0 attempts" is the same statement the absence
- * of the phrase already makes, and it would put a number on every unsat exam on
- * the road for nothing.
- */
 function attemptsSuffix(attemptsByExamId, examId) {
   const count = attemptsByExamId?.get(String(examId)) ?? 0
   if (count <= 0) return ""
   return ` · ${count} ${count === 1 ? "attempt" : "attempts"}`
 }
 
-/** " · not passed yet" / " · proficiency 42, need 50" under an exam that was sat but did not clear. */
 function standingSuffix(standing) {
   if (!standing?.taken || standing.cleared) return ""
   if (!standing.passed) return " · not passed yet"
@@ -1165,12 +749,6 @@ function standingSuffix(standing) {
 function unitNodes(major, takenExamIds, attemptsByExamId, examResults) {
   const nodes = major.middles.map((middle, index) => {
     const total = middle.lessons.length
-    /* Finished, not merely read through. `middle.cleared` requires every
-       lesson's quiz to have been cleared and the topic's own module exam with
-       it; `middle.done === total` only counted lessons whose text had been
-       opened, so a learner who failed every quick check still unlocked the
-       next topic and the unit exam behind it. The "N/total lessons" caption
-       below still reports reading, which is what it is asked about. */
     const done = total > 0 && middle.cleared
 
     return {
@@ -1184,11 +762,6 @@ function unitNodes(major, takenExamIds, attemptsByExamId, examResults) {
       progress: total === 0 ? null : (middle.done / total) * 100,
       done,
       empty: total === 0,
-      /* Completion is not part of this test. A topic whose lessons are all
-         read can still be the weakest thing on the certification -- mastery
-         moves with every answered question, and a bad unit exam turns a
-         finished topic critical. Excluding completed lessons meant the road
-         went quiet exactly when it had something to say. */
       urgent: middle.lessons.some(
         (lesson) => lesson.priorityTag === "CRITICAL_PRIORITY",
       ),
@@ -1209,9 +782,6 @@ function unitNodes(major, takenExamIds, attemptsByExamId, examResults) {
         major.assessment.examId,
       )}${standingSuffix(examStanding(examResults, major.assessment.examId))}`,
       xp: ASSESSMENT_MAX_XP,
-      /* Done is CLEARED -- passed at a proficient level -- not merely sat.
-         A unit whose exam was failed, or passed at a low rating, is not
-         finished, and the next unit stays shut until a retake clears it. */
       done: examStanding(examResults, major.assessment.examId).cleared,
       standing: examStanding(examResults, major.assessment.examId),
     })
@@ -1220,46 +790,18 @@ function unitNodes(major, takenExamIds, attemptsByExamId, examResults) {
   return nodes
 }
 
-/* page */
 
-/**
- * The curriculum while it loads.
- *
- * This used to be `LearnerEmptyState` -- an empty state, borrowed to mean
- * "waiting". It said "Loading curriculum" inside the component the page uses
- * for "there is nothing here", so the screen a learner met while their course
- * was fetching was the same one they would meet if the course did not exist:
- * one icon, centred in an otherwise blank box, with the page's real shape
- * nowhere in sight.
- *
- * This draws the shape instead -- the header bar, a unit caption, then the road
- * itself -- so the layout is already there and only the content arrives.
- * Nothing pretends to be data: no titles, no counts, just the blocks and the
- * circles they will occupy.
- */
 function CurriculumSkeleton() {
-  /* Navigation waits show the one shared loading screen (LoadingSignal),
-     not a page-shaped skeleton, so every wait in the app looks the same. */
   return <LoadingSignal />
 }
 
 export default function LearnerCertificationCurriculumPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  /* Which of the road's two layouts this screen gets. Read once here and
-     handed down through context, so every part of the road turns over on the
-     same render rather than each measuring the window for itself. */
   const narrowRoad = useIsNarrowViewport()
   const { certificationId } = useParams()
   const { data } = useOutletContext()
 
-  /* Which gate the learner just walked into, or `null` for no dialog.
-   *
-   * Two kinds of lock now reach the same dialog -- the diagnostic that shuts
-   * the whole road, and the unfinished unit that shuts one stretch of it -- so
-   * the state carries which, and for a sequence lock the unit that has to be
-   * finished first. A boolean could only say "something is locked", which is
-   * the one thing the learner already knows. */
   const [lock, setLock] = useState(null)
 
   function openLock(node) {
@@ -1302,19 +844,6 @@ export default function LearnerCertificationCurriculumPage() {
     [examsQuery.data, certificationId],
   )
 
-  // Fetched as soon as the certification is known rather than gated on the
-  // diagnostic: a learner who hasn't sat it yet just gets bktAvailable=false
-  // back, which is harmless, and gating on diagnosticDone would create a
-  // circular dependency since diagnosticDone itself comes from `curriculum`.
-  // Polling (rather than a one-shot check) is what lets the "processing"
-  // screen below flip itself over the moment mastery finishes computing,
-  // instead of making the learner refresh to find out.
-  //
-  // Only after the diagnostic, and only for a few minutes. A learner who has not
-  // sat it never gets mastery, so this used to re-request the full analytics --
-  // every attempt with its questions and answers -- every four seconds for as
-  // long as the page stayed open. `masteryPoll` is a ref because diagnosticDone
-  // is computed further down, from data this query feeds.
   const masteryPoll = useRef({ enabled: false, startedAt: 0 })
   const masteryQuery = useQuery({
     queryKey: ["learner-progress-analytics", certificationId],
@@ -1337,10 +866,6 @@ export default function LearnerCertificationCurriculumPage() {
     return map
   }, [masteryQuery.data])
 
-  /* Same reason as the topic page: the road's locks come from the shell's
-     portal payload, which is fetched when the shell mounts and never again
-     while the learner moves between pages. Without this the road can draw a
-     unit as shut using results from before the attempt that opened it. */
   const queryClient = useQueryClient()
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: ["learner-portal-data"] })
@@ -1368,18 +893,12 @@ export default function LearnerCertificationCurriculumPage() {
     })
   }, [curriculum, data?.examResults, certificationId])
 
-  /* Arms the poll once the diagnostic is known to be done. A fetch that already
-     finished with polling off scheduled nothing, so it is asked again once. */
   useEffect(() => {
     masteryPoll.current = { enabled: diagnosticDone, startedAt: 0 }
     if (diagnosticDone && masteryQuery.data && !masteryQuery.data.bktAvailable) masteryQuery.refetch()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [diagnosticDone, certificationId])
 
-  // Assessment XP is paid once per exam, however many times it is retaken (see
-  // AssessmentAttemptService, which keys the award by examId). A learner who
-  // has a result for an exam has already banked it, so the row shows what they
-  // earned rather than dangling XP they cannot earn twice.
   const takenExamIds = useMemo(
     () =>
       new Set(
@@ -1390,13 +909,6 @@ export default function LearnerCertificationCurriculumPage() {
     [data?.examResults],
   )
 
-  /* How many times each exam has been sat, for the road to say under the node.
-     There is one result row per attempt, so this reads the highest `attemptNo`
-     rather than counting rows: the count is what the learner's NEXT sitting
-     would be numbered from, and a single result row that never got written
-     would quietly make a tally disagree with the attempt the server hands
-     back. Rows with no attemptNo still contribute 1 so an exam known to be sat
-     never reports zero. */
   const attemptsByExamId = useMemo(() => {
     const counts = new Map()
     for (const result of data?.examResults ?? []) {
@@ -1409,24 +921,6 @@ export default function LearnerCertificationCurriculumPage() {
     return counts
   }, [data?.examResults])
 
-  /* ------------------------------------------------------------------ road
-   *
-   * The whole certification as one ordered walk -- each unit's topics followed
-   * by its exam, and the final at the end -- so "where am I up to" is answered
-   * once, across the whole thing, rather than per unit. The first unfinished
-   * stop is `current`, and it is the only node that gets the start bubble.
-   *
-   * The order is now enforced. A unit is shut until every unit above it is
-   * finished, and the final is shut until every unit is. Two gates, one lock
-   * icon: before the diagnostic nothing is open at all, and after it the road
-   * opens a unit at a time. `blockedBy` carries which unit is holding a stop
-   * shut, so the dialog can name it instead of saying "locked".
-   *
-   * An empty topic -- a middle category with no published lessons -- can never
-   * be `done`, so it is excluded from the completeness test as well as from
-   * `current`. Without that one unpublished topic would seal every unit under
-   * it for good.
-   */
   const { sections, finalNode, finalIndex } = useMemo(() => {
     const built = (curriculum?.majors ?? []).map((major) => ({
       major,
@@ -1440,7 +934,6 @@ export default function LearnerCertificationCurriculumPage() {
           exam: curriculum.mockExam,
           tone: "fox",
           icon: Trophy,
-          /* The one stop that is not the same size as the others. */
           grand: true,
           label: curriculum.mockExam.title,
           meta: `final · ${curriculum.mockExam.totalQuestions} questions${attemptsSuffix(
@@ -1452,9 +945,6 @@ export default function LearnerCertificationCurriculumPage() {
         }
       : null
 
-    /* One running index across the whole road, so the zig-zag never puts two
-       consecutive stops on the same side just because a unit boundary fell
-       between them. */
     let index = 0
     let currentTaken = false
     let previousUnitsComplete = true
@@ -1468,10 +958,6 @@ export default function LearnerCertificationCurriculumPage() {
       section.locked = !diagnosticDone || !previousUnitsComplete
       section.blockedBy = blocker
 
-      /* Inside a unit the road is walked in order too: a topic opens once
-         the topic before it is finished (every lesson read and its quiz
-         cleared), and the unit exam once every topic is. `blockedByNode`
-         names the stop holding this one shut. */
       let previousNode = null
       for (const node of section.nodes) {
         if (section.locked) {
@@ -1494,9 +980,6 @@ export default function LearnerCertificationCurriculumPage() {
           continue
         }
         previousNode = node
-        // An empty topic cannot be the stop you are on -- there is nothing in
-        // it to do, so marking it current would strand the learner on a dead
-        // end.
         if (!currentTaken && !node.empty) {
           node.state = "current"
           currentTaken = true
@@ -1526,11 +1009,6 @@ export default function LearnerCertificationCurriculumPage() {
     return { sections: built, finalNode: mock, finalIndex: index }
   }, [curriculum, takenExamIds, attemptsByExamId, diagnosticDone])
 
-  /* The same figure the My Learning card and the analytics board show: lessons
-     read and assessments passed, over what the certification requires. The
-     curriculum model's own `progress` counts lessons alone, so this header used
-     to read 100% for a learner the board had at 20%. Falls back to it only when
-     the portal returned no row for this certification. */
   const progressRow = findCertificationProgress(data?.certificationProgress, certificationId)
   const headerProgress = progressRow
     ? certificationProgressPercent(progressRow)
@@ -1540,20 +1018,6 @@ export default function LearnerCertificationCurriculumPage() {
   const masteryReady =
     !diagnosticDone || skippedMasteryWait || masteryQuery.data?.bktAvailable === true
 
-  // study plan
-  // Read-only here. The plan is built on My Learning, at the click that starts
-  // the studying; this page only needs to know whether one exists so it can
-  // offer the way through to the calendar.
-  /* Through the shared hook, so an overall plan counts.
-   *
-   * This asked only for *this certification's* plan. A learner whose one plan
-   * spans several certifications has none by that reading, so the gate below
-   * would send them off to build a second plan they already had. The hook
-   * falls back to the overall plan and checks it actually covers this
-   * certification.
-   *
-   * This page reads plans; it does not build them.
-   */
   const {
     plan: activePlan,
     isLoading: planLoading,
@@ -1577,16 +1041,10 @@ export default function LearnerCertificationCurriculumPage() {
     )
   }
 
-  // The exam list decides what is locked and what a unit contains, so the page
-  // waits for it rather than flashing an unlocked curriculum with no quizzes.
   if (examsQuery.isLoading || examTypesQuery.isLoading || !curriculum) {
     return <CurriculumSkeleton />
   }
 
-  // Diagnostic taken, mastery not back yet: hold here rather than dropping the
-  // learner straight into "continue learning" against a curriculum that has no
-  // priority order yet. Polls itself off this screen the moment bktAvailable
-  // flips true -- no refresh needed.
   if (diagnosticDone && !masteryReady) {
     return (
       <div className="rebyu-ds flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-rb-polar px-5">
@@ -1621,40 +1079,6 @@ export default function LearnerCertificationCurriculumPage() {
     )
   }
 
-  /* No study plan yet: build one before the curriculum opens.
-   *
-   * `useStudyPlanGate` already asks this at every click that leads here, but a
-   * click is not the only way in -- a bookmark, a typed URL, a back button or
-   * the browser restoring the tab all land on this page directly, and none of
-   * them passed through the gate. So the same rule is enforced where the page
-   * is, next to the diagnostic and mastery gates, rather than only at the door
-   * somebody might not have used.
-   *
-   * `isSuccess`, not `!hasPlan`: while the lookup is in flight there is no
-   * answer yet, and gating on the absence of one would show this screen to
-   * every learner for a moment, including those who have a plan. If the lookup
-   * *fails*, the learner is let through -- the hook takes the same view, and a
-   * plan the app cannot read must not lock somebody out of what they paid for.
-   */
-  /* Studying starts from a plan, here as well as on the analytics board.
-   *
-   * Sent to the generator rather than shown a wall. This page used to answer
-   * the click with its own full-page "Build your study plan" screen -- a
-   * second generator, a second set of words, and a page that refused to show
-   * what was asked for. Redirecting keeps one generator and one flow, and
-   * `returnTo` brings the learner back here the moment it is saved.
-   *
-   * Only once the diagnostic is done: the plan is built from its priorities,
-   * so before it there is nothing to generate and the road below is where the
-   * diagnostic itself is offered.
-   *
-   * A failed lookup lets them through. Not knowing whether a plan exists is
-   * not the same as knowing there is none, and a curriculum locked by a
-   * timed-out request is worse than an unplanned lesson.
-   */
-  /* `hasAnyPlan`, not `hasPlan`: a certification outside an existing overall
-     plan is unplanned, but its owner is not unplanned, and sending them to
-     build a second plan is asking for something they cannot give. */
   if (diagnosticDone && !planLoading && !planLookupFailed && !hasAnyPlan) {
     const returnTo = `/learner/learning/${certificationId}`
     return (
@@ -1670,9 +1094,6 @@ export default function LearnerCertificationCurriculumPage() {
     navigate(`/learner/learning/${certificationId}/topics/${middle.id}`)
   }
 
-  /* One target per stop. A topic opens the topic surface -- the lessons,
-     quizzes and exam inside it live there, which is why the road does not
-     repeat them -- and an exam node goes straight into the attempt. */
   function openNode(node) {
     if (node.kind === "exam") {
       navigate(`/learner/assessments/${node.exam.examId}`, {
@@ -1695,39 +1116,15 @@ export default function LearnerCertificationCurriculumPage() {
   }
 
   return (
-    /* No negative margins: the layout hands this route the full window width
-       (see `isCurriculumPage` in learner-layout), so the band and the unit
-       stack set their own gutters rather than clawing back the page's. */
-    /* `isolate` is what makes the backdrop visible at all: without a stacking
-       context here, a `-z-10` child paints *behind* this element's own
-       `bg-rb-polar` and is simply never seen. */
     <div className="rebyu-ds relative isolate min-h-dvh w-full bg-rb-polar pb-20">
       <PathBackdrop />
 
-      {/* ------------------------------------------------------------ header
-          A bar, not a billboard. This was a full-bleed ink slab carrying a
-          5xl title, a description, a chip row and a 112px progress ring --
-          most of a screen spent restating the name of the thing the learner
-          just clicked, before any of the road was visible. The road is the
-          page; the header only has to say which certification it belongs to
-          and how far along it is. */}
-      {/* Controls, not a header bar.
-          A full-width bar with a title, a subtitle, a chip and a link was more
-          chrome than the page it introduced -- and it repeated what the unit
-          card underneath already says. What is left is the two things that are
-          actually actions, as icons, with the progress they qualify. */}
       <div className="mx-auto flex max-w-[1600px] items-center gap-2 px-4 pb-1 pt-4 sm:gap-3 sm:px-5 lg:px-8">
 
-        {/* The page still needs a name -- for the document outline and for
-            anyone arriving by screen reader -- but not a banner across the top.
-            The unit card below states where you are. */}
         <h1 className="sr-only">{certification.title ?? "Certification"}</h1>
 
       </div>
 
-      {/* The gate. Out of the header and into the page, directly above the
-          road it locks -- in the header bar it would have to compete with the
-          title for a row that is now one line tall. */}
       {!diagnosticDone ? (
         <Reveal
           variants={popIn}
@@ -1736,8 +1133,6 @@ export default function LearnerCertificationCurriculumPage() {
         >
           <motion.span
             className="grid size-12 shrink-0 place-items-center rounded-2xl bg-rb-fox text-white"
-            // A slow, small pulse. The gate is the one thing on this page that
-            // has to be noticed before anything else can happen.
             animate={{ scale: [1, 1.08, 1] }}
             transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
           >
@@ -1760,16 +1155,12 @@ export default function LearnerCertificationCurriculumPage() {
         </Reveal>
       ) : null}
 
-      {/* One dock, bottom right: the class, the study calendar, and the
-          certification's progress as a ring -- instead of a bar in one corner,
-          an icon in another and the class card floating in the margin. */}
       <CurriculumDock
         certificationId={certificationId}
         progress={headerProgress}
         showCalendar={diagnosticDone && hasPlan}
       />
 
-      {/* ------------------------------------------------------------- units */}
       <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-5 sm:py-10 lg:px-8">
         {curriculum.majors.length === 0 ? (
           <LearnerEmptyState
@@ -1778,29 +1169,11 @@ export default function LearnerCertificationCurriculumPage() {
             description="This certification has no units with published lessons. Check back once content is released."
           />
         ) : (
-          /* One column. There used to be a second one for the assessments
-             that win no slot on the road, and the grid existed to make room
-             for it; with the road as the only thing here it keeps the full
-             width rather than being pinned into a narrow left lane beside
-             nothing. */
           <NarrowRoadContext.Provider value={narrowRoad}>
-          {/* amount={0}: the road is one element as tall as the whole
-              certification. At the default "10% in view" a phone screen can
-              never show a tenth of a road thousands of pixels tall, so it never
-              counted as in view and the page stayed blank under the header. */}
           <StaggerList className="space-y-6" stagger={0.09} amount={0}>
-            {/* The road. Every unit contributes a caption and a stretch of
-                nodes, and the whole certification reads as one continuous
-                scroll from the first topic to the final -- which is the point:
-                the old stack of cards was a table of contents, and this is a
-                route. Nothing is folded away; what is not yet available is
-                grey, in place, where the learner can see how far off it is. */}
             <StaggerItem variants={fadeUp}>
               <div className="mx-auto max-w-[820px]">
                 {sections.map((section, sectionIndex) => {
-                  /* The final rides on the last unit's stretch rather than in a
-                     box of its own, so the road runs into it instead of
-                     stopping short and leaving it stranded below the end. */
                   const isLast = sectionIndex === sections.length - 1
                   const stops =
                     isLast && finalNode ? [...section.nodes, finalNode] : section.nodes
@@ -1809,15 +1182,9 @@ export default function LearnerCertificationCurriculumPage() {
                     <section
                       key={section.major.id}
                       id={`unit-${section.major.id}`}
-                      /* Cleared past the portal nav and this page's own sticky
-                         caption, so "go to unit two" lands on the caption
-                         rather than underneath it. */
                       className="scroll-mt-24"
                     >
                       <UnitMarker
-                        /* Not the first: above that caption is the page
-                           header, and a strip of ground there would blank the
-                           back key and the progress bar. */
                         wipes={sectionIndex > 0}
                         major={section.major}
                         exam={section.major.assessment}
@@ -1829,20 +1196,7 @@ export default function LearnerCertificationCurriculumPage() {
                         )}
                       />
 
-                      {/* Headroom for the "start" bubble, which hangs above the
-                          first stop and therefore above this box. A margin
-                          rather than padding: the road's SVG and its nodes are
-                          positioned against this element, so padding would move
-                          the stops off the line the road is drawn along. */}
                       <div
-                        /* `mb`, not `pb`. This box is given an explicit
-                           `height` and the stops inside it are absolutely
-                           positioned, so under border-box sizing padding is
-                           taken out of the height rather than added below it
-                           -- it bought no clearance at all, and the next
-                           caption's wiper ate the last stop of the stretch.
-                           Margin is outside the box, so it actually separates
-                           this stretch from the caption under it. */
                         className="relative mx-auto mt-6 mb-24 sm:mb-32"
                         style={{
                           width: pathWidthOf(narrowRoad),
@@ -1865,8 +1219,6 @@ export default function LearnerCertificationCurriculumPage() {
                   )
                 })}
 
-                {/* A certification with a final but no units at all still has
-                    one stop to draw. */}
                 {finalNode && sections.length === 0 ? (
                   <div
                     className="relative mx-auto mt-6"
@@ -1891,14 +1243,7 @@ export default function LearnerCertificationCurriculumPage() {
         )}
       </main>
 
-      {/* -------------------------------------------------------- lock dialog
-          One dialog, two gates. A learner who presses a grey plinth is asking
-          the same question either way -- why not this one -- and the answer is
-          either "sit the diagnostic" or "finish unit two first". Two dialogs
-          would be two vocabularies for one word. */}
       <Dialog open={lock != null} onOpenChange={(open) => !open && setLock(null)}>
-        {/* `rebyu-ds` on the content itself: the dialog portals to <body>, so
-            without it the `rb-btn` footer keys resolve to unstyled buttons. */}
         <DialogContent className="rebyu-ds sm:max-w-md">
           {lock?.kind === "node" ? (
             <>
@@ -1955,10 +1300,6 @@ export default function LearnerCertificationCurriculumPage() {
                   close
                 </TactileButton>
 
-                {/* Scrolled to rather than navigated to: the unit is already on
-                    this page, a few screens up, and reloading the route to
-                    reach something already rendered would throw the road away
-                    only to redraw it. */}
                 <TactileButton
                   variant="macaw"
                   size="sm"

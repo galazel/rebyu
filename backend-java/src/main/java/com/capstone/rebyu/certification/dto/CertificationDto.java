@@ -40,10 +40,8 @@ public class CertificationDto {
     @JsonIgnore
     private MultipartFile file;
 
-    /** S3 key of the badge artwork; null when the certification has none. */
     private String badgeImageKey;
 
-    /** Certification-scoped exams (diagnostic, mock exam) -- not tied to any one major/middle/lesson. */
     private List<ExamSummaryDto> exams;
 
 }

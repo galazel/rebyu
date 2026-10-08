@@ -14,9 +14,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/**
- * Learner profile management: update profile, change password, delete account.
- */
 @Slf4j
 @RestController
 @RequestMapping("/api/learners/me")
@@ -26,9 +23,6 @@ public class LearnerProfileController {
     private final LearnerProfileService profileService;
     private final CognitoAuthService auth;
 
-    /**
-     * Update learner profile (first name, last name, email).
-     */
     @PutMapping
     public ResponseEntity<LearnerDto> updateProfile(
             @AuthenticationPrincipal Jwt jwt,
@@ -56,9 +50,6 @@ public class LearnerProfileController {
         }
     }
 
-    /**
-     * Change password with old password verification.
-     */
     @PostMapping("/change-password")
     public ResponseEntity<?> changePassword(
             @AuthenticationPrincipal Jwt jwt,
@@ -91,9 +82,6 @@ public class LearnerProfileController {
         }
     }
 
-    /**
-     * Delete account (requires password confirmation).
-     */
     @DeleteMapping
     public ResponseEntity<?> deleteAccount(
             @AuthenticationPrincipal Jwt jwt,

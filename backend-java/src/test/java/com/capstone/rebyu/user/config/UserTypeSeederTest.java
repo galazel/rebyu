@@ -42,11 +42,6 @@ class UserTypeSeederTest {
         return rows.stream().map(UserType::getUserTypeText).collect(Collectors.toSet());
     }
 
-    /**
-     * The case that matters on a rebuilt database: nothing exists, so every
-     * role has to be created -- including ADMIN, which no other code path in
-     * the application will ever create.
-     */
     @Test
     void seedsEveryRoleOnAnEmptyDatabase() {
         when(repository.findAll()).thenReturn(List.of());
@@ -58,7 +53,6 @@ class UserTypeSeederTest {
                 savedTypes());
     }
 
-    /** Additive: only the missing rows are written. */
     @Test
     void insertsOnlyWhatIsMissing() {
         when(repository.findAll()).thenReturn(List.of(type("LEARNER"), type("INSTITUTION")));
@@ -68,7 +62,6 @@ class UserTypeSeederTest {
         assertEquals(Set.of("DEPARTMENT_HEAD", "ADMIN"), savedTypes());
     }
 
-    /** Re-running on a seeded database writes nothing at all. */
     @Test
     void isANoOpWhenEveryRoleAlreadyExists() {
         when(repository.findAll()).thenReturn(List.of(
@@ -80,10 +73,6 @@ class UserTypeSeederTest {
         verify(repository, never()).saveAll(anyIterable());
     }
 
-    /**
-     * `user_types.user_type_text` is varchar(20); a longer literal here would
-     * fail at insert time on a real database rather than in this test suite.
-     */
     @Test
     void everySeededRoleFitsTheColumn() {
         when(repository.findAll()).thenReturn(List.of());

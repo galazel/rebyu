@@ -30,16 +30,13 @@ public class StreakService {
       streak.setCurrentStreak(1);
       streak.setStreakStartDate(today);
     } else if (streak.getLastActivityDate().equals(today)) {
-      // Already recorded today
       return;
     } else if (streak.getLastActivityDate().plusDays(1).equals(today)) {
-      // Consecutive day
       streak.setCurrentStreak(streak.getCurrentStreak() + 1);
       if (streak.getCurrentStreak() > streak.getBestStreak()) {
         streak.setBestStreak(streak.getCurrentStreak());
       }
     } else {
-      // Streak broken
       streak.setCurrentStreak(1);
       streak.setStreakStartDate(today);
     }
@@ -49,14 +46,6 @@ public class StreakService {
 
   public record StreakView(int currentStreak, int bestStreak, LocalDate lastActivityDate, LocalDate streakStartDate) {}
 
-  /**
-   * A DTO, not the entity: {@code Streak.learner} is a lazy {@code @OneToOne}
-   * to {@code Learner} (whose own {@code user} is lazy too), and with
-   * `open-in-view: false` the Hibernate session is closed before Jackson
-   * would serialize the controller's response -- returning the entity graph
-   * directly threw `LazyInitializationException` on every learner who already
-   * had a streak row, surfacing as a 500 from the catch-all handler.
-   */
   public StreakView getStreak(Long learnerId) {
     Streak streak = streakRepository.findByLearner_LearnerId(learnerId).orElse(new Streak());
     return new StreakView(

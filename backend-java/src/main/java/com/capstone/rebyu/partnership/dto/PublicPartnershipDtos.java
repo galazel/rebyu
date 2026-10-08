@@ -12,7 +12,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/** DTOs for Transaction One: the PUBLIC partnership request (no account). */
 public final class PublicPartnershipDtos {
 
     private PublicPartnershipDtos() {
@@ -21,8 +20,6 @@ public final class PublicPartnershipDtos {
     public record PublicPartnershipItemRequest(
             @NotNull Long certificationId,
             @NotNull @Min(1) Integer requestedSlots,
-            /* Optional access window. The request form no longer asks for one;
-               approval then grants a year from the day it is approved. */
             LocalDate requestedAccessStartDate,
             LocalDate requestedAccessEndDate
     ) {
@@ -39,7 +36,6 @@ public final class PublicPartnershipDtos {
     ) {
     }
 
-    /** Returned to the requester after a successful submission. */
     public record PublicPartnershipRequestResponse(
             String referenceNumber,
             String institutionName,
@@ -50,14 +46,12 @@ public final class PublicPartnershipDtos {
     ) {
     }
 
-    /** Public status lookup input: reference number + institution email. */
     public record PublicPartnershipStatusRequest(
             @NotBlank String referenceNumber,
             @NotBlank @Email String institutionEmail
     ) {
     }
 
-    /** Limited public status view — no admin internals or slot allocations. */
     public record PublicPartnershipStatusResponse(
             String referenceNumber,
             String institutionName,

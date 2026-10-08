@@ -60,7 +60,6 @@ export default function Component() {
 
   return (
     <div className="flex flex-col gap-2">
-      {}
       <div
         className="relative flex min-h-52 flex-col items-center not-data-[files]:justify-center overflow-hidden rounded-xl border border-input border-dashed p-4 transition-colors has-[input:focus]:border-ring has-[input:focus]:ring-[3px] has-[input:focus]:ring-ring/50 data-[dragging=true]:bg-accent/50"
         data-dragging={isDragging || undefined}
@@ -103,7 +102,6 @@ export default function Component() {
         </div>
       )}
 
-      {}
       {files.length > 0 && (
         <div className="space-y-2">
           {files.map((file) => (
@@ -141,7 +139,6 @@ export default function Component() {
             </div>
           ))}
 
-          {}
           {files.length > 1 && (
             <div>
               <Button onClick={clearFiles} size="sm" variant="outline">

@@ -15,12 +15,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/**
- * Persisted record of an admin-triggered AI generation request. The
- * RabbitMQ trigger message published for this request carries only this
- * row's id -- the consumer re-fetches {@code paramsJson} and re-derives
- * everything else from the database, never from the message body itself.
- */
 @Entity
 @Table(name = "generation_requests")
 @Data
@@ -44,8 +38,6 @@ public class GenerationRequest {
     @Column(name = "certification_id", nullable = false)
     private Long certificationId;
 
-    /** Admin who triggered this request, resolved from the JWT at creation
-     * time -- lets the Python consumer notify the right person on completion. */
     @Column(name = "triggered_by_user_id")
     private Long triggeredByUserId;
 
@@ -53,7 +45,6 @@ public class GenerationRequest {
     @Column(name = "request_type", nullable = false, length = 20)
     private RequestType requestType;
 
-    /** JSON blob of whatever request-specific params the consumer needs (e.g. additionalInstructions, questionCountsJson, sourceMode). */
     @Column(name = "params_json", columnDefinition = "TEXT")
     private String paramsJson;
 

@@ -22,7 +22,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.core.config import get_settings
 
-# Ordered most- to least-preferred split point.
 _SEPARATORS = ["\n\n", "\n", ". ", "? ", "! ", "; ", ", ", " ", ""]
 
 

@@ -5,12 +5,6 @@ import { useGSAP } from "@gsap/react"
 
 gsap.registerPlugin(useGSAP, ScrollTrigger)
 
-/**
- * A cork bulletin board. Its `.rb-sticky` children drop onto it and swing into
- * their resting tilt, then the pushpins go in, when the board scrolls into
- * view. The resting tilt is CSS (`rotate`), so GSAP only animates the drop on
- * top of it and hover can still straighten a note.
- */
 export function PinBoard({ className = "", children }) {
   const scope = useRef(null)
 

@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** The badges and certificates the signed-in learner has earned. */
 @RestController
 @RequestMapping("/api/learners/me/awards")
 @RequiredArgsConstructor

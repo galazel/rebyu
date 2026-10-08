@@ -27,16 +27,8 @@ import { FREE_ARENA_PROBLEM_LIMIT } from "@/services/subscriptionService.js"
 import { getWorldCupTracks } from "@/lib/arenas.js"
 import { getMyRewards } from "@/services/learnerService.js"
 
-/* The three IT Olympics arenas, and only those three.
 
-   The two solo arenas draw from the whole published bank, so there is nothing to
-   be enrolled in and nothing to unlock. World Cup is the exception -- see
-   `worldCupTracks` below.
 
-   Laid out side by side, all three at once, each with its own way in. The
-   swipe carousel before this hid two of the three at any moment and stacked
-   the neighbours half under the middle card; a learner picking an arena
-   should see the whole choice. */
 const CHALLENGES = [
   {
     id: "codestrike",
@@ -67,15 +59,10 @@ const CHALLENGES = [
       "An eight-player bracket on one of your certification tracks — quarterfinals, semis, and a timed final.",
     icon: Trophy,
     route: "/learner/challenges/world-cup",
-    // The bracket is played on one certification's question bank, so it opens
-    // only for a learner who is enrolled in at least one.
     needsEnrollment: true,
   },
 ]
 
-/* No preview data. The board and the record come from endpoints scoped to the
-   caller, and empty means empty: a board nobody is on says so, and says that
-   finishing a challenge puts you top of it. */
 
 function formatSessionDate(value) {
   if (!value) return "Date unavailable"
@@ -88,8 +75,6 @@ function formatSessionDate(value) {
   }).format(date)
 }
 
-/* Paper stays paper in dark mode, so ink on it is literal rather than a token
-   that turns light at night. */
 const INK = "text-[#2c3a33]"
 const INK_SOFT = "text-[#6b706c]"
 
@@ -99,18 +84,12 @@ export default function LearnerChallengesPage() {
   const learnerId = outletContext?.data?.learnerId ?? null
   const { isFree } = useLearnerEntitlements()
 
-  /* Which arenas an admin has actually put problems into. An arena with no
-     problems is a run that opens onto nothing, and finding that out after
-     stepping in is worse than being told up front. */
   const arenaQuery = useQuery({
     queryKey: [CHALLENGE_ARENAS_KEY],
     queryFn: getChallengeArenas,
     staleTime: 60_000,
   })
 
-  /* The learner's own tracks. Enrolled in TOPCIT and nothing else? TOPCIT is
-     the only track the World Cup can put you in -- less any an admin has
-     switched off. */
   const disabledTrackIds = (arenaQuery.data ?? []).find((arena) => arena.arenaId === "worldcup")
     ?.disabledTrackIds
   const worldCupTracks = useMemo(
@@ -126,11 +105,6 @@ export default function LearnerChallengesPage() {
     return map
   }, [arenaQuery.data])
 
-  /* Lifetime XP, which is what an arena's entry requirement is measured in.
-     Read here so the card can say how far short the learner is rather than
-     only that they cannot come in -- "earn 320 more XP" is a next step, "you
-     may not enter" is a wall. The server checks it again when a run starts;
-     this is the courtesy, not the lock. */
   const rewardsQuery = useQuery({
     queryKey: ["learner-rewards"],
     queryFn: getMyRewards,
@@ -144,20 +118,14 @@ export default function LearnerChallengesPage() {
         const arena = configuredArenas.get(challenge.id)
         const configured = Boolean(arena?.configured)
 
-        /* Unknown is not unconfigured. While the lookup is in flight -- or if it
-           failed -- every arena would otherwise read as locked. */
         const known = arenaQuery.isSuccess
         const ready = !known || configured
 
         const enrolled = !challenge.needsEnrollment || worldCupTracks.length > 0
 
-        /* Free: World Cup is Pro, and the solo arenas stop after the first few problems. */
         const proLocked = isFree && challenge.id === "worldcup"
         const freeCapped = isFree && challenge.id !== "worldcup"
 
-        /* The arena's XP door. Unknown counts as open, the same way an
-           unknown configuration does: a lookup still in flight must not read
-           as a locked arena. */
         const entryXp = Number(arena?.settings?.entryXp ?? 0)
         const xpShortfall = known && entryXp > 0 ? Math.max(0, entryXp - myXp) : 0
 
@@ -166,7 +134,6 @@ export default function LearnerChallengesPage() {
           ...(challenge.needsEnrollment ? { tracks: worldCupTracks } : null),
           problemCount: arena?.problemCount ?? 0,
           unconfigured: known && !configured,
-          // Closed by an admin, as opposed to never set up.
           paused: known && arena?.live === false,
           proLocked,
           freeCapped,
@@ -204,17 +171,12 @@ export default function LearnerChallengesPage() {
       navigate(challenge.route)
       return
     }
-    /* Short of the entry requirement: the one closure the learner can do
-       something about today, so it is answered with the number they need
-       rather than a refusal. */
     if (challenge.xpShortfall > 0) {
       toast.info(`${challenge.title} opens at ${challenge.entryXp.toLocaleString()} XP`, {
         description: `You have ${myXp.toLocaleString()} XP — earn ${challenge.xpShortfall.toLocaleString()} more from lessons, practice and assessments to unlock this arena.`,
       })
       return
     }
-    /* Two reasons an arena can be shut, and they need different answers: one
-       is on the learner to fix, the other is not theirs at all. */
     if (challenge.unconfigured) {
       toast.info(`${challenge.title} is ${challenge.paused ? "closed for now" : "not ready yet"}`, {
         description: challenge.paused
@@ -245,10 +207,6 @@ export default function LearnerChallengesPage() {
   return (
     <>
       <div className="mx-auto w-full max-w-6xl space-y-8 pb-10 sm:space-y-10">
-        {/* The board at the front of the room: what this is, and where you
-            stand. The record used to sit below the fold on its own sheet;
-            up here it is the first thing read, next to the arenas it is
-            earned in. */}
         <header className="rb-chalkboard px-5 py-6 sm:px-8 sm:py-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">
@@ -345,8 +303,6 @@ export default function LearnerChallengesPage() {
                     ) : null}
                   </p>
 
-                  {/* Your tracks, named here. "Choose your certification track" on
-                      the next screen is no help if you cannot tell which are yours. */}
                   {challenge.tracks ? (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {challenge.tracks.length > 0 ? (
@@ -364,9 +320,6 @@ export default function LearnerChallengesPage() {
                     </div>
                   ) : null}
 
-                  {/* The door, on the card. A learner should be able to see
-                      what an arena costs and how close they are without
-                      pressing a button that refuses them. */}
                   {challenge.xpShortfall > 0 ? (
                     <div className="mt-3 rounded-xl bg-rb-bee-wash px-3 py-2">
                       <p className="text-xs font-bold text-rb-eel">
@@ -414,7 +367,6 @@ export default function LearnerChallengesPage() {
           </section>
 
         <section className="grid gap-6 pt-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.8fr)]">
-          {/* The class leaderboard, on a sheet of notebook paper. */}
           <div className="rb-graded-sheet min-w-0 p-5 sm:p-6">
             <div className="flex items-end justify-between gap-3 border-b border-[#d9e1e6] pb-3">
               <div className="min-w-0">
@@ -475,7 +427,6 @@ export default function LearnerChallengesPage() {
             )}
           </div>
 
-          {/* Your own record and last few runs. */}
           <div className="rb-graded-sheet min-w-0 p-5 sm:p-6">
             <p className={`rb-graded-heading flex items-center gap-2 !text-2xl ${INK}`}>
               <Activity className="size-5 shrink-0 text-[#2f7d55]" aria-hidden="true" />
@@ -504,8 +455,6 @@ export default function LearnerChallengesPage() {
           </div>
         </section>
 
-        {/* The XP board: a different standing (XP, not challenge points), so its
-            own sheet on the same desk. */}
         <section className="rb-graded-sheet rb-paper-ink p-5 sm:p-6">
           <XpRankingsPanel />
         </section>

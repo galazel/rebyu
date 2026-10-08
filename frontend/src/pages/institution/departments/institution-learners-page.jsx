@@ -41,13 +41,6 @@ export default function InstitutionLearnersPage() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
 
-  /* The certification filter lives in the URL rather than in component state.
-     A learner belongs to the certification they were invited to, and that is
-     how they are reached -- the Certifications page links here as
-     ?certification=<id>. Held in `useState` (which is what this was) that
-     parameter was accepted by the router and then silently dropped, so
-     "View learners" on a specific certification always opened the unscoped
-     roster of everyone in the institution. */
   const [searchParams, setSearchParams] = useSearchParams()
   const certificationFilter = searchParams.get("certification") ?? "all"
   const setCertificationFilter = (value) => {
@@ -116,9 +109,6 @@ export default function InstitutionLearnersPage() {
     return [...seen.entries()]
   }, [data])
 
-  /* Named rather than merely filtered: arriving from one certification, the
-     page has to say which one, or a short roster is indistinguishable from the
-     institution having only one learner. */
   const scopedCertification =
     certificationFilter === "all"
       ? null
@@ -233,9 +223,6 @@ export default function InstitutionLearnersPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {/* No Progress column and no per-row drill-in. This is a
-                          roster -- who is on this certification and which group
-                          they are taught in -- not a performance report. */}
                       <TableHead>Learner</TableHead>
                       <TableHead>Certification</TableHead>
                       <TableHead>Department</TableHead>
@@ -260,9 +247,6 @@ export default function InstitutionLearnersPage() {
                           </TableCell>
                           <TableCell>
                             {row.group ? (
-                              /* Named, not linked. The group workspace is where
-                                 a leader teaches -- this roster only says which
-                                 group the learner belongs to. */
                               row.group.departmentName
                             ) : (
                               <span className="text-sm text-muted-foreground">

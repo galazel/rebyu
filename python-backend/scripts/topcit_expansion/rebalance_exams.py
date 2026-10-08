@@ -43,8 +43,6 @@ CERTIFICATION_ID = 13
 TYPE_NAMES = {1: "DIAGNOSTIC", 2: "MOCK_EXAM", 3: "MAJOR_EXAM",
               4: "MIDDLE_EXAM"}
 
-#: Minutes per item when an exam has to be lengthened, taken from the
-#: diagnostic's own current ratio (60 minutes over 40 items).
 MINUTES_PER_ITEM = 1.5
 
 
@@ -130,7 +128,6 @@ def main():
         removals = []
         insertions = []
 
-        # An exam too short to hold one item per lesson simply has to grow.
         must_grow = len(current) < len(lesson_major)
 
         for lesson_id in sorted(missing):
@@ -147,8 +144,6 @@ def main():
 
             donor = None
             if not must_grow:
-                # Free a slot from the most over-represented lesson in the same
-                # major, so the per-major item split is unchanged.
                 target_major = lesson_major[lesson_id]
                 candidates = [
                     (len(rows), other)
@@ -161,11 +156,6 @@ def main():
 
             insertions.append((lesson_id, question_id, donor))
 
-        # An exam that had to grow is levelled to exactly one item per lesson
-        # rather than left at whatever length the additions produced. The
-        # diagnostic otherwise lands at 66 items for 51 lessons -- longer than
-        # designed AND still lopsided, with some lessons asked about three
-        # times and others once.
         if must_grow:
             for lesson_id, rows in by_lesson.items():
                 while len(rows) > 1:
@@ -193,8 +183,6 @@ def main():
                         (display_order, points, exam_id, question_id)
                     values (0, 1, :e, :q)"""), {"e": exam_id, "q": question_id})
 
-            # display_order is contiguous in this bank; a delete plus an append
-            # would leave gaps and a run of zeroes, so it is rewritten.
             rows = db.execute(text(
                 "select exam_question_id from public.exam_questions "
                 "where exam_id = :e order by display_order, exam_question_id"),

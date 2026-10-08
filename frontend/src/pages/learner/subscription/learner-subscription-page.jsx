@@ -15,10 +15,6 @@ import {
   initiateCheckout,
 } from "@/services/subscriptionService.js"
 
-/* What each plan is, in the words a learner decides by. Kept here rather than
-   derived from entitlement codes: the codes describe enforcement, these
-   describe the product, and the two lists must say the same thing as the
-   gates in AssessmentAttemptService, LearnerToolsController and friends. */
 const FREE_INCLUDES = [
   "Every lesson in every certification",
   "The diagnostic, and one attempt at each quiz, middle and major exam",
@@ -127,9 +123,7 @@ export default function LearnerSubscriptionPage() {
         try {
           if (data.session_id) localStorage.setItem("rebyu_checkout_session", data.session_id)
         } catch {
-          // The server remembers the session too.
         }
-        // PayMongo's own hosted checkout page takes it from here.
         window.location.href = data.checkout_url
       } else {
         toast.error("Could not start checkout. Please try again.")
@@ -166,7 +160,6 @@ export default function LearnerSubscriptionPage() {
         </p>
       </header>
 
-      {/* Where the learner stands right now. */}
       {entitlements.isLoading || subscriptionQuery.isLoading ? (
         <p className="flex items-center justify-center gap-2 text-sm text-rb-hare">
           <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />

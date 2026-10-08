@@ -18,13 +18,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-/**
- * Passing a certification's mock exam earns two things, told apart on
- * purpose: the certification's badge (the emblem the admin uploaded, shown
- * on the learner's card) and a numbered certificate of completion. Each is
- * announced in its own notification and its own email, and each is granted
- * once -- a better score on a retake changes nothing here.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -47,7 +40,6 @@ public class CertificationAwardService {
             LocalDateTime certificateAwardedAt,
             java.math.BigDecimal scorePercentage) {}
 
-    /** Called once an attempt's final score is known. No-op unless it is a passed mock exam. */
     @Transactional
     public void awardForAttempt(AssessmentAttempt attempt) {
         if (attempt == null || attempt.getExam() == null || attempt.getExam().getExamType() == null) return;
@@ -86,8 +78,6 @@ public class CertificationAwardService {
         String email = learner.getUser() != null ? learner.getUser().getEmail() : null;
         String score = attempt.getPercentage() == null ? "" : attempt.getPercentage().stripTrailingZeros().toPlainString() + "%";
 
-        // Two announcements, two emails: a badge and a certificate are
-        // different things to a learner, and each deserves its own moment.
         if (newBadge) {
             notificationService.notify(learner.getUser(),
                     "You earned the " + title + " badge",
@@ -136,7 +126,6 @@ public class CertificationAwardService {
         }).toList();
     }
 
-    /** REBYU-CERT-2026-4F7K2Q: year plus a short code, never a guessable sequence. */
     private String nextCertificateNumber(LocalDateTime now) {
         String alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         String candidate;

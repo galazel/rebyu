@@ -16,8 +16,6 @@ public interface MajorCategoryMapper {
     @Mapping(source = "ownerDepartment.departmentId", target = "ownerDepartmentId")
     MajorCategoryDto toDto(MajorCategory entity);
 
-    // ownerDepartment is never client-settable through this DTO -- it's assigned
-    // exclusively by the (not yet built) member-content creation path.
     @Mapping(source = "certificationId", target = "certification.certificationId")
     @Mapping(target = "ownerDepartment", ignore = true)
     MajorCategory toEntity(MajorCategoryDto dto);

@@ -22,21 +22,6 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
     @Query("SELECT p.postId FROM CommunityPost p WHERE p.circle.circleId = :circleId")
     List<Long> findPostIdsByCircleId(@Param("circleId") Long circleId);
 
-    /**
-     * Deletes a post together with everything hanging off it, in one statement.
-     *
-     * <p>Not left to ON DELETE CASCADE: this environment builds its schema from
-     * Hibernate {@code ddl-auto: update} (see SchemaDefaultsSeeder), and a
-     * Hibernate-generated foreign key carries no ON DELETE rule -- so V24's
-     * cascade does not exist here and deleting a commented post fails with 23503.
-     *
-     * <p>One statement matters. Postgres checks a NO ACTION key at the end of the
-     * statement, so removing a comment and the reply pointing at it together is
-     * fine, where row-by-row deletes would trip over their own ordering.
-     *
-     * <p>Callers must authorise BEFORE calling: the data-modifying CTEs run
-     * regardless of whether the final DELETE matches a row.
-     */
     @Modifying
     @Query(value = """
             WITH deleted_comments AS (DELETE FROM community_comments     WHERE post_id = :postId),
@@ -48,12 +33,6 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
             """, nativeQuery = true)
     void deletePostWithEngagement(@Param("postId") Long postId);
 
-    /**
-     * Single aggregate query backing the community feed: per-post reaction/comment counts and the
-     * viewer's liked/saved/owned flags via correlated subqueries, matching the previous raw-SQL
-     * shape exactly. Optional filters use the "(:param IS NULL OR ...)" idiom so this stays one
-     * static query instead of building SQL strings dynamically.
-     */
     @Query(value = """
             SELECT p.post_id AS postId, concat(l.first_name, ' ', l.last_name) AS authorName, l.avatar_key AS authorAvatarKey, c.name AS community,
               p.created_at AS createdAt, p.title AS title, p.body AS body, p.post_type AS postType, p.circle_id AS circleId,
@@ -82,19 +61,6 @@ public interface CommunityPostRepository extends JpaRepository<CommunityPost, Lo
     List<CommunityPostRow> feed(@Param("learnerId") Long learnerId, @Param("type") String type,
                                  @Param("searchPattern") String searchPattern, @Param("savedOnly") boolean savedOnly);
 
-    /**
-     * One post, subject to the same private-circle gate as the feed.
-     *
-     * <p>The gate is repeated here rather than left to the feed because a feed
-     * filter only covers what the feed hands out. A post read by id is the one
-     * path that skips it, so without this a member could pass a private
-     * circle's post id to anyone and it would still resolve.
-     *
-     * <p>Note for anyone adding to the SQL below: keep prose out of it. Spring
-     * Data scans the whole query string for quotes before it runs, including
-     * inside {@code --} comments, so a single apostrophe in an explanation
-     * opens a quoted range that never closes and the repository fails to start.
-     */
     @Query(value = """
             SELECT p.post_id AS postId, concat(l.first_name, ' ', l.last_name) AS authorName, l.avatar_key AS authorAvatarKey, c.name AS community,
               p.created_at AS createdAt, p.title AS title, p.body AS body, p.post_type AS postType, p.circle_id AS circleId,

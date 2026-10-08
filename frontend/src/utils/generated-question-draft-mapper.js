@@ -26,19 +26,6 @@ function createMcqData(draft) {
     };
 }
 
-/**
- * The item's parts, in the shape the editors use.
- *
- * The generator names the expected answer `expectedAnswer` -- a term for a
- * fill-in-the-blank blank, a rubric for a written part -- while the editors
- * call it `correctAnswer`. Mapped here rather than renamed at either end,
- * because both names are right where they are: the generator does not know
- * which of the two it produced, and the editor grades against one field.
- *
- * Every mapper below used to hardcode this to [], so a generated fill-in-the-
- * blank reached the reviewer as a passage with no blanks, and a modelling task
- * with no parts -- with nothing to say anything had been lost.
- */
 function mapSubQuestions(draft) {
     return (draft.subQuestions ?? []).map((sub) => ({
         question: sub?.question ?? "",
@@ -54,8 +41,6 @@ function createShortAnswerData(draft) {
         imageKey: draft.imageKey ?? null,
         correctAnswer: draft.correctAnswer ?? "",
         checkingMethod: draft.checkingMethod ?? "EXACT_MATCH",
-        // The blanks, when this is a fill-in-the-blank. Empty otherwise, which
-        // is every ordinary short answer.
         subQuestions: mapSubQuestions(draft),
         difficulty: draft.difficulty ?? "average",
         lessonId: String(draft.suggestedLessonId ?? ""),

@@ -1,12 +1,3 @@
-/**
- * Timestamps the way Facebook writes them on posts and notifications:
- *
- *   Just now · 12m · 5h · Yesterday at 3:04 PM · September 16 at 3:04 PM
- *   · September 16, 2025 (a different year)
- *
- * Counting only in hours made a week-old post read "222 hours ago" -- the
- * reader has to divide by 24 to learn anything. Past a day, a date says more.
- */
 export function socialTime(value, now = new Date()) {
   const date = value instanceof Date ? value : new Date(value)
   const time = date.getTime()

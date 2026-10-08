@@ -75,7 +75,6 @@ class ExamServiceTest {
         request.setTitle("TOPCIT Mock Exam 1");
         request.setTargetScope("CERTIFICATION");
         request.setTotalQuestions(2);
-        // Two selected questions with distinct per-question points.
         request.setQuestions(List.of(
                 new ExamDto.ExamQuestionInput(10L, new BigDecimal("3"), 1),
                 new ExamDto.ExamQuestionInput(11L, new BigDecimal("5"), 2)));
@@ -90,7 +89,6 @@ class ExamServiceTest {
         when(questionRepository.findAllById(List.of(10L, 11L)))
                 .thenReturn(List.of(question(10L), question(11L)));
 
-        // Title generation + uniqueness lookups for a certification-scoped mock.
         ExamType mockType = new ExamType();
         mockType.setExamTypeId(2L);
         mockType.setExamTypeText("MOCK_EXAM");
@@ -118,7 +116,6 @@ class ExamServiceTest {
         assertEquals(100L, result.getExamId());
         assertEquals(2, result.getTotalQuestions());
 
-        // The whole set is replaced (no orphans) and each row keeps its points/order.
         verify(examQuestionRepository).deleteByExam_ExamId(100L);
         ArgumentCaptor<ExamQuestion> captor = ArgumentCaptor.forClass(ExamQuestion.class);
         verify(examQuestionRepository, times(2)).save(captor.capture());
@@ -141,7 +138,6 @@ class ExamServiceTest {
         request.setTitle("TOPCIT Mock Exam 1");
         request.setTargetScope("CERTIFICATION");
         request.setTotalQuestions(0);
-        // No questions / questionIds -> the service must not auto-attach anything.
 
         Exam mapped = exam();
         when(examMapper.toEntity(request)).thenReturn(mapped);
@@ -173,7 +169,6 @@ class ExamServiceTest {
 
         service.create(request, true, null, null, false, null);
 
-        // Never deletes or inserts exam_questions when nothing was selected.
         verify(examQuestionRepository, times(0)).deleteByExam_ExamId(anyLong());
         verify(examQuestionRepository, times(0)).save(any(ExamQuestion.class));
     }

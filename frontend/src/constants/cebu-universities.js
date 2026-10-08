@@ -1,10 +1,5 @@
-/**
- * Comprehensive directory of universities and specific campus branches across Cebu.
- * Used for autocompletion and automatic address population in institution access requests.
- */
 
 export const CEBU_UNIVERSITIES = [
-  // 🏛️ The "Big Four" Private University Systems
   {
     name: "University of Cebu – Lapu-Lapu and Mandaue (UCLM)",
     shortName: "UCLM",
@@ -132,7 +127,6 @@ export const CEBU_UNIVERSITIES = [
     address: "D. Macapagal Highway, Toledo City, 6038 Cebu",
   },
 
-  // 💻 Specialized & Technological Universities
   {
     name: "Cebu Institute of Technology – University (CIT-U)",
     shortName: "CIT-U",
@@ -155,7 +149,6 @@ export const CEBU_UNIVERSITIES = [
     address: "Mabini St., Cebu City, 6000 Cebu",
   },
 
-  // 🩺 Elite Medical & Allied Health Universities
   {
     name: "Cebu Doctors' University (CDU)",
     shortName: "CDU",
@@ -171,7 +164,6 @@ export const CEBU_UNIVERSITIES = [
     address: "Urgello St., Sambag II, Cebu City, 6000 Cebu",
   },
 
-  // 🎓 Prestigious Public & State Universities
   {
     name: "University of the Philippines Cebu – Lahug Campus",
     shortName: "UP Cebu Lahug",

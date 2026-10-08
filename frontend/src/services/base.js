@@ -1,23 +1,12 @@
 import axios from "axios"
 import { supabase } from "@/lib/supabase.js"
 
-// In development, Vite forwards /api to the local backend. In deployed builds,
-// use the public API URL supplied by the host (for example, Railway).
 const deployedApiOrigin = import.meta.env.VITE_API_URL?.replace(/\/+$/, "")
 
 export const API = import.meta.env.DEV
   ? "/api"
   : `${deployedApiOrigin || "http://localhost:8080"}/api`
 
-/* The localhost fallback above is right for the local Docker stack, where the
-   browser really is on localhost and the API really is on 8080. Anywhere else
-   it is a build that was never told where its API lives, and the way that
-   failure presents -- a CORS error naming localhost, from a page served over
-   https -- points at the server rather than at the missing build argument.
-   
-   So it says so itself, once, at startup. Checked against the page's own host
-   rather than a mode flag: `import.meta.env.DEV` is already false in every
-   built image, including the one that is correctly using localhost. */
 if (
   !import.meta.env.DEV &&
   !deployedApiOrigin &&
@@ -32,9 +21,6 @@ if (
   )
 }
 
-// Attaches the Supabase access token when a session exists. Exported because
-// the SSE notification stream needs the same bearer token but is opened with
-// fetch (not axios), so it can't go through base() below.
 export async function currentAccessToken() {
   try {
     const { data } = await supabase.auth.getSession()
@@ -44,11 +30,6 @@ export async function currentAccessToken() {
   }
 }
 
-/**
- * The server's own explanation for a failed request. Our API returns
- * {status, message, fieldErrors}, and swallowing that in favour of a generic
- * "could not do X" turns a diagnosable failure into a guessing game.
- */
 export function apiMessage(error, fallback) {
   const message = error?.response?.data?.message
   return typeof message === "string" && message.trim() ? message : fallback
@@ -99,21 +80,12 @@ async function request(endpoint, options = {}) {
       data: options.data,
       responseType: options.responseType,
       headers,
-      // Real byte-level upload progress, for callers that send files. Without
-      // this a large multipart POST is indistinguishable from a hung request,
-      // which is what forced the old generation UI to fake progress on a timer.
       onUploadProgress: options.onUploadProgress,
-      // Forwarded so a caller can raise it for work that is legitimately
-      // slow -- parsing a past paper renders every figure in it and takes
-      // minutes. Omitted, axios waits indefinitely, which is the existing
-      // behaviour for every caller that does not set one.
       timeout: options.timeout,
     })
 
     return response.data
   } catch (error) {
-    // A 401 on a request we sent WITH a token means the session expired or was
-    // revoked mid-use. Send the user back to sign in (guarded against loops).
     if (
       error.response?.status === 401 &&
       hadToken &&

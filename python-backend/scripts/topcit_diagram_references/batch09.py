@@ -22,7 +22,6 @@ USECASE_LEGEND = [
 ]
 
 
-# cfg 83, UML_COMPONENT
 def billing_operations():
     d = Diagram("Drummond Telecom - Billing Operations Architecture",
                 "UML component diagram (model answer)")
@@ -96,7 +95,6 @@ would go wrong at month end if the invoice generator recalculated charges itself
 instead."""
 
 
-# cfg 84, ACTIVITY_DIAGRAM
 def month_end_close():
     d = Diagram("Drummond Telecom - Month-End Billing Close",
                 "UML activity diagram (model answer)")
@@ -182,7 +180,6 @@ Explain in one sentence what parking the usage costs the business, and why that 
 is preferable to holding the close open."""
 
 
-# cfg 85, ERD
 def service_operations_records():
     d = Diagram("Drummond Telecom - Service Operations Records",
                 "Entity-relationship diagram (model answer)")
@@ -276,7 +273,6 @@ still open. State what that means for those columns, and one report you can \
 write from each."""
 
 
-# cfg 86, FLOWCHART
 def change_deployment():
     d = Diagram("Drummond Telecom - Change Deployment to Production",
                 "Flowchart (model answer)")
@@ -354,7 +350,6 @@ two branches reaching it, and the review drawn once with both outcomes reaching 
 it, rather than duplicating either."""
 
 
-# cfg 87, USE_CASE
 def service_desk_use_cases():
     d = Diagram("Drummond Telecom - Service Desk Use Cases",
                 "UML use case diagram (model answer)")
@@ -424,7 +419,6 @@ boundary instead.
 say what would be wrong with modelling requirement (g) as an <<include>>."""
 
 
-# cfg 88, ACTIVITY_DIAGRAM
 def kpi_definition_activity():
     d = Diagram("Defining a New KPI",
                 "UML activity diagram (model answer)")
@@ -508,7 +502,6 @@ sentence why an unachievable target is a cheaper problem than a \
 misbehaving metric, and what requirement (g) is protecting the scorecard from."""
 
 
-# cfg 89, FLOWCHART
 def requirements_documentation_flow():
     d = Diagram("Producing a Requirements Document",
                 "Flowchart (model answer)")
@@ -585,7 +578,6 @@ and explain in one sentence why a rejected review returns to writing rather than
 to assembling the requirements."""
 
 
-# cfg 90, FLOWCHART
 def rfi_process():
     d = Diagram("Issuing a Request for Information",
                 "Flowchart (model answer)")
@@ -671,7 +663,6 @@ same answer. Explain in one sentence what procurement principle that protects, \
 and what would be at risk if one supplier were answered privately."""
 
 
-# cfg 91, FLOWCHART
 def business_plan_flow():
     d = Diagram("Developing a Business Plan",
                 "Flowchart (model answer)")
@@ -748,7 +739,6 @@ to the forecast, and what the opening paragraph means by "written to fit it".
 and state which of them is the most expensive to hit and why."""
 
 
-# cfg 92, FLOWCHART
 def technical_presentation_flow():
     d = Diagram("Preparing and Delivering a Technical Presentation",
                 "Flowchart (model answer)")
@@ -833,7 +823,6 @@ converging on one activity, and state in one sentence what taking an \
 out-of-scope question at length costs the audience."""
 
 
-# cfg 93, ERD
 def project_management_model():
     d = Diagram("Ravensworth Consulting - Project Management Records",
                 "Entity-relationship diagram (model answer)")
@@ -931,7 +920,6 @@ path between them on your diagram.
 that means for the column, and one report you can write from that single column."""
 
 
-# cfg 94, FLOWCHART
 def scheduling_flow():
     d = Diagram("Building and Levelling a Project Schedule",
                 "Flowchart (model answer)")
@@ -1012,7 +1000,6 @@ State in one sentence what that assumes about the scope, and when that assumptio
 would be wrong."""
 
 
-# cfg 95, ERD
 def system_requirements_records():
     d = Diagram("Ravensworth Consulting - System Requirements Management",
                 "Entity-relationship diagram (model answer)")
@@ -1107,7 +1094,6 @@ verified, and state what an outcome of "passed" against an OLD version would \
 tell you."""
 
 
-# cfg 96, UML_COMPONENT
 def performance_testing_components():
     d = Diagram("Ravensworth Consulting - Performance Test Architecture",
                 "UML component diagram (model answer)")

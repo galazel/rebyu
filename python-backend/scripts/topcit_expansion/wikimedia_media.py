@@ -29,14 +29,8 @@ import httpx
 WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
 COMMONS_API = "https://commons.wikimedia.org/w/api.php"
 
-#: Wikimedia's robot policy (https://w.wiki/4wJS) requires automated clients to
-#: name themselves AND give a way to reach them. A User-Agent without a URL or
-#: address -- or one dressed up as a browser -- is answered 403 on every API
-#: call, which this module used to swallow as "no image found" for all 206
-#: figures it was asked about.
 USER_AGENT = "REBYU-lesson-media/1.0 (https://rebyu.online)"
 
-#: Used for every request, API and image alike: the same honest identity.
 BROWSER_HEADERS = {
     "User-Agent": USER_AGENT,
     "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
@@ -51,8 +45,6 @@ STOPWORDS = {
     "diagram", "chart", "model", "overview", "introduction", "example", "works",
 }
 
-#: Wikimedia file names that are chrome rather than content -- icons, logos,
-#: edit-pencils and the like turn up in almost every article's image list.
 JUNK_PATTERNS = re.compile(
     r"(icon|logo|wiki|commons|edit|padlock|ambox|question book|crystal|nuvola|"
     r"symbol|flag of|stub|disambig|portal|emblem|barnstar|folder|magnify|"
@@ -60,14 +52,8 @@ JUNK_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
-#: Diagrams on Commons are drawn as SVG or exported to PNG; photographs are
-#: JPEG. Excluding JPEG is the single most effective relevance filter there
-#: is here, because the wrong-but-word-matching hit is almost always a photo:
-#: "STRIDE" finds Elizabeth Stride's grave, "incident response" a fire truck.
-#: A lesson wants the drawing, so only drawings are eligible.
 ALLOWED_EXTENSIONS = (".svg", ".png")
 
-#: Commons search is unanchored, so one shared word is not enough to trust it.
 MIN_COMMONS_OVERLAP = 2
 
 

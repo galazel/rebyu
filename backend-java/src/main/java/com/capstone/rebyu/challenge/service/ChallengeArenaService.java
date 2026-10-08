@@ -32,28 +32,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-/**
- * The IT Olympics arenas, and the problems an admin configures into them.
- *
- * <h3>An arena's problem set is an exam</h3>
- * One {@code CHALLENGE} exam per arena. That is not a workaround -- it is what
- * makes a challenge runnable at all. The attempt engine already starts, saves,
- * submits and grades an exam, and it already grades the two question types the
- * solo arenas are made of: PROGRAMMING through Judge0 and DIAGRAM through the
- * structural grader. Modelling arena problems separately would have meant
- * writing both a second time, and they would have drifted.
- *
- * <p>The arena is named by {@code targetScope} -- "codestrike", "blueprint",
- * "worldcup" -- the same way generated practice exams mark themselves with
- * "GENERATED". {@code examType} says it is a challenge; {@code targetScope}
- * says which one.
- *
- * <h3>Configured, and what it gates</h3>
- * An arena is configured when its exam exists and holds at least one question.
- * Until then the learner's view keeps it locked: an arena with no problems is
- * not a hard challenge, it is a run that opens onto nothing, and letting a
- * learner in to discover that is worse than saying so on the card.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -61,7 +39,6 @@ public class ChallengeArenaService {
 
   public static final String CHALLENGE_EXAM_TYPE = "CHALLENGE";
 
-  /** The arenas that exist. Not data: each is a built surface with its own run. */
   public static final List<String> ARENA_IDS = List.of("codestrike", "blueprint", "worldcup");
 
   private final ExamRepository exams;
@@ -74,27 +51,8 @@ public class ChallengeArenaService {
 
   private static final ObjectMapper JSON = new ObjectMapper();
 
-  /**
-   * One run setting an arena accepts, and its bounds.
-   *
-   * <p>Kept here rather than trusted from the client: the admin page renders
-   * whatever fields it knows about, but a run reads these values, so an unknown
-   * key or a negative time limit has to be refused where it is stored.
-   */
   private record SettingSpec(String key, int defaultValue, int min, int max) {}
 
-  /**
-   * The XP a learner must already hold to enter an arena.
-   *
-   * <p>A knob on each arena rather than one global number: the arenas are not
-   * equally demanding, and an admin who wants CodeStrike to be the deep end
-   * and Blueprint the shallow one can say so. Default 0, which is "open to
-   * everyone" -- an arena nobody configured must not silently shut.
-   *
-   * <p>Read against lifetime XP, not challenge points. Gating the arenas on
-   * points earned *in* the arenas would be a lock whose only key is inside
-   * the room: a learner at zero points could never enter anything.
-   */
   public static final String ENTRY_XP = "entryXp";
 
   private static final Map<String, List<SettingSpec>> SETTING_SPECS = Map.of(
@@ -118,15 +76,6 @@ public class ChallengeArenaService {
           new SettingSpec("countdown", 3, 0, 60),
           new SettingSpec("queueTimeout", 120, 10, 3600)));
 
-  /**
-   * What the learner's card and the admin list both read.
-   *
-   * <p>{@code configured} means "a learner can enter": it has problems AND an
-   * admin has not paused it. Folding the pause in here, rather than adding a
-   * second flag every learner screen would have to learn, is what makes the
-   * switch take effect on all of them at once. {@code live} is the switch
-   * itself, for the admin screens.
-   */
   public record ArenaStatus(
       String arenaId,
       boolean configured,
@@ -137,16 +86,11 @@ public class ChallengeArenaService {
       Map<String, Integer> settings,
       List<Long> disabledTrackIds) {}
 
-  /** One problem as the admin hands it over: a question already saved to the bank. */
   public record ArenaProblemRequest(Long questionId, Integer nodeIndex, BigDecimal points) {}
 
   public record SaveArenaProblemsRequest(
       Long certificationId, Integer timeLimitMinutes, List<ArenaProblemRequest> problems) {}
 
-  /**
-   * One saved problem, as the admin builder reloads it: the bank question with
-   * its parts, and where in the run it sits.
-   */
   public record ArenaProblemView(
       Long questionId,
       Integer nodeIndex,
@@ -187,7 +131,6 @@ public class ChallengeArenaService {
         disabledTracks);
   }
 
-  /** Opens or pauses an arena for learners. Its problems are kept either way. */
   @Transactional
   public ArenaStatus setLive(String arenaId, boolean live) {
     requireKnownArena(arenaId);
@@ -199,12 +142,6 @@ public class ChallengeArenaService {
     return status(arenaId);
   }
 
-  /**
-   * Replaces the World Cup tracks switched off.
-   *
-   * <p>Only certifications that exist are accepted, so a typo cannot quietly
-   * hide nothing while the admin believes a track is closed.
-   */
   @Transactional
   public ArenaStatus setDisabledTracks(List<Long> certificationIds) {
     List<Long> ids = certificationIds == null
@@ -223,19 +160,11 @@ public class ChallengeArenaService {
     return status("worldcup");
   }
 
-  /**
-   * The arena's run settings: what the admin saved, over the defaults.
-   *
-   * <p>Defaults fill any key never saved, so an arena reads a complete set from
-   * its first day, and a knob added later appears with its default instead of
-   * missing.
-   */
   @Transactional(readOnly = true)
   public Map<String, Integer> settingsOf(String arenaId) {
     return settingsOf(arenaId, arenaConfigs.findById(arenaId));
   }
 
-  /** Resolves settings from an already-loaded config, for callers outside this service. */
   public static Map<String, Integer> settingsOf(String arenaId, Optional<ChallengeArenaConfig> config) {
     Map<String, Integer> result = new LinkedHashMap<>();
     for (SettingSpec spec : SETTING_SPECS.getOrDefault(arenaId, List.of())) {
@@ -252,18 +181,6 @@ public class ChallengeArenaService {
     return result;
   }
 
-  /**
-   * Replaces an arena's run settings.
-   *
-   * <p>Every key is checked against the arena's own list and bounds, and
-   * CodeStrike's three weights must total 100 -- a run scored on weights that
-   * sum to 90 would cap every learner at 90%.
-   *
-   * <p>The time limit is also written through to the arena's exam, because the
-   * attempt engine times a run from {@code exams.duration_minutes}, not from
-   * here. Saving it only here would change the number on the admin screen and
-   * nothing a learner experiences.
-   */
   @Transactional
   public ArenaStatus saveSettings(String arenaId, Map<String, Integer> requested) {
     requireKnownArena(arenaId);
@@ -318,13 +235,6 @@ public class ChallengeArenaService {
     return status(arenaId);
   }
 
-  /**
-   * The arena's saved problem set, for the admin builder to reload.
-   *
-   * <p>Sub-questions are fetched for the whole set in one query rather than one
-   * per problem -- the database is a round trip away, and a ten-node roadmap is
-   * a hundred problems.
-   */
   @Transactional(readOnly = true)
   public List<ArenaProblemView> problems(String arenaId) {
     requireKnownArena(arenaId);
@@ -344,7 +254,6 @@ public class ChallengeArenaService {
         index -> rows.get(index).getPoints());
   }
 
-  /** Bank questions as the builders reload them, with their parts. */
   @Transactional(readOnly = true)
   public List<ArenaProblemView> viewsOf(
       List<Question> parents,
@@ -375,13 +284,6 @@ public class ChallengeArenaService {
     return views;
   }
 
-  /**
-   * Replaces an arena's problem set.
-   *
-   * <p>Replace rather than append: the builder edits the whole set on one
-   * screen and saves it whole, so a merge would leave behind problems the admin
-   * had just deleted and believed were gone.
-   */
   @Transactional
   public ArenaStatus saveProblems(String arenaId, SaveArenaProblemsRequest request) {
     requireKnownArena(arenaId);
@@ -409,17 +311,12 @@ public class ChallengeArenaService {
       exam.setExamType(examType);
       exam.setTargetScope(arenaId);
       exam.setTitle(titleFor(arenaId));
-      // Answers are released after submitting: an arena run is practice against
-      // a judge, and a learner who cannot see what they got wrong learns
-      // nothing from having run it.
       exam.setReleaseAnswersAfterSubmit(true);
       exam.setPassingScore(new BigDecimal("70.00"));
       exam.setStatus(Exam.Status.PUBLISHED);
       exam.setPublishedAt(now);
     }
 
-    // No limit in the request means "keep the arena's own": the saved setting,
-    // which is what the Settings tab shows.
     Integer timeLimit = request.timeLimitMinutes() != null
         ? request.timeLimitMinutes()
         : settingsOf(arenaId).get("timeLimit");
@@ -435,14 +332,11 @@ public class ChallengeArenaService {
         throw new IllegalArgumentException("Every arena problem needs a question");
       }
     }
-    // One query for the whole set, not one per problem.
     Map<Long, Question> byId = questions
         .findAllById(request.problems().stream().map(ArenaProblemRequest::questionId).toList())
         .stream()
         .collect(Collectors.toMap(Question::getQuestionId, question -> question));
 
-    // Out with the previous set before the new one goes in, so display order
-    // cannot collide with rows that are about to be removed.
     examQuestions.deleteAll(examQuestions.findByExam_ExamIdOrderByDisplayOrderAsc(exam.getExamId()));
 
     int order = 1;
@@ -462,7 +356,6 @@ public class ChallengeArenaService {
       layout.add(problem.nodeIndex() == null || problem.nodeIndex() < 1 ? 1 : problem.nodeIndex());
     }
 
-    // Which node each problem sits in: the exam rows keep only the order.
     ChallengeArenaConfig config = configFor(arenaId);
     config.setNodeLayoutJson(writeJson(layout));
     config.setUpdatedAt(now);
@@ -474,7 +367,6 @@ public class ChallengeArenaService {
     return status(arenaId);
   }
 
-  /** Removes an arena's problem set, which locks it again for learners. */
   @Transactional
   public ArenaStatus clearProblems(String arenaId) {
     requireKnownArena(arenaId);
@@ -509,7 +401,6 @@ public class ChallengeArenaService {
     try {
       return json == null ? Map.of() : JSON.readValue(json, new TypeReference<Map<String, Integer>>() {});
     } catch (Exception e) {
-      // A corrupt document falls back to the defaults rather than locking the arena.
       log.warn("Unreadable arena settings, using defaults: {}", e.getMessage());
       return Map.of();
     }

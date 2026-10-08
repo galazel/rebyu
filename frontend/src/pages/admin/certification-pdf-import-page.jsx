@@ -79,13 +79,6 @@ const KEYS = LETTER_KEYS.slice(0, 4)
 const DIFFICULTIES = ["easy", "average", "hard"]
 
 
-/**
- * What an imported question can be saved as. An exam question arrives as
- * multiple choice; as short answer or descriptive, the correct option's text
- * becomes the expected answer. Programming and diagram questions need test
- * cases or a reference diagram a past paper does not contain, so they are
- * listed but cannot be picked.
- */
 const QUESTION_TYPES = [
     { id: "MCQ", label: "Multiple choice" },
     { id: "SHORT_ANSWER", label: "Short answer" },
@@ -94,11 +87,6 @@ const QUESTION_TYPES = [
     { id: "DIAGRAM", label: "Diagram", disabled: "needs a reference diagram" },
 ]
 
-/**
- * Canvases become data URLs once, when a paper is read, not on every render
- * -- and once per canvas: the questions of one page, or the blanks of one
- * passage, share the same page images.
- */
 const imageUrls = new WeakMap()
 function srcOf(canvas) {
     if (!imageUrls.has(canvas)) {
@@ -107,19 +95,11 @@ function srcOf(canvas) {
     return imageUrls.get(canvas)
 }
 
-/**
- * A read question as the page keeps it: every image as a compressed data URL,
- * and no canvases. A canvas holds its page area uncompressed -- a hundred
- * papers of them ran to gigabytes and took the tab down -- so the canvases
- * are dropped here and rebuilt from the data URL only when a question is
- * saved.
- */
 function forDisplay(question) {
     const { figures, snaps, ...rest } = question
     return {
         ...rest,
         figureSrcs: figures.map(srcOf),
-        // "Show original" is only ever looked at: JPEG keeps it small.
         snapSrcs: snaps.map((canvas) => canvas.toDataURL("image/jpeg", 0.8)),
         options: question.options.map(({ image, ...option }) => ({
             ...option,
@@ -128,7 +108,6 @@ function forDisplay(question) {
     }
 }
 
-/** A data URL drawn back onto a canvas, for stacking and saving. */
 function srcToCanvas(src) {
     return new Promise((resolve, reject) => {
         const image = new Image()
@@ -146,7 +125,6 @@ function srcToCanvas(src) {
 
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"]
 
-/** A picked image file drawn onto a canvas -- the form every crop takes here. */
 function fileToCanvas(file) {
     return new Promise((resolve, reject) => {
         if (!IMAGE_TYPES.includes(file.type)) {
@@ -174,10 +152,6 @@ function fileToCanvas(file) {
     })
 }
 
-/**
- * Asks for one image file and resolves to it as a canvas, or to null when the
- * picker is closed without one.
- */
 function pickImage() {
     return new Promise((resolve, reject) => {
         const input = document.createElement("input")
@@ -192,7 +166,6 @@ function pickImage() {
     })
 }
 
-/** A pasted key: "1 c, 2 d, 3 a", or one letter per question in order. */
 function parseKeyText(text, questions) {
     const key = {}
     const re = /(\d{1,3})\s*[.):=-]?\s*\(?([a-dA-D])\b/g
@@ -207,31 +180,18 @@ function parseKeyText(text, questions) {
     return key
 }
 
-/**
- * A question's text with case, spacing and punctuation taken away -- what two
- * copies of one question have in common. The server compares the same way
- * against the question bank.
- */
-/**
- * What makes two questions the same question: the stem AND the choices.
- * Papers reuse a stem ("Which of the following is an appropriate description
- * concerning the Java language?") with different choices, and those are
- * different questions. Null for a stem too short to tell questions apart.
- */
 function questionPrint(question) {
     const stem = fingerprint(question.stem)
     if (stem.length < 40) return null
     return `${stem}|${question.options.map((option) => fingerprint(option.text)).join("|")}`
 }
 
-/** A question as the server's duplicate check compares it: the stem, then its choices after a U+0001 (a stem can hold line breaks). */
 function duplicateText(question) {
     return [question.stem, ...question.options.map((option) => option.text || "")].join("\u0001")
 }
 
 const prints = new Map()
 function fingerprint(text) {
-    // Cached: the duplicate check runs on every render, over every question.
     let print = prints.get(text)
     if (print === undefined) {
         print = (text || "").toLowerCase().replace(/[^0-9a-z]+/g, "")
@@ -240,45 +200,32 @@ function fingerprint(text) {
     return print
 }
 
-/** The questions of a paper that have no correct answer yet. */
 function unanswered(paper) {
     return paper.questions.filter((question) => !paper.answers[question.num])
 }
 
-/**
- * The questions of a paper that have their correct answer -- the only ones
- * tagged, listed on the answer sheet and saved. One without an answer is
- * left out until its key is added.
- */
 function answered(paper) {
     return paper.questions.filter((question) => paper.answers[question.num])
 }
 
-/** "Q5, Q12, Q31" -- the first few, then how many more. */
 function listNumbers(questions, limit = 12) {
     const shown = questions.slice(0, limit).map((q) => `Q${q.num}`).join(", ")
     return questions.length > limit ? `${shown} and ${questions.length - limit} more` : shown
 }
 
-/** A question still without its lesson or its difficulty. */
 function needsTag(paper, question) {
     const tag = paper.tags[question.num]
     return !tag || !tag.lessonId || !tag.difficulty
 }
 
-/** Why the tagging dropped a question, or null when it did not. */
 function dropReason(tag) {
     if (!tag) return null
-    // A question with no exact lesson is never dropped: the tagger files it
-    // under the closest one, and an older tag without a lesson just waits
-    // for one to be chosen.
     if (tag.duplicate === "bank") return "it is already in the question bank"
     if (tag.duplicate === "paper") return "it repeats an earlier question in the same paper"
     if (tag.duplicate === "upload") return `it repeats ${tag.duplicateOf ?? "a question in another uploaded paper"}`
     return null
 }
 
-/** Why a question cannot be saved as configured, or null when it can. */
 function problemWith(question, paper) {
     const tag = paper.tags[question.num]
     const type = paper.types[question.num] ?? "MCQ"
@@ -288,8 +235,6 @@ function problemWith(question, paper) {
     if (!tag?.difficulty) return "no difficulty"
     if (!answer) return "no correct answer"
     if (question.options.length < 2) return "choices were not read"
-    // The key says "d" but only a) to c) were read: saved, the question would
-    // have no correct choice at all.
     if (!question.options.some((option) => option.key === answer)) {
         return `the answer key says ${answer}, but choice ${answer} was not read -- check the choices against the original`
     }
@@ -364,11 +309,6 @@ async function saveOne(question, paper, certificationId) {
     }
 }
 
-/**
- * What the question is saved as. Chosen before or after tagging; programming
- * and diagram are not offered -- a past paper has no test cases or reference
- * diagram to give them.
- */
 const SAVE_TYPES = QUESTION_TYPES.filter((item) => !item.disabled)
 
 function TypeToggle({ value, onChange }) {
@@ -392,7 +332,6 @@ function TypeToggle({ value, onChange }) {
     )
 }
 
-/** Small image controls that sit on a figure or a pictured choice. */
 function ImageTools({ onReplace, onRemove, label }) {
     return (
         <span className="flex gap-1.5">
@@ -406,10 +345,6 @@ function ImageTools({ onReplace, onRemove, label }) {
     )
 }
 
-/**
- * One paper's rows on the answer sheet. Memoized like the cards: a change to
- * one paper redraws its hundred rows, not every paper's.
- */
 const SheetPaper = memo(function SheetPaper({ paper, showName, onJump }) {
     return (
         <div className="mb-3">
@@ -444,7 +379,6 @@ const SheetPaper = memo(function SheetPaper({ paper, showName, onJump }) {
     )
 })
 
-/** What to upload and what happens next, shown before the first upload. */
 function ImportGuide() {
     const [showNaming, setShowNaming] = useState(false)
     return (
@@ -489,7 +423,6 @@ function ImportGuide() {
     )
 }
 
-/** Crop a region from an image and assign it to a choice or figure. */
 function CropableImage({ src, alt, questionNum, choiceKeys, onCrop }) {
     const containerRef = useRef(null)
     const imgRef = useRef(null)
@@ -596,13 +529,6 @@ function CropableImage({ src, alt, questionNum, choiceKeys, onCrop }) {
     )
 }
 
-/**
- * One question. Memoized, and given only stable props -- the paper it is on,
- * and one `actions` object that never changes -- so a change to one paper
- * re-renders that paper's cards and no others. With thirty papers of a
- * hundred questions each, re-rendering every card on any change is what
- * made every control on the page lag.
- */
 const QuestionCard = memo(function QuestionCard({ question, paper, lessons, duplicate, actions, cardRefs }) {
     const onPick = (num, key) => actions.pick(paper.id, num, key)
     const onTag = (num, change) => actions.tag(paper.id, num, change)
@@ -612,7 +538,6 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
     const onOptionImage = (num, key, canvas) => actions.optionImage(paper.id, num, key, canvas)
     const onImageError = actions.imageError
     const onDelete = (num) => actions.remove(paper.id, num)
-    // Editing works on a draft; Save writes it back, Cancel drops it.
     const [draft, setDraft] = useState(null)
     const startEdit = () =>
         setDraft({ stem: question.stem, texts: Object.fromEntries(question.options.map((o) => [o.key, o.text || ""])) })
@@ -635,7 +560,6 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
         <article
             ref={cardRef}
             className={cn(
-                // Off-screen cards are not laid out or painted until scrolled to.
                 "rounded-2xl border bg-background p-5 shadow-sm [contain-intrinsic-size:auto_480px] [content-visibility:auto]",
                 !included && "opacity-60",
             )}
@@ -814,8 +738,6 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
                 </Button>
             </div>
 
-            {/* Saved as text, the learner sees no choices: they type. The card
-                shows that, and what their answer is marked against. */}
             {type !== "MCQ" ? (
                 <div className="mt-3 rounded-xl border-2 border-dashed border-primary/40 bg-primary/5 p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-primary">
@@ -844,7 +766,6 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
                     "mt-3 gap-2",
                     pictures ? "grid grid-cols-1 sm:grid-cols-2" : "grid",
                     type !== "MCQ" && "mt-1 text-sm opacity-80",
-                    // While editing, the choices are the boxes above.
                     draft && "hidden",
                 )}
             >
@@ -875,8 +796,6 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
                                     <span className="pt-0.5">{option.text || <em className="text-muted-foreground">empty</em>}</span>
                                 )}
                             </button>
-                            {/* Outside the choice button: a control inside it would
-                                also mark the answer. */}
                             {option.imageSrc ? (
                                 <div className="ml-12 mt-1">
                                     <ImageTools
@@ -995,10 +914,6 @@ const QuestionCard = memo(function QuestionCard({ question, paper, lessons, dupl
     )
 })
 
-/**
- * Importing exam papers as questions: upload papers and answer keys, review
- * what was read, tag lessons and difficulty with AI, preview, save.
- */
 export default function CertificationPdfImportPage() {
     const { id: certificationId } = useParams()
     const navigate = useNavigate()
@@ -1011,17 +926,13 @@ export default function CertificationPdfImportPage() {
     const [failures, setFailures] = useState([])
     const [progress, setProgress] = useState(null)
     const [filter, setFilter] = useState("all")
-    // One paper is shown at a time: thirty papers of a hundred cards each
-    // made the page too heavy to scroll. Search still covers every paper.
     const [currentPaperId, setCurrentPaperId] = useState(null)
     const [term, setTerm] = useState("")
-    // Which paper's answer-key panel is open, if any.
     const [keyBoxFor, setKeyBoxFor] = useState(null)
     const [keyText, setKeyText] = useState("")
     const [uploadOpen, setUploadOpen] = useState(false)
     const [startOverOpen, setStartOverOpen] = useState(false)
     const [lessons, setLessons] = useState([])
-    // The background tagging job this page is following, if any.
     const [tagJob, setTagJob] = useState(null)
     const [starting, setStarting] = useState(false)
     const tagging = starting || tagJob?.status === "running"
@@ -1041,10 +952,6 @@ export default function CertificationPdfImportPage() {
 
     const busy = progress !== null
 
-    // The import survives a refresh: it is restored from the browser's own
-    // storage on load, and each change is written back a moment later --
-    // only the papers that changed. Nothing is saved until the restore has
-    // run, so an empty first render cannot overwrite what was there.
     const [restored, setRestored] = useState(false)
     const written = useRef(new Map())
     useEffect(() => {
@@ -1095,12 +1002,7 @@ export default function CertificationPdfImportPage() {
         written.current = new Map()
         clearDraft(certificationId)
     }
-    // A key read before its paper is not "unmatched" yet, and a paper read
-    // before its key is not "missing answers": the errors wait for the last file.
 
-    // The latest papers and keys, for handlers that run across awaits: a
-    // closure over `papers` from the render that started a long read would
-    // write back a stale list and drop whatever was added meanwhile.
     const latest = useRef({ papers, keys })
     latest.current = { papers, keys }
 
@@ -1108,26 +1010,16 @@ export default function CertificationPdfImportPage() {
         setPapers((current) => current.map((p) => (p.id === id ? { ...p, ...change(p) } : p)))
     }
 
-    /** Changes one question of one paper -- its figures or its choices' images. */
     function updateQuestion(paperId, num, change) {
         updatePaper(paperId, (p) => ({
             questions: p.questions.map((q) => (q.num === num ? { ...q, ...change(q) } : q)),
         }))
     }
 
-    /**
-     * An answer key PDF for the paper in the open tab: attached to it directly,
-     * whatever its date says -- the admin chose the paper. A date that
-     * disagrees, or a key whose question numbers do not fit the paper, is
-     * said out loud rather than silently applied.
-     */
     async function addKeyForPaper(file, target) {
         setProgress({ label: `Reading answer key ${file.name}`, percent: 30 })
         try {
             const read = await readExamPdf(await asPdf(file), null, readDocumentPage, readDocumentLayout)
-            // Read the same way as a key uploaded with its paper: a key laid
-            // out like a paper -- questions with their answers marked --
-            // gives its answers too.
             const answers = read.kind === "key"
                 ? read.answers
                 : Object.fromEntries((read.questions ?? []).filter((q) => q.answer).map((q) => [q.num, q.answer]))
@@ -1165,17 +1057,10 @@ export default function CertificationPdfImportPage() {
         }
     }
 
-    /**
-     * Reads the pairs the upload step made -- each a question file and, when
-     * there is one, the answer key with the same title -- and attaches every
-     * key to its own paper. The pairing is the file names', checked by the
-     * admin before Next; nothing here guesses which key belongs where.
-     */
     async function addFiles(pairList) {
         const loaded = new Set(latest.current.papers.map((p) => p.fileId))
         const pairs = pairList.filter((pair) => !loaded.has(`${pair.paper.name}:${pair.paper.size}`))
         setFailures((current) =>
-            // A file added again is tried again; its old failure goes.
             current.filter((f) => !pairs.some((pair) => [pair.paper.name, pair.key?.name].includes(f.name))),
         )
 
@@ -1205,7 +1090,6 @@ export default function CertificationPdfImportPage() {
                 continue
             }
 
-            // Answers printed in the paper itself, then the key's on top.
             let answers = Object.fromEntries(result.questions.filter((q) => q.answer).map((q) => [q.num, q.answer]))
             let keyName = null
             let keyEntry = null
@@ -1215,8 +1099,6 @@ export default function CertificationPdfImportPage() {
                 setProgress({ label: `Reading answer key ${pair.key.name}${label}`, percent: 90 })
                 try {
                     const key = await readExamPdf(await asPdf(pair.key), reportProgress(pair.key), readDocumentPage, readDocumentLayout)
-                    // A key laid out like a paper -- questions with their
-                    // answers marked -- gives its answers the same way.
                     const keyAnswers = key.kind === "key"
                         ? key.answers
                         : Object.fromEntries((key.questions ?? []).filter((q) => q.answer).map((q) => [q.num, q.answer]))
@@ -1281,8 +1163,6 @@ export default function CertificationPdfImportPage() {
             setKeys(latest.current.keys)
 
             const questions = result.questions
-            // Retried: a backend restarting mid-upload fails one call, and the
-            // paper would go unchecked for good.
             const check = (attempt = 0) =>
                 findDuplicates(certificationId, questions.map(duplicateText)).catch((error) =>
                     attempt < 3
@@ -1298,14 +1178,12 @@ export default function CertificationPdfImportPage() {
                     updatePaper(id, () => ({ duplicates: bank }))
                 })
                 .catch(() => {
-                    // The upload still works; only the question-bank check is missing.
                     setNotice({ kind: "warn", text: `${result.name}: could not check the question bank for duplicates.` })
                 })
         }
         setProgress(null)
     }
 
-    /** Whether a question passes the search box and the figures filter. */
     function matches(question) {
         const needle = term.trim().toLowerCase()
         return (
@@ -1317,12 +1195,6 @@ export default function CertificationPdfImportPage() {
         )
     }
 
-    /**
-     * Starts tagging every paper in the background. The server works through
-     * them whether or not this page stays open; the page follows the job
-     * (below), applies each paper's tags as it finishes, and picks the job
-     * back up after a refresh. Only questions with their answer are sent.
-     */
     async function tagWithAi(onlyMissing = false) {
         const targets = latest.current.papers
             .map((p) => ({ ...p, questions: answered(p).filter((q) => !onlyMissing || needsTag(p, q)) }))
@@ -1356,13 +1228,6 @@ export default function CertificationPdfImportPage() {
         }
     }
 
-    /**
-     * Puts the finished papers' tags on the page, each paper once. A question
-     * no lesson fits, or one already in the bank or earlier in this upload,
-     * is dropped: left unticked, with the reason on its card. "Earlier in
-     * this upload" is judged in the job's paper order, the same order the
-     * old page-by-page tagging used.
-     */
     function applyJob(job) {
         if (job.lessons?.length) setLessons(job.lessons)
         const done = appliedPapers(job.id)
@@ -1397,7 +1262,6 @@ export default function CertificationPdfImportPage() {
         if (fresh.length) markApplied(job.id, fresh)
     }
 
-    /** What the finished job did, for the notice and the notification. */
     function jobSummary(job) {
         const tags = job.papers.flatMap((entry) => entry.tags ?? [])
         const duplicates = tags.filter((tag) => tag.duplicate).length
@@ -1410,7 +1274,6 @@ export default function CertificationPdfImportPage() {
         return { text: parts.join(" "), warn: Boolean(fallback || failed) }
     }
 
-    // Follows the job while it runs, and finishes it off when it ends.
     useEffect(() => {
         if (!tagJob) return undefined
         if (tagJob.status !== "running") {
@@ -1443,7 +1306,6 @@ export default function CertificationPdfImportPage() {
         return () => clearInterval(timer)
     }, [tagJob?.id, tagJob?.status])
 
-    // After a refresh or a return to the page: the job this browser started.
     useEffect(() => {
         if (!restored) return
         const active = activeJobFor(certificationId)
@@ -1462,11 +1324,6 @@ export default function CertificationPdfImportPage() {
         }
     }
 
-    /**
-     * {"<paper id>-<num>": why it is a duplicate}. The question bank's answer
-     * comes from the server; repeats across the uploaded papers are found
-     * here, first copy kept.
-     */
     const duplicateReasons = {}
     {
         const firstSeen = new Map()
@@ -1488,7 +1345,6 @@ export default function CertificationPdfImportPage() {
         }
     }
 
-    // Every duplicate across the papers, for the list the top bar opens.
     const duplicateList = papers.flatMap((item) =>
         item.questions
             .filter((question) => duplicateReasons[`${item.id}-${question.num}`])
@@ -1505,9 +1361,6 @@ export default function CertificationPdfImportPage() {
         setNotice({ kind: "ok", text: `${duplicateList.length} duplicate${duplicateList.length === 1 ? "" : "s"} deleted. The first copy of each question is kept.` })
     }
 
-    // What a question card can do, as one object that never changes: the
-    // cards are memoized, and a fresh function per render would re-render
-    // all of them. Each call reaches the current handlers through the ref.
     const handlers = useRef(null)
     handlers.current = { updatePaper, updateQuestion, deleteQuestions, setNotice, setFilter, setTerm, setCurrentPaperId }
     const cardActions = useMemo(
@@ -1529,7 +1382,6 @@ export default function CertificationPdfImportPage() {
                     stem,
                     options: [
                         ...q.options.map((o) => (o.key in texts ? { ...o, text: texts[o.key] } : o)),
-                        // Choices added in the editor, for one the reader missed.
                         ...Object.keys(texts)
                             .filter((key) => !q.options.some((o) => o.key === key) && texts[key].trim())
                             .sort()
@@ -1540,7 +1392,6 @@ export default function CertificationPdfImportPage() {
                 handlers.current.setFilter("all")
                 handlers.current.setTerm("")
                 handlers.current.setCurrentPaperId(paperId)
-                // Two frames: the paper's cards are drawn before scrolling to one.
                 requestAnimationFrame(() =>
                     requestAnimationFrame(() =>
                         cardRefs.current[`${paperId}-${num}`]?.scrollIntoView({ behavior: "smooth", block: "start" }),
@@ -1556,7 +1407,6 @@ export default function CertificationPdfImportPage() {
         updatePaper(paperId, (p) => ({ questions: p.questions.filter((q) => !gone.has(String(q.num))) }))
     }
 
-    // What Save would write, across every paper.
     const pending = papers.flatMap((p) =>
         answered(p)
             .filter((q) => p.include[q.num] !== false && !p.saved[q.num] && p.tags[q.num])
@@ -1572,10 +1422,6 @@ export default function CertificationPdfImportPage() {
         let saved = 0
         setSaving({ done: 0, total: ready.length, errors, checking: true })
 
-        // One last look at the question bank, right before writing: it may
-        // have changed since the paper was read and tagged -- another import,
-        // a save that stopped halfway, a question added by hand. A question
-        // the bank already holds is skipped and marked, not saved twice.
         const inBank = new Set()
         const byPaper = new Map()
         for (const item of ready) byPaper.set(item.paper.id, [...(byPaper.get(item.paper.id) ?? []), item])
@@ -1691,7 +1537,6 @@ export default function CertificationPdfImportPage() {
                         </aside>
 
                         <main className="min-w-0">
-                            {/* Everything that acts on all papers at once. */}
                             <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border bg-background p-3">
                                 <p className="flex-1 text-sm text-muted-foreground">
                                     <strong className="text-foreground">
@@ -1803,8 +1648,6 @@ export default function CertificationPdfImportPage() {
                                 </p>
                             ) : null}
 
-                            {/* Every paper needs its answers before anything can be saved:
-                                what is missing is said here, not discovered in the preview. */}
                             {!busy && papers.some((p) => unanswered(p).length) ? (
                                 <div className="mb-3 rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
                                     <p className="mb-1 flex items-center gap-2 font-semibold">
@@ -1846,7 +1689,6 @@ export default function CertificationPdfImportPage() {
                                 }}
                             />
 
-                            {/* The paper being looked at -- or, while searching, every paper with a match. */}
                             {papers.length > 1 ? (
                                 <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border bg-background p-2">
                                     <Button
@@ -1909,8 +1751,6 @@ export default function CertificationPdfImportPage() {
                                                         ].filter(Boolean).join(" · ")}
                                                     </p>
                                                 </div>
-                                                {/* A plain select: the styled one froze the page for a moment on
-                                                    every open, with three thousand cards below it. */}
                                                 <select
                                                     value=""
                                                     aria-label="Save all questions in this paper as"
@@ -2114,7 +1954,6 @@ export default function CertificationPdfImportPage() {
                             or earlier in this upload. Deleting keeps the first copy.
                         </DialogDescription>
                     </DialogHeader>
-                    {/* At the top, not after hundreds of rows. */}
                     {duplicateList.length ? (
                         <div className="sticky -top-6 z-10 -mx-6 flex items-center justify-between gap-3 border-b bg-background px-6 py-3">
                             <p className="text-sm text-muted-foreground">Delete every duplicate below in one go.</p>
@@ -2209,7 +2048,6 @@ export default function CertificationPdfImportPage() {
                                         <ul className="mt-2 grid gap-1 text-sm sm:grid-cols-2">
                                             {question.options.map((option) => (
                                                 <li key={option.key} className={cn("flex items-start gap-2 rounded px-1 py-0.5", option.key === answer && "bg-emerald-50 font-semibold text-emerald-800")}>
-                                                    {/* The letter never wraps; long choices take two lines. */}
                                                     <span className="shrink-0 whitespace-nowrap">{option.key})</span>
                                                     {option.imageSrc ? <img src={option.imageSrc} alt="" className="max-h-14 rounded bg-white" /> : <span className="line-clamp-2 min-w-0">{option.text}</span>}
                                                 </li>

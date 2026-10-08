@@ -4,39 +4,15 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.utils.helpers import create_id
 
-# Shorter than this and the field is a stub the model gave up on, not content.
 MIN_INTRODUCTION_CHARS = 40
 MIN_SUMMARY_CHARS = 40
 
-#: The keys under `data` that hold lists of renderable items. Each entry needs
-#: a stable `id` for React keys and for editing a single item later.
 ITEM_COLLECTIONS = ("items", "cards", "gridItems")
 
-#: Blocks whose items carry their body on `content`, not `description`.
-#:
-#: The frontend renderer and the admin lesson builder both key an accordion
-#: item's body `content`; the model is asked for the same but naturally reaches
-#: for `description`, which is the key every *other* block in the schema uses.
-#: When it did, the lesson reached the learner as a stack of accordion titles
-#: with nothing underneath them.
 ACCORDION_BLOCK_TYPES = ("accordion", "content-accordion-block")
 
-#: Blocks whose renderer reads `file` (an admin-uploaded asset that overrides
-#: the searched URL). Absent from model output, present in every stored block.
 MEDIA_KEYS = ("imageKey", "videoKey")
 
-#: Block types an admin authors by hand and the generator must never emit.
-#:
-#: `image-hotspot` pins labels to coordinates on a specific picture. The
-#: generator never sees a picture -- it writes an `imageQuery` and something
-#: downstream resolves it -- so any coordinates it produced would be invented
-#: for an image it has not looked at. That failure is invisible: the block
-#: renders perfectly, with every label on the wrong part of the diagram.
-#:
-#: These types are simply absent from the catalogue in the agent prompt, so a
-#: block of one is already off-script. This is the backstop for when the model
-#: reaches for it anyway, having seen the type in an existing lesson passed
-#: back as context.
 ADMIN_ONLY_BLOCK_TYPES = ("image-hotspot",)
 
 
@@ -66,8 +42,6 @@ class GeneratedLesson(BaseModel):
     introduction: str
     learning_objectives: List[str] = Field(default_factory=list)
     estimated_minutes: int = 15
-    #: Main instructional content as display blocks, exactly as the
-    #: lesson-builder tools returned them.
     sections: List[dict] = Field(default_factory=list)
     key_terms: List[KeyTerm] = Field(default_factory=list)
     summary: str = ""
@@ -97,9 +71,6 @@ class GeneratedLesson(BaseModel):
                 blocks.append(block)
                 continue
 
-            # Dropped, not raised on: a lesson is expensive to generate, and
-            # discarding one off-script block leaves the other twenty usable
-            # where rejecting the lesson wholesale would bin all of them.
             if block.get("type") in ADMIN_ONLY_BLOCK_TYPES:
                 continue
 
@@ -113,10 +84,6 @@ class GeneratedLesson(BaseModel):
                             {"id": create_id(), **entry} if isinstance(entry, dict) else entry
                             for entry in entries
                         ]
-                # An accordion item's body onto the key the renderer reads.
-                # Normalised here rather than only in the prompt: the schema
-                # above is a request, this is a guarantee, and the block is
-                # silently empty on the page when it is missed.
                 if block.get("type") in ACCORDION_BLOCK_TYPES:
                     entries = data.get("items")
                     if isinstance(entries, list):

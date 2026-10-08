@@ -10,35 +10,10 @@ import {
 } from "@/services/aiWorkflowService"
 import { stageLabel } from "./task-status"
 
-/**
- * What a failed run offers a human next.
- *
- * Both recovery paths existed in Python from the start but were unreachable
- * from the browser — no gateway route, no button — so a failed generation was a
- * dead end in the UI however recoverable it was underneath. A run that died on
- * the last lesson after twenty minutes of work had to be started from scratch.
- *
- * Retry re-runs only the step that failed, because LangGraph checkpoints after
- * every superstep: the thread is still parked with the failed node pending, so
- * the ingestion and every approved item before it are kept. Restart discards
- * the checkpoints and begins again, re-reading the certification's documents —
- * the answer when the run's state is itself the problem.
- *
- * `recovery` is fetched here rather than taken from the event stream: the
- * stream carries the run summary, and whether a run is recoverable depends on
- * the checkpoint, not on anything an event records.
- *
- * That fetch is also the authority on whether to render at all. Keying only off
- * the streamed status showed this panel over a run that had already recovered
- * and moved on — "this run stopped" sitting above a transcript visibly still
- * working, with buttons that could only ever answer 409.
- */
 export function RunRecoveryPanel({ runId, lastSeq, errorMessage }) {
   const queryClient = useQueryClient()
 
   const details = useQuery({
-    // Re-read as the run advances: every event the stream delivers moves
-    // last_seq, so a run that recovers refetches instead of going stale.
     queryKey: ["workflow-recovery", runId, lastSeq],
     queryFn: () => getWorkflowRun(runId),
     enabled: Boolean(runId),
@@ -52,15 +27,6 @@ export function RunRecoveryPanel({ runId, lastSeq, errorMessage }) {
     queryClient.invalidateQueries({ queryKey: ["workflow-runs"] })
   }
 
-  /**
-   * A refused recovery is almost always "the run already moved on" — the
-   * server explains it, so show that sentence rather than a generic failure,
-   * and re-read the run so the panel corrects itself instead of leaving a
-   * button that will refuse again on the next click.
-   *
-   * Java answers with `message`; Python's own `detail` is read too, so this
-   * still says something useful if the gateway is ever bypassed.
-   */
   const refused = (error, fallback) => {
     const body = error?.response?.data
     toast.error(body?.detail || body?.message || fallback)
@@ -91,15 +57,8 @@ export function RunRecoveryPanel({ runId, lastSeq, errorMessage }) {
 
   const busy = retry.isPending || restart.isPending
 
-  // A run abandoned by a service restart is RUNNING, not FAILED — the process
-  // that would have recorded the failure is the one that died. The server
-  // decides when silence has gone on long enough to call that stalled, and
-  // reports it here; the panel must not re-derive it from the status alone or
-  // it hides itself over exactly the runs that most need these two buttons.
   const stalled = Boolean(recovery?.stalled)
 
-  // Declared after the hooks, not before them: an early return above would
-  // make the two mutations conditional.
   if (details.isSuccess && status !== "FAILED" && !stalled) return null
 
   return (

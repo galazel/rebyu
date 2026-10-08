@@ -13,10 +13,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * A B2B invoice raised when a partnership request is approved: the
- * institution's learner slots, priced per slot, per certification.
- */
 @Entity
 @Table(name = "institution_invoices")
 @Data
@@ -93,7 +89,6 @@ public class InstitutionInvoice {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
-    /** PayMongo hosted checkout for this invoice, once the institution starts paying. */
     @Column(name = "checkout_session_id", length = 100)
     private String checkoutSessionId;
 
@@ -103,11 +98,6 @@ public class InstitutionInvoice {
     @Column(name = "provider_payment_id", length = 100)
     private String providerPaymentId;
 
-    /* What has been given back, and the provider's record of giving it. Kept
-       beside the payment rather than replacing it: the invoice was paid, and a
-       refund is a second event, not an edit to the first. A partial refund
-       (one certification dropped out of several) leaves the invoice paid with
-       an amount recorded here; a full one also flips it to cancelled. */
     @Column(name = "refunded_amount", precision = 12, scale = 2)
     private java.math.BigDecimal refundedAmount;
 
@@ -117,9 +107,6 @@ public class InstitutionInvoice {
     @Column(name = "refunded_at")
     private LocalDateTime refundedAt;
 
-    /* pending / succeeded / failed, as PayMongo last reported it. A refund is
-       accepted long before it settles, so "we have a refund id" and "the money
-       went back" are different facts and are stored as such. */
     @Column(name = "refund_status", length = 20)
     private String refundStatus;
 

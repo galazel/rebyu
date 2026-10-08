@@ -9,14 +9,6 @@ import org.springframework.data.repository.query.Param;
 
 public interface CommunityPostViewRepository extends JpaRepository<CommunityPostView, CommunityPostMemberId> {
 
-    /**
-     * Records that this learner opened this post, or refreshes when they last
-     * did. Written as an upsert for the same reason
-     * {@code CommunityPostLikeRepository#addLike} is: the id here is assigned,
-     * so save() takes JPA's merge path and merge cannot resolve the id-only
-     * post/learner stubs -- and reopening a post must be idempotent rather
-     * than a primary-key violation.
-     */
     @Modifying
     @Query(value = """
             INSERT INTO community_post_views(post_id, learner_id, created_at, last_viewed_at)

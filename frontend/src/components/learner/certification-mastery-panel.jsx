@@ -5,9 +5,6 @@ import { MasteryIndicator } from './mastery-indicator'
 import { PriorityTag } from './priority-tag'
 import { LearnerLoadingSkeleton, LearnerEmptyState } from './learner-ui'
 
-/**
- * Certification Mastery Panel - shows certification-level confidence and readiness
- */
 export function CertificationMasteryPanel({ certificationId, className = '' }) {
   const { data: confidence, isLoading: confLoading } = useQuery({
     queryKey: ['confidence', certificationId],
@@ -15,8 +12,6 @@ export function CertificationMasteryPanel({ certificationId, className = '' }) {
     enabled: Boolean(certificationId),
   })
 
-  // getMyPriorities() returns a bare JSON array of lesson priorities, not an
-  // object with a `.lessons` property.
   const { data: priorityLessons } = useQuery({
     queryKey: ['priorities', certificationId],
     queryFn: () => getMyPriorities(certificationId),
@@ -36,13 +31,11 @@ export function CertificationMasteryPanel({ certificationId, className = '' }) {
     )
   }
 
-  // confidence_score arrives already scaled 0-100; average_mastery is 0-1.
   const overallPercent = Math.round(confidence.confidence_score || 0)
   const masteryLevel = getMasteryLevel(confidence.average_mastery || 0)
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Overall Confidence */}
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="flex items-start justify-between mb-4">
           <div>
@@ -73,7 +66,6 @@ export function CertificationMasteryPanel({ certificationId, className = '' }) {
         </div>
       </div>
 
-      {/* Statistics Grid */}
       <div className="grid grid-cols-2 gap-3">
         <StatCard
           icon={Award}
@@ -101,7 +93,6 @@ export function CertificationMasteryPanel({ certificationId, className = '' }) {
         />
       </div>
 
-      {/* Coverage: how much of the curriculum has been assessed at all */}
       {typeof confidence.coverage_percentage === 'number' && (
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center justify-between mb-2">
@@ -122,7 +113,6 @@ export function CertificationMasteryPanel({ certificationId, className = '' }) {
         </div>
       )}
 
-      {/* Top Priority Areas */}
       {Array.isArray(priorityLessons) && priorityLessons.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm font-semibold text-foreground mb-3">

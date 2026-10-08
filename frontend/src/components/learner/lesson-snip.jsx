@@ -5,19 +5,7 @@ import { toast } from "sonner"
 
 import { Loader2, Sparkles, X } from "@/components/icons"
 
-/* Ways a learner hands part of a lesson to the AI tutor:
- *
- *   LessonSnipOverlay   drag a box over anything on the lesson -- text,
- *                       diagram, table -- and get a picture of it plus the
- *                       words inside it
- *   SelectionAskButton  select text, then "Ask AI tutor"
- *
- * Both produce a snippet {id, quote, image}: `quote` is plain text, `image` a
- * JPEG data URL (or null). The words travel even when the picture cannot be
- * made, so a text-only model still knows what was asked about. */
 
-// Big enough to read a diagram's labels, small enough that a vision model
-// on a per-minute token budget (Groq) takes it with the question beside it.
 const MAX_SIDE = 1024
 const MAX_QUOTE = 6000
 const PICTURE_TIMEOUT_MS = 8000
@@ -31,7 +19,6 @@ function intersects(a, b) {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
 }
 
-/** The lesson's words inside `rect` (viewport coordinates), in reading order. */
 function textInside(root, rect) {
   const parts = []
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
@@ -47,7 +34,6 @@ function textInside(root, rect) {
   const range = document.createRange()
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     if (node.nodeType === Node.ELEMENT_NODE) {
-      // A picture's own description, when it has one.
       if (node.alt && intersects(node.getBoundingClientRect(), rect)) parts.push(`[Image: ${node.alt}]`)
       continue
     }
@@ -57,12 +43,10 @@ function textInside(root, rect) {
   return parts.join(" ").replace(/\s+/g, " ").trim().slice(0, MAX_QUOTE)
 }
 
-/** Areas a snip may not include -- quizzes and checks -- marked `data-no-snip`. */
 function touchesNoSnip(rect) {
   return [...document.querySelectorAll("[data-no-snip]")].some((el) => intersects(el.getBoundingClientRect(), rect))
 }
 
-/** The smallest element under `root` that holds all of `rect`. */
 function containerOf(root, rect) {
   const cx = (rect.left + rect.right) / 2
   const cy = (rect.top + rect.bottom) / 2
@@ -75,24 +59,15 @@ function containerOf(root, rect) {
   return node
 }
 
-/**
- * A picture of `rect` (viewport coordinates) within `root`, as a JPEG data URL.
- * Draws the smallest element holding the box -- usually a section or a figure,
- * not the whole lesson -- then crops to the box.
- */
 async function pictureOf(root, rect) {
   const node = containerOf(root, rect)
   const box = node.getBoundingClientRect()
-  // A whole long lesson at 2x would be a canvas of tens of millions of pixels.
   const scale = box.width * box.height > 4_000_000 ? 1 : Math.min(window.devicePixelRatio || 1, 2)
   const full = await toCanvas(node, {
     pixelRatio: scale,
     backgroundColor: "#ffffff",
     imagePlaceholder: TRANSPARENT_PIXEL,
     cacheBust: true,
-    // Embedding web fonts reads every stylesheet's rules, and a browser
-    // refuses that for cross-site ones (Google Fonts) -- console errors and a
-    // slow capture, for lettering a model reads just as well in a fallback font.
     skipFonts: true,
   })
   const left = Math.max(rect.left, box.left)
@@ -112,13 +87,10 @@ async function pictureOf(root, rect) {
     (left - box.left) * scale, (top - box.top) * scale, width * scale, height * scale,
     0, 0, out.width, out.height,
   )
-  // Embedded videos and frames cannot be drawn and come out as one flat
-  // colour; a picture of nothing is worse than none.
   if (isBlank(out)) return null
   return out.toDataURL("image/jpeg", 0.85)
 }
 
-/** Whether a canvas is a single flat colour (sampled on a small grid). */
 function isBlank(canvas) {
   const probe = document.createElement("canvas")
   probe.width = 24
@@ -136,11 +108,6 @@ function isBlank(canvas) {
   return max - min < 6
 }
 
-/**
- * Dims the page and lets the learner drag a box over the lesson. On release it
- * resolves the box to a snippet and calls `onCapture`; Escape or a click with
- * no drag cancels.
- */
 export function LessonSnipOverlay({ target, onCapture, onCancel }) {
   const [drag, setDrag] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -192,16 +159,11 @@ export function LessonSnipOverlay({ target, onCapture, onCancel }) {
     const quote = textInside(root, rect)
     let image = null
     try {
-      // Drawing waits on image decoding, which a browser can stall (a
-      // background tab, a slow image); the words alone are better than a
-      // spinner that never ends.
       image = await Promise.race([
         pictureOf(root, rect),
         new Promise((resolve) => setTimeout(() => resolve(null), PICTURE_TIMEOUT_MS)),
       ])
     } catch {
-      // A picture that cannot be drawn (a blocked image, say) still leaves
-      // the words, which is enough for most questions.
     }
     setBusy(false)
     if (!quote && !image) {
@@ -233,7 +195,6 @@ export function LessonSnipOverlay({ target, onCapture, onCancel }) {
       {box ? (
         <div
           className="pointer-events-none absolute border-2 border-rb-feather bg-rb-feather/10"
-          // Everything outside the box stays dimmed while dragging.
           style={{ ...box, boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.28)" }}
         />
       ) : null}
@@ -267,10 +228,6 @@ export function LessonSnipOverlay({ target, onCapture, onCancel }) {
   )
 }
 
-/**
- * While text inside `target` is selected, a small "Ask AI tutor" button sits
- * just above the selection; clicking it hands the text over as a snippet.
- */
 export function SelectionAskButton({ target, onAsk }) {
   const [anchor, setAnchor] = useState(null)
 
@@ -304,7 +261,6 @@ export function SelectionAskButton({ target, onAsk }) {
   return createPortal(
     <button
       type="button"
-      // Keeps the selection alive through the click.
       onMouseDown={(event) => event.preventDefault()}
       onClick={() => {
         onAsk(newSnippet({ quote: anchor.text }))

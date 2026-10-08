@@ -3,22 +3,6 @@ import { Link } from "react-router-dom"
 import { BrandLogo } from "@/components/brand-logo"
 import { TraySupplies } from "@/components/classroom/tray-supplies.jsx"
 
-/**
- * Two-column frame shared by every auth route.
- *
- * One column is the form, on a sheet of paper held by a clipboard. The other is the
- * classroom: the painted room with a chalkboard in it, and on the board a line
- * that depends on the screen --
- *
- *   login     "class is in session" -- you are coming back
- *   register  "first day of class"  -- you are joining
- *   recovery  (forgot password, verify email, set password) -- an errand
- *
- * `side` alternates which column the form occupies, so switching between sign
- * in and sign up visibly changes the screen. The classroom column is ornament
- * and hidden from assistive tech; below `lg` it is replaced by a slim board
- * above the form rather than dropped silently.
- */
 
 const STORIES = {
   login: {
@@ -76,12 +60,10 @@ export default function AuthShell({
         </div>
 
         <div
-          /* `safe center`: centred while it fits, top-aligned once it does not. */
           className={`mx-auto flex w-full max-w-[500px] flex-1 flex-col [justify-content:safe_center] ${
             compact ? "py-3" : "py-10 sm:py-12"
           }`}
         >
-          {/* Below lg the classroom column is hidden; a slim board keeps the line. */}
           <div aria-hidden="true" className="rb-chalkboard mb-10 !border-8 px-4 py-3 text-center lg:hidden">
             <p className="rb-chalk text-xl">{tale.banner}</p>
           </div>

@@ -16,7 +16,6 @@ CERTIFICATION_ID = 13
 
 QUESTIONS = {
 
-    # 363 -- Introduction to Requirements Engineering
     363: [
         mcq("AVERAGE",
             "Which activity is NOT part of requirements engineering?",
@@ -48,7 +47,6 @@ QUESTIONS = {
             "The levels form a chain: business objective, user need, system behaviour. Keeping them distinct is what lets a team ask whether a proposed feature actually serves the objective."),
     ],
 
-    # 364 -- Requirements Collection and Analysis
     364: [
         mcq("AVERAGE",
             "Which elicitation technique is most effective for understanding a task users perform but describe poorly?",
@@ -80,7 +78,6 @@ QUESTIONS = {
             "MoSCoW forces the hard part of prioritization -- naming what will not be delivered this time -- which is the category teams most often refuse to populate."),
     ],
 
-    # 365 -- Requirements Specification
     365: [
         mcq("AVERAGE",
             "Which requirement statement is testable as written?",
@@ -112,7 +109,6 @@ QUESTIONS = {
             "A requirement should constrain the outcome, not the route. Naming a technology inside it converts a genuine constraint and an arbitrary preference into the same thing, and the team can no longer tell which is which."),
     ],
 
-    # 366 -- Requirements Verification and Validation
     366: [
         mcq("HARD",
             "Which pair correctly distinguishes verification from validation in requirements work?",
@@ -144,7 +140,6 @@ QUESTIONS = {
             "A high defect density indicates the section is unreliable as a whole, not that a few defects were found. Reworking and re-inspecting is far cheaper than discovering the same problems in acceptance."),
     ],
 
-    # 367 -- Requirements Management and Change Control
     367: [
         mcq("AVERAGE",
             "What does a baseline mean in requirements management?",
@@ -176,7 +171,6 @@ QUESTIONS = {
             "Requirements volatility measures churn against the baseline. A large but stable specification is manageable; a small specification changing weekly is not."),
     ],
 
-    # 368 -- Software Design Fundamentals
     368: [
         mcq("HARD",
             "A module reads a configuration file, computes a tax, and formats an HTML table. Which design principle does this violate?",
@@ -208,7 +202,6 @@ QUESTIONS = {
             "Common coupling through shared global data makes the modules mutually dependent in a way no interface documents, so neither can be reasoned about or changed in isolation."),
     ],
 
-    # 369 -- Software Architecture and Patterns
     369: [
         mcq("AVERAGE",
             "Which concern does a layered architecture primarily address?",
@@ -240,7 +233,6 @@ QUESTIONS = {
             "The controller mediates. Rendering belongs to the view and state to the model, and collapsing those roles is what turns an MVC design into an unmaintainable one."),
     ],
 
-    # 370 -- Software Implementation Practices
     370: [
         mcq("AVERAGE",
             "What is the primary purpose of a code review?",
@@ -272,7 +264,6 @@ QUESTIONS = {
             "CI's value comes from small, frequent integrations verified automatically -- the gap between breaking something and finding out stays short. Long-lived branches defeat it entirely."),
     ],
 
-    # 371 -- Software Testing and Quality Assurance
     371: [
         mcq("HARD",
             "Which statement about the relationship between testing and defects is correct?",
@@ -304,7 +295,6 @@ QUESTIONS = {
             "Statement coverage is a weak criterion: a compound condition can be fully executed with only one of its branches taken. Branch and condition coverage exist because of exactly this gap."),
     ],
 
-    # 372 -- Software Maintenance Strategies
     372: [
         mcq("AVERAGE",
             "Which maintenance category covers changes made to keep software working after its operating environment changes?",
@@ -336,7 +326,6 @@ QUESTIONS = {
             "Reengineering keeps the behaviour that the business depends on and rebuilds the structure that has become unmaintainable, which is usually cheaper and far less risky than a rewrite."),
     ],
 
-    # 373 -- Data, Information, and Knowledge
     373: [
         mcq("AVERAGE",
             "In the data-information-knowledge progression, what turns data into information?",
@@ -368,7 +357,6 @@ QUESTIONS = {
             "Metadata is what makes a data set interpretable and findable by someone who did not create it, which is why data catalogues are built around it."),
     ],
 
-    # 374 -- Database Requirements Collection
     374: [
         mcq("AVERAGE",
             "Which source is most reliable for discovering the real data a business uses?",
@@ -400,7 +388,6 @@ QUESTIONS = {
             "Business rules constrain permissible states and transitions; data requirements describe what is recorded. Both must be captured, but they are enforced in different places."),
     ],
 
-    # 375 -- Conceptual Database Design
     375: [
         mcq("AVERAGE",
             "What characterizes a conceptual data model?",
@@ -432,7 +419,6 @@ QUESTIONS = {
             "A weak entity -- an order line, say -- has no independent identity; it is identified only in combination with its owner, which the design must reflect."),
     ],
 
-    # 376 -- Data Modeling Techniques
     376: [
         mcq("HARD",
             "A table stores a customer's city, and the city determines the region, which is also stored. Which normal form does this violate?",
@@ -464,7 +450,6 @@ QUESTIONS = {
             "Referential integrity prevents orphan rows -- an order line pointing at an order that does not exist -- which is a class of corruption application code alone reliably fails to prevent."),
     ],
 
-    # 377 -- Advanced Data Modeling
     377: [
         mcq("HARD",
             "A data warehouse organizes a central fact table surrounded by denormalized dimension tables. Which schema is this?",

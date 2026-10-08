@@ -42,10 +42,6 @@ def attr(body: str) -> str:
     return escape(body or "", {'"': "&quot;"})
 
 
-#: Every edge is written edge(whole, part) / edge(parent, child), so the
-#: decorated end is the SOURCE. That means startArrow, not endArrow: UML puts
-#: the diamond on the whole and the hollow triangle on the superclass. A
-#: diamond drawn on the part states the opposite of what the question asks.
 STYLES = {
     "comp": "startArrow=diamond;startFill=1;startSize=18;endArrow=none;html=1;rounded=0;",
     "aggr": "startArrow=diamond;startFill=0;startSize=18;endArrow=none;html=1;rounded=0;",
@@ -57,20 +53,12 @@ STYLES = {
 BOX = ("rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=left;"
        "spacingLeft=6;spacingTop=2;fontSize=11;")
 
-#: draw.io's own UML class shape. The cell's value is the class NAME only,
-#: which is what the grader matches on; members go in child cells.
 CLASS_BOX = ("swimlane;html=1;startSize=26;fontSize=12;fontStyle=1;align=center;"
              "verticalAlign=middle;horizontal=1;whiteSpace=wrap;")
 
-#: A member line. `text=1` keeps it out of the mark scheme -- attributes are
-#: shown to the learner but graded through their class, not as elements of
-#: their own.
 MEMBER_LINE = ("text;html=1;strokeColor=none;fillColor=none;align=left;"
                "verticalAlign=middle;spacingLeft=6;fontSize=11;")
 
-#: Process and structural notation. A decision drawn as a rectangle is not a
-#: decision: the shape IS the answer to part of the question, so it cannot be
-#: left to whatever the model happened to type into a style string.
 SHAPES = {
     "action": "rounded=1;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fontSize=11;",
     "decision": "rhombus;whiteSpace=wrap;html=1;align=center;verticalAlign=middle;fontSize=10;",
@@ -93,24 +81,15 @@ SHAPES = {
                  "verticalAlign=top;fontSize=10;"),
     "package": ("shape=folder;tabWidth=70;tabHeight=20;tabPosition=left;html=1;"
                 "verticalAlign=top;align=left;spacingLeft=8;fontSize=11;"),
-    # The system boundary is the point of a use case diagram: it says which
-    # actors are outside the system and which behaviour is inside it.
     "boundary": ("rounded=0;whiteSpace=wrap;html=1;verticalAlign=top;align=center;"
                  "fillColor=none;fontSize=13;fontStyle=1;spacingTop=4;"),
 }
 
 TITLE = "text;html=1;fontSize=16;fontStyle=1;align=left;verticalAlign=middle;"
 SUB = "text;html=1;fontSize=10;align=left;verticalAlign=middle;fontColor=#666666;"
-#: `text=1` is not cosmetic. The grader's extractor treats any labelled vertex
-#: as a required element unless the style marks it text-only, so without it the
-#: legend becomes a node the learner is required to reproduce -- and is marked
-#: down for missing.
 NOTE = ("shape=note;whiteSpace=wrap;html=1;fontSize=10;align=left;"
         "verticalAlign=top;spacingLeft=6;size=14;text=1;")
 
-#: Same reason, and the worse case: every multiplicity is a vertex, so a class
-#: diagram with nine relationships added eighteen phantom "1" and "0..*" nodes
-#: to the mark scheme.
 EDGE_LABEL = ("edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=10;"
               "text=1;")
 
@@ -157,7 +136,6 @@ USECASE_LEGEND = [
     "dashed arrow marked <<extend>> = performed conditionally",
 ]
 
-#: The legend that explains the notation each diagram type actually uses.
 LEGEND_FOR_TYPE = {
     "UML_CLASS": UML_LEGEND,
     "ERD": ERD_LEGEND,
@@ -268,7 +246,7 @@ class Diagram:
             "async": "html=1;endArrow=open;endFill=0;rounded=0;",
         }[kind]
         x1, x2 = self.x_of[a], self.x_of[b]
-        if a == b:  # self-call: a small loop back into the same lifeline
+        if a == b:
             self.cells.append(
                 '<mxCell id="%s" value="%s" style="%s" edge="1" parent="1">'
                 '<mxGeometry relative="1" as="geometry">'
@@ -289,8 +267,6 @@ class Diagram:
     def frame(self, label, x, y, w, h):
         """A combined fragment box -- alt, loop, opt -- with its operator."""
         self.cells.append(
-            # A 60px label corner wraps "alt [stock available]" into unreadable
-            # slivers; the operator and its guard have to fit on one line.
             '<mxCell id="%s" value="%s" style="shape=umlFrame;whiteSpace=wrap;html=1;'
             'width=230;height=24;fontSize=10;align=left;verticalAlign=top;fillColor=none;" '
             'vertex="1" parent="1"><mxGeometry x="%d" y="%d" width="%d" height="%d" '
@@ -313,8 +289,6 @@ class Diagram:
             '<mxCell id="%s" value="%s" style="%s" edge="1" parent="1" source="%s" '
             'target="%s"><mxGeometry relative="1" as="geometry"/></mxCell>'
             % (edge_id, attr(html_label(value)), STYLES[kind], self.ids[a], self.ids[b]))
-        # Nudged in from the ends and pushed off the line: at -0.75 the source
-        # multiplicity sits exactly under the composition diamond and vanishes.
         for mult, xpos in ((src_mult, -0.62), (dst_mult, 0.62)):
             if not mult:
                 continue

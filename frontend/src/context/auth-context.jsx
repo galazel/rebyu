@@ -21,12 +21,6 @@ import { usePresenceHeartbeat } from "@/hooks/use-presence-heartbeat.js"
 const AuthContext = createContext(null)
 const AUTH_USER_SNAPSHOT_KEY = "rebyu:auth-user-snapshot"
 
-/**
- * The signed-in subject, read straight off the access token.
- *
- * Only ever used as a cache key. The token is validated by the backend on
- * every call; nothing here trusts this value for authorization.
- */
 function subjectOf(token) {
   try {
     const payload = token.split(".")[1]
@@ -37,20 +31,6 @@ function subjectOf(token) {
   }
 }
 
-/**
- * The last identity `/api/auth/me` returned, for THIS subject.
- *
- * Keyed by subject, the same rule `CognitoAuthService` states for its own
- * request-scoped cache: "so a cached identity can never answer for another
- * one". The frontend copy had no such key, and the consequence was not a stale
- * name -- it was the wrong role. `refresh()` applies this snapshot and sets
- * `status = "authenticated"` synchronously, before the network call resolves,
- * so the router got a full render at whatever role the last account had. Sign
- * out of an admin account and into a learner one in the same tab and the
- * learner's first render was ADMIN: every /learner route bounced to /403, and
- * because /403 is reachable by every role, the corrected identity arriving a
- * moment later left them parked there.
- */
 function readAuthUserSnapshot(subject) {
   try {
     const raw = sessionStorage.getItem(AUTH_USER_SNAPSHOT_KEY)
@@ -67,7 +47,6 @@ function writeAuthUserSnapshot(subject, user) {
   try {
     sessionStorage.setItem(AUTH_USER_SNAPSHOT_KEY, JSON.stringify({ subject, user }))
   } catch {
-    // Authentication validation must not depend on browser storage.
   }
 }
 
@@ -75,17 +54,13 @@ function clearAuthUserSnapshot() {
   try {
     sessionStorage.removeItem(AUTH_USER_SNAPSHOT_KEY)
   } catch {
-    // Nothing to do -- the snapshot is an optimisation, not an authority.
   }
 }
 
-// Backend-confirmed authentication state. `user` is the safe DTO returned by
-// /api/auth/me — the routing and role authority while signed in. localStorage
-// is never treated as an authority here.
 export function AuthProvider({ children }) {
   const queryClient = useQueryClient()
   const [user, setUser] = useState(null)
-  const [status, setStatus] = useState("loading") // loading | authenticated | anonymous
+  const [status, setStatus] = useState("loading")
 
   const refresh = useCallback(async () => {
     const token = await getAccessToken()
@@ -106,9 +81,6 @@ export function AuthProvider({ children }) {
       setUser(currentUser)
       setStatus("authenticated")
       writeAuthUserSnapshot(subject, currentUser)
-      // Start the learner shell's larger snapshot while the router is loading
-      // the destination chunk. The layout uses this exact key, so it joins the
-      // in-flight request instead of waiting until after navigation.
       if (
         String(currentUser?.role ?? "").toUpperCase() === "LEARNER" &&
         currentUser?.learnerId != null
@@ -120,8 +92,6 @@ export function AuthProvider({ children }) {
           gcTime: 60 * 60_000,
         })
       }
-      // Keep legacy keys in sync so existing pages that read them keep
-      // working; they are display hints only, never authorities.
       if (currentUser?.learnerId != null) {
         localStorage.setItem("learnerId", String(currentUser.learnerId))
       } else {
@@ -137,7 +107,6 @@ export function AuthProvider({ children }) {
       }
       return currentUser
     } catch (error) {
-      // Token exists but the backend rejected or failed the sync.
       if (error?.response?.status === 401) {
         await logoutFromCognito().catch(() => {})
       }
@@ -159,14 +128,10 @@ export function AuthProvider({ children }) {
       if (result?.nextStep?.signInStep === "CONFIRM_SIGN_UP") {
         return { needsConfirmation: true }
       }
-      // Check for the temporary password challenge (different step names in Amplify v6)
       if (result?.nextStep?.signInStep === "NEW_PASSWORD_REQUIRED" ||
           result?.nextStep?.signInStep === "CONFIRM_SIGN_IN_WITH_NEW_PASSWORD_REQUIRED") {
         return { needsNewPassword: true }
       }
-      // Only sync with the backend once Cognito reports a completed sign-in.
-      // Amplify may return isSignedIn=true with nextStep DONE, or (after the
-      // stale-session retry) with no nextStep at all.
       if (result?.isSignedIn === false && result?.nextStep?.signInStep) {
         return { pendingStep: result.nextStep.signInStep }
       }
@@ -179,11 +144,7 @@ export function AuthProvider({ children }) {
     try {
       const cognitoResult = await completeTemporaryPassword(newPassword)
 
-      // After completing the NEW_PASSWORD_REQUIRED challenge, Cognito should
-      // have signed in the user. The response from confirmSignIn may vary,
-      // but if we get here without an exception, the challenge was completed.
       
-      // Cognito login is now complete, so load your REBYU backend user and role.
       const user = await syncCurrentUser()
 
       if (!user) {
@@ -208,13 +169,6 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("name")
     localStorage.removeItem("role")
     localStorage.removeItem("rebyu_demo_role")
-    // The identity snapshot and the query cache both outlived the session they
-    // belonged to. Signing out cleared five localStorage keys and left behind
-    // the two things that actually decide what the next person sees: the
-    // cached user (which is what `refresh()` renders the router from before
-    // the network answers) and every query keyed without an account in it --
-    // "learner-portal-data" among them, which the next sign-in would be served
-    // from the previous account's copy of.
     clearAuthUserSnapshot()
     queryClient.clear()
     setUser(null)
@@ -239,24 +193,12 @@ export function useAuth() {
   return context
 }
 
-/**
- * Is this the institution's own account, rather than one of the department
- * head accounts it created?
- *
- * The user type is authoritative: a DEPARTMENT_HEAD account is never the
- * owner, whatever its membership row says -- an account can hold a membership
- * in more than one institution, and a missing row used to read as "owner"
- * and hand a department head the institution-wide portal. For an INSTITUTION
- * account the membership row decides, and a missing one still means the
- * institution's own account.
- */
 export function isInstitutionOwner(user) {
   if (!user) return false
   if (String(user.role ?? "").toUpperCase() === "DEPARTMENT_HEAD") return false
   return user.departmentHeadRole == null || user.departmentHeadRole === "owner"
 }
 
-/** The other side of the same coin, for anyone inside the institution portal. */
 export function isDepartmentHeadUser(user) {
   if (!user) return false
   const role = String(user.role ?? "").toUpperCase()
@@ -270,8 +212,6 @@ export function roleHomePath(role) {
       return "/admin/dashboard"
     case "INSTITUTION":
       return "/institution/dashboard"
-    // An account the institution created for one of the people who runs a
-    // department. Same portal, its own home.
     case "DEPARTMENT_HEAD":
       return "/institution/department-head"
     default:

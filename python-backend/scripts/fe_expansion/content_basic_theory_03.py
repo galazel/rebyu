@@ -22,7 +22,6 @@ from figures import fig
 MAJOR = "Basic Theory"
 MIDDLE = "Basic Theory"
 
-# Lesson 3: Theory of Information, Coding and Automata
 
 _info_sections = [
     ("Information as a Measurable Quantity", [
@@ -914,7 +913,6 @@ LESSON_INFORMATION = lesson(
         ],
     ))
 
-# Lesson 4: Theory of Communications
 
 _comms_sections = [
     ("What Has to Survive the Journey", [
@@ -1754,7 +1752,6 @@ LESSON_COMMUNICATIONS = lesson(
         ],
     ))
 
-# Lesson 5: Theory of Measurement and Control
 
 _control_sections = [
     ("Computers That Touch the Physical World", [

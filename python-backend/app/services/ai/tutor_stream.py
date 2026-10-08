@@ -34,16 +34,10 @@ from app.services.ai.tutor_service import append_messages
 
 logger = logging.getLogger(__name__)
 
-#: The model never promises resources: whether a search finds videos, reading,
-#: both or neither is only known after it runs, and "videos are attached
-#: below" above a list of encyclopedia links is a broken promise. What is
-#: found is shown under its own headings; see NO_RESOURCES_FOUND.
 NO_RESOURCE_TALK = (
     "Do not mention videos, links or outside resources, and never write URLs or "
     "titles -- any related ones are shown below your answer automatically."
 )
-#: When the learner asked for videos or reading: the request is in scope, and
-#: the answer is a short pointer while the search fills in the material.
 RESOURCES_ASKED = (
     "The learner asked for videos or reading about this lesson -- that is in scope. "
     "In one or two sentences, say what to focus on when studying this topic. Do not "
@@ -52,9 +46,6 @@ RESOURCES_ASKED = (
 NO_RESOURCES_FOUND = "\n\n_I couldn't find related videos or reading for this right now._"
 
 
-#: When no vision model can read the picture, the question still gets an
-#: answer from the text tutor. With quoted words there is plenty to go on;
-#: without, the learner is told why and what to do instead.
 PICTURE_UNREAD_WITH_TEXT = (
     "The learner attached a picture of part of the lesson, but it could not be read "
     "this time. Answer from the quoted text and the lesson; do not mention the picture."
@@ -66,7 +57,6 @@ PICTURE_UNREAD = (
     "snipping a slightly larger area."
 )
 
-#: How much lesson text and how many earlier messages ride with a picture.
 _VISION_LESSON_CHARS = 2500
 _VISION_TURNS = 2
 
@@ -88,9 +78,6 @@ SNIP_NOTE = (
     "label. If the picture is unreadable, say so and ask them to snip a larger area."
 )
 
-#: Repeated right before the question: models follow an instruction next to
-#: the question far more reliably than one at the top of a long prompt, and
-#: the lesson and source material in between run to thousands of words.
 BREVITY = (
     "Reply briefly: about 40-120 words, the direct answer first, at most 3-4 short "
     "bullets, no headings or summary section -- unless the learner explicitly "
@@ -107,7 +94,6 @@ def _resource_query(request: str, earlier: list, quote: str | None = None) -> st
     The query is kept to the subject; the search module trims it to the topic
     words (see tutor_resources.concise)."""
     if asks_for_resources(request):
-        # About the snip they sent, or the subject of the request itself.
         return f"{quote or request} explained"
     return None
 
@@ -128,11 +114,6 @@ async def stream_tutor_answer(
     values = (snapshot.values or {}) if snapshot else {}
     asked = with_quote(request, quote)
     if image:
-        # A picture is most of the request already: Groq's vision model
-        # refused one with the whole lesson, the source passages and the
-        # recent turns beside it (413, over its per-minute token limit). The
-        # picture is the subject, so the text around it is cut to the lesson's
-        # opening and the last exchange.
         lesson_context = (lesson_context or "")[:_VISION_LESSON_CHARS] or None
         source_material = None
     state = {
@@ -147,9 +128,8 @@ async def stream_tutor_answer(
     query = _resource_query(request, earlier, quote)
 
     turn = build_tutor_messages(state, earlier)
-    question = turn[-1]  # the learner's question, last
+    question = turn[-1]
     if image:
-        # A picture goes to a vision model, as an image part beside the words.
         question = HumanMessage(content=[
             {"type": "text", "text": asked},
             {"type": "image_url", "image_url": {"url": image}},
@@ -174,9 +154,6 @@ async def stream_tutor_answer(
                 answer += piece
                 yield {"type": "delta", "text": piece}
         except Exception:
-            # No vision model could take the picture (out of credit, rate
-            # limited, too large) and nothing was written yet: answer on the
-            # text tutor instead of failing the question.
             if not image or answer:
                 raise
             logger.warning("No vision model could read a snip for %s; answering without it", session_id)
@@ -201,13 +178,9 @@ async def stream_tutor_answer(
     if resources:
         yield {"type": "resources", "resources": resources}
     elif search and asks_for_resources(request):
-        # They asked for videos or reading in so many words; say so rather
-        # than leave the request silently unanswered.
         yield {"type": "delta", "text": NO_RESOURCES_FOUND}
         answer += NO_RESOURCES_FOUND
 
-    # The picture itself is not stored -- only that there was one, and the
-    # quoted text -- so a conversation does not carry megabytes of images.
     snippet = snippet_of(quote, image, image_key) if (quote or image) else None
     await append_messages(session_id, [
         {"role": "user", "content": request, "snippet": snippet},

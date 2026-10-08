@@ -5,13 +5,6 @@ import ProBadge from "@/components/learner/pro-badge.jsx"
 import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 
-/**
- * A Pro-only surface for a learner on Free.
- *
- * Unlike LearnerPremiumGuard, the locked content is not rendered underneath: its
- * requests would only come back 403. Nothing locks while the plan is still
- * loading, so a Pro learner never sees the padlock flash.
- */
 export function ProLockCard({ title, description, compact = false, className = "" }) {
   return (
     <div

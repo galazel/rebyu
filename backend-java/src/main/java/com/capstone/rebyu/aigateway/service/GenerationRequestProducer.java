@@ -8,12 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
-/**
- * Publishes lightweight, ids-only trigger messages for AI generation
- * requests. Never blocks or fails the admin-facing request that triggers
- * it -- a broker hiccup here must not break the (still-synchronous, for
- * now) generation flow it rides alongside.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor

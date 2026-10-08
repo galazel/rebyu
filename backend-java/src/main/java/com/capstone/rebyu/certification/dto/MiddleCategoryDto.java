@@ -26,6 +26,5 @@ public class MiddleCategoryDto {
 
     private List<LessonDto> lessons;
 
-    /** Middle-category-scoped exams (e.g. the middle category assessment). */
     private List<ExamSummaryDto> exams;
 }

@@ -10,12 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Fills each pick-list with the seed entries it does not yet hold. A label
- * already present -- active or retired -- is left exactly as the admin left
- * it, so a restart never undoes an edit; only entries new to this release
- * are added, at the end of the list.
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -68,7 +62,6 @@ public class ReferenceOptionSeeder implements ApplicationRunner {
             "Religious and Ministry Studies",
             "Other");
 
-    /** Academic colleges first, then the departments of a company. */
     static final List<String> DEPARTMENTS = List.of(
             "College of Computer Studies",
             "College of Information Technology",

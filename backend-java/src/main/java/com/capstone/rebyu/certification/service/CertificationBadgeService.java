@@ -14,14 +14,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * The badge artwork of a certification: the emblem a learner earns, in the
- * manner of Credly or Cisco's digital badges.
- *
- * Kept apart from {@link CertificationService} because that class rebuilds
- * the entity from the edit form, and a badge is a file, not a form field. It
- * lives in S3 under its own prefix; the certification row keeps only the key.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -34,10 +26,8 @@ public class CertificationBadgeService {
     private final CertificationRepository certificationRepository;
     private final S3StorageService s3StorageService;
 
-    /** One badge, ready to send: its bytes and their content type. */
     public record Badge(byte[] bytes, String contentType) {}
 
-    /** Uploads the image and points the certification at it, replacing any earlier badge. */
     @Transactional
     public String replace(Long certificationId, MultipartFile image) {
         Certification certification = find(certificationId);
@@ -68,7 +58,6 @@ public class CertificationBadgeService {
         deleteQuietly(previous);
     }
 
-    /** The badge bytes, or null when the certification has no badge. */
     @Transactional(readOnly = true)
     public Badge read(Long certificationId) {
         String key = find(certificationId).getBadgeImageKey();
@@ -100,7 +89,6 @@ public class CertificationBadgeService {
         try {
             s3StorageService.deleteFile(key);
         } catch (RuntimeException e) {
-            // An orphaned object is a storage cost, not a broken certification.
             log.warn("Could not delete replaced badge {}: {}", key, e.getMessage());
         }
     }

@@ -1,17 +1,3 @@
-/**
- * Checks for the diagram tool palette. Run with:
- *
- *   node src/components/challenges/diagram-tool-presets.check.mjs
- *
- * Plain node rather than a test framework, matching
- * src/hooks/workflow-timeline-model.check.mjs: the repo has no frontend test
- * runner, and the module under test is deliberately import-free so this works.
- *
- * What matters here is that a question's type reaches the right palette. The
- * failure this guards against is silent: an unrecognised type falls back to
- * ERD, so a learner asked for a sequence diagram is handed entity shapes and
- * nothing anywhere reports a problem.
- */
 import assert from "node:assert/strict"
 
 import { getDiagramToolPreset } from "./diagram-tool-presets.js"
@@ -32,8 +18,6 @@ check("each of the seven generated types has its own palette", () => {
 })
 
 check("no palette carries the general stencil set", () => {
-  // The ask: only the tools for this diagram. "general" is every shape
-  // draw.io ships, which is the opposite of that.
   for (const type of [
     "ERD", "UML_CLASS", "UML_COMPONENT", "SEQUENCE_DIAGRAM",
     "USE_CASE", "FLOWCHART", "ACTIVITY_DIAGRAM",

@@ -38,11 +38,6 @@ def key_terms_accordion(terms: list[dict[str, Any]]) -> dict[str, Any]:
     """Key terms as an accordion -- collapsible, so a long glossary doesn't
     bury the summary beneath it."""
     return {
-        # `content`, not `description`: that is the key the frontend renderer
-        # and the admin lesson builder read an accordion item's body from.
-        # This block is assembled for every lesson that declares key terms, so
-        # while it said `description` the glossary reached the learner as a
-        # list of terms that opened onto nothing.
         "type": "accordion",
         "data": {
             "items": [
@@ -85,7 +80,6 @@ def lesson_to_blocks(lesson: Any) -> list[dict[str, Any]]:
     if estimated:
         blocks.append(description(f"Estimated study time: {estimated} minutes"))
 
-    # Main instructional content, exactly as the builder tools produced it.
     blocks.extend(get("sections", []) or [])
 
     terms = get("key_terms", []) or []

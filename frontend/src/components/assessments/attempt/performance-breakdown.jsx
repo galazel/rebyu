@@ -4,10 +4,6 @@ import { Chip, ProgressBar, RebyuCard } from "@/components/rebyu/rebyu-ui.jsx"
 
 const PASS_THRESHOLD = 70
 
-/* Per-lesson bars are toned by how the lesson went rather than all being the
-   one brand blue: on a breakdown whose whole job is "where am I weak", colour
-   is the fastest read on the page. Leaf clears the threshold, Fox is close,
-   Cardinal is not close. */
 function toneFor(percentage, pending) {
   if (pending) return "fox"
   if (percentage >= PASS_THRESHOLD) return "leaf"
@@ -15,7 +11,6 @@ function toneFor(percentage, pending) {
   return "cardinal"
 }
 
-// Per-lesson performance with a strengths summary.
 export default function PerformanceBreakdown({ lessonBreakdown }) {
   const list = Array.isArray(lessonBreakdown) ? lessonBreakdown : []
   if (list.length === 0) return null
@@ -23,7 +18,6 @@ export default function PerformanceBreakdown({ lessonBreakdown }) {
   const sorted = [...list].sort(
     (a, b) => Number(a.percentage ?? 0) - Number(b.percentage ?? 0)
   )
-  // Only lessons that were fully scored count toward strengths.
   const strengths = sorted.filter(
     (lesson) =>
       (lesson.pendingCount ?? 0) === 0 &&
@@ -34,8 +28,6 @@ export default function PerformanceBreakdown({ lessonBreakdown }) {
     <section className="space-y-4">
       <h2 className="rb-display rb-display-sm">Performance by lesson</h2>
 
-      {/* Weakest first: the list is sorted ascending, so the lesson to reopen
-          is the one at the top rather than the one you scroll to. */}
       <RebyuCard className="space-y-4 p-5">
         {sorted.map((lesson) => {
           const pct = Number(lesson.percentage ?? 0)

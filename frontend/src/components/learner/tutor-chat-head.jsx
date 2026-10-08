@@ -4,17 +4,6 @@ import { AnimatePresence, motion } from "framer-motion"
 
 import { Sparkles } from "@/components/icons"
 
-/**
- * The AI tutor as a chat head, fixed to the bottom-right corner of the window.
- *
- * A round bubble stays in the corner while the lesson scrolls under it. Tapping
- * it opens the chat window just above it; on a phone the window takes the lower
- * part of the screen instead, since there is no room beside a bubble at 400px.
- *
- * Portaled to <body>: the route wrapper keeps a transform applied, and a
- * transformed ancestor would pin a `position: fixed` bubble to the page rather
- * than the window.
- */
 
 const SIZE = 56
 const MARGIN = 20

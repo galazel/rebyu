@@ -13,12 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * Per-section lesson-read progress for the signed-in learner. The learner id is
- * always resolved from the validated Cognito access token, mirroring
- * LearnerPortalController, so a learner can only ever read or write their own
- * progress.
- */
 @RestController
 @RequestMapping("/api/learners/me/read-sections")
 @RequiredArgsConstructor

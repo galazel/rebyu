@@ -43,8 +43,6 @@ def _recovery_state(db: Session, run: WorkflowRun) -> dict[str, Any]:
     keep drawing a progress spinner for a run nobody is executing.
     """
     recoverable = certification_run.is_recoverable(run)
-    # Only for the kind that has recovery actions: reporting a stalled question
-    # bank run would surface a panel whose buttons cannot do anything.
     stalled = run.kind == "CERTIFICATION" and certification_run.is_stalled(run)
     return {
         "can_retry": recoverable,
@@ -198,14 +196,6 @@ async def get_pending_review(run_id: str, db: Session = Depends(get_db)) -> dict
     snapshot = await graph.aget_state({"configurable": {"thread_id": run.thread_id}})
     interrupts = snapshot.tasks[0].interrupts if (snapshot and snapshot.tasks) else ()
     if not interrupts:
-        # The registry says waiting but the graph has no pending interrupt, so
-        # the two have diverged. Reporting it was not enough: such a run is
-        # unreachable, since `/review` has nothing to show and recovery accepts
-        # only FAILED runs. Repair it against the checkpoint -- which either
-        # marks the unrecorded failure (making Retry available) or finalises a
-        # run that actually finished. Idempotent, and the workspace polls this
-        # endpoint whenever a run reads as waiting, so a stranded run heals as
-        # soon as anyone looks at it.
         if run.kind == "CERTIFICATION":
             repair = await certification_run.reconcile(run)
         else:
@@ -256,8 +246,6 @@ async def retry_workflow_run(
     except certification_run.RecoveryError as error:
         raise HTTPException(status.HTTP_409_CONFLICT, detail=str(error)) from error
 
-    # A retry continues the attempt it is part of rather than opening a new
-    # one, so it reports the attempt it is repairing.
     attempt = registry.attempt_number(db, run_id)
     registry.mark_retrying(db, run.thread_id, stage=pending_stage, attempt=attempt)
     background.add_task(certification_run.run_retry, context)
@@ -293,7 +281,6 @@ async def restart_workflow_run(
     except certification_run.RecoveryError as error:
         raise HTTPException(status.HTTP_409_CONFLICT, detail=str(error)) from error
 
-    # +1 because this restart's own boundary event is recorded by the call below.
     attempt = registry.attempt_number(db, run_id) + 1
     registry.mark_restarted(db, run.thread_id, attempt=attempt)
     background.add_task(certification_run.run_restart, context, seed)
@@ -320,8 +307,6 @@ def cancel_workflow_run(run_id: str, db: Session = Depends(get_db)) -> dict[str,
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=f"No workflow run {run_id}")
 
     if run.status in registry.TERMINAL_STATUSES:
-        # Idempotent rather than an error: two clicks, or a click racing a
-        # completion, should not surface a failure.
         return {**_run_to_dict(run), "cancelled": run.status == registry.CANCELLED}
 
     updated = registry.mark_cancelled(db, run.thread_id)
@@ -363,9 +348,6 @@ async def purge_certification(certification_id: int, db: Session = Depends(get_d
 
     summary = registry.purge_certification(db, certification_id)
 
-    # Best-effort, like the vectors below: a leaked checkpoint is a storage
-    # problem, while raising here would abort a delete the admin has already
-    # committed to on the Java side.
     discarded = 0
     for thread_id in summary.get("thread_ids") or []:
         try:
@@ -376,9 +358,6 @@ async def purge_certification(certification_id: int, db: Session = Depends(get_d
             logger.exception("Failed to discard checkpoints for thread %s", thread_id)
     summary["threads_discarded"] = discarded
 
-    # Best-effort: losing the vectors is a storage leak, while failing here
-    # would abort a deletion the admin has already committed to on the Java
-    # side, leaving the two databases disagreeing about what exists.
     namespace = namespace_for(certification_id=certification_id)
     try:
         summary["vectors_deleted"] = delete_index(namespace)
@@ -386,7 +365,6 @@ async def purge_certification(certification_id: int, db: Session = Depends(get_d
         logger.exception("Failed to delete vector index '%s'", namespace)
         summary["vectors_deleted"] = False
 
-    # Best-effort for the same reason as the two above.
     try:
         summary["bkt_rows_deleted"] = _purge_bkt_state(db, certification_id)
     except Exception:

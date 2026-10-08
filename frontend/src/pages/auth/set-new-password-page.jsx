@@ -24,11 +24,6 @@ export default function SetNewPasswordPage() {
     const [error, setError] = useState("")
     const [pending, setPending] = useState(false)
 
-    /*
-     * Reached from an invitation email: the link has already signed the
-     * account in, so the address comes from that session. Without one there
-     * is nothing to set a password for.
-     */
     useEffect(() => {
         if (email) return
         let cancelled = false

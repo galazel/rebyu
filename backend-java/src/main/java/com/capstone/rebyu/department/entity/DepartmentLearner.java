@@ -10,11 +10,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-// Uniqueness is enforced by a partial index (uq_institution_group_assignee_active,
-// scoped to status='active') rather than a @Table-level constraint here, so a
-// learner removed from a group can be re-added without colliding with their
-// own archived row. Do not add a uniqueConstraints attribute back -- Hibernate's
-// ddl-auto=update would create its own non-partial constraint alongside it.
 @Entity
 @Table(name = "department_learners")
 @Data
@@ -61,7 +56,6 @@ public class DepartmentLearner {
     @Column(name = "removed_at")
     private LocalDateTime removedAt;
 
-    /** The section within the department this learner sits in; null = unsectioned. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "section_id")
     private InstitutionSection section;

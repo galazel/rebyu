@@ -1,5 +1,3 @@
--- Persist per-item learner actions (flag / skip) and the last-viewed item so an
--- attempt fully restores on refresh, not just its answers.
 
 ALTER TABLE public.assessment_attempt_questions
     ADD COLUMN IF NOT EXISTS flagged BOOLEAN NOT NULL DEFAULT FALSE;

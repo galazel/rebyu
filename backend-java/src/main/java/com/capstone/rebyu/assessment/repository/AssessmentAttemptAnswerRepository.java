@@ -20,28 +20,12 @@ public interface AssessmentAttemptAnswerRepository
     List<AssessmentAttemptAnswer> findByAttempt_AssessmentAttemptIdIn(
             List<Long> assessmentAttemptIds);
 
-    /** One lesson's marked answers: how many were graded, and how many were right. */
     interface LessonAccuracyRow {
         Long getLessonId();
         long getAnswered();
         long getCorrect();
     }
 
-    /**
-     * How a learner has actually done, lesson by lesson, from the answers they
-     * have had marked on one certification.
-     *
-     * <p>This is what the mastery service measures properly -- it models
-     * learning over time rather than counting ticks -- and this is not a
-     * replacement for it. It exists so a page has something true to show when
-     * that service has said nothing: raw marks the database already holds,
-     * rather than an empty panel that reads as "this learner has no weak
-     * topics".
-     *
-     * <p>Only graded answers count. A pending manual mark is not a wrong one,
-     * and counting it as such would report a learner as weakest exactly where
-     * they are still waiting to be marked.
-     */
     @Query(value = """
             SELECT q.lesson_id AS lessonId,
                    count(*) AS answered,
@@ -62,7 +46,6 @@ public interface AssessmentAttemptAnswerRepository
     List<LessonAccuracyRow> lessonAccuracy(@Param("learnerId") Long learnerId,
                                            @Param("certificationId") Long certificationId);
 
-    /** One topic across a whole roster: how it was answered, and by how many people. */
     interface TopicDifficultyRow {
         Long getLessonId();
         String getLessonTitle();
@@ -74,26 +57,6 @@ public interface AssessmentAttemptAnswerRepository
         long getLearners();
     }
 
-    /**
-     * Which topics a group of learners gets wrong most often.
-     *
-     * <p>A department can see that its average score is 30% without being able
-     * to see what the 70% is. This says which lessons the cohort is actually
-     * failing, which is the difference between knowing there is a problem and
-     * knowing what to teach again.
-     *
-     * <p>Bounded by certification as well as by learner. Scoping on the people
-     * alone was not enough: the same learners sit papers on certifications
-     * their institution does not teach them -- their own enrolments -- and
-     * those answers came back as topics the department was failing. A
-     * department head was shown TOPCIT and FE topics for a cohort enrolled
-     * only on IT Passport.
-     *
-     * <p>Learners are counted distinctly alongside the answers so a topic that
-     * one person got wrong ten times is not read as a topic ten people
-     * struggle with. Only graded answers count -- a pending manual mark is not
-     * a wrong one.
-     */
     @Query(value = """
             SELECT q.lesson_id AS lessonId,
                    l.name AS lessonTitle,

@@ -45,8 +45,6 @@ from app.schemas.certification.question_audit import QuestionAuditResult
 
 logger = logging.getLogger(__name__)
 
-#: Containers in the state that hold questions, with how a dropped item is
-#: treated. The ordering is the keep-priority: earlier wins a tie.
 STORED = "stored"
 MOCK = "mock_exam"
 DIAGNOSTIC = "diagnostic_exam"
@@ -57,12 +55,8 @@ BANK = "question_bank"
 
 KEEP_PRIORITY = {STORED: 0, MOCK: 1, DIAGNOSTIC: 2, MAJOR: 3, MIDDLE: 4, LESSON: 5, BANK: 6}
 
-#: A single auditor call sees at most this many questions; a lesson with
-#: more is audited in slices, sorted by stem so rewordings sit together.
 AUDIT_SLICE = 40
-#: How many auditor calls run at once.
 AUDIT_CONCURRENCY = 4
-#: Top-ups are audited again, once: a replacement can itself repeat something.
 MAX_ROUNDS = 2
 
 
@@ -70,11 +64,11 @@ MAX_ROUNDS = 2
 class Item:
     """One question, wherever it lives."""
 
-    source: str                 # a container key, or STORED
-    entry: int | None           # index into the container's list (None for exams/bank/stored)
-    index: int                  # index into that entry's questions (or the bank), or the db id
-    lesson: str                 # the lesson the question is about, as a name
-    question: dict | None       # the state's dict; None for stored rows
+    source: str
+    entry: int | None
+    index: int
+    lesson: str
+    question: dict | None
     stem: str
     answer: str | None
     qtype: str | None
@@ -92,7 +86,6 @@ class Resolution:
     reasons: list[str] = field(default_factory=list)
 
 
-# Collecting
 
 def _answer_of(question: dict) -> str | None:
     choices = question.get("choices") or []
@@ -188,13 +181,11 @@ def slices(items: list[Item], size: int = AUDIT_SLICE) -> list[list[Item]]:
     ordered = sorted(items, key=lambda i: i.stem.casefold())
     if len(ordered) <= size:
         return [ordered]
-    # Overlapping slices, so a pair straddling a boundary is still seen together.
     step = max(1, size - size // 4)
     return [ordered[start:start + size] for start in range(0, len(ordered), step)
             if len(ordered[start:start + size]) >= 2]
 
 
-# Resolving
 
 def _priority(item: Item) -> tuple:
     stored = item.source == STORED or bool((item.question or {}).get("_stored"))
@@ -224,8 +215,6 @@ def resolve(labelled: dict[int, Item], result: QuestionAuditResult, resolution: 
                 resolution.stored_to_delete.append(member)
             else:
                 resolution.dropped.append(member)
-                # A dropped item that a checkpoint already stored has to go
-                # from the database as well.
                 if (member.question or {}).get("_stored"):
                     resolution.stored_to_delete.append(member)
 
@@ -276,7 +265,6 @@ def shortfalls(dropped: list[Item]) -> dict[tuple[str, int | None], list[Item]]:
     return dict(out)
 
 
-# The node
 
 async def _audit_slice(certification_name: str, lesson: str, items: list[Item]) -> tuple[dict[int, Item], QuestionAuditResult]:
     labelled = {index + 1: item for index, item in enumerate(items)}
@@ -443,9 +431,6 @@ async def audit_questions_node(state: CertificationState):
         update.update(apply_drops(working, resolution.dropped))
         working = dict(working, **update)  # type: ignore[assignment]
 
-        # Replace what fixed-length assessments lost. The bank is topped up
-        # too: it is the pool the adaptive engine draws from, and a bank
-        # short by its duplicates is a bank that repeats sooner.
         all_stems = [i.stem for i in collect_items(working, stored)]
         for (source, entry), lost in shortfalls(resolution.dropped).items():
             try:

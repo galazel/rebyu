@@ -45,8 +45,6 @@ import { getAllInstitutions } from "@/services/adminInstitutionService"
 
 const ALL_FILTER_VALUE = "all"
 
-// Replace this with data from your institution service.
-// The component also accepts an `institutions` prop.
 const DEMO_INSTITUTIONS = [
   {
     institutionId: 1,
@@ -256,8 +254,6 @@ export default function Institutions({ onEdit, onDelete }) {
     })
   }, [industryFilter, list, searchQuery, statusFilter])
 
-  /* Sorting runs on the filtered set, so a sort never pulls in a row the
-     filters excluded. Accessors read the same fallbacks the cells render. */
   const sortedInstitutions = useMemo(
       () =>
           sortRows(filteredInstitutions, {
@@ -356,11 +352,6 @@ export default function Institutions({ onEdit, onDelete }) {
 
   return (
       <section className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-        {/* Three counts, not three cards. They were bordered panels sitting in
-            a bordered strip inside a padded page -- three frames deep for three
-            numbers. A figure with its label under it is already legible; the
-            border was only telling you where one number stopped and the next
-            began, which the spacing does. */}
         <div className="flex shrink-0 flex-wrap items-baseline gap-x-10 gap-y-3 border-b border-border pb-4">
           <div className="flex items-baseline gap-2">
             <Building2 className="h-4 w-4 self-center text-primary" />
@@ -387,10 +378,6 @@ export default function Institutions({ onEdit, onDelete }) {
           </div>
         </div>
 
-        {/* The table fills what the summary strip leaves, inside the portal's
-            own gutter -- the same inset every other admin page's content sits
-            in. The rows are what scrolls; the toolbar and the pager stay put
-            at the card's two edges. */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <TableCard className="flex min-h-0 flex-1 flex-col">
             <TableToolbar
@@ -430,9 +417,6 @@ export default function Institutions({ onEdit, onDelete }) {
               </Select>
             </TableToolbar>
 
-            {/* The rows scroll, the pager does not: with a short list the page still
-                ends where the window does rather than leaving the pager stranded
-                halfway up a blank page. */}
             <div className="min-h-0 flex-1 overflow-auto">
               <Table>
                 <TableHeader>

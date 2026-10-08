@@ -5,13 +5,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
-/** Learner-safe entitlement + subscription/license read DTOs. */
 public final class EntitlementDtos {
 
     private EntitlementDtos() {
     }
 
-    /** How a learner's premium access is sourced. */
     public enum AccessSource {
         FREE, PERSONAL_PRO, INSTITUTIONAL_LICENSE, BOTH
     }
@@ -26,9 +24,7 @@ public final class EntitlementDtos {
             String personalStatus,
             LocalDateTime currentPeriodEnd,
             boolean cancelAtPeriodEnd,
-            /* Paid in checkout, waiting for an admin to approve it. */
             boolean awaitingApproval,
-            /* Tutor study-aid generations: used today, and the daily cap (0 on Free). */
             int aiGenerationsUsedToday,
             int aiGenerationDailyLimit
     ) {

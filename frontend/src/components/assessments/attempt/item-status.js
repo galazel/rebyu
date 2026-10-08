@@ -6,12 +6,6 @@ import {
   SkipForwardIcon,
 } from "@/components/icons"
 
-// Single source of truth for item states so the navigator cards, the legend,
-// and screen-reader labels never drift. States are conveyed with icon + border
-// + text, never color alone.
-// Colours mirror the navigator shown on the landing hero so the marketing
-// promise and the real exam surface read as the same product: Macaw = answered,
-// Bee = flagged, Eel outline = where you are, Swan = untouched.
 export const ITEM_STATUS = {
   current: {
     key: "current",
@@ -52,8 +46,6 @@ export const ITEM_STATUS = {
 
 export const FLAG_META = { label: "Flagged", icon: FlagIcon }
 
-// Derives the base status of an item (current/flagged are overlays applied
-// on top of this by the card component).
 export function deriveItemStatus(item) {
   const hasSubs = (item.subQuestionCount ?? 0) > 0
   if (item.answered && hasSubs && item.subAnsweredCount < item.subQuestionCount) {

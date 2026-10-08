@@ -1,12 +1,3 @@
-/**
- * DateRangeNavigator
- * ------------------
- * A compact period-selector strip: [Mode ▾]  <  Label  >
- * Clicking the middle label opens a portaled visual picker
- * (calendar / month grid / year grid) appropriate for the current mode.
- *
- * Frontend-only shell — exposes `onRangeChange(range)` for future backend wiring.
- */
 import { useState, useMemo, useRef, useEffect, useCallback } from "react"
 import { ChevronLeft, ChevronRight, ChevronDown } from "@/components/icons"
 import {
@@ -16,13 +7,11 @@ import {
   MONTHS_FULL,
 } from "@/hooks/use-date-range"
 
-// ─── constants ────────────────────────────────────────────────────────────────
 
 const MODES = ["daily", "weekly", "monthly", "yearly"]
 const MODE_LABELS = { daily: "Daily", weekly: "Weekly", monthly: "Monthly", yearly: "Yearly" }
-const WEEK_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"] // ISO Mon-start
+const WEEK_DAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
 
 function isSameDay(a, b) {
   return (
@@ -46,25 +35,17 @@ function isAfterToday(date) {
   return date > today
 }
 
-/**
- * Returns a 42-cell (6×7) array of Date objects for a Mon-start calendar grid.
- * Cells outside the current month are included for visual padding.
- */
 function buildCalendarGrid(year, month) {
   const first = new Date(year, month, 1)
   const last  = new Date(year, month + 1, 0)
-  // Monday = 0 offset; Sunday = 6 offset
   const startPad = first.getDay() === 0 ? 6 : first.getDay() - 1
   const cells = []
-  // Prev-month padding
   for (let i = startPad - 1; i >= 0; i--) {
     cells.push({ date: new Date(year, month, -i), current: false })
   }
-  // Current month
   for (let d = 1; d <= last.getDate(); d++) {
     cells.push({ date: new Date(year, month, d), current: true })
   }
-  // Next-month padding to fill 42 cells
   let next = 1
   while (cells.length < 42) {
     cells.push({ date: new Date(year, month + 1, next++), current: false })
@@ -72,26 +53,22 @@ function buildCalendarGrid(year, month) {
   return cells
 }
 
-// ─── Picker Popover ───────────────────────────────────────────────────────────
 
 function Picker({ mode, cursor, onSelect, onClose }) {
   const pickerRef = useRef(null)
   const today = useMemo(() => new Date(), [])
 
-  // Navigation view: "days" | "months" | "years"
   const [view, setView] = useState(() => {
     if (mode === "yearly") return "years"
     if (mode === "monthly") return "months"
     return "days"
   })
 
-  // Internal navigation state (separate from the main cursor)
   const [pickerYear,  setPickerYear]  = useState(cursor.getFullYear())
   const [pickerMonth, setPickerMonth] = useState(cursor.getMonth())
   const [decadeStart, setDecadeStart] = useState(Math.floor(cursor.getFullYear() / 12) * 12)
   const [hoveredWeek, setHoveredWeek] = useState(null)
 
-  // Reset view when mode or cursor changes
   useEffect(() => {
     setView(mode === "yearly" ? "years" : mode === "monthly" ? "months" : "days")
     setPickerYear(cursor.getFullYear())
@@ -99,7 +76,6 @@ function Picker({ mode, cursor, onSelect, onClose }) {
     setDecadeStart(Math.floor(cursor.getFullYear() / 12) * 12)
   }, [mode, cursor])
 
-  // Close on Escape
   useEffect(() => {
     function handleKey(e) { if (e.key === "Escape") onClose() }
     document.addEventListener("keydown", handleKey)
@@ -113,7 +89,6 @@ function Picker({ mode, cursor, onSelect, onClose }) {
 
   const selectedWeekStart = mode === "weekly" ? startOfISOWeek(cursor) : null
 
-  // ── Calendar (daily + weekly) ───────────────────────────────────────────────
   function CalendarPicker() {
     function prevMonth() {
       if (pickerMonth === 0) { setPickerYear(y => y - 1); setPickerMonth(11) }
@@ -133,7 +108,6 @@ function Picker({ mode, cursor, onSelect, onClose }) {
 
     return (
       <div className="w-[248px]">
-        {/* Month & Year header */}
         <div className="mb-3 flex items-center justify-between">
           <button
             type="button"
@@ -173,7 +147,6 @@ function Picker({ mode, cursor, onSelect, onClose }) {
           </button>
         </div>
 
-        {/* Weekday labels */}
         <div className="mb-1 grid grid-cols-7 gap-0.5">
           {WEEK_DAYS.map(d => (
             <div key={d} className="text-center text-[10px] font-bold uppercase tracking-wide text-muted-foreground/60">
@@ -182,7 +155,6 @@ function Picker({ mode, cursor, onSelect, onClose }) {
           ))}
         </div>
 
-        {/* Day grid */}
         <div className="grid grid-cols-7 gap-0.5">
           {calCells.map(({ date, current }, idx) => {
             const future   = isAfterToday(date)
@@ -214,7 +186,6 @@ function Picker({ mode, cursor, onSelect, onClose }) {
               )
             }
 
-            // Weekly mode
             const wStart    = startOfISOWeek(date)
             const inHovered = dayIsInWeek(date, hoveredWeek)
             const inSelected = dayIsInWeek(date, selectedWeekStart)
@@ -260,7 +231,6 @@ function Picker({ mode, cursor, onSelect, onClose }) {
     )
   }
 
-  // ── Month grid picker ───────────────────────────────────────────────────────
   function MonthPicker() {
     const canNext = pickerYear < today.getFullYear()
     return (
@@ -331,7 +301,6 @@ function Picker({ mode, cursor, onSelect, onClose }) {
     )
   }
 
-  // ── Year grid picker ────────────────────────────────────────────────────────
   function YearPicker() {
     const years = Array.from({ length: 12 }, (_, i) => decadeStart + i)
     const canNextDecade = decadeStart + 12 <= today.getFullYear()
@@ -372,7 +341,6 @@ function Picker({ mode, cursor, onSelect, onClose }) {
                   } else if (mode === "monthly") {
                     setView("months")
                   } else {
-                    // daily or weekly
                     if (year === today.getFullYear() && pickerMonth > today.getMonth()) {
                       setPickerMonth(today.getMonth())
                     }
@@ -415,11 +383,7 @@ function Picker({ mode, cursor, onSelect, onClose }) {
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
 
-/**
- * @param {{ onRangeChange?: (r: {mode: string, from: Date, to: Date}) => void, className?: string }} props
- */
 export function DateRangeNavigator({ onRangeChange, className = "" }) {
   const today = useMemo(() => new Date(), [])
 
@@ -432,7 +396,6 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
   const modeContainerRef   = useRef(null)
   const pickerContainerRef = useRef(null)
 
-  // Outside click to close mode dropdown
   useEffect(() => {
     if (!modeOpen) return
     function handleClick(e) {
@@ -449,7 +412,6 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
     }
   }, [modeOpen])
 
-  // Outside click to close date/year picker
   useEffect(() => {
     if (!pickerOpen) return
     function handleClick(e) {
@@ -468,7 +430,6 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
 
   const { label, canGoForward, from, to } = useDateRange(mode, cursor)
 
-  // Notify parent whenever the range changes
   useEffect(() => {
     onRangeChange?.({ mode, from, to })
   }, [mode, from, to, onRangeChange])
@@ -484,8 +445,6 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
     })
   }, [mode])
 
-  // When mode changes, snap cursor back to today to avoid e.g.
-  // being on "Week 1 2020" and switching to yearly showing 2020.
   const handleModeChange = useCallback((newMode) => {
     setMode(newMode)
     setCursor(new Date())
@@ -499,7 +458,6 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
 
   return (
     <div className={`flex items-center justify-between gap-2 ${className}`}>
-      {/* ── Mode Dropdown ── */}
       <div ref={modeContainerRef} className="relative">
         <button
           type="button"
@@ -540,9 +498,7 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
         )}
       </div>
 
-      {/* ── Period Navigation ── */}
       <div className="flex items-center gap-0.5">
-        {/* Back arrow */}
         <button
           type="button"
           id="date-range-prev"
@@ -553,7 +509,6 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
           <ChevronLeft className="size-3.5" />
         </button>
 
-        {/* Clickable label with Picker */}
         <div ref={pickerContainerRef} className="relative">
           <button
             type="button"
@@ -569,7 +524,6 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
             {label}
           </button>
 
-          {/* ── Picker Popover ── */}
           {pickerOpen && (
             <Picker
               mode={mode}
@@ -580,7 +534,6 @@ export function DateRangeNavigator({ onRangeChange, className = "" }) {
           )}
         </div>
 
-        {/* Forward arrow */}
         <button
           type="button"
           id="date-range-next"

@@ -62,8 +62,6 @@ public class DepartmentLearnerService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "InstitutionCertificationLearner not found: " + dto.getInstitutionCertLearnerId()));
 
-        // The learner must already hold institution_cert access for the SAME allocation the
-        // group belongs to — you cannot group a learner into another certification.
         Long groupInstitutionCertId = group.getInstitutionCert() != null ? group.getInstitutionCert().getInstitutionCertId() : null;
         Long learnerInstitutionCertId = learner.getInstitutionCert() != null ? learner.getInstitutionCert().getInstitutionCertId() : null;
         if (!Objects.equals(groupInstitutionCertId, learnerInstitutionCertId)) {
@@ -71,10 +69,6 @@ public class DepartmentLearnerService {
                     "This learner does not have access to the certification this group belongs to.");
         }
 
-        // Reactivate an archived assignment instead of colliding with it — the
-        // partial unique index (uq_institution_group_assignee_active) only
-        // guards active rows, so a stale archived row must be found and
-        // revived explicitly rather than inserted alongside.
         var existing = departmentLearnerRepository.findByDepartmentAndInstitutionCertLearner(group, learner);
         if (existing.isPresent()) {
             DepartmentLearner row = existing.get();
@@ -105,7 +99,6 @@ public class DepartmentLearnerService {
         return result;
     }
 
-    /** Archive (soft-remove) a learner from a group. */
     public void delete(Long id, Long callerInstitutionId) {
         log.info("Removing institution group assignee id: {}", id);
         DepartmentLearner entity = findEntity(id);
@@ -115,7 +108,6 @@ public class DepartmentLearnerService {
         departmentLearnerRepository.save(entity);
     }
 
-    /** Change a learner's standing within the group (peer lead vs. regular member). */
     public DepartmentLearnerDto changeRole(
             Long id, DepartmentLearner.Role newRole, Long callerInstitutionId) {
         DepartmentLearner entity = findEntity(id);

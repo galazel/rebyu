@@ -33,7 +33,6 @@ public class AiChatController {
     private final LearnerEntitlementService entitlements;
     private final S3StorageService storage;
 
-    /** The tutor is REBYU Pro. Staff (admin, institution) keep it for previewing lessons. */
     private CurrentUserDto requireTutor(Jwt jwt) {
         if (jwt == null) {
             throw new IllegalArgumentException("Authentication is required");
@@ -45,12 +44,6 @@ public class AiChatController {
         return user;
     }
 
-    /**
-     * The tutor and the caller, for a conversation the caller owns. Sessions
-     * are "{learnerId}-{lessonId}" (staff previewing use "guest-{lessonId}"),
-     * and the id comes from the browser -- without this, any Pro learner could
-     * read or write another learner's tutor conversation by changing the number.
-     */
     private CurrentUserDto requireTutorSession(Jwt jwt, String sessionId) {
         CurrentUserDto user = requireTutor(jwt);
         if ("ADMIN".equalsIgnoreCase(user.role())) {
@@ -63,15 +56,8 @@ public class AiChatController {
         return user;
     }
 
-    /** Largest snipped picture kept, decoded. The browser sends far less. */
     private static final int MAX_SNIP_BYTES = 3 * 1024 * 1024;
 
-    /**
-     * Stores a snipped picture so it reloads with the conversation, under
-     * {@code tutor-snips/{owner}/}; FileController lets only that owner (and
-     * admins) view it. A failed upload does not fail the question -- the
-     * picture still goes to the model, it just will not be there after a reload.
-     */
     private void storeSnip(ChatRequest request, CurrentUserDto user) {
         request.setImageKey(null);
         String image = request.getImage();
@@ -102,7 +88,6 @@ public class AiChatController {
         return aiChatService.chat(request);
     }
 
-    /** The answer as it is written, as Server-Sent Events relayed from the AI service. */
     @PostMapping(value = "/tutor/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChatRequest request) {
         storeSnip(request, requireTutorSession(jwt, request.getSessionId()));
@@ -115,14 +100,11 @@ public class AiChatController {
         return aiChatService.getConversation(sessionId);
     }
 
-    /** Records a turn the model didn't produce (a generated quiz/flashcard set). */
     @PostMapping("/tutor/conversation/messages")
     public ConversationResponseDto appendConversation(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody AppendConversationRequest request) {
         requireTutorSession(jwt, request.getSessionId());
-        // Snippets only come from a real question (with a stored picture); a
-        // hand-written one here could point at someone else's snip.
         if (request.getMessages() != null) {
             request.getMessages().forEach(message -> message.setSnippet(null));
         }

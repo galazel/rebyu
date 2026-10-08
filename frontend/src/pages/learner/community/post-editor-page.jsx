@@ -15,8 +15,6 @@ export default function PostEditorPage() {
 
   useEffect(() => {
     if (postId) {
-      // Fetch existing post data
-      // This would normally come from an API call
       setTitle('Sample Post Title')
       setBody('Sample post body content...')
     }
@@ -96,7 +94,6 @@ export default function PostEditorPage() {
           </CardContent>
         </Card>
 
-        {/* Delete Confirmation */}
         {showDeleteConfirm && (
           <Card className="border-red-200 bg-red-50">
             <CardContent className="pt-6">

@@ -11,10 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * The question pool an adaptive assessment draws from, and whether it is big
- * enough. One place, so publishing and starting an attempt agree on both.
- */
 @Service
 @RequiredArgsConstructor
 public class QuestionBankSizeService {
@@ -29,7 +25,6 @@ public class QuestionBankSizeService {
         }
     }
 
-    /** Every top-level question in the exam's scope that this exam may serve. */
     @Transactional(readOnly = true)
     public List<QuestionSelectionView> pool(Exam exam) {
         Long ownerDepartmentId = exam.getOwnerDepartment() == null ? null : exam.getOwnerDepartment().getDepartmentId();

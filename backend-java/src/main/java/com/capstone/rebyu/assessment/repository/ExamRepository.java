@@ -12,23 +12,11 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
 
     List<Exam> findByCertification_CertificationId(Long certificationId);
 
-    // Per-scope uniqueness checks (spec §5): one required assessment per scope.
     boolean existsByLesson_LessonId(Long lessonId);
 
-    /**
-     * Every set one learner has already generated of one kind against one
-     * lesson -- what a fresh generation has to avoid being named the same as.
-     * Scoped to the learner because two learners generating from the same
-     * lesson each want the plain title, not a number they did not earn.
-     */
     List<Exam> findByLearner_LearnerIdAndLesson_LessonIdAndExamType_ExamTypeText(
             Long learnerId, Long lessonId, String examTypeText);
 
-    // Same check, but ignoring AI-tutor-generated practice quizzes: a learner
-    // generating one for their own use must never block an admin from later
-    // authoring the lesson's real, official quiz. Explicit JPQL rather than a
-    // derived `...AndIsGeneratedFalse` name, since Spring Data's derivation
-    // off a Lombok `is`-prefixed boolean getter is easy to get subtly wrong.
     @Query("SELECT COUNT(e) > 0 FROM Exam e WHERE e.lesson.lessonId = :lessonId AND e.isGenerated = false")
     boolean existsOfficialByLessonId(@Param("lessonId") Long lessonId);
 
@@ -39,16 +27,6 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
     boolean existsByCertification_CertificationIdAndExamType_ExamTypeText(
             Long certificationId, String examTypeText);
 
-    /**
-     * Whether this certification has a PUBLISHED, official diagnostic.
-     *
-     * <p>The gate that asks this used to read every exam on the platform back
-     * as entities and filter them in Java, on every assessment page load and
-     * every attempt start. The predicate is three columns wide and belongs in
-     * SQL: {@code ownerDepartment IS NULL} is what "official" means (a group's own
-     * assessment must never gate learners outside -- or inside -- that group),
-     * and a null status is DRAFT, matching {@code Exam.effectiveStatus()}.
-     */
     @Query("""
             SELECT COUNT(e) > 0 FROM Exam e
             WHERE e.certification.certificationId = :certificationId
@@ -61,15 +39,6 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
             @Param("examTypeText") String examTypeText,
             @Param("status") Exam.Status status);
 
-    /**
-     * Whether this learner has a submitted attempt of an official exam of the
-     * given type in this certification.
-     *
-     * <p>Answers the diagnostic gate's "has this learner actually sat it?" in
-     * one round trip. Read as entities, the same question cost one query for
-     * the attempt list and then one more per attempt to resolve the lazy exam
-     * behind it just to read its type.
-     */
     @Query("""
             SELECT COUNT(a) > 0 FROM AssessmentAttempt a
             WHERE a.learnerId = :learnerId
@@ -84,12 +53,6 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
             @Param("examTypeText") String examTypeText,
             @Param("attemptStatus") com.capstone.rebyu.assessment.entity.AssessmentAttempt.Status attemptStatus);
 
-    /**
-     * When this learner was last served an exam of a given type -- the pop-up
-     * knowledge check's cooldown reads this so a learner cannot be interrupted
-     * twice in the same sitting. The minted exam is itself the record that a
-     * check was served, so no separate bookkeeping table is needed.
-     */
     @Query("""
             SELECT MAX(e.publishedAt) FROM Exam e
             WHERE e.learner.learnerId = :learnerId
@@ -98,43 +61,7 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
     java.time.LocalDateTime findLastServedAt(
             @Param("learnerId") Long learnerId, @Param("examTypeText") String examTypeText);
 
-    /* Curriculum progression.
-     *
-     * Each of these counts the prerequisites the learner has NOT yet passed,
-     * so a result of zero means the gate is open. Institution-owned papers are
-     * excluded throughout: a class's assessments are the institution's to
-     * sequence, the same exemption the retake gate makes.
-     *
-     * CLEARED, not merely passed -- the same rule the learning road applies in
-     * `curriculum-model.js`: where the sitting measured a proficiency, that
-     * proficiency reaching Proficient is the whole test, and the pass mark
-     * does not enter into it. An adaptive paper keeps serving harder items
-     * until it finds the edge of what the learner knows, so a raw percentage
-     * under the pass mark is the normal shape of a sitting that measured a
-     * real level -- gating on it as well locked out learners the engine had
-     * just rated Proficient.
-     *
-     * Read from `exam_results` rather than `assessment_attempts` so the server
-     * and the screen answer from the same rows: `rating` lives only here.
-     * A row with no rating (a fixed paper, or one written before ratings were
-     * recorded) clears on the pass alone.
-     *
-     * ANY cleared sitting counts, not only the most recent one.
-     *
-     * This read the latest sitting alone until 2026-09-29, so a learner who
-     * had cleared a quiz and then retook it for practice was locked out of
-     * the road they had already opened -- the retake scored lower, and the
-     * next lesson and the topic exam shut behind them. Progress through a
-     * curriculum is a thing you earn, not a thing you have to keep
-     * re-earning: once a lesson has been cleared at Proficient it stays
-     * cleared, and a weak retake is information, not a demotion.
-     *
-     * The screen agrees (`examStanding` in curriculum-model.js reads the best
-     * sitting), and the quiz card names both so the two numbers cannot look
-     * like a contradiction: the best sitting is the standing, the latest is
-     * reported beside it. */
 
-    /** Earlier lessons in this topic whose quiz the learner has not passed. */
     @Query("""
             SELECT COUNT(e) FROM Exam e
              WHERE e.examType.examTypeText = 'LESSON_QUIZ'
@@ -152,7 +79,6 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
             @Param("learnerId") Long learnerId,
             @Param("proficient") java.math.BigDecimal proficient);
 
-    /** Lessons in this topic whose quiz the learner has not passed. */
     @Query("""
             SELECT COUNT(e) FROM Exam e
              WHERE e.examType.examTypeText = 'LESSON_QUIZ'
@@ -168,7 +94,6 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
             @Param("learnerId") Long learnerId,
             @Param("proficient") java.math.BigDecimal proficient);
 
-    /** Topics in this unit whose module exam the learner has not passed. */
     @Query("""
             SELECT COUNT(e) FROM Exam e
              WHERE e.examType.examTypeText = 'MIDDLE_EXAM'

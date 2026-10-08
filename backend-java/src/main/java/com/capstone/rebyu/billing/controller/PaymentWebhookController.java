@@ -20,21 +20,11 @@ public class PaymentWebhookController {
     private final PayMongoWebhookVerifier verifier;
     private final ObjectMapper objectMapper;
 
-    /**
-     * PayMongo webhook handler for payment/subscription events. The event
-     * this app's actual checkout flow (Hosted Checkout Sessions) produces is
-     * {@code checkout_session.payment.paid}; the charge- and subscription-
-     * prefixed cases are kept for forward-compatibility with other payment
-     * flows but are not what a normal test-mode checkout will send.
-     */
     @PostMapping
     public ResponseEntity<Void> handleWebhook(
             @RequestBody String payload,
             @RequestHeader(name = "Paymongo-Signature", required = false) String signature) {
         if (!verifier.verify(payload, signature)) {
-            // A bad signature means this request cannot be trusted at all --
-            // unlike downstream processing errors, this is not swallowed
-            // into a 200 (there is nothing here worth acknowledging).
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
@@ -64,10 +54,6 @@ public class PaymentWebhookController {
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             log.error("Error processing PayMongo webhook", e);
-            // Always return 200 for a signature-valid but internally-failed
-            // event, so PayMongo doesn't retry-storm a bug in our own
-            // handling; the frontend's verify-on-redirect call is the
-            // primary activation path anyway, this is a secondary one.
             return ResponseEntity.ok().build();
         }
     }

@@ -26,17 +26,13 @@ class IrtModelTest {
         IrtModel.Estimate up = IrtModel.update(0.0, PRIOR, average, true);
         IrtModel.Estimate down = IrtModel.update(0.0, PRIOR, average, false);
         assertTrue(up.theta() > 0.0);
-        assertEquals(-up.theta(), down.theta(), 1e-9); // symmetric at a coin-flip item
+        assertEquals(-up.theta(), down.theta(), 1e-9);
         assertTrue(up.standardError() < PRIOR);
         assertEquals(up.standardError(), down.standardError(), 1e-9);
     }
 
     @Test
     void oneConfidentAnswerMovesAboutOneLevelThenSettles() {
-        /* From the baseline, one right answer on an average item should be
-           enough to make a hard item the more informative next choice
-           (theta past the midpoint between the two levels), and the same
-           answer late in a paper should move the estimate far less. */
         IrtModel.ItemParams average = new IrtModel.ItemParams(1.0, 0.0, 0.0);
         double first = IrtModel.update(0.0, PRIOR, average, true).theta();
         assertTrue(first > IrtModel.DIFFICULTY_HARD / 2.0, "first right answer: " + first);
@@ -69,9 +65,6 @@ class IrtModelTest {
 
     @Test
     void stepNeverLeavesTheScale() {
-        /* Surprising answers all the way: right on hard items climbs, wrong on
-           easy items falls. (Missing a hard item at the floor is no surprise,
-           so it barely moves -- which is the point of the weighting.) */
         IrtModel.ItemParams hard = new IrtModel.ItemParams(1.0, IrtModel.DIFFICULTY_HARD, 0.0);
         IrtModel.ItemParams easy = new IrtModel.ItemParams(1.0, IrtModel.DIFFICULTY_EASY, 0.0);
         double theta = 0.0;
@@ -120,7 +113,6 @@ class IrtModelTest {
         double some = IrtModel.standardError(0.0, responses);
         assertEquals(IrtModel.PRIOR_SIGMA, none, 1e-9);
         assertTrue(some < none);
-        // the prior's precision plus ten coin-flip items' information, never below the floor
         double expected = 1.0 / Math.sqrt(1.0 / (IrtModel.PRIOR_SIGMA * IrtModel.PRIOR_SIGMA) + 10 * 0.25);
         assertEquals(Math.max(IrtModel.MIN_SIGMA, expected), some, 1e-9);
     }
@@ -149,11 +141,11 @@ class IrtModelTest {
         double right = step(0.0, average, true);
         double wrong = step(0.0, average, false);
         double half = step(0.0, average, 0.5);
-        assertEquals(0.0, half, 1e-9); // half credit at a coin-flip item: no surprise
+        assertEquals(0.0, half, 1e-9);
         assertTrue(wrong < step(0.0, average, 0.25));
         assertTrue(step(0.0, average, 0.75) < right);
         assertEquals(right, step(0.0, average, 1.0), 1e-9);
         assertEquals(wrong, step(0.0, average, 0.0), 1e-9);
-        assertEquals(right, step(0.0, average, 1.7), 1e-9); // scores are clamped
+        assertEquals(right, step(0.0, average, 1.7), 1e-9);
     }
 }

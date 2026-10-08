@@ -40,9 +40,6 @@ import {
   StackedBarChart,
 } from "@/components/charts/rebyu-charts.jsx"
 
-/* Five bands rather than four, because "has not started" and "has barely
-   started" are different problems -- one is an onboarding failure and the
-   other is a teaching one, and a 0-25% bucket drew them as the same people. */
 const PROGRESS_TIERS = [
   { label: "Not started", min: 0, max: 0 },
   { label: "1-25%", min: 1, max: 25 },
@@ -51,13 +48,6 @@ const PROGRESS_TIERS = [
   { label: "76-100%", min: 76, max: 100 },
 ]
 
-/**
- * The mark to draw the target line at, or null when the papers disagree.
- *
- * One line cannot stand for two different pass marks, and drawing the first
- * paper's would quietly mislabel the rest -- so with a mixed set the line is
- * dropped and each paper's mark is named in the list instead.
- */
 function passMarkFor(assessments) {
   const marks = new Set(
     assessments.map((exam) => exam.passingScore).filter((mark) => mark != null)
@@ -65,13 +55,6 @@ function passMarkFor(assessments) {
   return marks.size === 1 ? [...marks][0] : null
 }
 
-/**
- * `YYYY-MM-DD` in the viewer's own timezone.
- *
- * Not `toISOString()`: that converts to UTC first, so anyone east of
- * Greenwich asking for today gets yesterday's date sent to the server. In
- * Manila (UTC+8) every request before 08:00 would have been off by a day.
- */
 function isoDate(date) {
   if (!date) return null
   return [
@@ -134,7 +117,6 @@ function DashboardCardHeader({
   )
 }
 
-/** One headline figure inside the performance tile. */
 function StatBox({ label, value, icon: Icon, iconClass = "", alert = false }) {
   return (
     <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
@@ -153,13 +135,8 @@ function StatBox({ label, value, icon: Icon, iconClass = "", alert = false }) {
   )
 }
 
-/** Home for teachers/facilitators. */
 export default function DepartmentHeadDashboardPage() {
   const layout = useDashboardLayout("department-head")
-  /* The period the board is reporting on. Held here rather than inside the
-     navigator because it is a query input, not a piece of chrome: both stats
-     queries key on it, so changing the period refetches rather than
-     re-filtering what is already on screen. */
   const [range, setRange] = useState(null)
   const from = isoDate(range?.from)
   const to = isoDate(range?.to)
@@ -173,8 +150,6 @@ export default function DepartmentHeadDashboardPage() {
   const statsQuery = useQuery({
     queryKey: ["department-head-learning-stats", from, to],
     queryFn: () => getInstitutionLearningStats({ from, to }),
-    // The previous period's figures stay on screen while the next ones load,
-    // so stepping through weeks does not blink the whole board to skeletons.
     placeholderData: (previous) => previous,
     retry: 1,
   })
@@ -182,22 +157,11 @@ export default function DepartmentHeadDashboardPage() {
   const hardestTopics = statsQuery.data?.hardestTopics ?? []
   const hardestAssessments = statsQuery.data?.hardestAssessments ?? []
 
-  /* The programmes this department actually teaches.
-     /learning-stats is scoped to the caller's departments on the server, so
-     these rows are already this department's learners and this department's
-     seat blocks -- a certification nobody here is sitting is not in the
-     response at all. The `enrolled` guard is belt and braces, not a filter
-     the page depends on. */
   const programmes = useMemo(
     () => (statsQuery.data?.certifications ?? []).filter((row) => row.enrolled > 0),
     [statsQuery.data]
   )
 
-  /* Why a learner needs a conversation, or null if they do not.
-     This used to drive a tile of its own, which on a small department listed
-     the same three people the roster below it already listed, with the same
-     two numbers beside them -- the board said everything twice. It is a
-     column on the roster now: same signal, one table. */
   const flagFor = useMemo(() => {
     const now = Date.now()
     const STALE_DAYS = 14
@@ -207,9 +171,6 @@ export default function DepartmentHeadDashboardPage() {
         ? Math.floor((now - new Date(member.lastActivityAt).getTime()) / 86_400_000)
         : null
 
-      /* One reason each, most urgent first: never started outranks gone
-         quiet, which outranks struggling. A row listing three problems is
-         read as none. */
       if (!member.gradedAttempts && !member.lessonsCompleted) {
         return "Has not started"
       }
@@ -264,7 +225,6 @@ export default function DepartmentHeadDashboardPage() {
     [departmentStatsQuery.data, assignedDeptIds]
   )
 
-  // Map each member to designated department
   const deptLearners = useMemo(() => {
     const deptLookup = new Map()
     instData.assignments?.forEach((assignment) => {
@@ -295,9 +255,6 @@ export default function DepartmentHeadDashboardPage() {
         }
       })
       .filter((m) => m.departmentId != null)
-      /* Anyone flagged first, then least progress. The roster is read to find
-         who needs help, and that should not mean sorting the table by hand on
-         every visit. */
       .sort((a, b) => {
         if (Boolean(a.flag) !== Boolean(b.flag)) return a.flag ? -1 : 1
         return Number(a.averageProgress ?? 0) - Number(b.averageProgress ?? 0)
@@ -309,9 +266,6 @@ export default function DepartmentHeadDashboardPage() {
     [deptLearners]
   )
 
-  /* Counts, not shares. A donut of three people reported "0-25%: 100%", which
-     is technically true and tells a head nothing; a column chart of headcount
-     says three, and keeps saying three when the cohort is thirty. */
   const spread = useMemo(
     () =>
       PROGRESS_TIERS.map((tier) => ({
@@ -332,15 +286,6 @@ export default function DepartmentHeadDashboardPage() {
     [deptLearners]
   )
 
-  /**
-   * The board as a spreadsheet, one titled section per tile.
-   *
-   * Sectioned rather than flattened, the same way the admin export is: a
-   * dashboard is not one table, and squashing the roster, the programmes and
-   * the two difficulty lists into a single shape loses which number belongs
-   * to what. Numbers go out bare -- no % sign, no separators -- because a
-   * formatted figure lands in a spreadsheet as text and will not sum.
-   */
   const buildCsv = () =>
     toCsv([
       {
@@ -430,12 +375,9 @@ export default function DepartmentHeadDashboardPage() {
   const tiles = useMemo(() => {
     const failed = statsQuery.isError
     const totalEnrolled = programmes.reduce((sum, row) => sum + row.enrolled, 0)
-    // The summary's seat counts are scoped to this department's seat blocks
-    // by the server, so they need no second pass here.
     const seatsTotal = Number(summary.seatsTotal ?? 0)
 
     return [
-      // Department headline: how far, how well, and how many people.
       {
         id: "dept-progress",
         col: 3,
@@ -488,9 +430,6 @@ export default function DepartmentHeadDashboardPage() {
                 </div>
               </div>
 
-              {/* Seats and papers sat: the two totals nothing else on the
-                  board carries, kept out of the stat boxes because neither is
-                  a performance reading. */}
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
                 <span>
                   <strong className="text-foreground tabular-nums">{totalEnrolled}</strong>{" "}
@@ -514,7 +453,6 @@ export default function DepartmentHeadDashboardPage() {
           </BentoTile>
         ),
       },
-      // Who is on each certification, and where they have got to.
       {
         id: "dept-programme-enrolment",
         col: 3,
@@ -569,7 +507,6 @@ export default function DepartmentHeadDashboardPage() {
           </BentoTile>
         ),
       },
-      // The same programmes as numbers: seats, completion, marks.
       {
         id: "dept-programme-table",
         col: 3,
@@ -629,9 +566,6 @@ export default function DepartmentHeadDashboardPage() {
                               ? "—"
                               : `${Math.round(Number(row.averageProgress))}%`}
                           </td>
-                          {/* A cohort can be most of the way through a
-                              programme and averaging 40% on its papers, and
-                              only one of those two numbers is a warning. */}
                           <td
                             className={`px-2 py-2 text-center tabular-nums font-semibold ${
                               row.averageScore != null && row.averageScore < 50
@@ -657,7 +591,6 @@ export default function DepartmentHeadDashboardPage() {
           </BentoTile>
         ),
       },
-      // How the cohort is spread across completion.
       {
         id: "dept-completion-spread",
         col: 3,
@@ -688,7 +621,6 @@ export default function DepartmentHeadDashboardPage() {
           </BentoTile>
         ),
       },
-      // What the cohort is getting wrong
       {
         id: "dept-hard-topics",
         col: 3,
@@ -709,10 +641,6 @@ export default function DepartmentHeadDashboardPage() {
                   Not enough marked answers yet to rank topics.
                 </p>
               ) : (
-                /* One chart per programme. A department teaches courses, and a
-                   single pooled ranking is unusable to a head fixing one
-                   syllabus -- they cannot act on a list where half the rows
-                   belong to a course they do not run. */
                 <div className="-mr-2 min-h-0 flex-1 space-y-5 overflow-y-auto pr-2">
                   {hardestTopics.map((programme) => (
                     <div key={programme.certificationId}>
@@ -740,7 +668,6 @@ export default function DepartmentHeadDashboardPage() {
           </BentoTile>
         ),
       },
-      // Which papers are hardest
       {
         id: "dept-hard-assessments",
         col: 3,
@@ -761,25 +688,12 @@ export default function DepartmentHeadDashboardPage() {
                   No assessment has been graded in this department yet.
                 </p>
               ) : (
-                /* One chart per programme, matching the topics tile beside
-                   it. A pooled ranking of papers is unreadable to a head
-                   fixing one course: they cannot act on a list where the
-                   worst rows belong to a certification they do not run. */
                 <div className="-mr-2 min-h-0 flex-1 space-y-5 overflow-y-auto pr-2">
                   {hardestAssessments.map((programme) => (
                     <div key={programme.certificationId}>
                       <p className="mb-2 truncate text-xs font-bold uppercase tracking-wide text-muted-foreground">
                         {programme.certificationTitle}
                       </p>
-                      {/* Average score against the pass mark, not pass rate.
-                          Ranking by pass rate is the right order -- a paper
-                          everyone scrapes through at 76% is fine and one
-                          everyone fails at 74% is not -- but it is the wrong
-                          thing to *draw*: on a struggling cohort every paper
-                          sits at 0% and the chart was five invisible bars.
-                          The mean varies (18% to 39% here), and how far short
-                          of the pass mark a paper falls is the thing a head
-                          can actually teach against. */}
                       <BarBreakdownChart
                         data={programme.assessments.map((exam) => ({
                           exam: exam.title,
@@ -798,9 +712,6 @@ export default function DepartmentHeadDashboardPage() {
                           <li key={exam.examId} className="truncate text-xs text-muted-foreground">
                             <span className="font-semibold text-foreground">{exam.title}</span>
                             {" — "}
-                            {/* The pass rate the bars no longer carry, said
-                                as the fraction it is: "0 of 9 passed" is a
-                                fact, a 0% bar is a blank. */}
                             <span
                               className={
                                 exam.passRate === 0 ? "font-semibold text-destructive" : undefined
@@ -823,7 +734,6 @@ export default function DepartmentHeadDashboardPage() {
           </BentoTile>
         ),
       },
-      // Sections, with the headcount the old bar chart threw away.
       {
         id: "dept-section-breakdown",
         col: 6,
@@ -879,14 +789,9 @@ export default function DepartmentHeadDashboardPage() {
           </BentoTile>
         ),
       },
-      // Department Learner Roster & Performance Table
       {
         id: "dept-learner-table",
         col: 6,
-        // Two rows, not three: with the follow-up tile folded in, one roster
-        // of a small cohort was sitting in half a screen of white space. It
-        // scrolls when a department is bigger, and can still be dragged
-        // taller by anyone who wants it taller.
         row: 2,
         x: 0,
         y: 7,
@@ -964,9 +869,6 @@ export default function DepartmentHeadDashboardPage() {
                               {learner.name || `Learner #${learner.learnerId}`}
                             </Link>
                           </td>
-                          {/* The reason, not a warning icon: "no activity in
-                              21 days" and "averaging 19%" call for different
-                              conversations, and a triangle says neither. */}
                           <td className="py-2.5 px-3">
                             {learner.flag ? (
                               <span className="flex items-center gap-1.5 text-xs font-semibold text-rb-fox-lip">
@@ -1029,16 +931,12 @@ export default function DepartmentHeadDashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Controls & Header Navigation (2A) */}
       <div className="relative z-30 flex flex-wrap items-center justify-between gap-4 mb-2.5">
         <div className="w-full md:w-[calc(50%-10px)]">
           <DateRangeNavigator className="w-full" onRangeChange={setRange} />
         </div>
 
         <div className="ml-auto flex items-center gap-3">
-          {/* Disabled while the figures are still arriving: a CSV exported
-              mid-load is a file full of blanks that reads like a department
-              with nothing on it. */}
           <Button
             variant="outline"
             onClick={() => downloadCsv(timestampedFilename("rebyu-department-dashboard"), buildCsv())}
@@ -1058,7 +956,6 @@ export default function DepartmentHeadDashboardPage() {
         </div>
       </div>
 
-      {/* Analytical Widgets & Key Metrics (2B Bento Grid) */}
       <DashboardBoard
         tiles={tiles}
         layout={layout.tileLayout}

@@ -2,16 +2,6 @@ import { useState } from "react"
 
 import { cn } from "@/lib/utils"
 
-/**
- * The frame the coding and diagram items share: problem | workspace | side.
- *
- * On a laptop the three sit side by side, each scrolling on its own. On a phone
- * three columns stacked into one screen-high box left the editor a sliver and
- * put the item grid over the canvas, so below `lg` the columns become tabs --
- * one pane at a time, each with the whole height. Panes are hidden rather than
- * unmounted when they are not showing: the diagram pane holds the draw.io
- * iframe, and unmounting it would download the editor again on every tab tap.
- */
 export function WorkspaceShell({ tabs, problem, workspace, side }) {
   const [pane, setPane] = useState("problem")
 
@@ -56,9 +46,6 @@ export function WorkspaceShell({ tabs, problem, workspace, side }) {
         {problem}
       </section>
 
-      {/* Invisible, not display:none, when another tab is showing: the diagram
-          canvas measures itself on load, and inside a hidden box it measured
-          zero and opened empty. Kept laid out underneath at full size instead. */}
       <section
         className={cn(
           "flex min-h-0 flex-1 flex-col",
@@ -83,11 +70,6 @@ export function WorkspaceShell({ tabs, problem, workspace, side }) {
   )
 }
 
-/**
- * The problem column, read like a worksheet: chips for the item's facts, the
- * title, the brief, instructions set apart on a green margin, then whatever the
- * layout adds (sub-questions).
- */
 export function ProblemStatement({ question, index, typeLabel, imageSrc, children }) {
   return (
     <div className="space-y-4 p-4 sm:p-5">
@@ -138,7 +120,6 @@ export function ProblemStatement({ question, index, typeLabel, imageSrc, childre
   )
 }
 
-/** A titled card for the side column. */
 export function SidePanel({ title, icon: Icon, aside, className, children }) {
   return (
     <div className={cn("rounded-2xl border border-rb-swan bg-white p-3", className)}>

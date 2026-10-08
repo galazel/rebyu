@@ -22,7 +22,6 @@ MID_RISK = 124
 STRIDE_DIAGRAM = "/lesson-media/stride.svg"
 KILLCHAIN_DIAGRAM = "/lesson-media/attack-chain.svg"
 VULN_DIAGRAM = "/lesson-media/vulnerability-cycle.svg"
-# Threat Modelling and Attack Surface Analysis
 
 _threat_sections = [
     ("Threat, Vulnerability, Risk", [
@@ -708,7 +707,6 @@ LESSON_THREAT = {
 }
 
 
-# Vulnerability Management and Penetration Testing
 
 _vuln_sections = [
     ("Finding Weaknesses Before Someone Else Does", [

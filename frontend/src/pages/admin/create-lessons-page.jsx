@@ -214,8 +214,6 @@ const individualActions = [
     }),
   },
   {
-    // Admin-authored only -- the lesson generator has no counterpart for this
-    // block, by design. See `ImageHotspotTool` in tools.jsx for why.
     type: "image-hotspot",
     name: "Image with Hotspots",
     description: "Pin labelled points on an image",
@@ -621,13 +619,6 @@ function normalizeTabItems(items) {
   )
 }
 
-/**
- * Not built on `normalizeArrayItems`: that helper seeds one blank entry when
- * the list is empty, which is right for tabs and cards but wrong here. A
- * hotspot tool legitimately starts with zero pins -- the admin adds them by
- * clicking the image -- and a phantom pin at 0,0 would sit in the corner of
- * every freshly placed block.
- */
 function normalizeHotspots(hotspots) {
   if (!Array.isArray(hotspots)) {
     return []
@@ -682,10 +673,6 @@ function normalizeToolData(type, data = {}, toolId, imageKeys = {}, videoKeys = 
   }
 
   if (type === "table") {
-    // `columns` is the single authority on width: every row is padded or
-    // trimmed to match it, so a row that fell out of step with the header --
-    // through a hand edit or an older saved lesson -- renders as a complete
-    // row rather than a ragged one.
     normalizedData.columns = (
         Array.isArray(normalizedData.columns) ? normalizedData.columns : []
     ).map((column) => ({
@@ -836,14 +823,6 @@ function CreateLessons() {
     }))
   }
 
-  /* Sections that came back with nothing in them are dropped on load.
-     Generation opens a lesson with a title-only cover section, and it arrived
-     here as a full-height empty page the admin had to scroll past to reach the
-     content -- and then delete by hand on every lesson. A section with no
-     content carries nothing a learner could read, so there is nothing to lose
-     by leaving it out. Only load is filtered: a section added in the editor is
-     empty until a tool goes in it, and dropping those would make adding one
-     impossible. */
   function withoutEmptySections(parsedSections) {
     return parsedSections.filter(
         (section) => (section.content ?? []).length > 0
@@ -1083,16 +1062,6 @@ function CreateLessons() {
       return `${toolLabel}: add at least one review card.`
     }
 
-    // `backTitle` is deliberately not required. A flip card's back now shows
-    // the card's own front title, so whatever is typed here never reaches the
-    // page -- blocking a save on it made admins fill a field with no effect.
-    // The key is still read and stored, so existing content keeps its value.
-    // `description` is no longer required either, for the same reason as a
-    // tab's body: generation writes some cards' text into `backTitle` and
-    // leaves `description` empty, so those lessons cannot be saved at all
-    // today -- lesson 3 is one. The card still renders; it just has a blank
-    // back. Only the front is genuinely load-bearing, because a card with no
-    // front text is a blank tile a learner cannot even identify.
     const hasInvalidCard = data.cards.some((card) => isBlank(card.frontTitle))
 
     if (hasInvalidCard) {
@@ -1123,19 +1092,6 @@ function CreateLessons() {
       return `${toolLabel}: add at least one tab.`
     }
 
-    // Only the tab's handle is required, and either field can be it: the
-    // renderer falls back `label -> title -> "Tab N"` for the trigger and
-    // `title -> label` for the panel heading, so a tab with just one of them
-    // is a complete tab as far as a learner is concerned.
-    //
-    // `description` used to be required too, and that was the wrong place to
-    // enforce it. Generation does not reliably fill a tab's body, so a lesson
-    // could arrive from the generator already failing this check -- and the
-    // admin would meet it while trying to save something else entirely, in a
-    // section they had not touched, named only by number. Nothing is protected
-    // by refusing that save: the field is already blank in the database, so
-    // writing it back blank loses nothing. An empty body is a lesson worth
-    // improving, not a save worth blocking.
     const hasInvalidTab = data.items.some(
         (item) => isBlank(item.label) && isBlank(item.title)
     )
@@ -1147,16 +1103,7 @@ function CreateLessons() {
     return null
   }
 
-  /* A combined block's `smallHeader` and `description` used to be required, and
-     that check blocked 9 of the 76 lessons in the database from being saved at
-     all -- every Review Card Grid the generator has ever produced (it writes no
-     small header) plus three Accordion Content Blocks. An admin met it while
-     trying to save an edit somewhere else entirely, named only by section and
-     tool number.
 
-     They were never required to render: `SectionIntro` returns null when both
-     are blank, so the block simply opens straight into its content. A field the
-     page treats as optional has no business blocking a save. */
   function validateTool(tool, sectionNumber, toolNumber) {
     const data = tool.data ?? {}
     const toolLabel = `Section ${sectionNumber}, tool ${toolNumber}`
@@ -1232,10 +1179,6 @@ function CreateLessons() {
         return `${toolLabel}: click the image to place at least one hotspot.`
       }
 
-      // A pin with no title is invisible to a learner in the list beside the
-      // image and opens an empty panel when clicked, so it is a save-blocker
-      // rather than something to quietly drop. The description is optional --
-      // some pins only need to name the part they point at.
       const untitledIndex = hotspots.findIndex((hotspot) => isBlank(hotspot?.title))
 
       if (untitledIndex !== -1) {
@@ -1297,8 +1240,6 @@ function CreateLessons() {
       if (columns.some((column) => !(column.label ?? "").trim())) {
         return `${toolLabel}: every column needs a heading.`
       }
-      // A row of entirely blank cells is a row the author forgot to fill in,
-      // and it renders as an empty stripe rather than as data.
       if (rows.some((row) => (row.cells ?? []).every((cell) => !(cell ?? "").trim()))) {
         return `${toolLabel}: every row needs at least one filled cell.`
       }

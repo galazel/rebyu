@@ -26,11 +26,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Transaction One: certification purchase and enrollment. Free enrollments
- * complete immediately; paid purchases stay pending until the payment is
- * verified server-side. Idempotency keys prevent duplicated transactions.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -66,9 +61,6 @@ public class EnrollmentTransactionService {
             throw new BusinessRuleException.CertificationAlreadyEnrolledException();
         }
 
-        // Certification prices are legacy data. Learner access is now gated by
-        // subscriptions, so starting any published certification creates a
-        // free enrollment immediately.
         BigDecimal price = BigDecimal.ZERO;
 
         LocalDateTime now = LocalDateTime.now();
@@ -131,7 +123,6 @@ public class EnrollmentTransactionService {
         LearnerOrderDetail detail = details.get(0);
         Certification certification = detail.getCertification();
 
-        // Idempotent confirm: an already-completed order returns its state.
         if (order.getStatus() == LearnerOrder.Status.completed) {
             Long enrollmentId = enrollmentRepository
                     .findFirstByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
@@ -155,7 +146,6 @@ public class EnrollmentTransactionService {
         order.setPaymentReference(paymentReference);
         orderRepository.save(order);
 
-        // Guard against a duplicate active enrollment created in between.
         LearnerCertification enrollment = enrollmentRepository
                 .findFirstByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
                         learnerId, certification.getCertificationId(),
@@ -193,8 +183,6 @@ public class EnrollmentTransactionService {
                 .enrolledAt(LocalDateTime.now())
                 .status(LearnerCertification.Status.active)
                 .build());
-        // "Knowledge Seeker" is the only achievement enrolling can unlock, and
-        // this is the one place an enrollment is created.
         achievementAwardService.evaluate(learner.getLearnerId());
         return enrollment;
     }

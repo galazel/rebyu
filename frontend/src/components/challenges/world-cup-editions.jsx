@@ -42,41 +42,14 @@ import QuestionSetEditor, {
 } from "@/components/challenges/question-set-editor.jsx"
 import { getAllCertifications } from "@/services/certificationService.js"
 
-/**
- * World Cup authoring: one exam per week, one question set per bracket stage.
- *
- * The arena is a weekly event, so its questions cannot be a single standing set
- * the way a solo run's are. Everyone sits the same tournament at the same time,
- * which means last week's questions are already public by the time this week's
- * lobby fills — each week needs its own exam.
- *
- * And a bracket is not one round: the same eight players meet at quarterfinals,
- * again at semis, and twice more in the final. One shared set would have the
- * two finalists answering questions they had already seen two rounds earlier,
- * so every stage carries its own set.
- *
- * Editions are stored server-side. "Save draft" writes new or edited questions
- * to the bank and records which each stage runs; learners see nothing until
- * "Publish week" copies the edition into the World Cup exam.
- */
 
-/**
- * Monday of the week containing `date`, as a YYYY-MM-DD string.
- *
- * Formatted from the local date parts, NOT `toISOString()`: east of UTC that
- * converts local Monday 00:00 into the previous Sunday, so every week landed a
- * day early and "this week" never matched the week just created.
- */
 function toDateString(date) {
   const pad = (value) => String(value).padStart(2, "0")
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
 function weekStartOf(date) {
-  // A bare "YYYY-MM-DD" parses as UTC midnight, which is the previous day
-  // anywhere west of UTC -- read it as local midnight instead.
   const monday = typeof date === "string" ? new Date(`${date}T00:00:00`) : new Date(date)
-  // getDay(): 0 = Sunday. Shift back to the Monday that starts this week.
   const offset = (monday.getDay() + 6) % 7
   monday.setDate(monday.getDate() - offset)
   monday.setHours(0, 0, 0, 0)
@@ -112,9 +85,6 @@ export default function WorldCupEditions({ arena }) {
   const thisWeek = weekStartOf(new Date())
   const [draftWeek, setDraftWeek] = useState(thisWeek)
   const [draftCertification, setDraftCertification] = useState("")
-  /* Every question is filed under a lesson -- `questions.lesson_id` is NOT
-     NULL -- so an edition needs one even though a bracket spans the whole
-     certification. Asked for once, when the week is created. */
   const [draftLesson, setDraftLesson] = useState("")
   const [draftError, setDraftError] = useState("")
 
@@ -140,7 +110,6 @@ export default function WorldCupEditions({ arena }) {
     return (id) => byId.get(String(id)) ?? "Certification"
   }, [certifications])
 
-  /* The chosen certification's lessons, out of the tree already fetched. */
   const draftLessons = useMemo(() => {
     const certification = certifications.find(
       (item) => String(item.certificationId ?? item.id) === String(draftCertification),
@@ -184,7 +153,6 @@ export default function WorldCupEditions({ arena }) {
     })
   }
 
-  /* one edition */
 
   if (openEditionId != null) {
     return (
@@ -198,7 +166,6 @@ export default function WorldCupEditions({ arena }) {
     )
   }
 
-  /* edition list */
 
   return (
     <div className="space-y-5">
@@ -322,8 +289,6 @@ export default function WorldCupEditions({ arena }) {
                 value={draftCertification}
                 onValueChange={(value) => {
                   setDraftCertification(value)
-                  // The lesson list belongs to the certification, so it cannot
-                  // survive a change of one.
                   setDraftLesson("")
                 }}
               >
@@ -401,19 +366,13 @@ export default function WorldCupEditions({ arena }) {
   )
 }
 
-/**
- * One week, opened: a tab per bracket stage, loaded from the server and saved
- * back as a draft or published.
- */
 function EditionEditor({ arena, editionId, certificationName, onBack }) {
   const queryClient = useQueryClient()
   const [stages, setStages] = useState(null)
   const [errors, setErrors] = useState({})
-  const [busy, setBusy] = useState(null) // "save" | "publish" | "delete" | null
+  const [busy, setBusy] = useState(null)
   const [dirty, setDirty] = useState(false)
 
-  /* The edition with every stage rebuilt into editor shape. Fetched once:
-     a background refetch must not overwrite what is being edited. */
   const detailQuery = useQuery({
     queryKey: [WORLD_CUP_EDITIONS_KEY, editionId],
     queryFn: async () => {
@@ -467,7 +426,6 @@ function EditionEditor({ arena, editionId, certificationName, onBack }) {
     setDirty(true)
   }
 
-  /** Writes new or edited questions to the bank, then the stage lists. */
   async function saveDraft() {
     const nextErrors = validateArenaQuestions(allQuestions)
     setErrors(nextErrors)
@@ -495,7 +453,6 @@ function EditionEditor({ arena, editionId, certificationName, onBack }) {
 
     await saveWorldCupEditionStages(editionId, ids)
 
-    // Saved questions re-link by id next time instead of being written again.
     setStages((current) =>
       Object.fromEntries(
         Object.entries(current).map(([stageId, problems]) => [
@@ -518,8 +475,6 @@ function EditionEditor({ arena, editionId, certificationName, onBack }) {
     try {
       await action()
     } catch (error) {
-      /* Questions are written one at a time, so a failure part-way can leave
-         some in the bank. The ones already written are re-linked on retry. */
       toast.error(kind === "publish" ? "Could not publish this week" : "Could not save this week", {
         description: apiMessage(error, "Some questions may have been saved. Try again."),
       })
@@ -536,8 +491,6 @@ function EditionEditor({ arena, editionId, certificationName, onBack }) {
     })
   }
 
-  /** Every stage has to hold questions and every question has to be valid: a
-   *  bracket that runs out of questions at the semifinal cannot be played. */
   function onPublish() {
     const emptyStageNames = arena.stages
       .filter((stage) => stages[stage.id].length === 0)
@@ -616,8 +569,6 @@ function EditionEditor({ arena, editionId, certificationName, onBack }) {
           </Button>
         ) : null}
 
-        {/* Disabled while busy: questions are written one at a time, so a
-            second press mid-run would author the whole week twice. */}
         <Button size="sm" variant="outline" onClick={onSaveDraft} disabled={Boolean(busy)}>
           <Save className="mr-2 size-4" />
           {busy === "save" ? "Saving..." : "Save draft"}
@@ -628,8 +579,6 @@ function EditionEditor({ arena, editionId, certificationName, onBack }) {
         </Button>
       </div>
 
-      {/* One tab per bracket stage. The count rides on the tab so an admin can
-          see which round is still empty without opening it. */}
       <Tabs defaultValue={arena.stages[0].id}>
         <TabsList>
           {arena.stages.map((stage) => (

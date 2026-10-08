@@ -5,8 +5,6 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTheme } from "@/hooks/use-theme"
 
-/** Shared between the icon button and the menu item, so the two can never
- *  disagree about which way the theme is currently set. */
 function useIsDark() {
   const { theme, setTheme } = useTheme()
 
@@ -17,16 +15,6 @@ function useIsDark() {
   return { isDark, toggle: () => setTheme(isDark ? "light" : "dark") }
 }
 
-/**
- * The theme switch as a row in the account menu.
- *
- * The portals used to spend a permanent header slot on this. Changing theme is
- * a once-a-session preference, not an action worth standing next to the
- * notification bell — it belongs with the other account settings.
- *
- * `onSelect` is prevented from closing the menu: switching theme with the menu
- * open lets you see the result and switch straight back if you don't like it.
- */
 export function PortalThemeMenuItem() {
   const { isDark, toggle } = useIsDark()
   const label = isDark ? "Light mode" : "Dark mode"

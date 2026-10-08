@@ -45,10 +45,6 @@ CERTIFICATION_ID = 4
 SYLLABUS = "/app/scripts/fe_papers/ip_syllabus.json"
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
-#: Below this an existing lesson is not considered to be "the same topic" as
-#: the syllabus entry, and both are kept: the lesson where it is, and a new
-#: lesson for the topic. Set deliberately high -- a wrong merge silently
-#: buries one topic's questions inside another.
 MATCH_THRESHOLD = 0.58
 
 
@@ -87,8 +83,6 @@ def main():
                                       show_progress_bar=False)
         similarity = lesson_vectors @ topic_vectors.T
 
-        # Greedy best-first assignment so one lesson cannot claim two topics
-        # and one topic cannot be claimed twice.
         pairs = sorted(
             ((float(similarity[i][j]), i, j)
              for i in range(len(existing_lessons)) for j in range(len(topics))),
@@ -103,7 +97,6 @@ def main():
             claimed_lessons.add(i)
             claimed_topics.add(j)
 
-        # --- categories ---
         major_ids, middle_ids = {}, {}
         created_majors = created_middles = 0
         for major in tree:
@@ -135,7 +128,6 @@ def main():
                          "m": major_ids[major["number"]]}).scalar()
                     created_middles += 1
 
-        # --- existing lessons re-parented ---
         moved = 0
         print("existing lessons matched to syllabus topics:")
         for i, row in enumerate(existing_lessons):
@@ -156,7 +148,6 @@ def main():
                     {"m": target, "l": row[0]})
                 moved += 1
 
-        # --- lessons for unclaimed topics ---
         created_lessons = 0
         for j, (major, middle, topic) in enumerate(topics):
             if j in claimed_topics:

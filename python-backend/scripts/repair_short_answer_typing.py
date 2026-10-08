@@ -101,9 +101,6 @@ def main(apply: bool) -> int:
             if _still_open_ended(stem):
                 continue
             if not answer or len(answer.split()) > SHORT_ANSWER_MAX_WORDS:
-                # No answer short enough to exact-match. The type may well be
-                # wrong, but this script cannot supply the missing answer and
-                # will not guess one.
                 continue
 
             fixed += 1

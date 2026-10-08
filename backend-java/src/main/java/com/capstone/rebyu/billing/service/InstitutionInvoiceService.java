@@ -18,13 +18,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-/**
- * Institution invoices: raised when a partnership request is approved.
- *
- * Pricing is flat -- {@link #PRICE_PER_SLOT} pesos per learner slot per
- * certification -- and lives here so the public request form, the admin
- * review and the invoice itself all quote the same figure.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -85,16 +78,11 @@ public class InstitutionInvoiceService {
             String paymentReference,
             String status,
             List<InvoiceItemDto> items,
-            /* Whether "Pay now" can be offered: PayMongo configured and nothing paid yet. */
             boolean payable,
             String paymentUnavailableReason) {}
 
     public record CheckoutDto(String checkoutUrl, String sessionId) {}
 
-    /**
-     * Starts (or resumes) PayMongo Hosted Checkout for an unpaid invoice.
-     * An open session is reused so two clicks do not make two sessions.
-     */
     @Transactional
     public CheckoutDto startCheckout(Long institutionId, Long invoiceId) {
         InstitutionInvoice invoice = invoices.findByInstitutionInvoiceIdAndInstitution_InstitutionId(invoiceId, institutionId)
@@ -131,10 +119,6 @@ public class InstitutionInvoiceService {
         return new CheckoutDto(checkout.checkoutUrl(), checkout.sessionId());
     }
 
-    /**
-     * Asks PayMongo whether the invoice's session was paid and, if so, marks
-     * the invoice paid. Safe to call repeatedly (success page, refreshes).
-     */
     @Transactional
     public InvoiceDto verifyPayment(Long institutionId, Long invoiceId) {
         InstitutionInvoice invoice = invoices.findByInstitutionInvoiceIdAndInstitution_InstitutionId(invoiceId, institutionId)
@@ -149,13 +133,11 @@ public class InstitutionInvoiceService {
             invoice.setCheckoutUrl(null);
             invoices.save(invoice);
             log.info("Invoice {} paid via PayMongo ({})", invoice.getInvoiceNumber(), invoice.getPaymentReference());
-            // Paid: now the institution gets in.
             accessGrantService.activateForInvoice(invoice);
         }
         return toDto(invoice);
     }
 
-    /** What one request would cost, before or after approval. */
     public static BigDecimal quote(List<PartnershipRequestItem> items) {
         return items.stream()
                 .map(item -> lineTotal(item.getSlots()))
@@ -166,11 +148,6 @@ public class InstitutionInvoiceService {
         return PRICE_PER_SLOT.multiply(BigDecimal.valueOf(slots == null ? 0 : slots));
     }
 
-    /**
-     * Issues the invoice for an approved request. Idempotent per request: a
-     * second approval attempt (or a retry after a crash) returns the one
-     * already issued rather than billing twice.
-     */
     @Transactional
     public InstitutionInvoice issueForApprovedRequest(
             PartnershipRequest request, Institution institution, List<PartnershipRequestItem> items) {
@@ -210,7 +187,7 @@ public class InstitutionInvoiceService {
                     .build());
         }
         invoice.setSubtotal(subtotal);
-        invoice.setTotalAmount(subtotal); // no discount or tax yet
+        invoice.setTotalAmount(subtotal);
 
         InstitutionInvoice saved = invoices.save(invoice);
         log.info("Invoice {} issued for request {} ({} {})", saved.getInvoiceNumber(),
@@ -218,12 +195,6 @@ public class InstitutionInvoiceService {
         return saved;
     }
 
-    /**
-     * Opening the invoices page is also what settles a refund still in flight:
-     * PayMongo does not announce it, so someone has to ask, and the person
-     * waiting on the money is the obvious someone. No pending refund means no
-     * request at all.
-     */
     @Transactional
     public List<InvoiceDto> listForInstitution(Long institutionId) {
         refundService.refreshPendingRefunds(institutionId);
@@ -289,7 +260,6 @@ public class InstitutionInvoiceService {
                         item.getAccessEndDate())).toList();
     }
 
-    /** REBYU-INV-202609-000042: sortable, and says what it is. */
     private String nextInvoiceNumber(LocalDateTime now) {
         long seq = invoices.count() + 1;
         String candidate;

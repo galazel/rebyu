@@ -13,6 +13,5 @@ public interface LearnerRepository extends JpaRepository<Learner, Long> {
 
     boolean existsByUsername(String username);
 
-    // Learner has no email of its own -- email lives on the linked User.
     Optional<Learner> findByUser_EmailIgnoreCase(String email);
 }

@@ -49,8 +49,6 @@ def _sse_frame(message: dict) -> str:
     if seq is not None:
         lines.append(f"id: {seq}")
 
-    # json.dumps never emits a raw newline, so the payload is always one
-    # `data:` line -- no need to split it.
     lines.append(f"data: {json.dumps(message, default=str)}")
     return "\n".join(lines) + "\n\n"
 
@@ -60,10 +58,6 @@ async def _sse_body(run_id: str, last_seq: int) -> AsyncIterator[str]:
         async for message in stream_events(run_id, last_seq):
             yield _sse_frame(message)
     except Exception:
-        # The client has already had a partial stream; tell it the stream
-        # failed rather than letting the connection just stop, which is
-        # indistinguishable from a network drop and would trigger a reconnect
-        # loop against a broken run.
         logger.exception("SSE stream failed for run %s", run_id)
         yield _sse_frame({"type": "error", "message": "stream failed"})
 
@@ -92,9 +86,6 @@ async def stream_workflow_timeline(
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
-            # Stops nginx and similar from buffering the stream into
-            # uselessness -- without it events arrive in batches, or not
-            # until the response ends.
             "X-Accel-Buffering": "no",
         },
     )

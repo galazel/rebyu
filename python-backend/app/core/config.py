@@ -25,9 +25,6 @@ class Settings(BaseSettings):
     debug: bool = False
     api_prefix: str = "/api/v1/bkt"
     service_api_key: str = ""
-    # Keep this as a CSV environment variable (rather than Pydantic's default
-    # JSON array) so `CORS_ORIGINS=http://localhost:5173,http://localhost:3000`
-    # works in .env files.
     cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost:5173"]
     )
@@ -36,155 +33,38 @@ class Settings(BaseSettings):
     sql_echo: bool = False
     db_pool_size: int = 10
     db_max_overflow: int = 20
-    # Dedicated Postgres schema for every BKT table, so this service can share
-    # the same database as the main Rebyu backend without colliding with its
-    # tables (notably a legacy `learner_lesson_mastery` table in `public`).
     db_schema: str = "bkt"
 
     redis_url: str = "redis://redis:6379/0"
     timezone: str = "Asia/Manila"
 
-    # OpenRouter
-    # Every agent talks to OpenRouter's OpenAI-compatible endpoint rather than
-    # to one vendor directly, which is what makes the per-task model table below
-    # possible: a lesson can be written by Claude and a document audit answered
-    # by Gemini Flash Lite over the same client, the same key, and the same
-    # billing account.
-    #: Base URLs live in `app.ai.tasks.PROVIDERS`, not here -- there is one per
-    #: provider now, and a per-provider value cannot be expressed as a single
-    #: setting. An `openrouter_base_url` field used to sit here and was silently
-    #: ignored after the registry took over, which is worse than not having it.
-    #:
-    #: Sent as OpenRouter's `HTTP-Referer` / `X-Title` attribution headers.
-    #: Optional to the API; they are what makes a run identifiable on the
-    #: activity dashboard when several services share one key.
     openrouter_site_url: str = "https://rebyu.app"
     openrouter_app_name: str = "REBYU"
 
-    # Per-task AI models
-    # One model per task, not one model per "tier". These jobs differ by more
-    # than an order of magnitude in size and in what they demand:
-    #
-    #   lesson          a whole lesson, 18+ authored content blocks, research
-    #                   tool calls, structured output -- the single hardest and
-    #                   most quality-sensitive thing this service does
-    #   curriculum      one large JSON syllabus, planned in one shot
-    #   question        many small batches, run dozens of times per generation
-    #                   -- the volume task, so unit price dominates
-    #   tutor           interactive; latency matters more than depth
-    #   lesson_audit    reads a long lesson, returns a verdict
-    #   document_audit  reads a few document samples, returns a boolean
-    #
-    # Pointing all six at one model means either wasting the biggest model on a
-    # boolean or underpowering the lessons. Each therefore gets its own model,
-    # fallback chain, completion budget and temperature, resolved in
-    # `app.ai.tasks`.
-    #
-    # EVERYTHING RUNS ON OPENROUTER, ON `:free` SLUGS -- no credit is spent.
-    # One provider for all six tasks, which keeps the table simple. Know the
-    # limits before relying on it:
-    #
-    #   * The free allowance is ~50 requests per DAY for the whole ACCOUNT --
-    #     shared across every `:free` model, so a fallback chain cannot route
-    #     around it. A full certification needs roughly 100+ calls (18 lessons
-    #     x2 round trips, ~30 question batches, 18 audits), so A COMPLETE RUN
-    #     DOES NOT FIT. Expect it to stop partway with a 429 naming
-    #     `free-models-per-day`. One or two lessons to check the pipeline is fine.
-    #     A one-off $10 purchase raises the cap to ~1000/day permanently.
-    #   * Models are chosen for MULTI-TURN tool support and output ceiling first.
-    #     `lesson` and `curriculum` call a Serper web search and then answer, and
-    #     most free slugs cannot do that round trip -- see the note on those two.
-    #   * Quality is lower than paid. Measured: a free lesson used 8 distinct
-    #     block types (the best of any free model tested); Groq's llama-3.3-70b
-    #     managed only 5. `.env.example` carries a ready paid block.
-    #
-    # `ai_default_model` is the backstop appended to every chain. Empty here on
-    # purpose: every task already names a same-provider fallback, and a global
-    # default would be the one entry able to smuggle a paid slug into a chain
-    # that is meant to stay free.
     ai_default_model: str = ""
 
-    #: The only two agents that call a real tool (Serper web search) and then
-    #: answer, so they need MULTI-TURN tool use -- a much narrower capability
-    #: than the single-turn structured output the other four need. Tested
-    #: 2026-08-03 against the real agents, which rules out most of the catalogue:
-    #:
-    #:   PASS  openrouter nemotron-3-ultra-550b:free  (ran the real lesson agent)
-    #:   PASS  groq llama-3.3-70b-versatile / llama-3.1-8b-instant
-    #:   FAIL  gemini 3.x      -- needs a thought_signature on replayed tool calls
-    #:                            that the OpenAI-compat layer drops
-    #:   FAIL  groq gpt-oss-*  -- tool_use_failed WITH tools (fine without)
-    #:   FAIL  groq qwen3.6-27b -- 413, its TPM cannot hold a lesson request
-    #:
-    #: 550B parameters with a 1M context and 64k output ceiling: the largest free
-    #: model that exists with working tool support, and the only free one that
-    #: reached for the rich block types (tabs, image-text layouts) rather than
-    #: padding with headings and paragraphs.
     ai_lesson_provider: str = "openrouter"
     ai_lesson_model: str = "anthropic/claude-sonnet-4.5"
     ai_lesson_fallbacks: str = "google/gemini-2.5-pro,openai/gpt-4.1,groq:openai/gpt-oss-120b,nvidia/nemotron-3-ultra-550b-a55b:free"
-    #: 16000. Unlike Groq -- whose 12k tokens-per-minute ceiling counts
-    #: `max_tokens` and refused anything larger with a 413 -- OpenRouter imposes
-    #: no per-minute ceiling here, and this model's output limit is 64k. So the
-    #: lesson budget is a content decision again rather than a provider one.
     ai_lesson_max_tokens: int = 24000
-    #: Slightly above zero: at 0.0 the model reaches for the same four block
-    #: types every lesson, and the prompt explicitly asks it to vary them.
     ai_lesson_temperature: float = 0.4
 
-    #: Same multi-turn tool constraint as the lesson agent -- it searches for the
-    #: real certification's published exam objectives before planning -- so it
-    #: gets the same proven model. Its answer is plain JSON rather than a tool
-    #: call (see app/ai/json_output.py), which is what lets a sample that stops
-    #: before its closing brackets be repaired instead of rejected.
     ai_curriculum_provider: str = "openrouter"
     ai_curriculum_model: str = "anthropic/claude-sonnet-4.5"
     ai_curriculum_fallbacks: str = "google/gemini-2.5-pro,openai/gpt-4.1,groq:openai/gpt-oss-120b,nvidia/nemotron-3-ultra-550b-a55b:free"
     ai_curriculum_max_tokens: int = 16000
-    #: Near-deterministic: a syllabus should be the same shape twice, and this
-    #: agent's answer is hand-parsed JSON, where creativity is only ever risk.
     ai_curriculum_temperature: float = 0.2
 
-    #: The volume task -- ~30 calls per certification, more than every other
-    #: agent combined. On the free tier the scarce resource is the account-wide
-    #: daily REQUEST cap, not money, so this is what exhausts a run, and the
-    #: first thing to look at when generation stops partway through.
-    #: The diagram-reference task: the model answer for a DIAGRAM question,
-    #: written as draw.io/mxGraph XML.
-    #:
-    #: Anthropic by default, and deliberately not the question model. Writing
-    #: mxGraph is a structured-artifact job -- the output has to parse, carry a
-    #: label on every node, and cover everything the instructions asked for --
-    #: and Claude is markedly better at it than the model writing the stems.
-    #:
-    #: It can be Anthropic here where `ai_question_model` cannot, because this
-    #: is a plain single-turn JSON call: the tool_use/tool_result history that
-    #: made the question agent fail on Anthropic never exists on this path.
-    #:
-    #: Temperature is low: a reference answer wants the conventional modelling
-    #: of the scenario, not an inventive one.
     ai_diagram_provider: str = "openrouter"
     ai_diagram_model: str = "anthropic/claude-sonnet-4.5"
     ai_diagram_fallbacks: str = "openai/gpt-4.1,google/gemini-2.5-flash,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
-    #: Room for a real model answer. A ten-class UML diagram with three
-    #: compartments each, typed attributes, operation signatures and labelled
-    #: relationships is several thousand tokens of XML on its own; 4000 cut
-    #: those off mid-diagram, and a truncated mxGraph document does not parse,
-    #: so the whole reference was discarded.
     ai_diagram_max_tokens: int = 10000
 
-    # Judge0 (running generated reference solutions)
-    # Generation runs each coding question's reference solution on Judge0,
-    # through the same harness the Java grader uses, and stores what it prints
-    # as the tests' expected outputs -- see `app.ai.programming_verification`.
-    # Defaults to the free public Judge0 CE instance, which is also what the
-    # Java backend grades against. Generated code never runs in this process.
     judge0_enabled: bool = True
     judge0_base_url: str = "https://ce.judge0.com"
     judge0_api_key: str = ""
     judge0_api_key_header: str = "X-RapidAPI-Key"
     judge0_timeout_seconds: float = 40.0
-    #: Parallel submissions per question. The public instance rate-limits.
     judge0_concurrency: int = 3
     judge0_cpu_time_limit_seconds: float = 5.0
     judge0_memory_limit_kb: int = 128000
@@ -194,23 +74,14 @@ class Settings(BaseSettings):
     ai_question_model: str = "google/gemini-2.5-flash"
     ai_question_fallbacks: str = "openai/gpt-4.1-mini,anthropic/claude-haiku-4.5,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,groq:qwen/qwen3.8-27b,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
     ai_question_max_tokens: int = 8000
-    #: Deliberately the highest of the six. Batches cannot see each other except
-    #: through an "already written" list, and at low temperature they converge on
-    #: the same stems -- which `invoke_question_agent` then discards as
-    #: duplicates, leaving the assessment short. Variance here is throughput.
     ai_question_temperature: float = 0.6
 
-    #: Learner-facing chat: answered while someone waits, so a small fast model
-    #: beats a marginally better slow one.
     ai_tutor_provider: str = "openrouter"
     ai_tutor_model: str = "google/gemini-2.5-flash"
     ai_tutor_fallbacks: str = "openai/gpt-4.1-mini,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
     ai_tutor_max_tokens: int = 2000
     ai_tutor_temperature: float = 0.3
 
-    #: The tutor when the learner sends a picture: a region of the lesson they
-    #: snipped (a diagram, a table). Must be a vision model; Groq's Qwen 3.8
-    #: reads images and is the one with budget when OpenRouter is out of credit.
     ai_tutor_vision_provider: str = "openrouter"
     ai_tutor_vision_model: str = "google/gemini-2.5-flash"
     ai_tutor_vision_fallbacks: str = (
@@ -218,107 +89,52 @@ class Settings(BaseSettings):
         "google/gemma-4-26b-a4b-it:free,nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free,"
         "openai/gpt-4.1-mini"
     )
-    #: Small on purpose: Groq counts the answer allowance toward its per-minute
-    #: token limit along with the picture, and a brief answer needs far less.
     ai_tutor_vision_max_tokens: int = 700
     ai_tutor_vision_temperature: float = 0.3
 
-    #: Marks written and coded answers while the learner waits on the results
-    #: page: a fast instruction model, no reasoning budget (see `tasks.GRADING`).
     ai_grading_provider: str = "openrouter"
     ai_grading_model: str = "openai/gpt-4.1-mini"
     ai_grading_fallbacks: str = "google/gemini-2.5-flash-lite,google/gemini-2.5-flash,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
     ai_grading_max_tokens: int = 1500
     ai_grading_temperature: float = 0.0
 
-    #: Reads a full generated lesson and judges it against the curriculum. Small
-    #: output, large input -- so this is sized by context, not by capability.
     ai_lesson_audit_provider: str = "openrouter"
     ai_lesson_audit_model: str = "openai/gpt-4.1-mini"
     ai_lesson_audit_fallbacks: str = "google/gemini-2.5-flash,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
     ai_lesson_audit_max_tokens: int = 1024
     ai_lesson_audit_temperature: float = 0.0
 
-    #: The smallest job in the system: is this document about this
-    #: certification, yes or no. Anything larger is waste -- and on a per-day
-    #: request cap, waste is measured in requests the lesson agent no longer has.
-    #:
-    #: There is a floor, though, and it is higher than "smallest model that
-    #: advertises tool support". `nvidia/nemotron-nano-9b-v2:free` answers a
-    #: one-field probe tool correctly and then degenerates on this agent's real
-    #: schema, emitting repeated `/</</<` and unparseable tool-call JSON until
-    #: the retry budget is spent. Capability has to be verified against the
-    #: actual agent, not a toy call.
     ai_document_audit_provider: str = "openrouter"
     ai_document_audit_model: str = "openai/gpt-4.1-mini"
     ai_document_audit_fallbacks: str = "google/gemini-2.5-flash,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
     ai_document_audit_max_tokens: int = 512
     ai_document_audit_temperature: float = 0.0
 
-    #: Looks at a rendered page and says what a figure IS.
-    #:
-    #: The only VISION task in the system. Everything else here reads text;
-    #: this one is handed a PNG of the region around a question and asked the
-    #: questions geometry cannot answer -- are these four pictures the answer
-    #: options or one diagram in four parts, does the stem refer to a figure
-    #: that was never captured, where does the figure actually end.
-    #:
-    #: `split_figures` decides that today by arithmetic: the trailing figures
-    #: are the options if there are as many of them as there are choices and
-    #: they are all within 20% of each other in size. That rule found choice
-    #: images on 22 of 3,018 IT Passport questions, which is far too few --
-    #: four graphs drawn at different heights fail the uniformity test and get
-    #: glued into one tall stem image instead.
-    #:
-    #: Must be a vision model. Gemini Flash is the cheapest that is, and this
-    #: runs only on the questions the geometry is unsure about, so the spend is
-    #: a fraction of the bank.
     ai_figure_provider: str = "openrouter"
     ai_figure_model: str = "google/gemini-2.5-flash"
     ai_figure_fallbacks: str = "openai/gpt-4.1-mini,anthropic/claude-sonnet-4.5,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
     ai_figure_max_tokens: int = 700
     ai_figure_temperature: float = 0.0
 
-    #: Filing imported past-paper questions under a lesson and rating their
-    #: difficulty, from the PDF import page's "Tag with AI". Text only, and a
-    #: plain JSON reply rather than tool calling. Grok first; the fallbacks are
-    #: OpenRouter's free models, so tagging still works with no credit left.
     ai_tagging_provider: str = "openrouter"
     ai_tagging_model: str = "x-ai/grok-4.7"
-    #: "groq:" entries run on Groq (see `get_llm`): its free tier is fast
-    #: and has daily room for a whole paper, where OpenRouter's :free models
-    #: are rate-limited within minutes. gpt-oss is fine here because tagging
-    #: asks for plain JSON, not tool calls.
     ai_tagging_fallbacks: str = (
         "groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,groq:qwen/qwen3.8-27b,"
         "qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free,"
         "nvidia/nemotron-3-super-120b-a12b:free"
     )
-    ai_tagging_max_tokens: int = 3000  # ~30 tokens a question; gpt-oss spends part of it reasoning
+    ai_tagging_max_tokens: int = 3000
     ai_tagging_temperature: float = 0.0
 
-    #: Reading an exam page the fixed-layout reader cannot: an afternoon paper
-    #: of passages with lettered blanks, another school's format, a scan. The
-    #: page arrives as an image with its text layer; the model returns the
-    #: questions on it. Must be a vision model; the fallbacks are free ones.
     ai_extraction_provider: str = "openrouter"
     ai_extraction_model: str = "google/gemini-2.5-flash"
     ai_extraction_fallbacks: str = (
         "google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free,"
         "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free,qwen/qwen3.8-27b:free"
     )
-    ai_extraction_max_tokens: int = 4000  # a page of blanks with a 10-option group fits
+    ai_extraction_max_tokens: int = 4000
     ai_extraction_temperature: float = 0.0
 
-    # Curriculum size
-    # What the planner is *asked* for. Lower all six to run the whole workflow
-    # end-to-end on a small AI budget: setting every min/max to 1 yields a
-    # one-major/one-middle/one-lesson certification that still exercises every
-    # node in the graph, review checkpoints and assessments included.
-    #
-    # The breadth floor that rejects an under-sized sample is derived from
-    # these rather than fixed (see `app.schemas.certification.curriculum_schema`),
-    # so a deliberately small configuration is not rejected as a bad sample.
     curriculum_min_majors: int = 3
     curriculum_max_majors: int = 6
     curriculum_min_middles: int = 2
@@ -326,203 +142,42 @@ class Settings(BaseSettings):
     curriculum_min_lessons: int = 3
     curriculum_max_lessons: int = 5
 
-    #: Let the planner size the curriculum from the source document instead of
-    #: from the six knobs above.
-    #:
-    #: A syllabus is a property of the material: a 300-page IT Passport guide
-    #: and a two-page handout do not both want 3-6 majors. When this is on, the
-    #: Size block asks the planner to derive the structure from what the
-    #: document actually covers, the per-level ceilings are not applied, and the
-    #: breadth floor drops to "at least one lesson" so a genuinely small source
-    #: is not resampled forever.
     curriculum_autosize: bool = False
 
-    #: Total-lesson backstop that still applies under `curriculum_autosize`.
-    #: Set to 0 to remove it entirely.
-    #:
-    #: This is NOT a second size knob -- it sits far above any real syllabus and
-    #: exists only to stop a runaway plan. On 2026-08-24 an unbounded run
-    #: planned 125 lessons, reached lesson 77, and died on a 402 with the
-    #: account drained and NOTHING persisted (see `_enforce_ceiling` in
-    #: `app.schemas.certification.curriculum_schema`). Per-lesson cost also
-    #: rises as a run goes on -- roughly $0.015 early, ~$0.66 past lesson 60 --
-    #: so an unbounded plan is not a linearly-priced one. Trimming is free;
-    #: losing a whole run to an exhausted balance is not.
-    #:
-    #: What that incident actually cost was the *losing*, not the length: the
-    #: run had 77 written lessons in the checkpoint and persisted none of them,
-    #: because output only reached the database at the end. With
-    #: `lesson_checkpoint_every` writing progress down as it goes, an
-    #: interrupted long run keeps what it wrote and the retry continues from
-    #: there -- which is what makes 0 (no cap) a reasonable setting rather than
-    #: a gamble on the balance holding out.
     curriculum_autosize_max_lessons: int = 60
 
-    #: Flush generated output to the database every N lessons.
-    #:
-    #: A run holds everything in the LangGraph checkpoint and used to write it
-    #: to Java's tables only at the very end, so anything that stopped the
-    #: process -- a 402, an OOM, a container restart, someone stopping the
-    #: stack -- threw away every lesson already authored, and the retry paid to
-    #: write them all again. `rescue_partial_output` covers the failures the
-    #: process survives long enough to handle; this covers the ones it does
-    #: not, because the work is already in the database before they happen.
-    #:
-    #: Persistence is name-matched and skips what is already stored
-    #: (`_persist_curriculum`, `persist_generated_assessments`), so flushing
-    #: repeatedly adds what is missing rather than duplicating what is there.
-    #: Set to 0 to disable and go back to end-of-run persistence only.
     lesson_checkpoint_every: int = 10
 
-    #: Content blocks the lesson agent is asked to write. Deliberately
-    #: independent of curriculum size: a cheap test run wants *few* lessons,
-    #: not thin ones, so shrinking the syllabus must not shrink the lesson.
-    #:
-    #: 18 rather than the old 10 because the constraint that set the old number
-    #: is gone: the lesson was written in one response bounded by a 6000-token
-    #: completion budget, itself bounded by a free tier's per-minute allowance.
-    #: `ai_lesson_max_tokens` is now 16000 against a model with a 64k ceiling,
-    #: so depth here is a content decision rather than a budget one.
     lesson_min_sections: int = 22
 
-    #: How many lessons are authored at once on an UNATTENDED run.
-    #:
-    #: Writing a lesson is the slowest thing a run does -- a few minutes each,
-    #: and a curriculum has scores of them -- while nothing about it is
-    #: ordered: lesson twelve never reads lesson eleven. Authored one at a
-    #: time, a seventy-five lesson certification spends six hours almost
-    #: entirely waiting on responses that could have overlapped.
-    #:
-    #: The graph still WALKS lessons one at a time: it reviews, checkpoints and
-    #: advances exactly as before, and simply finds most lessons already
-    #: written when it arrives. See `lesson_content_node`.
-    #:
-    #: 1 restores the old strictly-serial behaviour. Raising it does not reduce
-    #: cost -- the same lessons are written either way -- and it does raise the
-    #: in-flight spend OpenRouter reserves at once, which is what a thin
-    #: balance runs out of first (402 in_flight_budget_exhausted). On a small
-    #: balance, prefer 1 or 2.
-    #:
-    #: Ignored on guided runs, where a reviewer can edit or regenerate a lesson
-    #: and anything written ahead of them could be stale.
     lesson_concurrency: int = 4
 
-    # Assessment size
-    # Questions per assessment. Generation and validation read the same value,
-    # so lowering one lowers the ask and the expected count together.
-    #
-    # These dominate a run's token cost: even a single-lesson curriculum still
-    # generates 10 + 20 + 50 + 40 + 60 + 100 = 280 questions at these defaults,
-    # which is far more than the syllabus itself. They are the first thing to
-    # lower when the budget, not the workflow, is the constraint.
     lesson_quiz_questions: int = 10
     middle_quiz_questions: int = 20
     major_quiz_questions: int = 50
     diagnostic_exam_questions: int = 40
-    #: Used only when the planner could not determine the real exam's item
-    #: count -- when it did, that number wins (capped by
-    #: `mock_exam_max_questions`). 50 MCQs across the whole syllabus is the
-    #: neutral fallback: long enough to cover a certification, short enough to
-    #: sit, and self-grading.
     mock_exam_questions: int = 50
     question_bank_questions: int = 100
 
-    #: Bank questions to author PER LESSON. When > 0 this replaces the flat
-    #: `question_bank_questions` total and the bank scales with the syllabus.
-    #:
-    #: The bank was deliberately flat -- one pool for the certification, a fixed
-    #: cost that did not multiply -- which is the right call on a budget and the
-    #: wrong one for everything that reads the bank per lesson. The pop-up
-    #: knowledge check draws 5 questions from a single finished lesson, and BKT
-    #: fits guess/slip per lesson: both starve when a 100-question bank is
-    #: spread thin across a 30-lesson syllabus. Sizing per lesson guarantees
-    #: every lesson has its own pool.
-    #:
-    #: This MULTIPLIES: 10 here across 30 lessons is 300 bank questions. Under
-    #: `curriculum_autosize` the lesson count is not known until the planner
-    #: has run, so the bank total is not knowable in advance either.
     question_bank_questions_per_lesson: int = 0
 
-    #: Questions asked for in a single LLM call. Anything larger is split
-    #: across several calls and merged (`app.ai.invocation`). One MCQ costs
-    #: roughly 250 completion tokens because it explains every choice, so 15
-    #: fits inside `ai_question_max_tokens` (4000) with room for the model's
-    #: preamble; asking for 50 at once truncates the response, which fails,
-    #: retries with backoff, and eventually trips the Java gateway's timeout.
-    #:
-    #: Raising this beyond the completion budget / 250 is the fastest way to
-    #: reintroduce that timeout, so the two settings move together -- which is
-    #: why a test pins the relationship rather than trusting these comments.
-    #: The question task runs on Groq, whose tokens-per-minute ceiling is 8k and
-    #: counts `max_tokens` toward the estimate, so the budget cannot simply be
-    #: raised to fit a bigger batch.
     question_batch_size: int = 20
 
-    #: Score below which an UNATTENDED run regenerates an item once before
-    #: accepting it. 0 disables the gate.
-    #:
-    #: `validate_question_batch` and `validate_lesson` already scored every
-    #: artifact out of 100 -- filler distractors, duplicate stems, the correct
-    #: answer always being the longest option, recall-only Bloom coverage --
-    #: and on an unattended run nothing read the number. The report was stored
-    #: for the workspace and the item was approved regardless, so a batch
-    #: scoring 20 shipped exactly like one scoring 100.
-    #:
-    #: 70 is calibrated against the penalties in `domain.validation.report`:
-    #: an ERROR costs 25 and a WARNING 8, so this catches one hard defect or a
-    #: pile of soft ones while letting a merely imperfect artifact through.
-    #: Raising it much past 85 makes cosmetic warnings trigger real spend.
     auto_review_min_quality_score: int = 70
 
-    #: Ceiling on the mock exam regardless of what the planner researched.
-    #: The mock exam's item count normally comes from the real certification's
-    #: exam structure -- TOPCIT's 100 items, say -- because a mock exam that
-    #: ignores the paper it imitates is not a mock exam. That is the right
-    #: default and the wrong one on a small budget, so this clamps it without
-    #: discarding the rest of the researched structure. 0 means no ceiling.
     mock_exam_max_questions: int = 0
 
-    # Model fallback on quota exhaustion
-    # The per-task `*_fallbacks` lists above are walked when a model is rate
-    # limited or its upstream provider is down. They are ordered most-capable
-    # first: a fallback trades output quality for availability, so it is a last
-    # resort, not a load-balancer.
-    #
-    # They are comma-separated strings rather than list[str] because
-    # pydantic-settings expects JSON for complex types, which makes overriding
-    # them in .env awkward (AI_LESSON_FALLBACKS='["a","b"]' vs =a,b).
-    #
-    #: Cooldown applied when a rate-limit response carries no parseable reset
-    #: time. OpenRouter's own free-tier buckets are daily, and an upstream
-    #: provider's limits are opaque from here, so an hour is the safe
-    #: assumption -- it is a skip-this-model hint, not a sleep.
     ai_quota_cooldown_seconds: float = 3600.0
 
     training_view_name: str = "rebyu_bkt_training_data_v"
     max_upload_mb: int = 100
 
-    # Used for every lesson until the model is trained -- and with no training
-    # run yet, that is every lesson. They are not a formality.
     fallback_prior: float = 0.30
-    # Was 0.20, which made a single answer move mastery enormously: the learn
-    # transition is applied after *every* observation, correct or not, so at
-    # 0.20 three correct answers took a real learner from 0.34 to 0.98 while
-    # their record on that lesson was 19 right and 70 wrong. 0.08 is within the
-    # range fitted BKT models typically report and leaves the estimate moving
-    # on evidence rather than lurching on the last answer.
     fallback_learn: float = 0.08
     fallback_guess: float = 0.25
     fallback_slip: float = 0.10
-    # A little forgetting, so mastery cannot pin itself at ~1.0 and stay there
-    # on the strength of an old streak. With forget at exactly zero the
-    # transition can only ever add, which is why the ceiling was so sticky.
     fallback_forget: float = 0.03
 
-    # Smart Defaults by class. Guess and slip follow the item's difficulty
-    # (an easy item is easier to guess and harder to slip on); the learn rate
-    # follows the assessment type (a graded exam is a stronger learning
-    # event than a lesson quiz, a diagnostic barely teaches). Anything not
-    # listed uses the plain fallback above.
     smart_guess_easy: float = 0.30
     smart_guess_average: float = 0.25
     smart_guess_hard: float = 0.20
@@ -534,9 +189,6 @@ class Settings(BaseSettings):
     smart_learn_middle_exam: float = 0.10
     smart_learn_major_exam: float = 0.12
     smart_learn_mock_exam: float = 0.10
-    # The in-lesson pop-up check re-tests lessons already finished, so it is
-    # recall more than new learning; an AI-tutor quiz is unreviewed, so it
-    # counts for least of all.
     smart_learn_knowledge_check: float = 0.06
     smart_learn_generated_quiz: float = 0.05
 
@@ -544,38 +196,18 @@ class Settings(BaseSettings):
     good_threshold: float = 0.70
     mastered_threshold: float = 0.85
 
-    # Accuracy guard
-    # BKT is a recency-weighted estimate: it answers "what is the chance they
-    # know this now", not "how have they done overall". Those come apart badly
-    # when a learner has a long poor record and a short good run, and the
-    # honest answer in that case is not 98%.
-    #
-    # So once there is enough evidence to trust it, observed accuracy sets a
-    # ceiling on the reported estimate. The estimate may sit above accuracy --
-    # improvement is real and should show -- but only by so much.
     mastery_accuracy_guard_min_evidence: int = 10
     mastery_accuracy_guard_headroom: float = 0.35
 
-    # Readiness component weights. They must sum to 1.00: the service divides
-    # by the full total, so a component a learner has not earned yet counts as
-    # zero rather than being removed from the calculation.
-    #
-    # Mastery leads -- what you know matters most. Lesson progress is second:
-    # having covered the syllabus is the other half of being ready, and it is
-    # the component that keeps an untouched course from scoring well on the
-    # strength of one good assessment.
     readiness_mastery_weight: float = 0.20
     readiness_progress_weight: float = 0.10
     readiness_mock_exam_weight: float = 0.40
     readiness_quiz_weight: float = 0.10
     readiness_major_exam_weight: float = 0.08
     readiness_middle_exam_weight: float = 0.07
-    # A diagnostic places you; it does not certify you. Small on purpose.
     readiness_diagnostic_weight: float = 0.03
-    # Consistency is evidence of effort, not of knowing the material.
     readiness_streak_weight: float = 0.02
 
-    # Priority scoring (lesson component weights; normalized at use)
     priority_weight_mastery: float = 0.45
     priority_weight_incorrect: float = 0.20
     priority_weight_mock: float = 0.10
@@ -583,58 +215,34 @@ class Settings(BaseSettings):
     priority_weight_curriculum: float = 0.10
     priority_weight_review: float = 0.05
 
-    # Priority tag thresholds (0..100, worse >= threshold).
     priority_critical_threshold: float = 85.0
     priority_high_threshold: float = 70.0
     priority_medium_threshold: float = 50.0
     priority_low_threshold: float = 30.0
     priority_on_track_threshold: float = 15.0
 
-    # Mastery safeguards and evidence floor.
     priority_min_evidence: int = 1
     mastery_critical_ceiling: float = 0.20
     mastery_high_ceiling: float = 0.30
 
-    # Stabilization hysteresis (points a score must move to change tag).
     priority_worsen_margin: float = 5.0
     priority_improve_margin: float = 8.0
 
-    # RAG / retrieval (Phase 2a)
-    # Replaces the previous 256-dim SHA-256 token-hashing "embeddings", which
-    # had no semantic capability at all. Kept behind settings so the model can
-    # be swapped (e.g. to BAAI/bge-base-en-v1.5) without touching rag/ code.
     rag_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     rag_embedding_device: str = "cpu"
-    #: Retained only so an existing deployment's `faiss_db/` path stays
-    #: configurable while it is cleaned up. Nothing reads it for retrieval
-    #: any more -- vectors live in Qdrant.
     rag_index_dir: Path = Path("faiss_db")
 
-    # Qdrant
-    # Run it with:  docker run -p 6333:6333 -p 6334:6334 \
-    #                 -v qdrant_storage:/qdrant/storage qdrant/qdrant
-    # One collection per certification (see `app.rag.store.namespace_for`), so
-    # a retrieval cannot read another certification's documents even if a
-    # metadata filter is forgotten.
     qdrant_url: str = "http://localhost:6333"
-    #: Empty for a local container; set for Qdrant Cloud.
     qdrant_api_key: str = ""
     qdrant_timeout_seconds: float = 30.0
-    # ~1000 chars/150 overlap on sentence boundaries, vs the old 300-char
-    # fixed-width slices that cut mid-word and carried ~75 tokens of context.
     rag_chunk_size: int = 1000
     rag_chunk_overlap: int = 150
-    # Fetch wide, then narrow: fetch_k candidates are reranked down to top_k.
     rag_fetch_k: int = 80
     rag_top_k: int = 24
     rag_rerank_enabled: bool = True
     rag_rerank_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
-    # Hard ceiling on assembled context handed to a generation agent.
     rag_max_context_chars: int = 160000
 
-    # RabbitMQ (Phase 6 consumers)
-    # Same broker/topology the Java backend's producers publish to
-    # (see backend-java RabbitMqConfig): topic exchange + per-queue DLX/DLQ.
     rabbitmq_host: str = "localhost"
     rabbitmq_port: int = 5672
     rabbitmq_username: str = "guest"
@@ -642,11 +250,6 @@ class Settings(BaseSettings):
     rabbitmq_exchange: str = "rebyu.exchange"
     rabbitmq_dead_letter_exchange: str = "rebyu.dlx"
 
-    # AWS S3 (Phase 6: read knowledge_documents uploaded by Java)
-    # Any S3-compatible store. Empty endpoint = AWS S3. For Cloudflare R2 set
-    # AWS_S3_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com,
-    # AWS_S3_REGION=auto, and the R2 API token's keys below. Must match Java's
-    # S3_* settings: both services read and write the same bucket.
     aws_s3_endpoint_url: str = ""
     aws_s3_bucket_name: str = "rebyu"
     aws_s3_region: str = "us-east-1"

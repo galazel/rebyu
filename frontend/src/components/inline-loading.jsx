@@ -1,10 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton"
 
-/**
- * An in-page wait drawn as the shape of what is coming: a title bar, a row of
- * stat tiles and a few content rows. Used when a tab or section of a page that
- * is already open loads its data -- never the full-screen loading board.
- */
 export function InlineLoading({ rows = 4 }) {
   return (
     <div role="status" aria-live="polite" aria-label="Loading" className="space-y-4 py-2">

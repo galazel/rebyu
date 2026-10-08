@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Pairs taken from the question bank on 2026-09-20, when its twins were removed. */
 class QuestionStemTest {
 
     @Test

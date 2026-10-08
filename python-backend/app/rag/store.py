@@ -43,8 +43,6 @@ from app.rag.embeddings import resolve_embeddings
 
 logger = logging.getLogger(__name__)
 
-#: Payload keys. Kept explicit because they are a storage format: renaming one
-#: silently orphans every point already written under the old name.
 CONTENT_KEY = "page_content"
 METADATA_KEY = "metadata"
 
@@ -242,10 +240,6 @@ def _ensure_collection(namespace: str, embeddings: Embeddings) -> None:
     logger.info("Created Qdrant collection '%s'", namespace)
 
 
-#: Namespaces seen indexed, and when. Checking costs two round trips to
-#: Qdrant (~0.5s from here) on every tutor question; an index does not stop
-#: existing between two questions, and a stale entry only means a search
-#: that finds nothing, which every caller already handles.
 _KNOWN_INDEXED: dict[str, float] = {}
 _KNOWN_INDEXED_SECONDS = 300
 
@@ -281,9 +275,6 @@ def add_documents(
     vectors = resolved.embed_documents([doc.page_content for doc in documents])
     points = [
         qdrant_models.PointStruct(
-            # Random ids rather than content hashes: re-ingesting the same
-            # document is meant to be additive, and hashing would make it a
-            # silent no-op.
             id=str(uuid.uuid4()),
             vector=vector,
             payload={CONTENT_KEY: doc.page_content, METADATA_KEY: doc.metadata or {}},

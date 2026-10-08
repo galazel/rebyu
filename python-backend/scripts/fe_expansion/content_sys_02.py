@@ -15,7 +15,6 @@ from figures import fig
 MAJOR = "System Strategy"
 MIDDLE = "System Strategy"
 
-# Lesson 3: Solution business
 
 _sol_sections = [
     ("Obtaining Capability Without Owning It", [
@@ -711,7 +710,6 @@ LESSON_SYS_SOL = lesson(
         ],
     ))
 
-# Lesson 4: System utilisation and evaluation
 
 _util_sections = [
     ("Systems That Nobody Uses", [

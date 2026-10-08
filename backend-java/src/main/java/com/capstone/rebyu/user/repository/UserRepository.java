@@ -23,7 +23,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     long countByUserType_UserTypeText(String userTypeText);
 
-    /** Admins are left out: the dashboard counts the people the platform serves. */
     @Query("select count(u) from User u where upper(u.userType.userTypeText) <> 'ADMIN'")
     long countNonAdmins();
 

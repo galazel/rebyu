@@ -25,7 +25,6 @@ public class LearnerInvitationService {
         return learnerInvitationRepository.findAll().stream().map(learnerInvitationMapper::toDto).toList();
     }
 
-    /** The caller's own pending invitations, by the address they were sent to. */
     public List<LearnerInvitationDto> getMyPending(String email) {
         if (email == null || email.isBlank()) {
             return List.of();

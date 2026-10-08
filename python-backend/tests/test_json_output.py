@@ -32,7 +32,6 @@ def _response(*contents):
     return {"messages": [_Message(content) for content in contents]}
 
 
-# reading the answer out of the run
 
 
 def test_the_answer_is_the_last_message_of_the_run():
@@ -57,7 +56,6 @@ def test_an_empty_run_is_a_valueerror_so_it_gets_resampled(response):
         final_message_text(response)
 
 
-# prose and fences around the object
 
 
 def test_a_preamble_before_the_object_is_ignored():
@@ -73,7 +71,6 @@ def test_trailing_commentary_after_the_object_is_ignored():
     assert extract_json_object('{"a": 1}\n\nLet me know if you want more detail.') == {"a": 1}
 
 
-# the live failure
 
 
 def _truncated() -> str:
@@ -120,7 +117,6 @@ def test_an_escaped_quote_does_not_end_the_string():
     }
 
 
-# what is not guessed at
 
 
 @pytest.mark.parametrize(
@@ -145,11 +141,6 @@ def test_a_truncated_curriculum_survives_the_whole_invocation_path(monkeypatch):
     from app.ai.invocation import json_output
     from app.schemas.certification.curriculum_schema import Curriculum
 
-    # Both ends of each range are pinned. Setting only the minimums left the
-    # maximums coming from whatever `.env` happened to hold, so this test
-    # passed or failed on ambient config: a .env narrowed for a cheap test run
-    # (max 1) makes min 3 > max 1 and the Settings validator rejects it before
-    # the sample under test is ever parsed.
     monkeypatch.setenv("CURRICULUM_MIN_MAJORS", "3")
     monkeypatch.setenv("CURRICULUM_MAX_MAJORS", "6")
     monkeypatch.setenv("CURRICULUM_MIN_MIDDLES", "2")
@@ -179,7 +170,6 @@ def test_a_truncated_curriculum_survives_the_whole_invocation_path(monkeypatch):
 
     majors = [_major("A"), _major("B"), _major("C")]
     majors[-1]["exam_structure"] = {"total_items": 100, "question_types": ["MCQ", "DIAGRAM"]}
-    # `[:-2]` reproduces the live cut exactly: everything written, `]}` missing.
     answer = json.dumps({"majorCategories": majors})[:-2]
 
     class _Agent:

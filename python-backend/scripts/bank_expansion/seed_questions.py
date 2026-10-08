@@ -57,8 +57,6 @@ def insert_question(db, lesson_id, item):
             insert into public.choices (choice_text, is_correct, explanation, question_id)
             values (:c, :ok, :e, :q)"""), {
             "c": choice_text, "ok": is_correct,
-            # The bank only ever explains the correct choice; why a given
-            # distractor is wrong belongs inside that same text.
             "e": item["explanation"] if is_correct else None,
             "q": question_id,
         })
@@ -77,8 +75,6 @@ def main():
 
     db = open_session()
     added = skipped = 0
-    # Threaded through every lesson so the answer-position rotation continues
-    # across the whole module rather than restarting at each lesson.
     slot = 0
     try:
         for lesson_id, items in batches.items():

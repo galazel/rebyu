@@ -28,20 +28,6 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.regex.Pattern;
 
-/**
- * Transaction Three: a group leader invites learners into their own assigned
- * group, against the group's certification allocation slots.
- *
- * The institution account itself does not send invitations -- only the leader
- * (an active DepartmentHeadAssignment) of the target group may. The owner
- * retains read-only visibility via {@link #listInvitations} and
- * {@link #certificationAccess}.
- *
- * Slot reservation is protected against oversubscription by the optimistic
- * lock (@Version) on InstitutionCertificate: two concurrent invitation
- * batches that both try to consume the last slots will conflict, and the
- * loser's transaction rolls back instead of driving remaining_slots negative.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -74,9 +60,6 @@ public class InstitutionInvitationService {
         List<LearnerInvitation> invitations = invitationRepository
                 .findByInstitutionCert_Institution_InstitutionIdOrderBySentAtDesc(institutionId);
 
-        // Lazy expiration: no scheduler in this codebase, so overdue PENDING
-        // invitations are expired (and their reserved slot restored) whenever
-        // they are read. Acceptance applies the same rule (see LearnerService).
         LocalDateTime now = LocalDateTime.now();
         for (LearnerInvitation invitation : invitations) {
             if (invitation.getStatus() == LearnerInvitation.Status.PENDING
@@ -102,7 +85,6 @@ public class InstitutionInvitationService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "Group not found: " + request.departmentId()));
 
-        // Ownership: the group must belong to the caller's institution.
         if (group.getInstitution() == null
                 || !group.getInstitution().getInstitutionId().equals(request.institutionId())) {
             throw new EntityNotFoundException("Group not found: " + request.departmentId());
@@ -115,8 +97,6 @@ public class InstitutionInvitationService {
                     "This certification access is not active.");
         }
 
-        // De-duplicate and validate emails; skip ones already invited. The
-        // first entry seen for an email wins (keeps its name), later dups skip.
         List<String> skipped = new ArrayList<>();
         LinkedHashMap<String, InvitedLearner> toInvite = new LinkedHashMap<>();
         for (InvitedLearner entry : request.learners()) {
@@ -151,8 +131,6 @@ public class InstitutionInvitationService {
                             + remaining + " slot(s) remaining.");
         }
 
-        // The group's OWN cap -- a sub-limit within the certification's pool,
-        // set by the owner when the group was created (or edited since).
         int remainingInGroup = group.getTotalSlots() - group.getUsedSlots();
         if (toInvite.size() > remainingInGroup) {
             throw new BusinessRuleException.InvalidPartnershipRequestException(
@@ -160,8 +138,6 @@ public class InstitutionInvitationService {
                             + remainingInGroup + " slot(s) remaining in this group.");
         }
 
-        // The section, if asked for, must be a live one inside this very group --
-        // an id from another department is refused rather than silently dropped.
         com.capstone.rebyu.department.entity.InstitutionSection section = null;
         if (request.sectionId() != null) {
             section = sectionRepository
@@ -175,7 +151,6 @@ public class InstitutionInvitationService {
         for (InvitedLearner entry : toInvite.values()) {
             String email = entry.email();
 
-            // Raw token is emailed only; the DB stores SHA-256(rawToken).
             String rawToken = invitationTokenService.generateRawToken();
             String tokenHash = invitationTokenService.hashToken(rawToken);
 
@@ -209,10 +184,6 @@ public class InstitutionInvitationService {
                     rawToken
             );
 
-            // The invite itself is always email + token (accepting requires the
-            // token, which only the email carries). If the invited address
-            // already belongs to a REBYU account, also drop them an in-app
-            // notification so they see it without having to check email first.
             userRepository.findByEmailIgnoreCase(email).ifPresent(existingUser ->
                     notificationService.notify(
                             existingUser,
@@ -222,8 +193,6 @@ public class InstitutionInvitationService {
                             null));
         }
 
-        // Reserve slots. The @Version lock makes this safe under concurrency;
-        // remaining_slots is a DB-computed column, so only used_slots changes.
         institutionCert.setUsedSlots(institutionCert.getUsedSlots() + toInvite.size());
         institutionCertificateRepository.save(institutionCert);
         group.setUsedSlots(group.getUsedSlots() + toInvite.size());
@@ -246,14 +215,11 @@ public class InstitutionInvitationService {
         }
         Department group = invitation.getDepartment();
         if (group == null) {
-            // Pre-group-scoping invitation; no leader to attribute cancellation to.
             throw new BusinessRuleException.InvalidPartnershipRequestException(
                     "This invitation predates group scoping and cannot be cancelled here.");
         }
         requireActiveLeader(group, callerUserId);
 
-        // Only a still-pending invitation frees a slot; accepted/expired/already
-        // revoked invitations must not restore slots or go negative.
         if (invitation.getStatus() == LearnerInvitation.Status.PENDING) {
             invitation.setStatus(LearnerInvitation.Status.REVOKED);
             invitationRepository.save(invitation);
@@ -269,7 +235,6 @@ public class InstitutionInvitationService {
         return toInvitationDto(invitation);
     }
 
-    /** Trims a string to null when blank, so empty name fields aren't stored as "". */
     private String trimToNull(String value) {
         if (value == null) {
             return null;
@@ -278,7 +243,6 @@ public class InstitutionInvitationService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 
-    /** Restores exactly one reserved slot on the group; used_slots never goes negative. */
     private void restoreDepartmentSlot(Department group) {
         if (group == null) {
             return;
@@ -287,7 +251,6 @@ public class InstitutionInvitationService {
         departmentRepository.save(group);
     }
 
-    /** Only an active authority (leader) of this group may send/cancel its invitations. */
     private void requireActiveLeader(Department group, Long userId) {
         if (userId == null || !departmentHeadAssignmentRepository.existsByDepartmentAndUserAndStatus(
                 group, User.builder().userId(userId).build(), DepartmentHeadAssignment.Status.active)) {

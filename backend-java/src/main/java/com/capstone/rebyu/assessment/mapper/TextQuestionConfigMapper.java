@@ -16,7 +16,6 @@ public interface TextQuestionConfigMapper {
     @Mapping(source = "questionId", target = "question.questionId")
     TextQuestionConfig toEntity(TextQuestionConfigDto dto);
 
-    /** Newline-delimited storage -> list of accepted answer variations. */
     default List<String> mapVariations(String value) {
         if (value == null || value.isBlank()) {
             return List.of();
@@ -27,7 +26,6 @@ public interface TextQuestionConfigMapper {
                 .toList();
     }
 
-    /** List of accepted answer variations -> newline-delimited storage. */
     default String mapVariations(List<String> value) {
         if (value == null || value.isEmpty()) {
             return null;

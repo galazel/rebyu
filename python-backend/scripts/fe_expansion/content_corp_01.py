@@ -17,7 +17,6 @@ MAJOR = "Corporate and Legal Affairs"
 MIDDLE = "Corporate Activities"
 
 
-# Lesson 1: Management and organisation theory
 
 _mgmt_sections = [
     ("Why an Engineer Studies Organisation", [
@@ -874,7 +873,6 @@ LESSON_MGMT = lesson(
     ))
 
 
-# Lesson 2: Operations research and industrial engineering
 
 _or_sections = [
     ("Deciding With Numbers", [

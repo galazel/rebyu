@@ -38,9 +38,6 @@ public class DepartmentHead {
     @Column(name = "head_role", nullable = false, length = 20)
     private HeadRole headRole = HeadRole.manager;
 
-    // Captured when the institution provisions this person's account. The users
-    // table has no name columns, so without these a member can only ever be
-    // labelled by email.
     @Column(name = "first_name", length = 100)
     private String firstName;
 

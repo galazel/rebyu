@@ -23,12 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Stores uploaded knowledge documents in S3 and records them in the DB.
- * Text extraction, chunking, and embedding are handled by the Python AI
- * backend, not here — this service only owns document storage plus the
- * embedded-image extraction used to link images back to a document.
- */
 @Slf4j
 @Service
 @Transactional
@@ -84,10 +78,6 @@ public class DocumentIngestionService {
                     RequestBody.fromBytes(bytes)
             );
 
-            // Best-effort embedded-image extraction so images can later be
-            // linked back to this document; falls back to plain-text decode
-            // for non-PDF/DOCX types (unused for anything but image linking —
-            // Python re-parses and chunks the document itself).
             String fallbackText = new String(bytes, StandardCharsets.UTF_8);
             QuestionSourceImageService.ExtractedSource extracted =
                     questionSourceImageService.extract(file, fallbackText);
@@ -139,8 +129,6 @@ public class DocumentIngestionService {
                     .build());
         }
 
-        // Extracted images are stored separately from the document's own S3
-        // object; the DB rows cascade with the document via the FK.
         for (KnowledgeDocumentImage image :
                 knowledgeDocumentImageRepository.findByKnowledgeDocument_KnowledgeDocumentId(id)) {
             s3Client.deleteObject(DeleteObjectRequest.builder()

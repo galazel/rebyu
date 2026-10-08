@@ -36,37 +36,16 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Decides which achievements a learner has earned, and records them.
- *
- * <p>Server-authoritative, exactly like {@link RewardService}: the browser
- * reports what the learner <em>did</em> (a lesson finished, an attempt
- * submitted) and this service decides what that is worth. The first cut of this
- * feature asked the browser instead -- it checked "is this my first lesson?",
- * then posted `achievementId: 32` -- which let any learner grant themselves any
- * badge with one request, and pinned the award to an id that only exists in one
- * database.
- *
- * <p>Every call re-derives the whole picture from the learner's own data rather
- * than reacting to a single event. That makes it idempotent (an already-earned
- * achievement is skipped, so a retried request awards nothing twice) and
- * self-healing: a learner who met a condition before this feature existed, or
- * during a window where a hook was missing, is awarded on their next completion
- * instead of never.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class AchievementAwardService {
 
-    /** "Enroll in multiple certifications" -- two is the smallest number that is "multiple". */
     private static final int KNOWLEDGE_SEEKER_ENROLLMENTS = 2;
-    /** Top Achiever needs standing AND substance, so a near-empty leaderboard cannot hand it out. */
     private static final int TOP_ACHIEVER_MAX_RANK = 10;
     private static final long TOP_ACHIEVER_MIN_XP = 1_000L;
     private static final BigDecimal PERFECT_PERCENTAGE = BigDecimal.valueOf(100);
-    /** The exam type a learner sits to prove they are ready for the real thing. */
     private static final String MOCK_EXAM_TYPE = "MOCK_EXAM";
 
     private final AchievementRepository achievementRepository;
@@ -81,15 +60,6 @@ public class AchievementAwardService {
     private final RewardService rewardService;
     private final EntityManager entityManager;
 
-    /**
-     * Re-evaluates every achievement for this learner and records any that are
-     * newly earned.
-     *
-     * <p>Safe to call from any completion flow, as often as that flow runs.
-     *
-     * @return only what was awarded by <em>this</em> call, which is what the
-     *         portal announces to the learner; an empty list means nothing new
-     */
     public List<LearnerAchievementViewDto> evaluate(Long learnerId) {
         if (learnerId == null) {
             return List.of();
@@ -112,9 +82,6 @@ public class AchievementAwardService {
             });
         }
 
-        // Last, and against the set that includes anything just awarded above --
-        // otherwise finishing on the seventh badge would leave the Legend
-        // hanging until some unrelated completion happened to re-run this.
         boolean allOthers = EnumSet.complementOf(EnumSet.of(AchievementCatalog.REBYU_LEGEND))
                 .stream().allMatch(earned::contains);
         if (allOthers && !earned.contains(AchievementCatalog.REBYU_LEGEND)) {
@@ -128,7 +95,6 @@ public class AchievementAwardService {
         return awarded;
     }
 
-    /** The whole catalog for one learner, locked entries included. */
     @Transactional(readOnly = true)
     public List<LearnerAchievementViewDto> catalogFor(Long learnerId) {
         Map<AchievementCatalog, LocalDateTime> earnedAt = new EnumMap<>(AchievementCatalog.class);
@@ -142,8 +108,6 @@ public class AchievementAwardService {
             }
         }
 
-        // One read for the whole table rather than a lookup per entry: this runs
-        // on every portal load, and the catalog is eight rows.
         Map<String, Long> idsByTitle = achievementRepository.findAll().stream()
                 .collect(Collectors.toMap(
                         achievement -> achievement.getTitle().toLowerCase(),
@@ -164,9 +128,7 @@ public class AchievementAwardService {
         return catalog;
     }
 
-    // Criteria
 
-    /** Everything the criteria below need, read once per evaluation. */
     private record Progress(
             int completedLessons,
             int activeEnrollments,
@@ -186,7 +148,6 @@ public class AchievementAwardService {
             case KNOWLEDGE_SEEKER -> progress.activeEnrollments() >= KNOWLEDGE_SEEKER_ENROLLMENTS;
             case FINISHER -> progress.finishedACertification();
             case TOP_ACHIEVER -> progress.rankedAmongTopLearners();
-            // Derived from the other seven in evaluate(), never from progress.
             case REBYU_LEGEND -> false;
         };
     }
@@ -232,12 +193,6 @@ public class AchievementAwardService {
                 && MOCK_EXAM_TYPE.equalsIgnoreCase(attempt.getExam().getExamType().getExamTypeText());
     }
 
-    /**
-     * True once every lesson of any one enrolled certification is complete.
-     * Group-authored lessons are excluded: an Institution group's own material is
-     * not part of the certification review a learner signed up for, and counting
-     * it would make "Finisher" unreachable for that learner alone.
-     */
     private boolean finishedACertification(List<Long> certificationIds, Set<Long> completedLessonIds) {
         if (completedLessonIds.isEmpty()) {
             return false;
@@ -247,7 +202,6 @@ public class AchievementAwardService {
                     .findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(
                             certificationId);
             if (lessons.isEmpty()) {
-                // A certification with no lessons is not "finished" -- it is empty.
                 continue;
             }
             boolean all = lessons.stream().allMatch(lesson -> completedLessonIds.contains(lesson.getLessonId()));
@@ -258,11 +212,6 @@ public class AchievementAwardService {
         return false;
     }
 
-    /**
-     * Standing on the all-time overall leaderboard, floored by an XP minimum.
-     * Rank alone would award this to the only learner in a fresh database, which
-     * is the opposite of "outstanding performance".
-     */
     private boolean rankedAmongTopLearners(Long learnerId) {
         return rewardService.leaderboard(learnerId, "overall", "all").stream()
                 .filter(RewardService.LeaderboardEntry::currentLearner)
@@ -270,7 +219,6 @@ public class AchievementAwardService {
                         && entry.xp() >= TOP_ACHIEVER_MIN_XP);
     }
 
-    // Awarding
 
     private Set<AchievementCatalog> earnedCatalogEntries(Long learnerId) {
         Set<AchievementCatalog> earned = EnumSet.noneOf(AchievementCatalog.class);
@@ -285,9 +233,6 @@ public class AchievementAwardService {
     private Optional<LearnerAchievementViewDto> award(Long learnerId, AchievementCatalog entry) {
         Achievement achievement = achievementRepository.findByTitleIgnoreCase(entry.title()).orElse(null);
         if (achievement == null) {
-            // The seeder runs at startup, so this only happens if the row was
-            // deleted underneath a running application. Skipping beats failing
-            // the lesson completion that triggered the evaluation.
             log.warn("Achievement '{}' is missing from the catalog -- not awarding it", entry.title());
             return Optional.empty();
         }
@@ -302,9 +247,6 @@ public class AchievementAwardService {
         LocalDateTime earnedAt = LocalDateTime.now();
         LearnerAchievement row = new LearnerAchievement();
         row.setId(id);
-        // `@MapsId` fills the embedded id from these associations, and Hibernate
-        // NPEs at flush time when they are left null -- the same fix already
-        // applied in LearnerCompletedLessonService.
         row.setLearner(entityManager.getReference(Learner.class, learnerId));
         row.setAchievement(achievement);
         row.setEarnedAt(earnedAt);
@@ -317,11 +259,6 @@ public class AchievementAwardService {
                 entry.title(), entry.description(), true, earnedAt));
     }
 
-    /**
-     * Puts the badge in the learner's notification inbox as well as on screen.
-     * The in-app celebration only reaches whoever is looking at that tab; an
-     * achievement earned by a background flow would otherwise be silent.
-     */
     private void notifyLearner(Long learnerId, AchievementCatalog entry) {
         boolean wanted = notificationPreferenceRepository.findByLearner_LearnerId(learnerId)
                 .map(preference -> !Boolean.FALSE.equals(preference.getAchievementNotifications()))

@@ -4,21 +4,6 @@ import { Clock } from "@/components/icons"
 import { BackButton, TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import QuestionNavigator from "@/components/assessments/attempt/question-navigator.jsx"
 
-/**
- * The shell a solo arena run is taken in.
- *
- * Same frame as `learner-assessment-attempt-page`: a fixed header carrying the
- * clock and the finish action, a meta row for the current item, and the item
- * navigator in the right-hand column of the three-column layout. The arenas
- * used to each carry a hand-rolled play view — a different code editor from the
- * one in an exam, a different test panel, a different way to jump between
- * items — which meant practising for an assessment in an environment that did
- * not resemble the assessment.
- *
- * The per-type environment itself is not this component's business: it renders
- * whatever `renderProblem` returns, which is the same
- * `ProgrammingQuestionLayout` / `DiagramQuestionLayout` an attempt uses.
- */
 export default function ArenaRun({
   arenaName,
   problems,
@@ -44,8 +29,6 @@ export default function ArenaRun({
     }))
   }
 
-  // The navigator reads `answered` off each item, so it has to be derived from
-  // the answer map rather than stored on the problem.
   const navItems = useMemo(
     () =>
       problems.map((item) => {
@@ -99,11 +82,6 @@ export default function ArenaRun({
         </div>
       </header>
 
-      {/* No meta strip above the workspace. A second full-width header carrying
-          the title, difficulty and points sat between the run header and the
-          problem, pushing the editor down and stating twice over what column
-          one already says -- the problem statement is where you read what the
-          problem is, so its title and its worth belong there too. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4 lg:p-5">
         <div className="min-h-0 flex-1 overflow-hidden">
           {renderProblem({

@@ -17,7 +17,6 @@ from figures import fig
 MAJOR = "System Strategy"
 MIDDLE = "System Planning"
 
-# Lesson 1: Computerisation planning and investment appraisal
 
 _plan_sections = [
     ("Deciding What to Build", [
@@ -696,7 +695,6 @@ LESSON_SYS_PLAN = lesson(
         ],
     ))
 
-# Lesson 2: Requirements definition from the client side
 
 _creq_sections = [
     ("Stating What Is Needed", [

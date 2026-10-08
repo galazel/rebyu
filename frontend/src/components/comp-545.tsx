@@ -29,7 +29,6 @@ export default function Component() {
   return (
     <div className="flex flex-col gap-2">
       <div className="relative">
-        {}
         <div
           className="relative flex min-h-52 flex-col items-center justify-center overflow-hidden rounded-xl border border-input border-dashed p-4 transition-colors has-[input:focus]:border-ring has-[input:focus]:ring-[3px] has-[input:focus]:ring-ring/50 data-[dragging=true]:bg-accent/50"
           data-dragging={isDragging || undefined}

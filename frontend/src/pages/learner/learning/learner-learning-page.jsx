@@ -32,21 +32,6 @@ import {
   toneForCertification,
 } from "@/components/learner/learner-ui.jsx"
 
-/**
- * Grid or list, remembered on this device.
- *
- * It was component state, so it survived exactly as long as the page did:
- * opening a certification and coming back put a learner who had chosen the list
- * back on the grid, every time. Which view you want is a preference about the
- * screen you are sitting at rather than about who you are -- the same reasoning
- * `lib/sound.js` gives for keeping the sound toggle local -- so it lives in
- * localStorage rather than on the account.
- *
- * Wrapped, because a blocked or full store throws: private windows and
- * storage-blocking extensions would otherwise take the page down over a
- * cosmetic preference. A failed read falls back to the default, and a failed
- * write just means the choice lasts this session.
- */
 const VIEW_MODE_KEY = "rebyu-my-learning-view"
 
 function readViewMode() {
@@ -61,7 +46,6 @@ function storeViewMode(mode) {
   try {
     window.localStorage.setItem(VIEW_MODE_KEY, mode)
   } catch {
-    /* Not persisted; the toggle still works for this session. */
   }
 }
 
@@ -95,8 +79,6 @@ function getAchievementDescription(achievement) {
 }
 
 function getCourseStatus(progress, completedLessons) {
-  /* `null` is "the server has not said yet", which is not a score of zero and
-     certainly not a finished certification. */
   if (progress != null && progress >= 100) {
     return "COMPLETED"
   }
@@ -186,8 +168,6 @@ function getDiagnosticAssessment(certification, data) {
   )
 }
 
-/** Exported: the certifications page runs the same check before opening
- *  a certification, and two copies of this would drift. */
 export function isDiagnosticCompleted(certification, data) {
   const certificationId = getCertificationId(certification)
 
@@ -258,10 +238,6 @@ export function isDiagnosticCompleted(certification, data) {
   })
 }
 
-/* The same bubble card the admin challenges arenas use — gradient cap,
-   bubbles, icon medallion, wash body — so an enrolled course reads as the
-   same card design as the browse-certifications page and admin's own
-   challenge cards. */
 function CourseCard({ course, onOpen }) {
   const {
     certification,
@@ -277,7 +253,6 @@ function CourseCard({ course, onOpen }) {
   const needsDiagnostic = !diagnosticCompleted
   const completed = progress != null && progress >= 100
   const tone = toneForCertification(certification)
-  // Same tone the cap uses, so the button and the bar belong to this card.
   const palette = BUBBLE_TONES[tone] ?? BUBBLE_TONES.macaw
 
   return (
@@ -286,10 +261,6 @@ function CourseCard({ course, onOpen }) {
           cap="flat"
           body="card"
           icon={needsDiagnostic ? LockKeyhole : completed ? Award : CirclePlay}
-          /* The medallion says what state this course is in; the wordmark says
-             which course it is. Both belong on the cap -- without the second,
-             every enrolled card is the same blue with the same play button and
-             you have to read the title to tell them apart. */
           wordmark={getCertificationTitle(certification)}
           eyebrow="REBYU Certification Review"
           title={
@@ -323,16 +294,8 @@ function CourseCard({ course, onOpen }) {
           {getCertificationDescription(certification)}
         </p>
 
-        {/* Progress leads with the number, in the card's own tone.
-            It used to be a 12px grey figure at the end of a line of grey text,
-            which is the one fact a learner opens this page for. */}
         <div className="mt-4 space-y-2">
           <div className="flex items-baseline justify-between gap-3">
-            {/* A placeholder, not a guess. Until the server has counted the
-                assessments this card cannot say how far through the
-                certification a learner is, and printing the lessons figure here
-                would call a certification finished the moment its last lesson
-                was read. */}
             {progress == null ? (
               <span
                   className="h-6 w-16 animate-pulse rounded-rb-pill bg-rb-swan"
@@ -370,16 +333,6 @@ function CourseCard({ course, onOpen }) {
   )
 }
 
-/**
- * The same course as a row, for the list view.
- *
- * List mode used to render the grid card at full width, which is not a list:
- * the 128px cap became a 1400px banner, the wordmark stretched across it, the
- * Continue button ran the width of the page, and four courses filled three
- * screens. A row is the shape that view is for -- the cap shrinks to a tile,
- * everything else moves onto one line, and the whole course fits in about a
- * fifth of the height.
- */
 function CourseRow({ course, onOpen }) {
   const {
     certification,
@@ -403,9 +356,6 @@ function CourseRow({ course, onOpen }) {
           style={{ "--bubble-tone": palette.solid }}
           className="flex flex-col gap-4 rounded-rb-card border-2 border-border bg-card p-4 transition-colors hover:border-[color:var(--bubble-tone)] sm:flex-row sm:items-center"
       >
-        {/* The cap, at tile scale. Same face, same bled wordmark, same state
-            medallion -- so a course is recognisably the same object in both
-            views rather than two designs of the same thing. */}
         <div
             className="relative hidden size-20 shrink-0 place-items-center overflow-hidden rounded-rb-tile [container-type:inline-size] sm:grid"
             style={{ background: palette.flat }}
@@ -475,8 +425,6 @@ function CourseRow({ course, onOpen }) {
             </span>
           )}
 
-          {/* Sized to its label, not to the page. A Continue button 1400px wide
-              was the loudest thing on the screen and the least worth it. */}
           <Button
               className="min-w-32 text-white hover:opacity-90"
               style={{ background: palette.solid }}
@@ -523,26 +471,15 @@ export default function LearnerLearningPage() {
   const enrolledCertifications = data?.enrolledCertifications ?? []
   const allLessons = data?.lessons ?? []
 
-  /* Progress arrives on its own, after the page.
 
-     These bars count assessments passed as well as lessons read, and only the
-     server can say which assessments qualify. That computation walks every
-     lesson and exam of every enrolled certification, so it is not something
-     the shell can wait on -- asked for inside the portal snapshot it blanked
-     this page until it returned. Here it is just late: the cards render from
-     the portal payload immediately and the bars settle when this lands. */
   const progressQuery = useQuery({
     queryKey: ["learner-certification-progress"],
     queryFn: getLearnerCertificationProgress,
     staleTime: 60_000,
-    /* A failed percentage must never take the page with it. Without a row a
-       card falls back to lessons alone, held short of complete. */
     retry: 1,
   })
   const progressRows = progressQuery.data ?? data?.certificationProgress ?? []
 
-  // "Latest Achievements" -- earned only, newest first. The locked ones are
-  // shown on the account page's badge wall, where the whole catalog belongs.
   const achievements = (Array.isArray(data?.achievements) ? data.achievements : [])
       .filter((achievement) => achievement.earned)
       .sort((a, b) => new Date(b.earnedAt ?? 0) - new Date(a.earnedAt ?? 0))
@@ -550,7 +487,6 @@ export default function LearnerLearningPage() {
   const [localSearch, setLocalSearch] = useState("")
   const [selectedIndustry, setSelectedIndustry] = useState("ALL")
   const [selectedStatus, setSelectedStatus] = useState("ALL")
-  // Lazy initialiser: read the stored choice once on mount, not every render.
   const [viewMode, setViewMode] = useState(readViewMode)
 
   const chooseViewMode = (mode) => {
@@ -559,8 +495,6 @@ export default function LearnerLearningPage() {
   }
 
   const queryClient = useQueryClient()
-  // The whole plan gate — lookup, dialog, save. Shared with the certifications
-  // page so both entry points into a curriculum behave the same.
   const { openCertification, studyPlanDialog } = useStudyPlanGate()
 
   const query = (localSearch || searchValue || "").trim().toLowerCase()
@@ -583,18 +517,7 @@ export default function LearnerLearningPage() {
               String(certification.certificationId)
       )
 
-      /* Progress comes from the server's count, not from this list of lessons.
-         Dividing completed lessons by total lessons here reported a
-         certification as 100% done while every quiz and exam on it was still
-         unsat -- the same certification the analytics board, which counts
-         assessments too, was reporting at 20%. The server row also counts what
-         the browser cannot see: which exams are published, official, and
-         actually part of this curriculum.
 
-         The lesson list is still used for the counts under the bar and for
-         picking the next lesson, so a certification the portal did not return a
-         row for (not an active enrollment) falls back to lessons alone rather
-         than showing a bar that says nothing. */
       const progressRow = findCertificationProgress(
           progressRows,
           certification.certificationId,
@@ -610,14 +533,7 @@ export default function LearnerLearningPage() {
         totalAssessments: progressRow?.totalAssessments ?? 0,
       })
 
-      /* Null, not a number, when the server has not said yet.
 
-         Reading every lesson takes the lessons-only fallback to 100%, and this
-         card cannot know whether there are assessments still to pass -- so any
-         figure it prints here is a guess. It printed 99% for a while, which was
-         worse than useless: a made-up number that looks measured. Null means
-         "not known", and the card shows a placeholder until the real one
-         arrives. */
       const knownProgress = progressRow ? progress : null
 
       const nextLesson =
@@ -776,13 +692,6 @@ export default function LearnerLearningPage() {
                     <div
                         className={
                           viewMode === "GRID"
-                              /* Three from xl, four from 2xl. This column already
-                                 gives 280px to the achievements rail beside it, so
-                                 holding two-up until 1536px left each card near
-                                 600px wide under a 128px cap -- the same stretched
-                                 banner the certifications grid had, worse. These
-                                 breakpoints land both pages on a similar card
-                                 width, which matters because it is the same card. */
                               ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
                               : "grid gap-3"
                         }
@@ -866,7 +775,6 @@ export default function LearnerLearningPage() {
             </div>
         )}
 
-        {/* The study-plan generator, rendered by the shared gate hook. */}
         {studyPlanDialog}
       </div>
   )

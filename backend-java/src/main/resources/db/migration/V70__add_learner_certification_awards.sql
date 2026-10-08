@@ -1,7 +1,3 @@
--- What a learner earns by passing a certification's mock exam: the
--- certification's badge and a certificate of completion. One row per
--- learner and certification; the timestamps say which has been granted, so
--- a retake never awards twice.
 CREATE TABLE IF NOT EXISTS public.learner_certification_awards (
     award_id                BIGSERIAL PRIMARY KEY,
     learner_id              BIGINT      NOT NULL REFERENCES public.learners (learner_id) ON DELETE CASCADE,

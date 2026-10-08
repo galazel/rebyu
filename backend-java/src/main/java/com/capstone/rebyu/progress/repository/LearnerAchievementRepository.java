@@ -8,6 +8,5 @@ import java.util.List;
 
 public interface LearnerAchievementRepository extends JpaRepository<LearnerAchievement, LearnerAchievementId> {
 
-    /** Everything this learner has already unlocked, newest first. */
     List<LearnerAchievement> findById_LearnerIdOrderByEarnedAtDesc(Long learnerId);
 }

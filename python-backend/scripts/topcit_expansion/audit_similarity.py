@@ -36,16 +36,10 @@ from check_duplicates import jaccard, normalise_section, words
 
 CERTIFICATION_ID = 13
 
-#: Report a lesson pair whose subject-matter headings overlap this much. Set
-#: lower than the incoming-batch threshold on purpose: this pass is meant to
-#: surface anything worth a human look, not just certain duplicates.
 LESSON_OVERLAP = 0.25
 
-#: Report a lesson name pair this similar.
 NAME_SIMILARITY = 0.5
 
-#: Report a question pair this similar. Two stems that share this much
-#: vocabulary are testing the same thing even when the numbers differ.
 QUESTION_SIMILARITY = 0.7
 
 
@@ -103,9 +97,6 @@ def main():
             shared = left["sections"] & right["sections"]
             if not shared:
                 continue
-            # Symmetric measure: two lessons of very different length that
-            # share a few headings should not be reported just because the
-            # shared set is a large fraction of the shorter one.
             score = jaccard(left["sections"], right["sections"])
             if score >= LESSON_OVERLAP:
                 pairs.append((score, left, right, sorted(shared)))

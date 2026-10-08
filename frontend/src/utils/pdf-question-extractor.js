@@ -1,75 +1,31 @@
-/**
- * Reads multiple-choice exam papers (Q1., Q2. ... with a) to d) choices) and
- * their answer keys out of PDFs, in the browser.
- *
- * Text comes from the PDF's own text layer. Figures -- diagrams, tables,
- * circuits, graphs -- are found by drawing each page onto a canvas, covering
- * every spot where text sits, and looking for the dark pixels left over: those
- * can only be lines, boxes and images. Close rows of leftover ink form one
- * figure, which is cropped from the page as a PNG so it is shown as drawn
- * rather than described.
- *
- * Scanned PDFs have no text layer and are reported as such rather than
- * guessed at.
- */
 
 const SCALE = 2
 
-/** A glyph with no character behind it: "□", the replacement character, or a private-use code. */
 const GARBLED_RE = /[□�-]/
 
-/**
- * A line of a formula's pieces rather than words: "C □ E □ G D □ F □ H".
- * Stacked fractions print their numerators on a line of their own, above
- * the choice letters, and read as text they are only noise in the stem.
- */
 function isGarbledMathLine(text) {
     if (!GARBLED_RE.test(text)) return false
     const tokens = text.split(/\s+/).filter(Boolean)
     return tokens.length >= 3 && tokens.every((token) => token.length <= 2)
 }
 
-/** A page number as printed: "7", "– 12 –", "- 12 -", "Page 7", "Page 7 of 40", "7/40". */
 const FOOTER_RE = /^(?:[–—-]\s*)?(?:page\s*)?\d{1,4}(?:\s*(?:\/|of)\s*\d{1,4})?(?:\s*[–—-])?$/i
 
-/**
- * A page number line: one of the forms above, in the top or bottom eighth of
- * the page. Only there -- a choice that is a bare number ("20") sits in the
- * body. Left in, the number joins the last choice on the page ("Digital
- * democracy 7").
- */
 function isPageNumber(line, pageHeight) {
     return FOOTER_RE.test(line.text) && (line.bottom < pageHeight * 0.12 || line.top > pageHeight * 0.88)
 }
 
-/** The start of a question: "Q12." near the left margin. */
 const QUESTION_RE = /^Q\s?(\d{1,3})\s?[.:)]\s*/
-/** A question number with no full stop -- accepted only as the next number. */
 const BARE_QUESTION_RE = /^Q\s?(\d{1,3})(?=\s|$)\s*/
 
-/**
- * A section banner -- "Answer questions Q66 through Q100 concerning
- * strategy." It sits between two questions in a ruled box; unrecognised, the
- * box became the previous question's figure and its text that question's last
- * choice.
- */
 const BANNER_RE = /^Answer (?:the )?questions? (?:Q?\d+|[A-Z]) through (?:Q?\d+|[A-Z])\b/i
 
-/** The heading of a case study several questions share: "Question A". */
 const CASE_RE = /^Question [A-Z]\b/
 
-/** A choice marker on its own: "a)", "(b)", "c.", "1)", "(2)", "3." */
 const MARKER_RE = /^\(?([a-h1-8])[).]$/
 
-/** A line that is a choice WITH its text: "a) Divisional organization", "1) Yes". */
 const TEXT_CHOICE_RE = /^\(?[a-h1-8][).]\s+\S/
 
-/**
- * pdf.js 3.11, not the 6.x the document reader uses. The ITPEC papers set
- * their graph labels ("Amplitude", "Time", axis values) as small CCITT fax
- * images, and pdf.js 6 draws those white on white: every cropped figure came
- * out without its labels. 3.11 draws them.
- */
 async function loadPdfJs() {
     const [module, worker] = await Promise.all([
         import("pdfjs-dist-v3/build/pdf.js"),
@@ -87,13 +43,6 @@ function makeCanvas(width, height) {
     return canvas
 }
 
-/**
- * Full-width forms as their ordinary characters: "Q59．" is "Q59.", "ａ）" is
- * "a)". Papers set in a Japanese font print question numbers this way, and
- * unconverted the question was not found -- it ran on inside the one before.
- * Only the full-width block and the ideographic space: superscripts and
- * other symbols a formula needs are left as printed.
- */
 function halfWidth(text) {
     return (text || "")
         .replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
@@ -104,7 +53,6 @@ function isDark(data, index) {
     return data[index] + data[index + 1] + data[index + 2] < 500
 }
 
-/** Every page as a canvas, its text lines, and a per-row count of non-text ink. */
 async function readPages(pdf, pdfjs, onProgress) {
     const pages = []
     for (let number = 1; number <= pdf.numPages; number++) {
@@ -124,9 +72,6 @@ async function readPages(pdf, pdfjs, onProgress) {
             const h = Math.hypot(t[2], t[3]) || Math.abs(item.height * SCALE) || 10
             const length = item.width * SCALE
             if (Math.abs(t[1]) > Math.abs(t[0])) {
-                // Set sideways -- an axis title such as "Cumulative bugs".
-                // Its box runs up (or down) the page from the baseline point,
-                // not across it.
                 const up = t[1] < 0
                 items.push({
                     str: halfWidth(item.str),
@@ -149,13 +94,9 @@ async function readPages(pdf, pdfjs, onProgress) {
             })
         }
 
-        // Pieces at about the same height make one line, read left to right.
         items.sort((a, b) => a.y1 - b.y1 || a.x - b.x)
         const lines = []
         for (const item of items) {
-            // A sideways label only ever sits inside a figure; joined to the
-            // horizontal line at its midpoint it would stretch that line the
-            // height of the graph.
             if (item.sideways) continue
             const mid = (item.y0 + item.y1) / 2
             let line = lines.find((l) => Math.abs(l.mid - mid) < Math.max(4, item.h * 0.35))
@@ -185,7 +126,6 @@ async function readPages(pdf, pdfjs, onProgress) {
         lines.sort((a, b) => a.top - b.top)
         const body = lines.filter((l) => !isPageNumber(l, canvas.height))
 
-        // Dark pixels NOT covered by text.
         const W = canvas.width
         const H = canvas.height
         const pixels = context.getImageData(0, 0, W, H).data
@@ -222,12 +162,6 @@ async function readPages(pdf, pdfjs, onProgress) {
     return withoutRunningLines(pages)
 }
 
-/**
- * Drops running headers and footers: a line in the top or bottom margin that
- * repeats on several pages -- the exam's name, a school's header, a copyright
- * line. Left in, one joins the last choice before each page break. Digits
- * are ignored when comparing, so "Page 3" and "Page 4" are one line.
- */
 function withoutRunningLines(pages) {
     if (pages.length < 2) return pages
     const inMargin = (line, pg) => line.bottom < pg.H * 0.12 || line.top > pg.H * 0.88
@@ -248,15 +182,11 @@ function withoutRunningLines(pages) {
     return pages
 }
 
-/** Groups the lines into questions, each a list of lines and page segments. */
 function locateQuestions(pages) {
     let questions = []
     let current = null
     let lastNumber = 0
 
-    // A case study's passage -- the text and figure several questions share
-    // ("Read the following ... then answer Q89 through Q92") -- goes with
-    // every one of those questions, not with the question printed before it.
     let context = null
     const contexts = []
 
@@ -264,8 +194,6 @@ function locateQuestions(pages) {
         pg.stops = []
         for (const line of pg.lines) {
             if (BANNER_RE.test(line.text)) {
-                // The banner ends the question before it; its box is not that
-                // question's figure.
                 pg.stops.push(line.top - 12)
                 current = null
                 context = null
@@ -280,10 +208,7 @@ function locateQuestions(pages) {
             }
             let match = line.text.match(QUESTION_RE)
             let pattern = QUESTION_RE
-            // A number printed without its full stop ("Q96 Which ...", a typo
-            // in 2023S) counts only when it is the next number expected.
             const bare = !match && line.text.match(BARE_QUESTION_RE)
-            // Not a banner's wrapped range: "Q89 through Q92."
             const range = bare && /^(through|to|and|or|[–~-]|Q\s?\d)/i.test(line.text.slice(bare[0].length))
             if (bare && !range && Number(bare[1]) === lastNumber + 1) {
                 match = bare
@@ -291,8 +216,6 @@ function locateQuestions(pages) {
             }
             if (match && line.x0 < pg.minX + pg.W * 0.12) {
                 const number = Number(match[1])
-                // Numbering going backwards means the list restarts -- the
-                // sample "Q1" printed on every paper's cover.
                 if (number <= lastNumber) questions = []
                 lastNumber = number
                 line.stripped = line.text.replace(pattern, "")
@@ -314,9 +237,6 @@ function locateQuestions(pages) {
         }
     }
 
-    // Each segment runs on to whatever starts next on its page -- a question,
-    // a banner, a case study -- so a figure drawn below the last text line is
-    // still inside it.
     const starts = questions.map((q) => ({ pg: q.segs[0].pg, top: q.segs[0].top }))
     const extend = (seg) => {
         let limit = seg.pg.H * 0.93
@@ -344,14 +264,6 @@ function crop(source, x, y, width, height) {
     return canvas
 }
 
-/**
- * Printed marks inside a rectangle that the text layer does not account for:
- * a fraction bar, a root sign, an arrow, a set or logic symbol drawn as
- * lines, a structure diagram -- or a glyph whose font has no character for
- * it. Read as text, each of these is silently missing ("(A  B)" for
- * "(A ∩ B)"), so a count above `HIDDEN_INK_MIN` means the text is not the
- * whole story and the page should be shown as printed.
- */
 const HIDDEN_INK_MIN = 30
 
 function hiddenInk(pg, x0, y0, x1, y1) {
@@ -364,8 +276,6 @@ function hiddenInk(pg, x0, y0, x1, y1) {
     const covered = new Uint8Array(w * h)
     const pad = 3
     for (const item of pg.items) {
-        // A glyph with no character behind it is ink the text lacks, even
-        // though pdf.js gives it a box.
         if (!item.str.trim() || GARBLED_RE.test(item.str)) continue
         const xa = Math.max(0, Math.floor(item.x - pad - x))
         const xb = Math.min(w, Math.ceil(item.x + item.w + pad - x))
@@ -380,11 +290,6 @@ function hiddenInk(pg, x0, y0, x1, y1) {
     return count
 }
 
-/**
- * The lines among `lines` whose print the text cannot carry: an unreadable
- * glyph, or hidden ink on the line itself or in the gap below it (where a
- * fraction's bar sits between its numerator and denominator lines).
- */
 function formulaLines(lines) {
     const flagged = new Set()
     lines.forEach((line, index) => {
@@ -406,7 +311,6 @@ function formulaLines(lines) {
     return flagged
 }
 
-/** Runs of neighbouring flagged lines, cropped as printed across the text width. */
 function formulaCrops(lines, flagged) {
     const crops = []
     let run = []
@@ -431,12 +335,10 @@ function formulaCrops(lines, flagged) {
     return crops
 }
 
-/** Text with the characters no font could name taken out ("□" kept: papers print it on purpose). */
 function readableText(text) {
     return (text || "").replace(/[�-]/g, " ").replace(/[ \t]{2,}/g, " ").trim()
 }
 
-/** The dark-pixel bounds inside a rectangle, with some rectangles blanked out. */
 function inkBounds(pg, rect, exclude = []) {
     const x = Math.max(0, Math.floor(rect.x0))
     const y = Math.max(0, Math.floor(rect.y0))
@@ -460,9 +362,6 @@ function inkBounds(pg, rect, exclude = []) {
             if (py > y1) y1 = py
         }
     }
-    // Text counts as part of the picture too. Small labels are anti-aliased
-    // to grey, lighter than the "dark" test, and were cropped off: graphs
-    // came out without their axis titles.
     for (const item of pg.items) {
         const cx = item.x + item.w / 2
         const cy = (item.y0 + item.y1) / 2
@@ -484,21 +383,7 @@ function bandsOf(values, tolerance) {
     return starts
 }
 
-/**
- * One crop per picture option, cut at the printed letters.
- *
- * The paper sets each option's letter at the top-left of its picture, so the
- * letters are the grid: an option runs from its letter to the next letter
- * along its row and down to the next row of letters. The letter itself is
- * left out -- choices are shuffled when a learner answers, so a picture
- * captioned "c)" on the button lettered A would contradict it.
- *
- * Returns null unless each of a) to d) is found exactly once.
- */
 function cropOptions(question, keys) {
-    // Letters anywhere in the question's own region, not only inside a
-    // figure: a letter set well above its graph (2011A Q39) is not close
-    // enough to be pulled into the figure as a label.
     const markers = []
     for (const line of question.lines) {
         if (line.isQuestion) continue
@@ -528,10 +413,6 @@ function cropOptions(question, keys) {
         const later = starts.filter((s) => s > value + 8)
         return later.length ? Math.min(...later) - 6 : limit
     }
-    // Where one row of choices ends and the next begins: the middle of the
-    // widest blank band between them. The next row's letter is not the
-    // boundary -- a stacked fraction prints its numerator above the letter's
-    // line, and cut at the letter that numerator lands in the row above.
     const occupied = (y) =>
         pg.rowInk[Math.round(y)] > 1 || pg.items.some((item) => !item.sideways && item.y0 <= y && item.y1 >= y)
     const rowEnd = (marker) => {
@@ -558,9 +439,6 @@ function cropOptions(question, keys) {
     })
     const top = Math.min(...found.map((m) => m.y0)) - 6
 
-    // Rows of an answer table ("a) | A | C | B"), one line high each. The
-    // letter sits inside the row's own ruling and cannot be cropped out, and
-    // the row is text anyway: read it as text, cells joined with "|".
     const pitch = rows.length > 1 ? Math.min(...rows.slice(1).map((r, i) => r - rows[i])) : Infinity
     const lineHeight = Math.max(...found.map((m) => m.y1 - m.y0))
     if (columns.length === 1 && rows.length === keys.length && pitch < lineHeight * 3.5) {
@@ -635,7 +513,6 @@ function buildQuestion(question) {
             let a = c.a
             let b = c.b
             let changed = true
-            // Pull in the text lines touching the figure -- its labels.
             while (changed) {
                 changed = false
                 for (const line of question.lines) {
@@ -648,9 +525,6 @@ function buildQuestion(question) {
                         line.wraps ||
                         /[?:]$/.test(line.text) ||
                         (previous && previous.wraps && previous.pg === line.pg && line.top < c.a)
-                    // A written choice under a chart ("a) Divisional
-                    // organization") is text, not a label: swallowed, it was
-                    // lost from the choice and printed inside the picture.
                     if (!inside && (prose || TEXT_CHOICE_RE.test(line.text))) continue
                     a = Math.min(a, line.top)
                     b = Math.max(b, line.bottom)
@@ -663,7 +537,6 @@ function buildQuestion(question) {
     const inBand = (line) =>
         bands.some((band) => band.pg === line.pg && (line.top + line.bottom) / 2 > band.a && (line.top + line.bottom) / 2 < band.b)
 
-    // Text: the stem runs up to the first line starting "a)".
     const texts = question.lines.map((line, index) => ({
         t: index === 0 ? line.stripped : line.text,
         line,
@@ -673,10 +546,7 @@ function buildQuestion(question) {
     const stemPart = optionStart === -1 ? texts : texts.slice(0, optionStart)
     const optionPart = optionStart === -1 ? [] : texts.slice(optionStart)
 
-    // Formulas, symbols and drawn marks the text cannot carry: those lines
-    // are also shown as printed, and the choices become pictures.
     const stemLines = stemPart.filter((entry) => !entry.fig && entry.t).map((entry) => entry.line)
-    // Fragments just above "a)" are the choices' numerators, not the stem's.
     while (optionStart > 0 && stemLines.length && isGarbledMathLine(stemLines[stemLines.length - 1].text)) stemLines.pop()
     const stemFormulas = formulaCrops(stemLines, formulaLines(stemLines))
     const optionLines = optionPart.filter((entry) => !entry.fig && entry.t).map((entry) => entry.line)
@@ -693,7 +563,6 @@ function buildQuestion(question) {
         previous = entry
     }
 
-    // Inside a figure only the choice letters count; the rest is the drawing.
     const optionText = optionPart
         .map((entry) => (entry.fig ? (entry.t.match(/\(?[a-h1-8][).]/g) || []).join(" ") : entry.t))
         .join("\n")
@@ -703,7 +572,6 @@ function buildQuestion(question) {
     while ((match = markerRe.exec(optionText))) {
         marks.push({ key: match[1], at: match.index + match[0].length, start: match.index })
     }
-    // Try letter sequence (a, b, c, ...) first, then numbered (1, 2, 3, ...).
     const buildSequence = (first, nextFn) => {
         const seq = []
         let want = first
@@ -728,13 +596,9 @@ function buildQuestion(question) {
             .trim(),
         image: null,
     }))
-    // A choice whose text holds a glyph with no character behind it -- a
-    // math font's "+" and fraction bars come out as "□" -- cannot be read as
-    // text: the choices are cut from the page as printed instead.
     const garbled = options.some((option) => GARBLED_RE.test(option.text))
     const visualOptions = options.length > 0 && (garbled || drawnOptions || options.some((option) => !option.text))
 
-    // Picture options: one crop each, and the stem's figure ends above them.
     let optionCut = null
     if (visualOptions) {
         optionCut = cropOptions(question, options.map((option) => option.key))
@@ -746,16 +610,13 @@ function buildQuestion(question) {
         } else if (optionCut?.crops) {
             for (const option of options) {
                 option.image = optionCut.crops[option.key]
-                // The picture is the choice; its scraped text would contradict it.
                 if (option.image) option.text = ""
             }
         }
     }
 
-    // What is left as text loses the characters no font could name.
     for (const option of options) if (!option.image) option.text = readableText(option.text)
 
-    // The shared case study, as printed: its passage and figure together.
     const figures = []
     if (question.context) {
         question.context.snaps ??= question.context.segs
@@ -767,16 +628,8 @@ function buildQuestion(question) {
             })
         figures.push(...question.context.snaps)
     }
-    // Figures are kept whole, exactly as printed -- an answer table or a grid
-    // of pictured choices included. The choices still get their own text or
-    // crop above; the figure is never trimmed to make room for them.
     for (const band of bands) {
-        // Choices already given their own text or picture are not shown a
-        // second time inside the figure: it ends where they begin. A choice
-        // table keeps its header row (the columns the choices are values
-        // of); a figure that was nothing but the choices goes.
         let bottom = band.b
-        // A figure that starts at the choices is nothing but the choices.
         if (optionCut && optionCut.pg === band.pg && band.a >= optionCut.top - 30) continue
         if (optionCut && optionCut.pg === band.pg && optionCut.top > band.a && optionCut.top < band.b) {
             bottom = Math.max(band.a, Math.floor(optionCut.top))
@@ -786,8 +639,6 @@ function buildQuestion(question) {
     }
     figures.push(...stemFormulas)
 
-    // Unreliable text and nothing to show for it: the whole question region
-    // is the honest fallback, flagged so the reviewer checks it.
     const unclear = options.length === 0 || (visualOptions && !optionCut)
     if (unclear && figures.length === 0) figures.push(...snaps)
 
@@ -803,7 +654,6 @@ function buildQuestion(question) {
     }
 }
 
-/** Text of every page, rebuilt into rows so "1 c 41 b" stays together. */
 async function pageTexts(pdf) {
     const out = []
     for (let number = 1; number <= pdf.numPages; number++) {
@@ -834,12 +684,6 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "Ju
 
 const MONTH_RE = "(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*"
 
-/**
- * Year, month and session read from a paper's file name and first page. The
- * file name wins: "2011S_IP_Questions" and "2011S_IP_Answers" name the same
- * exam, while the first page's prose ("marks", "you may") only looks like a
- * month. A month in the text counts only beside a year ("April 2011").
- */
 export function examInfo(text, fileName) {
     const name = (fileName || "").replace(/\.pdf$/i, "").replace(/[_\-.]+/g, " ")
     const lower = name.toLowerCase()
@@ -849,10 +693,8 @@ export function examInfo(text, fileName) {
     const year = name.match(/(?:19|20)\d{2}/) || body.match(/\b(?:19|20)\d{2}\b/)
     if (year) info.year = Number(year[0])
 
-    // "2012Oct", "2015May" -- a month glued to the year in the file name.
     const nameMonth =
         lower.match(new RegExp(`(?:19|20)\\d{2}\\s*${MONTH_RE}(?![a-z])`)) || lower.match(new RegExp(`\\b${MONTH_RE}\\b`))
-    // ITPEC file names: 2023A is the autumn (October) exam, 2023S spring (April).
     const season = name.match(/(?:19|20)\d{2}([AS])(?![a-z])/i)
     const textMonth = body
         .toLowerCase()
@@ -872,10 +714,6 @@ export function examInfo(text, fileName) {
     return info
 }
 
-/**
- * What a question paper and its answer key share in their file names:
- * "2011S_IP_Questions.pdf" and "2011S_IP_Answers.pdf" are both "2011s ip".
- */
 export function paperStem(fileName) {
     return (fileName || "")
         .toLowerCase()
@@ -894,10 +732,6 @@ export function describeExam(info) {
     return parts.join(" ")
 }
 
-/**
- * 0 when the details conflict; higher is a better match. The same file name
- * stem ("2011S_IP_Questions" / "2011S_IP_Answers") outranks any date.
- */
 export function matchScore(a, b) {
     if (a?.stem && a.stem === b?.stem && (!a.session || !b.session || a.session === b.session)) return 20
     let score = 1
@@ -910,11 +744,6 @@ export function matchScore(a, b) {
     return score
 }
 
-/**
- * The paper's source line, as the ITPEC licence asks for it:
- * (YearSeason, Category, Question number). Null when the paper cannot be
- * identified -- a citation that guesses is worse than none.
- */
 export function citationFor(info, number) {
     if (!info?.year || !info?.month) return null
     const season = info.month === 10 ? "A" : info.month === 4 ? "S" : null
@@ -922,18 +751,6 @@ export function citationFor(info, number) {
     return `(${[when, info.category, `Q${number}`].filter(Boolean).join(", ")})`
 }
 
-/**
- * An afternoon (PM) key: one row per blank -- "1 1 A g" (question 1,
- * subquestion 1, blank A, answer g), "B h" (next blank), "2 D a" (subquestion
- * 2), "4 A a" (question 4, no subquestions), "2 a" (subquestion 2 answered
- * directly). Ids are the ones the page reader gives the paper's blanks:
- * "1-1-A", "4-A", "3-2".
- *
- * A number before a blank is a new question when the blank is A -- blank
- * letters run on through a question's subquestions and restart only with the
- * next question -- and a subquestion otherwise. "b/f" (either accepted)
- * keeps its first letter.
- */
 function pmAnswersFrom(texts) {
     const all = texts.join("\n")
     if (!/subquestion/i.test(all)) return null
@@ -961,7 +778,6 @@ function pmAnswersFrom(texts) {
             if (question === null) continue
             answers[sub === null ? `${question}-${first}` : `${question}-${sub}-${first}`] = answerOf(second)
         } else if (numbers.length && answerOf(first)) {
-            // A subquestion answered directly, with no blank.
             if (numbers.length >= 2) {
                 ;[question, sub] = numbers
             } else if (question !== null) {
@@ -977,22 +793,15 @@ function pmAnswersFrom(texts) {
 }
 
 function answersFrom(texts, fileName) {
-    // NFKC: a full-width "ｃ", as some keys print a few answers, is a "c".
     texts = texts.map((text) => text.normalize("NFKC"))
     const pm = pmAnswersFrom(texts)
     if (pm) return pm
     const all = texts.join("\n")
-    // What a question paper has and a key file does not: numbered questions
-    // with words after the number (in any style -- "Q1.", "Question 1", "1.")
-    // and lettered choices with words after the letter. A paper that ends in
-    // an answer-key section has a key's number-letter pairs too, so the pairs
-    // alone do not make a key.
     const questionLines =
         (all.match(/^\s*(?:Q\s?\d{1,3}\s?[.:)]|(?:Question|Item)\s+\d{1,3}\b|\d{1,3}\s?[.)]\s+[A-Za-z]{3,})/gim) || [])
             .length +
         (all.match(/^\s*\(?[a-hA-H][.)]\s+[A-Za-z]{3,}/gm) || []).length / 4
     const answers = {}
-    // "MA089" -- the optional-section numbering of the 2010 keys -- is Q89.
     const re = /(?:^|\s)(?:[A-Z]{1,2}(?=\d))?0*(\d{1,3})\s*[.):-]?\s+\(?([a-hA-H1-8])\)?(?=\s|$)/g
     let match
     while ((match = re.exec(all))) {
@@ -1006,22 +815,6 @@ function answersFrom(texts, fileName) {
     return { answers, count }
 }
 
-/**
- * Reads one PDF: an answer key or a question paper, whichever it is.
- *
- * Resolves to `{ kind: "key", name, info, answers, count }` or
- * `{ kind: "paper", name, info, questions }`. Throws with a readable message
- * when the file is neither.
- */
-/**
- * The figures on a whole page: clusters of non-text ink, grown over the short
- * label lines that touch them, each spanning the page's text width. What a
- * page reader is shown and picks from -- it says which question a figure
- * belongs to, and the crop is taken here, exactly.
- *
- * A page with no text layer (a scan) has no text to mask, so every line of
- * print would count as ink: no candidates are offered for it.
- */
 function pageFigures(pg) {
     if (!pg.items.length) return []
     const x0 = Math.max(0, Math.floor(pg.minX - 16))
@@ -1066,7 +859,6 @@ function pageFigures(pg) {
     return figures
 }
 
-/** A page as a JPEG, about 1100px wide, base64 without its data: prefix. */
 function pageJpeg(pg) {
     const scale = Math.min(1, 1100 / pg.W)
     const canvas = makeCanvas(pg.W * scale, pg.H * scale)
@@ -1074,7 +866,6 @@ function pageJpeg(pg) {
     return canvas.toDataURL("image/jpeg", 0.82).split(",")[1]
 }
 
-/** Where on the page question `label`'s heading ("Q1.") is printed, if it is. */
 function headingTop(pg, label) {
     const line = pg.lines.find((l) => {
         const match = l.text.match(QUESTION_RE)
@@ -1083,15 +874,6 @@ function headingTop(pg, label) {
     return line ? line.top : null
 }
 
-/**
- * Reads a document page by page with the vision page reader (`readPage`, a
- * call to the backend), for documents the fixed-layout reader does not know.
- *
- * Questions split across a page break are joined. Blanks of one passage
- * question ("1-2-C") share their passage: each carries the pages from the
- * question's heading to its last blank, as printed, as its figure -- the
- * passage, its figures and the answer group all read in place.
- */
 async function readWithAi(pages, readPage, onProgress) {
     const questions = []
     const answers = {}
@@ -1101,8 +883,6 @@ async function readWithAi(pages, readPage, onProgress) {
     for (const pg of pages) {
         const figures = pageFigures(pg)
         const openIds = questions.filter((q) => !q.options.length).slice(-30).map((q) => q.num)
-        // Said before the call, not after: a page with the AI takes seconds
-        // to a minute, and "Opening ... page 1 of 1" read as stuck.
         if (onProgress) await onProgress(pg.num, pages.length, "ai")
         const result = await readPage({
             image: pageJpeg(pg),
@@ -1125,8 +905,6 @@ async function readWithAi(pages, readPage, onProgress) {
                 fromTable: false,
             }))
             const own = item.figureIds.map(figureCanvas).filter(Boolean)
-            // Joined by id, not only across one page break: a passage's
-            // blanks are often printed a page before their answer group.
             const earlier = byId.get(item.id)
             if (earlier && (item.continuesFromPreviousPage || !earlier.options.length)) {
                 if (item.stem && !earlier.stem.includes(item.stem)) {
@@ -1162,7 +940,6 @@ async function readWithAi(pages, readPage, onProgress) {
         if (onProgress) await onProgress(pg.num, pages.length, "ai")
     }
 
-    // Each blank's passage: from its question's heading to its last blank.
     const byParent = new Map()
     for (const question of questions) {
         if (!question.parent) continue
@@ -1196,18 +973,12 @@ async function readWithAi(pages, readPage, onProgress) {
         }
     }
     for (const question of questions) {
-        // A plain question's "original" is its page.
         if (!question.snaps.length) question.snaps = question.pages.map((n) => pages[n - 1].canvas)
         if (!question.answer && answers[question.num]) question.answer = answers[question.num]
     }
     return { questions, answers }
 }
 
-/**
- * The layout reader's questions with their figures cropped from this
- * browser's own page render -- pdf.js 3.11 draws the papers' fax-encoded
- * labels, which a server-side crop would not guarantee.
- */
 function fromLayout(layout, pages) {
     const cropBox = (ref, pad = 6) => {
         const pg = pages[ref.page - 1]
@@ -1250,20 +1021,6 @@ function fromLayout(layout, pages) {
     })
 }
 
-/**
- * Reads one PDF: an answer key or a question paper, whichever it is, in
- * whatever layout it is printed.
- *
- * Three readers, cheapest first:
- *   1. the built-in ITPEC reader (Q1. ... a) to d)) -- instant, exact;
- *   2. `readLayout`, the server's layout reader -- any numbering and choice
- *      style, two columns, inline answers or an answer-key section, scans --
- *      no generative model;
- *   3. `readPage`, the vision AI page reader, only when both fall short.
- *
- * Resolves to `{ kind: "key", name, info, answers, count }` or
- * `{ kind: "paper", name, info, questions, readBy, profile? }`.
- */
 export async function readExamPdf(file, onProgress, readPage, readLayout) {
     const pdfjs = await loadPdfJs()
     const data = new Uint8Array(await file.arrayBuffer())
@@ -1324,11 +1081,6 @@ export async function readExamPdf(file, onProgress, readPage, readLayout) {
     }
 }
 
-/**
- * A cropped canvas as an image File. PNG keeps small figures sharp; a tall
- * stack of whole pages (a passage question's context) goes as JPEG, or it
- * would not fit the 5 MB image limit.
- */
 export function canvasToFile(canvas, name) {
     const type = canvas.height > 2500 ? "image/jpeg" : "image/png"
     const fileName = type === "image/jpeg" ? name.replace(/\.png$/i, ".jpg") : name
@@ -1344,7 +1096,6 @@ export function canvasToFile(canvas, name) {
     })
 }
 
-/** Several crops stacked into one image -- a question stores a single figure. */
 export function stackCanvases(canvases) {
     if (canvases.length === 1) return canvases[0]
     const gap = 24

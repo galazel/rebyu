@@ -93,7 +93,6 @@ rules
 
 KEY_RE = re.compile(r"^[a-zA-Z]$")
 
-#: Seconds one model gets to read a page before the next is tried.
 MODEL_TIMEOUT = 60
 
 
@@ -143,7 +142,6 @@ def _parse(body, figure_ids):
     answers = {}
     for key, value in (data.get("answers") or {}).items():
         value = str(value or "").strip().strip("()").lower()
-        # "b/f" -- either accepted -- keeps its first letter.
         value = value.split("/")[0].strip()
         if KEY_RE.match(value):
             answers[str(key).strip()] = value
@@ -176,8 +174,6 @@ async def read_page(image_base64, text, figures, previous_id=None, open_ids=None
     errors = []
     for model in tasks.profile_for(tasks.EXTRACTION).chain:
         try:
-            # A minute each: a rate-limited free model can otherwise hold
-            # the page for several, while the next model would answer.
             reply = await asyncio.wait_for(
                 get_llm(tasks.EXTRACTION, model=model).ainvoke(messages), timeout=MODEL_TIMEOUT)
         except Exception as error:  # noqa: BLE001 -- next model

@@ -15,7 +15,6 @@ from figures import fig
 
 MAJOR = "Service Management"
 
-# Lesson 5: Facility management
 
 _fac_sections = [
     ("What Everything Else Assumes", [
@@ -684,7 +683,6 @@ LESSON_SVC_FAC = lesson(
         ],
     ))
 
-# Lesson 6: System audit
 
 _aud_sections = [
     ("Why Independent Examination Exists", [

@@ -53,7 +53,6 @@ class _StubAgent:
         return {"structured_response": self._batch}
 
 
-# import-time purity (the step-3 regression guard)
 
 def test_graphs_compile_without_database_or_api_key():
     """If this fails, something reintroduced import-time or compile-time
@@ -86,14 +85,12 @@ def test_certification_graph_has_expected_nodes():
         for part in ("gate", "validate", "review", "advance"):
             assert f"{scope}_{part}" in names, f"missing loop node: {scope}_{part}"
 
-    # Categories generate a quiz only; lessons author content first (Q2).
     assert "major_generate" in names
     assert "middle_generate" in names
     assert {"lesson_content", "lesson_quiz_generate"} <= names
     assert "lesson_generate" not in names, "lessons use a two-step generation chain"
 
 
-# routing functions
 
 @pytest.mark.parametrize(
     "status,expected",
@@ -134,7 +131,6 @@ def test_route_after_commit(generated, target, expected):
     assert qb_nodes.route_after_commit(state) == expected
 
 
-# state reducers
 
 def test_merge_lessons_upserts_by_name_instead_of_appending():
     """A selective lesson retry must *replace* the failed attempt, not append
@@ -165,7 +161,6 @@ def test_merge_handles_empty_sides():
     assert _merge_lessons(None, [{"name": "A"}]) == [{"name": "A"}]
 
 
-# node behaviour with stubbed agents
 
 async def test_validate_documents_node_passes(monkeypatch):
     class Audit:
@@ -195,8 +190,6 @@ async def test_validate_documents_node_fails_with_reason(monkeypatch):
     monkeypatch.setattr(cert_nodes, "_invoke_auditor", _stub_auditor)
     monkeypatch.setattr(cert_nodes, "load_upload", lambda *a, **k: [])
 
-    # A document must be present: with none, validation is skipped by design
-    # (an append run from the admin's instructions alone).
     result = await cert_nodes.validate_documents_node(
         {"uploaded_files": [{"content": b"x", "type": "pdf", "filename": "notes.pdf"}],
          "certification_name": "X", "certification_description": "Y"}
@@ -224,13 +217,9 @@ def test_commit_batch_caps_overshoot_at_target():
     assert result["generated_count"] == 10
 
 
-# full graph run: HITL pause -> resume -> complete
 
 async def test_question_bank_graph_pauses_for_review_then_completes(monkeypatch):
     stub = _StubAgent([_draft("Q1"), _draft("Q2")])
-    # Takes *_ because the agent factories are now called with a model name:
-    # app.ai.router rebuilds the agent per model to fall back off an exhausted
-    # daily token budget.
     monkeypatch.setattr(invocation, "get_question_generation_agent", lambda *_: stub)
 
     graph = build_question_bank_graph(checkpointer=InMemorySaver())
@@ -253,9 +242,6 @@ async def test_review_payload_carries_the_validation_report(monkeypatch):
     """The brief requires the admin to see the artifact *and* its AI
     validation report together at each checkpoint."""
     stub = _StubAgent([_draft("Q1"), _draft("Q2")])
-    # Takes *_ because the agent factories are now called with a model name:
-    # app.ai.router rebuilds the agent per model to fall back off an exhausted
-    # daily token budget.
     monkeypatch.setattr(invocation, "get_question_generation_agent", lambda *_: stub)
 
     graph = build_question_bank_graph(checkpointer=InMemorySaver())
@@ -278,9 +264,6 @@ async def test_validation_flags_duplicates_in_a_real_graph_run(monkeypatch):
     duplicate = "What is the primary purpose of a database index?"
     near_duplicate = "What is the main purpose of a database index?"
     stub = _StubAgent([_draft(duplicate), _draft(near_duplicate)])
-    # Takes *_ because the agent factories are now called with a model name:
-    # app.ai.router rebuilds the agent per model to fall back off an exhausted
-    # daily token budget.
     monkeypatch.setattr(invocation, "get_question_generation_agent", lambda *_: stub)
 
     graph = build_question_bank_graph(checkpointer=InMemorySaver())
@@ -297,9 +280,6 @@ async def test_validation_flags_duplicates_in_a_real_graph_run(monkeypatch):
 
 async def test_question_bank_improve_regenerates_and_records_version(monkeypatch):
     stub = _StubAgent([_draft("Q1")])
-    # Takes *_ because the agent factories are now called with a model name:
-    # app.ai.router rebuilds the agent per model to fall back off an exhausted
-    # daily token budget.
     monkeypatch.setattr(invocation, "get_question_generation_agent", lambda *_: stub)
 
     graph = build_question_bank_graph(checkpointer=InMemorySaver())
@@ -307,7 +287,6 @@ async def test_question_bank_improve_regenerates_and_records_version(monkeypatch
 
     await graph.ainvoke({"certification_name": "C", "target_total": 1, "batch_size": 1}, config=config)
 
-    # "Improve with AI" must regenerate this batch and pause again, not advance.
     paused_again = await graph.ainvoke(
         Command(resume={"action": "improve", "instructions": "harder distractors"}),
         config=config,
@@ -315,23 +294,17 @@ async def test_question_bank_improve_regenerates_and_records_version(monkeypatch
     assert "__interrupt__" in paused_again
 
     state = (await graph.aget_state(config)).values
-    # Refs only -- the batches themselves are in the event log now, so state
-    # no longer grows with each regeneration.
     refs = state["version_refs"]
     assert len(refs) == 2
     assert refs[1]["source"] == "AI_IMPROVED"
     assert refs[1]["instructions"] == "harder distractors"
     assert "questions" not in refs[1], "artifact must not be carried in state"
 
-    # The regeneration prompt must actually carry the admin's feedback.
     assert "harder distractors" in str(stub.calls[-1])
 
 
 async def test_question_bank_edit_replaces_batch_with_admin_version(monkeypatch):
     stub = _StubAgent([_draft("AI question")])
-    # Takes *_ because the agent factories are now called with a model name:
-    # app.ai.router rebuilds the agent per model to fall back off an exhausted
-    # daily token budget.
     monkeypatch.setattr(invocation, "get_question_generation_agent", lambda *_: stub)
 
     graph = build_question_bank_graph(checkpointer=InMemorySaver())

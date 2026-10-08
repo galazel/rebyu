@@ -24,8 +24,6 @@ function RadioGroupItem({
     <RadioGroupPrimitive.Item
       data-slot="radio-group-item"
       className={cn(
-        // Matches the checkbox's 24px footprint and 2px edge so a form mixing
-        // the two reads as one control family.
         "group/radio-group-item peer relative flex aspect-square size-6 shrink-0 rounded-full border-2 border-border bg-card outline-none after:absolute after:-inset-x-3 after:-inset-y-2 hover:border-rb-hare disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive dark:bg-input/30 dark:aria-invalid:border-destructive/50 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground dark:data-checked:bg-primary",
         className
       )}

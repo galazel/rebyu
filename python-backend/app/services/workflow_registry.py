@@ -23,7 +23,6 @@ from app.db.models import WorkflowEvent, WorkflowRun
 logger = logging.getLogger(__name__)
 
 
-# run statuses
 RUNNING = "RUNNING"
 WAITING_FOR_REVIEW = "WAITING_FOR_REVIEW"
 COMPLETED = "COMPLETED"
@@ -45,7 +44,6 @@ class RunAlreadyCancelled(Exception):
         super().__init__(f"Run {thread_id} was cancelled; not restarting it.")
         self.thread_id = thread_id
 
-# event types (the workspace timeline renders these)
 EVT_WORKFLOW_STARTED = "workflow.started"
 EVT_NODE_STARTED = "node.started"
 EVT_NODE_COMPLETED = "node.completed"
@@ -55,19 +53,12 @@ EVT_REVIEW_SUBMITTED = "review.submitted"
 EVT_WORKFLOW_RESUMED = "workflow.resumed"
 EVT_WORKFLOW_COMPLETED = "workflow.completed"
 EVT_WORKFLOW_FAILED = "workflow.failed"
-#: Re-running the step that failed, from the checkpoint taken before it.
-#: Distinct from RESUMED, which continues an intact run past a review.
 EVT_WORKFLOW_RETRIED = "workflow.retried"
-#: Discarding the run's checkpoints and starting over from the first step.
 EVT_WORKFLOW_RESTARTED = "workflow.restarted"
-#: Distinct from failure. Cancellation is a deliberate human decision, and the
-#: workspace must not paint it red or invite the reviewer to retry it.
 EVT_WORKFLOW_CANCELLED = "workflow.cancelled"
 
-#: Event types after which no further events can arrive, so a stream can close.
 TERMINAL_EVENTS = {EVT_WORKFLOW_COMPLETED, EVT_WORKFLOW_FAILED, EVT_WORKFLOW_CANCELLED}
 
-# per-task statuses the workspace shows
 TASK_PENDING = "PENDING"
 TASK_RUNNING = "RUNNING"
 TASK_COMPLETED = "COMPLETED"
@@ -106,7 +97,6 @@ def _publish(run_id: str, events: list[WorkflowEvent]) -> None:
     """
     if not events:
         return
-    # Imported lazily so the service layer does not depend on transport.
     from app.api.ws.broadcaster import get_broadcaster
 
     broadcaster = get_broadcaster()
@@ -158,29 +148,16 @@ def start_run(
     ).scalar_one_or_none()
 
     if run is not None and run.status == CANCELLED:
-        # Cancellation is cooperative: the graph notices the flag between
-        # nodes and unwinds, which leaves the queue message unacked -- so
-        # RabbitMQ redelivers it, and this function used to force the run
-        # straight back to RUNNING. The reviewer's stop was undone within
-        # seconds and generation restarted from document validation, over and
-        # over: a live run reached "Attempt 20" that way, and every attempt
-        # spent real tokens on work someone had explicitly stopped.
-        #
-        # A cancel is a human decision and a redelivered message is not
-        # evidence against it. The caller must ack and drop.
         raise RunAlreadyCancelled(thread_id)
 
     if run is not None:
         run.status = RUNNING
         run.updated_at = _now()
-        # The previous attempt's stage, error, progress, and completion time
-        # all describe work this attempt is about to redo from the beginning.
         run.current_stage = None
         run.error_message = None
         run.progress_pct = 0
         run.completed_at = None
         session.flush()
-        # +1 because this call's own boundary event has not been recorded yet.
         attempt = attempt_number(session, run.run_id) + 1
         event = record_event(
             session, run, EVT_WORKFLOW_RESTARTED,
@@ -234,8 +211,6 @@ def record_event(
 
     Does not commit: callers batch events into their own transaction.
     """
-    # Autoflushes any pending changes to `run` first (status, stage, ...), so
-    # this statement extends the same row lock rather than racing it.
     seq = session.execute(
         update(WorkflowRun)
         .where(WorkflowRun.run_id == run.run_id)
@@ -243,8 +218,6 @@ def record_event(
         .returning(WorkflowRun.last_seq)
     ).scalar_one()
 
-    # Keep the identity-mapped instance in step with what the database now
-    # holds; callers read `run.last_seq` straight back out.
     session.refresh(run, ["last_seq", "updated_at"])
 
     event = WorkflowEvent(
@@ -281,9 +254,6 @@ def _transition(
         select(WorkflowRun).where(WorkflowRun.thread_id == thread_id)
     ).scalar_one_or_none()
     if run is None:
-        # Never fabricate a run: a missing registry row means the caller
-        # started the graph without registering, which is a wiring bug worth
-        # seeing rather than papering over.
         logger.warning("No workflow run registered for thread_id=%s", thread_id)
         return None
 
@@ -303,9 +273,6 @@ def _transition(
         if status == COMPLETED:
             run.progress_pct = 100
     else:
-        # A run leaving a terminal status (retry/restart of a failed run) must
-        # not keep the completion timestamp of the attempt that died, or the
-        # workspace shows it as finished while it is executing.
         run.completed_at = None
 
     event = record_event(
@@ -425,7 +392,6 @@ def mark_cancelled(session: Session, thread_id: str) -> WorkflowRun | None:
     )
 
 
-# reads
 
 def list_runs(
     session: Session,
@@ -461,10 +427,6 @@ def purge_certification(session: Session, certification_id: int) -> dict[str, An
     cancelled = 0
     for run in runs:
         if run.status not in TERMINAL_STATUSES:
-            # Cancel before deleting: an in-flight graph checks this flag
-            # between nodes, and `start_run` refuses to reopen a cancelled run,
-            # so a redelivered queue message cannot resurrect it after the
-            # rows are gone.
             mark_cancelled(session, run.thread_id)
             cancelled += 1
 
@@ -517,11 +479,6 @@ def last_failed_stage(session: Session, run_id: str) -> str | None:
     return event.stage if event is not None else None
 
 
-#: Events that begin a fresh attempt at the whole run, from its first step.
-#: `EVT_WORKFLOW_RETRIED` is deliberately absent: a retry re-runs the one step
-#: that failed and carries on, so it continues the attempt it is part of. The
-#: workspace timeline segments on exactly this set, so the two agree on what
-#: "attempt 3" means.
 ATTEMPT_BOUNDARY_EVENTS = (EVT_WORKFLOW_STARTED, EVT_WORKFLOW_RESTARTED)
 
 
@@ -554,12 +511,6 @@ def list_events(
     )
 
 
-# artifact version history
-# Versions live in the event log, not in LangGraph state. Keeping the full
-# artifact in state meant every regeneration grew a blob that was then
-# re-serialized into every subsequent checkpoint -- the same write
-# amplification that file bytes caused before Phase 2a step 5. State now
-# holds only a reference; the artifact is fetched from the event log.
 
 EVT_VERSION_RECORDED = "version.recorded"
 
@@ -607,7 +558,6 @@ def record_artifact_version(
         "revision": revision,
         "source": source,
         "instructions": instructions,
-        # Where to fetch the artifact from, instead of carrying it.
         "event_seq": event.seq,
     }
 

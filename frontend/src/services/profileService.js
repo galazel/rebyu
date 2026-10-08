@@ -1,12 +1,6 @@
-/**
- * Learner profile management service
- */
 import api from './api'
 
 export const profileService = {
-  /**
-   * Update learner profile (first name, last name, email)
-   */
   async updateProfile(firstName, lastName, email) {
     try {
       const response = await api.put('/learners/me', {
@@ -23,9 +17,6 @@ export const profileService = {
     }
   },
 
-  /**
-   * Change password with old password verification
-   */
   async changePassword(oldPassword, newPassword) {
     try {
       const response = await api.post('/learners/me/change-password', {
@@ -41,9 +32,6 @@ export const profileService = {
     }
   },
 
-  /**
-   * Delete learner account (requires password confirmation)
-   */
   async deleteAccount(password) {
     try {
       const response = await api.delete('/learners/me', {

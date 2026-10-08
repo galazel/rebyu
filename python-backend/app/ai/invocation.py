@@ -43,10 +43,6 @@ from app.schemas.certification.question_schema import QuestionBatch
 
 logger = logging.getLogger(__name__)
 
-#: Extra generation rounds allowed to replace questions dropped as duplicates.
-#: Bounded rather than "loop until full": the model can genuinely run out of
-#: distinct questions for a narrow scope, and an unbounded loop would spend the
-#: whole budget rediscovering that.
 _DEDUPE_TOPUP_ROUNDS = 2
 
 class MissingStructuredResponse(KeyError):
@@ -64,8 +60,6 @@ class MissingStructuredResponse(KeyError):
     `'structured_response'` with no indication of which agent produced it.
     """
 
-    #: Once retries have not produced an answer, the router tries the next
-    #: model rather than ending the run (`app.ai.router`).
     advance_chain = True
 
     def __str__(self) -> str:
@@ -109,19 +103,10 @@ class _StructuredAgent:
                     "the model answered without calling its output tool."
                 ) from error
             if structured is None:
-                # Present but empty: seen 2026-10 from free OpenRouter models
-                # (dots-3, nemotron-ultra) on the lesson agent. It used to be
-                # returned as a success -- a None lesson, failing later and
-                # far from the cause.
                 raise MissingStructuredResponse(
                     f"{self._label} returned an empty structured response."
                 )
 
-        # Screened here, inside the retried call, for the same reason the
-        # extraction above is: a `GuardrailViolation` is a ValueError, so the
-        # retry policy resamples it and the offending text never leaves this
-        # method. Doing it in the graph node instead would turn a blockable
-        # sample into a failed run.
         guardrails.screen(structured, label=self._label)
         _require_depth(structured)
         return structured
@@ -364,9 +349,6 @@ async def fill_diagram_references(questions: list) -> int:
     return filled
 
 
-#: One retry. A reference that comes back thin is usually thin because the
-#: model economised, and saying so once fixes it; a second retry mostly buys
-#: the same answer again at twice the price.
 _REFERENCE_ATTEMPTS = 2
 
 
@@ -404,8 +386,6 @@ async def _reference_xml(question, prompt: str, diagram_type: str) -> str | None
             "Diagram reference attempt %d for %.60s rejected: %s",
             attempt, question.question, check.summary,
         )
-        # Tell it what was wrong rather than resampling the same prompt: the
-        # failures are specific and stated plainly enough to act on.
         attempt_prompt = (
             f"{prompt}\n\nYour previous answer was rejected: {check.summary}. "
             "Produce a complete model answer at professional scale -- six to "
@@ -421,9 +401,6 @@ async def _reference_xml(question, prompt: str, diagram_type: str) -> str | None
     return None
 
 
-#: How many previously-written stems to show the model. Enough to steer it off
-#: the obvious repeats without spending the completion budget on the list
-#: itself -- at ~15 tokens a stem, 40 costs about 600 tokens per batch.
 _PRIOR_STEMS_SHOWN = 40
 
 
@@ -496,7 +473,6 @@ async def invoke_question_agent(
     prior_list: list[str] = [s for s in (existing_stems or []) if s]
     size = get_settings().question_batch_size
 
-    # Single-call paths: one request, but still checked against what exists.
     if count is None or count <= 0 or count <= size:
         result = await invoke_agent(
             get_question_generation_agent,
@@ -518,28 +494,17 @@ async def invoke_question_agent(
     batches = math.ceil(count / size)
     questions: list = []
     seen = _known(prior_list)
-    # Extra rounds to replace duplicates. A later batch cannot see the earlier
-    # ones except through the "already written" list below, and the model still
-    # repeats itself -- a live 30-question exam came back with 20 distinct
-    # stems. Without top-up rounds, dropping the repeats would just leave the
-    # exam short.
     for index in range(batches + _DEDUPE_TOPUP_ROUNDS):
         wanted = min(size, count - len(questions))
         if wanted <= 0:
             break
 
-        # The caller's instructions still carry the *total* ("Generate exactly
-        # 50 questions"), so this has to override it unambiguously rather than
-        # sit alongside it.
         batched = (
             f"This is batch {index + 1} of {batches} for this assessment.\n"
             f"Generate exactly {wanted} questions in THIS response. Ignore any other "
             f"question count mentioned below -- {wanted} is the count for this batch.\n\n"
             f"{instructions}"
         )
-        # What to steer away from: this assessment's own earlier batches AND
-        # anything already written for the lesson elsewhere. Batch stems come
-        # last so the most recent are the ones that survive the window.
         avoid = prior_list + [q.question for q in questions]
         batched += _avoid_clause(avoid)
 
@@ -554,8 +519,6 @@ async def invoke_question_agent(
             index + 1, scope, len(result.questions), fresh, len(questions), count,
         )
         if fresh == 0:
-            # The model has run out of distinct questions for this scope.
-            # Further rounds would cost tokens to produce nothing.
             logger.warning(
                 "Stopping %.40s at %d/%d questions: a whole batch was duplicates",
                 scope, len(questions), count,

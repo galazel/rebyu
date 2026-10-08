@@ -32,14 +32,6 @@ public class Learner {
     @Column(nullable = false, length = 50)
     private String lastName;
 
-    /**
-     * Object key of the learner's profile picture, or null for the initials
-     * that stood in before they uploaded one.
-     *
-     * <p>A key rather than a URL: the file is served through the same signed
-     * links every other upload uses, and a URL stored here would either expire
-     * in the row or have to be public for good.
-     */
     @Column(name = "avatar_key", length = 512)
     private String avatarKey;
 }

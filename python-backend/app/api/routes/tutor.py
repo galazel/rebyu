@@ -27,8 +27,6 @@ router = APIRouter(
 )
 
 
-#: A snipped picture as a data URL. The browser shrinks it to at most 1600px
-#: and JPEG before sending, which lands well under this.
 _MAX_IMAGE_CHARS = 4_000_000
 
 
@@ -37,29 +35,22 @@ class ChatRequest(BaseModel):
     sessionId: str
     lessonName: str
     lessonId: int | None = None
-    #: Text the learner selected or snipped from the lesson, asked about.
     quote: str | None = Field(default=None, max_length=6000)
-    #: A snipped part of the lesson as a picture (data:image/...;base64,...).
     image: str | None = Field(default=None, max_length=_MAX_IMAGE_CHARS, pattern=r"^data:image/(png|jpeg|webp);base64,")
-    #: Where the gateway stored that picture, so the conversation reloads it.
     imageKey: str | None = Field(default=None, max_length=300, pattern=r"^tutor-snips/")
 
 
 class ChatResponse(BaseModel):
     reply: str
     sessionId: str
-    #: Related videos and links found for this answer; see app.domain.tutor_resources.
     resources: list[dict] = []
 
 
 class ConversationMessage(BaseModel):
     role: str
     content: str
-    # Only set on a generated quiz/flashcard turn: the payload the tutor UI
-    # re-renders its "Take the quiz" card from after a refresh.
     action: dict | None = None
     resources: list[dict] | None = None
-    #: On a learner's question about part of the lesson: {quote, image}.
     snippet: dict | None = None
 
 
@@ -100,15 +91,7 @@ def _lesson_grounding(db: Session, payload: ChatRequest) -> tuple[str | None, st
         try:
             lesson_context = load_lesson_context(db, payload.lessonId)
         except Exception:
-            # A lesson lookup failure should degrade to an unscoped answer,
-            # not take the whole chat down -- the learner still gets a reply.
             logger.exception("Failed to load lesson %s for the tutor", payload.lessonId)
-        # Retrieved per QUESTION, not per lesson: what the corpus says about
-        # "how does DHCP assign addresses" is not what it says about the
-        # lesson as a whole, and the useful passage is the one that matches
-        # what was actually asked.
-        # The selected text says what the question is about better than
-        # "explain this" does, so it joins the search.
         query = f"{payload.message}\n{payload.quote}" if payload.quote else payload.message
         source_material = load_source_material(db, payload.lessonId, query)
     return lesson_context, source_material
@@ -116,14 +99,10 @@ def _lesson_grounding(db: Session, payload: ChatRequest) -> tuple[str | None, st
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
-    # Off the event loop: retrieval embeds and reranks on the CPU, and every
-    # other request would wait behind it.
     lesson_context, source_material = await asyncio.to_thread(_lesson_grounding, db, payload)
 
     graph = await get_tutor_graph()
     config = {"configurable": {"thread_id": payload.sessionId}}
-    # The one-shot path is text only: a quote rides along in the question, and
-    # a picture is left to the streaming route, which has a vision model.
     request = with_quote(payload.message, payload.quote)
     result = await graph.ainvoke(
         {
@@ -154,10 +133,6 @@ async def chat_stream(payload: ChatRequest, db: Session = Depends(get_db)) -> St
     """The answer as Server-Sent Events while it is written: `delta` {text}
     pieces, then `resources` when there are some, then `done` -- or `error`
     {message} if no model could answer. See app.services.ai.tutor_stream."""
-    # Loaded before the response starts: the database session does not
-    # outlive the request handler, and the stream runs after it returns.
-    # Off the event loop: retrieval embeds and reranks on the CPU, and every
-    # other request would wait behind it.
     lesson_context, source_material = await asyncio.to_thread(_lesson_grounding, db, payload)
 
     async def events():
@@ -184,6 +159,5 @@ async def chat_stream(payload: ChatRequest, db: Session = Depends(get_db)) -> St
     return StreamingResponse(
         events(),
         media_type="text/event-stream",
-        # No proxy or browser buffering: the point is that each piece arrives now.
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

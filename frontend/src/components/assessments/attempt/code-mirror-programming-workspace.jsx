@@ -54,7 +54,6 @@ function getLanguageExtension(language) {
   }
 }
 
-/** One square key on the editor's toolbar. */
 function ToolbarKey({ label, onClick, children }) {
   return (
     <button
@@ -69,12 +68,6 @@ function ToolbarKey({ label, onClick, children }) {
   )
 }
 
-// CodeMirror-based programming answer workspace.
-//
-// The editor and its toolbar are one card: language on the left, the keys that
-// act on the code (`actions` -- Run Code -- then Reset and fullscreen) on the
-// right, all on a single row. The "saved with your answer" note used to take a
-// row of its own and push Run Code onto a second line above the editor.
 export default function CodeMirrorProgrammingWorkspace({
   value,
   language,

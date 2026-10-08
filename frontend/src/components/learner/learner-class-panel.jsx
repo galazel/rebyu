@@ -146,16 +146,6 @@ export function ClassBody({ group }) {
   )
 }
 
-/**
- * The learner's class for this certification -- the group an institution
- * invited them into, its announcements and its assessments. Nothing renders for
- * a learner who is not in a class.
- *
- * Two shapes. On wide screens a rail pinned to the left of the road, in the
- * empty margin beside it, so the road still opens the page. Below that a
- * one-line card that expands on tap, so a phone is not pushed a screen down
- * before the first lesson.
- */
 export function LearnerClassPanel({ certificationId, variant = "rail" }) {
   const classes = useMyClasses(certificationId)
   const [open, setOpen] = useState(false)

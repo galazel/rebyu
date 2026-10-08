@@ -9,11 +9,10 @@ export const MONTHS_FULL = [
   "July", "August", "September", "October", "November", "December",
 ]
 
-/** ISO week: Monday = first day */
 export function startOfISOWeek(date) {
   const d = new Date(date)
   d.setHours(0, 0, 0, 0)
-  const day = d.getDay() // 0 = Sun
+  const day = d.getDay()
   d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day))
   return d
 }
@@ -25,12 +24,6 @@ export function endOfISOWeek(date) {
   return d
 }
 
-/**
- * Computes the date range for a given mode + cursor.
- * @param {"daily"|"weekly"|"monthly"|"yearly"} mode
- * @param {Date} cursor - any date inside the desired period
- * @returns {{ from: Date, to: Date, label: string, canGoForward: boolean }}
- */
 export function useDateRange(mode, cursor) {
   return useMemo(() => {
     const now = new Date()
@@ -56,13 +49,11 @@ export function useDateRange(mode, cursor) {
       to    = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0, 23, 59, 59, 999)
       label = `${MONTHS_FULL[cursor.getMonth()]} ${cursor.getFullYear()}`
     } else {
-      // yearly
       from  = new Date(cursor.getFullYear(), 0, 1)
       to    = new Date(cursor.getFullYear(), 11, 31, 23, 59, 59, 999)
       label = String(cursor.getFullYear())
     }
 
-    // What would the next period's start be?
     let nextStart = new Date(from)
     if (mode === "daily")        nextStart.setDate(nextStart.getDate() + 1)
     else if (mode === "weekly")  nextStart.setDate(nextStart.getDate() + 7)

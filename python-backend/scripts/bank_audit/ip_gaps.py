@@ -51,8 +51,6 @@ def open_session():
 
 CERT = 4
 
-# application.yml: adaptive.item-counts / min-bank-multiplier. Defaulted the
-# way AdaptivePolicy.targetCount does (10 when unconfigured).
 TARGETS = {
     "LESSON_QUIZ": 10,
     "MIDDLE_EXAM": 20,
@@ -76,7 +74,6 @@ def main():
         {"c": CERT}).scalar()
     print("certification %s: %s" % (CERT, cert_title))
 
-    # Top-level question counts per lesson.
     per_lesson = dict(db.execute(text("""
         select l.lesson_id, count(q.question_id)
           from lessons l

@@ -26,7 +26,6 @@ def read(blocks, q="12.", c="A."):
 
 
 def test_misprinted_heading_does_not_swallow_the_rest():
-    # "19 The following ..." -- no stop after the number (AFA reviewer, Q19).
     blocks = [text("1. Which fertilizer? A. Night soil B. Manure C. Mulch D. Compost", [0.1, 0.1, 0.9, 0.2]),
               text("2 The following are true EXCEPT A. one B. two C. three D. four", [0.1, 0.2, 0.9, 0.3]),
               text("3. Which soil? A. Clay B. Silt C. Loam D. Sand", [0.1, 0.3, 0.9, 0.4])]
@@ -42,7 +41,6 @@ def test_one_unreadable_heading_costs_one_question():
               text("3. Third? A. a3 B. b3", [0.1, 0.3, 0.9, 0.4])]
     questions = read(blocks)
     assert [q["num"] for q in questions] == ["1", "3"]
-    # Question 1 is not silently given question 2's choices.
     assert any("unreadable" in issue for issue in questions[0]["issues"])
 
 
@@ -127,8 +125,8 @@ def test_number_in_its_own_table_cell_joins_its_question():
 
 def test_covered_needs_shared_width_and_half_the_height():
     assert _covered([0.1, 0.10, 0.3, 0.12], [[0.0, 0.09, 0.5, 0.13]])
-    assert not _covered([0.53, 0.26, 0.58, 0.27], [[0.53, 0.24, 0.6, 0.26]])  # the line below
-    assert not _covered([0.6, 0.10, 0.8, 0.12], [[0.0, 0.09, 0.5, 0.13]])  # other column
+    assert not _covered([0.53, 0.26, 0.58, 0.27], [[0.53, 0.24, 0.6, 0.26]])
+    assert not _covered([0.6, 0.10, 0.8, 0.12], [[0.0, 0.09, 0.5, 0.13]])
 
 
 def test_word_documents_are_recognised_by_content():
@@ -156,5 +154,5 @@ def test_a_placeholder_lesson_is_rejected_at_generation_time():
     with pytest.raises(ThinGeneration):
         _require_depth(GeneratedLesson(**base, sections=[{"type": "heading", "data": {"text": "Test Heading"}}]))
     real = [{"type": "description", "data": {"text": f"Paragraph {i}"}} for i in range(12)]
-    _require_depth(GeneratedLesson(**base, sections=real))  # a real lesson passes
-    _require_depth({"not": "a lesson"})  # other agents' outputs are untouched
+    _require_depth(GeneratedLesson(**base, sections=real))
+    _require_depth({"not": "a lesson"})

@@ -61,28 +61,12 @@ public class ExamDto {
 
     private LocalDateTime updatedAt;
 
-    /** Whether correct answers/explanations are shown to learners after submitting. Null = true. */
     private Boolean releaseAnswersAfterSubmit;
 
-    // NULL = official exam. Read-only here -- ownership is set exclusively
-    // via the create endpoint's ownerDepartmentId query param, never accepted
-    // directly from this DTO's create/update body. See MajorCategoryDto.
     private Long ownerDepartmentId;
 
-    /**
-     * Ordered list of the questions the admin selected, with the per-question
-     * point value and display order. This is the single source of truth for
-     * what the assessment contains; when present it fully replaces the exam's
-     * question set (points and order included) on create/update.
-     */
     private List<ExamQuestionInput> questions;
 
-    /**
-     * Legacy/compatibility list of selected question ids without points.
-     * Retained for callers that only need to set the question set; prefer
-     * {@link #questions} when per-question points must be persisted. On read,
-     * the service always populates this with the ordered selected ids.
-     */
     private List<Long> questionIds;
 
     @Data
@@ -92,11 +76,9 @@ public class ExamDto {
         @NotNull
         private Long questionId;
 
-        /** Optional weight on this assessment (institution papers); null counts as one. */
         @DecimalMin("0.0")
         private BigDecimal points;
 
-        /** 1-based position; when null the service assigns list order. */
         private Integer displayOrder;
     }
 }

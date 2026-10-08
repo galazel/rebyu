@@ -31,18 +31,6 @@ import DiagramArea from "@/components/challenges/diagram-area.jsx"
 import BigDialog from "@/components/commons/dialog.jsx"
 import { extractDiagramData } from "@/utils/diagram-graph.js"
 
-/**
- * The five question-type editors (MCQ, Short Answer, Descriptive, Programming,
- * Diagram) and their shared building blocks, extracted verbatim from the
- * admin Question Bank builder (pages/admin/question-bank-page.jsx) so any other
- * question-authoring surface (e.g. the Institution assessment builder) gets
- * the exact same layout, image upload, correct-answer marking, test cases,
- * sub-questions, and diagram editor -- not a re-implementation.
- *
- * Each editor takes { questionKey, questionNumber, onRemove, data,
- * onDataChange, errors } and is otherwise self-contained; `data` matches the
- * shapes in QUESTION_TYPES below.
- */
 
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]
 export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
@@ -106,14 +94,13 @@ export function getDiagramTypeDescription(value) {
   return diagramTypeDescriptions[value] ?? "Create the correct reference diagram."
 }
 
-/** The question-type palette: id/title/description/icon/component/default data. */
 export const QUESTION_TYPES = [
   {
     id: "MCQ",
     title: "Multiple Choice",
     description: "Choose from answer options",
     icon: ListChecks,
-    component: null, // set below once MultipleChoices is defined
+    component: null,
     data: {
       questionType: "MCQ",
       question: "",
@@ -322,9 +309,6 @@ export function validateQuestionData(typeId, data) {
     }
   }
 
-  /* A fill-in-the-blank carries its answers on its blanks, so the parent has
-     no single correct answer to require -- demanding one would make a valid
-     item unsaveable. Its blanks are validated instead. */
   if (typeId === "SHORT_ANSWER" && (data.subQuestions ?? []).length > 0) {
     validateSubQuestions(data, errors)
   } else if (typeId === "SHORT_ANSWER" && isBlank(data.correctAnswer)) {
@@ -1164,7 +1148,6 @@ export function Diagram({ questionKey, questionNumber, onRemove, data, onDataCha
   )
 }
 
-// Wire the palette's component refs now that the editors are defined.
 QUESTION_TYPES[0].component = MultipleChoices
 QUESTION_TYPES[1].component = ShortAnswer
 QUESTION_TYPES[2].component = Descriptive
@@ -1192,14 +1175,6 @@ export function QuestionTypeButton({ questionType, onAdd, disabled }) {
   )
 }
 
-/**
- * Persists one authored question with the same per-type backend calls the
- * admin builder uses (saveQuestion + saveChoices/saveTextQuestion/
- * saveProgrammingQuestion/saveDiagramQuestion), parametrized by ownerDepartmentId
- * (undefined for official/admin-authored questions, a group id to author the
- * question as that Institution group's own). Every question is worth one
- * observation; there are no per-question points.
- */
 export async function saveAuthoredQuestion(
   question,
   { lessonId, certificationId, ownerDepartmentId } = {},
@@ -1253,14 +1228,7 @@ export async function saveAuthoredQuestion(
           : null,
       })
 
-      /* The blanks of a fill-in-the-blank, saved as children of the passage.
-         Empty for an ordinary short answer, which is every one that has a
-         single expected answer instead of parts.
 
-         EXACT_MATCH, not the AI_SEMANTIC used for a programming item's parts:
-         a blank has one right term and the stem's candidate list settles which
-         -- asking a model whether "Usability" means "Usability" would be a
-         paid call, per blank, that can disagree with itself. */
       for (const blank of question.data.subQuestions ?? []) {
         const savedBlank = await saveQuestion(
           {

@@ -52,7 +52,6 @@ class DiagramGradingServiceTest {
 
     @Test
     void partialMatchWithReversedEdgeDirectionEarnsPartialCredit() {
-        // Same nodes, but the edge is drawn backwards (Course -> Student).
         String learner = twoNodeDiagram("Student", "Course", "enrolls in 1..*", "3", "2");
 
         DiagramGradingResultDto result = service.grade(
@@ -98,7 +97,6 @@ class DiagramGradingServiceTest {
 
     @Test
     void cardinalityMismatchDowngradesEdgeCredit() {
-        // Same nodes/direction, but the cardinality notation differs (1..* vs 1..1).
         String learner = twoNodeDiagram("Student", "Course", "enrolls in 1..1", "2", "3");
 
         DiagramGradingResultDto fullMatch = service.grade(
@@ -111,7 +109,6 @@ class DiagramGradingServiceTest {
                 "wrong cardinality should score lower than an exact cardinality match");
     }
 
-    // matching rules: one learner element answers one required element
 
     private static String nodesOnlyDiagram(String... labels) {
         StringBuilder xml = new StringBuilder("<mxGraphModel><root>"
@@ -125,7 +122,6 @@ class DiagramGradingServiceTest {
         return xml.append("</root></mxGraphModel>").toString();
     }
 
-    /** Two nodes with `edgeLabels.length` parallel edges running between them. */
     private static String parallelEdgeDiagram(String... edgeLabels) {
         StringBuilder xml = new StringBuilder("<mxGraphModel><root>"
                 + "<mxCell id=\"0\" /><mxCell id=\"1\" parent=\"0\" />"
@@ -143,15 +139,6 @@ class DiagramGradingServiceTest {
         return xml.append("</root></mxGraphModel>").toString();
     }
 
-    /**
-     * The learner drew exactly one of the two required entities. It has to be
-     * credited as the one it actually is.
-     *
-     * Matching used to walk the reference in document order and let each entity
-     * take the best learner node still free, so "Student Record" -- considered
-     * first, and a 0.7 substring match for "Student" -- consumed the learner's
-     * box, and the entity the learner had drawn perfectly scored nothing.
-     */
     @Test
     void anExactlyDrawnElementIsCreditedToTheElementItMatches() {
         String reference = nodesOnlyDiagram("Student Record", "Student");
@@ -160,8 +147,6 @@ class DiagramGradingServiceTest {
         DiagramGradingResultDto result = service.grade(
                 new DiagramGradingRequestDto(reference, learner, new BigDecimal("10.00")));
 
-        // Two required nodes, 5.00 each: a full mark for the one drawn exactly,
-        // nothing for the one not drawn at all.
         assertEquals(0, new BigDecimal("5.00").compareTo(result.earnedPoints()));
         assertEquals(1, result.elementResults().stream()
                 .filter(DiagramGradingResultDto.ElementResultDto::matched).count());
@@ -171,14 +156,6 @@ class DiagramGradingServiceTest {
                         && "STRONG".equals(element.matchQuality())));
     }
 
-    /**
-     * One drawn relationship cannot answer two required ones.
-     *
-     * The reference asks for both "places" and "cancels" between the same pair
-     * of entities. A learner who drew only "places" used to be paid for
-     * "cancels" too -- the lookup returned the first edge running between those
-     * nodes and never recorded that it had already been spent.
-     */
     @Test
     void oneDrawnRelationshipCannotSatisfyTwoRequiredOnes() {
         String reference = parallelEdgeDiagram("places", "cancels");
@@ -194,18 +171,12 @@ class DiagramGradingServiceTest {
         assertEquals(1, edges.stream()
                 .filter(DiagramGradingResultDto.ElementResultDto::matched).count());
 
-        // 4 elements at 3.00 each: both entities, plus "places" only.
         assertEquals(0, new BigDecimal("9.00").compareTo(result.earnedPoints()));
     }
 
-    /**
-     * Where the learner did draw both, each required relationship takes the one
-     * whose label matches it rather than whichever came first in the file.
-     */
     @Test
     void parallelRelationshipsAreMatchedByLabelNotByDocumentOrder() {
         String reference = parallelEdgeDiagram("places", "cancels");
-        // Drawn in the opposite order to the reference.
         String learner = parallelEdgeDiagram("cancels", "places");
 
         DiagramGradingResultDto result = service.grade(
@@ -216,7 +187,6 @@ class DiagramGradingServiceTest {
                 .allMatch(DiagramGradingResultDto.ElementResultDto::matched));
     }
 
-    // every element says why it scored what it did
 
     @Test
     void aMissingElementSaysItWasNotFound() {
@@ -232,7 +202,6 @@ class DiagramGradingServiceTest {
         assertTrue(course.reason().toLowerCase().contains("nothing in your diagram"));
     }
 
-    /** "Your label does not match" is not useful when only the multiplicity is off. */
     @Test
     void aWrongCardinalitySaysWhichCardinalityWasExpected() {
         String learner = twoNodeDiagram("Student", "Course", "enrolls in 0..1", "2", "3");
@@ -249,7 +218,6 @@ class DiagramGradingServiceTest {
 
     @Test
     void aBackwardsRelationshipSaysItPointsTheWrongWay() {
-        // Same two entities, same label, drawn Course -> Student.
         String learner = twoNodeDiagram("Student", "Course", "enrolls in 1..*", "3", "2");
 
         DiagramGradingResultDto result = service.grade(

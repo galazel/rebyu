@@ -14,36 +14,10 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Read and write one person's arrangement of one dashboard.
- *
- * The same tile-placement shape the learner analytics board already persists, so
- * the frontend board component works unchanged across all three dashboards; only
- * the storage differs, because admins and institution managers have no learner row
- * for the learner-keyed table to hang off.
- */
 @Service
 @RequiredArgsConstructor
 public class DashboardLayoutService {
 
-    /**
-     * Boards that may be stored. An allow-list rather than a free string: `board`
-     * lands in a UNIQUE key, and letting the client name it means one typo (or one
-     * loop) fills the table with rows nothing will ever read again.
-     */
-    /**
-     * Boards a saved tile arrangement may belong to.
-     *
-     * <p>A board missing from here is not a degraded feature, it is an
-     * exception on every read and every save: the department-head dashboard
-     * asked for "department-head" from the day it shipped and got
-     * {@code Unknown dashboard board} each time, so its tiles could neither be
-     * restored nor rearranged, and the log filled with warnings on a page that
-     * looked like it was working.
-     *
-     * <p>Anything calling {@code useDashboardLayout} needs its board named
-     * here.
-     */
     private static final Set<String> KNOWN_BOARDS = Set.of("admin", "institution", "department-head");
 
     private final UserDashboardLayoutRepository layoutRepository;
@@ -73,11 +47,6 @@ public class DashboardLayoutService {
                         tile.h() == null ? 1 : Math.max(1, tile.h())))
                 .toList();
 
-        // find-then-save, not an upsert. The UNIQUE(user_id, board) exists in the
-        // migration and on the entity, but an ON CONFLICT would still be the wrong
-        // shape here: environments whose schema came from ddl-auto have historically
-        // been missing migration-only constraints, and ON CONFLICT against a missing
-        // constraint is a 42P10 that rolls back the caller rather than a no-op.
         UserDashboardLayout row = layoutRepository.findByUser_UserIdAndBoard(userId, key)
                 .orElseGet(() -> UserDashboardLayout.builder()
                         .user(entityManager.getReference(User.class, userId))
@@ -97,11 +66,6 @@ public class DashboardLayoutService {
         return key;
     }
 
-    /**
-     * A stored arrangement that no longer parses is treated as "no arrangement".
-     * Failing the whole dashboard because a preference blob went bad would take
-     * the page down over something cosmetic.
-     */
     private List<TilePlacement> read(String json) {
         try {
             return mapper.readValue(json, new TypeReference<List<TilePlacement>>() {});

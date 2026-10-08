@@ -15,10 +15,6 @@ from .state import QuestionBankState
 
 logger = logging.getLogger(__name__)
 
-# The three levels the adaptive engine understands. IrtModel maps them to
-# b = -1.5 / 0.0 / +1.5, so a bank that is all AVERAGE gives the engine one
-# point on the scale and nothing to tell a Novice from an Advanced learner
-# with -- every sitting then measures roughly the same thing.
 DIFFICULTY_LEVELS = ("EASY", "AVERAGE", "HARD")
 
 
@@ -33,9 +29,6 @@ def difficulty_quota(count: int) -> dict[str, int]:
         return {level: 0 for level in DIFFICULTY_LEVELS}
     base, extra = divmod(count, 3)
     quota = {level: base for level in DIFFICULTY_LEVELS}
-    # The one or two left over go to AVERAGE first, then EASY -- never twice
-    # to the same level, which would hand a batch of 2 both spares and ask
-    # for no EASY and no HARD at all.
     for level in ("AVERAGE", "EASY")[:extra]:
         quota[level] += 1
     return quota
@@ -73,10 +66,6 @@ async def resolve_scope_node(state: QuestionBankState):
     certification_name = state.get("certification_name")
     certification_id = state.get("certification_id")
     if certification_name or certification_id is not None:
-        # retrieve_context returns "" when this certification has no index
-        # yet (e.g. a bank generated purely from freshly uploaded files),
-        # which is a valid degraded state rather than an error. The previous
-        # bare `except: pass` also hid genuine failures.
         retrieved = await asyncio.to_thread(
             retrieve_context,
             namespace_for(certification_id=certification_id, certification_name=certification_name or ""),
@@ -89,9 +78,6 @@ async def resolve_scope_node(state: QuestionBankState):
 
     return {
         "reference_context": "\n\n---\n\n".join(pieces)[:20000],
-        # Reference context is resolved once and reused by every batch, so
-        # the raw bytes are dead weight from here on -- drop them rather
-        # than re-serializing them into each per-batch checkpoint.
         "uploaded_files": [],
         "generated_count": 0,
         "status": "SCOPE_RESOLVED",
@@ -125,17 +111,8 @@ async def generate_batch_node(state: QuestionBankState):
     )
     focus = (state.get("difficulty_focus") or "").strip().upper()
     if not focus:
-        # Without an explicit quota the model writes almost nothing but
-        # AVERAGE -- left to itself it treats "a question" as "a mid-level
-        # question", and the bank ends up unusable for an adaptive engine
-        # that needs items at the ends of the scale to tell a Novice from an
-        # Advanced learner. Asking for "a mix" is not enough; it has to be
-        # counted out.
         base_instructions += " " + difficulty_quota_instruction(count)
     if focus:
-        # A top-up for one level of the adaptive bank. The difficulty mix the
-        # agent normally aims for would put most of the batch at the levels
-        # that are not short.
         base_instructions += (
             f" EVERY question in this batch must be {focus} difficulty and set `difficulty` "
             f"to {focus}; the adaptive bank has run low at that level and the other levels "
@@ -145,8 +122,6 @@ async def generate_batch_node(state: QuestionBankState):
     if is_improvement:
         base_instructions += f"\n\nAdmin feedback on the previous version of this batch — apply it: {instructions}"
 
-    # What the certification already stores, so a top-up does not rewrite the
-    # bank it is topping up: shown to the model, and twins dropped on return.
     stored = _stored_questions(state.get("certification_id"))
     batch = await invoke_question_agent(
         _scope_description(state), state.get("reference_context", ""), base_instructions,
@@ -157,9 +132,6 @@ async def generate_batch_node(state: QuestionBankState):
     questions = questions_as_dicts(batch)
     if focus:
         questions = [dict(q, difficulty=focus) for q in questions]
-    # Unattended runs get the same auditor the certification run ends with,
-    # for the stems the token check let through that still ask what a stored
-    # question asks. A reviewed run has the validation report and a person.
     if state.get("auto_approve"):
         questions = await prune_duplicates_against_stored(
             state.get("certification_name") or "", questions, stored,
@@ -233,8 +205,6 @@ def await_batch_review_node(state: QuestionBankState):
     decision = interrupt({
         "stage": "QUESTION_BATCH",
         "batch": state.get("current_batch", []),
-        # Surfaced alongside the artifact so the admin reviews content and
-        # its quality report together, per the Phase 2 brief.
         "validation_report": state.get("validation_report"),
         "generated_count": state.get("generated_count", 0),
         "target_total": state.get("target_total", 0),
@@ -246,7 +216,6 @@ def await_batch_review_node(state: QuestionBankState):
         "review_action": action,
         "review_instructions": decision.get("instructions") if action == "improve" else None,
         "review_edited_questions": decision.get("questions") if action == "edit" else None,
-        # A restore arrives as an edit carrying an earlier batch.
         "review_restored_from": decision.get("restored_from") if action == "edit" else None,
         "status": f"BATCH_{action.upper()}",
     }
@@ -266,9 +235,6 @@ def route_after_batch_review(state: QuestionBankState) -> str:
 def apply_edit_node(state: QuestionBankState):
     edited = state.get("review_edited_questions") or state.get("current_batch", [])
     restored_from = state.get("review_restored_from")
-    # Re-validate inline: a hand-written duplicate is still a duplicate, and
-    # the stored report should describe what actually gets committed rather
-    # than the superseded AI version.
     report = validate_question_batch(edited)
     return {
         "current_batch": edited,
@@ -294,9 +260,6 @@ def reject_batch_node(state: QuestionBankState):
 
 
 def commit_batch_node(state: QuestionBankState):
-    # The model (or a manual edit) is only ever asked for `remaining`
-    # questions, not structurally limited to it — cap here so a batch that
-    # overshoots can never push generated_count past target_total.
     remaining = max(0, state.get("target_total", 0) - state.get("generated_count", 0))
     batch = (state.get("current_batch", []) or [])[:remaining] if remaining else state.get("current_batch", [])
 
@@ -310,9 +273,6 @@ def commit_batch_node(state: QuestionBankState):
 
 
 def route_after_commit(state: QuestionBankState) -> str:
-    # Cooperative cancellation boundary: between batches, since an in-flight
-    # generation cannot be aborted. Approved batches are kept -- a cancel
-    # stops further work, it does not discard already-reviewed output.
     if is_cancel_requested(state.get("thread_id")):
         logger.info("Question bank halting after batch: run was cancelled")
         return "done"

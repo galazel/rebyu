@@ -38,8 +38,6 @@ class LearnerLessonMastery(Base):
     mastery_probability: Mapped[float] = mapped_column(Float, nullable=False)
     mastery_level: Mapped[str] = mapped_column(String(20), nullable=False)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    # Evidence counters + curriculum path, carried on the event so priority
-    # aggregation never needs to read the main Rebyu curriculum tables.
     correct_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     incorrect_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     certification_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
@@ -71,7 +69,6 @@ class BktMasteryEvent(Base):
     lesson_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
     question_id: Mapped[int | None] = mapped_column(BigInteger)
     is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    # Share of the item earned, 0..1; None on events from before partial credit.
     score: Mapped[float | None] = mapped_column(Float)
     difficulty_level: Mapped[str] = mapped_column(String(20), nullable=False)
     assessment_type: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -148,9 +145,7 @@ class LearnerCategoryPriority(Base):
     )
     learner_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     certification_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    category_type: Mapped[str] = mapped_column(String(10), nullable=False)  # MAJOR/MIDDLE/LESSON
-    # "LESSON:17" / "MIDDLE:8" / "MAJOR:2": makes the uniqueness index simple
-    # despite the nullable id columns.
+    category_type: Mapped[str] = mapped_column(String(10), nullable=False)
     category_key: Mapped[str] = mapped_column(String(40), nullable=False)
     major_category_id: Mapped[int | None] = mapped_column(BigInteger)
     middle_category_id: Mapped[int | None] = mapped_column(BigInteger)
@@ -245,23 +240,17 @@ class WorkflowRun(Base):
     __tablename__ = "workflow_runs"
 
     run_id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid_string)
-    #: LangGraph thread id -- the key used to resume this run.
     thread_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
-    #: CERTIFICATION | QUESTION_BANK
     kind: Mapped[str] = mapped_column(String(32), nullable=False)
     certification_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
     generation_request_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
     triggered_by_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
-    #: RUNNING | WAITING_FOR_REVIEW | COMPLETED | FAILED | CANCELLED
     status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
-    #: Human-readable stage the run is at, e.g. "CURRICULUM".
     current_stage: Mapped[str | None] = mapped_column(String(64), nullable=True)
     progress_pct: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    #: Monotonic counter for events belonging to this run. Lets a
-    #: reconnecting client replay from `last_seq` instead of losing history.
     last_seq: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
@@ -269,7 +258,6 @@ class WorkflowRun(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
-        # One live registry row per LangGraph thread.
         UniqueConstraint("thread_id", name="uq_workflow_runs_thread"),
         Index("ix_workflow_runs_status_started", "status", "started_at"),
     )
@@ -289,15 +277,9 @@ class WorkflowEvent(Base):
     run_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("workflow_runs.run_id", ondelete="CASCADE"), nullable=False
     )
-    #: Monotonic within a run, starting at 1.
     seq: Mapped[int] = mapped_column(Integer, nullable=False)
-    #: workflow.started | node.started | node.completed | validation.completed
-    #: | review.waiting | review.submitted | workflow.resumed
-    #: | workflow.completed | workflow.failed
     event_type: Mapped[str] = mapped_column(String(48), nullable=False)
     stage: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    #: PENDING | RUNNING | COMPLETED | WAITING_FOR_REVIEW | RETRYING | FAILED
-    #: | SKIPPED | CANCELLED -- the task status the workspace renders.
     task_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

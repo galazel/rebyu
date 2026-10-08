@@ -11,12 +11,6 @@ import { useState } from "react"
 import { useReadingPaceGuard } from "@/hooks/useReadingPaceGuard.js"
 import { TutorChatHead } from "@/components/learner/tutor-chat-head.jsx"
 
-/**
- * Dev-only: the portal's loading skeletons, held on screen so they can be
- * reviewed. They normally show for a few hundred milliseconds behind a login,
- * which is not long enough to look at. Routed only when `import.meta.env.DEV`.
- */
-/** Dev-only: the lesson pace guard on a tall page, so it can be tried without a login. */
 function PaceGuardDemo() {
   const [open, setOpen] = useState(false)
   const guard = useReadingPaceGuard({ enabled: !open, onRush: () => setOpen(true) })
@@ -38,7 +32,6 @@ function PaceGuardDemo() {
   )
 }
 
-/** Dev-only: the tutor chat head, so dragging and tapping it can be tried without a login. */
 function TutorChatHeadDemo() {
   const [open, setOpen] = useState(false)
   return (

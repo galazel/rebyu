@@ -73,8 +73,6 @@ TUTOR_RULES = """
       way: simpler words, a concrete everyday analogy, or a small worked example.
     """
 
-#: How the structured (non-streaming) tutor asks for related resources: it sets
-#: a field, and the app runs the search.
 STRUCTURED_RESOURCE_RULES = """
     Related videos and links:
     - Set resource_search ONLY when the learner asks for videos, YouTube,
@@ -89,8 +87,6 @@ STRUCTURED_RESOURCE_RULES = """
       that related videos and links are attached below.
     """
 
-#: The streaming tutor answers in plain text, so the app decides on resources
-#: itself and tells the model (per turn) whether they will be attached.
 STREAMING_RESOURCE_RULES = """
     Never write URLs or video titles yourself -- when related videos and links
     help, REBYU searches for real ones and attaches them below your answer.

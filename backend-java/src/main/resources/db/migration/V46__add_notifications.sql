@@ -1,7 +1,3 @@
--- Generic in-app notification, one row per (user, event) -- unlike
--- learner_community_notifications (learner-only, community events), this is
--- keyed to any User so ADMIN and INSTITUTION accounts can receive
--- notifications too (partnership requests, invitations, and so on).
 CREATE TABLE IF NOT EXISTS notifications (
     notification_id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,

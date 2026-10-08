@@ -41,7 +41,6 @@ for stem, count in seen.items():
     if count > 1:
         print("  DUPLICATE stem x%d: %s" % (count, stem[:60])); problems += 1
 
-# Per-lesson counts, read straight off the dict literal.
 for node in ast.walk(tree):
     if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", "") == "QUESTIONS":
         for key, value in zip(node.value.keys, node.value.values):

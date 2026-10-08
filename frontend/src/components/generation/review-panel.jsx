@@ -3,34 +3,8 @@ import { Check, CheckCheck, FastForward, Pencil, RotateCw, SkipForward, Sparkles
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 
-/**
- * The decision controls for a human-in-the-loop checkpoint.
- *
- * Seven actions, matching what the graph supports:
- *
- *   Approve            accept and move on
- *   Approve remaining  accept this and everything left in the phase, unattended
- *   Finish without me  accept this and every checkpoint after it, to the end
- *   Edit manually      submit the reviewer's own version
- *   Improve with AI    regenerate, guided by written feedback
- *   Regenerate         regenerate from scratch, no guidance
- *   Skip               leave this item out and move on
- *
- * "Skip" is the graph's `reject`. The UI word describes the effect — the item is
- * left out and the walk continues — where "reject" reads like a failure.
- *
- * "Finish without me" is the wider version of "Approve remaining": that one
- * only drains the phase in front of it, so a reviewer who was done reviewing
- * still got stopped at the next phase, and again for the mock exam, the
- * diagnostic, and the question bank. This one switches the whole run to
- * unattended.
- *
- * Actions only: the artifact, the automated checks, and the version history are
- * the checkpoint card's job (see `ReviewCheckpoint`). Splitting them keeps this
- * component about the decision, which is the part with state in it.
- */
 export function ReviewActions({ payload, total, onSubmit, submitting, disabled }) {
-  const [mode, setMode] = useState(null) // null | "improve" | "edit"
+  const [mode, setMode] = useState(null)
   const [instructions, setInstructions] = useState("")
   const [draft, setDraft] = useState("")
   const [draftError, setDraftError] = useState(null)
@@ -60,8 +34,6 @@ export function ReviewActions({ payload, total, onSubmit, submitting, disabled }
     try {
       parsed = JSON.parse(draft)
     } catch (error) {
-      // Caught here rather than sent: an unparseable payload would be stored as
-      // a version and reach the database as the reviewer's "approved" content.
       setDraftError(`That is not valid JSON — ${error.message}`)
       return
     }
@@ -182,7 +154,6 @@ export function ReviewActions({ payload, total, onSubmit, submitting, disabled }
   )
 }
 
-/** Shared frame for the two actions that need input before they can be sent. */
 function Composer({ label, error, children, confirm, onCancel }) {
   return (
     <div className="space-y-2.5">

@@ -42,15 +42,6 @@ public class LearnerController {
     public record MyProfileResponse(String firstName, String lastName, String username, String email, String phoneNumber) {
     }
 
-    /**
-     * The signed-in learner edits their own profile. The account page used to
-     * call the admin-only PUT /api/learners/{id} and /api/users/{id}, so every
-     * save failed with "Admin access is required".
-     *
-     * <p>Email is not editable here: it is the sign-in identity, and changing it
-     * in REBYU's tables alone would unlink the account from its login.
-     */
-    /** What the browser needs to draw the picture: the key it resolves to a signed link. */
     public record MyAvatarResponse(String avatarKey) {
     }
 
@@ -58,18 +49,6 @@ public class LearnerController {
     private static final List<String> AVATAR_TYPES =
             List.of("image/png", "image/jpeg", "image/webp", "image/gif");
 
-    /**
-     * The signed-in learner sets their own profile picture.
-     *
-     * <p>Only the learner themselves: the id comes from the token rather than
-     * the request, so there is no id to tamper with and no way to write a
-     * picture onto somebody else's profile.
-     *
-     * <p>The content type is checked against a short list rather than trusting
-     * the extension, and the size is capped before anything reaches storage --
-     * an avatar is a small picture, and the cap is what keeps this from being
-     * a general-purpose upload with a friendly name.
-     */
     @PostMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @org.springframework.transaction.annotation.Transactional
     public MyAvatarResponse uploadMyAvatar(
@@ -95,13 +74,10 @@ public class LearnerController {
         }
         learnerRepository.save(learner);
 
-        // The one it replaced is nobody's now. A failure here is not the
-        // learner's problem -- their new picture is already saved.
         deleteQuietly(previous);
         return new MyAvatarResponse(learner.getAvatarKey());
     }
 
-    /** Removes the picture, putting the learner back to their initials. */
     @DeleteMapping("/me/avatar")
     @org.springframework.transaction.annotation.Transactional
     public MyAvatarResponse deleteMyAvatar(@AuthenticationPrincipal Jwt jwt) {
@@ -159,9 +135,6 @@ public class LearnerController {
                 user == null ? me.email() : user.getEmail(), user == null ? null : user.getPhoneNumber());
     }
 
-    // Reading the full learner list / arbitrary learner records exposes every
-    // learner across every institution, so reads are admin-only. Learners read
-    // their own record via /api/learners/me/portal.
     @GetMapping
     public List<LearnerDto> getAll(@AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);
@@ -186,10 +159,6 @@ public class LearnerController {
         requireAdmin(jwt);
         return learnerService.create(dto);
     }
-    /**
-     * Accepts an institution invitation for the signed-in learner. The learner
-     * is resolved from the validated Cognito JWT — never from the request body.
-     */
     @PostMapping("accept-invitation")
     @ResponseStatus(HttpStatus.OK)
     public AcceptInvitationResponse acceptInvitation(

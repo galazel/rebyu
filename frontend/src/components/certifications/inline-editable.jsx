@@ -4,35 +4,6 @@ import { Check, Pencil, Plus, X } from "@/components/icons"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
-/**
- * A value on the page that can be edited where it is shown.
- *
- * The certification page used to send every correction -- a typo in a module
- * title, a sharper description -- through the edit drawer, which reloads the
- * whole certification into a two-step form and saves the entire tree back. For
- * changing one word that is a long way round, and it puts the thing being
- * edited behind the panel doing the editing.
- *
- * Idle, this renders exactly what the page rendered before: `renderValue` owns
- * the typography, so a heading stays a heading.
- *
- * The pencil is dimmed rather than hidden. It used to be `opacity-0` until
- * hover, on the argument that always-on pencils turn a page into a form -- and
- * the result was that the page read as not editable at all, so corrections went
- * back through the edit drawer the in-place editing exists to replace. An
- * affordance nobody finds is not a quiet affordance, it is a missing one.
- * Dimmed keeps the page calm and still says the value can be changed; hover and
- * keyboard focus bring it to full strength.
- *
- * Editing is explicit at both ends: Escape or Cancel discards, Enter or Save
- * commits (Enter inserts a newline in a multiline field, where Save is the only
- * way out). Blur does NOT save -- clicking away from a half-typed title is how
- * you leave a field, not how you commit one.
- *
- * @param onSave  async; may throw. The field stays open and shows the message,
- *                so a rejected save does not silently drop what was typed.
- * @param tone    "dark" for controls sitting on the coloured header.
- */
 export function InlineEditable({
   value,
   onSave,
@@ -51,9 +22,6 @@ export function InlineEditable({
   const [isSaving, setIsSaving] = useState(false)
   const fieldRef = useRef(null)
 
-  /* The value can change under an open editor -- another save on the page
-     rewrites the certification -- but only a closed one may follow it, or a
-     background refresh would overwrite what is being typed. */
   useEffect(() => {
     if (!isEditing) setDraft(value ?? "")
   }, [value, isEditing])
@@ -213,21 +181,6 @@ export function InlineEditable({
 export default InlineEditable
 
 
-/**
- * "Add a lesson" as one field rather than a row that appears already named.
- *
- * The alternative -- append something called "New lesson" and let the pencil
- * fix it -- writes a placeholder to the server the moment the button is
- * pressed, and every one an admin adds and then abandons stays in the
- * curriculum under that name. Naming it first means nothing is created until
- * there is something to call it.
- *
- * Deliberately the same shape as {@link InlineEditable}'s open state, down to
- * the check and cross: adding and renaming are the same gesture on this page
- * and should not look like two different features.
- *
- * @param onAdd async; may throw. The field stays open with the message.
- */
 export function InlineAdd({ label, placeholder, validate, onAdd, className = "" }) {
   const [isAdding, setIsAdding] = useState(false)
   const [draft, setDraft] = useState("")

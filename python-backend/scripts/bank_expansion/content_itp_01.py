@@ -17,7 +17,6 @@ CERTIFICATION_ID = 4
 
 QUESTIONS = {
 
-    # 1 -- Management Principles and Organizational Structures
     1: [
         mcq("EASY",
             "In a functional organizational structure, employees are grouped primarily by which criterion?",
@@ -140,7 +139,6 @@ QUESTIONS = {
             "If the line still contributes toward fixed costs, dropping it can worsen overall profit. Money already spent on equipment is a sunk cost and is irrelevant to a forward-looking decision."),
     ],
 
-    # 2 -- Business Management Systems and Strategies
     2: [
         mcq("EASY",
             "Which business system is designed to integrate finance, human resources, manufacturing, and procurement around a single shared database?",
@@ -263,7 +261,6 @@ QUESTIONS = {
             "A niche strategy accepts a small market in exchange for a defensible position within it, which suits firms without the scale to compete broadly. Competing on price across the whole market is cost leadership."),
     ],
 
-    # 3 -- Standardization and Compliance Frameworks
     3: [
         mcq("EASY",
             "Which organization publishes the ISO 9000 family of quality management standards?",
@@ -386,7 +383,6 @@ QUESTIONS = {
             "This class of consumer protection law targets representations that mislead about quality, price, or terms, and premiums that distort a purchase decision. Product safety and tax are governed separately."),
     ],
 
-    # 4 -- Engineering and Manufacturing Systems
     4: [
         mcq("AVERAGE",
             "Which statement correctly distinguishes CAD from CAM?",

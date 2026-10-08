@@ -14,17 +14,6 @@ public interface LearnerRewardLedgerRepository extends JpaRepository<LearnerRewa
 
     List<LearnerRewardLedger> findTop20ByLearnerIdOrderByCreatedAtDesc(Long learnerId);
 
-    /**
-     * Atomic idempotent insert: returns the number of rows actually inserted (0 or 1).
-     * The uq_learner_reward_source_currency constraint (V31) is what makes this race-safe
-     * under concurrent duplicate requests -- callers must only apply the paired balance
-     * change when this returns > 0.
-     *
-     * {@code created_at} is written explicitly rather than left to the column's
-     * DEFAULT. This is the award path for every lesson and assessment, and it
-     * should not be able to fail because a database picked up the column
-     * without its default (see V53) -- the value is the same either way.
-     */
     @Modifying
     @Transactional
     @Query(value = """
@@ -35,7 +24,6 @@ public interface LearnerRewardLedgerRepository extends JpaRepository<LearnerRewa
     int insertIfAbsent(@Param("learnerId") Long learnerId, @Param("currency") String currency,
                         @Param("amount") int amount, @Param("reason") String reason, @Param("sourceKey") String sourceKey);
 
-    /** Only refunds if the original AI_CREDITS debit for originalSourceKey actually exists. */
     @Modifying
     @Transactional
     @Query(value = """

@@ -5,11 +5,6 @@ import { useGSAP } from "@gsap/react"
 
 gsap.registerPlugin(useGSAP, ScrollTrigger)
 
-/**
- * The IT Olympics trophy: a gold cup on a wooden base with a plaque. It rises
- * into place when scrolled to, then floats gently while a shine sweeps across
- * the cup and a few sparkles twinkle around it. Ornament only.
- */
 export function BigTrophy({ className = "", label = "IT OLYMPICS" }) {
   const scope = useRef(null)
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "")

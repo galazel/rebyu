@@ -38,29 +38,19 @@ sys.path.insert(0, _HERE)
 from figures import FIGURES, PREFIX  # noqa: E402
 from install_figures import OUTPUT_DIR  # noqa: E402
 
-#: Mirrors `app.domain.validation.questions._FILLER_DISTRACTORS`.
 FILLER = {"none of the above", "all of the above", "none", "n/a", "na",
           "not applicable", "other", "true", "false", "both a and b"}
 
-#: `app.schemas.certification.question_schema.MIN_EXPLANATION_CHARS`.
 MIN_EXPLANATION_CHARS = 20
-#: `app.domain.validation.questions.MAX_QUESTION_CHARS`.
 MAX_QUESTION_CHARS = 2000
-#: `app.domain.validation.questions.DUPLICATE_SIMILARITY_THRESHOLD`.
 DUPLICATE_THRESHOLD = 0.75
-#: `app.domain.validation.questions.MAX_CORRECT_POSITION_SHARE`.
 MAX_POSITION_SHARE = 0.5
-#: `app.domain.validation.questions.MAX_LONGEST_CORRECT_SHARE`.
 MAX_LONGEST_SHARE = 0.6
-#: `app.core.config.lesson_min_sections`.
 MIN_SECTIONS = 22
-#: `app.domain.validation.lessons` caps objectives at 8.
 MAX_OBJECTIVES = 8
 
 _WORDS = re.compile(r"\w+")
 
-#: Sections whose content is structural rather than instructional, so the
-#: "more than one kind of block" rule does not apply to them.
 STRUCTURAL_SECTIONS = {"Introduction", "Key Terms", "Summary"}
 
 problems = []
@@ -111,8 +101,6 @@ def check_structure(module_name, lesson):
     if not (set(kinds) & visual):
         fail(module_name, "%s: no visual block at all" % name)
 
-    # The point of this whole curriculum's block palette: a section that is
-    # one kind of block repeated is prose with extra steps.
     monotone = [s["sectionName"] for s in structure
                 if s["content"]
                 and len({b["type"] for b in s["content"]}) < 2
@@ -126,8 +114,6 @@ def check_structure(module_name, lesson):
         warn(module_name, "%s: %.0f%% of blocks are plain paragraphs"
              % (name, 100 * prose_share))
 
-    # Every figure must be registered AND on disk, because a missing file is
-    # invisible until a learner opens the lesson.
     for block in blocks:
         key = block["data"].get("imageKey")
         if not key:
@@ -149,7 +135,6 @@ def check_structure(module_name, lesson):
             "words": words, "kinds": kinds}
 
 
-# questions
 
 def check_quiz(module_name, lesson):
     name = lesson["name"]
@@ -180,11 +165,6 @@ def check_quiz(module_name, lesson):
                 fail(module_name, "%s: filler distractor %r"
                      % (name, choice_text))
 
-        # Only the SOLE longest counts, matching
-        # `_check_correct_choice_length` in the platform's own validator. A
-        # tie gives nothing away -- and without the tie test, four numeric
-        # options of equal length ("2.00", "2.80", "3.00", "2.40") would be
-        # reported as a shape tell when they are the opposite of one.
         lengths = [len(t.strip()) for t, _ in choices]
         if lengths[correct[0]] == max(lengths) and lengths.count(max(lengths)) == 1:
             longest_correct += 1
@@ -208,11 +188,6 @@ def check_quiz(module_name, lesson):
                  % (name, top + 1, hits, len(positions),
                     100 * MAX_POSITION_SHARE))
         if longest_correct / len(positions) > MAX_LONGEST_SHARE:
-            # Name the offending stems. The bare count says a batch has the
-            # problem and leaves you re-deriving which items caused it, which
-            # is most of the work -- and this failure recurs constantly,
-            # because writing an item means stating the correct answer
-            # carefully and the distractors briefly.
             detail = "\n        ".join(
                 "%-4d chars vs %-4d longest distractor  %s"
                 % (c, d, q) for c, d, q in longest_detail)

@@ -43,7 +43,6 @@ def _lesson_schema() -> dict:
     return schema["properties"]["lessons"]["items"]
 
 
-# the outline contract
 
 
 def test_the_curriculum_is_the_tool_schema_root():
@@ -107,12 +106,6 @@ def test_non_string_scalars_are_still_rejected():
         Lesson(name="n", key_topics=42)
 
 
-# Mis-nested categories
-#
-# A live TOPCIT run failed all five attempts with the same `tool_use_failed`
-# 400: every sample put the second *major* category inside the first one's
-# `middleCategories` array, so that entry had `middleCategories` where the
-# schema required `lessons`.
 
 
 def _lesson(name: str) -> dict:
@@ -230,14 +223,6 @@ def test_an_explicitly_empty_curriculum_is_still_allowed():
     assert Curriculum(majorCategories=[]).majorCategories == []
 
 
-# the misplaced exam structure
-#
-# `exam_structure` is the last thing the prompt asks for and the last thing
-# the model writes, so it lands inside whichever major category it happened to
-# be finishing. Live payload: three majors, the whole exam structure sitting in
-# the third. Left there it is dropped as an unknown field and the mock exam
-# falls back to a generic MCQ paper -- the one fact that makes it imitate the
-# real exam, lost silently.
 
 
 def _structure() -> dict:
@@ -268,13 +253,6 @@ def test_a_correctly_placed_exam_structure_wins_over_a_stray_one(shipped_default
     assert Curriculum(**payload).exam_structure.total_items == 100
 
 
-# breadth
-#
-# A live TOPCIT run produced one major category, two middles and two lessons
-# for a whole certification. Structurally valid, useless as a syllabus, and it
-# persisted happily -- the certification then showed two lessons and nothing
-# else. The prompt now asks for 3-6 majors with 3-5 lessons each; these are the
-# numbers below which the sample is rejected and resampled.
 
 
 def test_a_token_curriculum_is_rejected_so_it_gets_resampled(shipped_defaults):
@@ -343,12 +321,6 @@ def test_the_prompt_no_longer_asks_for_a_per_lesson_instruction_object():
     assert "key_topics" in prompt
 
 
-# configurable size
-#
-# The whole workflow has to be runnable on a small AI budget: one major, one
-# middle, one lesson, with the review checkpoints and assessments still in
-# place. That means the breadth floor cannot be a constant, or a deliberately
-# minimal run is rejected as a bad sample and resampled until the quota is gone.
 
 
 _SIZE_FIELDS = (
@@ -468,7 +440,6 @@ def test_lesson_depth_is_independent_of_curriculum_size(tiny_curriculum_settings
     )
 
 
-# Autosize: the planner sizes the syllabus from the uploaded document.
 
 
 @pytest.fixture
@@ -523,7 +494,7 @@ def test_autosize_does_not_trim_a_plan_the_planner_chose(autosize_settings):
     """
     from app.schemas.certification.curriculum_schema import _enforce_ceiling
 
-    plan = _plan(2, 2, 2)  # 8 lessons, below the 10-lesson backstop
+    plan = _plan(2, 2, 2)
     assert _shape(_enforce_ceiling(plan)) == (2, 4, 8)
 
 
@@ -537,7 +508,6 @@ def test_autosize_still_stops_a_runaway_plan(autosize_settings):
 
     trimmed = _enforce_ceiling(_plan(5, 5, 5))
     assert _shape(trimmed)[2] == 10
-    # Structurally valid after trimming -- no empty majors or middles left.
     for major in trimmed:
         assert major["middleCategories"]
         for middle in major["middleCategories"]:
@@ -569,14 +539,8 @@ def test_autosize_prompt_names_no_counts_and_asks_for_consolidation(autosize_set
     block = _size_section(get_settings())
 
     assert "SOURCE MATERIAL" in block
-    # Consolidation pressure: lessons are ~90% of the generation bill, so the
-    # planner is pushed to merge rather than enumerate. Each of these carries a
-    # distinct instruction; losing any one of them makes runs more expensive.
-    # Coverage is kept in key_topics and lessons are grouped, not split.
     assert "COVERAGE LIVES IN key_topics" in block
     assert "GROUP WHAT IS TAUGHT TOGETHER" in block
-    # Categories follow the documents rather than a fixed scheme.
     assert "CATEGORIES follow the documents" in block
-    # No "3 to 6 Major Categories"-style ask survived.
     assert "to 6 Major" not in block
     assert "Exactly" not in block

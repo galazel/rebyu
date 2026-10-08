@@ -23,9 +23,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-#: Bounded so one stalled client cannot grow memory without limit. On
-#: overflow the oldest is dropped -- safe, because the catch-up poll will
-#: re-deliver anything skipped.
 _QUEUE_MAXSIZE = 256
 
 
@@ -59,8 +56,6 @@ class EventBroadcaster:
             try:
                 queue.put_nowait(event)
             except asyncio.QueueFull:
-                # Drop the oldest and retry once; the catch-up poll repairs
-                # any gap this creates.
                 try:
                     queue.get_nowait()
                     queue.put_nowait(event)

@@ -57,17 +57,6 @@ public class ExamService {
     private final com.capstone.rebyu.adaptive.service.AdaptivePolicy adaptivePolicy;
     private final com.capstone.rebyu.adaptive.service.QuestionBankSizeService questionBankSize;
 
-    /**
-     * includeDepartmentId is the same opt-in mechanism used for the curriculum
-     * tree (see CertificationService): omitted (every existing caller),
-     * official exams only, byte-for-byte identical to before ownerDepartment
-     * existed. Passed, it additionally mixes in that group's own exams --
-     * the controller has already checked the caller can act on that group.
-     *
-     * <p>certificationId narrows the read to one certification's exams. Omitted,
-     * the response is every exam on the platform, as before -- callers that
-     * fetch the whole table and filter it client-side still work unchanged.
-     */
     public List<ExamDto> getAll(Long includeDepartmentId, Long certificationId, Long viewerLearnerId) {
         log.debug("Fetching exams (includeDepartmentId={}, certificationId={})", includeDepartmentId, certificationId);
         List<Exam> exams = (certificationId == null
@@ -76,10 +65,6 @@ public class ExamService {
                 .stream()
                 .filter(exam -> exam.getOwnerDepartment() == null
                         || exam.getOwnerDepartment().getDepartmentId().equals(includeDepartmentId))
-                // A practice exam generated for one learner (recall, knowledge
-                // check, study-plan mock) is theirs alone. The list used to hand
-                // everyone's to every caller, so an institution's certification
-                // page listed a stranger's "Active recall" exams.
                 .filter(exam -> exam.getLearner() == null
                         || exam.getLearner().getLearnerId().equals(viewerLearnerId))
                 .toList();
@@ -94,7 +79,6 @@ public class ExamService {
                 .toList();
     }
 
-    /** One query for the whole page's question ids -- see the repository method's note. */
     private Map<Long, List<Long>> questionIdsByExamId(List<Exam> exams) {
         if (exams.isEmpty()) {
             return Map.of();
@@ -108,7 +92,6 @@ public class ExamService {
                                 Collectors.toList())));
     }
 
-    /** Same includeDepartmentId contract as {@link #getAll}, applied to a single exam. */
     public ExamDto getById(Long id, Long includeDepartmentId) {
         log.debug("Fetching exam id: {}", id);
         Exam exam = findEntity(id);
@@ -154,7 +137,6 @@ public class ExamService {
         entity.setExamId(id);
         entity.setOwnerDepartment(existing.getOwnerDepartment());
         normalizeForSave(entity, dto);
-        // Lifecycle fields are managed via publish/archive, not the edit form.
         if (entity.getStatus() == null) {
             entity.setStatus(existing.getStatus());
         }
@@ -184,8 +166,6 @@ public class ExamService {
 
         List<ExamQuestion> examQuestions =
                 examQuestionRepository.findByExam_ExamIdOrderByDisplayOrderAsc(id);
-        /* An adaptive assessment draws from the scope's bank, so what has to
-           exist is the bank, not an assigned list -- any list is a seed. */
         boolean adaptive = adaptivePolicy.isAdaptive(exam);
         if (adaptive) {
             var size = questionBankSize.measure(exam);
@@ -226,8 +206,6 @@ public class ExamService {
         Exam exam = findEntity(id);
         majorCategoryService.requireCanActOn(
                 exam.getOwnerDepartment(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
-        // The exam_questions join rows aren't cascade-deleted by the FK, so they
-        // must be cleared first or the exam delete fails with a constraint violation.
         examQuestionRepository.deleteByExam_ExamId(id);
         examQuestionRepository.flush();
         examRepository.delete(exam);
@@ -245,11 +223,6 @@ public class ExamService {
         return toDtoWithQuestions(examRepository.save(exam));
     }
 
-    /**
-     * Adds questions to an assessment with per-question points and display order
-     * (spec §18). Rejects duplicates, already-assigned questions, sub-questions,
-     * and questions outside the assessment's certification. Transactional.
-     */
     public ExamDto addQuestions(
             Long examId, AddExamQuestionsRequest request,
             boolean isAdmin, Long callerInstitutionId, Long callerUserId, boolean callerIsOwner) {
@@ -316,23 +289,11 @@ public class ExamService {
         return toDtoWithQuestions(exam);
     }
 
-    /**
-     * One required assessment per curriculum scope (spec §5): a lesson gets one
-     * quiz, a middle one middle exam, a major one major exam, and a certification
-     * one diagnostic + one mock. Enforced only on create; edits keep their scope.
-     */
     private void enforceUniqueness(ExamDto dto, Long ownerDepartmentId) {
-        // These are rules for the OFFICIAL curriculum (one quiz per lesson,
-        // one diagnostic per certification, ...). A group's own assessments are
-        // separate content and aren't bound by them -- a group may author as
-        // many as it likes without colliding with the official set.
         if (ownerDepartmentId != null) {
             return;
         }
         String scope = dto.getTargetScope();
-        // Ignores AI-tutor-generated practice quizzes (GeneratedAssessmentService)
-        // -- a learner generating one for themselves must never block an admin
-        // from later authoring the lesson's real, official quiz.
         if ("LESSON".equals(scope) && dto.getLessonId() != null
                 && examRepository.existsOfficialByLessonId(dto.getLessonId())) {
             throw new BusinessRuleException.AssessmentAlreadyExistsException(
@@ -396,20 +357,12 @@ public class ExamService {
             entity.setPassingScore(new BigDecimal("70.00"));
         }
 
-        // The title is always derived from the scope + type on the server; a
-        // title submitted by the frontend is never trusted.
         String generated = generateTitle(dto);
         if (generated != null) {
             entity.setTitle(generated);
         }
     }
 
-    /**
-     * Derives the read-only assessment title from its curriculum scope and type,
-     * e.g. "{lesson} Quiz", "{middle} Middle Exam", "{major} Major Exam",
-     * "{certification} Diagnostic Exam"/"Mock Exam". Returns null when the scope
-     * cannot be resolved, leaving whatever title the entity already carries.
-     */
     private String generateTitle(ExamDto dto) {
         String scope = dto.getTargetScope();
         if ("LESSON".equals(scope) && dto.getLessonId() != null) {
@@ -424,7 +377,6 @@ public class ExamService {
             return majorCategoryRepository.findById(dto.getMajorCategoryId())
                     .map(MajorCategory::getTitle).map(title -> title + " Major Exam").orElse(null);
         }
-        // Certification scope: the exam type distinguishes diagnostic vs mock.
         if (dto.getCertificationId() != null) {
             String certTitle = certificationRepository.findById(dto.getCertificationId())
                     .map(Certification::getTitle).orElse(null);
@@ -440,21 +392,11 @@ public class ExamService {
             if (upper.contains("DIAGNOSTIC")) {
                 return certTitle + " Diagnostic Exam";
             }
-            return null; // non-cert-scoped type with no category scope — leave as-is
+            return null;
         }
         return null;
     }
 
-    /**
-     * Rebuilds the exam's question records from the admin's selection, honouring
-     * the richer {@code questions} payload (per-question points + order) when the
-     * frontend supplies it and falling back to the legacy {@code questionIds}
-     * list otherwise. The selection is the single source of truth: nothing is
-     * auto-attached from the certification, not even for mock/diagnostic exams.
-     *
-     * @return the number of questions synced, or {@code -1} when the payload
-     *         carried no question selection at all (leave the set untouched).
-     */
     private int syncSelectedQuestions(Exam exam, ExamDto dto) {
         if (dto.getQuestions() != null) {
             syncExamQuestionsWithPoints(exam, dto.getQuestions());
@@ -471,15 +413,6 @@ public class ExamService {
         return -1;
     }
 
-    /**
-     * Rebuilds the exam's question records from the admin's selection. Only the
-     * selected (parent/standalone) questions become exam_questions rows — a
-     * parent's sub-questions travel with it via the snapshot at attempt time,
-     * so they must NOT be added here as separate standalone items. Each row
-     * carries its per-assessment point value (null = use the question default)
-     * and a stable 1-based display order. Runs inside the class-level
-     * transaction, so the delete + re-insert is atomic.
-     */
     private void syncExamQuestionsWithPoints(Exam exam, List<ExamDto.ExamQuestionInput> selection) {
         List<ExamDto.ExamQuestionInput> ordered = new ArrayList<>(selection);
         List<Long> orderedQuestionIds = ordered.stream()
@@ -492,8 +425,6 @@ public class ExamService {
                     "The same question cannot be added to an assessment more than once.");
         }
 
-        // Reject sub-questions selected on their own: they can only enter an
-        // assessment grouped under their parent, never as standalone items.
         List<Question> questions = questionRepository.findAllById(orderedQuestionIds);
         if (questions.size() != orderedQuestionIds.size()) {
             throw new BusinessRuleException.InvalidAssessmentSubmissionException(
@@ -523,9 +454,6 @@ public class ExamService {
             }
         }
 
-        // Replace the whole set so edits (add/remove/reorder/repoint) never leave
-        // orphan or duplicate rows behind. Flush the delete before the inserts so
-        // it reaches the DB ahead of the new rows.
         examQuestionRepository.deleteByExam_ExamId(exam.getExamId());
         examQuestionRepository.flush();
 

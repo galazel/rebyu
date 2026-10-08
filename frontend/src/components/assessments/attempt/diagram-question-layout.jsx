@@ -10,14 +10,6 @@ import { ProblemStatement, SidePanel, WorkspaceShell } from "./attempt-workspace
 import RubricPanel from "./rubric-panel.jsx"
 import SubQuestionTabs from "./sub-question-tabs.jsx"
 
-// Diagram environment: problem | canvas | navigation + rubric, as tabs on a
-// phone. There is no in-attempt Check: grading compares against
-// `reference_diagram_xml`, and whether a learner should get that verdict
-// mid-attempt is a product call, not a technical blocker.
-//
-// `checker`, `attemptId`, `attemptQuestionId` and `learnerId` stay on the
-// signature though nothing reads them now: they are what a restored Check would
-// need, and callers already pass them.
 export default function DiagramQuestionLayout({
   question,
   index,
@@ -38,18 +30,11 @@ export default function DiagramQuestionLayout({
   const diagramLabel = getDiagramTypeLabel(diagramType)
   const subQuestions = question.subQuestions ?? []
 
-  // This layout is deliberately NOT remounted per question: remounting would
-  // tear down the draw.io iframe and re-download the editor on every step
-  // through a diagram exam. Everything question-scoped resets here instead.
   useEffect(() => {
     setRubric(question.rubric ?? [])
     setNotice(null)
   }, [question.attemptQuestionId, question.rubric])
 
-  /* Fetched with the bearer token rather than handed to the tag as a
-     /files/view URL: that endpoint calls requireAuth and a browser sends no
-     Authorization header on an <img src>, so the figure came back 400 and
-     rendered as a broken image. */
   const questionImageSrc = useAuthedMediaSrc(question.questionImageKey)
 
   const problem = (
@@ -104,10 +89,8 @@ export default function DiagramQuestionLayout({
 
   const side = isChallenge ? null : (
     <>
-      {/* The item grid is in the header's menu on a phone already. */}
       <SidePanel className="hidden lg:block">{navigator}</SidePanel>
 
-      {/* RubricPanel draws its own "Rubric · N pts total" heading. */}
       <SidePanel>
         <RubricPanel rubric={rubric} notice={notice} />
       </SidePanel>

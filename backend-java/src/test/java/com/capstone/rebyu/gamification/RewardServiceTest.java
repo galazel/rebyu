@@ -46,7 +46,7 @@ class RewardServiceTest {
     @Test
     void awardCompletedPractice_duplicateAward_isNoOpAndDoesNotTouchBalance() {
         when(ledger.insertIfAbsent(eq(LEARNER_ID), eq("XP"), anyInt(), eq("PRACTICE_COMPLETED"), anyString()))
-                .thenReturn(0); // already awarded for this source_key
+                .thenReturn(0);
 
         RewardService.PracticeReward result = service.awardCompletedPractice(LEARNER_ID, 10L, "TUTOR_QUIZ", 90.0);
 
@@ -71,7 +71,7 @@ class RewardServiceTest {
     @Test
     void convertCoinsToAiCredits_insufficientBalance_throws() {
         when(ledger.insertIfAbsent(eq(LEARNER_ID), eq("COINS"), anyInt(), eq("COIN_TO_AI_CONVERSION"), anyString())).thenReturn(1);
-        when(balances.deductCoinsIfSufficient(LEARNER_ID, 20)).thenReturn(0); // guarded UPDATE affected 0 rows
+        when(balances.deductCoinsIfSufficient(LEARNER_ID, 20)).thenReturn(0);
 
         assertThrows(IllegalArgumentException.class,
                 () -> service.convertCoinsToAiCredits(LEARNER_ID, 20, "key-1"));
@@ -92,7 +92,7 @@ class RewardServiceTest {
     void grantMonthlyProAiCredits_secondCallSameMonth_isNoOp() {
         when(entitlements.hasActiveProSubscription(LEARNER_ID)).thenReturn(true);
         when(ledger.insertIfAbsent(eq(LEARNER_ID), eq("AI_CREDITS"), eq(30), eq("PRO_MONTHLY_GRANT"), anyString()))
-                .thenReturn(0); // already granted this calendar month
+                .thenReturn(0);
 
         service.grantMonthlyProAiCredits(LEARNER_ID);
 

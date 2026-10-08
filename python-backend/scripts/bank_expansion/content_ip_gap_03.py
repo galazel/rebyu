@@ -23,7 +23,6 @@ CERTIFICATION_ID = 4
 
 QUESTIONS = {
 
-    # 727 -- Project management
     727: [
         mcq("EASY",
             "Which characteristic distinguishes a project from routine operations?",
@@ -132,7 +131,6 @@ QUESTIONS = {
             "Closure captures what worked and what did not while it is still remembered, for organisational benefit. It is explicitly not an exercise in attributing blame, which suppresses the honest reporting that makes it useful."),
     ],
 
-    # 735 -- Algorithm
     735: [
         mcq("EASY",
             "Which of the following best describes an algorithm?",

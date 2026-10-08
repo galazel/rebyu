@@ -16,7 +16,6 @@ from figures import fig
 MAJOR = "Business Strategy"
 MIDDLE = "Business Strategy Management"
 
-# Lesson 3: Goals and evaluation
 
 _goal_sections = [
     ("From Intention to Objective", [
@@ -694,7 +693,6 @@ LESSON_BIZ_GOAL = lesson(
         ],
     ))
 
-# Lesson 4: Business management systems
 
 _sys_sections = [
     ("Systems That Run a Business", [

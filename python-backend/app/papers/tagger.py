@@ -32,17 +32,9 @@ from app.utils.helpers import get_llm
 
 logger = logging.getLogger(__name__)
 
-#: Questions per model call. Larger batches mean fewer calls -- and fewer
-#: chances to hit a free model's rate limit -- for a paper of a hundred.
 BATCH = 25
-#: Batches in flight at once: one per Groq model in the chain, each of which
-#: has its own 8,000-tokens-a-minute allowance.
 CONCURRENCY = 3
-#: Seconds one batch may spend across every model and wait, when tagging is
-#: answered directly (the /tag route, inside the backend's 4 minutes).
 BATCH_BUDGET = 110
-#: The same in a background job (app.papers.tag_jobs), where nobody waits on
-#: the request: long enough to sit out any per-minute limit.
 JOB_BATCH_BUDGET = 900
 DIFFICULTIES = ("easy", "average", "hard")
 
@@ -110,23 +102,15 @@ def _parse(body, count, lesson_ids):
         tags[index - 1] = {
             "lessonId": lesson_id,
             "difficulty": difficulty if difficulty in DIFFICULTIES else None,
-            # The model looked at every lesson and none covers this.
-            # The model gave no lesson anyway: it is found below (the closest
-            # by meaning), and the question is kept -- never dropped for it.
             "noLesson": False,
             "needsLesson": lesson_id is None,
         }
     return tags
 
 
-#: When each model may be asked again (event-loop time). Shared by every
-#: batch of a run, so one 429 or 402 is learned once rather than per batch.
 _cooling: dict[str, float] = {}
-#: Out of credit: waiting does not add credit, so the model rests a while.
 CREDIT_REST = 1800
-#: An error that is neither busy nor credit (a 413, a malformed reply).
 ERROR_REST = 300
-#: A model that answered with nothing readable.
 UNUSABLE_REST = 30
 
 
@@ -187,7 +171,6 @@ async def _tag_batch(chain, catalogue, questions, lesson_ids, semaphore, budget=
                     return tags, model
                 _cooling[model] = loop.time() + UNUSABLE_REST
                 logger.warning("Tagging with %s returned nothing usable", model)
-            # Every model is resting: wait for the first to come back.
             wake = min((_cooling.get(model, 0) for model in chain), default=loop.time()) - loop.time()
             wait = max(1.0, wake)
             if loop.time() + wait > deadline - 5:
@@ -238,9 +221,6 @@ async def tag_questions(db, certification_id, questions, budget=None):
         for offset, tag in tags.items():
             results[start + offset] = {**tag, "source": "ai", "model": model}
 
-    # Given time (a background job), what the model skipped or could not
-    # answer is asked once more before the embedding match fills it in: a
-    # question should leave with a lesson AND a difficulty.
     if budget:
         again = [i for i, tag in enumerate(results) if tag is None or tag.get("needsLesson") or not tag.get("difficulty")]
         for s in range(0, len(again), BATCH):
@@ -250,8 +230,6 @@ async def tag_questions(db, certification_id, questions, budget=None):
             for offset, tag in tags.items():
                 results[chunk[offset]] = {**tag, "source": "ai", "model": model}
 
-    # Whatever the model did not answer -- or answered without a lesson --
-    # the embedding match files under the closest lesson.
     missing = [i for i, tag in enumerate(results) if tag is None or tag.get("needsLesson")]
     embedding = {}
     if missing:
@@ -290,8 +268,6 @@ def _fingerprint(text):
     return re.sub(r"[^0-9a-z]+", "", text.lower())
 
 
-#: Between a question's stem and its choices in a duplicate-check entry. A
-#: control character, since a stem can hold line breaks of its own.
 CHOICES_SEPARATOR = "\x01"
 
 

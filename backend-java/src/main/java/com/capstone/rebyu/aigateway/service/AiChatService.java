@@ -14,7 +14,6 @@ import reactor.core.Disposable;
 
 import java.io.IOException;
 
-/** Thin trigger: tutor chat is generated entirely by the Python AI backend. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -26,11 +25,6 @@ public class AiChatService {
         return aiServiceClient.chat(request);
     }
 
-    /**
-     * Relays the tutor's streamed answer to the browser, event for event. The
-     * upstream stream is cancelled when the browser goes away, times out, or
-     * errors, so an abandoned tab does not keep a model generating.
-     */
     public SseEmitter streamChat(ChatRequest request) {
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
         Disposable subscription = aiServiceClient.streamChat(request).subscribe(
@@ -62,8 +56,6 @@ public class AiChatService {
             }
             emitter.send(out);
         } catch (IOException | IllegalStateException e) {
-            // The learner closed the tab or the panel: completing disposes the
-            // upstream subscription (see onCompletion above).
             log.debug("Tutor stream client went away: {}", e.toString());
             emitter.complete();
         }

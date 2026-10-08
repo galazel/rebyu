@@ -86,18 +86,8 @@ public class FileController {
                 .body(key);
     }
 
-    /** Largest question or choice image accepted by {@link #uploadQuestionImage}. */
     private static final long MAX_QUESTION_IMAGE_BYTES = 5L * 1024 * 1024;
 
-    /**
-     * A question's or a choice's image: a figure the admin attached in the
-     * builder, or one cropped out of an uploaded exam paper.
-     *
-     * <p>{@link #upload} cannot take these -- it is tied to a lesson section
-     * and records the key as that section's media -- so a picture chosen in
-     * the builder had nowhere to go and was dropped on save. Returns the S3
-     * key; the caller stores it as {@code imageKey}.
-     */
     @PostMapping(
             value = "/upload/question-image",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -126,18 +116,6 @@ public class FileController {
                 .body(key);
     }
 
-    /**
-     * Largest object {@link #viewFile} will buffer through the application.
-     *
-     * <p>It reads the whole object into a byte[] and hands that to the response,
-     * so the container holds the file twice over for the length of the request.
-     * At a few megabytes -- a lesson image, a diagram, a short reviewer -- that
-     * is unremarkable. At 81 MB it exhausted the heap and the learner got a 500
-     * with nothing to act on. Past this line the answer is a presigned URL
-     * (see {@link #viewFileUrl}), which keeps the bytes out of the application
-     * altogether; this limit exists so the refusal is an explanation rather
-     * than an out-of-memory error.
-     */
     private static final long MAX_BUFFERED_VIEW_BYTES = 40L * 1024 * 1024;
 
     @GetMapping("/view")
@@ -164,14 +142,6 @@ public class FileController {
                 .body(data);
     }
 
-    /**
-     * A short-lived URL the browser can point a viewer straight at.
-     *
-     * <p>Returned instead of the bytes so that displaying a file costs the
-     * application one signature rather than the whole file: the browser streams
-     * it from storage itself, with range requests, which is what makes a large
-     * PDF open at the first page instead of after the last byte.
-     */
     @GetMapping("/view-url")
     public Map<String, Object> viewFileUrl(
             @RequestParam("key") String key,
@@ -192,27 +162,8 @@ public class FileController {
                 "expiresInSeconds", VIEW_URL_TTL.toSeconds());
     }
 
-    /**
-     * How long a view URL stays good for.
-     *
-     * <p>Long enough to read a long document without the link dying mid-scroll
-     * -- a browser re-requests ranges of a large PDF as the reader pages
-     * through it, and every one of those is signed by this same URL. Short
-     * enough that a copied link is not a lasting way around the auth on the
-     * endpoint that issued it.
-     */
     private static final Duration VIEW_URL_TTL = Duration.ofMinutes(30);
 
-    /**
-     * The stored file's real media type, so a viewer can render it.
-     *
-     * <p>{@link URLConnection#guessContentTypeFromName} knows the types that
-     * predate it and nothing since: every Office format comes back null, which
-     * became {@code application/octet-stream} -- and a browser handed
-     * octet-stream downloads the file instead of showing it, whatever the
-     * {@code Content-Disposition: inline} above asks for. The formats learners
-     * actually share are named here; anything else keeps the old fallback.
-     */
     private static String contentTypeOf(String key) {
         String name = key == null ? "" : key.toLowerCase(Locale.ROOT);
         int dot = name.lastIndexOf('.');
@@ -261,11 +212,6 @@ public class FileController {
                 .body(data);
     }
 
-    // Arbitrary-key deletion is destructive and has no per-owner check at this
-    // generic layer (the key alone doesn't identify which lesson/institution/
-    // learner it belongs to), so it's restricted to ADMIN rather than left
-    // fully public -- previously anyone on the internet could delete any file
-    // in the bucket by guessing/observing its key.
     @DeleteMapping
     public ResponseEntity<Void> delete(
             @RequestParam("key") String key,
@@ -287,7 +233,6 @@ public class FileController {
         if (jwt == null) throw new IllegalArgumentException("Authentication is required");
     }
 
-    /** A tutor snip is a learner's own message: only they (and admins) see it. */
     private void requireSnipOwner(Jwt jwt, String key) {
         if (!TutorSnips.isSnip(key)) return;
         CurrentUserDto user = auth.syncCurrentUser(jwt, jwt.getTokenValue());

@@ -20,20 +20,12 @@ from typing import Any, Iterable
 
 from app.domain.validation.report import Severity, ValidationIssue, ValidationReport
 
-# Near-duplicate cutoff. Tuned against real rephrasings: swapping one word
-# in a ten-word stem ("primary" -> "main") scores ~0.82, so a 0.85 threshold
-# silently misses exactly the case this check exists to catch. Genuinely
-# different questions on the same topic score well below 0.6.
 DUPLICATE_SIMILARITY_THRESHOLD = 0.75
 
-# Single source of truth: `QuestionDraft` now *rejects* a generated question
-# below this floor, while this layer still reports it for questions that never
-# went through generation (a reviewer's manual edit, an older run's artifact).
 from app.schemas.certification.question_schema import (  # noqa: E402
     MIN_EXPLANATION_CHARS,
     MIN_PROGRAMMING_TEST_CASES,
 )
-# Beyond this, a "question" is usually a passage the model forgot to trim.
 MAX_QUESTION_CHARS = 2000
 
 _FILLER_DISTRACTORS = {
@@ -134,9 +126,6 @@ def _check_distractors(questions: list[Any], issues: list[ValidationIssue]) -> N
 
         if any(choice in _FILLER_DISTRACTORS for choice in lowered):
             filler.append(index)
-        # Only genuinely blank options. Length is not a signal: "4", "O(1)",
-        # and "IP" are all legitimate one-or-two-character answers, and an
-        # earlier version of this check flagged every numeric MCQ.
         if any(not choice for choice in lowered):
             trivial.append(index)
 
@@ -164,50 +153,22 @@ def _check_distractors(questions: list[Any], issues: list[ValidationIssue]) -> N
         )
 
 
-#: Below this many MCQs, an uneven spread of correct answers or of choice
-#: lengths is just small numbers, not a pattern. Checking earlier would flag a
-#: four-question lesson quiz for having two answers in the same position.
 MIN_MCQS_FOR_PATTERN_CHECKS = 8
 
-#: Share of a batch's correct answers that may sit in one position before it
-#: reads as a habit rather than chance. Uniform would be 0.25; a model that has
-#: settled on "B" typically lands well above this.
 MAX_CORRECT_POSITION_SHARE = 0.5
 
-#: Share of MCQs whose correct choice may be the longest option. Consistently
-#: longest is the oldest tell in multiple choice, and a learner who has noticed
-#: it can pass without reading the stem.
 MAX_LONGEST_CORRECT_SHARE = 0.6
 
-#: How many questions may open with the same three words. A share, not a count:
-#: ten identical openings in a hundred questions is variety, in twelve it is a
-#: template.
 MAX_SAME_OPENING_SHARE = 0.4
 MIN_QUESTIONS_FOR_OPENING_CHECK = 6
 
-#: How many questions may open with the same single word.
-#:
-#: Separate from the three-word check above, which cannot see this pattern at
-#: all: "The server fails..." and "The database is..." are different three-word
-#: openings, so a whole bank can start with "The" and pass. A first word
-#: repeated across a third of a bank is the plainest tell of machine-written
-#: assessment -- every stem naming a thing before asking about it.
 MAX_SAME_FIRST_WORD_SHARE = 0.3
 
-#: Articles get a tighter budget than other words. "The" and "A" are what a
-#: model reaches for when it is describing rather than asking, and a bank where
-#: most questions open with one is uniformly declarative -- no direct
-#: questions, no inversions, no scenarios in the second person.
 ARTICLE_OPENINGS = ("the", "a", "an")
 MAX_ARTICLE_OPENING_SHARE = 0.45
 
-#: A PROGRAMMING question is a task, not a prompt: fewer test cases than this
-#: cannot cover both the ordinary case and the edges, and a stem this short
-#: cannot have stated input format, output format, and constraints.
 MIN_PROGRAMMING_QUESTION_CHARS = 200
 
-#: A DIAGRAM question has to describe a scenario worth modelling and brief what
-#: the diagram must show. Anything shorter is a labelling exercise.
 MIN_DIAGRAM_QUESTION_CHARS = 200
 MIN_DIAGRAM_INSTRUCTION_CHARS = 120
 
@@ -429,8 +390,6 @@ def _check_task_depth(questions: list[Any], issues: list[ValidationIssue]) -> No
     thin_programming: list[int] = []
     few_tests: list[int] = []
     thin_diagram: list[int] = []
-    # Denominators for the severity: a defect matters in proportion to how much
-    # of its own type it accounts for, not to the size of the whole batch.
     programming_total = 0
     diagram_total = 0
 

@@ -52,31 +52,13 @@ public class Certification {
     @Column(name = "status")
     private CertificationStatus status = CertificationStatus.DRAFT;
 
-    /**
-     * Shape of the REAL certification exam, as researched by the AI curriculum
-     * planner: {@code {total_items, question_types[], notes}}.
-     *
-     * <p>Written by the Python generation service, not by this application.
-     * Null means the planner could not determine it (or the certification
-     * predates the column) -- readers must treat null as unknown rather than
-     * as an empty exam.
-     */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "exam_structure")
     private String examStructure;
 
-    /**
-     * S3 key of the badge artwork (the Credly-style emblem shown on the card
-     * and on a learner's earned certificate). Null until an admin uploads one.
-     */
     @Column(name = "badge_image_key", length = 500)
     private String badgeImageKey;
 
-    /**
-     * Stored by ordinal, so new values only ever go at the end.
-     * COMING_SOON: listed on the institution request page so schools can see
-     * what is planned, but not requestable and never shown to learners.
-     */
     public enum CertificationStatus{
         PUBLISHED, DRAFT, COMING_SOON
     }

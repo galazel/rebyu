@@ -1,14 +1,6 @@
 import { AlertTriangle, CheckCircle2, Info } from "@/components/icons"
 import { Badge } from "@/components/ui/badge"
 
-/**
- * The automated quality checks for the artifact under review.
- *
- * Shown next to the content rather than instead of it: the report is advisory,
- * not a gate. A failing check does not block approval — a human who has read
- * the content is a better judge than a duplicate-detection heuristic, and
- * blocking would just train reviewers to work around it.
- */
 export function ValidationReport({ report }) {
   if (!report) return null
 

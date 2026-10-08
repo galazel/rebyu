@@ -41,16 +41,12 @@ from sqlalchemy import text
 
 from dbsession import open_session
 
-# (exam_type_id, target_scope, scope column, preferred length, title suffix)
 LESSON_QUIZ = (5, "LESSON", "lesson_id", 10, "Quiz")
 MIDDLE_EXAM = (4, "MIDDLE", "middle_category_id", 20, "Exam")
 MAJOR_EXAM = (3, "MAJOR", "major_category_id", 30, "Exam")
 
 PASSING_SCORE = 70.00
 
-# Each level's missing nodes, with the size of the pool its scope resolves to.
-# Sub-questions are excluded the same way the engine excludes them, so the
-# count here is the count it will actually have to choose from.
 MISSING = {
     LESSON_QUIZ: """
         select l.lesson_id, l.name, count(q.question_id)
@@ -141,8 +137,6 @@ def main():
 
         print("\ncreated %d assessments, skipped %d" % (total_created, len(total_skipped)))
 
-        # Re-asked after the inserts, inside the same transaction: the answer
-        # is what the curriculum will look like if this is committed.
         for label, sql in (
             ("lessons without a quiz", """
                 select count(*) from lessons l

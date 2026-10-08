@@ -13,17 +13,6 @@ import CodeMirrorProgrammingWorkspace from "./code-mirror-programming-workspace.
 import ExecutionHistoryPanel from "./execution-history-panel.jsx"
 import SubQuestionTabs from "./sub-question-tabs.jsx"
 
-// Programming environment: problem | editor | navigation + runs, as tabs on a
-// phone.
-//
-// Run only runs. It executes the learner's code and shows what the program
-// printed -- never whether it passes the item's test cases. Passing and failing
-// are for the marker: every test case runs once, when the attempt is submitted.
-// Showing a verdict mid-attempt let a learner tune code against the tests until
-// they went green instead of answering the question.
-//
-// `runner` swaps where Run goes. An assessment attempt leaves it unset and the
-// attempt endpoint is used; an arena run passes its own { run, listExecutions }.
 export default function ProgrammingQuestionLayout({
   question,
   index,
@@ -42,9 +31,6 @@ export default function ProgrammingQuestionLayout({
   const [executionsLoading, setExecutionsLoading] = useState(false)
 
   const language = answer?.programmingLanguage ?? "Java"
-  // The editor starts blank — starter code is never auto-filled. "Reset
-  // Code" (in CodeMirrorProgrammingWorkspace) remains available as an
-  // explicit, learner-initiated action when starter code exists.
   const code = answer?.submittedCode ?? ""
   const subQuestions = question.subQuestions ?? []
 
@@ -77,8 +63,6 @@ export default function ProgrammingQuestionLayout({
       setOutput({
         stdout: result.stdout ?? null,
         stderr: result.stderr ?? null,
-        // Only shown when the program printed nothing and raised nothing --
-        // e.g. the runner being unavailable.
         message: result.message ?? null,
       })
       refreshExecutions()
@@ -105,10 +89,6 @@ export default function ProgrammingQuestionLayout({
     </button>
   )
 
-  /* Fetched with the bearer token rather than handed to the tag as a
-     /files/view URL: that endpoint calls requireAuth and a browser sends no
-     Authorization header on an <img src>, so the figure came back 400 and
-     rendered as a broken image. */
   const questionImageSrc = useAuthedMediaSrc(question.questionImageKey)
 
   const problem = (
@@ -150,8 +130,6 @@ export default function ProgrammingQuestionLayout({
         />
       </div>
 
-      {/* What the program printed, verbatim, then any compile or runtime error
-          in red -- on a chalkboard, like everything the classroom writes back. */}
       {output ? (
         <div className="shrink-0 overflow-hidden rounded-2xl bg-[#22302a] text-[#e6eee8] shadow-inner">
           <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-1.5">
@@ -186,7 +164,6 @@ export default function ProgrammingQuestionLayout({
 
   const side = (
     <>
-      {/* The item grid is in the header's menu on a phone already. */}
       <SidePanel className="hidden lg:block">{navigator}</SidePanel>
 
       <SidePanel title="Your runs" icon={HistoryIcon}>

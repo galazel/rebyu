@@ -10,74 +10,25 @@ from app.domain.diagrams.validation import check_reference
 logger = logging.getLogger(__name__)
 
 QuestionType = Literal["MCQ", "SHORT_ANSWER", "DESCRIPTIVE", "PROGRAMMING", "DIAGRAM"]
-#: Canonical difficulty vocabulary. HARD, not DIFFICULT.
-#:
-#: This used to say DIFFICULT while `mastery.py` said HARD, and the two were
-#: never reconciled -- so generation wrote DIFFICULT into `questions`, and the
-#: Java side (`BktEventFactory.KNOWN_DIFFICULTY`, which knows only EASY/
-#: AVERAGE/HARD) then silently collapsed every one of those to its AVERAGE
-#: fallback. The effect was not a cosmetic duplicate: hard questions were
-#: reported to BKT as average ones, so guess/slip were fitted against the
-#: wrong difficulty class.
 Difficulty = Literal["EASY", "AVERAGE", "HARD"]
 
-#: Accepted spellings that are normalised to a canonical value. DIFFICULT is
-#: kept as an alias rather than rejected because it is what the prompts asked
-#: for until now: existing drafts still carry it, and a model told "HARD" will
-#: still occasionally answer "DIFFICULT". Silently correcting it is better
-#: than failing a whole generation over a synonym.
 DIFFICULTY_ALIASES = {"DIFFICULT": "HARD"}
 
-# Bloom's cognitive levels, lowest to highest. Ordered so coverage analysis
-# can reason about the distribution rather than just counting distinct values.
 BloomLevel = Literal["REMEMBER", "UNDERSTAND", "APPLY", "ANALYZE", "EVALUATE", "CREATE"]
 
 BLOOM_ORDER: tuple[str, ...] = (
     "REMEMBER", "UNDERSTAND", "APPLY", "ANALYZE", "EVALUATE", "CREATE",
 )
 
-#: The normal MCQ shape, and what the prompt asks for by default.
 MCQ_CHOICE_COUNT = 4
 
-#: The range actually accepted.
-#:
-#: Four was a hard requirement, which made one whole class of professional exam
-#: item impossible to express: the combination question, where a shared artifact
-#: carries several labelled blanks and each option is a full set of values for
-#: them. The FE paper's afternoon subject is built on it -- a pseudocode
-#: procedure with blanks A, B and C, and an answer group running a) to i) where
-#: every option fixes all three at once. The learner cannot guess a blank
-#: independently; they have to trace the algorithm.
-#:
-#: Every renderer maps over `choices`, and the editors already allow a variable
-#: count, so a longer group displays and grades correctly. Nine is the ceiling
-#: because past that a combination table stops being readable on one screen.
 MCQ_MIN_CHOICES = 3
 MCQ_MAX_CHOICES = 9
 
-#: Shared with `app.domain.validation.questions`, which reports the same floor
-#: as an advisory issue for questions that came from somewhere other than a
-#: fresh generation (a reviewer's manual edit, say).
 MIN_EXPLANATION_CHARS = 20
 
-#: A programming task needs enough cases to check the edges it states, not
-#: just that the happy path runs. Mirrored in
-#: `app.domain.validation.questions`, which reports the same floor for
-#: questions that never went through generation.
 MIN_PROGRAMMING_TEST_CASES = 3
 
-#: The diagram types a DIAGRAM question may ask for.
-#:
-#: These are the values the *editor* already offers
-#: (`DIAGRAM_TYPE_OPTIONS` in `frontend/src/components/questions/
-#: question-editors.jsx`) and the values the diagram playground keys its tool
-#: palette on: a question whose `diagram_type` is not one of them lands the
-#: learner in a canvas holding some other diagram's shapes, because the
-#: playground falls back to ERD for anything it does not recognise.
-#:
-#: The field used to be free text, so the model wrote "ERD", "er diagram" and
-#: "Entity Relationship Diagram" for the same thing and only the first one
-#: matched.
 DIAGRAM_TYPES: tuple[str, ...] = (
     "ACTIVITY_DIAGRAM",
     "UML_CLASS",
@@ -88,9 +39,6 @@ DIAGRAM_TYPES: tuple[str, ...] = (
     "USE_CASE",
 )
 
-#: What a model actually writes, mapped onto the canonical value. Matching is
-#: on the alphanumeric core of the string, so "UML Class", "uml-class" and
-#: "Class Diagram" all arrive at UML_CLASS.
 _DIAGRAM_TYPE_ALIASES = {
     "activity": "ACTIVITY_DIAGRAM",
     "activitydiagram": "ACTIVITY_DIAGRAM",
@@ -138,34 +86,14 @@ def normalize_diagram_type(value: str | None) -> str | None:
     canonical = key.upper()
     if canonical in DIAGRAM_TYPES:
         return canonical
-    # "UML_CLASS" arrives as "umlclass" once punctuation is stripped.
     stripped = {"".join(c for c in t.lower() if c.isalnum()): t for t in DIAGRAM_TYPES}
     if key in stripped:
         return stripped[key]
     return _DIAGRAM_TYPE_ALIASES.get(key)
 
 
-#: Lower than the item-level floor because a per-choice note is one sentence
-#: about one distractor, but high enough to reject "Incorrect." / "Wrong.",
-#: which teach nothing.
 MIN_CHOICE_EXPLANATION_CHARS = 15
 
-#: SHORT_ANSWER is graded by normalised *exact string match* -- see
-#: `app.domain.persistence.checking_method_for`, which maps it to
-#: EXACT_MATCH while DESCRIPTIVE gets semantic grading. So an open-ended
-#: short-answer question is not merely poor style: there is no string the
-#: learner can type that will be marked correct, and they lose the points
-#: however well they answer.
-#:
-#: A live run produced "What is the importance of defining the scope of the
-#: problem domain?" as SHORT_ANSWER/EASY/UNDERSTAND. That question is fine --
-#: it is just a DESCRIPTIVE one, which is the type that carries a rubric and
-#: is graded on meaning rather than characters.
-#: There are two shapes of open-endedness here and they cannot be matched the
-#: same way, which is what this list used to get wrong.
-#:
-#: A phrase is safe to look for anywhere in the stem: "the importance of" asks
-#: for an argument wherever it turns up in the sentence.
 _OPEN_ENDED_PHRASES = (
     "importance of",
     "significance of",
@@ -180,22 +108,6 @@ _OPEN_ENDED_PHRASES = (
     "what are the implications",
 )
 
-#: A directive is not. These sat in the list above and were matched as bare
-#: substrings, so every question that merely *contained* one was reclassified:
-#:
-#:     "Which term describes the process of conducting business transactions
-#:      over computer networks, such as the internet?"
-#:
-#: is a one-word answer ("E-commerce") that shipped as an essay question,
-#: because "describes" contains "describe". The learner then meets a textarea
-#: where a text box belongs, and the recall sessions that reuse these questions
-#: inherit the mistake.
-#:
-#: "Describe" only asks for prose when it is addressed *to the learner*, so it
-#: is matched as a whole word in imperative position -- opening the stem, or
-#: opening a clause inside it ("For the schema above, explain why the join
-#: fails"). A verb in the middle of a noun phrase ("which term describes",
-#: "what does UML describe") is describing the subject, not instructing anyone.
 _OPEN_ENDED_DIRECTIVES = (
     "discuss",
     "explain",
@@ -207,28 +119,10 @@ _OPEN_ENDED_DIRECTIVES = (
 )
 
 _OPEN_ENDED_DIRECTIVE_PATTERN = re.compile(
-    # Imperative position: the start of the stem, the start of a clause after
-    # punctuation, or after the words that habitually precede an instruction.
     r"(?:^|[.;:,?!]\s*|\b(?:and|then|also|now|briefly|please)\s+)"
     r"(" + "|".join(_OPEN_ENDED_DIRECTIVES) + r")\b"
 )
 
-#: The other shape that cannot be exact-matched: a question asking for a *set*
-#: of things rather than one thing.
-#:
-#: A live run produced "What are the five core activities of the requirements
-#: definition process?" as SHORT_ANSWER. It passes every check above -- no
-#: open-ended stem, and an answer like "Elicitation, analysis, specification,
-#: validation, management" is five words, inside the word limit -- yet no
-#: learner will ever reproduce that exact string, in that exact order, with
-#: that exact punctuation. An enumeration has many correct spellings and no
-#: canonical one, which is precisely what exact matching cannot handle.
-#:
-#: Matched on the stem rather than the answer on purpose. The answer to a
-#: legitimate expansion question ("What does ACID stand for?") is also a
-#: comma-separated list, but it has one canonical form and is a fair exact
-#: match; the difference lives in what was asked, not in how the answer is
-#: punctuated.
 _ENUMERATION_STEMS = (
     "what are the",
     "which are the",
@@ -246,15 +140,6 @@ _ENUMERATION_STEMS = (
     "what stages",
 )
 
-#: "the five core activities", "the 3 phases" -- a counted set, whatever verb
-#: introduces it. Catches enumerations the stem list above misses, e.g.
-#: "A requirements process has the five activities of ...?".
-#: Units are excluded, and that exclusion is not hypothetical: three live
-#: questions ask "...long-term goals, typically spanning 3-5 years?" with the
-#: one-term answer "Strategic objectives". Without the carve-out, "5 years"
-#: reads as a counted set and a perfectly good exact-match question loses its
-#: exact matching. A quantity of time or size is a measurement, never a set of
-#: concepts to enumerate.
 _COUNTED_UNIT_NOUNS = (
     "years", "months", "weeks", "days", "hours", "minutes", "seconds",
     "decades", "times", "bytes", "bits", "digits", "characters", "percent", "points", "marks",
@@ -265,16 +150,11 @@ _COUNTED_SET_PATTERN = re.compile(
     r"(?!(?:" + "|".join(_COUNTED_UNIT_NOUNS) + r")\b)\w+s\b"
 )
 
-#: A genuine short answer is a term, name, value, or acronym -- "Normalization",
-#: "3NF", "O(n log n)". Anything longer is prose, and prose cannot be matched
-#: character-for-character.
 SHORT_ANSWER_MAX_WORDS = 6
 
 
 class ProgrammingTestCase(BaseModel):
     input_data: str
-    #: Written by the model, but never trusted: generation replaces it with what
-    #: the reference solution prints for `input_data` under the real grader.
     expected_output: str = ""
 
 
@@ -341,86 +221,34 @@ class QuestionDraft(BaseModel):
         upper = value.strip().upper()
         return DIFFICULTY_ALIASES.get(upper, upper)
 
-    # pedagogical metadata (Phase 2b step 10)
-    # Needed for the validation layer to reason about cognitive balance and
-    # objective coverage, and for adaptive selection to target a learner's
-    # actual gap rather than just a topic.
     bloom_level: BloomLevel = "UNDERSTAND"
     learning_objective: str = ""
     lesson_ref: Optional[str] = None
     category_ref: Optional[str] = None
     estimated_seconds: int = 60
-    # Chunk ids this question was grounded in, for hallucination tracing.
     source_chunk_ids: List[str] = Field(default_factory=list)
 
-    # MCQ
     choices: List[str] = Field(default_factory=list)
     correct_choice_index: Optional[int] = None
-    #: One explanation per choice, in the same order as `choices`: why that
-    #: option is right, or why it is wrong. Required for MCQ.
-    #:
-    #: The `choices` table has carried a per-choice `explanation` column all
-    #: along, but only the correct choice's was ever filled -- so a learner who
-    #: picked a distractor was told what the right answer was without ever
-    #: learning why their own answer failed, which is the half that corrects a
-    #: misconception.
     choice_explanations: List[str] = Field(default_factory=list)
 
-    # SHORT_ANSWER
     correct_answer: Optional[str] = None
-    #: Other spellings of the SAME answer: acronym and full name ("RBAC" /
-    #: "Role-Based Access Control"), synonyms ("help desk" / "service desk"),
-    #: with and without a hyphen, singular and plural. Stored as the question's
-    #: accepted variations, so a learner who knows the answer is not marked
-    #: wrong for choosing a different correct wording. Case and surrounding
-    #: spaces are already ignored by the grader, so those never need listing.
     accepted_variations: List[str] = Field(default_factory=list)
 
-    # DESCRIPTIVE
     rubric_answer: Optional[str] = None
 
-    # PROGRAMMING
     starter_code: Optional[str] = None
     test_cases: List[ProgrammingTestCase] = Field(default_factory=list)
-    #: The function (or class) the learner implements.
     function_name: Optional[str] = None
-    #: The programming language for this question. One of the languages the
-    #: compiler supports: C, C++, Java, JavaScript, Python, C#.
     programming_language: Optional[str] = None
-    #: Every exact rule the tests depend on: the signature, return formats, exact
-    #: messages, rounding, ordering. Appended to the question as "Rules for this
-    #: question", so a learner is told everything the tests check.
     rules: Optional[str] = None
-    #: A correct solution in the question's programming_language, never shown to
-    #: learners. Generation runs it on Judge0 and stores what it prints as each
-    #: test's expected output -- see `app.ai.programming_verification`.
     reference_solution: Optional[str] = None
 
-    # DIAGRAM
     diagram_type: Optional[str] = None
     instructions: Optional[str] = None
 
-    #: The model answer, as draw.io / mxGraph XML.
-    #:
-    #: Without it a diagram question cannot be graded at all. Java's
-    #: `AssessmentAttemptService.diagramGradingRequest` looks up
-    #: `reference_diagram_xml`, finds it blank, produces no verdict, and the
-    #: item closes out at zero with "could not be marked automatically" -- so
-    #: every diagram a learner drew scored nothing regardless of quality. The
-    #: column was written as "" because the generator was never asked for the
-    #: answer, only for the question.
-    #:
-    #: draw.io XML rather than a node/edge structure of our own because it is
-    #: what the learner's submission already is: the editor autosaves mxGraph
-    #: XML, so reference and submission are the same shape and comparable
-    #: without a translation layer.
     reference_diagram_xml: Optional[str] = None
 
-    #: The parts of a multi-part item: the questions asked about a shared
-    #: scenario or artifact. Set on PROGRAMMING and DIAGRAM (about the thing the
-    #: learner builds) and on DESCRIPTIVE (about a case the stem presents).
-    #: Empty for MCQ and short answer, which are single questions by
-    #: definition. See `SubQuestionDraft`.
     sub_questions: List[SubQuestionDraft] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -480,7 +308,6 @@ class QuestionDraft(BaseModel):
 
         self.question_type = "DESCRIPTIVE"
         self.accepted_variations = []
-        # The intended answer becomes the grading rubric; nothing is discarded.
         if not (self.rubric_answer or "").strip():
             self.rubric_answer = (self.correct_answer or "").strip() or (
                 "A correct answer explains the concept the question asks about, "
@@ -512,8 +339,6 @@ class QuestionDraft(BaseModel):
         elif self.question_type == "SHORT_ANSWER":
             if not (self.correct_answer or "").strip():
                 raise ValueError("SHORT_ANSWER must set correct_answer")
-            # Normalised the way the grader compares (trimmed, lower-cased,
-            # inner whitespace collapsed), without repeats of the key itself.
             key = " ".join(self.correct_answer.split()).lower()
             cleaned: list[str] = []
             for variation in self.accepted_variations:
@@ -579,10 +404,6 @@ class QuestionDraft(BaseModel):
         elif self.question_type == "DIAGRAM":
             if not (self.diagram_type or "").strip():
                 raise ValueError("DIAGRAM must set diagram_type")
-            # Normalised in place: the model's spelling is not worth a retry
-            # when the meaning is unambiguous ("ER Diagram" -> ERD), but a
-            # type outside the supported set is, because the learner would
-            # be handed a canvas equipped for a different diagram.
             canonical = normalize_diagram_type(self.diagram_type)
             if canonical is None:
                 raise ValueError(
@@ -593,26 +414,6 @@ class QuestionDraft(BaseModel):
             if not (self.instructions or "").strip():
                 raise ValueError("DIAGRAM must set instructions")
 
-            # A reference that is present must be usable; an absent one is
-            # filled afterwards rather than raised on.
-            #
-            # Raising would resample the whole batch for a field a dedicated
-            # model fills better anyway -- `app.ai.invocation` sends every
-            # DIAGRAM item without a reference to the diagram task (see
-            # `tasks.DIAGRAM`) before the batch is returned. Rejecting here
-            # would spend the question model's budget re-rolling stems that
-            # were fine.
-            #
-            # Anything that arrives is checked, though: a model that answers
-            # with prose or a JSON blob produces a reference that silently
-            # matches nothing, and dropping it sends the item down the
-            # fill path instead of storing a reference that cannot grade.
-            # Checked structurally rather than by looking for a substring: a
-            # document can contain "<mxCell" and still be ungradeable, because
-            # it does not parse, its edges point at cells that were never
-            # written, or it is two boxes where the brief asked for eight.
-            # Dropping it sends the item down the fill path, which renders a
-            # reference from a described model instead.
             reference = (self.reference_diagram_xml or "").strip()
             if reference and not check_reference(reference).ok:
                 self.reference_diagram_xml = None

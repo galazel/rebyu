@@ -32,15 +32,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Transaction Two: an admin approves or rejects a partnership request.
- *
- * Approval is atomic: it creates the Institution (Institution) record if it
- * does not exist yet, then creates or tops up an InstitutionCertificate slot
- * allocation for every requested certification. Existing allocations are
- * increased, never overwritten. Rejection records the decision only and grants
- * no access.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -83,28 +74,15 @@ public class AdminPartnershipService {
 
         Institution institution = resolveOrCreateInstitution(request);
 
-        /* A cancellation is an approval of the opposite thing: nothing is
-           reserved, nothing is invoiced, and what exists is taken away. It
-           leaves the method here rather than sharing the tail below, because
-           every line of that tail -- reserve, provision, invoice, welcome --
-           is about granting access. */
         if (request.getRequestType() == PartnershipRequest.RequestType.CANCELLATION) {
             return approveCancellation(request, institution, remarks, reviewedBy);
         }
 
-        /* Read this BEFORE reserve(), which writes a pending allocation row for
-           every certification not already held. Asked afterwards, a first-ever
-           partnership looks like an existing one -- the rows reserve() just
-           created are indistinguishable from rows held all along -- and the
-           institution gets told its new access is "added to what you already
-           have" on the day it joined. */
         boolean addsToExistingAccess =
                 request.getRequestType() == PartnershipRequest.RequestType.ADDITIONAL
                         || request.getRequestType() == PartnershipRequest.RequestType.RENEWAL
                         || !heldSlots(request).isEmpty();
 
-        // Pay before access: the allocations are written as pending now and
-        // switched on when the invoice below is paid (InstitutionAccessGrantService).
         accessGrantService.reserve(institution, itemRepository.findByPartnershipRequest_RequestId(requestId));
 
         request.setInstitution(institution);
@@ -114,11 +92,8 @@ public class AdminPartnershipService {
         request.setAdminRemarks(remarks);
         requestRepository.save(request);
 
-        // Provision the institution login account and email their credentials.
         CognitoAdminService.ProvisionResult provision = provisionInstitutionAccount(institution, request);
 
-        // Bill it: one invoice for the slots just granted, then the welcome
-        // email pointing at it. Email failure must not roll back an approval.
         java.util.List<PartnershipRequestItem> billedItems = itemRepository.findByPartnershipRequest_RequestId(requestId);
         com.capstone.rebyu.billing.entity.InstitutionInvoice invoice =
                 invoiceService.issueForApprovedRequest(request, institution, billedItems);
@@ -145,10 +120,6 @@ public class AdminPartnershipService {
         log.info("Partnership request {} APPROVED (institution {}); account emailed={}",
                 referenceOf(request), institution.getInstitutionId(), provision.emailed());
 
-        /* Same shape either way -- approved, now pay -- but an institution
-           that has been using REBYU for months is not being told its
-           partnership was approved, it is being told its extra slots are
-           waiting on an invoice. */
         notifyInstitutionOwners(institution,
                 addsToExistingAccess ? "Additional access approved" : "Partnership request approved",
                 addsToExistingAccess
@@ -162,12 +133,6 @@ public class AdminPartnershipService {
         return toDetail(request, provision.emailed(), provision.note());
     }
 
-    /**
-     * Creates the institution's login account (Cognito emails the credentials)
-     * and links a primary-contact DepartmentHead. Best-effort: if the
-     * account was already provisioned, or Cognito is unavailable, approval
-     * still stands and a note explains what happened.
-     */
     private CognitoAdminService.ProvisionResult provisionInstitutionAccount(
             Institution institution, PartnershipRequest request) {
         boolean alreadyLinked = !departmentHeadRepository
@@ -181,9 +146,6 @@ public class AdminPartnershipService {
         CognitoAdminService.ProvisionResult result = cognitoAdminService
                 .createInstitutionAccount(emailOf(request), name[0], name[1]);
 
-        // Link a local INSTITUTION user only when a Cognito identity exists, so
-        // sign-in and role resolution work. If the sub is unknown (existing
-        // account), CognitoAuthService links it on first sign-in by email.
         if (result.cognitoSub() != null || result.emailed()) {
             UserType institutionType = userTypeRepository.findByUserTypeText(INSTITUTION_USER_TYPE)
                     .orElseGet(() -> {
@@ -216,13 +178,6 @@ public class AdminPartnershipService {
                     .build();
             departmentHeadRepository.save(member);
         } else {
-            // Cognito reported the account already exists (UsernameExistsException
-            // was caught upstream: no new sub was minted and nothing was emailed).
-            // The institution and its certificate slots were still created above --
-            // without linking an owner here, the institution would be permanently
-            // orphaned with nobody able to manage it. Link the existing local User
-            // for that email if one exists; CognitoAuthService will already
-            // resolve sign-in for that account by its Cognito sub/email.
             User existingUser = userRepository.findByEmailIgnoreCase(request.getInstitutionEmail())
                     .orElse(null);
             if (existingUser != null) {
@@ -269,9 +224,6 @@ public class AdminPartnershipService {
 
         log.info("Partnership request {} REJECTED", referenceOf(request));
 
-        // Only an already-signed-in institution (re-requesting more slots) has an
-        // account to notify at this point -- a first-time public request has no
-        // institution/account yet when rejected.
         if (request.getInstitution() != null) {
             notifyInstitutionOwners(request.getInstitution(),
                     "Partnership request rejected",
@@ -280,11 +232,6 @@ public class AdminPartnershipService {
                     "/institution/partnership");
         }
 
-        /* And by email, which is the only one of the two that reaches a public
-           applicant -- they have no account to hold an in-app notice. Mirrors
-           approval: best-effort, and never rolls back the decision, because the
-           request IS rejected either way and re-reviewing it is not something an
-           admin should have to do to clear a mail failure. */
         String recipient = emailOf(request);
         if (recipient != null) {
             try {
@@ -302,14 +249,6 @@ public class AdminPartnershipService {
         return toDetail(request);
     }
 
-    /** Notifies every owner/primary-contact User linked to this institution. */
-    /**
-     * Ends the partnership: access revoked immediately, money returned.
-     *
-     * Access first, money second is deliberate -- {@link InstitutionAccessTeardownService}
-     * refunds before it deletes, so a refund that PayMongo refuses stops the
-     * teardown while the institution still has what it paid for.
-     */
     private PartnershipRequestDetailDto approveCancellation(
             PartnershipRequest request, Institution institution, String remarks, String reviewedBy) {
 
@@ -382,18 +321,10 @@ public class AdminPartnershipService {
         if (request.getInstitution() != null) {
             return request.getInstitution();
         }
-        // Reuse the existing Institution that shares this contact email, so an
-        // approved partnership provisions the login account on the SAME
-        // institution the admin already set up — never a duplicate. (Restored
-        // 2026-07-19: a prior change ALSO required an exact institution-name
-        // match here, which created duplicate institutions on approval and left
-        // the original one with no account — the "I approved but can't get an
-        // account for that institution" bug.)
         Institution byEmail = institutionRepository
                 .findByPrimaryContactEmailIgnoreCase(request.getInstitutionEmail())
                 .orElse(null);
         if (byEmail != null) {
-            // An approved partnership is what verifies an institution.
             if (!byEmail.isVerified()) {
                 byEmail.setVerified(true);
                 institutionRepository.save(byEmail);
@@ -401,7 +332,6 @@ public class AdminPartnershipService {
             return byEmail;
         }
 
-        // Ensure the unique institution_name does not collide.
         String name = request.getInstitutionName();
         if (institutionRepository.findByInstitutionNameIgnoreCase(name).isPresent()) {
             name = name + " (" + request.getReferenceNumber() + ")";
@@ -409,8 +339,6 @@ public class AdminPartnershipService {
 
         Institution institution = Institution.builder()
                 .institutionName(name)
-                // The public form does not collect these; use safe defaults an
-                // admin can refine later on the institution page.
                 .institutionType(Institution.InstitutionType.other)
                 .industry("General")
                 .primaryContactName(request.getContactPersonName())
@@ -423,15 +351,7 @@ public class AdminPartnershipService {
         return institutionRepository.save(institution);
     }
 
-    /* Read the request's own copy first, then fall through to the institution
-       it is linked to.
 
-       The copy is the truth for a public request -- it is all there is, made
-       before any institution row existed. The fall-through is for the requests
-       already in the table from before the portal path wrote its copy: rather
-       than a migration to backfill them, they resolve through the link they do
-       have. A request with neither is a public one still awaiting review, and
-       reads as unknown rather than as blank. */
 
     private static String nameOf(PartnershipRequest request) {
         return firstPresent(request.getInstitutionName(),
@@ -458,13 +378,11 @@ public class AdminPartnershipService {
                 request.getInstitution() == null ? null : request.getInstitution().getAddress());
     }
 
-    /** Its reference, or the id it can always be found by. Never the text "null". */
     private static String referenceOf(PartnershipRequest request) {
         String reference = firstPresent(request.getReferenceNumber(), null);
         return reference != null ? reference : "#" + request.getRequestId();
     }
 
-    /** NEW for the rows written before the column existed. */
     private static String typeOf(PartnershipRequest request) {
         return request.getRequestType() == null
                 ? PartnershipRequest.RequestType.NEW.name()
@@ -476,13 +394,6 @@ public class AdminPartnershipService {
         return fallback != null && !fallback.isBlank() ? fallback : null;
     }
 
-    /**
-     * Slots this institution already holds, per certification.
-     *
-     * Empty for a first-time public request, which has no institution yet --
-     * and that emptiness is itself the answer: nothing held means nothing to
-     * add to, so the request is a new partnership rather than a top-up.
-     */
     private Map<Long, Integer> heldSlots(PartnershipRequest request) {
         if (request.getInstitution() == null) return Map.of();
         Map<Long, Integer> held = new java.util.HashMap<>();

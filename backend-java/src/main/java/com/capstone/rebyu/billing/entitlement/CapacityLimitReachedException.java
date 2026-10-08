@@ -2,10 +2,6 @@ package com.capstone.rebyu.billing.entitlement;
 
 import lombok.Getter;
 
-/**
- * Thrown when an institutional capacity limit (seats, groups, authorities,
- * certification allocations) is reached. Rendered as a structured 409.
- */
 @Getter
 public class CapacityLimitReachedException extends RuntimeException {
 

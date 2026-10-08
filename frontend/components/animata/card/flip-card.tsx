@@ -30,7 +30,6 @@ export default function FlipCard({
           rotationClass[rotate][0],
         )}
       >
-        {}
         <div className="absolute inset-0 backface-hidden">
           <img
             src={image}
@@ -39,7 +38,6 @@ export default function FlipCard({
           />
           <div className="absolute bottom-4 left-4 text-xl font-bold text-white">{title}</div>
         </div>
-        {}
         <div
           className={cn(
             "absolute inset-0 rounded-2xl bg-black/80 p-4 text-slate-200 backface-hidden",

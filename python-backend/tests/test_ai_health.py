@@ -55,7 +55,7 @@ def test_the_last_failure_is_kept_with_the_providers_words():
     assert status["lastError"]["status"] == 401
     assert "Invalid API key" in status["lastError"]["message"]
     assert status["failuresByKind"] == {"auth": 1}
-    assert [event["ok"] for event in status["recent"]] == [False, True]  # newest first
+    assert [event["ok"] for event in status["recent"]] == [False, True]
 
 
 def test_a_cooldown_outranks_the_last_result():

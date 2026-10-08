@@ -2,19 +2,6 @@ import { useMemo, useRef } from "react"
 
 import { cn } from "@/lib/utils"
 
-/**
- * A one-time code, as one box per digit.
- *
- * <p>Backed by real inputs rather than a styled single field: the boxes have to
- * be individually focusable for the caret to land where the eye expects, and a
- * fake caret over a hidden input breaks selection, screen readers, and the
- * platform's own "from Messages" autofill.
- *
- * <p>Every affordance a code field is expected to have is handled here, because
- * each one is invisible until it is missing: typing advances, backspace on an
- * empty box steps back and clears, arrows move, and pasting a whole code from
- * an email fills the row instead of dropping five characters into box one.
- */
 export function OtpInput({
   value = "",
   onChange,
@@ -53,9 +40,6 @@ export function OtpInput({
     const typed = raw.replace(/\D/g, "")
     if (!typed) return
 
-    /* More than one digit means a paste (or a phone keyboard emitting the whole
-       code into the focused box). Spread it across this box and the ones after
-       rather than keeping the first and silently binning the rest. */
     const next = digits.slice()
     for (let offset = 0; offset < typed.length && index + offset < length; offset += 1) {
       next[index + offset] = typed[offset]
@@ -71,14 +55,11 @@ export function OtpInput({
 
       const next = digits.slice()
       if (next[index]) {
-        // Clear this box and stay put: the digit under the caret is the one the
-        // learner meant to delete.
         next[index] = ""
         commit(next.join(""))
         return
       }
 
-      // Already empty, so backspace means "go back and delete that one".
       if (index > 0) {
         next[index - 1] = ""
         commit(next.join(""))
@@ -109,8 +90,6 @@ export function OtpInput({
 
   return (
     <div
-      // A group rather than six unrelated boxes, so assistive tech announces
-      // what this row of fields collectively is before reading any one of them.
       role="group"
       aria-label={label}
       className="flex items-center justify-between gap-2 sm:gap-3"
@@ -124,8 +103,6 @@ export function OtpInput({
           id={index === 0 ? id : `${id}-${index}`}
           type="text"
           inputMode="numeric"
-          // Only the first box claims the OTP hint: on every box, the platform
-          // offers to autofill the whole code into each one in turn.
           autoComplete={index === 0 ? "one-time-code" : "off"}
           maxLength={length}
           disabled={disabled}

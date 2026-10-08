@@ -1,12 +1,3 @@
-/**
- * The teacher's pen strokes, shared by everything drawn as "marked": the graded
- * notebook on the landing page and the result and attempt-history pages.
- *
- * Each stroke has `pathLength="1"` and the `rb-pen-stroke` class, so GSAP can
- * draw it in by animating `strokeDashoffset` from 1 to 0. The colour comes from
- * the `--rb-pen` custom property on any ancestor (red by default, green for a
- * pass).
- */
 
 const PATHS = {
   check: ["M6 17 L13 24 L27 7"],

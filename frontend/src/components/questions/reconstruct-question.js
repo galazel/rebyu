@@ -4,14 +4,6 @@ import {
   getTextQuestionConfig,
 } from "@/services/assessmentService.js"
 
-/**
- * Rebuilds one editor-shaped { typeId, data } from its backend QuestionDto --
- * the reverse of saveAuthoredQuestion. MCQ choices come embedded on the
- * question itself; every other type needs its own config fetch, and
- * CRITICAL_THINKING is ambiguous on the DTO alone (Programming and Diagram
- * both use that questionType), so it's resolved by trying the programming
- * config first and falling back to the diagram config.
- */
 export async function reconstructQuestionData(question, allQuestions) {
   const difficulty = question.difficultyLevel ?? "average"
   const questionText = question.questionText ?? ""
@@ -86,8 +78,6 @@ export async function reconstructQuestionData(question, allQuestions) {
       })
     }
 
-    // The DTO says which kind it is when the server derived it; skip the
-    // programming lookup for a known diagram rather than paying for a 404.
     const programmingConfig =
       question.criticalThinkingType === "DIAGRAM"
         ? null
@@ -121,8 +111,6 @@ export async function reconstructQuestionData(question, allQuestions) {
         nodes = parsed.nodes ?? []
         edges = parsed.edges ?? []
       } catch {
-        // Reference diagram JSON couldn't be parsed -- fall back to an empty
-        // node/edge set rather than failing the whole hydration.
       }
       return {
         typeId: "DIAGRAM",

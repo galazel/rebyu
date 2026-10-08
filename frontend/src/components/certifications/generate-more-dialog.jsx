@@ -17,20 +17,6 @@ import { DocumentUploadStep } from "@/components/certifications/document-upload-
 import { QuestionTypeChoice } from "@/components/certifications/question-type-choice.jsx"
 import { appendToCertificationWithAi } from "@/services/certificationService.js"
 
-/**
- * Adds to a certification that already exists.
- *
- * <p>Deliberately not the same control as "generate": that path clears the
- * curriculum first, which is right for a rebuild and destructive for an
- * addition. An admin who uploaded four of five handbooks, or whose syllabus
- * grew a domain, wants the fifth added -- not the four they already paid to
- * author thrown away along with every question and assessment hanging off
- * them.
- *
- * <p>The dialog says that plainly, because "generate" appearing twice on one
- * page with opposite consequences is exactly the kind of thing an admin only
- * discovers afterwards.
- */
 export default function GenerateMoreDialog({ open, onOpenChange, certification }) {
   const queryClient = useQueryClient()
   const [files, setFiles] = useState([])
@@ -48,8 +34,6 @@ export default function GenerateMoreDialog({ open, onOpenChange, certification }
   }
 
   async function handleSubmit() {
-    // Documents are optional: instructions alone are enough to say what to
-    // add. With neither, there is nothing to go on.
     if (files.length === 0 && !instructions.trim()) {
       toast.error("Upload documents, or say what to add -- for example, which domain or topics.")
       return
@@ -61,8 +45,6 @@ export default function GenerateMoreDialog({ open, onOpenChange, certification }
         additionalInstructions: instructions,
         questionTypes,
       })
-      // The certification is now generating; the page reads that flag from the
-      // certification list, so it has to be refetched for the banner to appear.
       await queryClient.invalidateQueries({ queryKey: ["admin-certifications"] })
       toast.success(
         "Generation queued. The new material is added to this certification as it is written."
@@ -99,9 +81,6 @@ export default function GenerateMoreDialog({ open, onOpenChange, certification }
           </DialogDescription>
         </DialogHeader>
 
-        {/* Stated because the neighbouring "generate" path deletes the
-            curriculum first, and an admin has no way to tell them apart from
-            the button alone. */}
         <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm leading-6 text-muted-foreground">
           Your current majors, lessons, quizzes and question bank stay exactly
           as they are, and lessons that already exist are not written again.
@@ -111,8 +90,6 @@ export default function GenerateMoreDialog({ open, onOpenChange, certification }
         </div>
 
         <div className="space-y-4">
-          {/* Emits raw File objects, not wrappers -- it maps `item.file`
-              before calling back. */}
           <DocumentUploadStep onFilesChange={setFiles} disabled={isSubmitting} />
 
           <QuestionTypeChoice

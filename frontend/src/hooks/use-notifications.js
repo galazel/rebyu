@@ -14,15 +14,6 @@ import {
 
 export const NOTIFICATIONS_QUERY_KEY = ["my-notifications"]
 
-/**
- * One source of truth for the in-app notification feed, shared by all three
- * portal layouts (admin, institution, learner) and the notifications page, so
- * the bell and the full list can never disagree about what is unread.
- *
- * New notifications arrive over the live SSE stream rather than a poll, so the
- * `useQuery` here has no refetchInterval -- it is the initial load plus the
- * cache the stream refreshes.
- */
 export function useNotifications() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -39,9 +30,6 @@ export function useNotifications() {
     [queryClient]
   )
 
-  // The live stream. Refetching on each push (rather than splicing the payload
-  // into the cache) keeps read state and ordering exactly as the server has
-  // them; refetching on open covers anything missed while disconnected.
   useEffect(() => {
     const close = streamNotifications({
       onNotification: invalidate,
@@ -87,11 +75,6 @@ export function useNotifications() {
     onError: () => toast.error("Unable to clear your notifications."),
   })
 
-  /**
-   * Opening a notification marks it read and follows it to whatever it is
-   * about. A few notifications have no in-app destination (an invitation can
-   * only be accepted from the emailed link), so those just mark themselves read.
-   */
   const open = useCallback(
     (item) => {
       if (!item) return

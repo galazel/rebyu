@@ -83,7 +83,6 @@ class DepartmentHeadAssignmentServiceTest {
         return dto;
     }
 
-    // 1: cross-tenant group access is rejected
     @Test
     void create_groupBelongsToDifferentInstitution_throwsNotFound() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(OTHER_INSTITUTION_ID)));
@@ -92,7 +91,6 @@ class DepartmentHeadAssignmentServiceTest {
                 () -> service.create(dto(), CALLER_INSTITUTION_ID));
     }
 
-    // 2: brand new (user, group) pair succeeds with a fresh active row
     @Test
     void create_newAssignment_insertsFreshActiveRow() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(CALLER_INSTITUTION_ID)));
@@ -107,7 +105,6 @@ class DepartmentHeadAssignmentServiceTest {
         verify(authorityRepository, times(1)).save(any(DepartmentHeadAssignment.class));
     }
 
-    // 3: duplicate ACTIVE authority is rejected
     @Test
     void create_alreadyActiveAuthority_throwsBusinessRuleException() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(CALLER_INSTITUTION_ID)));
@@ -123,7 +120,6 @@ class DepartmentHeadAssignmentServiceTest {
         verify(authorityRepository, times(0)).save(any());
     }
 
-    // 4: re-adding a previously archived authority reactivates the same row
     @Test
     void create_archivedAuthority_reactivatesSameRowInsteadOfInserting() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(CALLER_INSTITUTION_ID)));
@@ -139,12 +135,11 @@ class DepartmentHeadAssignmentServiceTest {
 
         DepartmentHeadAssignmentDto result = service.create(dto(), CALLER_INSTITUTION_ID);
 
-        assertEquals(AUTHORITY_ID, result.getDepartmentHeadAssignmentId()); // same row, not a new one
+        assertEquals(AUTHORITY_ID, result.getDepartmentHeadAssignmentId());
         assertEquals(DepartmentHeadAssignment.Status.active, archivedRow.getStatus());
         assertEquals(null, archivedRow.getRemovedAt());
     }
 
-    // 5: delete rejects cross-tenant access
     @Test
     void delete_differentInstitution_throwsNotFound() {
         DepartmentHeadAssignment row = DepartmentHeadAssignment.builder()
@@ -158,7 +153,6 @@ class DepartmentHeadAssignmentServiceTest {
                 () -> service.delete(AUTHORITY_ID, CALLER_INSTITUTION_ID));
     }
 
-    // 6: delete by same institution archives the row
     @Test
     void delete_sameInstitution_archivesRow() {
         DepartmentHeadAssignment row = DepartmentHeadAssignment.builder()

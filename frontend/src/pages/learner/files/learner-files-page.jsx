@@ -39,10 +39,8 @@ import {
 
 const ALL_VALUE = "all"
 
-/* Named once: the query and the delete's cache write have to agree. */
 const LIBRARY_ITEMS_KEY = ["library-items"]
 
-/** What the library is: the study aids the tutor generated for this learner. */
 const LIBRARY_KINDS = new Set(["quiz", "flashcard"])
 
 const libraryTypeMeta = {
@@ -86,10 +84,6 @@ function formatDate(value) {
   }).format(date)
 }
 
-/* Every kind the library still carries holds a usable URL or in-app path
-   already. The S3-key resolution that used to live here existed only for
-   uploaded files and saved community attachments, neither of which the
-   library shows any more. */
 function resolveOpenUrl(item) {
   return item.route
 }
@@ -101,24 +95,8 @@ export default function LearnerFilesPage() {
   const [certificationId, setCertificationId] = useState("")
   const [category, setCategory] = useState(ALL_VALUE)
   const [viewItem, setViewItem] = useState(null)
-  /* The row the trash button is asking about. Deleting used to happen on the
-     click itself, so a misaimed tap took a set with no way back -- the items
-     are generated, and the one that is gone is not the one the tutor writes
-     next time. */
   const [pendingRemoval, setPendingRemoval] = useState(null)
 
-  /**
-   * Opens the lesson a set was generated from, where lessons are read now: the
-   * topic page, with the outline beside it and the tutor that generated the
-   * set in the first place. This sent every learner to
-   * `/learner/lessons/:id` -- the older standalone page -- which is why Source
-   * landed somewhere that did not look like the rest of the course.
-   *
-   * <p>The library row carries the lesson and its certification but not the
-   * topic, so that one field is looked up. If the lookup fails the old page is
-   * still a lesson and still the right lesson, so it stays the fallback rather
-   * than the button doing nothing.
-   */
   async function openSourceLesson(item) {
     let topicId = item.middleCategoryId ?? null
     if (!topicId && item.certificationId) {
@@ -135,15 +113,7 @@ export default function LearnerFilesPage() {
     )
   }
 
-  /* Cached, so coming back from a quiz does not re-fetch the library and put
-     the spinner up over a list that has not changed. The page holds no copy of
-     its own -- the one mutation writes through the cache below -- so there is
-     no second source of truth to keep in step, and a deleted item stays deleted
-     when the learner navigates back.
 
-     `certifications` deliberately shares the key the rest of the app uses for
-     the same call, so a page that has already fetched the catalog pays nothing
-     to show its names here. */
   const queryClient = useQueryClient()
 
   const libraryQuery = useQuery({
@@ -155,8 +125,6 @@ export default function LearnerFilesPage() {
 
   const certificationsQuery = useQuery({
     queryKey: ["certifications"],
-    // Wrapped, not passed by reference: React Query would otherwise call this
-    // with its own context object as the group id (see getAllCertifications).
     queryFn: () => getAllCertifications(),
     staleTime: 5 * 60_000,
     retry: 1,
@@ -167,8 +135,6 @@ export default function LearnerFilesPage() {
       ? certificationsQuery.data
       : []
 
-  /* Only a first visit with nothing cached is a wait worth showing; a
-     background revalidation leaves the list on screen. */
   const isLoading = libraryQuery.isLoading
 
   useEffect(() => {
@@ -181,8 +147,6 @@ export default function LearnerFilesPage() {
     if (!item) return
     try {
       await deleteLibraryItem(item.id)
-      // Written through the cache rather than into local state, so the removal
-      // survives leaving the page and coming back.
       queryClient.setQueryData(LIBRARY_ITEMS_KEY, (current) =>
           (Array.isArray(current) ? current : []).filter((entry) => entry.id !== item.id)
       )
@@ -207,10 +171,6 @@ export default function LearnerFilesPage() {
   const visibleItems = useMemo(
       () =>
           items.filter((item) => {
-            /* Uploaded files and saved community posts are still returned by
-               the endpoint and still belong to the learner -- they are simply
-               not what this page is for any more, so they are filtered here
-               rather than deleted server-side. */
             if (!LIBRARY_KINDS.has(item.kind)) {
               return false
             }
@@ -388,8 +348,6 @@ export default function LearnerFilesPage() {
 
                         <td className="px-4 py-4">
                           <div className="flex justify-end gap-2">
-                            {/* Only two kinds reach this table, so the verb is
-                                the kind: a quiz is opened, a deck is studied. */}
                             <Button type="button" size="sm" onClick={() => openItem(item)}>
                               {item.kind === "quiz" ? (
                                   <BrainCircuit className="mr-2 h-4 w-4" />
@@ -399,9 +357,6 @@ export default function LearnerFilesPage() {
                               {item.kind === "quiz" ? "Open" : "Study"}
                             </Button>
 
-                            {/* Where this came from. A generated deck is built
-                                from one lesson, and until now the page could
-                                name that lesson but not open it. */}
                             {item.lessonId ? (
                                 <Button
                                     type="button"
@@ -436,9 +391,6 @@ export default function LearnerFilesPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Names the set rather than asking about "this item": with three rows
-            reading the same the only way to be sure the right one is going is
-            to be told which. */}
         <AlertDialog
             open={Boolean(pendingRemoval)}
             onOpenChange={(open) => !open && setPendingRemoval(null)}

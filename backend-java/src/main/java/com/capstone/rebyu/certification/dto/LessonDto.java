@@ -25,6 +25,5 @@ public class LessonDto {
 
     private String lessonComponentStructure = "";
 
-    /** Lesson-scoped exams (the lesson quiz). */
     private List<ExamSummaryDto> exams;
 }

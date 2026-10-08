@@ -26,13 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Transaction Three: institution partnership request submission.
- *
- * The request and all of its certification line items are created in one
- * atomic transaction, so a failure never leaves an orphan request. An
- * idempotency key prevents a double-submit from creating two requests.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -72,17 +65,7 @@ public class PartnershipRequestTransactionService {
         LocalDateTime now = LocalDateTime.now();
         PartnershipRequest partnershipRequest = PartnershipRequest.builder()
                 .institution(institution)
-                /* The request carries its own copy of who sent it, exactly as a
-                   public request does. Nothing downstream reads through to the
-                   linked institution: the admin list, the review dialog and --
-                   the expensive one -- the approval email all read these fields
-                   off the request. Leaving them null is why a request raised
-                   from the portal showed a blank row, and why its approval mail
-                   was addressed to nobody and silently never sent.
 
-                   A copy rather than a join, because it is a record of what was
-                   asked for and by whom at the time; renaming the institution
-                   later must not rewrite the history of its requests. */
                 .requestType(requestType)
                 .referenceNumber(generateReferenceNumber(requestType))
                 .institutionName(institution.getInstitutionName())
@@ -106,9 +89,6 @@ public class PartnershipRequestTransactionService {
             Certification certification = certificationRepository.findById(item.certificationId())
                     .orElseThrow(() -> new EntityNotFoundException(
                             "Certification not found: " + item.certificationId()));
-            // Only published certifications can be inquired about -- drafts are
-            // still being built (see the CertificationService publish gate).
-            // COMING_SOON is listed on the request page but not requestable.
             if (certification.getStatus() == Certification.CertificationStatus.COMING_SOON) {
                 throw new BusinessRuleException.InvalidPartnershipRequestException(
                         certification.getTitle() + " is coming soon and cannot be requested yet.");
@@ -143,7 +123,6 @@ public class PartnershipRequestTransactionService {
         return toDto(partnershipRequest);
     }
 
-    /** Unknown or absent reads as NEW rather than failing the submission. */
     private static PartnershipRequest.RequestType parseType(String requested) {
         if (requested == null || requested.isBlank()) return PartnershipRequest.RequestType.NEW;
         try {
@@ -154,7 +133,6 @@ public class PartnershipRequestTransactionService {
         }
     }
 
-    /** {PREFIX}-XXXXXXXX, unique -- the prefix says what kind of request it is. */
     private String generateReferenceNumber(PartnershipRequest.RequestType type) {
         String candidate;
         do {
@@ -164,15 +142,6 @@ public class PartnershipRequestTransactionService {
         return candidate;
     }
 
-    /**
-     * Asks to end the partnership. No line items: it is not a request for
-     * anything, it is a request to stop everything, and which certifications
-     * that covers is whatever the institution holds on the day an admin
-     * approves it -- not the day it asked.
-     *
-     * <p>One open cancellation at a time. A second would be approved twice and
-     * refund twice.
-     */
     @Transactional
     public PartnershipRequestTransactionDto submitCancellation(Long institutionId, String reason) {
         Institution institution = institutionRepository.findById(institutionId)

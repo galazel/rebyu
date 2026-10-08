@@ -54,9 +54,6 @@ public class PartnershipRequestItemController {
         partnershipRequestItemService.delete(id);
     }
 
-    // Only admins may reach this generic CRUD path's update/delete for the
-    // same reason as PartnershipRequestController: line items belong to a
-    // request under active admin review, not to arbitrary callers.
     private void requireAdmin(Jwt jwt) {
         if (jwt == null) {
             throw new IllegalArgumentException("Authentication is required");

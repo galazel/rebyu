@@ -5,11 +5,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
-/**
- * Lesson-level priority projection returned to the frontend. Mirrors the
- * FastAPI lesson priority response shape but is re-exposed through Spring Boot
- * so the browser never talks to FastAPI directly.
- */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record LessonPriorityView(
         @JsonProperty("lesson_id") Long lessonId,

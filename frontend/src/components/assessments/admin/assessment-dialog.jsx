@@ -30,7 +30,6 @@ import {
 } from "@/services/assessmentService.js"
 import AssessmentQuestionPickerDialog from "./assessment-question-picker-dialog.jsx"
 
-/* Served by the IRT + BKT engine one question at a time; mirrors AdaptivePolicy. */
 const ADAPTIVE_TYPES = new Set(["LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM", "MOCK_EXAM", "DIAGNOSTIC"])
 
 const ASSESSMENT_CREATE_TYPES = [
@@ -214,9 +213,6 @@ export default function AssessmentDialog({
                                            initialMajorCategoryId = null,
                                            initialTitle = "",
                                            lockPreset = false,
-                                           // When set, a newly created exam is owned by this
-                                           // Institution group (member-authored) instead of being
-                                           // official, platform-wide content. See ExamController.
                                            ownerDepartmentId = null,
                                          }) {
   const queryClient = useQueryClient()
@@ -332,8 +328,6 @@ export default function AssessmentDialog({
     setError("")
     setPickerOpen(false)
 
-    // Keep dependencies limited to dialog lifecycle.
-    // This prevents selected questions from resetting while the picker is closing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, exam?.examId, mode])
 
@@ -350,8 +344,6 @@ export default function AssessmentDialog({
           (question) => question.questionId
       )
 
-      // The admin's selection, in order, is the single source of truth
-      // persisted for this assessment. Every question counts the same.
       const questions = selectedQuestions.map((question, index) => ({
         questionId: question.questionId,
         displayOrder: index + 1,
@@ -512,8 +504,6 @@ export default function AssessmentDialog({
     setSelectedQuestions([])
     setError("")
 
-    // The admin never has to type an assessment name. Changing the selected
-    // lesson, middle category, or major category immediately regenerates it.
     if (!isEdit) {
       setTitle(
           getDefaultTitle({
@@ -558,8 +548,6 @@ export default function AssessmentDialog({
       return
     }
 
-    /* Adaptive assessments draw from the whole scope bank; an assigned
-       list is only an optional seed, so an empty one is fine. */
     if (selectedQuestions.length === 0 && !isAdaptiveType) {
       setError("Add at least one question.")
       return

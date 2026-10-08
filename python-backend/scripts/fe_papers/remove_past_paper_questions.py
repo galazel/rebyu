@@ -47,7 +47,6 @@ from sqlalchemy import text
 
 from dbsession import open_session
 
-#: Tables holding rows a question OWNS. Deleted outright with it.
 OWNED_TABLES = (
     "choices",
     "text_question_configs",
@@ -56,9 +55,6 @@ OWNED_TABLES = (
     "question_rubric_criteria",
 )
 
-#: Tables that merely REFER to a question. The referring row goes too: an exam
-#: item pointing at nothing is a blank in a paper, and a mistake-bank entry
-#: pointing at nothing is an entry a learner cannot open.
 REFERRING = (
     ("exam_questions", "question_id"),
     ("learner_mistake_reviews", "source_question_id"),
@@ -133,7 +129,6 @@ def main():
             if n:
                 print("   %-30s %s" % (table, n))
 
-        # Deleted children-first so nothing is orphaned mid-transaction.
         for table, column in REFERRING:
             db.execute(text(f"delete from {table} where {column} = any(:ids)"),
                        {"ids": everything})

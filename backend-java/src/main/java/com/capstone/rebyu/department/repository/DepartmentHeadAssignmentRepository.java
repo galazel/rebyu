@@ -18,14 +18,8 @@ public interface DepartmentHeadAssignmentRepository extends JpaRepository<Depart
     boolean existsByDepartmentAndUserAndStatus(
             Department department, User user, DepartmentHeadAssignment.Status status);
 
-    /**
-     * Finds any existing membership (active or archived) for this (group, user) pair,
-     * regardless of status, so re-assignment can reactivate an archived row in place
-     * instead of inserting a logically duplicate one.
-     */
     Optional<DepartmentHeadAssignment> findByDepartmentAndUser(Department department, User user);
 
-    /** Distinct active authority users across all of an institution's groups. */
     @Query("""
             SELECT COUNT(DISTINCT a.user.userId)
             FROM DepartmentHeadAssignment a

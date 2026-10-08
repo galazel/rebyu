@@ -15,12 +15,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-/**
- * REST endpoints for BKT mastery data. All calculations are performed by the
- * FastAPI PyBKT service; this controller delegates via LearnerMasteryService
- * (the single read facade over BktClient -- see its javadoc for why it's
- * preferred over hitting BktClient directly).
- */
 @RestController
 @RequestMapping("/api/bkt")
 @RequiredArgsConstructor
@@ -29,10 +23,6 @@ public class BKTController {
   private final LearnerMasteryService learnerMasteryService;
   private final RoleGuard guard;
 
-  /**
-   * Get learner's overall confidence/mastery in a certification
-   * (aggregated across all lessons)
-   */
   @GetMapping("/me/confidence/{certificationId}")
   public ResponseEntity<ConfidenceView> getMyConfidence(
       @PathVariable Long certificationId,
@@ -44,10 +34,6 @@ public class BKTController {
         : ResponseEntity.notFound().build();
   }
 
-  /**
-   * Get learner's mastery across all lessons in a certification,
-   * with priority/focus recommendations
-   */
   @GetMapping("/me/lessons/{certificationId}")
   public ResponseEntity<List<LessonPriorityView>> getMyLessonPriorities(
       @PathVariable Long certificationId,
@@ -57,10 +43,6 @@ public class BKTController {
     return ResponseEntity.ok(result.lessons());
   }
 
-  /**
-   * Get mastery history events (BKT updates over time)
-   * for a learner-certification pair
-   */
   @GetMapping("/me/history/{certificationId}")
   public ResponseEntity<List<MasteryHistoryView>> getMyMasteryHistory(
       @PathVariable Long certificationId,
@@ -70,9 +52,6 @@ public class BKTController {
     return ResponseEntity.ok(result.history());
   }
 
-  /**
-   * Get learner's overall mastery across all lessons (optional filtering)
-   */
   @GetMapping("/me/mastery")
   public ResponseEntity<LearnerMasteryView> getMyMastery(
       @RequestParam(required = false) List<Long> lessonIds,
@@ -84,9 +63,6 @@ public class BKTController {
         : ResponseEntity.ok(mastery);
   }
 
-  /**
-   * Get generic confidence map for a learner-certification pair
-   */
   @GetMapping("/me/confidence-map/{certificationId}")
   public ResponseEntity<Map<String, Object>> getMyConfidenceMap(
       @PathVariable Long certificationId,

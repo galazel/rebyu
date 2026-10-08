@@ -15,12 +15,6 @@ import {
   retireReferenceOption,
 } from "@/services/referenceService.js"
 
-/**
- * The stored pick-lists, side by side. Adding an entry puts it in every
- * select that reads the list; retiring one hides it from the selects but
- * keeps the row, so a certification or department already tagged with it
- * still reads the same.
- */
 const LISTS = [
   {
     kind: REFERENCE_INDUSTRY,

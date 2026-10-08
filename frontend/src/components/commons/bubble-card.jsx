@@ -1,24 +1,3 @@
-/**
- * The arena card, generalised.
- *
- * The challenge carousel's card is the shape the product liked: a saturated
- * gradient cap with two translucent bubbles behind a circular icon medallion,
- * sitting on a body in the matching pastel wash. This module is that card with
- * its content knocked out, so any page can use it without re-inventing the
- * gradient or guessing which wash goes with which accent.
- *
- * A tone is a matched set — gradient cap, body wash, and the ink that stays
- * legible on that wash. Pick a tone per entity, never per rank or value, so the
- * same thing keeps the same colour across pages.
- *
- * `solid` is the tone at a weight that carries text and small shapes: a filled
- * button label, a progress fill against its track. The cap's own colours are
- * chosen to look good under white icon art at 80px and are far too light for
- * either — white on macaw is 2.4:1, and a cyan bar on a #F1F1F1 track is
- * 2.1:1. Each `solid` is the darkest point in its own hue that still clears
- * 4.5:1 both ways against white, so it works as a face under white text and as
- * text on the card.
- */
 
 export const BUBBLE_TONES = {
   macaw: {
@@ -45,8 +24,6 @@ export const BUBBLE_TONES = {
     chip: "bg-rb-fox-wash text-rb-fox-lip",
     solid: "#8A4F00",
   },
-  /* The green family: the product is green-and-white, so lists rotate
-     through these three rather than the whole rainbow. */
   bee: {
     accent: "linear-gradient(135deg, #248f4c, #47b96d)",
     surface: "bg-rb-bee-wash dark:bg-[#12333a]",
@@ -81,40 +58,12 @@ export const BUBBLE_TONES = {
   },
 }
 
-/* `flat` is the tone as one colour rather than two: the gradient's lighter
-   stop, which is the hue the brand actually names. A cap set to `flat` is the
-   same face the certification covers wear (`rb-feather` is exactly feather's
-   flat), so a page can sit its cards next to those without the gradient's dark
-   stop reading as a different, heavier blue. */
 
-/** Rotates tones for lists that have no meaningful colour of their own. */
 export function toneForIndex(index) {
   const order = ["feather", "bee", "leaf"]
   return order[index % order.length]
 }
 
-/**
- * @param tone      key of BUBBLE_TONES
- * @param icon      lucide-style component rendered in the medallion
- * @param eyebrow   small uppercase line above the title
- * @param title     the card's name
- * @param chips     [{ label, side }] — "left" chips sit on the wash, "right" on the dark scrim
- * @param capHeight tailwind height class for the gradient cap
- * @param as        wrapper element — "article" (default), "button", or a Link via `asChild`-style usage
- * @param cap       "gradient" (default) or "flat" -- one colour, matching the
- *                  certification covers
- * @param wordmark  a name set oversized and clipped into the cap's corner. The
- *                  landing page's certification cards have always done this,
- *                  and it is how a card gets an identity without a second hue:
- *                  `toneForCertification` deliberately answers "feather" for
- *                  every track (see learner-ui.jsx -- four palettes disagreeing
- *                  across four surfaces is why it was collapsed), so two
- *                  certifications side by side are the same blue rectangle and
- *                  the only thing that can tell them apart is their name.
- * @param body      "wash" (default) paints the body in the tone's pastel; "card"
- *                  leaves it on the plain card surface, so the tone is carried
- *                  by the cap alone — the shape the certification cards use.
- */
 export function BubbleCard({
   tone = "macaw",
   icon: Icon,
@@ -141,20 +90,7 @@ export function BubbleCard({
 
   return (
     <Wrapper
-      /* The tone, published to the subtree so hover and focus can reach it.
-         Those states cannot be inline styles, and all three were hardcoded to
-         the app's blue — so a violet card flashed blue on hover, and its button
-         drew a blue halo on focus.
 
-         Two of these are variable *overrides* rather than new properties, and
-         that is the point. A `focus-visible:ring-[…]` class does not fix the
-         halo: it lands in the same `--tw-ring-color` slot as the base
-         `ring-ring/35`, which is emitted later in the sheet and wins on order.
-         `--rb-focus` is worse still — the design system focuses every button
-         through `:root [data-slot=button]:focus-visible`, which no utility
-         class can outrank. Redefining what those rules resolve to sidesteps the
-         cascade entirely, and covers every control in the card at once rather
-         than each one having to remember. */
       style={{
         "--bubble-tone": palette.solid,
         "--ring": palette.solid,
@@ -169,8 +105,6 @@ export function BubbleCard({
       } ${className}`}
       {...props}
     >
-      {/* The cap. Bubbles are two oversized circles bled off opposite corners —
-          they read as depth without an image to load. */}
       <div
         className={`relative flex ${capHeight} shrink-0 items-center justify-center overflow-hidden [container-type:inline-size]`}
         style={{ background: capFace }}
@@ -203,14 +137,6 @@ export function BubbleCard({
         <div className="pointer-events-none absolute -right-8 -top-8 size-28 rounded-full bg-white/10" />
         <div className="pointer-events-none absolute -bottom-10 -left-7 size-32 rounded-full bg-white/10" />
 
-        {/* Bled off the bottom-left corner, behind the medallion: the letters
-            are meant to run out of the cap rather than sit inside it, so the
-            card reads as branded rather than as a label in a box. Sized in
-            `cqw` so it scales with the card and not with the viewport -- a
-            wordmark set in vw is enormous in a four-column grid and invisible
-            in one. A long name is left to run off the edge rather than being
-            cut to a fixed character count: clipping mid-glyph reads as bleed,
-            while "it passpo" reads as a bug. */}
         {wordmark ? (
           <span
             aria-hidden="true"

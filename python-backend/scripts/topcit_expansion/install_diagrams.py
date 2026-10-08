@@ -23,7 +23,6 @@ from app.db.session import SessionLocal
 from diagrams import DIAGRAMS
 from fix_images import image_slots
 
-#: Mounted from the repository so the generated files land in the frontend.
 OUTPUT_DIR = "/app/scripts/topcit_expansion/_generated_svg"
 PUBLIC_PATH = "/lesson-media/%s.svg"
 

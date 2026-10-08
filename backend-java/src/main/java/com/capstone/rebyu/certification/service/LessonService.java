@@ -16,13 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Lesson has no owner column of its own -- like MiddleCategory, it inherits
- * ownership by walking up to its MiddleCategory's parent MajorCategory, and
- * every write (including the lesson body/component editing methods, which
- * are how an Institution Member actually authors their own lesson content) is
- * authorized through MajorCategoryService.requireCanActOn.
- */
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -64,8 +57,6 @@ public class LessonService {
         Lesson entity = lessonMapper.toEntity(dto);
         entity.setLessonId(null);
         entity.setMiddleCategory(middleCategory);
-        // lesson_component_structure is NOT NULL; the create form only sends
-        // a name, so default the (empty) body here just like saveLessonComponent.
         entity.setLessonComponentStructure(normalizeStructure(entity.getLessonComponentStructure()));
 
         return lessonMapper.toDto(lessonRepository.save(entity));
@@ -87,8 +78,6 @@ public class LessonService {
         Lesson entity = lessonMapper.toEntity(dto);
         entity.setLessonId(id);
         entity.setMiddleCategory(targetMiddleCategory);
-        // Never wipe an existing body to NULL when the edit form omits it --
-        // fall back to the existing structure, then to an empty document.
         String structure = entity.getLessonComponentStructure();
         entity.setLessonComponentStructure(normalizeStructure(
                 structure != null ? structure : existing.getLessonComponentStructure()));
@@ -102,10 +91,6 @@ public class LessonService {
                 existing.getMiddleCategory().getMajorCategory().getOwnerDepartment(),
                 isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
 
-        // A generated lesson owns a quiz and its questions, and nothing in the
-        // schema cascades those -- so plain repository.delete() died on a
-        // foreign key. Deleting by id afterwards because the purge clears the
-        // persistence context, leaving `existing` detached.
         curriculumSubtreeService.clearFor(CurriculumSubtreeService.Node.LESSON, id);
         lessonRepository.deleteById(id);
     }
@@ -146,7 +131,6 @@ public class LessonService {
         );
     }
 
-    /** An empty JSON document ("[]") for a null/blank lesson body. */
     private String normalizeStructure(String structure) {
         return structure == null || structure.isBlank() ? "[]" : structure;
     }

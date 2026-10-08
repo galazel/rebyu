@@ -120,8 +120,6 @@ async def test_an_all_duplicate_batch_stops_the_run_rather_than_burning_tokens(r
         "s", "c", "Generate lots.", count=size * 3
     )
 
-    # Batch 1 is all new, batch 2 is entirely duplicates -> stop. Without the
-    # early exit this would run every batch plus the top-up rounds.
     assert len(calls) == 2
 
 
@@ -132,7 +130,6 @@ async def test_top_up_rounds_replace_dropped_duplicates(recorder):
     half = size // 2
 
     def texts(n):
-        # Overlaps the previous batch by half, so half of each is new.
         start = (n - 1) * half
         return [f"q{start + i}" for i in range(size)]
 
@@ -154,13 +151,6 @@ async def test_the_result_is_never_longer_than_requested(recorder):
     assert len(batch.questions) == size + 1
 
 
-# mock exam fallback
-#
-# The mock exam normally imitates the real paper the planner researched
-# (TOPCIT: 100 items across five question types). When that research came back
-# empty there was no sensible shape to imitate, and the old fallback asked for
-# all five types anyway -- guessing that an unknown exam contains programming
-# and diagramming tasks, which need manual or semantic grading.
 
 
 def _state(structure=None, name="Some Certification"):
@@ -213,8 +203,6 @@ async def test_the_fallback_mock_exam_asks_for_mcq_over_every_lesson(monkeypatch
 
     sent = {}
 
-    # **kwargs so the double keeps working as the real signature grows -- it
-    # gained `existing_stems` when cross-assessment de-duplication was added.
     async def fake(scope, context, instructions, *, count=None, **kwargs):
         sent["instructions"] = instructions
         sent["count"] = count

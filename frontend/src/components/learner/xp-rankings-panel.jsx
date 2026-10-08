@@ -4,27 +4,8 @@ import { Crown, UsersRound } from "@/components/icons"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getLeaderboard } from "@/services/gamificationService"
 
-/**
- * The XP leaderboard: one board, all-time.
- *
- * This was a standalone /learner/rankings page reached from its own top-level
- * nav item. It is a competitive standing, which is what the Challenges page is
- * about, and splitting the two meant a learner had to know that "ranked by
- * challenge points" and "ranked by XP" lived on different pages. It is now a
- * panel on Challenges, next to the challenge-points board.
- *
- * Note these two boards genuinely rank different things and are not
- * interchangeable: the challenge board ranks points from completed challenge
- * sessions, this one ranks XP earned across practice. That is why both are
- * shown rather than one replacing the other.
- */
 export function XpRankingsPanel() {
-  // Only the overall board is offered now that the Community scope is gone; the
-  // service still takes a scope, so it is pinned rather than dropped.
   const scope = "overall"
-  // Same treatment for the period. The monthly and weekly tabs are gone, so
-  // there is one board and it is the all-time one -- which is also what the
-  // subtitle promises ("Permanent XP earned across REBYU").
   const period = "all"
 
   const query = useQuery({

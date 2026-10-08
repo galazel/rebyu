@@ -15,21 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Who is online now, and how many people used REBYU over a week, month or year.
- *
- * <p>Online means "made a signed-in request within {@link #ONLINE_WINDOW}".
- * The frontend pings {@code /api/presence/heartbeat} every minute while a tab
- * is visible, so an idle-but-open page still counts, and a closed tab drops
- * out on its own a few minutes later -- no logout needed.
- *
- * <p>Every database trip costs ~50ms against the remote DB, so a user is
- * written at most once per {@link #TOUCH_INTERVAL}, and that write -- the
- * {@code last_seen_at} stamp plus the day's activity row -- is one statement.
- *
- * <p>Admins are left out of every count: the dashboard measures the people the
- * platform serves, not the people running it.
- */
 @Service
 @RequiredArgsConstructor
 public class PresenceService {
@@ -44,7 +29,6 @@ public class PresenceService {
     private final UserRepository userRepository;
     private final JdbcTemplate jdbc;
 
-    /** Cognito subject -> nanoTime of the last write for that user. */
     private final Map<String, Long> lastTouched = new ConcurrentHashMap<>();
 
     public void touch(String cognitoSub) {
@@ -64,7 +48,6 @@ public class PresenceService {
                     on conflict (user_id, activity_date) do nothing""",
                     Timestamp.valueOf(LocalDateTime.now()), cognitoSub, LocalDate.now());
         } catch (RuntimeException e) {
-            // Presence is a nicety; it must never fail the request it rode in on.
             lastTouched.remove(cognitoSub);
             log.debug("Could not record presence for a user", e);
         }
@@ -78,7 +61,6 @@ public class PresenceService {
         return userRepository.countNonAdmins();
     }
 
-    /** week and month are drawn a day at a time; year a month at a time. */
     public enum Period {
         WEEK("1 day"),
         MONTH("1 day"),
@@ -105,11 +87,6 @@ public class PresenceService {
 
     public record Point(LocalDate bucket, long activeUsers, long totalUsers) {}
 
-    /**
-     * One point per bucket: distinct non-admin users active in it, and
-     * non-admin accounts that existed by its end. One query, whatever the period.
-     * {@code step} comes from the enum, never from the caller.
-     */
     public List<Point> history(Period period) {
         LocalDate today = LocalDate.now();
         String sql = """

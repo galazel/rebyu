@@ -13,7 +13,6 @@ public interface LearnerCertificationAwardRepository extends JpaRepository<Learn
 
     List<LearnerCertificationAward> findByLearnerIdOrderByCreatedAtDesc(Long learnerId);
 
-    /** Every award held by a set of learners, for rollups that would otherwise ask per learner. */
     List<LearnerCertificationAward> findByLearnerIdIn(Collection<Long> learnerIds);
 
     boolean existsByCertificateNumber(String certificateNumber);

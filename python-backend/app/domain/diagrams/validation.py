@@ -19,22 +19,12 @@ import re
 import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass, field
 
-#: Mirrors Java's `DiagramGraphExtractor.isTextOnlyCell`. A labelled vertex
-#: becomes a REQUIRED element in the mark scheme unless its style marks it
-#: text-only, so annotations that are not part of the answer -- the legend, the
-#: multiplicity labels -- must carry it or the learner is marked down for not
-#: reproducing them.
 _TEXT_ONLY_KEYS = ("text=1", "shape=label", "shape=text")
 
-#: Mirrors Java's `DiagramGradingService.CARDINALITY`. Cardinality is graded
-#: only where the EDGE'S OWN value carries one of these; multiplicity living
-#: only in child label cells is invisible to the grader.
 _CARDINALITY = re.compile(
     r"(?:^|\s)(0\.\.1|1\.\.1|0\.\.\*|1\.\.\*|0\.\.n|1\.\.n|1\.\.m|\*|n|m)(?:\s|$)"
 )
 
-#: A professional-scale model answer. Below this the reference is not wrong,
-#: it is merely thin -- which on a certification paper is its own failure.
 MIN_LABELLED_VERTICES = 4
 MIN_EDGES = 3
 
@@ -80,8 +70,6 @@ def check_reference(xml: str | None) -> DiagramCheck:
             "edges point at cells that do not exist: " + ", ".join(filter(None, dangling))
         )
 
-    # Counted the way the grader counts them: an annotation carrying text=1 is
-    # not a required element, and everything else labelled is.
     graded_vertices = [
         cell for cell in cells
         if cell.get("vertex")
@@ -92,8 +80,6 @@ def check_reference(xml: str | None) -> DiagramCheck:
     edge_cells = [cell for cell in cells if cell.get("edge")]
     edges = len(edge_cells)
 
-    # Annotations that would be marked as answer elements. This is how the
-    # legend and every multiplicity label ended up in the mark scheme.
     stray = [
         (cell.get("value") or "").strip()[:30] for cell in graded_vertices
         if _CARDINALITY.fullmatch((cell.get("value") or "").strip())

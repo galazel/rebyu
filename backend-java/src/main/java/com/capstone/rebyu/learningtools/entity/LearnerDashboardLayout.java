@@ -10,17 +10,6 @@ import lombok.Setter;
 
 import java.time.OffsetDateTime;
 
-/**
- * The order a learner has dragged their analytics tiles into.
- *
- * One row per learner, not per certification: the arrangement is a preference
- * about how they read the page, and having it change under them when they
- * switch certification would read as the page rearranging itself.
- *
- * Stored as the tile ids in order, JSON, rather than as coordinates -- the grid
- * keeps deciding each tile's size and how the whole thing collapses on a phone,
- * so all that has to persist is the sequence.
- */
 @Entity
 @Table(
         name = "learner_dashboard_layouts",
@@ -42,7 +31,6 @@ public class LearnerDashboardLayout {
     @JoinColumn(name = "learner_id", nullable = false, unique = true)
     private Learner learner;
 
-    /** JSON array of tile ids, in the order they should be rendered. */
     @Column(name = "tile_order", nullable = false, columnDefinition = "TEXT")
     private String tileOrder;
 

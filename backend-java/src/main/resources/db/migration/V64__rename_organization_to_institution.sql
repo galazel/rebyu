@@ -1,12 +1,5 @@
--- "Organization" is "institution" everywhere in REBYU. Flyway does not run in
--- this project, so this is applied by hand, immediately before deploying the
--- code that expects the new names. Hibernate's ddl-auto=update would otherwise
--- create empty new tables/columns beside the old ones.
 BEGIN;
 
--- If the renamed code has already booted against this database, ddl-auto
--- created empty stand-ins under the new names. Drop them -- only while they are
--- still empty -- so the real tables and columns can take those names.
 DO $$
 BEGIN
     IF to_regclass('public.organization_certification_learners') IS NOT NULL

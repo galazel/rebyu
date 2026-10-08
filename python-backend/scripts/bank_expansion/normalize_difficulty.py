@@ -58,9 +58,6 @@ def main():
                 "group by 1 order by 2 desc")):
             print("  %-12s %d" % (level, count))
 
-        # Scoped by value rather than by certification: MEDIUM is wrong
-        # wherever it appears, and the expansion scripts wrote it across
-        # several certifications.
         changed = db.execute(text(
             "update public.questions set difficulty_level = 'AVERAGE' "
             " where upper(trim(difficulty_level)) = 'MEDIUM'")).rowcount

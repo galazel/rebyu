@@ -17,7 +17,6 @@ from figures import fig
 MAJOR = "Project Management"
 MIDDLE = "Project Management"
 
-# Lesson 1: Foundations
 
 _found_sections = [
     ("What Makes Something a Project", [
@@ -721,7 +720,6 @@ LESSON_PM_FOUND = lesson(
         ],
     ))
 
-# Lesson 2: Integration management
 
 _integ_sections = [
     ("Holding the Parts Together", [
@@ -1405,7 +1403,6 @@ LESSON_PM_INTEG = lesson(
         ],
     ))
 
-# Lesson 3: Stakeholder management
 
 _stake_sections = [
     ("Who Can Affect the Project", [

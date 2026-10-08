@@ -80,19 +80,7 @@ function formatDuration(minutes) {
   return `${hours} hr ${remainingMinutes} min`
 }
 
-/**
- * One figure from the syllabus, set as a figure.
- *
- * <p>These were three 12px chips with icons, lost along the bottom edge of the
- * old banner. The size of a certification is the first thing a learner wants
- * from this page — how much is there, and how long is it — so the numerals are
- * given the display face at a size you read before the sentence beside them.
- */
 function SyllabusFigure({ value, label }) {
-  /* A word set at numeral size is not a figure, it is a headline that has
-     wandered into a row of them -- "Self-paced" at 36px was half again as wide
-     as the three numbers put together and pulled the whole row to the right.
-     Words step down a size and keep the same baseline. */
   const isNumber = /^\d/.test(String(value))
 
   return (
@@ -109,16 +97,6 @@ function SyllabusFigure({ value, label }) {
   )
 }
 
-/**
- * One step of the actual route through a certification.
- *
- * <p>Numbered because this genuinely is a sequence: the diagnostic decides the
- * path, the path is what you study, and the mock exam is what you sit at the
- * end of it. The four bullets this replaces ("a structured diagnostic
- * assessment to pinpoint your learning gaps immediately") were the same four
- * sentences under every certification in the catalog, which is the definition
- * of copy that has stopped carrying information.
- */
 function RouteStep({ index, icon: Icon, title, children, tone, done }) {
   return (
       <li className="flex min-w-0 gap-3">
@@ -146,7 +124,6 @@ function RouteStep({ index, icon: Icon, title, children, tone, done }) {
 export default function LearnerCertificationDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  // Warm the XP/badge snapshot so an award pops up the moment it is earned.
   useEffect(() => {
     prefetchRewards(queryClient).catch(() => {})
   }, [queryClient])
@@ -190,13 +167,6 @@ export default function LearnerCertificationDetailPage() {
     queryFn: getExamTypes,
   })
 
-  /* No BKT here. This page describes the certification -- what is in it and
-     what it asks of you -- and nothing about how the reader is doing at it.
-     Priority tags, mastery and progress are readings of a learner, they change
-     under the same content from one day to the next, and they already have two
-     homes (the analytics board and My Learning). Carrying them here also meant
-     this page could not be shown to somebody who is not enrolled without
-     showing them an empty version of somebody else's dashboard. */
 
   const publishedDiagnostic = useMemo(() => {
     const typeById = new Map(
@@ -215,8 +185,6 @@ export default function LearnerCertificationDetailPage() {
     )
   }, [certificationId, examsQuery.data, examTypesQuery.data])
 
-  // Enrollment is free: any payment transaction the backend still creates is
-  // confirmed automatically so the learner is enrolled in a single click.
   const enrollMutation = useMutation({
     mutationFn: async () => {
       const transaction = await purchaseCertification(
@@ -236,8 +204,6 @@ export default function LearnerCertificationDetailPage() {
       return transaction
     },
 
-    // Enrolling can unlock "Knowledge Seeker" server-side, so this flow diffs
-    // the portal payload too -- snapshot before, announce after.
     onMutate: () => snapshotRewards(queryClient),
     onSuccess: async (_result, _variables, before) => {
       queryClient.invalidateQueries({
@@ -247,9 +213,6 @@ export default function LearnerCertificationDetailPage() {
       toast.success(
           "You are now enrolled. This certification was added to My Learning."
       )
-      // `silentXp`: enrolling pays no XP, and the "nothing was credited" toast
-      // would contradict the success toast just shown. This also refetches the
-      // portal payload, which is what the invalidate here used to do.
       await announceRewards({
         queryClient,
         before,
@@ -296,14 +259,6 @@ export default function LearnerCertificationDetailPage() {
           (item) => String(item.certificationId) === String(certificationId)
       )
 
-  /* Two pieces of evidence, and the flag is only one of them.
-     `diagnosticCompletedAt` is stamped on whichever enrollment row was active
-     when the diagnostic was submitted, so anything that produces a different
-     active row afterwards -- re-enrolling, an institution re-issuing a seat, a
-     self-enrollment added beside a sponsored one -- leaves a learner who has
-     demonstrably sat it being told to sit it again. Their own submitted result
-     is the fact; the flag is a cache of it, and `hasSatDiagnostic` is the same
-     check the curriculum page gates on. */
   const diagnosticDone =
       Boolean(enrollment?.diagnosticCompletedAt) ||
       hasSatDiagnostic({
@@ -315,9 +270,6 @@ export default function LearnerCertificationDetailPage() {
   const diagnosticRequired =
       enrolled && publishedDiagnostic != null && !diagnosticDone
 
-  /* The same tone the catalog card used for this certification, so opening a
-     card lands on a page in that card's colour instead of on a page that looks
-     the same for every certification. */
   const toneKey = toneForCertification(certification)
   const tone = BUBBLE_TONES[toneKey] ?? BUBBLE_TONES.macaw
 
@@ -369,18 +321,8 @@ export default function LearnerCertificationDetailPage() {
   }
 
   return (
-      /* One white ground, and the certification's colour used as punctuation.
 
-         This page was a ~350px flat blue slab with the title and three 12px
-         chips on it, and everything that mattered below the fold underneath.
-         The slab is gone: the colour is now a rule, the station numerals and
-         the weight bars, which is roughly a sixth of the ink and marks things
-         instead of filling space. What was carrying the page visually is now
-         the display type and the syllabus itself. */
       <div className="rebyu-ds min-h-[calc(100dvh-4rem)] w-full min-w-0 bg-rb-snow pb-20">
-        {/* The layout hands this route the full window (see
-            `isCertificationDetailPage` in learner-layout), so the gutters and
-            the cap are set here and nowhere else. */}
         <div className="mx-auto w-full max-w-[1600px] px-5 lg:px-8">
 
           <div className="flex items-center gap-3 py-6">
@@ -389,9 +331,6 @@ export default function LearnerCertificationDetailPage() {
             </span>
           </div>
 
-          {/* The masthead. The rule down its left edge is the only large piece
-              of colour on the page, and it is 6px wide rather than the width
-              of the window. */}
           <header className="relative border-l-[6px] pl-5 sm:pl-7" style={{ borderColor: tone.solid }}>
             <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
               <p className="rb-eyebrow min-w-0 break-words">
@@ -406,10 +345,6 @@ export default function LearnerCertificationDetailPage() {
               </span>
             </div>
 
-            {/* The title is the hero now. It is set at the size the banner
-                used to occupy, so the page still opens with something large --
-                just something that is the certification's own name rather than
-                a rectangle. */}
             <h1 className="mt-3 max-w-4xl break-words font-rb-display text-[clamp(2rem,5vw,3.75rem)] font-extrabold leading-[1.05] text-rb-eel [overflow-wrap:anywhere]">
               {certification.title}
             </h1>
@@ -444,9 +379,6 @@ export default function LearnerCertificationDetailPage() {
             </div>
           </header>
 
-          {/* The size of the thing, in figures rather than chips. Hairlines
-              rather than boxes: four numbers in a row need separating, not
-              containing. */}
           <div className="mt-10 grid grid-cols-2 gap-y-6 border-y border-rb-swan py-6 sm:grid-cols-4 sm:divide-x sm:divide-rb-swan">
             <div className="sm:pr-6">
               <SyllabusFigure
@@ -461,9 +393,6 @@ export default function LearnerCertificationDetailPage() {
               <SyllabusFigure value={lessonCount} label={lessonCount === 1 ? "lesson" : "lessons"} />
             </div>
             <div className="sm:pl-6">
-              {/* A certification with no authored durations has no hours to
-                  quote, and "Self-paced" is the honest answer rather than a
-                  zero dressed up as one. */}
               {totalMinutes > 0 ? (
                   <SyllabusFigure value={formatDuration(totalMinutes)} label="total length" />
               ) : (
@@ -474,7 +403,6 @@ export default function LearnerCertificationDetailPage() {
 
           <main className="mt-10 grid min-w-0 items-start gap-x-14 gap-y-12 lg:grid-cols-[minmax(0,1.9fr)_minmax(280px,1fr)]">
 
-            {/* THE SYLLABUS SPINE */}
             <div className="min-w-0">
               <div className="mb-6">
                 <h2 className="font-rb-display text-sm font-extrabold lowercase text-rb-eel">
@@ -507,8 +435,6 @@ export default function LearnerCertificationDetailPage() {
                               key={major.majorCategoryId ?? majorIndex}
                               className="relative min-w-0 pb-10 pl-11 last:pb-0 sm:pl-14"
                           >
-                            {/* The rail. It stops at the last station rather
-                                than running off the end of the list. */}
                             {!isLast && (
                                 <span
                                     aria-hidden="true"
@@ -517,7 +443,6 @@ export default function LearnerCertificationDetailPage() {
                                 />
                             )}
 
-                            {/* The station. */}
                             <span
                                 aria-hidden="true"
                                 className="absolute left-0 top-0 grid size-8 place-items-center rounded-full font-rb-display text-sm font-extrabold text-white sm:size-10 sm:text-base"
@@ -530,17 +455,7 @@ export default function LearnerCertificationDetailPage() {
                               {major.title ?? "Untitled"}
                             </h3>
 
-                            {/* The weight of the category, one mark per lesson.
 
-                                This was a filled bar, and a filled bar on a
-                                course page means one thing to a learner: how
-                                far through it they are. A category they had not
-                                opened was drawing a full-width blue bar and
-                                reading as finished. Marks cannot be misread
-                                that way -- there is no "empty" portion to
-                                complete -- and they are countable, so the
-                                heaviest category is obvious at a glance and
-                                exact on a second look. */}
                             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
                               <span
                                   className="flex min-w-0 flex-wrap gap-1"
@@ -642,12 +557,6 @@ export default function LearnerCertificationDetailPage() {
               )}
             </div>
 
-            {/* THE RAIL — the route through, and what it asks of you.
-                Sticky because it explains the shape of the thing you are
-                scrolling. It carries no counts: the figures above already
-                give those, and "12 comprehensive lessons" under a page that
-                has just said 12 is the sentence that made this page feel
-                like a brochure. */}
             <aside className="flex min-w-0 flex-col gap-9 self-start lg:sticky lg:top-6">
               <LearnerAnnouncements certificationId={certificationId} />
 

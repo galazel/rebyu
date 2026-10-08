@@ -3,7 +3,6 @@ package com.capstone.rebyu.execution.dto;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-/** Judge0's per-submission result (base64-encoded text fields). */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record Judge0SubmissionResultDto(
         String stdout,

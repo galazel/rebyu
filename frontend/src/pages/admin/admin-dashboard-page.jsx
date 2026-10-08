@@ -29,18 +29,10 @@ function asArray(value) {
   return Array.isArray(value) ? value : []
 }
 
-/**
- * A number the server could not source is a dash, never a zero.
- *
- * "Nothing has happened yet" and "we could not work it out" are different facts
- * about the platform, and an admin acting on the second while reading the first
- * is exactly the kind of mistake a dashboard should not invite.
- */
 function count(value) {
   return value == null ? "—" : Number(value).toLocaleString()
 }
 
-/** Peso figures, because that is what LearnerOrder.totalAmount is denominated in. */
 function money(value) {
   if (value == null) return "—"
   return new Intl.NumberFormat("en-PH", {
@@ -50,10 +42,6 @@ function money(value) {
   }).format(Number(value))
 }
 
-/* Tiles the 2026-09 redesign removed. A saved arrangement that still names
-   one was made for the old board, and replaying it would scatter the new
-   tiles around the old gaps -- so it gives way to the new default until the
-   admin arranges the board again. */
 const RETIRED_TILES = new Set(["admin-users", "admin-sales", "admin-pass-rate", "admin-partners"])
 
 const PERIODS = [
@@ -62,7 +50,6 @@ const PERIODS = [
   { key: "year", label: "Year", hint: "Each month, last 12 months" },
 ]
 
-/** "2026-09-26" as a local date -- `new Date(string)` would read it as UTC midnight and slip a day west of Greenwich. */
 function localDate(iso) {
   const [year, month, day] = String(iso).split("-").map(Number)
   return new Date(year, (month || 1) - 1, day || 1)
@@ -75,7 +62,6 @@ function bucketLabel(iso, period) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
 }
 
-/** Week / Month / Year switch for the user activity graph. */
 function PeriodSwitch({ value, onChange }) {
   return (
     <div role="group" aria-label="Time range" className="inline-flex gap-1 rounded-rb-control border-2 border-border p-1">
@@ -99,18 +85,12 @@ function PeriodSwitch({ value, onChange }) {
 }
 
 export default function AdminDashboard() {
-  /* One aggregate call for every counter. The page used to fetch six global
-     lists in full and count them in the browser; these are COUNT/SUM queries
-     that stay the same size as the platform grows. */
   const metricsQuery = useQuery({
     queryKey: ["admin-platform-metrics"],
     queryFn: getPlatformMetrics,
     retry: 1,
   })
 
-  /* Who is online, and active users over the chosen range. Polled, because
-     "right now" is the whole point of the number; the old range stays on
-     screen while a new one loads so the graph does not blink out. */
   const [period, setPeriod] = useState("week")
   const presenceQuery = useQuery({
     queryKey: ["admin-presence", period],
@@ -120,7 +100,6 @@ export default function AdminDashboard() {
     retry: 1,
   })
 
-  /* The partnership feed needs rows rather than counts, so it stays a list read. */
   const partnershipsQuery = useQuery({
     queryKey: ["partnership-requests"],
     queryFn: () => base("partnership-requests"),
@@ -149,8 +128,6 @@ export default function AdminDashboard() {
   )
   const activityPeak = Math.max(4, ...activity.map((row) => Math.max(row.active, row.total)))
 
-  /* Six calendar months, oldest first, labelled "Apr", "May"... The server
-     zero-fills quiet months so a line never jumps a gap. */
   const trends = useMemo(
     () =>
       asArray(metrics.trends).map((row) => {
@@ -181,9 +158,6 @@ export default function AdminDashboard() {
     [planMix]
   )
 
-  /* Everyone who actually paid, whichever way: certification orders and Pro
-     subscriptions in one feed, newest first. A ₱0 order (a free certification)
-     is an enrollment, not a payment, so it is left out. */
   const recentPayments = useMemo(() => {
     const orders = asArray(metrics.recentPayments)
       .filter((order) => Number(order.amount ?? 0) > 0)
@@ -215,9 +189,6 @@ export default function AdminDashboard() {
     [metrics.learnersPerCertification]
   )
 
-  /* Donut slices are dropped when zero rather than drawn as an invisible wedge
-     with a legend entry -- a legend listing a category that contributes nothing
-     reads as a rendering fault. */
   const catalogMix = useMemo(() => {
     const published = Number(catalog.publishedCertifications ?? 0)
     const draft = Math.max(Number(catalog.certifications ?? 0) - published, 0)
@@ -235,17 +206,6 @@ export default function AdminDashboard() {
     [partnershipsQuery.data]
   )
 
-  /**
-   * The screen, as a spreadsheet.
-   *
-   * Every section is a tile above, in the order the tiles read, so an admin
-   * who exports can point at a row and find the chart it came from. Feeds go
-   * out at the length they are shown, and the user activity section is the
-   * range currently selected on the graph.
-   *
-   * Numbers go out bare -- no peso sign, no thousands separator -- because a
-   * formatted figure lands in a spreadsheet as text and will not sum.
-   */
   const buildCsv = () => {
     const range = PERIODS.find((option) => option.key === (presence?.period ?? period))
     return toCsv([
@@ -340,13 +300,6 @@ export default function AdminDashboard() {
     ])
   }
 
-  /* Placed by coordinate in even six-column bands, each a wide chart beside a
-     narrow one, so the board reads as rows rather than a scatter:
-       y0  user activity (4, 3 tall)  | online now / on a certification / Pro revenue (2, stacked)
-       y3  learners per cert (4)      | learner plans (2)
-       y5  revenue (4)                | catalog (2)
-       y7  platform activity (4)      | billing (2)
-       y9  learners who paid (4)      | partnership requests (2) */
   const tiles = useMemo(() => {
     const failed = metricsQuery.isError
     const range = PERIODS.find((option) => option.key === period)
@@ -420,8 +373,6 @@ export default function AdminDashboard() {
             icon={GraduationCapIcon}
             label="Taking a certification"
             value={failed ? "—" : count(people.learnersInCertification)}
-            // Distinct people, not enrollment rows: one learner can hold several
-            // active certifications, and conflating the two overstates the roll.
             hint={failed ? "Could not be loaded" : `${count(people.activeEnrollments)} active enrollments`}
           />
         ),
@@ -652,8 +603,6 @@ export default function AdminDashboard() {
               ) : recentPayments.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No paid purchases or Pro subscriptions yet.</p>
               ) : (
-                /* A wide tile would strand a single column of rows in white
-                   space, so the feed splits into two tracks once there is room. */
                 <ul className="-mr-2 grid min-h-0 flex-1 grid-cols-1 content-start gap-x-6 overflow-y-auto pr-2 lg:grid-cols-2">
                   {recentPayments.map((payment) => (
                     <li
@@ -792,9 +741,6 @@ export default function AdminDashboard() {
       />
 
       <div className="flex flex-wrap items-center justify-end gap-3">
-        {/* Disabled until the numbers are actually in hand: a CSV exported
-            mid-load would be a file full of blanks that reads like a platform
-            with nothing on it. */}
         <Button
           variant="outline"
           onClick={() => downloadCsv(timestampedFilename("rebyu-admin-dashboard"), buildCsv())}

@@ -72,7 +72,6 @@ import { GeneratedQuizArena } from "@/components/practice/generated-quiz-arena.j
 import { AdaptiveAttemptRunner } from "@/components/assessments/attempt/adaptive-attempt-runner.jsx"
 import { describeCountdown, formatCountdown } from "@/lib/countdown.js"
 
-// Serializes one local answer into the backend AttemptAnswerDraftDto shape.
 function toDraftDto(attemptQuestionId, answer) {
   const subAnswers = answer.subAnswers ?? {}
   const hasSubs = Object.values(subAnswers).some((text) => text?.trim())
@@ -93,8 +92,6 @@ function isMultipleChoice(question) {
   return type === "MULTIPLE_CHOICE" || type === "MCQ"
 }
 
-// Type badges use the design system accents, matching the landing hero:
-// Macaw for code, Beetle for diagram, Bee for open-ended written work.
 const QUESTION_TYPE_STYLES = {
   MULTIPLE_CHOICE: {
     label: "Multiple Choice",
@@ -195,11 +192,6 @@ function isAnswered(question, answer) {
         Object.values(answer.subAnswers ?? {}).some((text) => text?.trim())
     )
   }
-  /* Any question whose answer lives in its parts, not one box.
-     A fill-in-the-blank is a SHORT_ANSWER whose blanks are sub-questions, so
-     checking `learnerAnswer` alone reported a fully answered one as empty --
-     greyed out in the navigator, and counted in the "you have unanswered
-     questions" warning on the way to submitting it. */
   if ((question.subQuestions ?? []).length > 0) {
     return Object.values(answer.subAnswers ?? {}).some((text) => text?.trim())
   }
@@ -268,9 +260,6 @@ function NormalQuestionPanel({ question, index, answer, onAnswer }) {
                   <label
                       key={choice.choiceId ?? choiceIndex}
                       className={cn(
-                          // Large tactile target with a solid lip, matching the
-                          // answer options on the landing hero. Selection changes
-                          // colour only, so the box never resizes under the tap.
                           "flex min-h-16 cursor-pointer items-start gap-3 rounded-2xl border-2 p-4 transition",
                           "active:translate-y-[3px] active:shadow-none",
                           answer?.selectedChoiceId === choice.choiceId
@@ -290,10 +279,6 @@ function NormalQuestionPanel({ question, index, answer, onAnswer }) {
                   </span>
                   {choice.choiceText}
                 </span>
-                      {/* Through AuthedImage like every other figure: a raw
-                          `<img src={getFileViewUrl(...)}>` carries no
-                          Authorization header, so this choice's picture was
-                          always a broken glyph. */}
                       <AuthedImage
                           imageKey={choice.imageKey}
                           className="mt-2 max-h-40 w-auto rounded-lg border"
@@ -305,17 +290,7 @@ function NormalQuestionPanel({ question, index, answer, onAnswer }) {
             </RadioGroup>
         ) : question.questionType === "SHORT_ANSWER" &&
             (question.subQuestions ?? []).length > 0 ? (
-            /* Fill in the blank: the stem is a passage with (A), (B), (C)
-               blanked and a candidate list under it, and each blank is a
-               sub-question with its own answer.
 
-               Rendered here rather than in the workspace panel because that
-               one is the three-column critical-thinking layout with a diagram
-               canvas -- vastly too much for typing three words. Without this
-               branch a fill-in-the-blank fell through to ONE answer box, so
-               the blanks were invisible and every one of them was marked
-               wrong: sub-question rendering was gated on CRITICAL_THINKING,
-               which this is not. */
             <div className="space-y-3">
               <Label>Your answers</Label>
               {question.subQuestions.map((sub) => (
@@ -377,7 +352,6 @@ function NormalQuestionPanel({ question, index, answer, onAnswer }) {
 function WorkspaceQuestionPanel({ question, index, answer, onAnswer }) {
   const format = question.criticalThinkingType ?? "TEXT"
 
-  // Seed starter code once, unless the learner already typed something.
   useEffect(() => {
     if (
         format === "PROGRAMMING" &&
@@ -492,12 +466,8 @@ export default function LearnerAssessmentAttemptPage() {
   const arenaId = searchParams.get("arena")
   const matchId = searchParams.get("matchId")
   const navigate = useNavigate()
-  /* Where the learner opened this attempt from. Forwarded to the results page
-     below so "continue learning" can return them to the topic they were
-     reading rather than to the certification's roadmap. */
   const location = useLocation()
   const queryClient = useQueryClient()
-  // Warm the XP/badge snapshot so an award pops up the moment it is earned.
   useEffect(() => {
     prefetchRewards(queryClient).catch(() => {})
   }, [queryClient])
@@ -512,7 +482,6 @@ export default function LearnerAssessmentAttemptPage() {
   const learnerId =
       identity.learnerId ?? currentLearnerQuery.data?.learnerId ?? null
 
-  // Server-driven attempt state
   const [attempt, setAttempt] = useState(null)
   const [startError, setStartError] = useState(null)
   const startedRef = useRef(false)
@@ -533,7 +502,6 @@ export default function LearnerAssessmentAttemptPage() {
   const warnedRef = useRef({ ten: false, one: false })
   const autoSubmittedRef = useRef(false)
 
-  // Start / resume the attempt on the server
   useEffect(() => {
     if (learnerId == null || startedRef.current) return
     startedRef.current = true
@@ -547,7 +515,6 @@ export default function LearnerAssessmentAttemptPage() {
     startAssessmentAttempt(examId, learnerId, idempotencyKey, questionIndex, matchId ? Number(matchId) : null)
         .then((response) => {
           setAttempt(response)
-          // Rehydrate saved draft answers when resuming.
           const rehydrated = {}
           Object.values(response.savedAnswers ?? {}).forEach((draft) => {
             let subAnswers
@@ -568,7 +535,6 @@ export default function LearnerAssessmentAttemptPage() {
             }
           })
           setAnswers(rehydrated)
-          // Restore per-item flag/skip state and the last-viewed item.
           setFlagged(new Set(response.flaggedAttemptQuestionIds ?? []))
           setSkipped(new Set(response.skippedAttemptQuestionIds ?? []))
           if (response.currentAttemptQuestionId != null) {
@@ -593,17 +559,11 @@ export default function LearnerAssessmentAttemptPage() {
 
   const questions = attempt?.questions ?? []
 
-  // The attempt owns the viewport: it is h-dvh with its own internal scroll
-  // areas, so the document must not scroll behind it. Without this the wheel
-  // scrolled the document instead of the question column, carrying the header
-  // -- timer, Finish Attempt -- off the top of the screen. Released on unmount
-  // so every other page scrolls normally.
   useEffect(() => {
     document.body.classList.add("rb-attempt-lock")
     return () => document.body.classList.remove("rb-attempt-lock")
   }, [])
 
-  // Debounced autosave of dirty answers
   useEffect(() => {
     if (!attempt) return
     const interval = setInterval(() => {
@@ -621,7 +581,6 @@ export default function LearnerAssessmentAttemptPage() {
       autosaveAttemptAnswers(attempt.assessmentAttemptId, learnerId, payload)
           .then(() => setSaveStatus("saved"))
           .catch(() => {
-            // Keep local answers; retry on the next tick.
             dirtyIds.forEach((id) => dirtyRef.current.add(id))
             setSaveStatus("error")
           })
@@ -637,7 +596,6 @@ export default function LearnerAssessmentAttemptPage() {
     dirtyRef.current.add(attemptQuestionId)
   }, [])
 
-  // Timer from the server-issued expiry
   useEffect(() => {
     if (!attempt?.expiresAt) return
     const endAt = new Date(attempt.expiresAt).getTime()
@@ -668,10 +626,6 @@ export default function LearnerAssessmentAttemptPage() {
     return () => window.removeEventListener("beforeunload", handler)
   }, [])
 
-  /* A diagnostic sets the order of the whole study plan, so it is only
-     submitted once every question has an answer (the server enforces the same
-     rule). A paper whose time ran out is the exception: nothing more can be
-     answered, so it goes in as it is. */
   const isDiagnostic = String(attempt?.assessmentType ?? "").toUpperCase() === "DIAGNOSTIC"
   const isChallenge = String(attempt?.assessmentType ?? "").toUpperCase() === "CHALLENGE"
   const isWorldCupChallenge = false
@@ -687,8 +641,6 @@ export default function LearnerAssessmentAttemptPage() {
     return set
   }, [questions, answers])
 
-  // Rich per-item model for the navigator (points, sub-question completion,
-  // answered/skipped/flagged), derived from persisted + local state.
   const navItems = useMemo(
       () =>
           questions.map((question) => {
@@ -712,23 +664,13 @@ export default function LearnerAssessmentAttemptPage() {
       [questions, answers, answeredIds, skipped, flagged]
   )
 
-  /* Figures for the item on screen and the few after it.
-     A figure fetched only when its question is opened arrives a beat after
-     the stem, which on a running clock is a question the learner starts
-     answering before they can see what it is about. Ahead, not the whole
-     paper: a 60-item past paper is 60 scans, and firing them at once starves
-     the one actually being read. */
   useEffect(() => {
     prefetchAuthedMedia(
         questions.slice(currentIndex, currentIndex + 4).flatMap(questionMediaKeys)
     )
   }, [questions, currentIndex])
 
-  // Persist the last-viewed item (debounced) so a refresh resumes in place.
   useEffect(() => {
-    /* An adaptive attempt's current item is the engine's to set; writing
-       the page's own index over it would point the server back at item 1
-       and reject every answer after it. */
     if (!attempt || attempt.adaptive || !questions[currentIndex]) return
     const attemptQuestionId = questions[currentIndex].attemptQuestionId
     const timeout = setTimeout(() => {
@@ -793,36 +735,15 @@ export default function LearnerAssessmentAttemptPage() {
           payload
       )
     },
-    // Taken before the submission, and it loads the portal payload if this page
-    // never did -- this route renders outside LearnerLayout, so on a direct
-    // load there is otherwise nothing cached to diff against.
     onMutate: () => snapshotRewards(queryClient),
     onSuccess: (result, _variables, before) => {
       sessionStorage.removeItem(`rebyu-attempt-key-${examId}-${learnerId}`)
 
-      /* The submit response IS the result. Seeding the result page's query
-         with it means that page renders the moment it mounts instead of
-         opening on a skeleton and asking the server for the review it was
-         just handed -- a second full grade-review round trip, on the slowest
-         endpoint in the engine, for data already in this browser. The key
-         must match learner-assessment-result-page.jsx exactly, and attemptId
-         is a route param there, so it is seeded as a string. */
       queryClient.setQueryData(
         ["attempt-result", String(result.assessmentAttemptId), learnerId],
         result
       )
 
-      /* Navigate first, then settle the rest.
-       *
-       * These refetches -- the portal payload behind the XP counter and the
-       * diagnostic gate, the analytics board, the streak -- were all awaited
-       * before navigating, so the learner sat on the grading screen through
-       * three more round trips after their score already existed. None of
-       * them feeds the results page: the portal payload belongs to the app
-       * shell and the analytics board to a page they are not on. The XP modal
-       * is hosted at the app root and so survives this navigation, which is
-       * what lets the announcement land after it.
-       */
       const challengeType = String(attempt?.assessmentType ?? "").toUpperCase() === "CHALLENGE"
       if (challengeType && matchId) {
         import("@/services/challengeService.js").then(({ reportWorldCupScore }) => {
@@ -852,22 +773,11 @@ export default function LearnerAssessmentAttemptPage() {
           fallback: "You had already earned the XP for this assessment.",
         }).catch(() => {})
       }
-      // Refresh the analytics view so mastery/scores reflect this attempt
-      // without the learner needing to log out or clear cache.
       queryClient.invalidateQueries({
         queryKey: ["learner-progress-analytics", String(result.certificationId)],
       })
       queryClient.invalidateQueries({ queryKey: ["learner-streak"] })
-      /* The portal payload carries `examResults`, and the curriculum reads its
-         locks from those: a lesson opens when the one before it has been
-         CLEARED. Without this the learner passes a quiz, returns to the topic,
-         and finds the next lesson still shut with "its quiz: not passed yet" --
-         because the shell is still holding the results from before the attempt
-         they just sat. It resolved itself after the 30s staleTime, which is
-         worse than failing outright: it looks like the gate is broken.
 
-         Not awaited, for the reason the comment above gives -- the learner is
-         already on the results page and nothing there reads this. */
       queryClient.invalidateQueries({ queryKey: ["learner-portal-data"] })
     },
     onError: (error) => {
@@ -878,8 +788,6 @@ export default function LearnerAssessmentAttemptPage() {
     },
   })
 
-  // Server clock reached zero: lock editing and submit automatically once,
-  // flushing whatever answers are held locally.
   useEffect(() => {
     if (timeUp && attempt && !autoSubmittedRef.current) {
       autoSubmittedRef.current = true
@@ -888,23 +796,9 @@ export default function LearnerAssessmentAttemptPage() {
     }
   }, [timeUp, attempt, submitMutation])
 
-  // Render states
 
-  /* Submission grades the whole attempt server-side before it answers: string
-     and structural marking, an AI pass over any written answers, and Judge0
-     over any code that was never Checked. That is real work and it is not
-     instant, so the wait gets the product's own loading screen rather than a
-     disabled button and a frozen paper.
 
-     Placed above every other render state deliberately. The queries backing
-     this page are invalidated inside the mutation's `onSuccess`, so leaving the
-     attempt UI mounted meant it briefly re-rendered against refetching data on
-     its way out; this replaces the screen for the whole of the submit instead.
 
-     It also covers `isSuccess`, not just `isPending`: navigation to the result
-     happens after several awaited refetches, and without that the finished
-     paper flashes back for a beat between the grading finishing and the result
-     page arriving. */
   if (submitMutation.isPending || submitMutation.isSuccess) {
     return <LoadingSignal messages={GRADING_MESSAGES} />
   }
@@ -916,7 +810,6 @@ export default function LearnerAssessmentAttemptPage() {
             <p className="font-medium">Assessment unavailable</p>
             <p className="mt-1 text-sm text-muted-foreground">{startError}</p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
-              {/* Retakes, mock exams and World Cup are Pro; say so with a way in. */}
               {/REBYU Pro/.test(startError) ? (
                 <Button onClick={() => navigate("/learner/subscription")}>Upgrade to Pro</Button>
               ) : null}
@@ -926,32 +819,12 @@ export default function LearnerAssessmentAttemptPage() {
     )
   }
 
-  /* Opening an attempt gets the same screen as submitting one, for the same
-     reason: the wait is the server doing real work, not a list arriving. The
-     skeleton this replaces outlined a heading, a box and a bar — a layout the
-     page does not have until the questions are known, so it promised the wrong
-     shape and then rearranged itself into the real one. */
   if (!attempt) {
-    // The attempt's own shape, not a boot animation: same header, same padded
-    // workspace, same 288px navigator, same footer, so the arriving paper fills
-    // the frame in rather than replacing it.
     return <AttemptSkeleton />
   }
 
   const currentQuestion = questions[currentIndex]
 
-  /* Which workspace this item needs, from either way a question can say so.
-   *
-   * Older questions are typed CRITICAL_THINKING and carry the specialism in
-   * `criticalThinkingType`; the question bank's editors type them PROGRAMMING
-   * or DIAGRAM outright. Both are real and both are in the database.
-   *
-   * This used to require CRITICAL_THINKING *and* the subtype, so a directly
-   * typed question fell through to the plain answer box: a coding problem was
-   * sat by typing prose into a textarea, with no editor, no test cases and no
-   * canvas -- while its badge still read "Programming". The backend was already
-   * right, deriving the specialism from whether a programming or diagram config
-   * exists, which is the fact that actually decides what the item needs. */
   const workspaceKind =
       currentQuestion?.criticalThinkingType
       ?? (currentQuestion?.questionType === "PROGRAMMING"
@@ -962,8 +835,6 @@ export default function LearnerAssessmentAttemptPage() {
   const isProgramming = workspaceKind === "PROGRAMMING"
   const isDiagram = workspaceKind === "DIAGRAM"
 
-  /* A critical-thinking item that is neither -- no programming or diagram
-     config behind it -- still gets its own panel rather than the plain one. */
   const isWorkspace = currentQuestion?.questionType === "CRITICAL_THINKING"
   const currentAnswer = currentQuestion
       ? answers[currentQuestion.attemptQuestionId]
@@ -980,21 +851,6 @@ export default function LearnerAssessmentAttemptPage() {
       />
   )
 
-  /* The tutor's generated quiz is played, not sat.
-   *
-   * Everything below this line -- item navigator, flags, skips, the exam-hall
-   * chrome -- is what a mock exam or a certification assessment needs, and it
-   * is furniture around a ten-question warm-up generated from one lesson. The
-   * arena is the same attempt on the same endpoints, so autosave, resume and
-   * submission are unchanged; only the frame is.
-   *
-   * Every other assessment type keeps the formal runner. A diagnostic or a
-   * mock exam is a paper the learner is meant to work through at their own
-   * pace, revisiting flagged items -- a per-question countdown would change
-   * what the score means. */
-  /* An adaptive assessment is not a paper: the engine serves one question at
-     a time and the runner below walks it. Start, timer and submit are the
-     page's, as for every other runner; only the frame differs. */
   if (attempt.adaptive) {
     return (
         <AdaptiveAttemptRunner
@@ -1005,8 +861,6 @@ export default function LearnerAssessmentAttemptPage() {
             onFinish={() => {
               if (!submitMutation.isPending && !submitMutation.isSuccess) submitMutation.mutate()
             }}
-            /* Straight out: the attempt is saved server-side after every
-               answer and reopens at the same question. */
             onLeave={() => navigate(-1)}
             isSubmitting={submitMutation.isPending || submitMutation.isSuccess}
             toDraftDto={toDraftDto}
@@ -1023,18 +877,12 @@ export default function LearnerAssessmentAttemptPage() {
             questions={questions}
             answers={answers}
             onAnswer={setAnswer}
-            /* The arena asks the server what it made of a locked choice. It
-               is given the call rather than the learner id so the runner
-               stays unaware of identity -- it only knows how to ask. */
             onCheckChoice={(attemptQuestionId, selectedChoiceId) =>
               checkChoiceAnswer(attempt.assessmentAttemptId, attemptQuestionId, learnerId, selectedChoiceId)
             }
             currentIndex={currentIndex}
             onIndexChange={setCurrentIndex}
             onFinish={() => submitMutation.mutate()}
-            /* Straight out, no "are you sure": the confirmation dialog lives
-               in the runner below, and the attempt is autosaved and resumable
-               -- coming back re-opens it where it was left. */
             onLeave={() => navigate(-1)}
             isSubmitting={submitMutation.isPending}
             remainingSeconds={remainingSeconds}
@@ -1044,7 +892,6 @@ export default function LearnerAssessmentAttemptPage() {
 
   return (
       <div className="rebyu-ds flex h-dvh flex-col overflow-hidden bg-rb-polar">
-        {/* Window chrome, matching the workspace shown on the landing hero. */}
         <header className="shrink-0 border-b-2 border-rb-swan bg-rb-snow">
           <div className="flex h-16 items-center justify-between gap-2 px-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-3">
@@ -1074,18 +921,7 @@ export default function LearnerAssessmentAttemptPage() {
 
           <div className="flex items-center gap-3">
             <SaveStatusIndicator status={saveStatus} />
-            {/* The timer escalates Wolf -> Fox -> Cardinal, and stays still
-                for all but the last minute of it: this is the most stressful
-                screen in the product, so for 99% of the attempt the clock
-                reports rather than nags.
 
-                The final minute is the exception. A learner heads-down in a
-                code editor or a diagram canvas is not looking at the top-right
-                corner, and by then the difference between noticing and not is
-                the difference between submitting and being submitted for. The
-                pill breathes and a ring expands out of it -- motion in the
-                periphery, while the numerals themselves stay put and readable.
-                `prefers-reduced-motion` stills both (see rebyu-ds.css). */}
             {remainingSeconds != null ? (
                 <span
                     className={cn(
@@ -1141,13 +977,7 @@ export default function LearnerAssessmentAttemptPage() {
           </div>
           </div>
 
-          {/* Attempt progress, sat on the header's own bottom edge.
 
-              It counts answered items rather than the item you happen to be
-              looking at: skipping ahead is normal on an exam, and a rail that
-              filled with the cursor would report progress the learner has not
-              made. The pair reads together -- "Question 4 of 10" above says
-              where you are, the rail says how much is done. */}
           <div
               className="h-1.5 w-full bg-rb-swan"
               role="progressbar"
@@ -1183,10 +1013,6 @@ export default function LearnerAssessmentAttemptPage() {
                       editingLocked && "pointer-events-none opacity-70"
                   )}
               >
-                {/* No meta strip above the workspace. `ProgrammingQuestionLayout`
-                    carries the item number, difficulty, points and type at the
-                    head of its own problem column -- a second full-width header
-                    restated column one and pushed the editor down. */}
                 <div className="min-h-0 flex-1 overflow-hidden">
                   <ProgrammingQuestionLayout
                       key={currentQuestion.attemptQuestionId}
@@ -1206,14 +1032,7 @@ export default function LearnerAssessmentAttemptPage() {
               </div>
           ) : isDiagram && currentQuestion ? (
               <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                {/* Same as programming: the meta belongs at the head of the
-                    problem column, not in a header above the canvas. */}
                 <div className="min-h-0 flex-1 overflow-hidden">
-                  {/* No `key` here on purpose: remounting this layout would
-                      also remount the draw.io iframe, re-downloading the whole
-                      editor on every question step. The layout resets its own
-                      question-scoped state, and DiagramArea swaps documents
-                      in place via `documentId`. */}
                   <DiagramQuestionLayout
                       question={currentQuestion}
                       index={currentIndex}
@@ -1264,9 +1083,6 @@ export default function LearnerAssessmentAttemptPage() {
                   ) : null}
                 </main>
 
-                {/* w-72, not w-64: the navigator is a fixed five columns, and
-                    five cards plus their gaps need 288px here to keep each
-                    card's points and flag badge unclipped. */}
                 {!isSingleProblemChallenge && (
                   <aside className="hidden min-h-0 w-72 shrink-0 overflow-hidden rounded-2xl border bg-background p-4 lg:block">
                     {navigatorPanel}
@@ -1414,9 +1230,6 @@ export default function LearnerAssessmentAttemptPage() {
           )}
         </footer>
 
-        {/* `rebyu-ds` is repeated on every dialog surface below: Radix portals
-            content to <body>, which sits outside the page's scope wrapper, so
-            without it none of the `.rebyu-ds`-scoped tactile rules resolve. */}
         <AlertDialog open={leaveOpen} onOpenChange={setLeaveOpen}>
           <AlertDialogContent className="rebyu-ds">
             <AlertDialogHeader>
@@ -1461,10 +1274,6 @@ export default function LearnerAssessmentAttemptPage() {
                     </dd>
                     <dt className="text-muted-foreground">Flagged</dt>
                     <dd className="text-right tabular-nums">{flagged.size}</dd>
-                    {/* Outcome-based and topped up across retakes, so the
-                        exact award depends on how this attempt scores -- the
-                        toast after submission reports what was actually
-                        credited. */}
                     <dt className="text-muted-foreground">XP on completion</dt>
                     <dd className="text-right tabular-nums">
                       {ASSESSMENT_XP.attempted}–{ASSESSMENT_XP.perfect} XP

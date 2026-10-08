@@ -3,25 +3,6 @@ import {
   formatDateTime,
 } from "@/components/institution/institution-ui.jsx"
 
-/**
- * One invoice, as a document.
- *
- * The same markup on screen and on paper, because "Save as PDF" here is the
- * browser's own print — and a print of a *page* is what it used to produce:
- * two sheets carrying the portal's navigation, a toast, and three rounded
- * cards laid out for a 1337px viewport. A document does not have a navigation
- * bar, so this is not the screen with things hidden; it is an invoice that the
- * screen also happens to show.
- *
- * Kept free of anything interactive. The Pay button, the status of the
- * verification round trip and the retry affordances all live on the page
- * around it -- none of them mean anything once printed, and a document that
- * renders differently depending on what the server last said is not one you
- * can file.
- *
- * Takes any invoice in the shape InstitutionInvoiceService returns, so a
- * second kind of invoice later prints identically without a second template.
- */
 
 function money(value, currency = "PHP") {
   if (value == null) return "—"
@@ -32,7 +13,6 @@ function money(value, currency = "PHP") {
   })
 }
 
-/** A label above its value, the unit this document is built from. */
 function Field({ label, children }) {
   if (children == null || children === "") return null
   return (
@@ -58,7 +38,6 @@ export default function InvoiceDocument({ invoice }) {
 
   return (
     <article className="rb-invoice-doc" aria-label={`Invoice ${invoice.invoiceNumber}`}>
-      {/* Letterhead */}
       <header className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-[color:var(--rb-invoice-rule)] pb-5">
         <div>
           <p className="font-rb-display text-2xl font-black tracking-[0.04em] text-[color:var(--rb-invoice-accent)]">
@@ -75,8 +54,6 @@ export default function InvoiceDocument({ invoice }) {
           <p className="font-mono text-base font-bold text-[color:var(--rb-invoice-ink)]">
             {invoice.invoiceNumber}
           </p>
-          {/* The one piece of status worth carrying onto paper: whether this
-              has been settled. Everything else about payment is transient. */}
           <p
             className={`mt-1.5 inline-block rounded border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.14em] ${
               paid
@@ -89,7 +66,6 @@ export default function InvoiceDocument({ invoice }) {
         </div>
       </header>
 
-      {/* Who and when */}
       <section className="grid gap-5 border-b border-[color:var(--rb-invoice-rule)] py-5 sm:grid-cols-[1.2fr_1fr]">
         <div>
           <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[color:var(--rb-invoice-muted)]">
@@ -116,7 +92,6 @@ export default function InvoiceDocument({ invoice }) {
         </dl>
       </section>
 
-      {/* What for */}
       <table className="w-full border-collapse text-[13px]">
         <caption className="pb-2 pt-4 text-left text-[9px] font-bold uppercase tracking-[0.12em] text-[color:var(--rb-invoice-muted)]">
           {slots} learner slot{slots === 1 ? "" : "s"} across {items.length}{" "}
@@ -159,7 +134,6 @@ export default function InvoiceDocument({ invoice }) {
         </tbody>
       </table>
 
-      {/* What it comes to */}
       <dl className="ml-auto mt-4 grid w-full max-w-[17rem] grid-cols-2 gap-y-1.5 text-[13px]">
         <dt className="text-[color:var(--rb-invoice-muted)]">Subtotal</dt>
         <dd className="text-right tabular-nums text-[color:var(--rb-invoice-ink)]">

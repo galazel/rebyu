@@ -17,10 +17,10 @@ public class AuditLog {
   private Long logId;
 
   private Long userId;
-  private String action; // CREATE, UPDATE, DELETE, LOGIN, etc.
-  private String entityType; // USER, ORG, ASSESSMENT, etc.
+  private String action;
+  private String entityType;
   private Long entityId;
-  private String details; // JSON representation of changes
+  private String details;
   private LocalDateTime timestamp;
   private String ipAddress;
 }

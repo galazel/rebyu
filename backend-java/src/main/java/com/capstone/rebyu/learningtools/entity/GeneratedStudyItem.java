@@ -27,7 +27,6 @@ public class GeneratedStudyItem {
     @JoinColumn(name = "study_set_id", nullable = false)
     private GeneratedStudySet studySet;
 
-    /** MCQ | SHORT_ANSWER | CRITICAL_THINKING | FLASHCARD (see V30 CHECK constraint). */
     @Column(name = "item_type", nullable = false, length = 32)
     private String itemType;
 
@@ -48,7 +47,6 @@ public class GeneratedStudyItem {
     @Column(columnDefinition = "TEXT")
     private String explanation;
 
-    /** EASY | AVERAGE | HARD (see V30 CHECK constraint). */
     @Column(length = 16)
     private String difficulty;
 

@@ -37,15 +37,10 @@ function Certifications() {
     refetch,
   } = useQuery({
     queryKey: ["admin-certifications"],
-    // Admins see the coming-soon placeholders too, to build them out.
     queryFn: () => getAllCertifications(undefined, { includeComingSoon: true }),
     staleTime: 1000 * 60 * 5,
   })
 
-  // A generation keeps running after its workspace is closed, so the list asks
-  // the run registry which certifications are still being built rather than
-  // inferring it from the certification rows — which look complete from the
-  // moment the shell is created.
   const { byCertificationId: activeGenerations } = useActiveGenerations()
 
   const filteredCertifications = useMemo(() => {
@@ -59,15 +54,6 @@ function Certifications() {
   }, [items, chosenIndustry])
 
   async function handleCertificationSaved(savedCertification) {
-    /* Mark it generating BEFORE the list refetches, so the card is already in
-       its building state the moment the drawer closes.
-       
-       Without this there is a gap -- Java has queued the message, but the
-       Python consumer has not registered the run and this page polls for runs
-       only every ten seconds -- during which a certification that is about to
-       build looks like an idle empty draft. That gap is not cosmetic: it is
-       what led to a certification being deleted moments after its generation
-       was started, on the reasonable assumption that nothing had happened. */
     const certificationId =
         savedCertification?.certificationId ?? savedCertification?.id
 
@@ -105,9 +91,6 @@ function Certifications() {
   }
 
   return (
-      /* No outer padding here: `.rebyu-page` in index.css already supplies the
-         page gutter, and adding a second one indented the grid away from every
-         other admin page. */
       <section className="flex flex-col gap-6">
         <header className="rebyu-page-header">
           <div className="min-w-0">

@@ -236,9 +236,6 @@ def _size_section(settings) -> str:
     asking it for one is a contradiction it resolves by ignoring one of them.
     """
     if settings.curriculum_autosize:
-        # No counts at all. Naming a range here would anchor the model to it
-        # regardless of what the document holds, which is the whole thing this
-        # mode exists to avoid.
         lines = [
             "A curriculum is the whole certification, not a sample of it.",
             "",
@@ -287,13 +284,6 @@ def _size_section(settings) -> str:
             "every Middle Category at least one Lesson.",
         ]
 
-        # The qualitative push above is not enough on its own. Measured on a
-        # real run: told to prioritise and merge but given no number, the
-        # planner still produced more than thirty lessons and had its tail
-        # trimmed. Trimming loses material silently; a stated ceiling makes the
-        # model do the consolidating itself, which is the whole point. This is
-        # a LIMIT, not a target -- the wording has to stop it treating the
-        # number as a quota to fill.
         cap = settings.curriculum_autosize_max_lessons
         if cap > 0:
             lines += [
@@ -336,9 +326,6 @@ def _size_section(settings) -> str:
 
 
 def build_system_prompt() -> str:
-    # `.replace`, not `.format`: the template is full of literal JSON braces
-    # showing the model the shapes to emit, and every one would have to be
-    # doubled to survive formatting.
     return _PROMPT_TEMPLATE.replace("{size}", _size_section(get_settings()))
 
 

@@ -28,11 +28,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Centralized institutional (B2B) entitlement + capacity authority. Everything
- * derives from the institution's active license and validated usage counts —
- * never from stored counters the caller supplies.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -50,7 +45,6 @@ public class InstitutionalEntitlementService {
         return licenseRepository.findFirstByInstitution_InstitutionIdOrderByCreatedAtDesc(institutionId);
     }
 
-    /** The most recent license that currently grants access, if any. */
     @Transactional(readOnly = true)
     public Optional<InstitutionalLicense> getActiveLicense(Long institutionId) {
         return licenseRepository.findByInstitution_InstitutionIdOrderByCreatedAtDesc(institutionId).stream()
@@ -58,7 +52,6 @@ public class InstitutionalEntitlementService {
                 .findFirst();
     }
 
-    /** Enabled entitlements of the active license's plan, keyed by code. */
     @Transactional(readOnly = true)
     public Map<String, PlanEntitlement> getInstitutionalEntitlements(Long institutionId) {
         return getActiveLicense(institutionId)
@@ -109,7 +102,6 @@ public class InstitutionalEntitlementService {
                 usage);
     }
 
-    // capacity checks (throw on limit reached)
 
     @Transactional(readOnly = true)
     public void requireAvailableLearnerSeat(Long institutionId) {
@@ -184,7 +176,6 @@ public class InstitutionalEntitlementService {
         return limit(license.getCustomSeatLimit(), entitlements, Entitlements.SEAT_LIMIT);
     }
 
-    /** Custom contract override wins; otherwise the plan's limit; else 0. */
     private int limit(Integer customLimit, Map<String, PlanEntitlement> entitlements, String code) {
         if (customLimit != null) {
             return customLimit;

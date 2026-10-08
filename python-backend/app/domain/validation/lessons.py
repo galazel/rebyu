@@ -12,10 +12,8 @@ from typing import Any
 
 from app.domain.validation.report import Severity, ValidationIssue, ValidationReport
 
-# Below this a "lesson" is a stub, whatever its block count says.
 MIN_CONTENT_BLOCKS = 3
 MIN_TOTAL_CHARS = 600
-# Beyond this, study time stops being plausible for a single sitting.
 MAX_REASONABLE_MINUTES = 180
 MIN_REASONABLE_MINUTES = 3
 

@@ -3,10 +3,6 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { getMasteryHistory } from '@/services/learnerAnalyticsService'
 import { LearnerLoadingSkeleton, LearnerEmptyState } from './learner-ui'
 
-/**
- * Mastery Trend Chart - visualizes mastery progression over time
- * Shows how a learner's knowledge probability changes with each assessment
- */
 export function MasteryTrendChart({ certificationId, className = '' }) {
   const { data: history, isLoading, error } = useQuery({
     queryKey: ['masteryHistory', certificationId],
@@ -103,8 +99,6 @@ export function MasteryTrendChart({ certificationId, className = '' }) {
 
       <div className="mt-6 pt-4 border-t border-border space-y-2">
         <p className="text-sm font-medium text-foreground">Quick Stats</p>
-        {/* "Total Assessments" and "Current Mastery" do not fit a third of a
-            phone. Stacked below `sm`, side by side from there. */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <p className="text-xs text-muted-foreground">Total Assessments</p>

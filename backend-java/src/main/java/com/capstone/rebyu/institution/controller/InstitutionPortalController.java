@@ -39,7 +39,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 import java.util.List;
 
-/** Tenant-scoped institution portal reads; institutionId always comes from the caller's JWT. */
 @RestController
 @RequestMapping("/api/institution/me")
 @RequiredArgsConstructor
@@ -56,7 +55,6 @@ public class InstitutionPortalController {
     private final InstitutionRepository institutionRepository;
     private final CognitoAuthService auth;
 
-    /** The caller's own institution profile (name, contact, address, etc.). */
     @GetMapping("/profile")
     public InstitutionDto profile(@AuthenticationPrincipal Jwt jwt) {
         return institutionService.getById(myInstitutionId(jwt));
@@ -67,18 +65,6 @@ public class InstitutionPortalController {
         return portalService.overview(myInstitutionId(jwt));
     }
 
-    /**
-     * Learning statistics for the caller: a roster-wide rollup plus a row per
-     * member (progress, lessons finished, graded attempts, pass rate, average
-     * score, last activity).
-     *
-     * <p>An owner or administrator gets the whole institution. Anyone else is
-     * a department head, and gets only the departments they have been given --
-     * their roster, their programmes, their weak topics. The previous version
-     * answered with the full institution for every caller and left the browser
-     * to filter, which put other departments' learners and marks on the wire
-     * for anyone who asked.
-     */
     @GetMapping("/learning-stats")
     public InstitutionLearningStatsDto learningStats(
             @AuthenticationPrincipal Jwt jwt,
@@ -89,17 +75,9 @@ public class InstitutionPortalController {
                 user.institutionId(),
                 myDepartmentIds(user),
                 from == null ? null : from.atStartOfDay(),
-                // Inclusive: a request for a single day means that whole day,
-                // and `to.atStartOfDay()` would report everything before 00:00
-                // as the day's activity -- which is nothing.
                 to == null ? null : to.atTime(java.time.LocalTime.MAX));
     }
 
-    /**
-     * Everything on the institution dashboard in one consistent snapshot.
-     * {@code from}/{@code to} (inclusive dates) bound the activity figures --
-     * attempts, lessons, the trend -- and default to the current year.
-     */
     @GetMapping("/dashboard")
     public InstitutionDashboardDto dashboard(
             @AuthenticationPrincipal Jwt jwt,
@@ -108,7 +86,6 @@ public class InstitutionPortalController {
         return dashboardService.dashboard(myInstitutionId(jwt), from, to);
     }
 
-    /** Completion per learning group, for the group-analytics panels. */
     @GetMapping("/group-stats")
     public List<DepartmentProgressDto> groupStats(
             @AuthenticationPrincipal Jwt jwt,
@@ -120,18 +97,11 @@ public class InstitutionPortalController {
                 to == null ? null : to.atTime(java.time.LocalTime.MAX));
     }
 
-    /** Every member of the caller's own institution (owners, managers, staff). */
     @GetMapping("/members")
     public List<DepartmentHeadDto> members(@AuthenticationPrincipal Jwt jwt) {
         return departmentHeadService.getByInstitutionId(myInstitutionId(jwt));
     }
 
-    /**
-     * Creates a brand-new login account for someone the institution wants to
-     * manage a group (or otherwise act on the org's behalf) -- e.g. a group
-     * leader. A Cognito account is minted and credentials are emailed to them,
-     * the same way the institution's own account was created on approval.
-     */
     @PostMapping("/members")
     @ResponseStatus(HttpStatus.CREATED)
     public InviteResult inviteMember(
@@ -143,14 +113,12 @@ public class InstitutionPortalController {
         return departmentHeadProvisioningService.inviteMember(institution, request);
     }
 
-    /** Exam results for one of the caller's own learners; 404 for learners outside the tenant. */
     @GetMapping("/learners/{learnerId}/exam-results")
     public List<ExamResultDto> learnerExamResults(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long learnerId) {
         return portalService.learnerExamResults(myInstitutionId(jwt), learnerId);
     }
 
-    /** Badges and certificates one of the caller's own learners has earned; 404 outside the tenant. */
     @GetMapping("/learners/{learnerId}/awards")
     public List<CertificationAwardService.AwardDto> learnerAwards(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long learnerId) {
@@ -163,14 +131,12 @@ public class InstitutionPortalController {
         return invoiceService.listForInstitution(myInstitutionId(jwt));
     }
 
-    /** Opens PayMongo Hosted Checkout for the invoice; the browser is sent to the returned URL. */
     @PostMapping("/invoices/{invoiceId}/checkout")
     public com.capstone.rebyu.billing.service.InstitutionInvoiceService.CheckoutDto invoiceCheckout(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long invoiceId) {
         return invoiceService.startCheckout(myInstitutionId(jwt), invoiceId);
     }
 
-    /** Called from the invoice page after PayMongo redirects back; marks the invoice paid if it is. */
     @PostMapping("/invoices/{invoiceId}/verify")
     public com.capstone.rebyu.billing.service.InstitutionInvoiceService.InvoiceDto invoiceVerify(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long invoiceId) {
@@ -198,16 +164,6 @@ public class InstitutionPortalController {
         return user;
     }
 
-    /**
-     * The departments a caller's analytics are confined to, or null for an
-     * owner, who is confined to nothing.
-     *
-     * <p>Resolved through the same {@code getAccessible} the departments
-     * endpoint uses, so "which departments are mine" has exactly one answer in
-     * this codebase. A head whose assignments have all been revoked resolves
-     * to an empty list, which the stats service reads as "no learners" rather
-     * than falling through to the institution.
-     */
     private List<Long> myDepartmentIds(CurrentUserDto user) {
         if ("owner".equalsIgnoreCase(user.departmentHeadRole())) {
             return null;

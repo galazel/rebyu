@@ -30,8 +30,6 @@ from __future__ import annotations
 GUIDED = "GUIDED"
 AUTO = "AUTO"
 
-#: Spellings a client may send for AUTO. The UI says "unattended", the API
-#: says "auto", and older callers may pass a bare boolean.
 _AUTO_ALIASES = {"auto", "unattended", "true", "1", "skip", "skip_review", "no_review"}
 
 

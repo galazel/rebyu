@@ -36,10 +36,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-/**
- * Arena settings, node layout and World Cup editions -- with every repository
- * mocked, so nothing here reaches the live database the ITs boot against.
- */
 @ExtendWith(MockitoExtension.class)
 class ChallengeArenaConfigTest {
 
@@ -55,7 +51,6 @@ class ChallengeArenaConfigTest {
   ChallengeArenaService arenas;
   WorldCupEditionService editions;
 
-  /** A tiny in-memory config table, so a save can be read back. */
   final Map<String, ChallengeArenaConfig> configTable = new HashMap<>();
 
   @BeforeEach
@@ -178,7 +173,6 @@ class ChallengeArenaConfigTest {
       return edition;
     });
 
-    // A Thursday names the week that started on Monday the 21st.
     var summary = editions.create(new WorldCupEditionService.CreateEditionRequest(
         LocalDate.of(2026, 9, 24), 1L, 5L));
     assertEquals(LocalDate.of(2026, 9, 21), summary.weekStart());
@@ -186,7 +180,6 @@ class ChallengeArenaConfigTest {
     WorldCupEdition edition = saved.getValue();
     when(editionRepo.findById(7L)).thenReturn(Optional.of(edition));
 
-    // Publishing with an empty stage is refused.
     assertThrows(IllegalArgumentException.class, () -> editions.publish(7L));
 
     when(questions.findAllById(any())).thenAnswer(inv -> {
@@ -199,7 +192,6 @@ class ChallengeArenaConfigTest {
         "semifinal", List.of(23L),
         "final", List.of(24L))));
 
-    // Publish writes the World Cup exam: stage order, stage as node index.
     when(certifications.findById(1L)).thenReturn(Optional.of(certification(1L)));
     ExamType challenge = new ExamType();
     challenge.setExamTypeText("CHALLENGE");

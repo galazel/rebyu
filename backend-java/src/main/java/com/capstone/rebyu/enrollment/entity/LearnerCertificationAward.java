@@ -9,12 +9,6 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-/**
- * What a learner has earned on one certification: its badge and a
- * certificate of completion, both granted by passing the mock exam. One row
- * per learner and certification; the timestamps record which has been
- * granted, so a retake never awards the same thing twice.
- */
 @Entity
 @Table(name = "learner_certification_awards",
         uniqueConstraints = @UniqueConstraint(name = "ux_learner_certification_award",

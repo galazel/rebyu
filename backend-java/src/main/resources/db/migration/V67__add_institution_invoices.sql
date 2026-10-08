@@ -1,7 +1,3 @@
--- B2B invoices: one per approved partnership request, priced per learner
--- slot. The line items snapshot the certification title, slots, unit price
--- and the access window so the invoice reads the same years later even if
--- the certification is renamed or the price changes.
 
 CREATE TABLE IF NOT EXISTS public.institution_invoices (
     institution_invoice_id  BIGSERIAL PRIMARY KEY,

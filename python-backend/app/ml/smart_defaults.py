@@ -116,9 +116,9 @@ def _skill_struct(defaults: SmartDefaults, gs_classes: list[str], learn_classes:
     As[:, 1, 0] = learns
     As[:, 1, 1] = 1.0 - learns
 
-    given_notknow = np.vstack((1.0 - guesses, guesses))  # 2 x G
-    given_know = np.vstack((slips, 1.0 - slips))  # 2 x G
-    emissions = np.stack((given_notknow.T, given_know.T), axis=1)  # G x 2 x 2
+    given_notknow = np.vstack((1.0 - guesses, guesses))
+    given_know = np.vstack((slips, 1.0 - slips))
+    emissions = np.stack((given_notknow.T, given_know.T), axis=1)
 
     return {
         "prior": defaults.prior,

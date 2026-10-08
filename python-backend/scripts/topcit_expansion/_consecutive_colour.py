@@ -4,7 +4,6 @@ from sqlalchemy import text
 from app.db.session import SessionLocal
 db = SessionLocal()
 
-# Blocks the renderer draws as coloured/accented cards rather than plain prose.
 COLOURED = {"accordion", "tabs", "header-description-grid", "review-card-grid",
             "flip-grid", "content-accordion-block", "content-tabs-block",
             "image-feature-grid", "intro-image-card"}

@@ -19,13 +19,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * The question bank: admin manages it platform-wide; an institution (owner or
- * group leader) may add/edit/delete questions too, but only within
- * certifications their institution has purchased access to, and only for
- * questions they themselves authored (admin-authored questions are read-only
- * to them). Every question records who created it.
- */
 @RestController
 @RequestMapping("/api/questions")
 @RequiredArgsConstructor
@@ -36,11 +29,6 @@ public class QuestionController {
     private final DepartmentRepository departmentRepository;
     private final CognitoAuthService auth;
 
-    /**
-     * lessonId and certificationId are optional narrowings of the same read,
-     * most specific first. Both return exactly the subset the unfiltered
-     * response already contained -- neither widens what a caller can see.
-     */
     @GetMapping
     public List<QuestionDto> getAll(
             @RequestParam(required = false) Long lessonId,
@@ -59,11 +47,6 @@ public class QuestionController {
         return questionService.getAll(includeDepartmentId);
     }
 
-    /**
-     * Questions eligible for an assessment's scope, excluding any already
-     * assigned to {@code examId}. Pass only the scope ids relevant to the
-     * assessment type; the most specific id wins.
-     */
     @GetMapping("/eligible")
     public List<EligibleQuestionDto> getEligible(
             @RequestParam(required = false) Long certificationId,
@@ -97,8 +80,6 @@ public class QuestionController {
             @AuthenticationPrincipal Jwt jwt) {
         CurrentUserDto caller = requireAdminOrInstitution(jwt);
         boolean isAdmin = "ADMIN".equalsIgnoreCase(caller.role());
-        // ownerDepartmentId marks this as the group's own question. The caller must
-        // actually be able to act on that group (owner or its active leader).
         Department ownerDepartment = null;
         if (ownerDepartmentId != null) {
             requireDepartmentAccessIfRequested(caller, ownerDepartmentId);
@@ -136,12 +117,6 @@ public class QuestionController {
         return user;
     }
 
-    /**
-     * No-op when no group is referenced. Otherwise the caller must belong to
-     * that group's institution and be its active leader (or the institution
-     * owner) -- so a group's private questions can't be read, or written to,
-     * by guessing a group id. Reuses the same check as the rest of the app.
-     */
     private void requireDepartmentAccessIfRequested(CurrentUserDto caller, Long departmentId) {
         if (departmentId == null) {
             return;

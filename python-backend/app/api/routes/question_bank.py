@@ -67,8 +67,6 @@ def _fail(thread_id: str, error: Exception, what: str) -> HTTPException:
         with SessionLocal() as session:
             registry.mark_failed(session, thread_id, error=str(error))
     except Exception:
-        # Reporting the original failure matters more than recording it. A
-        # run left RUNNING here is picked up as stalled later.
         logger.exception("Could not record the failure of run %s", thread_id)
     return HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(error)

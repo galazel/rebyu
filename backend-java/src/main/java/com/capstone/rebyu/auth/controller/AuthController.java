@@ -16,8 +16,6 @@ public class AuthController {
 
     private final CognitoAuthService cognitoAuthService;
 
-    // Returns the REBYU account for the validated Cognito token, linking or
-    // provisioning it on first sign-in. Identity comes only from the token.
     @GetMapping("/me")
     public CurrentUserDto me(@AuthenticationPrincipal Jwt jwt) {
         return cognitoAuthService.syncCurrentUser(jwt, jwt.getTokenValue());

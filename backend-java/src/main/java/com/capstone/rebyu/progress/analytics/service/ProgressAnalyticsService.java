@@ -64,12 +64,6 @@ import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-/**
- * Aggregates real learner data (assessment attempts, BKT mastery/priority via
- * FastAPI, completed lessons, challenge sessions) into one certification-scoped
- * analytics view. No field is ever fabricated: absent data comes back as null,
- * zero, or an empty list rather than a placeholder value.
- */
 @Slf4j
 @Service
 public class ProgressAnalyticsService {
@@ -95,12 +89,6 @@ public class ProgressAnalyticsService {
     private final LearnerMasteryService learnerMasteryService;
     private final BktEventFactory bktEventFactory;
 
-    /**
-     * Pool for the BKT fan-out below. Injected rather than created here so a
-     * test can pass {@code Runnable::run} and get the old, fully sequential
-     * ordering back -- the concurrency is a latency optimisation, never
-     * something a result depends on.
-     */
     private final Executor bktExecutor;
 
     public ProgressAnalyticsService(
@@ -134,41 +122,12 @@ public class ProgressAnalyticsService {
         this.bktExecutor = bktExecutor;
     }
 
-    /** Starts one BKT read on the fan-out pool. */
     private <T> CompletableFuture<T> bktAsync(Supplier<T> read) {
         return CompletableFuture.supplyAsync(read, bktExecutor);
     }
 
-    /**
-     * The lesson and assessment counts behind a certification's progress, with
-     * none of the analytics board's other work.
-     *
-     * <p>The same counting rules as {@link #getProgressAnalytics} -- the same
-     * official-curriculum lesson query, the same exam exclusions via
-     * {@link #assessmentExclusionReason}, the same "passed" test -- reached
-     * without the three BKT round trips, the readiness call, the mastery rows
-     * or the recommendation build. That matters because the learner portal asks
-     * for this once per enrolled certification on every load.
-     *
-     * <p>It exists because the My Learning cards were counting progress
-     * themselves, in the browser, as completed lessons over total lessons. A
-     * certification whose lessons were read but whose quizzes and exams were
-     * all unsat therefore showed 100% on the cards and 20% on the analytics
-     * board at the same moment. There is now one implementation of what counts,
-     * here, and both surfaces read it.
-     */
     @Transactional(readOnly = true)
     public CertificationProgressDto progressFor(Long learnerId, Long certificationId) {
-        /* Ids and a count, not entities.
-         *
-         * Everything below wants either how many lessons there are or which
-         * ids belong to the certification. Reading Lesson rows to answer that
-         * meant loading each one's `lesson_component_structure` -- the whole
-         * authored lesson, tens of kilobytes each -- so a learner enrolled on
-         * three certifications pulled the better part of two hundred lessons'
-         * content into memory on every call, to take three `size()`s. The
-         * portal snapshot that waits on this went multi-second and My Learning
-         * rendered blank behind it. */
         List<CurriculumLessonIdView> certLessons =
                 lessonRepository.findOfficialLessonIdsByCertificationId(certificationId);
         int totalLessonCount = certLessons.size();
@@ -219,12 +178,6 @@ public class ProgressAnalyticsService {
         Certification certification = certificationRepository.findById(certificationId)
                 .orElseThrow(() -> new EntityNotFoundException("Certification not found: " + certificationId));
 
-        // Two ways to be enrolled, and both must count here. A learner who bought
-        // the certification themselves gets a learner_certifications row; one an
-        // institution sponsors gets only an institution_certification_learners
-        // row (see LearnerService.acceptInvitation, which never writes the
-        // former). Checking just the first made every institution learner look
-        // unenrolled -- including on their own analytics page.
         boolean selfEnrolled = learnerCertificationRepository
                 .existsByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
                         learnerId, certificationId, LearnerCertification.Status.active);
@@ -235,19 +188,7 @@ public class ProgressAnalyticsService {
             throw new EntityNotFoundException("No active enrollment in this certification");
         }
 
-        /* The BKT reads start here, before any of the work below, because none
-           of them needs any of it -- lesson priorities, confidence and mastery
-           history are answers to (learner, certification) and nothing else.
-           Asked one at a time, as they were, the board paid four sequential
-           round trips to the FastAPI service on top of its own queries. Started
-           together they overlap both each other and every query that follows,
-           so the board waits for the slowest single call rather than the sum.
-           Each future is joined immediately above the first line that reads it.
 
-           Safe off the request thread: these are pure HTTP with no database,
-           no transaction and no security context, and LearnerMasteryService
-           converts a BKT outage into an empty result rather than an exception,
-           so a join never surfaces a failure the sequential version swallowed. */
         CompletableFuture<LearnerMasteryService.LessonPrioritiesResult> prioritiesFuture =
                 bktAsync(() -> learnerMasteryService.getLessonPrioritiesForAnalytics(learnerId, certificationId));
         CompletableFuture<LearnerMasteryService.ConfidenceResult> confidenceFuture =
@@ -272,12 +213,6 @@ public class ProgressAnalyticsService {
         Set<Long> sourceQuestionIds = questions.stream()
                 .map(AssessmentAttemptQuestion::getSourceQuestionId)
                 .collect(Collectors.toSet());
-        /* Only the difficulty of each answered question is needed below, so this
-           reads projections rather than entities. A Question drags three EAGER
-           inverse-side one-to-one configs behind it, which Hibernate cannot
-           proxy -- loading them whole cost three extra queries apiece to read a
-           single string, across every question the learner has ever answered in
-           this certification. */
         Map<Long, String> difficultyByQuestionId = sourceQuestionIds.isEmpty()
                 ? Map.of()
                 : questionRepository.findSelectionViewsByIdIn(sourceQuestionIds).stream()
@@ -294,7 +229,7 @@ public class ProgressAnalyticsService {
         for (AssessmentAttemptQuestion question : questions) {
             AssessmentAttemptAnswer answer = answerByQuestionId.get(question.getAttemptQuestionId());
             if (answer == null || answer.isPendingManualEvaluation() || answer.getIsCorrect() == null) {
-                continue; // unanswered / pending manual grading -- excluded from final graded counts
+                continue;
             }
             boolean correct = Boolean.TRUE.equals(answer.getIsCorrect());
             if (correct) {
@@ -316,26 +251,6 @@ public class ProgressAnalyticsService {
         }
 
         int totalAssessmentAttempts = attempts.size();
-        /* Scores exclude the AI tutor's practice quizzes and flashcards.
-         *
-         * The assessment COUNTS below already exclude them --
-         * `assessmentExclusionReason` drops anything `tutorPracticeMarker`
-         * recognises -- but the score figures were built straight off
-         * `attempts`, so a certification reported "2 of 5 assessments passed"
-         * next to a score trend containing eleven points, most of them practice
-         * a learner generated for themselves in the tutor. The two numbers
-         * described different sets and neither said which.
-         *
-         * Practice is self-directed, unproctored and retakeable at will, so
-         * averaging it into a learner's score tells a manager reading the group
-         * view how much practice they did, not how well they are doing on the
-         * curriculum's own assessments.
-         *
-         * `tutorPracticeMarker` alone is the right test here rather than the
-         * full `assessmentExclusionReason`: it keys only on the exam, so it can
-         * run at this point in the method, before the official-curriculum id
-         * sets the fuller check needs have been built.
-         */
         List<AssessmentAttempt> curriculumAttempts = attempts.stream()
                 .filter(a -> a.getExam() == null || tutorPracticeMarker(a.getExam()) == null)
                 .toList();
@@ -374,11 +289,6 @@ public class ProgressAnalyticsService {
                 .toList());
         boolean hasChallengeActivity = !finishedChallenges.isEmpty();
 
-        // Official lessons only. The unfiltered query counts every lesson on the
-        // certification including ones private to an Institution group, so a
-        // learner's total -- and therefore their completion percentage -- used to
-        // move whenever an unrelated group authored content the learner cannot
-        // see, let alone complete.
         List<Lesson> certLessons = lessonRepository
                 .findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(
                         certificationId);
@@ -393,10 +303,6 @@ public class ProgressAnalyticsService {
         Double completionPercentage = totalLessonCount == 0 ? null
                 : (completedLessonCount * 100.0 / totalLessonCount);
 
-        /* Readiness is the one BKT read with prerequisites -- it is scored from
-           the learner's attempts, lesson progress and streak -- so it starts at
-           the first point those are all known, which is here, rather than at
-           the top with the other three. It still overlaps everything below it. */
         Map<String, Object> readinessRequest = buildReadinessRequest(
                 learnerId, certLessons, attempts, totalLessonCount, completedLessonCount);
         CompletableFuture<Map<String, Object>> readinessFuture = readinessRequest == null
@@ -430,29 +336,10 @@ public class ProgressAnalyticsService {
         Double confidencePercentage = (confidenceResult.available() && confidenceResult.confidence() != null)
                 ? confidenceResult.confidence().confidenceScore() : null;
 
-        /* How much of the certification's assessment work is behind the
-           learner.
 
-           Published only: a draft or archived exam is not something anyone can
-           sit, so counting it would leave the certification permanently
-           unfinishable.
 
-           Passed, not merely attempted, and counted per distinct exam so three
-           goes at the same mock still count once. A failed attempt is evidence
-           of effort, not of completion. */
-        /* Scoped to what this learner can actually sit.
 
-           `findByCertification_CertificationId` returns every exam carrying the
-           certification's foreign key, which includes those targeting lessons
-           and categories private to an Institution group -- content this learner
-           cannot see, let alone attempt. Counting them made a certification
-           with one official lesson report nine outstanding assessments, and
-           made it impossible to ever finish.
 
-           This is the same guard `certLessons` already applies: the official
-           curriculum only. An exam qualifies when its target is inside that
-           curriculum, and a certification-level exam (a mock, which targets no
-           lesson or category) always does. */
         Set<Long> officialLessonIds = certLessons.stream()
                 .map(Lesson::getLessonId)
                 .collect(Collectors.toSet());
@@ -469,13 +356,6 @@ public class ProgressAnalyticsService {
                 .map(MajorCategory::getMajorCategoryId)
                 .collect(Collectors.toSet());
 
-        /* Written as a loop rather than a filter chain so every exclusion can
-           say why. The chain it replaces dropped exams silently, and a
-           certification whose exams all fell out reported "0 assessments" --
-           which the dashboard then presented to the learner as a finished
-           certification. Nothing anywhere recorded which predicate had done
-           it, so the only way to find out was to re-derive the whole filter by
-           hand against the database. */
         List<Exam> allCertExams = examRepository.findByCertification_CertificationId(certificationId);
         List<Exam> certExams = new ArrayList<>();
         List<String> exclusions = new ArrayList<>();
@@ -495,10 +375,6 @@ public class ProgressAnalyticsService {
                     certificationId, exclusions.size(), allCertExams.size(),
                     String.join(", ", exclusions));
         }
-        /* Loud, because of what the learner is shown when it happens: a
-           certification that plainly has exams reports none, and the dashboard
-           reads that as nothing left to do. Warned rather than left to a debug
-           log nobody has switched on. */
         if (certExams.isEmpty() && !allCertExams.isEmpty()) {
             log.warn("Certification {} has {} exam(s) but none count toward its assessment total, "
                             + "so the learner is told it has no assessments. Excluded: {}",
@@ -521,11 +397,6 @@ public class ProgressAnalyticsService {
         List<TopicRow> weakestTopics = lessonPriorities.stream()
                 .filter(l -> l.masteryProbability() != null)
                 .sorted(Comparator
-                        // "CRITICAL_PRIORITY" and "HIGH_PRIORITY" are the tags the BKT
-                        // service actually emits (see priority_service.py) -- this used
-                        // to compare against "HIGHEST_PRIORITY", which no tag ever
-                        // equals, so the "surface the most urgent topics first" sort
-                        // silently never fired and fell through to mastery order alone.
                         .<LessonPriorityView>comparingInt(l -> switch (String.valueOf(l.priorityTag())) {
                             case "CRITICAL_PRIORITY" -> 0;
                             case "HIGH_PRIORITY" -> 1;
@@ -536,12 +407,6 @@ public class ProgressAnalyticsService {
                 .map(l -> toTopicRow(l, lessonById))
                 .toList();
 
-        /* When the mastery service has said nothing there is still something
-           true to say. It models learning over time and this only counts
-           marks, so it is not a substitute -- but an empty panel reads as
-           "no weak topics", which is the opposite of what an unanswered
-           service means. Marks the database already holds are a poorer
-           measure and an honest one. */
         if (weakestTopics.isEmpty()) {
             weakestTopics = weakestTopicsFromMarks(learnerId, certificationId, lessonById);
         }
@@ -647,59 +512,9 @@ public class ProgressAnalyticsService {
         return sum / values.size();
     }
 
-    /**
-     * How many days of an unbroken streak count as full marks for consistency.
-     *
-     * Two study weeks. Long enough that a couple of days does not read as a
-     * habit, short enough to be reachable before most exam dates -- and capped,
-     * because a 90-day streak is not three times more ready than a 30-day one.
-     */
     private static final int STREAK_TARGET_DAYS = 14;
 
-    /**
-     * Why an exam does not count as work this certification requires, or null
-     * when it does.
-     *
-     * The rules are unchanged from the filter chain this replaces; only the
-     * reporting is new. In order:
-     *
-     * <ul>
-     *   <li><b>Not published.</b> A draft or archived exam is not something
-     *       anyone can sit, so counting it would leave the certification
-     *       permanently unfinishable.</li>
-     *   <li><b>Tutor-generated practice.</b> The AI tutor saves its quizzes and
-     *       flashcard decks as published exams on the certification too (see
-     *       {@code GeneratedAssessmentService}), but they belong to one learner
-     *       and are made on demand — counting them moved the target every time
-     *       the tutor was asked for practice.</li>
-     *   <li><b>The diagnostic.</b> It places the learner rather than certifying
-     *       them, and the curriculum page pulls it out separately.</li>
-     *   <li><b>Targets content outside the official curriculum.</b> The
-     *       certification's exam list includes exams aimed at lessons and
-     *       categories private to an Institution group — content this learner
-     *       cannot see, let alone attempt. An exam that targets nothing is
-     *       certification-level (a mock) and always qualifies.</li>
-     * </ul>
-     */
-    /**
-     * What marks an exam as one learner's tutor practice, or null if nothing does.
-     *
-     * Deliberately not {@code isGenerated()}. That flag reads as "an AI wrote
-     * this", and the AI backend sets it on every exam it authors — including
-     * the certification's own quizzes, unit exams and mock exam (see
-     * {@code app/repositories/java_backend.py:insert_exam}). Excluding on it
-     * therefore excluded the entire curriculum: a live certification with five
-     * published exams counted zero assessments, and the dashboard told the
-     * learner it was finished.
-     *
-     * These three are set only by {@code GeneratedAssessmentService} and never
-     * by the curriculum pipeline, so each one is on its own sufficient — and
-     * unlike the flag, none of them can be produced by simply having been
-     * authored by a model.
-     */
     private String tutorPracticeMarker(Exam exam) {
-        // The strongest of the three: a curriculum exam belongs to the
-        // certification, never to one learner.
         if (exam.getLearner() != null) {
             return "belongs to a single learner";
         }
@@ -714,10 +529,6 @@ public class ProgressAnalyticsService {
         return null;
     }
 
-    // Package-private so ProgressAnalyticsAssessmentCountTest can drive the
-    // rules directly. Every predicate here decides whether a learner is told
-    // their certification still has work in it, which is worth testing without
-    // standing up the fifteen repositories the enclosing method needs.
     String assessmentExclusionReason(
             Exam exam,
             Set<Long> officialLessonIds,
@@ -725,9 +536,6 @@ public class ProgressAnalyticsService {
             Set<Long> officialMajorIds) {
 
         if (exam.effectiveStatus() != Exam.Status.PUBLISHED) {
-            // Names the effective status, not the column: a null status reads
-            // as DRAFT here, and "status is null" is the more useful thing to
-            // learn when an exam that looks published in the database is not.
             return "not published, effective status " + exam.effectiveStatus()
                     + (exam.getStatus() == null ? " because its status column is null" : "");
         }
@@ -758,18 +566,9 @@ public class ProgressAnalyticsService {
                     : "targets major category " + majorId
                             + ", which is not in the official curriculum " + officialMajorIds;
         }
-        // Certification-level: a mock exam, open to everyone enrolled.
         return null;
     }
 
-    /**
-     * The readiness request, or {@code null} when there is nothing to score.
-     *
-     * <p>Split from the call itself so the request can be built on the request
-     * thread -- it needs the attempts, lesson counts and streak that only the
-     * database can supply -- while the call it feeds runs concurrently with the
-     * rest of the board. {@link #readinessScore} reads the answer back.
-     */
     private Map<String, Object> buildReadinessRequest(
             Long learnerId,
             List<Lesson> certLessons,
@@ -798,16 +597,7 @@ public class ProgressAnalyticsService {
         putIfPresent(request, "major_exam_score", average(scoresByNormalizedType.get("MAJOR_EXAM")));
         putIfPresent(request, "mock_exam_score", average(scoresByNormalizedType.get("MOCK_EXAM")));
 
-        /* Two inputs that are always computable, and are sent unconditionally
-           for exactly that reason.
 
-           Every score component above is omitted when the learner has not sat
-           that kind of assessment, and the readiness service renormalises over
-           whatever it receives -- so a learner who has only done a diagnostic
-           had their diagnostic renormalised up to the whole score and came out
-           100% ready. Progress and streak are always known, so they are always
-           in the denominator: an untouched syllabus now reads as 0 on the
-           progress component instead of vanishing from the calculation. */
         if (totalLessonCount > 0) {
             double progress = Math.min(100.0,
                     (double) completedLessonCount / totalLessonCount * 100.0);
@@ -822,7 +612,6 @@ public class ProgressAnalyticsService {
         return request;
     }
 
-    /** Readiness percentage from the BKT response, or null when unavailable. */
     private Double readinessScore(Map<String, Object> response) {
         if (response == null || "TEMPORARILY_UNAVAILABLE".equals(response.get("status"))) {
             return null;
@@ -831,28 +620,6 @@ public class ProgressAnalyticsService {
         return score instanceof Number number ? number.doubleValue() : null;
     }
 
-    /**
-     * Buckets an exam type for readiness, which grades on its own five
-     * assessment classes rather than BKT's.
-     *
-     * BKT's class set is fixed by a Pydantic {@code Literal} on the
-     * mastery-event endpoint, and
-     * {@link BktEventFactory#normalizeAssessmentType} exists to satisfy it --
-     * so it folds MAJOR_EXAM into MOCK_EXAM. Adding a fifth class there would
-     * make every major-exam evidence event fail validation and take the BKT
-     * spine down with it.
-     *
-     * Readiness has no such constraint, and has good reason to separate them: a
-     * major exam covers one major category, a mock exam simulates the whole
-     * certification, and averaging the two together let a strong showing on a
-     * section stand in for never having sat a full paper. So this delegates for
-     * everything except the MAJOR_* aliases, which it peels off into their own
-     * bucket. The other way round, BKT gives the knowledge check and AI-tutor
-     * quizzes classes of their own (for their learn rates), which readiness has
-     * no score slot for, so they fold back into the lesson-quiz bucket they
-     * always counted toward. Every other type keeps exactly the classification
-     * it had.
-     */
     private String normalizeReadinessType(String rawExamType) {
         if (rawExamType != null) {
             String value = rawExamType.trim().toUpperCase().replace("-", "_").replace(" ", "_");
@@ -986,22 +753,6 @@ public class ProgressAnalyticsService {
         return "WEAK";
     }
 
-    /**
-     * Weakest topics from marked answers, for when the mastery service has
-     * nothing to say.
-     *
-     * <p>Accuracy per lesson, lowest first. It is a blunter measure than
-     * mastery -- it has no notion of a learner improving, and treats a
-     * question answered once the same as one answered five times -- so it is
-     * only reached when the proper one is unavailable, and the page says as
-     * much through {@code bktAvailable}.
-     *
-     * <p>Lessons with a single marked answer are kept rather than filtered:
-     * one wrong answer out of one is exactly the signal a head is looking for
-     * early on, and dropping it would leave a learner with two attempts
-     * looking like a learner with none. The count travels alongside as
-     * evidence, so thin evidence is visible rather than hidden.
-     */
     private List<TopicRow> weakestTopicsFromMarks(
             Long learnerId, Long certificationId, Map<Long, Lesson> lessonById) {
         return attemptAnswerRepository.lessonAccuracy(learnerId, certificationId).stream()
@@ -1023,9 +774,6 @@ public class ProgressAnalyticsService {
                             (int) row.getAnswered(),
                             null);
                 })
-                /* A lesson that answers no longer belong to -- regenerated
-                   curriculum, mostly -- is dropped rather than listed under a
-                   name this certification does not contain. */
                 .filter(Objects::nonNull)
                 .toList();
     }
@@ -1036,21 +784,8 @@ public class ProgressAnalyticsService {
                 ? lesson.getMiddleCategory().getMiddleCategoryId() : null;
         String categoryTitle = (lesson != null && lesson.getMiddleCategory() != null)
                 ? lesson.getMiddleCategory().getTitle() : null;
-        /* The live lesson name wins over the one BKT stored.
 
-           BKT copies a lesson's title into its own row when it processes a
-           mastery event, and never revisits it. A curriculum that has since
-           been renamed or regenerated therefore leaves rows naming topics the
-           certification no longer contains -- TOPCIT's lesson 401 was still
-           being listed as "Quality Assurance and Testing" long after it became
-           "Project Quality Management and Control", so the board showed a
-           learner a topic that was not in their syllabus.
 
-           The stored title is kept as the fallback rather than dropped: a
-           lesson private to an Institution group is deliberately absent from
-           `lessonById`, and naming it from BKT is better than showing the
-           learner a numbered placeholder for a lesson they can actually
-           see. */
         String title = lesson != null ? lesson.getName() : priority.lessonTitle();
         Double masteryPercentage = priority.masteryProbability() == null ? null : priority.masteryProbability() * 100.0;
         return new TopicRow(priority.lessonId(), title, categoryId, categoryTitle, masteryPercentage,
@@ -1195,7 +930,6 @@ public class ProgressAnalyticsService {
                 });
     }
 
-    /** Same precedence as {@link #toTopicRow}: the live name, then BKT's copy. */
     private String resolveTitle(LessonPriorityView priority, Map<Long, Lesson> lessonById) {
         Lesson lesson = lessonById.get(priority.lessonId());
         if (lesson != null) {

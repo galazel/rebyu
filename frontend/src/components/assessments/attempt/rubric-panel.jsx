@@ -8,9 +8,6 @@ const STATUS_LABEL = {
   MANUAL: "Manual review",
 }
 
-// Backend-driven rubric for a diagram/descriptive item. Awarded points show
-// only when the backend fills them in (after evaluation); otherwise each line
-// shows its max points and a pending state. Never renders reference answers.
 export default function RubricPanel({ rubric, notice }) {
   const list = Array.isArray(rubric) ? rubric : []
   const totalMax = list.reduce(

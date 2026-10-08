@@ -19,11 +19,6 @@ public class UserTypeController {
     private final UserTypeService userTypeService;
     private final RoleGuard guard;
 
-    /**
-     * Admits only administrators, to every handler here. Method security is
-     * off in this application, so this is the gate; SecurityConfig only
-     * requires a signed-in caller.
-     */
     @ModelAttribute
     void requireAdmin(@AuthenticationPrincipal Jwt jwt) {
         guard.requireAdmin(jwt);

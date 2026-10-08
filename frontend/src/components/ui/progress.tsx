@@ -12,8 +12,6 @@ function Progress({
     <ProgressPrimitive.Root
       data-slot="progress"
       className={cn(
-        // 12px rather than 8px: the bar is a reward surface in a learning
-        // product, not a hairline. Callers passing their own `h-*` still win.
         "relative h-3 w-full overflow-hidden rounded-full bg-border",
         className
       )}

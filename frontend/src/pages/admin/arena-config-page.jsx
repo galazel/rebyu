@@ -14,18 +14,6 @@ import {
   setWorldCupDisabledTracks,
 } from "@/services/challengeService.js"
 
-/**
- * IT Olympics overview (admin).
- *
- * A directory, not a workspace: which arenas are live, which tracks players can
- * queue into, and a way into each arena. The settings and the problem builder
- * live on the arena's own page — three builders stacked here meant scrolling
- * past CodeStrike's test cases to reach Blueprint's canvas.
- *
- * Both switches save as they are flipped. A paused arena keeps its problems but
- * locks for learners (and refuses new attempts server-side); a track switched
- * off drops out of every learner's World Cup track picker.
- */
 export default function ArenaConfigPage() {
   const queryClient = useQueryClient()
 
@@ -38,8 +26,6 @@ export default function ArenaConfigPage() {
     (statusById.get("worldcup")?.disabledTrackIds ?? []).map(String),
   )
 
-  /* The tracks are the real certifications: a World Cup lobby is drawn from a
-     certification's bank, so there is nothing else a track could be. */
   const certificationsQuery = useQuery({
     queryKey: ["admin-certifications", "arena-tracks"],
     queryFn: () => getAllCertifications(),
@@ -47,7 +33,6 @@ export default function ArenaConfigPage() {
   })
   const certifications = certificationsQuery.data ?? []
 
-  /** Puts a fresh status for one arena into the shared list. */
   function applyStatus(nextStatus) {
     queryClient.setQueryData([CHALLENGE_ARENAS_KEY], (current) =>
       Array.isArray(current)
@@ -110,8 +95,6 @@ export default function ArenaConfigPage() {
         </p>
       ) : null}
 
-      {/* Track availability gates World Cup matchmaking — a track with too few
-          players queued will never fill a lobby, so it stays admin-controlled. */}
       <section className="rebyu-section">
         <div className="rounded-2xl border-2 border-border bg-card p-5">
           <h2 className="text-base font-bold">Certification tracks</h2>
@@ -182,8 +165,6 @@ export default function ArenaConfigPage() {
                       ) : null}
                     </div>
                   </div>
-                  {/* The switch is the one thing you'd change without opening the
-                      arena, so it stays on the card. */}
                   <Switch
                     checked={Boolean(status?.live)}
                     disabled={!status || pending}

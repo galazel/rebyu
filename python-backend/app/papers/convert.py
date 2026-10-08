@@ -22,8 +22,6 @@ import threading
 
 logger = logging.getLogger(__name__)
 
-#: File signatures, checked on content -- the name and declared type are the
-#: uploader's choice. DOCX and ODT are ZIP containers, DOC an OLE compound file.
 SIGNATURES = (
     (b"PK\x03\x04", ".docx"),
     (b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1", ".doc"),
@@ -31,7 +29,6 @@ SIGNATURES = (
 )
 EXTENSIONS = {".docx", ".doc", ".odt", ".rtf"}
 
-#: One conversion at a time: each LibreOffice start takes a few hundred MB.
 _slot = threading.Semaphore(1)
 
 TIMEOUT_SECONDS = 180
@@ -66,7 +63,6 @@ def to_pdf(data: bytes, filename: str | None = None) -> bytes:
             handle.write(data)
         command = [
             soffice,
-            # A profile of its own: a shared one is locked by any other run.
             f"-env:UserInstallation=file://{work}/profile",
             "--headless", "--norestore", "--nolockcheck",
             "--convert-to", "pdf", "--outdir", work, source,

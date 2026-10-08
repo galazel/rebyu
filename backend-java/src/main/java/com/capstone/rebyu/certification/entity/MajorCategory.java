@@ -33,10 +33,6 @@ public class MajorCategory {
     @Column(nullable = false, length = 150)
     private String title;
 
-    // NULL = official, platform-wide content (today's only case). Non-null
-    // will mark this major category (and everything nested under it) as
-    // Institution Member-authored content scoped to one group. Not yet acted
-    // on by any read/write path -- see V41 migration javadoc.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_department_id")
     @ToString.Exclude

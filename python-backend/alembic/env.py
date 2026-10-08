@@ -11,8 +11,6 @@ from app.db import models  # noqa: F401
 
 config = context.config
 settings = get_settings()
-# The ini parser treats "%" as interpolation, and a URL-encoded password
-# ("%40" for "@") is full of them. Doubled here, read back as single "%".
 config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
 
 if config.config_file_name is not None:
@@ -42,9 +40,6 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        # Own schema first: lets this service share a database with the main
-        # Rebyu backend without colliding with its tables. Created here (not
-        # just assumed) so a brand-new database works on the first migration.
         connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {settings.db_schema}"))
         connection.execute(text(f"SET search_path TO {settings.db_schema}, public"))
         connection.commit()

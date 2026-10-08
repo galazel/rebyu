@@ -9,7 +9,6 @@ import lombok.Setter;
 
 import java.time.OffsetDateTime;
 
-/** Server-authoritative balances; learner_id is the primary key (one row per learner). */
 @Entity
 @Table(name = "learner_reward_balances")
 @Getter

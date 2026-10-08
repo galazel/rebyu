@@ -92,8 +92,6 @@ def trace(monkeypatch):
         curriculum = state.get("curriculum", {}) or {}
         index = nodes.current_index(state, nodes.MIDDLE_PHASE)
         major, middle = nodes._middle_at(curriculum, index)
-        # Records how many lessons the context was built from, so a quiz
-        # written before its lessons exist is visible as [0].
         steps.append(f"middle_quiz:{middle.get('name')}[{_covered(state, middle.get('lessons'))}]")
         return {
             "middle_quizzes": [
@@ -134,7 +132,6 @@ def trace(monkeypatch):
     monkeypatch.setattr(wf, "generate_mock_exam_node", fake_mock)
     monkeypatch.setattr(wf, "generate_diagnostic_exam_node", fake_diagnostic)
     monkeypatch.setattr(wf, "generate_question_bank_node", fake_bank)
-    # Validation and the LLM alignment audit are not what this test is about.
     monkeypatch.setattr(wf, "lesson_validate_node", lambda state: {})
     monkeypatch.setattr(wf, "middle_validate_node", lambda state: {})
     monkeypatch.setattr(wf, "major_validate_node", lambda state: {})
@@ -161,15 +158,11 @@ def _run(curriculum: dict) -> None:
                 "certification_name": "TOPCIT",
                 "certification_description": "d",
                 "curriculum": curriculum,
-                # Skips ingestion/planning: this test is about the order of
-                # what comes after the curriculum is approved.
                 "auto_approve_scopes": ["MAJOR", "MIDDLE", "LESSON"],
             },
             as_node="plan_curriculum",
         )
         result = await graph.ainvoke(None, config=config)
-        # Every remaining pause is a certification-wide review (curriculum,
-        # mock, diagnostic, bank); the per-item ones auto-approve above.
         for _ in range(20):
             if "__interrupt__" not in (result or {}):
                 return
@@ -197,7 +190,6 @@ def test_the_walk_is_bottom_up_and_interleaved(trace):
         "lesson:M1.m1.L1", "lesson_quiz:M1.m1.L1",
         "middle_quiz:M1.m1[2]",
         "major_quiz:M1[4]",
-        # After the last lesson: the bank, then the diagnostic, then the mock.
         "bank",
         "diagnostic",
         "mock",
@@ -229,7 +221,6 @@ def test_the_single_lesson_test_configuration_still_walks_every_stage(trace):
         "lesson:M0.m0.L0", "lesson_quiz:M0.m0.L0",
         "middle_quiz:M0.m0[1]",
         "major_quiz:M0[1]",
-        # After the last lesson: the bank, then the diagnostic, then the mock.
         "bank",
         "diagnostic",
         "mock",

@@ -40,13 +40,8 @@ public class UserService {
         return userMapper.toDto(userRepository.save(entity));
     }
 
-    /**
-     * Deleting a user erases the whole account -- the learner profile behind it,
-     * their enrolments, attempts, achievements, posts, files, BKT mastery and
-     * Cognito sign-in -- rather than just the row. See AccountDeletionService.
-     */
     public void delete(Long id) {
-        findEntity(id); // 404 for an unknown id, before anything is removed
+        findEntity(id);
         accountDeletionService.deleteUser(id);
     }
 

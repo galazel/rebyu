@@ -1,6 +1,5 @@
 import { FLAG_META, ITEM_STATUS } from "./item-status.js"
 
-// Compact legend so item states are understandable without relying on color.
 export default function ItemStatusLegend() {
   const entries = [
     ITEM_STATUS.current,

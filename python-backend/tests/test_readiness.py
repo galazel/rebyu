@@ -41,8 +41,6 @@ def test_readiness_reports_every_component_and_counts_missing_ones_as_zero(clien
     assert body["lesson_count_with_mastery"] == 2
     assert body["mastery_coverage"] == 0.6667
     assert 0 <= body["readiness_score"] <= 100
-    # Every configured component is reported; ones the learner has not done
-    # yet score zero rather than being dropped and renormalised away.
     assert len(body["components"]) == 8
     missing = [c for c in body["components"] if c["name"] not in ("mastery", "mock_exam")]
     assert all(c["score"] == 0 for c in missing)

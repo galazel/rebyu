@@ -38,7 +38,6 @@ from .question_audit import audit_questions_node
 from .review_loop import register_phase
 from .state import CertificationState
 
-#: Where the curriculum phases hand over to the certification-wide assessments.
 CERTIFICATION_ASSESSMENTS_GATE = "certification_assessments_gate"
 
 
@@ -118,26 +117,15 @@ def build_certification_graph(checkpointer):
         route_after_validation,
         {"continue": "capture_document_visuals", "stop": END},
     )
-    # Visual capture runs before ingestion, not in parallel with it: ingestion
-    # clears `uploaded_files` once it has indexed the text (see
-    # `document_ingestion_node`), and capture needs those same raw bytes to
-    # screenshot figures out of.
     workflow.add_edge("capture_document_visuals", "ingest_documents")
     workflow.add_edge("ingest_documents", "plan_curriculum")
     workflow.add_edge("plan_curriculum", "await_curriculum_review")
-    # The walk starts at the deepest level: lessons come before the quizzes
-    # that test them.
     workflow.add_conditional_edges(
         "await_curriculum_review",
         route_after_review,
         {"approve": LESSON_PHASE.gate, "regenerate": "plan_curriculum"},
     )
 
-    # Per-item loops
-    # Lessons are the only phase with a two-step generation: author the
-    # content, then build its quiz from that content. The phase stops at each
-    # middle-category boundary (`in_scope`) and hands over to that category's
-    # quiz.
     register_phase(
         workflow,
         LESSON_PHASE,
@@ -155,8 +143,6 @@ def build_certification_graph(checkpointer):
         MIDDLE_PHASE,
         generate_node=middle_generate_node,
         validate_node=middle_validate_node,
-        # Only reached with no middle categories left at all; the normal path
-        # out is the advance router below.
         exit_to=MAJOR_PHASE.gate,
         apply_edit_fn=apply_middle_edit,
         advance_router=route_after_middle_advance,
@@ -173,28 +159,13 @@ def build_certification_graph(checkpointer):
         advance_targets={"lessons": LESSON_PHASE.gate, "exams": CERTIFICATION_ASSESSMENTS_GATE},
     )
 
-    # What follows the curriculum
-    # A full build goes on to the mock exam, then the diagnostic, then the
-    # bank. A run that is ADDING to a certification skips the first two and
-    # goes straight to the bank.
-    #
-    # A full run and an append take the same road after the last lesson:
-    # bank, diagnostic, mock. Everything scoped to part of the curriculum --
-    # lessons, their quizzes, middle and major exams, the bank -- is written for
-    # the material the run adds. The diagnostic and mock are scoped to the
-    # whole certification, so an append rebuilds them over the old and new
-    # material together (`_with_existing_curriculum`), and storing them retires
-    # the previous pair rather than keeping it (`persist_generated_assessments`).
     workflow.add_node(CERTIFICATION_ASSESSMENTS_GATE, _certification_assessments_gate)
     workflow.add_conditional_edges(
         CERTIFICATION_ASSESSMENTS_GATE,
         route_certification_assessments,
-        # The bank comes first either way; an append ends after it (see
-        # `_after_bank`).
         {"full": "generate_question_bank", "append": "generate_question_bank"},
     )
 
-    # Certification-wide assessments
     workflow.add_node("generate_diagnostic_exam", instrument(generate_diagnostic_exam_node, "generate_diagnostic_exam"))
     workflow.add_node("await_diagnostic_exam_review", await_diagnostic_exam_review_node)
     workflow.add_node("generate_mock_exam", instrument(generate_mock_exam_node, "generate_mock_exam"))
@@ -203,12 +174,6 @@ def build_certification_graph(checkpointer):
     workflow.add_node("audit_questions", instrument(audit_questions_node, "audit_questions"))
     workflow.add_node("await_question_bank_review", await_question_bank_review_node)
 
-    # Bank, then diagnostic, then mock -- right after the last lesson. The
-    # bank is the widest set and is audited for duplicates as soon as it
-    # exists; the two exams are written after it, each told what the run has
-    # already written (`written_stems`), so they do not repeat bank items.
-    # The mock comes last: it imitates the real paper end to end, and the
-    # reviewer sees it with everything else in the certification done.
     workflow.add_edge("generate_question_bank", "audit_questions")
     workflow.add_edge("audit_questions", "await_question_bank_review")
     workflow.add_conditional_edges(

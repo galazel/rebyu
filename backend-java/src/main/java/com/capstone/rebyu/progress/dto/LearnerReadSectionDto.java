@@ -6,8 +6,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-// learnerId is deliberately absent -- it is resolved from the caller's JWT in
-// the controller, never accepted from the client (see LearnerPortalController).
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

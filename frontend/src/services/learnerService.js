@@ -44,14 +44,6 @@ export function markLessonComplete(data) {
     data,
   })
 }
-/**
- * The signed-in learner's badge wall: the whole catalog, with the earned ones
- * flagged. Read-only by design -- achievements are decided and written
- * server-side as they are earned (see AchievementAwardService), so there is no
- * "award me this" call from the browser to make.
- */
-/** The learner's institution classes (groups): announcements and class assessments. */
-/** Badges and certificates the signed-in learner has earned, one row per certification. */
 export function getMyAwards() {
   return base("learners/me/awards")
 }
@@ -61,16 +53,11 @@ export function getMyClasses(certificationId) {
   return base(`learners/me/classes${query}`)
 }
 
-/**
- * Just the published assessments of those classes, flattened, each with where
- * this learner stands on it -- the counterpart of learners/me/announcements.
- */
 export function getMyClassAssessments(certificationId) {
   const query = certificationId != null ? `?certificationId=${encodeURIComponent(certificationId)}` : ""
   return base(`learners/me/class-assessments${query}`)
 }
 
-/** The signed-in learner edits their own name, username and phone number. */
 export function updateMyProfile({ firstName, lastName, username, phoneNumber }) {
   return base("learners/me/profile", {
     method: "PUT",
@@ -78,26 +65,16 @@ export function updateMyProfile({ firstName, lastName, username, phoneNumber }) 
   })
 }
 
-/**
- * Sets the signed-in learner's profile picture. Returns the stored key, which
- * the caller turns into a viewable link the same way every other upload is
- * shown.
- *
- * <p>No learner id is sent: the server takes it from the token, so a picture
- * can only ever land on the profile of whoever is signed in.
- */
 export function uploadMyAvatar(file) {
   const body = new FormData()
   body.append("file", file)
   return base("learners/me/avatar", { method: "POST", data: body })
 }
 
-/** Removes the picture and puts the learner back to their initials. */
 export function deleteMyAvatar() {
   return base("learners/me/avatar", { method: "DELETE" })
 }
 
-/** XP total and badge catalog only -- the cheap read behind the reward pop-ups. */
 export function getMyRewards() {
   return base("learner-achievements/me/rewards")
 }
@@ -106,8 +83,6 @@ export function getMyAchievements() {
   return base("learner-achievements/me")
 }
 
-// Section-level lesson-read progress for the signed-in learner (learnerId is
-// resolved server-side from the JWT, so it survives a refresh).
 export function getReadSections(lessonId) {
   return base(`learners/me/read-sections?lessonId=${encodeURIComponent(lessonId)}`)
 }
@@ -129,40 +104,17 @@ export function getAllExams() {
   return base("exams")
 }
 
-// Tenant-scoped learner snapshot: the caller's own learner/user record, enrollments,
-// completed lessons, activity logs, exam results, and org allocations (learnerId/userId
-// resolved from the JWT). Replaces fetching global lists and filtering in the browser.
 export function getLearnerPortalScoped(options = {}) {
   const query = options.includeProgress === false ? "?includeProgress=false" : ""
   return base(`learners/me/portal${query}`)
 }
 
-/**
- * The progress rows for every certification this learner is enrolled on.
- *
- * Its own request on purpose. Progress is the expensive half of the portal --
- * it walks every lesson and exam of every enrolled certification -- and the
- * learner shell blocks on the portal snapshot, so folding it back in there
- * blanked My Learning until it returned. Fetched separately, a slow answer
- * costs a percentage on a card rather than the page.
- */
 export async function getLearnerCertificationProgress() {
   try {
     return await base("learners/me/certification-progress")
   } catch (error) {
-    /* Falls back to the portal's own progress on ANY failure.
 
-       This was written to catch a 404, on the assumption that the only way the
-       dedicated endpoint could fail was not being deployed yet. It shipped and
-       returned 500, the narrow catch rethrew, and every card sat on a loading
-       placeholder indefinitely -- a worse outcome than the wrong number it
-       replaced.
 
-       The portal has always been able to return these rows; it is the same
-       computation behind a different door. Whatever is wrong with the newer
-       endpoint, there is no reason to withhold a percentage the older one can
-       still produce. Both are off the shell's critical path, so the cost of
-       trying twice is a slower bar, not a slower page. */
     console.warn("certification-progress failed, falling back to the portal", error)
     const portal = await getLearnerPortalScoped({ includeProgress: true })
     return asArray(portal?.certificationProgress)
@@ -184,31 +136,16 @@ export function writeLearnerPortalSnapshot(data) {
   try {
     sessionStorage.setItem(LEARNER_PORTAL_SNAPSHOT_KEY, JSON.stringify(data))
   } catch {
-    // A full sessionStorage quota must not prevent the live request.
   }
 }
 
-/**
- * Drops the stored snapshot, so the next mount of the learner shell waits for
- * the server instead of drawing what was true before.
- *
- * The snapshot is `initialData` for the shell's query: with it present the
- * shell renders immediately and refetches behind the page, which is right for
- * a return visit and wrong immediately after something changed what the portal
- * contains. Accepting an invitation adds a certification, and the shell would
- * spend the whole of that refetch -- a slow call, it walks the catalog --
- * showing the list from before the acceptance, with no spinner to say so. It
- * reads as an acceptance that did not take.
- */
 export function clearLearnerPortalSnapshot() {
   try {
     sessionStorage.removeItem(LEARNER_PORTAL_SNAPSHOT_KEY)
   } catch {
-    // Nothing to clear is the same outcome as having cleared it.
   }
 }
 
-// The caller's own learner record (JWT-derived) -- use instead of fetching all learners.
 export function getCurrentLearner() {
   return base("learners/me")
 }
@@ -279,21 +216,9 @@ function getScoreNumber(value) {
 export async function getLearnerPortalData() {
   const identity = getCurrentLearnerIdentity()
 
-  // All learner-private data comes pre-scoped from the backend (learnerId/userId
-  // resolved from the JWT); only the certification/exam catalogs are public.
   const [portal, certifications, exams] = await Promise.all([
-    /* Progress stays OUT of this snapshot.
 
-       The whole learner shell waits on this call, and computing progress means
-       walking every lesson and exam of every enrolled certification: measured
-       against the live database that is ~2.9s of SQL before JPA has hydrated
-       176 Lesson entities, each carrying its full `lesson_component_structure`
-       JSONB. Asking for it here once blanked My Learning outright.
 
-       The cards need those numbers, but not at the cost of the page. They
-       fetch them separately -- see `getLearnerCertificationProgress` -- so a
-       slow or failed progress computation delays a percentage rather than the
-       screen. */
     getLearnerPortalScoped({ includeProgress: false }),
     base("certifications"),
     getAllExams(),
@@ -305,25 +230,17 @@ export async function getLearnerPortalData() {
   const institutionCertLearners = asArray(portal.institutionCertLearners)
   const institutionCertificates = asArray(portal.institutionCertificates)
 
-  // The learners table is authoritative. Never fall back to a stale legacy
-  // localStorage value when no learner profile exists for the signed-in user.
   const learner = portal.learner ?? null
   const learnerId = learner?.learnerId ?? null
   const userId = learner?.userId ?? identity.userId
   const user = portal.user ?? null
 
-  // Expired/revoked rows are not access. The backend only ever honours an
-  // `active` enrollment, so counting the others here just produced UI that
-  // offered a certification every scoped endpoint would then 404 on.
   const purchaseEnrollments = asArray(learnerCertifications).filter(
     (item) =>
       isSameId(item.learnerId, learnerId) &&
       String(item.status ?? "active").toLowerCase() === "active"
   )
 
-  // Institution-assigned access: map this learner's active
-  // institution_certification_learners rows to their certificationId via the
-  // institution_certificates allocation, then treat them as enrollments.
   const institutionCertIdToCertificationId = new Map(
     asArray(institutionCertificates).map((institutionCert) => [
       String(institutionCert.institutionCertId),
@@ -456,18 +373,7 @@ export async function getLearnerPortalData() {
     performancePoints,
     recentExamResults,
     resources,
-    // Server-authoritative gamification balances, passed straight through from
-    // `learners/me/portal`. Dropping them here is why the header's XP counter
-    // read 0 no matter how much XP the ledger had actually awarded.
-    // The full achievement catalog with this learner's earned ones flagged.
-    // Server-decided: the browser only ever reads it (and diffs it to notice a
-    // new one), never writes it.
     achievements: asArray(portal.achievements),
-    /* Lessons read and assessments passed per enrolled certification, counted
-       server-side by the same rules the analytics board uses. Every surface
-       that shows a certification's progress reads this rather than counting
-       lessons itself -- that divergence is why My Learning said 100% while
-       Analytics said 20% for the same learner. */
     certificationProgress: asArray(portal.certificationProgress),
     totalXp: Number(portal.totalXp) || 0,
     coinBalance: Number(portal.coinBalance) || 0,

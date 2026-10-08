@@ -15,16 +15,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/**
- * Runs real programs through the configured Judge0 (the public ce.judge0.com by
- * default). Opt-in, because it needs the network:
- *
- * <pre>JUDGE0_LIVE=true ./mvnw test -Dtest=Judge0LiveIT</pre>
- *
- * It exists because the unit tests mock Judge0Client, and the client had been
- * reading the batch endpoint's token list as if it were results -- every mocked
- * test passed while no program was ever actually judged.
- */
 @EnabledIfEnvironmentVariable(named = "JUDGE0_LIVE", matches = "true")
 class Judge0LiveIT {
 

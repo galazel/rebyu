@@ -21,40 +21,9 @@ import {
   setStudyPlanTaskStatus,
 } from "@/services/studyPlanService.js"
 
-/**
- * Runs the learner's scheduled study activities when their time comes.
- *
- * <p>Mounted once, beside the router's pages rather than inside one, so a
- * session fires whatever the learner happens to be reading. A page cannot own
- * this: the whole point is that the learner did not navigate anywhere to make
- * it happen.
- *
- * <h3>What "automatic" can actually mean</h3>
- * A browser tab cannot wake itself. If REBYU is not open at 7:00 PM, nothing
- * fires at 7:00 PM — no amount of client code changes that, and only a push
- * notification or a native app would. So a session is due from its scheduled
- * time onwards rather than exactly at it, and an open tab picks up anything
- * that came due while it was closed. A missed session surfaces the moment the
- * learner comes back instead of being silently skipped, which is the honest
- * reading of "the learner should not have to click anything".
- *
- * <h3>Why status is server-side</h3>
- * Firing is decided from the plan plus recorded task status. Kept only in the
- * browser, a reload would re-fire a session the learner just finished, and a
- * second tab would fire it again alongside the first.
- */
 
-/** How often the clock is checked. A minute's granularity, checked twice. */
 const TICK_MS = 30_000
 
-/**
- * Quiet time after a session is settled before another may open by itself.
- *
- * Long enough that finishing one task does not immediately summon the next,
- * short enough that a genuine evening of study still runs. Anything still due
- * stays on Today's plan and can be started from there at once -- this only
- * governs what opens over the page uninvited.
- */
 const SESSION_COOLDOWN_MS = 10 * 60_000
 
 const ACTIVITY_TITLES = {
@@ -79,24 +48,12 @@ export function StudyActivityHost() {
     staleTime: 60_000,
   })
 
-  /* The task on screen right now, or null. Held here rather than derived from
-     the clock so that dismissing one keeps it dismissed until its status is
-     written -- otherwise the next tick would re-open what was just closed. */
   const [activeTask, setActiveTask] = useState(null)
 
-  /* Tasks this tab has already opened. Belt and braces alongside the server's
-     status: the status write is a round trip, and two ticks can pass before it
-     lands. Without this, a slow network re-opens the same session. */
   const firedRef = useRef(new Set())
 
   const [now, setNow] = useState(() => new Date())
 
-  /* When the last session was settled, so the next one does not open on top
-     of it. A learner coming back after a few days has every task of those
-     days due at once, and the host was working through the whole backlog a
-     modal at a time -- four fired inside seventy seconds in one recorded
-     evening, which reads as the app nagging rather than as a study plan. One
-     session at a time, and the rest wait on Today's plan. */
   const [settledAt, setSettledAt] = useState(null)
 
   useEffect(() => {
@@ -108,14 +65,10 @@ export function StudyActivityHost() {
     mutationFn: setStudyPlanTaskStatus,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [STUDY_PLAN_TASKS_QUERY_KEY] }),
     onError: (error) => {
-      // Never swallowed: if status cannot be written, the same session will
-      // offer itself again on the next load, and the learner deserves to know
-      // why rather than thinking the app is stuck in a loop.
       console.warn("Could not record study task status.", error)
     },
   })
 
-  /** Recorded status per "planId:eventId", for the settled-task test below. */
   const statusByTask = useMemo(() => {
     const map = new Map()
     for (const row of statusesQuery.data ?? []) {
@@ -124,18 +77,7 @@ export function StudyActivityHost() {
     return map
   }, [statusesQuery.data])
 
-  /**
-   * The session that should be running, if any.
-   *
-   * The earliest due one, so a learner returning after a gap works forward
-   * through what they missed rather than being handed the most recent first.
-   */
   const dueTask = useMemo(() => {
-    /* Nothing fires until recorded status has loaded: judged against an empty
-       map, every session already started or finished looks untouched, and a
-       reload re-opens the one the learner is in the middle of. Nor while a
-       Pomodoro is running -- the learner is already studying, and its timer
-       is showing. */
     if (!statusesQuery.isSuccess || pomodoro) return null
     if (settledAt != null && Date.now() - settledAt < SESSION_COOLDOWN_MS) return null
 
@@ -146,15 +88,11 @@ export function StudyActivityHost() {
 
       for (const event of plan.schedule?.events ?? []) {
         if (!isDue(event, now)) continue
-        // Long past, or past before the plan existed: left on Today's plan
-        // instead of opening over the page.
         if (isStale(event, now, plan.schedule?.generatedAt)) continue
 
         const key = `${plan.planId}:${event.id}`
         const status = statusByTask.get(key)
 
-        // Anything already settled is done with -- only a genuinely untouched
-        // task, or one this tab has not yet opened, is a candidate.
         if (status && status !== "PENDING") continue
         if (firedRef.current.has(key)) continue
 
@@ -163,10 +101,6 @@ export function StudyActivityHost() {
           planId: plan.planId,
           event,
           certification: event.certification ?? plan.schedule?.certification ?? null,
-          /* An overall plan stamps the certification on each event, since it
-             spans several; a single-certification plan carries it on the row
-             itself. Recall needs it either way -- questions are assembled per
-             certification, and enrolment is checked against it. */
           certificationId: event.certificationId ?? plan.certificationId ?? null,
         })
       }
@@ -186,26 +120,15 @@ export function StudyActivityHost() {
       eventId: dueTask.event.id,
       status: "IN_PROGRESS",
     })
-    // `statusMutation` deliberately absent: it is recreated every render, and
-    // depending on it would re-run this the instant a task opens.
      
   }, [activeTask, dueTask])
 
-  /* Awaited, not fired and forgotten.
-     `/learner/assessments/:examId` is routed OUTSIDE the learner layout this
-     host is mounted in, so starting a recall unmounts the host in the same
-     tick the status write is issued -- and the COMPLETED write was being lost
-     on the way out. Every recall task in the database was still sitting at
-     IN_PROGRESS, however many times the learner had actually sat one. The
-     caller waits for the write, then navigates. */
   const finishTask = useCallback(
     async (status) => {
       const task = activeTask
       setActiveTask(null)
       if (!task) return
 
-      // IN_PROGRESS is left as it is on a dismissal: the session was started
-      // and not finished, which is exactly what the record should say.
       if (!status) return
 
       setSettledAt(Date.now())
@@ -216,9 +139,6 @@ export function StudyActivityHost() {
           status,
         })
       } catch {
-        // Already reported by the mutation's own onError. Swallowed here so a
-        // failed write cannot strand the learner on a dialog that will not
-        // close -- the task simply stays outstanding, which is the truth.
       }
        
     },
@@ -230,12 +150,6 @@ export function StudyActivityHost() {
   const technique = activeTask.event.technique
   const title = ACTIVITY_TITLES[technique] ?? "Scheduled study session"
 
-  /* Spaced repetition takes the window rather than a panel in the middle of
-     one. Recall is what the session asks for, and the page still legible
-     behind a 32rem box is the first thing that undermines it -- the answer is
-     often on it. The other two techniques stay dialogs: a pomodoro timer and
-     a "start your recall exam" prompt are both notices, and a notice that
-     covers everything is a worse notice. */
   const fullWindow = technique === "spaced-repetition"
 
   return (
@@ -254,8 +168,6 @@ export function StudyActivityHost() {
         }
       >
         {fullWindow ? (
-          /* Radix requires a title for the dialog to be announced; the arena
-             draws its own, so this one is for screen readers only. */
           <DialogHeader className="sr-only">
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>
@@ -267,9 +179,6 @@ export function StudyActivityHost() {
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
 
-            {/* Says what this is and why it appeared. A modal that opens by
-                itself owes the learner that much -- without it, an exam
-                appearing unbidden reads as a bug. */}
             <DialogDescription>
               {formatWhen(activeTask.event, now)}
               {activeTask.certification ? ` · ${activeTask.certification}` : ""}
@@ -278,8 +187,6 @@ export function StudyActivityHost() {
         )}
 
         {technique === "pomodoro" ? (
-          /* Only the start prompt: once started, the timer lives in
-             PomodoroOverlay, which records COMPLETED when the last block ends. */
           <PomodoroStart
             task={activeTask}
             onStarted={() => finishTask(null)}
@@ -289,10 +196,6 @@ export function StudyActivityHost() {
           <RecallSession
             task={activeTask.event}
             certificationId={activeTask.certificationId}
-            /* Completed on starting, not on submitting: the learner leaves this
-               modal for the attempt runner, and the exam's own result is the
-               record of how it went. Leaving the task in progress would have it
-               re-offered on the next page they land on -- mid-exam. */
             onStarted={() => finishTask("COMPLETED")}
             onDismiss={() => finishTask(null)}
           />
@@ -304,9 +207,6 @@ export function StudyActivityHost() {
             onDismiss={() => finishTask(null)}
           />
         ) : (
-          /* Active recall and spaced repetition are not built yet. Saying so
-             beats firing an empty modal, and beats pretending the session
-             happened by marking it complete. */
           <div className="space-y-3 py-2">
             <p className="text-sm font-medium text-foreground">
               {activeTask.event.title}

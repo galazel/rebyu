@@ -33,22 +33,14 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-/** Extracts embedded source images and places stable S3 markers beside source text. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class QuestionSourceImageService {
 
-    /** One image extracted from a source file, with enough context to link and caption it. */
     public record ExtractedImage(
             String key, String contentType, Integer page, Integer order, String nearbyText) {}
 
-    /**
-     * {@code images} carries the structured per-image metadata (page/order/
-     * content type/nearby text) used to persist {@code KnowledgeDocumentImage}
-     * rows; {@code imageKeys} is kept as a flat set for existing callers that
-     * only need trusted-key validation.
-     */
     public record ExtractedSource(String text, Set<String> imageKeys, List<ExtractedImage> images) {}
 
     private final S3Client s3Client;
@@ -75,7 +67,6 @@ public class QuestionSourceImageService {
         return new ExtractedSource(fallbackText, Set.of(), List.of());
     }
 
-    /** Downloads and base64-encodes an already-extracted image for a vision-model prompt. */
     public String downloadAsBase64(String key) throws IOException {
         byte[] bytes = s3Client.getObject(GetObjectRequest.builder()
                         .bucket(bucketName)
@@ -115,7 +106,6 @@ public class QuestionSourceImageService {
         return new ExtractedSource(context.toString(), Set.copyOf(keys), List.copyOf(images));
     }
 
-    /** A short snippet of the surrounding text, used as a caption/context hint for the AI. */
     private String nearbyText(String pageText) {
         if (pageText == null || pageText.isBlank()) return null;
         String trimmed = pageText.trim();

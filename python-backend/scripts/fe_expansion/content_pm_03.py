@@ -17,7 +17,6 @@ from figures import fig
 MAJOR = "Project Management"
 MIDDLE = "Project Management"
 
-# Lesson 6: Time management
 
 _time_sections = [
     ("From Work Packages to a Schedule", [
@@ -700,7 +699,6 @@ LESSON_PM_TIME = lesson(
         ],
     ))
 
-# Lesson 7: Cost management and earned value
 
 _cost_sections = [
     ("Estimating and Budgeting", [

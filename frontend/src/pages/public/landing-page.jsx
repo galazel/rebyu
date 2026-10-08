@@ -44,9 +44,6 @@ import { PinBoard } from "@/components/classroom/pin-board.jsx";
 import { LaptopSheet } from "@/components/classroom/laptop-sheet.jsx";
 import { TraySupplies } from "@/components/classroom/tray-supplies.jsx";
 import { RebyuCard, TactileButton } from "@/components/rebyu/rebyu-ui.jsx";
-/* The board's own mark and its own band boundaries, imported rather than
-   restated. A landing page that draws its own seal or picks its own red is a
-   landing page that drifts away from the product it is advertising. */
 import { MASTERY_BANDS } from "@/components/charts/rebyu-charts.jsx";
 import {
   AnimatePresence,
@@ -70,14 +67,7 @@ import {
   RetentionChart,
 } from "./landing-charts.jsx";
 
-/* Community is part of the public story again, now that the learner portal
-   and admin moderation are both re-registered.
 
-   The flag governs the section alone. It used to carry a nav item and a footer
-   link with it, and both are gone: the community is one of the things inside
-   the feature run rather than a destination of its own, so the bar and the
-   footer each carry a single "features" link that covers it. Flip this to
-   false to withdraw the section. */
 const SHOW_COMMUNITY = true;
 
 const NAV_ITEMS = [
@@ -85,17 +75,7 @@ const NAV_ITEMS = [
   { label: "the problem", href: "#problem" },
   { label: "how it works", href: "#how-it-works" },
   { label: "certifications", href: "#certifications" },
-  /* One entry for the whole feature run. It points at the run's own header
-     rather than at its first section: #ai-tutor landed the visitor on an
-     eyebrow reading "ai tutor", so the bar promised a category and the page
-     answered with one implementation. #features is the band that names all of
-     them. The inner sections keep their ids, so any link already pointing at
-     #ai-tutor or #community still resolves.
 
-     The community and the arenas are deliberately not in the bar. They are
-     things you do inside the product, not places to go on this page, and
-     naming each one turned a five-item bar into a table of contents for a page
-     the visitor is going to scroll anyway. */
   { label: "features", href: "#features" },
   { label: "get access", href: "#get-access" },
 ];
@@ -127,7 +107,6 @@ const HOW_IT_WORKS = [
   },
 ];
 
-/* UCLM Departments / Colleges and their corresponding non-board level certifications */
 const DEPARTMENTS = [
   { id: "all", name: "All Departments", code: "ALL", description: "All technical & industry certifications across colleges" },
   { id: "ccs", name: "College of Computer Studies", code: "CCS", description: "Information Technology & Computer Science" },
@@ -138,10 +117,7 @@ const DEPARTMENTS = [
   { id: "con", name: "College of Nursing", code: "CON", description: "AHA Healthcare BLS/ACLS & TESDA Competencies" },
 ];
 
-/* `wordmark` is set oversized and clipped inside the card header — it does the
-   work a photo used to, without the stock-image feel. */
 const CERTIFICATIONS = [
-  // CCS (College of Computer Studies) — retaining strictly the original 3
   {
     department: "ccs",
     departmentName: "Computer Studies",
@@ -198,7 +174,6 @@ const CERTIFICATIONS = [
     ],
   },
 
-  // CBA (College of Business Administration and Accountancy: BSA / BSMA / BSBA)
   {
     department: "cba",
     departmentName: "Business Administration",
@@ -272,7 +247,6 @@ const CERTIFICATIONS = [
     ],
   },
 
-  // CHTM (College of Hospitality and Tourism Management - UCLM TETAC TESDA NC II)
   {
     department: "chtm",
     departmentName: "Hospitality & Tourism",
@@ -365,7 +339,6 @@ const CERTIFICATIONS = [
     ],
   },
 
-  // College of Maritime Studies (STCW Mandatory Training Certificates)
   {
     department: "cms",
     departmentName: "Maritime Studies",
@@ -439,7 +412,6 @@ const CERTIFICATIONS = [
     ],
   },
 
-  // College of Engineering (COE)
   {
     department: "coe",
     departmentName: "College of Engineering",
@@ -496,7 +468,6 @@ const CERTIFICATIONS = [
     ],
   },
 
-  // College of Nursing (CoN)
   {
     department: "con",
     departmentName: "College of Nursing",
@@ -553,11 +524,6 @@ const CERTIFICATIONS = [
   },
 ];
 
-/* IT Olympics — two solo endurance modes plus the synchronised 8-player
-   tournament, shown as icons with labels. `format` is the honest distinction
-   between them: solo runs can be started any time, the World Cup needs seven
-   other people. */
-/** Wraps the index so the carousel is a ring, not a strip with two dead ends. */
 function olympicsOffset(index, activeIndex) {
   let difference = index - activeIndex;
   const total = OLYMPICS_MODES.length;
@@ -616,8 +582,6 @@ const INSTITUTION_POINTS = [
   "Receive consolidated institutional invoices",
 ];
 
-/* Community is a feed, not a group chat: learners post practice sets, notes and
-   files that other learners can open, attempt, and save. */
 const FEED_POSTS = [
   {
     author: "Rina Delgado",
@@ -659,10 +623,6 @@ function BrandMark({ light = false }) {
   return (
     <span className="flex items-center gap-2.5">
       <BrandLogo className="size-9" />
-      {/* `rb-wordmark`: the name is the brand, not classroom dressing, so it
-          takes the product face here exactly as it does in the institution
-          and admin headers. Without it the landing's handwriting exception
-          swept the logo up with the headlines. */}
       <span
         className={`rb-wordmark rb-display text-2xl leading-none transition-colors duration-200 ${
           light ? "text-white! [text-shadow:0_1px_3px_rgba(0,0,0,0.55)]" : ""
@@ -674,14 +634,11 @@ function BrandMark({ light = false }) {
   );
 }
 
-/* navigation */
 
 function LandingNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState(null);
-  /* Which link the pointer is on, so one shared pill can slide between them
-     rather than seven independent backgrounds fading in and out. */
   const [hoveredNav, setHoveredNav] = useState(null);
 
   useEffect(() => {
@@ -689,7 +646,6 @@ function LandingNavbar() {
       const scrollY = window.scrollY;
       setIsScrolled(scrollY > 24);
 
-      // In the hero/first page fold, no section is active and fonts are not bold
       if (scrollY < window.innerHeight * 0.45) {
         setActiveSection(null);
         return;
@@ -704,7 +660,7 @@ function LandingNavbar() {
         "get-access",
       ];
 
-      const headerOffset = 140; // Navbar height + offset
+      const headerOffset = 140;
       let current = null;
 
       for (let i = sectionIds.length - 1; i >= 0; i--) {
@@ -771,16 +727,9 @@ function LandingNavbar() {
     }
   };
 
-  /* Sits on the hero's classroom photo while the page is at the top, so the
-     bar is see-through with light text there. Once scrolled over the white
-     sections -- or with the mobile menu open -- it takes its solid background
-     back, since white text on white would disappear. */
   const overHero = !isScrolled && !mobileMenuOpen;
 
   return (
-    /* Sticky, not fixed: the route wrapper animates with a transform, and a
-       transformed ancestor turns `fixed` into "scrolls with the page". The hero
-       pulls itself up under this bar instead (see HeroSection). */
     <header className="sticky top-0 z-50 w-full">
       <div
         className={`w-full border-b-2 transition-colors duration-200 ${
@@ -792,11 +741,6 @@ function LandingNavbar() {
             <BrandMark light={overHero} />
           </Link>
 
-          {/* The hover background is one element carrying a `layoutId`, so
-              moving from "about" to "the problem" animates the same box across
-              the gap instead of cross-fading two. `onMouseLeave` sits on the
-              <nav> rather than each link: leaving one link for the next would
-              otherwise clear and re-set the state on every hop. */}
           <nav
             className="hidden items-center gap-1 lg:flex"
             onMouseLeave={() => setHoveredNav(null)}
@@ -862,12 +806,6 @@ function LandingNavbar() {
           </button>
         </div>
 
-        {/* Closing used to be instant, because the node left the tree the frame
-            the state flipped. AnimatePresence holds it long enough to roll back
-            up, and the links stagger on the way in so the panel reads as a list
-            arriving rather than a block appearing. `initial={false}` keeps it
-            silent on first paint — a menu that is already shut should not
-            animate shut. */}
         <AnimatePresence initial={false}>
           {mobileMenuOpen ? (
             <motion.div
@@ -926,19 +864,10 @@ function LandingNavbar() {
 
 function HeroSection() {
   return (
-    /* -mt-[82px]: slides up under the sticky navigation bar (80px + its 2px
-       border), so the classroom photo starts at the very top of the window. */
     <section className="relative isolate -mt-[82px] flex min-h-svh items-center overflow-hidden">
-      {/* --- the fold: a classroom ----------------------------------------------
-          The painted classroom fills the window; the claim is chalked onto a
-          wood-framed chalkboard in the middle of it, with pencils resting on the
-          chalk tray. The photo and the pencils are ornament (`aria-hidden`). */}
       <div aria-hidden="true" className="rb-classroom-photo absolute inset-0 -z-10" />
 
-      {/* `animate`, not `whileInView`: the fold is on screen before any observer
-          could fire. The stagger reads as one sentence being said. */}
       <motion.div
-        /* pt-28 clears the 80px navigation bar, which now floats over the photo. */
         className="relative mx-auto w-full max-w-[1360px] px-4 pb-16 pt-28 sm:px-8"
         initial="hidden"
         animate="show"
@@ -983,7 +912,6 @@ function HeroSection() {
   );
 }
 
-/* what it is */
 
 function AboutSection() {
   return (
@@ -1011,10 +939,6 @@ function AboutSection() {
             [BarChart3, "Mastery tracking", "Every answer updates a per-topic estimate."],
             [Users, "Built for both", "Study on your own, or through your institution."],
           ].map(([Icon, title, body]) => (
-            /* Lift on the wrapper, reveal on the card. The scroll reveal is the
-               CSS layer's `rb-reveal`, which animates a transform of its own —
-               driving both from one element would leave motion and the
-               stylesheet writing the same property. */
             <HoverLift key={title} className="h-full">
               <RebyuCard raised data-landing-reveal className="h-full">
                 <span className="grid size-12 place-items-center rounded-2xl bg-rb-feather-wash text-rb-feather-ink">
@@ -1031,7 +955,6 @@ function AboutSection() {
   );
 }
 
-/* problem */
 
 function ProblemSection() {
   return (
@@ -1093,15 +1016,11 @@ function ProblemSection() {
   );
 }
 
-/* solution */
 
 function SolutionSection() {
   return (
     <section id="solution" className="relative scroll-mt-24 overflow-hidden bg-white px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto grid max-w-[1280px] items-center gap-12 lg:grid-cols-2 lg:gap-16">
-        {/* Chart left, copy right. The card already leads in source order, so
-            the columns fall this way on their own -- the order utilities that
-            used to flip them back were the only thing putting it on the right. */}
         <div data-landing-reveal>
           <LaptopSheet
             file="mastery-per-domain.xlsx"
@@ -1157,7 +1076,6 @@ function SolutionSection() {
   );
 }
 
-/* how it works */
 
 function HowItWorksSection() {
   const TONE_CLASSES = {
@@ -1167,9 +1085,6 @@ function HowItWorksSection() {
     fox: "bg-rb-fox-wash text-rb-fox-lip",
   };
 
-  /* The line that joins one step to the next, in the colour of the step it
-     leads into. Only the DS tone faces — the wash is the tile, the face is the
-     thread. */
   const TONE_LINE = {
     macaw: "bg-rb-macaw",
     beetle: "bg-rb-beetle",
@@ -1177,17 +1092,7 @@ function HowItWorksSection() {
     fox: "bg-rb-fox",
   };
 
-  /* The heading promises an order — "in this order, every time" — and a row of
-     four cards that all arrive together is the one layout that contradicts it.
-     The scroll through the section is the progress through the method: each
-     step turns on as it is reached. See `useScrollSteps`.
 
-     There is no separate stepper strip above the cards. One was tried: it put
-     a second set of numbers on screen directly above the card tiles that
-     already number themselves, in a single flat blue that ignored the tone each
-     step carries — the loudest element in the section, saying nothing the cards
-     were not already saying. The progress lives on the cards instead, and the
-     only new mark is a short thread in the gutter between them. */
   const trackRef = useRef(null);
   const { active } = useScrollSteps(trackRef, HOW_IT_WORKS.length);
 
@@ -1210,23 +1115,10 @@ function HowItWorksSection() {
               const current = i === active - 1;
 
               return (
-                /* `relative` for the thread, which hangs outside the card. */
                 <div key={item.step} className="relative h-full">
-                  {/* Sits in the gutter only — from the previous card's edge to
-                      this one's — at exactly the height of the tiles it joins:
-                      2px border + 24px card padding + half of a 48px tile. It
-                      never crosses a card, so it reads as a join rather than a
-                      rule drawn over the layout. Single-row widths only; where
-                      the cards wrap, a thread would leave one row and reappear
-                      at the start of the next. */}
                   {i > 0 ? (
                     <span
                       aria-hidden="true"
-                      /* Carries the card's own 10px offset while the step is
-                         still ahead, so the thread stays on the tile's centre
-                         line through the reveal instead of sitting 10px proud
-                         of it. Transform rather than `top` — same reason
-                         everything else here animates on transform. */
                       style={{
                         top: "50px",
                         transform: `translateY(calc(-50% + ${reached ? 0 : 10}px))`,
@@ -1244,27 +1136,14 @@ function HowItWorksSection() {
                   ) : null}
 
                   <HoverLift className="h-full">
-                    {/* Dimmed rather than hidden. A step that is not there yet
-                        cannot be read ahead of; a step that is merely quiet
-                        can, and someone skimming the section for step four
-                        should not have to scroll for it. */}
                     <motion.div
                       className="h-full"
-                      /* `initial={false}`: take the dimmed state on the first
-                         commit instead of animating into it, so the section
-                         does not flash four bright cards and then dim them on
-                         mount. */
                       initial={false}
                       animate={{ opacity: reached ? 1 : 0.45, y: reached ? 0 : 10 }}
                       transition={{ duration: 0.42, ease: EASE }}
                     >
                       <RebyuCard raised className="flex h-full flex-col">
                         <span
-                          /* The tile is the step marker: grey until reached,
-                             then its own tone, with a ring on the one the
-                             reader is on. This is the whole progress display —
-                             it is already numbered, already coloured per step,
-                             and already exactly where the eye is. */
                           className={`grid size-12 place-items-center rounded-2xl font-rb-display text-base font-extrabold transition-colors duration-300 ${
                             reached ? TONE_CLASSES[item.tone] : "bg-rb-swan text-rb-hare"
                           } ${current ? "ring-2 ring-current ring-offset-2 ring-offset-rb-snow" : ""}`}
@@ -1286,14 +1165,8 @@ function HowItWorksSection() {
   );
 }
 
-/* certifications */
 
 function CertificationSection() {
-  /* A showcase, not a comparison: full-width bands that put each certification's
-     actual topic list on the page. What a reader wants here is "what is in the
-     system", and that is the topics. Each certification is a paper folder that
-     opens like a book onto its topic list. */
-  /* Expanded folder colors for each industry certification */
   const FOLDER = {
     macaw: { face: "#ecd29a", edge: "#d5b06b" },
     bee: { face: "#d3e2c4", edge: "#aec79c" },
@@ -1388,8 +1261,6 @@ function CertificationSection() {
         <div data-landing-reveal>
           <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div className="max-w-2xl">
-              {/* The eyebrow names the section, the tag beside it cycles certifications
-                  in the currently selected department */}
               <p
                 className="rb-eyebrow !font-normal flex flex-wrap items-center gap-2"
                 style={{ fontWeight: 400 }}
@@ -1411,7 +1282,6 @@ function CertificationSection() {
               </p>
             </div>
 
-            {/* Department / Industry Filter Dropdown */}
             <div className="relative z-30 shrink-0 w-full sm:w-80" ref={dropdownRef}>
               <div className="flex flex-col items-end gap-1.5">
                 <span className="text-xs font-bold uppercase tracking-wider text-rb-wolf text-right">
@@ -1489,7 +1359,6 @@ function CertificationSection() {
             </div>
           </div>
 
-          {/* Quick-pill filter chips for fast switching */}
           <div className="mt-6 flex flex-wrap items-center gap-2">
             {DEPARTMENTS.map((dept) => {
               const isSelected = dept.id === selectedDept;
@@ -1511,7 +1380,6 @@ function CertificationSection() {
           </div>
         </div>
 
-        {/* Folder Shelf / Carousel Container */}
         <div className="mt-12 relative" data-folder-carousel-container>
           <FolderShelf
             items={shelfItems}
@@ -1522,15 +1390,8 @@ function CertificationSection() {
   );
 }
 
-/* roadmap */
-/* olympics */
 
 function OlympicsSection() {
-  /* The same mode-select carousel the signed-in challenge hub uses: one arena
-     at full size with the other two racked behind it, rather than three equal
-     boxes. Picking a competitive format is a choice, and the carousel puts the
-     choice itself on screen — a visitor sees the arena exactly as it will look
-     once they are inside the product. */
   const [activeIndex, setActiveIndex] = useState(0);
   const activeMode = OLYMPICS_MODES[activeIndex];
 
@@ -1566,12 +1427,6 @@ function OlympicsSection() {
         tabIndex={0}
         aria-label="Arena carousel"
       >
-        {/* Drag anywhere on the deck to change arenas. `dragConstraints` are
-            pinned to zero on both sides with `dragElastic` supplying the give,
-            so the deck rubber-bands back to centre and the offset is only ever
-            read as an intent — the cards themselves are positioned by state,
-            never by where the pointer stopped. Velocity is folded in so a
-            decisive flick counts even if it travelled less than 60px. */}
         <motion.div
           className="relative h-[470px] cursor-grab active:cursor-grabbing sm:h-[490px]"
           drag="x"
@@ -1592,30 +1447,13 @@ function OlympicsSection() {
                 key={mode.id}
                 type="button"
                 onClick={() => (isActive ? undefined : setActiveIndex(index))}
-                /* Centred with `inset-0 m-auto` rather than the usual
-                   `left-1/2 -translate-x-1/2`. `x` and `translateX` are the
-                   same transform key to motion, so a centring half-offset in
-                   `style` and a springing `x` in `animate` would be one
-                   property written twice — auto margins centre the card
-                   without spending the transform at all, leaving the whole of
-                   it to the spring. */
                 className={`absolute inset-0 isolate m-auto h-[430px] w-[280px] overflow-hidden rounded-rb-card border-2 text-left [backface-visibility:hidden] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-feather sm:w-[320px] ${
                   isActive
                     ? "border-rb-feather shadow-[0_26px_65px_-18px_rgba(17,138,87,0.45)]"
                     : "border-rb-swan shadow-[0_22px_55px_-18px_rgba(15,23,42,0.35)]"
                 }`}
                 style={{ zIndex: 10 - Math.abs(position) }}
-                /* `initial={false}` because these values are the deck's layout,
-                   not an entrance. Left to animate in from the transform
-                   defaults, all three cards paint stacked dead centre at full
-                   size until the first frame lands, and on a slow first frame
-                   that stack is what a visitor sees. Off-centre is the resting
-                   state; only *changing* arenas is an animation.
 
-                   A spring rather than the duration this used to carry: it is a
-                   deck of cards being thumbed through, and a fixed duration
-                   cannot move the card with furthest to go any differently
-                   from the one already nearly in place. */
                 initial={false}
                 animate={{
                   x: position * 230,
@@ -1722,14 +1560,7 @@ function OlympicsSection() {
           </motion.button>
         </div>
 
-        {/* The hub's footer row: what is selected, and the one way in. Here the
-            way in is registration — the arenas are behind a learner account. */}
         <div className="mx-auto mt-8 flex max-w-3xl flex-col items-center justify-between gap-3 text-center sm:flex-row sm:text-left">
-          {/* `mode="wait"` so the outgoing arena name is gone before the next
-              one arrives — overlapping them cross-fades two different words
-              through each other, which at display size is unreadable. The
-              wrapper is min-height'd because the row is empty for the ~220ms
-              between them, and the CTA beside it must not step sideways. */}
           <div className="min-h-[3.75rem]">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
@@ -1757,17 +1588,7 @@ function OlympicsSection() {
   );
 }
 
-/* ai lab */
 
-/**
- * The scripted exchange the tutor preview plays.
- *
- * Deliberately inside one lesson: the tutor is scope-limited to the lesson the
- * learner is on, so a preview where it answers anything at all would advertise
- * a product that does not exist. `parts` exists so the reply can be typed out
- * character by character and still carry emphasis — the typewriter reveals a
- * character count across the segments rather than a plain string.
- */
 const TUTOR_CHAT = [
   {
     from: "learner",
@@ -1794,8 +1615,6 @@ const TUTOR_CHAT = [
     parts: [
       { text: "Built you a five-question quiz on normalization, drawn from this lesson." },
     ],
-    // The tutor hands back a quiz to open, not questions in the chat — asking
-    // them inline here would show a flow the product does not have.
     action: { label: "take the quiz", icon: Zap },
   },
   {
@@ -1823,7 +1642,6 @@ function messageLength(message) {
   return message.parts.reduce((total, part) => total + part.text.length, 0)
 }
 
-/** Renders `parts` truncated to `revealed` characters, keeping the emphasis. */
 function TypedParts({ parts, revealed }) {
   let consumed = 0
   return (
@@ -1843,7 +1661,6 @@ function TypedParts({ parts, revealed }) {
   )
 }
 
-/** The tutor's pen: a ballpoint whose tip sits on the end of the line being written. */
 function InkPen() {
   return (
     <span className="rb-ink-pen" aria-hidden="true">
@@ -1861,7 +1678,6 @@ function InkPen() {
   )
 }
 
-/** The tutor thinking: the pen resting on the line, dots appearing. */
 function TypingIndicator() {
   return (
     <div className="rb-ink-tutor">
@@ -1873,8 +1689,6 @@ function TypingIndicator() {
   )
 }
 
-/* One turn, handwritten: the learner's question in pencil, the tutor's answer
-   in blue ink with the pen on the line while it is still being written. */
 function ChatBubble({ message, revealed, showChips }) {
   const isLearner = message.from === "learner"
   const writing = revealed < messageLength(message)
@@ -1898,8 +1712,6 @@ function ChatBubble({ message, revealed, showChips }) {
         </div>
       ) : null}
 
-      {/* What the tutor actually returns once it has generated something: a way
-          into the quiz or the deck, not the questions themselves. */}
       {message.action && showChips ? (
         <span className="rb-pop-in rb-ink-action">
           <message.action.icon className="size-4" aria-hidden="true" />
@@ -1911,20 +1723,8 @@ function ChatBubble({ message, revealed, showChips }) {
   )
 }
 
-/**
- * The tutor preview, played rather than posed.
- *
- * A static transcript showed the shape of a conversation but not the thing that
- * makes a tutor feel like one — that it answers you while you wait. So the
- * exchange runs: the learner's message lands, the tutor thinks, types its reply
- * out, offers the quiz, and the learner takes it. Then it replays.
- *
- * Under `prefers-reduced-motion` the whole transcript is shown at once, with no
- * timers running at all.
- */
 function TutorConversation() {
   const [reducedMotion, setReducedMotion] = useState(false)
-  // How many messages are finished, and how far through the next one we are.
   const [done, setDone] = useState(0)
   const [revealed, setRevealed] = useState(0)
   const [thinking, setThinking] = useState(false)
@@ -1938,7 +1738,6 @@ function TutorConversation() {
 
     const current = TUTOR_CHAT[done]
 
-    // Past the last message: hold the finished transcript, then replay.
     if (!current) {
       const replay = window.setTimeout(() => {
         setDone(0)
@@ -1957,10 +1756,6 @@ function TutorConversation() {
       return () => window.clearTimeout(next)
     }
 
-    // Tutor: think first, then type. Advancing to the next message is left to
-    // the effect below rather than done from inside the state updater — React
-    // may call an updater more than once, and a timer scheduled in there gets
-    // scheduled twice with it.
     setThinking(true)
     setRevealed(0)
     const total = messageLength(current)
@@ -1979,7 +1774,6 @@ function TutorConversation() {
     }
   }, [done, reducedMotion])
 
-  // A tutor message that has finished typing holds, then hands over.
   useEffect(() => {
     if (reducedMotion) return undefined
     const current = TUTOR_CHAT[done]
@@ -2004,13 +1798,9 @@ function TutorConversation() {
           <div className="rb-tutor-sub">Databases · Normalization</div>
         </div>
 
-        {/* Scoped, and says so: the tutor answers inside the lesson you are on. */}
         <span className="rb-tutor-stamp">in this lesson</span>
       </div>
 
-      {/* Bottom-anchored at a fixed height: the page fills upward as a real
-          one does, it never changes size mid-conversation, and the earliest
-          turns clip off the top. */}
       <div
         className="rb-tutor-body flex h-[392px] flex-col justify-end gap-2 overflow-hidden"
         aria-live="polite"
@@ -2036,25 +1826,7 @@ function TutorConversation() {
   )
 }
 
-/**
- * The ground the feature run stands on.
- *
- * One background across the run, not one per section. The tutor was
- * beetle-wash and the community macaw-wash, and two saturated bands stacked
- * directly on each other read as two unrelated pages rather than as two parts
- * of one answer. The sections keep their own ids, headings and padding; only
- * the colour moved out here, so the run is a single block that the plain
- * section after it closes.
- *
- * It carries no header of its own. One was tried -- a "features" eyebrow over
- * a heading naming the three -- and it restated in a paragraph what the three
- * sections beneath it each say better with a working demo beside them. The
- * band is the grouping; it does not also need to be announced.
- */
 function FeaturesBand({ children }) {
-  /* The id lives here rather than on a header of its own, so the nav's
-     "features" link still lands at the top of the run with nothing between the
-     bar and the first section. */
   return (
     <div id="features" className="scroll-mt-24 bg-rb-feather-wash">
       {children}
@@ -2107,19 +1879,7 @@ function AiTutorSection() {
   );
 }
 
-/* gamification */
 
-/* What the mastery service actually returns per topic: an estimate, and a
-   confidence in that estimate driven by how much evidence sits behind it. Both
-   are shown — 40% mastery from three answers means something different from 40%
-   from forty, and hiding that would overstate what the system knows. */
-/* Shaped like the rows the dashboard's own "mastery by topic" tile renders:
-   a title, the category it sits under, the mastery estimate, how many answers
-   are behind that estimate, and the BKT priority tag the seal is drawn from.
-   The tags are the real vocabulary (`SEAL_CONFIG` in components/learner/
-   priority-tag.jsx), not a marketing paraphrase of it -- NOT_ENOUGH_DATA on
-   Cryptography basics is exactly what seven answers earns you, and it is the
-   tag a learner would actually see there. */
 const TOPICS = [
   { name: "Normalization", domain: "Databases", mastery: 31, answers: 42, priorityTag: "CRITICAL_PRIORITY" },
   { name: "Subnetting", domain: "Networks", mastery: 38, answers: 36, priorityTag: "HIGH_PRIORITY" },
@@ -2129,9 +1889,6 @@ const TOPICS = [
   { name: "Sorting algorithms", domain: "Programming", mastery: 79, answers: 64, priorityTag: "STRONG" },
 ];
 
-/* The dashboard's own three mastery bands, so a bar on the landing page is the
-   colour the same number would be inside the product. `MASTERY_BANDS` is
-   weak < 25, developing < 50, strong above -- red, orange, green. */
 function masteryTone(value) {
   if (value < MASTERY_BANDS.weak) return "cardinal";
   if (value < MASTERY_BANDS.developing) return "fox";
@@ -2157,9 +1914,6 @@ function WeaknessSection() {
           </p>
         </div>
 
-        {/* An open notebook the teacher has marked: the ranked topic list on
-            the left, the teacher's notes (study-first topic, readiness, the
-            retake scores taped in) on the right. */}
         <div data-landing-reveal className="mt-12">
           <GradedNotebook topics={TOPICS} notAssessed={4} readiness={68} tone={masteryTone}>
             <LaptopSheet laptop={false} file="retakes.xlsx" formula="=B5-B2" cell="B5" sheet="retakes">
@@ -2176,14 +1930,11 @@ function WeaknessSection() {
   );
 }
 
-/* community */
 
 function CommunitySection() {
   return (
     <section id="community" className="scroll-mt-24 px-5 py-20 lg:px-8 lg:py-28">
       <div className="mx-auto grid max-w-[1280px] items-center gap-12 lg:grid-cols-2 lg:gap-16">
-        {/* A feed, not a chat: posts carry real attachments — practice sets,
-            notes, files — which is what the community is actually for. */}
         <div data-landing-reveal className="space-y-4">
           {FEED_POSTS.map((post) => (
             <RebyuCard key={post.author} raised className="!p-0">
@@ -2207,7 +1958,6 @@ function CommunitySection() {
 
               <p className="px-5 pt-3 text-[0.9375rem] leading-6 text-rb-eel">{post.text}</p>
 
-              {/* the attachment is the point of the post */}
               <div className="mx-5 mt-4 flex items-center gap-3 rounded-rb-tile border-2 border-rb-swan bg-rb-polar p-3">
                 <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${post.attachTone}`}>
                   <post.attachIcon className="size-5" aria-hidden="true" />
@@ -2279,7 +2029,6 @@ function CommunitySection() {
   );
 }
 
-/* access */
 
 function AccessCard({ icon: Icon, title, description, points, cta, to, tone }) {
   return (
@@ -2344,13 +2093,9 @@ function AccessSection() {
   );
 }
 
-/* footer */
 
 function Footer() {
   const footerRef = useRef(null);
-  /* The wordmark rises as the footer is scrolled into, so the last thing on the
-     page settles rather than simply being there. Short travel — it is already
-     24vw tall, and anything more turns a full stop into a swipe. */
   const wordmarkY = useParallax(footerRef, 34);
 
   const COLUMNS = [
@@ -2358,10 +2103,6 @@ function Footer() {
       title: "platform",
       links: [
         ["Certifications", "#certifications"],
-        /* One link for the feature run, the same way the navbar carries one.
-           The arenas and the community are inside it -- naming them here as
-           separate destinations is the table of contents the bar already
-           stopped being. */
         ["Features", "#features"],
       ],
     },
@@ -2412,12 +2153,6 @@ function Footer() {
                 <ul className="mt-3 space-y-1">
                   {column.links.map(([label, href]) => (
                     <li key={href}>
-                      {/* inline-block + padding keeps the tap target above the
-                          24px pointer-target minimum on mobile */}
-                      {/* Scale, not lift: these sit in a tight column, and a
-                          link that travels upward on hover lands on the one
-                          above it. `origin-left` so the row grows away from the
-                          column edge instead of drifting across it. */}
                       <HoverScale as="a" scale={1.045} className="origin-left" href={href}>
                         <span className="inline-block py-1.5 text-sm font-medium text-rb-wolf underline-offset-4 transition-colors hover:text-rb-feather hover:underline">
                           {label}
@@ -2436,7 +2171,6 @@ function Footer() {
         </p>
       </div>
 
-      {/* oversized wordmark — the only decorative element on the page */}
       <motion.div
         aria-hidden="true"
         style={{ y: wordmarkY }}
@@ -2450,7 +2184,6 @@ function Footer() {
   );
 }
 
-/* back to top floating button */
 
 function BackToTopButton() {
   const [visible, setVisible] = useState(false);
@@ -2460,10 +2193,8 @@ function BackToTopButton() {
       const accessSection = document.getElementById("get-access");
       if (accessSection) {
         const rect = accessSection.getBoundingClientRect();
-        // Visible as soon as the "get access" section enters the viewport
         setVisible(rect.top <= window.innerHeight);
       } else {
-        // Fallback for pages without the anchor
         setVisible(window.scrollY > 2500);
       }
     };
@@ -2509,19 +2240,10 @@ function BackToTopButton() {
   );
 }
 
-/* page */
 
 export default function LandingPage() {
   const rootRef = useRef(null);
 
-  /**
-   * Scroll reveals via IntersectionObserver rather than a scroll-position
-   * library: this route is lazy-loaded behind Suspense and its images settle
-   * late, so anything measuring document offsets on mount reads a stale
-   * layout and never fires. The observer needs no measurement, and because
-   * the hiding class is added here in JS the page stays visible if this
-   * effect never runs at all.
-   */
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return undefined;
@@ -2553,10 +2275,6 @@ export default function LandingPage() {
 
     targets.forEach((element) => observer.observe(element));
 
-    /* A working observer always delivers an initial callback for its targets,
-       intersecting or not. If nothing arrives, the environment is not running
-       the rendering loop — reveal everything rather than leave the page blank.
-       Hidden marketing copy is a far worse outcome than a skipped animation. */
     const safetyNet = window.setTimeout(() => {
       if (!delivered) targets.forEach(reveal);
     }, 1200);
@@ -2569,12 +2287,6 @@ export default function LandingPage() {
   }, []);
 
   return (
-    /* `overflow-x-clip`, never `overflow-x-hidden`: `hidden` on one axis
-       computes the other to `auto`, which makes this div a scroll container —
-       and a sticky header then sticks to *it* rather than to the viewport, so
-       the navbar scrolled away. `clip` does the same horizontal trimming (the
-       hero's rotated cards and offscreen blobs need it) without creating a
-       scroll container. */
     <div ref={rootRef} className="rebyu-ds rb-light-only rb-classroom-landing min-h-screen overflow-x-clip">
       <LandingNavbar />
       <main>
@@ -2584,12 +2296,6 @@ export default function LandingPage() {
         <SolutionSection />
         <HowItWorksSection />
         <CertificationSection />
-        {/* The feature run, grouped under the section the nav calls
-            "features". Each is a thing a learner does in the product rather
-            than a claim about it: the tutor answers you alone, the community
-            answers you with other learners, the arenas set you against them.
-            WeaknessSection follows the run because it is about what the
-            platform measures, not about what you do in it. */}
         <FeaturesBand>
           <AiTutorSection />
           {SHOW_COMMUNITY ? <CommunitySection /> : null}

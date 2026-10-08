@@ -11,7 +11,6 @@ import {
 import { cn } from "@/lib/utils"
 import { PRIORITY_META } from "@/services/learnerAnalyticsService.js"
 
-// Text label is always rendered, so meaning never relies on color alone.
 const TONE_CLASSES = {
   critical:
     "border-red-300 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300",
@@ -42,10 +41,6 @@ const TONE_ICONS = {
   strong: ShieldCheckIcon,
 }
 
-/**
- * Compact, accessible priority chip. Shows an icon + text label and exposes the
- * reason and score via the title tooltip. Never encodes meaning with color only.
- */
 export default function PriorityBadge({ tag, score, reason, className }) {
   const meta = PRIORITY_META[tag] ?? { label: tag ?? "Unknown", tone: "muted" }
   const Icon = TONE_ICONS[meta.tone] ?? CircleHelpIcon

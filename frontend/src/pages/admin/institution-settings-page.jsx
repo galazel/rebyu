@@ -57,7 +57,6 @@ export default function InstitutionSettingsPage() {
           <h1 className="text-4xl font-bold">Institution Settings</h1>
         </div>
 
-        {/* Org Details */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>Institution Details</CardTitle>
@@ -82,7 +81,6 @@ export default function InstitutionSettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Invite Member */}
         <Card className="mb-8">
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -123,7 +121,6 @@ export default function InstitutionSettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Team Members */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">

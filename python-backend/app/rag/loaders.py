@@ -94,8 +94,6 @@ def fetch_document_ref(ref: dict[str, Any]) -> list[Document]:
     A `ref` is `{s3_key, filename, content_type}` -- the small pointer that
     lives in graph state instead of the file's bytes.
     """
-    # Imported here rather than at module scope so parsing stays usable
-    # (and testable) without AWS configured.
     from app.storage.s3_client import fetch_object_bytes
 
     content = fetch_object_bytes(ref["s3_key"])

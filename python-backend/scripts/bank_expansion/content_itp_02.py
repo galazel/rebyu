@@ -16,7 +16,6 @@ CERTIFICATION_ID = 4
 
 QUESTIONS = {
 
-    # 5 -- E-Business and Electronic Commerce
     5: [
         mcq("EASY",
             "A manufacturer sells components to another manufacturer through an online procurement portal. Which e-commerce model is this?",
@@ -139,7 +138,6 @@ QUESTIONS = {
             "Freemium only works if conversion revenue exceeds the cost of serving everyone who never pays. That ratio, not the feature split, is what decides whether the model is viable."),
     ],
 
-    # 6 -- IT Utilization for Business Improvement
     6: [
         mcq("EASY",
             "What is the primary purpose of business intelligence tools?",
@@ -262,7 +260,6 @@ QUESTIONS = {
             "Open data is published deliberately for reuse under permissive terms. It is almost the opposite of personal data, which is restricted precisely because it identifies individuals."),
     ],
 
-    # 7 -- System Development Process and Requirements Definition
     7: [
         mcq("EASY",
             "Which activity belongs to the requirements definition phase?",
@@ -385,7 +382,6 @@ QUESTIONS = {
             "Scope creep is uncontrolled growth in what is being delivered. Change control does not forbid change -- it forces each change to be assessed for cost and schedule before it is accepted."),
     ],
 
-    # 8 -- Development Methods and Project Planning
     8: [
         mcq("EASY",
             "Which characteristic defines the waterfall development model?",

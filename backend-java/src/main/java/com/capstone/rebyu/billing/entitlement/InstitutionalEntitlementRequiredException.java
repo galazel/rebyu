@@ -2,10 +2,6 @@ package com.capstone.rebyu.billing.entitlement;
 
 import lombok.Getter;
 
-/**
- * Thrown when an institution action needs an institutional entitlement its
- * current license does not include. Rendered as a structured 403.
- */
 @Getter
 public class InstitutionalEntitlementRequiredException extends RuntimeException {
 

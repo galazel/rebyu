@@ -99,7 +99,6 @@ class DepartmentLearnerServiceTest {
         return dto;
     }
 
-    // 1: cross-tenant group access is rejected
     @Test
     void create_groupBelongsToDifferentInstitution_throwsNotFound() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(OTHER_INSTITUTION_ID)));
@@ -108,18 +107,16 @@ class DepartmentLearnerServiceTest {
                 () -> service.create(dto(), CALLER_INSTITUTION_ID));
     }
 
-    // 2: learner from a different certification allocation is rejected
     @Test
     void create_learnerBelongsToDifferentInstitutionCert_throwsBusinessRuleException() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(CALLER_INSTITUTION_ID)));
         when(institutionCertLearnerRepository.findById(INSTITUTION_CERT_LEARNER_ID))
-                .thenReturn(Optional.of(learner(999L))); // different org cert than the group's
+                .thenReturn(Optional.of(learner(999L)));
 
         assertThrows(BusinessRuleException.DepartmentRuleException.class,
                 () -> service.create(dto(), CALLER_INSTITUTION_ID));
     }
 
-    // 3: brand new assignment succeeds, defaults to member role
     @Test
     void create_newAssignment_defaultsToHeadRole() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(CALLER_INSTITUTION_ID)));
@@ -136,7 +133,6 @@ class DepartmentLearnerServiceTest {
         assertEquals(DepartmentLearner.Status.active, result.getStatus());
     }
 
-    // 4: duplicate ACTIVE assignment is rejected
     @Test
     void create_alreadyActiveAssignment_throwsBusinessRuleException() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(CALLER_INSTITUTION_ID)));
@@ -154,7 +150,6 @@ class DepartmentLearnerServiceTest {
         verify(assigneeRepository, times(0)).save(any());
     }
 
-    // 5: re-adding a previously removed (archived) learner reactivates the row
     @Test
     void create_archivedAssignment_reactivatesInsteadOfInserting() {
         when(groupRepository.findById(GROUP_ID)).thenReturn(Optional.of(group(CALLER_INSTITUTION_ID)));
@@ -173,12 +168,11 @@ class DepartmentLearnerServiceTest {
 
         DepartmentLearnerDto result = service.create(dto(), CALLER_INSTITUTION_ID);
 
-        assertEquals(ASSIGNEE_ID, result.getDepartmentLearnerId()); // same row, not a new one
+        assertEquals(ASSIGNEE_ID, result.getDepartmentLearnerId());
         assertEquals(DepartmentLearner.Status.active, result.getStatus());
-        assertEquals(DepartmentLearner.Role.member, result.getRole()); // dto had no role -> defaults
+        assertEquals(DepartmentLearner.Role.member, result.getRole());
     }
 
-    // 6: delete rejects cross-tenant access
     @Test
     void delete_differentInstitution_throwsNotFound() {
         DepartmentLearner row = DepartmentLearner.builder()
@@ -192,7 +186,6 @@ class DepartmentLearnerServiceTest {
                 () -> service.delete(ASSIGNEE_ID, CALLER_INSTITUTION_ID));
     }
 
-    // 7: delete archives the row (soft-remove)
     @Test
     void delete_sameInstitution_archivesRow() {
         DepartmentLearner row = DepartmentLearner.builder()
@@ -210,7 +203,6 @@ class DepartmentLearnerServiceTest {
         org.junit.jupiter.api.Assertions.assertTrue(row.getRemovedAt() != null);
     }
 
-    // 8: role change
     @Test
     void changeRole_sameInstitution_updatesRole() {
         DepartmentLearner row = DepartmentLearner.builder()

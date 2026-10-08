@@ -1,7 +1,3 @@
--- Revenue model foundation: B2C individual plans + B2B institutional plans,
--- their entitlements, and the per-learner / per-institution subscriptions.
--- Plan prices, limits and entitlements are data-driven so platform admins can
--- change them without code changes.
 
 CREATE TABLE IF NOT EXISTS public.subscription_plans (
     subscription_plan_id BIGSERIAL   PRIMARY KEY,
@@ -86,9 +82,6 @@ CREATE TABLE IF NOT EXISTS public.institutional_licenses (
 CREATE INDEX IF NOT EXISTS idx_institutional_licenses_institution
     ON public.institutional_licenses(institution_id, license_status);
 
--- ---------------------------------------------------------------------------
--- Seed default plans (prices/limits editable later by platform admins)
--- ---------------------------------------------------------------------------
 INSERT INTO public.subscription_plans
     (plan_code, plan_name, customer_type, description, billing_interval, amount, is_free, is_custom_pricing, display_order)
 VALUES
@@ -101,7 +94,6 @@ VALUES
     ('CUSTOM_INSTITUTION', 'Custom Institution', 'INSTITUTION', 'Custom-priced institutional license (contact sales).', 'CUSTOM', 0, FALSE, TRUE, 7)
 ON CONFLICT (plan_code) DO NOTHING;
 
--- Individual entitlements
 INSERT INTO public.plan_entitlements (subscription_plan_id, entitlement_code, enabled)
 SELECT p.subscription_plan_id, code, TRUE
 FROM public.subscription_plans p
@@ -122,7 +114,6 @@ CROSS JOIN (VALUES
 WHERE p.plan_code = 'PRO_MONTHLY'
 ON CONFLICT DO NOTHING;
 
--- Institutional management + learner features (sponsored) + limits
 INSERT INTO public.plan_entitlements (subscription_plan_id, entitlement_code, enabled, limit_value)
 SELECT p.subscription_plan_id, e.code, TRUE, e.lim
 FROM public.subscription_plans p
@@ -142,7 +133,6 @@ JOIN (VALUES
 ) AS e(plan_code, code, lim) ON e.plan_code = p.plan_code
 ON CONFLICT DO NOTHING;
 
--- Institutional feature entitlements (management + sponsored learner features)
 INSERT INTO public.plan_entitlements (subscription_plan_id, entitlement_code, enabled)
 SELECT p.subscription_plan_id, e.code, TRUE
 FROM public.subscription_plans p

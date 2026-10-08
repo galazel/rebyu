@@ -18,7 +18,6 @@ from datetime import datetime, timezone
 
 from app.ai import quota
 
-#: Failure kinds, most specific first. Each is (kind, short label, what to do).
 _KINDS = {
     "out_of_credits": ("Out of credit", "The account balance is used up. Add credit, or lower the task's max tokens."),
     "free_daily_cap": ("Free daily cap reached", "The account's shared allowance for free models is spent until it resets."),

@@ -20,9 +20,6 @@ public class InstitutionController {
     private final InstitutionService institutionService;
     private final CognitoAuthService auth;
 
-    // Every institution's org profile/billing metadata in one flat list, so this
-    // whole controller is admin-only. An institution manager reads their own
-    // org via /api/institution/me/overview.
     @GetMapping
     public List<InstitutionDto> getAll(@AuthenticationPrincipal Jwt jwt) {
         requireAdmin(jwt);

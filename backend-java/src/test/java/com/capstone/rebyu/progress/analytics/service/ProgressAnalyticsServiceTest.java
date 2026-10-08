@@ -106,13 +106,8 @@ class ProgressAnalyticsServiceTest {
                 learnerCompletedLessonRepository,
                 learnerMasteryService,
                 bktEventFactory,
-                /* Same thread, so the BKT fan-out inside the service runs in
-                   submission order and these tests stay deterministic. The
-                   concurrency is a latency optimisation; no assertion here
-                   depends on it. */
                 Runnable::run);
 
-        // Default happy-path wiring; individual tests override as needed.
         when(certificationRepository.findById(CERT_ID)).thenReturn(Optional.of(certification(CERT_ID, "Cert")));
         when(learnerCertificationRepository.existsByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
                 eq(LEARNER_ID), eq(CERT_ID), eq(LearnerCertification.Status.active))).thenReturn(true);
@@ -219,10 +214,6 @@ class ProgressAnalyticsServiceTest {
                 .build();
     }
 
-    /**
-     * Analytics reads difficulty off a projection now, not a whole Question --
-     * loading the entity cost three extra queries per row for one string.
-     */
     private QuestionSelectionView difficultyView(Long id, String difficulty) {
         return new QuestionSelectionView() {
             @Override public Long getQuestionId() { return id; }
@@ -246,7 +237,6 @@ class ProgressAnalyticsServiceTest {
         return LearnerCompletedLesson.builder().id(id).lesson(lessonEntity).completedAt(LocalDateTime.now()).build();
     }
 
-    // 1: no activity
     @Test
     void noAssessmentsNoChallenges_returnsZerosNotFakeData() {
         ProgressAnalyticsResponse response = service.getProgressAnalytics(LEARNER_ID, CERT_ID);
@@ -264,7 +254,6 @@ class ProgressAnalyticsServiceTest {
         assertTrue(response.recentActivity().isEmpty());
     }
 
-    // 2: assessments only
     @Test
     void withSubmittedAttempts_computesAverageScoreAndTotals() {
         Exam examA = exam("Diagnostic", "DIAGNOSTIC");
@@ -285,7 +274,6 @@ class ProgressAnalyticsServiceTest {
         assertEquals(1L, response.scoreTrend().get(0).assessmentAttemptId());
     }
 
-    // 3: challenges only
     @Test
     void withSubmittedChallengeRuns_computesChallengeStats() {
         Exam arena = exam("CodeStrike", "CHALLENGE");
@@ -305,7 +293,6 @@ class ProgressAnalyticsServiceTest {
         assertTrue(response.challengeStatsCertificationScoped());
     }
 
-    // 4: has mastery data
     @Test
     void withLessonPriorities_computesOverallMasteryFromAssessedOnly() {
         MajorCategory major = majorCategory(1L, "Major");
@@ -321,10 +308,9 @@ class ProgressAnalyticsServiceTest {
 
         assertEquals(90.0, response.overallMasteryPercentage());
         assertEquals(1, response.masteredTopicCount());
-        assertEquals(1, response.unassessedTopicCount()); // lessonB has no priority row
+        assertEquals(1, response.unassessedTopicCount());
     }
 
-    // 5: unassessed lessons never treated as zero mastery
     @Test
     void lessonsWithNoPriorityRow_countUnassessedNotZeroMastery() {
         MajorCategory major = majorCategory(1L, "Major");
@@ -338,10 +324,9 @@ class ProgressAnalyticsServiceTest {
 
         assertEquals(1, response.unassessedTopicCount());
         assertEquals(0, response.weakTopicCount());
-        assertNull(response.overallMasteryPercentage()); // no assessed lessons -> null, not 0
+        assertNull(response.overallMasteryPercentage());
     }
 
-    // 6: multiple certifications isolate data
     @Test
     void differentCertificationId_returnsIsolatedDataPerCertification() {
         Long otherCertId = 2L;
@@ -378,7 +363,6 @@ class ProgressAnalyticsServiceTest {
         assertEquals("Other Cert", second.certificationTitle());
     }
 
-    // 7: category rollup averages only assessed lessons
     @Test
     void categoryRollup_averagesOnlyAssessedLessonsPerMiddleAndMajor() {
         MajorCategory major = majorCategory(1L, "Major");
@@ -392,15 +376,14 @@ class ProgressAnalyticsServiceTest {
 
         ProgressAnalyticsResponse response = service.getProgressAnalytics(LEARNER_ID, CERT_ID);
 
-        assertEquals(1, response.categoryMastery().size()); // one major category
+        assertEquals(1, response.categoryMastery().size());
         var majorRow = response.categoryMastery().get(0);
-        assertEquals(60.0, majorRow.masteryPercentage()); // averages only the assessed lesson
+        assertEquals(60.0, majorRow.masteryPercentage());
         assertEquals(2, majorRow.totalLessonCount());
         assertEquals(1, majorRow.assessedLessonCount());
         assertEquals(1, majorRow.children().size());
     }
 
-    // 8: weakest/strongest sorting
     @Test
     void weakestAndStrongestTopics_sortByMasteryProbabilityCorrectly() {
         when(learnerMasteryService.getLessonPrioritiesForAnalytics(LEARNER_ID, CERT_ID))
@@ -414,15 +397,14 @@ class ProgressAnalyticsServiceTest {
         ProgressAnalyticsResponse response = service.getProgressAnalytics(LEARNER_ID, CERT_ID);
 
         List<TopicRow> weakest = response.weakestTopics();
-        assertEquals(1L, weakest.get(0).lessonId()); // HIGHEST_PRIORITY sorts first regardless of raw value
+        assertEquals(1L, weakest.get(0).lessonId());
         assertEquals(2L, weakest.get(1).lessonId());
 
         List<TopicRow> strongest = response.strongestTopics();
-        assertEquals(3L, strongest.get(0).lessonId()); // highest mastery among lessons with evidence
-        assertTrue(strongest.stream().noneMatch(t -> t.lessonId().equals(4L))); // zero-evidence topic excluded
+        assertEquals(3L, strongest.get(0).lessonId());
+        assertTrue(strongest.stream().noneMatch(t -> t.lessonId().equals(4L)));
     }
 
-    // 9 & 10: performance buckets exclude pending/unanswered, group correctly
     @Test
     void performanceBuckets_excludePendingAndUnansweredAndGroupByRawKeys() {
         Exam quizExam = exam("Quiz 1", "QUIZ");
@@ -442,7 +424,6 @@ class ProgressAnalyticsServiceTest {
                 answer(correctQ, true, false),
                 answer(incorrectQ, false, false),
                 answer(pendingQ, null, true)
-                // unansweredQ has no answer row at all
         ));
         when(questionRepository.findSelectionViewsByIdIn(any())).thenReturn(List.of(
                 difficultyView(101L, "EASY"), difficultyView(102L, "HARD"),
@@ -454,13 +435,12 @@ class ProgressAnalyticsServiceTest {
         assertEquals(1, response.totalIncorrectAnswers());
         var difficultyBucket = response.performanceByDifficulty().stream()
                 .filter(b -> b.bucketKey().equals("EASY")).findFirst().orElseThrow();
-        assertEquals(1, difficultyBucket.totalAnswered()); // only the correct EASY question counts
+        assertEquals(1, difficultyBucket.totalAnswered());
         var assessmentTypeBucket = response.performanceByAssessmentType().stream()
                 .filter(b -> b.bucketKey().equals("QUIZ")).findFirst().orElseThrow();
         assertEquals(2, assessmentTypeBucket.totalAnswered());
     }
 
-    // 11: mastery trend
     @Test
     void masteryTrend_mapsHistoryViewsPreservingOrder() {
         MasteryHistoryView event = new MasteryHistoryView(
@@ -476,7 +456,6 @@ class ProgressAnalyticsServiceTest {
         assertEquals(0.55, response.masteryTrend().get(0).newMastery());
     }
 
-    // 12: score trend ascending
     @Test
     void scoreTrend_sortsSubmittedAttemptsAscendingBySubmittedAt() {
         Exam examA = exam("Exam", "MOCK_EXAM");
@@ -484,7 +463,7 @@ class ProgressAnalyticsServiceTest {
         AssessmentAttempt earlier = attempt(1L, examA, new BigDecimal("60.00"), false, LocalDateTime.now().minusDays(3));
         when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
                 eq(LEARNER_ID), eq(CERT_ID), eq(AssessmentAttempt.Status.SUBMITTED)))
-                .thenReturn(List.of(later, earlier)); // intentionally out of order
+                .thenReturn(List.of(later, earlier));
         when(attemptQuestionRepository.findByAttempt_AssessmentAttemptIdIn(any())).thenReturn(List.of());
         when(attemptAnswerRepository.findByAttempt_AssessmentAttemptIdIn(any())).thenReturn(List.of());
 
@@ -494,7 +473,6 @@ class ProgressAnalyticsServiceTest {
         assertEquals(2L, response.scoreTrend().get(1).assessmentAttemptId());
     }
 
-    // 13: recent activity merges and sorts descending
     @Test
     void recentActivity_mergesAssessmentsAndChallengesSortedDescending() {
         Exam examA = exam("Exam", "MOCK_EXAM");
@@ -509,11 +487,10 @@ class ProgressAnalyticsServiceTest {
         ProgressAnalyticsResponse response = service.getProgressAnalytics(LEARNER_ID, CERT_ID);
 
         assertEquals(2, response.recentActivity().size());
-        assertEquals("CHALLENGE", response.recentActivity().get(0).activityType()); // most recent first
+        assertEquals("CHALLENGE", response.recentActivity().get(0).activityType());
         assertEquals("ASSESSMENT", response.recentActivity().get(1).activityType());
     }
 
-    // 14: recommendations tiering
     @Test
     void recommendations_prioritizesHighestPriorityBeforeOtherTiers() {
         when(learnerMasteryService.getLessonPrioritiesForAnalytics(LEARNER_ID, CERT_ID))
@@ -532,7 +509,6 @@ class ProgressAnalyticsServiceTest {
         assertTrue(recs.stream().anyMatch(r -> r.lessonId().equals(3L)));
     }
 
-    // 15: unauthorized / unenrolled access
     @Test
     void learnerNotEnrolledInCertification_throwsEntityNotFoundException() {
         when(learnerCertificationRepository.existsByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
@@ -548,7 +524,6 @@ class ProgressAnalyticsServiceTest {
         assertThrows(EntityNotFoundException.class, () -> service.getProgressAnalytics(LEARNER_ID, CERT_ID));
     }
 
-    // 16: no division by zero
     @Test
     void zeroAttemptsAndZeroLessons_neverThrowsDivisionByZero() {
         ProgressAnalyticsResponse response = service.getProgressAnalytics(LEARNER_ID, CERT_ID);
@@ -559,7 +534,6 @@ class ProgressAnalyticsServiceTest {
         assertTrue(response.performanceByDifficulty().isEmpty());
     }
 
-    // 17: BKT unavailable vs. no observations
     @Test
     void bktThrowsServiceException_marksBktAvailableFalseAndTopicCountsZero() {
         when(learnerMasteryService.getLessonPrioritiesForAnalytics(LEARNER_ID, CERT_ID))
@@ -572,7 +546,6 @@ class ProgressAnalyticsServiceTest {
         assertNull(response.overallMasteryPercentage());
     }
 
-    // 18: confidence/readiness independent null-safety
     @Test
     void confidenceAndReadiness_bothIndependentlyNullSafeWhenUnavailable() {
         when(learnerMasteryService.getConfidenceForAnalytics(LEARNER_ID, CERT_ID))
@@ -596,7 +569,6 @@ class ProgressAnalyticsServiceTest {
         assertEquals(72.5, response.confidencePercentage());
     }
 
-    // 19: challenge answer breakdown is always flagged unavailable
     @Test
     void challengeAnswerBreakdown_alwaysUnavailableNeverFabricated() {
         when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
@@ -608,10 +580,9 @@ class ProgressAnalyticsServiceTest {
         ProgressAnalyticsResponse response = service.getProgressAnalytics(LEARNER_ID, CERT_ID);
 
         assertFalse(response.challengeAnswerBreakdownAvailable());
-        assertEquals(0, response.totalCorrectAnswers()); // no answers recorded, so nothing is counted
+        assertEquals(0, response.totalCorrectAnswers());
     }
 
-    // 20: refresh reflects newly fetched data on each call (no server-side caching)
     @Test
     void sameLearnerCert_secondCallReflectsNewlyAddedAttempt() {
         ProgressAnalyticsResponse before = service.getProgressAnalytics(LEARNER_ID, CERT_ID);

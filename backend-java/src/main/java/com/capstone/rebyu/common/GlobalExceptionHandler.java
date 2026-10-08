@@ -46,16 +46,6 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Validation failed", fieldErrors));
     }
 
-    /**
-     * The value from a Postgres unique-violation detail line, or null.
-     *
-     * Postgres reports the clash as {@code Detail: Key (title)=(Philippine
-     * Entrance Exam) already exists.} -- the column in one pair of brackets and
-     * the offending value in the next. Parsed by hand rather than by regex: the
-     * value itself may contain brackets, so a pattern would have to be
-     * non-greedy in one place and greedy in another, and the two-marker scan
-     * below says what it is looking for without that subtlety.
-     */
     private static String duplicateValueIn(String cause) {
         int keyAt = cause.indexOf("Key (");
         if (keyAt < 0) return null;
@@ -69,18 +59,6 @@ public class GlobalExceptionHandler {
         return cause.substring(valueOpen + 3, valueClose).trim();
     }
 
-    /**
-     * Integrity violations, in words the caller can act on.
-     *
-     * This used to return {@code getMostSpecificCause().getMessage()} verbatim,
-     * so an admin who reused a certification name was shown the Hibernate-
-     * generated constraint name and the raw Postgres text. That is a leak as
-     * well as a usability problem: constraint and column names are schema
-     * details, and the one fact the admin needed -- "a certification called
-     * this already exists" -- was buried in the middle of it.
-     *
-     * The full cause still goes to the log, where it belongs.
-     */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException ex) {
         String cause = ex.getMostSpecificCause().getMessage();
@@ -149,11 +127,6 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.UNPROCESSABLE_ENTITY.value(), ex.getMessage(), null));
     }
 
-    /**
-     * A refusal the Python AI backend already explained — passed through with
-     * its own status and sentence rather than flattened into a 500, so the
-     * workspace can tell an admin why a retry was declined.
-     */
     @ExceptionHandler(AiServiceStatusException.class)
     public ResponseEntity<ErrorResponse> handleAiServiceStatus(AiServiceStatusException ex) {
         log.warn("AI service refused the request ({}): {}", ex.status(), ex.getMessage());
@@ -184,14 +157,6 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), ex.getMessage(), null));
     }
 
-    /**
-     * A file view/download for a key that no longer exists in the bucket --
-     * a stale community attachment, a lesson image whose row survived a
-     * deleted object, or similar drift. Left uncaught this fell through to
-     * {@link #handleGeneric}, which told the learner "an unexpected error
-     * occurred" for what is really just a missing file, and hid the real
-     * cause behind a generic 500 in the logs too.
-     */
     @ExceptionHandler(NoSuchKeyException.class)
     public ResponseEntity<ErrorResponse> handleS3NotFound(NoSuchKeyException ex) {
         log.warn("S3 object not found: {}", ex.getMessage());
@@ -199,8 +164,6 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), "That file could not be found.", null));
     }
 
-    /** Any other S3 failure -- credentials, region, throttling -- as a clearly
-     *  upstream problem rather than a bug in this service. */
     @ExceptionHandler(S3Exception.class)
     public ResponseEntity<ErrorResponse> handleS3Error(S3Exception ex) {
         log.error("S3 request failed: {}", ex.getMessage(), ex);
@@ -270,7 +233,6 @@ public class GlobalExceptionHandler {
         private static final LocalDateTime timestamp = LocalDateTime.now();
     }
 
-    /** Structured error for invitation acceptance so React can switch on code. */
     public record InvitationErrorResponse(int status, String errorCode, String message) {
     }
 }

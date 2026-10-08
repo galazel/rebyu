@@ -23,7 +23,6 @@ function formatClock(ms) {
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`
 }
 
-/** A short two-note chime from the Web Audio API -- no sound file to load. */
 function chime() {
   try {
     const context = new (window.AudioContext || window.webkitAudioContext)()
@@ -41,26 +40,15 @@ function chime() {
       oscillator.stop(start + 0.4)
     })
   } catch {
-    // No audio is not worth failing over.
   }
 }
 
-/**
- * Everything a running Pomodoro puts on screen, mounted once in the learner
- * layout so it follows the learner from page to page:
- *
- *   focus   a small timer at the bottom of the screen; studying goes on around it
- *   break   the whole app is covered and switched off until the break is over
- *   next    a modal asking to start the next focus block
- *   done    a modal closing the session, which marks the plan's task complete
- */
 export function PomodoroOverlay() {
   const session = usePomodoro()
   const queryClient = useQueryClient()
   const [now, setNow] = useState(() => Date.now())
   const [confirmEnd, setConfirmEnd] = useState(false)
 
-  // One clock for the whole session. `tickPomodoro` does the phase changes.
   useEffect(() => {
     if (!session) return undefined
     function tick() {
@@ -80,9 +68,6 @@ export function PomodoroOverlay() {
   const phase = session ? session.phases[session.index] : null
   const onBreak = session?.stage === "running" && phase?.kind === "break"
 
-  /* Break: switch the app off underneath. `inert` removes it from clicks, the
-     keyboard and focus in one attribute; the overlay itself is portaled to
-     <body>, outside #root, so it stays usable. */
   useEffect(() => {
     if (!onBreak) return undefined
     const root = document.getElementById("root")
@@ -95,7 +80,6 @@ export function PomodoroOverlay() {
     }
   }, [onBreak])
 
-  // The time in the tab title, so it can be seen from another tab.
   useEffect(() => {
     if (!session || !phase) return undefined
     const original = document.title
@@ -149,8 +133,6 @@ export function PomodoroOverlay() {
             Focus {phase.cycle + 1} of {phase.cycles} starts when the break is over.
           </p>
 
-          {/* The only way out, kept small and two-step: ending the whole
-              session, not skipping the break. */}
           {confirmEnd ? (
             <div className="mt-8 flex items-center justify-center gap-3">
               <Button variant="secondary" size="sm" onClick={() => setConfirmEnd(false)}>
@@ -230,8 +212,6 @@ export function PomodoroOverlay() {
     )
   }
 
-  // Focus: the floating timer. Bottom centre, clear of the notifications
-  // (bottom-left), the AI tutor button (bottom-right), and the mobile nav bar.
   const paused = session.stage === "paused"
   const left = paused ? session.pausedLeft : session.deadline - now
   const total = phase.minutes * 60_000
@@ -282,11 +262,6 @@ export function PomodoroOverlay() {
   )
 }
 
-/**
- * The notice a scheduled Pomodoro opens with. Starting it hands the session to
- * the floating timer and takes the learner to the lesson -- the dialog itself
- * must not be where they study, or it covers the thing they are studying.
- */
 export function PomodoroStart({ task, onStarted, onDismiss }) {
   const navigate = useNavigate()
   const { focusMinutes, breakMinutes, cycles } = POMODORO_DEFAULTS

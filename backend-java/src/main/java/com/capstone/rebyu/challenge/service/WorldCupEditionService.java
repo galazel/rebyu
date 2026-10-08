@@ -23,21 +23,11 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/**
- * The World Cup's weekly editions: drafted a week at a time, one question set
- * per bracket stage, and published into the arena's exam.
- *
- * <p>A draft is stored, not held in the admin's browser: a week's three
- * question sets are an evening's authoring, and losing them to a closed tab was
- * the whole reason this exists. Publishing is the only step learners see -- it
- * replaces the World Cup exam's questions with this week's, stage by stage.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class WorldCupEditionService {
 
-  /** The bracket's stages, in the order they are played. */
   public static final List<String> STAGE_IDS = List.of("quarterfinal", "semifinal", "final");
 
   private static final String ARENA_ID = "worldcup";
@@ -48,7 +38,6 @@ public class WorldCupEditionService {
   private final QuestionRepository questions;
   private final ChallengeArenaService arenas;
 
-  /** The list row: enough to show the week without loading its questions. */
   public record EditionSummary(
       Long editionId,
       LocalDate weekStart,
@@ -58,14 +47,12 @@ public class WorldCupEditionService {
       LocalDateTime publishedAt,
       Map<String, Integer> stageCounts) {}
 
-  /** One edition opened for editing: every stage's questions, reloadable. */
   public record EditionDetail(
       EditionSummary edition,
       Map<String, List<ChallengeArenaService.ArenaProblemView>> stages) {}
 
   public record CreateEditionRequest(LocalDate weekStart, Long certificationId, Long lessonId) {}
 
-  /** Stage id -> the bank questions it runs, in order. */
   public record SaveStagesRequest(Map<String, List<Long>> stages) {}
 
   @Transactional(readOnly = true)
@@ -78,7 +65,6 @@ public class WorldCupEditionService {
     WorldCupEdition edition = find(editionId);
     Map<String, List<Long>> stageIds = readStages(edition.getStagesJson());
 
-    // Every stage's questions in one query, then split back out by stage.
     List<Long> allIds = stageIds.values().stream().flatMap(List::stream).toList();
     Map<Long, Question> byId = questions.findAllById(allIds).stream()
         .collect(Collectors.toMap(Question::getQuestionId, Function.identity()));
@@ -86,8 +72,6 @@ public class WorldCupEditionService {
     Map<String, List<ChallengeArenaService.ArenaProblemView>> stages = new LinkedHashMap<>();
     for (int stageIndex = 0; stageIndex < STAGE_IDS.size(); stageIndex++) {
       String stageId = STAGE_IDS.get(stageIndex);
-      // A question deleted from the bank since drops out of the stage rather
-      // than failing the whole edition.
       List<Question> stageQuestions = stageIds.getOrDefault(stageId, List.of()).stream()
           .map(byId::get)
           .filter(question -> question != null)
@@ -113,7 +97,6 @@ public class WorldCupEditionService {
       throw new EntityNotFoundException("Certification not found: " + request.certificationId());
     }
 
-    // Any date names its week; the edition is keyed by that week's Monday.
     LocalDate monday = request.weekStart().with(DayOfWeek.MONDAY);
     if (editions.existsByWeekStart(monday)) {
       throw new IllegalArgumentException("An exam already exists for the week of " + monday);
@@ -129,7 +112,6 @@ public class WorldCupEditionService {
     return summaryOf(editions.save(edition));
   }
 
-  /** Replaces the edition's stage sets. Saving a draft; learners see nothing. */
   @Transactional
   public EditionSummary saveStages(Long editionId, SaveStagesRequest request) {
     WorldCupEdition edition = find(editionId);
@@ -158,13 +140,6 @@ public class WorldCupEditionService {
     return summaryOf(editions.save(edition));
   }
 
-  /**
-   * Makes this week's bracket the one learners sit.
-   *
-   * <p>Every stage must hold questions: a bracket that runs out at the
-   * semifinal cannot be played. Earlier editions keep their Published badge as
-   * history; the World Cup exam holds only this one's questions.
-   */
   @Transactional
   public EditionSummary publish(Long editionId) {
     WorldCupEdition edition = find(editionId);
@@ -194,10 +169,6 @@ public class WorldCupEditionService {
     return summaryOf(editions.save(edition));
   }
 
-  /**
-   * Deletes a draft. A published week is history and stays: its questions may
-   * be what learners are sitting right now.
-   */
   @Transactional
   public void delete(Long editionId) {
     WorldCupEdition edition = find(editionId);

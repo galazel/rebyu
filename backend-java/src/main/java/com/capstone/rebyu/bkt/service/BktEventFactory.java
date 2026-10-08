@@ -19,11 +19,6 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Builds deterministic, contract-shaped BKT evidence events from a submitted
- * attempt. Every question updates only its own mapped lesson; the overall exam
- * score is never applied across lessons.
- */
 @Slf4j
 @RequiredArgsConstructor
 @Component
@@ -31,30 +26,23 @@ public class BktEventFactory {
 
     private final BktProperties properties;
 
-    /** FastAPI accepts exactly these guess/slip classes. */
     private static final Set<String> KNOWN_DIFFICULTY = Set.of("EASY", "AVERAGE", "HARD");
 
-    /** FastAPI accepts exactly these learn/forget classes. */
     private static final Set<String> KNOWN_ASSESSMENT = Set.of(
             "DIAGNOSTIC", "LESSON_QUIZ", "MIDDLE_EXAM", "MOCK_EXAM",
             "KNOWLEDGE_CHECK", "GENERATED_QUIZ");
 
-    /** Maps the project's exam-type vocabulary onto the FastAPI class set. */
     private static final Map<String, String> ASSESSMENT_ALIASES = Map.ofEntries(
             Map.entry("DIAGNOSTIC", "DIAGNOSTIC"),
             Map.entry("DIAGNOSTIC_EXAM", "DIAGNOSTIC"),
             Map.entry("QUIZ", "LESSON_QUIZ"),
             Map.entry("LESSON_QUIZ", "LESSON_QUIZ"),
-            // Recall sessions are learner-generated quizzes. FastAPI uses the
-            // LESSON_QUIZ parameter class for this kind of evidence.
             Map.entry("RECALL", "LESSON_QUIZ"),
             Map.entry("PRACTICE", "LESSON_QUIZ"),
             Map.entry("REVIEW", "LESSON_QUIZ"),
             Map.entry("BATTLE", "LESSON_QUIZ"),
             Map.entry("CHALLENGE", "LESSON_QUIZ"),
             Map.entry("CUSTOM", "LESSON_QUIZ"),
-            // Their own classes, each with its own learn rate in FastAPI:
-            // the in-lesson pop-up check, and the AI tutor's study aids.
             Map.entry("KNOWLEDGE_CHECK", "KNOWLEDGE_CHECK"),
             Map.entry("GENERATED_QUIZ", "GENERATED_QUIZ"),
             Map.entry("GENERATED_FLASHCARD", "GENERATED_QUIZ"),
@@ -66,20 +54,10 @@ public class BktEventFactory {
             Map.entry("MOCK", "MOCK_EXAM"),
             Map.entry("MOCK_EXAM", "MOCK_EXAM"));
 
-    /**
-     * Deterministic event identity. {@code attemptId} already encodes learner +
-     * exam + attempt number; combined with the attempt-question id and a grade
-     * version it is stable across retries and re-enqueues.
-     */
     public String buildEventId(Long attemptId, Long attemptQuestionId, int gradeVersion) {
         return "rebyu-attempt:" + attemptId + ":" + attemptQuestionId + ":v" + gradeVersion;
     }
 
-    /**
-     * Builds a final evidence event for one graded answer, or {@code null} when
-     * the answer must not become evidence (unanswered, pending manual grading,
-     * missing lesson mapping, or non-final grade).
-     */
     public BktMasteryEvent buildEvent(
             AssessmentAttempt attempt,
             AssessmentAttemptQuestion question,
@@ -89,11 +67,11 @@ public class BktEventFactory {
             String rawAssessmentType) {
 
         if (answer == null || answer.isPendingManualEvaluation()) {
-            return null; // grading pending or unanswered -> not final evidence
+            return null;
         }
         Long lessonId = question.getLessonId();
         if (lessonId == null) {
-            return null; // cannot attribute evidence without a lesson mapping
+            return null;
         }
 
         boolean correct = resolveCorrectness(answer);
@@ -101,8 +79,6 @@ public class BktEventFactory {
         String occurredAt = (answer.getAnsweredAt() != null
                 ? answer.getAnsweredAt() : LocalDateTime.now()).toString();
 
-        // Resolve the curriculum path (lesson -> middle -> major) so FastAPI can
-        // aggregate priorities without touching the curriculum tables.
         String rawDifficulty = null;
         String lessonTitle = null;
         Long middleCategoryId = null;
@@ -145,14 +121,6 @@ public class BktEventFactory {
                 occurredAt);
     }
 
-    /**
-     * Builds an evidence event directly from already-resolved values, for
-     * producers that don't have the formal-assessment entities the primary
-     * {@link #buildEvent} overload expects (e.g. AI-tutor/community practice
-     * quizzes). Applies the exact same difficulty/assessment-type
-     * normalization as the primary path, so every producer shares one
-     * source of truth for the mapping instead of each reimplementing it.
-     */
     public BktMasteryEvent buildEvent(
             String sourceEventId,
             Long learnerId,
@@ -185,12 +153,6 @@ public class BktEventFactory {
                 LocalDateTime.now().toString());
     }
 
-    /**
-     * The share of the item earned, by its response model: the graded credit
-     * for a written, coded or drawn answer, else 1 or 0 from the verdict. The
-     * mastery update weighs a partial answer by this instead of rounding it
-     * to right or wrong.
-     */
     private double resolveScore(AssessmentAttemptQuestion question, AssessmentAttemptAnswer answer) {
         if (AdaptivePolicy.usesPartialCredit(question.getQuestionType())) {
             BigDecimal credit = answer.getCredit();
@@ -201,11 +163,6 @@ public class BktEventFactory {
         return resolveCorrectness(answer) ? 1.0 : 0.0;
     }
 
-    /**
-     * Objective answers carry an explicit {@code isCorrect}. Partial-credit
-     * answers convert via the configurable awarded/max threshold -- the
-     * verdict the counters and the learner see. Never divides by zero.
-     */
     private boolean resolveCorrectness(AssessmentAttemptAnswer answer) {
         if (answer.getIsCorrect() != null) {
             return Boolean.TRUE.equals(answer.getIsCorrect());
@@ -214,13 +171,6 @@ public class BktEventFactory {
         return credit != null && credit.doubleValue() >= properties.getPartialCreditCorrectThreshold();
     }
 
-    /**
-     * Normalizes a raw difficulty string to a known guess/slip class. {@code
-     * difficulty_level} has no DB-level CHECK constraint, so an unrecognized
-     * value (a new value introduced elsewhere without updating {@link
-     * #KNOWN_DIFFICULTY}) silently collapses to the fallback class -- logged
-     * here so that misclassification is at least visible instead of silent.
-     */
     public String normalizeDifficulty(String rawDifficulty) {
         if (rawDifficulty == null) {
             return properties.getFallbackDifficulty();
@@ -234,14 +184,6 @@ public class BktEventFactory {
         return properties.getFallbackDifficulty();
     }
 
-    /**
-     * Normalizes a raw exam-type string to a known learn/forget class. {@code
-     * exam_type_text} has no DB-level CHECK constraint either, so an
-     * unrecognized value (e.g. a new exam type added without updating
-     * {@link #ASSESSMENT_ALIASES}/{@link #KNOWN_ASSESSMENT}) silently
-     * collapses to the fallback class -- logged here for the same reason as
-     * {@link #normalizeDifficulty}.
-     */
     public String normalizeAssessmentType(String rawAssessmentType) {
         if (rawAssessmentType == null) {
             return properties.getFallbackAssessmentType();

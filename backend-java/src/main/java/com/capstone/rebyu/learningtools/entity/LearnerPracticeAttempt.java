@@ -31,11 +31,9 @@ public class LearnerPracticeAttempt {
     @JoinColumn(name = "learner_id", nullable = false)
     private Learner learner;
 
-    /** TUTOR_QUIZ | COMMUNITY_QUIZ | FLASHCARD_RECALL | CODING_CHALLENGE | DIAGRAM_CHALLENGE | OFFICIAL_ASSESSMENT. */
     @Column(name = "source_type", nullable = false, length = 32)
     private String sourceType;
 
-    /** Points at generated_study_sets.study_set_id (or another table depending on sourceType) -- not a JPA FK. */
     @Column(name = "source_id", nullable = false)
     private Long sourceId;
 
@@ -47,7 +45,6 @@ public class LearnerPracticeAttempt {
     @JoinColumn(name = "lesson_id")
     private Lesson lesson;
 
-    /** IN_PROGRESS | COMPLETED | ABANDONED. */
     @Column(nullable = false, length = 16)
     @Builder.Default
     private String status = "IN_PROGRESS";

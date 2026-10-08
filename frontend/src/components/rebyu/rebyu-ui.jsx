@@ -1,10 +1,3 @@
-/**
- * REBYU design system primitives.
- *
- * Geometry, depth and motion live in `src/styles/rebyu-ds.css`; these
- * components only choose variants and compose children. Anything rendering
- * these must sit inside a `.rebyu-ds` scope so the tokens resolve.
- */
 import { cloneElement } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft } from "@/components/icons";
@@ -29,10 +22,6 @@ const BUTTON_SIZES = {
   lg: "rb-btn-lg",
 };
 
-/**
- * The tactile key. Presses travel the full lip height so the control reads as
- * physical. `asChild` lets a router <Link> inherit the treatment.
- */
 export function TactileButton({
   variant = "feather",
   size = "md",
@@ -50,17 +39,6 @@ export function TactileButton({
   );
 }
 
-/**
- * Back navigation, as a key rather than a bare glyph.
- *
- * `label` is required reading for a screen reader — the arrow carries no text —
- * and doubles as the tooltip. Pass a router <Link> as a self-closing child with
- * `asChild` for link-shaped backs; the arrow is supplied here so every back
- * control on every page is the same shape.
- *
- *   <BackButton asChild label="Back to arenas"><Link to="/learner/challenges" /></BackButton>
- *   <BackButton label="Back to problem list" onClick={() => setView("grid")} />
- */
 export function BackButton({
   variant = "ghost",
   size = "md",
@@ -110,8 +88,6 @@ export function Chip({ tone = "neutral", className, children, ...props }) {
     fox: "bg-rb-fox-wash text-rb-fox-lip",
     beetle: "bg-rb-beetle-wash text-rb-beetle-lip",
     cardinal: "bg-rb-cardinal-wash text-rb-cardinal-lip",
-    // The green accent, so "passed" is the same colour on a chip as it is on a
-    // score dial or a correct answer.
     leaf: "bg-rb-leaf-wash text-rb-leaf",
   };
 
@@ -122,21 +98,6 @@ export function Chip({ tone = "neutral", className, children, ...props }) {
   );
 }
 
-/**
- * Mastery / completion bar. `label` is required for a11y because the bar is
- * frequently the only representation of the value on screen.
- *
- * The fill grows from zero the first time the bar is seen, rather than being
- * painted at its final width. Progress is the one number on these pages the
- * learner earned, and watching it travel is most of why a progress bar beats
- * printing the percentage. Subsequent value changes animate from wherever the
- * bar already was, so completing a lesson nudges it forward instead of
- * restarting it.
- *
- * `whileInView` rather than `animate`, because most of these are below the fold
- * on a curriculum page — filling while off-screen would mean every bar was
- * already full by the time it was scrolled to.
- */
 export function ProgressBar({ value, label, tone = "mask", className }) {
   const clamped = Math.max(0, Math.min(100, value));
   const TONES = {
@@ -146,9 +107,6 @@ export function ProgressBar({ value, label, tone = "mask", className }) {
     fox: "bg-rb-fox",
     bee: "bg-rb-bee",
     beetle: "bg-rb-beetle",
-    // Verdict tones. A bar is not always progress toward something -- on a
-    // result breakdown it reports how a lesson went, and that reading needs a
-    // "cleared it" and a "nowhere near" that the accent hues above do not carry.
     leaf: "bg-rb-leaf",
     cardinal: "bg-rb-cardinal",
   };
@@ -165,24 +123,15 @@ export function ProgressBar({ value, label, tone = "mask", className }) {
       <motion.div
         className={cn("rb-progress-fill", TONES[tone])}
         initial={{ width: 0 }}
-        // `once` keeps the in-view state latched after the first entrance, so a
-        // later value change still animates from where the bar is. A second
-        // `animate` prop here would fight this one for the same property.
         whileInView={{ width: `${clamped}%` }}
         viewport={{ once: true, amount: 0.5 }}
         transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
-        // The CSS layer also transitions width; leaving both on double-animates
-        // the bar and it arrives twice.
         style={{ transition: "none" }}
       />
     </div>
   );
 }
 
-/**
- * A single answer option. `state` drives colour only — the box never resizes
- * between states, so feedback never shifts the layout under the user's finger.
- */
 export function AnswerOption({ optionKey, state = "idle", className, children, ...props }) {
   return (
     <button type="button" data-state={state} className={cn("rb-answer", className)} {...props}>
@@ -192,7 +141,6 @@ export function AnswerOption({ optionKey, state = "idle", className, children, .
   );
 }
 
-/** Metric tile used across the dashboard and gamification widgets. */
 export function StatTile({ icon: Icon, value, label, tone = "feather", className }) {
   const TONES = {
     feather: "bg-rb-feather-wash text-rb-feather-lip",

@@ -79,8 +79,6 @@ def test_positions_spread_across_a_batch():
     counts = Counter(q["correct_choice_index"] for q in batch)
 
     assert set(counts) == {0, 1, 2, 3}
-    # Uniform is 50 each; the loose bound keeps this from failing on a
-    # legitimately lopsided draw.
     assert all(25 < hits < 75 for hits in counts.values()), counts
 
 

@@ -5,10 +5,6 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * Learner-safe programming Run/Check DTOs. Never carry expected outputs for
- * hidden test cases, and never carry a fabricated score.
- */
 public final class ProgrammingAttemptDtos {
 
     private ProgrammingAttemptDtos() {
@@ -21,11 +17,6 @@ public final class ProgrammingAttemptDtos {
     ) {
     }
 
-    /**
-     * One test case as the learner may see it. `input` is null for hidden cases,
-     * and so are `expectedOutput` and `actualOutput`: only a sample test shows
-     * what it expected and what the learner's program printed for it.
-     */
     public record LearnerTestCaseDto(
             int index,
             String label,
@@ -47,9 +38,6 @@ public final class ProgrammingAttemptDtos {
             Integer totalTests,
             LocalDateTime createdAt,
             List<LearnerTestCaseDto> tests,
-            /* What the program printed (first test with output), and any
-               compile or runtime error text, verbatim -- the output panel shows
-               these rather than only the "n / m passed" summary in `message`. */
             String stdout,
             String stderr
     ) {

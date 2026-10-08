@@ -15,7 +15,6 @@ public interface LearnerPracticeAttemptRepository extends JpaRepository<LearnerP
 
     Optional<LearnerPracticeAttempt> findByAttemptIdAndLearner_LearnerId(Long attemptId, Long learnerId);
 
-    /** Title comes from a separate join since source_id may point at different tables depending on sourceType. */
     @Query("""
             SELECT a, s.title FROM LearnerPracticeAttempt a
             LEFT JOIN GeneratedStudySet s ON s.studySetId = a.sourceId

@@ -54,8 +54,6 @@ def get_embeddings() -> Embeddings:
         return HuggingFaceEmbeddings(
             model_name=settings.rag_embedding_model,
             model_kwargs={"device": settings.rag_embedding_device},
-            # Unit-normalized vectors make FAISS inner-product scores read
-            # directly as cosine similarity.
             encode_kwargs={"normalize_embeddings": True},
         )
     except Exception as error:

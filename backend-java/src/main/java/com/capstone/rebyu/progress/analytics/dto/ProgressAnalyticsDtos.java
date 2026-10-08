@@ -4,10 +4,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * Response shapes for GET /api/learners/me/certifications/{certificationId}/progress-analytics.
- * Grouped as nested records in one holder class, matching the billing package's DTO convention.
- */
 public final class ProgressAnalyticsDtos {
 
     private ProgressAnalyticsDtos() {
@@ -36,10 +32,6 @@ public final class ProgressAnalyticsDtos {
             int completedLessonCount,
             Double completionPercentage,
 
-            // Published assessments on this certification, and how many the
-            // learner has passed. "Finished the certification" needs both these
-            // and the lesson counts -- reading every lesson is not the same as
-            // having sat what the lessons prepare you for.
             int totalAssessmentCount,
             int passedAssessmentCount,
 
@@ -68,16 +60,12 @@ public final class ProgressAnalyticsDtos {
             List<TopicRow> strongestTopics,
             List<RecommendationRow> recommendedTopics,
 
-            // Every lesson the BKT service has an opinion on, unfiltered and
-            // uncapped -- weakestTopics/strongestTopics are curated top-N lists
-            // for the analytics page, but a per-lesson priority tag in the
-            // curriculum UI needs every lesson, not just the extremes.
             List<TopicRow> lessonPriorities
     ) {
     }
 
     public record RecentActivityItem(
-            String activityType, // "ASSESSMENT" | "CHALLENGE"
+            String activityType,
             String title,
             LocalDateTime occurredAt,
             Double scorePercentage,
@@ -96,11 +84,6 @@ public final class ProgressAnalyticsDtos {
     ) {
     }
 
-    /**
-     * One submitted attempt. Retakes are separate points, which is what lets the
-     * client group by {@code examId} and show whether a score moved between
-     * attempts of the same assessment rather than only across time.
-     */
     public record ScoreTrendPoint(
             Long assessmentAttemptId,
             Long examId,
@@ -110,11 +93,6 @@ public final class ProgressAnalyticsDtos {
             String assessmentType,
             BigDecimal percentage,
             Boolean passed,
-            /* What the percentage is a percentage of. A score reported only as
-               "10%" leaves a head guessing whether that was one question out
-               of ten or four out of forty, and those are different
-               conversations to have with a learner. Null on an attempt
-               recorded before the counts were kept. */
             Integer correctCount,
             Integer itemCount
     ) {
@@ -132,7 +110,7 @@ public final class ProgressAnalyticsDtos {
     public record CategoryMasteryRow(
             Long categoryId,
             String title,
-            String categoryLevel, // "MAJOR" | "MIDDLE"
+            String categoryLevel,
             Double masteryPercentage,
             String masteryLevel,
             String priorityCode,

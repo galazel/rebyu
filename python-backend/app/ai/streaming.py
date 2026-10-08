@@ -34,7 +34,6 @@ def _text_of(chunk) -> str:
     content = getattr(chunk, "content", "")
     if isinstance(content, str):
         return content
-    # Some providers send a list of content parts.
     return "".join(part.get("text", "") for part in content if isinstance(part, dict))
 
 
@@ -49,8 +48,6 @@ def _set_aside(model: str, exc: BaseException, profile, chain: list[str]) -> Non
         mark_exhausted(model, parse_retry_after(exc) or get_settings().ai_quota_cooldown_seconds)
     elif quota.is_upstream_unavailable(exc):
         mark_exhausted(model, _UPSTREAM_COOLDOWN_SECONDS)
-    # Anything else (a per-minute limit, a refused request) passes over this
-    # model for this answer only.
 
 
 async def astream_with_fallback(messages: list, *, task: str) -> AsyncIterator[str]:
@@ -65,14 +62,11 @@ async def astream_with_fallback(messages: list, *, task: str) -> AsyncIterator[s
 
     last_exc: BaseException | None = None
     for model in available:
-        if is_exhausted(model):  # set aside by an earlier failure in this loop
+        if is_exhausted(model):
             continue
         started = False
         began = time.monotonic()
         try:
-            # No client retries: on a rate limit the client waited out the
-            # provider's backoff (17s seen) before trying the same model
-            # again, while the next model in the chain was free.
             async for chunk in get_llm(task, model, max_retries=0).astream(messages):
                 text = _text_of(chunk)
                 if text:

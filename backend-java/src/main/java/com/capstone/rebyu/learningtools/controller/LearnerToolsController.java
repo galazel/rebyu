@@ -50,7 +50,6 @@ public class LearnerToolsController {
         return service.createLibraryItem(me(jwt), request);
     }
 
-    /** Upload a real file before adding a "file"-type library item; the returned key becomes resourceUrl. */
     @PostMapping(value = "/library/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Map<String, String> uploadFile(
             @AuthenticationPrincipal Jwt jwt, @RequestParam("file") MultipartFile file) {
@@ -91,15 +90,9 @@ public class LearnerToolsController {
         }
         String lesson = request.lessonName() == null || request.lessonName().isBlank()
                 ? "this lesson" : request.lessonName().trim();
-        // Pro only, and at most the plan's daily allowance. Counted after the
-        // set is saved, so a failed generation does not use one up.
         generationQuota.requireAvailable(learnerId);
 
         Map<String, Object> aiResult = aiServiceClient.generateStudyAid(type, lesson, request.lessonId());
-        // AI-credit spend intentionally disabled while the study-aid generation
-        // path itself is being tested end to end -- re-enable
-        // `rewards.spendAiCredit(learnerId, requestId)` / `refundAiCredit` (see
-        // git history) once generation is verified working.
         if ("flashcard".equals(type)) {
             var generatedSet = persistGeneratedFlashcards(
                     learnerId, lesson, request.lessonId(), aiResult);
@@ -144,10 +137,6 @@ public class LearnerToolsController {
                         learnerId, "FLASHCARD", title, lessonId, items);
     }
 
-    /** Same real exam schema every other assessment lives in: quiz items become
-     * MCQ questions with real choices, flashcards become SHORT_ANSWER questions
-     * graded exactly like any other short-answer question. See
-     * {@link GeneratedAssessmentService} for why it's published immediately. */
     private GeneratedAssessmentService.GeneratedExam persistGeneratedExam(
             Long learnerId, String type, String lesson, Long lessonId, Map<String, Object> aiResult) {
         try {
@@ -173,9 +162,6 @@ public class LearnerToolsController {
             return generatedAssessmentService.createGeneratedExam(learnerId, type, title, lessonId, items);
         } catch (Exception ex) {
             if (ex instanceof IllegalArgumentException illegalArgumentException) throw illegalArgumentException;
-            // The learner only ever sees the generic message below -- this is
-            // the only place the real cause (bad JSON shape, an unseeded exam
-            // type, a DB constraint) is visible at all.
             log.error("Study aid generation failed for lesson {} (type={})", lessonId, type, ex);
             throw new IllegalStateException("The AI returned an invalid study set. Please generate it again.", ex);
         }

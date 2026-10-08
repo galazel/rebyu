@@ -44,30 +44,12 @@ import { ReviewCheckpoint } from "@/components/generation/review-checkpoint"
 import { RunRecoveryPanel } from "@/components/generation/run-recovery-panel"
 import { TaskStatusIcon, stageLabel } from "@/components/generation/task-status"
 
-/**
- * The AI Generation Workspace.
- *
- * A generation run is a long conversation with a model that a human steers, not
- * a request that either succeeds or fails. So this shows the work as one
- * transcript — every step, its duration, what it produced — with the review
- * decision appearing inline at the point where the run is waiting. There is
- * deliberately no full-page loading state after the first connect: the
- * transcript *is* the progress indicator.
- *
- * Everything here is driven by one SSE stream that opens with a snapshot, so
- * closing the tab and coming back an hour later replays into the same view.
- */
 export default function GenerationWorkspacePage() {
   const { runId } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  // Set when we arrive straight from "Generate": the run does not exist yet.
-  // Generation is queued over RabbitMQ and the Python consumer creates the run
-  // when it picks the message up, so there is a short window with nothing to
-  // attach to. Poll fast until it appears rather than showing an empty
-  // workspace and making the admin wonder whether the click worked.
   const awaitingCertificationId = searchParams.get("certificationId")
 
   const runs = useQuery({
@@ -76,10 +58,6 @@ export default function GenerationWorkspacePage() {
     refetchInterval: awaitingCertificationId && !runId ? 1_500 : 30_000,
   })
 
-  // A queued build normally shows up within a second or two. Past that, the
-  // most likely cause is that nothing is consuming the queue — so say so rather
-  // than spinning indefinitely, which reads as "working" when it is actually
-  // "nobody is listening". Polling continues; only the message changes.
   const waitedTooLong = useWaitedTooLong(Boolean(awaitingCertificationId) && !runId, 20_000)
 
   const stream = useWorkflowStream(runId)
@@ -95,9 +73,6 @@ export default function GenerationWorkspacePage() {
     isWaitingForReview,
   } = stream
 
-  // The artifact under review lives in the LangGraph interrupt, not the event
-  // log, so it is fetched when the run enters (or is found in) review — keyed
-  // by lastSeq so approving one item pulls the next one automatically.
   const review = useQuery({
     queryKey: ["workflow-review", runId, isWaitingForReview, run?.last_seq],
     queryFn: () => getPendingReview(runId),
@@ -117,8 +92,6 @@ export default function GenerationWorkspacePage() {
   const submitReview = useMutation({
     mutationFn: (decision) => {
       const threadId = review.data?.thread_id ?? run?.thread_id
-      // Question batches take `questions`; every other artifact takes `payload`.
-      // Routing on kind here keeps that difference out of the review panel.
       if (run?.kind === "QUESTION_BANK") {
         return submitQuestionBatchReview(threadId, {
           action: decision.action,
@@ -144,18 +117,12 @@ export default function GenerationWorkspacePage() {
   const cancel = useMutation({
     mutationFn: () => cancelWorkflowRun(runId),
     onSuccess: () => {
-      // Deliberately not phrased as "cancelled": a mid-generation run stops at
-      // the next item boundary, so claiming it has already stopped would be a
-      // lie the transcript immediately contradicts.
       toast.success("Cancellation requested. The run will stop at the next safe point.")
       queryClient.invalidateQueries({ queryKey: ["workflow-runs"] })
     },
     onError: () => toast.error("Could not cancel this run."),
   })
 
-  /* Both stop controls on this page route through one confirmation. A run is
-     half an hour of authoring and stopping it cannot be undone, so it is asked
-     for rather than clicked -- the same guard the inline monitor uses. */
   const [isConfirmingStop, setIsConfirmingStop] = useState(false)
 
   const restore = (version) =>
@@ -167,12 +134,9 @@ export default function GenerationWorkspacePage() {
 
   const runList = runs.data?.runs ?? []
 
-  // Land on something useful rather than an empty pane.
   useEffect(() => {
     if (runId || !runList.length) return
 
-    // Arrived from "Generate": attach to *that* certification's run as soon as
-    // the consumer creates it, not to whatever happens to be newest.
     if (awaitingCertificationId) {
       const match = runList.find(
         (r) => String(r.certification_id) === String(awaitingCertificationId),
@@ -186,9 +150,6 @@ export default function GenerationWorkspacePage() {
   }, [runId, runList, navigate, awaitingCertificationId])
 
   return (
-    /* The page shell (`.rebyu-page`) supplies the outer padding and a 4rem top
-       nav, so the height subtracts both rather than adding a second gutter and
-       overflowing the viewport by exactly that much. */
     <div className="flex h-[calc(100dvh-7rem)] min-h-[32rem] flex-col gap-4 sm:h-[calc(100dvh-8rem)]">
       <AlertDialog open={isConfirmingStop} onOpenChange={setIsConfirmingStop}>
         <AlertDialogContent>
@@ -410,13 +371,6 @@ function EmptyState({ awaiting, waitedTooLong, loading }) {
   )
 }
 
-/**
- * The full event log, closed by default.
- *
- * It was a tab, which gave a debugging aid the same prominence as the work
- * itself. It is the thing you open when the transcript does not explain
- * something, so it sits below the transcript and stays shut until then.
- */
 function RawEventLog({ events }) {
   const [open, setOpen] = useState(false)
   const count = events?.length ?? 0
@@ -446,17 +400,11 @@ function RawEventLog({ events }) {
   )
 }
 
-/** Runs that are still going, or still need a human. */
 const ACTIVE_RUN_STATUSES = new Set(["RUNNING", "PENDING", "WAITING_FOR_REVIEW"])
 
 function RunList({ runs, activeRunId, onSelect }) {
   const [showPast, setShowPast] = useState(false)
 
-  // The list showed every run ever started, so finishing one generation left
-  // its wreckage sitting above the next one — three "Certification #N" entries
-  // when only one was live. Past runs are still reachable, just not by default;
-  // the open run always shows regardless, since a failed run is exactly what
-  // the recovery panel is for.
   const active = runs.filter(
     (run) => ACTIVE_RUN_STATUSES.has(run.status) || run.run_id === activeRunId,
   )
@@ -531,8 +479,6 @@ function RunList({ runs, activeRunId, onSelect }) {
 }
 
 function ConnectionBadge({ connected, terminal, hasRun }) {
-  // With no run selected there is no stream to be connected to, so "Reconnecting"
-  // would be reporting a failure that isn't happening.
   if (!hasRun) return null
   if (terminal) return <Badge variant="secondary">Finished</Badge>
   return connected ? (
@@ -548,7 +494,6 @@ function ConnectionBadge({ connected, terminal, hasRun }) {
   )
 }
 
-/** True once `active` has been continuously true for `afterMs`. */
 function useWaitedTooLong(active, afterMs) {
   const [elapsed, setElapsed] = useState(false)
   const timer = useRef(null)

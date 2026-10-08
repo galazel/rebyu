@@ -20,7 +20,6 @@ from app.graphs.certification import review_loop
 from app.services import workflow_registry as registry
 
 
-# the review vocabulary
 
 def test_resume_request_carries_instructions_and_payload():
     """The regression that made Improve and Edit unreachable: a bare string
@@ -62,7 +61,6 @@ def test_missing_action_defaults_to_approve():
     assert review_loop.normalize_action(None) == review_loop.APPROVE
 
 
-# cancellation
 
 def test_cancel_marks_the_run_and_emits_a_cancelled_event(db, monkeypatch):
     from app.api.routes import workflows as workflow_routes
@@ -101,7 +99,6 @@ def test_cancelling_twice_is_idempotent(db):
     second = workflow_routes.cancel_workflow_run(run_id, db=db)
 
     assert first["cancelled"] is True
-    # A second click, or a click racing a completion, is not an error.
     assert second["cancelled"] is True
 
 
@@ -141,7 +138,7 @@ def test_a_live_run_still_resumes(db, monkeypatch):
     registry.mark_waiting_for_review(db, "cancel-6", stage="CURRICULUM")
     monkeypatch.setattr(cert_routes, "SessionLocal", lambda: _NoClose(db))
 
-    cert_routes._reject_if_cancelled("cancel-6")  # must not raise
+    cert_routes._reject_if_cancelled("cancel-6")
 
 
 def test_cancel_check_fails_open_when_the_registry_is_unreachable(monkeypatch):
@@ -190,7 +187,6 @@ def test_gate_router_proceeds_when_not_cancelled(monkeypatch):
     assert route(state) == "generate"
 
 
-# version history with artifacts
 
 def test_versions_endpoint_returns_artifacts_not_just_refs(db):
     """The step-14 regression this closes: graph state keeps refs only, so an
@@ -233,9 +229,7 @@ def test_restore_appends_a_new_version_rather_than_rewinding(db):
     versions = registry.list_artifact_versions(db, "ver-3", key="MAJOR:0")
 
     assert [v["source"] for v in versions] == ["AI_GENERATED", "AI_IMPROVED", "RESTORED"]
-    # The restored version carries the old content...
     assert versions[-1]["artifact"] == {"v": 1}
-    # ...and the superseded one is still there.
     assert versions[1]["artifact"] == {"v": 2}
 
 
@@ -332,7 +326,6 @@ def test_sse_data_is_always_a_single_line():
     assert len([l for l in frame.strip().splitlines() if l.startswith("data: ")]) == 1
 
 
-# one stream implementation, two transports
 
 async def test_sse_and_websocket_yield_the_same_messages(db, monkeypatch):
     """The reason stream_events exists: if the two transports were written
@@ -348,11 +341,7 @@ async def test_sse_and_websocket_yield_the_same_messages(db, monkeypatch):
 
     messages = [m async for m in stream_module.stream_events(run_id, 0)]
 
-    # The two replayed events between them are workflow.started and
-    # workflow.completed, each its own frame -- see
-    # `test_no_sse_frame_grows_with_the_length_of_the_run`.
     assert [m["type"] for m in messages] == ["snapshot", "event", "event", "complete"]
-    # And the SSE encoder can render every one of them.
     from app.api.routes.workflow_stream import _sse_frame
     for message in messages:
         assert _sse_frame(message).endswith("\n\n")
@@ -380,10 +369,6 @@ class _NoClose:
         return False
 
 
-# node instrumentation
-# This wraps every generating node, so its failure modes are generation's
-# failure modes. What matters is that it stays invisible: same signature, same
-# sync/async nature, same exceptions, and no ability to fail a node.
 
 def test_instrument_preserves_a_sync_node():
     """LangGraph inspects the callable to decide how to schedule it, so

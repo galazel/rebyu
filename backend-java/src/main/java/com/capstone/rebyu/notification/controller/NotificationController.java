@@ -14,7 +14,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.util.List;
 import java.util.Map;
 
-/** The signed-in user's own notifications -- any role (admin/institution/learner). */
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
@@ -29,11 +28,6 @@ public class NotificationController {
         return notificationService.forUser(currentUserId(jwt));
     }
 
-    /**
-     * Live feed of this user's new notifications. Held open by the browser and
-     * pushed to as events happen, which is what replaced the old fixed-interval
-     * polling of the list endpoint above.
-     */
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@AuthenticationPrincipal Jwt jwt) {
         return streamService.subscribe(currentUserId(jwt));

@@ -37,7 +37,6 @@ from app.db.session import engine
 
 logger = logging.getLogger(__name__)
 
-#: `app/db/training_view.py` -> `python-backend/sql/create_training_view.sql`
 _SQL_PATH = Path(__file__).resolve().parents[2] / "sql" / "create_training_view.sql"
 
 
@@ -55,13 +54,8 @@ def ensure_training_view() -> bool:
 
     try:
         with engine.begin() as connection:
-            # exec_driver_sql: the file holds several statements (the view and
-            # its COMMENT), which SQLAlchemy's text() will not split.
             connection.exec_driver_sql(ddl)
     except Exception as error:
-        # Overwhelmingly this is "the Java backend has not created its tables
-        # yet" on a fresh database. Said at warning rather than exception
-        # because it is self-correcting on the next start.
         logger.warning(
             "Could not create the BKT training view (%s). This is expected on a "
             "fresh database before the Java backend has created its tables; it "

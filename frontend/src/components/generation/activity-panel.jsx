@@ -4,20 +4,10 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { stageLabel } from "./task-status"
 
-/**
- * One feed for everything that happened: node transitions, validation results,
- * review decisions, warnings, and errors.
- *
- * Unified rather than split into "logs" and "errors" tabs, because the useful
- * question during a long run is "what happened, in order" — a failure three
- * stages ago only makes sense next to what ran before it.
- */
 
 const EVENT_LABELS = {
   "workflow.started": () => "Run started",
   "workflow.resumed": () => "Run resumed",
-  // The boundary the timeline segments on: everything below it in this feed
-  // belongs to an earlier attempt at the same run.
   "workflow.restarted": (e) =>
     e.payload?.attempt ? `Started again from the beginning (attempt ${e.payload.attempt})` : "Started again from the beginning",
   "workflow.retried": (e) =>

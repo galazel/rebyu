@@ -14,15 +14,6 @@ public interface LearnerInvitationRepository extends JpaRepository<LearnerInvita
             Long institutionCertId, String email, LearnerInvitation.Status status);
     Optional<LearnerInvitation> findByTokenHash(String token);
 
-    /**
-     * One person's own invitations, matched on the address they were sent to.
-     *
-     * <p>Replaces a client-side filter. The learner shell used to fetch EVERY
-     * invitation on the platform every thirty seconds and keep the rows whose
-     * email matched its own -- so each learner's browser was handed every
-     * other learner's name, address, invitation status and inviting
-     * institution.
-     */
     List<LearnerInvitation> findByEmailIgnoreCaseAndStatusOrderBySentAtDesc(
             String email, LearnerInvitation.Status status);
 }

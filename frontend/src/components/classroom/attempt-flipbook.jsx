@@ -6,30 +6,14 @@ import { ArrowLeft, ArrowRight } from "@/components/icons"
 
 gsap.registerPlugin(useGSAP)
 
-/**
- * An open spiral notebook on a desk, one page per attempt, turned by hand.
- *
- * The spread shows the previous attempt on the left page and the current one on
- * the right, with the spiral binding between them. Turning forward, a hand takes
- * the right-hand sheet by its corner and turns it over the spiral: the sheet
- * curls slightly as it goes, the next attempt is revealed underneath, and the
- * turned sheet lands on the left. Turning back runs the same motion the other
- * way. Divider tabs jump straight to any attempt; the arrow keys turn pages
- * while the book has focus. Below `md` there is one page and the sheet turns
- * away off it.
- *
- * pages: [{ key, tab, tone: "pass" | "fail" | "open", label, content }]
- */
 
 const TURN_S = 0.95
 
 function HandSvg() {
   return (
     <svg viewBox="0 0 130 190" aria-hidden="true">
-      {/* sleeve and forearm, coming up from below the book */}
       <path d="M40 190 L52 120 L96 120 L108 190 Z" fill="#2f6b4f" />
       <path d="M52 124 L96 124 L94 116 L54 116 Z" fill="#245440" />
-      {/* palm and fingers, pinching the page corner */}
       <path
         d="M50 122 C40 96 44 70 60 58 C66 40 78 30 88 36 C96 42 94 56 90 66 C104 70 110 86 104 104 C100 118 92 124 90 124 Z"
         fill="#f1c29b"
@@ -39,7 +23,6 @@ function HandSvg() {
       <path d="M62 60 C62 44 70 32 78 32" fill="none" stroke="#c9906a" strokeWidth="2" strokeLinecap="round" />
       <path d="M72 84 C80 80 90 80 98 86" fill="none" stroke="#c9906a" strokeWidth="2" strokeLinecap="round" />
       <path d="M68 98 C78 94 90 94 100 100" fill="none" stroke="#c9906a" strokeWidth="2" strokeLinecap="round" />
-      {/* thumb over the front of the sheet */}
       <path
         d="M58 70 C46 64 34 66 30 76 C27 84 36 90 48 88 C54 87 58 82 60 78"
         fill="#eab48b"
@@ -58,7 +41,7 @@ export function AttemptFlipbook({
 }) {
   const clamp = (value) => Math.min(Math.max(value, 0), Math.max(pages.length - 1, 0))
   const [index, setIndex] = useState(() => clamp(initialIndex))
-  const [turn, setTurn] = useState(null) // { dir: 1 | -1, to }
+  const [turn, setTurn] = useState(null)
   const scope = useRef(null)
   const leafRef = useRef(null)
   const { contextSafe } = useGSAP({ scope })
@@ -89,7 +72,6 @@ export function AttemptFlipbook({
         { rotateY: forward ? 0 : -180 },
         { rotateY: forward ? -180 : 0, duration: TURN_S, ease: "power2.inOut" },
       )
-      // The curl: the sheet bends a little on its way over, then flattens.
       .fromTo(
         leafRef.current,
         { skewY: 0 },

@@ -12,40 +12,11 @@ import {
   useTransform,
 } from "framer-motion"
 
-/**
- * REBYU motion primitives.
- *
- * The design system already had a motion layer in `rebyu-ds.css` — `rb-pop-in`,
- * `rb-rise`, `rb-reveal` — for things CSS can do on its own. This module covers
- * what it cannot: entrances that need to know when an element scrolled into
- * view, lists that stagger, accordions that animate to `height: auto`, and
- * numbers that count. Reach for the CSS classes first; use these when the
- * animation depends on state or timing.
- *
- * Two rules hold everything together:
- *
- * 1. **One easing curve.** `EASE` is the same cubic-bezier the CSS layer uses,
- *    so a card that reveals with JS and a bar that fills with CSS decelerate
- *    identically. Mixing curves is what makes an interface feel assembled from
- *    parts.
- *
- * 2. **Reduced motion is not this module's job.** `<MotionConfig
- *    reducedMotion="user">` wraps the app in `main.jsx`, which makes every
- *    animation here collapse to an opacity change automatically. Checking the
- *    media query in each component would be four more places to forget.
- *
- * Nothing here animates layout-affecting properties on scroll except height on
- * an accordion the user just opened — transform and opacity only, so a long
- * curriculum page does not repaint on every frame.
- */
 
-/** Shared deceleration curve. Matches `rb-reveal` in rebyu-ds.css. */
 export const EASE = [0.22, 1, 0.36, 1]
 
-/** Overshoot, for things that should feel physical: ticks, medals, badges. */
 export const SPRING = { type: "spring", stiffness: 520, damping: 26, mass: 0.7 }
 
-/* variants */
 
 export const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -62,7 +33,6 @@ export const popIn = {
   show: { opacity: 1, scale: 1, y: 0, transition: { duration: 0.32, ease: [0.34, 1.56, 0.64, 1] } },
 }
 
-/** Parent for any stagger. `delayChildren` lets a heading land first. */
 export function staggerParent(stagger = 0.07, delayChildren = 0) {
   return {
     hidden: {},
@@ -70,16 +40,7 @@ export function staggerParent(stagger = 0.07, delayChildren = 0) {
   }
 }
 
-/* components */
 
-/**
- * Reveals its children the first time they scroll into view.
- *
- * `once` is the default and should almost always stay on: re-animating on the
- * way back up makes a page feel like it is fighting the scroll. `amount: 0.15`
- * fires when a sliver is showing, so tall cards do not wait until they are
- * nearly centred.
- */
 export function Reveal({
   children,
   variants = fadeUp,
@@ -105,13 +66,6 @@ export function Reveal({
   )
 }
 
-/**
- * A list whose children arrive one after another.
- *
- * Children must be `<StaggerItem>` (or any motion element using the `hidden` /
- * `show` variant names) — the parent only orchestrates timing, it does not
- * animate itself.
- */
 export function StaggerList({
   children,
   stagger = 0.07,
@@ -146,24 +100,7 @@ export function StaggerItem({ children, variants = fadeUp, as = "div", ...props 
   )
 }
 
-/**
- * Accordion body. Animates to the content's real height rather than a guessed
- * max-height, which is the difference between an accordion that opens and one
- * that snaps at the end because the guess was too small.
- *
- * `overflow: hidden` is applied only while the height is actually moving. It
- * has to be on then, or the panel's contents spill past the animating box; it
- * must come off after, or it clips anything the open panel legitimately hangs
- * outside itself -- a focus ring, a popover, or the "start" bubble that sits
- * above the first stop on the learning path, which is how this was found: the
- * bubble was cut in half by a box that had finished animating half a second
- * earlier.
- *
- * The comment above described this behaviour before the code did.
- */
 export function Collapse({ open, children, duration = 0.34 }) {
-  // Starts true: the open animation runs on mount, so the first frames need
-  // clipping just as much as a later toggle does.
   const [animating, setAnimating] = useState(true)
 
   return (
@@ -186,14 +123,6 @@ export function Collapse({ open, children, duration = 0.34 }) {
   )
 }
 
-/**
- * A number that counts up to its value the first time it scrolls into view.
- *
- * A motion value rendered straight as a child — framer-motion subscribes to it
- * and writes the text node itself, so counting never costs a React render per
- * frame. `useInView` starts it, rather than `whileInView`, because the thing
- * being animated is the value, not a style on the element.
- */
 export function CountUp({ value, duration = 0.9, suffix = "", className }) {
   const reduced = useReducedMotion()
   const ref = useRef(null)
@@ -221,12 +150,6 @@ export function CountUp({ value, duration = 0.9, suffix = "", className }) {
   )
 }
 
-/**
- * The circular "pop" a tick makes when it turns green.
- *
- * Keyed on `done` so the spring re-fires on the transition into the done state
- * and never on a re-render that happens to pass the same value.
- */
 export function TickPop({ done, children, className }) {
   return (
     <motion.span
@@ -239,11 +162,6 @@ export function TickPop({ done, children, className }) {
   )
 }
 
-/**
- * A short horizontal shake. Used for a refused action — clicking a locked unit
- * — where the answer is "no" and the control should say so where the finger
- * already is, rather than only in a dialog that appears elsewhere.
- */
 export function useShake() {
   return {
     shake: { x: [0, -8, 8, -6, 6, -3, 3, 0], transition: { duration: 0.45 } },
@@ -251,17 +169,6 @@ export function useShake() {
   }
 }
 
-/**
- * Hover and press response for a card-shaped target.
- *
- * A wrapper rather than a prop on `RebyuCard` because the card is a plain div
- * that does not forward refs, and because the lift belongs to the whole grid
- * cell rather than to the card's own surface — nesting keeps the DS card
- * untouched, and leaves the card's own transform free for the CSS reveal layer.
- *
- * The spring is soft on purpose. `SPRING` above is tuned for a tick popping
- * green; reused on a 400px card it reads as a wobble.
- */
 export const HOVER_SPRING = { type: "spring", stiffness: 320, damping: 30, mass: 0.8 }
 
 export function HoverLift({ children, lift = -6, scale = 1.015, as = "div", ...props }) {
@@ -279,27 +186,7 @@ export function HoverLift({ children, lift = -6, scale = 1.015, as = "div", ...p
   )
 }
 
-/* lettering */
 
-/**
- * Types a line out one character at a time when it scrolls into view.
- *
- * Three things this has to get right, and only the first is the animation:
- *
- * 1. **No layout shift.** A span that grows from empty to full width reflows
- *    everything beside it on every frame. The full string is rendered first as
- *    an invisible spacer and the typed text is laid over it absolutely, so the
- *    box is its final size before the first character lands.
- * 2. **Screen readers get the sentence, not the performance.** The visual half
- *    is `aria-hidden` and the full string is repeated in an `sr-only` span —
- *    otherwise assistive tech announces a partial word on every keystroke.
- * 3. **The caret retires.** A cursor that blinks forever beside finished copy
- *    reads as a page still loading. It fades out shortly after the last
- *    character.
- *
- * Reduced motion prints the whole line immediately: `MotionConfig` cannot help
- * here because the typing is state, not a transition.
- */
 export function Typewriter({
   text,
   as = "span",
@@ -315,10 +202,6 @@ export function Typewriter({
   const inView = useInView(ref, { once: true, amount: 0.6 })
   const [typed, setTyped] = useState(0)
 
-  /* `startOnMount` for anything in the fold. An observer cannot report an
-     element that was already on screen before it was created, so a hero line
-     gated on `inView` sits empty until the first scroll — which, on a page
-     whose first line this is, may be never. */
   const active = startOnMount || inView
   const done = typed >= text.length
 
@@ -372,20 +255,6 @@ export function Typewriter({
   )
 }
 
-/**
- * One slot, several words, swapped on a timer.
- *
- * The words are all rendered stacked in a single grid cell — every one of them,
- * invisibly — so the slot is as wide as the longest and as tall as the tallest
- * before anything rotates. Sizing to the current word instead is what makes the
- * sentence beside it twitch on every swap.
- *
- * `mode="wait"` so the outgoing word is gone before the next arrives: two words
- * crossfading in the same cell is unreadable at any speed.
- *
- * Reduced motion holds the first word and never starts the timer. This is
- * content that changes on its own, which is exactly what that setting is for.
- */
 export function RotatingText({
   words,
   interval = 2400,
@@ -433,18 +302,6 @@ export function RotatingText({
   )
 }
 
-/**
- * A heading that arrives a word at a time.
- *
- * Split on words, never on characters: a headline dealt out letter by letter
- * takes long enough that the reader starts reading before it finishes, and each
- * character needs its own box, which breaks the line-breaking the type was set
- * for. Words keep the wrap intact and still give the line its cadence.
- *
- * `inherit` hands the timing to an ancestor that is already running a stagger —
- * the hero, where the eyebrow, claim, lead and buttons are one sequence. On its
- * own it fires when scrolled into view.
- */
 export function WordReveal({
   text,
   as = "span",
@@ -460,14 +317,7 @@ export function WordReveal({
   const inView = useInView(ref, { once, amount: 0.4 })
   const [rescued, setRescued] = useState(false)
 
-  /* Safety net, and the reason this drives `animate` by hand instead of using
-     `whileInView`. Every heading on a page is hidden until an observer says
-     otherwise, so an observer that never reports is not a missed animation —
-     it is a page with no headings on it. Once, shortly after mount, anything
-     already inside the viewport is shown regardless. Headings further down are
-     left alone: they have a scroll coming that will report them normally.
 
-     `.rb-reveal` in the landing page does the same thing for the same reason. */
   useEffect(() => {
     if (inherit) return undefined
 
@@ -494,9 +344,6 @@ export function WordReveal({
   return (
     <Component ref={inherit ? undefined : ref} className={className} variants={parent} {...driver}>
       {words.map((word, i) => (
-        /* `inline-block` on a wrapper that keeps the trailing space outside it:
-           a transformed inline box collapses its own whitespace, so words would
-           run together the moment they animated. */
         <span key={`${word}-${i}`} className="inline-block whitespace-pre">
           <motion.span variants={child} className={`inline-block ${wordClassName ?? ""}`}>
             {word}
@@ -508,14 +355,6 @@ export function WordReveal({
   )
 }
 
-/**
- * Hover response for something inline — a nav link, a footer link, a stat.
- *
- * `HoverLift` above is for cards: it moves the target up the page, which only
- * makes sense for a block with room around it. Scaling in place is the inline
- * equivalent, and `inline-block` is required — `transform` does nothing to a
- * plain inline box.
- */
 export function HoverScale({ children, scale = 1.06, as = "span", className, ...props }) {
   const Component = motion[as] ?? motion.span
 
@@ -532,27 +371,6 @@ export function HoverScale({ children, scale = 1.06, as = "span", className, ...
   )
 }
 
-/**
- * Turns the scroll through a section into a step counter and a fill.
- *
- * For a sequence whose whole point is its order — a four-step method, a
- * pipeline — laid out as a row. A row reveals all of itself at once, which is
- * the one thing an ordered list should not do: the reader is told "in this
- * order, every time" and then handed four boxes that arrived together. Tying
- * the steps to scroll position puts them back in sequence, and gives the
- * section a progress bar that is the section's own progress.
- *
- * Returns `fill`, a 0–1 motion value for `style={{ scaleX }}` on the rail, and
- * `active`, how many steps have been reached. `active` is state rather than a
- * motion value because it drives class names, not just style.
- *
- * `Math.ceil` so step one lights the moment the section is entered rather than
- * a quarter of the way through it — the first step of four should not need
- * scrolling to earn.
- *
- * Reduced motion reports everything reached immediately. A reader who has asked
- * for less movement still needs all four steps.
- */
 export function useScrollSteps(ref, count, offset = ["start 72%", "end 62%"]) {
   const reduced = useReducedMotion()
   const { scrollYProgress } = useScroll({ target: ref, offset })
@@ -573,10 +391,6 @@ export function useScrollSteps(ref, count, offset = ["start 72%", "end 62%"]) {
       setActive((current) => (current === next ? current : next))
     }
 
-    /* Counted off the raw progress, not the spring. The spring exists to keep
-       the rail from stepping with the wheel's own quantisation; a step that
-       lights up is a discrete event, and running it through a spring only makes
-       it late. The bar eases, the count does not. */
     sync(scrollYProgress.get())
     return scrollYProgress.on("change", sync)
   }, [scrollYProgress, count, reduced])
@@ -584,27 +398,6 @@ export function useScrollSteps(ref, count, offset = ["start 72%", "end 62%"]) {
   return { fill, active }
 }
 
-/**
- * Scroll-linked vertical parallax for a decorative element.
- *
- * Returns a motion value for `style={{ y }}`. It travels from `+distance` to
- * `-distance` across the window the target spends on screen, so the element
- * drifts against the scroll instead of riding with it.
- *
- * Two things this has to do itself:
- *
- * 1. **Reduced motion.** `<MotionConfig reducedMotion="user">` only rewrites
- *    animations it drives. A motion value piped straight into `style` is not
- *    an animation as far as that setting is concerned, so it would keep moving.
- *    Pinned to 0 here instead — the one exception to rule 2 at the top of this
- *    file, and the reason it is spelled out rather than left implied.
- *
- * 2. **Smoothing.** Raw `scrollYProgress` is exact but steps with the scroll
- *    wheel's own quantisation. A light spring turns those steps into a glide.
- *
- * Only pass elements that carry no meaning — a wash blob, an oversized
- * wordmark. Parallaxing text is how a reader loses their line.
- */
 export function useParallax(ref, distance = 60, offset = ["start end", "end start"]) {
   const reduced = useReducedMotion()
   const { scrollYProgress } = useScroll({ target: ref, offset })

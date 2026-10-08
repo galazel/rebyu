@@ -11,7 +11,6 @@ export const departments = [
 ]
 
 export const departmentAbbreviations = {
-  // College of Marine Education (CME)
   "College of Marine Education": "CME",
   "College of Marine Education (CME)": "CME",
   CME: "CME",
@@ -19,19 +18,16 @@ export const departmentAbbreviations = {
   "College of Maritime Studies (CMS)": "CME",
   CMS: "CME",
 
-  // College of Engineering (COE)
   "College of Engineering": "COE",
   "College of Engineering (COE)": "COE",
   COE: "COE",
 
-  // Computer Engineering (CpE)
   "Computer Engineering": "CpE",
   "Computer Engineering (CpE)": "CpE",
   "Department of Computer Engineering": "CpE",
   CpE: "CpE",
   CPE: "CpE",
 
-  // College of Business Administration (CBA)
   "College of Business Administration": "CBA",
   "College of Business Administration (CBA)": "CBA",
   CBA: "CBA",
@@ -40,12 +36,10 @@ export const departmentAbbreviations = {
   "College of Business Administration and Accountancy (CBA)": "CBA",
   CBAA: "CBA",
 
-  // College of Computer Studies (CCS)
   "College of Computer Studies": "CCS",
   "College of Computer Studies (CCS)": "CCS",
   CCS: "CCS",
 
-  // College of Criminal Justice (CCJ)
   "College of Criminal Justice": "CCJ",
   "College of Criminal Justice (CCJ)": "CCJ",
   CCJ: "CCJ",
@@ -53,29 +47,24 @@ export const departmentAbbreviations = {
   "College of Criminology (COC)": "CCJ",
   COC: "CCJ",
 
-  // College of Nursing (CoN)
   "College of Nursing": "CoN",
   "College of Nursing (CoN)": "CoN",
   "College of Nursing (CON)": "CoN",
   CoN: "CoN",
   CON: "CoN",
 
-  // College of Hospitality and Tourism Management (CHTM)
   "College of Hospitality and Tourism Management": "CHTM",
   "College of Hospitality and Tourism Management (CHTM)": "CHTM",
   CHTM: "CHTM",
 
-  // College of Teacher Education (CTE)
   "College of Teacher Education": "CTE",
   "College of Teacher Education (CTE)": "CTE",
   CTE: "CTE",
 
-  // College of Customs Administration (CCA)
   "College of Customs Administration": "CCA",
   "College of Customs Administration (CCA)": "CCA",
   CCA: "CCA",
 
-  // Common related / legacy abbreviations
   "College of Engineering and Architecture": "CEA",
   "College of Engineering and Architecture (CEA)": "CEA",
   CEA: "CEA",
@@ -90,7 +79,6 @@ export const departmentAbbreviations = {
 }
 
 export const departmentDescriptions = {
-  // College of Marine Education
   "College of Marine Education":
     "Offers programs in Marine Transportation and Marine Engineering.",
   "College of Marine Education (CME)":
@@ -104,7 +92,6 @@ export const departmentDescriptions = {
   CMS:
     "Offers programs in Marine Transportation and Marine Engineering.",
 
-  // College of Engineering
   "College of Engineering":
     "Offers disciplines like Computer, Electronics and Communications, Electrical, Industrial, and Civil Engineering.",
   "College of Engineering (COE)":
@@ -112,7 +99,6 @@ export const departmentDescriptions = {
   COE:
     "Offers disciplines like Computer, Electronics and Communications, Electrical, Industrial, and Civil Engineering.",
 
-  // Computer Engineering (CpE)
   "Computer Engineering":
     "Focuses on hardware-software integration, Cisco networking, embedded systems, and digital circuit design.",
   "Computer Engineering (CpE)":
@@ -120,7 +106,6 @@ export const departmentDescriptions = {
   CpE:
     "Focuses on hardware-software integration, Cisco networking, embedded systems, and digital circuit design.",
 
-  // College of Business Administration
   "College of Business Administration":
     "Covers business, management accounting, and accountancy courses.",
   "College of Business Administration (CBA)":
@@ -136,7 +121,6 @@ export const departmentDescriptions = {
   CBAA:
     "Covers business, management accounting, and accountancy courses.",
 
-  // College of Computer Studies
   "College of Computer Studies":
     "Offers Information Technology and Computer Science.",
   "College of Computer Studies (CCS)":
@@ -144,7 +128,6 @@ export const departmentDescriptions = {
   CCS:
     "Offers Information Technology and Computer Science.",
 
-  // College of Criminal Justice
   "College of Criminal Justice":
     "Trains students in criminal justice.",
   "College of Criminal Justice (CCJ)":
@@ -158,7 +141,6 @@ export const departmentDescriptions = {
   COC:
     "Trains students in criminal justice.",
 
-  // College of Nursing
   "College of Nursing":
     "Manages nursing education and medical-surgical training tracks.",
   "College of Nursing (CoN)":
@@ -170,7 +152,6 @@ export const departmentDescriptions = {
   CON:
     "Manages nursing education and medical-surgical training tracks.",
 
-  // College of Hospitality and Tourism Management
   "College of Hospitality and Tourism Management":
     "Focuses on hospitality, culinary arts, and tourism.",
   "College of Hospitality and Tourism Management (CHTM)":
@@ -178,7 +159,6 @@ export const departmentDescriptions = {
   CHTM:
     "Focuses on hospitality, culinary arts, and tourism.",
 
-  // College of Teacher Education
   "College of Teacher Education":
     "Prepares future elementary and secondary school educators.",
   "College of Teacher Education (CTE)":
@@ -186,7 +166,6 @@ export const departmentDescriptions = {
   CTE:
     "Prepares future elementary and secondary school educators.",
 
-  // College of Customs Administration
   "College of Customs Administration":
     "Specializes in customs brokerage and tariff laws.",
   "College of Customs Administration (CCA)":
@@ -195,27 +174,19 @@ export const departmentDescriptions = {
     "Specializes in customs brokerage and tariff laws.",
 }
 
-/**
- * Returns the short abbreviation for a department name (e.g. "College of Computer Studies" -> "CCS").
- * If the name is already short or has parentheses (e.g. "CCS", "BSIT", "CpE", "College of Computer Studies (CCS)"),
- * it extracts or preserves the clean abbreviation.
- */
 export function getDepartmentAbbreviation(name) {
   if (!name || typeof name !== "string") return name || ""
   const trimmed = name.trim()
 
-  // 1. Direct dictionary match
   if (departmentAbbreviations[trimmed]) {
     return departmentAbbreviations[trimmed]
   }
 
-  // 2. Extract abbreviation in parentheses if present, e.g. "College of Computer Studies (CCS)" -> "CCS"
   const parenMatch = trimmed.match(/\(([^)]+)\)$/)
   if (parenMatch && parenMatch[1].trim().length <= 6) {
     return parenMatch[1].trim()
   }
 
-  // 3. Case-insensitive dictionary match
   const lower = trimmed.toLowerCase()
   for (const [key, abbr] of Object.entries(departmentAbbreviations)) {
     if (key.toLowerCase() === lower) {
@@ -223,12 +194,10 @@ export function getDepartmentAbbreviation(name) {
     }
   }
 
-  // 4. If name is already an abbreviation or short code (<= 6 chars, like "CCS", "BSIT", "CpE")
   if (trimmed.length <= 6) {
     return trimmed
   }
 
-  // 5. Clean up "College of ..." to initials if matching pattern
   const words = trimmed
     .split(/\s+/)
     .filter((w) => !["of", "and", "in", "the", "for", "&"].includes(w.toLowerCase()))
@@ -243,16 +212,16 @@ export function getDepartmentAbbreviation(name) {
 }
 
 export const departmentEarthColors = {
-  CME: "#2f6b4f", // Deep Forest Green
-  COE: "#5c6b73", // Slate Mineral Grey
-  CpE: "#2563eb", // Tech Cobalt Blue
-  CBA: "#c9962b", // Warm Ochre
-  CCS: "#4a7c59", // Moss Green
-  CCJ: "#8b5f7d", // Muted Plum
-  CoN: "#606c38", // Olive Earth
-  CHTM: "#b06d3b", // Warm Clay
-  CTE: "#c8553d", // Rust Terracotta
-  CCA: "#bc4749", // Brick Red
+  CME: "#2f6b4f",
+  COE: "#5c6b73",
+  CpE: "#2563eb",
+  CBA: "#c9962b",
+  CCS: "#4a7c59",
+  CCJ: "#8b5f7d",
+  CoN: "#606c38",
+  CHTM: "#b06d3b",
+  CTE: "#c8553d",
+  CCA: "#bc4749",
 }
 
 export const departmentInfographicColors = departmentEarthColors

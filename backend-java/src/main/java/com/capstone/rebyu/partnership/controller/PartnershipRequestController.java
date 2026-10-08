@@ -53,9 +53,6 @@ public class PartnershipRequestController {
         partnershipRequestService.delete(id);
     }
 
-    // Only admins may reach this generic CRUD path's update/delete: status
-    // transitions and request removal must go through the real admin
-    // approval workflow in AdminPartnershipService, not this scaffolding.
     private void requireAdmin(Jwt jwt) {
         if (jwt == null) {
             throw new IllegalArgumentException("Authentication is required");

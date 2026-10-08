@@ -76,9 +76,6 @@ def index_lessons(certification_id, lesson_ids, db):
     namespace = namespace_for(certification_id=certification_id)
     client = get_client()
 
-    # Remove this lesson's previous content points, so a re-run updates rather
-    # than duplicates. Scrolled and filtered in Python because the collection
-    # has no payload index on metadata.kind.
     stale, offset = [], None
     while True:
         points, offset = client.scroll(collection_name=namespace, limit=512,

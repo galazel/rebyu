@@ -18,14 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * A group leader's view of their own learners: the roster they monitor, one
- * learner's full statistics, and removing someone from the group.
- *
- * Everything here is scoped to a group the caller actually leads (or owns, as
- * the institution administrator). The learner id is a path variable, so the
- * service re-checks group membership on every call rather than trusting it.
- */
 @RestController
 @RequestMapping("/api/institution/me/departments")
 @RequiredArgsConstructor
@@ -34,7 +26,6 @@ public class InstitutionLearnerInsightsController {
     private final InstitutionLearnerInsightsService insightsService;
     private final CognitoAuthService auth;
 
-    /** The group's active learners, with the summary figures the table shows. */
     @GetMapping("/{departmentId}/learners")
     public List<DepartmentLearnerRow> roster(
             @AuthenticationPrincipal Jwt jwt, @PathVariable Long departmentId) {
@@ -43,7 +34,6 @@ public class InstitutionLearnerInsightsController {
                 departmentId, user.institutionId(), user.userId(), isOwner(user));
     }
 
-    /** Weak topics, curriculum progress, readiness and confidence for one learner. */
     @GetMapping("/{departmentId}/learners/{learnerId}/analytics")
     public ProgressAnalyticsResponse analytics(
             @AuthenticationPrincipal Jwt jwt,
@@ -54,7 +44,6 @@ public class InstitutionLearnerInsightsController {
                 departmentId, learnerId, user.institutionId(), user.userId(), isOwner(user));
     }
 
-    /** Unassigns the learner from this group; their account and progress remain. */
     @DeleteMapping("/{departmentId}/learners/{learnerId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeFromGroup(

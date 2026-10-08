@@ -18,13 +18,6 @@ import java.util.List;
 @RequestMapping("/api/exam-types")
 @RequiredArgsConstructor
 public class ExamTypeController {
-    /*
-     * The platform's assessment vocabulary (DIAGNOSTIC, MOCK, LESSON_QUIZ...).
-     * It had no authorization and was not listed in SecurityConfig, so anyone
-     * could rename or DELETE an exam type -- rows every exam on the platform
-     * points at. Reads are open to any signed-in caller because every
-     * authoring screen needs them; writes are the administrator's.
-     */
     private final ExamTypeService examTypeService;
     private final RoleGuard guard;
 

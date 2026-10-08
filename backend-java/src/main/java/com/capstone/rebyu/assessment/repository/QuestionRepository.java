@@ -15,21 +15,8 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
 
     List<Question> findByParentQuestion_QuestionId(Long questionId);
 
-    // Stable authoring order for sub-questions (creation order); used
-    // wherever critical-thinking sub-questions must render/grade as an
-    // ordered list rather than in arbitrary fetch order.
     List<Question> findByParentQuestion_QuestionIdOrderByQuestionIdAsc(Long questionId);
 
-    /**
-     * The sub-questions of MANY parents, in one query.
-     *
-     * <p>The per-parent method above is right for one question and ruinous for
-     * a paper: both the start snapshot and the result review walk every item
-     * asking for its parts, which is one round trip per question against a
-     * database that is ~50ms away, for the ~10% of questions that actually have
-     * parts. Callers holding a whole paper's ids ask once and group the answer
-     * by {@code parentQuestion.questionId}.
-     */
     @Query("""
             SELECT q FROM Question q
             WHERE q.parentQuestion.questionId IN :parentIds
@@ -37,8 +24,6 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
             """)
     List<Question> findSubQuestionsByParentIdIn(@Param("parentIds") Collection<Long> parentIds);
 
-    // Scope-derived eligibility (top-level questions only; sub-questions ride
-    // with their parent). Ordered for stable picker display.
     List<Question> findByParentQuestionIsNullAndLesson_LessonIdOrderByQuestionIdAsc(Long lessonId);
 
     List<Question> findByParentQuestionIsNullAndLesson_MiddleCategory_MiddleCategoryIdOrderByQuestionIdAsc(
@@ -50,11 +35,6 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     List<Question> findByParentQuestionIsNullAndLesson_MiddleCategory_MajorCategory_Certification_CertificationIdOrderByQuestionIdAsc(
             Long certificationId);
 
-    // Selection projections
-    // Same four scopes as above, as flat projections. See QuestionSelectionView
-    // for why loading these as entities costs 1 + 3N queries instead of 1.
-    // ownerDepartment is LEFT JOINed: official questions have none, and an inner
-    // join would silently drop every one of them from the candidate pool.
 
     @Query("""
             SELECT q.questionId AS questionId, l.lessonId AS lessonId,
@@ -115,36 +95,11 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
             """)
     List<QuestionSelectionView> findSelectionViewsByIdIn(@Param("ids") Collection<Long> ids);
 
-    /**
-     * Loads whole questions with everything an attempt snapshot reads, in one
-     * query. The three configs are named explicitly because they are EAGER
-     * either way -- naming them turns three SELECTs per question into three
-     * joins on the one query. Only ever call this for a paper's worth of ids.
-     */
     @EntityGraph(attributePaths = {
             "choices", "diagramQuestionConfig", "programmingQuestionConfig", "textQuestionConfig"})
     @Query("SELECT DISTINCT q FROM Question q WHERE q.questionId IN :ids")
     List<Question> findForAttemptByIdIn(@Param("ids") Collection<Long> ids);
 
-    /**
-     * One certification's whole question bank, in one query.
-     *
-     * <p>The question bank page used to read every question on the platform as
-     * entities and narrow them in the browser. Mapping a Question to its DTO
-     * touches five associations that are not loaded with it -- choices,
-     * createdBy (dereferenced for the author's email, so the proxy has to be
-     * resolved), and the three configs that are EAGER whether anyone wants them
-     * or not -- which is five SELECTs per question, for every question that
-     * exists, to draw one certification's library.
-     *
-     * <p>The graph turns all five into joins on this query, the same trick
-     * {@link #findForAttemptByIdIn} uses and for the same reason. choices is
-     * the only collection among them, so there is no cartesian product to pay
-     * for; testCases under programmingQuestionConfig stays lazy and unread.
-     *
-     * <p>Sub-questions are included, as they were in the unfiltered read this
-     * replaces -- the bank lists them.
-     */
     @EntityGraph(attributePaths = {
             "choices", "createdBy", "ownerDepartment",
             "diagramQuestionConfig", "programmingQuestionConfig", "textQuestionConfig"})

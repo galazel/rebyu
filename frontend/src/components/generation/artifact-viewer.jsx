@@ -1,18 +1,5 @@
 import { Badge } from "@/components/ui/badge"
 
-/**
- * Renders the artifact a reviewer is being asked to judge.
- *
- * Generated content comes in a handful of shapes — a curriculum tree, a lesson,
- * a list of questions — so this dispatches on shape rather than on stage name.
- * A stage-name switch would silently fall through to raw JSON the first time a
- * stage was renamed in Python; shape detection degrades to the JSON view only
- * when the content genuinely is something new.
- *
- * Scrolling belongs to the container, not to this component. It used to own a
- * `h-full` ScrollArea per shape, which collapsed to zero height the moment it
- * was placed in a flowing transcript instead of a fixed-height pane.
- */
 export function ArtifactViewer({ payload }) {
   if (payload == null) {
     return <p className="py-8 text-center text-sm text-muted-foreground">Nothing to display.</p>
@@ -53,9 +40,6 @@ function isLesson(value) {
 }
 
 function QuestionList({ questions }) {
-  // Rows are tinted rather than given an opaque surface colour: this renders
-  // inside the review dialog, where `bg-background` would assume the dialog
-  // shell resolved to the same theme the row did.
   return (
     <ol className="space-y-3">
       {questions.map((question, index) => (

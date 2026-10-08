@@ -49,30 +49,11 @@ import { generateStudyAid } from "@/services/learnerToolsService.js"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { ProLockCard } from "@/components/learner/pro-gate.jsx"
 
-/**
- * The lesson AI tutor panel.
- *
- * Lifted out of `learner-lesson-page` unchanged so the curriculum's topic
- * surface can mount the same tutor rather than growing a second one that
- * drifts. It owns its own conversation and resets whenever `lessonId` changes.
- */
 
 const AI_TUTOR_ENDPOINT = "ai/tutor"
 const AI_TUTOR_CONVERSATION_ENDPOINT = "ai/tutor/conversation"
 const AI_TUTOR_APPEND_ENDPOINT = "ai/tutor/conversation/messages"
 
-// Matches the thread-id convention the tutor itself keys conversations on
-// (see `tutor_service.get_conversation` server-side) so history sent here
-// is the same history a later chat turn appends to.
-/*
- * Requests in flight, by conversation. Kept outside the component because
- * closing the tutor unmounts it: with the request held in component state the
- * reply was thrown away, and reopening mid-wait showed neither the question
- * nor any sign the tutor was still working. Whichever panel is open for the
- * conversation when the reply lands receives it; if none is, the learner is
- * told, and the answer is in the conversation the next time it opens (the
- * server records it).
- */
 const inFlight = new Map()
 
 function trackRequest(sessionId, entry) {
@@ -91,15 +72,8 @@ function trackRequest(sessionId, entry) {
   return entry
 }
 
-/** No stream could be opened; the caller falls back to the one-shot request. */
 class StreamUnavailable extends Error {}
 
-/**
- * The tutor's answer as it is written, read from the server's event stream:
- * each `delta` piece is added to `entry.text` and passed to `entry.onDelta`
- * (whichever panel is watching), and `resources` arrive at the end. Resolves
- * to {text, resources}.
- */
 async function streamTutorAnswer(body, entry) {
   const token = await currentAccessToken()
   let response
@@ -117,8 +91,6 @@ async function streamTutorAnswer(body, entry) {
     throw new StreamUnavailable()
   }
   if (!response.ok || !response.body) {
-    // A refusal (no Pro, someone else's thread) gets the same answer from the
-    // one-shot request, with its message, so it falls back too.
     throw new StreamUnavailable()
   }
 
@@ -175,8 +147,6 @@ async function streamTutorAnswer(body, entry) {
   return { text: entry.text.trim(), resources }
 }
 
-/* What the waiting bubble says, in order; the last one stays. Timed from when
-   the request started, so reopening mid-wait carries on rather than restarting. */
 const WAITING_LINES = {
   chat: [
     "Thinking...",
@@ -257,10 +227,6 @@ function getTutorErrorMessage(error) {
   )
 }
 
-// Same face+lip tactile recipe the rest of the app's buttons/cards use
-// (solid colour, 4px solid "lip" shadow, no blur) rather than a flat fill or
-// a soft drop-shadow -- an avatar built any other way reads as a mismatched
-// component next to everything around it.
 function TutorAvatar({ size = "size-7", iconSize = "size-4", onViolet = false }) {
   return (
       <span
@@ -298,11 +264,6 @@ function formatMessageTime(timestamp) {
   }
 }
 
-/**
- * The card a generated quiz/flashcard set lands as, inside the tutor's own
- * reply -- the learner opens it straight from the conversation rather than
- * being told it exists and left to find it in Library.
- */
 function StudyAidActionCard({ action }) {
   const navigate = useNavigate()
   const Icon = action.kind === "flashcard" ? Layers3 : BookOpenCheck
@@ -334,13 +295,10 @@ function StudyAidActionCard({ action }) {
   )
 }
 
-/* Only web addresses: a resource is rendered as a link, and anything else in
-   its url (javascript:, data:) must never become one. */
 function safeUrl(url) {
   return /^https?:\/\//i.test(String(url ?? "")) ? url : null
 }
 
-/** Related videos and reading the tutor looked up for an answer. */
 function TutorResources({ resources }) {
   const videos = resources.filter((item) => item.kind === "video" && safeUrl(item.url))
   const links = resources.filter((item) => item.kind !== "video" && safeUrl(item.url))
@@ -410,11 +368,6 @@ function TutorResources({ resources }) {
   )
 }
 
-/**
- * The part of the lesson a question was about, inside the learner's bubble:
- * the snipped picture -- straight from memory in this session, from storage
- * (by its key) after a reload -- and the quoted words.
- */
 function SnippetPreview({ snippet, onDark = false }) {
   if (!snippet) return null
   const picture = typeof snippet.image === "string" ? snippet.image : null
@@ -454,10 +407,6 @@ function SnippetPreview({ snippet, onDark = false }) {
 function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGroup }) {
   const isLearner = message.role === "user"
 
-  // Messenger-style grouping: tight gap inside a run of same-sender bubbles,
-  // full round on non-tail corners, a "tail" corner only on the last bubble
-  // of the run (the one that sits next to the avatar), avatar/name shown
-  // once per run instead of once per bubble.
   const tailCorner = isLearner ? "!rounded-br-md" : "!rounded-bl-md"
 
   return (
@@ -471,11 +420,6 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
               )
           ) : null}
 
-          {/* `flex flex-col` + `items-end`/`items-start` is what actually
-              pushes the bubble (and its timestamp) to the correct side --
-              `Bubble`'s own `self-end`/`self-start` only takes effect inside
-              a flex column, and without one here it was a no-op, leaving
-              every bubble at its natural block position (the left). */}
           <div className={`flex min-w-0 flex-1 flex-col ${isLearner ? "items-end" : "items-start"}`}>
             {!isLearner && isFirstInGroup ? (
                 <p className="mb-1 text-xs font-bold uppercase tracking-wide text-rb-feather-lip">
@@ -483,17 +427,9 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
                 </p>
             ) : null}
 
-            {/* Bubble's `variant` injects fill/text colour onto BubbleContent
-                via a `*:data-[slot=bubble-content]:bg-*` descendant selector,
-                which out-specifies a plain utility class written directly on
-                BubbleContent -- so overriding the look here means every
-                property (fill, border, radius, the tactile "lip" shadow) has
-                to carry `!important` to actually win. */}
             <Bubble
                 variant="secondary"
                 align={isLearner ? "end" : "start"}
-                // A bubble carrying an action card needs the room for it;
-                // Bubble's own `max-w-[80%]` would squeeze the button.
                 className={message.action || message.resources?.length ? "!max-w-[94%]" : ""}
             >
               <BubbleContent
@@ -544,8 +480,6 @@ export function LessonAiTutor({
                             learnerName,
                             learnerId,
                             onClose,
-                            // A part of the lesson handed over to ask about
-                            // ({id, quote, image}), and the page's snip tool.
                             pendingSnippet = null,
                             onSnippetTaken,
                             onStartSnip,
@@ -556,26 +490,17 @@ export function LessonAiTutor({
   const [loadingHistory, setLoadingHistory] = useState(false)
   const [generating, setGenerating] = useState(null)
   const [waitingSince, setWaitingSince] = useState(null)
-  // The answer so far while it is being written; empty until the first words.
   const [streamText, setStreamText] = useState("")
-  // How much of it is on screen yet, and the finished reply waiting for the
-  // typing to catch up (see the reveal effect below).
   const [shownLength, setShownLength] = useState(0)
   const [finishedReply, setFinishedReply] = useState(null)
-  // The snippet waiting in the composer, sent with the next question.
   const [attachment, setAttachment] = useState(null)
   const draftRef = useRef(null)
   const entitlements = useLearnerEntitlements()
   const sessionId = buildTutorSessionId(learnerId, lessonId)
-  // Free has no tutor; Pro has a daily allowance of generated quizzes/flashcards.
   const tutorLocked = entitlements.isFree
   const generationLimit = entitlements.aiGenerationDailyLimit
   const generationsLeft = Math.max(generationLimit - entitlements.aiGenerationsUsedToday, 0)
 
-  // Each lesson has its own thread on the server (see `buildTutorSessionId`),
-  // so switching lessons should restore that lesson's own past conversation
-  // rather than always starting blank -- and a page refresh shouldn't lose
-  // today's conversation either.
   useEffect(() => {
     let cancelled = false
 
@@ -604,9 +529,6 @@ export function LessonAiTutor({
                 id: createTutorMessageId(`history-${index}`),
                 role: entry.role === "user" ? "user" : "assistant",
                 text: entry.content,
-                // Present only on a generated quiz/flashcard turn -- restores
-                // its "Take the quiz" card rather than leaving a sentence
-                // about something the learner can't open from here.
                 action: entry.action ?? undefined,
                 resources: Array.isArray(entry.resources) ? entry.resources : undefined,
                 snippet: entry.snippet ?? undefined,
@@ -614,14 +536,10 @@ export function LessonAiTutor({
           )
         })
         .catch(() => {
-          // No saved conversation yet (or the lookup failed) -- starting
-          // blank is the right fallback either way.
         })
         .finally(() => {
           if (cancelled) return
           setLoadingHistory(false)
-          // A request sent before the panel was closed: show its question and
-          // the waiting bubble again, and take its reply when it lands.
           const entry = inFlight.get(sessionId)
           if (entry) {
             setMessages((current) => [
@@ -645,10 +563,6 @@ export function LessonAiTutor({
     }
   }, [lessonId, learnerId, tutorLocked])
 
-  // Types the streamed answer out at a readable pace. The model can write a
-  // whole answer in a second or two, which arrives as one burst; revealing it
-  // a few characters a frame -- faster the further behind it is -- makes the
-  // answer visibly appear while still keeping up with any model.
   useEffect(() => {
     if (shownLength >= streamText.length) {
       if (finishedReply) showReply(finishedReply)
@@ -679,18 +593,15 @@ export function LessonAiTutor({
     requestAnimationFrame(() => draftRef.current?.focus())
   }, [pendingSnippet?.id])
 
-  /** Shows `entry` as in progress here, and its reply here when it arrives. */
   function watch(entry) {
     if (entry.kind === "chat") setPending(true)
     else setGenerating(entry.kind)
     setWaitingSince(entry.startedAt)
-    // Reopened mid-answer: carry on from what has been written so far.
     setStreamText(entry.text ?? "")
     setShownLength((entry.text ?? "").length)
     entry.onDelta = (text) => setStreamText(text)
     entry.listener = (message) => {
       if (entry.text) {
-        // Streamed: let the typing finish, then swap in the final message.
         setStreamText(message.text)
         setFinishedReply(message)
       } else {
@@ -701,7 +612,6 @@ export function LessonAiTutor({
 
   async function sendTutorMessage(value) {
     const snippet = attachment
-    // A snippet on its own is a whole question.
     const question = String(value ?? "").trim() || (snippet ? "Explain this part of the lesson." : "")
 
     if (!question || pending) {
@@ -732,7 +642,6 @@ export function LessonAiTutor({
     }
     const entry = { kind: "chat", prompt: question, snippet, lessonName, startedAt: Date.now(), text: "" }
 
-    // The one-shot request, for when the stream cannot be opened at all.
     const askOnce = () =>
         base(AI_TUTOR_ENDPOINT, { method: "POST", data: body }).then((response) => {
           const answer = String(getTutorResponseText(response)).trim()
@@ -740,8 +649,6 @@ export function LessonAiTutor({
           return { text: answer, resources: response?.resources ?? response?.data?.resources }
         })
 
-    // Resolves to the message to show -- the answer, or the error -- so the
-    // registry can hand it to whichever panel is open when it arrives.
     entry.promise = streamTutorAnswer(body, entry)
         .catch((error) => {
           if (error instanceof StreamUnavailable) return askOnce()
@@ -757,7 +664,6 @@ export function LessonAiTutor({
         .catch((error) => ({
           id: createTutorMessageId("error"),
           role: "assistant",
-          // Words already written stay; the error goes under them.
           text: entry.text.trim()
               ? `${entry.text.trim()}\n\n_${getTutorErrorMessage(error)}_`
               : getTutorErrorMessage(error),
@@ -778,9 +684,6 @@ export function LessonAiTutor({
     const label = type === "quiz" ? "quiz" : "flashcards"
     const prompt = `Create a ${label} for this lesson.`
 
-    // Goes through the chat thread exactly like a typed question -- a sent
-    // bubble, the "thinking" indicator, then the reply -- rather than a
-    // silent background action reported only through a toast.
     setMessages((current) => [
       ...current,
       {
@@ -795,9 +698,6 @@ export function LessonAiTutor({
       const reply = isQuiz
         ? "Your practice quiz is ready. It's saved to your Library too, so you can come back to it any time."
         : "Your flashcard set is ready. It's saved to your Library too, so you can come back to it any time."
-      // Rendered as a tappable card by `StudyAidActionCard`, so the learner
-      // starts it straight from the conversation instead of being told
-      // where to go find it.
       const action = {
         kind: type,
         title: item.title,
@@ -806,10 +706,6 @@ export function LessonAiTutor({
         href: item.route,
       }
 
-      // Generation never runs through the chat graph, so nothing would have
-      // recorded this exchange -- it survived only in local state and
-      // vanished on refresh while typed questions persisted. Recording it
-      // against the same thread keeps the conversation whole.
       base(AI_TUTOR_APPEND_ENDPOINT, {
         method: "POST",
         data: {
@@ -820,8 +716,6 @@ export function LessonAiTutor({
           ],
         },
       }).catch(() => {
-        // The learner still has the working card in front of them; losing
-        // only the history entry isn't worth interrupting them over.
       })
 
       return { id: createTutorMessageId("assistant"), role: "assistant", text: reply, action, createdAt: Date.now() }
@@ -902,11 +796,6 @@ export function LessonAiTutor({
               variant="ghost"
               size="sm"
               className="rb-btn-icon shrink-0 !border-transparent hover:!bg-white/15"
-              // The ghost variant's face/ink are a light background + dark
-              // icon by default -- on the violet header that renders as
-              // white-on-white. Overriding the CSS vars the button reads its
-              // colors from (rather than fighting them with utility classes)
-              // makes the face transparent and the icon white.
               style={{ "--rb-btn-face": "transparent", "--rb-btn-ink": "#ffffff" }}
               onClick={onClose}
               aria-label="Close AI Tutor"

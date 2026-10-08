@@ -20,9 +20,6 @@ public class DepartmentHeadAssignmentDto {
     @NotNull
     private Long userId;
 
-    // Always overwritten server-side from the caller's JWT (see
-    // DepartmentHeadAssignmentController.create), so must stay nullable --
-    // the client never supplies it.
     private Long assignedBy;
 
     private LocalDateTime assignedAt;

@@ -42,12 +42,6 @@ public class LearnerAchievementService {
         return learnerAchievementMapper.toDto(learnerAchievementRepository.save(toEntity(dto)));
     }
 
-    /**
-     * The mapper only fills the {@code @EmbeddedId}; the {@code @MapsId}
-     * associations still need their own reference or Hibernate NPEs resolving
-     * the id from a null learner/achievement at flush time -- the same fix
-     * already in LearnerCompletedLessonService and LearnerReadSectionService.
-     */
     private LearnerAchievement toEntity(LearnerAchievementDto dto) {
         LearnerAchievement entity = learnerAchievementMapper.toEntity(dto);
         entity.setLearner(entityManager.getReference(Learner.class, dto.getLearnerId()));

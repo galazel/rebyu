@@ -21,15 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
-/**
- * Lets an institution create a login account for someone new -- a group leader,
- * a co-admin -- the same way the institution's own owner account was created on
- * partnership approval: a Cognito account is minted (credentials emailed), and
- * the person is linked as an DepartmentHead of the caller's own institution.
- *
- * Never mints an "owner": that role is reserved for the account created when
- * the admin approves the partnership request.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -43,12 +34,6 @@ public class DepartmentHeadProvisioningService {
     private final DepartmentHeadRepository departmentHeadRepository;
     private final DepartmentHeadMapper departmentHeadMapper;
 
-    /**
-     * Everyone this service creates is a non-owner (an owner is rejected above),
-     * so they are typed DEPARTMENT_HEAD rather than INSTITUTION -- the latter
-     * identifies the institution's own account. Both roles carry the same
-     * permissions; see CognitoAuthService.isInstitutionRole.
-     */
     private static final String DEPARTMENT_HEAD_USER_TYPE =
             CognitoAuthService.DEPARTMENT_HEAD_USER_TYPE;
 
@@ -99,8 +84,6 @@ public class DepartmentHeadProvisioningService {
             }
             user = userRepository.save(user);
         } else if (user == null) {
-            // Cognito says the account already exists, but we have no local User
-            // record to link it to -- can't safely add them as a member.
             throw new BusinessRuleException.DepartmentRuleException(
                     "An account already exists for " + request.getEmail()
                             + ", but it could not be linked automatically. Ask them to sign in once first.");

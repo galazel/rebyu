@@ -38,7 +38,6 @@ public class LearnerLibraryItem {
     @JoinColumn(name = "lesson_id")
     private Lesson lesson;
 
-    /** quiz | flashcard | file | link | note (see V25 CHECK constraint). */
     @Column(name = "item_type", nullable = false, length = 24)
     private String itemType;
 
@@ -48,7 +47,6 @@ public class LearnerLibraryItem {
     @Column(length = 1000)
     private String description;
 
-    /** A pasted URL for "link" items, or a raw S3 key for "file" items. */
     @Column(name = "resource_url", length = 1000)
     private String resourceUrl;
 

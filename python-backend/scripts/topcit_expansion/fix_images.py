@@ -40,9 +40,6 @@ BROWSER_HEADERS = {
     "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
 }
 
-#: Hosts that either block hotlinking outright or serve reposts rather than the
-#: original diagram. Each one was observed 403-ing or rate limiting during the
-#: audit that prompted this script.
 BLOCKED_DOMAINS = {
     "media.geeksforgeeks.org", "geeksforgeeks.org",
     "researchgate.net", "mdpi.com", "lh7-rt.googleusercontent.com",

@@ -23,7 +23,6 @@ from app.ai.guardrails import (
 from app.ai.retry import is_retryable
 
 
-# the block-and-regenerate contract
 
 def test_a_violation_is_retryable_so_the_sample_is_regenerated():
     """The whole enforcement model rests on this: blocking must resample, not
@@ -35,7 +34,6 @@ def test_a_violation_is_a_value_error():
     assert isinstance(GuardrailViolation("x", "y"), ValueError)
 
 
-# secrets
 
 @pytest.mark.parametrize(
     "text,expected",
@@ -86,7 +84,6 @@ def test_the_evidence_is_masked_rather_than_recorded_verbatim():
     assert evidence.startswith("AKIA")
 
 
-# injection and meta-leakage
 
 @pytest.mark.parametrize(
     "text",
@@ -108,7 +105,6 @@ def test_a_lesson_about_prompt_engineering_is_not_a_false_positive():
     assert scan_injection("Large language models follow a system message.") is None
 
 
-# screening a whole structured answer
 
 def test_nested_fields_are_screened_not_just_top_level_strings():
     """Screening the whole object is deliberate: the fields carrying prose
@@ -135,7 +131,7 @@ def test_clean_output_passes_untouched():
         "title": "Normalization",
         "sections": [{"data": {"text": "Third normal form removes transitive dependencies."}}],
     }
-    screen(artifact)  # must not raise
+    screen(artifact)
 
 
 def test_empty_output_is_not_a_violation():
@@ -152,7 +148,7 @@ def test_collect_text_survives_a_deeply_nested_artifact():
         node["child"] = {"text": f"level{i}"}
         node = node["child"]
 
-    assert "top" in collect_text(nested)  # must terminate, not recurse forever
+    assert "top" in collect_text(nested)
 
 
 def test_the_label_names_which_agent_produced_the_output():
@@ -160,7 +156,6 @@ def test_the_label_names_which_agent_produced_the_output():
         screen({"body": "AKIAIOSFODNN7EXAMPLE"}, label="lesson agent")
 
 
-# relevance
 
 def test_off_topic_output_is_blocked(monkeypatch):
     from app.ai import guardrails

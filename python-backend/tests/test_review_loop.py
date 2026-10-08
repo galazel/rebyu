@@ -40,9 +40,6 @@ CURRICULUM = {
         {
             "name": "Major A",
             "description": "first",
-            # Two lessons under one middle category, so "advance to the next
-            # item" is still exercised within a phase now that the walk
-            # interleaves phases instead of running each to completion.
             "middleCategories": [
                 {
                     "name": "Middle A1",
@@ -67,7 +64,6 @@ def isolated_index_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(get_settings(), "rag_index_dir", tmp_path / "faiss_db", raising=False)
 
 
-# phase helpers (pure)
 
 def test_major_phase_iterates_majors():
     assert [m["name"] for m in cert_nodes.MAJOR_PHASE.items_of(CURRICULUM)] == ["Major A", "Major B"]
@@ -100,7 +96,6 @@ def test_current_item_past_the_end_is_none():
     assert current_item(state, cert_nodes.MAJOR_PHASE) is None
 
 
-# driving the real graph
 
 def _question(text: str = "Q?") -> QuestionDraft:
     return QuestionDraft(
@@ -121,8 +116,6 @@ class _Recorder:
     async def ainvoke(self, payload):
         self.calls += 1
         self.payloads.append(payload)
-        # A different stem each call: generation now drops repeats of
-        # questions already written, so one fixed stem empties every batch.
         return {"structured_response": QuestionBatch(
             scope="s", questions=[_question(f"Which statement about topic {self.calls} is true?")])}
 
@@ -132,7 +125,6 @@ def graph_env(monkeypatch):
     recorder = _Recorder()
     monkeypatch.setattr(invocation, "get_question_generation_agent", lambda *_: recorder)
 
-    # Skip document/curriculum stages: this suite is about the loops.
     async def _validated(state):
         return {"status": "VALIDATION_PASSED"}
 
@@ -148,9 +140,6 @@ def graph_env(monkeypatch):
         return {"lessons": [{"name": lesson.get("name"), "sections": [], "blocks": [],
                              "index": index}]}
 
-    # The lesson auditor is a real LLM call inside lesson_validate_node.
-    # Without this stub the suite hits the Groq API: slow, costly, and
-    # non-deterministic.
     class _Audit:
         passed = True
         summary = ""
@@ -167,7 +156,6 @@ def graph_env(monkeypatch):
     monkeypatch.setattr(cert_nodes, "curriculum_planning_agent_node", _planned)
     monkeypatch.setattr(cert_nodes, "lesson_content_node", _authored)
 
-    # Rebuild so the graph binds the patched callables.
     import importlib
 
     from app.graphs.certification import workflow as wf
@@ -215,7 +203,6 @@ async def test_loop_pauses_on_the_first_item_not_after_all_of_them(graph_env):
     assert value["item_index"] == 0
     assert value["item_label"] == "Lesson 1"
     assert value["item_total"] == 3
-    # Only the first lesson has been generated so far.
     assert len(result.get("lessons") or []) == 1
     assert not result.get("major_quizzes"), "no category quiz before its lessons exist"
 
@@ -272,8 +259,6 @@ async def test_approve_remaining_drains_the_rest_of_the_phase(graph_env):
     result = await _resume(graph, "loop-5", APPROVE_REMAINING)
 
     value = result["__interrupt__"][0].value
-    # Lesson 2 was auto-approved, finishing Middle A1's lessons, so the next
-    # pause is that middle category's own quiz.
     assert value["stage"] == "MIDDLE"
     assert "LESSON" in (result.get("auto_approve_scopes") or [])
     assert len(result.get("lessons") or []) == 2
@@ -301,7 +286,6 @@ async def test_phases_run_bottom_up_lesson_then_middle_then_major(graph_env):
             break
         stages.append(result["__interrupt__"][0].value["stage"])
 
-    # After the last lesson: the bank, then the diagnostic, then the mock.
     assert stages[:3] == ["MIDDLE", "MAJOR", "QUESTION_BANK"], stages
     assert stages[3:5] == ["DIAGNOSTIC_EXAM", "MOCK_EXAM"], stages
 
@@ -321,7 +305,6 @@ async def test_validation_report_accompanies_every_review(graph_env):
     assert result["__interrupt__"][0].value["validation_report"] is not None
 
 
-# Edit / Improve with AI / version history
 
 async def test_improve_passes_the_reviewers_feedback_to_the_generator(graph_env):
     """The only thing separating Improve from Regenerate: the admin's
@@ -352,7 +335,6 @@ async def test_improve_records_a_new_version_without_losing_the_old_one(graph_en
     assert [v["source"] for v in versions] == [SOURCE_AI_GENERATED, SOURCE_AI_IMPROVED]
     assert versions[1]["instructions"] == "clearer stems"
     assert [v["revision"] for v in versions] == [1, 2]
-    # Refs, not artifacts: the review payload must not grow with each retry.
     assert all("artifact" not in v for v in versions)
 
 
@@ -363,7 +345,6 @@ async def test_edit_replaces_the_artifact_with_the_admins_version(graph_env):
     edited = [{"question_type": "MCQ", "question": "Admin wrote this"}]
     result = await _resume(graph, "edit-1", {"action": EDIT, "payload": {"quiz": edited}})
 
-    # Advances like an approval.
     assert result["__interrupt__"][0].value["item_index"] == 1
     assert result["lesson_quizzes"][0]["questions"] == edited
 
@@ -392,10 +373,9 @@ async def test_edit_without_a_payload_keeps_the_generated_version(graph_env):
 async def test_versions_are_scoped_per_item(graph_env):
     graph, _ = graph_env
     await _start(graph, "ver-1")
-    await _resume(graph, "ver-1", APPROVE)          # advance to Lesson 2
+    await _resume(graph, "ver-1", APPROVE)
     result = await _resume(graph, "ver-1", REGENERATE)
 
-    # Lesson 2 has two versions; Lesson 1 still has one.
     history = result.get("version_refs") or []
     assert len([v for v in history if v["key"] == "LESSON:0"]) == 1
     assert len([v for v in history if v["key"] == "LESSON:1"]) == 2
@@ -406,7 +386,7 @@ async def test_advancing_clears_the_previous_items_instructions(graph_env):
     graph, recorder = graph_env
     await _start(graph, "ver-2")
     await _resume(graph, "ver-2", {"action": IMPROVE, "instructions": "only for item one"})
-    await _resume(graph, "ver-2", APPROVE)   # accept the improved item 1 -> item 2
+    await _resume(graph, "ver-2", APPROVE)
 
     sent = str(recorder.payloads[-1])
     assert "only for item one" not in sent

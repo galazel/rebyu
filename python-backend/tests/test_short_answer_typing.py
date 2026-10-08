@@ -47,7 +47,6 @@ def test_a_specific_factual_short_answer_is_left_alone():
 @pytest.mark.parametrize(
     "question",
     [
-        # The exact question from the live run.
         "What is the importance of defining the scope of the problem domain?",
         "What is the significance of requirements traceability?",
         "Why is version control important in a team?",
@@ -67,9 +66,6 @@ def test_an_open_ended_short_answer_becomes_descriptive(question):
 @pytest.mark.parametrize(
     "question",
     [
-        # The exact question from the live run: passes the open-ended stem list
-        # and, at five words, the answer-length limit -- yet no learner will
-        # reproduce that string, in that order, with that punctuation.
         "What are the five core activities of the requirements definition process?",
         "What are the layers of the OSI model?",
         "Which are the ACID properties?",
@@ -80,7 +76,6 @@ def test_an_open_ended_short_answer_becomes_descriptive(question):
         "Identify the components of a URL.",
         "What steps make up the software development life cycle?",
         "What phases does the waterfall model have?",
-        # Counted set with no listing verb to give it away.
         "A TCP handshake consists of three messages in what order?",
     ],
 )
@@ -92,8 +87,6 @@ def test_an_enumeration_short_answer_becomes_descriptive(question):
 @pytest.mark.parametrize(
     ("question", "answer"),
     [
-        # An expansion has one canonical form, so it is a fair exact match even
-        # though the answer is comma-separated. The rule keys on what was asked.
         ("What does ACID stand for?", "Atomicity, Consistency, Isolation, Durability"),
         ("Which HTTP status code means Not Found?", "404"),
         ("Which normal form eliminates transitive dependencies?", "3NF"),
@@ -109,10 +102,6 @@ def test_a_single_answer_question_is_not_mistaken_for_an_enumeration(question, a
 @pytest.mark.parametrize(
     "question",
     [
-        # Three of these are live in the question bank (#104, #107, #112) with
-        # the one-term answer "Strategic objectives". A number followed by a
-        # unit is a measurement, not a set to enumerate, and reclassifying them
-        # would cost a good question its exact matching.
         "What type of business objective defines long-term goals, typically "
         "spanning 3-5 years?",
         "What type of objectives are long-term goals, typically spanning 3-5 "
@@ -184,16 +173,11 @@ def test_the_prompt_states_the_rule_the_schema_enforces():
 @pytest.mark.parametrize(
     ("question", "answer"),
     [
-        # The live regression. "describes" contains "describe", and the stem
-        # list was matched as bare substrings, so this one-term answer shipped
-        # as an essay question and turned up in an Active Recall session with a
-        # textarea under it.
         (
             "Which term describes the process of conducting business transactions "
             "over computer networks, such as the internet?",
             "E-commerce",
         ),
-        # The same trap for each of the other directives.
         ("Which model describes network layers as a stack?", "OSI model"),
         ("What does the CAP theorem describe?", "Consistency, availability, partitions"),
         ("Which document explains the system's intended behaviour?", "Specification"),
@@ -219,7 +203,6 @@ def test_a_directive_verb_inside_a_noun_phrase_is_not_an_instruction(question, a
 @pytest.mark.parametrize(
     "question",
     [
-        # Still an instruction when it opens a clause rather than the stem.
         "For the schema above, explain why the join fails.",
         "Given the diagram, describe the cardinality at both ends.",
         "Read the case study; discuss the trade-off it presents.",
@@ -232,12 +215,6 @@ def test_a_directive_opening_a_clause_is_still_an_instruction(question):
     assert draft.question_type == "DESCRIPTIVE", question
 
 
-# explanations
-#
-# What a learner sees after getting an item wrong. The `choices` table has
-# carried a per-choice `explanation` column all along, but only the correct
-# choice's was ever filled -- so someone who picked a distractor was told what
-# the right answer was and never why their own answer failed.
 
 
 def _mcq(**overrides) -> QuestionDraft:
@@ -326,7 +303,6 @@ def test_each_choices_own_explanation_is_persisted_to_that_choice():
     assert [row[1] for row in written] == [False, False, True, False]
 
 
-# exam structure persistence
 
 
 def test_the_researched_exam_structure_is_written_to_the_certification():

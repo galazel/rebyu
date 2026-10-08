@@ -12,17 +12,11 @@ import java.util.Map;
 public class AiQuestionGenerationRequest {
     private Long certificationId;
 
-    /**
-     * Optional explicit per-type counts (legacy strict mode). When absent the
-     * AI chooses suitable question types from the grounded source material.
-     */
     private Map<String, Integer> questionCounts;
 
     private String additionalInstructions;
 
-    /** Where grounded source material comes from; resolved when null. */
     private QuestionGenerationSourceMode sourceMode;
 
-    /** Internal generation target when no explicit counts are given. */
     private Integer targetQuestionCount;
 }

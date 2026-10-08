@@ -77,8 +77,6 @@ PROVIDERS: dict[str, Provider] = {
     "openrouter": Provider(
         "openrouter",
         "https://openrouter.ai/api/v1",
-        # OPENROUTER_API_KEY second, so an existing deployment's OPEN_ROUTER_KEY
-        # kept working without renaming a live secret.
         ("OPEN_ROUTER_KEY", "OPENROUTER_API_KEY"),
     ),
     "groq": Provider(
@@ -88,15 +86,9 @@ PROVIDERS: dict[str, Provider] = {
     ),
     "gemini": Provider(
         "gemini",
-        # Google's OpenAI-compatibility layer, NOT the native generateContent
-        # API -- the trailing `/openai/` is what makes ChatOpenAI work here.
         "https://generativelanguage.googleapis.com/v1beta/openai/",
         ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
     ),
-    # Hugging Face Inference Providers: one token routes to Together,
-    # Fireworks, DeepInfra, Novita... for the large open models (Kimi, GLM,
-    # DeepSeek, Qwen). The free monthly credit is small, so these sit at the
-    # END of chains, as the last stop before giving up.
     "huggingface": Provider(
         "huggingface",
         "https://router.huggingface.co/v1",
@@ -113,67 +105,27 @@ def provider_for(name: str) -> Provider:
             f"Unknown AI provider {name!r}; expected one of {', '.join(PROVIDERS)}"
         ) from None
 
-#: The lesson agent. Named rather than inlined so the (many) places that care
-#: about "the expensive one" read as intent instead of as a string literal.
 LESSON = "lesson"
 CURRICULUM = "curriculum"
 QUESTION = "question"
 TUTOR = "tutor"
-#: The tutor answering about a picture the learner sent (a snipped part of
-#: the lesson). Its own task because it needs a vision model, which the text
-#: tutor's chain does not.
 TUTOR_VISION = "tutor_vision"
 LESSON_AUDIT = "lesson_audit"
 DOCUMENT_AUDIT = "document_audit"
 
-#: The model answer for a DIAGRAM question, as draw.io/mxGraph XML.
-#:
-#: Its own task because writing valid mxGraph is a different skill from writing
-#: a question, and the models are not equally good at it: the question model
-#: produces the stem, the choices and the rubric, while this one produces a
-#: structured artifact that has to parse and that the grader compares labels
-#: against. Splitting them also means the diagram reference can use a model the
-#: question task cannot -- see `ai_question_model`, which is deliberately off
-#: Anthropic because of how the question agent builds its tool history.
 DIAGRAM = "diagram"
 
-#: Marking a learner's written or coded answer against a rubric.
-#:
-#: Its own task because it runs while a learner watches "Marking..." on the
-#: results page. It rode on TUTOR, whose model reasons before it answers --
-#: ten to twenty seconds an item, which is fine for a chat reply and not for
-#: a mark. A small instruction model returns the same percentage in two or
-#: three seconds; the judgement asked for here (does the answer meet these
-#: rubric points) does not need the thinking budget.
 GRADING = "grading"
 
-#: Reading a rendered exam page as a PICTURE, to decide what its figures are.
-#:
-#: Its own task because it is the only one that needs a vision model, and
-#: because what it costs and how often it runs are unrelated to any other:
-#: it is called during a past-paper import, on the questions whose figures
-#: the geometric splitter could not confidently classify.
 FIGURE = "figure"
 
-#: Filing imported exam questions under a lesson and rating their difficulty.
-#:
-#: Its own task because it runs in batches over a whole paper while an admin
-#: waits, so it wants a fast provider, and because a wrong answer here is cheap
-#: to correct -- the reviewer sees every tag before anything is saved.
 TAGGING = "tagging"
 
-#: Reading one exam page -- image plus text layer -- into questions, for
-#: documents whose layout the fixed-pattern reader does not know.
 EXTRACTION = "extraction"
 
 TASKS = (LESSON, CURRICULUM, QUESTION, TUTOR, TUTOR_VISION, LESSON_AUDIT, DOCUMENT_AUDIT, DIAGRAM,
          GRADING, FIGURE, TAGGING, EXTRACTION)
 
-#: Older call sites (and any caller that only knows the coarse distinction)
-#: pass the two names this module replaced. They resolve to the task that most
-#: closely matches what each bucket actually did, so nothing silently loses its
-#: model: "classification" was only ever the two audit agents, and the document
-#: audit is the cheaper, more conservative of the two to default to.
 _ALIASES = {
     "generation": QUESTION,
     "classification": DOCUMENT_AUDIT,
@@ -241,9 +193,6 @@ def profile_for(task: str, settings: Settings | None = None) -> TaskProfile:
     """
     settings = settings or get_settings()
     name = resolve(task)
-    # The model an administrator picked on the AI settings page, if any.
-    # Only for OpenRouter tasks: the page offers OpenRouter's catalogue, and a
-    # slug is only meaningful to the provider that serves it.
     provider_name = getattr(settings, f"ai_{name}_provider")
     chosen = None
     if provider_name == "openrouter":
@@ -252,10 +201,6 @@ def profile_for(task: str, settings: Settings | None = None) -> TaskProfile:
         chosen = model_for(name)
     return TaskProfile(
         name=name,
-        # Per task, not global: a task's fallback chain must stay inside one
-        # provider, because a model slug is only meaningful to the provider that
-        # serves it -- `llama-3.3-70b-versatile` is a Groq name and
-        # `meta-llama/llama-3.3-70b-instruct` is an OpenRouter one.
         provider=provider_for(provider_name),
         model=chosen or getattr(settings, f"ai_{name}_model"),
         fallbacks=_split(getattr(settings, f"ai_{name}_fallbacks"))

@@ -45,21 +45,13 @@ public class LearnerCompletedLessonService {
 
     public LearnerCompletedLessonDto create(LearnerCompletedLessonDto dto) {
         LearnerCompletedLesson entity = learnerCompletedLessonMapper.toEntity(dto);
-        // The mapper only fills the `@EmbeddedId`; the `@MapsId` associations
-        // below still need their own reference or Hibernate NPEs resolving the
-        // id from a null `learner`/`lesson` at flush time (see the identical
-        // fix already in LearnerReadSectionService).
         entity.setLearner(entityManager.getReference(Learner.class, dto.getLearnerId()));
         entity.setLesson(entityManager.getReference(Lesson.class, dto.getLessonId()));
         LearnerCompletedLessonDto saved = learnerCompletedLessonMapper.toDto(learnerCompletedLessonRepository.save(entity));
 
-        // Keyed by lessonId, not a timestamp: a lesson re-marked complete (the
-        // composite PK makes `create` an upsert) must not re-pay XP.
         rewardService.awardXp(dto.getLearnerId(), lessonCompletionXp(), "LESSON_COMPLETED",
                 "lesson-completed:" + dto.getLessonId());
         streakService.recordActivity(dto.getLearnerId());
-        // After the row is saved, so "First Step" sees this very lesson. The
-        // evaluation is idempotent, so a re-marked lesson awards nothing twice.
         achievementAwardService.evaluate(dto.getLearnerId());
         syncInstitutionProgress(dto.getLearnerId(), dto.getLessonId());
 
@@ -81,7 +73,6 @@ public class LearnerCompletedLessonService {
         syncInstitutionProgress(learnerId, lessonId);
     }
 
-    /** An institution seat's stored progress follows the learner's finished lessons. */
     private void syncInstitutionProgress(Long learnerId, Long lessonId) {
         learnerCompletedLessonRepository.flush();
         lessonRepository.findById(lessonId)

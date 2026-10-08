@@ -11,14 +11,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Set;
 
-/**
- * Institution-facing license + entitlement reads. institutionId is always
- * resolved from the caller's validated JWT, never a client-supplied
- * parameter -- previously this took institutionId as a plain @RequestParam
- * with no ownership check and no security-config authentication requirement,
- * so any unauthenticated caller could read any institution's license/billing
- * data by guessing an id.
- */
 @RestController
 @RequestMapping("/api/institution")
 @RequiredArgsConstructor

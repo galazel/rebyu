@@ -54,25 +54,15 @@ LESSON_QUIZ_TYPE_ID = 5
 QUIZ_PASSING_SCORE = 70
 
 
-#: What the grader splits `accepted_variations` on. Named rather than inlined
-#: because it is a contract with Java code in another service, and a comma
-#: here silently disables every variation in the bank.
 VARIATION_SEPARATOR = "\n"
 
 
-# skeleton
 
 def ensure_certification(db):
     existing = db.execute(text(
         "select certification_id from public.certifications where title = :t"),
         {"t": CERTIFICATION_TITLE}).scalar()
     if existing:
-        # The description and the exam structure are refreshed on every run,
-        # unlike everything else here. They are this file's statement of what
-        # the paper *is*, they carry no learner progress, and getting the
-        # format wrong is the kind of error that is found after the row
-        # already exists -- so "create once and never touch" would mean the
-        # correction never reaches the database.
         db.execute(text("""
             update public.certifications
                set description = :d, industry = :i,
@@ -84,20 +74,6 @@ def ensure_certification(db):
             "i": CERTIFICATION_INDUSTRY, "e": json.dumps(EXAM_STRUCTURE),
         })
 
-        # Hold it unpublished until the curriculum is complete.
-        #
-        # `Certification.CertificationStatus` declares PUBLISHED before DRAFT
-        # and is persisted by ordinal, so 0 means PUBLISHED -- which reads
-        # exactly backwards and is why this certification was visible to
-        # learners from its first lesson. A half-written curriculum is worse
-        # than an absent one: progress accumulates against a syllabus that is
-        # mostly missing, and the diagnostic and mock papers sample only the
-        # majors that happen to exist, so both report a competence picture
-        # that is wrong rather than merely incomplete.
-        #
-        # Publishing is a deliberate act once the lessons are all in, done
-        # through the admin UI or with `--publish`, and this only ever forces
-        # the value DOWN to draft.
         if CERTIFICATION_STATUS == CERTIFICATION_STATUS_DRAFT:
             changed = db.execute(text("""
                 update public.certifications
@@ -189,7 +165,6 @@ def middle_index(db):
     return {(major, middle): middle_id for major, middle, middle_id in rows}
 
 
-# questions
 
 def insert_question(db, lesson_id, item):
     question_id = db.execute(text("""
@@ -209,18 +184,12 @@ def insert_question(db, lesson_id, item):
                     (choice_text, is_correct, explanation, question_id)
                 values (:c, :ok, :e, :q)"""), {
                 "c": choice_text, "ok": is_correct,
-                # The bank only ever explains the correct choice; why a given
-                # distractor is wrong belongs inside that same text.
                 "e": item["explanation"] if is_correct else None,
                 "q": question_id,
             })
 
     elif item["type"] in ("SHORT_ANSWER", "DESCRIPTIVE"):
         if item["type"] == "SHORT_ANSWER":
-            # Newline-joined, not comma-joined. AssessmentAttemptService's
-            # matchesTextAnswer splits accepted variations on a newline, so a
-            # comma-joined list is stored as one long string no learner will
-            # ever type, and every variation in it is silently dead.
             method = "EXACT_MATCH"
             variations = VARIATION_SEPARATOR.join(item["variations"])
         else:
@@ -242,7 +211,6 @@ def insert_question(db, lesson_id, item):
     return question_id
 
 
-# lessons
 
 def _without_ids(value):
     """The same structure with every `id` removed, at any depth.
@@ -283,24 +251,8 @@ def seed_lesson(db, certification_id, middles, spec):
         stored_blocks = sum(len(s.get("content", [])) for s in stored_structure)
         new_blocks = sum(len(s["content"]) for s in spec["structure"])
 
-        # Compare the CONTENT, not the counts.
-        #
-        # Counting sections and blocks was the original test and it silently
-        # missed a whole class of revision: swapping every SVG-table figure in
-        # a lesson for a real `table` block changed what a learner sees on
-        # every page while leaving both counts exactly equal, so the lesson
-        # reported "unchanged" and the database kept the old version. Any edit
-        # that rewrites a paragraph has the same problem.
-        #
-        # Block ids are uuid4 and are regenerated on every import, so they are
-        # stripped before comparing -- otherwise every run would look changed
-        # and every lesson would be rewritten pointlessly.
         differs = _without_ids(stored_structure) != _without_ids(spec["structure"])
 
-        # Shrinking is still never automatic. Content here is revised upward,
-        # and a module accidentally edited down should not quietly discard
-        # material from a live row -- so a smaller lesson is reported and
-        # skipped rather than written.
         shrinking = new_sections < stored_sections or new_blocks < stored_blocks
 
         if differs and not shrinking:
@@ -339,9 +291,6 @@ def seed_lesson(db, certification_id, middles, spec):
 
     made_quiz = False
     if not quiz_exists and spec["quiz"]:
-        # The same shape every other LESSON_QUIZ in the product has:
-        # published, 70% to pass, scoped to the lesson, two minutes an item
-        # plus a few to read the stems.
         minutes = 2 * len(spec["quiz"]) + 3
         exam_id = db.execute(text("""
             insert into public.exams
@@ -393,16 +342,6 @@ def main():
     else:
         batches = [a for a in args if not a.startswith("--")]
 
-    # Refuse to write content that fails the quality gate.
-    #
-    # This was learned the hard way: `check.py` reported two lessons below the
-    # platform's section minimum and `seed.py`, run in the same breath,
-    # cheerfully wrote them anyway -- because nothing connected the two. A
-    # gate nobody is forced through is a gate that gets skipped on the busy
-    # day, and these rows go live.
-    #
-    # `--force` exists for the deliberate case: seeding a batch mid-revision
-    # to look at it in the app before it is finished.
     if batches and "--force" not in args:
         import check
         if check.main_for(batches) != 0:
@@ -413,9 +352,6 @@ def main():
     db = open_session()
     certification_id, middles = seed_skeleton(db)
 
-    # Publishing is separate and deliberate. `seed_skeleton` only ever forces
-    # the status DOWN to draft, so making the certification visible is
-    # something someone asks for explicitly, once the curriculum is complete.
     if "--publish" in args:
         lessons_written = db.execute(text("""
             select count(*) from public.lessons l

@@ -20,43 +20,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Everything on the institution dashboard, computed in one place.
- *
- * <p>The page used to stitch four reads together in the browser and fill the
- * gaps with guesses -- a department with no slots became "10 slots", the seat
- * count came from a stored counter that had drifted from the real roster, and
- * graded attempts included learners' practice on certifications the
- * institution never licensed. Here every figure is counted from the rows
- * themselves:
- *
- * <ul>
- *   <li><b>Seats used</b> is the number of live enrollments (active or
- *       completed), not {@code institution_certificates.used_slots}.</li>
- *   <li><b>Attempts and lessons</b> count only work on a certification the
- *       learner is enrolled in through this institution, inside the chosen
- *       date range.</li>
- *   <li><b>Progress</b> is the enrollment's current progress. There is no
- *       history of it to replay, so it does not move with the date range.</li>
- * </ul>
- *
- * <p>Tenant-scoped: every query starts from {@code institution_id = ?}, and the
- * id always comes from the caller's JWT.
- *
- * <p>Seven queries, whatever the size of the roster -- each is a ~50ms round
- * trip to the remote database, so nothing here loops per learner.
- */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class InstitutionDashboardService {
 
-    /** Below this, an unfinished enrollment is flagged as needing support. */
     private static final int SUPPORT_THRESHOLD = 30;
 
     private final JdbcTemplate jdbc;
 
-    // ---------------------------------------------------------------- DTOs
 
     public record RangeDto(LocalDate from, LocalDate to, String granularity) {}
 
@@ -88,7 +60,6 @@ public class InstitutionDashboardService {
             int seatsUsed,
             int departmentSlots) {}
 
-    /** {@code departmentId == null} is the "not in a department" row. */
     public record DepartmentDto(
             Long departmentId,
             String name,
@@ -105,7 +76,6 @@ public class InstitutionDashboardService {
             Integer passRate,
             Integer averageScore) {}
 
-    /** One row per enrollment: a learner in two certifications is two rows. */
     public record EnrollmentDto(
             Long learnerId,
             String name,
@@ -139,9 +109,7 @@ public class InstitutionDashboardService {
             List<TrendPointDto> trend,
             InvitationsDto invitations) {}
 
-    // ------------------------------------------------------------- queries
 
-    /** Live enrollments of this institution, keyed to the certification they are for. */
     private static final String ROSTER = """
             roster AS (
               SELECT icl.learner_id, ic.certification_id
@@ -195,7 +163,6 @@ public class InstitutionDashboardService {
         List<TrendPointDto> trend = trend(institutionId, start, end, unit);
         InvitationsDto invitations = invitations(institutionId);
 
-        // --- per enrollment
         List<EnrollmentDto> enrollmentDtos = new ArrayList<>();
         Map<Long, Tally> byEnrollment = new HashMap<>();
         for (Enrollment e : roster) {
@@ -209,7 +176,6 @@ public class InstitutionDashboardService {
         enrollmentDtos.sort(Comparator.comparing(EnrollmentDto::progress).thenComparing(EnrollmentDto::name,
                 Comparator.nullsLast(String::compareToIgnoreCase)));
 
-        // --- summary
         Set<Long> learners = new HashSet<>();
         Set<Long> activeLearners = new HashSet<>();
         int completed = 0, notStarted = 0, inProgress = 0, needingSupport = 0;
@@ -237,8 +203,6 @@ public class InstitutionDashboardService {
                 seatsTotal, seatsUsed, activeLearners.size(),
                 total.lessons, total.attempts, total.passed, total.passRate(), total.averageScore());
 
-        // --- departments: every active department, even an empty one, then
-        // the enrollments that sit in none of them.
         Map<Long, List<Enrollment>> byDepartment = new LinkedHashMap<>();
         List<Enrollment> unassigned = new ArrayList<>();
         for (Enrollment e : roster) {
@@ -255,7 +219,6 @@ public class InstitutionDashboardService {
             departmentDtos.add(department(null, "Not in a department", null, null, null, unassigned, byEnrollment));
         }
 
-        // --- progress distribution
         int[] buckets = new int[4];
         for (Enrollment e : roster) {
             double p = e.progress.doubleValue();
@@ -364,7 +327,6 @@ public class InstitutionDashboardService {
         return rows;
     }
 
-    /** Active departments: id, name, institution_cert_id, certification title, allotted slots. */
     private List<Object[]> departments(Long institutionId) {
         return jdbc.query("""
                 SELECT d.department_id, d.department_name, d.institution_cert_id, c.title, d.total_slots
@@ -378,7 +340,6 @@ public class InstitutionDashboardService {
                 institutionId);
     }
 
-    /** Attempts and lessons in the range, per learner and certification ("learnerId:certificationId"). */
     private Map<String, Tally> tallies(Long institutionId, LocalDateTime start, LocalDateTime end) {
         Map<String, Tally> out = new HashMap<>();
         jdbc.query("WITH " + ROSTER + """
@@ -420,7 +381,6 @@ public class InstitutionDashboardService {
         return out;
     }
 
-    /** {@code unit} is one of hour/day/month, chosen above -- never caller input. */
     private List<TrendPointDto> trend(Long institutionId, LocalDateTime start, LocalDateTime end, String unit) {
         return jdbc.query("WITH " + ROSTER + """
                 , work AS (
@@ -448,7 +408,6 @@ public class InstitutionDashboardService {
                 Timestamp.valueOf(start), Timestamp.valueOf(end));
     }
 
-    /** Every bucket in the range, so a quiet month is a zero on the line rather than a gap. */
     private static List<TrendPointDto> zeroFill(List<TrendPointDto> points, LocalDateTime start, LocalDateTime end, String unit) {
         Map<LocalDateTime, TrendPointDto> byBucket = new HashMap<>();
         points.forEach(p -> byBucket.put(p.bucket(), p));

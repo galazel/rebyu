@@ -2,18 +2,11 @@ package com.capstone.rebyu.community.repository;
 
 import java.time.Instant;
 
-/** Spring Data interface projection for the community feed's aggregate native query. */
 public interface CommunityPostRow {
     Long getPostId();
     String getAuthorName();
-    /** The author's profile picture key, or null when they have not uploaded one. */
     String getAuthorAvatarKey();
     String getCommunity();
-    /**
-     * Instant, not OffsetDateTime: Hibernate hands a native query's timestamptz back as
-     * an Instant, and the projection proxy converts nothing it has no converter for --
-     * declaring OffsetDateTime here fails at runtime the moment the feed has a row.
-     */
     Instant getCreatedAt();
     String getTitle();
     String getBody();
@@ -23,12 +16,10 @@ public interface CommunityPostRow {
     String getAttachmentType();
     String getAttachmentKey();
     Long getAttachmentSize();
-    /** JSON array of every file when the post shares several; null otherwise. */
     String getAttachmentsJson();
     long getReactions();
     long getComments();
     long getSaves();
-    /** Distinct learners who have opened this post's quiz, flashcards or file. */
     long getViews();
     boolean getLiked();
     boolean getSaved();

@@ -43,13 +43,6 @@ public class QuestionService {
     private final QuestionMapper questionMapper;
     private final InstitutionCertificateRepository institutionCertificateRepository;
 
-    /**
-     * includeDepartmentId is the same opt-in scoping used for the curriculum tree
-     * and exams: omitted, only official (admin-authored) questions are
-     * returned -- identical to before group ownership existed, since no
-     * question has ever had a non-null owner group. Passed, that group's own
-     * questions are mixed in; another group's questions are never visible.
-     */
     public List<QuestionDto> getAll(Long includeDepartmentId) {
         log.debug("Fetching all questions (includeDepartmentId={})", includeDepartmentId);
         return questionRepository.findAll().stream()
@@ -57,11 +50,6 @@ public class QuestionService {
                 .map(questionMapper::toDto).toList();
     }
 
-    /**
-     * One certification's bank. Same visibility rule as {@link #getAll}, but
-     * the narrowing happens in the query rather than in the caller -- see
-     * {@link QuestionRepository#findBankByCertificationId} for what that saves.
-     */
     public List<QuestionDto> getByCertificationId(Long certificationId, Long includeDepartmentId) {
         log.debug("Fetching questions for certification id: {}", certificationId);
         return questionRepository.findBankByCertificationId(certificationId).stream()
@@ -85,27 +73,17 @@ public class QuestionService {
         return questionMapper.toDto(entity);
     }
 
-    /** Official questions are visible to everyone; group-owned only to that group. */
     private boolean isVisible(Question question, Long includeDepartmentId) {
         return question.getOwnerDepartment() == null
                 || question.getOwnerDepartment().getDepartmentId().equals(includeDepartmentId);
     }
 
-    /**
-     * @param creatorUserId        the authenticated caller who authored this question.
-     * @param restrictToInstitutionId non-null for an INSTITUTION caller (owner or group
-     *                             leader): the question's lesson must belong to a
-     *                             certification this institution has purchased
-     *                             access to. Null for an ADMIN caller (no restriction).
-     */
     public QuestionDto create(
             QuestionDto dto, Long creatorUserId, Long restrictToInstitutionId, Department ownerDepartment) {
         log.info("Creating new question (ownerDepartment={})",
                 ownerDepartment == null ? null : ownerDepartment.getDepartmentId());
         validateLesson(dto, restrictToInstitutionId);
         if (dto.getParentQuestionId() == null && dto.getQuestionText() != null) {
-            // The same words, or the same words lightly edited: what the
-            // selector treats as one question, the bank must not hold twice.
             questionRepository.findByParentQuestionIsNullAndLesson_LessonIdOrderByQuestionIdAsc(dto.getLessonId()).stream()
                     .filter(existing -> QuestionStem.sameQuestion(existing.getQuestionText(), dto.getQuestionText()))
                     .findFirst()
@@ -125,13 +103,6 @@ public class QuestionService {
         return result;
     }
 
-    /**
-     * @param isAdmin              an admin may edit any question; an INSTITUTION
-     *                             caller (owner or group leader) may only edit
-     *                             questions they themselves created.
-     * @param restrictToInstitutionId non-null for an INSTITUTION caller -- same
-     *                             certification-access check as {@link #create}.
-     */
     public QuestionDto update(
             Long id, QuestionDto dto, Long callerUserId, boolean isAdmin, Long restrictToInstitutionId) {
         log.info("Updating question id: {}", id);
@@ -151,14 +122,6 @@ public class QuestionService {
         return result;
     }
 
-    /**
-     * Guarantees a question is anchored to a real lesson, and — when the client
-     * supplies a certificationId — that the lesson actually belongs to that
-     * certification. This backs the rule that every generated or manually
-     * created question must carry a lessonId within the selected certification.
-     * When restrictToInstitutionId is set, also enforces that the institution
-     * actually has purchased access to that certification.
-     */
     private void validateLesson(QuestionDto dto, Long restrictToInstitutionId) {
         if (dto.getLessonId() == null) {
             throw new IllegalArgumentException("A lessonId is required to save a question.");

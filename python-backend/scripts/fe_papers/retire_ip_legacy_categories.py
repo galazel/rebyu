@@ -114,7 +114,6 @@ def target_for(db, exam_id, scope):
     if not rows:
         return None
     total = sum(r[2] for r in rows)
-    # A tie gives no reason to prefer either category, so it is not resolved.
     if len(rows) > 1 and rows[0][2] == rows[1][2]:
         return None
     return rows[0][0], rows[0][1], total, rows[0][2]

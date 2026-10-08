@@ -66,8 +66,6 @@ class CodeExecutionServiceTest {
         CodeExecutionResultDto result = service.execute(new CodeExecutionRequestDto(
                 "Python", "print(sum(map(int, input().split())))", List.of(
                         new TestCaseInputDto(1, true, "2 3", "5"),
-                        // Leading whitespace differs from expected -> must fail,
-                        // trailing-only normalization does not paper over this.
                         new TestCaseInputDto(2, false, "2 4", "6"))));
 
         assertEquals("COMPLETED", result.status());

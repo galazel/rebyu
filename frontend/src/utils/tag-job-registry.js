@@ -1,11 +1,3 @@
-/**
- * Which background tagging jobs this browser started and has not heard the
- * end of, and which papers of each it has already applied.
- *
- * Kept in localStorage: small, per browser, and read by both the import page
- * (to pick a job back up after a refresh) and the admin area's watcher (to say
- * when it finishes). Every access tolerates storage being unavailable.
- */
 
 const ACTIVE = "rebyu-tag-jobs"
 const applied = (jobId) => `rebyu-tag-job-applied:${jobId}`
@@ -24,11 +16,9 @@ function write(key, value) {
         if (value === null) window.localStorage.removeItem(key)
         else window.localStorage.setItem(key, JSON.stringify(value))
     } catch {
-        // Storage unavailable: the job still runs; it is just not followed.
     }
 }
 
-/** `[{ id, certificationId, title }]` */
 export function activeJobs() {
     return read(ACTIVE, [])
 }
@@ -45,7 +35,6 @@ export function activeJobFor(certificationId) {
     return activeJobs().find((item) => String(item.certificationId) === String(certificationId)) ?? null
 }
 
-/** Paper ids of `jobId` whose tags are already on the page. */
 export function appliedPapers(jobId) {
     return new Set(read(applied(jobId), []))
 }
@@ -59,24 +48,20 @@ export function forgetJob(jobId) {
     write(applied(jobId), null)
 }
 
-/** A browser notification, when the admin allowed them. */
 export function notify(title, body) {
     try {
         if (typeof Notification !== "undefined" && Notification.permission === "granted") {
             new Notification(title, { body })
         }
     } catch {
-        // Notifications unavailable; the in-page message still shows.
     }
 }
 
-/** Asks once, from the click that starts a job (browsers require a gesture). */
 export function askForNotifications() {
     try {
         if (typeof Notification !== "undefined" && Notification.permission === "default") {
             Notification.requestPermission().catch(() => {})
         }
     } catch {
-        // Not supported.
     }
 }

@@ -6,36 +6,10 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Map;
 
-/**
- * CodeStrike's weighted score for one problem: correctness, speed and
- * efficiency, mixed by the admin's weights.
- *
- * <p>Each part is a fraction from 0 to 1, and only what can actually be
- * measured goes in:
- * <ul>
- *   <li><b>Correctness</b> -- tests passed out of tests run.
- *   <li><b>Speed</b> -- how much of the run's time limit the learner used. Full
- *       marks for finishing within half of it, falling to zero at the limit.
- *       It is a run-wide figure, not per problem: a CodeStrike run is one
- *       paper the learner moves about freely, so there is no honest per-problem
- *       solve time to read. An untimed run has no limit to measure against and
- *       scores full speed.
- *   <li><b>Efficiency</b> (the "complexity" weight) -- the program's slowest
- *       runtime across the tests. Full marks up to {@link #FAST_MS}, falling to
- *       zero at Judge0's CPU limit. A runtime proxy, not a Big-O proof: it
- *       separates a quadratic solution from a linear one only when the tests
- *       include an input large enough to show the difference.
- * </ul>
- *
- * <p>Speed and efficiency are multiplied by correctness. A fast program that
- * fails every test is not a fast solution, and should not bank 40% for it.
- */
 public final class ArenaScoring {
 
-  /** A runtime at or under this is full efficiency: interpreter start-up and small inputs. */
   static final long FAST_MS = 250;
 
-  /** Judge0's per-test CPU limit (Judge0Properties default); a run this slow scores zero. */
   static final long SLOWEST_MS = 5000;
 
   private ArenaScoring() {}
@@ -61,8 +35,6 @@ public final class ArenaScoring {
     double wEfficiency = weight(settings, "weightBigO", 20);
     double wTotal = wCorrect + wSpeed + wEfficiency;
     if (wTotal <= 0) {
-      // Unreachable through the settings endpoint (weights must total 100);
-      // fall back to correctness alone rather than dividing by zero.
       wCorrect = 1;
       wSpeed = 0;
       wEfficiency = 0;

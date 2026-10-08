@@ -78,7 +78,6 @@ class PublicPartnershipServiceTest {
         );
     }
 
-    // ---- 1: same-day resubmission with identical email+org resolves to the existing request ----
     @Test
     void submit_duplicateWithinSameDay_returnsExistingRequestWithoutSaving() {
         PartnershipRequest existing = PartnershipRequest.builder()
@@ -100,7 +99,6 @@ class PublicPartnershipServiceTest {
         verify(requestRepository, never()).save(any(PartnershipRequest.class));
     }
 
-    // 2: first-time submission inserts a new request
     @Test
     void submit_firstTimeSubmission_savesNewRequest() {
         when(requestRepository.findByIdempotencyKey(anyString())).thenReturn(Optional.empty());
@@ -113,7 +111,6 @@ class PublicPartnershipServiceTest {
         assertEquals(PartnershipRequest.Status.PENDING.name(), response.status());
     }
 
-    // ---- 3: different institutionName produces a different idempotency key, so both are fresh inserts ----
     @Test
     void submit_sameEmailDifferentInstitutionName_doesNotCollide() {
         when(requestRepository.findByIdempotencyKey(anyString())).thenReturn(Optional.empty());
@@ -124,7 +121,6 @@ class PublicPartnershipServiceTest {
         verify(requestRepository, times(2)).save(any(PartnershipRequest.class));
     }
 
-    // 4: an institution cannot inquire about a draft (unpublished) certification
     @Test
     void submit_draftCertification_isRejected() {
         when(requestRepository.findByIdempotencyKey(anyString())).thenReturn(Optional.empty());

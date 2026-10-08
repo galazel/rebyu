@@ -151,7 +151,6 @@ def test_replayed_history_follows_the_snapshot_as_individual_events(client, run)
 
     assert snapshot["events"] == []
     assert [m["type"] for m in replayed] == ["event", "event"]
-    # workflow.started + review.waiting
     assert [m["event"]["event_type"] for m in replayed] == [
         registry.EVT_WORKFLOW_STARTED,
         registry.EVT_REVIEW_WAITING,
@@ -162,7 +161,7 @@ def test_last_seq_replays_only_what_was_missed(client, run):
     """A reconnecting client sends its last_seq and must not re-receive
     events it already rendered."""
     with client.websocket_connect(f"/ws/workflows/{run.run_id}?last_seq=1") as ws:
-        ws.receive_json()  # snapshot
+        ws.receive_json()
         replayed = ws.receive_json()
 
     assert replayed["event"]["seq"] == 2
@@ -240,8 +239,6 @@ async def test_live_events_are_streamed_without_polling(db, monkeypatch):
     run = registry.get_run_by_thread(db, "live-1")
     run_id = run.run_id
 
-    # The handler opens its own sessions; point them at the test session so
-    # it sees the same in-memory database.
     monkeypatch.setattr(ws_module, "get_settings", lambda: _NoAuth())
 
     socket = _FakeSocket()
@@ -250,11 +247,8 @@ async def test_live_events_are_streamed_without_polling(db, monkeypatch):
     import asyncio
 
     task = asyncio.create_task(ws_module.workflow_timeline(socket, run_id, last_seq=0, key=None))
-    # The handler loads its snapshot with real async I/O before subscribing;
-    # publishing before then would be delivered to nobody.
     await _await_subscriber(broadcaster, run_id)
 
-    # Emitted after the client connected.
     broadcaster.publish(run_id, {"seq": 99, "event_type": registry.EVT_NODE_COMPLETED,
                                  "stage": "plan_curriculum"})
     broadcaster.publish(run_id, {"seq": 100, "event_type": registry.EVT_WORKFLOW_COMPLETED})
@@ -267,7 +261,6 @@ async def test_live_events_are_streamed_without_polling(db, monkeypatch):
     assert kinds[-1] == "complete", "stream did not close on workflow.completed"
 
     streamed = [m["event"]["seq"] for m in socket.sent if m["type"] == "event"]
-    # seq 1 is the run's own workflow.started, replayed after the snapshot.
     assert streamed == [1, 99, 100]
 
 
@@ -288,7 +281,7 @@ async def test_out_of_order_events_are_dropped(db, monkeypatch):
     task = asyncio.create_task(ws_module.workflow_timeline(socket, run_id, last_seq=5, key=None))
     await _await_subscriber(broadcaster, run_id)
 
-    broadcaster.publish(run_id, {"seq": 3, "event_type": "node.completed"})   # stale
+    broadcaster.publish(run_id, {"seq": 3, "event_type": "node.completed"})
     broadcaster.publish(run_id, {"seq": 6, "event_type": "node.completed"})
     broadcaster.publish(run_id, {"seq": 7, "event_type": registry.EVT_WORKFLOW_FAILED})
 
@@ -316,16 +309,12 @@ def test_no_sse_frame_grows_with_the_length_of_the_run(db):
     from app.api.routes.workflow_stream import _sse_frame
     from app.api.ws.stream import stream_events
 
-    #: Spring WebClient's default `maxInMemorySize`, which is what the relay
-    #: decoded each frame with when this broke.
     RELAY_BUFFER_BYTES = 256 * 1024
 
     run = registry.start_run(db, thread_id="big-1", kind="CERTIFICATION")
     for _ in range(400):
         registry.record_event(
             db, run, registry.EVT_NODE_COMPLETED, stage="write_lesson",
-            # Roughly the size of a real failure payload, which is what made
-            # the live frame so large.
             payload={"error": "x" * 600},
         )
     registry.mark_completed(db, "big-1")

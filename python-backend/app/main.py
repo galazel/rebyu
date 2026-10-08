@@ -48,28 +48,16 @@ def _warm_retrieval_models() -> None:
 async def lifespan(_: FastAPI):
     settings.ensure_directories()
 
-    # Idempotent, and never fatal -- see `app.db.training_view`. Without this
-    # the training view exists only where somebody remembered to run the SQL
-    # by hand, which is how training failed on 2026-08-29.
     ensure_training_view()
 
     consumer_manager = build_consumer_manager()
     try:
         await consumer_manager.start()
     except Exception:
-        # Never block the API server on the broker being unreachable --
-        # matches backend-java's producers, which log and move on instead of
-        # failing the request/startup path.
         logger.exception("Failed to start RabbitMQ consumers; API will run without them")
 
-    # Generation runs are asyncio tasks in this process, so every run in flight
-    # when the previous one stopped was abandoned mid-step with its registry row
-    # still reading RUNNING. This picks those back up -- after a grace period,
-    # so RabbitMQ's own redelivery gets first refusal on the runs it owns.
     recovery = asyncio.create_task(run_recovery.run_forever(), name="run-recovery")
 
-    # Load the retrieval models now, off the event loop, instead of on the
-    # first tutor question after every restart -- which waited ~40s for them.
     warmup = asyncio.create_task(asyncio.to_thread(_warm_retrieval_models), name="model-warmup")
 
     yield
@@ -80,9 +68,6 @@ async def lifespan(_: FastAPI):
         await recovery
 
     await consumer_manager.stop()
-    # Releases the LangGraph checkpointer's Postgres connection. The previous
-    # sync checkpointer entered its context manager and never exited it, so
-    # the connection was held for the process lifetime.
     await close_checkpointer()
 
 
@@ -107,28 +92,15 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(api_router)
-    # AI generation routes (certification/lesson/question) live under their
-    # own /api/v1/ai prefix, separate from the BKT service's /api/v1/bkt
-    # prefix baked into api_router.
-    # Written-answer marking. Synchronous and on the critical path: a learner's
-    # submission blocks on it, so unlike generation it is a direct call rather
-    # than a queued run.
     app.include_router(assessment_routes.router, prefix="/api/v1/ai")
-    # The admin AI settings page: credits, and the model each task uses.
     app.include_router(ai_settings_routes.router, prefix="/api/v1/ai")
     app.include_router(certification_routes.router, prefix="/api/v1/ai")
     app.include_router(past_paper_routes.router, prefix="/api/v1/ai")
     app.include_router(question_bank_routes.router, prefix="/api/v1/ai")
     app.include_router(study_aid_routes.router, prefix="/api/v1/ai")
     app.include_router(tutor_routes.router, prefix="/api/v1/ai")
-    # Run registry: what is running, what is paused for review, what happened.
     app.include_router(workflow_routes.router, prefix="/api/v1/ai")
-    # Live timeline as SSE -- what the Java gateway relays to browsers. Shares
-    # its implementation with the websocket below via app.api.ws.stream.
     app.include_router(workflow_stream_routes.router, prefix="/api/v1/ai")
-    # The same timeline over a websocket, for internal consumers and tests.
-    # Mounted at the root: websocket clients pass the service key as ?key=
-    # because browsers cannot set handshake headers.
     app.include_router(workflow_ws.router)
 
     @app.get("/", tags=["service"])

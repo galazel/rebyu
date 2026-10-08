@@ -17,13 +17,6 @@ export async function ensureExamType(examTypeText) {
   return createExamType(examTypeText)
 }
 
-// Omit includeDepartmentId for official exams only (what every existing caller
-// does). Pass a group id to also mix in that group's own exams -- the
-// caller must be able to act on that group, enforced server-side.
-//
-// certificationId narrows the read to one certification. Omitted, this is the
-// whole-table read every existing caller makes; passed, the server does the
-// filtering the caller would otherwise do over every exam on the platform.
 export function getExams(includeDepartmentId, certificationId) {
   const params = new URLSearchParams()
   if (includeDepartmentId != null) params.set("includeDepartmentId", includeDepartmentId)
@@ -37,8 +30,6 @@ export function getExamById(examId, includeDepartmentId) {
   return base(`exams/${examId}${query}`)
 }
 
-// ownerDepartmentId is required for a department head creating their own
-// exam; omitted, the backend requires ADMIN and creates an official exam.
 export function createExam(exam, ownerDepartmentId) {
   const query = ownerDepartmentId != null ? `?ownerDepartmentId=${ownerDepartmentId}` : ""
   return base(`exams${query}`, { method: "POST", data: exam })
@@ -60,8 +51,6 @@ export function archiveExam(examId) {
   return base(`exams/${examId}/archive`, { method: "POST" })
 }
 
-// Adds questions to an assessment with per-question points + display order.
-// questions: [{ questionId, points, displayOrder }]
 export function addExamQuestions(examId, questions) {
   return base(`exams/${examId}/questions`, {
     method: "POST",
@@ -69,7 +58,6 @@ export function addExamQuestions(examId, questions) {
   })
 }
 
-// Exam questions (join between exam and question bank)
 export function getExamQuestions() {
   return base("exam-questions")
 }
@@ -89,7 +77,6 @@ export function deleteExamQuestion(examQuestionId) {
   return base(`exam-questions/${examQuestionId}`, { method: "DELETE" })
 }
 
-// Question configs used when rendering attempt workspaces
 export function getTextQuestionConfig(questionId) {
   return base(`text-question-configs/by-question/${questionId}`)
 }
@@ -102,7 +89,6 @@ export function getProgrammingQuestionConfig(questionId) {
   return base(`programming-question-configs/by-question/${questionId}`)
 }
 
-// Learner-safe attempt transaction API (server-side snapshots and scoring)
 
 export function getLearnerAssessment(assessmentId, learnerId) {
   return base(`learner/assessments/${assessmentId}?learnerId=${learnerId}`)
@@ -173,14 +159,6 @@ export function checkAttemptDiagram(attemptId, attemptQuestionId, learnerId, dia
   )
 }
 
-/**
- * Marks one locked choice answer while the attempt is still open.
- *
- * <p>The verdict comes from the server for a reason: the choices the browser
- * holds carry no correct flag, and inventing one here would mean marking the
- * paper in the page. Which choice was right, and why, come back only when the
- * exam releases its answers.
- */
 export function checkChoiceAnswer(attemptId, attemptQuestionId, learnerId, selectedChoiceId) {
   return base(`learner/assessment-attempts/${attemptId}/choice/${attemptQuestionId}/check`, {
     method: "POST",
@@ -188,7 +166,6 @@ export function checkChoiceAnswer(attemptId, attemptQuestionId, learnerId, selec
   })
 }
 
-/** One answer of an adaptive session; returns the marking (main round) and the next item. */
 export function answerAdaptiveItem(attemptId, learnerId, answer) {
   return base(`learner/assessment-attempts/${attemptId}/adaptive/answer`, {
     method: "POST",
@@ -196,7 +173,6 @@ export function answerAdaptiveItem(attemptId, learnerId, answer) {
   })
 }
 
-/** Every answer queued on the client, in order, in one request. */
 export function answerAdaptiveItems(attemptId, learnerId, answers) {
   return base(`learner/assessment-attempts/${attemptId}/adaptive/answers`, {
     method: "POST",
@@ -219,12 +195,10 @@ export function getLearnerAttempts(learnerId) {
   return base(`learner/assessment-attempts?learnerId=${learnerId}`)
 }
 
-// Full attempt history for one assessment — every retake, newest first.
 export function getAssessmentAttempts(assessmentId, learnerId) {
   return base(`learner/assessments/${assessmentId}/attempts?learnerId=${learnerId}`)
 }
 
-// Enrollment / purchase transaction API
 
 export function purchaseCertification(certificationId, learnerId, idempotencyKey) {
   return base(`learner/certifications/${certificationId}/purchase`, {
@@ -244,7 +218,6 @@ export function getLearnerEnrollments(learnerId) {
   return base(`learner/enrollments?learnerId=${learnerId}`)
 }
 
-// Well-known assessment type labels stored in exam_types.exam_type_text.
 export const ASSESSMENT_TYPES = [
   { value: "DIAGNOSTIC", label: "Diagnostic" },
   { value: "QUIZ", label: "Lesson Quiz" },
@@ -254,21 +227,10 @@ export const ASSESSMENT_TYPES = [
   { value: "ASSIGNMENT", label: "Assignment" },
 ]
 
-// Offered to Institution groups authoring their own assessments. Excludes
-// DIAGNOSTIC -- that label carries special meaning on the official
-// curriculum (it used to gate lesson access platform-wide), which doesn't
-// apply to a group's own, non-gating assessment and would be misleading.
 export const INSTITUTION_ASSESSMENT_TYPES = ASSESSMENT_TYPES.filter(
   (type) => type.value !== "DIAGNOSTIC"
 )
 
-/* The exam types the backend actually stores, from `ExamTypeSeeder`.
-   `ASSESSMENT_TYPES` above is the authoring menu -- what a person may pick when
-   creating an assessment -- and it names only a few of these. Everything else
-   was falling through to the raw enum, so a learner sitting a lesson quiz saw
-   "LESSON_QUIZ" in the attempt header and again on their result. Kept separate
-   from the authoring list on purpose: these are labels to read, not options to
-   offer. */
 const RUNTIME_TYPE_LABELS = {
   DIAGNOSTIC: "Diagnostic",
   LESSON_QUIZ: "Lesson Quiz",

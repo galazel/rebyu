@@ -40,11 +40,6 @@ public class S3StorageService {
         this.lessonVideoService = lessonVideoService;
     }
 
-    /**
-     * A short-lived presigned GET URL for a private object, forcing a download with the
-     * given filename. The signature lives in the URL, so it works from an {@code <a href>}
-     * without an Authorization header, yet expires quickly and can't be reused indefinitely.
-     */
     public String presignDownloadUrl(String key, String downloadFilename, Duration ttl) {
         GetObjectRequest.Builder getRequest = GetObjectRequest.builder().bucket(bucketName).key(key);
         if (downloadFilename != null && !downloadFilename.isBlank()) {
@@ -58,24 +53,6 @@ public class S3StorageService {
         return s3Presigner.presignGetObject(presignRequest).url().toString();
     }
 
-    /**
-     * A short-lived presigned GET URL that a browser can *display* rather than
-     * save: inline disposition, and the object's real media type so the PDF
-     * viewer or image decoder is the thing that opens it.
-     *
-     * <p>This is how a large file has to be read. {@code /api/files/view} pulls
-     * the whole object into the application's heap as a byte[] and writes it
-     * back out, which is fine for a lesson image and fatal for an 81 MB
-     * reviewer -- one request allocates the file twice over and the container
-     * runs out of memory, which is what a learner saw as a 500. A presigned URL
-     * takes the application out of the data path entirely: the browser fetches
-     * from S3, over a connection that supports range requests, so a big PDF
-     * pages in as it is read instead of arriving all at once or not at all.
-     *
-     * <p>The signature is in the URL, so it needs no Authorization header -- it
-     * works as an {@code <iframe src>} where the authenticated endpoint cannot
-     * -- and it expires, so it is not a durable public link to a private file.
-     */
     public String presignViewUrl(String key, String filename, String contentType, Duration ttl) {
         GetObjectRequest.Builder getRequest = GetObjectRequest.builder().bucket(bucketName).key(key);
         if (filename != null && !filename.isBlank()) {
@@ -92,7 +69,6 @@ public class S3StorageService {
         return s3Presigner.presignGetObject(presignRequest).url().toString();
     }
 
-    /** The stored object's size in bytes, without fetching the object itself. */
     public long contentLength(String key) {
         return s3Client.headObject(HeadObjectRequest.builder()
                 .bucket(bucketName)
@@ -146,12 +122,6 @@ public class S3StorageService {
         return key;
     }
 
-    /**
-     * Generic upload for features that just need a real file behind a stable
-     * key (community post attachments, library files) — not tied to the
-     * lesson/certification-specific DTOs above. Returns the S3 key; callers
-     * persist that key themselves.
-     */
     public String uploadFile(MultipartFile file, String folderPrefix) throws IOException {
         String originalName = file.getOriginalFilename() == null ? "file" : file.getOriginalFilename();
         String key = folderPrefix + "/" + UUID.randomUUID() + "-" + originalName;
@@ -168,7 +138,6 @@ public class S3StorageService {
         return key;
     }
 
-    /** Stores bytes the application made itself (not an upload) under `key`. */
     public void uploadBytes(String key, byte[] data, String contentType) {
         s3Client.putObject(
                 PutObjectRequest.builder().bucket(bucketName).key(key).contentType(contentType).build(),

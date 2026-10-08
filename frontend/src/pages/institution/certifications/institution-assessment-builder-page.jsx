@@ -50,7 +50,6 @@ import {
 } from "@/services/assessmentService.js"
 import { reconstructQuestionData } from "@/components/questions/reconstruct-question.js"
 
-/** The small caps heading that divides the detail rail into readable groups. */
 function SectionLabel({ children, className = "" }) {
   return (
     <p className={"text-xs font-semibold uppercase tracking-wide text-muted-foreground " + className}>
@@ -59,16 +58,11 @@ function SectionLabel({ children, className = "" }) {
   )
 }
 
-/** What the empty state adds: multiple choice, or whatever heads the list. */
 const firstQuestionType =
   QUESTION_TYPES.find((type) => type.id === "MULTIPLE_CHOICE") ?? QUESTION_TYPES[0]
 
 const QUESTION_API = { saveQuestion, saveChoices, saveTextQuestion, saveProgrammingQuestion, saveDiagramQuestion }
 
-// What each exam type actually targets in the curriculum tree. Regardless of
-// scope, authored questions still need a specific lesson (Question.lesson is
-// mandatory) -- only what gets stored on the EXAM itself (lessonId vs
-// middleCategoryId vs nothing) changes.
 const EXAM_TYPE_SCOPES = {
   QUIZ: "LESSON",
   MODULE_EXAM: "MIDDLE_CATEGORY",
@@ -86,14 +80,6 @@ function isValidPoints(value) {
   return Number.isFinite(number) && number > 0
 }
 
-/**
- * The curriculum as a Major Category -> Middle Category (module) -> Lesson
- * tree, split into the group's own content and the official curriculum -- a
- * group may build assessments over either. Ownership is decided at the major
- * category level and inherited by everything under it. The assessment and
- * its questions stay the group's own either way (ownerDepartmentId); nothing is
- * written back into the official curriculum.
- */
 function buildCurriculumTree(certification, departmentId) {
   const own = []
   const official = []
@@ -115,23 +101,6 @@ function buildCurriculumTree(certification, departmentId) {
   return { own, official }
 }
 
-/**
- * Dedicated page (not a modal) for an Institution group to build its own
- * assessment: details on the left, the authored questions in the centre, and
- * the question-type palette on the right -- the same three-column shape as
- * the admin question builder. The question editors themselves (MCQ, Short
- * Answer, Descriptive, Programming, Diagram -- with images, correct-answer
- * marking, test cases, sub-questions, and the diagram editor) are the exact
- * same components the admin Question Bank uses, reused via
- * components/questions/question-editors.jsx, with a points configuration
- * panel layered on top. Questions are written here and owned by the group;
- * the shared question bank is never read from or written to.
- *
- * Picking where the assessment lives is a Category -> Module -> Lesson
- * cascade: each level's options are scoped to whatever was picked above it
- * (e.g. choosing a module only offers the lessons inside that module),
- * regardless of exam type.
- */
 export default function InstitutionAssessmentBuilderPage() {
   const { departmentId, examId } = useParams()
   const id = Number(departmentId)
@@ -146,12 +115,10 @@ export default function InstitutionAssessmentBuilderPage() {
   const [durationMinutes, setDurationMinutes] = useState("")
   const [passingScore, setPassingScore] = useState("70")
 
-  // Category (major) -> Module (middle) -> Lesson cascade.
   const [scopeMajorId, setScopeMajorId] = useState("")
   const [scopeMiddleId, setScopeMiddleId] = useState("")
   const [scopeLessonId, setScopeLessonId] = useState("")
 
-  // Authored questions: { key, typeId, data } -- data shapes match QUESTION_TYPES.
   const [questions, setQuestions] = useState([])
   const [pointsMode, setPointsMode] = useState("SAME")
   const [samePoints, setSamePoints] = useState("1")
@@ -187,10 +154,6 @@ export default function InstitutionAssessmentBuilderPage() {
     enabled: isEdit,
   })
 
-  // Existing question content for an edit -- getExamQuestions() returns the
-  // join rows for every exam (filtered down to this one below), and
-  // getQuestions(id) returns this group's full question bank (with MCQ
-  // choices embedded) to reconstruct editor-shaped data from.
   const examQuestionsQuery = useQuery({
     queryKey: ["exam-questions"],
     queryFn: getExamQuestions,
@@ -287,7 +250,6 @@ export default function InstitutionAssessmentBuilderPage() {
 
   const scope = EXAM_TYPE_SCOPES[examTypeText] ?? "LESSON"
 
-  // Prefill the details when editing.
   if (isEdit && !hydrated && examQuery.data && Array.isArray(examTypesQuery.data) && certification) {
     const exam = examQuery.data
     const examType = examTypesQuery.data.find((t) => t.examTypeId === exam.examTypeId)
@@ -311,9 +273,6 @@ export default function InstitutionAssessmentBuilderPage() {
     setHydrated(true)
   }
 
-  // Prefill the questions themselves once their content has been
-  // reconstructed from the backend -- MCQ choices, short-answer/descriptive
-  // answers, programming test cases, diagram configs, and sub-questions.
   if (isEdit && !questionsHydrated && questionContentQuery.data) {
     setQuestions(
       questionContentQuery.data.map(({ key, typeId, data, existingQuestionId }) => ({
@@ -328,8 +287,6 @@ export default function InstitutionAssessmentBuilderPage() {
     )
     setQuestionsHydrated(true)
   }
-  // If the existing content couldn't be fetched, don't spin forever -- fall
-  // back to an empty question list so the rest of the page still renders.
   if (
     isEdit &&
     !questionsHydrated &&
@@ -417,13 +374,6 @@ export default function InstitutionAssessmentBuilderPage() {
     mutationFn: async () => {
       const examType = await ensureExamType(examTypeText)
 
-      // Questions carried over from an existing assessment (reconstructed on
-      // load, see reconstructQuestionData) already have a backend questionId
-      // -- reuse it instead of re-authoring it, or every save would create a
-      // duplicate. Only genuinely new questions added this session are saved
-      // via saveAuthoredQuestion, the same per-type calls the admin builder
-      // uses. Every new question attaches to the chosen lesson regardless of
-      // the exam's own scope, since a question always needs one.
       const finalQuestions = []
       for (const [index, question] of questions.entries()) {
         const points = Number(pointsById[question.key]) || 1
@@ -511,9 +461,6 @@ export default function InstitutionAssessmentBuilderPage() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col">
-      {/* Top bar. The heading is the assessment being written, not the verb --
-          the button beside it already says what pressing it does, and the two
-          reading "Create assessment" side by side said nothing twice. */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
           <Button
@@ -569,10 +516,7 @@ export default function InstitutionAssessmentBuilderPage() {
         </p>
       ) : null}
 
-      {/* The detail rail holds six labelled controls and the points panel; at
-          280px every select clipped the value it was showing. */}
       <div className="grid min-h-0 flex-1 md:grid-cols-[320px_minmax(0,1fr)_268px] xl:grid-cols-[360px_minmax(0,1fr)_288px]">
-        {/* LEFT: assessment details */}
         <aside className="min-h-0 space-y-5 overflow-y-auto border-b border-border p-4 md:border-b-0 md:border-r">
           <SectionLabel>Basics</SectionLabel>
 
@@ -725,8 +669,6 @@ export default function InstitutionAssessmentBuilderPage() {
             </div>
           </div>
 
-          {/* Points configuration -- same SAME/INDIVIDUAL pattern as the
-              admin assessment builder's question-points panel. */}
           <div className="rounded-xl border p-3">
             <h4 className="text-sm font-semibold">Question points</h4>
             <RadioGroup value={pointsMode} onValueChange={handlePointsModeChange} className="mt-3 gap-2">
@@ -773,12 +715,8 @@ export default function InstitutionAssessmentBuilderPage() {
           </div>
         </aside>
 
-        {/* CENTER: authored questions, using the exact admin question editors */}
         <main className="min-h-0 overflow-y-auto bg-muted/20 p-4">
           {questions.length === 0 ? (
-            /* The palette on the right is a trip across the page for the first
-               question, and it is nearly always multiple choice -- so the empty
-               state offers that one where the eye already is. */
             <div className="flex h-full items-center justify-center p-2">
               <div className="w-full max-w-md rounded-2xl border-2 border-dashed border-border bg-background/60 px-6 py-10 text-center">
                 <ListChecks className="mx-auto size-10 text-muted-foreground" />
@@ -835,7 +773,6 @@ export default function InstitutionAssessmentBuilderPage() {
           )}
         </main>
 
-        {/* RIGHT: question type palette -- the same five types as admin */}
         <aside className="min-h-0 space-y-4 overflow-y-auto border-t border-border p-4 md:border-l md:border-t-0">
           <div>
             <SectionLabel>Add question</SectionLabel>

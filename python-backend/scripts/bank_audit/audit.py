@@ -46,14 +46,12 @@ for cert in CERTS:
         join major_categories m on m.major_category_id = mc.major_category_id
         where m.certification_id = :c order by l.lesson_id"""), {"c": cert}).fetchall()
 
-    # exact duplicate stems
     by_text = defaultdict(list)
     for r in rows:
         by_text[re.sub(r"\s+", " ", (r[1] or "").strip().lower())].append(r[0])
     exact = {k: v for k, v in by_text.items() if len(v) > 1}
     exact_extra = sum(len(v) - 1 for v in exact.values())
 
-    # near duplicates (jaccard >= .75) within the certification
     sigs = [(r[0], norm(r[1])) for r in rows]
     near = 0
     seen = set()

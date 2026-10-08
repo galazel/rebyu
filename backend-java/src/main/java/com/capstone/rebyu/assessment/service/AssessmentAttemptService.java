@@ -71,34 +71,18 @@ import java.util.UUID;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Transaction Two: assessment attempt lifecycle. Starts snapshot-based
- * attempts, autosaves drafts, and scores submissions server-side. Learner
- * input is never trusted for correctness or points.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AssessmentAttemptService {
 
     private static final Duration SUBMIT_GRACE = Duration.ofSeconds(30);
-    /**
-     * The 0..100 proficiency from which a sitting counts as Proficient.
-     *
-     * Must stay equal to PROFICIENT_RATING in `curriculum-model.js`: the road
-     * draws its locks from that constant and this gate enforces them, so a
-     * difference between the two shows up as a lesson the learner can see is
-     * open and cannot start.
-     */
     private static final BigDecimal PROFICIENT_RATING = new BigDecimal("50");
     private static final String TYPE_DIAGNOSTIC = "DIAGNOSTIC";
     private static final String TYPE_QUIZ = "QUIZ";
     private static final String TYPE_MOCK = "MOCK_EXAM";
-    /** An IT Olympics arena run; see ChallengeArenaService. */
     private static final String TYPE_CHALLENGE = "CHALLENGE";
-    /** Types a Free learner may sit once but not retake. */
     private static final Set<String> RETAKE_GATED_TYPES = Set.of("QUIZ", "LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM");
-    /** Solo arenas a Free learner may enter for the first few problems. */
     private static final Set<String> CAPPED_ARENAS = Set.of("codestrike", "blueprint");
 
     private final ExamRepository examRepository;
@@ -125,8 +109,6 @@ public class AssessmentAttemptService {
     private final CodeExecutionService codeExecutionService;
     private final DiagramGradingService diagramGradingService;
     private final AttemptGradingBatchService gradingBatchService;
-    /* Looked up lazily: the adaptive service calls back into this one for
-       grading and snapshots, and Spring will not wire that circle eagerly. */
     private final org.springframework.beans.factory.ObjectProvider<AdaptiveAttemptService> adaptiveAttemptService;
     private final org.springframework.beans.factory.ObjectProvider<AdaptiveGradingService> adaptiveGradingService;
     private final com.capstone.rebyu.adaptive.service.AdaptivePolicy adaptivePolicy;
@@ -137,74 +119,23 @@ public class AssessmentAttemptService {
     private final AchievementAwardService achievementAwardService;
     private final WorldCupMatchRepository worldCupMatchRepository;
 
-    /**
-     * Outcome-based assessment XP: 30 for finishing, 100 for passing, 200 for
-     * a perfect score.
-     *
-     * <p>Paid as three separate one-time awards that TOP UP to those totals
-     * rather than one award whose size depends on the outcome. That matters
-     * because retakes are unlimited: with a single award the first attempt's
-     * result would lock in forever, so a learner who failed, studied, and came
-     * back to ace the exam would keep the 30 and earn nothing for the
-     * improvement -- the opposite of what the retake loop is for. Topping up
-     * pays the difference instead (30, then +70 on a later pass, then +100 on
-     * a later perfect), so the total always reflects the learner's BEST
-     * result while each tier still pays at most once per exam.
-     */
     private static int assessmentAttemptedXp()    { return RewardAmounts.getAssessmentAttemptedXp(); }
     private static int assessmentPassedTopupXp()  { return RewardAmounts.getAssessmentPassedTopupXp(); }
     private static int assessmentPerfectTopupXp() { return RewardAmounts.getAssessmentPerfectTopupXp(); }
 
-    /**
-     * The pop-up knowledge check pays the same three tiers at a quarter of the
-     * size, topping up to 50 rather than 200.
-     *
-     * <p>It has to be scaled separately because it is the only exam a learner
-     * does not choose to sit. Every other type is opened deliberately and is
-     * minted once; a check fires by itself, mints a NEW exam each time, and the
-     * awards are keyed by exam id -- so at the full tiers, acing five questions
-     * would pay 200 XP, twice what finishing an entire lesson pays, and pay it
-     * again after every cooldown. That is not a reward for learning, it is a
-     * reason to sit and wait for pop-ups.
-     *
-     * <p>50 keeps a perfect check comfortably below the 100 a lesson pays,
-     * which is the ordering the economy needs: the check is a nudge to
-     * remember something, not a way to progress.
-     */
     private static int checkAttemptedXp()    { return RewardAmounts.getCheckAttemptedXp(); }
     private static int checkPassedTopupXp()  { return RewardAmounts.getCheckPassedTopupXp(); }
     private static int checkPerfectTopupXp() { return RewardAmounts.getCheckPerfectTopupXp(); }
 
-    /**
-     * Mirrors {@code LessonKnowledgeCheckService.KNOWLEDGE_CHECK_EXAM_TYPE}.
-     * Duplicated as a literal rather than imported so the assessment engine
-     * keeps no compile-time dependency on the knowledge-check package, which
-     * depends on it.
-     */
     private static final String KNOWLEDGE_CHECK_EXAM_TYPE = "KNOWLEDGE_CHECK";
 
-    /** Percentage is stored 0-100 (scale 2), so a perfect score is 100.00. */
     private static final BigDecimal PERFECT_PERCENTAGE = new BigDecimal("100");
 
     private static final int MAX_EXECUTION_HISTORY = 20;
 
-    /**
-     * TEMPORARY: whether a mock exam still requires MOCK_EXAM_ACCESS.
-     *
-     * Off by default, so mock exams are open to every enrolled learner. The
-     * gates are left in place and read this flag rather than being deleted --
-     * mock exams are a paid feature in the revenue model, and the way back is
-     * `rebyu.assessment.mock-exam-requires-entitlement: true` (or the
-     * MOCK_EXAM_REQUIRES_ENTITLEMENT environment variable), not a re-implementation.
-     *
-     * Both gates read it: the lock badge the learner sees before starting, and
-     * the hard 403 at start. Turning one on without the other would either
-     * advertise a lock that does not bite or bite without warning.
-     */
     @Value("${rebyu.assessment.mock-exam-requires-entitlement:false}")
     private boolean mockExamRequiresEntitlement;
 
-    // Learner-safe assessment listing
 
     @Transactional(readOnly = true)
     public LearnerAssessmentDto getLearnerAssessment(Long examId, Long learnerId) {
@@ -232,7 +163,6 @@ public class AssessmentAttemptService {
         );
     }
 
-    // Start
 
     @Transactional
     public AssessmentAttemptStartResponseDto startAttempt(
@@ -243,25 +173,12 @@ public class AssessmentAttemptService {
                     "A learner profile is required to start an assessment.");
         }
 
-        // Idempotency dedupes a double-fired start, so it only ever hands back an
-        // attempt that is still open. It used to return whatever the key mapped
-        // to, which sat ABOVE the lock check below and so was a way around it:
-        // the client keeps this key in sessionStorage past submit, so re-entering
-        // a finished assessment in the same tab reopened the submitted attempt
-        // instead of being refused. That is a retake of a one-time diagnostic in
-        // everything but name. A finished/abandoned attempt now falls through to
-        // the normal path, where `resolveLockReason` gets its say.
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             Optional<AssessmentAttempt> byKey = attemptRepository.findByIdempotencyKey(idempotencyKey);
             if (byKey.isPresent()
                     && byKey.get().getStatus() == AssessmentAttempt.Status.IN_PROGRESS) {
                 return buildStartResponse(byKey.get(), true);
             }
-            /* The key already names a finished attempt. It is unique per
-               attempt, so the new one cannot carry it: a retake from the same
-               tab used to fail on that constraint and surface as
-               "already exists. Choose a different name." A fresh key is minted
-               for the new attempt instead. */
             if (byKey.isPresent()) {
                 idempotencyKey = null;
             }
@@ -275,9 +192,6 @@ public class AssessmentAttemptService {
             throw new BusinessRuleException.AssessmentNotPublishedException();
         }
 
-        // Mock exams are a premium feature: require personal Pro or an
-        // institution-sponsored MOCK_EXAM_ACCESS entitlement for this
-        // certification before an attempt can be created (structured 403).
         if (TYPE_MOCK.equals(exam.getExamType().getExamTypeText())
                 && exam.getOwnerDepartment() == null) {
             learnerEntitlementService.requireLearnerEntitlement(
@@ -291,7 +205,6 @@ public class AssessmentAttemptService {
             throw new BusinessRuleException.AssessmentLockedException(lockReason);
         }
 
-        // Resume an open attempt instead of forking a second one.
         Optional<AssessmentAttempt> inProgress = attemptRepository
                 .findFirstByExam_ExamIdAndLearnerIdAndStatus(
                         examId, learnerId, AssessmentAttempt.Status.IN_PROGRESS);
@@ -310,12 +223,6 @@ public class AssessmentAttemptService {
                 .map(previous -> previous.getAttemptNumber() + 1)
                 .orElse(1);
 
-        /* Adaptive assessments have no paper to snapshot: the engine serves
-           one question at a time from the scope's bank, choosing each from
-           what the learner has answered so far. */
-        /* The mock exam: picked by the engine, sat as a paper. Falls through
-           to buildStartResponse like a fixed paper because, to the client,
-           that is what it is. */
         if (adaptivePolicy.isAssembledPaper(exam)) {
             AssessmentAttempt attempt = adaptiveAttemptService.getObject()
                     .startAssembledPaper(exam, learnerId, nextAttemptNumber, idempotencyKey);
@@ -350,16 +257,6 @@ public class AssessmentAttemptService {
             throw new BusinessRuleException.AssessmentNotPublishedException();
         }
 
-        /* Every attempt of a fixed-paper assessment (challenge arenas,
-           knowledge checks, generated quizzes, recall) runs its authored list,
-           in order, with its per-assessment points. Fetched in one query with
-           choices and the type configs, rather than by dereferencing each
-           ExamQuestion's lazy question -- Question owns three EAGER inverse-side
-           one-to-ones, so walking the proxies costs three round trips per
-           question. */
-        /* An institution paper weights its questions; an official one does
-           not. The weight is snapshotted onto the attempt so a later edit of
-           the paper cannot rescore an attempt already sat. */
         Map<Long, BigDecimal> pointOverrideByQuestionId = new HashMap<>();
         for (ExamQuestion examQuestion : examQuestions) {
             if (examQuestion.getPoints() != null) {
@@ -377,8 +274,6 @@ public class AssessmentAttemptService {
                 .toList();
         PhaseTimer.mark(timer, "load questions");
 
-        /* A paused arena is closed, not just hidden: the learner's card locks on
-           the status, but a bookmarked attempt URL would otherwise walk in. */
         if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
                 && exam.getTargetScope() != null
                 && arenaConfigRepository.findById(exam.getTargetScope())
@@ -387,10 +282,6 @@ public class AssessmentAttemptService {
             throw new IllegalArgumentException("This arena is closed for now. Check back later.");
         }
 
-        /* The arena's XP door, checked here and not only on the card.
-           The learner's card locks and explains the shortfall, but a
-           bookmarked attempt URL bypasses every screen -- the same reasoning
-           as the pause check above. */
         if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
                 && exam.getTargetScope() != null) {
             int required = ChallengeArenaService
@@ -406,7 +297,6 @@ public class AssessmentAttemptService {
             }
         }
 
-        /* Free learners see the first problems of a solo arena, not the whole set. */
         if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
                 && CAPPED_ARENAS.contains(exam.getTargetScope())
                 && questionsToUse.size() > Entitlements.FREE_ARENA_PROBLEM_LIMIT
@@ -457,17 +347,7 @@ public class AssessmentAttemptService {
         attempt = attemptRepository.save(attempt);
         PhaseTimer.mark(timer, "create attempt");
 
-        /* Everything the per-question snapshot needs that is not already on the
-           question entity, for the WHOLE paper, in two queries.
 
-           buildLearnerSafeSnapshot used to ask the database four times per
-           question -- programming config, diagram config, sub-questions,
-           rubric criteria -- so a 64-item paper spent 256 round trips building
-           its snapshots. Against this database (~50ms away) that alone was
-           most of the time a learner waited for an assessment to open. The two
-           configs are already on the entity: findForAttemptByIdIn fetches them
-           in its entity graph, so reading them costs nothing. The other two
-           are batched here and looked up in memory. */
         SnapshotContext snapshotContext = buildSnapshotContext(questionsToUse);
 
         int order = 1;
@@ -498,7 +378,6 @@ public class AssessmentAttemptService {
         return response;
     }
 
-    // Autosave
 
     @Transactional
     public void autosaveAnswers(Long attemptId, AutosaveAnswersRequestDto request) {
@@ -507,7 +386,6 @@ public class AssessmentAttemptService {
         upsertAnswers(attempt, request.answers());
     }
 
-    // Per-item learner actions: flag, skip, current item
 
     @Transactional
     public void setFlag(Long attemptId, Long attemptQuestionId, Long learnerId, boolean flagged) {
@@ -531,7 +409,6 @@ public class AssessmentAttemptService {
     public void setCurrentItem(Long attemptId, Long attemptQuestionId, Long learnerId) {
         AssessmentAttempt attempt = requireOwnedAttempt(attemptId, learnerId);
         requireEditable(attempt);
-        // Validate the item belongs to this attempt before recording it.
         requireAttemptQuestion(attempt, attemptQuestionId);
         attempt.setCurrentQuestionId(attemptQuestionId);
         attemptRepository.save(attempt);
@@ -548,7 +425,6 @@ public class AssessmentAttemptService {
         return question;
     }
 
-    /** Rejects edits once an attempt is submitted or its server clock expired. */
     void requireEditable(AssessmentAttempt attempt) {
         if (attempt.getStatus() != AssessmentAttempt.Status.IN_PROGRESS) {
             throw new BusinessRuleException.AssessmentAttemptAlreadySubmittedException();
@@ -560,7 +436,6 @@ public class AssessmentAttemptService {
         }
     }
 
-    // Submit
 
     @Transactional
     public AssessmentAttemptResultDto submitAttempt(
@@ -568,7 +443,6 @@ public class AssessmentAttemptService {
 
         AssessmentAttempt attempt = requireOwnedAttempt(attemptId, request.learnerId());
 
-        // Idempotent second submit returns the existing result.
         if (attempt.getStatus() == AssessmentAttempt.Status.SUBMITTED) {
             return getResult(attemptId, request.learnerId());
         }
@@ -602,9 +476,6 @@ public class AssessmentAttemptService {
             answersByQuestion.put(answer.getAttemptQuestion().getAttemptQuestionId(), answer);
         }
 
-        /* A diagnostic decides where the whole study plan starts, so it is not
-           graded with blanks in it. Only a paper whose time ran out may go in
-           incomplete -- the learner cannot answer any more of it. */
         boolean timedOut = attempt.getStatus() == AssessmentAttempt.Status.EXPIRED
                 || (attempt.getExpiresAt() != null && !LocalDateTime.now().isBefore(attempt.getExpiresAt()));
         if (!timedOut && attempt.getExam() != null && attempt.getExam().getExamType() != null
@@ -619,20 +490,8 @@ public class AssessmentAttemptService {
             }
         }
 
-        /* Every source question this paper grades against, in one query.
 
-           Both passes below used to call questionRepository.findById() per
-           item, and a Question drags its three config one-to-ones with it
-           whether or not anyone reads them -- they are mapped without a fetch
-           type, so they are EAGER. Add the lazy choices collection each MCQ
-           then asks for, and one 40-question paper spent roughly two hundred
-           round trips deciding what it was looking at. Against a database in
-           another region at ~75ms a trip, that was most of the half-minute a
-           learner waited to see their score.
 
-           findForAttemptByIdIn is the loader startAttempt already uses for
-           exactly this, entity graph and all -- see its note. Grading a paper
-           is the same "a paper's worth of ids" it was written for. */
         Map<Long, Question> sourceQuestions = questionRepository
                 .findForAttemptByIdIn(questions.stream()
                         .map(AssessmentAttemptQuestion::getSourceQuestionId)
@@ -642,11 +501,6 @@ public class AssessmentAttemptService {
                 .stream()
                 .collect(Collectors.toMap(Question::getQuestionId, q -> q, (a, b) -> a));
 
-        /* The parts of every question on this paper that has parts, in one
-           query. Three graders need them -- fill-in-the-blank, the analytical
-           critical-thinking request, and the critical-thinking mark itself --
-           and each used to ask per question, so a paper of blanks paid three
-           round trips apiece to grade items it had already loaded. */
         Map<Long, List<Question>> subQuestionsByParentId = sourceQuestions.isEmpty()
                 ? Map.of()
                 : questionRepository.findSubQuestionsByParentIdIn(sourceQuestions.keySet()).stream()
@@ -654,19 +508,8 @@ public class AssessmentAttemptService {
                                 sub -> sub.getParentQuestion().getQuestionId(),
                                 LinkedHashMap::new, Collectors.toList()));
 
-        /* Every expensive grader for this paper, run per family and
-           concurrently within each, before a single answer is scored. The loop
-           below then reads the results instead of making the calls itself. */
         PhaseTimer.mark(timer, "load paper");
 
-        /* On an adaptive attempt every main-round item was marked the moment
-           it was answered; only the final-round items are still open -- code,
-           diagrams, written answers, each marked by an outside service that
-           takes seconds. Those are NOT graded here. The paper is submitted
-           with them pending, the learner gets a provisional result at once,
-           and the background marker finishes the job (see AdaptiveGradingService).
-           Answers with nothing in them are closed at zero now; there is
-           nothing for a grader to look at. */
         boolean deferSlowGrading = attempt.isAdaptive();
         Map<Long, AssessmentAttemptAnswer> toGrade = attempt.isAdaptive()
                 ? Map.of()
@@ -709,9 +552,6 @@ public class AssessmentAttemptService {
             adaptiveAttemptService.getObject().onSubmitted(attempt);
             PhaseTimer.mark(timer, "adaptive close");
         } else if (attempt.getAdaptiveStateJson() != null) {
-            /* An assembled paper: the engine picked it, so the engine learns
-               from it -- ability and per-lesson knowledge from every mark, in
-               paper order, now that the whole paper is scored. */
             adaptiveAttemptService.getObject().onAssembledPaperSubmitted(attempt, questions, answersByQuestion);
             PhaseTimer.mark(timer, "assembled close");
         }
@@ -719,10 +559,6 @@ public class AssessmentAttemptService {
         PhaseTimer.mark(timer, "streak");
 
         if (leftPending > 0) {
-            /* Provisional result now; XP, achievements, the legacy result row,
-               the diagnostic gate and the BKT evidence all read the final score
-               or final marks, so they wait for the marker. Handed over only
-               once this transaction is on disk -- the marker reads it back. */
             final Long id = attemptId;
             final int pending = leftPending;
             org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
@@ -749,17 +585,6 @@ public class AssessmentAttemptService {
         return result;
     }
 
-    /**
-     * Totals from whatever marks exist right now. Pending answers count as
-     * nothing; the marker calls this again when they are in.
-     *
-     * <p>Every item is one observation. The score is the share of the items
-     * served that were earned -- a written, coded or drawn answer contributes
-     * the share it was marked at, an objective one 1 or 0, and a blank counts
-     * against the learner on a fixed paper (an adaptive paper never serves
-     * an item it does not then ask). The correct count is the verdict tally:
-     * partial credit at or above the mastery threshold reads as right.
-     */
     void applyTotals(AssessmentAttempt attempt, List<AssessmentAttemptQuestion> questions,
                      Map<Long, AssessmentAttemptAnswer> answersByQuestion) {
         int items = questions.size();
@@ -785,8 +610,6 @@ public class AssessmentAttemptService {
                 earnedPoints = earnedPoints.add(weight.multiply(answer.getCredit()));
             }
         }
-        /* An institution paper is scored by its weights, credit included; an
-           official one by the share of its items earned. */
         BigDecimal percentage;
         if (weighted && totalPoints.signum() > 0) {
             percentage = earnedPoints.multiply(BigDecimal.valueOf(100)).divide(totalPoints, 2, RoundingMode.HALF_UP);
@@ -806,19 +629,6 @@ public class AssessmentAttemptService {
         attempt.setPassed(percentage.compareTo(passingScore) >= 0);
     }
 
-    /**
-     * The engine's view of a marked answer: right, or partial credit at or
-     * above the threshold that counts as right for mastery too.
-     */
-    /**
-     * The response the models score, 0..1, by the item's response model
-     * ({@link AdaptivePolicy#irtModelFor}). A written, coded or drawn answer
-     * is marked on a scale and keeps that share (partial credit); every other
-     * item is 1 when it {@link #countsAsCorrect} and 0 otherwise (2PL). This
-     * is what the ability estimate, the mastery update and the percentage
-     * use, so a half-right diagram is half an item everywhere, while a short
-     * answer is right or wrong -- {@code countsAsCorrect} is the verdict shown.
-     */
     double scoreOf(AssessmentAttemptQuestion question, AssessmentAttemptAnswer answer) {
         if (answer == null || answer.isPendingManualEvaluation()) {
             return 0.0;
@@ -843,39 +653,16 @@ public class AssessmentAttemptService {
         return credit != null && credit.doubleValue() >= bktProperties.getPartialCreditCorrectThreshold();
     }
 
-    /**
-     * Everything that hangs off a FINAL score: XP tiers, achievements, the
-     * legacy result row, the diagnostic gate, and the BKT evidence. Run at
-     * submit when the paper is fully marked, or by the background marker
-     * once it is. Every step is idempotent, so running it after a late
-     * marking tops up rather than pays twice.
-     */
     void finalizeSubmission(AssessmentAttempt attempt, List<AssessmentAttemptQuestion> questions,
                             Map<Long, AssessmentAttemptAnswer> answersByQuestion) {
         awardAssessmentXp(attempt);
-        // First Quiz / First Perfect Score / Exam Ready all hang off a submitted
-        // attempt, and the evaluation reads this one back from the row saved
-        // above. Idempotent, so a retake awards nothing twice.
         achievementAwardService.evaluate(attempt.getLearnerId());
         recordLegacyExamResult(attempt);
         completeDiagnosticGateIfApplicable(attempt);
-        // A passed mock exam earns the certification's badge and a certificate
-        // of completion (once each; see CertificationAwardService).
         certificationAwardService.awardForAttempt(attempt);
-        // Transactional outbox: enqueue final, lesson-mapped BKT evidence in the
-        // SAME commit as the result. Dispatched to FastAPI asynchronously; an
-        // unavailable BKT service can never fail or roll back this submission.
         bktOutboxService.enqueueForAttempt(attempt, questions, answersByQuestion);
     }
 
-    /**
-     * Pays this attempt's outcome tier, topping up whatever the learner has
-     * already earned on this exam (see the XP constants for why).
-     *
-     * <p>Every award is keyed by examId rather than attemptId: retakes are
-     * unlimited, so an attempt-keyed award would let a learner farm XP by
-     * resubmitting the same exam.
-     */
     private void awardAssessmentXp(AssessmentAttempt attempt) {
         Long learnerId = attempt.getLearnerId();
         Long examId = attempt.getExam().getExamId();
@@ -887,8 +674,6 @@ public class AssessmentAttemptService {
         int passedXp = isCheck ? checkPassedTopupXp() : assessmentPassedTopupXp();
         int perfectXp = isCheck ? checkPerfectTopupXp() : assessmentPerfectTopupXp();
 
-        // Existing key and reason, so learners already paid the previous flat
-        // award are not paid again for simply finishing this exam.
         rewardService.awardXp(learnerId, attemptedXp, "ASSESSMENT_COMPLETED",
                 "assessment-completed:" + examId);
 
@@ -905,7 +690,6 @@ public class AssessmentAttemptService {
         }
     }
 
-    // Result
 
     @Transactional(readOnly = true)
     public AssessmentAttemptResultDto getResult(Long attemptId, Long learnerId) {
@@ -915,9 +699,6 @@ public class AssessmentAttemptService {
             throw new BusinessRuleException.InvalidAssessmentSubmissionException(
                     "This attempt has not been submitted yet.");
         }
-        // Admin-configured per-assessment setting: whether the answer key is
-        // shown to the learner at all. AI/diagram feedback is never gated by
-        // this — it's guidance, not the reference answer itself.
         boolean releaseAnswers = attempt.getExam().effectiveReleaseAnswers();
 
         List<AssessmentAttemptQuestion> questions = attemptQuestionRepository
@@ -928,19 +709,8 @@ public class AssessmentAttemptService {
             answersByQuestion.put(answer.getAttemptQuestion().getAttemptQuestionId(), answer);
         }
 
-        /* Every source question this review reads, in one query.
 
-           This loop used to call questionRepository.findById() per item. A
-           Question drags three EAGER inverse-side one-to-one configs behind it
-           that Hibernate cannot proxy, so that is four round trips per
-           question before the MCQ choices collection adds a fifth -- and the
-           sub-question and text-config lookups below each added another. A
-           64-item paper spent over four hundred round trips, ~50ms apiece,
-           building one result page. Submit pays it too: it ends by calling
-           this method.
 
-           findForAttemptByIdIn is the loader startAttempt and submitAttempt
-           already use for exactly this, entity graph and all. */
         List<Long> sourceQuestionIds = questions.stream()
                 .map(AssessmentAttemptQuestion::getSourceQuestionId)
                 .filter(Objects::nonNull)
@@ -950,7 +720,6 @@ public class AssessmentAttemptService {
                 ? Map.of()
                 : questionRepository.findForAttemptByIdIn(sourceQuestionIds).stream()
                         .collect(Collectors.toMap(Question::getQuestionId, q -> q, (a, b) -> a));
-        // The parts of every question that has parts, in one more query.
         Map<Long, List<Question>> subQuestionsByParentId = sourceQuestionIds.isEmpty()
                 ? Map.of()
                 : questionRepository.findSubQuestionsByParentIdIn(sourceQuestionIds).stream()
@@ -966,7 +735,6 @@ public class AssessmentAttemptService {
         int pending = 0;
         int unanswered = 0;
 
-        // Per-lesson performance for strengths / weak-area analysis (diagnostics).
         Map<Long, Integer> lessonItems = new LinkedHashMap<>();
         Map<Long, Integer> lessonCorrect = new LinkedHashMap<>();
         Map<Long, Integer> lessonPending = new LinkedHashMap<>();
@@ -1003,24 +771,6 @@ public class AssessmentAttemptService {
                             .map(Choice::getChoiceText).findFirst().orElse(null);
                 }
             } else if (source != null && "SHORT_ANSWER".equals(source.getQuestionType()) && releaseAnswers) {
-                /* The reference answer for a typed question.
-                 *
-                 * Only multiple choice filled this in, so a learner who got a
-                 * short answer wrong was shown their own wrong string and
-                 * nothing else -- no answer key, no explanation, on a review
-                 * screen whose entire purpose is to say what the answer was.
-                 * The key is on the question's text config (it is what
-                 * `matchesTextAnswer` grades against), for both checking
-                 * methods: EXACT_MATCH marks against it directly and
-                 * AI_SEMANTIC marks meaning against it as the reference.
-                 *
-                 * Accepted variations are deliberately not listed. They are
-                 * spellings of the same answer, and a review that answered
-                 * "what should I have written?" with six near-identical
-                 * strings reads as six different answers.
-                 */
-                // Read off the entity rather than re-queried: findForAttemptByIdIn
-                // fetches textQuestionConfig in its graph, so this is already here.
                 correctChoiceText = Optional.ofNullable(source.getTextQuestionConfig())
                         .map(TextQuestionConfig::getCorrectAnswer)
                         .filter(text -> text != null && !text.isBlank())
@@ -1061,10 +811,6 @@ public class AssessmentAttemptService {
                     programOutputFor(answer),
                     programErrorFor(answer),
                     source == null ? null : source.getDifficultyLevel(),
-                    /* The figures the item was asked with. Past papers carry a
-                       great many -- a stem reading "refer to the diagram" is
-                       not reviewable without it, and the review is the only
-                       place the learner sees the question again. */
                     source == null ? null : source.getImageKey(),
                     source == null || !isMultipleChoice(source.getQuestionType())
                             ? List.of()
@@ -1075,9 +821,6 @@ public class AssessmentAttemptService {
             ));
         }
 
-        // Lesson names in one query. findById per lesson was cheap only because
-        // the persistence context deduped repeats -- it was still one round
-        // trip per distinct lesson on the paper.
         Map<Long, String> lessonNames = lessonItems.isEmpty()
                 ? Map.of()
                 : lessonRepository.findAllById(lessonItems.keySet()).stream()
@@ -1150,11 +893,6 @@ public class AssessmentAttemptService {
         return summaries;
     }
 
-    /**
-     * Every attempt a learner has made on one assessment, newest first —
-     * the attempt-history list. Retakes never remove or overwrite earlier
-     * attempts (see startAttempt), so this always reflects the full history.
-     */
     @Transactional(readOnly = true)
     public List<AttemptSummaryDto> listAttemptsForAssessment(Long examId, Long learnerId) {
         List<AttemptSummaryDto> summaries = new ArrayList<>();
@@ -1181,21 +919,12 @@ public class AssessmentAttemptService {
         return summaries;
     }
 
-    // Internals
 
-    /**
-     * The learner-facing rating of an adaptive attempt: ability translated
-     * onto 0..100 with its tier. Null for a fixed paper, which measures no
-     * ability.
-     */
     static ProficiencyDto proficiencyOf(AssessmentAttempt attempt) {
         if (attempt == null || !attempt.isAdaptive() || attempt.getThetaCurrent() == null) {
             return null;
         }
         double theta = attempt.getThetaCurrent();
-        /* Whole numbers: the rating is read as "out of 100", and the tier is
-           taken from the number the learner sees, so 24.6 is "25, Developing"
-           rather than "25, Novice". */
         double rating = Math.round(IrtModel.proficiencyRating(theta));
         return new ProficiencyDto(
                 BigDecimal.valueOf(rating).setScale(0, RoundingMode.HALF_UP),
@@ -1216,22 +945,7 @@ public class AssessmentAttemptService {
     private String resolveLockReason(Exam exam, Long learnerId) {
         Long certificationId = exam.getCertification().getCertificationId();
 
-        /* An arena is not a certification's assessment.
-         *
-         * A CHALLENGE exam belongs to a certification only because an exam has
-         * to -- that is where its questions were authored. The arena itself is
-         * a platform-wide surface: the IT Olympics are open to whoever the
-         * admin opens them to, by industry, not to whoever happens to have
-         * bought the certification the problems were written against.
-         *
-         * Without this, configuring CodeStrike from any one certification's
-         * bank locked it for every learner not enrolled in that certification
-         * -- which is most of them, and none of whom did anything wrong. The
-         * arena would look unlocked on the challenges page and then refuse
-         * entry, which is the exact failure the lock was meant to prevent.
-         */
         if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())) {
-            // World Cup is Pro; the solo arenas are open, capped in startAttempt.
             if ("worldcup".equals(exam.getTargetScope())
                     && !learnerEntitlementService.hasLearnerEntitlement(
                             learnerId, Entitlements.WORLD_CUP_ACCESS, null)) {
@@ -1244,24 +958,6 @@ public class AssessmentAttemptService {
                 .findFirstByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
                         learnerId, certificationId, LearnerCertification.Status.active);
 
-        /* Two ways to hold a certification, and both must open its assessments.
-         *
-         * A learner who buys it themselves gets a `learner_certifications` row.
-         * One an institution sponsors gets only an
-         * `institution_certification_learners` row -- `LearnerService
-         * .acceptInvitation` never writes the former, and cannot: that table's
-         * `order_detail_id` is NOT NULL, so it models a *purchase* and a
-         * sponsored seat has no order behind it.
-         *
-         * Checking only the first told every invited learner to "enroll in this
-         * certification" for a certification they had just been invited to and
-         * accepted -- the diagnostic, and therefore the whole curriculum behind
-         * it, was unreachable for anyone an institution sponsored.
-         *
-         * `ProgressAnalyticsService.getProgressAnalytics` already tests both
-         * routes for exactly this reason; this is the same test, applied at the
-         * gate that decides whether an assessment can be opened at all.
-         */
         boolean institutionSponsored = institutionCertificationLearnerRepository
                 .existsByLearner_LearnerIdAndInstitutionCert_Certification_CertificationIdAndStatus(
                         learnerId, certificationId, InstitutionCertificationLearner.Status.active);
@@ -1270,9 +966,6 @@ public class AssessmentAttemptService {
             return "Enroll in this certification before taking its assessments.";
         }
         String type = exam.getExamType().getExamTypeText();
-        // Mock exams are premium: lock them for learners without personal Pro or
-        // an eligible institution-sponsored entitlement (shown as locked upfront;
-        // startAttempt also hard-blocks with a structured 403).
         if (TYPE_MOCK.equals(type)
                 && exam.getOwnerDepartment() == null
                 && !learnerEntitlementService.hasLearnerEntitlement(
@@ -1281,15 +974,9 @@ public class AssessmentAttemptService {
         }
         boolean diagnosticSat = diagnosticSat(enrollment.orElse(null), learnerId, certificationId);
 
-        // The diagnostic is a one-time placement check, not a retakeable quiz:
-        // once it has completed the enrollment's gate, block starting another.
         if (TYPE_DIAGNOSTIC.equals(type) && diagnosticSat) {
             return "You have already completed the diagnostic assessment for this certification.";
         }
-        /* Free sits each quiz, middle and major exam once; retaking is Pro.
-           A class's own assessments are the institution's to run, so they are
-           left alone. The submitted-attempt check goes first because it is one
-           cheap EXISTS, and most opens are a first sitting. */
         if (RETAKE_GATED_TYPES.contains(type)
                 && exam.getOwnerDepartment() == null
                 && attemptRepository.existsByExam_ExamIdAndLearnerIdAndStatus(
@@ -1306,37 +993,6 @@ public class AssessmentAttemptService {
         return progressionLockReason(exam, type, learnerId);
     }
 
-    /**
-     * Why the curriculum is not open here yet, or null when it is.
-     *
-     * <p>The curriculum is walked in order: a lesson's quiz must be passed
-     * before the next lesson's, every quiz in a topic before that topic's
-     * module exam, and every module exam in a unit before the unit exam. The
-     * learner is told this on screen ("Retake it to open the next lesson"), and
-     * until now that was the only place it was true -- the rule lived in the
-     * browser, so anyone calling the API directly, or simply visiting a later
-     * lesson's URL, walked straight past it.
-     *
-     * <p>Deliberately narrow, because this gate can lock out learners who have
-     * done nothing wrong:
-     * <ul>
-     *   <li>only the three curriculum types are gated. The diagnostic, mock
-     *       exams, challenges, recall sessions and tutor-generated practice are
-     *       not part of the sequence and are left alone;</li>
-     *   <li>institution-owned papers are exempt, matching the retake gate: a
-     *       class's assessments are the institution's to sequence;</li>
-     *   <li>the test is CLEARED, the same rule the learning road applies: passed,
-     *       and -- when the sitting measured a proficiency -- at Proficient or
-     *       better. The two must agree, or the screen and the server disagree
-     *       about whether a learner may go on. A sitting with no rating clears
-     *       on the pass alone;</li>
-     *   <li>a prerequisite that does not exist cannot block anything -- the
-     *       queries count only real, published-curriculum exams, so a lesson
-     *       with no quiz is not a barrier.</li>
-     * </ul>
-     *
-     * <p>One query, and only for the three gated types.
-     */
     private String progressionLockReason(Exam exam, String type, Long learnerId) {
         if (exam.getOwnerDepartment() != null) {
             return null;
@@ -1377,51 +1033,14 @@ public class AssessmentAttemptService {
         }
     }
 
-    /**
-     * Whether this learner has actually sat this certification's diagnostic.
-     *
-     * `diagnostic_completed_at` on the enrollment is the fast answer, but it is
-     * not the only evidence and it is not always there. The flag is stamped on
-     * the enrollment row that was active when the diagnostic was submitted, so
-     * anything that produces a *different* active row afterwards -- unenrolling
-     * and re-enrolling, an institution re-issuing a seat, a self-enrollment
-     * added alongside a sponsored one -- leaves a learner who has demonstrably
-     * sat the diagnostic looking, to this gate, like they never did. Every
-     * assessment on the certification then refuses to start, while the
-     * curriculum page (which reads their submitted results, not this flag)
-     * shows the whole thing unlocked. That divergence is what a learner
-     * experiences as "start quiz does nothing but say I have not done the
-     * diagnostic".
-     *
-     * So the submitted attempt is treated as the fact and the flag as a cache
-     * of it. Read-only on purpose: this runs inside `getLearnerAssessment`,
-     * which is a `readOnly` transaction, and a gate is not the place to be
-     * repairing rows. `completeDiagnosticGateIfApplicable` still writes the
-     * flag on submit, which keeps the common path a single field read.
-     */
     private boolean diagnosticSat(LearnerCertification enrollment, Long learnerId, Long certificationId) {
-        // Null for a sponsored learner: they hold the certification through an
-        // institution allocation, which has no enrollment row to cache the
-        // flag on. The submitted-attempt check below is the real evidence
-        // anyway -- the flag is only ever a shortcut past it.
         if (enrollment != null && enrollment.getDiagnosticCompletedAt() != null) {
             return true;
         }
-        // Same scope as the gate itself: only the official diagnostic counts,
-        // never a group's own copy. Asked as one COUNT rather than by reading
-        // every submitted attempt back and resolving each one's lazy exam to
-        // look at its type -- that was a round trip per attempt, on a gate that
-        // runs before every assessment page and every attempt start.
         return examRepository.existsSubmittedAttemptOfOfficialType(
                 learnerId, certificationId, TYPE_DIAGNOSTIC, AssessmentAttempt.Status.SUBMITTED);
     }
 
-    /**
-     * Only the OFFICIAL diagnostic gates the curriculum. A group's own
-     * assessment is its own content and must never gate learners outside (or
-     * inside) that group -- which is the {@code ownerDepartment IS NULL} in the
-     * query this delegates to.
-     */
     private boolean publishedDiagnosticExists(Long certificationId) {
         return examRepository.existsOfficialPublishedByType(
                 certificationId, TYPE_DIAGNOSTIC, Exam.Status.PUBLISHED);
@@ -1459,7 +1078,6 @@ public class AssessmentAttemptService {
                 });
     }
 
-    /** Keeps the pre-existing exam_results analytics table in sync. */
     private void recordLegacyExamResult(AssessmentAttempt attempt) {
         try {
             ExamResultId id = new ExamResultId();
@@ -1487,7 +1105,6 @@ public class AssessmentAttemptService {
                                     .setScale(2, java.math.RoundingMode.HALF_UP))
                     .build());
         } catch (Exception e) {
-            // Analytics sync must not fail the submission transaction result.
             log.warn("Could not record legacy exam result for attempt {}: {}",
                     attempt.getAssessmentAttemptId(), e.getMessage());
         }
@@ -1537,9 +1154,6 @@ public class AssessmentAttemptService {
             answer.setProgrammingLanguage(draft.programmingLanguage());
             answer.setDiagramSubmissionData(draft.diagramSubmissionData());
 
-            // The code no longer matches whatever Judge0 last graded — clear
-            // the stale result rather than let an old verdict silently
-            // describe new code. A fresh Run/Check repopulates it.
             if (codeChanged && answer.getExecutionResult() != null) {
                 answer.setExecutionResult(null);
                 answer.setCredit(null);
@@ -1552,7 +1166,6 @@ public class AssessmentAttemptService {
             answer.setLastSavedAt(now);
             attemptAnswerRepository.save(answer);
 
-            // A real answer clears any prior "skipped" state on that item.
             if (attemptQuestion.isSkipped() && hasAnswerContent(draft)) {
                 attemptQuestion.setSkipped(false);
                 attemptQuestionRepository.save(attemptQuestion);
@@ -1588,7 +1201,6 @@ public class AssessmentAttemptService {
         return isMultipleChoice(questionType) ? "MULTIPLE_CHOICE" : questionType;
     }
 
-    /** One item, one observation: every grader awards a share of this. */
     static final BigDecimal UNIT = BigDecimal.ONE;
 
     void scoreAnswer(
@@ -1620,8 +1232,6 @@ public class AssessmentAttemptService {
         }
 
         if ("SHORT_ANSWER".equals(type) && source != null) {
-            // Off the entity the batch loader already fetched it with, rather
-            // than a fresh query for a row that is sitting right here.
             Optional<TextQuestionConfig> config =
                     Optional.ofNullable(source.getTextQuestionConfig());
             if (config.isPresent()
@@ -1634,14 +1244,6 @@ public class AssessmentAttemptService {
                 return;
             }
 
-            // AI_SEMANTIC short answers were falling straight through to
-            // pending. The grader they need already exists and
-            // `rubricGuidanceFor` is already written to return the reference
-            // answer for exactly this checking method -- only the branch
-            // routing them into it was missing, so a question authored to be
-            // marked by meaning rather than by string equality could never be
-            // marked at all. Graded against the same rubric path descriptive
-            // answers use.
             if (config.isPresent()
                     && "AI_SEMANTIC".equalsIgnoreCase(config.get().getCheckingMethod())
                     && gradeDescriptiveAnswer(attemptQuestion, source, answer, points, batch)) {
@@ -1649,16 +1251,11 @@ public class AssessmentAttemptService {
             }
         }
 
-        // AI grading (no admin review): descriptive answers scored against
-        // their authored rubric, immediately finalized.
         if ("DESCRIPTIVE".equals(type) && source != null
                 && gradeDescriptiveAnswer(attemptQuestion, source, answer, points, batch)) {
             return;
         }
 
-        // AI grading: critical-thinking questions whose parent has neither a
-        // programming nor a diagram config are plain analytical sub-question
-        // sets — grade every sub-question in one holistic call.
         if (isWorkspaceType(type) && source != null) {
             String criticalThinkingType = resolveCriticalThinkingType(type, source);
 
@@ -1668,43 +1265,23 @@ public class AssessmentAttemptService {
                 return;
             }
 
-            // Programming is graded deterministically via Judge0. A learner
-            // who ran Check already has that verdict and it is never
-            // re-executed or overwritten here. One who never ran Check used to
-            // be left pending forever, which meant submitting a finished
-            // solution without pressing a button scored nothing and waited on
-            // a manual review that nothing schedules -- so submit now grades
-            // it against the full test set.
             if ("PROGRAMMING".equals(criticalThinkingType)) {
                 if (hasFreshVerdict(answer)) {
-                    // Check already ran this exact code, so it is not re-run --
-                    // but Check marks tests passed only, and CodeStrike is
-                    // weighted. Re-weigh from the stored run.
                     applyCodeStrikeWeightsFromStoredRun(attemptQuestion, answer, points);
                     return;
                 }
                 gradeProgrammingOnSubmit(attemptQuestion, source, answer, points, batch);
-                // Judge0 unreachable, or no test cases authored. Falls through
-                // to the closing branch below so the item is still marked
-                // rather than left pending.
                 if (hasDefinitiveVerdict(answer)) {
                     return;
                 }
             }
 
-            // Deterministic structural grading against the admin's reference
-            // diagram, immediately finalized — no AI, no admin review.
             if ("DIAGRAM".equals(criticalThinkingType)
                     && gradeDiagramAnswer(attemptQuestion, source, answer, points, batch)) {
                 return;
             }
         }
 
-        // An item with nothing submitted needs no evaluator of any kind. This
-        // used to fall into the pending branch below, so leaving a written item
-        // blank produced "awaiting manual review" rather than the zero it
-        // plainly is -- and held up the whole result waiting on a review of an
-        // empty box.
         if (!hasSubmittedContent(answer)) {
             answer.setIsCorrect(false);
             answer.setCredit(BigDecimal.ZERO);
@@ -1712,25 +1289,6 @@ public class AssessmentAttemptService {
             return;
         }
 
-        /* Last resort: mark it rather than park it.
-         *
-         * Everything reaching this line has already been through every grader
-         * that applies to it, including a retry of the AI call and a
-         * rubric-free AI pass -- so this is a diagram with no reference
-         * authored, or a grading service that failed twice.
-         *
-         * The result is closed out at zero instead of pending. That is a
-         * product decision, made explicitly: a result that is complete the
-         * moment it is submitted is worth more here than one that is
-         * withheld for a manual review queue nothing drains. The cost is real
-         * and worth naming -- an item whose reference material was never
-         * authored now scores the learner zero rather than waiting for
-         * someone to author it.
-         *
-         * The feedback says so plainly, so the zero is never silent and a
-         * learner can raise it. `isCorrect=false` (not null) is what keeps it
-         * out of the pending count and inside the graded totals.
-         */
         log.warn("No automatic grader produced a verdict for attemptQuestion {} (type {}); "
                         + "closing it out at zero",
                 attemptQuestion.getAttemptQuestionId(), type);
@@ -1743,26 +1301,6 @@ public class AssessmentAttemptService {
         }
     }
 
-    /**
-     * Groups a submission's answers by what actually grades them, and runs
-     * every family concurrently before any scoring begins.
-     *
-     * Purely deterministic in-process items -- multiple choice, exact-match
-     * short answers -- are deliberately absent: they are decided by a field
-     * comparison that finishes faster than a task could be handed to a thread,
-     * so they are simply graded in the sequential pass that follows.
-     *
-     * Everything else is queued here by family and dispatched by
-     * {@link AttemptGradingBatchService}, which starts all three at once.
-     * Diagrams join them not because a graph comparison is slow on its own, but
-     * because it is the one remaining grader that ran strictly one at a time
-     * inside the scoring loop -- so a paper of diagrams paid for every
-     * comparison in sequence while the AI family sat finished and idle.
-     *
-     * This method does every repository read the tasks need, because it runs on
-     * the transaction-bound thread and the tasks do not. What it hands over are
-     * closures over plain values.
-     */
     GradingBatch prepareGradingBatch(
             List<AssessmentAttemptQuestion> questions,
             Map<Long, AssessmentAttemptAnswer> answersByQuestion,
@@ -1806,10 +1344,6 @@ public class AssessmentAttemptService {
                     continue;
                 }
 
-                // Not hasDefinitiveVerdict: a verdict from code the learner has
-                // since edited is re-run, and it belongs in this concurrent
-                // batch rather than in a lone synchronous call inside the
-                // scoring loop.
                 if ("PROGRAMMING".equals(criticalThinkingType) && !hasFreshVerdict(answer)) {
                     List<TestCaseInputDto> inputs = programmingInputsFor(source);
                     String code = answer.getSubmittedCode();
@@ -1823,11 +1357,6 @@ public class AssessmentAttemptService {
                 }
 
                 if ("DIAGRAM".equals(criticalThinkingType)) {
-                    // Queued only when a usable reference exists. The config
-                    // read has to happen here anyway -- it is a repository call,
-                    // and the task itself may not make one -- and it doubles as
-                    // the check that stops us dispatching work whose only
-                    // possible outcome is INVALID_REFERENCE.
                     diagramGradingRequest(source, answer, points).ifPresent(request ->
                             workload.diagram(key, () -> Optional.ofNullable(
                                     diagramGradingService.grade(request))));
@@ -1838,15 +1367,6 @@ public class AssessmentAttemptService {
         return gradingBatchService.run(workload);
     }
 
-    /**
-     * The comparison request for a diagram answer, or empty when there is
-     * nothing to compare against.
-     *
-     * An absent or blank reference diagram is an authoring gap, never the
-     * learner's fault, and it is the same condition {@link #gradeDiagramAnswer}
-     * treats as "no verdict" -- so recognising it here just avoids paying for
-     * the grader to reach the same conclusion.
-     */
     private Optional<DiagramGradingRequestDto> diagramGradingRequest(
             Question source, AssessmentAttemptAnswer answer, BigDecimal points) {
         return diagramQuestionConfigRepository
@@ -1858,7 +1378,6 @@ public class AssessmentAttemptService {
     }
 
     private boolean isAiSemanticShortAnswer(String type, Question source) {
-        // Same already-loaded config the scorer reads; see resolveCriticalThinkingType.
         return "SHORT_ANSWER".equals(type)
                 && Optional.ofNullable(source.getTextQuestionConfig())
                         .map(config -> "AI_SEMANTIC".equalsIgnoreCase(config.getCheckingMethod()))
@@ -1873,7 +1392,6 @@ public class AssessmentAttemptService {
                 .toList();
     }
 
-    /** Whether the learner put anything at all into this item. */
     static boolean hasSubmittedContent(AssessmentAttemptAnswer answer) {
         return (answer.getLearnerAnswer() != null && !answer.getLearnerAnswer().isBlank())
                 || answer.getSelectedChoiceId() != null
@@ -1882,31 +1400,10 @@ public class AssessmentAttemptService {
                         && !answer.getDiagramSubmissionData().isBlank());
     }
 
-    /** A Check already produced a real verdict for this answer. */
     static boolean hasDefinitiveVerdict(AssessmentAttemptAnswer answer) {
         return !answer.isPendingManualEvaluation() && answer.getIsCorrect() != null;
     }
 
-    /**
-     * A Check verdict produced from the code the learner actually submitted.
-     *
-     * <p>Submit keeps a Check verdict rather than paying Judge0 to reach the
-     * same one twice -- but it was keeping it whatever happened to the code
-     * afterwards, and Check is a button a learner presses while still working.
-     * Press Check on a half-finished attempt, fix the bug, submit: the paper
-     * was marked on the broken draft. Press Check on a working solution, paste
-     * something else over it, submit: the paper was marked on code that is not
-     * in it. The verdict was stale in both directions and neither showed
-     * anywhere -- the learner saw a score for a program they were not looking
-     * at.
-     *
-     * <p>The guard the fix needs was already being written and never read:
-     * {@link #serializeExecutionResult} stamps every stored verdict with a hash
-     * of the code it came from. Comparing it against the submitted code is what
-     * makes "already checked" mean "already checked, and unchanged since".
-     * Anything else -- edited code, a verdict from before the hash was stored,
-     * no verdict at all -- is re-graded at submit against the full test set.
-     */
     private boolean hasFreshVerdict(AssessmentAttemptAnswer answer) {
         if (!hasDefinitiveVerdict(answer)) {
             return false;
@@ -1915,7 +1412,6 @@ public class AssessmentAttemptService {
         return gradedHash != null && gradedHash.equals(hashCode(answer.getSubmittedCode()));
     }
 
-    /** The code hash stored alongside an answer's execution verdict, if any. */
     private String verdictCodeHash(AssessmentAttemptAnswer answer) {
         String payload = answer.getExecutionResult();
         if (payload == null || payload.isBlank()) {
@@ -1929,25 +1425,6 @@ public class AssessmentAttemptService {
         }
     }
 
-    /**
-     * Grades a programming item at submit time for a learner who never ran
-     * Check, using the same deterministic Judge0 path and the same
-     * passed/total scoring that Check applies.
-     *
-     * Separate from {@link #executeProgramming} rather than reusing it: that
-     * method is the interactive entry point and begins with
-     * {@code requireEditable(attempt)} plus an {@code upsertAnswers} write,
-     * both of which are wrong here -- at submit the attempt is already closed
-     * and the code is already persisted.
-     *
-     * Two cases still do not produce a score, and both leave the answer exactly
-     * as it was rather than inventing one:
-     *   - no code submitted, which is an unanswered item and is scored zero;
-     *   - no test cases authored, or Judge0 returning a non-definitive status
-     *     (UNAVAILABLE, UNSUPPORTED_LANGUAGE), where there is nothing to grade
-     *     against and a fabricated verdict would be worse than an honest
-     *     pending.
-     */
     private void gradeProgrammingOnSubmit(
             AssessmentAttemptQuestion attemptQuestion,
             Question source,
@@ -1957,7 +1434,6 @@ public class AssessmentAttemptService {
 
         String code = answer.getSubmittedCode();
         if (code == null || code.isBlank()) {
-            // Nothing was written. That is a zero, not something to review.
             answer.setIsCorrect(false);
             answer.setCredit(BigDecimal.ZERO);
             answer.setPendingManualEvaluation(false);
@@ -1976,7 +1452,6 @@ public class AssessmentAttemptService {
                         it.testCase().getInputData(), it.testCase().getExpectedOutput()))
                 .toList();
 
-        // Normally already run by the batch, alongside every other code item.
         CodeExecutionResultDto result =
                 batch.codeResults().get(attemptQuestion.getAttemptQuestionId());
         if (result == null) {
@@ -1991,9 +1466,6 @@ public class AssessmentAttemptService {
             }
         }
 
-        // The batch hands back an Optional for a reason -- a code result can be
-        // absent. Dereferencing it blind would throw out of the scoring loop and
-        // take the grading of every other item on the paper down with it.
         boolean definitive = result != null
                 && ("COMPLETED".equals(result.status()) || "COMPILE_ERROR".equals(result.status()));
         if (!definitive) {
@@ -2020,16 +1492,6 @@ public class AssessmentAttemptService {
         answer.setPendingManualEvaluation(false);
     }
 
-    /**
-     * CodeStrike is scored on its admin weights, not correctness alone.
-     *
-     * <p>Only on submit, and only for the CodeStrike arena: every other paper
-     * with a programming item is still marked on tests passed. {@code isCorrect}
-     * keeps meaning "passed every test" -- the weights change the credit, not
-     * the verdict. The breakdown is written to the feedback so a learner who
-     * passed every test can see why they did not get full marks.
-     */
-    /** The same weighting, from the run Check stored on the answer. */
     private void applyCodeStrikeWeightsFromStoredRun(
             AssessmentAttemptQuestion attemptQuestion, AssessmentAttemptAnswer answer, BigDecimal points) {
         String payload = answer.getExecutionResult();
@@ -2074,16 +1536,6 @@ public class AssessmentAttemptService {
                 : existing + "\n\n" + breakdown.summary());
     }
 
-    /**
-     * Says so on the answer when a mark is being kept from a Check the learner
-     * ran on different code.
-     *
-     * <p>Reached only when the re-grade could not run at all -- no test cases
-     * authored, or Judge0 unreachable. Keeping their earlier verdict beats
-     * zeroing working code over an outage, but a score that silently belongs to
-     * another version of the program is not something to leave unsaid, and this
-     * is the one line that lets a learner recognise it and raise it.
-     */
     private void noteVerdictFromEarlierCode(AssessmentAttemptAnswer answer) {
         if (hasFreshVerdict(answer) || !hasDefinitiveVerdict(answer)) {
             return;
@@ -2095,13 +1547,6 @@ public class AssessmentAttemptService {
         answer.setFeedback(existing == null || existing.isBlank() ? note : existing + "\n\n" + note);
     }
 
-    /**
-     * Structural (non-AI) diagram grading: compares the learner's submitted
-     * draw.io XML against the admin's reference XML as node/edge graphs
-     * (label similarity, direction, cardinality — see DiagramGradingService)
-     * and awards weighted partial credit. Never fabricates a score when the
-     * reference itself has no gradeable content.
-     */
     private boolean gradeDiagramAnswer(
             AssessmentAttemptQuestion attemptQuestion,
             Question source,
@@ -2109,8 +1554,6 @@ public class AssessmentAttemptService {
             BigDecimal points,
             GradingBatch batch) {
 
-        // Normally already compared by the batch, alongside every other family.
-        // The direct call is the fallback for anything the batch did not cover.
         DiagramGradingResultDto result =
                 batch.diagramResults().get(attemptQuestion.getAttemptQuestionId());
         if (result == null) {
@@ -2123,8 +1566,6 @@ public class AssessmentAttemptService {
         }
 
         if ("INVALID_REFERENCE".equals(result.status())) {
-            // The admin's own reference diagram isn't gradeable — an
-            // authoring gap, never the learner's fault.
             return false;
         }
 
@@ -2149,11 +1590,6 @@ public class AssessmentAttemptService {
         return value == null ? "" : value.trim().toLowerCase();
     }
 
-    /**
-     * Exact-match short-answer scoring: the learner answer is correct when it
-     * matches the configured correct answer or any accepted variation (one per
-     * line), e.g. "SQL" and "Structured Query Language".
-     */
     private static boolean matchesTextAnswer(String learnerAnswer, TextQuestionConfig config) {
         String normalized = normalize(learnerAnswer);
         if (normalized.isEmpty()) {
@@ -2173,21 +1609,7 @@ public class AssessmentAttemptService {
         return false;
     }
 
-    /** PROGRAMMING or DIAGRAM when the parent carries that sub-config, else null (analytical). */
 
-    /**
-     * Whether an item is a workspace item -- one sat in the code editor or on
-     * the diagram canvas rather than in a plain answer box.
-     *
-     * <p>A question can say so two ways, and both are in the database. Older
-     * ones are typed {@code CRITICAL_THINKING} and carry the specialism in a
-     * programming or diagram config; the question bank's editors type them
-     * {@code PROGRAMMING} or {@code DIAGRAM} outright. Every check here used to
-     * test only for the first, so a directly typed coding problem was served as
-     * a textarea, could not be run or checked, and -- worst of the three -- was
-     * never routed to Judge0 or the structural grader when submitted. It was
-     * marked as prose.
-     */
     private static boolean isWorkspaceType(String questionType) {
         return "CRITICAL_THINKING".equals(questionType)
                 || TYPE_PROGRAMMING_ITEM.equals(questionType)
@@ -2197,29 +1619,7 @@ public class AssessmentAttemptService {
     private static final String TYPE_PROGRAMMING_ITEM = "PROGRAMMING";
     private static final String TYPE_DIAGRAM_ITEM = "DIAGRAM";
 
-    /**
-     * Which workspace grader a question needs, read off the question itself.
-     *
-     * <p>Both configs are already on the entity -- they are EAGER one-to-ones,
-     * so they were loaded whether or not this method existed, and asking their
-     * repositories for them was two more round trips for rows already in hand.
-     */
     private String resolveCriticalThinkingType(String questionType, Question source) {
-        /* The declared type first, the configs only as the fallback.
-         *
-         * Reading the configs alone repeats, one layer down, the bug the
-         * javadoc on isWorkspaceType describes: a question the bank types
-         * PROGRAMMING or DIAGRAM outright, but whose sub-config row is missing
-         * -- never authored, or lost -- resolved to null here and was handed to
-         * the analytical grader, which marked submitted source code or draw.io
-         * XML as though it were an essay. An item that says what it is should
-         * be graded as what it says, and reach its own grader's honest "no test
-         * cases" / "no reference diagram" branch instead of a rubric score for
-         * prose it isn't.
-         *
-         * It also settles the case of a question carrying both configs: a
-         * DIAGRAM item with a leftover programming config used to be sent to
-         * Judge0 because that check came first. */
         if (TYPE_PROGRAMMING_ITEM.equals(questionType)) {
             return "PROGRAMMING";
         }
@@ -2235,35 +1635,14 @@ public class AssessmentAttemptService {
         return null;
     }
 
-    /** True on a successful (or intentionally rubric-less) resolution; the caller returns either way. */
-    /**
-     * One retry around the AI grader.
-     *
-     * The call is a network round trip to the Python service and its failures
-     * are mostly transient. A single retry converts most of them into a real
-     * mark, which matters more now that a failure no longer parks the item for
-     * a human — it falls through to the zero-with-explanation branch instead.
-     */
-    /** Attempts before an answer is closed out unmarked. */
     private static final int GRADING_ATTEMPTS = 3;
 
-    /**
-     * Retries the AI grader, backing off between tries.
-     *
-     * Three attempts with a short pause rather than one immediate retry: the
-     * failures worth retrying are transient -- a rate limit, a cold model, a
-     * dropped connection -- and hammering the same instant twice mostly
-     * reproduces them. The learner is on a loading screen throughout, so a few
-     * seconds spent getting a real mark beats returning a zero nobody earned.
-     */
     private Optional<AnswerGradingResultDto> gradeWithRetry(AnswerGradingRequestDto request) {
         for (int attempt = 1; attempt <= GRADING_ATTEMPTS; attempt++) {
             Optional<AnswerGradingResultDto> graded;
             try {
                 graded = aiAnswerGradingService.grade(request);
             } catch (AiServiceException permanent) {
-                // The request itself is wrong -- a missing route, a bad payload,
-                // a rejected key. No number of retries fixes any of those.
                 log.error("AI grading cannot succeed for this request; not retrying: {}",
                         permanent.getMessage());
                 return Optional.empty();
@@ -2287,7 +1666,6 @@ public class AssessmentAttemptService {
         return Optional.empty();
     }
 
-    /** The grading request for a descriptive or AI-semantic short answer. */
     private AnswerGradingRequestDto descriptiveGradingRequest(
             AssessmentAttemptQuestion attemptQuestion,
             Question source,
@@ -2307,15 +1685,6 @@ public class AssessmentAttemptService {
             BigDecimal points,
             GradingBatch batch) {
 
-        // No rubric authored is no longer a reason to stop. The question text
-        // is itself a standard to mark against, and an AI judgement of whether
-        // the answer actually answers the question beats parking the item for a
-        // review queue that nothing drains. A rubric, where one exists, still
-        // takes precedence -- this only changes what happens when there is none.
-        //
-        // The batch will normally have graded this already, concurrently with
-        // every other written answer on the paper; the direct call is the
-        // fallback for anything the batch did not cover.
         Optional<AnswerGradingResultDto> graded = Optional.ofNullable(
                 batch.aiResults().get(attemptQuestion.getAttemptQuestionId()));
         if (graded.isEmpty()) {
@@ -2333,20 +1702,6 @@ public class AssessmentAttemptService {
         return true;
     }
 
-    /**
-     * Marks a fill-in-the-blank item: several blanks in one passage, each with
-     * one right term, each worth its share of the item.
-     *
-     * <p>Returns false when this short answer is an ordinary one -- no
-     * sub-questions -- so the caller falls through to its single-answer path.
-     *
-     * <p>Marked here rather than by the AI grader because a blank has exactly
-     * one right term and the stem's candidate list makes sure of it. Sending it
-     * to a model would be a paid call, and a slower attempt, to ask whether
-     * "Usability" means the same as "Usability" -- with a chance of it saying
-     * no. Partial credit is the point: three blanks right out of four scores
-     * three quarters, not zero.
-     */
     private boolean gradeFillInTheBlank(
             Question source, AssessmentAttemptAnswer answer, BigDecimal points,
             Map<Long, List<Question>> subQuestionsByParentId) {
@@ -2361,9 +1716,6 @@ public class AssessmentAttemptService {
 
         BigDecimal earned = BigDecimal.ZERO;
         int correctBlanks = 0;
-        // Per-blank rows, so the results screen can show each blank with what
-        // the learner typed and whether it scored. Without these the review
-        // has the blanks but no marks against them.
         List<Map<String, Object>> rows = new ArrayList<>();
 
         for (Question blank : blanks) {
@@ -2385,32 +1737,21 @@ public class AssessmentAttemptService {
             row.put("learnerAnswer", typed);
             row.put("earnedPoints", correct ? max : BigDecimal.ZERO);
             row.put("maxPoints", max);
-            // The expected term is the answer key, and whether a learner may
-            // see it is the exam's release-answers decision, made elsewhere.
-            // Saying only whether this blank scored keeps that decision intact.
             row.put("feedback", correct ? "Correct" : "Not the expected term");
             rows.add(row);
         }
 
         answer.setCredit(earned);
-        // "Correct" means every blank, so the item reads as right or wrong in
-        // the attempt summary while the score still reflects partial credit.
         answer.setIsCorrect(correctBlanks == blanks.size());
         answer.setPendingManualEvaluation(false);
         try {
             answer.setSubAnswerScores(objectMapper.writeValueAsString(rows));
         } catch (Exception e) {
-            // The marks are already on the answer; only the per-blank
-            // breakdown is lost, and a review without it still shows the score.
             log.warn("Could not serialize fill-in-the-blank sub-answer scores");
         }
         return true;
     }
 
-    /**
-     * The grading request for an analytical critical-thinking item, or null
-     * when it has no sub-questions and therefore nothing to grade.
-     */
     private AnswerGradingRequestDto criticalThinkingGradingRequest(
             AssessmentAttemptQuestion attemptQuestion,
             Question source,
@@ -2505,11 +1846,6 @@ public class AssessmentAttemptService {
         return criteria;
     }
 
-    /**
-     * Splits an item's single unit of credit equally across its
-     * sub-questions. The last sub-question absorbs the rounding remainder so
-     * the shares always sum to exactly the whole.
-     */
     private Map<Long, BigDecimal> splitPointsAcrossSubQuestions(
             List<Question> subQuestions, BigDecimal totalPoints) {
         Map<Long, BigDecimal> allocation = new LinkedHashMap<>();
@@ -2540,7 +1876,6 @@ public class AssessmentAttemptService {
         return allocation;
     }
 
-    /** Parses a critical-thinking learner_answer JSON blob ({subQuestionId: text}) safely. */
     private Map<Long, String> parseSubAnswerText(String learnerAnswer) {
         Map<Long, String> result = new LinkedHashMap<>();
         if (learnerAnswer == null || learnerAnswer.isBlank()) {
@@ -2555,7 +1890,6 @@ public class AssessmentAttemptService {
                 try {
                     result.put(Long.valueOf(entry.getKey()), entry.getValue().asText(""));
                 } catch (NumberFormatException ignored) {
-                    // skip malformed keys
                 }
             });
         } catch (Exception e) {
@@ -2602,24 +1936,9 @@ public class AssessmentAttemptService {
         return share >= bktProperties.getPartialCreditCorrectThreshold();
     }
 
-    /**
-     * Sub-questions render as a normal ordered list in review/results (tabs
-     * are attempt-answering UI only). Merges the sub-question text from the
-     * question tree with the persisted AI score/feedback so review is a pure
-     * read — grading never re-runs here.
-     */
     List<SubQuestionAnswerReviewDto> buildSubQuestionAnswerReviews(
             Question source, AssessmentAttemptAnswer answer,
             Map<Long, List<Question>> subQuestionsByParentId) {
-        // Any parent with parts, not just workspace ones.
-        //
-        // Gated on isWorkspaceType, a fill-in-the-blank came back with an
-        // empty list: the learner saw partial marks on the question and no
-        // blanks at all -- not what they typed, not what was right, on the
-        // screen whose whole purpose is to tell them.
-        //
-        // A question with no parts still returns an empty list. The parts of the
-        // whole paper arrive in one query from getResult; this only reads them.
         if (source == null) {
             return List.of();
         }
@@ -2650,14 +1969,6 @@ public class AssessmentAttemptService {
         return reviews;
     }
 
-    /**
-     * Reads the persisted node/edge comparison from a diagram Check/submit
-     * (see gradeDiagramAnswer) so a learner can see exactly which required
-     * elements were found vs. missing — not just a final score. Gated by
-     * the exam's release-answers setting, same as the MCQ answer key,
-     * since the "expected" side of the comparison is reference-diagram
-     * content.
-     */
     private List<DiagramElementReviewDto> buildDiagramElementReviews(
             AssessmentAttemptAnswer answer, boolean releaseAnswers) {
         if (!releaseAnswers || answer == null || answer.getDiagramGradingResult() == null) {
@@ -2688,16 +1999,6 @@ public class AssessmentAttemptService {
         }
     }
 
-    /**
-     * The per-test-case breakdown of a programming answer, read back from the
-     * verdict stored on it.
-     *
-     * <p>Labels come from the item's own snapshot, so a case is named on the
-     * result screen the same way it was named in the editor the learner sat in.
-     * Inputs and expected outputs come from the question's test cases and are
-     * filtered by {@link ProgrammingTestReviewDto}'s disclosure rule, not by
-     * whatever happens to be in the stored payload.
-     */
     private List<ProgrammingTestReviewDto> buildProgrammingTestReviews(
             AssessmentAttemptQuestion attemptQuestion,
             AssessmentAttemptAnswer answer,
@@ -2751,11 +2052,6 @@ public class AssessmentAttemptService {
         }
     }
 
-    /**
-     * What the graded program printed, for the result screen: the output of the
-     * first sample case it ran on. A run with no test cases at all has nothing
-     * hidden to protect, so its plain output is used.
-     */
     private String programOutputFor(AssessmentAttemptAnswer answer) {
         JsonNode payload = gradedPayload(answer);
         if (payload == null) {
@@ -2773,11 +2069,6 @@ public class AssessmentAttemptService {
         return null;
     }
 
-    /**
-     * The graded program's error text. A compile error never depends on input,
-     * so it is always shown. A runtime error is shown only when the case it came
-     * from -- the first case to raise one -- is a sample case.
-     */
     private String programErrorFor(AssessmentAttemptAnswer answer) {
         JsonNode payload = gradedPayload(answer);
         if (payload == null || !payload.hasNonNull("error")) {
@@ -2845,7 +2136,6 @@ public class AssessmentAttemptService {
         for (AssessmentAttemptQuestion attemptQuestion : questions) {
             LearnerAttemptQuestionDto dto = toLearnerQuestion(attemptQuestion);
             if (attempt.isAdaptive()) {
-                // The answer key rides with a served item so the client marks it on the spot.
                 dto = adaptiveAttemptService.getObject().decorate(attempt, attemptQuestion, dto);
             }
             questionDtos.add(dto);
@@ -2879,10 +2169,6 @@ public class AssessmentAttemptService {
                 exam.getTitle(),
                 exam.getExamType().getExamTypeText(),
                 attempt.getAttemptNumber(),
-                /* The entity's LocalDateTimes are wall-clock in the JVM's zone
-                   (Asia/Manila, set in RebyuApplication). Stamping them UTC put
-                   the deadline eight hours out: a thirty-minute exam showed a
-                   509-minute clock. */
                 attempt.getStartedAt() == null
                         ? null : attempt.getStartedAt().atZone(java.time.ZoneId.systemDefault()).toOffsetDateTime(),
                 attempt.getExpiresAt() == null
@@ -2897,14 +2183,6 @@ public class AssessmentAttemptService {
         );
     }
 
-    /**
-     * The parts of a paper's snapshots that do not live on the question rows,
-     * gathered for every question at once.
-     *
-     * <p>Two queries, whatever the paper's size. See its use in
-     * {@link #startAttempt} for why the per-question form it replaces was the
-     * dominant cost of opening an assessment.
-     */
     record SnapshotContext(
             Map<Long, List<Question>> subQuestionsByParentId,
             Map<Long, List<QuestionRubricCriterion>> rubricByQuestionId) {
@@ -2945,17 +2223,6 @@ public class AssessmentAttemptService {
         return new SnapshotContext(subQuestions, rubric);
     }
 
-    /**
-     * Builds the learner-safe snapshot JSON for one question: choices without
-     * correct flags/explanations, starter code, diagram type + instructions,
-     * and sub-question prompts. Answer keys never enter the snapshot.
-     *
-     * <p>Reads only what it was handed: the question entity (loaded with its
-     * choices and its three type configs by
-     * {@link QuestionRepository#findForAttemptByIdIn}) and the batched
-     * {@link SnapshotContext}. It issues no query of its own -- see
-     * {@link #buildSnapshotContext}.
-     */
     String buildLearnerSafeSnapshot(Question question, SnapshotContext context) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("questionImageKey", question.getImageKey());
@@ -2977,8 +2244,6 @@ public class AssessmentAttemptService {
             if (programmingConfig != null) {
                 data.put("criticalThinkingType", "PROGRAMMING");
                 data.put("starterCode", programmingConfig.getStarterCode());
-                // Learner-safe test metadata: sample inputs may show;
-                // hidden cases are label-only, never expected output.
                 List<Map<String, Object>> tests = new ArrayList<>();
                 int index = 1;
                 int sampleNo = 1;
@@ -2999,19 +2264,9 @@ public class AssessmentAttemptService {
                 data.put("criticalThinkingType", "DIAGRAM");
                 data.put("diagramType", diagramConfig.getDiagramType());
                 data.put("instructions", diagramConfig.getInstructions());
-                // reference diagram XML/JSON is the answer key -- excluded
             }
         }
 
-        // Snapshotted for ANY question that has parts, not just workspace ones.
-        //
-        // Inside the workspace branch this only ran for critical-thinking
-        // items, so a fill-in-the-blank -- a SHORT_ANSWER whose parts are its
-        // blanks -- reached the learner with an empty list. The page then had
-        // no blanks to draw and fell back to one answer box, and since each
-        // blank is marked separately every one of them was marked wrong.
-        //
-        // A question with no parts still gets an empty list, exactly as before.
         List<Map<String, Object>> subQuestions = new ArrayList<>();
         for (Question sub : context.subQuestionsOf(question.getQuestionId())) {
             Map<String, Object> safe = new LinkedHashMap<>();
@@ -3021,8 +2276,6 @@ public class AssessmentAttemptService {
         }
         data.put("subQuestions", subQuestions);
 
-        // Backend-driven rubric (diagram/descriptive): learner-safe name + max
-        // points only. Awarded points are never snapshotted.
         List<QuestionRubricCriterion> criteria = context.rubricOf(question.getQuestionId());
         if (!criteria.isEmpty()) {
             List<Map<String, Object>> rubric = new ArrayList<>();
@@ -3071,9 +2324,6 @@ public class AssessmentAttemptService {
             }
         }
 
-        // Repair learner-safe output for attempts created before MCQ was
-        // normalized to MULTIPLE_CHOICE. Only choice text/media is copied;
-        // correct flags and explanations remain server-side.
         if (choices.isEmpty() && isMultipleChoice(attemptQuestion.getQuestionType())) {
             questionRepository.findById(attemptQuestion.getSourceQuestionId())
                     .ifPresent(source -> source.getChoices().forEach(choice ->
@@ -3116,10 +2366,6 @@ public class AssessmentAttemptService {
         );
     }
 
-    // Diagram Check — saves the current diagram and previews the rubric.
-    // The actual structural grade (DiagramGradingService, see scoreAnswer /
-    // gradeDiagramAnswer) is computed once, definitively, at submit time —
-    // Check never scores, so re-checking a diagram is always safe.
 
     @Transactional
     public DiagramCheckResultDto checkDiagram(
@@ -3133,12 +2379,9 @@ public class AssessmentAttemptService {
                     "This item is not a diagram question.");
         }
 
-        // Persist the latest diagram before "checking" (spec requirement).
         upsertAnswers(attempt, List.of(new AttemptAnswerDraftDto(
                 attemptQuestionId, null, null, null, null, request.diagramData())));
 
-        // No diagram auto-grader yet — return the rubric as PENDING and never
-        // expose the reference diagram or private evaluation logic.
         return new DiagramCheckResultDto(
                 "PENDING",
                 "Your diagram has been saved. It will be evaluated against the rubric "
@@ -3146,23 +2389,6 @@ public class AssessmentAttemptService {
                 readSnapshotRubric(question));
     }
 
-    /**
-     * Marks one choice answer while the attempt is still open, so a runner that
-     * shows its verdict between questions can say what the server made of it
-     * rather than what the browser guessed.
-     *
-     * <p>Correctness is read the same way {@link #scoreAnswer} reads it -- the
-     * selected choice against the source question's own {@code isCorrect} --
-     * so a verdict shown here and the mark awarded at submission cannot
-     * disagree. The answer is saved first, exactly as the diagram check saves
-     * before checking: the attempt, not this call, remains the record of what
-     * was answered.
-     *
-     * <p>Which correct choice it was, and why, are gated on the exam's
-     * {@code effectiveReleaseAnswers}. An exam that withholds its answers after
-     * submission must not hand them out mid-paper, so those callers get the
-     * verdict alone.
-     */
     @Transactional
     public ChoiceCheckResultDto checkChoice(
             Long attemptId, Long attemptQuestionId, ChoiceCheckRequestDto request) {
@@ -3231,9 +2457,6 @@ public class AssessmentAttemptService {
         return rubric;
     }
 
-    // Programming Run / Check — deterministic Judge0 execution, no AI.
-    // Run grades against sample tests only (quick feedback); Check grades
-    // against every configured test case and finalizes the answer's score.
 
     @Transactional
     public ExecutionResultDto runProgramming(
@@ -3242,15 +2465,6 @@ public class AssessmentAttemptService {
                 attemptId, attemptQuestionId, request, AssessmentAttemptExecution.Mode.RUN);
     }
 
-    /**
-     * Not offered while an attempt is being answered.
-     *
-     * <p>Check graded the code against every test case mid-attempt, which let a
-     * learner edit until the tests went green instead of answering the question.
-     * The test cases are run once, by the marker, when the attempt is submitted
-     * (see {@link #gradeProgrammingOnSubmit}); Run only shows what the program
-     * prints.
-     */
     @Transactional
     public ExecutionResultDto checkProgramming(
             Long attemptId, Long attemptQuestionId, ProgrammingRunRequestDto request) {
@@ -3270,9 +2484,6 @@ public class AssessmentAttemptService {
                     "This item is not a programming question.");
         }
 
-        // Run/Check always saves the current code first (spec requirement);
-        // if the code changed since the last run, this also clears the prior
-        // stale execution result (see upsertAnswers).
         upsertAnswers(attempt, List.of(new AttemptAnswerDraftDto(
                 attemptQuestionId, null, null, request.code(), request.language(), null)));
 
@@ -3291,8 +2502,6 @@ public class AssessmentAttemptService {
 
         LocalDateTime now = LocalDateTime.now();
         if (scopedTestCases.isEmpty()) {
-            // Nothing configured to run against (or no sample cases for Run) —
-            // never fabricate a result.
             String message = allTestCases.isEmpty()
                     ? "No test cases are configured for this item yet."
                     : "No sample test cases are available for Run — use Check to grade against all tests.";
@@ -3350,14 +2559,6 @@ public class AssessmentAttemptService {
                 result.error());
     }
 
-    /**
-     * Run: execute the learner's code once and hand back what it printed.
-     *
-     * <p>No expected output is compared and nothing is stored on the answer, so
-     * a run can never become a verdict or a score. The first sample test's input
-     * is fed to stdin, so a program written to read input does not simply crash
-     * on an empty stream -- the question's own example is the natural input.
-     */
     private ExecutionResultDto runForOutputOnly(
             AssessmentAttempt attempt, AssessmentAttemptQuestion attemptQuestion,
             ProgrammingRunRequestDto request) {
@@ -3417,7 +2618,6 @@ public class AssessmentAttemptService {
 
     private record IndexedTestCase(int index, ProgrammingTestCase testCase) {}
 
-    /** Loads a source question's programming test cases with a stable 1-based index matching the snapshot. */
     private List<IndexedTestCase> loadIndexedProgrammingTestCases(Question source) {
         return programmingQuestionConfigRepository.findByQuestion_QuestionId(source.getQuestionId())
                 .map(config -> {
@@ -3431,13 +2631,6 @@ public class AssessmentAttemptService {
                 .orElse(List.of());
     }
 
-    /**
-     * Persists the Judge0 result onto the answer's execution payload (code
-     * hash, output, status, per-test results, time/memory) and — only for
-     * Check, and only on a definitive outcome — finalizes earned points.
-     * Run never scores; an infra-level UNAVAILABLE/UNSUPPORTED_LANGUAGE
-     * result never scores either (never fabricate on a Judge0 failure).
-     */
     private void applyExecutionResultToAnswer(
             AssessmentAttemptQuestion attemptQuestion,
             AssessmentAttemptExecution.Mode mode,
@@ -3494,10 +2687,6 @@ public class AssessmentAttemptService {
             row.put("sample", testResult.sample());
             row.put("passed", testResult.passed());
             row.put("status", testResult.status());
-            // What the learner's program actually printed, kept for the result
-            // screen -- the difference between "case 2 failed" and being able
-            // to see why. Kept for hidden cases too: they are shown in full once
-            // the attempt has been submitted (see buildProgrammingTestReviews).
             row.put("actualOutput", testResult.actualOutput());
             tests.add(row);
         }
@@ -3534,11 +2723,6 @@ public class AssessmentAttemptService {
         return result.output();
     }
 
-    /**
-     * Overlays real PASSED/FAILED/etc. statuses onto the learner-safe test list.
-     * A sample test also carries its expected output and what the program
-     * printed for it; a hidden test never carries either.
-     */
     private List<LearnerTestCaseDto> mergeTestStatuses(
             List<LearnerTestCaseDto> learnerTests, CodeExecutionResultDto result,
             List<IndexedTestCase> ranTestCases) {
@@ -3601,7 +2785,6 @@ public class AssessmentAttemptService {
                 .toList();
     }
 
-    /** Reads the learner-safe test metadata already stored in the snapshot. */
     @SuppressWarnings("unchecked")
     private List<LearnerTestCaseDto> readSnapshotTestCases(AssessmentAttemptQuestion attemptQuestion) {
         try {

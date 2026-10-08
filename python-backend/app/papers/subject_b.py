@@ -38,9 +38,6 @@ ANSWER_GROUP_RE = re.compile(r"^\s*Answer group\s*$", re.I)
 QUESTION_RE = re.compile(r"^\s*Q(\d+)\.\s*(.*)$")
 CHOICE_RE = re.compile(r"^\s*([a-j])\)\s*(.*)$")
 
-#: Lines belonging to a program listing are recognised by their indentation
-#: and by the vocabulary of the pseudo-code the paper uses. They are kept as
-#: separate lines rather than joined into the surrounding prose.
 PROGRAM_TOKENS = ("integer", "for (", "if (", "endif", "endfor", "while (",
                   "endwhile", "return", "output", "elseif", "else", "○",
                   "procedure", "function", "boolean", "string:", "real:")
@@ -144,11 +141,8 @@ def parse(name):
             elif current:
                 choices[current] = (choices[current] + " " + stripped).strip()
             else:
-                # The column headers ("A", "B") sit between the heading and
-                # the first option and are not part of any choice.
                 continue
 
-        # Preserve the program's line structure; join ordinary prose.
         rendered, paragraph = [], []
         for line in stem_lines:
             if looks_like_program(line):

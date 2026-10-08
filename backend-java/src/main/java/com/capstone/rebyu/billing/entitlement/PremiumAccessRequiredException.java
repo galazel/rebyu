@@ -2,10 +2,6 @@ package com.capstone.rebyu.billing.entitlement;
 
 import lombok.Getter;
 
-/**
- * Thrown when a learner requests a premium feature without personal Pro or an
- * eligible institution-sponsored entitlement. Rendered as a structured 403.
- */
 @Getter
 public class PremiumAccessRequiredException extends RuntimeException {
 

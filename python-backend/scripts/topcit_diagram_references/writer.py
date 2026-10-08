@@ -13,8 +13,6 @@ from sqlalchemy import text
 
 from app.db.session import SessionLocal
 
-#: Separates the scenario from the numbered tasks in the stored stem. Also what
-#: the resume query looks for to tell a rewritten question from an old one.
 MARKER = "\n\nTasks\n"
 
 PROCESS_LEGEND = [

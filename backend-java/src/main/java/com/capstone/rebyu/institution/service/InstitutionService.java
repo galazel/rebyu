@@ -36,11 +36,6 @@ public class InstitutionService {
         return toDtoWithAggregates(findEntity(id));
     }
 
-    /**
-     * The mapper only carries the entity's own columns; the admin list also
-     * needs learner/certification counts and a status, none of which exist on
-     * Institution itself.
-     */
     private InstitutionDto toDtoWithAggregates(Institution entity) {
         InstitutionDto dto = institutionMapper.toDto(entity);
         dto.setCertificationCount(

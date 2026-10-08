@@ -65,20 +65,8 @@ export default function LearnerLayout() {
   usePortalTheme()
   const navigate = useNavigate()
   const location = useLocation()
-  // The topic study page is a full-bleed reading surface with its own fixed
-  // sidebar — `.rebyu-page`'s 1440px cap would otherwise re-centre it and
-  // strand a wide gutter of unused width on large screens.
   const isTopicPage = /^\/learner\/learning\/[^/]+\/topics\/[^/]+$/.test(location.pathname)
-  // The curriculum page opens on a full-bleed ink band, which has to reach both
-  // edges of the window to read as one. It keeps the top nav — unlike the topic
-  // page it is still a portal screen — so it only drops `.rebyu-page`'s cap and
-  // padding and owns its own gutters from there.
   const isCurriculumPage = /^\/learner\/learning\/[^/]+$/.test(location.pathname)
-  /* The certification page is a board of tiles that should fill the window the
-     way the analytics board does. Inside `.rebyu-page` it was capped twice --
-     once by the wrapper and again by its own container -- which left a wide
-     empty gutter down both sides on a large screen and made the page look like
-     a narrow column floating on the ground colour. It owns its own gutters. */
   const isCertificationDetailPage = /^\/learner\/certifications\/[^/]+$/.test(location.pathname)
   const { user: authUser, logout: authLogout } = useAuth()
   const [searchValue, setSearchValue] = useState("")
@@ -90,11 +78,6 @@ export default function LearnerLayout() {
     initialData: readLearnerPortalSnapshot,
     initialDataUpdatedAt: 0,
     staleTime: 30_000,
-    /* This one gates the whole learner shell -- while it has no data at all,
-       every page under it is a skeleton. Leaving the portal for longer than the
-       default five-minute cache lifetime and coming back therefore meant a cold
-       load of every page, not just the one being opened. Kept for an hour so a
-       return is instant and the refresh happens behind the page already drawn. */
     gcTime: 60 * 60_000,
   })
 
@@ -104,23 +87,9 @@ export default function LearnerLayout() {
     }
   }, [query.data])
 
-  /* Start the analytics board's own request now, next to the portal request,
-     instead of after it.
 
-     `query` below gates `<Outlet>`: until the portal responds every page under
-     this shell is a skeleton and none of them has mounted, so the analytics
-     board could not begin loading until the portal had finished -- two waits in
-     series on every refresh, each of them a round trip to a database an ocean
-     away plus the board's own calls to the BKT service.
 
-     The board keeps its certification in the query string precisely so it can
-     be read here, before anything has resolved. Prefetching under the shared
-     key means the `useQuery` the board runs when it finally mounts attaches to
-     this same request rather than starting a second one -- so the two waits
-     overlap and the refresh costs the slower of them, not their sum.
 
-     Only for the board's own route: no other page reads this key, and
-     prefetching it elsewhere would be a request nobody is going to render. */
   const queryClient = useQueryClient()
   const isProgressBoardRoute = /^\/learner\/(analytics|progress)\/?$/.test(location.pathname)
   const prefetchCertificationId = isProgressBoardRoute
@@ -145,8 +114,6 @@ export default function LearnerLayout() {
     learner: authUser,
   }
   const displayName = getLearnerDisplayName(shellData)
-  /* Read off whichever of the two the shell is serving: the identity stands in
-     until the portal call lands, and the learner row carries it after. */
   const avatarUrl = useAvatarUrl(
     shellData?.learner?.avatarKey ?? shellData?.identity?.avatarKey ?? null
   )
@@ -155,10 +122,6 @@ export default function LearnerLayout() {
     query.data?.identity?.email ??
     authUser?.email ??
     ""
-  // The stored feed, the same one admins and institutions see. Invitations and
-  // certification assignments are stored notifications too now, so nothing is
-  // made up here from portal data -- an item that could not be marked read or
-  // deleted, and was missing from the notifications page.
   const inbox = useNotifications()
 
   const outletContext = useMemo(
@@ -179,25 +142,11 @@ export default function LearnerLayout() {
     navigate("/login", { replace: true })
   }
 
-  /* Which loading shape this route should show. Used both while the portal
-     query is in flight and as the Suspense fallback for the page's own chunk,
-     because from the learner's side those are the same wait. */
   function RouteSkeleton() {
-  /* Navigation waits show the one shared loading screen (LoadingSignal),
-     not a page-shaped skeleton, so every wait in the app looks the same. */
   return <LoadingSignal />
 }
 
-  /* `rebyu-ds` sits on the shell rather than on each page. The pages that had
-     it were opting in one at a time, which is why a learner moving from the
-     curriculum to their practice history crossed a visible border between two
-     different design systems. Scoped here, every route under the learner
-     portal resolves the same tokens and the same type voice.
 
-     `netacad-portal` stays alongside it. The two occupy different token
-     namespaces — semantic shadcn variables there, `--color-rb-*` here — so the
-     shadcn primitives the portal is built from keep working while anything
-     reaching for an `rb-` token now finds one. */
   return (
     <div className="rebyu-ds netacad-portal learner-portal flex min-h-screen flex-col">
       {!isTopicPage ? (
@@ -256,9 +205,6 @@ export default function LearnerLayout() {
                   <FilesIcon />
                   Library
                 </DropdownMenuItem>
-                {/* My Learning and the mistake bank sit together: the two
-                    places a learner returns to rather than discovers, and no
-                    longer a spot in the top nav of their own. */}
                 <DropdownMenuItem onClick={() => navigate("/learner/learning")}>
                   <BookOpenCheck />
                   My Learning
@@ -284,11 +230,6 @@ export default function LearnerLayout() {
       ) : null}
 
         <main
-          /* The bottom padding is what keeps the last of a page clear of the
-             mobile bar, which is fixed over it. On the full-bleed pages `!p-0`
-             was silently taking it away again -- padding is padding, and the
-             important one wins -- so those pages need it restored explicitly
-             rather than inheriting it from the first clause. */
           className={`rebyu-page ${isTopicPage ? "" : "pb-24 lg:pb-8"} ${
             isTopicPage || isCurriculumPage || isCertificationDetailPage
               ? "!max-w-none !gap-0 !p-0"
@@ -304,9 +245,6 @@ export default function LearnerLayout() {
           ) : !query.data ? (
             <RouteSkeleton />
           ) : (
-            /* Inside the shell, not around it. The nav, the status strip and
-               the mobile bar stay painted while the next page's chunk loads --
-               only the content region waits. */
             <>
               {query.isFetching ? (
                 <div className="mb-4 flex items-center gap-2 rounded-rb-card border border-border bg-card/80 px-4 py-2 text-xs text-muted-foreground">
@@ -322,18 +260,8 @@ export default function LearnerLayout() {
         </main>
       {!isTopicPage ? <LearnerMobileNavigation /> : null}
 
-      {/* Outside <main>, so a scheduled session fires on whatever page the
-          learner is on and survives navigation between them.
 
-          Here rather than in main.jsx beside <XpAwardModal>: this only ever
-          concerns a signed-in learner, and the layout is what already
-          guarantees that. Hosted at the root it would need its own auth and
-          role checks to avoid polling study plans for logged-out visitors and
-          for admins. The cost is that it stops while the learner is outside
-          /learner/*, which is the right trade -- there is no study session to
-          run on the login page. */}
       <StudyActivityHost />
-      {/* A running Pomodoro's timer, break lock and prompts, on every learner page. */}
       <PomodoroOverlay />
     </div>
   )

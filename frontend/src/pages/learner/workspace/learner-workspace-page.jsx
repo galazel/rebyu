@@ -4,19 +4,6 @@ import { BookOpen, ChevronRight, Layers, Target } from "@/components/icons"
 import { RebyuCard } from "@/components/rebyu/rebyu-ui.jsx"
 import { NotConnectedNote } from "./workspace-shared.jsx"
 
-/**
- * Study Workspace — the hub.
- *
- * <p>Three separate features, each with its own screen and its own route. They
- * share an upload step and nothing else: a learner building a deck of cards,
- * writing a quiz, and reading a document with the tutor are doing three
- * different jobs. Folding two of them into buttons inside the third made the
- * smaller two read as afterthoughts of the reader rather than features in their
- * own right, which is not what they are.
- *
- * <p>UI only — see the note at the foot of this page, and the BACKEND: markers
- * on each feature screen.
- */
 
 const FEATURES = [
   {
@@ -42,7 +29,6 @@ const FEATURES = [
   },
 ]
 
-/* Tailwind cannot see `bg-rb-${tone}-wash`, so the classes are written out. */
 const TONE_CLASSES = {
   beetle: "bg-rb-beetle-wash text-rb-beetle-lip",
   macaw: "bg-rb-macaw-wash text-rb-macaw-lip",

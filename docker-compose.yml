@@ -1,26 +1,8 @@
 services:
-  # --- Infrastructure ---------------------------------------------------
-  # Postgres is Supabase and vectors are Qdrant Cloud; both are reached over
-  # the internet with the URLs in the .env files, so neither runs here.
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     environment:
-      # 24 hours, up from the 30-minute default.
-      #
-      # A certification generation is one message whose handler runs the whole
-      # graph -- document ingestion, curriculum, then a lesson at a time -- and
-      # the message is only acked when that finishes. At the default timeout
-      # RabbitMQ decides a 30-minute-old delivery is a dead consumer, closes
-      # the channel and redelivers it, and the handler starts the run again
-      # FROM THE BEGINNING. That is not theoretical: on 2026-08-31 a run
-      # reached lesson 9, was redelivered at exactly 30 minutes, and re-ran
-      # document ingestion and curriculum planning from scratch as "attempt 2"
-      # -- paying for all of it twice.
-      #
-      # The real fix is to ack on receipt and run the graph as a background
-      # task, so no broker timeout can restart it. Until then this has to
-      # exceed the longest plausible run.
       RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit consumer_timeout 86400000"
     ports:
       - "5672:5672"
@@ -35,8 +17,6 @@ services:
     networks:
       - rebyu-net
 
-  # Celery broker/result-backend for the Python service (RabbitMQ above is
-  # the cross-service event bus with backend-java, a separate concern).
   redis:
     image: redis:7-alpine
     ports:
@@ -49,7 +29,6 @@ services:
     networks:
       - rebyu-net
 
-  # --- Application services ----------------------------------------------
 
   backend:
     build:
@@ -69,31 +48,13 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_DATABASE: 2
-      # The Compose frontend is on 3000, not Vite's dev port in the .env.
       SITE_URL: http://localhost:3000
-      # Cap the JVM. Left alone it sizes its heap from what the Docker VM
-      # reports -- 2.81 GB here -- and settles around 1 GB resident, which on
-      # this host is a third of everything Docker has for eight containers.
-      #
-      # 2026-09-02: that is what made generation unsurvivable. python-api loads
-      # a sentence-transformers model for embeddings, and the two together went
-      # over the VM's ceiling: not a container OOM-kill but Docker Desktop's own
-      # engine dying, which returns 500 on every API call and takes the run with
-      # it. It happened twice in one session.
-      #
-      # SerialGC rather than G1 because G1 keeps region bookkeeping that is pure
-      # overhead at this heap size, and this service is not throughput-bound --
-      # it hands work to python-api and waits.
       JAVA_TOOL_OPTIONS: >-
         -Xms128m
         -Xmx384m
         -XX:MaxMetaspaceSize=192m
         -XX:+UseSerialGC
         -XX:MaxRAMPercentage=50
-    # A ceiling the container hits BEFORE the Docker VM does. Without it an
-    # overrun takes down the whole engine; with it the kernel kills this one
-    # container and Compose restarts it, which is a recoverable failure instead
-    # of a dead run and a dead Docker.
     mem_limit: 768m
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health"]
@@ -106,20 +67,6 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    # Same public forwarders the python services already use, and for the same
-    # reason -- this service was simply missed when they were fixed.
-    #
-    # 2026-09-02: TOPCIT would not start. Two of five uploads died on
-    # `UnknownHostException` resolving the S3 endpoint, and because the ingest
-    # runs inside the request transaction, catching them in
-    # `CurriculumGenerationService.ingestFiles` did not save the request: the
-    # transaction was already marked rollback-only, so the commit threw
-    # UnexpectedRollbackException and the certification row went with it. The
-    # admin saw only "An unexpected error occurred".
-    #
-    # S3 is the difference between this service and the python ones: they talk
-    # to Neon and OpenRouter, this one also resolves an AWS bucket endpoint on
-    # every document upload, so it hits the flaky forwarder more often.
     dns:
       - 8.8.8.8
       - 1.1.1.1
@@ -153,56 +100,25 @@ services:
     volumes:
       - ./python-backend:/app
       - python_artifacts:/app/artifacts
-      # Downloaded AI models (Docling's layout model, the lesson matcher),
-      # kept across rebuilds instead of fetched again on every start.
       - model_cache:/root/.cache
-    # Come back after a kill. On a 5.9 GB host this process is the biggest
-    # thing running, so it is what the kernel reaches for first when memory
-    # runs out -- 2026-09-02 it took SIGKILL (exit 137) mid-run and, with no
-    # policy here, simply stayed dead: the generation stopped and every UI poll
-    # 500'd for minutes with nothing saying why.
-    #
-    # This does not make the run survive; the graph state lives in the
-    # checkpointer and the run has to be restarted. It makes the SERVICE
-    # survive, so the workspace keeps answering and the failure is visible
-    # instead of silent.
     restart: unless-stopped
     depends_on:
       redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    # Resolve DNS through public servers instead of the Docker Desktop host
-    # resolver.
-    #
-    # On a user-defined network the container still uses Docker's embedded
-    # resolver (127.0.0.11), so service names -- redis, rabbitmq --
-    # keep resolving; this only changes what that resolver forwards to.
-    #
-    # The default forwarder dropped lookups intermittently: the Neon host
-    # resolved about three times in five under load, and a miss surfaces as
-    # psycopg PoolTimeout rather than as a DNS error, which killed a
-    # certification run 9 minutes into curriculum planning. The pooled Neon
-    # endpoint is NOT an alternative -- see app/db/session.py for why this
-    # service needs the direct one.
     dns:
       - 8.8.8.8
       - 1.1.1.1
     networks:
       - rebyu-net
 
-  # No python-worker / python-beat: there is no BKT training or IRT
-  # calibration to run or schedule. Mastery runs on Smart Defaults inside
-  # python-api.
 
   frontend:
     build:
       context: frontend
       dockerfile: Dockerfile
       args:
-        # Empty locally: the browser and the API are both on localhost, which is
-        # what the build's own fallback assumes. Set it for anything published
-        # under a real domain.
         VITE_API_URL: "${VITE_API_URL:-}"
     ports:
       - "3000:80"

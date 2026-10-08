@@ -216,10 +216,6 @@ def _recompute_one_branch(
     )
     session.flush()
 
-    # Major aggregation only needs every middle's stored summary (not its
-    # individual lessons) plus every lesson under the major for critical/
-    # high-lesson ratios -- both scoped to this major category, not the
-    # whole certification.
     middle_rows = list(
         session.scalars(
             select(LearnerCategoryPriority).where(
@@ -339,7 +335,7 @@ def _aggregate_middle(lessons: list[LearnerCategoryPriority], settings: Settings
     else:
         tag = ps.classify_tag(score, avg_mastery, evidence_total, settings)
         if total and (high / total) >= 0.5:
-            tag = _at_least(tag, ps.HIGH)  # weak lessons must not hide under strong ones
+            tag = _at_least(tag, ps.HIGH)
 
     reasons = []
     if critical:

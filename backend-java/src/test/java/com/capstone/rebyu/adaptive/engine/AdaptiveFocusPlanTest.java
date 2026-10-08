@@ -25,10 +25,8 @@ class AdaptiveFocusPlanTest {
         Map<Long, Double> plan = AdaptiveItemSelector.focusPlan(pool(), mastery, 0.5, 0.5, weak);
 
         assertEquals(Set.of(1L, 2L), weak);
-        // weak: (1-0.2)=0.8 and (1-0.4)=0.6 of the half
         assertEquals(0.5 * 0.8 / 1.4, plan.get(1L), 1e-9);
         assertEquals(0.5 * 0.6 / 1.4, plan.get(2L), 1e-9);
-        // rest: bank 30 and 40 of the other half
         assertEquals(0.5 * 30 / 70.0, plan.get(3L), 1e-9);
         assertEquals(0.5 * 40 / 70.0, plan.get(4L), 1e-9);
         assertEquals(1.0, plan.values().stream().mapToDouble(Double::doubleValue).sum(), 1e-9);

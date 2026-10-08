@@ -15,9 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.regex.Pattern;
 
-/**
- * Learner profile management: update personal info, change password.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -33,9 +30,6 @@ public class LearnerProfileService {
             "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$"
     );
 
-    /**
-     * Update learner profile (first name, last name, email).
-     */
     public LearnerDto updateProfile(Long learnerId, String firstName, String lastName, String email) {
         Learner learner = learnerRepository.findById(learnerId)
                 .orElseThrow(() -> new EntityNotFoundException("Learner not found: " + learnerId));
@@ -74,9 +68,6 @@ public class LearnerProfileService {
         return learnerMapper.toDto(learner);
     }
 
-    /**
-     * Change password with old password verification.
-     */
     public void changePassword(Long learnerId, String oldPassword, String newPassword) {
         Learner learner = learnerRepository.findById(learnerId)
                 .orElseThrow(() -> new EntityNotFoundException("Learner not found: " + learnerId));
@@ -104,9 +95,6 @@ public class LearnerProfileService {
         log.info("Password changed for learner: {}", learnerId);
     }
 
-    /**
-     * Delete account (mark as inactive).
-     */
     public void deleteAccount(Long learnerId, String password) {
         Learner learner = learnerRepository.findById(learnerId)
                 .orElseThrow(() -> new EntityNotFoundException("Learner not found: " + learnerId));
@@ -120,8 +108,6 @@ public class LearnerProfileService {
             throw new IllegalArgumentException("Password is incorrect");
         }
 
-        // Mark account as inactive instead of deleting. Learner has no status
-        // field of its own -- account lifecycle lives entirely on User.
         user.setAccountStatus(User.AccountStatus.inactive);
         userRepository.save(user);
 

@@ -6,10 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * One entitlement a plan grants. A feature flag when only `enabled` matters; a
- * capacity limit when `limitValue` is set (e.g. SEAT_LIMIT = 75).
- */
 @Entity
 @Table(name = "plan_entitlements",
         uniqueConstraints = @UniqueConstraint(columnNames = {"subscription_plan_id", "entitlement_code"}))

@@ -111,10 +111,6 @@
         }
     }
 
-    /* Indeterminate progress: a generation run that has not planned its
-       curriculum yet has no denominator, so its bar sweeps rather than fills.
-       A dimmed full-width bar was the obvious alternative and reads as
-       "finished, greyed out" -- the opposite of what it means. */
     --animate-progress-sweep: progress-sweep 1.6s ease-in-out infinite;
 
     @keyframes progress-sweep {

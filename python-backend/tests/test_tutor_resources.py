@@ -106,7 +106,6 @@ def test_no_videos_means_more_reading(monkeypatch):
     monkeypatch.setattr(resources, "serper_search", lambda q, num: [_link(n) for n in range(8)])
     found = resources.find_resources("subnetting explained", "IPv4 Addressing")
     assert [r["kind"] for r in found] == ["link"] * resources.MAX_TOTAL
-    # The focused search found nothing, so videos were retried on the lesson.
     assert calls[-1] == "IPv4 Addressing explained"
 
 

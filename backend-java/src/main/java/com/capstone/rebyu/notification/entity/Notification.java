@@ -10,12 +10,6 @@ import lombok.Setter;
 
 import java.time.OffsetDateTime;
 
-/**
- * A generic in-app notification for any User (admin, institution, or
- * learner) -- mirrors community.entity.LearnerCommunityNotification's shape
- * but isn't learner-only, so admin/institution events (partnership requests,
- * invitations) have somewhere to land too.
- */
 @Entity
 @Table(name = "notifications")
 @Getter

@@ -4,29 +4,10 @@ import { formatBytes, useFileUpload } from "@/hooks/use-file-upload"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-/**
- * Picking the exam papers and answer keys to import, then "Next".
- *
- * The same drop zone and file list as the certification drawer's
- * `DocumentUploadStep`. What differs is that files are paired here, by name,
- * before anything is read: every file is named after its exam, ending in
- * "Questions" or "Answer Key", and a paper and a key with the same title are
- * one pair. Nothing about the documents' layout or dates is assumed -- any
- * school's reviewer pairs the same way.
- *
- * A name that does not follow the format, a key with no paper, or two files
- * claiming the same place is an error, and Next waits until it is fixed. A
- * paper with no key is only a warning: its answers may be printed inside it.
- */
 
-/* A whole folder of past papers and keys at once -- 156 PDFs for FE. Files
-   are read one after another, and each keeps only compressed images, so the
-   count is bounded by patience rather than memory. */
 const MAX_FILES = 10
 const MAX_SIZE_MB = 50
 
-/* Word, OpenDocument and RTF reviewers are converted to PDF on the server
-   before reading (`asPdf`), so every reader after that sees a PDF. */
 const ACCEPT = [
     "application/pdf", ".pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx",
@@ -36,13 +17,8 @@ const ACCEPT = [
 ].join(",")
 const DOCUMENT_EXTENSION_RE = /\.(pdf|docx?|odt|rtf)$/i
 
-/** The word a file name ends with, and what it makes the file. Longest first. */
 const ROLE_RE = /(?:^|[\s_\-.]+)(answer[\s_\-]*keys?|answers?|ans|keys?|question[\s_\-]*paper|questions?)$/i
 
-/**
- * `{ title, role }` from a file name, or `{ error }` when it does not follow
- * "<Exam title> Questions.pdf" / "<Exam title> Answer Key.pdf".
- */
 export function parseFileName(name) {
     const base = name.replace(DOCUMENT_EXTENSION_RE, "").trim()
     const match = base.match(ROLE_RE)
@@ -58,17 +34,11 @@ export function parseFileName(name) {
     }
     return {
         title,
-        // Compared ignoring case, spacing and separators: "Midterm_Exam" and
-        // "midterm exam" are one title.
         titleKey: title.toLowerCase(),
         role: /^q/i.test(match[1]) ? "paper" : "key",
     }
 }
 
-/**
- * The selected files, paired: `{ pairs, errors }`. Each pair is
- * `{ title, paper, key }` (key may be null); each error is `{ id, name, message }`.
- */
 export function pairFiles(items) {
     const byTitle = new Map()
     const errors = []
@@ -83,9 +53,6 @@ export function pairFiles(items) {
         byTitle.set(parsed.titleKey, group)
     }
 
-    // A key whose title differs from one paper's only by a session word
-    // ("2017A IP AM Answer" for "2017A IP Question") is that paper's key,
-    // when exactly one paper without a key matches that way.
     const loose = (titleKey) => titleKey.replace(/\b(am|pm|morning|afternoon)\b/g, " ").replace(/\s+/g, " ").trim()
     const session = (titleKey) =>
         /\b(am|morning)\b/.test(titleKey) ? "am" : /\b(pm|afternoon)\b/.test(titleKey) ? "pm" : null
@@ -97,7 +64,6 @@ export function pairFiles(items) {
                 other.papers.length &&
                 !other.keys.length &&
                 loose(other.title.toLowerCase()) === loose(titleKey) &&
-                // A paper named for the other session is not this key's paper.
                 (!session(other.title.toLowerCase()) || session(other.title.toLowerCase()) === session(titleKey)),
         )
         if (matches.length === 1) {

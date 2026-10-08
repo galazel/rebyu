@@ -21,24 +21,17 @@ import { chooseAiModel, getAiSettings, resetAiModel } from "@/services/aiSetting
 const money = (value) =>
   value === null || value === undefined ? "—" : `$${Number(value).toFixed(2)}`
 
-/** "$0.30 / $2.50 per 1M tokens (in / out)", or "Free". */
 function priceOf(model) {
   if (!model) return ""
   if (model.free) return "Free"
   return `$${model.promptPrice} / $${model.completionPrice} per 1M tokens`
 }
 
-/**
- * Everything about the AI the app uses: what is left to spend, which model
- * each feature runs on and where that feature is, and a model picker per
- * feature with the models recommended for it listed first.
- */
 export default function AiSettingsPage() {
   const query = useQuery({
     queryKey: ["ai-settings"],
     queryFn: getAiSettings,
     staleTime: 30_000,
-    // Model status changes with every AI call; the page keeps up on its own.
     refetchInterval: 15_000,
   })
   const data = query.data
@@ -279,7 +272,6 @@ function TaskCard({ task, models, health, taskLabel }) {
   )
 }
 
-/* What each state looks like. */
 const STATE_META = {
   ok: { label: "Working", icon: CheckCircle2, tone: "border-emerald-300 bg-emerald-50 text-emerald-800" },
   cooling_down: { label: "Limit reached", icon: Clock, tone: "border-amber-300 bg-amber-50 text-amber-800" },
@@ -320,13 +312,11 @@ function duration(seconds) {
   return `${Math.floor(seconds / 3600)} h ${Math.ceil((seconds % 3600) / 60)} min`
 }
 
-/** "groq" for "groq:openai/gpt-oss-120b"; OpenRouter for a plain slug. */
 function providerOf(model) {
   const prefix = model.includes(":") ? model.split(":")[0] : null
   return prefix && !prefix.includes("/") ? prefix : "openrouter"
 }
 
-/** The one-line reason beside a status. */
 function statusDetail(model, health) {
   if (!health) return ""
   if (health.state === "cooling_down") {
@@ -361,7 +351,6 @@ function MiniStat({ label, value, tone }) {
   )
 }
 
-/** One model's full record: numbers, the last error, failures by kind, recent calls. */
 function ModelHealthDetails({ model, health, taskLabel }) {
   const error = health?.lastError
   const kinds = Object.entries(health?.failuresByKind ?? {}).sort((a, b) => b[1] - a[1])
@@ -452,7 +441,6 @@ function ModelHealthDetails({ model, health, taskLabel }) {
   )
 }
 
-/** A model as a row that opens into its details. */
 function ModelHealthRow({ model, label, health, note, taskLabel }) {
   const [open, setOpen] = useState(false)
   return (
@@ -477,7 +465,6 @@ function ModelHealthRow({ model, label, health, note, taskLabel }) {
   )
 }
 
-/** Every model any feature may use, the ones needing attention first. */
 function HealthOverview({ health, since, tasks, taskLabel }) {
   const entries = Object.entries(health ?? {})
   const counts = STATE_ORDER.map((state) => [state, entries.filter(([, h]) => h.state === state).length])
@@ -518,7 +505,6 @@ function HealthOverview({ health, since, tasks, taskLabel }) {
   )
 }
 
-/** A feature's chain in order, each model with its status; the first usable one is answering now. */
 function TaskChain({ task, health, taskLabel }) {
   const chain = [task.model, ...task.fallbacks]
   const answering = chain.find((model) => !["cooling_down", "no_key"].includes(health?.[model]?.state))

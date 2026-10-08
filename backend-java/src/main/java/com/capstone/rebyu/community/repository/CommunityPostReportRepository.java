@@ -21,7 +21,6 @@ public interface CommunityPostReportRepository extends JpaRepository<CommunityPo
             """)
     List<CommunityPostReport> findByStatusOrderByCreatedAtAsc(@Param("status") String status);
 
-    /** Re-reporting the same post reopens it with the new reason/details instead of duplicating a row. */
     @Modifying
     @Transactional
     @Query(value = """

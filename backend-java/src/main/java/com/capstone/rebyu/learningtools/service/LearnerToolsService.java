@@ -14,12 +14,6 @@ import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-/**
- * Personal learner library (saved quizzes/flashcards/files/links/notes, plus
- * saved community posts) and the mistakes bank (incorrect answers pulled from
- * finalized attempts). Backed by plain JDBC — these are read-heavy
- * projections over existing assessment/community tables, not owned entities.
- */
 @Service
 @RequiredArgsConstructor
 public class LearnerToolsService {
@@ -35,12 +29,6 @@ public class LearnerToolsService {
             String itemType, String title, String description, String resourceUrl,
             Long certificationId, Long lessonId) {}
 
-    /**
-     * {@code lessonId} accompanies {@code lessonTitle} so the library can link
-     * back to where an item came from. The title alone only ever let the page
-     * *name* the lesson a generated quiz was built from; opening it needed the
-     * id, and the row already carries one.
-     */
     public record LibraryItem(
             Long id, String kind, String title, String description, String route,
             String downloadUrl, Long certificationId, String certificationTitle,
@@ -112,11 +100,6 @@ public class LearnerToolsService {
         }
     }
 
-    /**
-     * Uploads a real file for a "file"-type library item and returns its S3
-     * key. The key is submitted back as {@code resourceUrl} on the create
-     * call; {@link #mapLibraryItem} resolves it into a real download link.
-     */
     public String uploadLibraryFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("A file is required");
@@ -169,17 +152,7 @@ public class LearnerToolsService {
         }
     }
 
-    // Mapping / helpers
 
-    /**
-     * "file" items store a raw S3 key in {@code resourceUrl}/{@code route} —
-     * NOT a ready-made link. The frontend already owns URL-building for S3
-     * keys ({@code getFileViewUrl}/{@code getFileDownloadUrl} in
-     * fileService.js) and knows the correct origin for the current
-     * environment; duplicating that here would risk building a URL against
-     * the wrong host in production. {@code downloadUrl} mirrors the same key
-     * so the frontend doesn't need a kind-specific branch to find it.
-     */
     private LibraryItem mapLibraryItem(ResultSet row, int rowNum) throws SQLException {
         String kind = row.getString("item_type");
         String resourceUrl = row.getString("resource_url");
@@ -210,7 +183,7 @@ public class LearnerToolsService {
                 row.getString("title"),
                 row.getString("description"),
                 "/learner/community",
-                attachmentKey, // raw S3 key; frontend resolves via getFileViewUrl
+                attachmentKey,
                 null,
                 row.getString("circle_name"),
                 null,

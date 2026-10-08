@@ -39,7 +39,6 @@ const ROUND_LABELS = {
   ELIMINATED_FINAL: "Grand Final",
 }
 
-/* ──────────────── lobby standee ──────────────── */
 
 function Standee({ player, index }) {
   if (!player) {
@@ -73,7 +72,6 @@ function Standee({ player, index }) {
   )
 }
 
-/* ──────────────── bracket ──────────────── */
 
 const SEAT_H = 44
 const PAIR_GAP = 22
@@ -170,11 +168,9 @@ function LiveBracket({ bracket, myLearnerId }) {
     isYou: isYou(playerId),
   })
 
-  // Build QF pairs
   const leftQF = qfMatches.slice(0, 2).map(m => [seatOf(m, m.player1?.learnerId), seatOf(m, m.player2?.learnerId)])
   const rightQF = qfMatches.slice(2, 4).map(m => [seatOf(m, m.player1?.learnerId), seatOf(m, m.player2?.learnerId)])
 
-  // SF
   const leftSF = sfMatches.length > 0
     ? [seatOf(sfMatches[0], sfMatches[0].player1?.learnerId), seatOf(sfMatches[0], sfMatches[0].player2?.learnerId)]
     : [{ name: "—", alive: true }, { name: "—", alive: true }]
@@ -182,7 +178,6 @@ function LiveBracket({ bracket, myLearnerId }) {
     ? [seatOf(sfMatches[1], sfMatches[1].player1?.learnerId), seatOf(sfMatches[1], sfMatches[1].player2?.learnerId)]
     : [{ name: "—", alive: true }, { name: "—", alive: true }]
 
-  // Final
   const finalist1 = finalMatches.length > 0 ? getName(finalMatches[0].player1?.learnerId) : "—"
   const finalist2 = finalMatches.length > 0 ? getName(finalMatches[0].player2?.learnerId) : "—"
 
@@ -221,7 +216,6 @@ function LiveBracket({ bracket, myLearnerId }) {
   )
 }
 
-/* ──────────────── page ──────────────── */
 
 export default function WorldCupPage() {
   const navigate = useNavigate()
@@ -258,14 +252,12 @@ export default function WorldCupPage() {
     [portalQuery.data, worldCup?.disabledTrackIds],
   )
 
-  // Extract learner ID from portal data
   useEffect(() => {
     if (portalQuery.data?.learnerId) {
       setMyLearnerId(portalQuery.data.learnerId)
     }
   }, [portalQuery.data])
 
-  // On mount, check for an active bracket the learner is already in
   useEffect(() => {
     if (!myLearnerId || phase !== "track") return
     getMyWorldCupBracket()
@@ -284,7 +276,6 @@ export default function WorldCupPage() {
   const [queueTimer, setQueueTimer] = useState(QUEUE_TIMEOUT)
   const timerRef = useRef(null)
 
-  // Join queue mutation
   const joinMutation = useMutation({
     mutationFn: (certId) => joinWorldCupQueue(certId),
     onSuccess: (data) => {
@@ -302,7 +293,6 @@ export default function WorldCupPage() {
     },
   })
 
-  // Leave queue mutation
   const leaveMutation = useMutation({
     mutationFn: (certId) => leaveWorldCupQueue(certId),
     onSuccess: () => {
@@ -349,26 +339,21 @@ export default function WorldCupPage() {
           setBracket(status.activeBracket)
           setPhase("found")
           stopPolling()
-          // After 3 seconds show bracket
           setTimeout(() => setPhase("bracket"), 3000)
         }
       } catch {
-        // ignore polling errors
       }
     }, 3000)
   }, [stopPolling])
 
-  // Auto-cancel queue when timer expires
   useEffect(() => {
     if (phase === "lobby" && queueTimer === 0) {
       handleLeaveQueue()
     }
   }, [queueTimer, phase])
 
-  // Clean up polling on unmount
   useEffect(() => () => stopPolling(), [stopPolling])
 
-  // Refresh bracket data periodically when in bracket phase
   useEffect(() => {
     if (phase !== "bracket" || !bracket?.bracketId) return undefined
     const id = setInterval(async () => {
@@ -376,7 +361,6 @@ export default function WorldCupPage() {
         const updated = await getWorldCupBracket(bracket.bracketId)
         setBracket(updated)
       } catch {
-        // ignore
       }
     }, 5000)
     return () => clearInterval(id)
@@ -408,7 +392,6 @@ export default function WorldCupPage() {
     bracket: bracket?.currentRound ? ROUND_LABELS[bracket.currentRound] ?? "Tournament" : "Tournament bracket",
   }
 
-  // Find the player's current match in the bracket
   const myCurrentMatch = useMemo(() => {
     if (!bracket || !myLearnerId) return null
     const currentRound = bracket.currentRound
@@ -418,7 +401,6 @@ export default function WorldCupPage() {
     )
   }, [bracket, myLearnerId])
 
-  // Whether the player has already scored in their current match
   const hasSubmittedCurrentRound = useMemo(() => {
     if (!myCurrentMatch || !myLearnerId) return false
     if (myCurrentMatch.player1?.learnerId === myLearnerId) return myCurrentMatch.player1Score != null
@@ -426,11 +408,9 @@ export default function WorldCupPage() {
     return false
   }, [myCurrentMatch, myLearnerId])
 
-  // Whether the player is eliminated
   const isEliminated = useMemo(() => {
     if (!bracket || !myLearnerId) return false
     if (bracket.currentRound === "COMPLETED") return bracket.winnerLearnerId !== myLearnerId
-    // Check if they lost in any completed match
     for (const m of bracket.matches) {
       if (m.status !== "COMPLETED") continue
       const isInMatch = m.player1?.learnerId === myLearnerId || m.player2?.learnerId === myLearnerId
@@ -470,7 +450,6 @@ export default function WorldCupPage() {
 
   return (
     <div className="rebyu-ds rb-arena flex h-dvh flex-col overflow-hidden" style={{ background: "#0c1018" }}>
-      {/* Header — all phases */}
       <header className="relative z-10 shrink-0">
         <div className="flex items-center gap-4 px-5 pt-5 pb-4 lg:px-8">
           <Link to="/learner/challenges" className="grid size-9 place-items-center rounded-xl bg-white/[0.06] text-white/50 transition hover:bg-white/10 hover:text-white">
@@ -520,7 +499,6 @@ export default function WorldCupPage() {
       </header>
 
       <main className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:overflow-hidden">
-        {/* ──────── track select ──────── */}
         {phase === "track" && portalQuery.isLoading ? (
           <div className="grid flex-1 place-items-center px-5">
             <Loader2 className="size-6 animate-spin text-white/30" />
@@ -550,7 +528,6 @@ export default function WorldCupPage() {
 
         {phase === "track" && tracks.length > 0 ? (
           <div className="flex min-h-0 flex-1 flex-col px-5 pt-6 lg:px-8">
-            {/* Hero area */}
             <div className="mx-auto mb-8 max-w-2xl text-center">
               <div className="relative mx-auto mb-6 grid size-20 place-items-center">
                 <div aria-hidden="true" className="absolute inset-0 animate-pulse rounded-full bg-amber-500/20 blur-xl" />
@@ -579,7 +556,6 @@ export default function WorldCupPage() {
               </div>
             </div>
 
-            {/* Track cards */}
             <div className="mx-auto grid w-full max-w-4xl flex-1 grid-cols-1 gap-4 pb-8 sm:grid-cols-2 lg:grid-cols-3">
               {tracks.map((item) => {
                 const glow = TRACK_GLOW[item.tone] ?? TRACK_GLOW.bee
@@ -617,7 +593,6 @@ export default function WorldCupPage() {
               })}
             </div>
 
-            {/* Past tournaments */}
             {(historyQuery.data ?? []).length > 0 ? (
               <div className="mx-auto w-full max-w-4xl pb-10">
                 <h3 className="mb-4 font-rb-display text-lg font-extrabold lowercase tracking-tight text-white/70">
@@ -667,10 +642,8 @@ export default function WorldCupPage() {
           </div>
         ) : null}
 
-        {/* ──────── lobby ──────── */}
         {phase === "lobby" ? (
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-5 lg:px-8">
-            {/* circular countdown */}
             <div className="relative grid size-40 place-items-center">
               <div aria-hidden="true" className={`absolute inset-0 rounded-full blur-2xl transition-colors duration-700 ${queueTimer <= 30 ? "bg-red-500/15" : "bg-amber-500/10"}`} />
               <svg className="absolute inset-0 -rotate-90" viewBox="0 0 160 160">
@@ -695,7 +668,6 @@ export default function WorldCupPage() {
             <p className="mt-5 text-sm font-extrabold text-white">Finding opponents…</p>
             <p className="mt-1 text-xs text-white/30">Queue auto-cancels when the timer runs out</p>
 
-            {/* standee grid */}
             <div className="mt-10 grid w-full max-w-2xl grid-cols-4 gap-3 sm:grid-cols-8">
               {Array.from({ length: queueRequired }).map((_, i) => {
                 const filled = i < queueSize
@@ -721,7 +693,6 @@ export default function WorldCupPage() {
           </div>
         ) : null}
 
-        {/* ──────── match found overlay ──────── */}
         {phase === "found" ? (
           <div className="fixed inset-0 z-50 grid place-items-center bg-black/80 px-5">
             <div className="rb-pop-in text-center">
@@ -734,10 +705,8 @@ export default function WorldCupPage() {
           </div>
         ) : null}
 
-        {/* ──────── bracket ──────── */}
         {phase === "bracket" && bracket ? (
           <div className="flex min-h-0 flex-1 flex-col px-5 lg:px-8">
-            {/* Action bar for current round */}
             {myCurrentMatch && !isEliminated && !hasSubmittedCurrentRound ? (
               <div className="mx-auto mt-4 flex w-full max-w-lg items-center gap-3 rounded-2xl border-2 border-rb-feather bg-rb-feather-wash p-4">
                 <div className="flex-1">

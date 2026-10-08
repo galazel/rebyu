@@ -23,20 +23,6 @@ if not settings.database_url.startswith("sqlite"):
 _POOLER_HINTS = ("-pooler.", "pgbouncer")
 
 if any(hint in settings.database_url for hint in _POOLER_HINTS):
-    # Transaction-mode poolers (Neon's `-pooler` endpoint, PgBouncer, RDS Proxy)
-    # are not usable by this service, and the way they fail is slow to diagnose:
-    #
-    #   * they reject libpq startup options, so `-csearch_path=...` errors on
-    #     connect;
-    #   * a session-level `SET search_path` does not stick, because the next
-    #     transaction can land on a different server connection -- queries then
-    #     fail with `relation "workflow_runs" does not exist` even though the
-    #     table is right there;
-    #   * LangGraph's AsyncPostgresSaver uses prepared statements, which
-    #     transaction pooling breaks outright.
-    #
-    # None of that surfaces as "you are using the wrong endpoint", so warn
-    # loudly at import rather than letting it look like a missing migration.
     logging.getLogger(__name__).warning(
         "DATABASE_URL points at a connection pooler. This service needs a direct "
         "connection -- remove '-pooler' from the host. Symptoms otherwise: "

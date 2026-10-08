@@ -33,19 +33,6 @@ import { ReviewCheckpoint } from "@/components/generation/review-checkpoint"
 import { RunRecoveryPanel } from "@/components/generation/run-recovery-panel"
 import { TaskStatusIcon, stageLabel } from "@/components/generation/task-status"
 
-/**
- * The live generation transcript, rendered inside the certification modal.
- *
- * Same data and same components as the standalone workspace — this is a second
- * mount of them, not a second implementation, so the two cannot drift. Keeping
- * generation in the modal means the admin never loses the thread of what they
- * were doing: they created a certification, and the thing they created is right
- * there building itself.
- *
- * The run does not exist when this mounts. Generation is queued over RabbitMQ
- * and the Python consumer creates the run when it claims the message, so there
- * is a short window with nothing to attach to — polled for here, then streamed.
- */
 export function InlineGenerationMonitor({ certificationId, onClose, onFinished }) {
   const queryClient = useQueryClient()
   const [runId, setRunId] = useState(null)
@@ -67,9 +54,6 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
     if (match) setRunId(match.run_id)
   }, [runs.data, certificationId, runId])
 
-  // A queued build normally appears within a second or two. Past that the
-  // likeliest cause is that nothing is consuming the queue, so say so rather
-  // than spinning indefinitely — an endless spinner reads as "working".
   useEffect(() => {
     if (runId) return undefined
     const timer = setTimeout(() => setWaitedTooLong(true), 20_000)
@@ -91,12 +75,6 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
     silentFor,
   } = stream
 
-  /* Reported ONCE, when the run reaches a terminal status.
-     
-     Without this the dialog sat on the last stage it happened to see -- "Mock
-     exam · running" -- for a run that had already finished, so the only way to
-     learn generation was done was to close the dialog and notice the card had
-     changed. The parent decides what to do with it; this only reports. */
   const finishedRef = useRef(false)
   useEffect(() => {
     if (!isTerminal || finishedRef.current || !run?.status) return
@@ -120,12 +98,6 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
     enabled: Boolean(runId && versionKey),
   })
 
-  // Answers as soon as the decision is recorded, not when the work it unblocks
-  // finishes. The server drives the graph afterwards and reports it on this
-  // run's stream, so an error here is a genuine refusal — the decision was
-  // rejected — rather than the old symptom, where a slow-but-healthy resume
-  // outlived the gateway's timeout and reported a failure over a run that was
-  // still generating.
   const submitReview = useMutation({
     mutationFn: (decision) =>
       submitCertificationReview(review.data?.thread_id ?? run?.thread_id, decision),
@@ -146,10 +118,6 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
     onError: () => toast.error("Could not cancel this run."),
   })
 
-  /* Whether this run still intends to stop and ask. Held locally because the
-     flag lives on the graph's checkpoint, which this component does not read
-     — and the only thing it changes here is whether the button is still worth
-     offering. */
   const [unattended, setUnattended] = useState(false)
 
   const finishWithoutReview = useMutation({
@@ -217,18 +185,6 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
         {attempts > 1 ? <Badge variant="outline">Attempt {attempts}</Badge> : null}
 
         <span className="ml-auto flex items-center gap-2">
-          {/* Only one control here, and it is the one that does something
-              irreversible. Closing is the dialog's own X: a second "Close"
-              button beside "Stop generating" was two ways out sitting next to
-              each other, with the harmless one styled as the primary action --
-              which is a good way to get the destructive one clicked by
-              mistake. Leaving and stopping stay distinct; leaving just is not
-              this component's job. */}
-          {/* The way out of a run that keeps stopping to ask. Reviewing every
-              lesson is a real choice, and so is deciding halfway through that
-              you would rather have the whole thing and edit it afterwards --
-              without that, the only alternative to sitting through the
-              checkpoints was stopping the run. */}
           {!isTerminal && !unattended ? (
             <Button
               size="sm"
@@ -241,10 +197,6 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
             </Button>
           ) : null}
 
-          {/* Asked for, not just clicked. This sits inches from "Finish
-              without review", it is the only red control on screen, and it
-              ends a run that has been authoring for half an hour -- one
-              mis-aimed click and that work is gone with nothing to undo it. */}
           {!isTerminal ? (
             <Button
               size="sm"
@@ -263,9 +215,6 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
         </span>
       </header>
 
-      {/* Names what is being thrown away, in the numbers the admin is already
-          watching. "Are you sure?" on its own is a keystroke; "you are 15
-          lessons into 28" is a decision. */}
       <AlertDialog open={isConfirmingStop} onOpenChange={setIsConfirmingStop}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -307,9 +256,6 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Stalled takes precedence over the reassurance below: "closing this
-          leaves it running" is exactly the wrong thing to say about a run
-          nothing is executing. */}
       {isStalled ? (
         <p className="flex items-start gap-2 border-b border-border bg-amber-50 px-4 py-2 text-xs leading-relaxed text-amber-900 sm:px-6 dark:bg-amber-950/40 dark:text-amber-200">
           <AlertTriangle aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
@@ -361,11 +307,6 @@ export function InlineGenerationMonitor({ certificationId, onClose, onFinished }
         </GenerationTranscript>
       </div>
 
-      {/* The attempt now running, not the whole cumulative log. A run's
-          events accumulate across every restart of the same thread, so
-          reopening this modal showed a wall of steps from earlier attempts
-          with the live one buried at the bottom -- which reads as "it is
-          showing the previous certification". */}
       <RawEventLog events={attemptEvents} />
 
       <GenerationStatusBar
@@ -395,7 +336,6 @@ function minutesSince(milliseconds) {
   return Math.max(1, Math.round((milliseconds ?? 0) / 60_000))
 }
 
-/** The full event log, closed by default — a debugging aid, not the main view. */
 function RawEventLog({ events }) {
   const [open, setOpen] = useState(false)
   const count = events?.length ?? 0

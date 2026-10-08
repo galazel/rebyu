@@ -14,11 +14,6 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Learner-facing read model over FastAPI mastery/readiness. Degrades gracefully:
- * when the BKT service is unavailable, analytics come back empty rather than
- * failing the learner's page.
- */
 @Slf4j
 @RequiredArgsConstructor
 @Service

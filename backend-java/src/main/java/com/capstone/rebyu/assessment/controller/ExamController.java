@@ -15,18 +15,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * Exam (assessment) management. Reads stay open because learners discover
- * available assessments through GET here; WRITES require either ADMIN
- * (official content, ownerDepartmentId omitted) or an Institution Member acting on
- * their own group's exam (ownerDepartmentId required on create, checked against
- * the caller's own group access -- see ExamService/MajorCategoryService).
- *
- * includeDepartmentId is the opt-in read filter that mixes a group's own exams
- * into the list/by-id responses -- omitted (every existing caller), the
- * response is unchanged from before ownerDepartment existed, since no exam has
- * ever had a non-null owner group.
- */
 @RestController
 @RequestMapping("/api/exams")
 @RequiredArgsConstructor
@@ -35,11 +23,6 @@ public class ExamController {
     private final DepartmentService departmentService;
     private final CognitoAuthService auth;
 
-    /**
-     * certificationId is an optional narrowing of the same open read: it does
-     * not expose an exam a caller could not already fetch from the unfiltered
-     * list, it only spares them fetching every other certification's.
-     */
     @GetMapping
     public List<ExamDto> getAll(
             @AuthenticationPrincipal Jwt jwt,
@@ -109,7 +92,6 @@ public class ExamController {
         return examService.archive(id, isAdmin, user.institutionId(), user.userId(), isOwner(user));
     }
 
-    /** The caller's learner id, or null for anyone who is not a learner. */
     private Long viewerLearnerId(Jwt jwt) {
         if (jwt == null) return null;
         try {
@@ -130,12 +112,6 @@ public class ExamController {
         return user;
     }
 
-    /**
-     * No-op when includeDepartmentId is omitted. When supplied, the caller must be
-     * authenticated and able to act on that specific group (owner or that
-     * group's active leader) -- same check DepartmentController already
-     * relies on -- so a group's own exams can't be read by guessing its id.
-     */
     private void requireDepartmentAccessIfRequested(Jwt jwt, Long includeDepartmentId) {
         if (includeDepartmentId == null) {
             return;

@@ -15,7 +15,6 @@ from figures import fig
 MAJOR = "Project Management"
 MIDDLE = "Project Management"
 
-# Lesson 4: Scope management
 
 _scope_sections = [
     ("Defining What Is Included", [
@@ -692,7 +691,6 @@ LESSON_PM_SCOPE = lesson(
         ],
     ))
 
-# Lesson 5: Resource management
 
 _res_sections = [
     ("People and Everything Else", [

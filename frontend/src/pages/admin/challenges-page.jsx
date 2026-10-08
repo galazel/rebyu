@@ -14,22 +14,8 @@ import { Button } from "@/components/ui/button"
 import { BubbleCard } from "@/components/commons/bubble-card.jsx"
 
 
-/* The IT Olympics, and only the IT Olympics — the same three arenas the
-   landing page sells and the learner can actually enter. QueryRealm, Sprint
-   Challenge and Daily Ranked Exam Challenge were listed here with no route, no
-   page and no learner-facing mention anywhere: an admin could assign an
-   industry to a challenge that did not exist.
 
-   The three are built into the product, so there is no status to flip and
-   nothing to remove — an admin manages their problems. That is the whole page.
-   Every arena is open to every learner; there is no industry gating.
 
-   `role` and `format` are copied from the landing page's arena cards, so an
-   arena carries the same line to an admin as it does to a visitor and to the
-   learner who enters it. The tone is not: inside the admin console every
-   managed entity wears the brand blue -- the same `feather` the certification
-   covers use -- so the three arenas read as one section rather than as three
-   differently coloured things. The landing page keeps its per-arena colours. */
 const INITIAL_CHALLENGES = [
   {
     challengeId: 1,
@@ -72,9 +58,6 @@ const INITIAL_CHALLENGES = [
 export default function Challenges({ initialChallenges = INITIAL_CHALLENGES }) {
   const [challenges, setChallenges] = useState(initialChallenges)
 
-  /* The stored arena settings, which are the truth.
-     The list above supplies each arena's name, blurb and artwork -- those are
-     properties of a built surface, not data. */
   const arenasQuery = useQuery({
     queryKey: [CHALLENGE_ARENAS_KEY],
     queryFn: getChallengeArenas,
@@ -100,8 +83,6 @@ export default function Challenges({ initialChallenges = INITIAL_CHALLENGES }) {
 
   return (
       <section className="space-y-6">
-        {/* Label and sub label only. There is no search or status filter over
-            three fixed rows, and no summary tiles counting them. */}
         <div className="rebyu-page-header">
           <div>
             <h1 className="font-rb-display text-2xl font-extrabold lowercase">
@@ -113,8 +94,6 @@ export default function Challenges({ initialChallenges = INITIAL_CHALLENGES }) {
           </div>
         </div>
 
-        {/* The arena card from the landing carousel, via BubbleCard: gradient
-            cap, bubbles, icon medallion, matching wash below. */}
         {arenasQuery.isLoading ? (
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3" aria-busy="true" aria-label="Loading arenas">
             {challenges.map((challenge) => (

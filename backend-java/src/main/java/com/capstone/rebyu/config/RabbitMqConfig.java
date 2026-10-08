@@ -12,16 +12,6 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * RabbitMQ topology for the lightweight, ids-only trigger messages Spring
- * Boot publishes (never the full generated payload -- that's re-fetched by
- * id on the consumer side). Every queue has a matching dead-letter queue so
- * a message that repeatedly fails processing is never silently lost.
- *
- * <p>These queues are producers-only for now: Phase 5 wires the publish
- * side; a later phase adds the Python-side (or Java-side) consumers. Until
- * then messages simply accumulate on the main queues, which is expected.
- */
 @Configuration
 public class RabbitMqConfig {
 
@@ -63,7 +53,6 @@ public class RabbitMqConfig {
         return new TopicExchange(DEAD_LETTER_EXCHANGE);
     }
 
-    // Certification generation
 
     @Bean
     public Queue certificationGenerationQueue() {
@@ -87,7 +76,6 @@ public class RabbitMqConfig {
                 .to(rebyuDeadLetterExchange()).with(deadLetterRoutingKey(CERTIFICATION_GENERATION_QUEUE));
     }
 
-    // Question generation
 
     @Bean
     public Queue questionGenerationQueue() {
@@ -111,7 +99,6 @@ public class RabbitMqConfig {
                 .to(rebyuDeadLetterExchange()).with(deadLetterRoutingKey(QUESTION_GENERATION_QUEUE));
     }
 
-    // Assessment submitted
 
     @Bean
     public Queue assessmentSubmittedQueue() {
@@ -135,7 +122,6 @@ public class RabbitMqConfig {
                 .to(rebyuDeadLetterExchange()).with(deadLetterRoutingKey(ASSESSMENT_SUBMITTED_QUEUE));
     }
 
-    // Assessment retake
 
     @Bean
     public Queue assessmentRetakeQueue() {

@@ -35,7 +35,6 @@ from app.db.session import SessionLocal
 EXAM_ID = 192
 CERTIFICATION_ID = 13
 
-#: The structure the additions are aiming at, from `exam_structure`.
 TARGET_ITEMS = 65
 TARGET_DURATION_MINUTES = 150
 
@@ -70,7 +69,6 @@ def programming(lesson, difficulty, question, starter, tests):
 
 
 ITEMS = [
-    # Software Development (+7)
     mcq(
         363, "AVERAGE",
         "A stakeholder tells the analyst: \"The system must be fast.\" The "
@@ -254,7 +252,6 @@ ITEMS = [
          "unidirectional dependency"],
     ),
 
-    # Understanding of Network (+4)
     mcq(
         379, "AVERAGE",
         "A switch receives a frame whose destination MAC address is not in "
@@ -342,7 +339,6 @@ ITEMS = [
         ],
     ),
 
-    # Technical Communications (+2)
     mcq(
         394, "AVERAGE",
         "A buyer knows it needs a document management system but does not yet "
@@ -389,7 +385,6 @@ ITEMS = [
         "documents labelled \"report\" that are really instructions.",
     ),
 
-    # Database Construction and Management (+1)
     mcq(
         377, "HARD",
         "A retail warehouse stores a product's category on the sales fact "
@@ -416,7 +411,6 @@ ITEMS = [
         "figures still add up, which is what makes the error hard to notice.",
     ),
 
-    # Understanding of Security (+1)
     mcq(
         385, "HARD",
         "A risk has a single loss expectancy of 40,000 and an annual rate of "
@@ -467,16 +461,8 @@ def insert_question(db, item, order, points=1):
             })
 
     elif item["type"] in ("SHORT_ANSWER", "DESCRIPTIVE"):
-        # The two types are graded differently and the existing bank is
-        # consistent about it: every SHORT_ANSWER row is EXACT_MATCH with a
-        # variation list, every DESCRIPTIVE row is AI_SEMANTIC. A short answer
-        # graded semantically would accept a paragraph where one term was
-        # asked for.
         if item["type"] == "SHORT_ANSWER":
             method = "EXACT_MATCH"
-            # Newline-joined, not comma-joined: the grader splits accepted
-            # variations on a newline, so a comma-joined list is one dead
-            # string rather than several accepted answers.
             variations = chr(10).join(item["variations"])
         else:
             method = "AI_SEMANTIC"

@@ -20,12 +20,6 @@ public interface AssessmentAttemptQuestionRepository
 
     long countByAttempt_AssessmentAttemptId(Long assessmentAttemptId);
 
-    /**
-     * How often this learner has met each of the given questions, across every
-     * attempt of every assessment. The attempt-question rows ARE the exposure
-     * history -- there is no separate ledger to keep in step, and attempts made
-     * before the adaptive engine existed count the same as the ones after.
-     */
     interface ExposureView {
         Long getSourceQuestionId();
         long getTimesSeen();
@@ -45,7 +39,6 @@ public interface AssessmentAttemptQuestionRepository
     List<ExposureView> findExposure(
             @Param("learnerId") Long learnerId, @Param("questionIds") Collection<Long> questionIds);
 
-    /** Every question this learner has been served on any attempt of this exam. */
     @Query("""
             SELECT DISTINCT q.sourceQuestionId
             FROM AssessmentAttemptQuestion q JOIN q.attempt a

@@ -7,9 +7,6 @@ import java.util.List;
 
 @Service
 public class LeaderboardService {
-  // No authenticated viewer on this public endpoint; a sentinel id that can
-  // never match a real learner keeps every row's "is this me" flag false
-  // instead of passing a null bind parameter into the native query.
   private static final Long NO_VIEWER = -1L;
 
   @Autowired private LearnerRewardLedgerRepository ledgerRepository;

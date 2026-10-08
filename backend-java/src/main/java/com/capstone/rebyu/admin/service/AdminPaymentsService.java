@@ -13,15 +13,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Everyone who has paid the platform, in one list.
- *
- * Money arrives two ways and lands in two tables: a certification purchase is
- * a `completed` row in LEARNER_ORDERS, and a Pro subscription is a row in
- * LEARNER_SUBSCRIPTIONS with a `paid_at`. The dashboard tile shows the latest
- * eight of each; this is the full ledger behind that tile, so the page it
- * feeds can search and export without the ceiling the tile imposed for layout.
- */
 @Service
 @RequiredArgsConstructor
 public class AdminPaymentsService {
@@ -30,7 +21,6 @@ public class AdminPaymentsService {
 
     private final JdbcTemplate jdbc;
 
-    /** One payment, whichever table it came from. `kind` is "Certification" or "Pro". */
     public record PaymentRow(
             String key,
             String kind,
@@ -68,7 +58,6 @@ public class AdminPaymentsService {
             BigDecimal amount = row.amount() == null ? BigDecimal.ZERO : row.amount();
             if ("Pro".equals(row.kind())) {
                 pro++;
-                // Awaiting or rejected money is not revenue until an admin approves it.
                 if ("Active".equals(row.status()) || "Ended".equals(row.status())) {
                     proRevenue = proRevenue.add(amount);
                 }
@@ -80,10 +69,6 @@ public class AdminPaymentsService {
         return new PaymentsLedger(payers, orders, pro, certRevenue, proRevenue, rows);
     }
 
-    /**
-     * Completed orders with a positive total. A zero-peso order is a free
-     * certification: an enrollment, not a payment.
-     */
     private List<PaymentRow> certificationOrders() {
         return jdbc.query("""
                 select o.order_id, o.order_number, o.total_amount, o.paid_at,
@@ -116,7 +101,6 @@ public class AdminPaymentsService {
         });
     }
 
-    /** Every Pro subscription that was paid for, whatever happened to it afterwards. */
     private List<PaymentRow> proPayments() {
         return jdbc.query("""
                 select s.learner_subscription_id id, s.amount_paid amount, s.paid_at, s.status,

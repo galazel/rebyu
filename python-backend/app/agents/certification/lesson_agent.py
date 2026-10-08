@@ -318,11 +318,6 @@ def get_lesson_generation_agent(model: str | None = None):
     resolved by `app.domain.lesson_media` after the answer comes back.
     """
     return create_agent(
-        # The one agent given a genuinely capable model. It is the only one
-        # that has to research with a tool, hold the whole lesson plan, and
-        # then emit a large structured answer without losing the thread -- see
-        # `app.ai.tasks`, where `lesson` is deliberately the most expensive
-        # entry in the table.
         model=get_llm(tasks.LESSON, model),
         tools=lesson_research_tools,
         response_format=ToolStrategy(GeneratedLesson),

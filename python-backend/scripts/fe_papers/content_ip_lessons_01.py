@@ -21,10 +21,6 @@ from builders import (  # noqa: E402
     tabs, ul,
 )
 
-#: Drawn for these lessons by `ip_diagrams.py` and served from
-#: frontend/public/lesson-media. Drawn rather than hotlinked: the twelve
-#: pre-existing IT Passport lessons point at third-party blogs, which break
-#: when someone reorganises a site and were never cleared for reuse.
 FIG = "/lesson-media/%s.svg"
 
 CERTIFICATION_ID = 4
@@ -32,7 +28,6 @@ CERTIFICATION_ID = 4
 LESSONS = {}
 
 
-# ---------------------------------------------------------------- 731 discrete
 LESSONS[731] = lesson_structure(
     name="Discrete mathematics",
     intro=(
@@ -323,7 +318,6 @@ LESSONS[731] = lesson_structure(
 )
 
 
-# ---------------------------------------------------------------- 732 applied
 LESSONS[732] = lesson_structure(
     name="Applied mathematics",
     intro=(
@@ -537,7 +531,6 @@ LESSONS[732] = lesson_structure(
 )
 
 
-# ---------------------------------------------------------------- 733 information
 LESSONS[733] = lesson_structure(
     name="Theory of information",
     intro=(

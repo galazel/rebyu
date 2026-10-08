@@ -19,38 +19,9 @@ import {
   useUploadedFile,
 } from "./workspace-shared.jsx"
 
-/**
- * Quiz Builder — a document in, a set of questions out, editable before it is kept.
- *
- * <p>Separate from the Flashcard Builder because a question is not a card. It
- * carries options, exactly one of which is right, and getting that mark wrong
- * is worse than a badly worded card: the learner is told they were wrong when
- * they were not. So the correct answer is set explicitly here, by the person
- * who will sit the quiz, and a question missing one is flagged rather than
- * quietly defaulting to the first option.
- *
- * <p>Questions come from the uploaded document, never from a blank form. This
- * is an AI workspace: the learner hands over material and corrects what comes
- * back rather than typing a quiz out themselves, so there is no "add a
- * question" and no empty-set authoring path — the only way to a quiz is a file.
- *
- * <p>UI only. Nothing below came from a document; the questions are labelled as
- * examples so the editor can be reviewed without anyone mistaking them for
- * output. See BACKEND: for where extraction plugs in.
- */
 
 const OPTION_LABELS = ["A", "B", "C", "D"]
 
-/*
- * Stand-in questions, shown once "generation" finishes so the editor has
- * something to hold. Filled in and openly labelled as examples on screen --
- * blank ones would leave the editor untestable, and unlabelled realistic ones
- * would read as real output from the learner's file.
- *
- * The second deliberately has no marked answer: the "mark the correct answer"
- * state is the one most worth seeing, and a set where every question is already
- * complete never shows it.
- */
 const EXAMPLE_QUESTIONS = [
   {
     id: 1,
@@ -84,8 +55,6 @@ export default function QuizBuilderPage() {
 
   function generate() {
     setGenerating(true)
-    // BACKEND: send the uploaded document for question extraction and replace
-    // the set with what comes back.
     window.setTimeout(() => {
       setQuestions(EXAMPLE_QUESTIONS.map((question) => ({
         ...question,
@@ -116,7 +85,6 @@ export default function QuizBuilderPage() {
     )
   }
 
-  /** A question is only usable with a prompt, two real options and a marked answer. */
   function isReady(question) {
     return (
       question.prompt.trim() &&
@@ -168,7 +136,6 @@ export default function QuizBuilderPage() {
           <TactileButton
             size="sm"
             disabled={ready.length === 0}
-            // BACKEND: persist the quiz to the learner's Library.
             onClick={() => {}}
           >
             <Save className="size-4" aria-hidden="true" />
@@ -237,7 +204,6 @@ export default function QuizBuilderPage() {
                       </span>
                     </span>
                     <div className="flex items-center gap-2">
-                      {/* Says what is missing, rather than only that something is. */}
                       {!isReady(question) ? (
                         <span className="rounded-rb-control border-2 border-rb-bee/50 bg-rb-bee-wash px-2 py-0.5 text-xs font-bold text-rb-fox-lip">
                           {!question.prompt.trim()
@@ -263,9 +229,6 @@ export default function QuizBuilderPage() {
                     </div>
                   </div>
 
-                  {/* The question reads in the display face at the size the
-                      runner asks it, so a prompt too long to sit well on the
-                      attempt screen looks too long here too. */}
                   <textarea
                     rows={2}
                     value={question.prompt}
@@ -279,21 +242,7 @@ export default function QuizBuilderPage() {
                       Options — tick the correct one
                     </legend>
 
-                    {/* The design system's own answer tile -- `rb-answer` and
-                        `rb-answer-key`, the same 64px surface, keycap and solid
-                        lip the practice runner draws, and its `correct` state
-                        for the marked answer. So the editor shows an option
-                        exactly as the learner will meet it, rather than a
-                        lookalike that drifts the next time the runner changes.
 
-                        Written as a div rather than the `AnswerOption`
-                        component: that renders a <button>, and this tile has to
-                        hold a text field. Interactive content inside a button
-                        is invalid HTML and the field would not reliably take
-                        focus. The CSS keys off the classes, not the element, so
-                        a div gets the identical treatment -- only the pointer
-                        cursor, which belongs to a whole-tile button, is
-                        dropped. */}
                     <div className="space-y-2">
                       {question.options.map((option, optionIndex) => {
                         const correct = question.answer === optionIndex
@@ -303,9 +252,6 @@ export default function QuizBuilderPage() {
                             data-state={correct ? "correct" : "idle"}
                             className="rb-answer !cursor-default"
                           >
-                            {/* The keycap is the control: pressing A marks A
-                                correct. One target, in the place the learner
-                                already reads the letter from. */}
                             <button
                               type="button"
                               onClick={() => update(question.id, { answer: optionIndex })}

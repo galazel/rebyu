@@ -22,21 +22,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * Reads stay public -- the certification catalog is browsed from the public
- * partnership-request page before an institution even has an account, and by
- * every signed-in role. WRITES had no authentication at all (anyone could
- * create/edit/delete/publish any certification); now admin-only.
- *
- * includeDepartmentId is the opt-in mechanism that lets a group's own curriculum
- * view mix in that group's Institution-Member-authored content: omitted (the
- * default, and the only thing every existing caller does), the response is
- * identical to before this parameter existed -- official content only, since
- * no content has ever had a non-null owner group. Passed, it additionally
- * requires the caller to actually be able to act on that group (owner or its
- * active leader), so a caller can't read a group's private content by
- * guessing its id.
- */
 @RestController
 @RequestMapping("/api/certifications")
 @RequiredArgsConstructor
@@ -53,8 +38,6 @@ public class CertificationController {
     public List<CertificationDto> getAll(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) Long includeDepartmentId,
-            // Coming-soon certifications are only for the institution request
-            // page and the admin list; every other list stays real ones only.
             @RequestParam(defaultValue = "false") boolean includeComingSoon) {
         requireDepartmentAccessIfRequested(jwt, includeDepartmentId);
         return certificationService.getAll(includeDepartmentId, includeComingSoon);
@@ -83,26 +66,11 @@ public class CertificationController {
             @AuthenticationPrincipal Jwt jwt,
             @RequestPart("data") @Valid CertificationDto dto,
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
-            /* The badge artwork, optional. Saved once the certification row
-               exists so it has an id to hang off; a bad image fails the whole
-               request before any generation is queued. */
             @RequestPart(value = "badge", required = false) MultipartFile badge,
             @RequestParam(value = "additionalInstructions", required = false) String additionalInstructions,
-            /* "guided" (default) pauses for admin review at every checkpoint;
-               "auto" generates the whole certification without stopping. */
             @RequestParam(value = "reviewMode", required = false) String reviewMode,
-            /* Which formats this certification examines: MCQ, SHORT_ANSWER,
-               DESCRIPTIVE, CRITICAL_THINKING. Omitted, the planner researches
-               them -- which is the behaviour every run had before the create
-               form offered the choice. */
             @RequestParam(value = "questionTypes", required = false) List<String> questionTypes,
-            /* How many question-bank items this run should author. Omitted,
-               the configured size is used -- the behaviour every run had
-               before the create form offered the number. Clamped to a sane
-               range on the Python side, which is where it is spent. */
             @RequestParam(value = "questionBankSize", required = false) Integer questionBankSize,
-            /* How many lessons the curriculum should hold in total. Omitted,
-               the configured per-level ranges decide. */
             @RequestParam(value = "lessonCount", required = false) Integer lessonCount
     ) throws IOException {
         CurrentUserDto user = requireAdmin(jwt);
@@ -118,7 +86,6 @@ public class CertificationController {
         return created;
     }
 
-    /** The badge image itself. Public, like the catalog it decorates. */
     @GetMapping("/{id}/badge")
     public ResponseEntity<byte[]> badge(@PathVariable Long id) {
         CertificationBadgeService.Badge badge = badgeService.read(id);
@@ -145,14 +112,6 @@ public class CertificationController {
         badgeService.remove(id);
     }
 
-    /**
-     * Adds to a certification's curriculum rather than rebuilding it.
-     *
-     * <p>Distinct endpoint rather than a flag on the replace path, because the
-     * two differ by whether the existing structure is deleted first -- and a
-     * caller that got the flag wrong would silently destroy a curriculum. The
-     * destructive one has to be asked for by name.
-     */
     @PostMapping(value = "/{id}/generate/append", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.ACCEPTED)
     public CertificationDto appendWithAi(
@@ -162,13 +121,7 @@ public class CertificationController {
             @RequestParam(value = "additionalInstructions", required = false) String additionalInstructions,
             @RequestParam(value = "reviewMode", required = false) String reviewMode,
             @RequestParam(value = "questionTypes", required = false) List<String> questionTypes,
-            /* How many question-bank items this run should author. Omitted,
-               the configured size is used -- the behaviour every run had
-               before the create form offered the number. Clamped to a sane
-               range on the Python side, which is where it is spent. */
             @RequestParam(value = "questionBankSize", required = false) Integer questionBankSize,
-            /* How many lessons the curriculum should hold in total. Omitted,
-               the configured per-level ranges decide. */
             @RequestParam(value = "lessonCount", required = false) Integer lessonCount
     ) throws IOException {
         CurrentUserDto user = requireAdmin(jwt);
@@ -220,14 +173,6 @@ public class CertificationController {
         return user;
     }
 
-    /**
-     * No-op when includeDepartmentId is omitted -- the request stays fully public,
-     * exactly as before this parameter existed. When supplied, the caller must
-     * be authenticated and able to act on that specific group (the institution
-     * owner, or that group's active leader) -- reusing the same access check
-     * DepartmentController already relies on -- so group-owned content
-     * can't be read by guessing a group id.
-     */
     private void requireDepartmentAccessIfRequested(Jwt jwt, Long includeDepartmentId) {
         if (includeDepartmentId == null) {
             return;
@@ -240,8 +185,6 @@ public class CertificationController {
             throw new IllegalArgumentException("An institution account is required");
         }
         boolean owner = "owner".equalsIgnoreCase(user.departmentHeadRole());
-        // Throws EntityNotFoundException (-> 404/400 via the global handler) if
-        // the caller can't actually act on this group.
         departmentService.getAccessibleById(includeDepartmentId, user.institutionId(), user.userId(), owner);
     }
 }

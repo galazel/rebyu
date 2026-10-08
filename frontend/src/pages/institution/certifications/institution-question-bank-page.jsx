@@ -96,7 +96,6 @@ function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, dep
     setError("")
   }
 
-  // Load the question being edited once, when the dialog opens for it.
   useMemo(() => {
     if (editingQuestion && open) {
       setQuestionType(editingQuestion.questionType ?? "MCQ")
@@ -126,8 +125,6 @@ function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, dep
       }
       return isEditing
         ? updateQuestion(editingQuestion.questionId, payload)
-        // Authored for this group when opened in a group context, so it stays
-        // private to them rather than joining the official question bank.
         : saveQuestion(payload, departmentId)
     },
     onSuccess: () => {
@@ -318,14 +315,6 @@ function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, dep
   )
 }
 
-/**
- * The question bank itself, without the page chrome.
- *
- * `certificationId` locks the panel to one certification and hides the
- * certification picker -- that is how the certification detail page embeds it,
- * so authors never have to re-select the certification they are already in.
- * Left null (the standalone page) the picker is shown as before.
- */
 export function InstitutionQuestionBankPanel({
   certificationId = null,
   initialCertificationId = "",
@@ -355,8 +344,6 @@ export function InstitutionQuestionBankPanel({
   const [deleteTarget, setDeleteTarget] = useState(null)
   const queryClient = useQueryClient()
 
-  // Handed a certification (and lesson) by the caller -- and, for the one-click
-  // "Add question" affordance next to a lesson, the form ready to go.
   useEffect(() => {
     if (startingCertId) {
       setSelectedCertId(startingCertId)
@@ -377,8 +364,6 @@ export function InstitutionQuestionBankPanel({
     staleTime: 5 * 60 * 1000,
   })
 
-  // Only certifications this institution has actually purchased access to --
-  // matches the backend's enforcement in QuestionService.
   const accessibleCertifications = useMemo(() => {
     const certById = new Map(
       (certificationsQuery.data ?? []).map((c) => [c.certificationId, c])
@@ -415,8 +400,6 @@ export function InstitutionQuestionBankPanel({
 
   const questions = Array.isArray(questionsQuery.data) ? questionsQuery.data : []
 
-  // Filtering happens here rather than on the server: a lesson's bank is a
-  // page of rows, not a corpus, and the list is already in hand.
   const visibleQuestions = useMemo(() => {
     const needle = search.trim().toLowerCase()
     return questions.filter((question) => {
@@ -451,10 +434,6 @@ export function InstitutionQuestionBankPanel({
 
   return (
     <div className="space-y-4">
-      {/* One toolbar, the way the admin bank does it: what you are looking at
-          on the left, how you narrow it in the middle, what you can add on the
-          right. The selects used to be full-width stacked fields above a
-          column of cards, which spent the whole viewport on two dropdowns. */}
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-background p-3">
         {isLockedToCertification ? null : (
           <div className="min-w-52 flex-1 space-y-1.5">
@@ -623,10 +602,6 @@ export function InstitutionQuestionBankPanel({
                         <TableRow key={question.questionId} className="align-top">
                           <TableCell className="max-w-xl py-2.5">
                             <p className="font-medium text-foreground">{question.questionText}</p>
-                            {/* The answer, not every option: a bank is scanned
-                                for what a question tests, and four choices per
-                                row turned the table back into a column of
-                                cards. */}
                             {correct ? (
                               <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
                                 &#10003; {correct.choiceText}

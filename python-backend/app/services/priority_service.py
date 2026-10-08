@@ -19,7 +19,6 @@ from app.db.models import (
     LearnerLessonMastery,
 )
 
-# Tags
 CRITICAL = "CRITICAL_PRIORITY"
 HIGH = "HIGH_PRIORITY"
 MEDIUM = "MEDIUM_PRIORITY"
@@ -40,7 +39,6 @@ LABELS = {
     NEEDS_REASSESSMENT: "Needs Reassessment",
 }
 
-# Severity ordering for hysteresis (higher = worse / more urgent).
 SEVERITY = {STRONG: 0, ON_TRACK: 1, LOW: 2, MEDIUM: 3, HIGH: 4, CRITICAL: 5}
 _DATA_STATES = {NOT_ENOUGH_DATA, NEEDS_REASSESSMENT}
 
@@ -136,8 +134,6 @@ def reportable_mastery(row: LearnerLessonMastery, settings: Settings) -> float:
     mastery = row.mastery_probability
     evidence = (row.correct_count or 0) + (row.incorrect_count or 0)
 
-    # Too little to draw a ceiling from: an estimate is meant to move freely
-    # early on, and a bound taken from two answers is noise.
     if evidence < settings.mastery_accuracy_guard_min_evidence:
         return mastery
 
@@ -163,13 +159,6 @@ def compute_lesson_priority(row: LearnerLessonMastery, settings: Settings) -> di
         if incorrect_rate >= 50:
             reasons.append("Missed at least half of recent questions")
 
-    # NOTE: priority_weight_mock/priority_weight_diagnostic re-weight the
-    # SAME mastery_weakness value computed above, not an independent
-    # mock/diagnostic-specific signal -- there is no separate "mastery as
-    # measured by mock exams only" number being tracked. Bumping these
-    # weights makes a lesson whose most recent assessment was a mock/
-    # diagnostic count as MORE urgent for the same underlying mastery, it
-    # does not add new evidence.
     last_type = (row.last_assessment_type or "").upper()
     if last_type == "MOCK_EXAM":
         components.append((mastery_weakness, settings.priority_weight_mock))
@@ -206,10 +195,6 @@ def compute_lesson_priority(row: LearnerLessonMastery, settings: Settings) -> di
         "recommended_action": ACTION[tag],
         "recommended_activity": ACTIVITY[tag],
         "mastery_probability": mastery,
-        # Derived from the reported figure, not the stored one. Read off the
-        # row it could say "mastered" beside a percentage the guard had just
-        # pulled down, and a badge contradicting the number under it is worse
-        # than either being wrong alone.
         "mastery_level": mastery_level(
             mastery,
             developing_threshold=settings.developing_threshold,
@@ -226,7 +211,7 @@ def _review_urgency(last_updated: datetime | None) -> float | None:
     now = datetime.now(timezone.utc)
     reference = last_updated if last_updated.tzinfo else last_updated.replace(tzinfo=timezone.utc)
     days = max(0.0, (now - reference).total_seconds() / 86400.0)
-    return _clamp(days * 5.0)  # ~20 days since review saturates the component
+    return _clamp(days * 5.0)
 
 
 def apply_hysteresis(

@@ -9,15 +9,6 @@ import { returnState } from "@/lib/assessment-return"
 import { getAssessmentTypeLabel } from "@/services/assessmentService.js"
 import { getMyClassAssessments } from "@/services/learnerService.js"
 
-/**
- * The assessments the learner's department head has published, on the
- * certification they belong to -- the same treatment announcements get, and
- * from the same place: a department publishes, and it appears here.
- *
- * Renders nothing when the learner is in no department, or their department
- * has published nothing. Most learners are in neither case, and an empty
- * "Class assessments" heading on every certification page would be noise.
- */
 export function LearnerClassAssessments({ certificationId }) {
   const location = useLocation()
   const query = useQuery({
@@ -77,9 +68,6 @@ export function LearnerClassAssessments({ certificationId }) {
                         {assessment.totalQuestions === 1 ? "" : "s"}
                       </span>
                     ) : null}
-                    {/* The clock the attempt will actually run on: the
-                        department head sets it on the assessment, and the
-                        attempt expires on it. */}
                     {assessment.durationMinutes ? (
                       <span className="inline-flex items-center gap-1">
                         <Clock className="size-3" aria-hidden="true" />

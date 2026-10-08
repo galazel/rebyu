@@ -20,31 +20,7 @@ import {
   useUploadedFile,
 } from "./workspace-shared.jsx"
 
-/**
- * Flashcard Builder — a document in, a deck out, editable before it is kept.
- *
- * <p>Cards come from the uploaded document, never from a blank form. This is an
- * AI workspace: the learner's job is to hand over material and correct what
- * comes back, not to type a deck out themselves — they could do that anywhere.
- * So there is no "add a card" here and no empty-deck authoring path; the only
- * way to a deck is a file.
- *
- * <p>What stays editable is the result. The learner is expected to disagree
- * with some of it, and the deck is only saved when they say so — generation
- * that filed straight to the Library would make a bad card their problem to
- * find later, in a deck they never read.
- *
- * <p>UI only. Nothing below came from a document; the cards are labelled as
- * examples so the editor can be reviewed without anyone mistaking them for
- * output. See BACKEND: for where extraction plugs in.
- */
 
-/*
- * Stand-in cards, shown once "generation" finishes so the editor has something
- * to hold. Filled in and openly labelled as examples on screen: blank cards
- * would leave the editor untestable, and realistic-looking ones with no label
- * would read as real output from the learner's file.
- */
 const EXAMPLE_CARDS = [
   {
     id: 1,
@@ -72,8 +48,6 @@ export default function FlashcardBuilderPage() {
 
   function generate() {
     setGenerating(true)
-    // BACKEND: send the uploaded document for card extraction, then replace the
-    // deck with what comes back.
     window.setTimeout(() => {
       setCards(EXAMPLE_CARDS.map((card) => ({ ...card })))
       setGenerating(false)
@@ -134,7 +108,6 @@ export default function FlashcardBuilderPage() {
           <TactileButton
             size="sm"
             disabled={complete.length === 0}
-            // BACKEND: persist the deck to the learner's Library.
             onClick={() => {}}
           >
             <Save className="size-4" aria-hidden="true" />
@@ -144,7 +117,6 @@ export default function FlashcardBuilderPage() {
       </FeatureHeader>
 
       <div className="grid min-h-0 flex-1 gap-4 border-t border-border p-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:p-6">
-        {/* The deck, as an editable list. */}
         <div className="min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -194,8 +166,6 @@ export default function FlashcardBuilderPage() {
             ) : (
               cards.map((card, index) => (
                 <RebyuCard key={card.id} className="overflow-hidden p-0">
-                  {/* Head in the deck's own colour, so a row in the editor
-                      reads as the same object the learner will study. */}
                   <div className="flex items-center justify-between gap-3 border-b-2 border-border bg-rb-beetle-wash px-4 py-2.5">
                     <span className="flex items-center gap-2">
                       <span className="grid size-7 place-items-center rounded-rb-control border-2 border-rb-beetle-lip/40 font-rb-display text-xs font-extrabold text-rb-beetle-lip">
@@ -216,9 +186,6 @@ export default function FlashcardBuilderPage() {
                     </TactileButton>
                   </div>
 
-                  {/* The two faces, side by side and labelled the way the study
-                      screen labels them: Question in feather on white, Answer
-                      white-on-feather. Editing a card should look like the card. */}
                   <div className="grid gap-px bg-border sm:grid-cols-2">
                     <label className="block bg-white p-4">
                       <span className="mb-2 flex items-center gap-1.5 font-rb-display text-xs font-extrabold uppercase tracking-[0.2em] text-rb-feather-lip">
@@ -254,15 +221,11 @@ export default function FlashcardBuilderPage() {
           </div>
         </div>
 
-        {/* What the learner will actually see when they study it. */}
         <aside className="min-w-0">
           <div className="lg:sticky lg:top-4">
             <p className="rb-nav-label mb-2 text-rb-hare">Preview</p>
             {previewCard ? (
               <>
-                {/* The card the study screen actually shows: 2rem radius,
-                    white front, feather back, flipped in 3D. A preview that did
-                    not look like the real thing would not be a preview. */}
                 <button
                   type="button"
                   onClick={() => setFlipped((value) => !value)}

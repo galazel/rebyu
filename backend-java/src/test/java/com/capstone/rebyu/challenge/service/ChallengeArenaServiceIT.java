@@ -12,29 +12,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Exercises arena configuration against the real database.
- *
- * <p>An integration test rather than a unit test on purpose: what needed
- * proving is that a CHALLENGE exam can actually be created and found again --
- * the exam type is seeded at startup, the arena is identified by
- * {@code targetScope}, and the questions are real rows. Mocks would have
- * asserted only that the code calls the methods it obviously calls.
- *
- * <p>It leaves the arena configured on purpose. That is the state a learner
- * needs in order to see an arena unlock, so wiping it would remove the very
- * thing the next test looks for. {@code clearProblems} is exercised on a
- * second arena, so both directions are covered without leaving the first
- * unusable.
- */
 @SpringBootTest
 class ChallengeArenaServiceIT {
 
-  /** Real PROGRAMMING questions on certification 2, found by surveying the bank. */
   private static final Long CODESTRIKE_CERTIFICATION = 2L;
   private static final List<Long> CODESTRIKE_QUESTIONS = List.of(69L);
 
-  /** Real DIAGRAM questions, used to prove clearing works and locks again. */
   private static final Long BLUEPRINT_CERTIFICATION = 2L;
   private static final List<Long> BLUEPRINT_QUESTIONS = List.of(68L);
 
@@ -63,12 +46,6 @@ class ChallengeArenaServiceIT {
     assertNotNull(after.examId(), "a configured arena must expose the exam the learner runs");
     assertEquals(CODESTRIKE_CERTIFICATION, after.certificationId());
 
-    /* Read back through SQL rather than the entity.
-       `Exam.examType` is a lazy association, so touching it out here -- after
-       the service's transaction has closed -- throws LazyInitializationException.
-       That is a fact about the test, not about the arena, and making the test
-       transactional would roll the save back and undo the very state a learner
-       needs to see the arena unlock. */
     var row = jdbc.queryForMap(
         "SELECT e.status, e.target_scope, t.exam_type_text, "
             + "(SELECT count(*) FROM exam_questions q WHERE q.exam_id = e.exam_id) AS problems "

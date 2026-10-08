@@ -52,7 +52,6 @@ class _FakeFactory:
 def fake_saver(monkeypatch):
     factory = _FakeFactory()
     monkeypatch.setattr(helpers, "AsyncPostgresSaver", factory)
-    # Reset module singletons so each test starts cold.
     monkeypatch.setattr(helpers, "_checkpointer", None, raising=False)
     monkeypatch.setattr(helpers, "_checkpointer_cm", None, raising=False)
     monkeypatch.setattr(helpers, "_checkpointer_lock", asyncio.Lock(), raising=False)

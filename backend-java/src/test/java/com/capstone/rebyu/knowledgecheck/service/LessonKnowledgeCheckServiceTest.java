@@ -45,10 +45,8 @@ class LessonKnowledgeCheckServiceTest {
     private static final Long LEARNER_ID = 1L;
     private static final Long CERTIFICATION_ID = 7L;
 
-    /** The lesson being read when the check fires. */
     private static final Long TRIGGER_LESSON_ID = 100L;
 
-    /** Lessons the learner has already finished. */
     private static final Long DONE_LESSON_A = 200L;
     private static final Long DONE_LESSON_B = 201L;
 
@@ -80,7 +78,6 @@ class LessonKnowledgeCheckServiceTest {
                 completedLessons, lessons, eligibleQuestions,
                 exams, examTypes, examQuestions, questions, history);
 
-        // Default: no mistakes on record, so selection falls through to the bank.
         when(history.missedQuestionIds(anyLong(), any(), any())).thenReturn(List.of());
 
         certification = new Certification();
@@ -89,7 +86,6 @@ class LessonKnowledgeCheckServiceTest {
         when(lessons.findById(TRIGGER_LESSON_ID))
                 .thenReturn(Optional.of(lesson(TRIGGER_LESSON_ID, "The lesson being read")));
 
-        // No check served before, so nothing is on cooldown by default.
         when(exams.findLastServedAt(anyLong(), anyString())).thenReturn(null);
 
         when(examTypes.findByExamTypeText(
@@ -114,18 +110,10 @@ class LessonKnowledgeCheckServiceTest {
 
         assertTrue(offer.available());
         assertEquals(5, offer.itemCount());
-        // Both finished lessons are named, so the modal can say what it draws on.
         assertEquals(List.of("Lesson " + DONE_LESSON_A, "Lesson " + DONE_LESSON_B),
                 offer.lessonNames());
     }
 
-    /**
-     * The case that makes or breaks the feature on a real curriculum: when a
-     * certification holds only the lesson being read, the check must still be
-     * buildable from finished lessons elsewhere. This is the actual shape of
-     * the production database -- one lesson per certification -- where scoping
-     * strictly to the current certification would mean no check could ever fire.
-     */
     @Test
     void fallsBackToFinishedLessonsOnOtherCertifications() {
         givenCompletedLessonsOnOtherCertifications(DONE_LESSON_A);
@@ -149,17 +137,11 @@ class LessonKnowledgeCheckServiceTest {
         assertEquals("not-enough-completed-lessons", offer.reason());
     }
 
-    /**
-     * The cooldown is a day, so opening lesson after lesson in one study
-     * session is never interrupted more than once. This is the behaviour the
-     * feature lives or dies by -- the checks below pin both ends of it.
-     */
     @Test
     void refusesASecondCheckLaterTheSameDay() {
         givenCompletedLessons(DONE_LESSON_A);
         givenQuestions(DONE_LESSON_A, 1L, 2L, 3L, 4L, 5L, 6L);
 
-        // Hours later, still the same day's allowance.
         when(exams.findLastServedAt(
                 LEARNER_ID, LessonKnowledgeCheckService.KNOWLEDGE_CHECK_EXAM_TYPE))
                 .thenReturn(LocalDateTime.now().minusHours(8));
@@ -184,22 +166,14 @@ class LessonKnowledgeCheckServiceTest {
         assertTrue(offer.available());
     }
 
-    /**
-     * The whole point of the feature: a check tests what has been finished, so
-     * the lesson currently on screen must never supply its own questions.
-     */
     @Test
     void neverDrawsFromTheLessonBeingRead() {
-        // The learner has "completed" the lesson they are re-reading, plus one
-        // other -- only the other may be drawn from.
         givenCompletedLessons(TRIGGER_LESSON_ID, DONE_LESSON_A);
         givenQuestions(TRIGGER_LESSON_ID, 90L, 91L, 92L, 93L, 94L);
         givenQuestions(DONE_LESSON_A, 1L, 2L, 3L, 4L, 5L);
 
         service.create(LEARNER_ID, TRIGGER_LESSON_ID);
 
-        // Every question minted came from the finished lesson, none from the
-        // lesson on screen.
         verify(questions, times(5)).getReferenceById(
                 org.mockito.ArgumentMatchers.longThat(id -> id >= 1L && id <= 5L));
         verify(eligibleQuestions, never())
@@ -226,20 +200,13 @@ class LessonKnowledgeCheckServiceTest {
         assertEquals(Exam.Status.PUBLISHED, exam.getStatus());
         assertEquals(LessonKnowledgeCheckService.KNOWLEDGE_CHECK_TARGET_SCOPE,
                 exam.getTargetScope());
-        // Learner-owned, so it never appears as the certification's official paper.
         assertNotNull(exam.getLearner());
         assertEquals(LEARNER_ID, exam.getLearner().getLearnerId());
-        // Answers are released on submit -- a check the learner is not marked on
-        // teaches nothing.
         assertTrue(exam.getReleaseAnswersAfterSubmit());
 
         verify(examQuestions, times(5)).save(any());
     }
 
-    /**
-     * A client that skips the pre-flight must not be able to mint checks in a
-     * loop and farm the XP.
-     */
     @Test
     void createRefusesOnCooldownEvenWithoutAPreflight() {
         givenCompletedLessons(DONE_LESSON_A);
@@ -255,7 +222,6 @@ class LessonKnowledgeCheckServiceTest {
         verify(exams, never()).save(any(Exam.class));
     }
 
-    /** Another group's private questions are never eligible for a learner's check. */
     @Test
     void excludesDepartmentOwnedQuestions() {
         givenCompletedLessons(DONE_LESSON_A);
@@ -271,26 +237,16 @@ class LessonKnowledgeCheckServiceTest {
 
         CheckOffer offer = service.offer(LEARNER_ID, TRIGGER_LESSON_ID);
 
-        // Only two of the five are official, so there is nothing to serve.
         assertFalse(offer.available());
         assertEquals("not-enough-completed-lessons", offer.reason());
     }
 
-    // Selection: mistakes first, bank as filler
 
-    /**
-     * The point of the feature: stop the learner on what they got WRONG.
-     *
-     * A random five from finished material mostly re-asks what they already
-     * know. `missedQuestionIds` returns worst-missed first, and that order is
-     * what the check serves.
-     */
     @Test
     void servesPreviouslyMissedQuestionsFirst() {
         givenCompletedLessons(DONE_LESSON_A);
         givenQuestions(DONE_LESSON_A, 1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L);
 
-        // Worst-missed first, as the history service orders them.
         when(history.missedQuestionIds(LEARNER_ID, null, null))
                 .thenReturn(List.of(7L, 3L, 9L, 1L, 5L));
 
@@ -302,7 +258,6 @@ class LessonKnowledgeCheckServiceTest {
         assertEquals(List.of(7L, 3L, 9L, 1L, 5L), served.getAllValues());
     }
 
-    /** Mistakes come first; the bank quietly fills the rest of the paper. */
     @Test
     void topsUpFromTheBankWhenThereAreTooFewMistakes() {
         givenCompletedLessons(DONE_LESSON_A);
@@ -319,22 +274,14 @@ class LessonKnowledgeCheckServiceTest {
         List<Long> ids = served.getAllValues();
 
         assertEquals(List.of(8L, 6L), ids.subList(0, 2));
-        // The remaining three are bank filler, and never repeat a mistake.
         assertEquals(5, java.util.Set.copyOf(ids).size());
     }
 
-    /**
-     * A mistake the learner made on a lesson they have NOT finished -- or on
-     * the lesson currently on screen -- must not leak into the check. The
-     * eligible pool is the guard, and intersecting against it is what applies
-     * both rules.
-     */
     @Test
     void ignoresMistakesOutsideTheEligiblePool() {
         givenCompletedLessons(DONE_LESSON_A);
         givenQuestions(DONE_LESSON_A, 1L, 2L, 3L, 4L, 5L);
 
-        // 900/901 belong to material this check may not serve.
         when(history.missedQuestionIds(LEARNER_ID, null, null))
                 .thenReturn(List.of(900L, 901L));
 
@@ -347,7 +294,6 @@ class LessonKnowledgeCheckServiceTest {
                 java.util.Set.copyOf(served.getAllValues()));
     }
 
-    /** No history at all still produces a check -- just an untargeted one. */
     @Test
     void fallsBackEntirelyToTheBankWithNoMistakes() {
         givenCompletedLessons(DONE_LESSON_A);
@@ -360,23 +306,16 @@ class LessonKnowledgeCheckServiceTest {
         verify(questions, times(5)).getReferenceById(anyLong());
     }
 
-    // Fixtures
 
-    /** Completed lessons on the certification the learner is currently reading. */
     private void givenCompletedLessons(Long... lessonIds) {
         List<LearnerCompletedLesson> rows = completedRows(lessonIds);
         when(completedLessons
                 .findByLearner_LearnerIdAndLesson_MiddleCategory_MajorCategory_Certification_CertificationId(
                         LEARNER_ID, CERTIFICATION_ID))
                 .thenReturn(rows);
-        // The all-certifications lookup is a superset of the scoped one.
         when(completedLessons.findByLearner_LearnerId(LEARNER_ID)).thenReturn(rows);
     }
 
-    /**
-     * Completed lessons that sit on OTHER certifications: the scoped lookup
-     * returns nothing, the unscoped one returns them.
-     */
     private void givenCompletedLessonsOnOtherCertifications(Long... lessonIds) {
         when(completedLessons
                 .findByLearner_LearnerIdAndLesson_MiddleCategory_MajorCategory_Certification_CertificationId(

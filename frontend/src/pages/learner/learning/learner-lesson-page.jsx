@@ -465,7 +465,6 @@ function CourseOutline({
 export default function LearnerLessonPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  // Warm the XP/badge snapshot so an award pops up the moment it is earned.
   useEffect(() => {
     prefetchRewards(queryClient).catch(() => {})
   }, [queryClient])
@@ -557,8 +556,6 @@ export default function LearnerLessonPage() {
 
   const completed =
       locallyCompleted ||
-      // Survives leaving the lesson and coming back, which `locallyCompleted`
-      // and `completionSentRef` do not -- see lib/lesson-completion.js.
       wasLessonCompletedThisSession(lessonId) ||
       Boolean(currentLesson?.completed) ||
       completedLessons.some(
@@ -578,13 +575,8 @@ export default function LearnerLessonPage() {
         markLessonComplete({
           learnerId: data?.learnerId,
           lessonId: Number(lessonId),
-          // `completedAt` is a LocalDateTime server-side and rejects the
-          // trailing `Z` an ISO string carries -- sending it made every
-          // completion from this page 400, so no XP was ever awarded.
           completedAt: new Date().toISOString().slice(0, 19),
         }),
-    // Before the request, not after: the announcement is a before/after diff,
-    // and completing the lesson is what changes both sides of it.
     onMutate: () => {
       rememberLessonCompleted(lessonId)
       return snapshotRewards(queryClient)
@@ -618,9 +610,6 @@ export default function LearnerLessonPage() {
     completionSentRef.current = false
   }, [lessonId])
 
-  /* The skim challenge. Armed only once there is a lesson with content
-     actually on screen -- a lesson still loading, or one with no published
-     blocks, has nothing to read and so nothing to skim. */
   const knowledgeCheck = useSkimChallenge({
     learnerId: data?.learnerId,
     lessonId,
@@ -651,7 +640,6 @@ export default function LearnerLessonPage() {
         if (wasLessonCompletedThisSession(lessonId)) return
 
         completionSentRef.current = true
-        // Finished at a reading pace: the run of skimmed lessons is over.
         knowledgeCheck.clearStrikes()
         completeMutation.mutate()
       },
@@ -700,7 +688,6 @@ export default function LearnerLessonPage() {
                         : "grid-cols-1"
             )}
         >
-          {/* LEFT: Course Outline */}
           {curriculumOpen ? <aside className="hidden min-h-0 border-r border-neutral-200 xl:block">
             <div className="sticky top-0 h-[calc(100dvh-8rem)]">
               <CourseOutline
@@ -712,7 +699,6 @@ export default function LearnerLessonPage() {
             </div>
           </aside> : null}
 
-          {/* CENTER: Lesson Content */}
           <main className="min-w-0 bg-white">
             <div className="min-h-[calc(100dvh-8rem)] px-5 py-10 sm:px-10 sm:py-12 xl:px-14">
               <article className="mx-auto w-full max-w-3xl rounded border border-zinc-200 bg-white px-6 py-8 shadow-sm sm:px-10">
@@ -844,7 +830,6 @@ export default function LearnerLessonPage() {
             </div>
           </main>
 
-          {/* RIGHT: AI Tutor */}
           {coachOpen && isXl ? (
               <aside className="hidden min-h-0 border-l border-zinc-300 bg-white xl:block">
                 <div className="sticky top-0 h-[calc(100dvh-8rem)] overflow-hidden">
@@ -865,11 +850,6 @@ export default function LearnerLessonPage() {
                 type="button"
                 onClick={() => setCoachOpen(true)}
                 aria-label="Open AI Tutor"
-                /* Cleared above the learner portal's bottom bar, which is fixed at
-                   the foot of the screen below `lg` and is 4rem tall plus the
-                   home-indicator inset. At `bottom-6` the tutor button sat on
-                   top of the Community and Mistakes tabs, so on a phone one of
-                   the two was always unreachable. */
                 className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-50 size-14 rounded-full p-0 shadow-lg transition hover:scale-105 hover:shadow-xl sm:right-6 lg:bottom-6"
             >
               <BotIcon className="size-6" aria-hidden="true" />
@@ -877,7 +857,6 @@ export default function LearnerLessonPage() {
             </Button>
         ) : null}
 
-        {/* Mobile Course Outline */}
         <Sheet open={navOpen} onOpenChange={setNavOpen}>
           <SheetContent side="left" className="p-0">
             <SheetTitle className="sr-only">Course Outline</SheetTitle>
@@ -891,9 +870,6 @@ export default function LearnerLessonPage() {
           </SheetContent>
         </Sheet>
 
-        {/* The pop-up knowledge check. Rendered last so it overlays the
-            outline and tutor panels as well as the lesson itself -- a gate the
-            learner can read around is not a gate. */}
         <LessonKnowledgeCheck
             open={Boolean(knowledgeCheck.offer)}
             lessonId={lessonId}
@@ -905,7 +881,6 @@ export default function LearnerLessonPage() {
             onDismiss={knowledgeCheck.dismiss}
         />
 
-        {/* Mobile AI Tutor */}
         <Sheet
             open={coachOpen && !isXl}
             onOpenChange={(open) => {

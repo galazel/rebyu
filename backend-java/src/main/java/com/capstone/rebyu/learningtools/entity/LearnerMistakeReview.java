@@ -11,14 +11,6 @@ import lombok.Setter;
 
 import java.time.OffsetDateTime;
 
-/**
- * One row per mistake a learner has ticked off as reviewed.
- *
- * <p>The mistakes list itself stays a native projection over the attempt
- * tables ({@code LearnerToolsService.mistakes}); this entity exists so the
- * table it LEFT JOINs is actually part of the mapped model. It previously was
- * not, which meant nothing ever created it — see V25.
- */
 @Entity
 @Table(name = "learner_mistake_reviews")
 @Getter

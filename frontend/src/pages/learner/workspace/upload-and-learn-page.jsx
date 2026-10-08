@@ -11,18 +11,6 @@ import {
   useUploadedFile,
 } from "./workspace-shared.jsx"
 
-/**
- * Upload & Learn — read your own document with the tutor beside it.
- *
- * <p>The same split a lesson uses: material on the left, tutor pinned right.
- * Neither builder shares this screen; a learner here is reading, not
- * assembling, and the two jobs want different room.
- *
- * <p>UI only. The tutor says plainly that it is not connected rather than
- * miming a reply — a convincing fake would be a demo of a feature that does not
- * exist, and whoever wires this up later would have no way to tell the mime
- * from the real thing.
- */
 
 function TutorPanel({ fileName, onClose }) {
   const [messages, setMessages] = useState([])
@@ -51,8 +39,6 @@ function TutorPanel({ fileName, onClose }) {
     say("user", trimmed)
     setDraft("")
     setPending(true)
-    // BACKEND: send this message plus the uploaded document to the tutor and
-    // stream the reply back.
     window.setTimeout(() => {
       say(
         "assistant",
@@ -90,9 +76,6 @@ function TutorPanel({ fileName, onClose }) {
             variant="ghost"
             size="sm"
             className="rb-btn-icon shrink-0 !border-transparent hover:!bg-white/15"
-            // The ghost variant is a light face with dark ink, which on the
-            // violet header renders white-on-white. Overriding the vars the
-            // button reads its colours from beats fighting them with utilities.
             style={{ "--rb-btn-face": "transparent", "--rb-btn-ink": "#ffffff" }}
             onClick={onClose}
             aria-label="Close AI Tutor"
@@ -218,8 +201,6 @@ export default function UploadAndLearnPage() {
         ) : null}
       </FeatureHeader>
 
-      {/* Below xl the tutor drops beneath the document rather than squeezing
-          two columns onto a phone. */}
       <div
         className={`grid min-h-0 flex-1 border-t border-border ${
           splitView ? "xl:grid-cols-[minmax(0,1fr)_380px]" : "grid-cols-1"

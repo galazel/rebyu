@@ -35,49 +35,35 @@ import threading
 
 logger = logging.getLogger(__name__)
 
-#: How a question's number is printed. Each is tried in turn.
 QUESTION_STYLES = [
     ("Q12.", re.compile(r"^Q\s?(\d{1,3})\s?[.:)]\s*")),
     ("Question 12", re.compile(r"^(?:Question|Item|No\.?)\s+(\d{1,3})\s*[.:)\-]?\s*", re.I)),
     ("12.", re.compile(r"^(\d{1,3})\s?[.)]\s+(?=\S)")),
 ]
 
-#: A heading printed without its stop -- "19 The following ..." -- taken only
-#: at the start of a block and only for the exact number due next.
 BARE_HEADING = re.compile(r"^(\d{1,3})\s+(?=[A-Z])")
 
-#: How the choices are lettered: (name, marker pattern, case).
 CHOICE_STYLES = [
     ("a)", re.compile(r"(?:^|(?<=\s))\(?([a-h])\)(?=\s|$)"), "lower"),
     ("A.", re.compile(r"(?:^|(?<=\s))\(?([A-H])[.)](?=\s|$)"), "upper"),
     ("a.", re.compile(r"(?:^|(?<=\s))([a-h])\.(?=\s)"), "lower"),
 ]
 
-#: "Answer: B", "Ans. c", "Correct answer - (d)" inside a question.
 INLINE_ANSWER = re.compile(
     r"(?:^|\s)(?:correct\s+)?ans(?:wer)?\s*[:.\-=]\s*\(?([A-Ha-h])\)?(?=[\s.,;]|$)", re.I)
 
-#: The heading of an answer-key section at the end of the document.
 KEY_HEADING = re.compile(
-    # "answer\w{0,2}": OCR reads "ANSWER KEY" as "ANSWERI KEY" often enough.
     r"^\s*(?:answer\w{0,2}\s*key|answers?(?:\s+(?:and|&)\s+explanations?)?|key\s+to\s+correction|"
     r"answer\s+sheet|correct\s+answers?)\s*[:.]?\s*$", re.I)
-#: The same heading at the start of a block that goes on with the answers.
 KEY_OPENING = re.compile(KEY_HEADING.pattern.replace(r"\s*[:.]?\s*$", r"\s*[:.\-]?"), re.I)
-#: An unmistakable key heading partway through a block, directly before a
-#: number-letter pair. Not a bare "Answers": "Answer: B" is an inline answer.
 KEY_MID = re.compile(r"(?<=\s)(?=(?:answer\w{0,2}\s*key|key\s+to\s+correction|answer\s+sheet)\s*[:.\-]?\s*"
                      r"\d{1,3}\s*[.):\-=]?\s*\(?[A-Ha-h]\)?(?:\s|$))", re.I)
 KEY_PAIR = re.compile(r"(?:^|\s)(\d{1,3})\s*[.):\-=]?\s*\(?([A-Ha-h])\)?(?=[\s.,;]|$)")
 
-#: Docling labels that are running text, and those cropped as figures.
 TEXT_LABELS = {"text", "paragraph", "list_item", "section_header", "title", "caption",
                "checkbox_selected", "checkbox_unselected", "footnote", "reference"}
 FIGURE_LABELS = {"picture", "table", "formula", "code", "chart"}
 SKIPPED_LABELS = {"page_header", "page_footer"}
-#: A page number as printed: "7", "- 12 -", "Page 7", "Page 7 of 40", "7/40".
-#: Dropped only in the top or bottom eighth of the page (see `_is_page_number`),
-#: where Docling sometimes labels it plain text rather than a footer.
 PAGE_NUMBER = re.compile(r"^(?:[–—-]\s*)?(?:page\s*)?\d{1,4}(?:\s*(?:/|of)\s*\d{1,4})?(?:\s*[–—-])?$", re.I)
 
 
@@ -142,8 +128,6 @@ def layout_blocks(pdf_bytes: bytes) -> tuple[list[dict], int, bool]:
 
     source = pymupdf.open(stream=pdf_bytes, filetype="pdf")
     blocks = []
-    # Regions Docling read and deliberately left out (running headers and
-    # footers, page numbers), so the text-layer check does not put them back.
     ignored = {}
     for item, _level in doc.iterate_items():
         label = str(getattr(item, "label", "")).split(".")[-1].lower()
@@ -161,22 +145,12 @@ def layout_blocks(pdf_bytes: bytes) -> tuple[list[dict], int, bool]:
             continue
         if len({p.page_no for p in item.prov}) > 1 and all(
                 len(source[p.page_no - 1].get_text().strip()) >= 20 for p in item.prov):
-            # One item running across a page break: its box is the first
-            # page's, its text both pages', so the second page's lines would
-            # be read twice. Left out; the text-layer check puts each page's
-            # lines back on that page.
             continue
         text = (getattr(item, "text", "") or "").strip()
         marker = (getattr(item, "marker", "") or "").strip()
         if label in TEXTUAL_FIGURES | {"table"} and any(
                 QUESTION_LINE.match(line) or (label != "table" and CHOICE_LINE.match(line))
                 for line, _ in _region_lines(source[prov.page_no - 1], fraction)):
-            # A "code" or "formula" region holding a question heading or a
-            # choice is running text the layout model misjudged (a title and
-            # "1. Which ..." taken as code); a "table" holding a question
-            # heading is the paper's own layout (a reviewer typed in a Word
-            # table). Left out here; the text-layer check below puts its
-            # lines back as text, in order.
             continue
         if label in FIGURE_LABELS:
             figure, choice_lines = _split_choices_out(source[prov.page_no - 1], fraction)
@@ -187,8 +161,6 @@ def layout_blocks(pdf_bytes: bytes) -> tuple[list[dict], int, bool]:
                 blocks.append({"kind": "text", "label": "list_item", "text": line_text,
                                "page": prov.page_no, "box": line_box})
         elif label in TEXT_LABELS or text:
-            # Docling strips a list item's marker into its own field; the
-            # profiles need it back in the text to find the choices.
             if marker and not text.startswith(marker):
                 text = f"{marker} {text}".strip()
             if _is_page_number(text, fraction):
@@ -230,7 +202,6 @@ def _attach_lone_headings(blocks):
     return [joined.get(id(b), b) for b in blocks if id(b) not in dropped]
 
 
-#: Left edge from which a block counts as in the right-hand column.
 GUTTER = 0.48
 
 
@@ -443,8 +414,6 @@ def _check_against_text_layer(blocks, ignored, source):
 
     Pages without a text layer (scans, read by OCR) keep Docling's reading.
     """
-    # Every page, not only those Docling found blocks on: a page it read as
-    # one misjudged region, or skipped, is all text-layer lines.
     pages = {page_no: [] for page_no in range(1, len(source) + 1)}
     for block in blocks:
         pages.setdefault(block["page"], []).append(block)
@@ -509,13 +478,9 @@ def _without_running_lines(blocks, page_count):
     ]
 
 
-#: A printed line that begins with a choice letter: "(a) ...", "b) ...", "C. ..."
 CHOICE_LINE = re.compile(r"^\(?[a-hA-H][.)]\s+\S")
-#: A printed line that begins with a question heading in any of the styles.
 QUESTION_LINE = re.compile(r"^(?:Q\s?\d{1,3}\s?[.:)]|(?:Question|Item|No\.?)\s+\d{1,3}|\d{1,3}\s?[.)]\s+\S)", re.I)
-#: A question heading standing alone: "2.", "Q2.", "Question 2:".
 LONE_HEADING = re.compile(r"^(?:Q\s?\d{1,3}\s?[.:)]?|(?:Question|Item|No\.?)\s+\d{1,3}\s*[.:)]?|\d{1,3}\s?[.)])$", re.I)
-#: Figure labels the layout model also gives running text it misjudges.
 TEXTUAL_FIGURES = {"code", "formula"}
 
 
@@ -552,7 +517,7 @@ def _split_choices_out(page, fraction):
         return fraction, []
     top = lines[first][1][1]
     figure = None
-    if top - fraction[1] > 0.02:  # something drawn above the choices to keep
+    if top - fraction[1] > 0.02:
         figure = [fraction[0], fraction[1], fraction[2], max(fraction[1], top - 0.004)]
     return figure, lines[first:]
 
@@ -615,14 +580,9 @@ def _read_with(blocks, question_re, choice_re, case):
     questions = []
     current = None
     expected = None
-    # The same heading found partway through a block: Docling sometimes
-    # joins a question's last choice and the next question into one
-    # paragraph ("(d) Neo4j Question 7: Which ...").
     mid_re = re.compile(r"(?<=\s)" + question_re.pattern.lstrip("^"), question_re.flags)
 
     def accept(number):
-        # A heading only counts as the next question when its number is the
-        # next one -- "3." inside a stem's own numbered list is not.
         return (expected is None and number <= 5) or number == expected
 
     def heading_at_start(text):
@@ -643,7 +603,6 @@ def _read_with(blocks, question_re, choice_re, case):
         return None
 
     def cover(question, block):
-        # The part of each page the question occupies -- its "Show original".
         top, bottom = block["box"][1], block["box"][3]
         low, high = question["regions"].get(block["page"], (top, bottom))
         question["regions"][block["page"]] = (min(low, top), max(high, bottom))
@@ -687,7 +646,7 @@ def _read_with(blocks, question_re, choice_re, case):
     out = []
     for question in questions:
         stem_parts, figures, options, answer = [], [], [], None
-        target = None  # None = the stem; otherwise an option dict
+        target = None
         want = first = "a" if case == "lower" else "A"
         restarted = False
         for kind, value in question["tokens"]:
@@ -707,10 +666,6 @@ def _read_with(blocks, question_re, choice_re, case):
             cursor = 0
             for mark in choice_re.finditer(text):
                 if mark.group(1) != want:
-                    # A line opening a fresh "A." after this question has its
-                    # choices: the next question's number could not be read
-                    # (a smudged scan, an unreadable heading). Named rather
-                    # than silently folded into this question.
                     if (mark.group(1) == first and len(options) >= 2
                             and not text[:mark.start()].strip()):
                         restarted = True

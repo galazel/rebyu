@@ -1,13 +1,3 @@
-/**
- * A chart shown the way a student actually makes one: in a spreadsheet, on a
- * laptop. Title bar, menu, formula bar, lettered columns and numbered rows,
- * the data typed into cells on the left and the chart floating beside it as a
- * selected chart object. Sheet tabs along the bottom.
- *
- * The chrome is ornament (`aria-hidden`); the data table is real, so the values
- * behind the chart stay readable without the plot. `laptop={false}` drops the
- * laptop and keeps just the app window, for small tiles.
- */
 const COLS = "ABCDEFGHIJKL".split("")
 
 export function LaptopSheet({

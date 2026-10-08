@@ -22,7 +22,6 @@ from typing import Any, Iterable
 
 logger = logging.getLogger(__name__)
 
-# Java's canonical exam types (see V8/V16 migrations).
 EXAM_TYPE_LESSON_QUIZ = "LESSON_QUIZ"
 EXAM_TYPE_MIDDLE_EXAM = "MIDDLE_EXAM"
 EXAM_TYPE_MAJOR_EXAM = "MAJOR_EXAM"
@@ -42,8 +41,6 @@ class LessonResolution:
     """Outcome of mapping a question to a lesson."""
 
     lesson_id: int | None
-    #: True when the id came from an exact/normalized name match rather than
-    #: a positional fallback.
     matched: bool
     reason: str = ""
 
@@ -121,7 +118,6 @@ def resolve_lesson(
         key = normalize_lesson_name(ref)
         if key in lesson_index:
             return LessonResolution(lesson_index[key], matched=True)
-        # Substring match catches "Indexing" vs "Database Indexing".
         candidates = [name for name in lesson_index if key and (key in name or name in key)]
         if len(candidates) == 1:
             return LessonResolution(
@@ -175,9 +171,6 @@ def plan_question_rows(
     return plan
 
 
-#: A generated block whose text becomes the *name* of the section it opens,
-#: rather than a block rendered inside one. Only `heading` -- `subheading` is
-#: a real block that lives inside a section's content.
 _SECTION_BREAK_TYPE = "heading"
 
 
@@ -210,8 +203,6 @@ def build_lesson_sections(entries: Iterable[Any]) -> list[dict[str, Any]]:
     if not entries:
         return []
 
-    # Already sections (hand-authored in the editor, or converted by an
-    # earlier run) -- do not re-wrap.
     if any(_is_section(entry) for entry in entries):
         return entries
 

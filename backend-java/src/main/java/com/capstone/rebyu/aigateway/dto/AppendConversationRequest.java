@@ -7,11 +7,6 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
-/**
- * Records turns the model never produced -- currently the AI tutor's
- * "generate a quiz/flashcards" exchange, which is a real part of the
- * conversation but bypasses the chat graph entirely.
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

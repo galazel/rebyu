@@ -34,44 +34,26 @@ from io import BytesIO
 from typing import Any
 from xml.etree import ElementTree
 
-import pymupdf as fitz  # `fitz` is the deprecated import name for the same package
+import pymupdf as fitz
 
 logger = logging.getLogger(__name__)
 
 PDF_CONTENT_TYPE = "application/pdf"
 DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
-#: OOXML namespaces needed to walk a .docx body in document order.
-#: `r:embed` (DrawingML, modern Word) and `r:id` (VML, images from older Word
-#: versions and some converters) both name a relationship rather than a file,
-#: which is why the .rels part has to be resolved first.
 _NS_REL = "http://schemas.openxmlformats.org/package/2006/relationships"
 _NS_OFFICE_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 _NS_DRAWING = "http://schemas.openxmlformats.org/drawingml/2006/main"
 _NS_VML = "urn:schemas-microsoft-com:vml"
 
-#: Below this pixel area, an embedded image is almost always a logo, bullet
-#: icon, or page-header ornament -- not a figure worth capturing.
 _MIN_IMAGE_PIXELS = 120 * 120
 
-#: Padding (in PDF points) added around a figure's bounding box before
-#: cropping, so a tight caption sitting just outside the raw image rect isn't
-#: cut off.
 _CROP_PADDING = 12
 
-#: How far above and below a figure to read text for its context, in points.
-#: A figure's caption sits directly under it and the paragraph that introduces
-#: it directly above, so a band either side catches what the figure is OF.
 _CONTEXT_REACH = 90
 
-#: How much of that text to keep. It exists to be keyword-matched against a
-#: lesson's image request, not to be read, and a whole page of prose matches
-#: everything.
 _CONTEXT_CHARS = 400
 
-#: Render resolution multiplier over the PDF's native 72 DPI. 2x keeps
-#: screenshots legible for diagrams with small embedded labels without
-#: producing multi-megabyte PNGs for every figure.
 _RENDER_ZOOM = 2.0
 
 
@@ -100,7 +82,6 @@ def _figure_regions(page) -> list:
     try:
         return list(figure_rects(page))
     except Exception:
-        # Never lose a whole document's figures to one unusual page.
         logger.exception("Figure detection failed on a page; skipping it")
         return []
 
@@ -130,10 +111,6 @@ def _capture_page_images(
                 "bbox": [crop.x0, crop.y0, crop.x1, crop.y1],
                 "width": pixmap.width,
                 "height": pixmap.height,
-                # What this figure is a picture OF, in the document's own
-                # words. Everything else here locates the figure; only this
-                # says what it shows, and without it a captured figure can
-                # never be matched to the lesson that wants it.
                 "context": _text_around(page, crop),
             }
         )
@@ -202,9 +179,6 @@ def _docx_relationship_targets(archive: zipfile.ZipFile) -> dict[str, str]:
         target = rel.get("Target", "")
         if not rel_id or not target:
             continue
-        # External images are a URL, not a part in this archive -- there is
-        # nothing to extract and fetching one would reach out to the network
-        # mid-ingestion.
         if rel.get("TargetMode") == "External":
             continue
         targets[rel_id] = f"word/{target.lstrip('/').removeprefix('word/')}"
@@ -249,7 +223,6 @@ def _to_png(content: bytes) -> "fitz.Pixmap | None":
         pixmap = fitz.Pixmap(content)
     except Exception:
         return None
-    # CMYK and other >3-channel spaces cannot be written as PNG directly.
     if pixmap.colorspace is not None and pixmap.n - pixmap.alpha > 3:
         pixmap = fitz.Pixmap(fitz.csRGB, pixmap)
     return pixmap
@@ -269,9 +242,6 @@ def capture_docx_visuals(content: bytes, source_name: str) -> list[dict[str, Any
 
             for rel_id in _docx_image_order(archive):
                 part = targets.get(rel_id)
-                # A figure reused across the document (a repeated diagram, a
-                # header mark) is one figure, not several -- dedupe by part so
-                # it is captured and uploaded once.
                 if not part or part in seen:
                     continue
                 seen.add(part)
@@ -294,8 +264,6 @@ def capture_docx_visuals(content: bytes, source_name: str) -> list[dict[str, Any
                         "content": pixmap.tobytes("png"),
                         "content_type": "image/png",
                         "source_file": source_name,
-                        # DOCX has no pages until it is laid out; `loaders`
-                        # calls the whole file page 1, so visuals agree with it.
                         "page": 1,
                         "figure_index": len(captures),
                         "bbox": None,
@@ -304,18 +272,12 @@ def capture_docx_visuals(content: bytes, source_name: str) -> list[dict[str, Any
                     }
                 )
     except zipfile.BadZipFile:
-        # An upload that is not really a .docx is bad input, not a bug -- log it
-        # without a traceback so real failures stay findable in the log.
         logger.warning("%s is not a readable DOCX archive; no figures captured", source_name)
     except Exception:
         logger.exception("Failed to open %s for figure capture", source_name)
     return captures
 
 
-#: Content type -> capture function. A single table so support for a format is
-#: declared in one place: the two membership tests below and the dispatch all
-#: read from it, which is what previously let "PDF only" drift between the
-#: docstring and three separate `!= PDF_CONTENT_TYPE` checks.
 _CAPTURERS = {
     PDF_CONTENT_TYPE: capture_pdf_visuals,
     DOCX_CONTENT_TYPE: capture_docx_visuals,
@@ -339,7 +301,7 @@ def capture_document_visuals(
     """
     from app.storage.s3_client import fetch_object_bytes, upload_object_bytes
 
-    raw_documents: list[tuple[bytes, str, str]] = []  # (content, content_type, filename)
+    raw_documents: list[tuple[bytes, str, str]] = []
 
     for ref in refs or []:
         content_type = ref.get("content_type", "")

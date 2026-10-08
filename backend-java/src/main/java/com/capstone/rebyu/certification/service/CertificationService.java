@@ -52,16 +52,6 @@ public class CertificationService {
     private final com.capstone.rebyu.adaptive.service.AdaptivePolicy adaptivePolicy;
     private final com.capstone.rebyu.adaptive.service.QuestionBankSizeService questionBankSize;
 
-    /**
-     * @param includeDepartmentId when null, only official (platform-wide) content is
-     *                       returned at every level of the curriculum tree --
-     *                       today's exact behavior, since no row has a non-null
-     *                       ownerDepartment yet. When set, content owned by that
-     *                       specific group is ALSO included (mixed in alongside
-     *                       the official curriculum). The caller (controller) is
-     *                       responsible for verifying the requester may actually
-     *                       act on that group before passing it here.
-     */
     @Transactional(readOnly = true)
     public List<CertificationDto> getAll(Long includeDepartmentId) {
         return getAll(includeDepartmentId, false);
@@ -83,12 +73,6 @@ public class CertificationService {
         return toFilteredDto(certification, includeDepartmentId);
     }
 
-    /**
-     * Strips out group-owned major categories (and everything nested under
-     * them) except the one group the caller was authorized for, if any. This
-     * is the ONLY place member-authored content is prevented from leaking
-     * into every other institution's view of a certification.
-     */
     private CertificationDto toFilteredDto(Certification certification, Long includeDepartmentId) {
         CertificationDto dto = certificationMapper.toDto(certification);
         if (dto.getMajorCategory() != null) {
@@ -103,13 +87,6 @@ public class CertificationService {
         return dto;
     }
 
-    /**
-     * Links every category assessment, mock/diagnostic exam, and lesson quiz
-     * onto the matching node in the certification's tree (or the
-     * certification itself, for certification-scoped exams), so the
-     * frontend can display them without a separate, unlinked call to the
-     * flat {@code /api/exams} list.
-     */
     private void attachExamSummaries(CertificationDto dto, Long certificationId, Long includeDepartmentId) {
         List<Exam> exams = examRepository.findByCertification_CertificationId(certificationId);
 
@@ -135,7 +112,7 @@ public class CertificationService {
             if (exam.getOwnerDepartment() != null
                     && (includeDepartmentId == null
                         || !exam.getOwnerDepartment().getDepartmentId().equals(includeDepartmentId))) {
-                continue; // group-owned exam not visible to this caller
+                continue;
             }
             ExamSummaryDto summary = toExamSummary(exam);
             LessonDto lessonDto = exam.getLesson() != null ? lessonsById.get(exam.getLesson().getLessonId()) : null;
@@ -221,21 +198,8 @@ public class CertificationService {
 
 
 
-        /*
-         * Fields the client never sends, carried over rather than dropped.
-         *
-         * This method replaces the entity wholesale with one mapped from the
-         * DTO, so anything the DTO does not carry came back as the field's own
-         * default. Status is the damaging one: the mapper ignores it and the
-         * entity initialises to DRAFT, so editing a PUBLISHED certification --
-         * even renaming one module -- quietly unpublished it and took it away
-         * from every learner. The exam blueprint is written by the Python
-         * generation service and is not in the DTO at all, so it was being
-         * erased by the same mechanism.
-         */
         updatedCertification.setStatus(existingCertification.getStatus());
         updatedCertification.setExamStructure(existingCertification.getExamStructure());
-        // The badge is changed through its own endpoint, never through the edit form.
         updatedCertification.setBadgeImageKey(existingCertification.getBadgeImageKey());
 
         updatedCertification.setDateUpdated(LocalDateTime.now());
@@ -258,15 +222,6 @@ public class CertificationService {
     public void delete(Long id) {
         Certification certification = findEntity(id);
 
-        // Before any rows go: a generation still in flight has to be stopped,
-        // or it carries on authoring lessons and questions against a
-        // certification that no longer exists -- spending tokens the whole
-        // way, and leaving a run in the workspace that opens onto nothing.
-        //
-        // Best-effort by design. The AI service being down must not block an
-        // admin's delete; the alternative is a certification that cannot be
-        // removed because a different service is unhealthy. A leaked run is
-        // recoverable, a half-deleted certification is not.
         try {
             workflowClient.purgeCertification(id);
         } catch (Exception e) {
@@ -280,21 +235,6 @@ public class CertificationService {
     }
 
     private void deleteRelatedCertificationData(Long certificationId) {
-        /* What a learner accumulated while studying this certification.
-         *
-         * These went first because they are leaves -- nothing references them,
-         * and they reference the lessons and exams removed further down. They
-         * were not deleted at all: the enrollment row went (learner_
-         * certifications, below), so the certification vanished from the
-         * learner's list, while their notes, saved items, review queue,
-         * practice history and study plan stayed behind pointing at lesson ids
-         * that no longer resolve. Re-generating a certification then reused
-         * those ids for entirely different lessons, so the leftovers attached
-         * themselves to whatever now held the id.
-         *
-         * `study_plan` and `learner_notes` are keyed on the certification
-         * directly; the rest reach it through their lesson.
-         */
         executeDelete("""
                 DELETE FROM learner_read_sections
                 WHERE lesson_id IN (
@@ -360,12 +300,6 @@ public class CertificationService {
         executeDelete("DELETE FROM study_plan WHERE certification_id = :certificationId",
                 certificationId);
 
-        /* Queued BKT evidence for exams that are about to stop existing.
-         *
-         * The outbox is drained by a scheduled dispatcher, so a row left here
-         * is not inert -- it is work that will be posted to the BKT service
-         * after the delete, teaching mastery about a lesson nobody can open.
-         */
         executeDelete("""
                 DELETE FROM bkt_event_outbox
                 WHERE certification_id = :certificationId
@@ -374,8 +308,6 @@ public class CertificationService {
                 )
                 """, certificationId);
 
-        // Executions reference both attempt_questions and attempts, so they must
-        // be removed before either of those tables.
         executeDelete("""
                 DELETE FROM assessment_attempt_executions
                 WHERE assessment_attempt_id IN (
@@ -626,15 +558,6 @@ public class CertificationService {
                 WHERE certification_id = :certificationId
                 """, certificationId);
 
-        // Last, because it is the row the AI service keys its whole run on.
-        //
-        // A generation request outlives the certification it was raised for
-        // unless it is removed here: nothing else deletes it, and there is no
-        // FK cascade to do it either. What that leaves is a row still reading
-        // PENDING or PROCESSING, pointing at a certification id that no longer
-        // resolves -- the shape that made two requests look permanently stuck
-        // while nothing was running. `thread_id` is this row's id, so leaving
-        // it behind also keeps a name reserved for state that has been purged.
         executeDelete("""
                 DELETE FROM generation_requests
                 WHERE certification_id = :certificationId
@@ -725,8 +648,6 @@ public class CertificationService {
         Certification certification = certificationRepository.findByIdWithFullTree(id)
                 .orElseThrow(() -> new EntityNotFoundException("Certification not found with ID: " + id));
 
-        // Official exams only -- a group's own assessments are separate content
-        // and are neither validated nor published by the admin's publish action.
         List<Exam> exams = examRepository.findByCertification_CertificationId(id).stream()
                 .filter(exam -> exam.getOwnerDepartment() == null)
                 .toList();
@@ -736,8 +657,6 @@ public class CertificationService {
             throw new BusinessRuleException.InvalidAssessmentSubmissionException(summarize(requirements));
         }
 
-        // Atomic publish: the certification and every assessment under it flip to
-        // PUBLISHED together (single transaction — all or nothing).
         LocalDateTime now = LocalDateTime.now();
         certification.setStatus(Certification.CertificationStatus.PUBLISHED);
         certification.setDateUpdated(now);
@@ -761,20 +680,12 @@ public class CertificationService {
         return buildPublishRequirements(certification, exams);
     }
 
-    /**
-     * Structured publishing readiness (spec §30). `missing` = a required
-     * assessment does not exist; `invalid` = an existing assessment is not ready.
-     */
     private CertificationPublishRequirementsDto buildPublishRequirements(
             Certification certification, List<Exam> allExams) {
 
         List<MissingRequirementDto> missing = new ArrayList<>();
         List<InvalidRequirementDto> invalid = new ArrayList<>();
 
-        // Publishing is about the OFFICIAL curriculum only. Institution groups
-        // author their own categories, lessons, and assessments alongside it;
-        // those are separate content and must never add requirements to (or
-        // satisfy requirements of) the admin's publish checklist.
         List<Exam> exams = allExams.stream()
                 .filter(exam -> exam.getOwnerDepartment() == null)
                 .toList();
@@ -787,7 +698,6 @@ public class CertificationService {
                         .filter(major -> major.getOwnerDepartment() == null)
                         .toList();
 
-        // Certification-wide required assessments.
         long diagnostics = exams.stream().filter(exam -> isExamType(exam, "DIAGNOSTIC")).count();
         List<Exam> mockExams = exams.stream().filter(exam -> isExamType(exam, "MOCK_EXAM")).toList();
         if (diagnostics == 0) {
@@ -802,7 +712,6 @@ public class CertificationService {
                     exam.getExamId(), exam.getTitle(), "MOCK_EXAM_ALREADY_EXISTS", List.of())));
         }
 
-        // Per-scope coverage: every major/middle/lesson needs its assessment.
         Set<Long> coveredMajors = exams.stream().filter(exam -> exam.getMajorCategory() != null)
                 .map(exam -> exam.getMajorCategory().getMajorCategoryId()).collect(Collectors.toSet());
         Set<Long> coveredMiddles = exams.stream().filter(exam -> exam.getMiddleCategory() != null)
@@ -826,7 +735,6 @@ public class CertificationService {
                 List<Lesson> lessons = middle.getLessons() == null ? List.of() : middle.getLessons();
                 for (Lesson lesson : lessons) {
                     hasAnyLesson = true;
-                    // A lesson with no content cannot be published to learners.
                     if (!hasLessonContent(lesson)) {
                         missing.add(new MissingRequirementDto("LESSON_CONTENT", lesson.getLessonId(),
                                 lesson.getName() + " Content", "LESSON_CONTENT_MISSING"));
@@ -839,13 +747,9 @@ public class CertificationService {
             }
         }
 
-        // Per-assessment readiness: questions present, points valid, passing sane.
         for (Exam exam : exams) {
             List<ExamQuestion> examQuestions =
                     examQuestionRepository.findByExam_ExamIdOrderByDisplayOrderAsc(exam.getExamId());
-            /* Adaptive assessments are served from the scope's question bank;
-               an assigned list is only an optional seed. What must be there is
-               enough bank to draw a paper from. */
             if (adaptivePolicy.isAdaptiveType(exam.getExamType().getExamTypeText())) {
                 var size = questionBankSize.measure(exam);
                 if (!size.sufficient()) {
@@ -883,7 +787,6 @@ public class CertificationService {
         return new CertificationPublishRequirementsDto(publishable, missing, invalid);
     }
 
-    /** A lesson is publishable only once it has real component content (not empty "[]"). */
     private boolean hasLessonContent(Lesson lesson) {
         String structure = lesson.getLessonComponentStructure();
         return structure != null && !structure.isBlank() && !"[]".equals(structure.trim());

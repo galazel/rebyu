@@ -1,7 +1,3 @@
--- Invitations become group-scoped: the group leader (not the institution owner)
--- invites learners into their own assigned group. Nullable so existing rows
--- (sent before groups existed) remain valid; every NEW invitation is required
--- to carry a group at the application layer.
 ALTER TABLE public.learner_invitations
     ADD COLUMN IF NOT EXISTS institution_group_id BIGINT NULL
         REFERENCES public.institution_groups(institution_group_id),

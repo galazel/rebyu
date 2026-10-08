@@ -34,20 +34,14 @@ public class PayMongoClient {
     @Value("${paymongo.enabled:false}")
     private boolean enabled;
 
-    // Checkout Sessions live on v1; there is no v2 of this API.
     @Value("${paymongo.base-url:https://api.paymongo.com/v1}")
     private String baseUrl;
 
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
-    /**
-     * Test mode only. A live key (sk_live_) is refused outright, so this build
-     * can never take real money; checkout works whenever a test key is set.
-     */
     private final java.util.Map<Long, String> lastSessionByLearner = new java.util.concurrent.ConcurrentHashMap<>();
 
-    /** The checkout session this learner opened most recently (since the server started). */
     public String lastSessionFor(Long learnerId) {
         return lastSessionByLearner.get(learnerId);
     }
@@ -56,7 +50,6 @@ public class PayMongoClient {
         return secretKey != null && secretKey.trim().startsWith("sk_test_");
     }
 
-    /** Why checkout is unavailable, for the error the learner sees. */
     public String disabledReason() {
         if (secretKey == null || secretKey.isBlank()) {
             return "Payments are not configured yet (PAYMONGO_SECRET_KEY is missing).";
@@ -67,10 +60,6 @@ public class PayMongoClient {
         return null;
     }
 
-    /**
-     * Create a PayMongo Hosted Checkout Session.
-     * Returns the checkout URL for the learner to complete payment.
-     */
     public String createHostedCheckout(Long learnerId, Long planId, String planCode, long amountCents, String planName) {
         if (!isEnabled()) {
             log.warn("PayMongo is disabled; cannot create hosted checkout");
@@ -86,17 +75,11 @@ public class PayMongoClient {
 
             Map<String, Object> attributes = new HashMap<>();
             attributes.put("line_items", new Object[]{lineItem});
-            // Credit and debit cards both come under "card"; GCash is the e-wallet.
             attributes.put("payment_method_types", new String[]{"card", "gcash"});
             attributes.put("billing_name_required", true);
-            // PayMongo's own payment receipt, on top of REBYU's invoice email.
             attributes.put("send_email_receipt", true);
             attributes.put("description", planName + " (test mode)");
             attributes.put("reference_number", "REBYU-" + learnerId + "-" + System.currentTimeMillis());
-            // PayMongo does not fill in a {checkout_session_id} placeholder (that is
-            // Stripe's), so the id came back literally and verify never found the
-            // payment. The session id is remembered per learner instead; see
-            // lastSessionFor.
             attributes.put("success_url", frontendUrl + "/subscription/success");
             attributes.put("cancel_url", frontendUrl + "/subscription/cancel");
             attributes.put("metadata", Map.of(
@@ -125,14 +108,8 @@ public class PayMongoClient {
         }
     }
 
-    /** A created hosted checkout: where to send the payer, and the session to verify afterwards. */
     public record HostedCheckout(String sessionId, String checkoutUrl) {}
 
-    /**
-     * Hosted Checkout for an institution invoice. Same session shape as the
-     * Pro checkout, but keyed by invoice rather than learner, and it returns
-     * the session id so the caller can store it on the invoice.
-     */
     public HostedCheckout createInvoiceCheckout(
             String invoiceNumber, long amountCents, String description, String billingEmail,
             String successUrl, String cancelUrl, Map<String, String> metadata) {
@@ -176,9 +153,6 @@ public class PayMongoClient {
         }
     }
 
-    /**
-     * Retrieve a checkout session from PayMongo.
-     */
     public Map<String, Object> getCheckoutSession(String sessionId) {
         if (!isEnabled()) return null;
         try {
@@ -191,10 +165,6 @@ public class PayMongoClient {
         }
     }
 
-    /**
-     * Get payment status from checkout session.
-     * Returns true if payment was successful.
-     */
     public boolean isPaymentSuccessful(String sessionId) {
         Map<String, Object> session = getCheckoutSession(sessionId);
         if (session == null) return false;
@@ -206,12 +176,6 @@ public class PayMongoClient {
         String status = (String) attributes.get("payment_status");
         if ("paid".equalsIgnoreCase(status)) return true;
 
-        /* `payment_status` is not always there. A session that has been paid
-           comes back with status "active" and no payment_status at all, but
-           carries the payment itself in `payments` -- which is what actually
-           happened to invoice REBYU-INV-202609-000001: PayMongo had taken the
-           money and recorded pay_… as "paid", while this method kept answering
-           false and the invoice sat unpaid forever. Read the payments. */
         Object rawPayments = attributes.get("payments");
         if (rawPayments instanceof List<?> payments) {
             for (Object entry : payments) {
@@ -224,7 +188,6 @@ public class PayMongoClient {
         return false;
     }
 
-    /** The id of the payment a paid checkout session produced, or null. */
     public String paymentIdForSession(String sessionId) {
         if (!isEnabled() || sessionId == null) return null;
         try {
@@ -243,13 +206,6 @@ public class PayMongoClient {
         }
     }
 
-    /**
-     * A refund PayMongo accepted, and what it has done with it so far.
-     *
-     * <p>Accepting a refund is not the same as making it. Card refunds settle
-     * over days and come back {@code pending} first; only {@code succeeded}
-     * means the money has moved, and a pending refund can still fail.
-     */
     public record Refund(String id, String status) {
         public boolean succeeded() {
             return "succeeded".equalsIgnoreCase(status);
@@ -260,11 +216,6 @@ public class PayMongoClient {
         }
     }
 
-    /**
-     * Refunds a payment in full (or the given amount). Returns what PayMongo
-     * accepted, or null if it would not take it at all. Test-mode money, like
-     * everything else this client touches.
-     */
     public Refund refundPayment(String paymentId, long amountCents, String notes) {
         if (!isEnabled() || paymentId == null) return null;
         try {
@@ -287,10 +238,6 @@ public class PayMongoClient {
         }
     }
 
-    /**
-     * Re-reads a refund. What turns a {@code pending} refund into a settled
-     * one in our own records, since PayMongo will not tell us unprompted.
-     */
     public Refund refundStatus(String refundId) {
         if (!isEnabled() || refundId == null) return null;
         try {
@@ -303,9 +250,6 @@ public class PayMongoClient {
         }
     }
 
-    /**
-     * Retrieve a subscription from PayMongo.
-     */
     public Map<String, Object> getSubscription(String subscriptionId) {
         if (!isEnabled()) return null;
         try {
@@ -318,9 +262,6 @@ public class PayMongoClient {
         }
     }
 
-    /**
-     * POST request with Basic Auth using secret key.
-     */
     private String postRequest(String path, Object body) {
         try {
             String url = baseUrl + path;
@@ -341,9 +282,6 @@ public class PayMongoClient {
         }
     }
 
-    /**
-     * GET request with Basic Auth using secret key.
-     */
     private String getRequest(String path) {
         try {
             String url = baseUrl + path;
@@ -353,8 +291,6 @@ public class PayMongoClient {
             headers.set("Authorization", auth);
 
             HttpEntity<Void> entity = new HttpEntity<>(headers);
-            // getForObject(url) sent no headers at all, so every verify call
-            // reached PayMongo unauthenticated and was refused.
             String response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, String.class).getBody();
 
             log.debug("PayMongo GET {} response received", path);

@@ -19,9 +19,6 @@ class QueueSpec:
 
     @property
     def dead_letter_queue(self) -> str:
-        # Mirrors backend-java RabbitMqConfig.deadLetterQueueName/-RoutingKey:
-        # the DLQ name (and its binding routing key) is the main queue name
-        # with ".queue" swapped for ".dlq".
         return self.queue.replace(".queue", ".dlq")
 
 

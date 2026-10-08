@@ -1,17 +1,10 @@
 package com.capstone.rebyu.adaptive.engine;
 
-/**
- * Bayesian Knowledge Tracing: one skill per lesson, tracked as the
- * probability the learner knows it. Each graded response moves that
- * probability by Bayes' rule (through the guess and slip rates) and then
- * allows for learning having happened on the way.
- */
 public final class BktModel {
 
     private BktModel() {
     }
 
-    /** prior = P(known before any evidence), learn = P(T), guess = P(G), slip = P(S). */
     public record Params(double prior, double learn, double guess, double slip) {
         public Params {
             prior = IrtModel.clamp(prior, 0.01, 0.99);
@@ -34,7 +27,6 @@ public final class BktModel {
         return posterior + (1.0 - posterior) * params.learn();
     }
 
-    /** Probability of a correct response given the current knowledge state. */
     public static double predictCorrect(double pKnown, Params params) {
         return pKnown * (1.0 - params.slip()) + (1.0 - pKnown) * params.guess();
     }

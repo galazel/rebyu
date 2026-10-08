@@ -14,41 +14,13 @@ import {
   Trash2,
 } from "@/components/icons"
 
-/**
- * The document reader, laid out the way Scribd reads a file.
- *
- * <p>A light room, not a dark one: a warm grey ground with every page as its own
- * white sheet stacked down the middle, an info panel on the left saying what
- * the document is, and one toolbar across the top for download, paging and
- * zoom. Every kind of file is read the same way:
- *
- * <ul>
- *   <li><b>PDF</b> — drawn by pdf.js onto canvases, one per page. The browser's
- *       own PDF viewer is dark and cannot be restyled, which is why it is not
- *       used. Pages draw as they come near the screen and let their pixels go
- *       once they are far away, so a 400-page book does not hold 400 bitmaps.</li>
- *   <li><b>Word</b> — rendered by docx-preview, which reads the OOXML and
- *       keeps what the document actually says: alignment, fonts and sizes,
- *       spacing, tables, and its own page size, margins and page breaks. It
- *       paginates the way the document does, so its pages are used as they
- *       come rather than repacked.</li>
- *   <li><b>TXT</b> — paragraphs packed onto the same sheets.</li>
- *   <li><b>Images</b> — shown whole as a single page, fitted to the room and
- *       zoomed like a PDF page.</li>
- * </ul>
- *
- * <p>pdf.js and docx-preview are both imported only when a file of their kind
- * is opened, so neither weighs on any other page.
- */
 
 const ZOOM_STEPS = [0.5, 0.75, 0.9, 1, 1.15, 1.35, 1.6, 2]
 
-/** A letter-sized sheet at 96dpi, and its inch margins. */
 const SHEET_WIDTH = 816
 const SHEET_HEIGHT = 1056
 const SHEET_PADDING = 84
 
-/** The widest a PDF page is drawn at 100%. */
 const PDF_MAX_WIDTH = 880
 
 const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".webp"]
@@ -69,7 +41,6 @@ function escapeHtml(text) {
   return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c])
 }
 
-/** Plain text as paragraphs the sheet packer can measure. */
 function textToHtml(text) {
   return (text ?? "")
     .split(/\n{2,}/)
@@ -78,7 +49,6 @@ function textToHtml(text) {
     .join("")
 }
 
-/** Tracks the width of an element, for fitting pages to the room they have. */
 function useElementWidth(ref) {
   const [width, setWidth] = useState(0)
   useLayoutEffect(() => {
@@ -92,20 +62,13 @@ function useElementWidth(ref) {
   return width
 }
 
-/* PDF */
 
-/**
- * Opens a PDF with pdf.js. The URL is tried first so a large file streams in
- * ranges; if that is refused (a storage bucket without CORS for this origin),
- * the file's bytes are asked for instead.
- */
 function usePdfDocument(file, enabled) {
   const [state, setState] = useState({ status: "idle" })
 
   useEffect(() => {
     if (!enabled) return undefined
     let cancelled = false
-    // In pdf.js the loading task, not the document, is what closes the worker.
     let task = null
     setState({ status: "loading" })
 
@@ -115,10 +78,6 @@ function usePdfDocument(file, enabled) {
         import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
       ])
       if (cancelled) throw new Error("cancelled")
-      // The query string is a new cache key. The worker's filename did not
-      // change when nginx started serving .mjs as JavaScript, so a browser that
-      // had it cached as application/octet-stream kept revalidating that copy
-      // (a 304 keeps the stored Content-Type) and refused to run it.
       pdfjs.GlobalWorkerOptions.workerSrc = `${worker.default}?type=module-js`
 
       const common = { useSystemFonts: true, isEvalSupported: false }
@@ -154,7 +113,6 @@ function usePdfDocument(file, enabled) {
   return state
 }
 
-/** One PDF page: a white sheet that draws itself when it nears the screen. */
 function PdfPage({ doc, number, width, ratio, rootRef }) {
   const holderRef = useRef(null)
   const canvasRef = useRef(null)
@@ -177,7 +135,6 @@ function PdfPage({ doc, number, width, ratio, rootRef }) {
     const canvas = canvasRef.current
     if (!canvas) return undefined
     if (!near || width <= 0) {
-      // Far away: give the bitmap back.
       canvas.width = 0
       canvas.height = 0
       setDrawn(false)
@@ -200,8 +157,6 @@ function PdfPage({ doc, number, width, ratio, rootRef }) {
       task.promise.then(
         () => {
           if (cancelled) return
-          // Drawn off screen and copied in whole, so a zoom never shows a
-          // half-painted page over the old one.
           canvas.width = buffer.width
           canvas.height = buffer.height
           canvas.getContext("2d").drawImage(buffer, 0, 0)
@@ -232,45 +187,13 @@ function PdfPage({ doc, number, width, ratio, rootRef }) {
   )
 }
 
-/* Word and text */
 
-/**
- * Packs a document's blocks onto sheets. Each top-level block is measured in an
- * invisible sheet of the real width; a block joins the current sheet until it
- * would pass the bottom margin. One block taller than a whole sheet gets a
- * sheet of its own and lets it grow.
- */
-/**
- * Renders a Word file the way Word laid it out, one self-contained HTML page
- * per sheet.
- *
- * <p>This used to go through mammoth, which converts a document to *semantic*
- * HTML on purpose: it maps Word's named styles to tags and drops direct
- * formatting entirely. A capstone title page, centred by hand rather than by a
- * style, therefore arrived as a column of flush-left paragraphs -- the spacing
- * gone, the page break ignored, the approval table flattened into a run of
- * text. Nothing was wrong with the file; the converter was never trying to
- * keep any of that.
- *
- * <p>docx-preview reads the OOXML instead and emits real pages: alignment,
- * fonts and sizes, paragraph spacing, tables, and the document's own page size
- * and margins. Because it paginates the way the document does, the sheets it
- * produces need no repacking -- which is why Word no longer goes through
- * {@link useSheets}.
- *
- * <p>Each page carries its own copy of the generated stylesheet so a sheet is
- * standalone: the shell renders sheets as isolated HTML, and a page whose CSS
- * lived somewhere else would lose its formatting the moment the preview gate
- * dropped the pages around it.
- */
 async function renderDocxSheets(file) {
   const [{ renderAsync }, buffer] = await Promise.all([
     import("docx-preview"),
     file.arrayBuffer(),
   ])
 
-  // Rendered off-screen: docx-preview measures as it lays out, so the container
-  // has to be in the document, but nothing here should ever be seen.
   const staging = document.createElement("div")
   staging.setAttribute("aria-hidden", "true")
   staging.style.cssText = "position:absolute;left:-10000px;top:0;width:1200px;visibility:hidden"
@@ -341,9 +264,6 @@ function useSheets(html) {
           top: 0,
           width: SHEET_WIDTH - SHEET_PADDING * 2,
         }}
-        // Only ever the text branch now, and that text was escaped by
-        // textToHtml in this file before it got here. Word no longer passes
-        // through the packer at all.
         dangerouslySetInnerHTML={{ __html: html }}
       />
     ) : null
@@ -351,14 +271,7 @@ function useSheets(html) {
   return { sheets, measurer }
 }
 
-/* reader */
 
-/**
- * `previewPages` turns the reader into a preview, the way Scribd shows a
- * document to someone without access: the first pages read normally, the next
- * one is blurred under `lockedNotice`, the rest are not drawn, and there is no
- * download.
- */
 function LockedPage({ notice, children }) {
   return (
     <div className="relative">
@@ -377,8 +290,6 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
   const isPdf = extension === ".pdf"
   const isText = extension === ".txt"
   const isWord = extension === ".docx" || extension === ".doc"
-  // A set of images (file.images) reads as one page per image; a single image
-  // file is a set of one.
   const images = file.images?.length
     ? file.images
     : IMAGE_EXTENSIONS.includes(extension)
@@ -397,7 +308,6 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
   const [fullscreen, setFullscreen] = useState(false)
   const zoom = ZOOM_STEPS[zoomIndex]
 
-  /* content */
   const pdf = usePdfDocument(file, isPdf)
   const [html, setHtml] = useState(null)
   const [docxSheets, setDocxSheets] = useState(null)
@@ -418,8 +328,6 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
     }
   }, [file, isText])
 
-  /* Word arrives already paginated, so it does not go through the packer that
-     text does -- the document's own page breaks are the whole point. */
   useEffect(() => {
     if (!isWord) return undefined
     let cancelled = false
@@ -455,13 +363,11 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
       ? sheets.length
       : null
 
-  /* sizing: fit the room, then zoom */
   const gutter = roomWidth < 640 ? 24 : 64
   const available = Math.max(roomWidth - gutter, 200)
   const pdfWidth = Math.round(Math.min(available, PDF_MAX_WIDTH) * zoom)
   const sheetScale = Math.min(1, available / SHEET_WIDTH) * zoom
 
-  /* paging */
   const updateCurrentPage = useCallback(() => {
     const room = scrollRef.current
     if (!room) return
@@ -504,13 +410,11 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
     [pageCount]
   )
 
-  /* zoom keeps the page you were on */
   const keepPageRef = useRef(null)
   const zoomTo = (index) => {
     keepPageRef.current = page
     setZoomIndex(index)
   }
-  // After the pages have re-laid out at the new size, not before.
   useLayoutEffect(() => {
     const keep = keepPageRef.current
     if (keep === null) return
@@ -519,19 +423,13 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
     if (slot) scrollRef.current.scrollTop = slot.offsetTop - 20
   }, [zoomIndex])
 
-  /* fullscreen follows the document, which Escape can also leave */
   useEffect(() => {
     const sync = () => setFullscreen(document.fullscreenElement === frameRef.current)
     document.addEventListener("fullscreenchange", sync)
     return () => document.removeEventListener("fullscreenchange", sync)
   }, [])
 
-  /* The keys a reader is expected to answer to. Everything here is already a
-     button in the toolbar -- this is the same set reachable without aiming at
-     one, which is what you want on page 140 of 197.
 
-     Typing is left alone: the page box is an input, and stealing "f" or a plus
-     from it would make it impossible to type a page number. */
   useEffect(() => {
     const onKey = (event) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return
@@ -562,9 +460,6 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
 
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-    // Deliberately every render: the handler reads the current page and zoom,
-    // and a dependency list here would either be the same thing written out or
-    // a stale closure paging from wherever the reader was when it mounted.
   })
 
   const toggleFullscreen = () => {
@@ -589,7 +484,6 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
 
   return (
     <div ref={frameRef} className="rb-reader">
-      {/* ---- toolbar */}
       <header className="rb-reader-bar">
         <div className="flex min-w-0 items-center gap-3">
           {back ?? null}
@@ -655,7 +549,6 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
             {fullscreen ? <Minimize2Icon className="size-4" /> : <Maximize className="size-4" />}
           </ToolButton>
 
-          {/* The uploader's own controls; a shared file has neither. */}
           {onReplace ? (
             <ToolButton label="Replace this file" onClick={onReplace}>
               <RefreshCw className="size-4" />
@@ -670,7 +563,6 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {/* ---- info panel */}
         <aside className="rb-reader-info" aria-label="About this document">
           <div className="rb-reader-cover" aria-hidden="true">
             <FileText className="size-8" />
@@ -709,9 +601,6 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
             <nav className="mt-6 min-h-0" aria-label="Jump to page">
               <p className="rb-reader-label">Jump to page</p>
 
-              {/* Pictures are their own labels. A column of numbered buttons
-                  made a reader count rows to find the page they could already
-                  recognise on sight. */}
               {isImage ? (
                 <div className="rb-reader-thumbs">
                   {images.map((image, index) => (
@@ -728,10 +617,6 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
                   ))}
                 </div>
               ) : (
-                /* Scrolls rather than growing. A 197-page document drew 197
-                   buttons down the panel, burying everything above it -- and
-                   the toolbar already takes a page number typed straight in,
-                   which is the faster way to cross a document that long. */
                 <div className="rb-reader-jump rb-reader-jump-scroll">
                   {pageNumbers.map((number) => (
                     <button
@@ -755,7 +640,6 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
           </p>
         </aside>
 
-        {/* ---- pages */}
         <div ref={scrollRef} className="rb-reader-room">
           {loading ? (
             <div className="rb-reader-state">
@@ -829,25 +713,14 @@ export function DocumentReader({ file, onReplace, onRemove, back, previewPages =
               {(previewPages == null ? sheets : sheets.slice(0, previewPages + 1)).map((sheet, index) => {
                 const sheetSlot = (
                 <div key={index} data-page={index + 1} className="rb-reader-page-slot">
-                  {/* A Word page brings its own size and margins out of the
-                      document, so the sheet only scales it. Text has no page
-                      of its own and is packed onto the letter sheet above. */}
                   <div
                     className="rb-reader-sheet"
-                    /* fit-content, not a fixed width: the page inside is
-                       whatever size the document says it is, and a sheet left
-                       to fill the stack would draw white well past the edge of
-                       it. */
                     style={
                       isWord
                         ? { width: "fit-content" }
                         : { width: SHEET_WIDTH * sheetScale, minHeight: SHEET_HEIGHT * sheetScale }
                     }
                   >
-                    {/* No .rb-docx on a Word page. Those rules exist to give
-                        structure back to bare semantic HTML, and against a
-                        document that already carries its own spacing they
-                        would overwrite the very thing being preserved. */}
                     <div
                       className={isWord ? "rb-reader-flow" : "rb-docx rb-reader-flow"}
                       style={

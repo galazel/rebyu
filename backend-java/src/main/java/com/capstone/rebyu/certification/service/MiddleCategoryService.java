@@ -18,13 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * MiddleCategory has no owner column of its own -- it inherits ownership from
- * its parent MajorCategory (see MajorCategoryService's javadoc), so every
- * write here is authorized against that parent via
- * MajorCategoryService.requireCanActOn -- the exact same rule used for
- * MajorCategory itself, reused rather than re-implemented.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -68,8 +61,6 @@ public class MiddleCategoryService {
         majorCategoryService.requireCanActOn(
                 existing.getMajorCategory().getOwnerDepartment(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
 
-        // A middle category can't be moved to a major category with a
-        // DIFFERENT owner -- that would silently change who owns it.
         MajorCategory targetParent = findParent(dto.getMajorCategoryId());
         if (!Objects.equals(ownerDepartmentId(existing.getMajorCategory()), ownerDepartmentId(targetParent))) {
             throw new BusinessRuleException.DepartmentRuleException(
@@ -90,8 +81,6 @@ public class MiddleCategoryService {
         majorCategoryService.requireCanActOn(
                 existing.getMajorCategory().getOwnerDepartment(), isAdmin, callerInstitutionId, callerUserId, callerIsOwner);
 
-        // The module's own assessment and every lesson quiz beneath it, first:
-        // JPA cascades the lessons but nothing cascades what points at them.
         curriculumSubtreeService.clearFor(CurriculumSubtreeService.Node.MIDDLE, id);
         middleCategoryRepository.deleteById(id);
         log.info("MiddleCategory id: {} deleted", id);

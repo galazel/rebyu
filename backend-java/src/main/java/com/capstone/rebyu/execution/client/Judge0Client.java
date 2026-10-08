@@ -15,18 +15,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-/**
- * Typed, blocking client for the Judge0 code-execution API.
- *
- * <p>Judge0's batch endpoint does not honour {@code wait=true}: it only ever
- * answers with one token per submission. This client used to read that answer
- * as if it were the results, so every run came back with no status and no
- * output -- each test case "failed" and no program was ever really judged. It
- * now submits the batch, then polls the tokens until every submission has left
- * the queue (status 1 "In Queue" and 2 "Processing" are still running).
- *
- * <p>Batches are split to Judge0's default maximum batch size of 20.
- */
 @Slf4j
 @Component
 public class Judge0Client {
@@ -83,7 +71,6 @@ public class Judge0Client {
         List<String> list = new ArrayList<>();
         for (TokenDto token : tokens) {
             if (token == null || token.token() == null || token.token().isBlank()) {
-                // A submission Judge0 refused outright (e.g. an unknown language).
                 throw new Judge0ServiceException("Judge0 did not accept every submission in the batch");
             }
             list.add(token.token());
@@ -91,7 +78,6 @@ public class Judge0Client {
         return list;
     }
 
-    /** Polls until every token is finished, or the time allowed for the batch runs out. */
     private List<Judge0SubmissionResultDto> poll(List<String> tokens, String correlationId)
             throws InterruptedException {
         String joined = tokens.stream().collect(Collectors.joining(","));

@@ -1,21 +1,6 @@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 
-/**
- * What the boxes mean, in the admin's words rather than the schema's.
- *
- * "Critical thinking" is one choice here and two types to the generator --
- * programming tasks and diagramming tasks are both stored as
- * CRITICAL_THINKING -- so ticking it turns on both. The description says which
- * two, because "critical thinking" on its own does not tell an admin they are
- * about to ask for code and diagrams.
- *
- * "Fill in the blanks" is the other choice that is not a storage type: the
- * item is a passage with its terms blanked and a candidate list under it, one
- * blank per sub-question, stored as SHORT_ANSWER because that is how each
- * blank is marked. Ticking it tells the generator to write short answers in
- * that shape rather than as single-term recall.
- */
 export const QUESTION_TYPE_OPTIONS = [
   {
     value: "MCQ",
@@ -46,20 +31,6 @@ export const QUESTION_TYPE_OPTIONS = [
   },
 ]
 
-/**
- * Which question formats a certification examines.
- *
- * <p>Asked once, at the start, and then obeyed everywhere: lesson quizzes,
- * middle and major exams, the diagnostic, the mock and the question bank all
- * read the same answer. Left untouched, the planner researches the real
- * paper's formats instead -- which is what every run did before this existed,
- * and is still the right default for a certification the admin does not know
- * the shape of.
- *
- * <p>Ticking a format does not merely permit it: each generated paper is held
- * to a minimum number of the performance types, because a permitted format
- * that is never cheap to write is a format the model quietly skips.
- */
 export function QuestionTypeChoice({ value = [], onChange, disabled }) {
   function toggle(optionValue) {
     onChange(

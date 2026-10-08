@@ -39,21 +39,6 @@ import { LoadingSignal } from "@/components/loading-overlay.jsx"
 import { PenCircle, PenMark } from "@/components/classroom/pen-marks.jsx"
 import { TeacherStamp } from "@/components/classroom/teacher-stamp.jsx"
 
-/**
- * Per-state colours for the answer review.
- *
- * These are design-system tokens now. They used to be literal emerald/amber
- * Tailwind classes, on the stated grounds that the token set had no success or
- * warning hue -- true when that comment was written, and no longer: `rb-leaf`
- * is the green accent and `rb-fox` the amber one, each with a wash tuned to
- * both themes. Spelling them as tokens is what keeps a correct answer here the
- * same green as a correct answer in the attempt runner and the curriculum.
- *
- * `card` is the tinted surface the item sits on -- the shape of a run of
- * answers is readable before any of the text is -- and `panel` is for blocks
- * sitting *on* that surface, which go back to Snow so they do not disappear
- * into it.
- */
 const ANSWER_TONES = {
   correct: {
     card: "border-rb-leaf/45 bg-rb-leaf-wash",
@@ -81,8 +66,6 @@ const ANSWER_TONES = {
   },
 }
 
-/** Which of the four states an answer is in. Order matters: an item awaiting
- *  manual marking is pending even though `isCorrect` is still null. */
 function answerState(answer) {
   if (answer.pendingManualEvaluation) return "pending"
   if (answer.isCorrect == null) return "neutral"
@@ -108,18 +91,7 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-/**
- * The score, as a dial.
- *
- * The number used to be a 60px figure beside a thin rail. The dial carries the
- * same two facts in one object: how much of the paper was earned, and where the
- * line was -- the threshold is a notch cut through the ring, so a score that
- * clears it still shows what it cleared. The arc grows from zero on mount;
- * `prefers-reduced-motion` stills it with every other transition in the system.
- */
 function ScoreDial({ percentage, passingScore, passed }) {
-  /* The score as the teacher writes it: the number circled in pen, green for a
-     pass and red otherwise, with the pass mark noted underneath. */
   return (
     <div className={cn("rb-grade-score", passed ? "is-pass" : "is-fail")}>
       <PenCircle />
@@ -132,14 +104,6 @@ function ScoreDial({ percentage, passingScore, passed }) {
   )
 }
 
-/**
- * What an adaptive attempt measured, as the teacher writes it: the
- * Proficiency Rating out of 100 circled in pen, with its tier underneath.
- * The rating is ability on the IRT scale rescaled to 0..100, so it says how
- * hard the questions were that the learner could answer -- not how many of
- * them there were. The raw count sits beside it (see RealScore) so the two
- * are never confused.
- */
 const PROFICIENCY_TONE = {
   Advanced: "is-pass",
   Proficient: "is-pass",
@@ -158,7 +122,6 @@ function ProficiencyDial({ rating, label }) {
   )
 }
 
-/** The tiers, so a learner can see where the next one starts. */
 const PROFICIENCY_TIERS = [
   { label: "Novice", from: 0 },
   { label: "Developing", from: 25 },
@@ -166,9 +129,6 @@ const PROFICIENCY_TIERS = [
   { label: "Advanced", from: 75 },
 ]
 
-/* The tier from which the curriculum counts a sitting as cleared. Read off
-   the scale above rather than written out again, so the stamp on this page
-   and the lock on the learning road cannot drift apart. */
 const PROFICIENT_RATING = PROFICIENCY_TIERS.find((tier) => tier.label === "Proficient").from
 
 function ProficiencyScale({ rating }) {
@@ -197,15 +157,12 @@ function ProficiencyScale({ rating }) {
   )
 }
 
-/* Written out rather than interpolated: Tailwind scans source text for class
-   names, and `sm:grid-cols-${n}` is not a string it can find. */
 const STAT_COLUMNS = {
   2: "sm:grid-cols-2",
   3: "sm:grid-cols-3",
   4: "sm:grid-cols-4",
 }
 
-/** One count in the result header, written as a tally in the margin. */
 function StatTile({ label, value, tone }) {
   return (
     <div className={cn("rb-grade-tally", `is-${tone}`)}>
@@ -215,9 +172,6 @@ function StatTile({ label, value, tone }) {
   )
 }
 
-/* The item's authored difficulty beside its stem: green / amber / red, the
-   scale the question bank uses, so a learner can see whether the ones they
-   missed were the hard ones. */
 const XP_PER_PROBLEM = 100
 
 function parseChallengeBreakdown(answers, result) {
@@ -312,19 +266,11 @@ function DifficultyChip({ level }) {
 }
 
 export default function LearnerAssessmentResultPage() {
-  // Route param carries the server attempt id.
   const { examResultId: attemptId } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
-  /* Where the learner was when they opened this assessment, carried through the
-     attempt. Null when they arrived from a bookmark, a notification or a
-     refresh -- the fallback below covers that. */
   const resumePath = returnPath(location)
 
-  /* Which slice of the review is on screen. A learner who missed eleven items
-     out of sixty should not have to scroll the forty-nine they got right to
-     find them, and after a failed attempt "what did I get wrong" is the only
-     question being asked. */
   const [reviewFilter, setReviewFilter] = useState("all")
   const fromChallengeState = location.state?.fromChallenge === true
   const isWorldCup = location.state?.isWorldCup === true
@@ -344,9 +290,6 @@ export default function LearnerAssessmentResultPage() {
     queryFn: () => getAttemptResult(attemptId, learnerId),
     enabled: attemptId != null && learnerId != null,
     retry: 1,
-    /* Code, diagram and written answers are marked in the background after
-       submit. While they are, the page asks again every few seconds and each
-       item fills in as its mark lands; the poll stops by itself. */
     refetchInterval: (query) => (query.state.data?.gradingPending ? 2500 : false),
     refetchIntervalInBackground: false,
   })
@@ -361,9 +304,6 @@ export default function LearnerAssessmentResultPage() {
     staleTime: 30_000,
   })
 
-  /* Where both ways out lead -- the header arrow and "continue learning":
-     the lesson the learner was reading before the quiz, else the course. The
-     arrow used to go to the progress page, which is not where they came from. */
   const backPath =
     resumePath ??
     (result?.certificationId != null ? `/learner/learning/${result.certificationId}` : "/learner/learning")
@@ -424,17 +364,10 @@ export default function LearnerAssessmentResultPage() {
 
   const percentage = Number(result.percentage ?? 0)
 
-  /* Null when the assessment carries no threshold, which is a real case -- the
-     card falls back to "No passing score set" rather than drawing a marker at
-     zero and claiming every score cleared it. */
   const rawPassingScore = Number(result.passingScore)
   const passingScore =
     result.passingScore != null && Number.isFinite(rawPassingScore) ? rawPassingScore : null
 
-  /* An adaptive attempt measured ability; a fixed paper only counted. The
-     headline follows: Proficiency Rating for the one, the percentage for the
-     other. The Real Score -- right answers over items answered -- is shown on
-     both, and is what the pass mark is applied to. */
   const proficiency = result.proficiency ?? null
   const proficiencyRating = proficiency ? toNumber(proficiency.rating) : null
   const correctCount = Number(result.correctCount ?? 0)
@@ -473,7 +406,6 @@ export default function LearnerAssessmentResultPage() {
       <main className="mx-auto max-w-4xl space-y-6 px-4 py-6">
         {fromChallenge ? (
           <>
-            {/* Challenge score breakdown */}
             <RebyuCard className="p-6">
               <h1 className="font-rb-display text-2xl font-extrabold lowercase text-rb-eel">
                 {result.assessmentTitle}
@@ -492,7 +424,6 @@ export default function LearnerAssessmentResultPage() {
                 const totalXp = breakdown.correctnessXp + breakdown.speedXp + breakdown.efficiencyXp
                 return (
                   <>
-                    {/* Total XP */}
                     <div className="mt-6 flex items-center justify-center">
                       <div className="text-center">
                         <p className="font-rb-display text-5xl font-extrabold tabular-nums text-rb-eel">
@@ -504,7 +435,6 @@ export default function LearnerAssessmentResultPage() {
                       </div>
                     </div>
 
-                    {/* Scoring breakdown */}
                     {breakdown.isBlueprint ? (
                       <div className="mt-6 grid gap-3 sm:grid-cols-2">
                         <ChallengeScoreTile
@@ -559,7 +489,6 @@ export default function LearnerAssessmentResultPage() {
               ) : null}
             </RebyuCard>
 
-            {/* Standings */}
             <RebyuCard className="p-5">
               <div className="flex items-center gap-2">
                 <Trophy className="size-5 text-rb-bee" aria-hidden="true" />
@@ -622,7 +551,6 @@ export default function LearnerAssessmentResultPage() {
           </>
         ) : (
           <>
-        {/* --- Score ------------------------------------------------------- */}
         <section className="rb-graded-sheet p-6 sm:p-8">
           <TeacherStamp
             passed={
@@ -751,9 +679,6 @@ export default function LearnerAssessmentResultPage() {
 
         {!fromChallenge && (
           <>
-        {/* Offered here, and nowhere along the way to the curriculum: the
-            diagnostic is what a plan is built from, so this is the first moment
-            there is anything to schedule. */}
         <StudyPlanPrompt
           certificationId={result.certificationId}
           enabled={result.assessmentType === "DIAGNOSTIC"}
@@ -773,16 +698,7 @@ export default function LearnerAssessmentResultPage() {
         ) : null}
 
         <div className="flex flex-wrap gap-3">
-          {/* Back to exactly where the learner was, when the navigation that
-              opened this assessment said so. A learner part-way through a topic
-              took its quiz and was returned to the certification's roadmap --
-              the right course, the wrong place inside it -- leaving them to find
-              the unit they had been reading a minute earlier.
 
-              The two fallbacks are for arrivals that carry no origin: a
-              bookmark, a notification, or a refresh of this page. Those land on
-              the certification, and only on the index when the attempt does not
-              say which certification it belongs to. */}
           <TactileButton asChild>
             <Link to={backPath}>
               continue learning
@@ -814,7 +730,6 @@ export default function LearnerAssessmentResultPage() {
           <PerformanceBreakdown lessonBreakdown={result.lessonBreakdown} />
         </LearnerPremiumGuard>
 
-        {/* --- Answer review ------------------------------------------------ */}
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="rb-graded-heading">Answer review</h2>
@@ -828,11 +743,6 @@ export default function LearnerAssessmentResultPage() {
                       type="button"
                       aria-pressed={active}
                       onClick={() => setReviewFilter(option.key)}
-                      /* Built from utilities rather than `rb-chip`: that class
-                         sets its own background and colour in an unlayered
-                         rule, which outranks any Tailwind bg/text put beside
-                         it, so a selected chip could only ever change its
-                         border. Geometry still matches the chip. */
                       className={cn(
                         "inline-flex items-center gap-1.5 rounded-rb-control border-2 px-3 py-1.5 text-[0.8125rem] font-bold transition-colors focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw",
                         active
@@ -867,9 +777,6 @@ export default function LearnerAssessmentResultPage() {
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <p className="flex min-w-0 gap-3 text-sm font-medium leading-6 text-rb-eel">
-                        {/* The item number as a key, the same square the attempt
-                            navigator uses, so a learner comparing the two screens
-                            is looking at the same object. */}
                         <span className="rb-numeric grid size-7 shrink-0 place-items-center rounded-rb-tile border-2 border-rb-swan bg-rb-snow text-xs text-rb-wolf">
                           {answer.displayOrder}
                         </span>
@@ -881,8 +788,6 @@ export default function LearnerAssessmentResultPage() {
                         </span>
                       </p>
                       <div className="flex shrink-0 flex-col items-end gap-1">
-                        {/* The teacher's mark: a tick, a cross, a squiggle for
-                            "still being marked", a question mark for blank. */}
                         <span className="rb-graded-verdict">
                           <PenMark
                             kind={
@@ -905,10 +810,6 @@ export default function LearnerAssessmentResultPage() {
                       </div>
                     </div>
 
-                    {/* The figure the question was asked with. A past-paper
-                        stem reading "refer to the diagram" is not reviewable
-                        without it, and this screen is the only place the
-                        learner meets the question again. */}
                     <AuthedImage
                       imageKey={answer.questionImageKey}
                       alt="Question reference"
@@ -955,8 +856,6 @@ export default function LearnerAssessmentResultPage() {
                     ) : null}
 
                     {answer.subQuestionAnswers?.length > 0 ? (
-                      // Sub-questions always render as a normal ordered list
-                      // here — tabs are attempt-answering UI only.
                       <ol className="space-y-2.5 text-sm">
                         {answer.subQuestionAnswers.map((sub, index) => (
                           <li
@@ -990,10 +889,6 @@ export default function LearnerAssessmentResultPage() {
                           {answer.learnerAnswer}
                         </p>
 
-                        {/* The answer key, on typed answers too. This block
-                            only existed in the multiple-choice branch above,
-                            so a wrong short answer showed the learner their own
-                            wrong words and stopped there. */}
                         {answer.isCorrect === false && answer.correctChoiceText ? (
                           <p className="rb-graded-correction">
                             <span className="rb-graded-correction-label">
@@ -1036,8 +931,6 @@ export default function LearnerAssessmentResultPage() {
                       </div>
                     ) : null}
 
-                    {/* What the program printed when it was graded, on the same
-                        chalkboard the editor's Run writes to. */}
                     {answer.submittedCode && (answer.programOutput != null || answer.programError) ? (
                       <div className="text-sm">
                         <p className="mb-2 text-rb-wolf">Your program's output:</p>
@@ -1057,15 +950,7 @@ export default function LearnerAssessmentResultPage() {
                       </div>
                     ) : null}
 
-                    {/* Which cases the program actually failed.
 
-                        A code item used to be reviewed as a score and a copy of
-                        the learner's own code -- the two things that tell them
-                        least. This is the part that makes a wrong program
-                        fixable: the case it broke on, and on a sample case what
-                        it printed against what was wanted. Hidden cases show
-                        pass or fail and nothing else; their inputs are the part
-                        of a coding item that has to stay hidden. */}
                     {answer.programmingTests?.length > 0 ? (
                       <div className="space-y-2 text-sm">
                         <p className="text-rb-wolf">
@@ -1108,9 +993,6 @@ export default function LearnerAssessmentResultPage() {
                                   ) : null}
                                 </p>
 
-                                {/* After submission every case, hidden ones too,
-                                    shows its input and what the program printed;
-                                    expected output follows the release-answers setting. */}
                                 {test.input != null ||
                                 test.expectedOutput != null ||
                                 test.actualOutput != null ? (
@@ -1191,15 +1073,6 @@ export default function LearnerAssessmentResultPage() {
                                     : ""}
                                 </p>
 
-                                {/* Why it scored what it did. A partially
-                                    credited element used to show a tick and a
-                                    smaller number, with nothing to say whether
-                                    the label was off, the arrow was backwards,
-                                    the cardinality was wrong or the key marker
-                                    was missing -- four different mistakes with
-                                    four different fixes. Suppressed on a clean
-                                    match, where it would only ever restate the
-                                    tick. */}
                                 {element.reason &&
                                 !(element.matched && element.matchQuality === "STRONG") ? (
                                   <p className="mt-1 text-xs font-semibold text-rb-eel">

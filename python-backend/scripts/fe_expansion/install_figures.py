@@ -20,7 +20,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from figures import FIGURES, PREFIX  # noqa: E402
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-#: python-backend/scripts/fe_expansion -> repository root -> frontend/public
 OUTPUT_DIR = os.path.normpath(os.path.join(
     _HERE, "..", "..", "..", "frontend", "public", "lesson-media"))
 
@@ -51,14 +50,6 @@ def main():
               % ("+" if current is None else "~", PREFIX, slug, len(svg)))
         written += 1
 
-    # Prune figures that are no longer registered. Several were drawn as SVG
-    # tables before the renderer gained a real `table` block, and leaving the
-    # files behind means the next person cannot tell which representation a
-    # lesson actually uses.
-    #
-    # Scoped strictly to the `fe-` prefix: this directory also holds the 37
-    # TOPCIT figures, and those are owned by a different module that this
-    # script knows nothing about.
     live = {"%s%s.svg" % (PREFIX, slug) for slug in FIGURES}
     removed = 0
     for name in sorted(os.listdir(OUTPUT_DIR)):

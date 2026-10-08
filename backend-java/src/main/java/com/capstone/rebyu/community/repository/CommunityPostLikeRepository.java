@@ -9,11 +9,6 @@ import org.springframework.data.repository.query.Param;
 
 public interface CommunityPostLikeRepository extends JpaRepository<CommunityPostLike, CommunityPostMemberId> {
 
-    /**
-     * Insert, not save(): this entity's id is assigned, so save() takes JPA's merge()
-     * path and merge cannot resolve the id-only post/learner stubs. ON CONFLICT also
-     * makes a double-click idempotent instead of a primary-key violation.
-     */
     @Modifying
     @Query(value = """
             INSERT INTO community_post_likes(post_id, learner_id, created_at)

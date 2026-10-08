@@ -32,8 +32,6 @@ async def grade(payload: AnswerGradingRequest) -> AnswerGradingResult:
     try:
         return await grade_answer(payload)
     except (AllModelsExhausted, OutOfCredits, RequestTooLarge) as unavailable:
-        # Not the caller's fault and not fixed by a different payload, so 503
-        # rather than 4xx -- the answer should be retried, then left pending.
         logger.error("Cannot grade this answer right now: %s", unavailable)
         raise HTTPException(
             status_code=503, detail=f"Grading is unavailable: {unavailable}"

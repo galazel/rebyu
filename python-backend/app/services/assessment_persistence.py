@@ -37,19 +37,6 @@ def _title_key(value: Any) -> str:
     return " ".join(str(value or "").lower().split())
 
 
-#: Generated types that are stored as CRITICAL_THINKING.
-#:
-#: The generator names the work (PROGRAMMING, DIAGRAM); the product calls both
-#: of them critical thinking and identifies which kind from the config row
-#: attached to the question -- that is exactly what the manual question builder
-#: writes (`questionType: "CRITICAL_THINKING"`, `criticalThinkingType:
-#: "PROGRAMMING"`) and what Java's grader reads back through
-#: `resolveCriticalThinkingType`.
-#:
-#: Stored verbatim, the two paths disagreed: an AI-written programming task
-#: landed as question_type='PROGRAMMING' and so never appeared under Critical
-#: Thinking anywhere in the app, while a hand-written one did. Same question,
-#: two categories, depending on who typed it.
 _WORKSPACE_TYPES = {"PROGRAMMING", "DIAGRAM"}
 
 
@@ -57,9 +44,6 @@ def _persist_one_question(session: Session, question: dict[str, Any]) -> int:
     """Writes a question plus whatever type-specific config it needs."""
     question_type = question.get("question_type", "MCQ")
 
-    # What the branches below switch on -- the generator's name for the work.
-    # The stored type is CRITICAL_THINKING for the two workspace kinds; which
-    # kind it is comes from the config row, not from this column.
     stored_type = (
         "CRITICAL_THINKING" if question_type in _WORKSPACE_TYPES else question_type
     )
@@ -80,15 +64,8 @@ def _persist_one_question(session: Session, question: dict[str, Any]) -> int:
 
         for index, choice_text in enumerate(choices):
             if aligned and (per_choice[index] or "").strip():
-                # Why *this* option is right or wrong -- the half a learner who
-                # picked a distractor actually needs. `QuestionDraft` requires
-                # these for every MCQ, so this is the normal path.
                 explanation = per_choice[index]
             elif index == correct_index:
-                # Only reachable for a question that did not come from
-                # generation -- a reviewer's hand-written edit, or an artifact
-                # from a run predating per-choice explanations. Falls back to
-                # the item-level explanation on the correct choice.
                 explanation = question.get("explanation")
             else:
                 explanation = None
@@ -103,8 +80,6 @@ def _persist_one_question(session: Session, question: dict[str, Any]) -> int:
 
     elif question_type in ("SHORT_ANSWER", "DESCRIPTIVE"):
         answer = question.get("correct_answer") or question.get("rubric_answer") or ""
-        # Other correct wordings of a short answer, one per line -- the format the
-        # Java grader's matchesTextAnswer reads.
         variations = (
             "\n".join(question.get("accepted_variations") or [])
             if question_type == "SHORT_ANSWER" else ""
@@ -127,20 +102,6 @@ def _persist_one_question(session: Session, question: dict[str, Any]) -> int:
             question.get("reference_diagram_xml"),
         )
 
-    # The parts of a critical-thinking item, as child rows under it. Each is a
-    # written answer graded against its own rubric; the Java grader reads the
-    # set back by parent id and marks it in one holistic call. Insertion order
-    # is the order the learner is asked them in -- the reader orders by
-    # question_id -- so this must stay a plain in-order loop.
-    # Parts of a SHORT_ANSWER parent are the blanks of a fill-in-the-blank
-    # item, and each has ONE right word -- the candidate list in the stem makes
-    # sure of it. They are stored as SHORT_ANSWER and marked by exact match,
-    # like any other short answer.
-    #
-    # Marked semantically instead, "Usability" would be graded by asking a
-    # model whether it means the same as "Usability" -- a paid call, a slower
-    # attempt, and a chance of disagreeing with itself, to check a string
-    # equality. Parts of every other parent stay written answers.
     sub_type = "SHORT_ANSWER" if question_type == "SHORT_ANSWER" else "DESCRIPTIVE"
 
     for sub in question.get("sub_questions") or []:
@@ -152,9 +113,6 @@ def _persist_one_question(session: Session, question: dict[str, Any]) -> int:
             question_text=sub.get("question", ""),
             parent_question_id=question_id,
         )
-        # The expected answer, so the grader has something to mark against.
-        # Without a text config the sub-answer falls through to "no evaluator
-        # applies" and scores zero however good it is.
         repo.insert_text_config(
             session,
             sub_id,
@@ -245,7 +203,6 @@ def persist_exam(
     )
     if not question_ids:
         return None, warnings + [f"'{title}' produced no persistable questions."]
-    # A twin inside one generated paper: the paper listed it twice.
     seen: set[int] = set()
     question_ids = [q for q in question_ids if not (q in seen or seen.add(q))]
 
@@ -260,8 +217,6 @@ def persist_exam(
         middle_category_id=middle_category_id,
         major_category_id=major_category_id,
         duration_minutes=duration_minutes,
-        # Only when researched; otherwise insert_exam's own 70 stands, so a
-        # certification whose real pass mark is unknown behaves as before.
         **({"passing_score": passing_score} if passing_score else {}),
     )
     for order, question_id in enumerate(question_ids, start=1):
@@ -286,11 +241,9 @@ def persist_lesson_content(
     if not lessons_generated:
         return 0, []
 
-    # Fetch existing lessons and build an index for name -> lesson_id lookups.
     existing_lessons = repo.list_certification_lessons(session, certification_id)
     lesson_index = build_lesson_index(existing_lessons)
 
-    # Default to the first middle_category_id when inserting new lessons.
     default_middle_category_id = (
         existing_lessons[0]["middle_category_id"] if existing_lessons else None
     )
@@ -302,9 +255,6 @@ def persist_lesson_content(
         name = lesson.get("name") or lesson.get("title") or ""
         key = normalize_lesson_name(name)
         lesson_id = lesson_index.get(key)
-        # The generator emits a flat block list; the editor and the learner
-        # viewer both render sections. Convert before writing, or the lesson
-        # renders as a stack of empty untitled sections.
         blocks = build_lesson_sections(lesson.get("blocks") or lesson.get("sections") or [])
 
         if lesson_id is None:
@@ -314,9 +264,7 @@ def persist_lesson_content(
                 )
                 continue
 
-            # Create a new lesson under the default middle category and write blocks.
             lesson_id = repo.insert_lesson(session, default_middle_category_id, name, blocks)
-            # Update local index so subsequent resolutions use the newly-created lesson.
             lesson_index[key] = lesson_id
             logger.info("Inserted new lesson '%s' (id %s) into middle_category %s", name, lesson_id, default_middle_category_id)
             written += 1
@@ -349,11 +297,6 @@ def persist_generated_assessments(
     lesson_index = build_lesson_index(lessons)
     default_lesson_id = lessons[0]["lesson_id"]
 
-    # A middle/major exam is only *seen* by the publish checklist through its
-    # category FK: `buildPublishRequirements` derives coverage from
-    # `exam.getMiddleCategory()`/`getMajorCategory()`, so an exam saved with a
-    # null FK reads as "not created yet" no matter how many questions it has.
-    # The generator names its category rather than keying it, so resolve here.
     major_index = build_name_index(
         repo.list_certification_major_categories(session, certification_id), "major_category_id"
     )
@@ -363,35 +306,20 @@ def persist_generated_assessments(
 
     created: list[int] = []
     warnings: list[str] = []
-    #: Exams this pass did not write because they were already stored. Counted
-    #: out of `expected` below, so "generated seven, saved none" still reads as
-    #: a systemic failure while "all seven were already saved" does not.
     skipped_exams: list[str] = []
 
-    # What is already stored. A run's output can reach this function twice --
-    # once as a partial save when the run failed or was stopped, once in full
-    # when the retry finishes -- and every insert below is unconditional, so
-    # without this the second pass duplicated every exam and every bank
-    # question. An artifact already present is left alone rather than
-    # rewritten: the stored copy may have been edited since.
     existing_exams = {
         (row.get("target_scope"), _title_key(row.get("title")))
         for row in repo.list_certification_exams(session, certification_id)
     }
-    # Every question the certification already has, exam papers and bank
-    # alike, so a copy of any of them is linked rather than written again.
     known = KnownQuestions()
     for row in repo.list_certification_questions(session, certification_id):
         known.add(row.get("question_text"), row["question_id"])
 
     def _already_stored(scope: str, title: str) -> bool:
         key = _title_key(title)
-        # `target_scope` is what this module writes, but a row created by
-        # another path may have none -- so a title match with no scope counts
-        # too, rather than being written a second time.
         return (scope, key) in existing_exams or (None, key) in existing_exams
 
-    # Lesson bodies first: they belong to the curriculum rows, not to any exam.
     lessons_written, lesson_warnings = persist_lesson_content(
         session, certification_id, result.get("lessons") or []
     )
@@ -402,23 +330,11 @@ def persist_generated_assessments(
             created.append(exam_id)
         warnings.extend(exam_warnings)
 
-    # What the planner researched about the real paper: how long it runs, how
-    # many questions it holds, and the mark that passes it. Every exam this
-    # run creates is set against it, so a learner sitting any of them works
-    # under the clock and the standard the certification actually applies.
     exam_structure = (result.get("curriculum") or {}).get("exam_structure") or {}
     real_duration = int(exam_structure.get("duration_minutes") or 0) or None
     real_total_items = int(exam_structure.get("total_items") or 0) or None
     real_passing = float(exam_structure.get("passing_score") or 0) or None
 
-    #: Fixed clocks for the unit assessments. Scaling the real paper's pace
-    #: down to a ten-question quiz gave a twenty-question quiz on a fast
-    #: paper twelve minutes and, where the planner found no real figures,
-    #: none at all -- a learner could not tell how long a quiz was meant to
-    #: take from one exam to the next. A fixed clock per scope is what a
-    #: learner expects of a quiz, a unit exam and a category exam; only the
-    #: mock and diagnostic imitate the real paper's clock, and stay untimed
-    #: when the planner could not find it.
     FIXED_MINUTES = {"LESSON": 10, "MIDDLE": 20, "MAJOR": 30}
 
     def _timed(scope: str) -> int | None:
@@ -442,26 +358,10 @@ def persist_generated_assessments(
 
     for quiz in result.get("lesson_quizzes") or []:
         lesson_name = quiz.get("lesson", "")
-        # `normalize_lesson_name`, not a local whitespace collapse.
-        #
-        # `lesson_index` is keyed with `normalize_lesson_name`, which strips
-        # punctuation (a word-character regex); this lookup used
-        # `" ".join(name.lower().split())`, which keeps it. So any lesson whose
-        # name contains a hyphen, ampersand, slash or apostrophe could never
-        # match its own index entry: "E-Business and Electronic Commerce" is
-        # stored as "e business ..." and was looked up as "e-business ...".
-        #
-        # The miss was silent, and the fallback is `lessons[0]`, so the quiz
-        # was filed against the FIRST lesson of the certification -- leaving
-        # that lesson with two quizzes and its real lesson with none, which
-        # only surfaces later as a publishing requirement that cannot be met.
         key = normalize_lesson_name(lesson_name)
         resolved = lesson_index.get(key)
         if resolved is None:
             resolved = default_lesson_id
-            # Never silent again: a quiz landing on the wrong lesson is a data
-            # error the run should report, not something to discover at publish
-            # time.
             warnings.append(
                 f"Lesson quiz '{lesson_name}' matched no curriculum lesson; "
                 f"filed against lesson {default_lesson_id}."
@@ -537,10 +437,6 @@ def persist_generated_assessments(
             scope="DIAGNOSTIC", title="Diagnostic Exam",
             questions=diagnostic["questions"],
             lesson_index=lesson_index, fallback_lesson_id=default_lesson_id,
-            # Timed like the real paper, but never pass/failed against it: the
-            # diagnostic is a placement measure sat before any teaching, and
-            # reporting "failed" to someone who has not studied yet is both
-            # wrong and discouraging.
             duration_minutes=real_duration,
         )
 
@@ -555,12 +451,7 @@ def persist_generated_assessments(
             passing_score=real_passing,
         )
 
-    # The bank is a pool for adaptive selection/practice, not a sittable
-    # exam, so it becomes questions without an `exams` row.
     bank = result.get("question_bank") or []
-    # Anything already stored under this certification -- exactly or as a
-    # twin -- is linked rather than written again; the bank has no exam row
-    # to key on, so its text is its identity.
     bank_ids: list[int] = []
     bank_written = 0
     if bank:
@@ -578,11 +469,6 @@ def persist_generated_assessments(
 
     session.commit()
 
-    # What the run *produced*, against what actually landed. Every drop above
-    # is a warning, and warnings scroll past: a live run generated seven
-    # assessments, saved none of them because `exam_types` was unseeded, and
-    # still reported "completed". Counting both sides is what lets `finalize`
-    # tell a successful run from an empty one.
     expected = {
         "exams": max(
             0,
@@ -593,8 +479,6 @@ def persist_generated_assessments(
             + (1 if mock.get("questions") else 0)
             - len(skipped_exams),
         ),
-        # What this pass actually wrote. Counting the whole bank here would
-        # report a re-persist of already-stored work as a total loss.
         "bank_questions": bank_written,
         "lessons": len(result.get("lessons") or []),
     }

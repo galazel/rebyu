@@ -49,10 +49,8 @@ def test_collect_groups_by_lesson_and_folds_stored_rows():
     items = audit.collect_items(_state(), stored)
     groups = audit.group_by_lesson(items)
     assert set(groups) == {"policies", "malware", "network"}
-    # The stored copy of the lesson-quiz item is folded in, not listed twice...
     policies = groups["policies"]
     assert sum(1 for i in policies if i.source == audit.STORED) == 0
-    # ...and the state item now counts as stored.
     aup = next(i for i in policies if i.stem == "What is the purpose of an AUP?")
     assert aup.question.get("_stored") is True
     assert [i.source for i in groups["network"]] == [audit.STORED]
@@ -64,7 +62,6 @@ def test_resolution_keeps_by_priority_and_drops_the_rest():
     policies = sorted(audit.group_by_lesson(items)["policies"], key=lambda i: i.stem.casefold())
     labelled = {n + 1: item for n, item in enumerate(policies)}
     by_stem = {item.stem: label for label, item in labelled.items()}
-    # The auditor prefers the bank's wording; the major exam's item outranks it.
     verdict = QuestionAuditResult(groups=[DuplicateGroup(
         keep=by_stem["What is an AUP's primary function?"],
         duplicates=[by_stem["What is the purpose of an AUP?"],
@@ -103,7 +100,6 @@ def test_stored_duplicate_is_scheduled_for_deletion_and_run_copy_kept_when_store
         keep=by_stem["What is the purpose of an AUP?"], duplicates=[by_stem["AUP: what is it for?"]])])
     resolution = audit.Resolution()
     audit.resolve(labelled, verdict, resolution)
-    # A row already in the database outranks the run's copy: the run's is dropped.
     assert [i.stem for i in resolution.dropped] == ["What is the purpose of an AUP?"]
     assert resolution.stored_to_delete == []
 

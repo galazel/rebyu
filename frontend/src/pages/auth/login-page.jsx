@@ -12,10 +12,6 @@ import { roleHomePath, useAuth } from "@/context/auth-context.jsx"
 import { resendVerificationCode, signInState, toSafeAuthMessage } from "@/services/authService.js"
 import AuthShell from "./auth-shell.jsx"
 
-/* Supabase says "invalid credentials" for a wrong password, for an email it
-   has never seen, and for an account REBYU kept from before sign-in moved to
-   Supabase. Those need three different notices, so the server is asked which
-   one this is. */
 async function passwordRejectedNotice(email) {
   const state = await signInState(email)
   switch (state) {
@@ -61,7 +57,6 @@ export default function LoginPage() {
     }
   }, [navigate, status, user?.role])
 
-  // Surfaced once when a request was rejected mid-session (token expired/revoked).
   useEffect(() => {
     if (sessionStorage.getItem("rebyu_session_expired")) {
       sessionStorage.removeItem("rebyu_session_expired")
@@ -80,12 +75,6 @@ export default function LoginPage() {
     try {
       const result = await login(cleanEmail, password)
 
-      /*
-       * Cognito temporary-password flow.
-       *
-       * Cognito accepted the temporary password but requires the user
-       * to create a permanent password before it can finish sign-in.
-       */
       if (result?.needsNewPassword) {
         toast.info("Create a new password to finish activating your account.")
 
@@ -98,7 +87,6 @@ export default function LoginPage() {
         return
       }
 
-      // Cognito normal registration flow where email is still unverified.
       if (result?.needsConfirmation) {
         toast.info("Your account is not verified yet. Enter the code we emailed you.")
 
@@ -113,7 +101,6 @@ export default function LoginPage() {
         return
       }
 
-      // Cognito reset-password flow.
       if (result?.needsPasswordReset) {
         toast.info("Reset your password before signing in.")
 
@@ -133,8 +120,6 @@ export default function LoginPage() {
         return
       }
 
-      // Resume a pending invitation acceptance if the learner was sent here
-      // from the invitation page after a 401.
       const pendingToken = sessionStorage.getItem("rebyu_pending_invitation_token")
       if (pendingToken) {
         sessionStorage.removeItem("rebyu_pending_invitation_token")

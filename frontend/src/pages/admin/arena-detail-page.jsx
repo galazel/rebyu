@@ -18,22 +18,8 @@ import {
   saveArenaSettings,
 } from "@/services/challengeService.js"
 
-/** CodeStrike's scoring weights, which must total 100. */
 const WEIGHT_KEYS = ["weightCorrect", "weightSpeed", "weightBigO"]
 
-/**
- * One arena's workspace: its settings and its problems, and nothing else.
- *
- * Split out of the arena overview because three question builders on one screen
- * is three screens of editors stacked in a column -- you scrolled past
- * CodeStrike's test-case tables to reach Blueprint's canvas. Authoring is
- * per-arena work, so it gets a per-arena page.
- *
- * Settings are the server's: the status carries the saved values (defaults
- * filled in), and "Save configuration" writes them back. The time limit set
- * here is what a learner's run is actually timed by -- the server writes it
- * through to the arena's exam.
- */
 export default function ArenaDetailPage() {
   const { arenaId } = useParams()
   const arena = getArena(arenaId)
@@ -49,8 +35,6 @@ export default function ArenaDetailPage() {
     : null
   const savedSettings = status?.settings ?? null
 
-  /* The admin's edits over the saved values, as strings so a field can be
-     cleared while typing. Only keys that were touched are held here. */
   const [edits, setEdits] = useState({})
 
   const values = Object.fromEntries(
@@ -148,8 +132,6 @@ export default function ArenaDetailPage() {
           </div>
         </div>
 
-        {/* Saves the Settings tab. Problems have their own save, because
-            writing them means writing questions to the bank. */}
         <Button
           onClick={saveConfiguration}
           disabled={!dirty || saveMutation.isPending || !savedSettings}
@@ -174,15 +156,8 @@ export default function ArenaDetailPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Problems first: the config is set once, the problem set is the work
-            an admin comes back to. */}
         <TabsContent value="problems" className="mt-5">
-          {/* A weekly arena is authored a week at a time, not as one standing
-              set: everyone sits the same bracket at once, so last week's
-              questions are public by the time this week's lobby fills.
 
-              The builder waits for the status: it reloads the saved set into
-              the certification the status names. */}
           {arena.weekly ? (
             <WorldCupEditions arena={arena} />
           ) : status ? (
@@ -226,8 +201,6 @@ export default function ArenaDetailPage() {
               ))}
             </div>
 
-            {/* Scoring weights must total 100, so surface the sum rather than
-                letting an admin discover it after a broken run. */}
             {hasWeights ? (
               <p
                 className={`mt-5 rounded-xl px-3 py-2 text-xs font-semibold ${

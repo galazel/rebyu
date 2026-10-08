@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** Transaction Three: partnership request submission and lookup. */
 @RestController
 @RequestMapping("/api/institution/partnership-requests")
 @RequiredArgsConstructor
@@ -36,10 +35,6 @@ public class PartnershipTransactionController {
         return transactionService.submit(trusted);
     }
 
-    /**
-     * Asks to end the partnership. An admin reviews it; approving revokes
-     * access and refunds what was paid.
-     */
     @PostMapping("/cancellation")
     public PartnershipRequestTransactionDto cancel(
             @AuthenticationPrincipal Jwt jwt,
@@ -48,7 +43,6 @@ public class PartnershipTransactionController {
                 myInstitutionId(jwt), body == null ? null : body.reason());
     }
 
-    /** Why they are leaving -- optional, and shown to the reviewing admin. */
     public record CancellationRequest(String reason) {}
 
     @GetMapping

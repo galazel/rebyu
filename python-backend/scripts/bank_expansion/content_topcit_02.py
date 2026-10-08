@@ -14,7 +14,6 @@ CERTIFICATION_ID = 13
 
 QUESTIONS = {
 
-    # 405 -- Protocols and the OSI Reference Model
     405: [
         mcq("AVERAGE",
             "At which OSI layer does a protocol that provides end-to-end reliable delivery operate?",
@@ -46,7 +45,6 @@ QUESTIONS = {
             "OSI remains the common vocabulary for discussing function; TCP/IP is what runs. Its application layer alone covers OSI's session, presentation, and application."),
     ],
 
-    # 406 -- Internet Address Structure: MAC, IP, and Port Numbers
     406: [
         mcq("AVERAGE",
             "Which statement about MAC and IP addresses is correct?",
@@ -78,7 +76,6 @@ QUESTIONS = {
             "Well-known ports occupy 0-1023, registered ports the middle range, and ephemeral client ports the top. Binding to the first range typically requires elevated privilege."),
     ],
 
-    # 407 -- Internet Standards and the IEEE 802 Family
     407: [
         mcq("AVERAGE",
             "Which IEEE 802 standard defines wireless local area networking?",
@@ -110,7 +107,6 @@ QUESTIONS = {
             "IANA delegates to the RIRs, which allocate to ISPs and organizations. IEEE standardizes link-layer technology, not address allocation."),
     ],
 
-    # 408 -- Network Layer Devices: Routers, Switches, and VLANs
     408: [
         mcq("AVERAGE",
             "What distinguishes a switch from a hub?",
@@ -142,7 +138,6 @@ QUESTIONS = {
             "Routers work on network-layer addresses and connect distinct networks; layer 2 switches work on MAC addresses within one network."),
     ],
 
-    # 409 -- IPv4 Addressing, Subnetting, and CIDR
     409: [
         mcq("AVERAGE",
             "How many usable host addresses does a /28 IPv4 subnet provide?",
@@ -174,7 +169,6 @@ QUESTIONS = {
             "A /26 gives blocks of 64: .0, .64, .128, .192. The address .70 falls in the block starting at .64, whose broadcast is .127."),
     ],
 
-    # 410 -- Routing Protocols and Algorithms
     410: [
         mcq("AVERAGE",
             "What distinguishes a link-state routing protocol from a distance-vector one?",
@@ -206,7 +200,6 @@ QUESTIONS = {
             "Longest-prefix match selects the most specific route, which is what lets a general default route coexist with precise exceptions."),
     ],
 
-    # 411 -- Software-Defined Networking and NFV
     411: [
         mcq("AVERAGE",
             "What is the central architectural idea of software-defined networking?",
@@ -238,7 +231,6 @@ QUESTIONS = {
             "The gain is operational: consistent policy applied at once rather than device-by-device configuration that drifts."),
     ],
 
-    # 412 -- Cloud and Data Centre Networking
     412: [
         mcq("AVERAGE",
             "What characterizes east-west traffic in a data centre?",
@@ -270,7 +262,6 @@ QUESTIONS = {
             "Shared infrastructure makes isolation the defining requirement: a failure of separation in a multi-tenant fabric is a cross-customer breach."),
     ],
 
-    # 413 -- Mobile Network Evolution: 4G, 5G, and Edge Computing
     413: [
         mcq("AVERAGE",
             "Which capability distinguishes 5G from 4G beyond raw speed?",
@@ -302,7 +293,6 @@ QUESTIONS = {
             "Control loops fail when a message is late, so latency and reliability bound what is possible. Bulk transfers care about throughput and tolerate delay."),
     ],
 
-    # 378 -- Physical Layer and Media
     378: [
         mcq("AVERAGE",
             "Why is optical fibre preferred over copper for long high-capacity links?",
@@ -327,7 +317,6 @@ QUESTIONS = {
             "Attenuation is loss over distance and is what sets maximum segment length. Crosstalk, latency, and reflection are separate impairments with separate remedies."),
     ],
 
-    # 379 -- Data Link Layer
     379: [
         mcq("AVERAGE",
             "What is the primary purpose of framing at the data link layer?",
@@ -352,7 +341,6 @@ QUESTIONS = {
             "The first half of the address identifies the vendor and the second the specific interface, which is what makes global uniqueness administrable."),
     ],
 
-    # 380 -- Network Service Architecture
     380: [
         mcq("AVERAGE",
             "What problem does DNS solve?",
@@ -377,7 +365,6 @@ QUESTIONS = {
             "A reverse proxy faces the client on the servers' behalf, which is where TLS termination, load distribution, and caching are conveniently placed."),
     ],
 
-    # 381 -- Machine-to-Machine Communications
     381: [
         mcq("AVERAGE",
             "Why is MQTT commonly chosen for constrained M2M devices?",
@@ -402,7 +389,6 @@ QUESTIONS = {
             "Scale plus neglect is the problem: default credentials and absent update paths across thousands of devices is how large botnets are assembled."),
     ],
 
-    # 382 -- Internet of Things Standards
     382: [
         mcq("AVERAGE",
             "Which characteristic makes a protocol suitable for low-power wide-area IoT networks?",

@@ -39,8 +39,6 @@ def _notify(generation_request: dict, title: str, body: str) -> None:
     if user_id is None:
         return
     with SessionLocal() as session:
-        # Question banks live under their certification; there is no bare
-        # /admin/question-bank page, so the old link opened the 404.
         certification_id = generation_request.get("certification_id")
         href = f"/admin/certification/{certification_id}/question-bank" if certification_id else "/admin"
         repo.insert_notification(session, user_id=user_id, title=title, body=body, href=href)
@@ -88,7 +86,6 @@ async def handle_question_generation_requested(payload: dict) -> None:
         sum(question_counts.values()) if question_counts else DEFAULT_TARGET_TOTAL
     )
 
-    # S3 pointers instead of bytes -- see certification_generation.py.
     document_refs = [
         {
             "s3_key": doc["s3_key"],
@@ -111,8 +108,6 @@ async def handle_question_generation_requested(payload: dict) -> None:
                 triggered_by_user_id=generation_request.get("triggered_by_user_id"),
             )
         except registry.RunAlreadyCancelled:
-            # See the certification handler: a cancelled run leaves its queue
-            # message unacked, and redelivery must not restart it.
             logger.info("Ignoring redelivered message for cancelled run %s", thread_id)
             return
 
@@ -130,8 +125,6 @@ async def handle_question_generation_requested(payload: dict) -> None:
                 "target_total": target_total,
                 "batch_size": DEFAULT_BATCH_SIZE,
                 "type_distribution": question_counts,
-                # A bank top-up the adaptive engine asked for: one level,
-                # nobody reviewing. See Java's BankReplenishmentService.
                 "difficulty_focus": params.get("difficultyFocus"),
                 "auto_approve": bool(params.get("autoApprove")),
             },
@@ -139,9 +132,6 @@ async def handle_question_generation_requested(payload: dict) -> None:
         )
     except Exception as error:
         logger.exception("Question generation failed for request %s", generation_request_id)
-        # Batches approved before the failure are real output -- a run that
-        # died on its second batch for want of credit had already paid for
-        # and audited its first. Keep them.
         kept = await _rescue_approved(graph, thread_id, certification_id)
         with SessionLocal() as session:
             repo.mark_generation_request_failed(
@@ -190,10 +180,6 @@ async def handle_question_generation_requested(payload: dict) -> None:
         return
 
     with SessionLocal() as session:
-        # Keep the draft record (it carries the run's thread_id and full
-        # review history) *and* write the approved questions into Java's
-        # real questions tables, so they are usable by practice, adaptive
-        # retakes, and BKT rather than sitting in a Python-only side table.
         drafts_repo.save_draft(
             session,
             generation_request_id=generation_request_id,

@@ -11,8 +11,6 @@ function Switch({
     <SwitchPrimitive.Root
       data-slot="switch"
       className={cn(
-        // Sized up from shadcn's 18px rail to a real toggle: the thumb has room
-        // to travel, and the 2px border ties it to the other controls.
         "peer inline-flex h-8 w-14 shrink-0 items-center rounded-full border-2 border-border p-0.5 transition-all outline-none data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted disabled:cursor-not-allowed disabled:opacity-50 dark:data-[state=unchecked]:bg-input/80",
         className
       )}

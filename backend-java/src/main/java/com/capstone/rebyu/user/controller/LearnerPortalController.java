@@ -16,11 +16,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * Learner-scoped portal snapshot. The learner/user ids are always resolved from the
- * validated Cognito access token -- never accepted from the client -- so a learner can
- * only ever load their own data.
- */
 @RestController
 @RequestMapping("/api/learners/me")
 @RequiredArgsConstructor
@@ -37,22 +32,12 @@ public class LearnerPortalController {
         return portalService.portal(me.learnerId(), me.userId(), includeProgress);
     }
 
-    /**
-     * The progress rows on their own.
-     *
-     * <p>Split out because progress is what makes the portal snapshot slow --
-     * it walks every lesson and exam of every enrolled certification -- and the
-     * learner shell blocks on that snapshot. My Learning renders from the cheap
-     * payload and asks for this separately, so a slow computation costs a
-     * percentage rather than the page.
-     */
     @GetMapping("/certification-progress")
     public List<CertificationProgressDto> certificationProgress(@AuthenticationPrincipal Jwt jwt) {
         CurrentUserDto me = requireLearner(jwt);
         return portalService.certificationProgress(me.learnerId(), me.userId());
     }
 
-    /** The caller's own learner record (JWT-derived) -- replaces fetching the global learners list. */
     @GetMapping
     public LearnerDto me(@AuthenticationPrincipal Jwt jwt) {
         return portalService.currentLearner(requireLearner(jwt).learnerId());

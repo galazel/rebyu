@@ -16,7 +16,6 @@ from figures import fig
 MAJOR = "Service Management"
 MIDDLE = "Service Management"
 
-# Lesson 1: Foundations
 
 _found_sections = [
     ("Delivering Value Continuously", [
@@ -675,7 +674,6 @@ LESSON_SVC_FOUND = lesson(
         ],
     ))
 
-# Lesson 2: Service design and transition
 
 _des_sections = [
     ("Designing a Service", [

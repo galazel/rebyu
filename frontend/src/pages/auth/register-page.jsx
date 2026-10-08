@@ -57,11 +57,6 @@ export default function RegisterPage() {
         lastName: form.lastName.trim(),
       })
 
-      /* Either way the next screen is verification -- but the learner is told
-         which of the two happened. "Account created" over an account that
-         already existed would be a lie, and the difference matters: a picked-up
-         registration keeps the password from the first attempt, not the one
-         just typed. */
       toast.success(
         status === "RESENT_CODE"
           ? "You already started signing up. We sent a new code to your email."
@@ -86,8 +81,6 @@ export default function RegisterPage() {
   return (
     <AuthShell
       compact
-      // Mirrored against sign-in: the form crosses the page when you switch
-      // between the two, so the change of screen is unmissable.
       side="right"
       story="register"
       title="Create your account"
@@ -101,9 +94,6 @@ export default function RegisterPage() {
         </>
       }
     >
-      {/* Sized to fit a 1366x768 laptop without scrolling: the two passwords share
-          a row and one requirements line, and the helper lines that repeated
-          what the labels already say are gone. */}
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <FieldGroup className="gap-3">
           <div className="grid gap-3 sm:grid-cols-2">

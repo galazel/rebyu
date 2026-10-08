@@ -2,15 +2,6 @@ type BrandLogoProps = {
   className?: string
 }
 
-/**
- * Rebyu mark: a small wood-framed chalkboard with a chalk "r" and a stick of
- * chalk on its tray -- the classroom identity in 40 units.
- *
- * Drawn as SVG so it stays crisp at every size, needs no request, and takes its
- * size from the `size-*` class at each call site. Decorative: the wordmark
- * beside it carries the name. The favicon PNGs in public/brand/classroom are
- * rendered from the same shapes.
- */
 export function BrandLogo({ className = "" }: BrandLogoProps) {
   return (
     <svg viewBox="0 0 40 40" aria-hidden="true" className={`shrink-0 ${className}`}>

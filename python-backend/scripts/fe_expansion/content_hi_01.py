@@ -18,7 +18,6 @@ from figures import fig
 MAJOR = "Technology Element"
 MIDDLE = "Human Interface"
 
-# Lesson 1: Human interface technology
 
 _hit_sections = [
     ("Why This Is an Engineering Topic", [
@@ -860,7 +859,6 @@ LESSON_HI_TECH = lesson(
         ],
     ))
 
-# Lesson 2: Interface design
 
 _id_sections = [
     ("From Principles to a Screen", [

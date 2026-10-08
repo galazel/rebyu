@@ -178,7 +178,6 @@ export function RoadmapSection() {
                 },
             });
 
-            // Animate each stage into view as it is reached
             slideRefs.current.forEach((slide) => {
                 if (!slide) return;
                 const copy = slide.querySelector(".stage-copy");
@@ -218,7 +217,6 @@ export function RoadmapSection() {
         >
             <div className="mx-auto max-w-7xl px-6 lg:px-12">
 
-                {/* Header */}
                 <div className="mb-20 text-center">
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#2f7dd3]">
                         How REBYU works
@@ -252,7 +250,6 @@ export function RoadmapSection() {
                                     </div>
                                     <div className="slide-content grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-24">
 
-                                        {/* Left Side: Text */}
                                         <div className={`stage-copy ${index % 2 === 0 ? "lg:pr-8" : "lg:order-2 lg:pl-8"}`}>
                                             <span className="mb-6 flex size-12 items-center justify-center rounded-xl bg-[#e8f3fc] text-[#1f5f99]">
                                                 <Icon className="size-[20px]" aria-hidden="true" />
@@ -265,7 +262,6 @@ export function RoadmapSection() {
                                             </p>
                                         </div>
 
-                                        {/* Right Side: Mockup Preview */}
                                         <div className={`stage-preview w-full ${index % 2 === 0 ? "lg:pl-8" : "lg:order-1 lg:pr-8"}`}>
                                             <StagePreview stage={stage} />
                                         </div>

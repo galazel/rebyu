@@ -139,8 +139,6 @@ async def parse_upload(paper_name: str, questions_pdf: bytes, answers_pdf: bytes
     with open(pdf_dir + paper_name + "_Answers.pdf", "wb") as handle:
         handle.write(answers_pdf)
 
-    # The pipeline modules read their directories from the environment so a
-    # request can work in its own scratch space rather than a shared one.
     os.environ["PAPERS_PDF_DIR"] = pdf_dir
     os.environ["PAPERS_PARSED_DIR"] = parsed_dir
     os.environ["PAPERS_RENDER_DIR"] = render_dir
@@ -160,12 +158,6 @@ async def parse_upload(paper_name: str, questions_pdf: bytes, answers_pdf: bytes
     parser.parse(paper_name)
 
     if upload_figures:
-        # The assisted path: the vision agent is asked about the questions
-        # whose figures the geometry could not confidently classify, so an
-        # uploaded paper whose options are pictures arrives with per-choice
-        # images rather than one composite and four buttons of scraped
-        # drawing labels. Degrades to pure geometry when the agent is off or
-        # unreachable.
         await figures.run_assisted(paper_name, True, use_agent=use_figure_agent)
 
     mapping.PARSED_DIR = parsed_dir

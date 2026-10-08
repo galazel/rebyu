@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-/** An institution's (B2B) institutional license to an institution plan. */
 @Entity
 @Table(name = "institutional_licenses")
 @Data
@@ -49,7 +48,6 @@ public class InstitutionalLicense {
     @Column(name = "canceled_at")
     private LocalDateTime canceledAt;
 
-    // Custom contract overrides (null = use the plan's limit).
     @Column(name = "custom_seat_limit")
     private Integer customSeatLimit;
 

@@ -37,16 +37,6 @@ public class CommunityCircle {
     @Column(nullable = false, length = 120)
     private String topic;
 
-    /**
-     * "PUBLIC" or "PRIVATE". Public is the default and what every circle made
-     * before this column existed is treated as.
-     *
-     * <p>Deliberately nullable in the mapping even though it is never written
-     * null: this schema is built by Hibernate {@code ddl-auto: update}, and a
-     * NOT NULL column added to a table that already has rows fails outright.
-     * Every read coalesces a missing value to PUBLIC, so an old row behaves
-     * the way it always has rather than quietly becoming private.
-     */
     @Column(length = 16)
     @Builder.Default
     private String visibility = CommunityCircle.PUBLIC;
@@ -54,7 +44,6 @@ public class CommunityCircle {
     public static final String PUBLIC = "PUBLIC";
     public static final String PRIVATE = "PRIVATE";
 
-    /** True only for a circle explicitly marked private. */
     public boolean isPrivate() {
         return PRIVATE.equalsIgnoreCase(visibility);
     }

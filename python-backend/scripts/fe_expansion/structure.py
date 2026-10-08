@@ -25,8 +25,6 @@ modules is the entire definition, and running it against an empty database
 produces the same certification every time.
 """
 
-#: Matched by title when the certification is looked up or created. Changing
-#: this string orphans the existing rows rather than renaming them.
 CERTIFICATION_TITLE = "FE Exam"
 
 CERTIFICATION_DESCRIPTION = (
@@ -46,39 +44,11 @@ CERTIFICATION_DESCRIPTION = (
 
 CERTIFICATION_INDUSTRY = "Information and Communications Technology (ICT)"
 
-#: `certifications.status`, stored as the ordinal of
-#: `Certification.CertificationStatus` in the Java entity -- which declares
-#: PUBLISHED first, so 0 is PUBLISHED and 1 is DRAFT. That ordering is easy to
-#: read backwards, and this curriculum was created at 0 and was therefore
-#: visible to learners from its first lesson.
-#:
-#: It stays DRAFT until the curriculum is complete. A partial certification is
-#: worse than an absent one: a learner who starts it builds progress against a
-#: syllabus that is mostly missing, and the diagnostic and mock exams sample
-#: only the majors that happen to be written, so both report a competence
-#: picture that is wrong rather than incomplete.
 CERTIFICATION_STATUS_DRAFT = 1
 CERTIFICATION_STATUS_PUBLISHED = 0
 
 CERTIFICATION_STATUS = CERTIFICATION_STATUS_DRAFT
 
-#: `certifications.exam_structure`. The shape of the real paper, so the mock
-#: exam and the practice engine size themselves against something true rather
-#: than against a guess.
-#:
-#: EVERY ITEM ON THIS EXAMINATION IS MULTIPLE CHOICE. That is the single most
-#: consequential fact about the paper and it drives the whole question bank:
-#: there is no coding submission, no diagram to draw, no essay, and no short
-#: written answer anywhere in it. Subject B is often described as the
-#: "programming" half, which misleads -- it examines programming by making the
-#: candidate TRACE pseudocode and select the resulting value or the correct
-#: combination of blanks, not by making them write code. So the bank is
-#: MCQ-only, and the Subject B style is reproduced as trace-and-compute and
-#: fill-in-the-blank combination items rather than as PROGRAMMING or DIAGRAM
-#: question types, which this certification never uses.
-#:
-#: Verified against IPA's current (post-April-2024) format rather than the
-#: 2016 syllabus PDF, which predates the Subject A / Subject B split.
 EXAM_STRUCTURE = {
     "notes": (
         "The FE Examination is computer-based (CBT), offered year-round at "
@@ -127,26 +97,8 @@ EXAM_STRUCTURE = {
     ],
 }
 
-#: The only question type this certification's bank uses. Enforced by
-#: `builders.mcq` being the only item builder the content modules import.
-#:
-#: SHORT_ANSWER and DESCRIPTIVE are deliberately absent even though the
-#: platform supports them and the TOPCIT bank leans on both. TOPCIT genuinely
-#: examines by written answer; FE does not, and a quiz that asks an FE
-#: candidate to type a definition is practising a skill the paper never tests
-#: while skipping the one it does -- choosing between four close options under
-#: time pressure. PROGRAMMING and DIAGRAM are absent for the same reason and
-#: also have stubbed runners in this platform.
 QUESTION_TYPES = ("MCQ",)
 
-#: (major title, [(middle title, [lesson titles in syllabus order])]).
-#:
-#: Lesson titles are written for a learner rather than copied from the
-#: syllabus's own headings -- "Radix, Numeric Representation and Precision"
-#: says what the lesson teaches where the syllabus's "1. Discrete
-#: mathematics" says only which drawer it lives in. The syllabus minor each
-#: one answers to is recorded in `SYLLABUS_MAP` below so coverage stays
-#: checkable in both directions.
 CURRICULUM = [
     ("Basic Theory", [
         ("Basic Theory", [

@@ -8,9 +8,6 @@ function asArray(value) {
   return Array.isArray(value) ? value : []
 }
 
-// Shared tenant-scoped data for the institution portal. All org-scoped lists come
-// pre-filtered from the backend (/api/institution/me/overview resolves the institution
-// from the caller's JWT) -- the browser never fetches global lists and filters them.
 export function useInstitutionData(institutionId) {
   const enabled = institutionId != null
 
@@ -45,9 +42,6 @@ export function useInstitutionData(institutionId) {
 
     const institutionCertById = new Map(institutionCerts.map((cert) => [cert.institutionCertId, cert]))
 
-    /* Group name per assignment row, keyed by institutionCertLearnerId -- the same id
-       the assignment carries, so a roster row looks its group up directly. A
-       learner in no active group is simply absent from this map. */
     const groupByInstitutionCertLearnerId = new Map(
       asArray(overview.groupMemberships).map((membership) => [
         membership.institutionCertLearnerId,

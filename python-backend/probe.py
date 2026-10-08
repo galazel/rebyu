@@ -18,7 +18,7 @@ with get_db_connection() as conn, conn.cursor() as cur:
     cur.execute(SQL)
     rows = cur.fetchall()
 
-urls = {}   # url -> list of (lesson_id, mine?)
+urls = {}
 for lid, name, struct in rows:
     if isinstance(struct, str): struct = json.loads(struct)
     mine = lid >= 405

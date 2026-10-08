@@ -15,7 +15,6 @@ CERTIFICATION_ID = 13
 
 QUESTIONS = {
 
-    # 414 -- Cryptography Fundamentals: Symmetric and Asymmetric Encryption
     414: [
         mcq("HARD",
             "Two parties who have never met must establish a shared secret over an open network. Which approach achieves this?",
@@ -47,7 +46,6 @@ QUESTIONS = {
             "Without a per-record IV or nonce, the encryption is deterministic and an observer learns which records match. That is the classic ECB-mode failure, and it leaks structure without breaking the cipher."),
     ],
 
-    # 415 -- Hash Functions and Message Integrity
     415: [
         mcq("AVERAGE",
             "Which property of a cryptographic hash function prevents an attacker from finding a second input with the same digest?",
@@ -79,7 +77,6 @@ QUESTIONS = {
             "The salt defeats precomputation: a rainbow table built once cannot be reused against every account, and two users with the same password no longer look the same in the database."),
     ],
 
-    # 416 -- Authentication, Digital Signatures, and PKI
     416: [
         mcq("HARD",
             "A signed document verifies correctly, but the signer denies having sent it and claims their key was stolen. What does the signature alone establish?",
@@ -111,7 +108,6 @@ QUESTIONS = {
             "Trust is anchored by what is already in the trust store. Distributing the internal root is exactly what makes a private PKI workable without weakening validation."),
     ],
 
-    # 417 -- Access Control Models
     417: [
         mcq("AVERAGE",
             "Which access control model assigns permissions to roles and roles to users?",
@@ -143,7 +139,6 @@ QUESTIONS = {
             "Splitting a sensitive process across people means fraud requires collusion rather than a single decision, which is a far higher bar."),
     ],
 
-    # 418 -- Threat Modelling and Attack Surface Analysis
     418: [
         mcq("AVERAGE",
             "What is the purpose of threat modelling during design?",
@@ -175,7 +170,6 @@ QUESTIONS = {
             "Boundaries are where most vulnerabilities live, because that is where assumptions about the data's provenance change and validation is often assumed to have happened elsewhere."),
     ],
 
-    # 419 -- Vulnerability Management and Penetration Testing
     419: [
         mcq("AVERAGE",
             "What does a CVSS score express about a vulnerability?",
@@ -207,7 +201,6 @@ QUESTIONS = {
             "The difference is information given to the tester. White-box finds more in the time available; black-box better simulates an outsider's starting position."),
     ],
 
-    # 420 -- Business Continuity and Disaster Recovery Planning
     420: [
         mcq("HARD",
             "A business impact analysis is performed before recovery strategies are selected. Why is that order important?",
@@ -239,7 +232,6 @@ QUESTIONS = {
             "The recovery options form a clean cost-speed ladder, and the right rung is whichever one meets the RTO the impact analysis established."),
     ],
 
-    # 421 -- Security Policies, Standards, and Procedures
     421: [
         mcq("HARD",
             "How do a policy, a standard, and a procedure differ?",
@@ -271,7 +263,6 @@ QUESTIONS = {
             "Exceptions are inevitable; undocumented ones are the problem. A recorded, expiring, compensated exception keeps the real risk position visible."),
     ],
 
-    # 422 -- Security Auditing, Logging, and Incident Response
     422: [
         mcq("HARD",
             "Why should security logs be forwarded to a separate system rather than kept only on the host?",
@@ -303,7 +294,6 @@ QUESTIONS = {
             "Attribution is what shared administrative accounts destroy, which is why named accounts with privilege elevation are preferred to a common root password."),
     ],
 
-    # 383 -- Information Security Principles
     383: [
         mcq("HARD",
             "A ransomware attack encrypts production data. Which element of the CIA triad is primarily affected?",
@@ -328,7 +318,6 @@ QUESTIONS = {
             "Authentication establishes who is acting now; non-repudiation produces evidence that survives a later denial, which is why it rests on signatures rather than shared secrets."),
     ],
 
-    # 384 -- Risk Assessment Methodologies
     384: [
         mcq("HARD",
             "Which expression best captures how risk is conventionally assessed?",
@@ -353,7 +342,6 @@ QUESTIONS = {
             "Residual risk is what the organization actually carries, and it is what must be formally accepted by someone with the authority to accept it."),
     ],
 
-    # 385 -- Security Risk Analysis
     385: [
         mcq("AVERAGE",
             "An organization decides to stop offering a service because its risk cannot be reduced acceptably. Which response is this?",
@@ -378,7 +366,6 @@ QUESTIONS = {
             "Acceptance is a decision made against conditions, and those conditions change. Treating it as permanent is how an organization ends up carrying risk nobody has looked at for years."),
     ],
 
-    # 386 -- ISMS Frameworks and Standards
     386: [
         mcq("AVERAGE",
             "What is the purpose of a statement of applicability in an ISMS?",
@@ -403,7 +390,6 @@ QUESTIONS = {
             "Scope decides what the certificate actually means. A narrow scope can produce a valid certificate that covers very little of the business."),
     ],
 
-    # 387 -- ISMS Implementation and Operation
     387: [
         mcq("AVERAGE",
             "Which factor most determines whether an ISMS implementation succeeds?",
@@ -428,7 +414,6 @@ QUESTIONS = {
             "Many controls are only as good as the behaviour around them -- reporting, handling, verification -- which is what awareness activity targets."),
     ],
 
-    # 388 -- ISMS Monitoring and Improvement
     388: [
         mcq("AVERAGE",
             "What is the purpose of an internal ISMS audit?",

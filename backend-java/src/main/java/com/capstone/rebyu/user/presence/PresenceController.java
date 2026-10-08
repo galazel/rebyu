@@ -19,11 +19,6 @@ public class PresenceController {
     private final PresenceService presenceService;
     private final RoleGuard guard;
 
-    /**
-     * "Still here." The work happens in {@link PresenceFilter}; this only gives
-     * an idle tab something cheap to call. A GET on purpose: every POST flushes
-     * the whole Redis response cache, and this fires once a minute per user.
-     */
     @GetMapping("/api/presence/heartbeat")
     public ResponseEntity<Void> heartbeat() {
         return ResponseEntity.noContent().build();
@@ -36,7 +31,6 @@ public class PresenceController {
             String period,
             List<PresenceService.Point> history) {}
 
-    /** Online now, total users, and active users over a week, month or year. Admins are not counted. */
     @GetMapping("/api/admin/presence")
     public ResponseEntity<PresenceMetrics> presence(
             @AuthenticationPrincipal Jwt jwt,

@@ -17,7 +17,6 @@ class InvitationTokenServiceTest {
         String a = service.generateRawToken();
         String b = service.generateRawToken();
         assertNotEquals(a, b);
-        // URL-safe Base64 without padding: only A-Z a-z 0-9 - _
         assertTrue(a.matches("[A-Za-z0-9_-]+"), "token must be URL-safe: " + a);
         assertFalse(a.contains("="), "token must not contain padding");
     }
@@ -41,7 +40,6 @@ class InvitationTokenServiceTest {
 
     @Test
     void knownVectorMatchesSha256() {
-        // SHA-256("hello") — proves the hex encoding is correct.
         assertEquals(
                 "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
                 service.hashToken("hello"));

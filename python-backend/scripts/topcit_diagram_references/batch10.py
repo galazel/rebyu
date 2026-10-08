@@ -23,7 +23,6 @@ USECASE_LEGEND = [
 ]
 
 
-# cfg 97, ERD
 def documentation_portfolio():
     d = Diagram("Thornbury Engineering - Documentation Portfolio",
                 "Entity-relationship diagram (model answer)")
@@ -116,7 +115,6 @@ document. Explain in one sentence why, and what would go wrong when the English 
 original is revised if it attached to the document instead."""
 
 
-# cfg 98, ACTIVITY_DIAGRAM
 def translation_workflow():
     d = Diagram("Thornbury Engineering - Translation and Localisation",
                 "UML activity diagram (model answer)")
@@ -208,7 +206,6 @@ patched in the translation, and what that costs when eleven languages are \
 already in progress."""
 
 
-# cfg 99, ACTIVITY_DIAGRAM
 def rfi_evaluation():
     d = Diagram("Evaluating Responses to a Request for Information",
                 "UML activity diagram (model answer)")
@@ -303,7 +300,6 @@ sentence what agreeing the scoring model first prevents, and what an auditor \
 would look for to confirm the order was followed."""
 
 
-# cfg 100, UML_CLASS
 def business_plan_model():
     d = Diagram("Verity Ventures - Business Plan Class Model",
                 "UML class diagram (model answer)")
@@ -413,7 +409,6 @@ one sentence, and state what would be wrong with a forecast that outlived the \
 plan it was written for."""
 
 
-# cfg 101, UML_CLASS
 def project_class_model():
     d = Diagram("Ravensworth Consulting - Project Class Model",
                 "UML class diagram (model answer)")
@@ -524,7 +519,6 @@ Resource-Assignment is only aggregation. Then name the two abstract classes, and
 explain how requirement (c) turns three rollups into one."""
 
 
-# cfg 102, ACTIVITY_DIAGRAM
 def resource_conflict_activity():
     d = Diagram("Resolving a Resource Conflict",
                 "UML activity diagram (model answer)")
@@ -614,7 +608,6 @@ its absence is what forces the escalation, and state which of the three options 
 in requirement (c) changes the project's scope baseline."""
 
 
-# cfg 103, ACTIVITY_DIAGRAM
 def change_impact_activity():
     d = Diagram("Assessing the Impact of a Requirement Change",
                 "UML activity diagram (model answer)")
@@ -698,7 +691,6 @@ Draw it that way and label every guard.
 change still requires stakeholders to be told."""
 
 
-# cfg 104, ERD
 def requirements_allocation():
     d = Diagram("Ravensworth Consulting - Requirement Allocation and Interfaces",
                 "Entity-relationship diagram (model answer)")
@@ -795,7 +787,6 @@ interface is not simply two foreign keys on one row, and what requirement (f) \
 would let a systems engineer check across a whole subsystem."""
 
 
-# cfg 105, FLOWCHART
 def choosing_document_type():
     d = Diagram("Choosing the Right Technical Document",
                 "Flowchart (model answer)")
@@ -887,7 +878,6 @@ knows. Explain in one sentence why that is the right test, and which two documen
 types in this chain are most often confused when it is not applied."""
 
 
-# cfg 106, FLOWCHART
 def story_refinement():
     d = Diagram("Refining a User Story to Ready",
                 "Flowchart (model answer)")
@@ -968,7 +958,6 @@ in one sentence what an untestable acceptance criterion costs the team at the \
 END of the sprint."""
 
 
-# cfg 107, FLOWCHART
 def funding_round_flow():
     d = Diagram("Raising a Funding Round",
                 "Flowchart (model answer)")
@@ -1052,7 +1041,6 @@ different places. Show both, and state in one sentence what distinguishes the tw
 situations for the founder."""
 
 
-# cfg 108, SEQUENCE_DIAGRAM
 def live_demo_sequence():
     d = Diagram("Technical Presentation - Live Demonstration",
                 "UML sequence diagram (model answer)")
@@ -1118,7 +1106,6 @@ from either path, and state which single lifeline the audience ever interacts \
 with directly."""
 
 
-# cfg 109, USE_CASE
 def webinar_use_cases():
     d = Diagram("Technical Webinar Platform - Use Cases",
                 "UML use case diagram (model answer)")
@@ -1191,7 +1178,6 @@ actors on your diagram.
 explain what would be wrong with modelling requirement (e) as an <<include>>."""
 
 
-# cfg 110, ACTIVITY_DIAGRAM
 def rfi_response_activity():
     d = Diagram("Preparing a Supplier Response to an RFI",
                 "UML activity diagram (model answer)")
@@ -1279,7 +1265,6 @@ one sentence why the check sits AFTER consolidation rather than during drafting,
 and what a commitment in an RFI response can legally become."""
 
 
-# cfg 111, ERD
 def backlog_documentation():
     d = Diagram("Ravensworth Consulting - Backlog Documentation Model",
                 "Entity-relationship diagram (model answer)")

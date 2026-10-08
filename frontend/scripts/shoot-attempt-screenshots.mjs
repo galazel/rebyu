@@ -1,29 +1,3 @@
-/**
- * Re-shoots the landing hero's assessment screenshots from the real attempt
- * page.
- *
- *   npm run shoot:attempt
- *
- * It boots its own Vite dev server, drives the Chrome already installed on the
- * machine over `/__preview/attempt/1?item=<type>` — the dev-only harness that
- * renders the genuine `LearnerAssessmentAttemptPage` against fixture data — and
- * writes one PNG per question type into `public/screenshots/`.
- *
- * Server and browser live in this one process on purpose: a separately-started
- * dev server does not reliably outlive the shell that spawned it, and a Chrome
- * driven by `--screenshot` alone fires before Vite has finished serving modules,
- * which is how you get a blank white frame.
- *
- * Options:
- *   --width=1440 --height=900     viewport (shots render at 2x for retina)
- *   --only=programming            one question type
- *   --chrome="C:\path\chrome.exe" explicit browser binary
- *   --port=5399                   dev server port
- *
- * The hero is the one place on the site that claims what sitting an exam looks
- * like, so it should be a photograph of the product, not a drawing of it. When
- * the attempt page changes, run this again rather than editing the landing page.
- */
 import { existsSync, mkdirSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -43,9 +17,6 @@ const SHOTS = [
   { item: "diagram", file: "attempt-diagram.png", settle: "diagram" },
 ]
 
-// What "ready to shoot" means per type. The written types are ready as soon as
-// the answer surface is in the DOM; the programming item has to wait for
-// CodeMirror to mount, and the diagram item for draw.io's iframe to paint.
 const SETTLE = {
   text: { selector: "main", extraMs: 1200 },
   code: { selector: ".cm-content", extraMs: 2000 },
@@ -108,8 +79,6 @@ const browser = await puppeteer.launch({
 try {
   for (const shot of targets) {
     const page = await browser.newPage()
-    // The attempt page guards against navigating away mid-attempt; nothing can
-    // answer that dialog in headless, so accept it before it can block close().
     page.on("dialog", (dialog) => dialog.accept().catch(() => {}))
 
     const url = `${base}/__preview/attempt/1?item=${shot.item}`

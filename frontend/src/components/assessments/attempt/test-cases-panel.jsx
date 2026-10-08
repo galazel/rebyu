@@ -42,7 +42,6 @@ function Block({ label, value, tone }) {
 function TestRow({ test }) {
   const hasOutputs = test.expectedOutput != null || test.actualOutput != null
   const canExpand = test.sample && (test.input != null || hasOutputs)
-  // A failed sample opens on its own: the comparison is the reason to look.
   const [open, setOpen] = useState(false)
   const status = TEST_STATUS[test.status] ?? { label: test.status, icon: CircleDashedIcon, tone: "text-muted-foreground" }
   const StatusIcon = status.icon
@@ -98,9 +97,6 @@ function TestRow({ test }) {
   )
 }
 
-// Right-panel "Tests" tab. A sample test opens to show its input, the output it
-// expects and what your program printed; hidden tests show a label and a
-// verdict only, never their input or expected output.
 export default function TestCasesPanel({ tests, notice }) {
   const list = Array.isArray(tests) ? tests : []
 

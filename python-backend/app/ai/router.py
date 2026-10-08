@@ -40,14 +40,8 @@ from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-#: How long a model is skipped after its upstream provider returned an error.
-#: Much shorter than a quota cooldown: a vendor outage is usually minutes, and
-#: over-long avoidance would keep a whole run on its fallback after the primary
-#: recovered. Long enough, though, to spare the remaining lessons in a fan-out
-#: from each paying one failed call to learn the same thing.
-_UPSTREAM_COOLDOWN_SECONDS = 120.0
+_UPSTREAM_COOLDOWN_SECONDS = 120.0
 
-#: How long OpenRouter's paid models are skipped after an out-of-credit refusal.
 _OUT_OF_CREDIT_COOLDOWN_SECONDS = 600
 
 
@@ -133,10 +127,6 @@ async def ainvoke_with_fallback(
     reset time so the caller can report something more useful than a 429.
     """
     profile = profile_for(task)
-    # A fallback on a provider with no key configured is skipped, not fatal:
-    # building its client raises, and the loop below would surface that as the
-    # run's failure while working models were still left in the chain.
-    # `chain` stays whole, for the account-wide marking further down.
     chain = profile.chain
     usable = [model for model in chain if _has_key(model, profile)] or chain
     available = [model for model in usable if not is_exhausted(model)]
@@ -154,7 +144,6 @@ async def ainvoke_with_fallback(
 
     last_exc: BaseException | None = None
     too_large_for: list[str] = []
-    # Models ruled out by an account-level failure earlier in this call.
     ruled_out: set[str] = set()
     for model in available:
         if model in ruled_out:
@@ -165,12 +154,7 @@ async def ainvoke_with_fallback(
             health.record_success(model, task, time.monotonic() - started)
             return result
         except Exception as exc:
-            # For the admin AI settings page: what failed, and why.
             health.record_failure(model, task, exc, time.monotonic() - started)
-            # An account-level failure at OpenRouter says nothing about
-            # another provider: a chain with "groq:" entries (or, for credit,
-            # OpenRouter's :free models) still has somewhere to go, so only
-            # the models sharing the wall are skipped.
             if (is_account_daily_cap(exc) or is_out_of_credits(exc)) and _provider_of(model, profile) == "openrouter":
                 free_cap = is_account_daily_cap(exc)
                 sharing = [
@@ -185,9 +169,6 @@ async def ainvoke_with_fallback(
                         for spent in sharing:
                             mark_exhausted(spent, wait)
                     else:
-                        # Credit does not come back on its own: without a
-                        # cooldown every request spends a round trip to hear
-                        # 402 again before reaching a model that can answer.
                         for spent in sharing:
                             mark_exhausted(spent, _OUT_OF_CREDIT_COOLDOWN_SECONDS)
                     last_exc = exc
@@ -197,10 +178,6 @@ async def ainvoke_with_fallback(
                     )
                     continue
             if is_out_of_credits(exc) and _provider_of(model, profile) != "openrouter":
-                # Another provider's prepaid balance (Hugging Face's monthly
-                # credit, measured spent after ~10 short calls): a wall for
-                # that provider's slugs only. Its models sit for the cooldown
-                # so a run does not pay one request each to rediscover it.
                 provider = _provider_of(model, profile)
                 sharing = [other for other in chain if _provider_of(other, profile) == provider]
                 rest = [other for other in available if other not in ruled_out and other not in sharing]
@@ -216,10 +193,6 @@ async def ainvoke_with_fallback(
                     f"other {profile.name} model is left to try. Provider said: {quota.message_of(exc)}"
                 ) from exc
             if is_account_daily_cap(exc):
-                # Account-wide, like the credits case below: every `:free` slug
-                # shares one daily counter, so the remaining models in this
-                # chain would each spend a request to rediscover the same wall.
-                # Measured live -- a three-model chain burned three.
                 wait = parse_retry_after(exc) or get_settings().ai_quota_cooldown_seconds
                 for spent in chain:
                     mark_exhausted(spent, wait)
@@ -230,29 +203,12 @@ async def ainvoke_with_fallback(
                     f"the cap. Provider said: {quota.message_of(exc)}"
                 ) from exc
             if is_out_of_credits(exc):
-                # Account-level, so the next model in the chain is not a
-                # remedy -- it is the same wall one request later.
-                #
-                # The balance is checked against `max_tokens`, not against what
-                # the response actually costs, so a *reservation* larger than
-                # the balance is refused before a single token is generated:
-                #
-                #   402 - This request requires more credits, or fewer
-                #   max_tokens. You requested up to 16000 tokens, but can only
-                #   afford 2666.
-                #
-                # That second remedy is the one an operator will miss, so the
-                # provider's own message is carried through verbatim rather
-                # than replaced with a generic "out of credit".
                 raise OutOfCredits(
                     f"OpenRouter refused the request for {model} on account balance. "
                     f"Add credits, or lower this task's ai_*_max_tokens. "
                     f"Provider said: {quota.message_of(exc)}"
                 ) from exc
             if is_request_too_large(exc):
-                # Deliberately *not* marked exhausted: the model is fine, this
-                # one request is simply bigger than what it will accept, and
-                # smaller calls later in the run should still use it.
                 too_large_for.append(model)
                 last_exc = exc
                 logger.warning(
@@ -260,28 +216,16 @@ async def ainvoke_with_fallback(
                 )
                 continue
             if getattr(exc, "advance_chain", False):
-                # This model, after its retries, still gave no usable answer
-                # (no structured response, or a lesson far too thin): a
-                # property of the model, so the next one is tried.
                 last_exc = exc
                 logger.warning("%s gave no usable answer (%s); trying the next model", model, exc)
                 continue
             if quota.is_tool_call_rejected(exc):
-                # Retried already (it is a 400 the retry policy resamples);
-                # still refused, so this model cannot produce this answer.
-                # The next model may -- see `quota.is_tool_call_rejected`.
                 last_exc = exc
                 logger.warning(
                     "%s's tool calls were refused by the provider; trying the next model", model
                 )
                 continue
             if is_upstream_unavailable(exc):
-                # OpenRouter reached the vendor and the vendor was down. Not a
-                # budget problem, but the remedy is identical -- a model from a
-                # different vendor -- so it advances the chain. The cooldown is
-                # short because provider outages are usually minutes, and
-                # marking it at all is what stops the next 40 lessons in the
-                # same run from rediscovering the outage one call at a time.
                 mark_exhausted(model, _UPSTREAM_COOLDOWN_SECONDS)
                 last_exc = exc
                 logger.warning(

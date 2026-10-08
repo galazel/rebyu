@@ -19,8 +19,6 @@ import java.time.LocalDateTime;
 @Entity
 @Table(
         name = "exams",
-        /* Assessment lists and the diagnostic gate both filter exams by
-           certification. */
         indexes = @Index(name = "ix_exam_certification", columnList = "certification_id"))
 @Data
 @NoArgsConstructor
@@ -50,28 +48,13 @@ public class Exam {
     @Column(name = "is_generated", nullable = false)
     private boolean isGenerated = false;
 
-    /**
-     * Minutes allowed, as set on the exam. Read it through
-     * {@link #getDurationMinutes()}, which supplies the fixed clock for a
-     * quiz or category exam when none is set.
-     */
     @Column(name = "duration_minutes")
     private Integer durationMinutes;
 
-    /** The system's clocks for the unit assessments, by exam type. */
     public static final int LESSON_QUIZ_MINUTES = 10;
     public static final int MIDDLE_EXAM_MINUTES = 20;
     public static final int MAJOR_EXAM_MINUTES = 30;
 
-    /**
-     * The clock this exam runs under: what was set on it, else the system's
-     * fixed clock for its type -- 10 minutes for a lesson quiz, 20 for a
-     * middle exam, 30 for a major exam. A mock or diagnostic exam has no
-     * default: it imitates the real paper, whose duration the curriculum
-     * planner records when it finds it, and is untimed otherwise. An
-     * explicit value on the exam always wins, so an admin can lengthen or
-     * shorten any paper.
-     */
     public Integer getDurationMinutes() {
         if (durationMinutes != null) return durationMinutes;
         String type = examType == null ? null : examType.getExamTypeText();
@@ -90,8 +73,6 @@ public class Exam {
     @Column(name = "passing_score", nullable = false, precision = 5, scale = 2)
     private BigDecimal passingScore = new BigDecimal("70.00");
 
-    // Lifecycle columns are nullable so ddl-auto=update can migrate the
-    // existing non-empty table; a null status is treated as DRAFT in code.
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
     private Status status;
@@ -102,22 +83,18 @@ public class Exam {
     @Column(name = "instructions", columnDefinition = "TEXT")
     private String instructions;
 
-    /** Required for QUIZ-type exams, null for certification-level exams. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lesson_id")
     private Lesson lesson;
 
-    /** Set for MIDDLE_CATEGORY-scoped assessments. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "middle_category_id")
     private MiddleCategory middleCategory;
 
-    /** Set for MAJOR_CATEGORY-scoped assessments. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "major_category_id")
     private MajorCategory majorCategory;
 
-    /** LESSON | MIDDLE_CATEGORY | MAJOR_CATEGORY | CERTIFICATION. */
     @Column(name = "target_scope", length = 20)
     private String targetScope;
 
@@ -127,21 +104,13 @@ public class Exam {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // Nullable so ddl-auto=update can migrate the existing non-empty table;
-    // null is treated as true (current behavior: answers are released).
     @Column(name = "release_answers_after_submit")
     private Boolean releaseAnswersAfterSubmit;
 
-    // NULL = official, platform-wide exam (admin-authored, unchanged
-    // behavior). Set = one Institution Member's own assessment, scoped to
-    // their group -- mirrors MajorCategory.ownerDepartment.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_department_id")
     private Department ownerDepartment;
 
-    // NULL for every admin-authored exam (the overwhelming majority). Set
-    // only on GENERATED_QUIZ/GENERATED_FLASHCARD exams -- the learner whose
-    // "make me a quiz" request in the AI tutor produced this one.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "learner_id")
     private Learner learner;

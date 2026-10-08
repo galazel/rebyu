@@ -10,18 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/**
- * Publishes lightweight, ids-only trigger messages for assessment
- * submission and retake events. Never blocks or fails the learner-facing
- * request that triggers it -- a broker hiccup here must not break
- * submitting or retaking an assessment.
- *
- * <p>Both are sent only once the caller's transaction has committed. The
- * consumer reads the attempt back the moment a message lands; sent
- * mid-transaction it read the pre-submit row -- no percentage, no verdict --
- * and told learners their result was "Pending review", and a retake message
- * could beat the new attempt to disk and be dropped as "not found".
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor

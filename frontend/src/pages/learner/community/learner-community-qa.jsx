@@ -84,16 +84,8 @@ import {
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { isPremiumError } from "@/services/subscriptionService.js"
 
-/**
- * The composer's value for "not a circle" -- the open community feed.
- *
- * <p>A named value rather than an empty one because Radix Select refuses "" as
- * an item value, and because the feed is a real destination a learner picks,
- * not the absence of a choice.
- */
 const OPEN_FEED = "community"
 
-/** The circle a post belongs to, or null when it is going to the open feed. */
 function circleIdForPost(value) {
     return value && value !== OPEN_FEED ? Number(value) : null
 }
@@ -107,18 +99,10 @@ const FEED_TABS = [
     { value: "circle", label: "Study circles" },
 ]
 
-/** Uploaded reviewer files: one feed tab, two post types (PDF and Word). */
-/* One key, named once: the seeding read below and the query itself must agree,
-   and two inline arrays are exactly the kind of thing that quietly stops
-   matching. */
 const COMMUNITY_FEED_KEY = ["community-feed"]
 
 const REVIEWER_TYPES = ["notes", "docx"]
 
-/* The feed follows the landing page's community section: a post is a tactile
-   card whose point is the thing attached to it — a set you can attempt, a file
-   you can open, a circle you can join. Each post type owns one accent wash so
-   the feed is scannable before a single word is read. */
 const POST_TYPE_STYLES = {
     discussion: "bg-rb-macaw-wash text-rb-macaw-lip",
     quiz: "bg-rb-feather-wash text-rb-feather-lip",
@@ -137,7 +121,6 @@ const POST_TYPE_LABELS = {
     docx: "material",
 }
 
-/** Avatar washes rotate per author so a busy feed still reads as many voices. */
 const AVATAR_TONES = [
     "bg-rb-macaw-wash text-rb-macaw-lip",
     "bg-rb-beetle-wash text-rb-beetle-lip",
@@ -152,7 +135,6 @@ function avatarTone(seed = "") {
     return AVATAR_TONES[total % AVATAR_TONES.length]
 }
 
-/** "1.2 MB" for the reviewer tile; blank when an older post has no recorded size. */
 function formatBytes(size) {
     if (!size || size < 0) return null
     if (size < 1024) return `${size} B`
@@ -160,14 +142,6 @@ function formatBytes(size) {
     return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
-/**
- * The author beside a post: their picture where they have uploaded one, and
- * the coloured initials that have always stood in where they have not.
- *
- * <p>The initials stay underneath rather than being replaced, so a link that
- * has expired or failed leaves the author still recognisable instead of a
- * broken image icon.
- */
 function CommunityAvatar({ initials, tone, url, className = "" }) {
     return (
         <div
@@ -197,30 +171,10 @@ function attachmentTone(type) {
     return "bg-rb-cardinal-wash text-rb-cardinal-lip"
 }
 
-/** What a reviewer can be shared as. The reader previews every one of these. */
 const REVIEWER_ACCEPT = ".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.webp"
 
-/** Images can be shared several at a time, up to this many in one post (the API's limit too). */
 const MAX_REVIEWER_IMAGES = 10
 
-/**
- * Shared images, shown as images.
- *
- * <p>They used to arrive as a file tile -- an icon, "4 images", a size and a
- * read button -- which is the right shape for a document nobody can judge
- * without opening it, and the wrong one for pictures. A picture posted to a
- * feed is meant to be looked at where it lands.
- *
- * <p>One frame, one image at a time, swiped or stepped through: the shape
- * every feed uses for a set of photographs, because it keeps a post the same
- * height whether it carries one image or ten. The frame scroll-snaps, so a
- * touch swipe works without being taught to, and the arrows do the same thing
- * for a mouse.
- *
- * <p>Links are fetched per file and only when the post is first shown. They
- * are signed URLs, so asking for every image on the page up front would spend
- * a request on each one a reader scrolls straight past.
- */
 function PostImageCarousel({ files, onOpen }) {
     const [urls, setUrls] = useState(null)
     const [failed, setFailed] = useState(false)
@@ -242,8 +196,6 @@ function PostImageCarousel({ files, onOpen }) {
         }
     }, [files])
 
-    /* The dots follow the frame rather than the buttons, so a swipe moves them
-       too -- the buttons just scroll the same track. */
     function syncIndex(event) {
         const track = event.currentTarget
         const width = track.clientWidth || 1
@@ -283,8 +235,6 @@ function PostImageCarousel({ files, onOpen }) {
                 <>
                     <span className="rb-post-gallery-count">{index + 1}/{files.length}</span>
 
-                    {/* Hidden at the ends rather than disabled: a control that
-                        cannot do anything is better gone than greyed. */}
                     {index > 0 ? (
                         <button
                             type="button"
@@ -317,7 +267,6 @@ function PostImageCarousel({ files, onOpen }) {
     )
 }
 
-/** The attachment's kind, from its extension: PDF, DOCX (Word), TXT or IMAGE. */
 function reviewerAttachmentKind(name) {
     const extension = String(name ?? "").toLowerCase().split(".").pop()
     if (extension === "docx" || extension === "doc") return "DOCX"
@@ -326,16 +275,6 @@ function reviewerAttachmentKind(name) {
     return "PDF"
 }
 
-/**
- * The payload tile: the thing the post is actually about — a set you can attempt
- * or a file you can open — sitting in its own bordered slab under the text, with
- * a single pill action on the right.
- *
- * `views` is how many learners have opened this particular payload, and it sits
- * on the tile rather than in the footer row of counts below: those are all
- * buttons that change the number beside them, and this one is changed by
- * pressing the tile's own action, not by pressing the number.
- */
 function PayloadTile({ icon: Icon, tone, name, meta, views, actionLabel, onAction }) {
     const openedBy = Number(views ?? 0)
 
@@ -349,9 +288,6 @@ function PayloadTile({ icon: Icon, tone, name, meta, views, actionLabel, onActio
                 <p className="truncate text-sm font-bold text-foreground">{name}</p>
                 <p className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-xs font-semibold text-muted-foreground">
                     <span className="truncate">{meta}</span>
-                    {/* Nothing rather than "0 opened": on a post nobody has opened
-                        yet, a zero is the loudest thing on the card and says only
-                        that you are first. */}
                     {openedBy > 0 ? (
                         <span className="flex shrink-0 items-center gap-1">
                             ·
@@ -373,7 +309,6 @@ function PayloadTile({ icon: Icon, tone, name, meta, views, actionLabel, onActio
     )
 }
 
-/** One count in the footer row: icon, number, and a screen-reader-only noun. */
 function CountAction({ icon: Icon, count, label, active, activeClassName = "", onClick, className = "" }) {
     return (
         <button
@@ -403,11 +338,6 @@ function PostTypeBadge({ type }) {
     )
 }
 
-/**
- * A circle's own header, the way a subreddit banner works — except the backdrop
- * is the circle's name set huge and faint rather than an uploaded image, so a
- * brand-new circle looks finished without anyone having to design anything.
- */
 function CircleHeader({ circle, onToggleJoin, onDelete, onBack }) {
     return (
         <PanelCard className="overflow-hidden">
@@ -474,7 +404,6 @@ function CircleHeader({ circle, onToggleJoin, onDelete, onBack }) {
     )
 }
 
-/** Sidebar and feed surfaces share one shape: 2px border, card radius, no blur. */
 function PanelCard({ className = "", children }) {
     return (
         <section className={`rounded-rb-card border-2 border-border bg-card ${className}`}>
@@ -523,9 +452,6 @@ function CommunityPost({
     const fileSize = formatBytes(post.attachmentSize)
     const cardRef = useRef(null)
 
-    /* An open thread closes when attention moves off the post, the way a
-       comment box does elsewhere. The draft survives in the page's draft map,
-       so reopening the thread brings back whatever was half-typed. */
     useEffect(() => {
         if (!threadOpen) return undefined
         function handlePointerDown(event) {
@@ -545,8 +471,6 @@ function CommunityPost({
                         <div className="flex flex-wrap items-center gap-2">
                             <span className="font-bold text-foreground">{post.authorName}</span>
 
-                            {/* Only the viewer's own posts carry a badge -- on every
-                                other post "Learner" was true of everyone and said nothing. */}
                             {post.ownedByMe ? (
                                 <Badge variant="outline" className={`h-5 rounded-full px-1.5 text-[10px] ${post.badgeClass}`}>
                                     You
@@ -554,8 +478,6 @@ function CommunityPost({
                             ) : null}
                         </div>
 
-                        {/* The circle name is the way into the circle now that
-                            members no longer get the panel below. */}
                         <p className="mt-0.5 flex min-w-0 items-center gap-1 truncate text-xs font-semibold text-muted-foreground">
                             {linkedCircle ? (
                                 <button
@@ -625,8 +547,6 @@ function CommunityPost({
                 </div>
 
                 <div className="mt-4">
-                    {/* A shared set's title is the name on its tile below -- printing
-                        it here too said the same thing twice in two type sizes. */}
                     {isStudySet ? null : (
                         <h2 className="font-rb-display text-lg font-extrabold leading-6 text-foreground">
                             {post.title}
@@ -638,8 +558,6 @@ function CommunityPost({
                     </p>
                 </div>
 
-                {/* Pictures are shown; everything else gets a tile, because a
-                    document cannot be judged without opening it. */}
                 {post.attachment?.type === "IMAGE" && post.attachment.key ? (
                     <PostImageCarousel
                         files={post.attachment.files ?? [{ key: post.attachment.key, name: post.attachment.name }]}
@@ -671,17 +589,7 @@ function CommunityPost({
                     />
                 ) : null}
 
-                {/* The circle panel is an offer to join, so it only appears when
-                    joining is on offer.
 
-                    It used to render under every post that belonged to a circle,
-                    including the ones from circles you are already in -- where it
-                    repeated, in a 60px panel with its own avatar and a button
-                    that does nothing you want, the circle name already printed in
-                    the byline three lines above it. On a feed of posts from your
-                    own circle that was the heaviest element on every card, and it
-                    said nothing twice. Members get the byline; the panel is kept
-                    for the case where it is a door rather than a label. */}
                 {linkedCircle && !linkedCircle.joined && !linkedCircle.owner ? (
                     <div className="mt-4 flex flex-col gap-3 rounded-rb-tile border-2 border-border bg-muted/40 p-3 sm:flex-row sm:items-center">
                         <button
@@ -718,7 +626,6 @@ function CommunityPost({
 
             </div>
 
-            {/* one quiet row: every number here is also the button that changes it */}
             <div className="flex items-center gap-1 border-t-2 border-border px-3 py-2 text-sm font-bold text-muted-foreground">
                 <CountAction
                     icon={ArrowUp}
@@ -749,17 +656,11 @@ function CommunityPost({
                 />
             </div>
 
-            {/* The thread lives in the post, the way every social feed does it --
-                reading a reply should never mean losing sight of what it replies to. */}
             {threadOpen ? (
                 <div className="border-t-2 border-border bg-muted/20 px-3 py-2.5 sm:px-4">
                     {threadComments === undefined ? (
                         <p className="py-2 text-center text-xs font-semibold text-muted-foreground">Loading comments...</p>
                     ) : (
-                        /* Comments are secondary to the post, so they run at a
-                           smaller scale: name and body share one bubble, and a
-                           long thread scrolls instead of pushing the next post
-                           off the screen. */
                         <div className="max-h-60 space-y-1.5 overflow-y-auto pr-1">
                             {threadComments.map((comment) => (
                                 <div key={comment.commentId} className="group/comment flex items-start gap-2">
@@ -774,12 +675,6 @@ function CommunityPost({
                                             {comment.body}
                                         </p>
                                     </div>
-                                    {/* Yours to remove, or yours because the post is.
-                                        Kept quiet until the row is hovered or the
-                                        button is focused, so a thread does not read
-                                        as a column of delete buttons -- but it is a
-                                        real button in the tab order, not a
-                                        hover-only affordance. */}
                                     {comment.ownedByMe || post.ownedByMe ? (
                                         <button
                                             type="button"
@@ -837,12 +732,6 @@ function CommunityPost({
 export default function Community() {
     const plan = useLearnerEntitlements()
     const navigate = useNavigate()
-    /* Seeded from the cache during the first render, not from an effect after
-       it. `useEffect` runs after paint, so on a return visit these would be
-       empty for one frame and the feed would flash its "nothing here yet"
-       state -- trading the spinner the learner complained about for an empty
-       page, which is worse. Reading the cache synchronously means the second
-       visit's first paint already has the posts. */
     const queryClient = useQueryClient()
     const cachedFeed = queryClient.getQueryData(COMMUNITY_FEED_KEY) ?? readCommunityFeedSnapshot()
 
@@ -859,8 +748,6 @@ export default function Community() {
     const [shareType, setShareType] = useState("discussion")
     const [shareTitle, setShareTitle] = useState("")
     const [shareDescription, setShareDescription] = useState("")
-    /* Radix will not take "" as a value, so the open feed needs a name of its
-       own rather than the absence of one. */
     const [shareCommunity, setShareCommunity] = useState(OPEN_FEED)
     const [attachedFile, setAttachedFile] = useState(null)
     const [isUploadingAttachment, setIsUploadingAttachment] = useState(false)
@@ -869,50 +756,24 @@ export default function Community() {
 
     const [createCircleOpen, setCreateCircleOpen] = useState(false)
     const [isCreatingCircle, setIsCreatingCircle] = useState(false)
-    /** When set, the middle column becomes that circle's own page. */
     const [activeCircleId, setActiveCircleId] = useState(null)
     const [confirmDeleteCircleId, setConfirmDeleteCircleId] = useState(null)
     const [circleName, setCircleName] = useState("")
     const [circleDescription, setCircleDescription] = useState("")
     const [circleTopic, setCircleTopic] = useState("General Study")
-    /* Public by default. A circle nobody can read is the deliberate choice, so
-       it is the one you have to make rather than the one you fall into. */
     const [circleVisibility, setCircleVisibility] = useState("PUBLIC")
 
-    // Threads are per post and stay mounted in the feed: openThreads holds which
-    // cards are expanded, commentsByPost caches what each one has loaded.
     const [openThreads, setOpenThreads] = useState([])
     const [commentsByPost, setCommentsByPost] = useState({})
     const [commentDrafts, setCommentDrafts] = useState({})
-    /* The loading state is scoped to the feed, not the page: the header, the
-       circle rail and the composer all render from state this page already has,
-       so blanking them out while the posts arrive would replace a usable screen
-       with a placeholder of itself. Only the part that is actually waiting says
-       so. (`isLoading` itself comes from the feed query further down.) */
     const [reportPostId, setReportPostId] = useState(null)
     const [reportReason, setReportReason] = useState("SPAM")
     const [reportDetails, setReportDetails] = useState("")
 
-    /* Cached across visits, which is the whole reason this is a query rather
-       than the `useEffect` + `Promise.all` it used to be.
-       
-       Four endpoints were re-fetched from scratch on every mount, with the feed
-       showing its full "loading the feed" placeholder each time -- so stepping
-       into a post and pressing back put the learner through the whole wait
-       again, for a feed that had not changed in the four seconds they were
-       away. React Query hands back the previous data synchronously and
-       revalidates behind it: the second visit paints the feed it already has,
-       and any new posts arrive without the screen ever emptying.
 
-       One key for all four because they arrive together and the page has no
-       use for a partial answer -- a circle rail with no posts beside it is not
-       a state worth rendering. */
     const feedQuery = useQuery({
         queryKey: COMMUNITY_FEED_KEY,
         queryFn: async () => {
-            /* Only the posts are required. The circles, certifications and
-               study items are side panels; one of them failing used to fail
-               the whole query and leave the feed empty with posts to show. */
             const optional = (promise) => promise.catch(() => [])
             const [nextPosts, nextCircles, nextCertifications, nextStudyItems] =
                 await Promise.all([
@@ -930,10 +791,6 @@ export default function Community() {
                 ),
             }
         },
-        /* `undefined`, never null, when there is no snapshot: React Query
-           counts null as data, so the first visit of a session was "loaded"
-           with nothing in it and showed "No community posts found" while the
-           posts were still on their way. */
         initialData: () => readCommunityFeedSnapshot() ?? undefined,
         initialDataUpdatedAt: 0,
         staleTime: 60_000,
@@ -946,12 +803,6 @@ export default function Community() {
         }
     }, [feedQuery.data])
 
-    /* The page owns the posts once they have arrived: every like, save, join,
-       comment and delete edits this list in place so the row answers instantly.
-       Seeding from the query rather than reading it directly is what keeps that
-       possible -- and it is keyed on `dataUpdatedAt`, so a background
-       revalidation that returns new posts replaces the list, while re-renders
-       in between leave the learner's own optimistic edits alone. */
     useEffect(() => {
         const data = feedQuery.data
         if (!data) return
@@ -959,11 +810,6 @@ export default function Community() {
         setCircles(data.circles)
         setCertifications(data.certifications)
         setStudyItems(data.studyItems)
-        /* The composer used to point at whichever circle happened to load
-           first, so a learner who joined one could no longer post to the
-           community at all -- every post went into that circle, and nothing in
-           the picker said otherwise or offered a way out. It opens on the feed
-           now, and a circle is something you choose. */
     }, [feedQuery.dataUpdatedAt])
 
     useEffect(() => {
@@ -972,8 +818,6 @@ export default function Community() {
         }
     }, [feedQuery.isError, feedQuery.error])
 
-    /* Only a wait with nothing to show yet is worth showing: a first visit,
-       or a saved snapshot that had no posts while a refresh is on its way. */
     const isLoading = feedQuery.isLoading || (feedQuery.isFetching && posts.length === 0)
 
     const topicOptions = useMemo(() => {
@@ -983,9 +827,6 @@ export default function Community() {
         return [...new Set(["General Study", ...titles])]
     }, [certifications])
 
-    /** Circles you can actually post into — the only ones worth offering. */
-    /* One resolve per author across the whole feed, not one per card: a feed
-       is mostly the same few people posting repeatedly. */
     const authorAvatarUrls = useAvatarUrls(posts.map((post) => post.authorAvatarKey))
 
     const joinedCircles = useMemo(
@@ -1002,18 +843,8 @@ export default function Community() {
         const query = searchValue.trim().toLowerCase()
 
         const filtered = posts.filter((post) => {
-            // Inside a circle the feed is that circle's posts only; the tab
-            // filters and the saved view belong to the global feed.
             if (activeCircleId) return post.circleId === activeCircleId
             if (showSavedOnly && !post.saved) return false
-            /* "circle" is the one tab that is not a kind of post. It used to
-               be: creating a circle wrote a "{name} is now open" post typed
-               `circle`, and this tab listed those announcements. Nothing
-               announces itself any more -- a circle is not something someone
-               said -- so the tab means what its name always implied instead,
-               everything written inside a circle, whatever kind of post it
-               is. Matching on postType here would leave it permanently
-               empty. */
             const matchesTab =
                 showSavedOnly ||
                 activeTab === "for-you" ||
@@ -1039,9 +870,6 @@ export default function Community() {
     function openComposer(type) {
         setShareType(type)
         setAttachedFile(null)
-        // Posting from inside a circle should land in that circle by default,
-        // and posting from the feed should land on the feed -- set both ways
-        // round, or the last circle posted to quietly becomes the default.
         setShareCommunity(activeCircleId ? String(activeCircleId) : OPEN_FEED)
         setSelectedStudyItemId("")
         setComposerOpen(true)
@@ -1061,22 +889,11 @@ export default function Community() {
         }
     }
 
-    /**
-     * Opens a shared reviewer in the full-page reader.
-     *
-     * A reviewer is a document someone sits and reads, so it gets the reader
-     * the study workspace uses -- a page of its own, with a title bar, a
-     * control rail and the pages in a scroller -- rather than a dialog boxed
-     * into the middle of the feed. The file itself is identified by its key;
-     * the name and size ride along so the reader's title bar is filled in
-     * before the first byte arrives.
-     */
     function openAttachment(post) {
         const attachment = post?.attachment
         if (!attachment?.key) return
         countView(post.postId)
         const params = new URLSearchParams()
-        // A set of images repeats key and name once per file, in order.
         for (const file of attachment.files ?? [{ key: attachment.key, name: attachment.name }]) {
             params.append("key", file.key)
             params.append("name", file.name ?? "")
@@ -1088,22 +905,6 @@ export default function Community() {
         navigate(`/learner/community/reviewer/${post.postId}?${params.toString()}`)
     }
 
-    /**
-     * Opens the viewer's own copy of a shared quiz or flashcard set.
-     *
-     * The two are played on different pages, and only the server knows which
-     * kind the copy came out as -- a "quiz" post's items live in the exam
-     * tables, a "flashcard" post's in a study set -- so the route is chosen
-     * from the studyType it returns rather than assumed here.
-     */
-    /**
-     * Counts this learner as having opened what a post shares.
-     *
-     * Deliberately not awaited: the count is the last thing anyone is waiting
-     * for, and a failure here must not stand between a learner and the file or
-     * quiz they asked for -- so the tile updates from the server's answer when
-     * it arrives, and stays as it was if it never does.
-     */
     function countView(postId) {
         recordCommunityPostView(postId)
             .then(({ views }) => {
@@ -1122,7 +923,6 @@ export default function Community() {
     }
 
     async function startPractice(postId) {
-        // Shared quizzes, exams and flashcard sets are Pro; Free can still read the post.
         const ownPost = posts.some((post) => post.postId === postId && post.ownedByMe)
         if (plan.isFree && !ownPost) {
             promptUpgrade("Shared study sets are a Pro feature")
@@ -1185,11 +985,6 @@ export default function Community() {
         }
     }
 
-    /**
-     * One PDF, Word or text file -- or several images, which are shared together
-     * and read as the pages of one post. Choosing more images adds to the ones
-     * already attached; choosing any other file replaces them.
-     */
     async function handleAttachmentSelected(event) {
         const chosen = Array.from(event.target.files ?? [])
         if (chosen.length === 0) return
@@ -1236,8 +1031,6 @@ export default function Community() {
     }
 
     async function publishPost() {
-        // Same in-flight guard as circle creation: the composer stays open for
-        // the whole round trip, and a second click would publish a second post.
         if (isPublishing) return
         setIsPublishing(true)
         try {
@@ -1273,8 +1066,6 @@ export default function Community() {
             return
         }
 
-        // One "Reviewer" composer tab, several kinds of file: the file's own
-        // extension decides the kind, so the learner never has to say it twice.
         const attachmentKind = reviewerAttachmentKind(attachedFile?.name)
         const isWordFile = attachmentKind === "DOCX"
         const postType = shareType === "reviewer" ? (isWordFile ? "docx" : "notes") : shareType
@@ -1320,8 +1111,6 @@ export default function Community() {
             toast.error("Add a circle name and description.")
             return
         }
-        // The dialog stays open for the whole round trip, so without this guard
-        // a second click during the await creates a second circle.
         if (isCreatingCircle) return
         setIsCreatingCircle(true)
 
@@ -1376,21 +1165,11 @@ export default function Community() {
             const loaded = await getCommunityComments(postId)
             setCommentsByPost((current) => ({ ...current, [postId]: loaded }))
         } catch (error) {
-            // Leave the cache empty so reopening the thread retries the load.
             setOpenThreads((current) => current.filter((id) => id !== postId))
             toast.error(apiMessage(error, "Comments could not be loaded."))
         }
     }
 
-    /**
-     * Removes a comment from the thread, and from the post's count.
-     *
-     * <p>Optimistic, with the rows put back if the server refuses: a comment
-     * is small and the thread is already on screen, so waiting on a round
-     * trip to see your own deletion is the slower lie. Replies go with it,
-     * because that is what the server does -- showing them hang on until the
-     * next reload would disagree with what actually happened.
-     */
     async function removeComment(postId, commentId) {
         const previous = commentsByPost[postId]
         if (!previous) return
@@ -1449,13 +1228,7 @@ export default function Community() {
 
     return (
         <div className="space-y-6">
-            {/* The horizontal strip is the SMALL-SCREEN form of the left rail
-                below: same filters, same "create a circle" action. Hidden from
-                lg up, where the rail itself is on screen and showing both
-                would be two competing copies of one navigation.
 
-                pb clears the 4px tactile lip under "Create a circle" — at py-3
-                the lip landed on the strip's bottom border. */}
             <div className="sticky top-16 z-20 -mx-4 border-b-2 border-border bg-background/95 px-4 pb-4 pt-3 backdrop-blur sm:-mx-6 sm:px-6 lg:hidden">
                 <div className="mx-auto flex w-full max-w-[1200px] items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                             {FEED_TABS.map((tab, index) => {
@@ -1511,11 +1284,6 @@ export default function Community() {
                 </div>
             </div>
 
-            {/* Three columns: filters/circles rail, the feed, then the
-                community's own panels -- the feed keeps the middle so it is
-                what the eye lands on, and each rail collapses independently
-                (circles at lg, panels at xl) rather than the whole layout
-                snapping to one column at a single breakpoint. */}
             <div className="mx-auto grid w-full max-w-[1400px] items-start gap-6 lg:grid-cols-[232px_minmax(0,1fr)] xl:grid-cols-[232px_minmax(0,1fr)_300px]">
 
                 <aside className="sticky top-24 hidden lg:block">
@@ -1596,8 +1364,6 @@ export default function Community() {
                                         circle.circleId === activeCircleId ? "bg-rb-bee-wash" : ""
                                     }`}
                                 >
-                                    {/* The name and avatar open the circle's page; the
-                                        join control stays a separate target beside it. */}
                                     <button
                                         type="button"
                                         onClick={() => setActiveCircleId(circle.circleId)}
@@ -1610,10 +1376,6 @@ export default function Community() {
                                         <div className="min-w-0 flex-1">
                                             <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
                                                 <span className="truncate">{circle.name}</span>
-                                                {/* Marked on the circle, not on its posts: a
-                                                    private circle's posts are the ones a
-                                                    non-member never sees, so the lock has to
-                                                    live where they can see it. */}
                                                 {circle.isPrivate ? (
                                                     <Lock
                                                         className="size-3 shrink-0 text-muted-foreground"
@@ -1667,9 +1429,6 @@ export default function Community() {
                         />
                     ) : null}
 
-                    {/* The collapsed prompt and the open composer are two states
-                        of one control. Rendering both showed the type buttons and
-                        a Post button twice, stacked. */}
                     {composerOpen ? null : (
                     <PanelCard className="p-4">
                         <button type="button" className="flex w-full items-center gap-3" onClick={() => openComposer("discussion")}>
@@ -1678,11 +1437,6 @@ export default function Community() {
                                 Start a discussion or share a review resource...
                             </div>
                         </button>
-                        {/* Each button opens the composer on that type. There is no
-                            separate "Post" here: it opened the same composer the row
-                            already opens, so it was a second door to one room. The
-                            labels stay visible from sm up -- "share a quiz" is not
-                            something an icon alone communicates. */}
                         <div className="mt-3 flex items-center gap-2 border-t-2 border-border pt-3">
                             <div className="flex min-w-0 flex-wrap items-center gap-0.5">
                                 <Button type="button" variant="ghost" size="sm"  onClick={() => openComposer("discussion")} title="Start a discussion"><MessageCircle className="size-4 text-rb-macaw-lip sm:mr-2" /><span className="hidden sm:inline">Discussion</span></Button>
@@ -1762,9 +1516,6 @@ export default function Community() {
                         </section>
                     ) : null}
 
-                    {/* Heading only -- the filters themselves live in the top
-                        strip below lg and in the left rail above it, so a
-                        third copy here was redundant at every width. */}
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-border pb-3">
                         <h2 className="font-rb-display text-sm font-extrabold lowercase">
                             {activeCircle
@@ -1777,8 +1528,6 @@ export default function Community() {
                         </h2>
 
                         <div className="flex items-center gap-2">
-                            {/* Searches whatever the current tab is showing, saved
-                                posts included -- one field, not one per view. */}
                             <div className="relative">
                                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
@@ -1854,13 +1603,7 @@ export default function Community() {
                     )}
                 </main>
 
-                {/* xl, not lg: at lg the left rail already takes 232px, and
-                    keeping this one too squeezed the feed below a comfortable
-                    reading width. */}
                 <aside className="sticky top-24 hidden space-y-4 xl:block">
-                    {/* Study circles live in the left rail now -- one list, one
-                        place to join from, rather than the same circles in two
-                        columns of the same screen. */}
 
                     <PanelCard className="border-rb-fox/40 bg-rb-fox-wash p-4">
                         <PanelHeading icon={Sparkles} tone="bg-rb-snow text-rb-fox-lip" title="Community reminder" />
@@ -1939,9 +1682,6 @@ export default function Community() {
                             </Select>
                         </div>
 
-                        {/* Says the part that is easy to get wrong: private hides the
-                            posts, not the circle. The circle stays listed either way,
-                            or nobody could ask to join it. */}
                         <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground">
                             {circleVisibility === "PRIVATE"
                                 ? "The circle stays listed so learners can find and join it, but posts inside it are hidden from the news feed and readable only by members."

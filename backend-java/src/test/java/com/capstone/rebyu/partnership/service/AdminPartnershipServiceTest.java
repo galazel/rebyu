@@ -67,8 +67,6 @@ class AdminPartnershipServiceTest {
                 var invoiceService = mock(com.capstone.rebyu.billing.service.InstitutionInvoiceService.class);
                 var emailService = mock(com.capstone.rebyu.notification.service.EmailService.class);
                 var accessGrantService = mock(InstitutionAccessGrantService.class);
-                // approve() bills and emails after provisioning; a stub invoice keeps that path
-                // quiet.
                 when(invoiceService.issueForApprovedRequest(any(), any(), any())).thenReturn(
                                 com.capstone.rebyu.billing.entity.InstitutionInvoice.builder()
                                                 .institutionInvoiceId(1L).invoiceNumber("REBYU-INV-TEST-000001")
@@ -81,8 +79,6 @@ class AdminPartnershipServiceTest {
                                 invoiceService, emailService, accessGrantService,
                                 mock(com.capstone.rebyu.institution.service.InstitutionAccessTeardownService.class));
 
-                // Common approve() plumbing: no certificate items to process, request save is a
-                // no-op passthrough.
                 when(itemRepository.findByPartnershipRequest_RequestId(REQUEST_ID)).thenReturn(List.of());
                 when(requestRepository.save(any(PartnershipRequest.class))).thenAnswer(inv -> inv.getArgument(0));
                 when(institutionRepository.save(any(Institution.class))).thenAnswer(inv -> {
@@ -121,8 +117,6 @@ class AdminPartnershipServiceTest {
                                 .build();
         }
 
-        // ---- 1: email matches -> the existing Institution is reused (even if the name
-        // differs) ----
         @Test
         void approve_emailMatches_reusesExistingInstitutionEvenIfNameDiffers() {
                 PartnershipRequest request = pendingRequest();
@@ -139,13 +133,10 @@ class AdminPartnershipServiceTest {
 
                 PartnershipRequestDetailDto result = service.approve(REQUEST_ID, "ok", "admin");
 
-                // Reused the institution already on file (by contact email); the account
-                // is provisioned on it and no duplicate Institution is created.
                 assertEquals(EXISTING_INSTITUTION_ID, result.institutionId());
                 verify(institutionRepository, never()).save(any(Institution.class));
         }
 
-        // 2: email AND name both match -> the existing Institution is reused
         @Test
         void approve_emailAndNameMatch_reusesExistingInstitution() {
                 PartnershipRequest request = pendingRequest();
@@ -153,7 +144,7 @@ class AdminPartnershipServiceTest {
                 when(institutionRepository.findByPrimaryContactEmailIgnoreCase(ORG_EMAIL))
                                 .thenReturn(Optional.of(existingInstitution(ORG_NAME)));
                 when(departmentHeadRepository.findByInstitution_InstitutionId(EXISTING_INSTITUTION_ID))
-                                .thenReturn(List.of()); // no owner linked yet
+                                .thenReturn(List.of());
                 when(cognitoAdminService.createInstitutionAccount(anyString(), anyString(), anyString()))
                                 .thenReturn(new CognitoAdminService.ProvisionResult(true, "sub-123", "emailed"));
                 when(userTypeRepository.findByUserTypeText("INSTITUTION"))
@@ -164,12 +155,9 @@ class AdminPartnershipServiceTest {
                 PartnershipRequestDetailDto result = service.approve(REQUEST_ID, "ok", "admin");
 
                 assertEquals(EXISTING_INSTITUTION_ID, result.institutionId());
-                // No brand-new Institution should have been created/persisted.
                 verify(institutionRepository, never()).save(any(Institution.class));
         }
 
-        // ---- 3: Cognito UsernameExistsException path, local User already exists ->
-        // linked as owner ----
         @Test
         void provisionInstitutionAccount_usernameExists_existingLocalUser_linksAsOwner() {
                 PartnershipRequest request = pendingRequest();
@@ -190,14 +178,10 @@ class AdminPartnershipServiceTest {
                 service.approve(REQUEST_ID, "ok", "admin");
 
                 verify(departmentHeadRepository, times(1)).save(any(DepartmentHead.class));
-                // The user-type lookup / new-user creation path (only used when a Cognito
-                // identity exists) is skipped.
                 verify(userTypeRepository, never()).findByUserTypeText(anyString());
                 verify(userRepository, never()).save(any(User.class));
         }
 
-        // ---- 4: Cognito UsernameExistsException path, no local User -> no
-        // DepartmentHead, no exception ----
         @Test
         void provisionInstitutionAccount_usernameExists_noLocalUser_skipsLinkingWithoutError() {
                 PartnershipRequest request = pendingRequest();

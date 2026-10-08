@@ -2,10 +2,6 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from app.graphs.tutor.workflow import get_tutor_graph
 
-#: The graph node an appended turn is attributed to. `aupdate_state` refuses
-#: to guess ("Ambiguous update, specify as_node") and requires a node that
-#: actually writes the channel being updated -- `respond_question` is the one
-#: that returns `{"messages": [...]}`.
 _APPEND_AS_NODE = "respond_question"
 
 
@@ -21,8 +17,6 @@ async def get_conversation(session_id: str):
     those are context fed to the model, not turns the learner had.
     """
     config = {"configurable": {"thread_id": session_id}}
-    # Cached: previously this rebuilt and recompiled the entire graph on
-    # every call just to read one checkpoint.
     graph = await get_tutor_graph()
     snapshot = await graph.aget_state(config)
 
@@ -36,18 +30,11 @@ async def get_conversation(session_id: str):
             "role": "user" if message.type == "human" else "assistant",
             "content": message.content,
         }
-        # Set by `append_messages` for a generated quiz/flashcard turn, so the
-        # tutor can re-render its "Take the quiz" card after a refresh rather
-        # than degrading to a sentence about something the learner can no
-        # longer open from here.
         extra = message.additional_kwargs or {}
         if extra.get("action"):
             entry["action"] = extra["action"]
-        # Related videos and links found for an answer, so they reload with it.
         if extra.get("resources"):
             entry["resources"] = extra["resources"]
-        # The part of the lesson a question was about (its text, and whether
-        # a picture was sent -- the picture itself is not kept).
         if extra.get("snippet"):
             entry["snippet"] = extra["snippet"]
         conversation.append(entry)

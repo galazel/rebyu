@@ -18,7 +18,6 @@ from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
-#: How long a read of the table is trusted before it is read again.
 TTL = 30
 
 _cache: dict[str, str] = {}

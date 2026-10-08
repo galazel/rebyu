@@ -14,12 +14,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.List;
 
-/**
- * Thin trigger: lesson content drafting is performed entirely by the Python
- * AI backend, which is expected to pull certification/lesson context and any
- * indexed knowledge itself. Java only validates the upload, stores the
- * source files, and forwards the request.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor

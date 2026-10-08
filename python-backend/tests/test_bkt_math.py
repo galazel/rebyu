@@ -47,7 +47,5 @@ def test_partial_score_sits_between_the_binary_posteriors() -> None:
     half = update_mastery(is_correct=False, score=0.5, **kwargs)
     assert wrong.mastery_posterior < half.mastery_posterior < right.mastery_posterior
     assert abs(half.mastery_posterior - (right.mastery_posterior + wrong.mastery_posterior) / 2) < 1e-9
-    # a full score is the right answer whatever the verdict says, and a
-    # zero is the wrong one
     assert update_mastery(is_correct=False, score=1.0, **kwargs).mastery_after == right.mastery_after
     assert update_mastery(is_correct=True, score=0.0, **kwargs).mastery_after == wrong.mastery_after

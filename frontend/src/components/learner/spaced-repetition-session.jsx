@@ -14,31 +14,9 @@ import {
   gradeReviewCard,
 } from "@/services/reviewService.js"
 
-/**
- * A spaced-repetition review: recall it, reveal it, say how it went.
- *
- * <p>The self-rating is the input the schedule runs on, so the answer is hidden
- * until the learner commits to having tried. Showing question and answer
- * together would make every card feel easy and every rating a guess, which is
- * the one thing that makes the whole schedule wrong — an item rated "Easy"
- * without being recalled will not come back for weeks.
- *
- * <p>Each grade is sent as it is given rather than batched at the end: a
- * session abandoned halfway should still keep the cards that were reviewed.
- *
- * <h3>Why it takes the window</h3>
- * This used to be a dialog: question and answer in small type inside a panel,
- * over the page the learner was reading. Recall is the one thing a review
- * session asks for, and it is the first thing a half-visible page behind a box
- * takes away. It is drawn as a round now — the whole window, one card, a clock
- * on the recall — and the clock stops the moment the answer is showing, because
- * it times the remembering, not the self-assessment that follows.
- */
 
-/** How long to try before the card shows itself. */
 const RECALL_SECONDS = 20
 
-/** Kahoot's four, in grade order: forgot it, struggled, got it, instant. */
 const GRADE_FACES = {
   AGAIN: "var(--color-rb-cardinal)",
   HARD: "var(--color-rb-fox)",
@@ -46,7 +24,6 @@ const GRADE_FACES = {
   EASY: "var(--color-rb-leaf)",
 }
 
-/** How long until this card is seen again, in words. */
 function nextDueLabel(outcome) {
   const days = outcome?.intervalDays
   if (!days && days !== 0) return null
@@ -75,8 +52,6 @@ export function SpacedRepetitionSession({ task, certificationId, onComplete, onD
   const [lastOutcome, setLastOutcome] = useState(null)
   const [grading, setGrading] = useState(false)
 
-  // Loaded once per opening: the fetch creates review items when it tops the
-  // session up, so React's development double-mount would seed twice.
   const loadedRef = useRef(false)
 
   useEffect(() => {
@@ -118,8 +93,6 @@ export function SpacedRepetitionSession({ task, certificationId, onComplete, onD
       const outcome = await gradeReviewCard({ questionId: card.questionId, grade })
       setLastOutcome(outcome)
     } catch (error) {
-      // Surfaced, not swallowed: a grade that did not save means this card is
-      // not actually scheduled, and silently moving on would lose it.
       console.warn("Could not save that review grade.", error)
     } finally {
       setGrading(false)
@@ -173,7 +146,6 @@ export function SpacedRepetitionSession({ task, certificationId, onComplete, onD
     )
   }
 
-  // Worked all the way through.
   if (!card) {
     return (
       <Centered>
@@ -207,9 +179,6 @@ export function SpacedRepetitionSession({ task, certificationId, onComplete, onD
         />
       }
     >
-      {/* First seeding is worth explaining: cards the learner has never
-          formally "reviewed" appearing in a review session looks wrong
-          otherwise. */}
       {seeded && index === 0 ? (
         <p className="mx-auto max-w-2xl rounded-2xl bg-white/10 p-3 text-center text-xs leading-5 text-white/75">
           Some of these are entering your review schedule for the first time, drawn
@@ -252,9 +221,6 @@ export function SpacedRepetitionSession({ task, certificationId, onComplete, onD
           {revealed ? "How well did you recall it?" : "Try to recall it before the clock runs out"}
         </p>
 
-        {/* Four grades, each labelled in words as well as coloured. The interval
-            that follows is driven entirely by this, so it must never be a
-            colour to guess at. */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {REVIEW_GRADES.map((grade) => (
             <button
@@ -271,8 +237,6 @@ export function SpacedRepetitionSession({ task, certificationId, onComplete, onD
           ))}
         </div>
 
-        {/* What the last rating bought, so the schedule is visible rather than
-            something that happens to the learner. */}
         {lastOutcome && nextDueLabel(lastOutcome) ? (
           <p className="pt-3 text-center text-xs text-white/50">
             Last card returns {nextDueLabel(lastOutcome)}.

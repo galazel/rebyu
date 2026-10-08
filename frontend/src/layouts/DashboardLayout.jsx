@@ -24,19 +24,8 @@ export default function DashboardLayout() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  /* Pages that run edge to edge and pad themselves. The portal's gutter would
-     only frame them in white -- a full-width banner stopping short of the
-     window reads as a mistake rather than as restraint.
 
-     The three table pages used to be here too, which is why they alone met the
-     window edge while every other admin page's content sat in the gutter. A
-     table is not a banner: it has a card around it, and that card wants the
-     same inset as the cards on every other page. They take the gutter now and
-     grow into it, so the pager lands at the bottom of the page.
 
-     Matched on the path rather than announced by the page, because the gutter
-     belongs to the layout: a child cannot unset padding applied above it
-     without negative margins, which break the moment the cap changes. */
   const BLEED_PATHS = [
     /^\/admin\/certification\/[^/]+$/,
   ]
@@ -78,14 +67,11 @@ export default function DashboardLayout() {
           </>
         }
       />
-      {/* The boundary sits here rather than around the router, so the admin
-          nav stays put while the next page's chunk arrives. */}
       <main className={`rebyu-page ${isBleedPage ? "rebyu-page-bleed" : ""}`}>
         <Suspense fallback={<PortalPageSkeleton />}>
           <Outlet />
         </Suspense>
       </main>
-      {/* Says when a PDF import's background tagging finishes. */}
       <TaggingJobWatcher />
     </div>
   )

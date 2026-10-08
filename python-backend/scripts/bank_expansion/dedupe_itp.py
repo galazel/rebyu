@@ -40,9 +40,7 @@ from dbsession import open_session
 
 CERTIFICATION_ID = 4
 
-#: (delete, kept, why)
 DUPLICATES = [
-    # --- character-identical stems ---
     (542, 11, "identical stem: primary goal of business management systems"),
     (4488, 101, "identical stem: NOT one of the three pillars"),
     (324, 204, "identical stem: waterfall characteristic"),
@@ -51,7 +49,6 @@ DUPLICATES = [
     (4500, 4480, "identical stem: symmetric over asymmetric for large data"),
     (4503, 4484, "identical stem: primary function of a VPN"),
 
-    # --- reworded, same question and same answer ---
     (124, 10, "'Act' phase of/in the PDCA cycle"),
     (285, 11, "primary goal of business management systems, reworded"),
     (461, 22, "what/which type of standard emerges from market dominance"),
@@ -95,9 +92,6 @@ def main():
                     "refusing to delete %s: the row it duplicates (%s) is missing"
                     % (delete_id, kept_id))
 
-            # Both sides of a pair must sit on the same lesson. If they do not,
-            # the "duplicate" is the same fact taught in two places, which is a
-            # curriculum question rather than a question-bank one.
             if row[2] != kept[1]:
                 print("  ! %-6s SKIPPED: lesson %s, but %s is on lesson %s"
                       % (delete_id, row[2], kept_id, kept[1]))
@@ -107,10 +101,6 @@ def main():
                 "select count(*) from exam_questions where question_id = :q"),
                 {"q": delete_id}).scalar()
 
-            # Learner history. A past attempt keeps its own snapshot of the
-            # question text, so deleting the source row does not damage it --
-            # but these two tables hold a real foreign key to it, and a mistake
-            # the learner is still reviewing would go with it.
             learner_refs = 0
             for table in ("learner_mistake_reviews", "learner_review_items"):
                 learner_refs += db.execute(text(
@@ -131,12 +121,6 @@ def main():
                 print("      ! %d question(s) are children of it; leaving it in place" % children)
                 continue
 
-            # Exam links are REPOINTED to the survivor, not deleted. Every one
-            # of these duplicates is on at least one published paper, so
-            # dropping the link would quietly shorten that paper below the
-            # question count it advertises. The exception is a paper already
-            # carrying the survivor: repointing there would put the same
-            # question on it twice, so that link is dropped instead.
             already = {row[0] for row in db.execute(text(
                 "select exam_id from exam_questions where question_id = :q"),
                 {"q": kept_id})}
@@ -156,9 +140,6 @@ def main():
                         {"keep": kept_id, "q": delete_id, "e": exam_id})
                     print("      exam %-5s repointed to %s" % (exam_id, kept_id))
 
-            # Everything else that hangs off a question, deleted in dependency
-            # order. Which of the three config tables applies depends on the
-            # question type, so all three are cleared rather than branching.
             db.execute(text("delete from choices where question_id = :q"), {"q": delete_id})
             db.execute(text("delete from text_question_configs where question_id = :q"), {"q": delete_id})
             db.execute(text("delete from diagram_question_configs where question_id = :q"), {"q": delete_id})

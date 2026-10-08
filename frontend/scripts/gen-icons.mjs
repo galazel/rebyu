@@ -1,19 +1,3 @@
-// Generates src/components/icons.tsx: a FontAwesome-backed module exporting the
-// icon names the app imports (the same names lucide used, so call sites read
-// unchanged).
-//
-// Run after editing MAP below:
-//     node scripts/gen-icons.mjs
-//
-// `--check` writes nothing and exits 1 if the file on disk is not what this
-// script would produce. Worth running in CI: the generated module was hand-
-// edited once to fix a type error, and from then on regenerating it silently
-// reintroduced the error -- the fix belonged here, in the template.
-//
-// Every FA name in MAP is checked against the installed package before the file
-// is written, so a wrong name fails loudly here instead of rendering an empty
-// box in the app. The script derives the icon list from what the source
-// actually imports, so unused icons drop out of the bundle on the next run.
 import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -22,7 +6,6 @@ import * as solid from "@fortawesome/free-solid-svg-icons"
 const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const SRC = path.join(FRONTEND, "src")
 
-// --- canonical lucide name -> FontAwesome solid export ----------------------
 const MAP = {
   Activity: "faChartLine",
   AlertCircle: "faCircleExclamation",
@@ -185,8 +168,6 @@ const MAP = {
   Settings: "faGear",
   Share2: "faShareNodes",
   Shield: "faShield",
-  // FA free has no shield-exclamation / shield-x, so severity is carried by a
-  // different glyph rather than a shield that looks identical to ShieldCheck.
   ShieldAlert: "faTriangleExclamation",
   ShieldCheck: "faShieldHalved",
   ShieldX: "faBan",
@@ -229,7 +210,6 @@ const MAP = {
   Zap: "faBolt",
 }
 
-// --- collect the names actually imported from lucide-react ------------------
 const files = []
 ;(function walk(dir) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -239,10 +219,6 @@ const files = []
   }
 })(SRC)
 
-// Four stale case-duplicate pages (LandingPage.jsx vs landing-page.jsx) were
-// committed in 92a346b still carrying merge-conflict markers. Nothing imports
-// them, but their conflicted import blocks are unparseable — skip them here and
-// in the codemod rather than silently mangling them.
 export const SKIP = new Set(
   [
     "pages/public/LandingPage.jsx",
@@ -253,8 +229,6 @@ export const SKIP = new Set(
 )
 
 const used = new Set()
-// Matches both specifiers so the generator keeps working after the codemod has
-// repointed every call site at the new module.
 const importRe =
   /import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*["'](?:lucide-react|@\/components\/icons)["']/g
 for (const f of files) {
@@ -269,16 +243,13 @@ for (const f of files) {
   }
 }
 
-// A type, not an icon — re-exported at the foot of the generated module.
 used.delete("LucideIcon")
 
-// --- resolve + validate -----------------------------------------------------
 const resolved = []
 const unresolved = []
 const badFa = []
 
 for (const name of [...used].sort()) {
-  // lucide ships every icon under both `Foo` and `FooIcon`.
   const base = MAP[name] ? name : name.replace(/Icon$/, "")
   const fa = MAP[base]
   if (!fa) {
@@ -298,7 +269,6 @@ if (unresolved.length || badFa.length) {
   process.exit(1)
 }
 
-// --- emit -------------------------------------------------------------------
 const faImports = [...new Set(resolved.map((r) => r.fa))].sort()
 
 const out = `/* eslint-disable */
@@ -367,8 +337,6 @@ const target = path.join(SRC, "components", "icons.tsx")
 if (process.argv.includes("--check")) {
   const LF = String.fromCharCode(10)
   const CRLF = String.fromCharCode(13) + LF
-  // Line endings are git's business (the working copy is CRLF on Windows),
-  // so compare the content rather than the bytes.
   const onDisk = fs.existsSync(target) ? fs.readFileSync(target, "utf8") : ""
   if (onDisk.split(CRLF).join(LF) !== out) {
     console.error(

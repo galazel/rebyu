@@ -27,32 +27,6 @@ import { answerAdaptiveItems, startAssessmentAttempt, submitAssessmentAttempt } 
 import { announceRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
 import { playCorrectMark, playWrongMark } from "@/lib/sound.js"
 
-/**
- * The skim challenge: five quick questions from the lesson on screen, sprung
- * when the reading-pace guard catches the learner racing through it.
- *
- * <p>Played inside the modal, one question at a time, like a round of a quiz
- * game: pick a tile or type a word, hit next, see the score. Only multiple
- * choice and short answer are ever served here (the server filters to those),
- * so no workspace, editor or canvas is needed. Grading, XP and mastery events
- * still run through the ordinary attempt engine -- the modal mints a real
- * check, starts an attempt, and submits it.
- *
- * <p>The check is an adaptive attempt, the same engine as the lesson quiz:
- * the server picks each item by the learner's ability from this lesson's
- * bank, avoids what they have met, and re-estimates after every answer. The
- * modal follows the same protocol the full-page runner does -- the key rides
- * with each served item so the mark is instant, answers go to the server in
- * the background, the next item is already held in reserve -- only smaller.
- * A check minted the old way (a fixed paper with a separate key) still plays.
- *
- * <h3>Why it does not close</h3>
- * The challenge is a gate: escape and outside-click are both suppressed, so
- * the lesson is unreadable until it is dealt with. The single exception is the
- * error path -- if the check cannot be minted there is nothing to answer, and
- * leaving the learner sealed behind a modal over a failed request would trap
- * them in the lesson with no way out.
- */
 export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, lessonNames, currentLessonOnly = true, attempt: preparedAttempt = null, answerKey = [], onDismiss, onReadAgain }) {
   const queryClient = useQueryClient()
 
@@ -64,14 +38,8 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
   const [revealed, setRevealed] = useState(false)
   const [result, setResult] = useState(null)
 
-  /* Minted at most once per opening. Without the guard a double-click, or
-     React's development double-invoke, mints two checks for one interruption
-     and the second sits abandoned in the learner's history. */
   const mintingRef = useRef(false)
 
-  /* Adaptive protocol: items served so far by position, and the answers
-     still on their way to the server. One request in flight at a time,
-     carrying everything queued since the last one. */
   const [served, setServed] = useState([])
   const outboxRef = useRef([])
   const inFlightRef = useRef(false)
@@ -93,8 +61,6 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       pendingRef.current = Promise.resolve()
       return
     }
-    /* Opened with the attempt already started: the intro is a gate, not a
-       wait -- "Take the challenge" goes straight to question one. */
     if (preparedAttempt) {
       mintingRef.current = true
       setAttempt(preparedAttempt)
@@ -104,9 +70,6 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
 
   const adaptive = Boolean(attempt?.adaptive)
 
-  /* Sends everything queued to the server in one request; the items it
-     serves in return join the reserve. Failure ends the round -- the paper on
-     screen and on record have parted, and answering on is pointless. */
   function pump() {
     if (inFlightRef.current || outboxRef.current.length === 0 || !attempt) return
     const batch = outboxRef.current.splice(0)
@@ -154,9 +117,6 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
     createKnowledgeCheck(lessonId, { currentLessonOnly })
       .then(async (check) => {
         if (!check?.examId) {
-          /* Eligibility is re-checked server-side, so a check can legitimately
-             come back unavailable if the learner raced another tab. Nothing to
-             answer means nothing to gate on. */
           onDismiss?.()
           return
         }
@@ -177,12 +137,8 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
   const currentAnswer = current ? answers[current.attemptQuestionId] : null
   const answered = isAnswered(current, currentAnswer)
   const last = index >= total - 1
-  /* The key comes with the item on an adaptive check; on a fixed paper it is
-     the separate list, by position. */
   const currentKey = adaptive ? (current?.answerKey ?? null) : (Array.isArray(answerKey) ? answerKey[index] : null)
   const verdict = revealed ? localVerdict(current, currentAnswer, currentKey) : null
-  /* The next item is still on its way from the server (the learner is faster
-     than the round trip): the button waits rather than the whole modal. */
   const awaitingNext = adaptive && revealed && !last && !questions[index + 1]
 
   function setAnswer(patch) {
@@ -200,8 +156,6 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       const mark = localVerdict(current, currentAnswer, currentKey)
       if (mark?.correct) playCorrectMark()
       else if (mark) playWrongMark()
-      /* Marked here from the key; the server marks it too, in the background,
-         and picks the item after next from what it learned. */
       if (adaptive) record(current, currentAnswer)
       return
     }
@@ -211,8 +165,6 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       return
     }
     if (adaptive) {
-      /* Nothing more to send: every answer went as it was marked. Wait for the
-         last of them to land, then close the round. */
       if (!revealed) record(current, currentAnswer)
       setPhase("submitting")
       const local = localResult(questions, answers, questions.map((question) => question.answerKey ?? null))
@@ -247,9 +199,6 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       })
       .filter(Boolean)
 
-    /* The score is shown from the marks the learner has already seen, the
-       moment they ask for it. The official submit -- XP, mastery, history --
-       runs behind it and only rewrites the screen if the server disagrees. */
     const local = localResult(questions, answers, answerKey)
     if (local) {
       setResult(local)
@@ -285,7 +234,6 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
       <AlertDialogContent
         data-no-snip
         className={cn(phase === "playing" || phase === "submitting" || phase === "result" ? "sm:max-w-4xl sm:p-8" : null)}
-        /* Both suppressed deliberately -- see the class comment. */
         onEscapeKeyDown={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
       >
@@ -301,8 +249,6 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              {/* The only exit this modal offers, and only here: there is no
-                  check to sit, so gating the lesson on it would strand them. */}
               <Button variant="outline" onClick={() => onDismiss?.()}>Back to the lesson</Button>
               <Button onClick={start}>Try again</Button>
             </AlertDialogFooter>
@@ -566,9 +512,6 @@ function ResultScreen({ result, onDone, onReadAgain }) {
         })}
       </ol>
 
-      {/* Two ways out, and the score says which is the honest one: a round
-          that went badly is offered the lesson from the top; a round that
-          went well, the place they were at. Both are always there. */}
       <AlertDialogFooter className="sm:justify-between">
         {onReadAgain ? (
           <Button variant={perfect || passed ? "outline" : "default"} onClick={onReadAgain}>
@@ -603,8 +546,6 @@ function ProgressDots({ total, current, answers, questions }) {
   )
 }
 
-/* The result screen's shape, built from the local marks so it can be shown
-   before the server has graded. Same fields the server review uses. */
 function localResult(questions, answers, answerKey) {
   if (!Array.isArray(answerKey) || answerKey.length !== questions.length) return null
   const items = questions.map((question, position) => {
@@ -636,8 +577,6 @@ function localResult(questions, answers, answerKey) {
   }
 }
 
-/* Marks an answer against the check's own key, for the moment it is given.
-   The server's grade on submit is still the one that counts. */
 function localVerdict(question, answer, key) {
   if (!question || !answer || !key) return null
   if (isMultipleChoice(question)) {
@@ -649,8 +588,6 @@ function localVerdict(question, answer, key) {
   return { correct: given.length > 0 && accepted.includes(given), expected: key.acceptedAnswers?.[0] ?? null }
 }
 
-/* The items an attempt was started with, in paper order: on an adaptive
-   check the first is the one being asked and the rest are held in reserve. */
 function orderedItems(attempt) {
   return [...(attempt?.questions ?? [])].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
 }
@@ -669,8 +606,6 @@ function isAnswered(question, answer) {
   return Boolean(answer.learnerAnswer?.trim())
 }
 
-/* Mirrors the attempt page's serializer so the engine grades this exactly as
-   it would the same question sat there. */
 function toDraftDto(attemptQuestionId, answer) {
   const subAnswers = answer.subAnswers ?? {}
   const hasSubs = Object.values(subAnswers).some((text) => text?.trim())

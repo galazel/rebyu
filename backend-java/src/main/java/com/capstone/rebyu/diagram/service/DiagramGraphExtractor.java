@@ -20,14 +20,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-/**
- * Reduces a draw.io {@code mxGraphModel} XML document to its structural
- * graph (labeled nodes + labeled directed edges), for grading — never for
- * re-rendering. This is a Java port of the frontend's
- * {@code utils/diagram-graph.js} so the server never has to trust a
- * client-computed graph for scoring. Assumes uncompressed XML, matching
- * {@code DiagramArea}'s {@code compressXml: false} editor configuration.
- */
 @Component
 public class DiagramGraphExtractor {
 
@@ -101,7 +93,6 @@ public class DiagramGraphExtractor {
         return "1".equals(cell.getAttribute("vertex"));
     }
 
-    /** Walks up the `parent` chain (cycle-safe) until it lands on a node, mirroring resolveNodeId in the JS port. */
     private String resolveNodeId(
             String startingId, Map<String, Element> cellsById, Map<String, DiagramGraphDto.Node> nodesById) {
         if (startingId == null || startingId.isBlank()) {
@@ -183,7 +174,6 @@ public class DiagramGraphExtractor {
         return result;
     }
 
-    /** Strips HTML tags and decodes common entities — the server has no DOM to lean on, unlike the browser. */
     private String cleanLabel(String value) {
         if (value == null) return "";
         String withoutTags = TAG_PATTERN.matcher(value).replaceAll(" ");

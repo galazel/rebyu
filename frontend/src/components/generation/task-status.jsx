@@ -10,14 +10,6 @@ import {
 } from "@/components/icons"
 import { cn } from "@/lib/utils"
 
-/**
- * The eight task states a generation run can be in, and how each one looks.
- *
- * Kept in one table because the timeline, the activity panel, and the run list
- * all render the same vocabulary — three separate colour/label choices would
- * drift, and "Waiting for review" meaning something different in two panels is
- * exactly the confusion this workspace is meant to remove.
- */
 export const TASK_STATUS = {
   PENDING: { label: "Pending", icon: CircleDashed, className: "text-muted-foreground" },
   RUNNING: { label: "Running", icon: Loader2, className: "text-blue-600 dark:text-blue-400", spin: true },
@@ -44,11 +36,6 @@ export function taskStatusLabel(status) {
   return (TASK_STATUS[status] ?? TASK_STATUS.PENDING).label
 }
 
-/**
- * Turns a graph node name into something a human reads. The node names are
- * implementation detail ("lesson_quiz_generate"); the reviewer should see
- * "Lesson quiz".
- */
 const STAGE_LABELS = {
   validate_documents: "Validating documents",
   capture_document_visuals: "Capturing diagrams and images",

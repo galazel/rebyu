@@ -37,7 +37,6 @@ class _Boom(Exception):
     pass
 
 
-# policy membership
 
 @pytest.mark.parametrize(
     "error",
@@ -60,16 +59,6 @@ def test_deterministic_errors_are_not_retryable(error):
     assert not issubclass(error, RETRYABLE_ERRORS)
 
 
-# tool_use_failed
-#
-# Some providers schema-check tool-call arguments server-side and reject a
-# mismatch with a 400. The status code blames the request, but the request was
-# fine -- the model sampled bad arguments. Retrying resamples; not retrying
-# kills the whole curriculum run on one unlucky generation.
-#
-# OpenRouter forwards the upstream body verbatim and does not normalise error
-# codes, so the same failure arrives under different spellings depending on
-# which vendor served the task's model. All of them must resample.
 
 def _bad_request(body: object) -> BadRequestError:
     request = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
@@ -126,12 +115,6 @@ def test_other_bad_requests_are_still_not_retryable(body):
     assert not is_retryable(_bad_request(body))
 
 
-# OpenRouter-specific failures
-#
-# Routing through OpenRouter adds two failures a single-vendor client never
-# sees. Both are 4xx/5xx shapes the SDK maps to types listed in
-# RETRYABLE_ERRORS, so without an explicit exclusion each would burn the full
-# five-attempt budget on something no retry can fix.
 
 def _status_error(status: int, body: object, exc_type=None):
     from openai import APIStatusError
@@ -200,7 +183,6 @@ async def test_tool_use_failure_is_resampled():
     assert attempts["n"] == 3
 
 
-# actual retry behaviour
 
 async def test_retries_then_succeeds():
     attempts = {"n": 0}

@@ -17,7 +17,6 @@ from figures import fig
 MAJOR = "Development Technology"
 MIDDLE = "Software Development Management Techniques"
 
-# Lesson 3: Development environment management
 
 _env_sections = [
     ("What a Team Needs to Work", [
@@ -711,7 +710,6 @@ LESSON_DEV_ENV = lesson(
         ],
     ))
 
-# Lesson 4: Configuration management and change control
 
 _cm_sections = [
     ("Knowing What You Have", [

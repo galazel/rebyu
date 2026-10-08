@@ -13,16 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * Learner-facing purchase and enrollment transaction endpoints.
- *
- * <p>The buyer is the token's learner, never the {@code learnerId} in the body.
- * This path had no authentication at all, so both endpoints below would open an
- * order and confirm its payment for whatever learner id an anonymous caller
- * named -- enrolling strangers in certifications and marking those enrolments
- * paid. The id is still accepted (it is {@code @NotNull}, so rejecting it would
- * 400 the current frontend before this class ran) and ignored.
- */
 @RestController
 @RequestMapping("/api/learner")
 @RequiredArgsConstructor
@@ -31,7 +21,6 @@ public class LearnerEnrollmentController {
     private final EnrollmentTransactionService enrollmentTransactionService;
     private final CognitoAuthService auth;
 
-    /** The learner making this request, from the token and nothing else. */
     private Long me(Jwt jwt) {
         if (jwt == null) {
             throw new IllegalArgumentException("Authentication is required");

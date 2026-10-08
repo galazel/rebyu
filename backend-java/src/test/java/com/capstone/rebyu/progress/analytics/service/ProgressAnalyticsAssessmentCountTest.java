@@ -21,23 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Which exams count as work a certification requires.
- *
- * Reproduces the live TOPCIT certification exactly, because that is the case
- * that went wrong: one lesson, one lesson quiz, one middle exam, one major
- * exam and a diagnostic, all published, all inside the official curriculum --
- * and the learner was told the certification had no assessments at all.
- *
- * A real {@link BktEventFactory} rather than a mock: the diagnostic rule runs
- * through its alias table, and stubbing that would test the stub. MAJOR_EXAM
- * normalising to MOCK_EXAM (and therefore *not* to DIAGNOSTIC) is exactly the
- * kind of thing worth exercising for real.
- */
 @ExtendWith(MockitoExtension.class)
 class ProgressAnalyticsAssessmentCountTest {
 
-    /** The official TOPCIT curriculum: lesson 1 in middle 1 in major 1. */
     private static final Set<Long> OFFICIAL_LESSONS = Set.of(1L);
     private static final Set<Long> OFFICIAL_MIDDLES = Set.of(1L);
     private static final Set<Long> OFFICIAL_MAJORS = Set.of(1L);
@@ -47,8 +33,6 @@ class ProgressAnalyticsAssessmentCountTest {
     @BeforeEach
     void setUp() {
         BktEventFactory eventFactory = new BktEventFactory(new BktProperties());
-        // Only `bktEventFactory` is reachable from the rules under test; the
-        // repositories belong to the aggregation around them.
         service = new ProgressAnalyticsService(
                 null, null, null, null, null, null, null, null,
                 null, null, null, null, eventFactory, Runnable::run);
@@ -96,7 +80,6 @@ class ProgressAnalyticsAssessmentCountTest {
                 exam, OFFICIAL_LESSONS, OFFICIAL_MIDDLES, OFFICIAL_MAJORS);
     }
 
-    // the live certification
 
     @Test
     void countsTheLessonQuiz() {
@@ -112,8 +95,6 @@ class ProgressAnalyticsAssessmentCountTest {
 
     @Test
     void countsTheMockExam() {
-        // MAJOR_EXAM normalises to MOCK_EXAM, which must not be mistaken for
-        // the diagnostic that the rule above it excludes.
         assertNull(reasonFor(onMajor(exam(3L, "Software Requirements Management Exam",
                 "MAJOR_EXAM"), 1L)));
     }
@@ -130,7 +111,6 @@ class ProgressAnalyticsAssessmentCountTest {
         assertTrue(reason.startsWith("diagnostic"), reason);
     }
 
-    /** The whole point: TOPCIT's four exams must count as three. */
     @Test
     void topcitCountsThreeAssessments() {
         long counted = java.util.stream.Stream.of(
@@ -143,7 +123,6 @@ class ProgressAnalyticsAssessmentCountTest {
         assertEquals(3, counted);
     }
 
-    // the rules that legitimately exclude
 
     @Test
     void excludesAnExamWhoseStatusColumnIsNull() {
@@ -151,8 +130,6 @@ class ProgressAnalyticsAssessmentCountTest {
         draft.setStatus(null);
         String reason = reasonFor(draft);
         assertNotNull(reason);
-        // The message has to name the null column: "effective status DRAFT" on
-        // an exam that looks published in the database is the confusing case.
         assertTrue(reason.contains("status column is null"), reason);
     }
 
@@ -178,14 +155,6 @@ class ProgressAnalyticsAssessmentCountTest {
                 reasonFor(onLesson(exam(11L, "Flashcards", "GENERATED_FLASHCARD"), 1L)));
     }
 
-    /**
-     * The regression this whole class exists for.
-     *
-     * The AI backend stamps `is_generated = true` on every exam it authors,
-     * including the certification's own. Excluding on that flag excluded the
-     * entire curriculum and reported zero assessments, so the flag must not be
-     * what decides this.
-     */
     @Test
     void countsACurriculumExamEvenWhenFlaggedGenerated() {
         Exam aiAuthored = onLesson(exam(1L, "Management of Software Requirements Quiz",

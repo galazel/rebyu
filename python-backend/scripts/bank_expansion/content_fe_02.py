@@ -15,7 +15,6 @@ CERTIFICATION_ID = 14
 
 QUESTIONS = {
 
-    # 450 -- Human Interface Technology and Interaction Models
     450: [
         mcq("AVERAGE",
             "What does Fitts's law predict about pointing at a target on screen?",
@@ -33,7 +32,6 @@ QUESTIONS = {
             "The usual thresholds are roughly 0.1 s for instantaneous, 1 s for uninterrupted flow, and 10 s for holding attention. A 4-second wait needs a progress indicator."),
     ],
 
-    # 451 -- Interface Design, Screen Design and Accessibility
     451: [
         mcq("HARD",
             "Why is colour alone an inadequate way to indicate an error in a form?",
@@ -51,7 +49,6 @@ QUESTIONS = {
             "Consistency lets knowledge transfer between screens. Every inconsistency is a small relearning cost paid by every user, every time."),
     ],
 
-    # 452 -- Multimedia Technology: Encoding and Compression
     452: [
         mcq("HARD",
             "Uncompressed stereo audio sampled at 44.1 kHz with 16 bits per sample requires what data rate?",
@@ -69,7 +66,6 @@ QUESTIONS = {
             "The trade is ratio against fidelity. Lossy suits perceptual media where the discarded detail is hard to notice, and is unacceptable for executables or archival records."),
     ],
 
-    # 453 -- Multimedia Applications: Graphics, Audio, Video and VR
     453: [
         mcq("AVERAGE",
             "What is the key difference between raster and vector graphics?",
@@ -87,7 +83,6 @@ QUESTIONS = {
             "Temporal redundancy is the largest source of compression in video. Key frames are still needed periodically so that playback can start and recover without decoding from the beginning."),
     ],
 
-    # 454 -- Database Architecture and the Three-Schema Approach
     454: [
         mcq("HARD",
             "In the three-schema architecture, what does logical data independence allow?",
@@ -105,7 +100,6 @@ QUESTIONS = {
             "Views serve both simplification and access control, exposing only the rows and columns a user should see without duplicating the data."),
     ],
 
-    # 455 -- Database Design: E-R Modelling, Normalisation and Keys
     455: [
         mcq("HARD",
             "A table has composite key (order_id, product_id) and stores product_name, which depends only on product_id. Which normal form is violated?",
@@ -123,7 +117,6 @@ QUESTIONS = {
             "A table may have several candidate keys; the designer chooses one as primary, and the rest become alternate keys with uniqueness still enforced."),
     ],
 
-    # 456 -- Data Manipulation: Relational Algebra and SQL
     456: [
         mcq("HARD",
             "A LEFT OUTER JOIN between orders and shipments returns what for an order with no shipment?",
@@ -141,7 +134,6 @@ QUESTIONS = {
             "Sorting is ORDER BY and duplicate removal is DISTINCT. GROUP BY exists to define the sets that SUM, COUNT and AVG operate over."),
     ],
 
-    # 457 -- Transaction Processing: ACID, Concurrency and Recovery
     457: [
         mcq("HARD",
             "Two transactions each hold a lock the other needs and neither can proceed. What is the DBMS's usual response?",
@@ -159,7 +151,6 @@ QUESTIONS = {
             "Durability is what write-ahead logging implements: the commit record reaches stable storage before the commit is acknowledged."),
     ],
 
-    # 458 -- Database Applications: Distribution, Warehousing and NoSQL
     458: [
         mcq("HARD",
             "Under the CAP theorem, what must a distributed system sacrifice during a network partition?",
@@ -177,7 +168,6 @@ QUESTIONS = {
             "Document stores trade join and transaction capability for schema flexibility and horizontal scale. Where the relational strengths are the requirement, the trade is a poor one."),
     ],
 
-    # 459 -- Network Architecture: LAN, WAN, Topologies and Devices
     459: [
         mcq("AVERAGE",
             "What is the main advantage of a star topology over a bus topology?",
@@ -195,7 +185,6 @@ QUESTIONS = {
             "A hub makes every port share one collision domain, so contention rises with traffic. Switching removes that contention without changing the link speed at all."),
     ],
 
-    # 460 -- Data Communication and Control
     460: [
         mcq("HARD",
             "Time-division multiplexing allocates the channel how?",
@@ -213,7 +202,6 @@ QUESTIONS = {
             "Flow control matches the sender's rate to the receiver's capacity. Error detection and routing are separate mechanisms with separate fields."),
     ],
 
-    # 461 -- Communications Protocols: TCP/IP, Addressing and Routing
     461: [
         mcq("HARD",
             "Which sequence describes the TCP three-way handshake?",
@@ -231,7 +219,6 @@ QUESTIONS = {
             "In live audio, a packet that arrives after its playback moment is useless, so retransmission adds delay without value. That is precisely where UDP's lack of guarantees is an advantage."),
     ],
 
-    # 462 -- Network Management, Monitoring and Troubleshooting
     462: [
         mcq("AVERAGE",
             "What does an SNMP trap represent?",
@@ -249,7 +236,6 @@ QUESTIONS = {
             "Reaching the address proves the lower layers work end to end. The failure is isolated to the step that turns a name into that address."),
     ],
 
-    # 463 -- Network Applications: DNS, Mail, Web
     463: [
         mcq("AVERAGE",
             "Which DNS record type maps a domain name to an IPv4 address?",
@@ -267,7 +253,6 @@ QUESTIONS = {
             "The TTL must be lowered well before the change, because resolvers may still hold the old value for the duration of the previous TTL."),
     ],
 
-    # 464 -- Information Security: Threats, Attacks and Vulnerabilities
     464: [
         mcq("HARD",
             "An attacker submits input that is stored and later rendered in another user's browser, executing script in their session. Which attack is this?",
@@ -285,7 +270,6 @@ QUESTIONS = {
             "The defining feature is the absence of a fix at the time of exploitation, which is why detection and containment matter more than patching against it."),
     ],
 
-    # 465 -- Cryptography, Authentication and Digital Signatures
     465: [
         mcq("HARD",
             "In a TLS handshake, what is the role of the server's certificate?",
@@ -303,7 +287,6 @@ QUESTIONS = {
             "The response proves knowledge of the secret without revealing it, and the changing challenge is what defeats replay of a captured exchange."),
     ],
 
-    # 466 -- Information Security Management: ISMS, Risk and Policy
     466: [
         mcq("AVERAGE",
             "What does risk acceptance formally require?",
@@ -321,7 +304,6 @@ QUESTIONS = {
             "Without classification, an organization either protects everything at the highest level, which is unaffordable, or protects nothing adequately."),
     ],
 
-    # 467 -- Security Technology Evaluation and Certification Schemes
     467: [
         mcq("AVERAGE",
             "What does an ISO/IEC 15408 Common Criteria evaluation assess?",
@@ -339,7 +321,6 @@ QUESTIONS = {
             "The security target and its environmental assumptions are the scope. A deployment that breaks those assumptions is outside what the certificate says anything about."),
     ],
 
-    # 468 -- Information Security Measures and Implementation Technology
     468: [
         mcq("HARD",
             "Which control most directly limits the damage of a stolen database backup?",

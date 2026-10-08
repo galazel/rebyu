@@ -19,17 +19,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Safety net for the outbox. Re-scans finalized attempts and enqueues any final,
- * lesson-mapped evidence that has no outbox row yet — recovering events lost to
- * a crash between commit and enqueue, and picking up answers that only became
- * final later (e.g. after manual grading). Every enqueue is idempotent by
- * deterministic event id, so re-runs never duplicate evidence.
- *
- * <p>Uses an explicit {@link TransactionTemplate} (one transaction per attempt)
- * so a single bad attempt cannot roll back the whole run, and so the scheduled
- * trigger drives real transactions without self-invocation surprises.
- */
 @Slf4j
 @Service
 public class BktReconciliationService {
@@ -74,10 +63,6 @@ public class BktReconciliationService {
         }
     }
 
-    /**
-     * Scan the most recent {@code maxAttempts} submitted attempts, loading only
-     * the ones the database says are missing events.
-     */
     public BktReconciliationSummary reconcile(int maxAttempts) {
         List<Long> attemptIds = transactionTemplate.execute(status ->
                 attemptRepository.findRecentSubmittedIdsMissingBktEvents(Math.max(1, maxAttempts)));

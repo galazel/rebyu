@@ -11,10 +11,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * A purchasable plan — B2C (INDIVIDUAL) or B2B (INSTITUTION). Prices, limits,
- * and entitlements are data so platform admins can change them without code.
- */
 @Entity
 @Table(name = "subscription_plans")
 @Data

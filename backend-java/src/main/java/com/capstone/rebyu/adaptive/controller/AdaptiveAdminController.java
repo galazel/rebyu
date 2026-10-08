@@ -21,11 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Admin view of the adaptive engine: how big an assessment's bank is, what
- * the engine currently believes about a question, and the trigger for the
- * calibration job that re-fits item parameters from real responses.
- */
 @Slf4j
 @RestController
 @RequestMapping("/api/admin/adaptive")

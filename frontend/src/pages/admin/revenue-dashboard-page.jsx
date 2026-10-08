@@ -60,8 +60,6 @@ export default function RevenueDashboardPage() {
           <h1 className="font-rb-display text-4xl font-extrabold tracking-tight">Revenue Dashboard</h1>
         </div>
 
-        {/* Bento — same mosaic as the platform dashboard, mocked data chipped
-            "sample data" until /admin/revenue/metrics returns real series. */}
         <BentoGrid className="mb-8">
           <BentoStat
             tone="bee"

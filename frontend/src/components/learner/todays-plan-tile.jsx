@@ -28,9 +28,6 @@ import {
 import { startPomodoro } from "@/lib/pomodoro-store.js"
 import { useStudyPlanDone } from "@/hooks/use-study-plan-done.js"
 
-/* How each kind of session looks. Every entry carries its own words -- a mock
-   exam and a lesson are different work, and the icon's colour alone would hide
-   that. */
 const EVENT_META = {
   lesson: { icon: BookOpen, tone: "bg-rb-feather-wash text-rb-feather-ink" },
   review: { icon: Repeat2, tone: "bg-rb-leaf-wash text-rb-leaf-lip" },
@@ -40,7 +37,6 @@ const EVENT_META = {
   exam: { icon: GraduationCap, tone: "bg-rb-cardinal-wash text-rb-cardinal-lip" },
 }
 
-/** What an overall plan calls itself -- never shown as a certification name. */
 const OVERALL_LABEL = "All certifications"
 
 function formatDay(dateKey) {
@@ -49,13 +45,6 @@ function formatDay(dateKey) {
   return date.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" })
 }
 
-/**
- * Where a session's button goes, or null when there is nowhere to go.
- *
- * A mock exam is built on the spot from the lessons already finished -- the
- * certification's official mock stays locked until the curriculum is done, so
- * linking to it would lead nowhere. Anything tied to a lesson opens that lesson.
- */
 function actionFor(event) {
   const kind = eventKind(event)
 
@@ -77,37 +66,17 @@ function actionFor(event) {
   return null
 }
 
-/**
- * Everything scheduled for today, across every study plan the learner follows
- * and every certification in them -- the same sessions the study calendar shows
- * for today, in time order, each labelled with its certification.
- *
- * Deliberately not filtered by the certification picker on the analytics board:
- * a learner studying for several exams wants one list of what to do today, and
- * hiding the other certifications' sessions made their tasks look missing.
- *
- * The plans are generated in the browser and stored whole, so events are read
- * back out of each `schedule.events` rather than recomputed -- recomputing would
- * let this tile and the calendar disagree about the same day.
- *
- * @param onCreatePlan  opens the generator in place. Passed by the analytics
- *   board, which owns it; without it the tile falls back to linking there.
- */
 export function TodaysPlanTile({ onCreatePlan }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [mock, setMock] = useState({ building: null, error: null })
 
-  /* The calendar's query, so both read the same cached list of plans. */
   const plansQuery = useQuery({
     queryKey: [STUDY_PLAN_QUERY_KEY, "mine"],
     queryFn: getMyStudyPlans,
     staleTime: 60_000,
   })
 
-  /* What is already done: tasks marked complete, and lessons the learner has
-     finished anywhere in the app -- a lesson read from the curriculum page
-     should not still sit on today's list as something to do. */
   const queryClient = useQueryClient()
   const isDone = useStudyPlanDone()
   const markDone = useMutation({
@@ -115,12 +84,6 @@ export function TodaysPlanTile({ onCreatePlan }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [STUDY_PLAN_TASKS_QUERY_KEY] }),
   })
 
-  /**
-   * Opens a lesson where lessons are read now: its topic page, with the outline
-   * and the AI tutor. `/learner/lessons/:id` is the older standalone page. Plans
-   * made before sessions carried their topic look it up from the lesson first;
-   * the old page is only the fallback when that cannot be done.
-   */
   async function openLesson({ lessonId, middleCategoryId, certificationId: certId }) {
     let topicId = middleCategoryId
     if (!topicId && certId) {
@@ -156,10 +119,6 @@ export function TodaysPlanTile({ onCreatePlan }) {
   const { todaysEvents, nextEvent, planCount } = useMemo(() => {
     const activePlans = (plansQuery.data ?? []).filter((row) => row?.status === "ACTIVE" && row?.schedule)
 
-    /* Every plan's sessions on one list, each carrying what the tile needs
-       from its plan: which plan (for task status), which certification (an
-       overall plan stamps it per event, a single plan holds it on the row),
-       and the technique. */
     const events = activePlans.flatMap((row) =>
       (Array.isArray(row.schedule.events) ? row.schedule.events : []).map((event) => {
         const label = event.certification ?? row.schedule.certification ?? null
@@ -179,8 +138,6 @@ export function TodaysPlanTile({ onCreatePlan }) {
 
     const todays = events.filter((event) => event.dateKey === todayKey).sort(byTime)
 
-    /* String comparison rather than Date parsing: the keys are zero-padded
-       YYYY-MM-DD, so lexicographic order is chronological order. */
     const upcoming = events
       .filter((event) => event.dateKey > todayKey)
       .sort((a, b) => a.dateKey.localeCompare(b.dateKey) || byTime(a, b))
@@ -263,8 +220,6 @@ export function TodaysPlanTile({ onCreatePlan }) {
                   </span>
 
                   <div className="min-w-0 flex-1">
-                    {/* Which certification this task is for -- the list mixes
-                        every certification, so the name is part of the task. */}
                     {event.certificationLabel ? (
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
                         {event.certificationLabel}
@@ -291,8 +246,6 @@ export function TodaysPlanTile({ onCreatePlan }) {
                       ) : null}
                     </p>
 
-                    {/* What to actually do. Without it "Mock exam checkpoint"
-                        was a name with no instruction behind it. */}
                     <p className="mt-1.5 text-xs leading-5 text-foreground/80">{describeEvent(event)}</p>
 
                     {done ? (
@@ -314,8 +267,6 @@ export function TodaysPlanTile({ onCreatePlan }) {
                         </button>
                       ) : null}
 
-                      {/* A Pomodoro-plan lesson can be started from here: the
-                          timer starts and the lesson opens beside it. */}
                       {action?.lesson && kind === "lesson" && event.technique === "pomodoro" ? (
                         <button
                           type="button"
@@ -326,8 +277,6 @@ export function TodaysPlanTile({ onCreatePlan }) {
                               planId: event.planId ?? null,
                               eventId: event.id ?? null,
                             })
-                            // Recorded as started, so the scheduled prompt for
-                            // this same session does not open over the lesson.
                             if (event.planId && event.id) {
                               setStudyPlanTaskStatus({ planId: event.planId, eventId: event.id, status: "IN_PROGRESS" })
                                 .then(() => queryClient.invalidateQueries({ queryKey: [STUDY_PLAN_TASKS_QUERY_KEY] }))
@@ -342,8 +291,6 @@ export function TodaysPlanTile({ onCreatePlan }) {
                         </button>
                       ) : null}
 
-                      {/* Ticks the task off, for work done outside the app's
-                          own flows -- a review on paper, a mock taken elsewhere. */}
                       {kind !== "exam" ? (
                         <button
                           type="button"

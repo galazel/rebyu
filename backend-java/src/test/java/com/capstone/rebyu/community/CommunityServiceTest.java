@@ -103,7 +103,6 @@ class CommunityServiceTest {
         return sharedQuizPost("VISIBLE");
     }
 
-    // createPost: several images in one post
 
     private static CommunityService.PostRequest reviewerRequest(List<CommunityService.Attachment> files) {
         CommunityService.Attachment first = files.isEmpty() ? null : files.get(0);
@@ -119,7 +118,6 @@ class CommunityServiceTest {
                 .toList();
     }
 
-    /** The feed row the post is read back through, carrying whatever file list was saved. */
     private void stubReadBack(String attachmentsJson) {
         CommunityPostRow row = mock(CommunityPostRow.class);
         when(row.getPostType()).thenReturn("notes");
@@ -169,7 +167,6 @@ class CommunityServiceTest {
         assertTrue(CommunityService.readAttachments("not json").isEmpty());
     }
 
-    // hidePost
 
     @Test
     void hidePost_setsModerationStatusAndNotifiesAuthor() {
@@ -192,8 +189,6 @@ class CommunityServiceTest {
         assertThrows(EntityNotFoundException.class, () -> service.hidePost(POST_ID));
     }
 
-    // sharedStudyTarget: the moderation bypass, and the route shapes
-    // the two generation paths actually write
 
     @Test
     void sharedStudyTarget_hiddenPost_throwsInsteadOfReturningStudySet() {
@@ -213,9 +208,6 @@ class CommunityServiceTest {
         assertEquals("QUIZ", target.studyType());
     }
 
-    /* A generated quiz is persisted as an exam, not a study set -- the reason
-       every shared quiz used to answer "this older study post cannot be
-       practised yet" however new it was. */
     @Test
     void sharedStudyTarget_generatedQuiz_resolvesToExam() {
         when(postRepository.findById(POST_ID)).thenReturn(
@@ -250,7 +242,6 @@ class CommunityServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.sharedStudyTarget(POST_ID));
     }
 
-    // like/save toggle
 
     @Test
     void toggleLike_notPreviouslyLiked_addsLikeAndReturnsTrue() {
@@ -278,15 +269,7 @@ class CommunityServiceTest {
         verify(postLikeRepository, never()).addLike(any(), any());
     }
 
-    // deletePost / reportPost guards
 
-    /*
-     * deletePost stopped expressing "not yours" as a zero-row delete and now
-     * loads the post to authorise BEFORE touching it -- the engagement wipe it
-     * delegates to is unconditional, so it must never run for someone else's
-     * post. This test still asserts the guard; it stubs the read the service
-     * actually makes rather than the delete-by-owner it no longer calls.
-     */
     @Test
     void deletePost_notOwner_throws() {
         CommunityPost someoneElsesPost = visiblePost();
@@ -294,7 +277,6 @@ class CommunityServiceTest {
         when(postRepository.findById(POST_ID)).thenReturn(Optional.of(someoneElsesPost));
 
         assertThrows(IllegalArgumentException.class, () -> service.deletePost(LEARNER_ID, POST_ID));
-        // The point of the guard: nothing is deleted.
         verify(postRepository, never()).deletePostWithEngagement(any());
     }
 
@@ -330,7 +312,6 @@ class CommunityServiceTest {
                 () -> service.reportPost(LEARNER_ID, POST_ID, new CommunityService.ReportRequest("SPAM", null)));
     }
 
-    // recordView: how many learners opened what a post shares
 
     @Test
     void recordView_otherLearner_recordsTheViewAndReturnsTheCount() {
@@ -343,8 +324,6 @@ class CommunityServiceTest {
         verify(postViewRepository).recordView(POST_ID, OTHER_LEARNER_ID);
     }
 
-    /* Otherwise every post reads "1 view" the moment its author looks at it,
-       and the number stops meaning what it says it means. */
     @Test
     void recordView_author_returnsTheCountWithoutCountingThemselves() {
         when(postRepository.findById(POST_ID)).thenReturn(Optional.of(sharedQuizPost("VISIBLE")));

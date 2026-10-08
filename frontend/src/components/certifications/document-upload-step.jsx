@@ -5,22 +5,9 @@ import { formatBytes, useFileUpload } from "@/hooks/use-file-upload"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-/**
- * Picking the source documents AI generation reads.
- *
- * Content only — the caller owns the action buttons. The version this replaced
- * pinned its own Cancel/Generate bar with `fixed bottom-0 left-0 right-0`, which
- * inside a dialog anchored the bar to the *viewport* rather than the modal: it
- * sat over the page behind the overlay, and the `pb-28` that compensated for it
- * left a dead band at the bottom of every scroll. Callers already have a footer.
- */
 
 const MAX_FILES = 10
 
-/* Must match AiUploadValidator.MAX_FILE_SIZE_BYTES on the server.
-   At 10MB this rejected TOPCIT's Business handbook (194 pages, 12.2MB) while
-   accepting its four smaller siblings, and the certification generated a
-   domain short with nothing to say why. */
 const MAX_SIZE_MB = 50
 
 const ACCEPTED = [
@@ -55,8 +42,6 @@ export function DocumentUploadStep({ onFilesChange, error, disabled }) {
     multiple: true,
   })
 
-  // The caller decides whether "Generate" is available, so it needs the plain
-  // File list and whether the picker itself is unhappy.
   useEffect(() => {
     onFilesChange?.(
       files.map((item) => item.file),
@@ -68,11 +53,6 @@ export function DocumentUploadStep({ onFilesChange, error, disabled }) {
 
   return (
     <section className="space-y-4">
-      {/* Headed like every other section of this drawer. It was the one
-          section with no label at all -- a bare dashed box between "Badge
-          image" and "Question formats", which read as part of the badge
-          section above it. The description says what the files are FOR, since
-          the zone already says what it takes. */}
       <div>
         <h3 className="text-sm font-semibold text-foreground">
           Reference documents <span className="font-normal text-muted-foreground">(optional)</span>
@@ -159,9 +139,6 @@ export function DocumentUploadStep({ onFilesChange, error, disabled }) {
             {files.map((file) => (
               <li
                 key={file.id}
-                // Border and a translucent tint rather than an opaque surface
-                // colour: this list renders inside a dialog, and `bg-card`
-                // assumes the dialog shell resolved to the same theme it did.
                 className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 p-3"
               >
                 <div className="flex min-w-0 items-center gap-3">

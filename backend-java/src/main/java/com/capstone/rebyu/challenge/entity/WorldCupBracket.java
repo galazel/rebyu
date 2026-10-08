@@ -24,11 +24,9 @@ public class WorldCupBracket {
   @Column(name = "certification_id", nullable = false)
   private Long certificationId;
 
-  /** Ordered JSON array of 8 learner IDs as seeded. */
   @Column(name = "players_json", columnDefinition = "TEXT", nullable = false)
   private String playersJson;
 
-  /** QUARTERFINAL, SEMIFINAL, FINAL, COMPLETED */
   @Column(name = "current_round", length = 20, nullable = false)
   private String currentRound;
 

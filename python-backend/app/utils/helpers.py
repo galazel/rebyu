@@ -16,9 +16,6 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-# psycopg's raw conninfo parser doesn't understand SQLAlchemy dialect
-# suffixes (postgresql+psycopg://) -- only the plain postgresql:// scheme --
-# so strip it before handing the URL to the checkpointer.
 connection_string = (os.getenv("DATABASE_URL") or "").replace("postgresql+psycopg://", "postgresql://")
 
 _checkpointer = None
@@ -115,10 +112,6 @@ def get_llm(task: str = "question", model: str | None = None, max_retries: int |
     profile = profile_for(task, settings)
     provider = profile.provider
 
-    # A fallback may live at another provider, written "<provider>:<model>" --
-    # "groq:openai/gpt-oss-120b" behind an OpenRouter primary, so a task keeps
-    # working when one provider's credit or rate limit runs out. OpenRouter's
-    # own slugs never start with a provider name and a colon.
     if model and ":" in model and model.split(":", 1)[0] in PROVIDERS:
         provider_name, model = model.split(":", 1)
         provider = PROVIDERS[provider_name]
@@ -136,17 +129,8 @@ def get_llm(task: str = "question", model: str | None = None, max_retries: int |
         base_url=provider.base_url,
         model=model or profile.model,
         temperature=profile.temperature,
-        # Sized per task: a document auditor returning one boolean has no use
-        # for a lesson's 16k budget, and on providers that bill reserved output
-        # or count it toward a rate-limit estimate, asking for it is a real cost.
         max_tokens=profile.max_tokens,
-        # None keeps the client's own retries; 0 lets a caller with its own
-        # fallback move on at once instead of sitting out a rate limit.
         **({"max_retries": max_retries} if max_retries is not None else {}),
-        # OpenRouter's attribution headers, and only OpenRouter's -- they make a
-        # generation run identifiable on its activity dashboard when several
-        # services share one key. Sent to that provider alone, since Groq and
-        # Google have no use for them.
         default_headers=(
             {
                 "HTTP-Referer": settings.openrouter_site_url,

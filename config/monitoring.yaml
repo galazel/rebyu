@@ -1,29 +1,24 @@
-# PHASE 4: Monitoring & Observability Configuration
 
 monitoring:
   enabled: true
 
-  # Application Performance Monitoring
   apm:
     service: datadog
     enabled: true
-    sample-rate: 0.1  # 10% of requests for cost efficiency
+    sample-rate: 0.1
 
-  # Error Tracking
   error-tracking:
     service: sentry
     enabled: true
     environment: production
 
-  # Logging
   logging:
     level: INFO
-    format: json  # ELK-friendly
+    format: json
     outputs:
       - console
       - file: /var/log/rebyu/app.log
 
-  # Metrics Collection
   metrics:
     enabled: true
     export-interval: 60s
@@ -50,10 +45,9 @@ monitoring:
       - disk_usage
       - database_connections
 
-# Alerting Rules
 alerts:
   - name: HighErrorRate
-    condition: error_rate > 0.01  # 1%
+    condition: error_rate > 0.01
     severity: critical
 
   - name: HighLatency
@@ -72,7 +66,6 @@ alerts:
     condition: jvm_memory_usage_percent > 85
     severity: warning
 
-# Dashboards
 dashboards:
   - name: platform_health
     metrics:

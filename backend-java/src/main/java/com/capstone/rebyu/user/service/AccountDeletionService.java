@@ -15,38 +15,13 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Erases an account -- the user row, the learner profile hanging off it, and
- * everything that belongs to either -- from whichever end the caller has.
- *
- * <p>Why this walks the catalog instead of listing tables: 28 entities point at
- * {@code learners} today and more hang off those, and the list grows with every
- * feature. A hand-written list is a list someone forgets to update, and the
- * failure mode is a foreign-key error in front of an admin mid-delete. Asking
- * Postgres which tables reference which is always current.
- *
- * <p>It also cannot lean on ON DELETE CASCADE: this schema is built by Hibernate
- * {@code ddl-auto: update}, whose generated foreign keys carry no ON DELETE rule
- * (see SchemaDefaultsSeeder and V59), so the database will refuse the delete
- * rather than cascade it.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AccountDeletionService {
 
-    /** Depth of the child-table walk. The real graph is ~3 deep; this is a runaway guard. */
     private static final int MAX_DEPTH = 8;
 
-    /**
-     * Columns that credit an account for something it did to somebody else's
-     * record -- who reviewed this report, who uploaded this institution file,
-     * who verified this invoice, who authored this question. Those rows are not
-     * the account's own data and must outlive it, so the reference is cleared
-     * rather than followed. Where such a column is NOT NULL there is nothing to
-     * clear it to, and the row is treated as owned -- which is why deleting an
-     * institution owner still takes the groups they created with them.
-     */
     private static final Set<String> ATTRIBUTION_COLUMNS = Set.of(
             "created_by", "invited_by", "assigned_by",
             "reviewed_by_user_id", "uploaded_by_user_id", "verified_by_user_id");
@@ -56,10 +31,6 @@ public class AccountDeletionService {
     private final CognitoAdminService cognitoAdminService;
     private final com.capstone.rebyu.bkt.client.BktClient bktClient;
 
-    /**
-     * Deletes a learner: their rows, their uploaded files, the user account
-     * behind them, and their Cognito sign-in.
-     */
     @Transactional
     public void deleteLearner(Long learnerId) {
         Long userId = jdbc.query("SELECT user_id FROM learners WHERE learner_id = ?",
@@ -67,16 +38,6 @@ public class AccountDeletionService {
         erase(userId, List.of(learnerId));
     }
 
-    /**
-     * Deletes a user account from the user end -- the same erasure, plus any
-     * learner profile hanging off it.
-     *
-     * <p>Deleting the {@code users} row on its own is what this used to do, and
-     * it left the learner profile behind, along with everything keyed on it:
-     * enrolments, attempts, achievements, community posts, and BKT mastery.
-     * Since learner ids are reissued, that history resurfaced under whoever was
-     * next handed the id.
-     */
     @Transactional
     public void deleteUser(Long userId) {
         List<Long> learnerIds = jdbc.queryForList(
@@ -84,14 +45,6 @@ public class AccountDeletionService {
         erase(userId, learnerIds);
     }
 
-    /**
-     * The single erasure path.
-     *
-     * <p>The Cognito account is the part that makes it stick. Deleting only the
-     * rows is undone by the next sign-in: CognitoAuthService#linkOrProvision
-     * re-provisions a User and Learner for any valid token whose subject it does
-     * not recognise, so the person would simply reappear with an empty profile.
-     */
     private void erase(Long userId, List<Long> learnerIds) {
         List<String> fileKeys = new ArrayList<>();
         for (Long learnerId : learnerIds) {
@@ -109,37 +62,19 @@ public class AccountDeletionService {
         }
 
         if (userId != null) {
-            // The user row is this account, not shared with anyone else.
             deleteDescendants("users", "SELECT user_id FROM users WHERE user_id = " + userId, 0);
             jdbc.update("DELETE FROM users WHERE user_id = ?", userId);
         }
 
-        /* The BKT store, which the catalog walk above cannot reach.
-         *
-         * Mastery, priorities and event history live in their own schema,
-         * written by the Python service, keyed on a plain learner_id with no
-         * foreign key back to `learners` -- so childForeignKeys("learners")
-         * does not and cannot find them. Deleting a learner left all of it
-         * behind, and because learner ids are reissued from 1 after a reset,
-         * the next account to be handed that id inherited the lot: a brand-new
-         * learner opened on 98% mastery of a lesson they had never seen, with
-         * 89 answers behind it. Six such abandoned learner ids had accumulated
-         * before this was found.
-         */
         for (Long learnerId : learnerIds) {
             try {
                 bktClient.purgeLearnerState(learnerId);
             } catch (Exception ex) {
-                // Logged at error, not warn: whatever is left behind is a real
-                // person's answer history that will surface under whoever is issued
-                // this id next.
                 log.error("Learner {} deleted, but their BKT mastery could not be purged. "
                         + "It will be inherited by the next learner issued this id.", learnerId, ex);
             }
         }
 
-        // Outside the database, so failures are logged rather than rolled back:
-        // a stale S3 object or Cognito account must not resurrect deleted rows.
         for (String key : fileKeys) {
             try {
                 s3StorageService.deleteFile(key);
@@ -155,12 +90,6 @@ public class AccountDeletionService {
                 userId, learnerIds, fileKeys.size(), cognitoSub == null ? "none" : "removed");
     }
 
-    /**
-     * S3 keys this learner uploaded, read before the rows that name them are gone:
-     * community post attachments, plus library items of type "file", which store a
-     * raw S3 key in resource_url (generated study aids store a "/learner/..." route
-     * there instead, which is why the leading slash is excluded).
-     */
     private List<String> attachmentKeysOf(Long learnerId) {
         List<String> keys = new ArrayList<>(jdbc.queryForList(
                 "SELECT attachment_key FROM community_posts "
@@ -174,10 +103,6 @@ public class AccountDeletionService {
         return keys;
     }
 
-    /**
-     * Deletes everything that hangs off the rows {@code parentKeysSql} selects,
-     * deepest first, leaving the rows themselves for the caller.
-     */
     private void deleteDescendants(String parentTable, String parentKeysSql, int depth) {
         if (depth >= MAX_DEPTH) {
             log.warn("Stopped cascading below {} at depth {}", parentTable, depth);
@@ -191,9 +116,6 @@ public class AccountDeletionService {
             String matchingRows = "\"" + childColumn + "\" IN (SELECT \"" + parentColumn
                     + "\" FROM (" + parentKeysSql + ") AS parent_keys)";
 
-            // Somebody else's row that merely credits this account: clear the
-            // credit and leave the row standing. Nothing below it belongs to the
-            // account either, so the walk stops here.
             if (ATTRIBUTION_COLUMNS.contains(childColumn) && isNullable(childTable, childColumn)) {
                 int cleared = jdbc.update("UPDATE \"" + childTable + "\" SET \"" + childColumn
                         + "\" = NULL WHERE " + matchingRows);
@@ -203,14 +125,10 @@ public class AccountDeletionService {
                 continue;
             }
 
-            // A self-reference (a comment's parent comment) needs no recursion: one
-            // DELETE removes parent and child rows together, and Postgres checks the
-            // key at end of statement.
             if (!childTable.equals(parentTable)) {
                 String childKeys = singleColumnPrimaryKey(childTable)
                         .map(pk -> "SELECT \"" + pk + "\" FROM \"" + childTable + "\" WHERE " + matchingRows)
                         .orElse(null);
-                // No single-column key means a join table -- nothing hangs off it.
                 if (childKeys != null) {
                     deleteDescendants(childTable, childKeys, depth + 1);
                 }
@@ -223,7 +141,6 @@ public class AccountDeletionService {
         }
     }
 
-    /** Every foreign key pointing at {@code parentTable}, from the live catalog. */
     private List<Map<String, Object>> childForeignKeys(String parentTable) {
         return jdbc.queryForList("""
                 SELECT c.conrelid::regclass::text AS child_table,
@@ -240,7 +157,6 @@ public class AccountDeletionService {
                 """, parentTable);
     }
 
-    /** Whether the column can be set to NULL -- i.e. whether attribution can be cleared. */
     private boolean isNullable(String table, String column) {
         Boolean notNull = jdbc.queryForObject("""
                 SELECT attnotnull FROM pg_attribute

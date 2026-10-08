@@ -50,7 +50,6 @@ def image_urls(structure):
 
 
 def check(client, url):
-    # Locally drawn figures are served by the frontend container, not the web.
     if url.startswith("/"):
         url = "http://frontend" + url
     try:
@@ -80,9 +79,6 @@ def main():
 
     tally = {"mine": [0, 0], "system": [0, 0]}
     broken = []
-    # Dead hosts hang rather than refuse, and 100+ of them at 20s each
-    # outlasts the docker exec connection. A slow image is a broken
-    # image for a reader anyway, so a short timeout is the right check.
     with httpx.Client(timeout=6.0, follow_redirects=True,
                       headers=HEADERS, verify=False) as client:
         for url, lessons in urls.items():

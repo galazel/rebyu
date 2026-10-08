@@ -29,8 +29,6 @@ def build_tutor_messages(state: TutorState, earlier: list) -> list:
 
     messages = []
 
-    # Always, even when the lesson's content could not be loaded: the tutor
-    # must never ask the learner which lesson they mean when the app knows.
     if state.get("lessonName"):
         messages.append(SystemMessage(content=(
             f'The learner is studying the lesson "{state["lessonName"]}". '
@@ -93,9 +91,6 @@ def build_tutor_messages(state: TutorState, earlier: list) -> list:
             )
         )
 
-    # The recent turns, so "I don't understand" refers to something: before
-    # this, the model saw only the current message and had no way to know what
-    # the learner was confused about. Capped to keep the prompt small.
     messages.extend(earlier)
 
     messages.append(
@@ -112,9 +107,6 @@ async def answer_question(state: TutorState):
     earlier = _earlier_turns(state)
     messages = build_tutor_messages(state, earlier)
 
-    # task=TUTOR: without it the router walks the default (question) chain,
-    # and the tutor answered on the question model -- a slow reasoning model
-    # chosen for writing exam items, not for a learner waiting on a reply.
     response = await ainvoke_with_fallback(
         structured(get_query_agent),
         {
@@ -123,9 +115,6 @@ async def answer_question(state: TutorState):
         task=tasks.TUTOR,
     )
 
-    # Related videos and links only when the learner asked for them -- never
-    # on the model's own initiative, and not for confusion, which gets a
-    # different explanation instead (see app.services.ai.tutor_stream).
     request = state.get("request")
     query = None
     if asks_for_resources(request):
@@ -142,7 +131,6 @@ async def answer_question(state: TutorState):
     }
 
 
-#: How many earlier messages (learner and tutor) the model sees with a question.
 RECENT_TURNS = 6
 
 
@@ -153,8 +141,6 @@ def _earlier_turns(state: TutorState) -> list:
     so it is left out here; it is appended separately.
     """
     def asked(m):
-        # A question about a snippet keeps its quote, so "and the next part?"
-        # still knows what was being discussed.
         quote = ((m.additional_kwargs or {}).get("snippet") or {}).get("quote")
         return with_quote(m.content, quote)
 

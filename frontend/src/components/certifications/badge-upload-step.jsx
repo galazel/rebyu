@@ -5,16 +5,7 @@ import { formatBytes } from "@/hooks/use-file-upload"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-/**
- * The certification's badge: the emblem a learner earns, in the manner of a
- * Credly or Cisco digital badge.
- *
- * One square image, previewed in the round the way badge platforms show
- * them, so an admin sees what the artwork looks like cropped before it goes
- * up. Optional -- a certification without one keeps the wordmark cover.
- */
 
-/* Must match CertificationBadgeService on the server. */
 const MAX_SIZE_MB = 2
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"]
 const ACCEPT = [...ACCEPTED_TYPES, ".png", ".jpg", ".jpeg", ".webp", ".svg"].join(",")
@@ -25,7 +16,6 @@ export function BadgeUploadStep({ value, onChange, disabled }) {
   const [isDragging, setIsDragging] = useState(false)
   const [previewUrl, setPreviewUrl] = useState("")
 
-  /* An object URL per file, revoked when the file changes or the step unmounts. */
   useEffect(() => {
     if (!value) {
       setPreviewUrl("")
@@ -103,7 +93,6 @@ export function BadgeUploadStep({ value, onChange, disabled }) {
 
         {value && previewUrl ? (
           <div className="flex w-full flex-col items-center gap-4 py-3 text-center sm:flex-row sm:text-left">
-            {/* Round crop with a ring, the way badge platforms present them. */}
             <div className="grid size-28 shrink-0 place-items-center overflow-hidden rounded-full border-4 border-primary/20 bg-background shadow-sm">
               <img src={previewUrl} alt="Badge preview" className="size-full object-cover" />
             </div>

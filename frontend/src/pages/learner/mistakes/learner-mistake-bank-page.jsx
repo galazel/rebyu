@@ -38,17 +38,8 @@ import { FEATURES } from "@/services/subscriptionService.js"
 
 const ALL_VALUE = "all"
 
-/* The server groups by question, so one row is one question the learner has
-   got wrong -- `mistakeCount` is how many separate attempts they got it wrong
-   in. Two or more is the line the backend itself draws between "weak" and
-   "developing" (see LearnerToolsService#mapMistake), and it is the only signal
-   here that separates a slip from something not understood. */
 const REPEAT_THRESHOLD = 2
 
-/* The list is rendered a page at a time. A learner with 250 mistakes was
-   getting 250 cards -- every one with two answer panels and an explanation --
-   built on the first paint, which is both slow and useless: nobody reads past
-   the first screen without filtering. */
 const PAGE_SIZE = 20
 
 const FILTERS = [
@@ -77,21 +68,6 @@ function questionTypeLabel(type) {
     .replace(/^./, (character) => character.toUpperCase())
 }
 
-/**
- * Where the mistakes cluster.
- *
- * The list answers "what did I get wrong"; this answers "what am I actually
- * weak at", which is the question worth acting on. Lessons are ranked by how
- * many separate wrong answers they account for -- not by how many distinct
- * questions -- so one question missed four times counts as the four times it
- * cost.
- *
- * Two things keep it from becoming an obstacle on a bank this size. Each row
- * is a filter, so the panel is the fastest route *into* the list rather than
- * something to scroll past to reach it. And it collapses to its single-line
- * summary, because a learner who already knows their worst lesson should not
- * pay for the chart on every visit.
- */
 function WeakestLessons({ mistakes, selected, onSelect }) {
   const [open, setOpen] = useState(true)
 
@@ -123,8 +99,6 @@ function WeakestLessons({ mistakes, selected, onSelect }) {
           <span className="block text-sm font-bold text-foreground">
             Where your mistakes cluster
           </span>
-          {/* The headline fact survives the collapse: shut, the panel still
-              names the lesson costing the most. */}
           <span className="mt-0.5 block truncate text-xs text-muted-foreground">
             {open
               ? "Your five heaviest lessons. Pick one to filter the list."
@@ -161,9 +135,6 @@ function WeakestLessons({ mistakes, selected, onSelect }) {
                       {lesson.misses} wrong · {lesson.questions} q
                     </span>
                   </span>
-                  {/* 6px rather than 8, and the row's own padding does the
-                      spacing: five lessons used to stand 300px tall between the
-                      counters and the first mistake. */}
                   <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-muted">
                     <span
                       className="block h-full rounded-full bg-rb-cardinal"
@@ -180,7 +151,6 @@ function WeakestLessons({ mistakes, selected, onSelect }) {
   )
 }
 
-/** One missed question, with what was answered and what was right. */
 function MistakeCard({ mistake, onToggleReviewed, isPending }) {
   const repeated = Number(mistake.mistakeCount ?? 1) >= REPEAT_THRESHOLD
 
@@ -282,15 +252,6 @@ function MistakeCard({ mistake, onToggleReviewed, isPending }) {
   )
 }
 
-/**
- * Every question this learner has got wrong in a submitted attempt, grouped by
- * question, with the counts that say which ones are habits rather than slips.
- *
- * The endpoint behind it has existed since the community/library work and had
- * no page: `GET /api/learner-tools/mistakes` already returned all of this,
- * including the reviewed flag that `PUT .../reviewed` toggles.
- */
-/* The mistake bank is REBYU Pro; Free learners get the upgrade card instead. */
 export default function LearnerMistakeBankPage() {
   return (
     <ProGate
@@ -402,9 +363,6 @@ function MistakeBankContent() {
     )
   }, [mistakes, filter, certification, lesson, query, sort])
 
-  /* Any change of filter starts the list again from the top -- carrying a
-     "showing 120" count across a filter change shows a page of results the
-     learner never asked to expand. */
   const resetPaging = () => setVisibleCount(PAGE_SIZE)
 
   const shown = visible.slice(0, visibleCount)
@@ -556,9 +514,6 @@ function MistakeBankContent() {
             </Select>
           </div>
 
-          {/* What the list is currently showing, and the one click that clears
-              it. A lesson picked from the panel above is otherwise invisible
-              once the panel is collapsed. */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
               Showing {Math.min(shown.length, visible.length)} of {visible.length}

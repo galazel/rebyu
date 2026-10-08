@@ -47,8 +47,6 @@ STOPWORDS = {
     "appropriate", "explanation", "description", "term", "terms",
 }
 
-#: The lesson's own name counts for more than any single existing question,
-#: because a lesson's questions drift while its name states its subject.
 NAME_WEIGHT = 6
 CATEGORY_WEIGHT = 3
 

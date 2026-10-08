@@ -1,32 +1,11 @@
 import { API, base } from "./base"
 
-// Omit includeDepartmentId for the official curriculum only (what every existing
-// caller does). Pass a group id to also mix in that group's own
-// Institution-Member-authored content -- the caller must be able to act on
-// that group (its leader, or the institution owner), enforced server-side.
 export async function getAllCertifications(includeDepartmentId, { includeComingSoon = false } = {}) {
-    /* Only a real id is forwarded.
-     *
-     * React Query calls `queryFn` with a context object, so `queryFn:
-     * getAllCertifications` -- rather than `queryFn: () =>
-     * getAllCertifications()` -- hands that object in as the group id. It
-     * interpolated as the literal string "[object Object]", which the server
-     * cannot bind to a Long, and the certifications read 500ed. That is what
-     * emptied the learner Library page: the bare form is used at twenty-odd
-     * call sites and is only a bug at the one place this function is passed
-     * by reference, so it went unnoticed until a page that needed both queries
-     * failed on one of them.
-     *
-     * Guarding here rather than only at that call site: the mistake is
-     * invisible at the call site (it looks like every other queryFn) and the
-     * blast radius is a 500 on a page that then shows nothing.
-     */
     const departmentId = Number(includeDepartmentId)
     const params = new URLSearchParams()
     if (Number.isFinite(departmentId) && includeDepartmentId != null) {
         params.set("includeDepartmentId", String(departmentId))
     }
-    // Coming-soon certifications: only the request page and the admin list ask.
     if (includeComingSoon === true) params.set("includeComingSoon", "true")
     const query = params.toString()
     return await base(query ? `certifications?${query}` : "certifications")
@@ -52,18 +31,6 @@ export async function deleteCertification(id) {
     })
 }
 
-/*
- * Curriculum nodes, one at a time.
- *
- * The whole-tree `PUT /certifications/{id}` is how a rename is saved, because a
- * rename is one field on a certification the client already holds in full. Adds
- * and deletes go through these instead: they are the operations where the
- * server has to do work the client cannot describe -- minting an id, or
- * clearing the exams and questions that hang off a node before the node itself
- * can go -- and sending a tree with one branch missing to an endpoint that
- * rebuilds from what it is sent is a delete by omission, which is exactly the
- * shape that used to fail on a foreign key.
- */
 
 export async function addMajorCategory({ certificationId, title }) {
     return await base("major-categories", {
@@ -89,8 +56,6 @@ export async function deleteMiddleCategory(id) {
 
 export async function addLesson({ middleCategoryId, name }) {
     return await base("lessons", {
-        // The column is NOT NULL and the server defaults an empty body, but
-        // sending it keeps the shape the same as every other lesson write.
         data: { middleCategoryId, name, lessonComponentStructure: "[]" },
         method: "POST",
     })
@@ -106,11 +71,6 @@ export async function publishCertification(id) {
     })
 }
 
-/**
- * Structured publishing readiness: { publishable, missingRequirements,
- * invalidRequirements }. Drives the publishing checklist and gates the
- * Publish Certification button.
- */
 export async function getCertificationPublishingRequirements(id) {
     return await base(`certifications/${id}/publishing-requirements`, {
         method: "GET",
@@ -136,15 +96,6 @@ export async function generateCertificationStructure(certificationId, files, onU
     })
 }
 
-/**
- * Queues an AI build of a new certification.
- *
- * `reviewMode` is the admin's answer to "do you want to approve each step?":
- * "guided" stops at every checkpoint and waits, "auto" generates the whole
- * certification — curriculum, lessons, quizzes, exams, question bank —
- * without pausing. It rides on the request rather than being a server default
- * because the same admin wants different answers on different days.
- */
 export async function addCertificationWithAi(
     data,
     files,
@@ -152,11 +103,7 @@ export async function addCertificationWithAi(
     reviewMode = "guided",
     questionTypes = [],
     badge = null,
-    /* How many question-bank items to author. null keeps the server's
-       configured size, which is what every run did before the form asked. */
     questionBankSize = null,
-    /* How many lessons the curriculum should hold in total. null keeps the
-       server's configured per-level ranges. */
     lessonCount = null
 ) {
     const formData = new FormData()
@@ -170,12 +117,9 @@ export async function addCertificationWithAi(
         formData.append("files", file)
     })
 
-    // The badge artwork, when one was chosen. Its own part name so the server
-    // never mistakes it for a source document.
     if (badge) formData.append("badge", badge)
 
     const params = new URLSearchParams({ reviewMode })
-    // Repeated key so Spring binds it as List<String>; see the append call.
     ;(questionTypes ?? []).forEach((type) => params.append("questionTypes", type))
     if (questionBankSize) params.set("questionBankSize", String(questionBankSize))
     if (lessonCount) params.set("lessonCount", String(lessonCount))
@@ -183,25 +127,10 @@ export async function addCertificationWithAi(
     return await base(`certifications/generate?${params.toString()}`, {
         method: "POST",
         data: formData,
-        // Ten 50 MB documents is a slow upload on a bad connection. Reporting
-        // real byte progress beats a spinner that cannot say whether anything
-        // is moving.
         onUploadProgress,
     })
 }
 
-/**
- * Queues an AI run that ADDS to an existing certification.
- *
- * Distinct from `addCertificationWithAi` and from the replace path: nothing is
- * deleted, and the planner is given the current curriculum and asked only for
- * what these documents add. A major category whose name already exists is
- * matched rather than duplicated, so new lessons can be attached under it.
- *
- * Use when a domain was missed -- a handbook that failed to upload, a syllabus
- * that grew -- rather than rebuilding a certification whose lessons, questions
- * and assessments are already correct.
- */
 export async function appendToCertificationWithAi(
     certificationId,
     files,
@@ -219,17 +148,12 @@ export async function appendToCertificationWithAi(
     ;(files ?? []).forEach((file) => {
         formData.append("files", file)
     })
-    // Adding from instructions alone sends no files; a multipart body with no
-    // parts at all is not reliably parsed, so it carries this marker instead.
     if (!(files ?? []).length) formData.append("source", "instructions")
 
     const params = new URLSearchParams({ reviewMode })
     if (additionalInstructions.trim()) {
         params.set("additionalInstructions", additionalInstructions.trim())
     }
-    // Repeated key, not a comma-joined string: Spring binds List<String> from
-    // repeated params, and a joined one would arrive as a single malformed
-    // entry that the consumer then discards as unrecognised.
     questionTypes.forEach((type) => params.append("questionTypes", type))
     if (questionBankSize) params.set("questionBankSize", String(questionBankSize))
     if (lessonCount) params.set("lessonCount", String(lessonCount))
@@ -239,7 +163,6 @@ export async function appendToCertificationWithAi(
         { method: "POST", data: formData, onUploadProgress }
     )
 }
-/** Where a certification's badge image is served from; 404 when it has none. */
 export function certificationBadgeUrl(certificationId) {
     return `${API}/certifications/${certificationId}/badge`
 }

@@ -20,9 +20,6 @@ import java.util.List;
 @Entity
 @Table(
         name = "questions",
-        /* lesson_id backs every scope resolution (a certification's candidate
-           pool is resolved through it); parent_question_id backs the
-           sub-question lookups the snapshot and the result review both make. */
         indexes = {
                 @Index(name = "ix_question_lesson", columnList = "lesson_id"),
                 @Index(name = "ix_question_parent", columnList = "parent_question_id")
@@ -82,9 +79,6 @@ public class Question {
     @OneToOne(mappedBy = "question", orphanRemoval = true, cascade = CascadeType.ALL)
     private TextQuestionConfig textQuestionConfig;
 
-    // Nullable: questions created before authorship tracking have no known
-    // author. Admin, an institution owner, or a group leader can all author
-    // questions now, so the question bank needs to record who added what.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     @ToString.Exclude
@@ -94,9 +88,6 @@ public class Question {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    // NULL = official, platform-wide question (admin-authored, unchanged).
-    // Set = authored by one Institution group; only that group sees and can
-    // use it. Mirrors MajorCategory.ownerDepartment / Exam.ownerDepartment.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_department_id")
     @ToString.Exclude

@@ -1,24 +1,3 @@
--- Rebyu BKT training view for PostgreSQL.
--- Applied at API startup by app/db/training_view.py (CREATE OR REPLACE).
---
--- 2026-09-20: rebuilt on the attempt engine's tables. The view used to read
--- learner_exam_details, which the attempt engine replaced and which was
--- dropped with the other dead tables on 2026-09-18 -- after which the view
--- could not be created and every training run failed with
--- `relation "rebyu_bkt_training_data_v" does not exist`.
---
--- One row per answered question of a submitted attempt. The lesson comes from
--- the served question's snapshot first (the adaptive runner records which
--- lesson it was drawing on), then from the source question. Answers still
--- awaiting manual grading have no verdict and are left out; pyBKT needs 0/1.
---
--- Only what still exists trains the model. Deleting a learner, a lesson or a
--- whole certification is a hard delete here, and the attempt rows can outlive
--- it, so each is joined back to its owner: a response whose learner, lesson
--- or certification is gone -- or whose account is no longer active -- drops
--- out of the training set on the next run.
---
--- Output columns are unchanged, so the training pipeline is untouched.
 
 CREATE OR REPLACE VIEW rebyu_bkt_training_data_v AS
 SELECT

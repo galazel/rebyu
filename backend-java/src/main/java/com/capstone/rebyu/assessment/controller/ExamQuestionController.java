@@ -21,15 +21,6 @@ public class ExamQuestionController {
     private final ExamQuestionService examQuestionService;
     private final RoleGuard guard;
 
-    /**
-     * Admits only administrators and institution staff, to every handler here.
-     *
-     * <p>This controller had no authorization at all and was not listed in the
-     * security configuration, so the question list of every exam on the
-     * platform was readable, and rewritable, by anyone. Institution roles are
-     * admitted because the institution assessment builder composes papers
-     * through this path; learners never touch it.
-     */
     @ModelAttribute
     void requireStaff(@AuthenticationPrincipal Jwt jwt) {
         guard.requireAdminOrInstitution(jwt);

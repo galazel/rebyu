@@ -30,9 +30,6 @@ from app.db.session import SessionLocal
 CERTIFICATION_ID = 13
 SEPARATOR = "\n"
 
-#: question_id -> accepted forms. The stored correct answer is always accepted
-#: by the matcher, so it need not be repeated here, though several entries do
-#: repeat it harmlessly for readability.
 VARIATIONS = {
     2178: ["problem domain", "the problem domain", "problem space"],
     2189: ["observation", "observing", "user observation", "field observation"],
@@ -227,8 +224,6 @@ def main():
 
     for question_id, answer, stored in rows:
         if stored and SEPARATOR not in stored and "," in stored:
-            # Written comma-joined by an earlier script, so the grader has been
-            # comparing the whole line as a single variation. Split it back out.
             parts = [p.strip() for p in stored.split(",") if p.strip()]
             new_value = SEPARATOR.join(parts)
             resplit += 1

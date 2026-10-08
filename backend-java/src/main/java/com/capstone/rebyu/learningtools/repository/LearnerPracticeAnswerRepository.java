@@ -20,18 +20,12 @@ public interface LearnerPracticeAnswerRepository extends JpaRepository<LearnerPr
             """)
     List<LearnerPracticeAnswer> findByAttemptIdOrderByItemDisplayOrder(@Param("attemptId") Long attemptId);
 
-    /** Only MCQ items with a recorded objective answer feed BKT mastery evidence. */
     @Query("""
             SELECT a FROM LearnerPracticeAnswer a JOIN FETCH a.studyItem i
             WHERE a.attempt.attemptId = :attemptId AND i.itemType = 'MCQ' AND a.isCorrect IS NOT NULL
             """)
     List<LearnerPracticeAnswer> findMcqAnsweredByAttempt(@Param("attemptId") Long attemptId);
 
-    /**
-     * Atomic upsert preserving the original ON CONFLICT semantics: re-submitting the
-     * same (attempt, item) pair updates the existing answer instead of duplicating it,
-     * matching the uq_practice_answer_item constraint (V30).
-     */
     @Modifying
     @Query(value = """
             INSERT INTO learner_practice_answers(attempt_id, study_item_id, learner_answer, normalized_answer, is_correct, score, flashcard_rating)

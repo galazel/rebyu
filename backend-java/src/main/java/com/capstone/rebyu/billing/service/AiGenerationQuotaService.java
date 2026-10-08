@@ -12,14 +12,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
-/**
- * The AI tutor's daily generation allowance.
- *
- * <p>Free has no tutor at all. Pro may generate up to its plan's
- * AI_TUTOR_DAILY_GENERATIONS (10 unless an admin changes the row) quizzes or
- * flashcard sets a day. The day is Manila's, since that is where the learners
- * are; a generation is only counted once it succeeds.
- */
 @Service
 @RequiredArgsConstructor
 public class AiGenerationQuotaService {
@@ -38,7 +30,6 @@ public class AiGenerationQuotaService {
         return (int) usage.countByLearnerIdAndUsageDate(learnerId, today());
     }
 
-    /** Throws unless the learner has the tutor and at least one generation left today. */
     @Transactional(readOnly = true)
     public void requireAvailable(Long learnerId) {
         entitlements.requireLearnerEntitlement(learnerId, Entitlements.AI_TUTOR, null);
@@ -58,7 +49,6 @@ public class AiGenerationQuotaService {
                 .build());
     }
 
-    /** A 429-style refusal; rendered by the premium handler as a structured 403. */
     public static class DailyGenerationLimitException extends PremiumAccessRequiredException {
         private final int limit;
 

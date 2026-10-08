@@ -54,8 +54,6 @@ def ingest_mastery_events(
     payload: MasteryEventBatchCreate,
     db: Session = Depends(get_db),
 ) -> list[MasteryEventResponse]:
-    # Each event commits independently so retries remain idempotent and one bad
-    # duplicate cannot roll back already accepted answers.
     return [process_mastery_event(db, event) for event in payload.events]
 
 
@@ -152,8 +150,6 @@ def purge_learner_state(
     db.commit()
 
     if any(deleted.values()):
-        # Loud on purpose: a non-empty purge means an id really was reused, and
-        # that is worth knowing about rather than silently tidying away.
         LOGGER.warning(
             "Purged stale BKT state for reused learner_id=%s: %s", learner_id, deleted
         )

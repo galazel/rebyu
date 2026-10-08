@@ -87,8 +87,6 @@ def retrieve(
         logger.info("Nothing indexed for namespace '%s'; returning no context", namespace)
         return []
 
-    # No metadata filter needed: the index itself is scoped to one
-    # certification, so cross-certification bleed is structurally impossible.
     candidates = index.similarity_search(query, k=fetch_k)
     if not rerank:
         return candidates[:top_k]
@@ -130,9 +128,6 @@ def retrieve_balanced(
     """
     settings = get_settings()
     top_k = top_k or settings.rag_top_k
-    # Wider than the plain path: round-robin can only include a document that
-    # made the candidate pool, so the pool has to be broad enough to contain
-    # every file rather than merely the best-matching ones.
     fetch_k = fetch_k or max(settings.rag_fetch_k, top_k * 10)
 
     index = load_index(namespace, embeddings)
@@ -147,17 +142,6 @@ def retrieve_balanced(
     for document in ranked:
         by_source.setdefault(_source_of(document), []).append(document)
 
-    # Documents that put nothing in the candidate pool at all.
-    #
-    # Round-robin can only share out what ranking already surfaced, and a short
-    # document can miss the pool entirely -- so this asks each absent document
-    # directly for its own best chunks. That is what makes "every uploaded file
-    # is represented" a guarantee rather than a likelihood: a domain covered by
-    # one small file still reaches the planner.
-    #
-    # A file that is genuinely empty contributes its near-empty chunk and is
-    # then visible as such, which is the honest outcome -- better than being
-    # silently absent and looking like a domain that was never uploaded.
     try:
         for source in index.source_files():
             if source not in by_source:
@@ -165,9 +149,6 @@ def retrieve_balanced(
                 if extra:
                     by_source[source] = extra
     except Exception:
-        # Never fail a run over the top-up: the ranked pool is still a valid
-        # (if narrower) context, and losing generation to a retrieval nicety
-        # would be a worse trade than under-covering one document.
         logger.exception("Per-source top-up failed; using ranked candidates only")
 
     if len(by_source) <= 1:
@@ -175,7 +156,6 @@ def retrieve_balanced(
 
     selected: list[Document] = []
     round_index = 0
-    # Sources in first-appearance order, so the best-matching file still leads.
     while len(selected) < top_k:
         added = False
         for source in list(by_source):
@@ -186,7 +166,7 @@ def retrieve_balanced(
                 if len(selected) >= top_k:
                     break
         if not added:
-            break  # every source exhausted
+            break
         round_index += 1
 
     logger.info(

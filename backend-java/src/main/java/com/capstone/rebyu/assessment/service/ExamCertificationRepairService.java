@@ -12,18 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Detects and repairs mock exams that are assigned to the wrong certification.
- *
- * <p>When analytics queries attempts scoped to a certification, they join:
- * {@code assessment_attempts.exam_id → exams.exam_id → exams.certification_id}.
- * If an exam's certification_id is wrong, all attempts on that exam appear
- * under the wrong certification in analytics.
- *
- * <p>This service identifies mock exams with duplicate titles (which should
- * map one-to-one to certifications) and offers repair options. It does NOT
- * auto-repair—it reports the problem and leaves the fix to a human decision.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -32,12 +20,6 @@ public class ExamCertificationRepairService {
     private final ExamRepository examRepository;
     private final CertificationRepository certificationRepository;
 
-    /**
-     * Diagnostic: find all mock exams and check for duplicates by title.
-     *
-     * <p>Returns a map of title → list of exams with that title. If any list
-     * has size > 1, those exams have a certification assignment problem.
-     */
     public Map<String, List<ExamWithCert>> findMockExamDuplicates() {
         List<Exam> allExams = examRepository.findAll();
         List<Exam> mockExams = allExams.stream()
@@ -58,10 +40,6 @@ public class ExamCertificationRepairService {
         return byTitle;
     }
 
-    /**
-     * Report all mock exams and their certification assignments.
-     * Use this to understand the current state before attempting repairs.
-     */
     public List<ExamWithCert> listAllMockExams() {
         List<Exam> allExams = examRepository.findAll();
         return allExams.stream()
@@ -75,9 +53,6 @@ public class ExamCertificationRepairService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Diagnostic output suitable for logging or CLI reporting.
-     */
     public String reportMockExamState() {
         StringBuilder sb = new StringBuilder();
         sb.append("\n=== Mock Exam Certification Assignment Diagnostic ===\n");
@@ -121,17 +96,6 @@ public class ExamCertificationRepairService {
         return sb.toString();
     }
 
-    /**
-     * Repair a mock exam's certification assignment.
-     *
-     * <p>This is a manual operation: the caller must decide which certification
-     * is correct and pass both the exam id and the target certification id.
-     * This ensures no automatic "fixes" silently corrupt data.
-     *
-     * @param examId the exam to reassign
-     * @param targetCertificationId the correct certification for this exam
-     * @return true if the exam was updated, false if it already had the correct assignment
-     */
     @Transactional
     public boolean repairExamCertification(Long examId, Long targetCertificationId) {
         Exam exam = examRepository.findById(examId)
@@ -157,9 +121,6 @@ public class ExamCertificationRepairService {
         return true;
     }
 
-    /**
-     * Lightweight DTO for reporting exam-to-certification assignments.
-     */
     public record ExamWithCert(
             Long examId,
             String title,

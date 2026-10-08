@@ -17,15 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-/**
- * The learner's own working surface beside their analytics: the checklist they
- * keep while revising one certification, scoped to the learner resolved from
- * the token.
- *
- * The exam countdown beside it needs nothing here -- it counts to the target
- * exam date on the study plan, so that date has one home rather than two that
- * can disagree.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -33,7 +24,6 @@ import java.util.List;
 public class StudyDeskService {
 
     private static final int MAX_NOTE_LENGTH = 500;
-    /** The analytics board is six columns wide; a tile runs at most five rows tall. */
     private static final int MAX_COL = 6;
     private static final int MAX_ROW = 5;
 
@@ -62,7 +52,6 @@ public class StudyDeskService {
         return toDto(note);
     }
 
-    /** Ticks/unticks a note, or edits its text. Null fields are left as they are. */
     public NoteDto updateNote(Long learnerId, Long noteId, Boolean done, String body) {
         LearnerNote note = requireOwned(learnerId, noteId);
         if (body != null) {
@@ -79,28 +68,15 @@ public class StudyDeskService {
         noteRepository.delete(requireOwned(learnerId, noteId));
     }
 
-    /** @param completedOnly clear just the ticked notes rather than the whole list */
     public int clearNotes(Long learnerId, Long certificationId, boolean completedOnly) {
         return completedOnly
                 ? noteRepository.deleteCompletedForLearnerAndCertification(learnerId, certificationId)
                 : noteRepository.deleteAllForLearnerAndCertification(learnerId, certificationId);
     }
 
-    // dashboard layout
 
-    /**
-     * One tile's place on the board: its column/row origin and how many columns
-     * and rows it covers. Coordinates rather than a position in a sequence,
-     * because the learner drops a tile in a chosen spot and it has to stay
-     * there -- an order alone cannot express a deliberate gap.
-     */
     public record TilePlacement(String id, Integer x, Integer y, Integer w, Integer h) {}
 
-    /**
-     * The learner's saved board, or an empty list when they have never
-     * rearranged anything -- which tells the page to use its own defaults
-     * rather than treating "no layout" as "no tiles".
-     */
     @Transactional(readOnly = true)
     public List<TilePlacement> dashboardLayout(Long learnerId) {
         return layoutRepository.findByLearner_LearnerId(learnerId)
@@ -108,15 +84,11 @@ public class StudyDeskService {
                 .orElseGet(List::of);
     }
 
-    /** Saves the board after a move or a resize. An empty list resets to the defaults. */
     public List<TilePlacement> saveDashboardLayout(Long learnerId, List<TilePlacement> tiles) {
         List<TilePlacement> layout = tiles == null ? List.of() : tiles.stream()
                 .filter(tile -> tile != null && tile.id() != null && !tile.id().isBlank())
                 .map(tile -> new TilePlacement(
                         tile.id(),
-                        // Clamped rather than trusted: a tile placed outside the
-                        // six-column grid, or claiming forty columns, would
-                        // simply not render where the learner put it.
                         clampToGrid(tile.x(), 0, MAX_COL - 1),
                         Math.max(0, tile.y() == null ? 0 : tile.y()),
                         clampToGrid(tile.w(), 1, MAX_COL),
@@ -142,10 +114,6 @@ public class StudyDeskService {
         try {
             return mapper.readValue(json, new TypeReference<List<TilePlacement>>() {});
         } catch (Exception e) {
-            // A layout that cannot be parsed is a preference, not data worth
-            // failing a page load over -- fall back to the defaults. This is
-            // also what makes the older id-only format degrade quietly rather
-            // than 500 the analytics page.
             log.warn("Unreadable dashboard layout, using the defaults: {}", e.getMessage());
             return List.of();
         }
@@ -170,7 +138,6 @@ public class StudyDeskService {
         return text;
     }
 
-    /** Another learner's note is reported as simply not found. */
     private LearnerNote requireOwned(Long learnerId, Long noteId) {
         LearnerNote note = noteRepository.findById(noteId)
                 .orElseThrow(() -> new EntityNotFoundException("Note not found: " + noteId));

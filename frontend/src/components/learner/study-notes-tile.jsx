@@ -14,44 +14,18 @@ import {
   updateNote,
 } from "@/services/studyDeskService.js"
 
-/* The ruling pitch, and everything vertical on the paper is a multiple of it --
-   the line-height of a note, the box of its checkbox, the gradient stop that
-   draws the rule. The moment those disagree the writing drifts off the lines
-   and the whole conceit falls apart. Wrapped notes stay on the rules for free:
-   a second line is exactly one more 28px band. */
 const RULED_PAPER =
   "bg-[length:100%_28px] bg-[linear-gradient(to_bottom,transparent_27px,rgba(203,58,44,0.22)_27px,rgba(203,58,44,0.22)_28px)] dark:bg-[linear-gradient(to_bottom,transparent_27px,rgba(255,122,107,0.20)_27px,rgba(255,122,107,0.20)_28px)]"
 
-/**
- * The learner's revision checklist for the certification they are looking at,
- * drawn as the thing it actually is: a sheet of ruled paper.
- *
- * The paper is not decoration. Red rules and a margin line say "scribble here"
- * the way no bordered card does, and a list you are meant to jot at should not
- * look like a form you are meant to fill in correctly.
- *
- * Ticking crosses a note out rather than removing it: what you have already
- * covered is as much a part of a revision list as what you have not, and a list
- * that empties itself as you work gives back no sense of progress. Clearing is
- * an explicit action, offered as "clear done" first -- the common case -- with
- * "clear all" beside it.
- */
 export function StudyNotesTile({ certificationId }) {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState("")
 
-  /* Which note is open for editing, and the text as it is being retyped.
-     `updateNote` has always accepted a new body -- its own docstring says
-     "tick/untick, or edit the text" -- but nothing on the pad ever sent one, so
-     a typo in a note could only be fixed by deleting it and writing it again. */
   const [editingId, setEditingId] = useState(null)
   const [editDraft, setEditDraft] = useState("")
 
-  // The composer, so a click on the blank part of the sheet can land in it.
   const composerRef = useRef(null)
 
-  // Ids for notes that exist on the page but not yet in the database. Negative
-  // and counted down, so they can never collide with a real server id.
   const pendingId = useRef(0)
 
   const notesKey = [STUDY_DESK_NOTES_KEY, String(certificationId ?? "")]
@@ -66,7 +40,6 @@ export function StudyNotesTile({ certificationId }) {
   const notes = Array.isArray(notesQuery.data) ? notesQuery.data : []
   const doneCount = notes.filter((note) => note.done).length
 
-  // A half-typed note belongs to the certification it was typed under.
   useEffect(() => setDraft(""), [certificationId])
 
   const cached = () => {
@@ -74,20 +47,6 @@ export function StudyNotesTile({ certificationId }) {
     return Array.isArray(current) ? current : []
   }
 
-  /**
-   * Writing to a pad is instant, so the tile behaves that way: every edit lands
-   * in the cache before the request is sent, and the request only confirms it.
-   *
-   * Waiting on the server was costing two round trips per keystroke-sized
-   * action -- the write itself, and then the refetch that a blanket
-   * `invalidateQueries` kicked off -- with nothing on screen changing until
-   * both had returned. Since each endpoint hands back the row it just wrote,
-   * there is nothing the refetch could tell us that the response has not
-   * already: `settle` swaps the optimistic row for the server's copy in place.
-   *
-   * `cancelQueries` first, or an in-flight GET issued before the edit can land
-   * afterwards and overwrite it with a list that predates the change.
-   */
   const optimistic = ({ message, apply, settle }) => ({
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey: notesKey })
@@ -102,8 +61,6 @@ export function StudyNotesTile({ certificationId }) {
           )
       : undefined,
     onError: (error, _variables, context) => {
-      // Put the pad back the way it was, then resync in case the failure was
-      // partial -- a "clear done" that deleted some rows before it threw.
       if (context?.previous) queryClient.setQueryData(notesKey, context.previous)
       queryClient.invalidateQueries({ queryKey: notesKey })
       toast.error(message, {
@@ -114,8 +71,6 @@ export function StudyNotesTile({ certificationId }) {
 
   const addMutation = useMutation({
     mutationFn: ({ body }) => addNote(certificationId, body),
-    // Appended, because the server orders these by creation time ascending --
-    // an optimistic row at the top would visibly jump on confirmation.
     ...optimistic({
       message: "Could not add that note",
       apply: (notes, { body, tempId }) => [
@@ -138,7 +93,6 @@ export function StudyNotesTile({ certificationId }) {
     }),
   })
 
-  /* Body edits reuse the same endpoint as ticking; only the field differs. */
   const editMutation = useMutation({
     mutationFn: ({ noteId, body }) => updateNote(noteId, { body }),
     ...optimistic({
@@ -175,8 +129,6 @@ export function StudyNotesTile({ certificationId }) {
   const commitEdit = (note) => {
     const body = editDraft.trim()
     setEditingId(null)
-    // An edit that changes nothing, or that empties the note, is a no-op:
-    // deleting is its own button, and a blank rule is not a note.
     if (!body || body === note.body) return
     editMutation.mutate({ noteId: note.noteId, body })
   }
@@ -186,32 +138,18 @@ export function StudyNotesTile({ certificationId }) {
     const body = draft.trim()
     if (!body) return
 
-    // Cleared here rather than in `onSuccess`: the learner has finished with
-    // this note the moment they hit Add, and a field that stays full until the
-    // server answers reads as a click that did not register. No `isPending`
-    // guard either -- two notes in quick succession are two notes.
     setDraft("")
     pendingId.current -= 1
     addMutation.mutate({ body, tempId: pendingId.current })
   }
 
   return (
-    // Half the band, with the countdown taking the other half. (On the
-    // analytics board the span is set by the tile table there, and the learner
-    // can resize it; this is the size when the tile is used on its own.)
-    //
-    // The tile's own padding is stripped: paper runs edge to edge, and the
-    // parts that need insetting inset themselves.
     <BentoTile
       col={3}
       row={2}
       className="relative overflow-hidden border-[#e6ddcf] bg-[#fffdf9] p-0 sm:p-0 dark:border-[#332f29] dark:bg-[#1c1a17]"
     >
       <div className="relative shrink-0 px-5 pb-1.5">
-        {/* The same header shape as every other tile -- icon, kicker, title,
-            hint, rule -- but drawn in this tile's own paper inks rather than
-            through BentoHeading, whose emerald chip would be the one thing on
-            cream paper that looked like a mistake rather than a standard. */}
         <div className="mt-2 flex flex-wrap items-end justify-between gap-x-3 gap-y-1 border-b border-[#e6ddcf] pb-2.5 dark:border-[#332f29]">
           <div className="flex min-w-0 items-center gap-2">
             <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-[#efe7d8] text-[#7a6a4f] dark:bg-[#2a251d] dark:text-[#c9b892]">
@@ -263,15 +201,9 @@ export function StudyNotesTile({ certificationId }) {
         </div>
       </div>
 
-      {/* The paper. The margin rule is painted on the scroll container so it
-          runs the whole height, but the ruling itself rides on the content
-          inside it -- lines that stayed put while the notes scrolled past would
-          read as a background texture rather than as paper. */}
       <div
         className="relative min-h-0 flex-1 overflow-y-auto"
         onClick={(event) => {
-          // Only when the sheet itself was hit -- clicks that landed on a note,
-          // its checkbox or its delete button have already been handled.
           if (event.target === event.currentTarget) composerRef.current?.focus()
         }}
       >
@@ -280,11 +212,6 @@ export function StudyNotesTile({ certificationId }) {
           aria-hidden="true"
         />
 
-        {/* The rest of the sheet is a target too. A pad with two notes on it is
-            mostly blank paper, and clicking blank paper on a pad should put you
-            in a position to write rather than do nothing at all. Purely an
-            affordance -- the composer is still there to be clicked directly --
-            so it is a bare div: nothing here is reachable only this way. */}
         {notesQuery.isLoading ? (
           <BentoSkeleton rows={3} className="mt-3 px-5" />
         ) : notes.length === 0 ? (
@@ -307,14 +234,7 @@ export function StudyNotesTile({ certificationId }) {
             }}
           >
             {notes.map((note) => (
-              // A note still being saved has no server id yet, so it cannot be
-              // ticked or deleted -- both address it by that id. It is written
-              // in full ink regardless: it is on the pad, and the only thing
-              // the round trip can still change is whether it stays.
               <li key={note.noteId} className="group flex items-start gap-2.5">
-                {/* A real checkbox, not a styled div: it is a checkbox to a
-                    screen reader and to a keyboard either way. The vertical
-                    margin centres a 16px box inside the 28px ruled band. */}
                 <input
                   type="checkbox"
                   checked={note.done}
@@ -326,15 +246,7 @@ export function StudyNotesTile({ certificationId }) {
                   aria-label={note.body}
                 />
 
-                {/* Crossed out in red pen, not greyed into the paper: a covered
-                    topic is still something you wrote down.
 
-                    Clicking the text opens it for editing in place, on the same
-                    rule, in the same ink -- a note you can tick but not correct
-                    is a strange kind of note, and the endpoint has always taken
-                    a new body. Enter commits, Escape abandons, and clicking
-                    away commits too: this is a pad, and looking away from
-                    something you have just written down does not erase it. */}
                 {editingId === note.noteId ? (
                   <input
                     autoFocus
@@ -352,8 +264,6 @@ export function StudyNotesTile({ certificationId }) {
                       }
                     }}
                     aria-label={`Edit note: ${note.body}`}
-                    /* h-7 and leading-7 hold the 28px band the ruling is drawn
-                       on, so the line does not jump when it becomes a field. */
                     className="h-7 min-w-0 flex-1 border-0 bg-transparent p-0 text-sm leading-7 text-[#2b2620] outline-none focus:ring-0 dark:text-[#eae4d8]"
                   />
                 ) : (
@@ -372,12 +282,6 @@ export function StudyNotesTile({ certificationId }) {
                   </button>
                 )}
 
-                {/* Exactly one ruled band tall, like the checkbox and the text
-                    beside it. Padding plus an icon left this button 34px, which
-                    made the whole row 42px against a 28px ruling -- so every
-                    note sat a little further below its line than the one above
-                    it, and by the fourth note the writing was floating between
-                    the rules. A fixed 28px box cannot drift. */}
                 <button
                   type="button"
                   disabled={note.pending}
@@ -400,9 +304,6 @@ export function StudyNotesTile({ certificationId }) {
         </p>
       ) : null}
 
-      {/* Writing happens at the pad's bottom edge rather than in a boxed field
-          above the list -- an input with its own border would lay a second
-          sheet of UI on top of the paper. */}
       <form
         onSubmit={submit}
         className="flex shrink-0 items-center gap-2 border-t border-[#e6ddcf] bg-[#fbf7ef] px-3 py-1.5 dark:border-[#332f29] dark:bg-[#221f1b]"

@@ -13,19 +13,8 @@ public interface LearnerCommunityNotificationRepository extends JpaRepository<Le
 
     List<LearnerCommunityNotification> findTop20ByLearner_LearnerIdOrderByCreatedAtDesc(Long learnerId);
 
-    /**
-     * Guards against re-notifying for the same upvote. Un-liking and liking again
-     * is one person's opinion changing, not two events worth telling the author
-     * about twice.
-     */
     boolean existsByLearner_LearnerIdAndTitleAndBody(Long learnerId, String title, String body);
 
-    /**
-     * Bulk mark-as-read / clear-all, mirroring NotificationRepository. The bell
-     * merges this feed with the generic inbox one, so "mark all read" and
-     * "clear all" have to be able to reach both sides -- doing it row by row
-     * from the browser left rows behind whenever one request failed.
-     */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE LearnerCommunityNotification n SET n.readAt = :readAt "
             + "WHERE n.learner.learnerId = :learnerId AND n.readAt IS NULL")

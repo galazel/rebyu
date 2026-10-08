@@ -34,7 +34,6 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-/** Owns structured Tutor practice attempts. Correct answers remain server-side. */
 @Service
 @RequiredArgsConstructor
 public class StudyPracticeService {
@@ -86,7 +85,6 @@ public class StudyPracticeService {
         return new AttemptReview(toAttemptHistory(row), reviewAnswers);
     }
 
-    /** Persists validated AI output as an answerable study set. */
     @Transactional
     public StudySet createGeneratedStudySet(Long learnerId, String studyType, String title, Long lessonId,
                                             List<GeneratedItem> items) {
@@ -102,8 +100,6 @@ public class StudyPracticeService {
                 .certification(certification)
                 .lesson(lesson)
                 .studyType(studyType)
-                /* A second deck generated from the same lesson must not arrive
-                   under the same name as the first -- see GeneratedTitles. */
                 .title(GeneratedTitles.notAlreadyUsed(
                         title.trim(),
                         studySets.findTitlesByLearnerLessonAndType(learnerId, lessonId, studyType)))
@@ -126,25 +122,11 @@ public class StudyPracticeService {
         return toStudySet(studySets.save(set));
     }
 
-    /**
-     * Gives a community learner their own copy of a shared study set and starts
-     * an attempt on it, leaving the author's original untouched.
-     */
     @Transactional
     public Attempt startCommunityAttempt(Long learnerId, Long originalStudySetId) {
         return startAttempt(learnerId, communityCopyOfStudySet(learnerId, originalStudySetId).getStudySetId());
     }
 
-    /**
-     * The same thing for a shared quiz, whose items live in the exam tables.
-     *
-     * <p>{@code /learner-tools/library/generate} persists a generated quiz as a
-     * real published {@link Exam} (see {@code GeneratedAssessmentService}) and
-     * generated flashcards as a {@link GeneratedStudySet} -- two different
-     * stores behind one "generated study aid" idea. The practice engine only
-     * answers study sets, and a shared exam belongs to its author besides, so
-     * the quiz's questions are copied into a study set of the viewer's own.
-     */
     @Transactional
     public Attempt startCommunityExamAttempt(Long learnerId, Long examId) {
         return startAttempt(learnerId, communityCopyOfExam(learnerId, examId).getStudySetId());
@@ -208,7 +190,7 @@ public class StudyPracticeService {
         int displayOrder = 1;
         for (ExamQuestion examQuestion : examQuestionRows) {
             GeneratedStudyItem item = toStudyItem(examQuestion.getQuestion(), displayOrder);
-            if (item == null) continue; // a question type this engine cannot mark
+            if (item == null) continue;
             item.setStudySet(copy);
             copy.getItems().add(item);
             displayOrder++;
@@ -219,11 +201,6 @@ public class StudyPracticeService {
         return studySets.save(copy);
     }
 
-    /**
-     * One exam question as a practice item, or null when this engine has no way
-     * to mark it -- programming and diagram questions are marked by their own
-     * runners, which practice attempts never call.
-     */
     private GeneratedStudyItem toStudyItem(Question question, int displayOrder) {
         if (question == null || question.getQuestionText() == null) return null;
         String type = question.getQuestionType();
@@ -271,24 +248,12 @@ public class StudyPracticeService {
         StudySet set = toStudySet(setEntity);
         boolean community = "COMMUNITY".equals(setEntity.getSource());
 
-        /* A community copy is already the learner's own set, handed to them by
-           the feed. Requiring an enrollment in the *sharer's* certification
-           would make every shared study set unopenable for exactly the learners
-           a share is for -- the ones studying alongside the course, not the
-           ones already enrolled in it. A set the learner generated themselves
-           still needs the enrollment that produced it. */
         if (!community) {
             boolean enrolled = enrollments.existsByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
                     learnerId, set.certificationId(), LearnerCertification.Status.active);
             if (!enrolled) throw new IllegalArgumentException("Active certification enrollment is required");
         }
 
-        /* Decided here rather than by the caller so the attempt the community
-           "attempt" button starts and the attempt the practice page starts on
-           arrival are the same row. They used to disagree -- COMMUNITY_QUIZ
-           against TUTOR_QUIZ -- which left a second, orphaned in-progress
-           attempt behind on every shared quiz. COMMUNITY_QUIZ also carries its
-           own XP/coin rate and feeds the community leaderboard. */
         String sourceType = "FLASHCARD".equals(set.type())
                 ? "FLASHCARD_RECALL"
                 : community ? "COMMUNITY_QUIZ" : "TUTOR_QUIZ";

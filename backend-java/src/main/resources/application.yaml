@@ -9,8 +9,6 @@ spring:
     password: ${RABBITMQ_PASSWORD:guest}
 
   mail:
-    # Resend's SMTP relay: the username is literally "resend", the password
-    # is a Resend API key, and the sender must be on a domain verified in Resend.
     host: ${MAIL_HOST:smtp.resend.com}
     port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME:resend}
@@ -21,10 +19,6 @@ spring:
           auth: true
           starttls:
             enable: true
-          # JavaMail waits forever by default. Account creation sends its
-          # temporary-password email while holding a database connection, so a
-          # slow SMTP relay would otherwise hang "Creating account..." and tie
-          # up one of the few pooled connections.
           connectiontimeout: 10000
           timeout: 10000
           writetimeout: 10000
@@ -36,16 +30,9 @@ spring:
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: RebyuHikariPool
-      # Supabase's free pooler allows ~15 connections across every service.
       maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE:8}
       minimum-idle: 2
       connection-timeout: 10000
-      # The session pooler (and Docker Desktop's network on Windows) drop a
-      # connection that sits silent for a few minutes, without telling the
-      # pool; the next request was handed that dead connection and failed with
-      # "An I/O error occurred while sending to the backend" / EOFException.
-      # So idle connections are pinged every minute, and every connection is
-      # replaced well before anything in between would give up on it.
       keepalive-time: 60000
       idle-timeout: 300000
       max-lifetime: 600000
@@ -55,14 +42,8 @@ spring:
 
   data:
     redis:
-      # Redis is only a cache and a template here; there are no @RedisHash
-      # repositories. Without this, Spring Data probes all 90 JPA repositories
-      # as Redis candidates and logs one line apiece on startup.
       repositories:
         enabled: false
-      # Railway's Redis plugin normally exposes REDISHOST/REDISPORT and may
-      # also expose REDISUSER/REDISPASSWORD. Keep REDIS_HOST-style names as
-      # fallbacks for local or manually configured deployments.
       host: ${REDISHOST:${REDIS_HOST:localhost}}
       port: ${REDISPORT:${REDIS_PORT:6379}}
       username: ${REDISUSER:${REDIS_USERNAME:}}
@@ -88,21 +69,6 @@ spring:
           batch_size: 25
         order_inserts: true
         order_updates: true
-        # Batched lazy loading, applied to every association in the app.
-        #
-        # This database is a Neon instance in ap-southeast-1: a round trip
-        # costs ~50ms, so what makes a page slow here is the NUMBER of queries,
-        # not the work in any one of them (the biggest table in the assessment
-        # engine is a few thousand rows). Without this, resolving N lazy
-        # proxies of the same type -- the exam behind each attempt in a list,
-        # the choices of each question on a paper -- is N separate round trips.
-        # With it Hibernate collects them and issues one `... WHERE id IN (?)`
-        # per batch instead.
-        #
-        # The hot paths batch explicitly (see AssessmentAttemptService and
-        # QuestionRepository.findForAttemptByIdIn); this is the floor under
-        # everything else, so a lazy dereference somewhere no one profiled
-        # degrades to one extra query rather than to one per row.
         default_batch_fetch_size: 100
 
 
@@ -112,10 +78,6 @@ spring:
       topic-prefix: /topic
       queue-prefix: /queue
 
-  # The default scheduler is a single thread, which the BKT outbox dispatcher
-  # and reconciliation jobs already share. The notification SSE keep-alive is
-  # scheduled too, so give them room rather than letting a slow BKT round trip
-  # delay heartbeats on every open notification stream.
   task:
     scheduling:
       pool:
@@ -143,14 +105,10 @@ app:
     enabled: ${RESPONSE_CACHE_ENABLED:true}
     ttl-seconds: ${RESPONSE_CACHE_TTL_SECONDS:30}
     failure-cooldown-seconds: ${RESPONSE_CACHE_FAILURE_COOLDOWN_SECONDS:30}
-  # Sign-in. The secret key is only ever read here, on the backend.
   supabase:
     url: ${SUPABASE_URL:https://ptvdrlidjxeohhworlyl.supabase.co}
     secret-key: ${SUPABASE_SECRET_KEY:}
-    # Where invitation links send people to create their password.
     site-url: ${SITE_URL:https://rebyu.online}
-  # Where links in REBYU's own emails (institution invitations) point. It was
-  # fixed to localhost, so every invitation sent from Railway linked nowhere.
   frontend-url: ${SITE_URL:http://localhost:5173}
   mail:
     from: ${MAIL_FROM:REBYU <no-reply@rebyu.online>}
@@ -188,8 +146,6 @@ resilience4j:
 logging:
   level:
     root: INFO
-    # Keep Railway's log stream useful under normal traffic. SQL and bind
-    # parameter logging can emit dozens of lines for a single API request.
     com.capstone.rebyu: ${APP_LOG_LEVEL:INFO}
     org.springframework.security: INFO
     org.hibernate.SQL: ${HIBERNATE_SQL_LOG_LEVEL:WARN}
@@ -210,14 +166,9 @@ management:
       show-details: when-authorized
 
 aws:
-  # Only a fallback for the storage keys now that sign-in is on Supabase.
   access-key: ${AWS_ACCESS_KEY_ID:}
   secret-key: ${AWS_SECRET_ACCESS_KEY:}
   s3:
-    # Any S3-compatible store. Leave S3_ENDPOINT empty for AWS S3. For
-    # Cloudflare R2: S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com,
-    # S3_REGION=auto, and the R2 API token's keys in S3_ACCESS_KEY_ID /
-    # S3_SECRET_ACCESS_KEY. Without S3_* keys, storage falls back to the AWS keys.
     endpoint: ${S3_ENDPOINT:}
     bucket-name: ${S3_BUCKET_NAME:rebyu}
     region: ${S3_REGION:us-east-1}
@@ -229,18 +180,12 @@ db:
   port: ${DB_PORT:5432}
   database: ${DB_DATABASE}
 
-# Internal Python AI backend (FastAPI + LangGraph) integration for
-# certification/lesson/question generation, tutor chat, and answer grading.
-# The browser never calls Python directly; only Spring Boot does.
 ai:
   service-url: ${AI_SERVICE_URL:http://localhost:8000/api/v1/ai}
   api-key: ${AI_SERVICE_API_KEY:}
   connect-timeout-ms: ${AI_CONNECT_TIMEOUT:5000}
   read-timeout-ms: ${AI_READ_TIMEOUT:120000}
 
-# Internal FastAPI Bayesian Knowledge Tracing (BKT) service integration.
-# The browser never calls FastAPI; only Spring Boot does, over the internal
-# network with a shared service key.
 bkt:
   enabled: ${BKT_ENABLED:true}
   service-url: ${BKT_SERVICE_URL:http://localhost:8000/api/v1/bkt}
@@ -260,9 +205,6 @@ bkt:
   fallback-assessment-type: ${BKT_FALLBACK_ASSESSMENT_TYPE:LESSON_QUIZ}
   fallback-difficulty: ${BKT_FALLBACK_DIFFICULTY:AVERAGE}
 
-# Adaptive assessment retake question selection (Phase 4). Pure application
-# logic + DB queries -- no AI/external service call.
-# IRT + BKT adaptive assessment engine.
 adaptive:
   enabled: ${ADAPTIVE_ENABLED:true}
   item-counts:
@@ -276,20 +218,10 @@ adaptive:
   randomesque-top-k: ${ADAPTIVE_RANDOMESQUE_TOP_K:3}
   min-bank-multiplier: ${ADAPTIVE_MIN_BANK_MULTIPLIER:1.5}
 
-# Assessment access rules.
-#
-# TEMPORARY: mock exams are open to every enrolled learner. They are a paid
-# feature in the revenue model, and the MOCK_EXAM_ACCESS entitlement gates are
-# still in the code -- this switch is what turns them back on, so restoring the
-# paywall is a config change rather than a rewrite. Set to true (or export
-# MOCK_EXAM_REQUIRES_ENTITLEMENT=true) when mock exams go back behind Pro.
 rebyu:
   assessment:
     mock-exam-requires-entitlement: ${MOCK_EXAM_REQUIRES_ENTITLEMENT:false}
 
-# PayMongo (test-mode payment provider). Disabled by default so a missing key
-# never accidentally reaches the live API; the paymongo-test profile (or real
-# env vars below) turns it on.
 paymongo:
   enabled: ${PAYMONGO_ENABLED:false}
   api-key: ${PAYMONGO_PUBLIC_KEY:}
@@ -297,9 +229,6 @@ paymongo:
   webhook-secret: ${PAYMONGO_WEBHOOK_SECRET:}
   base-url: ${PAYMONGO_BASE_URL:https://api.paymongo.com/v1}
 
-# Judge0 code-execution integration for programming assessment items. Defaults
-# to the free, keyless public Judge0 CE instance; set JUDGE0_API_KEY to point
-# at a self-hosted or RapidAPI instance instead.
 judge0:
   enabled: ${JUDGE0_ENABLED:true}
   base-url: ${JUDGE0_BASE_URL:https://ce.judge0.com}

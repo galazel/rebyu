@@ -45,19 +45,10 @@ from app.services import workflow_registry as registry
 logger = logging.getLogger(__name__)
 
 
-#: How long to wait after startup before sweeping. Long enough for RabbitMQ to
-#: redeliver the unacked messages of runs it owns, and for those runs to record
-#: their first event -- after which they are visibly alive and get skipped.
 STARTUP_GRACE_SECONDS = 120.0
 
-#: Re-swept on this interval, not just at startup. A run can be orphaned long
-#: after boot: a resume that dies inside a worker, or a run adopted here that is
-#: itself interrupted. Comfortably longer than the stall threshold, so a run is
-#: never examined twice for the same silence.
 SWEEP_INTERVAL_SECONDS = 900.0
 
-#: Nothing sensible produces more orphans than this at once; a larger number
-#: means something is wrong that adopting them all in a burst would worsen.
 MAX_ADOPTIONS_PER_SWEEP = 10
 
 
@@ -73,9 +64,6 @@ def _orphans() -> list[Any]:
             for run in registry.list_runs(session, status=registry.RUNNING, limit=200)
             if run.kind == "CERTIFICATION"
             and certification_run.is_stalled(run)
-            # Silence is circumstantial evidence; the driver register is direct
-            # evidence. A run this process is executing is never adopted, no
-            # matter how long its current step has been running.
             and not certification_run.is_being_driven(run.thread_id)
         ]
 
@@ -109,8 +97,6 @@ async def sweep_once() -> list[dict[str, Any]]:
         try:
             outcome = await certification_run.adopt_orphan(run)
         except Exception:
-            # One unrecoverable run must not stop the others from being
-            # recovered, and must not take the sweep loop down with it.
             logger.exception("Could not recover orphaned run %s", run.run_id)
             continue
         results.append({"run_id": run.run_id, **outcome})
@@ -136,7 +122,5 @@ async def run_forever() -> None:
                 logger.exception("Run recovery sweep failed; will try again")
             await asyncio.sleep(SWEEP_INTERVAL_SECONDS)
     except asyncio.CancelledError:
-        # Shutdown. Whatever is left RUNNING is picked up by the next process's
-        # sweep, which is the point of the whole mechanism.
         logger.info("Run recovery stopped")
         raise

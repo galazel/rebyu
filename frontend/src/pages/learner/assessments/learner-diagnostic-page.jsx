@@ -153,7 +153,6 @@ function DiagnosticStep({ number, title, description }) {
     )
 }
 
-/** One fact about the paper: items, time, whether it is required. */
 function DiagnosticFact({ icon: Icon, label, value }) {
     return (
         <div className="rounded-rb-tile border-2 border-rb-swan bg-rb-polar px-4 py-3">
@@ -242,12 +241,6 @@ export default function LearnerDiagnosticGatePage() {
     return (
         <main className="rebyu-ds min-h-[calc(100dvh-8rem)] rounded-rb-card border-2 border-rb-swan bg-rb-snow px-5 py-8 sm:px-8 sm:py-10 xl:px-12">
             <article className="mx-auto w-full max-w-5xl">
-                {/* The gate, said once. It used to be said three times -- a hero,
-                    a dashed "lesson content is locked" panel, and a closing card
-                    that repeated the hero -- around two blocks of copy written
-                    to the developer rather than the learner ("this wide section
-                    can later be replaced with the diagnostic exam content"),
-                    which shipped to learners as if it were guidance. */}
                 <section className="mt-6 overflow-hidden rounded-rb-card border-2 border-rb-macaw/40 bg-rb-macaw-wash p-6 sm:p-8">
                     <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
                         <span className="grid size-14 shrink-0 place-items-center rounded-rb-card bg-rb-macaw text-white">

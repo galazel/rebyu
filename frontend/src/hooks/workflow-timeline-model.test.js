@@ -1,16 +1,5 @@
 import { buildTranscript, runProgress } from "./workflow-timeline-model.js"
 
-/**
- * The document phase runs three graph nodes in a fixed order:
- *
- *   validate_documents -> capture_document_visuals -> ingest_documents
- *
- * Grouping merges only CONSECUTIVE tasks of the same family, so an unmapped
- * stage in the middle does not just get its own row -- it splits the phase
- * around itself. That produced two separate "Source documents" groups, one
- * holding the validate step and one holding the ingest step, which reads as
- * the documents having been read twice.
- */
 function task(stage, seq, status = "COMPLETED") {
   return { stage, seq, status, itemNumber: null, durationMs: 1000 }
 }
@@ -55,18 +44,11 @@ describe("document phase grouping", () => {
   })
 })
 
-/**
- * Progress is a fraction of the run's *planned* steps, and the plan only exists
- * once the curriculum does. The two things worth pinning down are that the bar
- * stays honest before that point, and that redoing work at a review checkpoint
- * cannot push the fraction past what the run ever had to do.
- */
 function planEvent(seq, plan) {
   return { seq, payload: { plan } }
 }
 
 const PLAN = { majors: 2, middles: 4, lessons: 10 }
-// documents 3 + curriculum 1 + exams/bank 3, then 3/lesson, 2/middle, 2/major.
 const PLAN_TOTAL = 7 + 3 * 10 + 2 * 4 + 2 * 2
 
 describe("run progress", () => {
@@ -117,8 +99,6 @@ describe("run progress", () => {
   })
 
   it("holds short of 100% while the run is still going, and reaches it when done", () => {
-    // The smallest complete run: one lesson under one middle under one major,
-    // plus the documents, the curriculum, and the two exams and the bank.
     const plan = { majors: 1, middles: 1, lessons: 1 }
     const every = [
       "validate_documents",

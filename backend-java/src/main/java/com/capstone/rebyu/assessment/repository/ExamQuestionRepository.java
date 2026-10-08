@@ -19,15 +19,6 @@ public interface ExamQuestionRepository extends JpaRepository<ExamQuestion, Long
     @Modifying
     void deleteByExam_ExamId(Long examId);
 
-    /**
-     * Every listed exam's question ids in a single query, in display order.
-     *
-     * <p>The list endpoint used to call {@link #findByExam_ExamIdOrderByDisplayOrderAsc}
-     * once per exam to fill in each DTO's questionIds -- one query per row, on
-     * the response the admin certification page waits for before it can draw a
-     * single assessment. Selecting the two ids directly also keeps the read off
-     * the Question entity, so no question row is loaded just to read its key.
-     */
     @Query("""
             SELECT eq.exam.examId AS examId, eq.question.questionId AS questionId
             FROM ExamQuestion eq
@@ -36,7 +27,6 @@ public interface ExamQuestionRepository extends JpaRepository<ExamQuestion, Long
             """)
     List<ExamQuestionIdView> findQuestionIdsByExamIds(@Param("examIds") Collection<Long> examIds);
 
-    /** Projection for {@link #findQuestionIdsByExamIds}. */
     interface ExamQuestionIdView {
         Long getExamId();
 

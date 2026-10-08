@@ -25,25 +25,23 @@ import { useChartTheme } from "@/components/charts/rebyu-charts.jsx"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { getDepartmentAbbreviation } from "@/constants/departments.js"
 
-// Warm & natural Earth Tone Palette
 const EARTH_TONE_PALETTE = [
-  "#2f6b4f", // Deep Forest Green
-  "#c8553d", // Rust Terracotta
-  "#c9962b", // Warm Ochre Amber
-  "#8b5f7d", // Muted Plum / Earth Violet
-  "#4a7c59", // Moss Green
-  "#b06d3b", // Warm Clay
-  "#5c6b73", // Slate Mineral Grey
-  "#bc4749", // Brick Red
-  "#606c38", // Olive Earth
-  "#b08968", // Sand Taupe
+  "#2f6b4f",
+  "#c8553d",
+  "#c9962b",
+  "#8b5f7d",
+  "#4a7c59",
+  "#b06d3b",
+  "#5c6b73",
+  "#bc4749",
+  "#606c38",
+  "#b08968",
 ]
 
 const DEPARTMENT_PALETTE = EARTH_TONE_PALETTE
 const SLOTS_PALETTE = EARTH_TONE_PALETTE
-const REACH_COLOR = "#2f6b4f" // Earth forest green base
+const REACH_COLOR = "#2f6b4f"
 
-// Smooth directional slide & cross-fade variants for drill-down levels
 const levelVariants = {
   enter: (dir = 1) => ({
     opacity: 0,
@@ -92,10 +90,10 @@ function getInitials(name = "") {
 
 function getProgressTierColor(val) {
   const p = Number(val) || 0
-  if (p <= 25) return "#eb6b56" // Coral Red for 0–25%
-  if (p <= 50) return "#f5a623" // Amber for 26–50%
-  if (p <= 75) return "#3898c6" // Blue for 51–75%
-  return "#3caea3" // Emerald/Teal for 76–100%
+  if (p <= 25) return "#eb6b56"
+  if (p <= 50) return "#f5a623"
+  if (p <= 75) return "#3898c6"
+  return "#3caea3"
 }
 
 function DepartmentDetailsFixedCard({ item, onClick, onMouseEnter, onMouseLeave }) {
@@ -105,7 +103,6 @@ function DepartmentDetailsFixedCard({ item, onClick, onMouseEnter, onMouseLeave 
     .replace(/\s+/g, " ")
     .trim()
 
-  // Remove "College of " prefix to maximize space for the department name
   const title = rawTitle.replace(/^College of\s+/i, "")
 
   const sliceFill = item.fill || item.deptFill || item.certFill || "#2f6b4f"
@@ -161,27 +158,16 @@ function DepartmentDetailsFixedCard({ item, onClick, onMouseEnter, onMouseLeave 
   )
 }
 
-/**
- * The ring's denominator.
- *
- * A department with no slot allotment still has people in it, so its slice is
- * sized by the enrollments themselves -- not by the ten seats this card used to
- * invent for it, which put a capacity on screen that no row anywhere held.
- * `slotsKnown` travels alongside so a label can say which of the two it is
- * looking at.
- */
 function capacityOf(allotted, enrolled) {
   return Number(allotted) > 0 ? Number(allotted) : enrolled
 }
 
-/** Reach against a real allotment only; null where there is none to reach. */
 function reachOf(allotted, enrolled) {
   return Number(allotted) > 0
     ? Math.min(Math.round((enrolled / Number(allotted)) * 100), 100)
     : null
 }
 
-/** What a slice says on hover -- honest about a capacity nobody allotted. */
 function sliceTitle(item) {
   const heads = `${item.enrolled} enrolled`
   return item.slotsKnown
@@ -189,20 +175,10 @@ function sliceTitle(item) {
     : `${item.name} — ${heads}, no slot allotment`
 }
 
-/** One key for both cases, so "not in a department" groups like any other. */
 function deptKey(departmentId) {
   return departmentId == null ? "unassigned" : String(departmentId)
 }
 
-/**
- * Departments, their certifications and their learners, drilled into.
- *
- * Every figure comes from the institution dashboard payload, which counts them
- * from the rows server-side. This card used to assemble them from four separate
- * reads and paper over the seams: a department with no allotment was drawn as
- * ten slots, and "average score" fell back to average progress, which is a
- * different measurement wearing the same label.
- */
 export default function InstitutionDrilldownStatsCard({
   certifications = [],
   departments = [],
@@ -212,7 +188,6 @@ export default function InstitutionDrilldownStatsCard({
   const chartTheme = useChartTheme()
   const isMobile = useIsMobile()
 
-  // Navigation state: Level 1 (Departments) -> 2 (Certifications) -> 3 (Slots vs Enrolled) -> 4 (Learner Progress)
   const [currentLevel, setCurrentLevel] = useState(1)
   const prevLevelRef = useRef(1)
   const direction = currentLevel >= prevLevelRef.current ? 1 : -1
@@ -224,7 +199,6 @@ export default function InstitutionDrilldownStatsCard({
   const [selectedDepartment, setSelectedDepartment] = useState(null)
   const [selectedCertification, setSelectedCertification] = useState(null)
 
-  // Interactive Hover state for Dual Rings
   const [hoveredDept, setHoveredDept] = useState(null)
   const [hoveredCert, setHoveredCert] = useState(null)
   const [hoveredStatDept, setHoveredStatDept] = useState(null)
@@ -232,7 +206,6 @@ export default function InstitutionDrilldownStatsCard({
   const [hoveredStatMetric, setHoveredStatMetric] = useState(null)
   const [isCardHovered, setIsCardHovered] = useState(false)
 
-  // Exit grace timers to prevent micro-flicker
   const deptHoverTimeoutRef = useRef(null)
   const certHoverTimeoutRef = useRef(null)
 
@@ -284,8 +257,6 @@ export default function InstitutionDrilldownStatsCard({
   }, [])
 
 
-  // LEVEL 1: Slots & enrolled learners per department
-  // Inner Pie = the department's capacity | Outer Ring = its enrolled reach
   const level1Data = useMemo(() => {
     return departments
       .map((dept, index) => {
@@ -299,8 +270,8 @@ export default function InstitutionDrilldownStatsCard({
           name: dept.name,
           institutionCertId: dept.institutionCertId ?? null,
           certificationTitle: dept.certificationTitle,
-          value: capacity, // inner pie slice
-          allottedSlots: capacity, // the outer ring's denominator, so both agree
+          value: capacity,
+          allottedSlots: capacity,
           slotsKnown: allotted > 0,
           enrolled,
           reachPct: reachOf(allotted, enrolled),
@@ -333,10 +304,7 @@ export default function InstitutionDrilldownStatsCard({
       : 0
   }, [totalLevel1Slots, totalLevel1Enrolled])
 
-  // Outer indicator reach data exclusive to hovered department's inner slice
-  // OR displays outer arcs across ALL departments when hovering an average metric (e.g. Avg Enrollees)
   const level1OuterData = useMemo(() => {
-    // Case 1: Hovering an average metric (Avg Enrollees, Avg Certified, Avg In-Progress, Avg Score)
     if (hoveredStatMetric) {
       const segments = []
       let fillColor = REACH_COLOR
@@ -412,7 +380,6 @@ export default function InstitutionDrilldownStatsCard({
       return segments
     }
 
-    // Case 2: Hovering an individual department row in Stats
     if (hoveredStatDept) {
       const segments = []
       level1Data.forEach((dept) => {
@@ -420,7 +387,6 @@ export default function InstitutionDrilldownStatsCard({
         const isTarget = dept.id === hoveredStatDept.id
 
         if (!isTarget) {
-          // Transparent placeholder to preserve exact angular alignment
           segments.push({
             id: dept.id,
             name: `${dept.name} Placeholder`,
@@ -439,7 +405,6 @@ export default function InstitutionDrilldownStatsCard({
           const deptColor = dept.fill || REACH_COLOR
           const deptTrack = hexToRgba(deptColor, 0.18)
 
-          // Enrolled arc segment (exclusive to this hovered department, matching its color)
           if (enrolled > 0) {
             segments.push({
               id: dept.id,
@@ -455,7 +420,6 @@ export default function InstitutionDrilldownStatsCard({
             })
           }
 
-          // Unfilled remaining slots segment (transparent placeholder to preserve alignment)
           if (remaining > 0) {
             segments.push({
               id: dept.id,
@@ -475,11 +439,9 @@ export default function InstitutionDrilldownStatsCard({
       return segments
     }
 
-    // Case 3: Idle state (nothing hovered)
     return []
   }, [level1Data, hoveredStatDept, hoveredStatMetric])
 
-  // Center display values
   const activeLevel1ReachPct = hoveredDept
     ? hoveredDept.reachPct
     : overallLevel1ReachPct
@@ -490,7 +452,6 @@ export default function InstitutionDrilldownStatsCard({
     ? hoveredDept.enrolled
     : totalLevel1Enrolled
 
-  // LEVEL 2: Certifications in the Selected Department
   const level2Data = useMemo(() => {
     if (!selectedDepartment) return []
 
@@ -523,10 +484,6 @@ export default function InstitutionDrilldownStatsCard({
       .map((entry, index) => {
         const enrolled = entry.learnerIds.size
 
-        /* The department's own allotment when this is the certification it was
-           carved out of. Otherwise the institution's whole allotment for that
-           certification, which is the only capacity the "not in a department"
-           grouping can honestly be measured against. */
         const allotted =
           selectedDepartment.slotsKnown &&
           selectedDepartment.institutionCertId != null &&
@@ -560,8 +517,8 @@ export default function InstitutionDrilldownStatsCard({
           title: entry.title,
           rows: entry.rows,
           learnerIds: entry.learnerIds,
-          value: capacity, // inner pie slice = the capacity it is measured against
-          allottedSlots: capacity, // the outer ring's denominator, so both agree
+          value: capacity,
+          allottedSlots: capacity,
           slotsKnown: allotted > 0,
           enrolled,
           reachPct: reachOf(allotted, enrolled),
@@ -591,10 +548,7 @@ export default function InstitutionDrilldownStatsCard({
       : 0
   }, [totalLevel2Slots, totalLevel2Enrolled])
 
-  // Outer indicator reach data exclusive to hovered certification's inner slice
-  // OR displays outer arcs across ALL certifications when hovering an average metric (e.g. Avg Enrollees)
   const level2OuterData = useMemo(() => {
-    // Case 1: Hovering an average metric in Level 2
     if (hoveredStatMetric) {
       const segments = []
       let fillColor = REACH_COLOR
@@ -670,7 +624,6 @@ export default function InstitutionDrilldownStatsCard({
       return segments
     }
 
-    // Case 2: Hovering an individual certification row in Level 2 Stats
     if (hoveredStatCert) {
       const segments = []
       level2Data.forEach((cert) => {
@@ -680,7 +633,6 @@ export default function InstitutionDrilldownStatsCard({
           (cert.institutionCertId || cert.certificationId)
 
         if (!isTarget) {
-          // Transparent placeholder to preserve exact angular alignment
           segments.push({
             id: cert.institutionCertId || cert.certificationId,
             name: `${cert.name} Placeholder`,
@@ -733,7 +685,6 @@ export default function InstitutionDrilldownStatsCard({
       return segments
     }
 
-    // Case 3: Idle
     return []
   }, [level2Data, hoveredStatCert, hoveredStatMetric])
 
@@ -747,14 +698,10 @@ export default function InstitutionDrilldownStatsCard({
     ? hoveredCert.enrolled
     : totalLevel2Enrolled
 
-  // LEVEL 3 & 4: Selected Certification Stats & Learners
   const level3Data = useMemo(() => {
     if (!selectedCertification) return null
 
     const rows = selectedCertification.rows ?? []
-    /* Only a real allotment is a capacity. Where the department has none, the
-       anatomy below has nothing to divide into filled and remaining seats, and
-       `slotsKnown` is what lets it say so instead of inventing a denominator. */
     const totalSlots = selectedCertification.slotsKnown
       ? Number(selectedCertification.allottedSlots ?? 0)
       : 0
@@ -783,8 +730,6 @@ export default function InstitutionDrilldownStatsCard({
         const progress = Math.min(Math.max(Math.round(Number(row.progress ?? 0)), 0), 100)
         return {
           learnerId: row.learnerId,
-          // One row per enrollment, and this list is always inside a single
-          // certification, so the pair is unique.
           assignmentId: `${row.learnerId}-${row.institutionCertId}`,
           name: row.name,
           detail: row.lastActivityAt
@@ -800,7 +745,6 @@ export default function InstitutionDrilldownStatsCard({
       .sort((a, b) => b.progress - a.progress)
   }, [selectedCertification])
 
-  // Distribution buckets for Level 4
   const progressBuckets = useMemo(() => {
     const buckets = [
       { label: "0–25%", min: 0, max: 25, color: "#eb6b56", count: 0 },
@@ -826,7 +770,6 @@ export default function InstitutionDrilldownStatsCard({
     return Math.round(total / level4Learners.length)
   }, [level4Learners])
 
-  // Summary Stats for Level 1 (Original Mockup Metrics)
   const level1SummaryStats = useMemo(() => {
     const deptCount = level1Data.length || 1
     const totalEnrolled = totalLevel1Enrolled
@@ -848,15 +791,10 @@ export default function InstitutionDrilldownStatsCard({
       certifiedPct,
       avgInProgress: Math.round(inProgressCount / deptCount),
       inProgressPct,
-      /* The institution's average *score* -- graded attempts, weighted by how
-         many there were. This used to fall back to average progress whenever no
-         score was available, which is a different measurement wearing this
-         one's label; unmeasured now says so. */
       avgScore:
         summary.averageScore == null
           ? "—"
           : `${Math.round(Number(summary.averageScore))}%`,
-      // Totals retained for remarks calculation & aliases
       totalEnrolled,
       totalCompleted: certifiedCount,
       totalInProgress: inProgressCount,
@@ -864,7 +802,6 @@ export default function InstitutionDrilldownStatsCard({
     }
   }, [level1Data, totalLevel1Enrolled, totalLevel1Slots, summary])
 
-  // Retain last hovered item so fade-out animation completes smoothly without blanking
   const [lastActiveDept, setLastActiveDept] = useState(null)
   const currentActiveDept = hoveredDept || hoveredStatDept
   useEffect(() => {
@@ -878,7 +815,6 @@ export default function InstitutionDrilldownStatsCard({
   const isLevel1PanelVisible = Boolean(currentActiveDept || isCardHovered)
   const displayLevel1Item = currentActiveDept || lastActiveDept || level1Data[0]
 
-  // Summary Stats for Level 2 (Certification Level)
   const level2SummaryStats = useMemo(() => {
     if (!level2Data.length) {
       return {
@@ -911,9 +847,6 @@ export default function InstitutionDrilldownStatsCard({
         ? Math.min(Math.round((inProgressCount / totalLevel2Slots) * 100), 100)
         : 0
 
-    /* Weighted by enrollment rather than a mean of means: a certification with
-       two learners in it would otherwise count for as much as one with two
-       hundred. */
     const progressWeighted = level2Data.reduce(
       (sum, c) => sum + c.avgProgress * Math.max(c.enrolled, 0),
       0
@@ -930,7 +863,6 @@ export default function InstitutionDrilldownStatsCard({
       inProgress: Math.round(inProgressCount / certCount),
       inProgressPct,
       avgProgress: `${avgProgressVal}%`,
-      // Totals retained for remarks calculation
       totalEnrolled,
       totalCompleted: certifiedCount,
       totalInProgress: inProgressCount,
@@ -938,7 +870,6 @@ export default function InstitutionDrilldownStatsCard({
     }
   }, [level2Data, totalLevel2Slots])
 
-  // Retain last hovered certification so fade-out animation completes smoothly without blanking
   const [lastActiveCert, setLastActiveCert] = useState(null)
   const currentActiveCert = hoveredCert || hoveredStatCert
   useEffect(() => {
@@ -952,7 +883,6 @@ export default function InstitutionDrilldownStatsCard({
   const isLevel2PanelVisible = Boolean(currentActiveCert || isCardHovered)
   const displayLevel2Item = currentActiveCert || lastActiveCert || level2Data[0]
 
-  // Dynamic Remarks Content per Level (Executive Diagnostic Intelligence)
   const remarksData = useMemo(() => {
     if (currentLevel === 1) {
       if (!level1Data.length || totalLevel1Enrolled === 0) {
@@ -1103,7 +1033,6 @@ export default function InstitutionDrilldownStatsCard({
     selectedCertification,
   ])
 
-  // Handlers for Drill-Down
   const handleSelectDepartment = (dept) => {
     setSelectedDepartment(dept)
     setHoveredDept(null)
@@ -1145,7 +1074,6 @@ export default function InstitutionDrilldownStatsCard({
 
   return (
     <div className="flex h-full min-h-[320px] w-full flex-col justify-between">
-      {/* ----------------- Header & Breadcrumbs ----------------- */}
       <div className="space-y-2 border-b border-border/60 pb-2.5 mb-1">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -1209,7 +1137,6 @@ export default function InstitutionDrilldownStatsCard({
           </div>
         </div>
 
-        {/* Breadcrumb Trail */}
         <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground pt-1 border-t border-border/40">
           <button
             type="button"
@@ -1275,11 +1202,9 @@ export default function InstitutionDrilldownStatsCard({
         </div>
       </div>
 
-      {/* ----------------- Body Content Per Level ----------------- */}
       <div className="relative min-h-0 flex-1 overflow-hidden py-2">
         <AnimatePresence mode="wait" custom={direction}>
             {currentLevel === 1 ? (
-              /* LEVEL 1: Dual-Ring Concentric Pie (Slots + Enrolled Reach) */
               <motion.div
                 key="level-1"
                 custom={direction}
@@ -1298,13 +1223,11 @@ export default function InstitutionDrilldownStatsCard({
               </div>
             ) : (
               <div className="grid h-full grid-cols-1 items-center gap-4 sm:grid-cols-12">
-                {/* Left Column: Concentric Dual-Ring Chart (sm:col-span-7 preserves original distance) */}
                 <div className="relative flex h-[285px] w-full shrink-0 items-center justify-center sm:h-[305px] sm:col-span-7">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Tooltip content={() => null} cursor={false} />
 
-                      {/* Outer Indicator Pie (Only appears if the text on Stats is hovered) */}
                       {level1OuterData.length > 0 && (
                         <Pie
                           data={level1OuterData}
@@ -1329,7 +1252,6 @@ export default function InstitutionDrilldownStatsCard({
                         </Pie>
                       )}
 
-                      {/* Inner Pie: Total Slots Allotted to Departments (No outline, no outer shadow) */}
                       <Pie
                         data={level1Data}
                         dataKey="value"
@@ -1370,7 +1292,6 @@ export default function InstitutionDrilldownStatsCard({
                     </PieChart>
                   </ResponsiveContainer>
 
-                  {/* Donut Center: Inner Shadow Circular Plate Filling Inner Space */}
                   <div
                     className="pointer-events-none absolute flex flex-col items-center justify-center px-1 text-center"
                     style={{
@@ -1411,7 +1332,6 @@ export default function InstitutionDrilldownStatsCard({
                     </div>
                   </div>
 
-                  {/* Fixed Details Card (Positioned to the left of the donut circle with zero overlap) */}
                   <div
                     className={`absolute top-1 sm:top-2 left-1 sm:left-1.5 z-20 hidden sm:block transition-all duration-300 ease-in-out ${
                       isLevel1PanelVisible
@@ -1428,7 +1348,6 @@ export default function InstitutionDrilldownStatsCard({
                   </div>
                 </div>
 
-                {/* Mobile View for Details Card */}
                 <div
                   className={`block sm:hidden transition-all duration-500 ease-in-out overflow-hidden w-full flex justify-center ${
                     isLevel1PanelVisible
@@ -1444,7 +1363,6 @@ export default function InstitutionDrilldownStatsCard({
                   />
                 </div>
 
-                {/* Right Column: Stats Layout */}
                 <div className="flex flex-col justify-center pl-1 sm:col-span-5">
                   <h4 className="font-rb-display text-base font-bold text-foreground">
                     Stats
@@ -1453,7 +1371,6 @@ export default function InstitutionDrilldownStatsCard({
                     Enrolled per Department
                   </p>
 
-                  {/* Departments List: 5 rows x 2 cols (No scrollbar) */}
                   <div className="grid grid-flow-col grid-rows-5 gap-x-2 gap-y-1 w-[220px] sm:w-[230px]">
                     {level1Data.map((item) => {
                       const isHovered = hoveredDept?.id === item.id
@@ -1480,7 +1397,6 @@ export default function InstitutionDrilldownStatsCard({
                           >
                             {item.enrolled}
                           </span>
-                          {/* Reference Infographic Open-Ring Marker */}
                           <span
                             className="size-2.5 shrink-0 rounded-full border-2 bg-transparent transition-transform group-hover:scale-125"
                             style={{ borderColor: item.fill }}
@@ -1499,10 +1415,8 @@ export default function InstitutionDrilldownStatsCard({
                     })}
                   </div>
 
-                  {/* Divider */}
                   <div className="my-2 w-[220px] sm:w-[230px] border-t border-border/50" />
 
-                  {/* Averages Section (Interactive Metric Hover) */}
                   <div className="space-y-1 text-xs">
                     <button
                       type="button"
@@ -1594,7 +1508,6 @@ export default function InstitutionDrilldownStatsCard({
             )}
               </motion.div>
             ) : currentLevel === 2 ? (
-              /* LEVEL 2: Department Certifications Dual-Ring Chart */
               <motion.div
                 key="level-2"
                 custom={direction}
@@ -1621,13 +1534,11 @@ export default function InstitutionDrilldownStatsCard({
               </div>
             ) : (
               <div className="grid h-full grid-cols-1 items-center gap-4 sm:grid-cols-12">
-                {/* Left Column: Concentric Dual-Ring Chart (sm:col-span-7 preserves original distance) */}
                 <div className="relative flex h-[285px] w-full shrink-0 items-center justify-center sm:h-[305px] sm:col-span-7">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Tooltip content={() => null} cursor={false} />
 
-                      {/* Outer Indicator Pie (Only appears if the text on Stats is hovered) */}
                       {level2OuterData.length > 0 && (
                         <Pie
                           data={level2OuterData}
@@ -1652,7 +1563,6 @@ export default function InstitutionDrilldownStatsCard({
                         </Pie>
                       )}
 
-                      {/* Inner Pie: Allotted Slots per Certification (No outline, no outer shadow) */}
                       <Pie
                         data={level2Data}
                         dataKey="value"
@@ -1695,7 +1605,6 @@ export default function InstitutionDrilldownStatsCard({
                     </PieChart>
                   </ResponsiveContainer>
 
-                  {/* Donut Center: Inner Shadow Circular Plate Filling Inner Space */}
                   <div
                     className="pointer-events-none absolute flex flex-col items-center justify-center px-1 text-center"
                     style={{
@@ -1736,7 +1645,6 @@ export default function InstitutionDrilldownStatsCard({
                     </div>
                   </div>
 
-                  {/* Fixed Details Card (Positioned to the left of the donut circle with zero overlap) */}
                   <div
                     className={`absolute top-1 sm:top-2 left-1 sm:left-1.5 z-20 hidden sm:block transition-all duration-300 ease-in-out ${
                       isLevel2PanelVisible
@@ -1753,7 +1661,6 @@ export default function InstitutionDrilldownStatsCard({
                   </div>
                 </div>
 
-                {/* Mobile View for Details Card */}
                 <div
                   className={`block sm:hidden transition-all duration-500 ease-in-out overflow-hidden w-full flex justify-center ${
                     isLevel2PanelVisible
@@ -1769,7 +1676,6 @@ export default function InstitutionDrilldownStatsCard({
                   />
                 </div>
 
-                {/* Right Column: Certifications Layout */}
                 <div className="flex flex-col justify-center pl-1 sm:col-span-5">
                   <h4 className="font-rb-display text-base font-bold text-foreground">
                     Stats
@@ -1778,7 +1684,6 @@ export default function InstitutionDrilldownStatsCard({
                     Enrolled per Certification
                   </p>
 
-                  {/* Certifications List (Number on Left, Name on Right) */}
                   <div className="max-h-[130px] space-y-1 overflow-y-auto pr-1">
                     {level2Data.map((item) => {
                       const isHovered =
@@ -1808,7 +1713,6 @@ export default function InstitutionDrilldownStatsCard({
                           >
                             {item.enrolled}
                           </span>
-                          {/* Reference Infographic Open-Ring Marker */}
                           <span
                             className="size-2.5 shrink-0 rounded-full border-2 bg-transparent transition-transform group-hover:scale-125"
                             style={{ borderColor: item.fill }}
@@ -1827,10 +1731,8 @@ export default function InstitutionDrilldownStatsCard({
                     })}
                   </div>
 
-                  {/* Divider */}
                   <div className="my-2 w-[220px] sm:w-[240px] border-t border-border/50" />
 
-                  {/* Dept Averages (Interactive Metric Hover) */}
                   <div className="space-y-1 text-xs">
                     <button
                       type="button"
@@ -1922,7 +1824,6 @@ export default function InstitutionDrilldownStatsCard({
             )}
               </motion.div>
             ) : currentLevel === 3 ? (
-              /* LEVEL 3: Capacity & Utilization Analytics Command Center */
               (() => {
                 const total = level3Data?.totalSlots || 0
                 const enrolled = level3Data?.enrolledInDept || 0
@@ -1946,9 +1847,7 @@ export default function InstitutionDrilldownStatsCard({
                     exit="exit"
                     className="flex h-full flex-col justify-between space-y-3"
                   >
-                {/* Overview Stats Row (Analytical Telemetry with 3D Object Image Backgrounds) */}
                 <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
-                  {/* Total Seat Pool (Auditorium seat object on right, warm amber gradient waves) */}
                   <div
                     className="relative overflow-hidden rounded-xl border border-amber-500/35 bg-cover bg-right p-2.5 sm:p-3 shadow-xs transition-transform hover:scale-[1.02]"
                     style={{ backgroundImage: "url('/images/cards/seat-pool-card-bg.jpg')" }}
@@ -1967,7 +1866,6 @@ export default function InstitutionDrilldownStatsCard({
                     </div>
                   </div>
 
-                  {/* Department Enrolled (Student character on right, emerald green gradient waves) */}
                   <div
                     className="relative overflow-hidden rounded-xl border border-emerald-500/35 bg-cover bg-right p-2.5 sm:p-3 shadow-xs transition-transform hover:scale-[1.02]"
                     style={{ backgroundImage: "url('/images/cards/dept-enrolled-card-bg.jpg')" }}
@@ -1986,7 +1884,6 @@ export default function InstitutionDrilldownStatsCard({
                     </div>
                   </div>
 
-                  {/* Unclaimed Pool Remaining (Vacant seat & golden pass on right, royal blue gradient waves) */}
                   <div
                     className="relative overflow-hidden rounded-xl border border-blue-500/35 bg-cover bg-right p-2.5 sm:p-3 shadow-xs transition-transform hover:scale-[1.02]"
                     style={{ backgroundImage: "url('/images/cards/unclaimed-seats-card-bg.jpg')" }}
@@ -2006,7 +1903,6 @@ export default function InstitutionDrilldownStatsCard({
                   </div>
                 </div>
 
-                {/* Visual Capacity & Cohort Readiness Panel */}
                 <div className="rounded-2xl border border-border/80 bg-card/90 p-3.5 shadow-xs space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -2023,7 +1919,6 @@ export default function InstitutionDrilldownStatsCard({
                     </Badge>
                   </div>
 
-                  {/* Segmented Capacity Stacked Bar */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
                       <span>Seat Allocation Anatomy</span>
@@ -2064,7 +1959,6 @@ export default function InstitutionDrilldownStatsCard({
                     </div>
                   </div>
 
-                  {/* Legend & Breakdown */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 border-t border-border/50 text-[10px]">
                     <div className="flex items-center gap-1.5">
                       <span className="size-2 shrink-0 rounded-full bg-[#3caea3]" />
@@ -2088,7 +1982,6 @@ export default function InstitutionDrilldownStatsCard({
                     </div>
                   </div>
 
-                  {/* Cohort Performance Telemetry Strip */}
                   <div className="flex items-center justify-between rounded-lg bg-muted/40 px-2.5 py-1.5 text-xs">
                     <div className="flex items-center gap-2">
                       <GraduationCap className="size-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -2104,7 +1997,6 @@ export default function InstitutionDrilldownStatsCard({
                   </div>
                 </div>
 
-                {/* Single Dedicated Primary Action Button */}
                 <Button
                   type="button"
                   onClick={() => setCurrentLevel(4)}
@@ -2118,7 +2010,6 @@ export default function InstitutionDrilldownStatsCard({
                 )
               })()
             ) : (
-              /* LEVEL 4: Learner Progress Breakdown */
               <motion.div
                 key="level-4"
                 custom={direction}
@@ -2128,7 +2019,6 @@ export default function InstitutionDrilldownStatsCard({
                 exit="exit"
                 className="flex h-full flex-col justify-between space-y-2.5"
               >
-            {/* Top Summary: Segmented Distribution Bar */}
             <div className="rounded-xl border border-border bg-muted/40 p-2.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -2139,7 +2029,6 @@ export default function InstitutionDrilldownStatsCard({
                 </span>
               </div>
 
-              {/* Cohort Average Progress Bar */}
               <div className="relative mt-2 h-2.5 w-full overflow-hidden rounded-full bg-muted/80 ring-1 ring-border/50">
                 <div
                   style={{
@@ -2148,13 +2037,11 @@ export default function InstitutionDrilldownStatsCard({
                   }}
                   className="h-full rounded-full transition-all duration-500 shadow-xs"
                 />
-                {/* Milestone quadrant divider guides at 25%, 50%, 75% */}
                 <div className="absolute inset-y-0 left-1/4 w-[1px] bg-background/70 pointer-events-none" />
                 <div className="absolute inset-y-0 left-2/4 w-[1px] bg-background/70 pointer-events-none" />
                 <div className="absolute inset-y-0 left-3/4 w-[1px] bg-background/70 pointer-events-none" />
               </div>
 
-              {/* Distribution Legend */}
               <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1.5 text-[10px] text-muted-foreground">
                 {progressBuckets.map((b) => (
                   <span
@@ -2176,7 +2063,6 @@ export default function InstitutionDrilldownStatsCard({
               </div>
             </div>
 
-            {/* Scrollable Learner Roster */}
             <div className="min-h-0 flex-1 overflow-y-auto pr-1">
               {level4Learners.length === 0 ? (
                 <p className="py-6 text-center text-xs text-muted-foreground">
@@ -2229,7 +2115,6 @@ export default function InstitutionDrilldownStatsCard({
         </AnimatePresence>
       </div>
 
-      {/* ----------------- Remarks Box (Executive Diagnostic Intelligence) ----------------- */}
       {currentLevel !== 4 && (
         <div className="mt-1.5 rounded-lg border border-amber-500/35 bg-amber-500/[0.08] px-3 py-1.5 text-[11px] shadow-xs dark:border-amber-500/30 dark:bg-amber-950/30">
           <div className="flex items-start gap-2">

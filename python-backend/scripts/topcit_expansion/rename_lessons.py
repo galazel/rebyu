@@ -24,7 +24,6 @@ from sqlalchemy import text
 
 from app.db.session import SessionLocal
 
-#: (lesson_id, old name, new name)
 RENAMES = [
     (401,
      "Quality Assurance and Testing",
@@ -73,9 +72,6 @@ def main():
                      where exam_id = :e"""),
                     {"t": title.replace(old_name, new_name), "e": exam_id})
 
-            # The lesson's own name is also the first section of its component
-            # structure, which is what the lesson page renders as its title.
-            # Leaving that behind would show the old name on the page itself.
             structure = db.execute(text(
                 "select lesson_component_structure from public.lessons "
                 "where lesson_id = :i"), {"i": lesson_id}).scalar()

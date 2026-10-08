@@ -46,8 +46,6 @@ from dbsession import open_session
 
 PARSED_DIR = "/app/scripts/fe_papers/parsed/"
 
-#: Below this the embedding mapper is guessing rather than recognising, and
-#: the question is imported only when --allow-weak is passed.
 WEAK_SCORE = 0.25
 
 
@@ -61,8 +59,6 @@ def citation(record):
         elif paper.endswith("_PM"):
             subject = "Afternoon"
         else:
-            # Both "FE-A" and the older "_AM" naming are the morning paper,
-            # which the terms' example cites as Subject-A.
             subject = "Subject-A"
         reference = "(%s, FE, %s, Q%d)" % (season, subject, record["number"])
     else:
@@ -94,9 +90,6 @@ def import_paper(db, name, allow_weak):
         if not record.get("answer"):
             broken += 1
             continue
-        # Subject A and IP are always four options; Subject B answer groups
-        # run to ten. The invariant that matters is not the count but that
-        # the key names an option that was actually parsed.
         if not 2 <= len(record["choices"]) <= 10:
             broken += 1
             continue
@@ -106,7 +99,6 @@ def import_paper(db, name, allow_weak):
         if not record.get("lesson_id"):
             broken += 1
             continue
-        # A choice with no text is only acceptable when it carries a picture.
         images = record.get("choice_images") or {}
         if any(not value.strip() and letter not in images
                for letter, value in record["choices"].items()):
@@ -134,8 +126,6 @@ def import_paper(db, name, allow_weak):
             values (:t, 'MCQ', :d, :l, :k, now())
             returning question_id"""), {
             "t": stem,
-            # Past papers carry no difficulty label. AVERAGE is the honest
-            # default: claiming EASY or HARD per question would be invention.
             "d": "AVERAGE",
             "l": record["lesson_id"],
             "k": record.get("image_key"),
@@ -150,9 +140,6 @@ def import_paper(db, name, allow_weak):
                 values (:c, :ok, :e, :k, :q)"""), {
                 "c": record["choices"][letter] or "",
                 "ok": letter == record["answer"],
-                # The papers publish an answer key, not a rationale, so there
-                # is nothing to put here. Inventing one would attribute
-                # reasoning to ITPEC that it never published.
                 "e": None,
                 "k": images.get(letter),
                 "q": question_id,

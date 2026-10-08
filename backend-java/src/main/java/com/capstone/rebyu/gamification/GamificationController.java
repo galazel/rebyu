@@ -31,7 +31,6 @@ public class GamificationController {
         return rewards.leaderboard(me(jwt), scope, period);
     }
 
-    // Converting coins into AI credits was removed from the product.
 
     private Long me(Jwt jwt) {
         if (jwt == null) throw new IllegalArgumentException("Authentication is required");

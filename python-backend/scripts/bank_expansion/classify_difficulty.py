@@ -73,12 +73,8 @@ from dbsession import open_session
 
 LEVELS = ("EASY", "AVERAGE", "HARD")
 
-#: Questions per model call. Big enough that the definitions are not re-sent
-#: for every item, small enough that one malformed reply costs little.
 BATCH = 25
 
-#: How much of a stem to show. A past-paper stem plus its citation runs long,
-#: and the difficulty is decided by what is being asked, which is at the front.
 STEM_CHARS = 700
 
 SYSTEM = """You judge how hard exam questions are. You are given questions
@@ -107,15 +103,8 @@ def has_source_column(db):
 
 
 def fetch(db, cert, only_unjudged, limit):
-    # On a dry run before the column exists, nothing can have been judged yet,
-    # so the "skip what is already done" filter has nothing to filter and is
-    # dropped rather than referencing a column that is not there.
     if only_unjudged and not has_source_column(db):
         only_unjudged = False
-    # Built into the SQL rather than passed as a parameter: Postgres plans the
-    # whole statement before it evaluates anything, so a column named in a
-    # branch that can never run still has to exist. Parameterising this is what
-    # made a dry run fail on a database the script had not yet migrated.
     unjudged_only = "and q.difficulty_source is null" if only_unjudged else ""
     rows = db.execute(text(f"""
         select q.question_id, q.question_text, q.difficulty_level
@@ -155,8 +144,6 @@ async def judge(llm, batch):
             level = str(item["difficulty"]).strip().upper()
         except (KeyError, TypeError, ValueError):
             continue
-        # A level outside the three is dropped rather than coerced: coercing
-        # it to AVERAGE is exactly the failure this script exists to undo.
         if qid in known and level in LEVELS:
             out[qid] = level
     return out
@@ -228,8 +215,6 @@ async def main():
             print("nothing left to judge for certification %d" % args.cert)
             return
 
-        # The cheap instruction model: this is a three-way classification
-        # against definitions supplied in the prompt, not authoring.
         llm = get_llm("grading")
         print("judging %d questions in batches of %d\n" % (len(pending), BATCH))
 
