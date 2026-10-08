@@ -283,6 +283,7 @@ export function LessonKnowledgeCheck({ open, lessonId, learnerId, itemCount, les
   return (
     <AlertDialog open={open}>
       <AlertDialogContent
+        data-no-snip
         className={cn(phase === "playing" || phase === "submitting" || phase === "result" ? "sm:max-w-4xl sm:p-8" : null)}
         /* Both suppressed deliberately -- see the class comment. */
         onEscapeKeyDown={(event) => event.preventDefault()}

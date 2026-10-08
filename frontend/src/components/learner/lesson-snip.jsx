@@ -57,6 +57,11 @@ function textInside(root, rect) {
   return parts.join(" ").replace(/\s+/g, " ").trim().slice(0, MAX_QUOTE)
 }
 
+/** Areas a snip may not include -- quizzes and checks -- marked `data-no-snip`. */
+function touchesNoSnip(rect) {
+  return [...document.querySelectorAll("[data-no-snip]")].some((el) => intersects(el.getBoundingClientRect(), rect))
+}
+
 /** The smallest element under `root` that holds all of `rect`. */
 function containerOf(root, rect) {
   const cx = (rect.left + rect.right) / 2
@@ -178,6 +183,11 @@ export function LessonSnipOverlay({ target, onCapture, onCancel }) {
       onCancel()
       return
     }
+    if (touchesNoSnip(rect)) {
+      toast.error("Quizzes and checks can't be sent to the AI tutor.")
+      onCancel()
+      return
+    }
     setBusy(true)
     const quote = textInside(root, rect)
     let image = null
@@ -269,7 +279,9 @@ export function SelectionAskButton({ target, onAsk }) {
       const selection = window.getSelection()
       const root = target?.current
       const text = selection?.toString().trim() ?? ""
-      if (!root || !selection?.rangeCount || text.length < 3 || !root.contains(selection.anchorNode)) {
+      const node = selection?.anchorNode
+      const inNoSnip = (node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement)?.closest("[data-no-snip]")
+      if (!root || !selection?.rangeCount || text.length < 3 || !root.contains(node) || inNoSnip) {
         setAnchor(null)
         return
       }

@@ -1196,7 +1196,8 @@ function QuizBand({ quiz, taken, standing, latest, best }) {
      roadmap. */
   const location = useLocation()
   return (
-    <section id={`quiz-${quiz.examId}`} className="scroll-mt-8 bg-rb-bee px-5 py-12 sm:px-10 lg:px-14">
+    // data-no-snip: a quiz is not something to hand the AI tutor.
+    <section id={`quiz-${quiz.examId}`} data-no-snip className="scroll-mt-8 bg-rb-bee px-5 py-12 sm:px-10 lg:px-14">
       <div className="w-full">
         <Reveal amount={0.2}>
           <p className="font-rb-display text-2xl font-extrabold text-white">Test your skills</p>
@@ -2162,7 +2163,9 @@ export default function LearnerTopicPage() {
       {/* Asking the tutor about part of the lesson -- only on a lesson, where
           the tutor is offered at all. Selecting text shows "Ask AI tutor";
           the snip tool takes a box of anything, diagrams and tables included. */}
-      {active?.kind === "lesson" ? (
+      {/* Not while the knowledge check is up: its questions are to be answered,
+          not handed to the tutor. */}
+      {active?.kind === "lesson" && !knowledgeCheck.offer ? (
         <>
           <SelectionAskButton target={readingRef} onAsk={askTutorAbout} />
           {snipping ? (

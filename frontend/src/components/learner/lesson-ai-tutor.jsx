@@ -1165,6 +1165,21 @@ export function LessonAiTutor({
               </DropdownMenuContent>
             </DropdownMenu>
 
+            {onStartSnip ? (
+                <TactileButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="rb-btn-icon shrink-0 self-center"
+                    onClick={() => onStartSnip()}
+                    disabled={pending || Boolean(generating)}
+                    aria-label="Snip part of the lesson"
+                    title="Snip part of the lesson"
+                >
+                  <Crop className="size-4" aria-hidden="true" />
+                </TactileButton>
+            ) : null}
+
             <Textarea
                 ref={draftRef}
                 value={draft}
