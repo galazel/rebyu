@@ -4,7 +4,7 @@ import { API, base } from "./base"
 // caller does). Pass a group id to also mix in that group's own
 // Institution-Member-authored content -- the caller must be able to act on
 // that group (its leader, or the institution owner), enforced server-side.
-export async function getAllCertifications(includeDepartmentId) {
+export async function getAllCertifications(includeDepartmentId, { includeComingSoon = false } = {}) {
     /* Only a real id is forwarded.
      *
      * React Query calls `queryFn` with a context object, so `queryFn:
@@ -22,10 +22,14 @@ export async function getAllCertifications(includeDepartmentId) {
      * blast radius is a 500 on a page that then shows nothing.
      */
     const departmentId = Number(includeDepartmentId)
-    const query = Number.isFinite(departmentId) && includeDepartmentId != null
-        ? `?includeDepartmentId=${departmentId}`
-        : ""
-    return await base(`certifications${query}`)
+    const params = new URLSearchParams()
+    if (Number.isFinite(departmentId) && includeDepartmentId != null) {
+        params.set("includeDepartmentId", String(departmentId))
+    }
+    // Coming-soon certifications: only the request page and the admin list ask.
+    if (includeComingSoon === true) params.set("includeComingSoon", "true")
+    const query = params.toString()
+    return await base(query ? `certifications?${query}` : "certifications")
 }
 
 export async function addCertification(data) {

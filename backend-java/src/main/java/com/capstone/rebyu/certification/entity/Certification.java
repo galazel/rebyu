@@ -72,7 +72,12 @@ public class Certification {
     @Column(name = "badge_image_key", length = 500)
     private String badgeImageKey;
 
+    /**
+     * Stored by ordinal, so new values only ever go at the end.
+     * COMING_SOON: listed on the institution request page so schools can see
+     * what is planned, but not requestable and never shown to learners.
+     */
     public enum CertificationStatus{
-        PUBLISHED, DRAFT
+        PUBLISHED, DRAFT, COMING_SOON
     }
 }

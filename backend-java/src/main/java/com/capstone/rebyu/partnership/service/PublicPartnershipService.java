@@ -122,6 +122,11 @@ public class PublicPartnershipService {
             // Only published certifications (fully built -- lessons, content, and
             // the required assessments -- see CertificationService publish gate)
             // can be inquired about; drafts aren't offered to institutions yet.
+            // COMING_SOON is listed on the request page but not requestable.
+            if (certification.getStatus() == Certification.CertificationStatus.COMING_SOON) {
+                throw new BusinessRuleException.InvalidPartnershipRequestException(
+                        certification.getTitle() + " is coming soon and cannot be requested yet.");
+            }
             if (certification.getStatus() != Certification.CertificationStatus.PUBLISHED) {
                 throw new BusinessRuleException.InvalidPartnershipRequestException(
                         "A selected certification is not yet available for partnership.");

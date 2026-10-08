@@ -37,7 +37,8 @@ function Certifications() {
     refetch,
   } = useQuery({
     queryKey: ["admin-certifications"],
-    queryFn: () => getAllCertifications(),
+    // Admins see the coming-soon placeholders too, to build them out.
+    queryFn: () => getAllCertifications(undefined, { includeComingSoon: true }),
     staleTime: 1000 * 60 * 5,
   })
 

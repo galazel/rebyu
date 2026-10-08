@@ -769,71 +769,63 @@ export function detectDepartment(cert) {
 }
 
 /**
- * Merges backend-provided certifications with the catalog so:
- * 1. Real database certification IDs are preserved.
- * 2. All catalog certifications across departments are accessible.
- * 3. Every certification has balanced, uniform descriptions and course programs.
+ * The request page's list: every certification the backend has that is
+ * published (requestable) or coming soon (shown, not requestable), each dressed
+ * with its catalog entry's college, programs and balanced description.
+ *
+ * The backend decides what exists and whether it can be requested; the catalog
+ * only adds presentation. Matched on the normalized title alone: the catalog's
+ * own ids are placeholders that can collide with real database ids, and the
+ * old partial-title match paired "FE Exam" ("fe") with any title containing
+ * those letters ("lifesupport").
  */
 export function getMergedCertifications(backendCertifications = []) {
-  const publishedBackend = (Array.isArray(backendCertifications) ? backendCertifications : [])
-    .filter((c) => c.status === "PUBLISHED")
+  const listed = (Array.isArray(backendCertifications) ? backendCertifications : []).filter(
+    (c) => c.status === "PUBLISHED" || c.status === "COMING_SOON"
+  )
 
-  // Map catalog items, matching with backend published certs where available
-  const merged = CATALOG_CERTIFICATIONS.map((catalogItem) => {
-    const matchedBackend = publishedBackend.find((b) => {
-      if (b.certificationId === catalogItem.id) return true
-      const bNorm = normalizeTitle(b.title)
-      const cNorm = normalizeTitle(catalogItem.title)
-      return bNorm === cNorm || bNorm.includes(cNorm) || cNorm.includes(bNorm)
-    })
-
-    if (matchedBackend) {
-      return {
-        ...catalogItem,
-        certificationId: matchedBackend.certificationId,
-        backendId: matchedBackend.certificationId,
-        title: matchedBackend.title || catalogItem.title,
-        // Use balanced catalog description rather than oversized DB text blocks
-        description: catalogItem.description || matchedBackend.description,
-        isFromBackend: true,
-      }
-    }
-
+  const merged = listed.map((b) => {
+    const catalogItem = CATALOG_CERTIFICATIONS.find(
+      (item) => normalizeTitle(item.title) === normalizeTitle(b.title)
+    )
+    const dept = catalogItem
+      ? {
+          department: catalogItem.department,
+          departmentName: catalogItem.departmentName,
+          departmentCode: catalogItem.departmentCode,
+          programs: catalogItem.programs,
+        }
+      : (() => {
+          const detected = detectDepartment(b)
+          return {
+            department: detected.id,
+            departmentName: detected.name,
+            departmentCode: detected.code,
+            programs: detected.programs,
+          }
+        })()
     return {
-      ...catalogItem,
-      certificationId: catalogItem.id,
-      isFromBackend: false,
+      ...(catalogItem ?? {}),
+      ...dept,
+      id: b.certificationId,
+      certificationId: b.certificationId,
+      backendId: b.certificationId,
+      title: b.title,
+      // The catalog's balanced description over an oversized database text block.
+      description: catalogItem?.description || b.description || "",
+      status: b.status,
+      available: b.status === "PUBLISHED",
+      isFromBackend: true,
     }
   })
 
-  // Append any published backend certifications that were not in the catalog
-  for (const b of publishedBackend) {
-    const alreadyIncluded = merged.some(
-      (m) => m.certificationId === b.certificationId || normalizeTitle(m.title) === normalizeTitle(b.title)
-    )
-    if (!alreadyIncluded) {
-      const dept = detectDepartment(b)
-      merged.push({
-        id: b.certificationId,
-        certificationId: b.certificationId,
-        title: b.title,
-        description: b.description || "",
-        department: dept.id,
-        departmentName: dept.name,
-        departmentCode: dept.code,
-        programs: dept.programs,
-        status: b.status,
-        isFromBackend: true,
-      })
-    }
-  }
-
-  // Pre-sort by department order, then by title
+  // College order, then what can be requested now, then by title.
   const deptOrder = CATALOG_DEPARTMENTS.map((d) => d.id)
   merged.sort((a, b) => {
     const aOrder = deptOrder.indexOf(a.department)
     const bOrder = deptOrder.indexOf(b.department)
     if (aOrder !== bOrder) return aOrder - bOrder
+    if (a.available !== b.available) return a.available ? -1 : 1
     return a.title.localeCompare(b.title)
   })
 

@@ -510,6 +510,13 @@ function CertificationCard({ item, certification, generationRun = null }) {
                       <span className="inline-flex rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-600">
                         Published
                       </span>
+                  ) : String(certificationStatus ?? "").toUpperCase() === "COMING_SOON" ? (
+                      <span
+                          className="inline-flex rounded-full bg-sky-500/10 px-2.5 py-1 text-[11px] font-medium text-sky-700"
+                          title="Listed on the institution request page as coming soon; hidden from learners until published."
+                      >
+                        Coming soon
+                      </span>
                   ) : (
                       <span className="inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-600">
                         Draft

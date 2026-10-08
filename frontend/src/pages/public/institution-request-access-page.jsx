@@ -239,8 +239,10 @@ export default function InstitutionRequestAccessPage() {
   }
 
   const certificationsQuery = useQuery({
-    queryKey: ["certifications"],
-    queryFn: () => getAllCertifications(),
+    // Its own key: this list includes coming-soon certifications, which every
+    // other ["certifications"] reader must not see.
+    queryKey: ["certifications", "request-access"],
+    queryFn: () => getAllCertifications(undefined, { includeComingSoon: true }),
     staleTime: 5 * 60 * 1000,
   })
 
@@ -289,6 +291,11 @@ export default function InstitutionRequestAccessPage() {
     setForm((current) => ({ ...current, [key]: event.target.value }))
 
   const toggleCertification = (certificationId) => {
+    // Coming-soon certifications are shown, never selectable.
+    const certification = allCertifications.find(
+      (c) => String(c.certificationId) === String(certificationId)
+    )
+    if (certification && !certification.available) return
     setSelected((current) => {
       const next = { ...current }
       if (certificationId in next) {
@@ -1115,24 +1122,33 @@ function CertificationRow({
   onSYChange,
 }) {
   const id = certification.certificationId
+  // Listed so schools can see what is planned, but not requestable yet.
+  const comingSoon = certification.available === false
 
   return (
     <div
-      className={`rb-index-card ${selected ? "is-selected" : ""}`}
+      className={`rb-index-card ${selected ? "is-selected" : ""} ${comingSoon ? "opacity-60" : ""}`}
     >
       <button
         type="button"
         role="checkbox"
         aria-checked={selected}
-        onClick={onToggle}
-        className="flex w-full items-start gap-4 p-5 text-left focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw"
+        aria-disabled={comingSoon}
+        disabled={comingSoon}
+        onClick={comingSoon ? undefined : onToggle}
+        title={comingSoon ? "Coming soon: not available to request yet." : undefined}
+        className={`flex w-full items-start gap-4 p-5 text-left focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-rb-macaw ${
+          comingSoon ? "cursor-not-allowed" : ""
+        }`}
       >
         <span
           aria-hidden="true"
           className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-[6px] border-2 transition-colors ${
             selected
               ? "border-rb-feather bg-rb-feather text-rb-snow"
-              : "border-rb-hare bg-rb-snow"
+              : comingSoon
+                ? "border-dashed border-rb-hare bg-rb-polar"
+                : "border-rb-hare bg-rb-snow"
           }`}
         >
           {selected ? <Check className="size-4" /> : null}
@@ -1140,7 +1156,14 @@ function CertificationRow({
 
         <span className="min-w-0 flex-1">
           <div className="flex flex-col gap-1">
-            <span className="rb-display-sm text-rb-eel">{certification.title}</span>
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="rb-display-sm text-rb-eel">{certification.title}</span>
+              {comingSoon ? (
+                <span className="rounded-full border border-rb-fox bg-rb-fox-wash px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-rb-fox-lip">
+                  Coming soon
+                </span>
+              ) : null}
+            </span>
 
             {Array.isArray(certification.programs) && certification.programs.length > 0 ? (
               <p className="text-xs font-medium text-rb-wolf">

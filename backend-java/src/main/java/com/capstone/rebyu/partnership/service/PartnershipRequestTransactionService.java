@@ -108,6 +108,11 @@ public class PartnershipRequestTransactionService {
                             "Certification not found: " + item.certificationId()));
             // Only published certifications can be inquired about -- drafts are
             // still being built (see the CertificationService publish gate).
+            // COMING_SOON is listed on the request page but not requestable.
+            if (certification.getStatus() == Certification.CertificationStatus.COMING_SOON) {
+                throw new BusinessRuleException.InvalidPartnershipRequestException(
+                        certification.getTitle() + " is coming soon and cannot be requested yet.");
+            }
             if (certification.getStatus() != Certification.CertificationStatus.PUBLISHED) {
                 throw new BusinessRuleException.InvalidPartnershipRequestException(
                         "A selected certification is not yet available for partnership.");

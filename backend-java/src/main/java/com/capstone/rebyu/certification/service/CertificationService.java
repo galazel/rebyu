@@ -64,8 +64,14 @@ public class CertificationService {
      */
     @Transactional(readOnly = true)
     public List<CertificationDto> getAll(Long includeDepartmentId) {
+        return getAll(includeDepartmentId, false);
+    }
+
+    public List<CertificationDto> getAll(Long includeDepartmentId, boolean includeComingSoon) {
         return certificationRepository.findAll()
                 .stream()
+                .filter(certification -> includeComingSoon
+                        || certification.getStatus() != Certification.CertificationStatus.COMING_SOON)
                 .map(certification -> toFilteredDto(certification, includeDepartmentId))
                 .toList();
     }

@@ -51,9 +51,13 @@ public class CertificationController {
 
     @GetMapping
     public List<CertificationDto> getAll(
-            @AuthenticationPrincipal Jwt jwt, @RequestParam(required = false) Long includeDepartmentId) {
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) Long includeDepartmentId,
+            // Coming-soon certifications are only for the institution request
+            // page and the admin list; every other list stays real ones only.
+            @RequestParam(defaultValue = "false") boolean includeComingSoon) {
         requireDepartmentAccessIfRequested(jwt, includeDepartmentId);
-        return certificationService.getAll(includeDepartmentId);
+        return certificationService.getAll(includeDepartmentId, includeComingSoon);
     }
 
     @GetMapping("/{id}")

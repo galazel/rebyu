@@ -48,6 +48,16 @@ public class SchemaDefaultsSeeder implements ApplicationRunner {
                 ALTER TABLE study_plan ALTER COLUMN schedule TYPE TEXT;
               END IF;
             END $$""",
+
+            // The status is an ordinal and Hibernate's generated check only
+            // allowed PUBLISHED (0) and DRAFT (1); ddl-auto=update never
+            // widens an existing check, so COMING_SOON (2) is allowed here.
+            """
+            DO $$ BEGIN
+              ALTER TABLE certifications DROP CONSTRAINT IF EXISTS certifications_status_check;
+              ALTER TABLE certifications ADD CONSTRAINT certifications_status_check
+                CHECK (status >= 0 AND status <= 2);
+            END $$""",
     };
 
     private final JdbcTemplate jdbc;
