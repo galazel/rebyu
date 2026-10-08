@@ -27,4 +27,10 @@ public class ConversationMessageDto {
      * Opaque here, carried between the Python service and the browser.
      */
     private List<Map<String, Object>> resources;
+    /**
+     * On a learner's question about part of the lesson: {quote, image,
+     * imageKey}. imageKey is the stored snip (see AiChatController), viewable
+     * only by its owner. Opaque here, carried from the Python service.
+     */
+    private Map<String, Object> snippet;
 }

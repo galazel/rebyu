@@ -71,6 +71,7 @@ import {
   faCompress,
   faCopy,
   faCreditCard,
+  faCropSimple,
   faCrown,
   faDatabase,
   faDiagramProject,
@@ -292,6 +293,7 @@ export const Copy = icon(faCopy, "Copy")
 export const Cpu = icon(faMicrochip, "Cpu")
 export const CreditCard = icon(faCreditCard, "CreditCard")
 export const CreditCardIcon = icon(faCreditCard, "CreditCardIcon")
+export const Crop = icon(faCropSimple, "Crop")
 export const Crown = icon(faCrown, "Crown")
 export const CrownIcon = icon(faCrown, "CrownIcon")
 export const Database = icon(faDatabase, "Database")
@@ -318,7 +320,6 @@ export const FlagIcon = icon(faFlag, "FlagIcon")
 export const Flame = icon(faFire, "Flame")
 export const FlipHorizontal = icon(faArrowRightArrowLeft, "FlipHorizontal")
 export const FolderOpen = icon(faFolderOpen, "FolderOpen")
-export const FolderOpenIcon = icon(faFolderOpen, "FolderOpenIcon")
 export const Gauge = icon(faGauge, "Gauge")
 export const GaugeIcon = icon(faGauge, "GaugeIcon")
 export const Gift = icon(faGift, "Gift")

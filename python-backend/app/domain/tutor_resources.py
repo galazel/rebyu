@@ -26,13 +26,49 @@ from app.tools.certification.web_search import serper_search, youtube_search
 logger = logging.getLogger(__name__)
 
 MAX_VIDEOS = 3
-MAX_LINKS = 4
+MAX_LINKS = 3
+#: When one kind finds nothing, the other fills its place up to this many.
+MAX_TOTAL = 5
+#: Words a search query keeps. A whole question -- or a pasted paragraph of the
+#: lesson -- sinks a video search; the topic and the concept are what match.
+MAX_QUERY_WORDS = 12
 
-#: A learner asking for outside material in so many words. Used when the model
-#: did not set a search itself, so an explicit request is never ignored.
-RESOURCE_REQUEST = re.compile(
-    r"\b(videos?|youtube|watch|links?|resources?|articles?|websites?|sites?|"
-    r"read(ing)? more|further reading|references?|tutorials?|courses?)\b",
+#: What a learner might ask for when they want outside material.
+_RESOURCE_NOUN = (
+    r"(videos?|vids?|youtube|yt|clips?|links?|urls?|articles?|readings?|reads|"
+    r"tutorials?|guides?|sources?|resources?|materials?|websites?|sites?|blogs?|"
+    r"docs|documentation|references?|courses?|lectures?|podcasts?|books?)"
+)
+
+#: Asking for something: the verbs and openers that turn a noun into a request.
+_REQUEST_WORD = (
+    r"(give|show|send|share|recommend|suggest|find|search|look\s+up|get|got|need|want|"
+    r"have|any|some|good|best|more|other|extra|additional|where|link\s+me|"
+    r"pakita|pahingi|bigyan|hanapan|paki)"
+)
+
+#: Phrases that are a request for outside material on their own.
+_RESOURCE_PHRASE = re.compile(
+    r"\b(further\s+reading|read(ing)?\s+more|learn\s+more|study\s+more|more\s+info(rmation)?|"
+    r"where\s+can\s+i\s+(learn|read|study|watch|find)|something\s+to\s+(watch|read)|"
+    r"(video|youtube)\s+(about|on|of|for)|(watch|read)\s+(about|up\s+on))\b",
+    re.IGNORECASE,
+)
+
+#: A request word, then (within a few words) a resource word: "can you give me
+#: a couple of good videos", "any links?", "pakita mo ko ng video".
+_RESOURCE_REQUEST = re.compile(
+    r"\b" + _REQUEST_WORD + r"\b(\W+\w+){0,5}?\W+" + _RESOURCE_NOUN + r"\b"
+    r"|^\W*" + _RESOURCE_NOUN + r"\W*(pls|please|po)?\W*$",
+    re.IGNORECASE,
+)
+
+#: Course vocabulary that contains a resource word but is not a request:
+#: "the data link layer", "a linked list", "link-state routing".
+_NOT_A_REQUEST = re.compile(
+    r"\b(data[\s-]?links?|link[\s-]?(layer|state|local|aggregation|budget)|linked\s+lists?|"
+    r"site[\s-]?to[\s-]?site|(web|remote|branch|cell|dr)\s+sites?|source\s+(code|address|port|ip)|"
+    r"open[\s-]?source|resource\s+(allocation|records?|sharing|pool|management))\b",
     re.IGNORECASE,
 )
 
@@ -49,24 +85,48 @@ CONFUSION = re.compile(
 
 
 def asks_for_resources(question: str | None) -> bool:
-    return bool(question and RESOURCE_REQUEST.search(question))
+    """Whether the learner is asking for videos, links or reading -- not just
+    using a word like "link" in a question about the lesson."""
+    if not question:
+        return False
+    text = _NOT_A_REQUEST.sub(" ", question)
+    return bool(_RESOURCE_PHRASE.search(text) or _RESOURCE_REQUEST.search(text))
 
 
 def signals_confusion(message: str | None) -> bool:
     return bool(message and CONFUSION.search(message))
 
 
+#: Filler that carries no topic: how a question is asked, not what about.
+_FILLER = re.compile(
+    r"\b(i'?m asking about this part of the lesson|explain( this)?( part of the lesson)?|"
+    r"can you|could you|please|what is|what are|what does|how does|how do|why does|why do|"
+    r"tell me( about)?|give me|show me|i (still )?(do ?n[o']?t|cannot|can'?t) (understand|get)( it| this)?|"
+    r"i'?m (confused|lost)|again|simply|videos?|youtube|watch|links?|resources?|articles?|sites?|websites?|to|for|on|of|is|are|this|that|it|the|a|an|me|about|lesson|part)\b",
+    re.IGNORECASE,
+)
+
+
+def concise(text: str | None, limit: int = 8) -> str:
+    """The topic words of a question or quote: its first sentence, without
+    filler, at most `limit` words."""
+    text = " ".join((text or "").replace('"', " ").split())
+    first = re.split(r"(?<=[.!?])\s", text, maxsplit=1)[0]
+    words = _FILLER.sub(" ", first).split()
+    return " ".join(words[:limit]).strip(" ,.;:?!-")
+
+
 def _topic(query: str, lesson_name: str | None) -> str:
-    query = " ".join((query or "").split())
+    query = concise(query, MAX_QUERY_WORDS)
     lesson = " ".join((lesson_name or "").split())
     if lesson and lesson.lower() not in query.lower():
-        return f"{lesson} {query}".strip()
-    return query or lesson
+        query = f"{lesson} {query}".strip()
+    return " ".join(query.split()[:MAX_QUERY_WORDS]) or lesson
 
 
-def _videos(topic: str) -> list[dict]:
+def _videos(topic: str, limit: int = MAX_VIDEOS) -> list[dict]:
     try:
-        items = youtube_search(topic, max_results=MAX_VIDEOS)
+        items = youtube_search(topic, max_results=limit)
     except Exception as error:  # noqa: BLE001 -- extras, never the answer
         logger.warning("Tutor video search failed: %s", error)
         return []
@@ -123,7 +183,7 @@ def _wikipedia(topic: str, limit: int) -> list[dict]:
     } for hit in hits if hit.get("title")]
 
 
-def _links(topic: str, lesson_name: str | None = None) -> list[dict]:
+def _links(topic: str, lesson_name: str | None = None, limit: int = MAX_LINKS) -> list[dict]:
     try:
         results = serper_search(topic, num=8)
     except Exception as error:  # noqa: BLE001 -- extras, never the answer
@@ -131,7 +191,7 @@ def _links(topic: str, lesson_name: str | None = None) -> list[dict]:
         # By the lesson, not the question: an encyclopedia search on a whole
         # sentence ("what does the /26 mean ... explained simply") matches
         # something generic, where the lesson's own name finds its articles.
-        return _wikipedia(lesson_name or topic, 3)
+        return _wikipedia(lesson_name or topic, limit)
     links, seen = [], set()
     for result in results:
         url = result.get("link") or ""
@@ -148,18 +208,30 @@ def _links(topic: str, lesson_name: str | None = None) -> list[dict]:
             "source": host,
             "snippet": result.get("snippet") or "",
         })
-        if len(links) >= MAX_LINKS:
+        if len(links) >= limit:
             break
-    return links
+    # Searched but nothing usable came back: the encyclopedia still has the topic.
+    return links or _wikipedia(lesson_name or topic, limit)
 
 
 def find_resources(query: str, lesson_name: str | None) -> list[dict]:
     """Videos then links for `query`, scoped to the lesson. Blocking (HTTP);
-    callers on the event loop run it in a thread."""
+    callers on the event loop run it in a thread.
+
+    Each kind stands in for the other: no videos means more reading, no
+    reading means more videos -- the learner asked for help and gets as much
+    of it as there is. A focused video search that finds nothing is retried on
+    the lesson as a whole before giving up on videos.
+    """
     topic = _topic(query, lesson_name)
     if not topic:
         return []
     with ThreadPoolExecutor(max_workers=2) as pool:
-        videos = pool.submit(_videos, topic)
-        links = pool.submit(_links, topic, lesson_name)
-        return videos.result() + links.result()
+        videos_job = pool.submit(_videos, topic, MAX_TOTAL)
+        links_job = pool.submit(_links, topic, lesson_name, MAX_TOTAL)
+        videos, links = videos_job.result(), links_job.result()
+    if not videos and lesson_name and topic != lesson_name:
+        videos = _videos(f"{lesson_name} explained", MAX_TOTAL)
+    if videos and links:
+        return videos[:MAX_VIDEOS] + links[:MAX_LINKS]
+    return (videos or links)[:MAX_TOTAL]

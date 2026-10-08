@@ -168,6 +168,13 @@ public class S3StorageService {
         return key;
     }
 
+    /** Stores bytes the application made itself (not an upload) under `key`. */
+    public void uploadBytes(String key, byte[] data, String contentType) {
+        s3Client.putObject(
+                PutObjectRequest.builder().bucket(bucketName).key(key).contentType(contentType).build(),
+                RequestBody.fromBytes(data));
+    }
+
     public byte[] downloadFile(String key) {
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                 .bucket(bucketName)

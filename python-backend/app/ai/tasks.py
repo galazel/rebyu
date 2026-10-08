@@ -119,6 +119,10 @@ LESSON = "lesson"
 CURRICULUM = "curriculum"
 QUESTION = "question"
 TUTOR = "tutor"
+#: The tutor answering about a picture the learner sent (a snipped part of
+#: the lesson). Its own task because it needs a vision model, which the text
+#: tutor's chain does not.
+TUTOR_VISION = "tutor_vision"
 LESSON_AUDIT = "lesson_audit"
 DOCUMENT_AUDIT = "document_audit"
 
@@ -162,7 +166,7 @@ TAGGING = "tagging"
 #: documents whose layout the fixed-pattern reader does not know.
 EXTRACTION = "extraction"
 
-TASKS = (LESSON, CURRICULUM, QUESTION, TUTOR, LESSON_AUDIT, DOCUMENT_AUDIT, DIAGRAM,
+TASKS = (LESSON, CURRICULUM, QUESTION, TUTOR, TUTOR_VISION, LESSON_AUDIT, DOCUMENT_AUDIT, DIAGRAM,
          GRADING, FIGURE, TAGGING, EXTRACTION)
 
 #: Older call sites (and any caller that only knows the coarse distinction)

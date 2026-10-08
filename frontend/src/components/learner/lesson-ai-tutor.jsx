@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
@@ -7,6 +7,8 @@ import remarkGfm from "remark-gfm"
 import {
   ArrowRight,
   BookOpenCheck,
+  Crop,
+  ImageIcon,
   Layers3,
   Link,
   Loader2,
@@ -41,7 +43,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Reveal, motion, popIn } from "@/components/motion/rebyu-motion.jsx"
 
-import { API, base, currentAccessToken } from "@/services/base"
+import { API, base, currentAccessToken } from "@/services/base"
+import { AuthedImage } from "@/lib/authed-media.jsx"
 import { generateStudyAid } from "@/services/learnerToolsService.js"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { ProLockCard } from "@/components/learner/pro-gate.jsx"
@@ -407,6 +410,47 @@ function TutorResources({ resources }) {
   )
 }
 
+/**
+ * The part of the lesson a question was about, inside the learner's bubble:
+ * the snipped picture -- straight from memory in this session, from storage
+ * (by its key) after a reload -- and the quoted words.
+ */
+function SnippetPreview({ snippet, onDark = false }) {
+  if (!snippet) return null
+  const picture = typeof snippet.image === "string" ? snippet.image : null
+  return (
+    <div className="mb-2 grid gap-1.5">
+      {picture ? (
+        <img
+          src={picture}
+          alt="The part of the lesson asked about"
+          className="max-h-40 w-auto max-w-full rounded-lg border border-white/40 bg-white object-contain"
+        />
+      ) : snippet.imageKey ? (
+        <AuthedImage
+          imageKey={snippet.imageKey}
+          alt="The part of the lesson asked about"
+          zoomable
+          className="max-h-40 w-auto max-w-full rounded-lg border border-white/40 bg-white object-contain"
+          placeholderClassName="h-24 w-40 rounded-lg"
+        />
+      ) : snippet.image ? (
+        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${onDark ? "text-white/85" : "text-rb-wolf"}`}>
+          <ImageIcon className="size-3.5" aria-hidden="true" />
+          A snipped part of the lesson
+        </span>
+      ) : null}
+      {snippet.quote ? (
+        <blockquote
+          className={`line-clamp-3 border-l-2 pl-2 text-xs italic leading-5 ${onDark ? "border-white/60 text-white/90" : "border-rb-feather text-rb-wolf"}`}
+        >
+          {snippet.quote}
+        </blockquote>
+      ) : null}
+    </div>
+  )
+}
+
 function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGroup }) {
   const isLearner = message.role === "user"
 
@@ -459,6 +503,7 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
                       : `!rounded-2xl ${tailCorner} ${message.action || message.resources?.length ? "!w-full" : ""} !border-0 !bg-rb-feather-wash !px-3.5 !py-2.5 !text-rb-eel !shadow-none`
                   }
               >
+                {isLearner ? <SnippetPreview snippet={message.snippet} onDark /> : null}
                 <div className="text-sm font-medium leading-6 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-extrabold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {message.text}
@@ -499,6 +544,11 @@ export function LessonAiTutor({
                             learnerName,
                             learnerId,
                             onClose,
+                            // A part of the lesson handed over to ask about
+                            // ({id, quote, image}), and the page's snip tool.
+                            pendingSnippet = null,
+                            onSnippetTaken,
+                            onStartSnip,
                           }) {
   const [messages, setMessages] = useState([])
   const [draft, setDraft] = useState("")
@@ -512,6 +562,9 @@ export function LessonAiTutor({
   // typing to catch up (see the reveal effect below).
   const [shownLength, setShownLength] = useState(0)
   const [finishedReply, setFinishedReply] = useState(null)
+  // The snippet waiting in the composer, sent with the next question.
+  const [attachment, setAttachment] = useState(null)
+  const draftRef = useRef(null)
   const entitlements = useLearnerEntitlements()
   const sessionId = buildTutorSessionId(learnerId, lessonId)
   // Free has no tutor; Pro has a daily allowance of generated quizzes/flashcards.
@@ -529,6 +582,7 @@ export function LessonAiTutor({
     setMessages([])
     setDraft("")
     setPending(false)
+    setAttachment(null)
 
     if (lessonId == null || tutorLocked) {
       return undefined
@@ -555,6 +609,7 @@ export function LessonAiTutor({
                 // about something the learner can't open from here.
                 action: entry.action ?? undefined,
                 resources: Array.isArray(entry.resources) ? entry.resources : undefined,
+                snippet: entry.snippet ?? undefined,
               }))
           )
         })
@@ -571,7 +626,7 @@ export function LessonAiTutor({
           if (entry) {
             setMessages((current) => [
               ...current,
-              { id: createTutorMessageId("learner"), role: "user", text: entry.prompt, createdAt: entry.startedAt },
+              { id: createTutorMessageId("learner"), role: "user", text: entry.prompt, snippet: entry.snippet, createdAt: entry.startedAt },
             ])
             watch(entry)
           }
@@ -617,6 +672,13 @@ export function LessonAiTutor({
     setFinishedReply(null)
   }
 
+  useEffect(() => {
+    if (!pendingSnippet) return
+    setAttachment(pendingSnippet)
+    onSnippetTaken?.()
+    requestAnimationFrame(() => draftRef.current?.focus())
+  }, [pendingSnippet?.id])
+
   /** Shows `entry` as in progress here, and its reply here when it arrives. */
   function watch(entry) {
     if (entry.kind === "chat") setPending(true)
@@ -638,7 +700,9 @@ export function LessonAiTutor({
   }
 
   async function sendTutorMessage(value) {
-    const question = String(value ?? "").trim()
+    const snippet = attachment
+    // A snippet on its own is a whole question.
+    const question = String(value ?? "").trim() || (snippet ? "Explain this part of the lesson." : "")
 
     if (!question || pending) {
       return
@@ -650,19 +714,23 @@ export function LessonAiTutor({
         id: createTutorMessageId("learner"),
         role: "user",
         text: question,
+        snippet: snippet ?? undefined,
         createdAt: Date.now(),
       },
     ])
 
     setDraft("")
+    setAttachment(null)
 
     const body = {
       sessionId,
       lessonName: lessonName,
       lessonId: lessonId != null ? Number(lessonId) : null,
       message: question,
+      ...(snippet?.quote ? { quote: snippet.quote } : {}),
+      ...(snippet?.image ? { image: snippet.image } : {}),
     }
-    const entry = { kind: "chat", prompt: question, lessonName, startedAt: Date.now(), text: "" }
+    const entry = { kind: "chat", prompt: question, snippet, lessonName, startedAt: Date.now(), text: "" }
 
     // The one-shot request, for when the stream cannot be opened at all.
     const askOnce = () =>
@@ -1014,6 +1082,39 @@ export function LessonAiTutor({
             onSubmit={handleSubmit}
             className="shrink-0 border-t-2 border-rb-swan bg-rb-polar/60 p-3"
         >
+          {attachment ? (
+              <div className="mb-2 flex items-start gap-2 rounded-xl border-2 border-rb-swan bg-rb-snow p-2">
+                {attachment.image ? (
+                    <img
+                        src={attachment.image}
+                        alt="Snipped part of the lesson"
+                        className="h-14 w-20 shrink-0 rounded-md border border-rb-swan bg-white object-contain"
+                    />
+                ) : (
+                    <span className="grid size-8 shrink-0 place-items-center rounded-md bg-rb-feather-wash text-rb-feather-lip">
+                      <Crop className="size-4" aria-hidden="true" />
+                    </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-rb-eel">
+                    {attachment.image ? "Snipped from the lesson" : "Selected from the lesson"}
+                  </p>
+                  {attachment.quote ? (
+                      <p className="line-clamp-2 text-xs text-rb-wolf">{attachment.quote}</p>
+                  ) : (
+                      <p className="text-xs text-rb-wolf">Ask a question about it, or just send.</p>
+                  )}
+                </div>
+                <button
+                    type="button"
+                    onClick={() => setAttachment(null)}
+                    aria-label="Remove the snippet"
+                    className="grid size-6 shrink-0 place-items-center rounded-full text-rb-wolf hover:bg-black/5"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+          ) : null}
           <div className="flex items-end gap-1.5 rounded-full border-2 border-rb-swan bg-rb-snow py-1.5 pl-1.5 pr-2 shadow-[var(--comic-shadow-sm)] transition-colors focus-within:border-rb-feather/60">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1033,6 +1134,15 @@ export function LessonAiTutor({
                 </TactileButton>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" side="top" className="w-64">
+                {onStartSnip ? (
+                  <>
+                    <DropdownMenuItem onSelect={() => onStartSnip()}>
+                      <Crop className="mr-2 size-4" />
+                      <span className="flex-1">Snip part of the lesson</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                ) : null}
                 <DropdownMenuLabel>
                   <span className="block text-sm font-bold text-rb-eel">Create with AI</span>
                   <span className="mt-0.5 block text-xs font-medium text-rb-wolf">Generated items are saved to Library. {generationLimit > 0 ? `${generationsLeft} of ${generationLimit} generations left today.` : ""}</span>
@@ -1056,10 +1166,11 @@ export function LessonAiTutor({
             </DropdownMenu>
 
             <Textarea
+                ref={draftRef}
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Type to ask about this lesson"
+                placeholder={attachment ? "Ask about this, or just send" : "Type to ask about this lesson"}
                 disabled={pending || Boolean(generating)}
                 rows={1}
                 className="max-h-24 min-h-0 flex-1 resize-none self-center border-0 bg-transparent px-1 py-1.5 text-sm font-medium text-rb-eel shadow-none outline-none focus-visible:ring-0"
@@ -1070,7 +1181,7 @@ export function LessonAiTutor({
                 variant="feather"
                 size="sm"
                 className="rb-btn-icon shrink-0 self-center"
-                disabled={pending || Boolean(generating) || !draft.trim()}
+                disabled={pending || Boolean(generating) || (!draft.trim() && !attachment)}
                 aria-label="Send message"
             >
               {pending || generating ? (

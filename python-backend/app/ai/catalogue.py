@@ -70,6 +70,17 @@ TASK_INFO: dict[str, dict] = {
         ],
         "blocked": [],
     },
+    "tutor_vision": {
+        "label": "AI tutor: pictures",
+        "usedFor": ["The AI tutor explaining a part of the lesson the learner snipped (diagrams, tables)"],
+        "vision": True,
+        "recommended": [
+            ("google/gemini-2.5-flash", "Proven here, cheap vision"),
+            ("google/gemini-3.5-flash", "Newer, sharper vision"),
+            ("openai/gpt-5-mini", "Alternative"),
+        ],
+        "blocked": [],
+    },
     "grading": {
         "label": "Answer grading",
         "usedFor": ["Marking learners' written and coded answers against the rubric"],

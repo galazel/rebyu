@@ -5,10 +5,20 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from app.agents.tutor.tutor_agent import get_query_agent
 
 from app.ai import tasks
-from app.domain.tutor_resources import asks_for_resources, find_resources, signals_confusion
+from app.domain.tutor_resources import asks_for_resources, find_resources
 from app.ai.invocation import structured
 from app.ai.router import ainvoke_with_fallback
 from app.graphs.tutor.state import TutorState
+
+
+def with_quote(request: str, quote: str | None) -> str:
+    """The learner's question with the part of the lesson it is about."""
+    if not quote or not quote.strip():
+        return request
+    return (
+        "I'm asking about this part of the lesson:\n"
+        f'"""\n{quote.strip()}\n"""\n\n{request}'
+    )
 
 
 def build_tutor_messages(state: TutorState, earlier: list) -> list:
@@ -113,17 +123,13 @@ async def answer_question(state: TutorState):
         task=tasks.TUTOR,
     )
 
-    # Related videos and links: the model's own search when it set one, else
-    # the lesson itself when the learner asked for resources in so many words.
-    query = (getattr(response, "resource_search", None) or "").strip()
+    # Related videos and links only when the learner asked for them -- never
+    # on the model's own initiative, and not for confusion, which gets a
+    # different explanation instead (see app.services.ai.tutor_stream).
     request = state.get("request")
-    if not query and signals_confusion(request):
-        # Still not clear after an explanation: show it taught another way,
-        # about what they last asked rather than the lesson as a whole.
-        previous = next((m.content for m in reversed(earlier) if m.type == "human"), "")
-        query = f"{previous} explained simply".strip()
-    elif not query and asks_for_resources(request):
-        query = "tutorial explained"
+    query = None
+    if asks_for_resources(request):
+        query = (getattr(response, "resource_search", None) or "").strip() or f"{request} explained"
     resources = await asyncio.to_thread(find_resources, query, state.get("lessonName")) if query else []
 
     return {
@@ -146,11 +152,21 @@ def _earlier_turns(state: TutorState) -> list:
     `messages` already ends with the request itself (the chat route adds it),
     so it is left out here; it is appended separately.
     """
+    def asked(m):
+        # A question about a snippet keeps its quote, so "and the next part?"
+        # still knows what was being discussed.
+        quote = ((m.additional_kwargs or {}).get("snippet") or {}).get("quote")
+        return with_quote(m.content, quote)
+
     history = [m for m in (state.get("messages") or []) if m.type in ("human", "ai")]
-    if history and history[-1].type == "human" and history[-1].content == state.get("request"):
+    if history and history[-1].type == "human" and asked(history[-1]) == state.get("request"):
         history = history[:-1]
+
+    def human(m):
+        return HumanMessage(content=asked(m))
+
     return [
-        HumanMessage(content=m.content) if m.type == "human" else AIMessage(content=m.content)
+        human(m) if m.type == "human" else AIMessage(content=m.content)
         for m in history[-RECENT_TURNS:]
     ]
 

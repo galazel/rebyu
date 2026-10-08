@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ClipboardCheck,
+  Crop,
   Circle,
   CircleHelp,
   Clock,
@@ -44,6 +45,7 @@ import {
 } from "@/components/motion/rebyu-motion.jsx"
 import { LearnerEmptyState } from "@/components/learner/learner-ui.jsx"
 import { LessonAiTutor } from "@/components/learner/lesson-ai-tutor.jsx"
+import { LessonSnipOverlay, SelectionAskButton } from "@/components/learner/lesson-snip.jsx"
 import { LessonKnowledgeCheck } from "@/components/learner/lesson-knowledge-check.jsx"
 import { useSkimChallenge } from "@/hooks/useSkimChallenge.js"
 import { useReadingPaceGuard } from "@/hooks/useReadingPaceGuard.js"
@@ -1435,6 +1437,16 @@ export default function LearnerTopicPage() {
   const [activeId, setActiveId] = useState(null)
   const [outlineCollapsed, setOutlineCollapsed] = useState(false)
   const [tutorOpen, setTutorOpen] = useState(false)
+  // Asking the tutor about part of the lesson: the reading area, whether the
+  // snip tool is out, and the snippet on its way to the tutor's composer.
+  const readingRef = useRef(null)
+  const [snipping, setSnipping] = useState(false)
+  const [tutorSnippet, setTutorSnippet] = useState(null)
+  const askTutorAbout = useCallback((snippet) => {
+    setSnipping(false)
+    setTutorSnippet(snippet)
+    setTutorOpen(true)
+  }, [])
   const [railOpen, setRailOpen] = useState(false)
   const [readSections, setReadSections] = useState(() => new Set())
   const [locallyDone, setLocallyDone] = useState(() => new Set())
@@ -1999,7 +2011,7 @@ export default function LearnerTopicPage() {
         </aside>
 
         {/* -------------------------------------------------------- centre */}
-        <main className="min-w-0 bg-rb-snow">
+        <main ref={readingRef} className="min-w-0 bg-rb-snow">
           {/* Crossfade between a lesson and the unit assessment. Keyed on the
               item so switching rows in the rail reads as the content changing
               under a fixed frame, rather than the page reloading. */}
@@ -2078,6 +2090,9 @@ export default function LearnerTopicPage() {
                 learnerName={data?.user?.firstName ?? data?.learner?.firstName ?? "Learner"}
                 learnerId={data?.learnerId}
                 onClose={() => setTutorOpen(false)}
+                pendingSnippet={tutorSnippet}
+                onSnippetTaken={() => setTutorSnippet(null)}
+                onStartSnip={() => setSnipping(true)}
               />
             </div>
           </aside>
@@ -2137,9 +2152,42 @@ export default function LearnerTopicPage() {
             learnerName={data?.user?.firstName ?? data?.learner?.firstName ?? "Learner"}
             learnerId={data?.learnerId}
             onClose={() => setTutorOpen(false)}
+            pendingSnippet={tutorSnippet}
+            onSnippetTaken={() => setTutorSnippet(null)}
+            onStartSnip={() => setSnipping(true)}
           />
         </SheetContent>
       </Sheet>
+
+      {/* Asking the tutor about part of the lesson -- only on a lesson, where
+          the tutor is offered at all. Selecting text shows "Ask AI tutor";
+          the snip tool takes a box of anything, diagrams and tables included. */}
+      {active?.kind === "lesson" ? (
+        <>
+          <SelectionAskButton target={readingRef} onAsk={askTutorAbout} />
+          {snipping ? (
+            <LessonSnipOverlay
+              target={readingRef}
+              onCapture={askTutorAbout}
+              onCancel={() => setSnipping(false)}
+            />
+          ) : null}
+          {createPortal(
+            !tutorVisible && !railOpen && !snipping ? (
+              <button
+                type="button"
+                onClick={() => setSnipping(true)}
+                aria-label="Snip part of the lesson to ask the AI tutor"
+                title="Snip part of the lesson to ask the AI tutor"
+                className="fixed bottom-[6.5rem] right-[1.875rem] z-[60] grid size-11 place-items-center rounded-full border-2 border-rb-swan bg-rb-snow text-rb-feather-lip shadow-[var(--comic-shadow-sm)] transition-transform hover:scale-105"
+              >
+                <Crop className="size-5" aria-hidden="true" />
+              </button>
+            ) : null,
+            document.body,
+          )}
+        </>
+      ) : null}
 
       {/* The skim challenge, fired by the pace guard. */}
       <LessonKnowledgeCheck

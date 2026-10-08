@@ -119,6 +119,7 @@ const MAP = {
   Home: "faHouse",
   Hourglass: "faHourglassHalf",
   Image: "faImage",
+  Crop: "faCropSimple",
   ImagePlus: "faImages",
   Inbox: "faInbox",
   Info: "faCircleInfo",

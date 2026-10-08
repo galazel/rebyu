@@ -40,9 +40,18 @@ spring:
       maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE:8}
       minimum-idle: 2
       connection-timeout: 10000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+      # The session pooler (and Docker Desktop's network on Windows) drop a
+      # connection that sits silent for a few minutes, without telling the
+      # pool; the next request was handed that dead connection and failed with
+      # "An I/O error occurred while sending to the backend" / EOFException.
+      # So idle connections are pinged every minute, and every connection is
+      # replaced well before anything in between would give up on it.
+      keepalive-time: 60000
+      idle-timeout: 300000
+      max-lifetime: 600000
       connection-init-sql: SELECT 1
+      data-source-properties:
+        tcpKeepAlive: true
 
   data:
     redis:

@@ -208,6 +208,18 @@ class Settings(BaseSettings):
     ai_tutor_max_tokens: int = 2000
     ai_tutor_temperature: float = 0.3
 
+    #: The tutor when the learner sends a picture: a region of the lesson they
+    #: snipped (a diagram, a table). Must be a vision model; Groq's Qwen 3.8
+    #: reads images and is the one with budget when OpenRouter is out of credit.
+    ai_tutor_vision_provider: str = "openrouter"
+    ai_tutor_vision_model: str = "google/gemini-2.5-flash"
+    ai_tutor_vision_fallbacks: str = (
+        "groq:qwen/qwen3.8-27b,google/gemma-4-31b-it:free,"
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free,openai/gpt-4.1-mini"
+    )
+    ai_tutor_vision_max_tokens: int = 2000
+    ai_tutor_vision_temperature: float = 0.3
+
     #: Marks written and coded answers while the learner waits on the results
     #: page: a fast instruction model, no reasoning budget (see `tasks.GRADING`).
     ai_grading_provider: str = "openrouter"

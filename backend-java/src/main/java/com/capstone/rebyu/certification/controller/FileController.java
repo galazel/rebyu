@@ -1,5 +1,6 @@
 package com.capstone.rebyu.certification.controller;
 
+import com.capstone.rebyu.aigateway.TutorSnips;
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
 import com.capstone.rebyu.certification.dto.CertificationDto;
@@ -145,6 +146,7 @@ public class FileController {
             @AuthenticationPrincipal Jwt jwt
     ) {
         requireAuth(jwt);
+        requireSnipOwner(jwt, key);
 
         long size = s3StorageService.contentLength(key);
         if (size > MAX_BUFFERED_VIEW_BYTES) {
@@ -177,6 +179,7 @@ public class FileController {
             @AuthenticationPrincipal Jwt jwt
     ) {
         requireAuth(jwt);
+        requireSnipOwner(jwt, key);
         String contentType = contentTypeOf(key);
         String url = s3StorageService.presignViewUrl(
                 key,
@@ -246,6 +249,7 @@ public class FileController {
             @AuthenticationPrincipal Jwt jwt
     ) {
         requireAuth(jwt);
+        requireSnipOwner(jwt, key);
         byte[] data = s3StorageService.downloadFile(key);
 
         return ResponseEntity.ok()
@@ -281,6 +285,15 @@ public class FileController {
 
     private void requireAuth(Jwt jwt) {
         if (jwt == null) throw new IllegalArgumentException("Authentication is required");
+    }
+
+    /** A tutor snip is a learner's own message: only they (and admins) see it. */
+    private void requireSnipOwner(Jwt jwt, String key) {
+        if (!TutorSnips.isSnip(key)) return;
+        CurrentUserDto user = auth.syncCurrentUser(jwt, jwt.getTokenValue());
+        if (!TutorSnips.canView(key, user)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This picture belongs to someone else.");
+        }
     }
 
     private void saveLessonMediaReference(

@@ -15,7 +15,8 @@ from app.db.session import get_db
 from app.graphs.tutor.lesson_context import load_lesson_context, load_source_material
 from app.graphs.tutor.workflow import get_tutor_graph
 from app.services.ai.tutor_service import append_messages, get_conversation
-from app.services.ai.tutor_stream import stream_tutor_answer
+from app.graphs.tutor.nodes import with_quote
+from app.services.ai.tutor_stream import snippet_of, stream_tutor_answer
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +27,22 @@ router = APIRouter(
 )
 
 
+#: A snipped picture as a data URL. The browser shrinks it to at most 1600px
+#: and JPEG before sending, which lands well under this.
+_MAX_IMAGE_CHARS = 4_000_000
+
+
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
     sessionId: str
     lessonName: str
     lessonId: int | None = None
+    #: Text the learner selected or snipped from the lesson, asked about.
+    quote: str | None = Field(default=None, max_length=6000)
+    #: A snipped part of the lesson as a picture (data:image/...;base64,...).
+    image: str | None = Field(default=None, max_length=_MAX_IMAGE_CHARS, pattern=r"^data:image/(png|jpeg|webp);base64,")
+    #: Where the gateway stored that picture, so the conversation reloads it.
+    imageKey: str | None = Field(default=None, max_length=300, pattern=r"^tutor-snips/")
 
 
 class ChatResponse(BaseModel):
@@ -47,6 +59,8 @@ class ConversationMessage(BaseModel):
     # re-renders its "Take the quiz" card from after a refresh.
     action: dict | None = None
     resources: list[dict] | None = None
+    #: On a learner's question about part of the lesson: {quote, image}.
+    snippet: dict | None = None
 
 
 class ConversationResponse(BaseModel):
@@ -93,7 +107,10 @@ def _lesson_grounding(db: Session, payload: ChatRequest) -> tuple[str | None, st
         # "how does DHCP assign addresses" is not what it says about the
         # lesson as a whole, and the useful passage is the one that matches
         # what was actually asked.
-        source_material = load_source_material(db, payload.lessonId, payload.message)
+        # The selected text says what the question is about better than
+        # "explain this" does, so it joins the search.
+        query = f"{payload.message}\n{payload.quote}" if payload.quote else payload.message
+        source_material = load_source_material(db, payload.lessonId, query)
     return lesson_context, source_material
 
 
@@ -105,10 +122,17 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
 
     graph = await get_tutor_graph()
     config = {"configurable": {"thread_id": payload.sessionId}}
+    # The one-shot path is text only: a quote rides along in the question, and
+    # a picture is left to the streaming route, which has a vision model.
+    request = with_quote(payload.message, payload.quote)
     result = await graph.ainvoke(
         {
-            "request": payload.message,
-            "messages": [HumanMessage(content=payload.message)],
+            "request": request,
+            "messages": [HumanMessage(
+                content=payload.message,
+                additional_kwargs={"snippet": snippet_of(payload.quote, payload.image, payload.imageKey)}
+                if (payload.quote or payload.image) else {},
+            )],
             "lessonContext": lesson_context,
             "sourceMaterial": source_material,
             "lessonName": payload.lessonName,
@@ -145,6 +169,9 @@ async def chat_stream(payload: ChatRequest, db: Session = Depends(get_db)) -> St
                 lesson_name=payload.lessonName,
                 lesson_context=lesson_context,
                 source_material=source_material,
+                quote=payload.quote,
+                image=payload.image,
+                image_key=payload.imageKey,
             ):
                 yield _sse(event)
         except Exception:  # noqa: BLE001 -- the learner gets a message, the log the detail

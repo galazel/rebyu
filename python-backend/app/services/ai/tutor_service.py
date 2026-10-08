@@ -46,6 +46,10 @@ async def get_conversation(session_id: str):
         # Related videos and links found for an answer, so they reload with it.
         if extra.get("resources"):
             entry["resources"] = extra["resources"]
+        # The part of the lesson a question was about (its text, and whether
+        # a picture was sent -- the picture itself is not kept).
+        if extra.get("snippet"):
+            entry["snippet"] = extra["snippet"]
         conversation.append(entry)
     return conversation
 
@@ -69,7 +73,10 @@ async def append_messages(session_id: str, messages: list[dict]):
     for message in messages:
         content = message.get("content") or ""
         if message.get("role") == "user":
-            to_append.append(HumanMessage(content=content))
+            snippet = message.get("snippet")
+            to_append.append(HumanMessage(
+                content=content, additional_kwargs={"snippet": snippet} if snippet else {}
+            ))
         else:
             extra = {}
             if message.get("action"):
