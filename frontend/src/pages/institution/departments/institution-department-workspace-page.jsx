@@ -9,6 +9,7 @@ import {
   Layers3,
   Loader2,
   MegaphoneIcon,
+  Pencil,
   PinIcon,
   Plus,
   Trash2,
@@ -60,6 +61,7 @@ import { getAllCertifications } from "@/services/certificationService.js"
 import { SectionsTab } from "@/components/institution/sections-tab.jsx"
 import {
   archiveDepartmentAnnouncement,
+  updateDepartmentAnnouncement,
   createDepartmentAnnouncement,
   getDepartmentLearners,
   getDepartmentById,
@@ -182,9 +184,12 @@ function OfficialMajorSection({ majorCategory, majorIndex, buildLessonHref }) {
 
 function AnnouncementsTab({ departmentId }) {
   const queryClient = useQueryClient()
+  const formRef = useRef(null)
   const [title, setTitle] = useState("")
   const [body, setBody] = useState("")
   const [pinned, setPinned] = useState(false)
+  const [editing, setEditing] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   const announcementsQuery = useQuery({
     queryKey: ["department-announcements", departmentId],
@@ -196,34 +201,82 @@ function AnnouncementsTab({ departmentId }) {
   const key = ["department-announcements", departmentId]
   const announcements = Array.isArray(announcementsQuery.data) ? announcementsQuery.data : []
 
-  const createMutation = useMutation({
-    mutationFn: () =>
-      createDepartmentAnnouncement(departmentId, { title: title.trim(), body: body.trim(), pinned }),
+  const resetForm = () => {
+    setEditing(null)
+    setTitle("")
+    setBody("")
+    setPinned(false)
+  }
+
+  const startEdit = (item) => {
+    setEditing(item)
+    setTitle(item.title ?? "")
+    setBody(item.body ?? "")
+    setPinned(Boolean(item.pinned))
+    formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: () => {
+      const payload = { title: title.trim(), body: body.trim(), pinned }
+      return editing
+        ? updateDepartmentAnnouncement(departmentId, editing.departmentAnnouncementId, payload)
+        : createDepartmentAnnouncement(departmentId, payload)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: key })
-      toast.success("Announcement posted.")
-      setTitle("")
-      setBody("")
-      setPinned(false)
+      toast.success(editing ? "Announcement updated." : "Announcement posted.")
+      resetForm()
     },
-    onError: (err) => toast.error(backendMessage(err, "Unable to post this announcement.")),
+    onError: (err) =>
+      toast.error(backendMessage(err, editing ? "Unable to save this announcement." : "Unable to post this announcement.")),
   })
 
-  const archiveMutation = useMutation({
-    mutationFn: (announcementId) => archiveDepartmentAnnouncement(departmentId, announcementId),
-    onSuccess: () => {
+  const pinMutation = useMutation({
+    mutationFn: (item) =>
+      updateDepartmentAnnouncement(departmentId, item.departmentAnnouncementId, {
+        title: item.title,
+        body: item.body,
+        pinned: !item.pinned,
+      }),
+    onSuccess: (_, item) => {
       queryClient.invalidateQueries({ queryKey: key })
-      toast.success("Announcement archived.")
+      toast.success(item.pinned ? "Unpinned." : "Pinned to the top.")
     },
-    onError: (err) => toast.error(backendMessage(err, "Unable to archive this announcement.")),
+    onError: (err) => toast.error(backendMessage(err, "Unable to change the pin.")),
   })
+
+  const deleteMutation = useMutation({
+    mutationFn: (announcementId) => archiveDepartmentAnnouncement(departmentId, announcementId),
+    onSuccess: (_, announcementId) => {
+      queryClient.invalidateQueries({ queryKey: key })
+      if (editing?.departmentAnnouncementId === announcementId) resetForm()
+      toast.success("Announcement deleted.")
+      setDeleteTarget(null)
+    },
+    onError: (err) => {
+      toast.error(backendMessage(err, "Unable to delete this announcement."))
+      setDeleteTarget(null)
+    },
+  })
+
+  const unchanged =
+    editing &&
+    title.trim() === (editing.title ?? "").trim() &&
+    body.trim() === (editing.body ?? "").trim() &&
+    pinned === Boolean(editing.pinned)
 
   return (
     <div className="space-y-5">
-      <Card>
+      <div ref={formRef} className="scroll-mt-24">
+      <Card className={editing ? "border-primary/40 ring-1 ring-primary/20" : undefined}>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Post an announcement</CardTitle>
-          <CardDescription>Share updates, deadlines, or reminders with this department.</CardDescription>
+          <CardTitle className="text-base">{editing ? "Edit announcement" : "Post an announcement"}</CardTitle>
+          <CardDescription>
+            {editing
+              ? "Learners see the updated version straight away."
+              : "Share updates, deadlines, or reminders with this department."}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-1.5">
@@ -246,28 +299,38 @@ function AnnouncementsTab({ departmentId }) {
               placeholder="What do your learners need to know?"
             />
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
               <Checkbox checked={pinned} onCheckedChange={(v) => setPinned(Boolean(v))} />
               Pin to top
             </label>
-            <Button
-              type="button"
-              onClick={() => createMutation.mutate()}
-              disabled={!title.trim() || !body.trim() || createMutation.isPending}
-            >
-              {createMutation.isPending ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                  Posting...
-                </>
-              ) : (
-                "Post announcement"
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              {editing ? (
+                <Button type="button" variant="outline" onClick={resetForm} disabled={saveMutation.isPending}>
+                  Cancel
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                onClick={() => saveMutation.mutate()}
+                disabled={!title.trim() || !body.trim() || saveMutation.isPending || unchanged}
+              >
+                {saveMutation.isPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                    {editing ? "Saving..." : "Posting..."}
+                  </>
+                ) : editing ? (
+                  "Save changes"
+                ) : (
+                  "Post announcement"
+                )}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
+      </div>
 
       {announcementsQuery.isLoading ? (
         <InstitutionLoadingSkeleton rows={2} />
@@ -285,36 +348,90 @@ function AnnouncementsTab({ departmentId }) {
         />
       ) : (
         <div className="space-y-3">
-          {announcements.map((item) => (
-            <Card key={item.departmentAnnouncementId}>
-              <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
-                <div className="min-w-0">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    {item.pinned ? (
-                      <PinIcon className="size-3.5 text-primary" aria-hidden="true" />
-                    ) : null}
-                    {item.title}
-                  </CardTitle>
-                  <CardDescription>
-                    {item.createdByEmail ?? "You"} · {formatDateTime(item.createdAt)}
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => archiveMutation.mutate(item.departmentAnnouncementId)}
-                  disabled={archiveMutation.isPending}
-                >
-                  <Trash2 className="size-4" aria-hidden="true" />
-                </Button>
-              </CardHeader>
-              <CardContent className="whitespace-pre-wrap text-sm text-muted-foreground">
-                {item.body}
-              </CardContent>
-            </Card>
-          ))}
+          {announcements.map((item) => {
+            const isEditing = editing?.departmentAnnouncementId === item.departmentAnnouncementId
+            const edited =
+              item.updatedAt && item.createdAt && new Date(item.updatedAt) - new Date(item.createdAt) > 60_000
+            return (
+              <Card
+                key={item.departmentAnnouncementId}
+                className={isEditing ? "border-primary/40 bg-primary/5" : undefined}
+              >
+                <CardHeader className="flex flex-row items-start justify-between gap-2 space-y-0 pb-2">
+                  <div className="min-w-0">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      {item.pinned ? <PinIcon className="size-3.5 text-primary" aria-hidden="true" /> : null}
+                      <span className="break-words">{item.title}</span>
+                    </CardTitle>
+                    <CardDescription>
+                      {item.createdByEmail ?? "You"} · {formatDateTime(item.createdAt)}
+                      {edited ? ` · edited ${formatDateTime(item.updatedAt)}` : ""}
+                    </CardDescription>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => pinMutation.mutate(item)}
+                      disabled={pinMutation.isPending}
+                      aria-label={item.pinned ? `Unpin ${item.title}` : `Pin ${item.title}`}
+                      className={item.pinned ? "text-primary" : "text-muted-foreground"}
+                    >
+                      <PinIcon className="size-4" aria-hidden="true" />
+                      <span className="hidden sm:inline">{item.pinned ? "Unpin" : "Pin"}</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => startEdit(item)}
+                      aria-label={`Edit ${item.title}`}
+                    >
+                      <Pencil className="size-4" aria-hidden="true" />
+                      <span className="hidden sm:inline">Edit</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteTarget(item)}
+                      aria-label={`Delete ${item.title}`}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="size-4" aria-hidden="true" />
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="whitespace-pre-wrap break-words text-sm text-muted-foreground">
+                  {item.body}
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
+
+      <AlertDialog open={deleteTarget != null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this announcement?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &quot;{deleteTarget?.title}&quot; will no longer be shown to your learners.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                deleteMutation.mutate(deleteTarget.departmentAnnouncementId)
+              }}
+              disabled={deleteMutation.isPending}
+              variant="destructive"
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -361,8 +478,8 @@ function InlineNameInput({ placeholder, onSubmit, onCancel, isPending, className
 
 const VALID_TABS = [
   "curriculum",
-  "assessments",
   "question-bank",
+  "assessments",
   "learners",
   "announcements",
 ]
@@ -533,8 +650,8 @@ export default function InstitutionDepartmentWorkspacePage() {
       >
         <TabsList>
           <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
-          <TabsTrigger value="assessments">Assessments</TabsTrigger>
           <TabsTrigger value="question-bank">Question Bank</TabsTrigger>
+          <TabsTrigger value="assessments">Assessments</TabsTrigger>
           <TabsTrigger value="learners">Sections ({learners.length})</TabsTrigger>
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
         </TabsList>
@@ -686,6 +803,11 @@ export default function InstitutionDepartmentWorkspacePage() {
                         {exam.status === "ARCHIVED" ? "Republish" : "Publish"}
                       </Button>
                     )}
+                    <Button asChild variant="outline" size="sm">
+                      <Link to={`/institution/departments/${id}/assessments/${exam.examId}/results`}>
+                        Results
+                      </Link>
+                    </Button>
                     <Button asChild variant="ghost" size="sm">
                       <Link to={`/institution/departments/${id}/assessments/${exam.examId}/edit`}>
                         Edit
@@ -724,8 +846,9 @@ export default function InstitutionDepartmentWorkspacePage() {
 
         <TabsContent value="question-bank" className="mt-5 space-y-4">
           <p className="text-sm text-muted-foreground">
-            Add questions to any lesson in this certification. You can edit or delete
-            only the questions you created.
+            Questions you add here belong to {group?.departmentName || "this department"}:
+            only its learners and assessments use them, and only its heads can edit or delete
+            them. Official questions are read-only.
           </p>
           {certification ? (
             <InstitutionQuestionBankPanel

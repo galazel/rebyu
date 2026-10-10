@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
-import { useOutletContext } from "react-router-dom"
+import { Link, useOutletContext } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { FileQuestionIcon, Loader2, Pencil, Plus, Search, Trash2 } from "@/components/icons"
+import { FileQuestionIcon, Loader2, Pencil, Plus, Search, Trash2, Upload } from "@/components/icons"
 import { toast } from "sonner"
 
 import {
@@ -52,6 +52,7 @@ import { useInstitutionData } from "@/hooks/use-institution-data.js"
 import { getAllCertifications } from "@/services/certificationService.js"
 import {
   deleteQuestion,
+  getDepartmentQuestions,
   getQuestionsByLesson,
   saveQuestion,
   updateQuestion,
@@ -70,6 +71,13 @@ const DIFFICULTIES = [
   { value: "hard", label: "Hard" },
 ]
 
+const ALL_LESSONS = "all"
+
+/** Stored difficulties mix cases ("EASY", "average"); compare them lowercased. */
+function difficultyKey(value) {
+  return (value ?? "").toString().trim().toLowerCase()
+}
+
 function backendMessage(error, fallback) {
   return error?.response?.data?.message ?? fallback
 }
@@ -78,57 +86,88 @@ function emptyChoice() {
   return { choiceText: "", correct: false, explanation: "" }
 }
 
-function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, departmentId }) {
+function QuestionFormDialog({
+  open,
+  onOpenChange,
+  defaultLessonId,
+  lessonOptions,
+  editingQuestion,
+  departmentId,
+}) {
   const queryClient = useQueryClient()
   const isEditing = editingQuestion != null
 
+  const [lessonId, setLessonId] = useState("")
   const [questionType, setQuestionType] = useState("MCQ")
   const [difficultyLevel, setDifficultyLevel] = useState("average")
   const [questionText, setQuestionText] = useState("")
   const [choices, setChoices] = useState([emptyChoice(), emptyChoice()])
+  const [explanation, setExplanation] = useState("")
   const [error, setError] = useState("")
 
   const reset = () => {
+    setLessonId("")
     setQuestionType("MCQ")
     setDifficultyLevel("average")
     setQuestionText("")
     setChoices([emptyChoice(), emptyChoice()])
+    setExplanation("")
     setError("")
   }
 
-  useMemo(() => {
-    if (editingQuestion && open) {
+  useEffect(() => {
+    if (!open) return
+    if (editingQuestion) {
+      setLessonId(editingQuestion.lessonId != null ? String(editingQuestion.lessonId) : "")
       setQuestionType(editingQuestion.questionType ?? "MCQ")
-      setDifficultyLevel(editingQuestion.difficultyLevel ?? "average")
+      setDifficultyLevel(difficultyKey(editingQuestion.difficultyLevel) || "average")
       setQuestionText(editingQuestion.questionText ?? "")
       setChoices(
         editingQuestion.choices?.length
           ? editingQuestion.choices.map((c) => ({
+              choiceId: c.choiceId,
               choiceText: c.choiceText ?? "",
               correct: Boolean(c.correct),
-              explanation: c.explanation ?? "",
+              imageKey: c.imageKey ?? null,
             }))
           : [emptyChoice(), emptyChoice()]
       )
+      setExplanation(
+        editingQuestion.choices?.find((c) => c.correct && c.explanation)?.explanation ?? ""
+      )
+    } else {
+      setLessonId(defaultLessonId ? String(defaultLessonId) : "")
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [editingQuestion, open])
 
   const saveMutation = useMutation({
     mutationFn: () => {
+      const note = explanation.trim()
       const payload = {
         questionType,
-        difficultyLevel,
+        difficultyLevel: difficultyLevel.toUpperCase(),
         questionText: questionText.trim(),
-        lessonId,
-        choices: questionType === "MCQ" ? choices.filter((c) => c.choiceText.trim()) : [],
+        lessonId: Number(lessonId),
+        choices:
+          questionType === "MCQ"
+            ? choices
+                .filter((c) => c.choiceText.trim())
+                .map((c) => ({
+                  ...(c.choiceId != null ? { choiceId: c.choiceId } : {}),
+                  choiceText: c.choiceText.trim(),
+                  correct: c.correct,
+                  imageKey: c.imageKey ?? null,
+                  explanation: c.correct && note ? note : null,
+                }))
+            : [],
       }
       return isEditing
         ? updateQuestion(editingQuestion.questionId, payload)
         : saveQuestion(payload, departmentId)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["institution-questions", lessonId, departmentId ?? null] })
+      queryClient.invalidateQueries({ queryKey: ["institution-questions"] })
       toast.success(isEditing ? "Question updated." : "Question added.")
       reset()
       onOpenChange(false)
@@ -142,6 +181,10 @@ function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, dep
 
   const handleSubmit = (event) => {
     event.preventDefault()
+    if (!lessonId) {
+      setError("Choose the lesson this question belongs to.")
+      return
+    }
     if (!questionText.trim()) {
       setError("Enter the question text.")
       return
@@ -172,12 +215,29 @@ function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, dep
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit question" : "Add question"}</DialogTitle>
           <DialogDescription>
-            This question is added to your institution's copy of the question bank for
-            this lesson.
+            {departmentId
+              ? "Only your department's learners and assessments see this question."
+              : "This question is added to your institution's copy of the question bank."}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Lesson</Label>
+            <Select value={lessonId} onValueChange={setLessonId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choose a lesson" />
+              </SelectTrigger>
+              <SelectContent>
+                {lessonOptions.map((lesson) => (
+                  <SelectItem key={lesson.lessonId} value={String(lesson.lessonId)}>
+                    {lesson.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Question type</Label>
@@ -275,6 +335,17 @@ function QuestionFormDialog({ open, onOpenChange, lessonId, editingQuestion, dep
                   Add choice
                 </Button>
               ) : null}
+              <p className="text-xs text-muted-foreground">Tick the correct answer.</p>
+              <div className="space-y-1.5 pt-1">
+                <Label htmlFor="question-explanation">Explanation</Label>
+                <Textarea
+                  id="question-explanation"
+                  value={explanation}
+                  onChange={(e) => setExplanation(e.target.value)}
+                  rows={2}
+                  placeholder="Why the correct answer is right. Learners see this after submitting."
+                />
+              </div>
             </div>
           ) : null}
 
@@ -334,8 +405,9 @@ export function InstitutionQuestionBankPanel({
 
   const [selectedCertId, setSelectedCertId] = useState(startingCertId)
   const [selectedLessonId, setSelectedLessonId] = useState(
-    initialLessonId ? String(initialLessonId) : ""
+    initialLessonId ? String(initialLessonId) : departmentId ? ALL_LESSONS : ""
   )
+  const [sourceFilter, setSourceFilter] = useState("all")
   const [formOpen, setFormOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState("all")
@@ -355,7 +427,7 @@ export function InstitutionQuestionBankPanel({
       setEditingQuestion(null)
       setFormOpen(true)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [startingCertId, initialLessonId, autoOpenAdd])
 
   const certificationsQuery = useQuery({
@@ -392,19 +464,38 @@ export function InstitutionQuestionBankPanel({
     return options
   }, [accessibleCertifications, selectedCertId])
 
+  const showingAllLessons = selectedLessonId === ALL_LESSONS
+  const departmentIdNumber = departmentId != null ? Number(departmentId) : null
+
   const questionsQuery = useQuery({
     queryKey: ["institution-questions", selectedLessonId, departmentId ?? null],
-    queryFn: () => getQuestionsByLesson(selectedLessonId, departmentId),
-    enabled: !!selectedLessonId,
+    queryFn: () =>
+      showingAllLessons
+        ? getDepartmentQuestions(departmentId)
+        : getQuestionsByLesson(selectedLessonId, departmentId),
+    enabled: !!selectedLessonId && (!showingAllLessons || departmentId != null),
+    staleTime: 30_000,
   })
 
   const questions = Array.isArray(questionsQuery.data) ? questionsQuery.data : []
+  const isOurs = (question) =>
+    (departmentIdNumber != null && question.ownerDepartmentId === departmentIdNumber) ||
+    question.createdByUserId === user?.userId
+  const lessonLabelById = useMemo(
+    () => new Map(lessonOptions.map((lesson) => [lesson.lessonId, lesson.label])),
+    [lessonOptions]
+  )
+  const ourCount = questions.filter(isOurs).length
 
   const visibleQuestions = useMemo(() => {
     const needle = search.trim().toLowerCase()
     return questions.filter((question) => {
       if (typeFilter !== "all" && question.questionType !== typeFilter) return false
-      if (difficultyFilter !== "all" && question.difficultyLevel !== difficultyFilter) return false
+      if (difficultyFilter !== "all" && difficultyKey(question.difficultyLevel) !== difficultyFilter) {
+        return false
+      }
+      if (sourceFilter === "ours" && !isOurs(question)) return false
+      if (sourceFilter === "official" && question.ownerDepartmentId != null) return false
       if (!needle) return true
       const haystack = [
         question.questionText,
@@ -415,14 +506,13 @@ export function InstitutionQuestionBankPanel({
         .toLowerCase()
       return haystack.includes(needle)
     })
-  }, [questions, search, typeFilter, difficultyFilter])
+     
+  }, [questions, search, typeFilter, difficultyFilter, sourceFilter])
 
   const deleteMutation = useMutation({
     mutationFn: (questionId) => deleteQuestion(questionId),
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["institution-questions", selectedLessonId, departmentId ?? null],
-      })
+      queryClient.invalidateQueries({ queryKey: ["institution-questions"] })
       toast.success("Question deleted.")
       setDeleteTarget(null)
     },
@@ -468,13 +558,19 @@ export function InstitutionQuestionBankPanel({
           <Label>Lesson</Label>
           <Select
             value={selectedLessonId}
-            onValueChange={setSelectedLessonId}
+            onValueChange={(value) => {
+              setSelectedLessonId(value)
+              setSourceFilter("all")
+            }}
             disabled={!selectedCertId}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select a lesson" />
             </SelectTrigger>
             <SelectContent>
+              {departmentId != null ? (
+                <SelectItem value={ALL_LESSONS}>All lessons — our questions</SelectItem>
+              ) : null}
               {lessonOptions.length === 0 ? (
                 <SelectItem value="none" disabled>
                   No lessons available
@@ -524,6 +620,21 @@ export function InstitutionQuestionBankPanel({
                 </SelectContent>
               </Select>
             </div>
+            {departmentId != null && !showingAllLessons ? (
+              <div className="w-36 space-y-1.5">
+                <Label>Source</Label>
+                <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="ours">Ours</SelectItem>
+                    <SelectItem value="official">Official</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <div className="w-36 space-y-1.5">
               <Label>Difficulty</Label>
               <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
@@ -549,6 +660,14 @@ export function InstitutionQuestionBankPanel({
               <Plus className="size-4" aria-hidden="true" />
               Add question
             </Button>
+            {departmentId != null ? (
+              <Button asChild variant="outline">
+                <Link to={`/institution/departments/${departmentId}/question-bank/import`}>
+                  <Upload className="size-4" aria-hidden="true" />
+                  Import from PDF/Word
+                </Link>
+              </Button>
+            ) : null}
           </>
         ) : null}
       </div>
@@ -565,11 +684,21 @@ export function InstitutionQuestionBankPanel({
         <>
           {questionsQuery.isLoading ? (
             <InstitutionLoadingSkeleton rows={3} />
+          ) : questionsQuery.isError ? (
+            <InstitutionEmptyState
+              icon={FileQuestionIcon}
+              title="Questions could not be loaded"
+              description="Try again in a moment."
+            />
           ) : questions.length === 0 ? (
             <InstitutionEmptyState
               icon={FileQuestionIcon}
-              title="No questions yet"
-              description="Add the first question for this lesson."
+              title={showingAllLessons ? "Your department has no questions yet" : "No questions yet"}
+              description={
+                showingAllLessons
+                  ? "Add questions to any lesson; they appear here and in your assessment builder."
+                  : "Add the first question for this lesson."
+              }
             />
           ) : visibleQuestions.length === 0 ? (
             <InstitutionEmptyState
@@ -582,6 +711,7 @@ export function InstitutionQuestionBankPanel({
               <p className="text-xs text-muted-foreground">
                 Showing {visibleQuestions.length} of {questions.length} question
                 {questions.length === 1 ? "" : "s"}
+                {departmentId != null && !showingAllLessons ? ` · ${ourCount} written by your department` : ""}
               </p>
               <div className="overflow-x-auto rounded-xl border border-border bg-background">
                 <Table>
@@ -596,12 +726,17 @@ export function InstitutionQuestionBankPanel({
                   </TableHeader>
                   <TableBody className="text-[13px]">
                     {visibleQuestions.map((question) => {
-                      const isMine = question.createdByUserId === user?.userId
+                      const isMine = isOurs(question)
                       const correct = (question.choices ?? []).find((choice) => choice.correct)
                       return (
                         <TableRow key={question.questionId} className="align-top">
-                          <TableCell className="max-w-xl py-2.5">
+                          <TableCell className="min-w-72 whitespace-normal break-words py-2.5">
                             <p className="font-medium text-foreground">{question.questionText}</p>
+                            {showingAllLessons && lessonLabelById.get(question.lessonId) ? (
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                {lessonLabelById.get(question.lessonId)}
+                              </p>
+                            ) : null}
                             {correct ? (
                               <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
                                 &#10003; {correct.choiceText}
@@ -614,12 +749,23 @@ export function InstitutionQuestionBankPanel({
                           </TableCell>
                           <TableCell className="py-2.5">
                             <Badge variant="outline">
-                              {DIFFICULTIES.find((d) => d.value === question.difficultyLevel)
+                              {DIFFICULTIES.find((d) => d.value === difficultyKey(question.difficultyLevel))
                                 ?.label ?? question.difficultyLevel}
                             </Badge>
                           </TableCell>
-                          <TableCell className="max-w-48 truncate py-2.5 text-xs text-muted-foreground">
-                            {question.createdByEmail ?? "Platform question"}
+                          <TableCell className="w-48 max-w-48 py-2.5 text-xs text-muted-foreground">
+                            {question.ownerDepartmentId != null ? (
+                              <>
+                                <span className="block truncate font-medium text-foreground">
+                                  {question.ownerDepartmentName ?? "Department"}
+                                </span>
+                                {question.createdByEmail ? (
+                                  <span className="block truncate">added by {question.createdByEmail}</span>
+                                ) : null}
+                              </>
+                            ) : (
+                              "Official"
+                            )}
                           </TableCell>
                           <TableCell className="whitespace-nowrap py-2.5 text-right">
                             {isMine ? (
@@ -662,7 +808,8 @@ export function InstitutionQuestionBankPanel({
       <QuestionFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
-        lessonId={Number(selectedLessonId) || null}
+        defaultLessonId={showingAllLessons ? "" : selectedLessonId}
+        lessonOptions={lessonOptions}
         editingQuestion={editingQuestion}
         departmentId={departmentId}
       />
@@ -687,7 +834,7 @@ export function InstitutionQuestionBankPanel({
                 deleteMutation.mutate(deleteTarget.questionId)
               }}
               disabled={deleteMutation.isPending}
-              className="bg-destructive text-white hover:bg-destructive/90"
+              variant="destructive"
             >
               {deleteMutation.isPending ? "Deleting..." : "Delete question"}
             </AlertDialogAction>

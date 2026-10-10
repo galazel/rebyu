@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { AlertCircle, ListChecks, Loader2 } from "@/components/icons"
+import { AlertCircle, LibraryBig, ListChecks, Loader2, Trash2 } from "@/components/icons"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -30,6 +30,7 @@ import {
   validateQuestionData,
 } from "@/components/questions/question-editors.jsx"
 import ExamFormatPanel from "@/components/assessments/admin/exam-format-panel.jsx"
+import AssessmentQuestionPickerDialog from "@/components/assessments/admin/assessment-question-picker-dialog.jsx"
 import { getAllCertifications } from "@/services/certificationService.js"
 import { getDepartmentById } from "@/services/institutionService.js"
 import {
@@ -56,6 +57,53 @@ function SectionLabel({ children, className = "" }) {
     <p className={"text-xs font-semibold uppercase tracking-wide text-muted-foreground " + className}>
       {children}
     </p>
+  )
+}
+
+function BankQuestionCard({ questionNumber, question, headerExtra, onRemove }) {
+  const data = question.data ?? {}
+  const typeLabel = QUESTION_TYPES.find((t) => t.id === question.typeId)?.title ?? question.typeId
+  return (
+    <article className="rounded-xl border border-border bg-background p-4 shadow-sm">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-foreground">Question {questionNumber}</span>
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{typeLabel}</span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+            <LibraryBig className="size-3" aria-hidden="true" />
+            From question bank
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {headerExtra}
+          <Button variant="ghost" size="icon-sm" aria-label={`Remove question ${questionNumber}`} onClick={onRemove}>
+            <Trash2 className="size-4" aria-hidden="true" />
+          </Button>
+        </div>
+      </header>
+      <p className="mt-3 whitespace-pre-wrap text-sm text-foreground">{data.question}</p>
+      {Array.isArray(data.choices) && data.choices.length ? (
+        <ul className="mt-2 space-y-1">
+          {data.choices.map((choice, index) => (
+            <li
+              key={index}
+              className={
+                "rounded-md border px-3 py-1.5 text-sm " +
+                (choice.isCorrect
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                  : "border-border text-muted-foreground")
+              }
+            >
+              {choice.isCorrect ? "✓ " : ""}
+              {choice.choiceText}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <p className="mt-3 text-xs text-muted-foreground">
+        To change this question, edit it in the Question Bank tab.
+      </p>
+    </article>
   )
 }
 
@@ -121,6 +169,8 @@ export default function InstitutionAssessmentBuilderPage() {
   const [scopeLessonId, setScopeLessonId] = useState("")
 
   const [questions, setQuestions] = useState([])
+  const [bankPickerOpen, setBankPickerOpen] = useState(false)
+  const [addingFromBank, setAddingFromBank] = useState(false)
   const [pointsMode, setPointsMode] = useState("SAME")
   const [samePoints, setSamePoints] = useState("1")
   const [pointsById, setPointsById] = useState({})
@@ -318,6 +368,39 @@ export default function InstitutionAssessmentBuilderPage() {
       [key]: pointsMode === "SAME" ? samePoints : "1",
     }))
   }
+
+  const addFromBank = async (picked) => {
+    setAddingFromBank(true)
+    try {
+      const added = []
+      for (const question of picked) {
+        const item = await reconstructQuestionData(question, picked)
+        if (!item) continue
+        added.push({
+          key: createLocalId(),
+          typeId: item.typeId,
+          data: item.data,
+          existingQuestionId: question.questionId,
+        })
+      }
+      setQuestions((current) => [...current, ...added])
+      setPointsById((current) => ({
+        ...current,
+        ...Object.fromEntries(added.map((q) => [q.key, pointsMode === "SAME" ? samePoints : "1"])),
+      }))
+      setBankPickerOpen(false)
+      if (added.length) toast.success(`Added ${added.length} question${added.length === 1 ? "" : "s"} from the bank.`)
+    } catch {
+      toast.error("Could not add those questions. Try again.")
+    } finally {
+      setAddingFromBank(false)
+    }
+  }
+
+  const bankQuestionIds = useMemo(
+    () => new Set(questions.map((q) => q.existingQuestionId).filter((qid) => qid != null)),
+    [questions]
+  )
 
   const removeQuestion = (key) => {
     setQuestions((current) => current.filter((question) => question.key !== key))
@@ -745,11 +828,17 @@ export default function InstitutionAssessmentBuilderPage() {
                 <ListChecks className="mx-auto size-10 text-muted-foreground" />
                 <p className="mt-3 text-sm font-medium text-foreground">No questions yet</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Add your first question here, or pick another type from the palette.
+                  Pick questions from your question bank, or write new ones here.
                 </p>
-                <Button className="mt-5" onClick={() => addQuestion(firstQuestionType)}>
-                  Add a multiple choice question
-                </Button>
+                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                  <Button onClick={() => setBankPickerOpen(true)} disabled={!certification}>
+                    <LibraryBig className="size-4" aria-hidden="true" />
+                    Choose from question bank
+                  </Button>
+                  <Button variant="outline" onClick={() => addQuestion(firstQuestionType)}>
+                    Write a multiple choice question
+                  </Button>
+                </div>
               </div>
             </div>
           ) : (
@@ -757,7 +846,7 @@ export default function InstitutionAssessmentBuilderPage() {
               {questions.map((question, index) => {
                 const questionType = QUESTION_TYPES.find((t) => t.id === question.typeId)
                 const Editor = questionType?.component
-                if (!Editor) return null
+                if (!Editor && !question.existingQuestionId) return null
 
                 const pointsInput = (
                   <div className="flex shrink-0 items-center gap-1.5">
@@ -779,6 +868,18 @@ export default function InstitutionAssessmentBuilderPage() {
                   </div>
                 )
 
+                if (question.existingQuestionId) {
+                  return (
+                    <BankQuestionCard
+                      key={question.key}
+                      questionNumber={index + 1}
+                      question={question}
+                      headerExtra={pointsInput}
+                      onRemove={() => removeQuestion(question.key)}
+                    />
+                  )
+                }
+
                 return (
                   <Editor
                     key={question.key}
@@ -798,9 +899,27 @@ export default function InstitutionAssessmentBuilderPage() {
 
         <aside className="min-h-0 space-y-4 overflow-y-auto border-t border-border p-4 md:border-l md:border-t-0">
           <div>
-            <SectionLabel>Add question</SectionLabel>
+            <SectionLabel>From question bank</SectionLabel>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              Pick a type to add it to this assessment.
+              Reuse questions your department wrote in its question bank.
+            </p>
+            <Button
+              className="mt-3 w-full"
+              onClick={() => setBankPickerOpen(true)}
+              disabled={!certification || addingFromBank}
+            >
+              {addingFromBank ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <LibraryBig className="size-4" aria-hidden="true" />
+              )}
+              Choose from question bank
+            </Button>
+          </div>
+          <div>
+            <SectionLabel>Write a new question</SectionLabel>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              Pick a type to write it here. It is saved to your question bank too.
             </p>
           </div>
           <div className="space-y-2">
@@ -810,6 +929,22 @@ export default function InstitutionAssessmentBuilderPage() {
           </div>
         </aside>
       </div>
+
+      {certification ? (
+        <AssessmentQuestionPickerDialog
+          open={bankPickerOpen}
+          onOpenChange={setBankPickerOpen}
+          certification={certification}
+          ownerDepartmentId={id}
+          excludeUsedElsewhere={false}
+          departmentQuestionsOnly
+          alreadySelectedIds={bankQuestionIds}
+          currentExamId={editingExamId}
+          initialLessonId={scope === "LESSON" && scopeLessonId ? Number(scopeLessonId) : null}
+          initialMiddleCategoryId={scope === "MIDDLE_CATEGORY" && scopeMiddleId ? Number(scopeMiddleId) : null}
+          onAddQuestions={addFromBank}
+        />
+      ) : null}
     </div>
   )
 }

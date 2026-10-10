@@ -67,6 +67,8 @@ const InstitutionCertificationsPage = lazyRoute(() => import("./pages/institutio
 const InstitutionCertificationDetailPage = lazyRoute(() => import("./pages/institution/certifications/institution-certification-detail-page.jsx"))
 const InstitutionCertificationViewerPage = lazyRoute(() => import("./pages/institution/certifications/institution-certification-viewer-page.jsx"))
 const InstitutionAssessmentBuilderPage = lazyRoute(() => import("./pages/institution/certifications/institution-assessment-builder-page.jsx"))
+const InstitutionQuestionImportPage = lazyRoute(() => import("./pages/institution/departments/institution-question-import-page.jsx"))
+const InstitutionAssessmentResultsPage = lazyRoute(() => import("./pages/institution/departments/institution-assessment-results-page.jsx"))
 const DepartmentsPage = lazyRoute(() => import("./pages/institution/departments/institution-departments-page.jsx"))
 const InstitutionAccountPage = lazyRoute(() => import("./pages/institution/account/institution-account-page.jsx"))
 const InstitutionInvoicesPage = lazyRoute(() => import("./pages/institution/account/institution-invoices-page.jsx"))
@@ -377,6 +379,14 @@ export function App() {
                     <Route
                         path="departments/:departmentId/assessments/:examId/edit"
                         element={<InstitutionAssessmentBuilderPage />}
+                    />
+                    <Route
+                        path="departments/:departmentId/question-bank/import"
+                        element={<InstitutionQuestionImportPage />}
+                    />
+                    <Route
+                        path="departments/:departmentId/assessments/:examId/results"
+                        element={<InstitutionAssessmentResultsPage />}
                     />
                     <Route
                         path="certifications/:certificationId/view"

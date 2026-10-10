@@ -50,7 +50,8 @@ export function sendInstitutionInvitations({ departmentId, learners, sectionId =
 }
 
 export function getInstitutionInvitations(institutionId) {
-  return base(`institution/invitations?institutionId=${institutionId}`)
+  const query = institutionId != null ? `?institutionId=${institutionId}` : ""
+  return base(`institution/invitations${query}`)
 }
 
 export function cancelInstitutionInvitation(invitationId) {

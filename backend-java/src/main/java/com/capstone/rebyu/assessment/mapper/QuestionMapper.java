@@ -24,6 +24,7 @@ public abstract class QuestionMapper {
     @Mapping(source = "createdBy.userId", target = "createdByUserId")
     @Mapping(source = "createdBy.email", target = "createdByEmail")
     @Mapping(source = "ownerDepartment.departmentId", target = "ownerDepartmentId")
+    @Mapping(source = "ownerDepartment.departmentName", target = "ownerDepartmentName")
     @Mapping(target = "criticalThinkingType", ignore = true)
     public abstract QuestionDto toDto(Question entity);
 

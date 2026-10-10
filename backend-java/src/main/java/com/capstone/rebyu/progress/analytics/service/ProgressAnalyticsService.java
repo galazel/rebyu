@@ -651,6 +651,7 @@ public class ProgressAnalyticsService {
     boolean isCertificationAssessment(Exam exam) {
         if (exam == null) return true;
         if (tutorPracticeMarker(exam) != null) return false;
+        if (exam.getOwnerDepartment() != null) return false;
         String typeText = exam.getExamType() == null ? null : exam.getExamType().getExamTypeText();
         String normalized = typeText == null ? null : typeText.trim().toUpperCase();
         return typeText == null
@@ -677,6 +678,11 @@ public class ProgressAnalyticsService {
         String practice = tutorPracticeMarker(exam);
         if (practice != null) {
             return "tutor practice (" + practice + ")";
+        }
+        // A department's own paper is class work for its members, not the certification's
+        // curriculum: counting it would hold back every learner of the certification.
+        if (exam.getOwnerDepartment() != null) {
+            return "set by department " + exam.getOwnerDepartment().getDepartmentId();
         }
         if (exam.getExamType() != null
                 && "DIAGNOSTIC".equals(bktEventFactory.normalizeAssessmentType(

@@ -54,6 +54,10 @@ public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAtt
             """, nativeQuery = true)
     List<Long> findRecentSubmittedIdsMissingBktEvents(@Param("window") int window);
 
+    /** Every attempt a group of learners made at one assessment, oldest first. */
+    List<AssessmentAttempt> findByExam_ExamIdAndLearnerIdInOrderByAttemptNumberAsc(
+            Long examId, java.util.Collection<Long> learnerIds);
+
     Optional<AssessmentAttempt> findByIdempotencyKey(String idempotencyKey);
 
     Optional<AssessmentAttempt> findFirstByExam_ExamIdAndLearnerIdAndStatus(

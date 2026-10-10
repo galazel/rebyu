@@ -24,6 +24,9 @@ public class QuestionDto {
 
     private Long ownerDepartmentId;
 
+    /** The department that owns this question, for display; null for official questions. */
+    private String ownerDepartmentName;
+
     private Long parentQuestionId;
 
     @NotBlank

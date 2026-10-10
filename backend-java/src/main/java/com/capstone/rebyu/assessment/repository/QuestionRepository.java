@@ -95,6 +95,25 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
             """)
     List<QuestionSelectionView> findSelectionViewsByIdIn(@Param("ids") Collection<Long> ids);
 
+    /**
+     * A lesson's questions with everything the question list shows, in one query: the
+     * choices, the three type configs (one-to-one inverse sides would otherwise load one
+     * query each) and the author. Lazily that was ~5 queries per question.
+     */
+    @EntityGraph(attributePaths = {
+            "choices", "diagramQuestionConfig", "programmingQuestionConfig", "textQuestionConfig",
+            "createdBy", "ownerDepartment"})
+    @Query("SELECT DISTINCT q FROM Question q WHERE q.lesson.lessonId = :lessonId ORDER BY q.questionId")
+    List<Question> findForListingByLessonId(@Param("lessonId") Long lessonId);
+
+    /** Every question one department wrote, newest first, loaded for the question list. */
+    @EntityGraph(attributePaths = {
+            "choices", "diagramQuestionConfig", "programmingQuestionConfig", "textQuestionConfig",
+            "createdBy", "ownerDepartment"})
+    @Query("SELECT DISTINCT q FROM Question q WHERE q.ownerDepartment.departmentId = :departmentId "
+            + "ORDER BY q.questionId DESC")
+    List<Question> findForListingByOwnerDepartmentId(@Param("departmentId") Long departmentId);
+
     @EntityGraph(attributePaths = {
             "choices", "diagramQuestionConfig", "programmingQuestionConfig", "textQuestionConfig"})
     @Query("SELECT DISTINCT q FROM Question q WHERE q.questionId IN :ids")

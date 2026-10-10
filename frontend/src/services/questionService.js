@@ -30,6 +30,13 @@ export async function getQuestionsByLesson(lessonId, includeDepartmentId) {
     })
 }
 
+/** Every question one department wrote, across all lessons. */
+export async function getDepartmentQuestions(departmentId) {
+    return await base(`questions?includeDepartmentId=${departmentId}&departmentOnly=true`, {
+        method: "GET",
+    })
+}
+
 export async function getQuestions(includeDepartmentId, certificationId) {
     const params = new URLSearchParams()
     if (includeDepartmentId != null) params.set("includeDepartmentId", includeDepartmentId)

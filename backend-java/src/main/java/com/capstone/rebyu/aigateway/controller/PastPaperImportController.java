@@ -3,6 +3,7 @@ package com.capstone.rebyu.aigateway.controller;
 import com.capstone.rebyu.aigateway.service.PastPaperImportService;
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
+import com.capstone.rebyu.institution.repository.InstitutionCertificateRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -28,6 +29,7 @@ public class PastPaperImportController {
 
     private final PastPaperImportService pastPaperImportService;
     private final CognitoAuthService auth;
+    private final InstitutionCertificateRepository institutionCertificateRepository;
 
     @PostMapping(value = "/parse", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Map<String, Object> parse(
@@ -53,7 +55,7 @@ public class PastPaperImportController {
     public Map<String, Object> readLayout(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam("file") MultipartFile file) {
-        requireAdmin(jwt);
+        requireImporter(jwt, null);
         return pastPaperImportService.readLayout(file);
     }
 
@@ -62,7 +64,7 @@ public class PastPaperImportController {
     public byte[] toPdf(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam("file") MultipartFile file) {
-        requireAdmin(jwt);
+        requireImporter(jwt, null);
         return pastPaperImportService.toPdf(file);
     }
 
@@ -70,7 +72,7 @@ public class PastPaperImportController {
     public Map<String, Object> readPage(
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody Map<String, Object> request) {
-        requireAdmin(jwt);
+        requireImporter(jwt, null);
         return pastPaperImportService.forward("/past-papers/read-page", request, "The page could not be read");
     }
 
@@ -78,7 +80,7 @@ public class PastPaperImportController {
     public Map<String, Object> duplicates(
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody Map<String, Object> request) {
-        requireAdmin(jwt);
+        requireImporter(jwt, certificationIdOf(request));
         return pastPaperImportService.forward("/past-papers/duplicates", request, "Duplicates could not be checked");
     }
 
@@ -86,7 +88,7 @@ public class PastPaperImportController {
     public Map<String, Object> tag(
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody Map<String, Object> request) {
-        requireAdmin(jwt);
+        requireImporter(jwt, certificationIdOf(request));
         return pastPaperImportService.forward("/past-papers/tag", request, "Questions could not be tagged");
     }
 
@@ -94,7 +96,7 @@ public class PastPaperImportController {
     public Map<String, Object> startTagJob(
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody Map<String, Object> request) {
-        requireAdmin(jwt);
+        requireImporter(jwt, certificationIdOf(request));
         return pastPaperImportService.forward("/past-papers/tag-jobs", request, "Tagging could not be started");
     }
 
@@ -111,7 +113,7 @@ public class PastPaperImportController {
     public Map<String, Object> tagJob(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable String jobId) {
-        requireAdmin(jwt);
+        requireImporter(jwt, null);
         return pastPaperImportService.get("/past-papers/tag-jobs/" + safeId(jobId), "The tagging job could not be read");
     }
 
@@ -119,7 +121,7 @@ public class PastPaperImportController {
     public Map<String, Object> cancelTagJob(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable String jobId) {
-        requireAdmin(jwt);
+        requireImporter(jwt, null);
         return pastPaperImportService.forward(
                 "/past-papers/tag-jobs/" + safeId(jobId) + "/cancel", Map.of(), "Tagging could not be stopped");
     }
@@ -137,6 +139,45 @@ public class PastPaperImportController {
             @RequestBody Map<String, Object> request) {
         requireAdmin(jwt);
         return pastPaperImportService.suggestLessons(request);
+    }
+
+    /**
+     * Admins import into any certification. A department head (institution account) may
+     * import too -- the department's own question bank -- but only for a certification
+     * their institution holds. {@code certificationId} null: a step that reads a file and
+     * touches no certification.
+     */
+    private void requireImporter(Jwt jwt, Long certificationId) {
+        if (jwt == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication is required.");
+        }
+        CurrentUserDto user = auth.syncCurrentUser(jwt, jwt.getTokenValue());
+        String role = user == null || user.role() == null ? "" : user.role().trim().toUpperCase(Locale.ROOT);
+        if (role.contains("ADMIN")) {
+            return;
+        }
+        if (!CognitoAuthService.isInstitutionRole(user.role()) || user.institutionId() == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Importing questions is for administrators and department heads.");
+        }
+        if (certificationId != null && institutionCertificateRepository
+                .findByInstitution_InstitutionIdAndCertification_CertificationId(user.institutionId(), certificationId)
+                .isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Your institution does not have this certification.");
+        }
+    }
+
+    private static Long certificationIdOf(Map<String, Object> request) {
+        Object raw = request == null ? null : request.get("certificationId");
+        if (raw == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "certificationId is required.");
+        }
+        try {
+            return Long.valueOf(String.valueOf(raw));
+        } catch (NumberFormatException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "certificationId is not a number.");
+        }
     }
 
     private void requireAdmin(Jwt jwt) {

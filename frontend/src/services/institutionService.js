@@ -165,6 +165,14 @@ export function getGroupLearnerAnalytics(departmentId, learnerId) {
   return base(`institution/me/departments/${departmentId}/learners/${learnerId}/analytics`)
 }
 
+export function getDepartmentAssessmentResults(departmentId, examId) {
+  return base(`institution/me/departments/${departmentId}/assessments/${examId}/results`)
+}
+
+export function getMemberAttemptResult(departmentId, learnerId, attemptId) {
+  return base(`institution/me/departments/${departmentId}/learners/${learnerId}/attempts/${attemptId}/result`)
+}
+
 export function getGroupLearnerAwards(learnerId) {
   return base(`institution/me/learners/${learnerId}/awards`)
 }
