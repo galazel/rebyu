@@ -126,6 +126,59 @@ public class ProgressAnalyticsService {
         return CompletableFuture.supplyAsync(read, bktExecutor);
     }
 
+    /**
+     * {@link #progressFor} for several certifications at once, with the same rules: four
+     * queries in all, instead of four per certification.
+     */
+    @Transactional(readOnly = true)
+    public List<CertificationProgressDto> progressForAll(Long learnerId, java.util.Collection<Long> certificationIds) {
+        if (certificationIds == null || certificationIds.isEmpty()) return List.of();
+
+        Map<Long, List<LessonRepository.OfficialLessonIdsView>> lessonsByCertification = lessonRepository
+                .findOfficialLessonIdsByCertificationIds(certificationIds).stream()
+                .collect(Collectors.groupingBy(LessonRepository.OfficialLessonIdsView::getCertificationId));
+        Map<Long, Long> completedByCertification = learnerCompletedLessonRepository
+                .countCompletedPerCertification(learnerId, certificationIds).stream()
+                .collect(Collectors.toMap(
+                        LearnerCompletedLessonRepository.CompletedPerCertification::getCertificationId,
+                        LearnerCompletedLessonRepository.CompletedPerCertification::getCompleted));
+        Map<Long, List<Exam>> examsByCertification = examRepository
+                .findWithTypeByCertificationIds(certificationIds).stream()
+                .filter(exam -> exam.getCertification() != null)
+                .collect(Collectors.groupingBy(exam -> exam.getCertification().getCertificationId()));
+        Set<Long> passedExamIds = new java.util.HashSet<>(assessmentAttemptRepository
+                .findPassedExamIds(learnerId, AssessmentAttempt.Status.SUBMITTED, certificationIds));
+
+        List<CertificationProgressDto> rows = new ArrayList<>();
+        for (Long certificationId : certificationIds) {
+            List<LessonRepository.OfficialLessonIdsView> certLessons =
+                    lessonsByCertification.getOrDefault(certificationId, List.of());
+            Set<Long> officialLessonIds = certLessons.stream()
+                    .map(CurriculumLessonIdView::getLessonId).filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            Set<Long> officialMiddleIds = certLessons.stream()
+                    .map(CurriculumLessonIdView::getMiddleCategoryId).filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            Set<Long> officialMajorIds = certLessons.stream()
+                    .map(CurriculumLessonIdView::getMajorCategoryId).filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
+            List<Exam> certExams = examsByCertification.getOrDefault(certificationId, List.of()).stream()
+                    .filter(exam -> assessmentExclusionReason(
+                            exam, officialLessonIds, officialMiddleIds, officialMajorIds) == null)
+                    .toList();
+            int passed = (int) certExams.stream().filter(exam -> passedExamIds.contains(exam.getExamId())).count();
+
+            rows.add(new CertificationProgressDto(
+                    certificationId,
+                    completedByCertification.getOrDefault(certificationId, 0L).intValue(),
+                    certLessons.size(),
+                    passed,
+                    certExams.size()));
+        }
+        return rows;
+    }
+
     @Transactional(readOnly = true)
     public CertificationProgressDto progressFor(Long learnerId, Long certificationId) {
         List<CurriculumLessonIdView> certLessons =
@@ -175,13 +228,15 @@ public class ProgressAnalyticsService {
 
     @Transactional(readOnly = true)
     public ProgressAnalyticsResponse getProgressAnalytics(Long learnerId, Long certificationId) {
+        com.capstone.rebyu.common.PhaseTimer timer = com.capstone.rebyu.common.PhaseTimer.start(
+                "progressAnalytics learner=" + learnerId + " cert=" + certificationId, log);
         Certification certification = certificationRepository.findById(certificationId)
                 .orElseThrow(() -> new EntityNotFoundException("Certification not found: " + certificationId));
 
         boolean selfEnrolled = learnerCertificationRepository
                 .existsByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
                         learnerId, certificationId, LearnerCertification.Status.active);
-        boolean institutionSponsored = institutionCertificationLearnerRepository
+        boolean institutionSponsored = !selfEnrolled && institutionCertificationLearnerRepository
                 .existsByLearner_LearnerIdAndInstitutionCert_Certification_CertificationIdAndStatus(
                         learnerId, certificationId, InstitutionCertificationLearner.Status.active);
         if (!selfEnrolled && !institutionSponsored) {
@@ -189,6 +244,7 @@ public class ProgressAnalyticsService {
         }
 
 
+        com.capstone.rebyu.common.PhaseTimer.mark(timer, "enrollment");
         CompletableFuture<LearnerMasteryService.LessonPrioritiesResult> prioritiesFuture =
                 bktAsync(() -> learnerMasteryService.getLessonPrioritiesForAnalytics(learnerId, certificationId));
         CompletableFuture<LearnerMasteryService.ConfidenceResult> confidenceFuture =
@@ -197,21 +253,43 @@ public class ProgressAnalyticsService {
                 bktAsync(() -> learnerMasteryService.getMasteryHistoryForAnalytics(learnerId, certificationId));
 
         List<AssessmentAttempt> attempts = assessmentAttemptRepository
-                .findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
+                .findWithExamByLearnerAndCertification(
                         learnerId, certificationId, AssessmentAttempt.Status.SUBMITTED);
+        com.capstone.rebyu.common.PhaseTimer.mark(timer, "attempts");
+
+        // Readiness is the one mastery-service call that needs our data first, so
+        // gather that data now and send it off before the accuracy breakdown, not after.
+        List<Lesson> certLessons = officialLessonOutlines(certificationId);
+        com.capstone.rebyu.common.PhaseTimer.mark(timer, "lessons");
+        int totalLessonCount = certLessons.size();
+        Map<Long, Lesson> lessonById = certLessons.stream()
+                .collect(Collectors.toMap(Lesson::getLessonId, l -> l));
+
+        List<LearnerCompletedLesson> completedLessons = learnerCompletedLessonRepository
+                .findByLearner_LearnerIdAndLesson_MiddleCategory_MajorCategory_Certification_CertificationId(
+                        learnerId, certificationId);
+        int completedLessonCount = completedLessons.size();
+        Double completionPercentage = totalLessonCount == 0 ? null
+                : (completedLessonCount * 100.0 / totalLessonCount);
+
+        Map<String, Object> readinessRequest = buildReadinessRequest(
+                learnerId, certLessons, attempts, totalLessonCount, completedLessonCount);
+        CompletableFuture<Map<String, Object>> readinessFuture = readinessRequest == null
+                ? CompletableFuture.completedFuture(null)
+                : bktAsync(() -> learnerMasteryService.getReadiness(readinessRequest));
+        com.capstone.rebyu.common.PhaseTimer.mark(timer, "completed lessons");
         Map<Long, AssessmentAttempt> attemptById = attempts.stream()
                 .collect(Collectors.toMap(AssessmentAttempt::getAssessmentAttemptId, a -> a));
         List<Long> attemptIds = new ArrayList<>(attemptById.keySet());
 
-        List<AssessmentAttemptQuestion> questions = attemptIds.isEmpty()
-                ? List.of() : attemptQuestionRepository.findByAttempt_AssessmentAttemptIdIn(attemptIds);
-        List<AssessmentAttemptAnswer> answers = attemptIds.isEmpty()
-                ? List.of() : attemptAnswerRepository.findByAttempt_AssessmentAttemptIdIn(attemptIds);
-        Map<Long, AssessmentAttemptAnswer> answerByQuestionId = answers.stream()
-                .collect(Collectors.toMap(a -> a.getAttemptQuestion().getAttemptQuestionId(), a -> a));
+        // Only the columns the accuracy figures use -- not the question snapshots.
+        List<AssessmentAttemptAnswerRepository.AnsweredItemView> items = attemptIds.isEmpty()
+                ? List.of() : attemptAnswerRepository.findAnsweredItemsByAttemptIds(attemptIds);
+        com.capstone.rebyu.common.PhaseTimer.mark(timer, "attempt questions+answers");
 
-        Set<Long> sourceQuestionIds = questions.stream()
-                .map(AssessmentAttemptQuestion::getSourceQuestionId)
+        Set<Long> sourceQuestionIds = items.stream()
+                .map(AssessmentAttemptAnswerRepository.AnsweredItemView::getSourceQuestionId)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
         Map<Long, String> difficultyByQuestionId = sourceQuestionIds.isEmpty()
                 ? Map.of()
@@ -220,18 +298,22 @@ public class ProgressAnalyticsService {
                                 QuestionSelectionView::getQuestionId,
                                 QuestionSelectionView::getDifficultyLevel));
 
+        com.capstone.rebyu.common.PhaseTimer.mark(timer, "difficulties");
         Map<String, int[]> byDifficulty = new LinkedHashMap<>();
         Map<String, int[]> byQuestionType = new LinkedHashMap<>();
         Map<String, int[]> byAssessmentType = new LinkedHashMap<>();
         int totalCorrect = 0;
         int totalIncorrect = 0;
 
-        for (AssessmentAttemptQuestion question : questions) {
-            AssessmentAttemptAnswer answer = answerByQuestionId.get(question.getAttemptQuestionId());
-            if (answer == null || answer.isPendingManualEvaluation() || answer.getIsCorrect() == null) {
+        for (AssessmentAttemptAnswerRepository.AnsweredItemView item : items) {
+            AssessmentAttempt attempt = attemptById.get(item.getAttemptId());
+            if (attempt != null && !isCertificationAssessment(attempt.getExam())) {
                 continue;
             }
-            boolean correct = Boolean.TRUE.equals(answer.getIsCorrect());
+            if (item.getPending() || item.getIsCorrect() == null) {
+                continue;
+            }
+            boolean correct = Boolean.TRUE.equals(item.getIsCorrect());
             if (correct) {
                 totalCorrect++;
             } else {
@@ -239,20 +321,18 @@ public class ProgressAnalyticsService {
             }
 
             String difficulty = bktEventFactory.normalizeDifficulty(
-                    difficultyByQuestionId.get(question.getSourceQuestionId()));
-            String questionType = question.getQuestionType();
-            AssessmentAttempt attempt = attemptById.get(question.getAttempt().getAssessmentAttemptId());
+                    difficultyByQuestionId.get(item.getSourceQuestionId()));
             String assessmentType = (attempt != null && attempt.getExam() != null && attempt.getExam().getExamType() != null)
                     ? attempt.getExam().getExamType().getExamTypeText() : "UNKNOWN";
 
             bump(byDifficulty, difficulty, correct);
-            bump(byQuestionType, questionType, correct);
+            bump(byQuestionType, item.getQuestionType(), correct);
             bump(byAssessmentType, assessmentType, correct);
         }
 
         int totalAssessmentAttempts = attempts.size();
         List<AssessmentAttempt> curriculumAttempts = attempts.stream()
-                .filter(a -> a.getExam() == null || tutorPracticeMarker(a.getExam()) == null)
+                .filter(a -> isCertificationAssessment(a.getExam()))
                 .toList();
 
         Double averageAssessmentScore = average(curriculumAttempts.stream()
@@ -289,27 +369,8 @@ public class ProgressAnalyticsService {
                 .toList());
         boolean hasChallengeActivity = !finishedChallenges.isEmpty();
 
-        List<Lesson> certLessons = lessonRepository
-                .findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(
-                        certificationId);
-        int totalLessonCount = certLessons.size();
-        Map<Long, Lesson> lessonById = certLessons.stream()
-                .collect(Collectors.toMap(Lesson::getLessonId, l -> l));
-
-        List<LearnerCompletedLesson> completedLessons = learnerCompletedLessonRepository
-                .findByLearner_LearnerIdAndLesson_MiddleCategory_MajorCategory_Certification_CertificationId(
-                        learnerId, certificationId);
-        int completedLessonCount = completedLessons.size();
-        Double completionPercentage = totalLessonCount == 0 ? null
-                : (completedLessonCount * 100.0 / totalLessonCount);
-
-        Map<String, Object> readinessRequest = buildReadinessRequest(
-                learnerId, certLessons, attempts, totalLessonCount, completedLessonCount);
-        CompletableFuture<Map<String, Object>> readinessFuture = readinessRequest == null
-                ? CompletableFuture.completedFuture(null)
-                : bktAsync(() -> learnerMasteryService.getReadiness(readinessRequest));
-
         LearnerMasteryService.LessonPrioritiesResult bktResult = prioritiesFuture.join();
+        com.capstone.rebyu.common.PhaseTimer.mark(timer, "wait bkt priorities");
         boolean bktAvailable = bktResult.available();
         List<LessonPriorityView> lessonPriorities = bktResult.lessons();
         Map<Long, LessonPriorityView> priorityByLessonId = lessonPriorities.stream()
@@ -333,6 +394,7 @@ public class ProgressAnalyticsService {
         int highestPriorityTopicCount = (int) assessedMasteries.stream().filter(m -> m < HIGHEST_PRIORITY_THRESHOLD).count();
 
         LearnerMasteryService.ConfidenceResult confidenceResult = confidenceFuture.join();
+        com.capstone.rebyu.common.PhaseTimer.mark(timer, "wait bkt confidence");
         Double confidencePercentage = (confidenceResult.available() && confidenceResult.confidence() != null)
                 ? confidenceResult.confidence().confidenceScore() : null;
 
@@ -356,7 +418,7 @@ public class ProgressAnalyticsService {
                 .map(MajorCategory::getMajorCategoryId)
                 .collect(Collectors.toSet());
 
-        List<Exam> allCertExams = examRepository.findByCertification_CertificationId(certificationId);
+        List<Exam> allCertExams = examRepository.findWithTypeByCertificationIds(List.of(certificationId));
         List<Exam> certExams = new ArrayList<>();
         List<String> exclusions = new ArrayList<>();
         for (Exam exam : allCertExams) {
@@ -390,6 +452,7 @@ public class ProgressAnalyticsService {
                 .filter(exam -> passedExamIds.contains(exam.getExamId()))
                 .count();
 
+        com.capstone.rebyu.common.PhaseTimer.mark(timer, "exams+passes");
         Double readinessPercentage = readinessScore(readinessFuture.join());
 
         List<CategoryMasteryRow> categoryMastery = buildCategoryMastery(certLessons, priorityByLessonId, completedLessons);
@@ -435,6 +498,8 @@ public class ProgressAnalyticsService {
         List<RecommendationRow> recommendations = buildRecommendations(
                 lessonPriorities, historyResult.history(), certLessons, lessonById);
 
+        com.capstone.rebyu.common.PhaseTimer.mark(timer, "readiness+history+rest");
+        com.capstone.rebyu.common.PhaseTimer.finish(timer);
         return new ProgressAnalyticsResponse(
                 learnerId,
                 certificationId,
@@ -529,6 +594,76 @@ public class ProgressAnalyticsService {
         return null;
     }
 
+    /** Curriculum assessment types, with the older names some exams were saved under. */
+    private static final Map<String, String> CURRICULUM_ASSESSMENT_TYPES = Map.ofEntries(
+            Map.entry("LESSON_QUIZ", "LESSON_QUIZ"),
+            Map.entry("QUIZ", "LESSON_QUIZ"),
+            Map.entry("MIDDLE_EXAM", "MIDDLE_EXAM"),
+            Map.entry("MODULE_EXAM", "MIDDLE_EXAM"),
+            Map.entry("MIDDLE_CATEGORY_QUIZ", "MIDDLE_EXAM"),
+            Map.entry("MAJOR_EXAM", "MAJOR_EXAM"),
+            Map.entry("MAJOR_CATEGORY_QUIZ", "MAJOR_EXAM"),
+            Map.entry("MAJOR_CATEGORY_EXAM", "MAJOR_EXAM"),
+            Map.entry("MOCK_EXAM", "MOCK_EXAM"),
+            Map.entry("MOCK", "MOCK_EXAM"));
+
+    /**
+     * The certification's official lessons as lightweight, unmanaged objects carrying only
+     * id, name, and their module and major category (id and title).
+     *
+     * Analytics reads nothing else from a lesson, and loading the entities read every
+     * lesson's content -- about a megabyte for one certification -- on every visit.
+     * They are never saved or lazily navigated beyond these fields.
+     */
+    private List<Lesson> officialLessonOutlines(Long certificationId) {
+        Map<Long, MajorCategory> majors = new HashMap<>();
+        Map<Long, MiddleCategory> middles = new HashMap<>();
+        List<Lesson> lessons = new ArrayList<>();
+        for (LessonRepository.LessonPlacementView row
+                : lessonRepository.findOfficialPlacementsByCertificationId(certificationId)) {
+            MajorCategory major = majors.computeIfAbsent(row.getMajorCategoryId(), id -> {
+                MajorCategory m = new MajorCategory();
+                m.setMajorCategoryId(id);
+                m.setTitle(row.getMajorTitle());
+                return m;
+            });
+            MiddleCategory middle = middles.computeIfAbsent(row.getMiddleCategoryId(), id -> {
+                MiddleCategory m = new MiddleCategory();
+                m.setMiddleCategoryId(id);
+                m.setTitle(row.getMiddleTitle());
+                m.setMajorCategory(major);
+                return m;
+            });
+            Lesson lesson = new Lesson();
+            lesson.setLessonId(row.getLessonId());
+            lesson.setName(row.getName());
+            lesson.setMiddleCategory(middle);
+            lessons.add(lesson);
+        }
+        return lessons;
+    }
+
+    /**
+     * An assessment of the certification itself: its curriculum (lesson quizzes, unit and
+     * major exams, the mock) or its diagnostic. Not arenas, knowledge checks or practice,
+     * which would otherwise skew the average score, the insights and answer accuracy.
+     */
+    boolean isCertificationAssessment(Exam exam) {
+        if (exam == null) return true;
+        if (tutorPracticeMarker(exam) != null) return false;
+        String typeText = exam.getExamType() == null ? null : exam.getExamType().getExamTypeText();
+        String normalized = typeText == null ? null : typeText.trim().toUpperCase();
+        return typeText == null
+                || curriculumType(typeText) != null
+                || "DIAGNOSTIC".equals(normalized) || "DIAGNOSTIC_EXAM".equals(normalized);
+    }
+
+    /** The curriculum type of an exam type name, or null when it is not part of the curriculum. */
+    static String curriculumType(String examTypeText) {
+        if (examTypeText == null) return null;
+        return CURRICULUM_ASSESSMENT_TYPES.get(examTypeText.trim().toUpperCase().replace('-', '_').replace(' ', '_'));
+    }
+
     String assessmentExclusionReason(
             Exam exam,
             Set<Long> officialLessonIds,
@@ -547,6 +682,15 @@ public class ProgressAnalyticsService {
                 && "DIAGNOSTIC".equals(bktEventFactory.normalizeAssessmentType(
                         exam.getExamType().getExamTypeText()))) {
             return "diagnostic, type " + exam.getExamType().getExamTypeText();
+        }
+        // Only the certification's curriculum counts toward progress: lesson quizzes, unit
+        // (middle) and major exams, and the mock. Arenas (World Cup, Blueprint Arena),
+        // knowledge checks and practice are optional and must not hold back completion.
+        // Not the BKT normalizer: that one folds CHALLENGE into LESSON_QUIZ for mastery.
+        // An untyped (legacy) exam is still judged by its curriculum target below.
+        String typeText = exam.getExamType() == null ? null : exam.getExamType().getExamTypeText();
+        if (typeText != null && curriculumType(typeText) == null) {
+            return "type " + typeText + " is not part of the certification curriculum";
         }
         if (exam.getLesson() != null) {
             Long lessonId = exam.getLesson().getLessonId();

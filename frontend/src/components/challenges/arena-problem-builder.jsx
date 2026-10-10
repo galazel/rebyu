@@ -106,7 +106,7 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
 
   const { data: certifications = [] } = useQuery({
     queryKey: ["admin-certifications", "arena-problems"],
-    queryFn: () => getAllCertifications(),
+    queryFn: () => getAllCertifications(undefined, { summary: true }),
     staleTime: 5 * 60 * 1000,
   })
 
@@ -379,6 +379,7 @@ export default function ArenaProblemBuilder({ arena, status, settings }) {
           errors={problemErrors}
           onRemove={() => removeProblem(node.id, problem.id)}
           onDataChange={(update) => updateProblemData(node.id, problem.id, update)}
+          retakeShuffles={false}
         />
       </div>
     )

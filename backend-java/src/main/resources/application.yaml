@@ -31,14 +31,25 @@ spring:
     hikari:
       pool-name: RebyuHikariPool
       maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE:8}
-      minimum-idle: 2
+      # Fixed-size pool: opening a connection to Supabase (TLS + pooler auth) costs
+      # several round trips, and on demand that cost landed on a user's request.
+      # Kept open, connections are replaced in the background when they age out.
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MAXIMUMPOOLSIZE:8}
       connection-timeout: 10000
-      keepalive-time: 60000
-      idle-timeout: 300000
-      max-lifetime: 600000
+      validation-timeout: 3000
+      # Supabase's pooler drops connections it considers idle or old, sometimes
+      # mid-query. Recycle well inside its limits and ping often, so the pool
+      # rarely hands out a connection the pooler has already closed.
+      keepalive-time: 30000
+      idle-timeout: 120000
+      max-lifetime: 300000
       connection-init-sql: SELECT 1
       data-source-properties:
         tcpKeepAlive: true
+        # Seconds. A read stuck on a dead socket fails instead of hanging the request.
+        socketTimeout: 120
+        connectTimeout: 10
+        ApplicationName: rebyu-backend
 
   data:
     redis:

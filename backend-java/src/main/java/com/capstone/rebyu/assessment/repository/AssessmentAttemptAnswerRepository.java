@@ -17,6 +17,29 @@ public interface AssessmentAttemptAnswerRepository
     Optional<AssessmentAttemptAnswer> findByAttempt_AssessmentAttemptIdAndAttemptQuestion_AttemptQuestionId(
             Long assessmentAttemptId, Long attemptQuestionId);
 
+    /** One answered item: just what answer-accuracy statistics need. */
+    interface AnsweredItemView {
+        Long getAttemptId();
+        Long getSourceQuestionId();
+        String getQuestionType();
+        Boolean getIsCorrect();
+        boolean getPending();
+    }
+
+    /**
+     * Every answered item of the given attempts, without the question snapshots and
+     * answer bodies the entities carry -- a learner's history runs to thousands of items.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT q.attempt.assessmentAttemptId AS attemptId, q.sourceQuestionId AS sourceQuestionId,
+                   q.questionType AS questionType, a.isCorrect AS isCorrect,
+                   a.pendingManualEvaluation AS pending
+            FROM AssessmentAttemptAnswer a JOIN a.attemptQuestion q
+            WHERE q.attempt.assessmentAttemptId IN :attemptIds
+            """)
+    List<AnsweredItemView> findAnsweredItemsByAttemptIds(
+            @org.springframework.data.repository.query.Param("attemptIds") java.util.Collection<Long> attemptIds);
+
     List<AssessmentAttemptAnswer> findByAttempt_AssessmentAttemptIdIn(
             List<Long> assessmentAttemptIds);
 

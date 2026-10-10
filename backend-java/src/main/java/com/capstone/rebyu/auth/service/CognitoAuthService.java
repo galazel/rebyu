@@ -63,9 +63,63 @@ public class CognitoAuthService {
             return alreadyResolved;
         }
 
+        CurrentUserDto recent = recentIdentity(cognitoSub);
+        if (recent != null) {
+            cacheIdentity(cognitoSub, recent);
+            return recent;
+        }
+
         CurrentUserDto resolved = self.getObject().resolveCurrentUser(jwt, rawAccessToken);
         cacheIdentity(cognitoSub, resolved);
+        rememberIdentity(cognitoSub, resolved);
         return resolved;
+    }
+
+    /**
+     * Identities resolved in the last {@link #IDENTITY_TTL_MS}, across requests.
+     *
+     * Resolving one costs about five queries -- user, user type, learner, department
+     * head, institution -- at ~56 ms each to the database, and a page makes ten to
+     * fifteen requests, each of which resolved it again. Kept briefly, so a role or
+     * account-status change still takes effect within half a minute.
+     */
+    private static final long IDENTITY_TTL_MS = 30_000;
+    private static final int IDENTITY_CACHE_LIMIT = 10_000;
+
+    private record TimedIdentity(CurrentUserDto user, long expiresAt) {}
+
+    private final java.util.concurrent.ConcurrentHashMap<String, TimedIdentity> recentIdentities =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private CurrentUserDto recentIdentity(String cognitoSub) {
+        if (cognitoSub == null) return null;
+        TimedIdentity entry = recentIdentities.get(cognitoSub);
+        if (entry == null) return null;
+        if (entry.expiresAt() < System.currentTimeMillis()) {
+            recentIdentities.remove(cognitoSub, entry);
+            return null;
+        }
+        return entry.user();
+    }
+
+    private void rememberIdentity(String cognitoSub, CurrentUserDto user) {
+        if (cognitoSub == null || user == null) return;
+        if (recentIdentities.size() >= IDENTITY_CACHE_LIMIT) {
+            long now = System.currentTimeMillis();
+            recentIdentities.values().removeIf(entry -> entry.expiresAt() < now);
+            if (recentIdentities.size() >= IDENTITY_CACHE_LIMIT) recentIdentities.clear();
+        }
+        recentIdentities.put(cognitoSub, new TimedIdentity(user, System.currentTimeMillis() + IDENTITY_TTL_MS));
+    }
+
+    /** Forgets a cached identity, e.g. after a change to the user's role or profile. */
+    public void evictIdentity(String cognitoSub) {
+        if (cognitoSub != null) recentIdentities.remove(cognitoSub);
+    }
+
+    @org.springframework.context.event.EventListener
+    public void onIdentityChanged(IdentityChangedEvent event) {
+        evictIdentity(event.cognitoSub());
     }
 
     @Transactional
@@ -119,6 +173,8 @@ public class CognitoAuthService {
     public void evictCurrentUser() {
         RequestAttributes request = RequestContextHolder.getRequestAttributes();
         if (request != null) {
+            Object parked = request.getAttribute(IDENTITY_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
+            if (parked instanceof ResolvedIdentity identity) evictIdentity(identity.cognitoSub());
             request.removeAttribute(IDENTITY_ATTRIBUTE, RequestAttributes.SCOPE_REQUEST);
         }
     }

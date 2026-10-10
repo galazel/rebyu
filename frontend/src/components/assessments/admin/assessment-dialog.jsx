@@ -29,8 +29,11 @@ import {
   updateExam,
 } from "@/services/assessmentService.js"
 import AssessmentQuestionPickerDialog from "./assessment-question-picker-dialog.jsx"
+import ExamFormatPanel from "./exam-format-panel.jsx"
 
-const ADAPTIVE_TYPES = new Set(["LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM", "MOCK_EXAM", "DIAGNOSTIC"])
+// Mirrors AdaptivePolicy.ADAPTIVE_TYPES. The diagnostic and mock are fixed papers:
+// the questions picked here are exactly what every learner sits.
+const ADAPTIVE_TYPES = new Set(["LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM"])
 
 const ASSESSMENT_CREATE_TYPES = [
   {
@@ -288,6 +291,7 @@ export default function AssessmentDialog({
       const ordered = orderedExamQuestions
           .map((examQuestion) => questionById.get(examQuestion.questionId))
           .filter(Boolean)
+      setSelectedQuestions(ordered)
     } else {
       const nextType = normalizeCreateType(initialType, "MOCK_EXAM")
       const nextConfig = getCreateTypeConfig(nextType)
@@ -329,7 +333,7 @@ export default function AssessmentDialog({
     setPickerOpen(false)
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, exam?.examId, mode])
+  }, [open, exam?.examId, mode, isEdit && questionById.size > 0])
 
   const alreadySelectedIds = useMemo(
       () => new Set(selectedQuestions.map((question) => question.questionId)),
@@ -553,6 +557,15 @@ export default function AssessmentDialog({
       return
     }
 
+    if (diagnosticCoverage?.fillable.length) {
+      setError(
+          `The diagnostic needs a question from every lesson — ${diagnosticCoverage.fillable.length} ` +
+          `lesson${diagnosticCoverage.fillable.length === 1 ? " has" : "s have"} none yet. ` +
+          "Use “Add one per missing lesson”."
+      )
+      return
+    }
+
     if (
         passingScore &&
         (Number(passingScore) < 0 || Number(passingScore) > 100)
@@ -587,6 +600,45 @@ export default function AssessmentDialog({
   }
 
   const isAdaptiveType = ADAPTIVE_TYPES.has(createTypeConfig?.examTypeText)
+  const isDiagnostic = createTypeConfig.examTypeText === "DIAGNOSTIC"
+  const isMock = createTypeConfig.examTypeText === "MOCK_EXAM"
+
+  // The diagnostic gives every lesson its first mastery reading, so it needs a
+  // question from each one. Lessons with nothing in the bank cannot be covered.
+  const diagnosticCoverage = useMemo(() => {
+    if (!isDiagnostic) return null
+    const covered = new Set(
+        selectedQuestions.map((question) => String(question.lessonId))
+    )
+    const bankByLesson = new Map()
+    questionById.forEach((question) => {
+      if (question.parentQuestionId != null || question.lessonId == null) return
+      const key = String(question.lessonId)
+      if (!bankByLesson.has(key)) bankByLesson.set(key, [])
+      bankByLesson.get(key).push(question)
+    })
+    const missing = targets.lessons.filter((lesson) => !covered.has(lesson.id))
+    return {
+      total: targets.lessons.length,
+      covered: targets.lessons.length - missing.length,
+      fillable: missing.filter((lesson) => bankByLesson.has(lesson.id)),
+      empty: missing.filter((lesson) => !bankByLesson.has(lesson.id)),
+      bankByLesson,
+    }
+  }, [isDiagnostic, selectedQuestions, questionById, targets.lessons])
+
+  const fillMissingLessons = () => {
+    if (!diagnosticCoverage) return
+    const picks = diagnosticCoverage.fillable
+        .map((lesson) => {
+          const pool = diagnosticCoverage.bankByLesson.get(lesson.id) ?? []
+          return (
+              pool.find((question) => question.questionType === "MCQ") ?? pool[0]
+          )
+        })
+        .filter(Boolean)
+    handleAddQuestions(picks)
+  }
 
   const canOpenQuestionPicker =
       createTypeConfig.scope === "CERTIFICATION" || Boolean(targetId)
@@ -793,8 +845,81 @@ export default function AssessmentDialog({
                       <p className="text-xs leading-5 text-muted-foreground">
                         This assessment is adaptive: the engine picks each question from the whole
                         question bank in scope as the learner answers, so it needs no fixed list.
-                        Questions added here are only a seed the engine may draw on first.
+                        Questions added here are only a seed the engine may draw on first. On a
+                        retake the choices are shuffled.
                       </p>
+                  ) : (
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        Every learner sits exactly these questions. A first attempt follows this
+                        order; a retake shuffles the questions and their choices.
+                      </p>
+                  )}
+
+                  {isMock ? (
+                      <ExamFormatPanel
+                          certificationId={certification?.certificationId}
+                          selectedCount={selectedQuestions.length}
+                          onUseTiming={({ durationMinutes: minutes, passingScore: passing }) => {
+                            if (minutes) setDurationMinutes(String(minutes))
+                            if (passing) setPassingScore(String(passing))
+                          }}
+                      />
+                  ) : null}
+
+                  {diagnosticCoverage ? (
+                      <div
+                          className={`space-y-2 rounded-xl border p-4 text-sm ${
+                              diagnosticCoverage.fillable.length
+                                  ? "border-amber-300 dark:border-amber-800"
+                                  : ""
+                          }`}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-semibold">
+                            {diagnosticCoverage.covered} of {diagnosticCoverage.total} lessons
+                            covered
+                          </p>
+                          {diagnosticCoverage.fillable.length ? (
+                              <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={fillMissingLessons}
+                              >
+                                <Plus aria-hidden="true" />
+                                Add one per missing lesson ({diagnosticCoverage.fillable.length})
+                              </Button>
+                          ) : null}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          The diagnostic takes one question from every lesson, so every lesson
+                          starts with a mastery tag.
+                        </p>
+                        {diagnosticCoverage.fillable.length ? (
+                            <p className="text-xs text-amber-700 dark:text-amber-300">
+                              Missing:{" "}
+                              {diagnosticCoverage.fillable
+                                  .slice(0, 6)
+                                  .map((lesson) => lesson.title)
+                                  .join(", ")}
+                              {diagnosticCoverage.fillable.length > 6
+                                  ? ` and ${diagnosticCoverage.fillable.length - 6} more`
+                                  : ""}
+                            </p>
+                        ) : null}
+                        {diagnosticCoverage.empty.length ? (
+                            <p className="text-xs text-muted-foreground">
+                              {diagnosticCoverage.empty.length} lesson
+                              {diagnosticCoverage.empty.length === 1 ? " has" : "s have"} no
+                              questions in the bank yet and cannot be covered:{" "}
+                              {diagnosticCoverage.empty
+                                  .slice(0, 4)
+                                  .map((lesson) => lesson.title)
+                                  .join(", ")}
+                              {diagnosticCoverage.empty.length > 4 ? "…" : ""}
+                            </p>
+                        ) : null}
+                      </div>
                   ) : null}
 
                   {selectedQuestions.length === 0 ? (

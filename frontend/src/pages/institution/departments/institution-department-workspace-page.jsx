@@ -415,16 +415,23 @@ export default function InstitutionDepartmentWorkspacePage() {
     queryFn: () => getDepartmentLearners({ departmentId: id }),
     enabled: Number.isFinite(id),
   })
+  // Structure only -- no lesson content, which is most of the full list's ~7 MB.
   const certificationsQuery = useQuery({
-    queryKey: ["certifications", "group", id],
-    queryFn: () => getAllCertifications(id),
+    queryKey: ["certifications", "group", id, "summary"],
+    queryFn: () => getAllCertifications(id, { summary: true }),
     enabled: Number.isFinite(id),
     staleTime: 5 * 60_000,
   })
+  const groupCertificationId =
+    departmentQuery.data?.certificationId ??
+    departmentQuery.data?.institutionCert?.certificationId ??
+    null
   const examsQuery = useQuery({
-    queryKey: ["exams", "group", id],
-    queryFn: () => getExams(id),
-    enabled: Number.isFinite(id),
+    queryKey: ["exams", "group", id, groupCertificationId],
+    // This department's certification only -- the page filters to it anyway, and
+    // the unscoped list was every exam on the platform with its question ids.
+    queryFn: () => getExams(id, groupCertificationId ?? undefined),
+    enabled: Number.isFinite(id) && departmentQuery.isSuccess,
     staleTime: 60_000,
   })
   const examTypesQuery = useQuery({
@@ -432,15 +439,20 @@ export default function InstitutionDepartmentWorkspacePage() {
     queryFn: getExamTypes,
     staleTime: 5 * 60_000,
   })
+  // Both feed only the assessment preview, so they load when one is opened rather
+  // than on every visit, where they held database connections the page needed.
   const examQuestionsQuery = useQuery({
     queryKey: ["exam-questions"],
     queryFn: getExamQuestions,
+    enabled: previewExam != null,
     staleTime: 60_000,
   })
+  // This department's certification only. Every question on the platform, with
+  // its choices, took long enough that the request was regularly dropped.
   const questionsQuery = useQuery({
-    queryKey: ["questions", "group", id],
-    queryFn: () => getQuestions(id),
-    enabled: Number.isFinite(id),
+    queryKey: ["questions", "group", id, groupCertificationId],
+    queryFn: () => getQuestions(id, groupCertificationId ?? undefined),
+    enabled: Number.isFinite(id) && departmentQuery.isSuccess && previewExam != null,
     staleTime: 60_000,
   })
 
@@ -763,6 +775,7 @@ export default function InstitutionDepartmentWorkspacePage() {
         examTypeByIdText={examTypeById}
         examQuestions={examQuestions}
         questionById={questionById}
+        isLoading={examQuestionsQuery.isLoading || questionsQuery.isLoading}
       />
     </div>
   )

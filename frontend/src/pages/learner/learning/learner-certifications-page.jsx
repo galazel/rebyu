@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BUBBLE_TONES, BubbleCard } from "@/components/commons/bubble-card.jsx"
 import { LearnerEmptyState, toneForCertification } from "@/components/learner/learner-ui.jsx"
 import { getCertificationModules, getMyAwards } from "@/services/learnerService.js"
-import { certificationBadgeUrl } from "@/services/certificationService.js"
+import EarnedStrip from "@/components/learner/earned-strip.jsx"
 
 const INITIAL_VISIBLE_COUNT = 8
 const LOAD_MORE_COUNT = 8
@@ -47,38 +47,6 @@ function getCertificationDescription(certification) {
   return (
       certification?.description ??
       "Prepare confidently with structured lessons, quizzes, mock exams, and progress tracking."
-  )
-}
-
-function EarnedStrip({ certificationId, award }) {
-  if (!award) return null
-  const hasBadge = award.badgeAwardedAt != null
-  const hasCertificate = award.certificateAwardedAt != null
-  if (!hasBadge && !hasCertificate) return null
-  return (
-      <div className="mt-3 flex items-center gap-3 rounded-xl border-2 border-rb-bee/50 bg-rb-bee-wash px-3 py-2">
-        {hasBadge ? (
-            award.hasBadgeImage ? (
-                <img
-                    src={`${certificationBadgeUrl(certificationId)}?v=${encodeURIComponent(award.badgeAwardedAt)}`}
-                    alt="Badge earned"
-                    className="size-12 shrink-0 rounded-full border-2 border-white bg-white object-cover shadow-sm"
-                />
-            ) : (
-                <span className="grid size-12 shrink-0 place-items-center rounded-full bg-rb-bee text-white shadow-sm">
-                  <Award className="size-6" aria-hidden="true" />
-                </span>
-            )
-        ) : null}
-        <div className="min-w-0 text-xs leading-5">
-          {hasBadge ? <p className="font-bold text-rb-eel">Badge earned</p> : null}
-          {hasCertificate ? (
-              <p className="truncate text-rb-wolf">
-                Certificate <span className="font-mono font-semibold">{award.certificateNumber}</span>
-              </p>
-          ) : null}
-        </div>
-      </div>
   )
 }
 

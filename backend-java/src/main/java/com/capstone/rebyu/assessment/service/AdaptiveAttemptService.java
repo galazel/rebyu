@@ -679,6 +679,11 @@ public class AdaptiveAttemptService {
         Map<Long, Question> questions = loadQuestions(picks.stream().map(p -> p.candidate().questionId()).toList());
         AssessmentAttemptService.SnapshotContext context = contextOf(new ArrayList<>(questions.values()));
 
+        // On a retake the choices are reshuffled too, so a question the selector serves
+        // again does not have its answer in the same place as last time.
+        java.util.Random shuffle = attempt.getAttemptNumber() != null && attempt.getAttemptNumber() > 1
+                ? ThreadLocalRandom.current() : null;
+
         List<LearnerAttemptQuestionDto> served = new ArrayList<>(picks.size());
         for (Pick pick : picks) {
             Question question = questions.get(pick.candidate().questionId());
@@ -688,7 +693,7 @@ public class AdaptiveAttemptService {
                     .sourceQuestionId(question.getQuestionId())
                     .questionType(AssessmentAttemptService.normalizeQuestionType(question.getQuestionType()))
                     .questionTextSnapshot(question.getQuestionText())
-                    .questionDataSnapshot(attempts.buildLearnerSafeSnapshot(question, context))
+                    .questionDataSnapshot(attempts.buildLearnerSafeSnapshot(question, context, shuffle))
                     .displayOrder(pick.position())
                     .points(null)
                     .lessonId(question.getLesson().getLessonId())

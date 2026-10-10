@@ -21,6 +21,7 @@ from app.api.ws import workflows as workflow_ws
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.messaging.registry import build_consumer_manager
+from app.db.session import warm_pool
 from app.db.training_view import ensure_training_view
 from app.services import run_recovery
 from app.utils.helpers import close_checkpointer
@@ -59,10 +60,12 @@ async def lifespan(_: FastAPI):
     recovery = asyncio.create_task(run_recovery.run_forever(), name="run-recovery")
 
     warmup = asyncio.create_task(asyncio.to_thread(_warm_retrieval_models), name="model-warmup")
+    pool_warmup = asyncio.create_task(asyncio.to_thread(warm_pool), name="db-pool-warmup")
 
     yield
 
     warmup.cancel()
+    pool_warmup.cancel()
     recovery.cancel()
     with suppress(asyncio.CancelledError):
         await recovery

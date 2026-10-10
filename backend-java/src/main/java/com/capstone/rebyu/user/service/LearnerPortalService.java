@@ -68,9 +68,28 @@ public class LearnerPortalService {
         return portal(learnerId, userId, true);
     }
 
-    @Transactional
+    /**
+     * Progress for every certification the learner is enrolled in -- on its own, not by
+     * building the whole portal (rewards, achievements, every completed lesson) and keeping
+     * one field of it, which is what made My Learning's percentages slow to appear.
+     */
+    @Transactional(readOnly = true)
     public List<CertificationProgressDto> certificationProgress(Long learnerId, Long userId) {
-        return portal(learnerId, userId, true).certificationProgress();
+        Set<Long> enrolledCertificationIds = new LinkedHashSet<>();
+        for (LearnerCertification enrollment : learnerCertificationRepository.findByLearner_LearnerId(learnerId)) {
+            if (enrollment.getStatus() == LearnerCertification.Status.active
+                    && enrollment.getCertification() != null) {
+                enrolledCertificationIds.add(enrollment.getCertification().getCertificationId());
+            }
+        }
+        for (InstitutionCertificationLearner row : institutionCertLearnerRepository.findByLearner_LearnerId(learnerId)) {
+            if (row.getStatus() == InstitutionCertificationLearner.Status.active
+                    && row.getInstitutionCert() != null
+                    && row.getInstitutionCert().getCertification() != null) {
+                enrolledCertificationIds.add(row.getInstitutionCert().getCertification().getCertificationId());
+            }
+        }
+        return progressAnalyticsService.progressForAll(learnerId, enrolledCertificationIds);
     }
 
     @Transactional
@@ -122,9 +141,7 @@ public class LearnerPortalService {
         }
 
         List<CertificationProgressDto> certificationProgress = includeProgress
-                ? enrolledCertificationIds.stream()
-                        .map(certificationId -> progressAnalyticsService.progressFor(learnerId, certificationId))
-                        .toList()
+                ? progressAnalyticsService.progressForAll(learnerId, enrolledCertificationIds)
                 : List.of();
 
         LearnerPortalDto result = new LearnerPortalDto(

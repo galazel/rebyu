@@ -5,8 +5,8 @@ import {
   BookOpen,
   ChevronDown,
   ChevronRight,
-  ClipboardCheck,
   Loader2,
+  PencilIcon,
   Sparkles,
   Layers3,
   ListChecks,
@@ -24,25 +24,15 @@ import {
   deleteLesson,
   deleteMajorCategory,
   deleteMiddleCategory,
-  getAllCertifications,
+  getCertificationById,
   updateCertification,
 } from "@/services/certificationService.js"
 import { apiMessage } from "@/services/base"
-import { REFERENCE_INDUSTRY, useReferenceOptions } from "@/services/referenceService.js"
-import { InlineAdd, InlineEditable } from "@/components/certifications/inline-editable.jsx"
+import { InlineAdd } from "@/components/certifications/inline-editable.jsx"
 import {
   toCertificationUpdatePayload,
-  validateCertificationDescription,
-  validateCertificationTitle,
   validateStructureName,
 } from "@/utils/certification-edit.js"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import {
   AlertDialog,
@@ -56,7 +46,9 @@ import {
 } from "@/components/ui/alert-dialog"
 import { prefetchAssessmentData } from "@/components/assessments/admin/assessments-tab.jsx"
 import CertificationPublishingChecklist from "@/components/assessments/admin/certification-publishing-checklist.jsx"
+import CertificationExamsSection from "@/components/assessments/admin/certification-exams-section.jsx"
 import GenerateMoreDialog from "@/components/certifications/generate-more-dialog.jsx"
+import CertificationEditDialog from "@/components/certifications/certification-edit-dialog.jsx"
 import { InlineGenerationMonitor } from "@/components/certifications/inline-generation-monitor.jsx"
 import {
   Dialog,
@@ -91,7 +83,6 @@ function getLessonTitle(lesson) {
 
 export default function ViewCertificationAdmin() {
   const location = useLocation()
-  const { options: industries } = useReferenceOptions(REFERENCE_INDUSTRY)
   const navigate = useNavigate()
   const { id: routeCertificationId } = useParams()
   const pageRef = useRef(null)
@@ -100,19 +91,16 @@ export default function ViewCertificationAdmin() {
       getCertification(location)
   )
 
-  const { data: certifications = [], isLoading: isLoadingCertifications } = useQuery({
-    queryKey: ["admin-certifications", "certification-page"],
-    queryFn: () => getAllCertifications(),
+  // This certification only. The full list carries every lesson of every
+  // certification (~7 MB) and was the slowest, most failure-prone request here.
+  const { data: fetchedCertification = undefined, isLoading: isLoadingCertifications } = useQuery({
+    queryKey: ["admin-certifications", "certification-page", String(routeCertificationId)],
+    queryFn: () => getCertificationById(routeCertificationId),
+    enabled: routeCertificationId != null,
     staleTime: 5 * 60 * 1000,
   })
 
   const { byCertificationId: generationRuns } = useActiveGenerations()
-
-
-  const fetchedCertification = certifications.find(
-      (item) =>
-          String(item.certificationId ?? item.id) === String(routeCertificationId)
-  )
 
 
 
@@ -133,6 +121,7 @@ export default function ViewCertificationAdmin() {
   }, [certificationOverride, overrideId, fetchedCertification, routeCertificationId])
 
   const [isGenerateMoreOpen, setIsGenerateMoreOpen] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
   const [isWatchingGeneration, setIsWatchingGeneration] = useState(false)
 
   const [pendingDelete, setPendingDelete] = useState(null)
@@ -186,73 +175,32 @@ export default function ViewCertificationAdmin() {
       ...(saved && typeof saved === "object" ? saved : {}),
     }))
 
-    await queryClient.invalidateQueries({ queryKey: ["admin-certifications"] })
+    // The response is the saved certification, so this page is current already;
+    // the certifications list refreshes in the background rather than holding the
+    // save open while it re-downloads.
+    if (saved && typeof saved === "object") {
+      queryClient.setQueryData(
+          ["admin-certifications", "certification-page", String(routeCertificationId)],
+          saved,
+      )
+    }
+    void queryClient.invalidateQueries({
+      queryKey: ["admin-certifications"],
+      refetchType: "none",
+    })
 
     toast.success(successMessage)
   }
 
-  function renameMajorCategory(majorIndex, title) {
-    return saveCertificationEdit(
-        (current) => ({
-          ...current,
-          majorCategory: (current.majorCategory ?? []).map((major, index) =>
-              index === majorIndex ? { ...major, title } : major
-          ),
-        }),
-        "Major category renamed"
-    )
-  }
-
-  function renameMiddleCategory(majorIndex, middleIndex, title) {
-    return saveCertificationEdit(
-        (current) => ({
-          ...current,
-          majorCategory: (current.majorCategory ?? []).map((major, index) =>
-              index !== majorIndex
-                  ? major
-                  : {
-                    ...major,
-                    middleCategory: (major.middleCategory ?? []).map(
-                        (middle, position) =>
-                            position === middleIndex
-                                ? { ...middle, title }
-                                : middle
-                    ),
-                  }
-          ),
-        }),
-        "Module renamed"
-    )
-  }
-
-  function renameLesson(majorIndex, middleIndex, lessonIndex, name) {
-    return saveCertificationEdit(
-        (current) => ({
-          ...current,
-          majorCategory: (current.majorCategory ?? []).map((major, index) =>
-              index !== majorIndex
-                  ? major
-                  : {
-                    ...major,
-                    middleCategory: (major.middleCategory ?? []).map(
-                        (middle, position) =>
-                            position !== middleIndex
-                                ? middle
-                                : {
-                                  ...middle,
-                                  lessons: (middle.lessons ?? []).map(
-                                      (lesson, lessonPosition) =>
-                                          lessonPosition === lessonIndex
-                                              ? { ...lesson, name }
-                                              : lesson
-                                  ),
-                                }
-                    ),
-                  }
-          ),
-        }),
-        "Lesson renamed"
-    )
+  async function saveAllEdits(next) {
+    try {
+      await saveCertificationEdit(() => next, "Certification updated")
+    } catch (error) {
+      toast.error("Could not save the changes", {
+        description: apiMessage(error, "Please try again."),
+      })
+      throw error
+    }
   }
 
   async function refreshCertification() {
@@ -304,9 +252,6 @@ export default function ViewCertificationAdmin() {
   }
 
   const curriculumActions = {
-    renameMajor: renameMajorCategory,
-    renameMiddle: renameMiddleCategory,
-    renameLesson,
     addMiddle,
     addLesson: addLessonTo,
     requestDelete,
@@ -425,36 +370,9 @@ export default function ViewCertificationAdmin() {
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 flex-1">
                 <div className="mb-3 flex items-center gap-2">
-                  <Select
-                      value={certification.industry || ""}
-                      onValueChange={(industry) => {
-                        void saveCertificationEdit(
-                            (current) => ({ ...current, industry }),
-                            "Industry updated"
-                        ).catch((error) =>
-                            toast.error("Could not update the industry", {
-                              description: apiMessage(error, "Please try again."),
-                            })
-                        )
-                      }}
-                  >
-                    <SelectTrigger
-                        size="sm"
-                        aria-label="Industry"
-                        title="Change industry"
-                        className="gap-1.5 rounded-full border-black/10 bg-white/85 px-3 py-1 text-xs font-semibold text-black shadow-sm backdrop-blur-sm hover:bg-white data-[size=sm]:h-auto"
-                    >
-                      <SelectValue placeholder="General" />
-                    </SelectTrigger>
-
-                    <SelectContent>
-                      {industries.map((industry) => (
-                          <SelectItem key={industry} value={industry}>
-                            {industry}
-                          </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <span className="rounded-full border border-black/10 bg-white/85 px-3 py-1 text-xs font-semibold text-black shadow-sm">
+                    {certification.industry || "General"}
+                  </span>
 
                   <div className="flex items-center gap-2 text-xs text-white/70">
                     <span>{majorCategories.length} categories</span>
@@ -465,44 +383,13 @@ export default function ViewCertificationAdmin() {
                   </div>
                 </div>
 
-                <InlineEditable
-                    value={certification.title}
-                    label="Certification name"
-                    tone="dark"
-                    className="max-w-3xl"
-                    validate={validateCertificationTitle}
-                    onSave={(title) =>
-                        saveCertificationEdit(
-                            (current) => ({ ...current, title }),
-                            "Certification name updated"
-                        )
-                    }
-                    renderValue={(title) => (
-                        <h1 className="font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-4xl">
-                          {title}
-                        </h1>
-                    )}
-                />
+                <h1 className="max-w-3xl font-heading text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-4xl">
+                  {certification.title}
+                </h1>
 
-                <InlineEditable
-                    value={certification.description}
-                    label="Description"
-                    tone="dark"
-                    multiline
-                    className="mt-2 max-w-3xl"
-                    validate={validateCertificationDescription}
-                    onSave={(description) =>
-                        saveCertificationEdit(
-                            (current) => ({ ...current, description }),
-                            "Description updated"
-                        )
-                    }
-                    renderValue={(description) => (
-                        <p className="text-sm leading-6 text-white/80">
-                          {description || "No description available."}
-                        </p>
-                    )}
-                />
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-white/80">
+                  {certification.description || "No description available."}
+                </p>
               </div>
 
               <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-end">
@@ -534,14 +421,10 @@ export default function ViewCertificationAdmin() {
                     variant="outline"
                     size="sm"
                     className="gap-2 rounded-lg border-white/25 bg-white/10 font-medium text-white shadow-sm backdrop-blur-sm hover:bg-white/20 hover:text-white"
-                    onClick={() =>
-                        navigate(
-                            `/admin/certification/${certification.certificationId}/assessments`
-                        )
-                    }
+                    onClick={() => setIsEditOpen(true)}
                 >
-                  <ClipboardCheck className="h-3.5 w-3.5" />
-                  Assessments
+                  <PencilIcon className="h-3.5 w-3.5" />
+                  Edit
                 </Button>
 
                 <Button
@@ -643,6 +526,10 @@ export default function ViewCertificationAdmin() {
 
 
             <div className="space-y-8">
+              {majorCategories.length > 0 ? (
+                  <CertificationExamsSection certification={certification} />
+              ) : null}
+
               <CertificationPublishingChecklist
                   certificationId={certification?.certificationId}
                   isPublished={certification?.status === "PUBLISHED"}
@@ -658,6 +545,20 @@ export default function ViewCertificationAdmin() {
             </div>
           </div>
         </main>
+
+        <CertificationEditDialog
+            open={isEditOpen}
+            onOpenChange={setIsEditOpen}
+            certification={certification}
+            onSave={saveAllEdits}
+            onBadgeChange={(badgeImageKey) => {
+              setCertification((current) => ({ ...(current ?? certification), badgeImageKey }))
+              void queryClient.invalidateQueries({
+                queryKey: ["admin-certifications"],
+                refetchType: "none",
+              })
+            }}
+        />
 
         <GenerateMoreDialog
             open={isGenerateMoreOpen}
@@ -743,20 +644,10 @@ function MajorCategorySection({
   return (
       <section className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
-          <InlineEditable
-              value={majorCategory.title}
-              label="Major category title"
-              validate={(value) => validateStructureName(value, "Major category title")}
-              onSave={(title) => actions.renameMajor(majorIndex, title)}
-              renderValue={(title) => (
-                  <p className="font-heading text-lg font-bold text-foreground">
-                    <span className="text-primary">
-                      Major Category {majorIndex + 1}:
-                    </span>{" "}
-                    {title}
-                  </p>
-              )}
-          />
+          <p className="font-heading text-lg font-bold text-foreground">
+            <span className="text-primary">Major Category {majorIndex + 1}:</span>{" "}
+            {majorCategory.title}
+          </p>
 
           {majorCategory.priority && (
               <Badge
@@ -868,19 +759,9 @@ function MiddleCategoryCard({
       <article className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
         <div className="flex items-start justify-between gap-4 px-5 py-5">
           <div className="min-w-0">
-            <InlineEditable
-                value={middleCategory.title}
-                label="Module title"
-                validate={(value) => validateStructureName(value, "Module title")}
-                onSave={(title) =>
-                    actions.renameMiddle(majorIndex, middleIndex, title)
-                }
-                renderValue={(title) => (
-                    <h3 className="font-heading text-base font-bold text-foreground">
-                      {title}
-                    </h3>
-                )}
-            />
+            <h3 className="font-heading text-base font-bold text-foreground">
+              {middleCategory.title}
+            </h3>
 
             <p className="mt-1 text-xs text-muted-foreground">
               Middle Category · {lessons.length}{" "}
@@ -941,26 +822,9 @@ function MiddleCategoryCard({
                     </span>
 
                             <div className="min-w-0">
-                              <InlineEditable
-                                  value={getLessonTitle(lesson)}
-                                  label="Lesson name"
-                                  validate={(value) =>
-                                      validateStructureName(value, "Lesson name")
-                                  }
-                                  onSave={(name) =>
-                                      actions.renameLesson(
-                                          majorIndex,
-                                          middleIndex,
-                                          lessonIndex,
-                                          name
-                                      )
-                                  }
-                                  renderValue={(name) => (
-                                      <p className="text-sm font-semibold text-foreground">
-                                        {name}
-                                      </p>
-                                  )}
-                              />
+                              <p className="text-sm font-semibold text-foreground">
+                                {getLessonTitle(lesson)}
+                              </p>
 
                               <p className="mt-0.5 text-xs text-muted-foreground">
                                 Lesson {lessonIndex + 1}

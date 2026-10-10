@@ -24,7 +24,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { certificationBadgeUrl } from "@/services/certificationService.js"
 import { getMyAwards, getCurrentLearnerIdentity } from "@/services/learnerService.js"
-import { getProgressAnalytics } from "@/services/learnerAnalyticsService.js"
+import { getProgressAnalytics, progressAnalyticsQueryKey } from "@/services/learnerAnalyticsService.js"
 import { masteryColor, useChartTheme } from "@/components/charts/rebyu-charts.jsx"
 
 
@@ -193,7 +193,7 @@ export default function LearnerCertificatePage() {
   const identity = useMemo(() => getCurrentLearnerIdentity(), [])
 
   const analyticsQ = useQuery({
-    queryKey: ["cert-certificate-analytics", certificationId],
+    queryKey: progressAnalyticsQueryKey(String(certificationId)),
     queryFn: () => getProgressAnalytics(certificationId),
     staleTime: 60_000,
     enabled: !!certificationId,
@@ -211,7 +211,10 @@ export default function LearnerCertificatePage() {
   }, [awardsQ.data, certificationId])
 
   const d = analyticsQ.data ?? {}
-  const isLoading = analyticsQ.isLoading || awardsQ.isLoading
+  // The stats wait on analytics (slow: it asks the mastery service); the name,
+  // certification and badge only need the award, so they show as soon as it lands.
+  const isLoading = analyticsQ.isLoading
+  const awardLoading = awardsQ.isLoading
 
   const noAward = !awardsQ.isLoading && !award?.badgeAwardedAt
   React.useEffect(() => {
@@ -330,7 +333,7 @@ export default function LearnerCertificatePage() {
                 </header>
 
                 <section className="flex w-full flex-col items-center">
-                  {isLoading ? (
+                  {awardLoading ? (
                     <div className="h-10 w-64 animate-pulse rounded bg-muted/40" />
                   ) : (
                     <p className="italic" style={{ fontFamily: SERIF, fontSize: sz(3.9, 26), color: "#111827", lineHeight: 1.15 }}>
@@ -341,7 +344,7 @@ export default function LearnerCertificatePage() {
                   <p className="italic" style={{ fontFamily: SERIF, fontSize: sz(1.35, 12), color: "#6b7280" }}>
                     has achieved the badge of completion for
                   </p>
-                  {isLoading ? (
+                  {awardLoading ? (
                     <div className="mt-2 h-7 w-72 animate-pulse rounded bg-muted/40" />
                   ) : (
                     <p className="font-bold uppercase" style={{ fontFamily: SERIF, fontSize: sz(2.2, 16), color: "#111827", letterSpacing: "0.06em", marginTop: "0.5cqw" }}>
@@ -376,7 +379,7 @@ export default function LearnerCertificatePage() {
                     <p className="font-bold uppercase" style={{ fontSize: sz(0.8, 8), letterSpacing: "0.16em", color: "#6b7280" }}>Date of Completion</p>
                   </div>
                   <div style={{ width: sz(11.5, 84), height: sz(11.5, 84) }}>
-                    {isLoading ? (
+                    {awardLoading ? (
                       <div className="size-full animate-pulse rounded-full bg-muted/30" />
                     ) : (
                       <CertStamp certificationId={certificationId} award={award} />

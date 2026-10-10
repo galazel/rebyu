@@ -60,9 +60,38 @@ public class InstitutionSectionController {
     @Transactional(readOnly = true)
     public List<SectionDto> list(@AuthenticationPrincipal Jwt jwt, @PathVariable Long departmentId) {
         requireDepartmentAccess(jwt, departmentId);
-        return sections
-                .findByDepartment_DepartmentIdAndStatusOrderByCreatedAtAsc(departmentId, InstitutionSection.Status.active)
-                .stream().map(this::toDto).toList();
+        List<InstitutionSection> active = sections
+                .findByDepartment_DepartmentIdAndStatusOrderByCreatedAtAsc(departmentId, InstitutionSection.Status.active);
+        if (active.isEmpty()) return List.of();
+
+        // Two grouped counts for every section, not two queries per section.
+        List<Long> ids = active.stream().map(InstitutionSection::getSectionId).toList();
+        java.util.Map<Long, Long> learners = countsBySection(
+                "select a.section.sectionId, count(a) from DepartmentLearner a "
+                        + "where a.section.sectionId in :ids and a.status = :st group by a.section.sectionId",
+                ids, DepartmentLearner.Status.active);
+        java.util.Map<Long, Long> pending = countsBySection(
+                "select i.section.sectionId, count(i) from LearnerInvitation i "
+                        + "where i.section.sectionId in :ids and i.status = :st group by i.section.sectionId",
+                ids, LearnerInvitation.Status.PENDING);
+
+        return active.stream()
+                .map(s -> new SectionDto(s.getSectionId(), departmentId, s.getSectionName(),
+                        s.getDescription(), s.getCreatedAt(),
+                        learners.getOrDefault(s.getSectionId(), 0L),
+                        pending.getOrDefault(s.getSectionId(), 0L)))
+                .toList();
+    }
+
+    private java.util.Map<Long, Long> countsBySection(String jpql, List<Long> ids, Object status) {
+        java.util.Map<Long, Long> counts = new java.util.HashMap<>();
+        for (Object[] row : entityManager.createQuery(jpql, Object[].class)
+                .setParameter("ids", ids)
+                .setParameter("st", status)
+                .getResultList()) {
+            counts.put((Long) row[0], (Long) row[1]);
+        }
+        return counts;
     }
 
     @PostMapping

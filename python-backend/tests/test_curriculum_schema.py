@@ -63,6 +63,7 @@ def test_the_exam_structure_is_planned_once_not_per_lesson():
     structure = _tool_schema()["properties"]["exam_structure"]
     assert set(structure["properties"]) == {
         "total_items", "question_types", "notes", "duration_minutes", "passing_score", "coverage",
+        "sections", "source",
     }
     assert structure.get("required", []) == []
 

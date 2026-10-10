@@ -33,14 +33,19 @@ public class CertificationController {
     private final DepartmentService departmentService;
     private final CognitoAuthService auth;
     private final CertificationBadgeService badgeService;
+    private final com.capstone.rebyu.certification.service.CertificationExamFormatService examFormatService;
 
     @GetMapping
     public List<CertificationDto> getAll(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) Long includeDepartmentId,
-            @RequestParam(defaultValue = "false") boolean includeComingSoon) {
+            @RequestParam(defaultValue = "false") boolean includeComingSoon,
+            @RequestParam(defaultValue = "false") boolean summary) {
         requireDepartmentAccessIfRequested(jwt, includeDepartmentId);
-        return certificationService.getAll(includeDepartmentId, includeComingSoon);
+        // summary=true: the same tree without lesson content, for lists and pickers.
+        return summary
+                ? certificationService.getAllSummaries(includeDepartmentId, includeComingSoon)
+                : certificationService.getAll(includeDepartmentId, includeComingSoon);
     }
 
     @GetMapping("/{id}")
@@ -146,6 +151,20 @@ public class CertificationController {
         requireAdmin(jwt);
         certificationService.delete(id);
         log.info("Deleted certification with ID: {}", id);
+    }
+
+    @GetMapping("/{id}/exam-format")
+    public com.capstone.rebyu.certification.dto.ExamFormatDto examFormat(@PathVariable Long id) {
+        return examFormatService.get(id);
+    }
+
+    @PutMapping("/{id}/exam-format")
+    public com.capstone.rebyu.certification.dto.ExamFormatDto updateExamFormat(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long id,
+            @RequestBody com.capstone.rebyu.certification.dto.ExamFormatDto dto) {
+        requireAdmin(jwt);
+        return examFormatService.save(id, dto);
     }
 
     @GetMapping("/{id}/publishing-requirements")

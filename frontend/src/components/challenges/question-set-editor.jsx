@@ -207,6 +207,7 @@ export default function QuestionSetEditor({
               errors={problemErrors}
               onRemove={() => removeQuestion(problem.id)}
               onDataChange={(update) => updateData(problem.id, update)}
+              retakeShuffles={false}
             />
           </div>
         )

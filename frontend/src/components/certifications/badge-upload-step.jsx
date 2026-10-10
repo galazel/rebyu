@@ -10,7 +10,11 @@ const MAX_SIZE_MB = 2
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"]
 const ACCEPT = [...ACCEPTED_TYPES, ".png", ".jpg", ".jpeg", ".webp", ".svg"].join(",")
 
-export function BadgeUploadStep({ value, onChange, disabled }) {
+/**
+ * `existingSrc` shows a badge already saved on the certification while no new file
+ * is picked; `onRemoveExisting` lets the editor clear it.
+ */
+export function BadgeUploadStep({ value, onChange, disabled, existingSrc = null, onRemoveExisting = null }) {
   const inputRef = useRef(null)
   const [problem, setProblem] = useState("")
   const [isDragging, setIsDragging] = useState(false)
@@ -114,6 +118,33 @@ export function BadgeUploadStep({ value, onChange, disabled }) {
                   <XIcon aria-hidden="true" className="-ms-1 size-4 opacity-60" />
                   Remove
                 </Button>
+              </div>
+            </div>
+          </div>
+        ) : existingSrc ? (
+          <div className="flex w-full flex-col items-center gap-4 py-3 text-center sm:flex-row sm:text-left">
+            <div className="grid size-28 shrink-0 place-items-center overflow-hidden rounded-full border-4 border-primary/20 bg-background shadow-sm">
+              <img src={existingSrc} alt="Current badge" className="size-full object-cover" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground">Current badge</p>
+              <div className="mt-3 flex flex-wrap justify-center gap-2 sm:justify-start">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={disabled}
+                  onClick={() => inputRef.current?.click()}
+                >
+                  <UploadIcon aria-hidden="true" className="-ms-1 size-4 opacity-60" />
+                  Replace
+                </Button>
+                {onRemoveExisting ? (
+                  <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={onRemoveExisting}>
+                    <XIcon aria-hidden="true" className="-ms-1 size-4 opacity-60" />
+                    Remove
+                  </Button>
+                ) : null}
               </div>
             </div>
           </div>

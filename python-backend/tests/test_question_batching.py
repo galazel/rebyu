@@ -177,6 +177,59 @@ def test_an_unknown_exam_falls_back_to_fifty_questions(monkeypatch):
     assert nodes.mock_exam_count_for(_state({"total_items": 0})) == 50
 
 
+def test_the_diagnostic_has_one_item_per_lesson_including_existing_ones():
+    from app.graphs.certification import nodes
+
+    state = _state()
+    state["curriculum"]["majorCategories"] = [{
+        "name": "Major",
+        "middleCategories": [{"name": "Middle", "lessons": [{"name": "A"}, {"name": "B"}]}],
+    }]
+    state["existing_curriculum"] = "- Old major\n  - Old middle\n    - C\n    - D\n    - E"
+
+    assert [name for name, _ in nodes._diagnostic_lessons(state)] == ["A", "B", "C", "D", "E"]
+    assert nodes.diagnostic_exam_count_for(state) == 5
+
+
+async def test_a_missing_item_count_is_looked_up(monkeypatch):
+    from app.agents.certification.exam_format_agent import ExamFormat
+    from app.graphs.certification import nodes
+
+    monkeypatch.setattr(nodes, "serper_search", lambda query, num: [])
+
+    async def found(*args, **kwargs):
+        return ExamFormat(total_items=65, duration_minutes=150, source="https://example.org")
+
+    monkeypatch.setattr(nodes, "invoke_agent", found)
+
+    structure = await nodes._checked_exam_structure(_state({"question_types": ["MCQ"]}))
+    assert structure["total_items"] == 65
+    assert structure["duration_minutes"] == 150
+    assert structure["question_types"] == ["MCQ"]
+
+
+async def test_a_researched_item_count_is_not_looked_up_again(monkeypatch):
+    from app.graphs.certification import nodes
+
+    def never(*args, **kwargs):
+        raise AssertionError("searched although the planner found the count")
+
+    monkeypatch.setattr(nodes, "serper_search", never)
+    structure = await nodes._checked_exam_structure(_state({"total_items": 100}))
+    assert structure["total_items"] == 100
+
+
+async def test_a_failed_lookup_keeps_the_fallback(monkeypatch):
+    from app.graphs.certification import nodes
+
+    def broken(*args, **kwargs):
+        raise RuntimeError("SERPER_API_KEY not configured.")
+
+    monkeypatch.setattr(nodes, "serper_search", broken)
+    structure = await nodes._checked_exam_structure(_state())
+    assert not structure.get("total_items")
+
+
 def test_an_unknown_exam_is_mcq_only():
     """Every other type needs semantic or manual grading, so guessing them for
     an exam nobody could describe produces work an admin has to mark by hand."""
@@ -208,6 +261,10 @@ async def test_the_fallback_mock_exam_asks_for_mcq_over_every_lesson(monkeypatch
         sent["count"] = count
         return QuestionBatch(scope=scope, questions=[])
 
+    def no_search(*args, **kwargs):
+        raise RuntimeError("offline")
+
+    monkeypatch.setattr(nodes, "serper_search", no_search)
     monkeypatch.setattr(nodes, "invoke_question_agent", fake)
     await nodes.generate_mock_exam_node(_state())
 

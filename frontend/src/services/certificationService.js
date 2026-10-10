@@ -1,12 +1,20 @@
 import { API, base } from "./base"
 
-export async function getAllCertifications(includeDepartmentId, { includeComingSoon = false } = {}) {
+/**
+ * `summary: true` returns the same tree without lesson content -- a fraction of
+ * the size. Use it wherever no lesson body is rendered.
+ */
+export async function getAllCertifications(
+    includeDepartmentId,
+    { includeComingSoon = false, summary = false } = {}
+) {
     const departmentId = Number(includeDepartmentId)
     const params = new URLSearchParams()
     if (Number.isFinite(departmentId) && includeDepartmentId != null) {
         params.set("includeDepartmentId", String(departmentId))
     }
     if (includeComingSoon === true) params.set("includeComingSoon", "true")
+    if (summary === true) params.set("summary", "true")
     const query = params.toString()
     return await base(query ? `certifications?${query}` : "certifications")
 }
@@ -16,6 +24,10 @@ export async function addCertification(data) {
         data,
         method: "POST",
     })
+}
+
+export async function getCertificationById(id) {
+    return await base(`certifications/${id}`, { method: "GET" })
 }
 
 export async function updateCertification(id, data) {
@@ -74,6 +86,17 @@ export async function publishCertification(id) {
 export async function getCertificationPublishingRequirements(id) {
     return await base(`certifications/${id}/publishing-requirements`, {
         method: "GET",
+    })
+}
+
+export async function getCertificationExamFormat(id) {
+    return await base(`certifications/${id}/exam-format`, { method: "GET" })
+}
+
+export async function updateCertificationExamFormat(id, format) {
+    return await base(`certifications/${id}/exam-format`, {
+        data: format,
+        method: "PUT",
     })
 }
 

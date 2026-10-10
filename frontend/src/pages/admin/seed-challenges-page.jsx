@@ -293,7 +293,7 @@ export default function SeedChallengesPage() {
 
   const { data: certifications = [] } = useQuery({
     queryKey: ["admin-certifications"],
-    queryFn: () => getAllCertifications(),
+    queryFn: () => getAllCertifications(undefined, { summary: true }),
     staleTime: 60_000,
   })
 

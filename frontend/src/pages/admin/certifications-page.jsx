@@ -21,12 +21,31 @@ import {
 import { CertificationSkeletonCard } from "../../components/certifications/certification-skeleton-card"
 import { REFERENCE_INDUSTRY, useReferenceOptions } from "@/services/referenceService.js"
 
+const CONTENT_FILTERS = [
+  { value: "content", label: "With content" },
+  { value: "empty", label: "Empty" },
+  { value: "all", label: "All certifications" },
+]
+
+function lessonCount(certification) {
+  return (certification.majorCategory ?? []).reduce(
+      (total, major) =>
+          total +
+          (major.middleCategory ?? []).reduce(
+              (sum, middle) => sum + (middle.lessons ?? []).length,
+              0
+          ),
+      0
+  )
+}
+
 function Certifications() {
   const queryClient = useQueryClient()
   const { options: industries } = useReferenceOptions(REFERENCE_INDUSTRY)
 
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false)
   const [chosenIndustry, setChosenIndustry] = useState("all")
+  const [contentFilter, setContentFilter] = useState("content")
 
   const {
     data: items = [],
@@ -37,21 +56,28 @@ function Certifications() {
     refetch,
   } = useQuery({
     queryKey: ["admin-certifications"],
-    queryFn: () => getAllCertifications(undefined, { includeComingSoon: true }),
+    queryFn: () => getAllCertifications(undefined, { includeComingSoon: true, summary: true }),
     staleTime: 1000 * 60 * 5,
   })
 
   const { byCertificationId: activeGenerations } = useActiveGenerations()
 
   const filteredCertifications = useMemo(() => {
-    if (chosenIndustry === "all") {
-      return items
-    }
+    return items.filter((certification) => {
+      if (chosenIndustry !== "all" && certification.industry !== chosenIndustry) {
+        return false
+      }
+      if (contentFilter === "all") return true
 
-    return items.filter(
-        (certification) => certification.industry === chosenIndustry
-    )
-  }, [items, chosenIndustry])
+      // A certification still being generated has no lessons yet but is not empty
+      // for long, so it stays with the ones that have content.
+      const generating = activeGenerations.has(
+          String(certification.certificationId ?? certification.id)
+      )
+      const hasContent = lessonCount(certification) > 0 || generating
+      return contentFilter === "content" ? hasContent : !hasContent
+    })
+  }, [items, chosenIndustry, contentFilter, activeGenerations])
 
   async function handleCertificationSaved(savedCertification) {
     const certificationId =
@@ -100,10 +126,39 @@ function Certifications() {
 
             <p className="mt-1 text-sm text-muted-foreground">
               {filteredCertifications.length}
-              {chosenIndustry === "all" ? " total" : ` in ${chosenIndustry}`}
+              {contentFilter === "content"
+                  ? " with content"
+                  : contentFilter === "empty"
+                      ? " empty"
+                      : " total"}
+              {chosenIndustry === "all" ? "" : ` in ${chosenIndustry}`}
               {isFetching ? " · updating…" : ""}
             </p>
           </div>
+
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <Select value={contentFilter} onValueChange={setContentFilter}>
+            <SelectTrigger
+                className="h-9 w-full min-w-0 px-3 text-sm sm:w-[170px]"
+                aria-label="Filter by content"
+            >
+              <SelectValue placeholder="Filter by content" />
+            </SelectTrigger>
+
+            <SelectContent position="popper" align="end" sideOffset={6} className="p-1">
+              <SelectGroup>
+                {CONTENT_FILTERS.map((filter) => (
+                    <SelectItem
+                        key={filter.value}
+                        value={filter.value}
+                        className="h-auto min-h-9 cursor-pointer py-2 text-xs leading-4"
+                    >
+                      {filter.label}
+                    </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
 
           <Select value={chosenIndustry} onValueChange={setChosenIndustry}>
             <SelectTrigger className="h-9 w-full min-w-0 px-3 text-sm sm:w-[190px]">
@@ -136,6 +191,7 @@ function Certifications() {
               </SelectGroup>
             </SelectContent>
           </Select>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">

@@ -11,6 +11,29 @@ import java.util.Optional;
 
 public interface AssessmentAttemptRepository extends JpaRepository<AssessmentAttempt, Long> {
 
+    /** Every exam one learner has passed across several certifications, in one query. */
+    @Query("""
+            SELECT DISTINCT a.exam.examId FROM AssessmentAttempt a
+            WHERE a.learnerId = :learnerId AND a.status = :status AND a.passed = true
+              AND a.exam.certification.certificationId IN :certificationIds
+            """)
+    List<Long> findPassedExamIds(
+            @Param("learnerId") Long learnerId,
+            @Param("status") AssessmentAttempt.Status status,
+            @Param("certificationIds") java.util.Collection<Long> certificationIds);
+
+    /** A learner's attempts in one certification with each exam and its type, in one query. */
+    @Query("""
+            SELECT a FROM AssessmentAttempt a
+            JOIN FETCH a.exam e LEFT JOIN FETCH e.examType
+            WHERE a.learnerId = :learnerId AND a.status = :status
+              AND e.certification.certificationId = :certificationId
+            """)
+    List<AssessmentAttempt> findWithExamByLearnerAndCertification(
+            @Param("learnerId") Long learnerId,
+            @Param("certificationId") Long certificationId,
+            @Param("status") AssessmentAttempt.Status status);
+
     @Query(value = """
             SELECT a.assessment_attempt_id
             FROM (SELECT assessment_attempt_id, submitted_at

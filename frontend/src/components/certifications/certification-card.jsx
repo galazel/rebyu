@@ -22,7 +22,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
-import { generationErrorOf, generationStatusOf } from "@/hooks/use-active-generations"
+import {
+  generationErrorOf,
+  generationStatusOf,
+  markGenerationQueued,
+} from "@/hooks/use-active-generations"
+import CertificationFormDrawer from "@/components/certifications/certification-form-drawer"
 import { retryWorkflowRun } from "@/services/aiWorkflowService"
 import CertificationCover from "@/components/certifications/certification-cover.jsx"
 import {
@@ -88,6 +93,7 @@ function CertificationCard({ item, certification, generationRun = null }) {
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showGeneration, setShowGeneration] = useState(false)
+  const [showGenerateDrawer, setShowGenerateDrawer] = useState(false)
   const [finishedStatus, setFinishedStatus] = useState(null)
 
   const generationStatus = generationStatusOf(generationRun)
@@ -264,12 +270,8 @@ function CertificationCard({ item, certification, generationRun = null }) {
       return
     }
 
-    if (isEmpty && !generationError) {
-      toast.error("Nothing to open", {
-        description:
-            `"${certificationTitle}" has no content — generation did not finish. Delete it and generate again.`,
-      })
-
+    if (isEmpty && !isStopped) {
+      setShowGenerateDrawer(true)
       return
     }
 
@@ -310,7 +312,7 @@ function CertificationCard({ item, certification, generationRun = null }) {
         description:
             generationError
               ? `Generation failed: ${generationError}`
-              : `"${certificationTitle}" has no categories or lessons. Generation did not finish — delete it and try again.`,
+              : `"${certificationTitle}" has no categories or lessons yet. Generate its content first.`,
         duration: isFailed ? 12_000 : undefined,
       })
       return
@@ -354,7 +356,7 @@ function CertificationCard({ item, certification, generationRun = null }) {
                 isGenerating
                     ? "cursor-default border-dashed"
                     : "cursor-pointer hover:-translate-y-0.5 hover:border-primary/45 hover:shadow-md",
-                isEmpty && !isGenerating && "cursor-default bg-muted/40 grayscale hover:translate-y-0 hover:border-border hover:shadow-sm",
+                isEmpty && !isGenerating && "bg-muted/40 grayscale hover:grayscale-0",
             )}
         >
           <figure className="relative h-48 shrink-0 overflow-hidden border-b border-border">
@@ -370,12 +372,12 @@ function CertificationCard({ item, certification, generationRun = null }) {
 
             {isEmpty && !isGenerating ? (
                 <span
-                    className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                    className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
                     aria-hidden="true"
                 >
                   <span
-                      className="rounded-md border-[3px] border-white/80 px-4 py-1.5 text-lg font-black uppercase tracking-[0.2em] text-white"
-                      style={{ transform: "rotate(160deg)" }}
+                      className="rounded-md border-[3px] border-white/80 bg-neutral-800/85 px-4 py-1.5 text-lg font-black uppercase tracking-[0.2em] text-white"
+                      style={{ transform: "rotate(-12deg)" }}
                   >
                     Empty
                   </span>
@@ -455,6 +457,13 @@ function CertificationCard({ item, certification, generationRun = null }) {
                           {generationStatus === "AWAITING_REVIEW"
                               ? "Review now"
                               : "View progress"}
+                        </DropdownMenuItem>
+                    ) : null}
+
+                    {isEmpty && !isGenerating ? (
+                        <DropdownMenuItem onSelect={() => setShowGenerateDrawer(true)}>
+                          <UploadCloudIcon className="mr-2 h-4 w-4" />
+                          Generate content
                         </DropdownMenuItem>
                     ) : null}
 
@@ -539,6 +548,20 @@ function CertificationCard({ item, certification, generationRun = null }) {
                     <ActivityIcon className="mr-2 h-4 w-4" />
                     {resumeGeneration.isPending ? "Resuming…" : "Resume generation"}
                   </Button>
+              ) : isEmpty ? (
+                  <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="w-full"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setShowGenerateDrawer(true)
+                      }}
+                  >
+                    <UploadCloudIcon className="mr-2 h-4 w-4" />
+                    Generate content
+                  </Button>
               ) : (
                   <div className="h-1 w-10 shrink-0 rounded-full bg-primary" />
               )}
@@ -618,6 +641,18 @@ function CertificationCard({ item, certification, generationRun = null }) {
             ) : null}
           </DialogContent>
         </Dialog>
+
+        {isEmpty ? (
+            <CertificationFormDrawer
+                open={showGenerateDrawer}
+                onOpenChange={setShowGenerateDrawer}
+                certification={currentCertification}
+                onSaved={async () => {
+                  markGenerationQueued(certificationId)
+                  await queryClient.invalidateQueries({ queryKey: ["admin-certifications"] })
+                }}
+            />
+        ) : null}
 
         <AlertDialog open={showDeleteDialog} onOpenChange={handleDeleteDialogChange}>
           <AlertDialogContent size="sm">

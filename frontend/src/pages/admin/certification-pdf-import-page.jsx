@@ -943,7 +943,7 @@ export default function CertificationPdfImportPage() {
 
     const { data: certifications = [] } = useQuery({
         queryKey: ["admin-certifications", "question-bank-page"],
-        queryFn: () => getAllCertifications(),
+        queryFn: () => getAllCertifications(undefined, { summary: true }),
         staleTime: 5 * 60 * 1000,
     })
     const certification = certifications.find(

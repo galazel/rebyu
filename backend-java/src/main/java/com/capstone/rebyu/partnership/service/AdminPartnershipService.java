@@ -38,6 +38,7 @@ import java.util.Map;
 public class AdminPartnershipService {
     private static final String INSTITUTION_USER_TYPE = "INSTITUTION";
 
+    private final org.springframework.context.ApplicationEventPublisher events;
     private final PartnershipRequestRepository requestRepository;
     private final PartnershipRequestItemRepository itemRepository;
     private final InstitutionRepository institutionRepository;
@@ -168,6 +169,7 @@ public class AdminPartnershipService {
                 user.setCognitoSub(result.cognitoSub());
             }
             user = userRepository.save(user);
+            events.publishEvent(new com.capstone.rebyu.auth.service.IdentityChangedEvent(user.getCognitoSub()));
 
             DepartmentHead member = DepartmentHead.builder()
                     .institution(institution)

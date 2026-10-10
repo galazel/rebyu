@@ -29,6 +29,7 @@ import {
   saveAuthoredQuestion,
   validateQuestionData,
 } from "@/components/questions/question-editors.jsx"
+import ExamFormatPanel from "@/components/assessments/admin/exam-format-panel.jsx"
 import { getAllCertifications } from "@/services/certificationService.js"
 import { getDepartmentById } from "@/services/institutionService.js"
 import {
@@ -135,12 +136,17 @@ export default function InstitutionAssessmentBuilderPage() {
     enabled: Number.isFinite(id),
   })
 
+  // Structure only -- no lesson content, which is most of the full list's ~7 MB.
   const certificationsQuery = useQuery({
-    queryKey: ["certifications", "group", id],
-    queryFn: () => getAllCertifications(id),
+    queryKey: ["certifications", "group", id, "summary"],
+    queryFn: () => getAllCertifications(id, { summary: true }),
     enabled: Number.isFinite(id),
     staleTime: 5 * 60_000,
   })
+  const groupCertificationId =
+    departmentQuery.data?.certificationId ??
+    departmentQuery.data?.institutionCert?.certificationId ??
+    null
 
   const examTypesQuery = useQuery({
     queryKey: ["exam-types"],
@@ -159,10 +165,11 @@ export default function InstitutionAssessmentBuilderPage() {
     queryFn: getExamQuestions,
     enabled: isEdit,
   })
+  // This department's certification only, not every question on the platform.
   const groupQuestionsQuery = useQuery({
-    queryKey: ["questions", "group", id, "editor"],
-    queryFn: () => getQuestions(id),
-    enabled: isEdit && Number.isFinite(id),
+    queryKey: ["questions", "group", id, "editor", groupCertificationId],
+    queryFn: () => getQuestions(id, groupCertificationId ?? undefined),
+    enabled: isEdit && Number.isFinite(id) && departmentQuery.isSuccess,
   })
   const questionContentQuery = useQuery({
     queryKey: ["exam-question-content", editingExamId],
@@ -668,6 +675,22 @@ export default function InstitutionAssessmentBuilderPage() {
               />
             </div>
           </div>
+
+          {examTypeText === "MOCK_EXAM" && certification?.certificationId != null ? (
+            <ExamFormatPanel
+              certificationId={certification.certificationId}
+              selectedCount={questions.length}
+              onUseTiming={({ durationMinutes: minutes, passingScore: passing }) => {
+                if (minutes) setDurationMinutes(String(minutes))
+                if (passing) setPassingScore(String(passing))
+              }}
+            />
+          ) : null}
+
+          <p className="text-xs leading-5 text-muted-foreground">
+            A learner&apos;s first attempt follows the order in the centre column; a retake
+            shuffles the questions and their choices.
+          </p>
 
           <div className="rounded-xl border p-3">
             <h4 className="text-sm font-semibold">Question points</h4>

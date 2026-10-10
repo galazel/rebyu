@@ -28,7 +28,13 @@ import {
 } from "@/utils/certification-edit"
 
 function CertificationDetails({ value, onChange, errors = {}, disabled = false }) {
-  const { options: industries } = useReferenceOptions(REFERENCE_INDUSTRY)
+  const { options: referenceIndustries } = useReferenceOptions(REFERENCE_INDUSTRY)
+  // A certification saved under an industry no longer in the list keeps it as an
+  // option, so the field shows what it is instead of looking unset.
+  const industries =
+      value.industry && !referenceIndustries.includes(value.industry)
+          ? [value.industry, ...referenceIndustries]
+          : referenceIndustries
   function updateField(fieldName, fieldValue) {
     onChange({
       ...value,

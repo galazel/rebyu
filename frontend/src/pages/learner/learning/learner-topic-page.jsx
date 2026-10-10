@@ -804,7 +804,7 @@ function LessonView({
   )
 }
 
-function StandingBand({ standing, latest, best, opens }) {
+function StandingBand({ standing, latest, best, goal }) {
   const shown = best ?? latest
   if (!shown && !(standing?.taken && !standing.cleared)) return null
 
@@ -845,8 +845,8 @@ function StandingBand({ standing, latest, best, opens }) {
           >
             {shown.rating != null
               ? cleared
-                ? `${opens} open`
-                : `reach ${PROFICIENT_RATING} to continue`
+                ? "cleared"
+                : `reach ${PROFICIENT_RATING} to complete`
               : shown.passed
                 ? "passed"
                 : "not passed"}
@@ -872,7 +872,7 @@ function StandingBand({ standing, latest, best, opens }) {
       {standing?.taken && !standing.cleared ? (
         <p className="mt-3 rounded-rb-control border-2 border-rb-fox/40 bg-rb-fox-wash px-3 py-2 text-sm font-bold text-rb-eel">
           {standing.reason.charAt(0).toUpperCase() + standing.reason.slice(1)}.
-          Retake it to open the {opens}.
+          Retake it to {goal}.
         </p>
       ) : null}
     </>
@@ -905,13 +905,13 @@ function QuizBand({ quiz, taken, standing, latest, best }) {
             standing={standing}
             latest={latest}
             best={best}
-            opens="next lesson"
+            goal="complete this lesson"
           />
 
           <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
               [CircleHelp, `${quiz.totalQuestions} questions`],
-              [CheckCircle2, `proficiency ${PROFICIENT_RATING} to continue`],
+              [CheckCircle2, `proficiency ${PROFICIENT_RATING} to complete`],
               [Clock, quiz.durationMinutes ? `${quiz.durationMinutes} minutes` : "Self-paced"],
               [Zap, `up to ${ASSESSMENT_MAX_XP} XP`],
             ].map(([Icon, label]) => (
@@ -1020,16 +1020,16 @@ function AssessmentView({
 
         <p className="rb-body-lg mt-7">
           This assessment measures your level across the whole topic. Reach proficiency{" "}
-          {PROFICIENT_RATING} to open the next topic — you have unlimited chances, and your best
-          sitting is the one that counts. Good luck!
+          {PROFICIENT_RATING} to pass it — you have unlimited chances, and your best sitting is
+          the one that counts. Good luck!
         </p>
 
-        <StandingBand standing={standing} latest={latest} best={best} opens="next topic" />
+        <StandingBand standing={standing} latest={latest} best={best} goal="pass this assessment" />
 
         <ul className="mt-8 grid gap-3 sm:grid-cols-3">
           {[
             [ClipboardCheck, `${exam.totalQuestions} questions`],
-            [CheckCircle2, `proficiency ${PROFICIENT_RATING} to continue`],
+            [CheckCircle2, `proficiency ${PROFICIENT_RATING} to pass`],
             [Clock, exam.durationMinutes ? `${exam.durationMinutes} minutes` : "Unlimited attempts"],
           ].map(([Icon, label]) => (
             <li
@@ -1233,13 +1233,11 @@ export default function LearnerTopicPage() {
   const persistedReadRef = useRef(new Set())
 
   function lockedBy(item) {
+    // Lessons are never gated: mastery tags show which ones need work, so learners can open any lesson.
+    if (item.kind !== "assessment") return null
     const position = track.findIndex((entry) => entry.id === item.id)
     if (position <= 0) return null
-    if (item.kind === "assessment") {
-      return track.find((entry) => entry.kind === "lesson" && !isDone(entry.id)) ?? null
-    }
-    const before = track[position - 1]
-    return before.kind === "lesson" && !isDone(before.id) ? before : null
+    return track.find((entry) => entry.kind === "lesson" && !isDone(entry.id)) ?? null
   }
 
   function explainLock(item) {

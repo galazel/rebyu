@@ -955,10 +955,9 @@ export default function LearnerCertificationCurriculumPage() {
       index += section.nodes.length
 
       section.complete = section.nodes.every((node) => node.done || node.empty)
-      section.locked = !diagnosticDone || !previousUnitsComplete
+      section.locked = !diagnosticDone
       section.blockedBy = blocker
 
-      let previousNode = null
       for (const node of section.nodes) {
         if (section.locked) {
           node.state = "locked"
@@ -967,19 +966,17 @@ export default function LearnerCertificationCurriculumPage() {
         }
         if (node.done) {
           node.state = "done"
-          previousNode = node
           continue
         }
+        // Lesson nodes are never gated by the one before them; exams still wait on their topic's lessons.
         const gate = node.kind === "exam"
             ? section.nodes.find((other) => other.kind === "topic" && !other.done && !other.empty) ?? null
-            : previousNode && !previousNode.done && !previousNode.empty ? previousNode : null
+            : null
         if (gate) {
           node.state = "locked"
           node.blockedByNode = gate
-          previousNode = node
           continue
         }
-        previousNode = node
         if (!currentTaken && !node.empty) {
           node.state = "current"
           currentTaken = true

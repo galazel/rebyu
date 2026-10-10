@@ -28,7 +28,7 @@ export default function ArenaConfigPage() {
 
   const certificationsQuery = useQuery({
     queryKey: ["admin-certifications", "arena-tracks"],
-    queryFn: () => getAllCertifications(),
+    queryFn: () => getAllCertifications(undefined, { summary: true }),
     staleTime: 5 * 60 * 1000,
   })
   const certifications = certificationsQuery.data ?? []

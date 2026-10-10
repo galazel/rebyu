@@ -27,6 +27,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 
 import { getFileViewUrl } from "@/services/fileService.js"
+import { choicesCanShuffle } from "@/lib/choice-shuffle.js"
 import DiagramArea from "@/components/challenges/diagram-area.jsx"
 import BigDialog from "@/components/commons/dialog.jsx"
 import { extractDiagramData } from "@/utils/diagram-graph.js"
@@ -702,7 +703,7 @@ export function SubQuestions({ questionKey, data, onDataChange, onFieldChange, e
   )
 }
 
-export function MultipleChoices({ questionKey, questionNumber, onRemove, data, onDataChange, errors = {}, headerExtra = null }) {
+export function MultipleChoices({ questionKey, questionNumber, onRemove, data, onDataChange, errors = {}, headerExtra = null, retakeShuffles = true }) {
   const choices = data.choices ?? []
 
   function onFieldChange(path, value) {
@@ -733,12 +734,23 @@ export function MultipleChoices({ questionKey, questionNumber, onRemove, data, o
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               Fill every choice and select one correct answer.
+              {retakeShuffles
+                ? " Choices are shuffled when a learner retakes, so write each one to stand on its own."
+                : null}
             </p>
           </div>
           {errors.correctChoiceIndex && (
             <span className="text-xs font-medium text-destructive">Correct answer required</span>
           )}
         </div>
+
+        {!retakeShuffles || choicesCanShuffle(choices) ? null : (
+          <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+            A choice here names another choice (such as &ldquo;A and B&rdquo; or &ldquo;All of
+            the above&rdquo;), so this question&apos;s choices will keep this order on retakes.
+            Rewrite it to name the content instead if you want them shuffled.
+          </p>
+        )}
 
         <RadioGroup
           value={data.correctChoiceIndex === null ? "" : String(data.correctChoiceIndex)}

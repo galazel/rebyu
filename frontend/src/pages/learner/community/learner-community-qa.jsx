@@ -779,7 +779,7 @@ export default function Community() {
                 await Promise.all([
                     getCommunityPosts(),
                     optional(getCommunityCircles()),
-                    optional(getAllCertifications()),
+                    optional(getAllCertifications(undefined, { summary: true })),
                     optional(getLibraryItems()),
                 ])
             return {

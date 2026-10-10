@@ -13,7 +13,7 @@ export default function CertificationAssessmentsPage() {
 
   const { data: certifications = [], isLoading } = useQuery({
     queryKey: ["admin-certifications", "certification-page"],
-    queryFn: () => getAllCertifications(),
+    queryFn: () => getAllCertifications(undefined, { summary: true }),
     staleTime: 5 * 60 * 1000,
   })
 

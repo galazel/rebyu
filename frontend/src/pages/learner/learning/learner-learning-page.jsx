@@ -20,7 +20,8 @@ import {
   certificationProgressPercent,
   findCertificationProgress,
 } from "@/lib/certification-progress.js"
-import { getLearnerCertificationProgress } from "@/services/learnerService.js"
+import { getLearnerCertificationProgress, getMyAwards } from "@/services/learnerService.js"
+import EarnedStrip from "@/components/learner/earned-strip.jsx"
 import { useStudyPlanGate } from "@/components/learner/use-study-plan-gate.jsx"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -238,7 +239,15 @@ export function isDiagnosticCompleted(certification, data) {
   })
 }
 
-function CourseCard({ course, onOpen }) {
+// Same as the certification catalogue, so a finished certification reads the same in both:
+// its "Review complete" opens the badge page there and here alike.
+const EARNED_BUTTON_STYLE = {
+  background: "var(--color-rb-bee-wash)",
+  color: "var(--color-rb-eel)",
+  border: "2px solid var(--color-rb-bee)",
+}
+
+function CourseCard({ course, onOpen, onViewBadge }) {
   const {
     certification,
     progress,
@@ -247,11 +256,13 @@ function CourseCard({ course, onOpen }) {
     nextLesson,
     diagnosticCompleted,
     diagnosticAssessment,
+    award,
   } = course
 
   const status = getCourseStatus(progress, completedLessons)
   const needsDiagnostic = !diagnosticCompleted
   const completed = progress != null && progress >= 100
+  const badgeEarned = Boolean(award?.badgeAwardedAt)
   const tone = toneForCertification(certification)
   const palette = BUBBLE_TONES[tone] ?? BUBBLE_TONES.macaw
 
@@ -274,18 +285,21 @@ function CourseCard({ course, onOpen }) {
           }
           chips={[
             { label: needsDiagnostic ? "Diagnostic required" : status },
+            ...(badgeEarned ? [{ label: "Badge earned", side: "right" }] : []),
           ]}
           footer={
             <div className="w-full space-y-2">
               <Button
-                  className="w-full text-white hover:opacity-90"
-                  style={{ background: palette.solid }}
-                  onClick={onOpen}
+                  className={badgeEarned ? "w-full hover:opacity-90" : "w-full text-white hover:opacity-90"}
+                  style={badgeEarned ? EARNED_BUTTON_STYLE : { background: palette.solid }}
+                  onClick={badgeEarned ? onViewBadge : onOpen}
               >
                 {needsDiagnostic ? (
                     <ClipboardCheck className="mr-2 size-3.5" />
+                ) : badgeEarned ? (
+                    <CheckCircle2 className="mr-1.5 size-4" />
                 ) : null}
-                {needsDiagnostic ? "Start" : completed ? "Review" : "Continue"}
+                {needsDiagnostic ? "Start" : badgeEarned ? "Review complete" : completed ? "Review" : "Continue"}
               </Button>
             </div>
           }
@@ -318,22 +332,33 @@ function CourseCard({ course, onOpen }) {
           <ProgressBar value={progress ?? 0} color={palette.solid} />
         </div>
 
-        <p className="mt-4 truncate border-t border-border pt-3 text-xs text-muted-foreground">
-          {needsDiagnostic
-              ? diagnosticAssessment
-                  ? "Take the diagnostic before learning"
-                  : "Diagnostic exam is not configured yet"
-              : nextLesson
-                  ? `Next: ${nextLesson.name ?? nextLesson.title}`
-                  : completed
-                      ? "Course completed"
-                      : "Start learning"}
-        </p>
+        {badgeEarned ? (
+            <div className="mt-4 border-t border-border pt-3">
+              <EarnedStrip
+                  certificationId={certification.certificationId}
+                  award={award}
+                  onView={onViewBadge}
+                  className=""
+              />
+            </div>
+        ) : (
+            <p className="mt-4 truncate border-t border-border pt-3 text-xs text-muted-foreground">
+              {needsDiagnostic
+                  ? diagnosticAssessment
+                      ? "Take the diagnostic before learning"
+                      : "Diagnostic exam is not configured yet"
+                  : nextLesson
+                      ? `Next: ${nextLesson.name ?? nextLesson.title}`
+                      : completed
+                          ? "Course completed"
+                          : "Start learning"}
+            </p>
+        )}
       </BubbleCard>
   )
 }
 
-function CourseRow({ course, onOpen }) {
+function CourseRow({ course, onOpen, onViewBadge }) {
   const {
     certification,
     progress,
@@ -342,7 +367,9 @@ function CourseRow({ course, onOpen }) {
     nextLesson,
     diagnosticCompleted,
     diagnosticAssessment,
+    award,
   } = course
+  const badgeEarned = Boolean(award?.badgeAwardedAt)
 
   const status = getCourseStatus(progress, completedLessons)
   const needsDiagnostic = !diagnosticCompleted
@@ -407,6 +434,17 @@ function CourseRow({ course, onOpen }) {
           <div className="mt-2 max-w-md">
             <ProgressBar value={progress ?? 0} color={palette.solid} />
           </div>
+
+          {badgeEarned ? (
+              <div className="mt-2 max-w-xs">
+                <EarnedStrip
+                    certificationId={certification.certificationId}
+                    award={award}
+                    onView={onViewBadge}
+                    className=""
+                />
+              </div>
+          ) : null}
         </div>
 
         <div className="flex shrink-0 items-center gap-4 sm:flex-col sm:items-end sm:gap-2">
@@ -426,12 +464,16 @@ function CourseRow({ course, onOpen }) {
           )}
 
           <Button
-              className="min-w-32 text-white hover:opacity-90"
-              style={{ background: palette.solid }}
-              onClick={onOpen}
+              className={badgeEarned ? "min-w-32 hover:opacity-90" : "min-w-32 text-white hover:opacity-90"}
+              style={badgeEarned ? EARNED_BUTTON_STYLE : { background: palette.solid }}
+              onClick={badgeEarned ? onViewBadge : onOpen}
           >
-            {needsDiagnostic ? <ClipboardCheck className="mr-2 size-3.5" /> : null}
-            {needsDiagnostic ? "Start" : completed ? "Review" : "Continue"}
+            {needsDiagnostic ? (
+                <ClipboardCheck className="mr-2 size-3.5" />
+            ) : badgeEarned ? (
+                <CheckCircle2 className="mr-1.5 size-4" />
+            ) : null}
+            {needsDiagnostic ? "Start" : badgeEarned ? "Review complete" : completed ? "Review" : "Continue"}
           </Button>
         </div>
       </article>
@@ -479,6 +521,22 @@ export default function LearnerLearningPage() {
     retry: 1,
   })
   const progressRows = progressQuery.data ?? data?.certificationProgress ?? []
+
+  // Same cache as the badge page, so opening it after this is instant.
+  const awardsQuery = useQuery({
+    queryKey: ["learner-awards"],
+    queryFn: getMyAwards,
+    staleTime: 60_000,
+    retry: 1,
+  })
+  const awardByCertification = useMemo(
+      () => new Map(
+          (Array.isArray(awardsQuery.data) ? awardsQuery.data : [])
+              .filter((award) => award?.badgeAwardedAt)
+              .map((award) => [String(award.certificationId), award])
+      ),
+      [awardsQuery.data],
+  )
 
   const achievements = (Array.isArray(data?.achievements) ? data.achievements : [])
       .filter((achievement) => achievement.earned)
@@ -551,12 +609,13 @@ export default function LearnerLearningPage() {
         nextLesson,
         diagnosticAssessment,
         diagnosticCompleted,
+        award: awardByCertification.get(String(certification.certificationId)) ?? null,
         status: diagnosticCompleted
             ? getCourseStatus(knownProgress, completedLessons)
             : "DIAGNOSTIC REQUIRED",
       }
     })
-  }, [allLessons, enrolledCertifications, data, progressRows])
+  }, [allLessons, enrolledCertifications, data, progressRows, awardByCertification])
 
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {
@@ -706,6 +765,9 @@ export default function LearnerLearningPage() {
                                     openCertification(course.certification, {
                                       diagnosticCompleted: course.diagnosticCompleted,
                                     })
+                                }
+                                onViewBadge={() =>
+                                    navigate(`/learner/certifications/${course.certification.certificationId}/certificate`)
                                 }
                             />
                         )

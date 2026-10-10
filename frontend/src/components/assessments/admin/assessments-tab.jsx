@@ -52,6 +52,7 @@ import {
 import { getQuestions } from "@/services/questionService.js"
 import AssessmentDialog from "./assessment-dialog.jsx"
 import AssessmentPreviewDialog from "./assessment-preview-dialog.jsx"
+import ExamFormatPanel from "./exam-format-panel.jsx"
 
 const PAGE_SIZE = 10
 
@@ -101,7 +102,19 @@ const DETAIL_QUERIES = {
     queryFn: getExamQuestions,
     ...ASSESSMENT_CACHE,
   },
-  questions: { queryKey: ["questions"], queryFn: () => getQuestions(), ...ASSESSMENT_CACHE },
+}
+
+// This certification's questions only. Every question on the platform -- thousands,
+// with their choices -- took long enough that the request was dropped, which left
+// every assessment's preview and edit list showing 0 questions.
+function questionsQueryFor(certificationId) {
+  const id = certificationId == null ? null : Number(certificationId)
+  return {
+    queryKey: ["questions", "certification", id, null],
+    queryFn: () => getQuestions(undefined, id ?? undefined),
+    enabled: id != null,
+    ...ASSESSMENT_CACHE,
+  }
 }
 
 const EXAM_TYPES_QUERY = {
@@ -113,6 +126,7 @@ const EXAM_TYPES_QUERY = {
 export function prefetchAssessmentData(queryClient, certificationId) {
   if (certificationId != null) {
     void queryClient.prefetchQuery(examsQueryFor(certificationId))
+    void queryClient.prefetchQuery(questionsQueryFor(certificationId))
   }
   void queryClient.prefetchQuery(EXAM_TYPES_QUERY)
   Object.values(DETAIL_QUERIES).forEach((query) => {
@@ -124,7 +138,7 @@ export function useAssessmentData(certificationId) {
   const examsQuery = useQuery(examsQueryFor(certificationId))
   const examTypesQuery = useQuery(EXAM_TYPES_QUERY)
   const examQuestionsQuery = useQuery(DETAIL_QUERIES.examQuestions)
-  const questionsQuery = useQuery(DETAIL_QUERIES.questions)
+  const questionsQuery = useQuery(questionsQueryFor(certificationId))
 
   return useMemo(() => {
     const exams = (Array.isArray(examsQuery.data) ? examsQuery.data : []).filter(
@@ -326,6 +340,10 @@ export default function AssessmentsTab({
 
   return (
       <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <div className="shrink-0">
+          <ExamFormatPanel certificationId={certification.certificationId} editable />
+        </div>
+
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <label className="relative w-full max-w-xs">
             <span className="sr-only">Search assessments</span>
@@ -571,6 +589,7 @@ export default function AssessmentsTab({
             initialMajorCategoryId={createPreset.majorCategoryId}
             initialTitle={createPreset.title}
             lockPreset={createPreset.lockPreset}
+            questionById={data.questionById}
         />
 
         <AssessmentDialog
@@ -597,6 +616,7 @@ export default function AssessmentsTab({
             examTypeByIdText={data.examTypeByIdText}
             examQuestions={data.examQuestions}
             questionById={data.questionById}
+            isLoading={data.isDetailLoading}
         />
 
         <AlertDialog

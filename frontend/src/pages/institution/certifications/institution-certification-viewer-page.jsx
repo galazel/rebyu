@@ -49,8 +49,9 @@ export default function InstitutionCertificationViewerPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   const certificationsQuery = useQuery({
-    queryKey: ["certifications", "group", departmentId ?? null],
-    queryFn: () => getAllCertifications(departmentId),
+    // Structure only; each lesson's content is fetched when it is opened.
+    queryKey: ["certifications", "group", departmentId ?? null, "summary"],
+    queryFn: () => getAllCertifications(departmentId, { summary: true }),
     staleTime: 5 * 60_000,
   })
 

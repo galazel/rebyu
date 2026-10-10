@@ -109,9 +109,10 @@ export function toCategoryPayload(certification) {
           title: normalizeText(middle.title),
 
           lessons: (middle.lessons ?? []).map((lesson) => {
+            // Names only: the certification update renames in place and never
+            // touches lesson content, which is saved through the lesson editor.
             const lessonPayload = {
               name: normalizeText(lesson.name),
-              lessonComponentStructure: lesson.lessonComponentStructure ?? "[]",
             }
 
             if (lesson.lessonId != null) lessonPayload.lessonId = lesson.lessonId

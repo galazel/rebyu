@@ -16,6 +16,8 @@ from sqlalchemy.orm import Session
 
 from app.db.java_tables import (
     assessment_attempts,
+    certification_exam_formats,
+    certification_exam_sections,
     certifications,
     choices,
     diagram_question_configs,
@@ -513,6 +515,85 @@ def update_certification_exam_structure(
         .where(certifications.c.certification_id == certification_id)
         .values(exam_structure=exam_structure)
     )
+    if isinstance(exam_structure, dict):
+        save_certification_exam_format(session, certification_id, exam_structure)
+
+
+def _positive(value, cast=int):
+    try:
+        number = cast(value or 0)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def _types(value) -> str | None:
+    if isinstance(value, (list, tuple)):
+        value = ", ".join(str(t) for t in value if t)
+    return (value or None) and str(value)[:200]
+
+
+def save_certification_exam_format(
+    session: Session, certification_id: int, structure: dict
+) -> None:
+    """Stores the real exam's format in `certification_exam_formats` and its
+    parts in `certification_exam_sections`.
+
+    The JSON on `certifications.exam_structure` is kept as well, but nothing can
+    query or show a blob; these are the readable copy. A MANUAL row -- an
+    admin's edit -- is only replaced by another MANUAL write. Sections are replaced
+    only when the structure carries some, so a later write that knows the
+    totals but not the parts does not erase parts recorded earlier.
+    """
+    values = {
+        "total_items": _positive(structure.get("total_items")),
+        "duration_minutes": _positive(structure.get("duration_minutes")),
+        "passing_score": _positive(structure.get("passing_score"), float),
+        "question_types": _types(structure.get("question_types")),
+        "coverage": structure.get("coverage") or None,
+        "notes": structure.get("notes") or None,
+        "source": (structure.get("source") or None) and str(structure["source"])[:1000],
+        "origin": structure.get("origin") or "PLANNER",
+        "updated_at": datetime.now(timezone.utc).replace(tzinfo=None),
+    }
+    exists = session.execute(
+        select(certification_exam_formats.c.origin)
+        .where(certification_exam_formats.c.certification_id == certification_id)
+    ).first()
+    if exists and exists[0] == "MANUAL" and values["origin"] != "MANUAL":
+        # An admin set this by hand in the assessments page; research does not override it.
+        logger.info("Keeping the manually set exam format of certification %s", certification_id)
+        return
+    if exists:
+        session.execute(
+            update(certification_exam_formats)
+            .where(certification_exam_formats.c.certification_id == certification_id)
+            .values(**values)
+        )
+    else:
+        session.execute(
+            insert(certification_exam_formats).values(certification_id=certification_id, **values)
+        )
+
+    sections = [s for s in (structure.get("sections") or []) if isinstance(s, dict) and s.get("name")]
+    if not sections:
+        return
+    session.execute(
+        certification_exam_sections.delete()
+        .where(certification_exam_sections.c.certification_id == certification_id)
+    )
+    for order, section in enumerate(sections, start=1):
+        session.execute(
+            insert(certification_exam_sections).values(
+                certification_id=certification_id,
+                display_order=order,
+                name=str(section["name"])[:200],
+                total_items=_positive(section.get("total_items")),
+                duration_minutes=_positive(section.get("duration_minutes")),
+                question_types=_types(section.get("question_types")),
+                notes=section.get("notes") or None,
+            )
+        )
 
 
 def update_lesson_content(session: Session, lesson_id: int, blocks: Any) -> None:

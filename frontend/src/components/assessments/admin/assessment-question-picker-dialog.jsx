@@ -83,9 +83,12 @@ export default function AssessmentQuestionPickerDialog({
     setPicked(new Set())
   }, [open, initialMiddleCategoryId])
 
+  const certificationId = certification?.certificationId ?? null
+  // This certification's questions only: the whole platform's bank is thousands of
+  // questions with their choices, and fetching it timed out.
   const questionsQuery = useQuery({
-    queryKey: ["questions", ownerDepartmentId ?? null],
-    queryFn: () => getQuestions(ownerDepartmentId ?? undefined),
+    queryKey: ["questions", "certification", certificationId, ownerDepartmentId ?? null],
+    queryFn: () => getQuestions(ownerDepartmentId ?? undefined, certificationId ?? undefined),
     enabled: open,
   })
 

@@ -44,6 +44,34 @@ certifications = Table(
     Column("exam_structure", JSONB),
 )
 
+certification_exam_formats = Table(
+    "certification_exam_formats",
+    java_metadata,
+    Column("certification_id", BigInteger, primary_key=True),
+    Column("total_items", Integer),
+    Column("duration_minutes", Integer),
+    Column("passing_score", Numeric(5, 2)),
+    Column("question_types", String(200)),
+    Column("coverage", Text),
+    Column("notes", Text),
+    Column("source", String(1000)),
+    Column("origin", String(20)),
+    Column("updated_at", DateTime),
+)
+
+certification_exam_sections = Table(
+    "certification_exam_sections",
+    java_metadata,
+    Column("exam_section_id", BigInteger, primary_key=True),
+    Column("certification_id", BigInteger, nullable=False),
+    Column("display_order", Integer, nullable=False),
+    Column("name", String(200), nullable=False),
+    Column("total_items", Integer),
+    Column("duration_minutes", Integer),
+    Column("question_types", String(200)),
+    Column("notes", Text),
+)
+
 generation_requests = Table(
     "generation_requests",
     java_metadata,

@@ -5,7 +5,12 @@ import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 
-import { addCertificationWithAi } from "@/services/certificationService"
+import {
+    addCertificationWithAi,
+    appendToCertificationWithAi,
+    setCertificationBadge,
+    updateCertification,
+} from "@/services/certificationService"
 import { formatLocalDateTime, validateCertificationDetails } from "@/utils/certification-edit"
 
 import CertificationDetails from "@/components/certifications/certification-details"
@@ -127,14 +132,34 @@ function getErrorMessage(error) {
     )
 }
 
+function detailsOf(certification) {
+    return certification
+        ? {
+              title: certification.title ?? "",
+              industry: certification.industry ?? "",
+              description: certification.description ?? "",
+          }
+        : getEmptyDetails()
+}
+
+/**
+ * Creates a certification and generates it -- or, given `certification`, generates
+ * an existing one that has no content yet (a "coming soon" entry, or a run that
+ * never finished). The same form either way; the second keeps its id, so nothing
+ * linked to it is lost.
+ */
 export default function CertificationFormDrawer({
                                                     open,
                                                     onOpenChange,
                                                     onSaved,
                                                     trigger,
+                                                    certification = null,
                                                 }) {
+    const existingId = certification?.certificationId ?? certification?.id ?? null
+    const isExisting = existingId != null
+
     const [certificationDetails, setCertificationDetails] = useState(
-        getEmptyDetails()
+        detailsOf(certification)
     )
 
     const [detailsErrors, setDetailsErrors] = useState({})
@@ -153,22 +178,35 @@ export default function CertificationFormDrawer({
         mutateAsync: createWithAi,
         isPending: isBusy,
     } = useMutation({
-        mutationFn: ({ payload, documents, mode, questionTypes: chosenTypes, badge, bankSize, lessons }) =>
-            addCertificationWithAi(
-                payload,
-                documents,
-                (event) =>
-                    setUploadPercent(
-                        event.total
-                            ? Math.round((event.loaded / event.total) * 100)
-                            : 0
-                    ),
-                mode,
-                chosenTypes,
-                badge,
-                bankSize,
-                lessons
-            ),
+        mutationFn: async ({ payload, documents, mode, questionTypes: chosenTypes, badge, bankSize, lessons }) => {
+            const onUploadProgress = (event) =>
+                setUploadPercent(
+                    event.total
+                        ? Math.round((event.loaded / event.total) * 100)
+                        : 0
+                )
+
+            if (!isExisting) {
+                return addCertificationWithAi(
+                    payload, documents, onUploadProgress, mode, chosenTypes, badge, bankSize, lessons
+                )
+            }
+
+            // Existing empty certification: save any edits to its details, then
+            // generate into it. Generation on a certification with no curriculum
+            // builds the whole thing, exactly as a new one would.
+            const { dateCreated: _created, ...edits } = payload
+            await updateCertification(existingId, { ...certification, ...edits })
+            if (badge) await setCertificationBadge(existingId, badge)
+            await appendToCertificationWithAi(existingId, documents, {
+                reviewMode: mode,
+                questionTypes: chosenTypes,
+                questionBankSize: bankSize,
+                lessonCount: lessons,
+                onUploadProgress,
+            })
+            return { ...certification, ...edits, certificationId: existingId }
+        },
     })
 
     const isProcessing = isBusy && uploadPercent >= 100
@@ -186,7 +224,7 @@ export default function CertificationFormDrawer({
     }, [isProcessing])
 
     function resetForm() {
-        setCertificationDetails(getEmptyDetails())
+        setCertificationDetails(detailsOf(certification))
         setSourceDocuments([])
         setBadgeImage(null)
         setUploadPercent(0)
@@ -318,8 +356,15 @@ export default function CertificationFormDrawer({
 
                 <DrawerHeader className="relative gap-1 border-b border-border px-5 py-4 pr-14 text-left sm:px-6">
                     <DrawerTitle className="text-lg">
-                        Create Certification
+                        {isExisting ? "Generate Certification" : "Create Certification"}
                     </DrawerTitle>
+
+                    {isExisting ? (
+                        <p className="text-sm text-muted-foreground">
+                            This certification has no content yet. Upload its documents to build
+                            it — the curriculum, lessons, quizzes, exams and question bank.
+                        </p>
+                    ) : null}
 
                     <DrawerDescription className="sr-only">
                         Certification details and source documents.
@@ -446,7 +491,9 @@ export default function CertificationFormDrawer({
                         <Alert variant="destructive" className="relative pr-12">
                             <CircleAlert className="h-4 w-4" />
 
-                            <AlertTitle>Cannot create certification</AlertTitle>
+                            <AlertTitle>
+                                {isExisting ? "Cannot generate certification" : "Cannot create certification"}
+                            </AlertTitle>
 
                             <AlertDescription>
                                 {submissionError}

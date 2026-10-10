@@ -90,7 +90,7 @@ export default function WorldCupEditions({ arena }) {
 
   const { data: certifications = [] } = useQuery({
     queryKey: ["admin-certifications", "world-cup-editions"],
-    queryFn: () => getAllCertifications(),
+    queryFn: () => getAllCertifications(undefined, { summary: true }),
     staleTime: 5 * 60 * 1000,
   })
 

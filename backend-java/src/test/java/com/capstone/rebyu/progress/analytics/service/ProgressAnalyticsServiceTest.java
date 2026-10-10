@@ -111,16 +111,16 @@ class ProgressAnalyticsServiceTest {
         when(certificationRepository.findById(CERT_ID)).thenReturn(Optional.of(certification(CERT_ID, "Cert")));
         when(learnerCertificationRepository.existsByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
                 eq(LEARNER_ID), eq(CERT_ID), eq(LearnerCertification.Status.active))).thenReturn(true);
-        when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
+        when(assessmentAttemptRepository.findWithExamByLearnerAndCertification(
                 eq(LEARNER_ID), eq(CERT_ID), eq(AssessmentAttempt.Status.SUBMITTED))).thenReturn(List.of());
         when(institutionCertificationLearnerRepository
                 .existsByLearner_LearnerIdAndInstitutionCert_Certification_CertificationIdAndStatus(
                         eq(LEARNER_ID), eq(CERT_ID), eq(InstitutionCertificationLearner.Status.active)))
                 .thenReturn(false);
-        when(examRepository.findByCertification_CertificationId(CERT_ID)).thenReturn(List.of());
+        when(examRepository.findWithTypeByCertificationIds(List.of(CERT_ID))).thenReturn(List.of());
         when(streakService.getStreak(LEARNER_ID))
                 .thenReturn(new StreakService.StreakView(0, 0, null, null));
-        when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(CERT_ID)).thenReturn(List.of());
+        stubOfficialLessons(List.of());
         when(learnerCompletedLessonRepository
                 .findByLearner_LearnerIdAndLesson_MiddleCategory_MajorCategory_Certification_CertificationId(
                         LEARNER_ID, CERT_ID)).thenReturn(List.of());
@@ -158,6 +158,34 @@ class ProgressAnalyticsServiceTest {
         major.setMajorCategoryId(id);
         major.setTitle(title);
         return major;
+    }
+
+    /** The service reads lessons as content-free placement rows; serve these lessons that way. */
+    private void stubOfficialLessons(List<Lesson> lessons) {
+        List<LessonRepository.LessonPlacementView> rows = lessons.stream()
+                .map(l -> (LessonRepository.LessonPlacementView) new LessonRepository.LessonPlacementView() {
+                    public Long getLessonId() { return l.getLessonId(); }
+                    public String getName() { return l.getName(); }
+                    public Long getMiddleCategoryId() { return l.getMiddleCategory().getMiddleCategoryId(); }
+                    public String getMiddleTitle() { return l.getMiddleCategory().getTitle(); }
+                    public Long getMajorCategoryId() {
+                        return l.getMiddleCategory().getMajorCategory().getMajorCategoryId();
+                    }
+                    public String getMajorTitle() { return l.getMiddleCategory().getMajorCategory().getTitle(); }
+                })
+                .toList();
+        when(lessonRepository.findOfficialPlacementsByCertificationId(CERT_ID)).thenReturn(rows);
+    }
+
+    private AssessmentAttemptAnswerRepository.AnsweredItemView answeredItem(
+            Long attemptId, Long sourceQuestionId, String questionType, Boolean isCorrect, boolean pending) {
+        return new AssessmentAttemptAnswerRepository.AnsweredItemView() {
+            public Long getAttemptId() { return attemptId; }
+            public Long getSourceQuestionId() { return sourceQuestionId; }
+            public String getQuestionType() { return questionType; }
+            public Boolean getIsCorrect() { return isCorrect; }
+            public boolean getPending() { return pending; }
+        };
     }
 
     private Lesson lesson(Long id, String name, MiddleCategory middleCategory) {
@@ -259,7 +287,7 @@ class ProgressAnalyticsServiceTest {
         Exam examA = exam("Diagnostic", "DIAGNOSTIC");
         AssessmentAttempt a1 = attempt(1L, examA, new BigDecimal("80.00"), true, LocalDateTime.now().minusDays(1));
         AssessmentAttempt a2 = attempt(2L, examA, new BigDecimal("60.00"), false, LocalDateTime.now());
-        when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
+        when(assessmentAttemptRepository.findWithExamByLearnerAndCertification(
                 eq(LEARNER_ID), eq(CERT_ID), eq(AssessmentAttempt.Status.SUBMITTED)))
                 .thenReturn(List.of(a1, a2));
         when(attemptQuestionRepository.findByAttempt_AssessmentAttemptIdIn(any())).thenReturn(List.of());
@@ -277,7 +305,7 @@ class ProgressAnalyticsServiceTest {
     @Test
     void withSubmittedChallengeRuns_computesChallengeStats() {
         Exam arena = exam("CodeStrike", "CHALLENGE");
-        when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
+        when(assessmentAttemptRepository.findWithExamByLearnerAndCertification(
                 eq(LEARNER_ID), eq(CERT_ID), eq(AssessmentAttempt.Status.SUBMITTED)))
                 .thenReturn(List.of(
                         attempt(1L, arena, new BigDecimal("90.00"), true, LocalDateTime.now()),
@@ -299,7 +327,7 @@ class ProgressAnalyticsServiceTest {
         MiddleCategory middle = middleCategory(1L, "Middle", major);
         Lesson lessonA = lesson(10L, "Lesson A", middle);
         Lesson lessonB = lesson(11L, "Lesson B", middle);
-        when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(CERT_ID)).thenReturn(List.of(lessonA, lessonB));
+        stubOfficialLessons(List.of(lessonA, lessonB));
         when(learnerMasteryService.getLessonPrioritiesForAnalytics(LEARNER_ID, CERT_ID))
                 .thenReturn(new LearnerMasteryService.LessonPrioritiesResult(
                         List.of(priority(10L, "Lesson A", 0.9, "STRONG", 5)), true));
@@ -316,7 +344,7 @@ class ProgressAnalyticsServiceTest {
         MajorCategory major = majorCategory(1L, "Major");
         MiddleCategory middle = middleCategory(1L, "Middle", major);
         Lesson onlyLesson = lesson(20L, "Untouched", middle);
-        when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(CERT_ID)).thenReturn(List.of(onlyLesson));
+        stubOfficialLessons(List.of(onlyLesson));
         when(learnerMasteryService.getLessonPrioritiesForAnalytics(LEARNER_ID, CERT_ID))
                 .thenReturn(new LearnerMasteryService.LessonPrioritiesResult(List.of(), true));
 
@@ -334,13 +362,13 @@ class ProgressAnalyticsServiceTest {
                 .thenReturn(Optional.of(certification(otherCertId, "Other Cert")));
         when(learnerCertificationRepository.existsByLearner_LearnerIdAndCertification_CertificationIdAndStatus(
                 eq(LEARNER_ID), eq(otherCertId), eq(LearnerCertification.Status.active))).thenReturn(true);
-        when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
+        when(assessmentAttemptRepository.findWithExamByLearnerAndCertification(
                 eq(LEARNER_ID), eq(otherCertId), eq(AssessmentAttempt.Status.SUBMITTED))).thenReturn(List.of());
         when(institutionCertificationLearnerRepository
                 .existsByLearner_LearnerIdAndInstitutionCert_Certification_CertificationIdAndStatus(
                         eq(LEARNER_ID), eq(CERT_ID), eq(InstitutionCertificationLearner.Status.active)))
                 .thenReturn(false);
-        when(examRepository.findByCertification_CertificationId(CERT_ID)).thenReturn(List.of());
+        when(examRepository.findWithTypeByCertificationIds(List.of(CERT_ID))).thenReturn(List.of());
         when(streakService.getStreak(LEARNER_ID))
                 .thenReturn(new StreakService.StreakView(0, 0, null, null));
         when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(otherCertId)).thenReturn(List.of());
@@ -369,7 +397,7 @@ class ProgressAnalyticsServiceTest {
         MiddleCategory middle = middleCategory(1L, "Middle", major);
         Lesson assessed = lesson(30L, "Assessed", middle);
         Lesson unassessed = lesson(31L, "Unassessed", middle);
-        when(lessonRepository.findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(CERT_ID)).thenReturn(List.of(assessed, unassessed));
+        stubOfficialLessons(List.of(assessed, unassessed));
         when(learnerMasteryService.getLessonPrioritiesForAnalytics(LEARNER_ID, CERT_ID))
                 .thenReturn(new LearnerMasteryService.LessonPrioritiesResult(
                         List.of(priority(30L, "Assessed", 0.6, "MEDIUM_PRIORITY", 3)), true));
@@ -409,21 +437,15 @@ class ProgressAnalyticsServiceTest {
     void performanceBuckets_excludePendingAndUnansweredAndGroupByRawKeys() {
         Exam quizExam = exam("Quiz 1", "QUIZ");
         AssessmentAttempt attempt = attempt(1L, quizExam, new BigDecimal("50.00"), false, LocalDateTime.now());
-        when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
+        when(assessmentAttemptRepository.findWithExamByLearnerAndCertification(
                 eq(LEARNER_ID), eq(CERT_ID), eq(AssessmentAttempt.Status.SUBMITTED)))
                 .thenReturn(List.of(attempt));
 
-        AssessmentAttemptQuestion correctQ = attemptQuestion(1L, attempt, 101L, "MULTIPLE_CHOICE", 10L);
-        AssessmentAttemptQuestion incorrectQ = attemptQuestion(2L, attempt, 102L, "SHORT_ANSWER", 11L);
-        AssessmentAttemptQuestion pendingQ = attemptQuestion(3L, attempt, 103L, "DESCRIPTIVE", 12L);
-        AssessmentAttemptQuestion unansweredQ = attemptQuestion(4L, attempt, 104L, "MULTIPLE_CHOICE", 13L);
-        when(attemptQuestionRepository.findByAttempt_AssessmentAttemptIdIn(any()))
-                .thenReturn(List.of(correctQ, incorrectQ, pendingQ, unansweredQ));
-
-        when(attemptAnswerRepository.findByAttempt_AssessmentAttemptIdIn(any())).thenReturn(List.of(
-                answer(correctQ, true, false),
-                answer(incorrectQ, false, false),
-                answer(pendingQ, null, true)
+        // The unanswered item has no answer row, so the answered-items query never returns it.
+        when(attemptAnswerRepository.findAnsweredItemsByAttemptIds(any())).thenReturn(List.of(
+                answeredItem(1L, 101L, "MULTIPLE_CHOICE", true, false),
+                answeredItem(1L, 102L, "SHORT_ANSWER", false, false),
+                answeredItem(1L, 103L, "DESCRIPTIVE", null, true)
         ));
         when(questionRepository.findSelectionViewsByIdIn(any())).thenReturn(List.of(
                 difficultyView(101L, "EASY"), difficultyView(102L, "HARD"),
@@ -461,7 +483,7 @@ class ProgressAnalyticsServiceTest {
         Exam examA = exam("Exam", "MOCK_EXAM");
         AssessmentAttempt later = attempt(2L, examA, new BigDecimal("70.00"), true, LocalDateTime.now());
         AssessmentAttempt earlier = attempt(1L, examA, new BigDecimal("60.00"), false, LocalDateTime.now().minusDays(3));
-        when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
+        when(assessmentAttemptRepository.findWithExamByLearnerAndCertification(
                 eq(LEARNER_ID), eq(CERT_ID), eq(AssessmentAttempt.Status.SUBMITTED)))
                 .thenReturn(List.of(later, earlier));
         when(attemptQuestionRepository.findByAttempt_AssessmentAttemptIdIn(any())).thenReturn(List.of());
@@ -477,7 +499,7 @@ class ProgressAnalyticsServiceTest {
     void recentActivity_mergesAssessmentsAndChallengesSortedDescending() {
         Exam examA = exam("Exam", "MOCK_EXAM");
         AssessmentAttempt oldAttempt = attempt(1L, examA, new BigDecimal("70.00"), true, LocalDateTime.now().minusDays(5));
-        when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
+        when(assessmentAttemptRepository.findWithExamByLearnerAndCertification(
                 eq(LEARNER_ID), eq(CERT_ID), eq(AssessmentAttempt.Status.SUBMITTED)))
                 .thenReturn(List.of(oldAttempt, attempt(2L, exam("Blueprint", "CHALLENGE"),
                         new BigDecimal("80.00"), true, LocalDateTime.now())));
@@ -571,7 +593,7 @@ class ProgressAnalyticsServiceTest {
 
     @Test
     void challengeAnswerBreakdown_alwaysUnavailableNeverFabricated() {
-        when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
+        when(assessmentAttemptRepository.findWithExamByLearnerAndCertification(
                 eq(LEARNER_ID), eq(CERT_ID), eq(AssessmentAttempt.Status.SUBMITTED)))
                 .thenReturn(List.of(attempt(1L, exam("CodeStrike", "CHALLENGE"), new BigDecimal("90.00"), true, LocalDateTime.now())));
         when(attemptQuestionRepository.findByAttempt_AssessmentAttemptIdIn(any())).thenReturn(List.of());
@@ -590,7 +612,7 @@ class ProgressAnalyticsServiceTest {
 
         Exam examA = exam("Diagnostic", "DIAGNOSTIC");
         AssessmentAttempt newAttempt = attempt(1L, examA, new BigDecimal("88.00"), true, LocalDateTime.now());
-        when(assessmentAttemptRepository.findByLearnerIdAndExam_Certification_CertificationIdAndStatus(
+        when(assessmentAttemptRepository.findWithExamByLearnerAndCertification(
                 eq(LEARNER_ID), eq(CERT_ID), eq(AssessmentAttempt.Status.SUBMITTED)))
                 .thenReturn(List.of(newAttempt));
         when(attemptQuestionRepository.findByAttempt_AssessmentAttemptIdIn(any())).thenReturn(List.of());

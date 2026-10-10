@@ -21,6 +21,7 @@ import java.util.regex.Pattern;
 @Transactional
 public class LearnerProfileService {
 
+    private final org.springframework.context.ApplicationEventPublisher events;
     private final LearnerRepository learnerRepository;
     private final UserRepository userRepository;
     private final LearnerMapper learnerMapper;
@@ -110,6 +111,7 @@ public class LearnerProfileService {
 
         user.setAccountStatus(User.AccountStatus.inactive);
         userRepository.save(user);
+        events.publishEvent(new com.capstone.rebyu.auth.service.IdentityChangedEvent(user.getCognitoSub()));
 
         log.info("Account deleted for learner: {}", learnerId);
     }

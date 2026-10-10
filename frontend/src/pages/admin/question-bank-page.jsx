@@ -69,6 +69,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getAllCertifications } from "../../services/certificationService.js";
 import { getFileViewUrl, uploadQuestionImage } from "../../services/fileService.js";
+import { choicesCanShuffle } from "@/lib/choice-shuffle.js";
 import DiagramArea from "../../components/challenges/diagram-area.jsx";
 import BigDialog from "../../components/commons/dialog.jsx";
 import AiGenerationProgress from "../../components/commons/ai-generation-progress.jsx";
@@ -1116,7 +1117,8 @@ function MultipleChoices({
                         </p>
 
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                            Fill every choice and select one correct answer.
+                            Fill every choice and select one correct answer. Choices are
+                            shuffled when a learner retakes, so write each one to stand on its own.
                         </p>
                     </div>
 
@@ -1126,6 +1128,15 @@ function MultipleChoices({
             </span>
                     )}
                 </div>
+
+                {choicesCanShuffle(choices) ? null : (
+                    <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+                        A choice here names another choice (such as &ldquo;A and B&rdquo; or
+                        &ldquo;All of the above&rdquo;), so this question&apos;s choices will keep
+                        this order on retakes. Rewrite it to name the content instead if you want
+                        them shuffled.
+                    </p>
+                )}
 
                 <RadioGroup
                     value={
@@ -2466,7 +2477,7 @@ function QuestionBank({
         isError,
     } = useQuery({
         queryKey: ["admin-certifications", "question-bank-page"],
-        queryFn: () => getAllCertifications(),
+        queryFn: () => getAllCertifications(undefined, { summary: true }),
         staleTime: 5 * 60 * 1000,
     });
 

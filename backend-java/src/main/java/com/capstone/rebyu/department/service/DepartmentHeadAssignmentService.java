@@ -29,6 +29,7 @@ import java.util.List;
 @Transactional
 public class DepartmentHeadAssignmentService {
 
+    private final org.springframework.context.ApplicationEventPublisher events;
     private final DepartmentHeadAssignmentRepository departmentHeadAssignmentRepository;
     private final DepartmentRepository departmentRepository;
     private final DepartmentHeadAssignmentMapper departmentHeadAssignmentMapper;
@@ -105,6 +106,7 @@ public class DepartmentHeadAssignmentService {
                 });
         user.setUserType(memberType);
         userRepository.save(user);
+        events.publishEvent(new com.capstone.rebyu.auth.service.IdentityChangedEvent(user.getCognitoSub()));
         log.info("Promoted userId={} to {} on group-authority assignment",
                 userId, CognitoAuthService.DEPARTMENT_HEAD_USER_TYPE);
     }

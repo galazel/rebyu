@@ -11,8 +11,9 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class AdaptivePolicy {
 
+    // Diagnostic and mock exams are fixed papers: every learner and every retake gets the same questions.
     public static final Set<String> ADAPTIVE_TYPES =
-            Set.of("LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM", "MOCK_EXAM", "DIAGNOSTIC");
+            Set.of("LESSON_QUIZ", "MIDDLE_EXAM", "MAJOR_EXAM");
 
     public static final String KNOWLEDGE_CHECK = "KNOWLEDGE_CHECK";
 
@@ -30,7 +31,7 @@ public class AdaptivePolicy {
         return properties.isEnabled() && examTypeText != null && ADAPTIVE_TYPES.contains(examTypeText);
     }
 
-    public static final Set<String> ASSEMBLED_PAPER_TYPES = Set.of("MOCK_EXAM");
+    public static final Set<String> ASSEMBLED_PAPER_TYPES = Set.of();
 
     public boolean isAssembledPaper(Exam exam) {
         if (exam == null || exam.getExamType() == null) return false;

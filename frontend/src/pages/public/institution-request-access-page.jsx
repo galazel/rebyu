@@ -226,7 +226,7 @@ export default function InstitutionRequestAccessPage() {
 
   const certificationsQuery = useQuery({
     queryKey: ["certifications", "request-access"],
-    queryFn: () => getAllCertifications(undefined, { includeComingSoon: true }),
+    queryFn: () => getAllCertifications(undefined, { includeComingSoon: true, summary: true }),
     staleTime: 5 * 60 * 1000,
   })
 

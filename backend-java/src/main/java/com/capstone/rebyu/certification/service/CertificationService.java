@@ -44,6 +44,7 @@ import java.util.stream.Collectors;
 public class CertificationService {
 
     private final CertificationRepository certificationRepository;
+    private final com.capstone.rebyu.certification.repository.LessonRepository lessonRepository;
     private final CertificationMapper certificationMapper;
     private final EntityManager entityManager;
     private final ExamRepository examRepository;
@@ -64,6 +65,90 @@ public class CertificationService {
                         || certification.getStatus() != Certification.CertificationStatus.COMING_SOON)
                 .map(certification -> toFilteredDto(certification, includeDepartmentId))
                 .toList();
+    }
+
+    /**
+     * The same tree as {@link #getAll(Long, boolean)} -- certifications, categories,
+     * modules, lesson ids and names, exam summaries -- without lesson content.
+     *
+     * Lessons come from one outline query that never reads the content column, and
+     * the category entities are walked without touching their lesson collections,
+     * so the lesson content (~7 MB across the published certifications) is neither
+     * read from the database nor sent. For the many screens that need the structure
+     * but render no lesson.
+     */
+    @Transactional(readOnly = true)
+    public List<CertificationDto> getAllSummaries(Long includeDepartmentId, boolean includeComingSoon) {
+        List<Certification> certifications = certificationRepository.findAll().stream()
+                .filter(certification -> includeComingSoon
+                        || certification.getStatus() != Certification.CertificationStatus.COMING_SOON)
+                .toList();
+        if (certifications.isEmpty()) return List.of();
+
+        Map<Long, List<LessonDto>> lessonsByMiddle = new HashMap<>();
+        for (com.capstone.rebyu.certification.repository.LessonRepository.LessonOutlineView outline
+                : lessonRepository.findOutlinesByCertificationIds(
+                certifications.stream().map(Certification::getCertificationId).toList())) {
+            LessonDto lesson = new LessonDto();
+            lesson.setLessonId(outline.getLessonId());
+            lesson.setMiddleCategoryId(outline.getMiddleCategoryId());
+            lesson.setName(outline.getName());
+            lesson.setLessonComponentStructure(null);
+            lessonsByMiddle.computeIfAbsent(outline.getMiddleCategoryId(), id -> new ArrayList<>()).add(lesson);
+        }
+
+        // Every certification's exams in one query, rather than one query each.
+        Map<Long, List<Exam>> examsByCertification = examRepository
+                .findWithTypeByCertificationIds(
+                        certifications.stream().map(Certification::getCertificationId).toList())
+                .stream()
+                .filter(exam -> exam.getCertification() != null)
+                .collect(Collectors.groupingBy(exam -> exam.getCertification().getCertificationId()));
+
+        List<CertificationDto> summaries = new ArrayList<>();
+        for (Certification certification : certifications) {
+            CertificationDto dto = new CertificationDto();
+            dto.setCertificationId(certification.getCertificationId());
+            dto.setTitle(certification.getTitle());
+            dto.setDescription(certification.getDescription());
+            dto.setDateCreated(certification.getDateCreated());
+            dto.setDateUpdated(certification.getDateUpdated());
+            dto.setIndustry(certification.getIndustry());
+            dto.setStatus(certification.getStatus());
+            dto.setBadgeImageKey(certification.getBadgeImageKey());
+
+            List<MajorCategoryDto> majors = new ArrayList<>();
+            for (MajorCategory major : nullToEmpty(certification.getMajorCategory())) {
+                Long ownerDepartmentId = major.getOwnerDepartment() == null
+                        ? null : major.getOwnerDepartment().getDepartmentId();
+                if (ownerDepartmentId != null && !ownerDepartmentId.equals(includeDepartmentId)) continue;
+
+                List<MiddleCategoryDto> middles = new ArrayList<>();
+                for (MiddleCategory middle : nullToEmpty(major.getMiddleCategory())) {
+                    MiddleCategoryDto middleDto = new MiddleCategoryDto();
+                    middleDto.setMiddleCategoryId(middle.getMiddleCategoryId());
+                    middleDto.setMajorCategoryId(major.getMajorCategoryId());
+                    middleDto.setTitle(middle.getTitle());
+                    middleDto.setLessons(lessonsByMiddle.getOrDefault(middle.getMiddleCategoryId(), new ArrayList<>()));
+                    middles.add(middleDto);
+                }
+
+                MajorCategoryDto majorDto = new MajorCategoryDto();
+                majorDto.setMajorCategoryId(major.getMajorCategoryId());
+                majorDto.setCertificationId(certification.getCertificationId());
+                majorDto.setTitle(major.getTitle());
+                majorDto.setOwnerDepartmentId(ownerDepartmentId);
+                majorDto.setMiddleCategory(middles);
+                majors.add(majorDto);
+            }
+            dto.setMajorCategory(majors);
+
+            attachExamSummaries(dto,
+                    examsByCertification.getOrDefault(certification.getCertificationId(), List.of()),
+                    includeDepartmentId);
+            summaries.add(dto);
+        }
+        return summaries;
     }
 
     @Transactional(readOnly = true)
@@ -88,7 +173,11 @@ public class CertificationService {
     }
 
     private void attachExamSummaries(CertificationDto dto, Long certificationId, Long includeDepartmentId) {
-        List<Exam> exams = examRepository.findByCertification_CertificationId(certificationId);
+        attachExamSummaries(dto, examRepository.findByCertification_CertificationId(certificationId),
+                includeDepartmentId);
+    }
+
+    private void attachExamSummaries(CertificationDto dto, List<Exam> exams, Long includeDepartmentId) {
 
         Map<Long, MajorCategoryDto> majorsById = new HashMap<>();
         Map<Long, MiddleCategoryDto> middlesById = new HashMap<>();
@@ -171,52 +260,83 @@ public class CertificationService {
         );
     }
 
+    /**
+     * Edits a certification in place: its own fields, and the title of each
+     * existing major category, module and lesson the request names by id.
+     *
+     * It deliberately does not rebuild the tree from the request. The request is
+     * the admin page's copy, which leaves out department-owned categories and every
+     * lesson's questions; merging a tree rebuilt from it let orphan removal delete
+     * both. Categories and lessons are added and deleted through their own
+     * endpoints, and lesson content through the lesson endpoint, so nothing here
+     * creates, removes or overwrites content.
+     */
     public CertificationDto update(Long id, CertificationDto dto) {
-        Certification existingCertification = findEntity(id);
+        Certification certification = certificationRepository.findByIdWithFullTree(id)
+                .orElseThrow(() -> new EntityNotFoundException("Certification not found with ID: " + id));
 
+        if (hasText(dto.getTitle())) certification.setTitle(dto.getTitle().trim());
+        if (dto.getDescription() != null) certification.setDescription(dto.getDescription().trim());
+        if (hasText(dto.getIndustry())) certification.setIndustry(dto.getIndustry().trim());
 
+        Map<Long, String> majorTitles = new HashMap<>();
+        Map<Long, String> middleTitles = new HashMap<>();
+        Map<Long, String> lessonNames = new HashMap<>();
+        for (MajorCategoryDto major : nullToEmpty(dto.getMajorCategory())) {
+            if (major.getMajorCategoryId() != null && hasText(major.getTitle())) {
+                majorTitles.put(major.getMajorCategoryId(), major.getTitle().trim());
+            }
+            for (MiddleCategoryDto middle : nullToEmpty(major.getMiddleCategory())) {
+                if (middle.getMiddleCategoryId() != null && hasText(middle.getTitle())) {
+                    middleTitles.put(middle.getMiddleCategoryId(), middle.getTitle().trim());
+                }
+                for (LessonDto lesson : nullToEmpty(middle.getLessons())) {
+                    if (lesson.getLessonId() != null && hasText(lesson.getName())) {
+                        lessonNames.put(lesson.getLessonId(), lesson.getName().trim());
+                    }
+                }
+            }
+        }
 
+        int renamed = 0;
+        for (MajorCategory major : nullToEmpty(certification.getMajorCategory())) {
+            String title = majorTitles.get(major.getMajorCategoryId());
+            if (title != null && !title.equals(major.getTitle())) {
+                major.setTitle(title);
+                renamed++;
+            }
+            for (MiddleCategory middle : nullToEmpty(major.getMiddleCategory())) {
+                String middleTitle = middleTitles.get(middle.getMiddleCategoryId());
+                if (middleTitle != null && !middleTitle.equals(middle.getTitle())) {
+                    middle.setTitle(middleTitle);
+                    renamed++;
+                }
+                for (Lesson lesson : nullToEmpty(middle.getLessons())) {
+                    String name = lessonNames.get(lesson.getLessonId());
+                    if (name != null && !name.equals(lesson.getName())) {
+                        lesson.setName(name);
+                        renamed++;
+                    }
+                }
+            }
+        }
 
+        certification.setDateUpdated(LocalDateTime.now());
+        certificationRepository.save(certification);
 
-
-
-        Certification updatedCertification = certificationMapper.toEntity(dto);
-
-        updatedCertification.setCertificationId(
-                existingCertification.getCertificationId()
-        );
-
-
-
-
-
-        updatedCertification.setDateCreated(
-                existingCertification.getDateCreated()
-        );
-
-
-
-
-
-        updatedCertification.setStatus(existingCertification.getStatus());
-        updatedCertification.setExamStructure(existingCertification.getExamStructure());
-        updatedCertification.setBadgeImageKey(existingCertification.getBadgeImageKey());
-
-        updatedCertification.setDateUpdated(LocalDateTime.now());
-
-        connectChildEntities(updatedCertification);
-
-        Certification savedCertification =
-                certificationRepository.save(updatedCertification);
-
-        log.info(
-                "Updated certification with ID: {}",
-                savedCertification.getCertificationId()
-        );
+        log.info("Updated certification {} ({} name(s) changed)", id, renamed);
 
         return certificationMapper.toDto(
-                certificationRepository.findByIdWithFullTree(savedCertification.getCertificationId()).orElseThrow()
+                certificationRepository.findByIdWithFullTree(id).orElseThrow()
         );
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private static <T> List<T> nullToEmpty(List<T> list) {
+        return list == null ? List.of() : list;
     }
 
     public void delete(Long id) {

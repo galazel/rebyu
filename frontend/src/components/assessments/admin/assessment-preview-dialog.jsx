@@ -17,6 +17,7 @@ export default function AssessmentPreviewDialog({
                                                   examTypeByIdText,
                                                   examQuestions,
                                                   questionById,
+                                                  isLoading = false,
                                                 }) {
   const orderedQuestions = useMemo(() => {
     if (!exam) return []
@@ -52,7 +53,9 @@ export default function AssessmentPreviewDialog({
                   {getAssessmentTypeLabel(typeText)}
                 </Badge>
 
-                <span>{orderedQuestions.length} question(s)</span>
+                <span>
+                  {isLoading ? "Loading questions…" : `${orderedQuestions.length} question(s)`}
+                </span>
 
                 {exam.durationMinutes ? (
                     <span>· {exam.durationMinutes} min</span>
@@ -65,7 +68,11 @@ export default function AssessmentPreviewDialog({
             </DialogHeader>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
-              {orderedQuestions.length === 0 ? (
+              {isLoading ? (
+                  <p className="py-10 text-center text-sm text-muted-foreground">
+                    Loading questions…
+                  </p>
+              ) : orderedQuestions.length === 0 ? (
                   <p className="py-10 text-center text-sm text-muted-foreground">
                     This assessment has no questions yet.
                   </p>

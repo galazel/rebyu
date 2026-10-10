@@ -359,8 +359,8 @@ export function InstitutionQuestionBankPanel({
   }, [startingCertId, initialLessonId, autoOpenAdd])
 
   const certificationsQuery = useQuery({
-    queryKey: ["certifications-full"],
-    queryFn: () => getAllCertifications(),
+    queryKey: ["certifications", "summary"],
+    queryFn: () => getAllCertifications(undefined, { summary: true }),
     staleTime: 5 * 60 * 1000,
   })
 

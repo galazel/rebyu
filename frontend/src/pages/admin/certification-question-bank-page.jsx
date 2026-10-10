@@ -12,7 +12,7 @@ export default function CertificationQuestionBankPage() {
 
   const { data: certifications = [], isLoading: certificationsLoading } = useQuery({
     queryKey: ["admin-certifications", "question-bank-page"],
-    queryFn: () => getAllCertifications(),
+    queryFn: () => getAllCertifications(undefined, { summary: true }),
     staleTime: 5 * 60 * 1000,
   })
 

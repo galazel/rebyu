@@ -195,8 +195,8 @@ export default function InstitutionCertificationDetailPage() {
   const data = useInstitutionData(institutionId)
 
   const certificationsQuery = useQuery({
-    queryKey: ["certifications-full"],
-    queryFn: () => getAllCertifications(),
+    queryKey: ["certifications", "summary"],
+    queryFn: () => getAllCertifications(undefined, { summary: true }),
     staleTime: 5 * 60 * 1000,
   })
 
@@ -214,9 +214,11 @@ export default function InstitutionCertificationDetailPage() {
 
   const [activeTab, setActiveTab] = useState("curriculum")
 
+  // This certification's exams only, not every exam on the platform.
   const examsQuery = useQuery({
-    queryKey: ["exams"],
-    queryFn: () => getExams(),
+    queryKey: ["exams", "certification", institutionCert?.certificationId ?? null],
+    queryFn: () => getExams(undefined, institutionCert?.certificationId),
+    enabled: institutionCert?.certificationId != null,
     staleTime: 60_000,
   })
   const examTypesQuery = useQuery({

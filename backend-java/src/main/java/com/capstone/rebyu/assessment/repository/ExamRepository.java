@@ -12,6 +12,15 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
 
     List<Exam> findByCertification_CertificationId(Long certificationId);
 
+    /** Exams of many certifications with their type, in one query (for list views). */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT e FROM Exam e LEFT JOIN FETCH e.examType
+            WHERE e.certification.certificationId IN :certificationIds
+            """)
+    List<Exam> findWithTypeByCertificationIds(
+            @org.springframework.data.repository.query.Param("certificationIds")
+            java.util.Collection<Long> certificationIds);
+
     boolean existsByLesson_LessonId(Long lessonId);
 
     List<Exam> findByLearner_LearnerIdAndLesson_LessonIdAndExamType_ExamTypeText(

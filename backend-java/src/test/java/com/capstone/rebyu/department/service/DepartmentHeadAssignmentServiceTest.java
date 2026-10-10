@@ -46,7 +46,9 @@ class DepartmentHeadAssignmentServiceTest {
         groupRepository = mock(DepartmentRepository.class);
         mapper = mock(DepartmentHeadAssignmentMapper.class);
 
-        service = new DepartmentHeadAssignmentService(authorityRepository, groupRepository, mapper,
+        service = new DepartmentHeadAssignmentService(
+                mock(org.springframework.context.ApplicationEventPublisher.class),
+                authorityRepository, groupRepository, mapper,
                 mock(UserRepository.class), mock(UserTypeRepository.class),
                 mock(DepartmentHeadRepository.class));
 

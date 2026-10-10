@@ -28,6 +28,7 @@ public class DepartmentHeadProvisioningService {
 
     public record InviteResult(DepartmentHeadDto member, boolean emailed, String note) {}
 
+    private final org.springframework.context.ApplicationEventPublisher events;
     private final CognitoAdminService cognitoAdminService;
     private final UserRepository userRepository;
     private final UserTypeRepository userTypeRepository;
@@ -83,6 +84,7 @@ public class DepartmentHeadProvisioningService {
                 user.setCognitoSub(provision.cognitoSub());
             }
             user = userRepository.save(user);
+            events.publishEvent(new com.capstone.rebyu.auth.service.IdentityChangedEvent(user.getCognitoSub()));
         } else if (user == null) {
             throw new BusinessRuleException.DepartmentRuleException(
                     "An account already exists for " + request.getEmail()

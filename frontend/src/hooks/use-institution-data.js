@@ -18,9 +18,10 @@ export function useInstitutionData(institutionId) {
     retry: 1,
   })
 
+  // Structure only -- every institution page uses this, and none renders lesson content.
   const certificationsQuery = useQuery({
-    queryKey: ["certifications"],
-    queryFn: () => getAllCertifications(),
+    queryKey: ["certifications", "summary"],
+    queryFn: () => getAllCertifications(undefined, { summary: true }),
     staleTime: 5 * 60 * 1000,
     retry: 1,
   })

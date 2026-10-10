@@ -171,6 +171,26 @@ class ProgressAnalyticsAssessmentCountTest {
     }
 
     @Test
+    void excludesChallengeArenasEvenWhenTheyTargetTheCurriculum() {
+        String reason = reasonFor(onLesson(exam(12L, "World Cup", "CHALLENGE"), 1L));
+        assertNotNull(reason);
+        assertTrue(reason.contains("not part of the certification curriculum"), reason);
+        assertNotNull(reasonFor(exam(13L, "Blueprint Arena", "CHALLENGE")));
+    }
+
+    @Test
+    void excludesKnowledgeChecks() {
+        assertNotNull(reasonFor(onLesson(exam(14L, "Quick check", "KNOWLEDGE_CHECK"), 1L)));
+    }
+
+    @Test
+    void countsCurriculumExamsSavedUnderOlderTypeNames() {
+        assertNull(reasonFor(onLesson(exam(15L, "Legacy quiz", "QUIZ"), 1L)));
+        assertNull(reasonFor(onMiddle(exam(16L, "Legacy module exam", "MODULE_EXAM"), 1L)));
+        assertNull(reasonFor(exam(17L, "Legacy mock", "MOCK")));
+    }
+
+    @Test
     void anUntypedExamIsCountedRatherThanTreatedAsDiagnostic() {
         Exam untyped = onLesson(exam(8L, "Legacy exam", "LESSON_QUIZ"), 1L);
         untyped.setExamType(null);

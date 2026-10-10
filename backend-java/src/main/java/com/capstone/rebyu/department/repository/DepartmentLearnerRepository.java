@@ -11,6 +11,19 @@ import java.util.Optional;
 public interface DepartmentLearnerRepository extends JpaRepository<DepartmentLearner, Long> {
     List<DepartmentLearner> findByDepartment_DepartmentId(Long departmentId);
 
+    /**
+     * A department's learners with the enrollment and section the DTO reads, in one
+     * query -- loaded lazily, each was a further round trip to the database.
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT dl FROM DepartmentLearner dl
+            LEFT JOIN FETCH dl.institutionCertLearner
+            LEFT JOIN FETCH dl.section
+            WHERE dl.department.departmentId = :departmentId
+            """)
+    List<DepartmentLearner> findWithLinksByDepartmentId(
+            @org.springframework.data.repository.query.Param("departmentId") Long departmentId);
+
     List<DepartmentLearner> findByInstitutionCertLearner_Learner_LearnerIdAndStatus(
             Long learnerId, DepartmentLearner.Status status);
 

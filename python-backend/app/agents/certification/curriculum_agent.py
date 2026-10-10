@@ -100,7 +100,9 @@ _PROMPT_TEMPLATE = """
                      "duration_minutes": 0,
                      "passing_score": 0,
                      "coverage": "",
-                     "notes": ""
+                     "notes": "",
+                     "sections": [],
+                     "source": ""
                     }
 
                     - total_items: how many questions the real exam has. Use
@@ -151,6 +153,14 @@ _PROMPT_TEMPLATE = """
                     - notes: sections, ordering, sub-question structure,
                       permitted materials -- anything else that shapes the
                       paper. A few sentences.
+                    - sections: the exam's separately counted parts, each
+                      {"name", "total_items", "duration_minutes",
+                      "question_types"} -- e.g. Subject A 60 items 90 minutes
+                      and Subject B 20 items 100 minutes. Their total_items
+                      add up to the exam's total_items. [] for an exam that
+                      is one undivided paper.
+                    - source: the URL of the official page the numbers come
+                      from. "" if you worked from what you already know.
 
 
                     Work in this order:

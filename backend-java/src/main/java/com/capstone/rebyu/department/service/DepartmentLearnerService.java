@@ -33,7 +33,7 @@ public class DepartmentLearnerService {
     @Transactional(readOnly = true)
     public List<DepartmentLearnerDto> getAll(Long departmentId) {
         List<DepartmentLearner> assignees = departmentId != null
-                ? departmentLearnerRepository.findByDepartment_DepartmentId(departmentId)
+                ? departmentLearnerRepository.findWithLinksByDepartmentId(departmentId)
                 : departmentLearnerRepository.findAll();
         return assignees.stream().map(departmentLearnerMapper::toDto).toList();
     }

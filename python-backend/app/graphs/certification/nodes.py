@@ -8,6 +8,9 @@ from app.core.config import get_settings
 from app.schemas.certification.curriculum_schema import Curriculum
 from app.schemas.certification.lesson_audit import LessonAuditResult
 from app.schemas.certification.lesson_schema import GeneratedLesson
+from app.schemas.certification.question_schema import QuestionBatch
+from app.tools.certification.web_search import format_organic_results, serper_search
+from app.agents.certification.exam_format_agent import get_exam_format_agent
 from .review_mode import auto_approving
 from .state import CertificationState
 from app.ai import tasks
@@ -59,7 +62,7 @@ DIAGNOSTIC_EXAM_ITEMS = 40
 
 
 def diagnostic_exam_count() -> int:
-    """Deprecated: the diagnostic is fixed at DIAGNOSTIC_EXAM_ITEMS.
+    """Deprecated: the diagnostic is one item per lesson (`diagnostic_exam_count_for`).
 
     Kept so `diagnostic_exam_questions` in config/.env stops silently changing
     a length that is meant to be constant across certifications.
@@ -494,35 +497,83 @@ def _curriculum_outline(curriculum: dict) -> str:
     return "\n".join(lines)
 
 
+def _diagnostic_lessons(state: CertificationState) -> list[tuple[str, dict | None]]:
+    """Every lesson the diagnostic must cover, as (name, planned lesson).
+
+    The run's own lessons, plus -- on an append run -- the lessons that already
+    existed, which are known only by name from the `    - ` lines of the
+    existing outline."""
+    lessons = [
+        (lesson["name"], lesson)
+        for lesson in _flatten_lessons(state.get("curriculum", {}) or {})
+        if lesson.get("name")
+    ]
+    existing = state.get("existing_curriculum") or ""
+    lessons += [
+        (line.strip()[2:], None) for line in existing.splitlines() if line.startswith("    - ")
+    ]
+    return lessons
+
+
+def diagnostic_exam_count_for(state: CertificationState) -> int:
+    """One item per lesson; DIAGNOSTIC_EXAM_ITEMS only when no lesson is known."""
+    return len(_diagnostic_lessons(state)) or DIAGNOSTIC_EXAM_ITEMS
+
+
 async def generate_diagnostic_exam_node(state: CertificationState):
-    """Placed after the lessons, not before, so it can sample what the
+    """One question for EVERY lesson, so every lesson starts with mastery
+    evidence -- a priority tag in the learner's outline -- rather than the
+    handful a fixed-length paper happened to reach.
+
+    Generated a group of named lessons at a time. Batching by count alone lets
+    each batch pick its own lessons, so batches repeat some and miss others;
+    naming the group's lessons is what guarantees one per lesson.
+
+    Placed after the lessons, not before, so it can sample what the
     certification actually teaches rather than the outline's category names."""
     scope = f"Diagnostic exam for {state['certification_name']}"
     curriculum = state.get("curriculum", {}) or {}
-    context = _content_for_lessons(state, _flatten_lessons(curriculum)) or _curriculum_outline(
-        curriculum
-    )
-    context = _with_exam_structure(_with_existing_curriculum(context, state), state)
+    types = researched_question_types(state, UNKNOWN_EXAM_QUESTION_TYPES)
+    lessons = _diagnostic_lessons(state)
+    size = max(1, get_settings().question_batch_size)
+    prior = written_stems(state)
+    questions: list = []
 
-    batch = await invoke_question_agent(
-        scope, context,
-        _with_improvement(
-            state,
-            f"Generate exactly {DIAGNOSTIC_EXAM_ITEMS} questions covering every lesson "
-            "in the certification, to gauge a new learner's starting knowledge before they "
-            "begin studying. Use the same question types and layout as the real exam "
-            f"described above: {researched_question_types(state, UNKNOWN_EXAM_QUESTION_TYPES)}."
-            f"{performance_quota(researched_question_types(state, UNKNOWN_EXAM_QUESTION_TYPES), DIAGNOSTIC_EXAM_ITEMS)}"
-            f"{blank_format_rule(state)}{mcq_style_rule(state)}"
-            f"{SUB_QUESTION_RULE} "
-            + difficulty_quota_rule(DIAGNOSTIC_EXAM_ITEMS)
-            + " Set lesson_ref on each question to the lesson it tests.",
-        ),
-        count=DIAGNOSTIC_EXAM_ITEMS,
-        existing_stems=written_stems(state),
-    )
+    for start in range(0, len(lessons), size):
+        group = lessons[start:start + size]
+        planned = [lesson for _name, lesson in group if lesson]
+        context = _content_for_lessons(state, planned) or _curriculum_outline(curriculum)
+        context = _with_exam_structure(_with_existing_curriculum(context, state), state)
+        names = "\n".join(f"- {name}" for name, _lesson in group)
+
+        batch = await invoke_question_agent(
+            scope, context,
+            _with_improvement(
+                state,
+                f"Generate exactly {len(group)} questions: ONE for each lesson listed below, "
+                "to gauge a new learner's starting knowledge of it before they begin studying.\n"
+                f"{names}\n"
+                "Set lesson_ref on each question to that lesson's exact name as written above. "
+                "Use the same question types and layout as the real exam described above: "
+                f"{types}.{performance_quota(types, len(group))}"
+                f"{blank_format_rule(state)}{mcq_style_rule(state)}"
+                f"{SUB_QUESTION_RULE} "
+                + difficulty_quota_rule(len(group)),
+            ),
+            count=len(group),
+            existing_stems=prior + [q.question for q in questions],
+        )
+        questions.extend(batch.questions)
+
+    if len(questions) < len(lessons):
+        logger.warning(
+            "Diagnostic for '%s' has %d question(s) for %d lesson(s)",
+            state["certification_name"], len(questions), len(lessons),
+        )
     return {
-        "diagnostic_exam": {"questions": questions_as_dicts(batch)},
+        "diagnostic_exam": {
+            "questions": questions_as_dicts(QuestionBatch(scope=scope, questions=questions))
+        },
         "status": "DIAGNOSTIC_EXAM_CREATED",
     }
 
@@ -530,7 +581,7 @@ async def generate_diagnostic_exam_node(state: CertificationState):
 def await_diagnostic_exam_review_node(state: CertificationState):
     return _await_review(
         state, "DIAGNOSTIC_EXAM", state.get("diagnostic_exam", {}),
-        expected=DIAGNOSTIC_EXAM_ITEMS,
+        expected=diagnostic_exam_count_for(state),
     )
 
 
@@ -731,6 +782,49 @@ def mock_exam_count_for(state: CertificationState) -> int:
     return min(count, ceiling) if ceiling > 0 else count
 
 
+async def _checked_exam_structure(state: CertificationState) -> dict:
+    """The planner's exam structure, with the real item count looked up when
+    the planner left it at 0.
+
+    Without a count the mock falls back to `mock_exam_questions` (50), which is
+    right for almost no certification -- IT Passport sits 100, FE 80, TOPCIT
+    65. So before settling for it, one targeted search for the official format
+    is read by a small model, and only the numbers the results actually state
+    are filled in. A failed search leaves the structure as it was.
+    """
+    structure = dict(_exam_structure(state))
+    if int(structure.get("total_items") or 0) > 0:
+        return structure
+
+    name = state["certification_name"]
+    try:
+        results = await asyncio.to_thread(
+            serper_search, f"{name} official exam format number of questions time limit", 6
+        )
+        found = await invoke_agent(
+            get_exam_format_agent,
+            f"Certification: {name}\n\nSearch results:\n{format_organic_results(results)}",
+            task=tasks.EXTRACTION,
+        )
+    except Exception as exc:
+        logger.warning("Could not look up the real exam format for '%s': %s", name, exc)
+        return structure
+
+    if found.total_items > 0:
+        structure["total_items"] = found.total_items
+        structure["origin"] = "LOOKUP"
+        structure["source"] = found.source
+        logger.info("Real exam for '%s' has %d item(s) (source: %s)",
+                    name, found.total_items, found.source or "unstated")
+    if found.sections and not structure.get("sections"):
+        structure["sections"] = [section.model_dump() for section in found.sections]
+    if found.duration_minutes > 0 and not structure.get("duration_minutes"):
+        structure["duration_minutes"] = found.duration_minutes
+    if found.passing_score > 0 and not structure.get("passing_score"):
+        structure["passing_score"] = found.passing_score
+    return structure
+
+
 async def generate_mock_exam_node(state: CertificationState):
     """Imitates the *real* exam, using the structure the planner researched.
 
@@ -743,7 +837,11 @@ async def generate_mock_exam_node(state: CertificationState):
     `UNKNOWN_EXAM_QUESTION_TYPES`.
     """
     scope = f"Mock exam for {state['certification_name']}"
-    curriculum = state.get("curriculum", {}) or {}
+    curriculum = {
+        **(state.get("curriculum", {}) or {}),
+        "exam_structure": await _checked_exam_structure(state),
+    }
+    state = {**state, "curriculum": curriculum}
     structure = _exam_structure(state)
     count = mock_exam_count_for(state)
     known = exam_structure_is_known(state)
@@ -785,7 +883,13 @@ async def generate_mock_exam_node(state: CertificationState):
         count=count,
         existing_stems=written_stems(state),
     )
+    if len(batch.questions) != count:
+        logger.warning(
+            "Mock exam for '%s' has %d question(s); the real exam has %d",
+            state["certification_name"], len(batch.questions), count,
+        )
     return {
+        "curriculum": curriculum,
         "mock_exam": {"questions": questions_as_dicts(batch)},
         "status": "MOCK_EXAM_CREATED",
     }
@@ -793,7 +897,7 @@ async def generate_mock_exam_node(state: CertificationState):
 
 def await_mock_exam_review_node(state: CertificationState):
     return _await_review(
-        state, "MOCK_EXAM", state.get("mock_exam", {}), expected=mock_exam_count()
+        state, "MOCK_EXAM", state.get("mock_exam", {}), expected=mock_exam_count_for(state)
     )
 
 

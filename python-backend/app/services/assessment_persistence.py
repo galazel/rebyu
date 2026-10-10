@@ -451,6 +451,11 @@ def persist_generated_assessments(
             passing_score=real_passing,
         )
 
+    if exam_structure.get("total_items") or exam_structure.get("question_types"):
+        # Again here, not only with the curriculum: the mock stage may have looked
+        # up an item count the planner left at 0, and that lives only in this result.
+        repo.update_certification_exam_structure(session, certification_id, exam_structure)
+
     bank = result.get("question_bank") or []
     bank_ids: list[int] = []
     bank_written = 0

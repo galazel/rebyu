@@ -65,9 +65,8 @@ public class InstitutionLearnerInsightsService {
         Department group = requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
 
         Long certificationId = certificationIdOf(group);
-        int totalLessons = certificationId == null ? 0 : lessonRepository
-                .findByMiddleCategory_MajorCategory_Certification_CertificationId(certificationId)
-                .size();
+        int totalLessons = certificationId == null ? 0 : (int) lessonRepository
+                .countByMiddleCategory_MajorCategory_Certification_CertificationId(certificationId);
 
         List<DepartmentLearner> active = departmentLearnerRepository
                 .findByDepartment_DepartmentId(departmentId).stream()
@@ -89,8 +88,17 @@ public class InstitutionLearnerInsightsService {
                                         Function.identity(),
                                         (first, second) -> first));
 
+        // One grouped count for the whole roster, instead of one query per learner.
+        Map<Long, Long> completedByLearner = (learnerIds.isEmpty() || certificationId == null)
+                ? Map.of()
+                : learnerCompletedLessonRepository
+                        .lessonsCompletedInCertification(learnerIds, certificationId).stream()
+                        .collect(Collectors.toMap(
+                                LearnerCompletedLessonRepository.LessonsDone::getLearnerId,
+                                LearnerCompletedLessonRepository.LessonsDone::getLessonsCompleted));
+
         return active.stream()
-                .map(assignee -> toRow(assignee, certificationId, totalLessons, mockPasses))
+                .map(assignee -> toRow(assignee, totalLessons, completedByLearner, mockPasses))
                 .sorted(Comparator.comparing(
                         DepartmentLearnerRow::name, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
@@ -155,18 +163,13 @@ public class InstitutionLearnerInsightsService {
     }
 
     private DepartmentLearnerRow toRow(
-            DepartmentLearner assignee, Long certificationId, int totalLessons,
+            DepartmentLearner assignee, int totalLessons, Map<Long, Long> completedByLearner,
             Map<Long, AssessmentAttemptRepository.LearnerMockExamResult> mockPasses) {
         InstitutionCertificationLearner enrollment = assignee.getInstitutionCertLearner();
         Learner learner = learnerOf(assignee);
 
-        int completedLessons = 0;
-        if (learner != null && certificationId != null) {
-            completedLessons = learnerCompletedLessonRepository
-                    .findByLearner_LearnerIdAndLesson_MiddleCategory_MajorCategory_Certification_CertificationId(
-                            learner.getLearnerId(), certificationId)
-                    .size();
-        }
+        int completedLessons = learner == null ? 0
+                : completedByLearner.getOrDefault(learner.getLearnerId(), 0L).intValue();
         Double completionPercentage = totalLessons > 0
                 ? (completedLessons * 100.0) / totalLessons
                 : null;

@@ -220,7 +220,10 @@ export async function getLearnerPortalData() {
 
 
     getLearnerPortalScoped({ includeProgress: false }),
-    base("certifications"),
+    // Structure only: every learner page loads this, and full lesson content for
+    // every certification (~7 MB) made each of them slow. Lessons are opened
+    // through their own endpoint, which returns the content.
+    base("certifications?summary=true"),
     getAllExams(),
   ])
 

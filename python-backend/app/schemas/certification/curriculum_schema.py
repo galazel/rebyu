@@ -73,6 +73,16 @@ StrList = Annotated[
 ]
 
 
+class ExamSection(BaseModel):
+    """One part of the real exam -- FE's Subject A, IT Passport's Strategy
+    field -- stored in `certification_exam_sections`."""
+
+    name: str = ""
+    total_items: int = 0
+    duration_minutes: int = 0
+    question_types: StrList = []
+
+
 class ExamStructure(BaseModel):
     """What the real certification exam looks like.
 
@@ -98,6 +108,10 @@ class ExamStructure(BaseModel):
     coverage: str = ""
 
     notes: str = ""
+
+    sections: List[ExamSection] = []
+
+    source: str = ""
 
 
 class Lesson(BaseModel):

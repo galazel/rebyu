@@ -73,6 +73,7 @@ class AdminPartnershipServiceTest {
                                                 .totalAmount(java.math.BigDecimal.ZERO).build());
 
                 service = new AdminPartnershipService(
+                                mock(org.springframework.context.ApplicationEventPublisher.class),
                                 requestRepository, itemRepository, institutionRepository,
                                 institutionCertificateRepository, departmentHeadRepository,
                                 userRepository, userTypeRepository, cognitoAdminService, notificationService,

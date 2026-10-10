@@ -248,7 +248,7 @@ export function examStanding(examResults, examId) {
       passed,
       rating,
       cleared: false,
-      reason: `proficiency is ${Math.round(rating)} — reach ${PROFICIENT_RATING} (Proficient) to continue`,
+      reason: `proficiency is ${Math.round(rating)} — reach ${PROFICIENT_RATING} (Proficient) to complete`,
     }
   }
   return { taken: true, passed, rating, cleared: true, reason: null }

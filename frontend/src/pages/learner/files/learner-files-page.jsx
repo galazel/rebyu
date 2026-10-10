@@ -124,8 +124,8 @@ export default function LearnerFilesPage() {
   })
 
   const certificationsQuery = useQuery({
-    queryKey: ["certifications"],
-    queryFn: () => getAllCertifications(),
+    queryKey: ["certifications", "summary"],
+    queryFn: () => getAllCertifications(undefined, { summary: true }),
     staleTime: 5 * 60_000,
     retry: 1,
   })

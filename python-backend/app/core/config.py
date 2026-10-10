@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     sql_echo: bool = False
     db_pool_size: int = 10
     db_max_overflow: int = 20
+    db_pool_recycle_seconds: int = 1800
     db_schema: str = "bkt"
 
     redis_url: str = "redis://redis:6379/0"

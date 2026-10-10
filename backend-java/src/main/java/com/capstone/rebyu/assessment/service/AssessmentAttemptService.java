@@ -350,6 +350,18 @@ public class AssessmentAttemptService {
 
         SnapshotContext snapshotContext = buildSnapshotContext(questionsToUse);
 
+        // A retake reshuffles the same paper -- question order and choice order -- so
+        // the learner answers from the content, not from where the answer sat last time.
+        // Arenas keep their order: their problems are addressed by position.
+        java.util.Random shuffle = nextAttemptNumber > 1
+                && !TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
+                ? new java.util.Random() : null;
+        if (shuffle != null) {
+            List<Question> reordered = new ArrayList<>(questionsToUse);
+            java.util.Collections.shuffle(reordered, shuffle);
+            questionsToUse = reordered;
+        }
+
         int order = 1;
         for (Question question : questionsToUse) {
             attemptQuestionRepository.save(AssessmentAttemptQuestion.builder()
@@ -357,7 +369,7 @@ public class AssessmentAttemptService {
                     .sourceQuestionId(question.getQuestionId())
                     .questionType(normalizeQuestionType(question.getQuestionType()))
                     .questionTextSnapshot(question.getQuestionText())
-                    .questionDataSnapshot(buildLearnerSafeSnapshot(question, snapshotContext))
+                    .questionDataSnapshot(buildLearnerSafeSnapshot(question, snapshotContext, shuffle))
                     .displayOrder(order++)
                     .points(pointOverrideByQuestionId.get(question.getQuestionId()))
                     .lessonId(question.getLesson().getLessonId())
@@ -2224,12 +2236,35 @@ public class AssessmentAttemptService {
     }
 
     String buildLearnerSafeSnapshot(Question question, SnapshotContext context) {
+        return buildLearnerSafeSnapshot(question, context, null);
+    }
+
+    /**
+     * Choices that name other choices by position ("A and B", "All of the above")
+     * would point at the wrong ones once reordered, so their question keeps its order.
+     */
+    private static final java.util.regex.Pattern REFERS_TO_OTHER_CHOICES = java.util.regex.Pattern.compile(
+            "(?i)\\b(all|none|both|neither) of (the )?(above|these|the (above|choices|options))\\b"
+                    + "|^\\s*(both|only|neither)?\\s*\\(?[a-d]\\)?\\s*(and|&|or)\\s*\\(?[a-d]\\)?\\s*(only)?\\.?\\s*$"
+                    + "|\\b(options?|choices?) [a-d]\\b");
+
+    static boolean choicesCanShuffle(List<Choice> choices) {
+        return choices.stream().map(Choice::getChoiceText)
+                .noneMatch(text -> text != null && REFERS_TO_OTHER_CHOICES.matcher(text.trim()).find());
+    }
+
+    /** {@code shuffle} reorders the choices (a retake); null keeps the authored order. */
+    String buildLearnerSafeSnapshot(Question question, SnapshotContext context, java.util.Random shuffle) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("questionImageKey", question.getImageKey());
 
         if (isMultipleChoice(question.getQuestionType())) {
             List<Map<String, Object>> choices = new ArrayList<>();
-            for (Choice choice : question.getChoices()) {
+            List<Choice> ordered = new ArrayList<>(question.getChoices());
+            if (shuffle != null && choicesCanShuffle(ordered)) {
+                java.util.Collections.shuffle(ordered, shuffle);
+            }
+            for (Choice choice : ordered) {
                 Map<String, Object> safe = new LinkedHashMap<>();
                 safe.put("choiceId", choice.getChoiceId());
                 safe.put("choiceText", choice.getChoiceText());
