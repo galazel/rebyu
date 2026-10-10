@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 import {
@@ -34,6 +34,7 @@ import {
 } from "@/services/institutionService.js"
 import { certificationBadgeUrl } from "@/services/certificationService.js"
 import { useAvatarUrl } from "@/hooks/use-avatar-url.js"
+import MemberAttemptReviewSheet from "@/components/institution/member-attempt-review-sheet.jsx"
 
 function toPercent(value) {
   const number = Number(value)
@@ -293,16 +294,19 @@ function AttemptMovement({ attempts }) {
   )
 }
 
-function AttemptBars({ attempts }) {
+function AttemptBars({ attempts, onOpen }) {
   return (
     <div className="mt-4 flex items-end gap-2 overflow-x-auto pb-1 sm:gap-3">
       {attempts.map((attempt) => {
         const value = Math.min(100, Math.max(0, Number(attempt.score) || 0))
         return (
-          <div
-            key={attempt.attemptNumber ?? attempt.label}
-            className="flex w-14 shrink-0 flex-col items-center gap-2"
-            title={`Attempt ${attempt.attemptNumber ?? "?"}: ${Math.round(value)}%${
+          <button
+            type="button"
+            key={attempt.attemptId ?? attempt.attemptNumber ?? attempt.label}
+            disabled={!attempt.attemptId || !onOpen}
+            onClick={() => onOpen?.(attempt.attemptId)}
+            className="flex w-14 shrink-0 flex-col items-center gap-2 rounded-md transition enabled:hover:bg-muted/50"
+            title={`Open every answer of attempt ${attempt.attemptNumber ?? "?"}: ${Math.round(value)}%${
               attempt.correctCount != null && attempt.itemCount != null
                 ? ` (${attempt.correctCount} of ${attempt.itemCount} correct)`
                 : ""
@@ -328,14 +332,14 @@ function AttemptBars({ attempts }) {
             <span className="text-xs font-bold text-muted-foreground">
               #{attempt.attemptNumber ?? "—"}
             </span>
-          </div>
+          </button>
         )
       })}
     </div>
   )
 }
 
-function AssessmentAttemptPanel({ group }) {
+function AssessmentAttemptPanel({ group, onOpen }) {
   const { attempts } = group
   const best = Math.max(...attempts.map((attempt) => attempt.score))
   const typeLabel = formatAssessmentType(group.assessmentType)
@@ -357,12 +361,12 @@ function AssessmentAttemptPanel({ group }) {
         </div>
       </div>
 
-      <AttemptBars attempts={attempts} />
+      <AttemptBars attempts={attempts} onOpen={onOpen} />
     </li>
   )
 }
 
-function AssessmentResultsSection({ groups }) {
+function AssessmentResultsSection({ groups, onOpen }) {
   if (groups.length === 0) {
     return (
       <Card>
@@ -394,14 +398,14 @@ function AssessmentResultsSection({ groups }) {
           {groups.length} assessment{groups.length === 1 ? "" : "s"} sat ·{" "}
           {totalAttempts} attempt{totalAttempts === 1 ? "" : "s"}
           {retaken ? ` · ${retaken} retaken` : ""}. Each bar is one attempt, oldest on the left;
-          green cleared the assessment, red did not. Practice the learner generated in the AI
-          tutor is not counted.
+          green cleared the assessment, red did not. Select a bar to see every answer. Practice
+          the learner generated in the AI tutor is not counted.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <ul className="grid gap-3 lg:grid-cols-2">
           {groups.map((group) => (
-            <AssessmentAttemptPanel key={group.examId ?? group.title} group={group} />
+            <AssessmentAttemptPanel key={group.examId ?? group.title} group={group} onOpen={onOpen} />
           ))}
         </ul>
       </CardContent>
@@ -486,6 +490,7 @@ export default function InstitutionDepartmentLearnerPage() {
   const { departmentId, learnerId } = useParams()
   const departmentIdNumber = Number(departmentId)
   const learnerIdNumber = Number(learnerId)
+  const [reviewAttemptId, setReviewAttemptId] = useState(null)
 
   const rosterQuery = useQuery({
     queryKey: ["department-learner-roster", departmentIdNumber],
@@ -540,6 +545,7 @@ export default function InstitutionDepartmentLearnerPage() {
       const group = byExam.get(key)
       const submittedAt = point.submittedAt ? new Date(point.submittedAt) : null
       group.attempts.push({
+        attemptId: point.assessmentAttemptId,
         attemptNumber: point.attemptNumber,
         label: point.attemptNumber ? `Try ${point.attemptNumber}` : "Attempt",
         score: Math.round(Number(point.percentage) * 10) / 10,
@@ -687,7 +693,16 @@ export default function InstitutionDepartmentLearnerPage() {
           </CardContent>
         </Card>
 
-        <AssessmentResultsSection groups={assessmentGroups} />
+        <AssessmentResultsSection groups={assessmentGroups} onOpen={setReviewAttemptId} />
+        <MemberAttemptReviewSheet
+          departmentId={departmentIdNumber}
+          learnerId={learnerIdNumber}
+          learnerName={learner?.name}
+          attemptId={reviewAttemptId}
+          onOpenChange={(open) => {
+            if (!open) setReviewAttemptId(null)
+          }}
+        />
 
         <TopicList
           title="Weakest topics"

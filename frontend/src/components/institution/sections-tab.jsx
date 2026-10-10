@@ -889,7 +889,11 @@ export function SectionsTab({ departmentId, group }) {
   }
 
   const unsectioned = bySection.get(NO_SECTION) ?? []
-  const unsectionedInvites = invitationsBySection.get(NO_SECTION) ?? []
+  // Only invitations still waiting count: accepted or cancelled ones need no section,
+  // and kept "Not in a section" on screen with nobody in it.
+  const unsectionedInvites = (invitationsBySection.get(NO_SECTION) ?? []).filter(
+    (inv) => inv.status === "PENDING"
+  )
   const remainingSlots = Math.max(0, (group.totalSlots ?? 0) - (group.usedSlots ?? 0))
 
   return (

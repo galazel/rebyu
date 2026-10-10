@@ -1,6 +1,10 @@
 package com.capstone.rebyu.institution.service;
 
+import com.capstone.rebyu.assessment.entity.AssessmentAttempt;
+import com.capstone.rebyu.assessment.entity.Exam;
 import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository;
+import com.capstone.rebyu.assessment.repository.ExamRepository;
+import com.capstone.rebyu.assessment.service.AssessmentAttemptService;
 import com.capstone.rebyu.certification.repository.LessonRepository;
 import com.capstone.rebyu.enrollment.entity.InstitutionCertificationLearner;
 import com.capstone.rebyu.department.entity.Department;
@@ -58,6 +62,48 @@ public class InstitutionLearnerInsightsService {
     private final LessonRepository lessonRepository;
     private final LearnerCompletedLessonRepository learnerCompletedLessonRepository;
     private final AssessmentAttemptRepository assessmentAttemptRepository;
+    private final ExamRepository examRepository;
+    private final AssessmentAttemptService assessmentAttemptService;
+
+    /** One attempt at a department assessment, as the department head sees it in a list. */
+    public record AttemptSummary(
+            Long attemptId,
+            Integer attemptNumber,
+            String status,
+            BigDecimal percentage,
+            Boolean passed,
+            Integer correctCount,
+            Integer itemCount,
+            LocalDateTime startedAt,
+            LocalDateTime submittedAt
+    ) {}
+
+    /** One member of the department and every attempt they made at the assessment. */
+    public record MemberResult(
+            Long learnerId,
+            String name,
+            String email,
+            String avatarKey,
+            String sectionName,
+            BigDecimal bestPercentage,
+            boolean passed,
+            List<AttemptSummary> attempts
+    ) {}
+
+    public record AssessmentResults(
+            Long examId,
+            String title,
+            String examType,
+            String status,
+            BigDecimal passingScore,
+            Integer totalQuestions,
+            Integer durationMinutes,
+            int memberCount,
+            int attemptedCount,
+            int passedCount,
+            Double averageBestPercentage,
+            List<MemberResult> members
+    ) {}
 
     @Transactional(readOnly = true)
     public List<DepartmentLearnerRow> groupRoster(
@@ -118,6 +164,110 @@ public class InstitutionLearnerInsightsService {
         return progressAnalyticsService.getProgressAnalytics(learnerId, certificationId);
     }
 
+    /**
+     * Every member's attempts and best score at one of the department's own assessments.
+     * Members who have not taken it yet are listed too, so the head sees who is missing.
+     */
+    @Transactional(readOnly = true)
+    public AssessmentResults assessmentResults(
+            Long departmentId, Long examId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
+        requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
+        Exam exam = requireDepartmentExam(departmentId, examId);
+
+        List<DepartmentLearner> members = departmentLearnerRepository
+                .findWithLinksByDepartmentId(departmentId).stream()
+                .filter(assignee -> assignee.getStatus() == DepartmentLearner.Status.active)
+                .filter(assignee -> learnerOf(assignee) != null)
+                .toList();
+        List<Long> learnerIds = members.stream().map(m -> learnerOf(m).getLearnerId()).toList();
+
+        Map<Long, List<AssessmentAttempt>> attemptsByLearner = learnerIds.isEmpty() ? Map.of()
+                : assessmentAttemptRepository
+                        .findByExam_ExamIdAndLearnerIdInOrderByAttemptNumberAsc(examId, learnerIds).stream()
+                        .filter(a -> a.getStatus() != AssessmentAttempt.Status.CANCELLED)
+                        .collect(Collectors.groupingBy(AssessmentAttempt::getLearnerId));
+
+        List<MemberResult> rows = members.stream().map(member -> {
+            Learner learner = learnerOf(member);
+            List<AssessmentAttempt> attempts =
+                    attemptsByLearner.getOrDefault(learner.getLearnerId(), List.of());
+            BigDecimal best = attempts.stream()
+                    .filter(a -> a.getStatus() == AssessmentAttempt.Status.SUBMITTED)
+                    .map(AssessmentAttempt::getPercentage)
+                    .filter(java.util.Objects::nonNull)
+                    .max(Comparator.naturalOrder())
+                    .orElse(null);
+            boolean passed = attempts.stream().anyMatch(a -> Boolean.TRUE.equals(a.getPassed()));
+            return new MemberResult(
+                    learner.getLearnerId(),
+                    displayName(learner),
+                    learner.getUser() != null ? learner.getUser().getEmail() : null,
+                    learner.getAvatarKey(),
+                    member.getSection() != null ? member.getSection().getSectionName() : null,
+                    best,
+                    passed,
+                    attempts.stream().map(a -> new AttemptSummary(
+                            a.getAssessmentAttemptId(), a.getAttemptNumber(),
+                            a.getStatus() != null ? a.getStatus().name() : null,
+                            a.getPercentage(), a.getPassed(), a.getCorrectCount(), a.getItemCount(),
+                            a.getStartedAt(), a.getSubmittedAt())).toList());
+        }).sorted(Comparator.comparing(MemberResult::name,
+                Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))).toList();
+
+        List<BigDecimal> bests = rows.stream().map(MemberResult::bestPercentage)
+                .filter(java.util.Objects::nonNull).toList();
+        Double averageBest = bests.isEmpty() ? null
+                : bests.stream().mapToDouble(BigDecimal::doubleValue).average().orElse(0);
+
+        return new AssessmentResults(
+                exam.getExamId(),
+                exam.getTitle(),
+                exam.getExamType() != null ? exam.getExamType().getExamTypeText() : null,
+                exam.effectiveStatus() != null ? exam.effectiveStatus().name() : null,
+                exam.getPassingScore(),
+                exam.getTotalQuestions(),
+                exam.getDurationMinutes(),
+                rows.size(),
+                bests.size(),
+                (int) rows.stream().filter(MemberResult::passed).count(),
+                averageBest,
+                rows);
+    }
+
+    /**
+     * A member's attempt question by question, with the correct answers shown. Only the
+     * department's own assessments and its certification's, and only for its members.
+     */
+    @Transactional(readOnly = true)
+    public com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.AssessmentAttemptResultDto memberAttemptResult(
+            Long departmentId, Long learnerId, Long attemptId,
+            Long institutionId, Long callerUserId, boolean callerIsOwner) {
+        Department group = requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
+        requireAssignedToGroup(departmentId, learnerId);
+
+        AssessmentAttempt attempt = assessmentAttemptRepository.findById(attemptId)
+                .filter(a -> learnerId.equals(a.getLearnerId()))
+                .orElseThrow(() -> new EntityNotFoundException("Attempt not found: " + attemptId));
+        Exam exam = attempt.getExam();
+        boolean ownPaper = exam.getOwnerDepartment() != null
+                && departmentId.equals(exam.getOwnerDepartment().getDepartmentId());
+        boolean groupCertification = exam.getOwnerDepartment() == null
+                && exam.getLearner() == null
+                && exam.getCertification() != null
+                && exam.getCertification().getCertificationId().equals(certificationIdOf(group));
+        if (!ownPaper && !groupCertification) {
+            throw new EntityNotFoundException("Attempt not found: " + attemptId);
+        }
+        return assessmentAttemptService.getResult(attemptId, learnerId, true);
+    }
+
+    private Exam requireDepartmentExam(Long departmentId, Long examId) {
+        return examRepository.findById(examId)
+                .filter(exam -> exam.getOwnerDepartment() != null
+                        && departmentId.equals(exam.getOwnerDepartment().getDepartmentId()))
+                .orElseThrow(() -> new EntityNotFoundException("Assessment not found: " + examId));
+    }
+
     @Transactional
     public void removeFromGroup(
             Long departmentId, Long learnerId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
@@ -146,7 +296,9 @@ public class InstitutionLearnerInsightsService {
     }
 
     private void requireAssignedToGroup(Long departmentId, Long learnerId) {
-        if (activeAssignee(departmentId, learnerId).isEmpty()) {
+        if (!departmentLearnerRepository
+                .existsByDepartment_DepartmentIdAndInstitutionCertLearner_Learner_LearnerIdAndStatus(
+                        departmentId, learnerId, DepartmentLearner.Status.active)) {
             throw new EntityNotFoundException("Learner not assigned to this group: " + learnerId);
         }
     }

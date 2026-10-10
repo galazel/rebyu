@@ -80,6 +80,15 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     List<LessonOutlineView> findOutlinesByCertificationIds(
             @Param("certificationIds") java.util.Collection<Long> certificationIds);
 
+    /** Lesson names by id, without loading lesson content. */
+    interface LessonNameView {
+        Long getLessonId();
+        String getName();
+    }
+
+    @Query("SELECT l.lessonId AS lessonId, l.name AS name FROM Lesson l WHERE l.lessonId IN :lessonIds")
+    List<LessonNameView> findNamesByIdIn(@Param("lessonIds") java.util.Collection<Long> lessonIds);
+
     @Query("SELECT l FROM Lesson l " +
             "JOIN FETCH l.middleCategory mc " +
             "JOIN FETCH mc.majorCategory maj " +

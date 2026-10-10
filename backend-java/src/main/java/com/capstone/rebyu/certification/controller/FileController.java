@@ -97,7 +97,7 @@ public class FileController {
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
             @AuthenticationPrincipal Jwt jwt
     ) throws Exception {
-        requireAdmin(jwt);
+        requireAdminOrInstitution(jwt);
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "An image file is required.");
         }
@@ -227,6 +227,16 @@ public class FileController {
         if (jwt == null) throw new IllegalArgumentException("Authentication is required");
         CurrentUserDto user = auth.syncCurrentUser(jwt, jwt.getTokenValue());
         if (!"ADMIN".equalsIgnoreCase(user.role())) throw new IllegalArgumentException("Admin access is required");
+    }
+
+    /** Department heads write questions too (by hand or imported), so they may add their figures. */
+    private void requireAdminOrInstitution(Jwt jwt) {
+        if (jwt == null) throw new IllegalArgumentException("Authentication is required");
+        CurrentUserDto user = auth.syncCurrentUser(jwt, jwt.getTokenValue());
+        if (!"ADMIN".equalsIgnoreCase(user.role())
+                && !com.capstone.rebyu.auth.service.CognitoAuthService.isInstitutionRole(user.role())) {
+            throw new IllegalArgumentException("Admin or institution access is required");
+        }
     }
 
     private void requireAuth(Jwt jwt) {

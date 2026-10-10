@@ -16,7 +16,7 @@ export function TaggingJobWatcher() {
         let stopped = false
         async function check() {
             for (const job of activeJobs()) {
-                const page = `/admin/certification/${job.certificationId}/question-bank/import`
+                const page = job.page ?? `/admin/certification/${job.certificationId}/question-bank/import`
                 if (location.pathname === page) continue
                 let current
                 try {

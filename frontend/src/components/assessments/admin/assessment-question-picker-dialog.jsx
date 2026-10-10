@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { getQuestions } from "@/services/questionService.js"
+import { getDepartmentQuestions, getQuestions } from "@/services/questionService.js"
 import { getExamQuestions } from "@/services/assessmentService.js"
 
 const QUESTION_TYPE_LABELS = {
@@ -62,7 +62,13 @@ export default function AssessmentQuestionPickerDialog({
                                                          initialMiddleCategoryId = null,
                                                          initialMajorCategoryId = null,
                                                          ownerDepartmentId = null,
+                                                         // Official papers give each question to one exam; a department
+                                                         // reuses its bank freely, so it turns this off.
+                                                         excludeUsedElsewhere = true,
+                                                         // A department picks only from the questions it wrote.
+                                                         departmentQuestionsOnly = false,
                                                        }) {
+  const [sourceFilter, setSourceFilter] = useState("all")
   const [search, setSearch] = useState("")
   const [difficultyFilter, setDifficultyFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
@@ -77,6 +83,7 @@ export default function AssessmentQuestionPickerDialog({
     setSearch("")
     setDifficultyFilter("all")
     setTypeFilter("all")
+    setSourceFilter("all")
     setMiddleFilter(
         initialMiddleCategoryId ? String(initialMiddleCategoryId) : "all"
     )
@@ -87,15 +94,20 @@ export default function AssessmentQuestionPickerDialog({
   // This certification's questions only: the whole platform's bank is thousands of
   // questions with their choices, and fetching it timed out.
   const questionsQuery = useQuery({
-    queryKey: ["questions", "certification", certificationId, ownerDepartmentId ?? null],
-    queryFn: () => getQuestions(ownerDepartmentId ?? undefined, certificationId ?? undefined),
+    queryKey: departmentQuestionsOnly
+        ? ["institution-questions", "all", ownerDepartmentId != null ? String(ownerDepartmentId) : null]
+        : ["questions", "certification", certificationId, ownerDepartmentId ?? null],
+    queryFn: () =>
+        departmentQuestionsOnly
+            ? getDepartmentQuestions(ownerDepartmentId)
+            : getQuestions(ownerDepartmentId ?? undefined, certificationId ?? undefined),
     enabled: open,
   })
 
   const examQuestionsQuery = useQuery({
     queryKey: ["exam-questions"],
     queryFn: () => getExamQuestions(),
-    enabled: open,
+    enabled: open && excludeUsedElsewhere,
   })
 
   const lessonIndex = useMemo(
@@ -144,7 +156,11 @@ export default function AssessmentQuestionPickerDialog({
 
           if (alreadySelectedIds.has(question.questionId)) return false
 
-          if (usedQuestionIds.has(String(question.questionId))) return false
+          if (excludeUsedElsewhere && usedQuestionIds.has(String(question.questionId))) return false
+
+          if (sourceFilter === "ours" && question.ownerDepartmentId == null) return false
+
+          if (sourceFilter === "official" && question.ownerDepartmentId != null) return false
 
           if (
               initialLessonId &&
@@ -171,7 +187,7 @@ export default function AssessmentQuestionPickerDialog({
 
           if (
               difficultyFilter !== "all" &&
-              question.difficultyLevel !== difficultyFilter
+              (question.difficultyLevel ?? "").toUpperCase() !== difficultyFilter
           ) {
             return false
           }
@@ -213,6 +229,8 @@ export default function AssessmentQuestionPickerDialog({
     typeFilter,
     middleFilter,
     search,
+    sourceFilter,
+    excludeUsedElsewhere,
   ])
 
   const visibleQuestionIds = useMemo(() => {
@@ -302,8 +320,9 @@ export default function AssessmentQuestionPickerDialog({
               </DialogTitle>
 
               <DialogDescription className="text-sm text-muted-foreground">
-                Select unused questions from the {certification?.title} question
-                bank.
+                {departmentQuestionsOnly
+                    ? "Pick from the questions your department wrote in its question bank."
+                    : `Select unused questions from the ${certification?.title ?? ""} question bank.`}
               </DialogDescription>
             </DialogHeader>
 
@@ -336,6 +355,19 @@ export default function AssessmentQuestionPickerDialog({
                   ))}
                 </SelectContent>
               </Select>
+
+              {ownerDepartmentId != null && !departmentQuestionsOnly ? (
+                  <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                    <SelectTrigger className="w-[150px]" aria-label="Source filter">
+                      <SelectValue placeholder="Source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All sources</SelectItem>
+                      <SelectItem value="ours">Our questions</SelectItem>
+                      <SelectItem value="official">Official</SelectItem>
+                    </SelectContent>
+                  </Select>
+              ) : null}
 
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-[170px]" aria-label="Type filter">
@@ -416,8 +448,9 @@ export default function AssessmentQuestionPickerDialog({
                   </p>
               ) : rows.length === 0 ? (
                   <p className="py-10 text-center text-sm text-muted-foreground">
-                    No unused questions match the current filters. Create more
-                    questions in the Question Bank first.
+                    {departmentQuestionsOnly
+                        ? "None of your department's questions match. Add questions in the Question Bank tab, or write one here."
+                        : "No unused questions match the current filters. Create more questions in the Question Bank first."}
                   </p>
               ) : (
                   <ul className="space-y-2">
@@ -447,6 +480,12 @@ export default function AssessmentQuestionPickerDialog({
                                 <Badge variant="outline" className="text-[10px]">
                                   {question.difficultyLevel}
                                 </Badge>
+
+                                {question.ownerDepartmentId != null ? (
+                                    <Badge className="bg-primary/10 text-[10px] text-primary hover:bg-primary/10">
+                                      {question.ownerDepartmentName ?? "Our question"}
+                                    </Badge>
+                                ) : null}
 
                                 <span className="truncate text-xs text-muted-foreground">
                             {context.lesson.name ?? context.lesson.title} -{" "}

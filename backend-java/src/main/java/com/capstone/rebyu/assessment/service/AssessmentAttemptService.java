@@ -705,21 +705,34 @@ public class AssessmentAttemptService {
 
     @Transactional(readOnly = true)
     public AssessmentAttemptResultDto getResult(Long attemptId, Long learnerId) {
+        return getResult(attemptId, learnerId, false);
+    }
+
+    /**
+     * A submitted attempt's full review. {@code forReviewer} is a department head (already
+     * authorised by the caller) looking at a member's attempt: they always see the correct
+     * answers, whatever the assessment releases to the learner.
+     */
+    @Transactional(readOnly = true)
+    public AssessmentAttemptResultDto getResult(Long attemptId, Long learnerId, boolean forReviewer) {
         PhaseTimer timer = PhaseTimer.start("getResult attempt=" + attemptId, log);
         AssessmentAttempt attempt = requireOwnedAttempt(attemptId, learnerId);
         if (attempt.getStatus() == AssessmentAttempt.Status.IN_PROGRESS) {
             throw new BusinessRuleException.InvalidAssessmentSubmissionException(
                     "This attempt has not been submitted yet.");
         }
-        boolean releaseAnswers = attempt.getExam().effectiveReleaseAnswers();
+        boolean releaseAnswers = forReviewer || attempt.getExam().effectiveReleaseAnswers();
+        PhaseTimer.mark(timer, "attempt + exam");
 
         List<AssessmentAttemptQuestion> questions = attemptQuestionRepository
                 .findByAttempt_AssessmentAttemptIdOrderByDisplayOrderAsc(attemptId);
+        PhaseTimer.mark(timer, "attempt questions");
         Map<Long, AssessmentAttemptAnswer> answersByQuestion = new HashMap<>();
         for (AssessmentAttemptAnswer answer :
                 attemptAnswerRepository.findByAttempt_AssessmentAttemptId(attemptId)) {
             answersByQuestion.put(answer.getAttemptQuestion().getAttemptQuestionId(), answer);
         }
+        PhaseTimer.mark(timer, "answers");
 
 
 
@@ -732,6 +745,7 @@ public class AssessmentAttemptService {
                 ? Map.of()
                 : questionRepository.findForAttemptByIdIn(sourceQuestionIds).stream()
                         .collect(Collectors.toMap(Question::getQuestionId, q -> q, (a, b) -> a));
+        PhaseTimer.mark(timer, "source questions");
         Map<Long, List<Question>> subQuestionsByParentId = sourceQuestionIds.isEmpty()
                 ? Map.of()
                 : questionRepository.findSubQuestionsByParentIdIn(sourceQuestionIds).stream()
@@ -739,7 +753,7 @@ public class AssessmentAttemptService {
                                 sub -> sub.getParentQuestion().getQuestionId(),
                                 LinkedHashMap::new, Collectors.toList()));
 
-        PhaseTimer.mark(timer, "load questions + answers");
+        PhaseTimer.mark(timer, "sub-questions");
 
         List<AttemptAnswerReviewDto> reviews = new ArrayList<>();
         int correct = 0;
@@ -835,8 +849,10 @@ public class AssessmentAttemptService {
 
         Map<Long, String> lessonNames = lessonItems.isEmpty()
                 ? Map.of()
-                : lessonRepository.findAllById(lessonItems.keySet()).stream()
-                        .collect(Collectors.toMap(Lesson::getLessonId, Lesson::getName, (a, b) -> a));
+                : lessonRepository.findNamesByIdIn(lessonItems.keySet()).stream()
+                        .collect(Collectors.toMap(
+                                LessonRepository.LessonNameView::getLessonId,
+                                LessonRepository.LessonNameView::getName, (a, b) -> a));
 
         List<LessonPerformanceDto> lessonBreakdown = new ArrayList<>();
         for (Map.Entry<Long, Integer> entry : lessonItems.entrySet()) {

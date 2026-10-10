@@ -44,6 +44,27 @@ public class InstitutionLearnerInsightsController {
                 departmentId, learnerId, user.institutionId(), user.userId(), isOwner(user));
     }
 
+    @GetMapping("/{departmentId}/assessments/{examId}/results")
+    public InstitutionLearnerInsightsService.AssessmentResults assessmentResults(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long departmentId,
+            @PathVariable Long examId) {
+        CurrentUserDto user = requireInstitution(jwt);
+        return insightsService.assessmentResults(
+                departmentId, examId, user.institutionId(), user.userId(), isOwner(user));
+    }
+
+    @GetMapping("/{departmentId}/learners/{learnerId}/attempts/{attemptId}/result")
+    public com.capstone.rebyu.assessment.dto.attempt.LearnerAttemptDtos.AssessmentAttemptResultDto memberAttemptResult(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long departmentId,
+            @PathVariable Long learnerId,
+            @PathVariable Long attemptId) {
+        CurrentUserDto user = requireInstitution(jwt);
+        return insightsService.memberAttemptResult(
+                departmentId, learnerId, attemptId, user.institutionId(), user.userId(), isOwner(user));
+    }
+
     @DeleteMapping("/{departmentId}/learners/{learnerId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeFromGroup(

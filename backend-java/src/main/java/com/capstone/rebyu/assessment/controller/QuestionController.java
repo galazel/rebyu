@@ -34,9 +34,13 @@ public class QuestionController {
             @RequestParam(required = false) Long lessonId,
             @RequestParam(required = false) Long certificationId,
             @RequestParam(required = false) Long includeDepartmentId,
+            @RequestParam(required = false, defaultValue = "false") boolean departmentOnly,
             @AuthenticationPrincipal Jwt jwt) {
         CurrentUserDto caller = requireAdminOrInstitution(jwt);
         requireDepartmentAccessIfRequested(caller, includeDepartmentId);
+        if (departmentOnly && includeDepartmentId != null) {
+            return questionService.getOwnedByDepartment(includeDepartmentId);
+        }
         if (lessonId != null) {
             return questionService.getByLessonId(lessonId, includeDepartmentId);
         }
@@ -95,7 +99,8 @@ public class QuestionController {
             @PathVariable Long id, @Valid @RequestBody QuestionDto dto, @AuthenticationPrincipal Jwt jwt) {
         CurrentUserDto caller = requireAdminOrInstitution(jwt);
         boolean isAdmin = "ADMIN".equalsIgnoreCase(caller.role());
-        return questionService.update(id, dto, caller.userId(), isAdmin, isAdmin ? null : caller.institutionId());
+        return questionService.update(id, dto, caller.userId(),
+                isAdmin, headsOwningDepartment(caller, id), isAdmin ? null : caller.institutionId());
     }
 
     @DeleteMapping("/{id}")
@@ -103,7 +108,7 @@ public class QuestionController {
     public void delete(@PathVariable Long id, @AuthenticationPrincipal Jwt jwt) {
         CurrentUserDto caller = requireAdminOrInstitution(jwt);
         boolean isAdmin = "ADMIN".equalsIgnoreCase(caller.role());
-        questionService.delete(id, caller.userId(), isAdmin);
+        questionService.delete(id, caller.userId(), isAdmin, headsOwningDepartment(caller, id));
     }
 
     private CurrentUserDto requireAdminOrInstitution(Jwt jwt) {
@@ -115,6 +120,20 @@ public class QuestionController {
             throw new IllegalArgumentException("Admin or institution access is required");
         }
         return user;
+    }
+
+    /** Whether the caller heads the department that owns this question (so may edit any of its questions). */
+    private boolean headsOwningDepartment(CurrentUserDto caller, Long questionId) {
+        Long departmentId = questionService.ownerDepartmentIdOf(questionId);
+        if (departmentId == null || caller.institutionId() == null) {
+            return false;
+        }
+        try {
+            requireDepartmentAccessIfRequested(caller, departmentId);
+            return true;
+        } catch (RuntimeException notAHead) {
+            return false;
+        }
     }
 
     private void requireDepartmentAccessIfRequested(CurrentUserDto caller, Long departmentId) {
