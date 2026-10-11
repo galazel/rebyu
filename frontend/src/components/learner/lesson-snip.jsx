@@ -47,6 +47,15 @@ function touchesNoSnip(rect) {
   return [...document.querySelectorAll("[data-no-snip]")].some((el) => intersects(el.getBoundingClientRect(), rect))
 }
 
+function insideLesson(rect) {
+  const cx = (rect.left + rect.right) / 2
+  const cy = (rect.top + rect.bottom) / 2
+  return [...document.querySelectorAll("[data-snip-area]")].some((el) => {
+    const box = el.getBoundingClientRect()
+    return cx >= box.left && cx <= box.right && cy >= box.top && cy <= box.bottom
+  }) && ![...document.querySelectorAll("[data-snip-chrome]")].some((el) => intersects(el.getBoundingClientRect(), rect))
+}
+
 function containerOf(root, rect) {
   const cx = (rect.left + rect.right) / 2
   const cy = (rect.top + rect.bottom) / 2
@@ -150,6 +159,11 @@ export function LessonSnipOverlay({ target, onCapture, onCancel }) {
       onCancel()
       return
     }
+    if (!insideLesson(rect)) {
+      toast.error("Only the lesson content can be sent to the AI tutor.")
+      onCancel()
+      return
+    }
     if (touchesNoSnip(rect)) {
       toast.error("Quizzes and checks can't be sent to the AI tutor.")
       onCancel()
@@ -238,7 +252,8 @@ export function SelectionAskButton({ target, onAsk }) {
       const text = selection?.toString().trim() ?? ""
       const node = selection?.anchorNode
       const inNoSnip = (node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement)?.closest("[data-no-snip]")
-      if (!root || !selection?.rangeCount || text.length < 3 || !root.contains(node) || inNoSnip) {
+      if (!root || !selection?.rangeCount || text.length < 3 || !root.contains(node) || inNoSnip ||
+        !(node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement)?.closest("[data-snip-area]")) {
         setAnchor(null)
         return
       }

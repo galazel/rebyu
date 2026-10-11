@@ -377,7 +377,8 @@ class AssessmentAttemptServiceTest {
 
         service.applyTotals(attempt, List.of(written, shortAnswer), Map.of(1L, essay, 2L, term));
 
-        assertEquals(0, new BigDecimal("75.00").compareTo(attempt.getPercentage()));
+        // The written item counts as three objective items: (3 x 0.5 + 1 x 1.0) / 4.
+        assertEquals(0, new BigDecimal("62.50").compareTo(attempt.getPercentage()));
         assertEquals(1, attempt.getCorrectCount());
         assertEquals(2, attempt.getAnsweredCount());
         assertNull(attempt.getTotalPoints());

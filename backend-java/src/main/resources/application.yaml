@@ -43,7 +43,9 @@ spring:
       keepalive-time: 30000
       idle-timeout: 120000
       max-lifetime: 300000
-      connection-init-sql: SELECT 1
+      # A transaction whose client vanished (dropped socket, killed container) keeps its row
+      # locks until Postgres ends it; without this it stalls every writer behind it for good.
+      connection-init-sql: SET idle_in_transaction_session_timeout = '60s'
       data-source-properties:
         tcpKeepAlive: true
         # Seconds. A read stuck on a dead socket fails instead of hanging the request.

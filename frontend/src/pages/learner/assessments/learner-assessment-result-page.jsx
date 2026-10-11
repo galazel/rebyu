@@ -1041,12 +1041,19 @@ export default function LearnerAssessmentResultPage() {
                               key={index}
                               className={cn(
                                 "flex items-start gap-2 rounded-rb-tile border-2 p-2.5",
-                                element.matched
-                                  ? ANSWER_TONES.correct.panel
-                                  : ANSWER_TONES.incorrect.panel
+                                element.matchQuality === "OPTIONAL"
+                                  ? ANSWER_TONES.neutral.panel
+                                  : element.matched
+                                    ? ANSWER_TONES.correct.panel
+                                    : ANSWER_TONES.incorrect.panel
                               )}
                             >
-                              {element.matched ? (
+                              {element.matchQuality === "OPTIONAL" && !element.matched ? (
+                                <span
+                                  className="mt-1.5 size-2.5 shrink-0 rounded-full border-2 border-rb-hare"
+                                  aria-hidden="true"
+                                />
+                              ) : element.matched ? (
                                 <CheckCircle2Icon
                                   className="mt-0.5 size-4 shrink-0 text-rb-leaf"
                                   aria-hidden="true"
@@ -1060,14 +1067,25 @@ export default function LearnerAssessmentResultPage() {
                               <div className="min-w-0 flex-1">
                                 <p className="flex flex-wrap items-center gap-1.5 font-bold text-rb-eel">
                                   <span className="rounded-rb-control border-2 border-rb-swan bg-rb-snow px-1.5 py-0.5 text-[10px] text-rb-wolf">
-                                    {element.kind === "EDGE" ? "Relationship" : "Node"}
+                                    {element.kind === "EDGE"
+                                      ? "Relationship"
+                                      : element.kind === "ATTRIBUTE"
+                                        ? "Attribute"
+                                        : "Node"}
                                   </span>
                                   {element.expectedDescription}
+                                  {element.matchQuality === "OPTIONAL" ? (
+                                    <span className="rounded-rb-control bg-rb-swan px-1.5 py-0.5 text-[10px] font-bold text-rb-wolf">
+                                      Optional
+                                    </span>
+                                  ) : null}
                                 </p>
                                 <p className="mt-0.5 text-xs text-rb-wolf">
                                   {element.matched
                                     ? `You drew: ${element.learnerDescription}`
-                                    : "Missing from your diagram"}
+                                    : element.matchQuality === "OPTIONAL"
+                                      ? "Not in your diagram -- not required"
+                                      : "Missing from your diagram"}
                                   {element.earnedPoints != null && element.maxPoints != null && Number(element.maxPoints) > 0
                                     ? ` · ${Math.round((Number(element.earnedPoints) / Number(element.maxPoints)) * 100)}% credit`
                                     : ""}

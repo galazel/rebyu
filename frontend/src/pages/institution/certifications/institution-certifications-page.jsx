@@ -71,8 +71,11 @@ export default function InstitutionCertificationsPage() {
             const used = institutionCert.usedSlots ?? 0
             const total = institutionCert.totalSlots ?? 0
             const assignedCount = data.assignments.filter(
-              (assignment) => assignment.institutionCertId === institutionCert.institutionCertId
+              (assignment) =>
+                assignment.institutionCertId === institutionCert.institutionCertId &&
+                assignment.status !== "revoked"
             ).length
+            const schoolYear = schoolYearLabel(institutionCert)
             return (
               <Card key={institutionCert.institutionCertId} className="flex flex-col">
                 <CardHeader>
@@ -83,6 +86,9 @@ export default function InstitutionCertificationsPage() {
                     </CardTitle>
                     <AccessWindowBadge allocation={institutionCert} />
                   </div>
+                  {schoolYear ? (
+                    <p className="text-sm font-semibold text-primary">{schoolYear}</p>
+                  ) : null}
                   <CardDescription>
                     Access {formatDate(institutionCert.accessStartDate)} –{" "}
                     {formatDate(institutionCert.accessExpiryDate)}
@@ -130,4 +136,12 @@ export default function InstitutionCertificationsPage() {
       )}
     </div>
   )
+}
+
+function schoolYearLabel(allocation) {
+  const startYear = Number(String(allocation.accessStartDate ?? "").slice(0, 4))
+  const endYear = Number(String(allocation.accessExpiryDate ?? "").slice(0, 4))
+  if (!startYear) return null
+  const lastYear = endYear > startYear ? endYear : startYear + 1
+  return `S.Y. ${startYear}–${lastYear}`
 }

@@ -629,7 +629,7 @@ function LessonView({
       style={{ "--lesson-header-h": "116px" }}
       className="w-full px-4 pb-10 sm:px-6 lg:px-8"
     >
-      <div ref={headerRef} className="sticky top-0 z-10 -mx-4 border-b-2 border-rb-swan bg-rb-snow/95 px-4 shadow-[0_1px_0_rgba(0,0,0,0.02)] backdrop-blur supports-[backdrop-filter]:bg-rb-snow/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div ref={headerRef} data-snip-chrome className="sticky top-0 z-10 -mx-4 border-b-2 border-rb-swan bg-rb-snow/95 px-4 shadow-[0_1px_0_rgba(0,0,0,0.02)] backdrop-blur supports-[backdrop-filter]:bg-rb-snow/80 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <div className="flex h-[var(--rb-topbar-h)] items-center justify-between gap-2 sm:gap-4">
           {onOpenOutline ? (
             <button
@@ -692,6 +692,7 @@ function LessonView({
                   as="section"
                   key={section.key}
                   id={section.key}
+                  data-snip-area
                   amount={0.05}
                   className={`relative flex min-h-[calc(100dvh-var(--lesson-header-h))] snap-start scroll-mt-[var(--lesson-header-h)] flex-col justify-center overflow-hidden px-4 py-14 sm:px-6 lg:px-8 ${tone.shell}`}
                 >

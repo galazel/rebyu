@@ -15,6 +15,10 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     /** A certification's lesson count without loading the lessons (and their content). */
     long countByMiddleCategory_MajorCategory_Certification_CertificationId(Long certificationId);
 
+    @Query("SELECT l.lessonId FROM Lesson l JOIN l.middleCategory mc JOIN mc.majorCategory maj "
+            + "WHERE maj.certification.certificationId = :certificationId AND maj.ownerDepartment IS NULL")
+    List<Long> findCatalogLessonIdsByCertificationId(@Param("certificationId") Long certificationId);
+
     List<Lesson> findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(
             Long certificationId);
 

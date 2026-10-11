@@ -782,13 +782,59 @@ def mock_exam_count_for(state: CertificationState) -> int:
     return min(count, ceiling) if ceiling > 0 else count
 
 
+
+def mock_domain_quotas(state: CertificationState, count: int) -> list[tuple[dict, int, list[dict]]]:
+    """Splits the mock's `count` items across the real exam's weighted domains,
+    as (domain, items, lessons) -- empty when the weighting is unknown or names
+    no unit of this run's curriculum, so the caller falls back to one paper.
+
+    Official per-domain item counts win when they add up to `count`; otherwise
+    the weights are scaled to `count` by largest remainder, so the parts always
+    sum to the whole. Lessons are those of the domain's major categories."""
+    domains = [d for d in (_exam_structure(state).get("domains") or []) if isinstance(d, dict)]
+    if not domains or count <= 0:
+        return []
+
+    by_major = {
+        (major.get("name") or "").strip().lower(): [
+            lesson
+            for middle in (major.get("middleCategories") or [])
+            for lesson in (middle.get("lessons") or [])
+            if lesson.get("name")
+        ]
+        for major in _flatten_majors(state.get("curriculum", {}) or {})
+    }
+    lessons = [
+        [lesson for name in (d.get("major_categories") or [])
+         for lesson in by_major.get(str(name).strip().lower(), [])]
+        for d in domains
+    ]
+    if not any(lessons):
+        return []
+
+    official = [int(d.get("total_items") or 0) for d in domains]
+    if all(n > 0 for n in official) and sum(official) == count:
+        items = official
+    else:
+        weights = [float(d.get("weight_percent") or 0) or float(n) for d, n in zip(domains, official)]
+        total = sum(weights)
+        if total <= 0:
+            return []
+        exact = [count * w / total for w in weights]
+        items = [int(x) for x in exact]
+        for i in sorted(range(len(exact)), key=lambda i: exact[i] - items[i], reverse=True)[:count - sum(items)]:
+            items[i] += 1
+
+    return [(d, n, ls) for d, n, ls in zip(domains, items, lessons) if n > 0]
+
+
 async def _checked_exam_structure(state: CertificationState) -> dict:
     """The planner's exam structure, with the real item count looked up when
     the planner left it at 0.
 
     Without a count the mock falls back to `mock_exam_questions` (50), which is
     right for almost no certification -- IT Passport sits 100, FE 80, TOPCIT
-    65. So before settling for it, one targeted search for the official format
+    75. So before settling for it, one targeted search for the official format
     is read by a small model, and only the numbers the results actually state
     are filled in. A failed search leaves the structure as it was.
     """
@@ -868,21 +914,43 @@ async def generate_mock_exam_node(state: CertificationState):
     )
     difficulty = " and simulating the real exam's difficulty" if known else ""
 
-    batch = await invoke_question_agent(
-        scope, context,
-        _with_improvement(
+    def instruction(n: int, where: str) -> str:
+        return _with_improvement(
             state,
-            f"Generate exactly {count} questions {coverage}, drawn from the lesson content "
+            f"Generate exactly {n} questions {where}, drawn from the lesson content "
             f"above{difficulty}. This exam uses these question types ONLY: {types}. "
-            f"Do not use a type that is not listed.{performance_quota(types, count)}"
-            f"{difficulty_quota_rule(count)}"
+            f"Do not use a type that is not listed.{performance_quota(types, n)}"
+            f"{difficulty_quota_rule(n)}"
             f"{blank_format_rule(state)}{mcq_style_rule(state)}"
             f"{SUB_QUESTION_RULE} "
             "Set lesson_ref on each question to the lesson it tests.",
-        ),
-        count=count,
-        existing_stems=written_stems(state),
-    )
+        )
+
+    quotas = mock_domain_quotas(state, count)
+    questions: list = []
+    if quotas:
+        logger.info(
+            "Mock exam for '%s' follows the official weighting: %s", state["certification_name"],
+            ", ".join(f"{d.get('name')} {n}" for d, n, _l in quotas),
+        )
+        for domain, n, lessons in quotas:
+            part = _content_for_lessons(state, lessons) or _curriculum_outline(curriculum)
+            part = _with_exam_structure(_with_existing_curriculum(part, state), state)
+            batch = await invoke_question_agent(
+                scope, part,
+                instruction(n, f"for the \"{domain.get('name')}\" domain of the exam, covering "
+                               "its lessons proportionally"),
+                count=n,
+                existing_stems=written_stems(state) + [q.question for q in questions],
+            )
+            questions.extend(batch.questions[:n])
+        batch = QuestionBatch(scope=scope, questions=questions)
+    else:
+        batch = await invoke_question_agent(
+            scope, context, instruction(count, coverage),
+            count=count,
+            existing_stems=written_stems(state),
+        )
     if len(batch.questions) != count:
         logger.warning(
             "Mock exam for '%s' has %d question(s); the real exam has %d",

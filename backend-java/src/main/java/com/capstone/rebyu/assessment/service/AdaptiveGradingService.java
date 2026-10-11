@@ -1,6 +1,7 @@
 package com.capstone.rebyu.assessment.service;
 
 import com.capstone.rebyu.adaptive.engine.IrtModel;
+import com.capstone.rebyu.adaptive.service.AdaptivePolicy;
 import com.capstone.rebyu.assessment.entity.AssessmentAttempt;
 import com.capstone.rebyu.assessment.entity.AssessmentAttemptAnswer;
 import com.capstone.rebyu.assessment.entity.AssessmentAttemptQuestion;
@@ -176,7 +177,7 @@ public class AdaptiveGradingService {
             Question source = all.getOrDefault(question.getSourceQuestionId(), sources.get(question.getSourceQuestionId()));
             AssessmentAttemptAnswer answer = answersByQuestion.get(question.getAttemptQuestionId());
             if (source == null || answer == null || answer.isPendingManualEvaluation()) continue;
-            IrtModel.ItemParams params = IrtModel.defaultParams(source.getDifficultyLevel());
+            IrtModel.ItemParams params = IrtModel.defaultParams(source.getDifficultyLevel(), AdaptivePolicy.discrimination(source.getQuestionType()));
             double score = attempts.scoreOf(question, answer);
             if (justMarked.contains(question.getAttemptQuestionId())) {
                 question.setThetaBefore(theta);

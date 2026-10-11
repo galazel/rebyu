@@ -326,7 +326,8 @@ public class AdaptiveAttemptService {
         Candidate cached = cachedPool(exam).candidates().get(questionId);
         if (cached != null) return cached.params();
         Question source = loadQuestion(questionId);
-        return source == null ? IrtModel.defaultParams(null) : IrtModel.defaultParams(source.getDifficultyLevel());
+        return source == null ? IrtModel.defaultParams(null)
+                : IrtModel.defaultParams(source.getDifficultyLevel(), AdaptivePolicy.discrimination(source.getQuestionType()));
     }
 
     private CachedPool cachedPool(Exam exam) {
@@ -768,7 +769,7 @@ public class AdaptiveAttemptService {
         if (views.isEmpty()) return List.of();
         List<Candidate> out = new ArrayList<>(views.size());
         for (QuestionSelectionView view : views) {
-            ItemParams params = IrtModel.defaultParams(view.getDifficultyLevel());
+            ItemParams params = IrtModel.defaultParams(view.getDifficultyLevel(), AdaptivePolicy.discrimination(view.getQuestionType()));
             out.add(new Candidate(view.getQuestionId(), view.getLessonId(), view.getQuestionType(),
                     view.getQuestionText(), params, AdaptivePolicy.isWorkspaceType(view.getQuestionType())));
         }
@@ -779,7 +780,7 @@ public class AdaptiveAttemptService {
     private ItemParams itemParamsOf(Exam exam, Question source) {
         Candidate cached = cachedPool(exam).candidates().get(source.getQuestionId());
         if (cached != null) return cached.params();
-        return IrtModel.defaultParams(source.getDifficultyLevel());
+        return IrtModel.defaultParams(source.getDifficultyLevel(), AdaptivePolicy.discrimination(source.getQuestionType()));
     }
 
     private BktModel.Params defaultBkt() {
