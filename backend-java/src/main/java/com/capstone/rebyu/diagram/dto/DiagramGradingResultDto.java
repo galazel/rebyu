@@ -8,8 +8,15 @@ public record DiagramGradingResultDto(
         BigDecimal earnedPoints,
         BigDecimal maxPoints,
         String feedback,
-        List<ElementResultDto> elementResults
+        List<ElementResultDto> elementResults,
+        Boolean coversEveryPart
 ) {
+    public DiagramGradingResultDto(
+            String status, BigDecimal earnedPoints, BigDecimal maxPoints,
+            String feedback, List<ElementResultDto> elementResults) {
+        this(status, earnedPoints, maxPoints, feedback, elementResults, null);
+    }
+
     public record ElementResultDto(
             String kind,
             String expectedDescription,

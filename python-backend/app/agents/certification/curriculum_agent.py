@@ -100,6 +100,7 @@ _PROMPT_TEMPLATE = """
                      "duration_minutes": 0,
                      "passing_score": 0,
                      "coverage": "",
+                     "domains": [],
                      "notes": "",
                      "sections": [],
                      "source": ""
@@ -150,6 +151,18 @@ _PROMPT_TEMPLATE = """
                       -- "Software Development 40%, Database 25%, ...". This is
                       what gets EXAMINED, which is not always weighted like the
                       syllabus that gets taught. A few lines.
+                    - domains: the same domains as structured data, one
+                      {"name", "weight_percent", "total_items",
+                      "major_categories"} each. weight_percent is the
+                      domain's official share of the paper; total_items is
+                      its official item count when the body states one
+                      (TOPCIT: M1 21, M2 19, M3 18, M4 17), else 0.
+                      major_categories lists the EXACT names of the major
+                      categories below that teach the domain -- every major
+                      category belongs to exactly one domain. The mock exam
+                      takes each domain's share of items from these, so the
+                      weights must be the official ones. [] only when no
+                      weighting is published.
                     - notes: sections, ordering, sub-question structure,
                       permitted materials -- anything else that shapes the
                       paper. A few sentences.

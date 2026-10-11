@@ -2,7 +2,6 @@ package com.capstone.rebyu.progress.service;
 
 import com.capstone.rebyu.assessment.entity.AssessmentAttempt;
 import com.capstone.rebyu.assessment.repository.AssessmentAttemptRepository;
-import com.capstone.rebyu.certification.entity.Lesson;
 import com.capstone.rebyu.certification.repository.LessonRepository;
 import com.capstone.rebyu.enrollment.entity.LearnerCertification;
 import com.capstone.rebyu.enrollment.repository.LearnerCertificationRepository;
@@ -198,13 +197,11 @@ public class AchievementAwardService {
             return false;
         }
         for (Long certificationId : certificationIds) {
-            List<Lesson> lessons = lessonRepository
-                    .findByMiddleCategory_MajorCategory_Certification_CertificationIdAndMiddleCategory_MajorCategory_OwnerDepartmentIsNull(
-                            certificationId);
-            if (lessons.isEmpty()) {
+            List<Long> lessonIds = lessonRepository.findCatalogLessonIdsByCertificationId(certificationId);
+            if (lessonIds.isEmpty()) {
                 continue;
             }
-            boolean all = lessons.stream().allMatch(lesson -> completedLessonIds.contains(lesson.getLessonId()));
+            boolean all = completedLessonIds.containsAll(lessonIds);
             if (all) {
                 return true;
             }

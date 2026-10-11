@@ -78,6 +78,11 @@ public final class IrtModel {
         return new ItemParams(1.0, difficultyOf(difficultyLevel), 0.0);
     }
 
+    /** Parameters with a given discrimination -- critical-thinking items discriminate more. */
+    public static ItemParams defaultParams(String difficultyLevel, double discrimination) {
+        return new ItemParams(discrimination, difficultyOf(difficultyLevel), 0.0);
+    }
+
     public static double difficultyOf(String difficultyLevel) {
         return switch (difficultyLevel == null ? "" : difficultyLevel.trim().toUpperCase()) {
             case "EASY" -> DIFFICULTY_EASY;

@@ -83,6 +83,19 @@ class ExamSection(BaseModel):
     question_types: StrList = []
 
 
+class ExamDomain(BaseModel):
+    """One officially weighted area of the real exam -- TOPCIT's "M1 Software
+    Development, 21 items", IT Passport's "Technology field, ~40%".
+
+    `major_categories` names the units of this curriculum that teach it, so the
+    mock exam can draw the domain's share of items from those units' lessons."""
+
+    name: str = ""
+    weight_percent: float = 0.0
+    total_items: int = 0
+    major_categories: StrList = []
+
+
 class ExamStructure(BaseModel):
     """What the real certification exam looks like.
 
@@ -106,6 +119,8 @@ class ExamStructure(BaseModel):
     passing_score: float = 0.0
 
     coverage: str = ""
+
+    domains: List[ExamDomain] = []
 
     notes: str = ""
 

@@ -606,7 +606,10 @@ public class AssessmentAttemptService {
         BigDecimal totalPoints = BigDecimal.ZERO;
         BigDecimal earnedPoints = BigDecimal.ZERO;
         double earnedShare = 0.0;
+        double itemWeight = 0.0;
         for (AssessmentAttemptQuestion attemptQuestion : questions) {
+            double typeWeight = AdaptivePolicy.scoreWeight(attemptQuestion.getQuestionType());
+            itemWeight += typeWeight;
             BigDecimal weight = attemptQuestion.getPoints() == null ? BigDecimal.ONE : attemptQuestion.getPoints();
             totalPoints = totalPoints.add(weight);
             AssessmentAttemptAnswer answer = answersByQuestion.get(attemptQuestion.getAttemptQuestionId());
@@ -617,7 +620,7 @@ public class AssessmentAttemptService {
             if (countsAsCorrect(answer)) {
                 correct++;
             }
-            earnedShare += scoreOf(attemptQuestion, answer);
+            earnedShare += typeWeight * scoreOf(attemptQuestion, answer);
             if (answer.getCredit() != null) {
                 earnedPoints = earnedPoints.add(weight.multiply(answer.getCredit()));
             }
@@ -625,8 +628,8 @@ public class AssessmentAttemptService {
         BigDecimal percentage;
         if (weighted && totalPoints.signum() > 0) {
             percentage = earnedPoints.multiply(BigDecimal.valueOf(100)).divide(totalPoints, 2, RoundingMode.HALF_UP);
-        } else if (items > 0) {
-            percentage = BigDecimal.valueOf(earnedShare * 100.0 / items).setScale(2, RoundingMode.HALF_UP);
+        } else if (itemWeight > 0) {
+            percentage = BigDecimal.valueOf(earnedShare * 100.0 / itemWeight).setScale(2, RoundingMode.HALF_UP);
         } else {
             percentage = BigDecimal.ZERO;
         }
@@ -1399,10 +1402,13 @@ public class AssessmentAttemptService {
             Question source, AssessmentAttemptAnswer answer, BigDecimal points) {
         return diagramQuestionConfigRepository
                 .findByQuestion_QuestionId(source.getQuestionId())
-                .map(DiagramQuestionConfig::getReferenceDiagramXml)
-                .filter(xml -> xml != null && !xml.isBlank())
-                .map(xml -> new DiagramGradingRequestDto(
-                        xml, answer.getDiagramSubmissionData(), points));
+                .filter(config -> config.getReferenceDiagramXml() != null
+                        && !config.getReferenceDiagramXml().isBlank())
+                .map(config -> new DiagramGradingRequestDto(
+                        config.getReferenceDiagramXml(), answer.getDiagramSubmissionData(), points,
+                        config.getDiagramType(),
+                        String.join("\n", Objects.requireNonNullElse(source.getQuestionText(), ""),
+                                Objects.requireNonNullElse(config.getInstructions(), ""))));
     }
 
     private boolean isAiSemanticShortAnswer(String type, Question source) {
@@ -1599,7 +1605,8 @@ public class AssessmentAttemptService {
 
         answer.setCredit(result.earnedPoints());
         answer.setFeedback(result.feedback());
-        answer.setIsCorrect(isPassingShare(result.earnedPoints(), points));
+        Boolean passing = isPassingShare(result.earnedPoints(), points);
+        answer.setIsCorrect(Boolean.FALSE.equals(result.coversEveryPart()) ? Boolean.FALSE : passing);
         answer.setPendingManualEvaluation(false);
         answer.setDiagramGradingResult(serializeDiagramGradingResult(result));
         return true;

@@ -148,4 +148,27 @@ class IrtModelTest {
         assertEquals(wrong, step(0.0, average, 0.0), 1e-9);
         assertEquals(right, step(0.0, average, 1.7), 1e-9);
     }
+
+    @Test
+    void aCriticalThinkingItemOutweighsAnObjectiveOne() {
+        IrtModel.ItemParams diagram = IrtModel.defaultParams("AVERAGE",
+                com.capstone.rebyu.adaptive.service.AdaptivePolicy.discrimination("DIAGRAM"));
+        IrtModel.ItemParams mcq = IrtModel.defaultParams("AVERAGE",
+                com.capstone.rebyu.adaptive.service.AdaptivePolicy.discrimination("MCQ"));
+
+        double withDiagramRight = thetaAfter(diagram, 1.0, mcq, 0.0);
+        double withMcqRight = thetaAfter(mcq, 1.0, mcq, 0.0);
+
+        assertTrue(withDiagramRight > withMcqRight,
+                "a right diagram followed by wrong MCQs should hold the rating up more than a right MCQ does");
+    }
+
+    private static double thetaAfter(IrtModel.ItemParams first, double firstScore,
+                                     IrtModel.ItemParams then, double thenScore) {
+        IrtModel.Estimate estimate = IrtModel.update(0.0, Double.NaN, first, firstScore);
+        for (int i = 0; i < 3; i++) {
+            estimate = IrtModel.update(estimate.theta(), estimate.standardError(), then, thenScore);
+        }
+        return estimate.theta();
+    }
 }

@@ -78,6 +78,26 @@ public class AdaptivePolicy {
         return questionType != null && WORKSPACE_TYPES.contains(questionType.trim().toUpperCase());
     }
 
+    /**
+     * How much a critical-thinking item -- descriptive, programming, diagram -- counts
+     * against one objective item. Producing a program or a model is several decisions,
+     * not one, so in an unweighted paper it is worth this many objective items in the
+     * percentage, and in the IRT update it discriminates this much more sharply.
+     * Institution papers with their own per-question points are unaffected.
+     */
+    public static final double WORKSPACE_SCORE_WEIGHT = 3.0;
+    public static final double WORKSPACE_DISCRIMINATION = 2.0;
+
+    /** An item's weight in an unweighted paper's percentage. */
+    public static double scoreWeight(String questionType) {
+        return isWorkspaceType(questionType) ? WORKSPACE_SCORE_WEIGHT : 1.0;
+    }
+
+    /** An item's IRT discrimination (the 2PL "a"). */
+    public static double discrimination(String questionType) {
+        return isWorkspaceType(questionType) ? WORKSPACE_DISCRIMINATION : 1.0;
+    }
+
     public static final String IRT_2PL = "2PL";
     public static final String IRT_PARTIAL_CREDIT = "PARTIAL_CREDIT";
 
