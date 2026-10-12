@@ -68,6 +68,8 @@ import {
   parseLessonStructure,
 } from "@/services/learnerService.js"
 import { getExams, getExamTypes } from "@/services/assessmentService.js"
+import { getTopicReflection } from "@/services/reflectionService.js"
+import { ReflectionIcon, TopicReflectionView } from "@/components/learner/topic-reflection.jsx"
 import { getProgressAnalytics } from "@/services/learnerAnalyticsService.js"
 import { cn } from "@/lib/utils"
 import {
@@ -100,10 +102,37 @@ function useIsXl() {
   return isXl
 }
 
+const TUTOR_WIDTH_KEY = "rebyu:tutor-width"
+const TUTOR_DEFAULT_WIDTH = 400
+const TUTOR_MIN_WIDTH = 340
+
+function tutorMaxWidth() {
+  return typeof window === "undefined" ? 900 : Math.max(TUTOR_MIN_WIDTH, Math.round(window.innerWidth * 0.6))
+}
+
+function clampTutorWidth(width) {
+  return Math.min(tutorMaxWidth(), Math.max(TUTOR_MIN_WIDTH, Math.round(width)))
+}
+
+function readTutorWidth() {
+  try {
+    const saved = Number(window.localStorage.getItem(TUTOR_WIDTH_KEY))
+    return Number.isFinite(saved) && saved > 0 ? clampTutorWidth(saved) : TUTOR_DEFAULT_WIDTH
+  } catch {
+    return TUTOR_DEFAULT_WIDTH
+  }
+}
+
 function buildTrack(middle) {
   const track = middle.lessons.map((lesson) => ({ ...lesson, kind: "lesson" }))
 
   if (middle.assessment) {
+    track.push({
+      kind: "reflection",
+      id: `reflection-${middle.id}`,
+      middleId: middle.id,
+      name: "Reflection",
+    })
     track.push({
       kind: "assessment",
       id: `assessment-${middle.assessment.examId}`,
@@ -160,7 +189,7 @@ function readSectionsOf(structure) {
 }
 
 
-const ROW_ICON = { lesson: BookOpen, assessment: ClipboardCheck }
+const ROW_ICON = { lesson: BookOpen, assessment: ClipboardCheck, reflection: ReflectionIcon }
 
 function OutlineRow({
   item,
@@ -213,6 +242,8 @@ function OutlineRow({
                   ? "bg-rb-macaw text-white"
                   : item.kind === "assessment"
                     ? "bg-rb-fox-wash text-rb-fox-lip"
+                    : item.kind === "reflection"
+                      ? "bg-rb-macaw-wash text-rb-macaw-lip"
                     : "bg-rb-swan text-rb-wolf"
             }`}
           >
@@ -239,7 +270,9 @@ function OutlineRow({
               <span className="mt-0.5 block truncate text-[11px] font-bold uppercase tracking-wide text-rb-wolf">
                 {item.kind === "lesson"
                   ? `lesson${item.quiz ? " · 1 quiz" : ""}`
-                  : `unit assessment · ${item.exam.totalQuestions} questions`}
+                  : item.kind === "reflection"
+                    ? "practice assignment · AI-graded"
+                    : `unit assessment · ${item.exam.totalQuestions} questions`}
               </span>
             </span>
           ) : null}
@@ -337,6 +370,7 @@ function Outline({
   readSections,
   isDone,
   isLocked,
+  reflectionPassed,
 }) {
   const [expanded, setExpanded] = useState(() => new Set([track[0]?.id]))
 
@@ -418,7 +452,7 @@ function Outline({
                 sections={item.id === activeId ? activeSections : []}
                 mastery={masteryByLessonId?.get(String(item.id))}
                 readSections={readSections}
-                done={item.kind === "lesson" && isDone(item.id)}
+                done={item.kind === "lesson" ? isDone(item.id) : item.kind === "reflection" && Boolean(reflectionPassed)}
                 locked={Boolean(isLocked?.(item))}
               />
             )
@@ -1084,6 +1118,29 @@ export default function LearnerTopicPage() {
   const [activeId, setActiveId] = useState(null)
   const [outlineCollapsed, setOutlineCollapsed] = useState(false)
   const [tutorOpen, setTutorOpen] = useState(false)
+  const [tutorWidth, setTutorWidth] = useState(readTutorWidth)
+  const [tutorResizing, setTutorResizing] = useState(false)
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(TUTOR_WIDTH_KEY, String(tutorWidth))
+    } catch {
+      /* not remembered */
+    }
+  }, [tutorWidth])
+
+  const startTutorResize = useCallback((event) => {
+    event.preventDefault()
+    setTutorResizing(true)
+    const move = (moveEvent) => setTutorWidth(clampTutorWidth(window.innerWidth - moveEvent.clientX))
+    const stop = () => {
+      setTutorResizing(false)
+      window.removeEventListener("pointermove", move)
+      window.removeEventListener("pointerup", stop)
+    }
+    window.addEventListener("pointermove", move)
+    window.addEventListener("pointerup", stop)
+  }, [])
   const readingRef = useRef(null)
   const [snipping, setSnipping] = useState(false)
   const [tutorSnippet, setTutorSnippet] = useState(null)
@@ -1185,6 +1242,16 @@ export default function LearnerTopicPage() {
 
   const track = useMemo(() => (middle ? buildTrack(middle) : []), [middle])
 
+  const reflectionItem = track.find((item) => item.kind === "reflection") ?? null
+  const reflectionQuery = useQuery({
+    queryKey: ["learner-reflection", String(reflectionItem?.middleId ?? "")],
+    queryFn: () => getTopicReflection(reflectionItem.middleId),
+    enabled: Boolean(reflectionItem),
+    staleTime: 60_000,
+    retry: 1,
+  })
+  const reflectionPassed = Boolean(reflectionQuery.data?.passed)
+
 
   useEffect(() => {
     if (activeId || track.length === 0) return
@@ -1235,15 +1302,22 @@ export default function LearnerTopicPage() {
 
   function lockedBy(item) {
     // Lessons are never gated: mastery tags show which ones need work, so learners can open any lesson.
-    if (item.kind !== "assessment") return null
+    if (item.kind !== "assessment" && item.kind !== "reflection") return null
     const position = track.findIndex((entry) => entry.id === item.id)
     if (position <= 0) return null
-    return track.find((entry) => entry.kind === "lesson" && !isDone(entry.id)) ?? null
+    const lesson = track.find((entry) => entry.kind === "lesson" && !isDone(entry.id))
+    if (lesson) return lesson
+    if (item.kind === "assessment" && reflectionItem && !reflectionPassed) return reflectionItem
+    return null
   }
 
   function explainLock(item) {
     const gate = lockedBy(item)
     if (!gate) return false
+    if (gate.kind === "reflection") {
+      toast.warning("Pass this topic's reflection first — it unlocks the exam.")
+      return true
+    }
     const quiz = gate.quiz ? examStanding(data?.examResults, gate.quiz.examId) : null
     const why = quiz && quiz.taken && !quiz.cleared ? ` Its quiz: ${quiz.reason}.` : ""
     toast.warning(`${gate.name} comes first.${why}`)
@@ -1477,13 +1551,14 @@ export default function LearnerTopicPage() {
 
   const tutorVisible = tutorOpen && active?.kind === "lesson"
 
-  const columns = outlineCollapsed
-    ? tutorVisible
-      ? "xl:grid-cols-[88px_minmax(0,1fr)_400px]"
-      : "xl:grid-cols-[88px_minmax(0,1fr)]"
-    : tutorVisible
-      ? "xl:grid-cols-[340px_minmax(0,1fr)_400px]"
-      : "xl:grid-cols-[340px_minmax(0,1fr)]"
+  const outlineWidth = outlineCollapsed ? 88 : 340
+  const gridStyle = isXl
+    ? {
+        gridTemplateColumns: tutorVisible
+          ? `${outlineWidth}px minmax(0,1fr) ${tutorWidth}px`
+          : `${outlineWidth}px minmax(0,1fr)`,
+      }
+    : undefined
 
   const outline = (
     <Outline
@@ -1514,12 +1589,13 @@ export default function LearnerTopicPage() {
       readSections={readSections}
       isDone={isDone}
       isLocked={(item) => lockedBy(item) != null}
+      reflectionPassed={reflectionPassed}
     />
   )
 
   return (
     <div className="rebyu-ds min-h-dvh w-full bg-rb-polar" style={{ "--rb-topbar-h": "72px" }}>
-      <div className={`grid min-h-dvh ${columns}`}>
+      <div className={`grid min-h-dvh ${tutorResizing ? "select-none" : ""}`} style={gridStyle}>
         <aside className="hidden min-h-0 border-r-2 border-rb-swan xl:block">
           <div className="sticky top-0 h-dvh">{outline}</div>
         </aside>
@@ -1573,6 +1649,24 @@ export default function LearnerTopicPage() {
               }
               onOpenOutline={() => setRailOpen(true)}
             />
+          ) : active?.kind === "reflection" ? (
+            <TopicReflectionView
+              middleId={active.middleId}
+              query={reflectionQuery}
+              position={activeIndex + 1}
+              total={track.length}
+              backTo={backTo}
+              onOpenOutline={() => setRailOpen(true)}
+              examLabel={next?.kind === "assessment" ? next.name : "the topic exam"}
+              onContinue={
+                next
+                  ? () => {
+                      setActiveId(next.id)
+                      window.scrollTo({ top: 0 })
+                    }
+                  : undefined
+              }
+            />
           ) : (
             <AssessmentView
               exam={active.exam}
@@ -1591,7 +1685,31 @@ export default function LearnerTopicPage() {
         </main>
 
         {tutorVisible && isXl ? (
-          <aside className="hidden min-h-0 border-l-2 border-rb-swan xl:block">
+          <aside className="relative hidden min-h-0 border-l-2 border-rb-swan xl:block">
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize AI tutor"
+              aria-valuenow={tutorWidth}
+              aria-valuemin={TUTOR_MIN_WIDTH}
+              aria-valuemax={tutorMaxWidth()}
+              tabIndex={0}
+              title="Drag to resize · double-click to reset"
+              onPointerDown={startTutorResize}
+              onDoubleClick={() => setTutorWidth(TUTOR_DEFAULT_WIDTH)}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowLeft") setTutorWidth((w) => clampTutorWidth(w + 32))
+                if (event.key === "ArrowRight") setTutorWidth((w) => clampTutorWidth(w - 32))
+              }}
+              className="group absolute inset-y-0 -left-2 z-20 w-4 cursor-col-resize"
+            >
+              <span
+                className={`absolute inset-y-0 left-1/2 w-1 -translate-x-1/2 transition-colors ${
+                  tutorResizing ? "bg-rb-feather" : "bg-transparent group-hover:bg-rb-feather/50 group-focus-visible:bg-rb-feather/50"
+                }`}
+              />
+              <span className="absolute left-1/2 top-1/2 h-10 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rb-hare/70 group-hover:bg-rb-feather" />
+            </div>
             <div className="sticky top-0 h-dvh overflow-hidden">
               <LessonAiTutor
                 lessonId={activeLessonId}

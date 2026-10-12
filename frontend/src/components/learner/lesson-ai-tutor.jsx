@@ -32,7 +32,6 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller"
-import { Textarea } from "@/components/ui/textarea"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,11 +42,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Reveal, motion, popIn } from "@/components/motion/rebyu-motion.jsx"
 
-import { API, base, currentAccessToken } from "@/services/base"
+import { API, base, currentAccessToken } from "@/services/base"
+
 import { AuthedImage } from "@/lib/authed-media.jsx"
 import { generateStudyAid } from "@/services/learnerToolsService.js"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { ProLockCard } from "@/components/learner/pro-gate.jsx"
+import { TutorDialogue } from "@/components/learner/tutor-dialogue.jsx"
 
 
 const AI_TUTOR_ENDPOINT = "ai/tutor"
@@ -407,13 +408,13 @@ function SnippetPreview({ snippet, onDark = false }) {
 function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGroup }) {
   const isLearner = message.role === "user"
 
-  const tailCorner = isLearner ? "!rounded-br-md" : "!rounded-bl-md"
+  const tailCorner = isLearner ? "!rounded-br-md" : "!rounded-tl-md"
 
   return (
       <Message align={isLearner ? "end" : "start"}>
-        <MessageContent className="flex-row items-end gap-2.5">
+        <MessageContent className="flex-row items-start gap-2.5">
           {!isLearner ? (
-              isLastInGroup ? (
+              isFirstInGroup ? (
                   <TutorAvatar />
               ) : (
                   <span className="size-7 shrink-0" aria-hidden="true" />
@@ -430,13 +431,13 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
             <Bubble
                 variant="secondary"
                 align={isLearner ? "end" : "start"}
-                className={message.action || message.resources?.length ? "!max-w-[94%]" : ""}
+                className={message.action || message.resources?.length ? "!max-w-full" : isLearner ? "!max-w-[85%]" : "!max-w-full"}
             >
               <BubbleContent
                   className={
                     isLearner
                       ? `!rounded-2xl ${tailCorner} !border-0 !bg-rb-feather !px-3.5 !py-2.5 !text-white !shadow-none`
-                      : `!rounded-2xl ${tailCorner} ${message.action || message.resources?.length ? "!w-full" : ""} !border-0 !bg-rb-feather-wash !px-3.5 !py-2.5 !text-rb-eel !shadow-none`
+                      : `!rounded-2xl ${tailCorner} ${message.action || message.resources?.length ? "!w-full" : ""} !border-2 !border-rb-swan !bg-white !px-3.5 !py-2.5 !text-rb-eel !shadow-none`
                   }
               >
                 {isLearner ? <SnippetPreview snippet={message.snippet} onDark /> : null}
@@ -462,13 +463,6 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
             ) : null}
           </div>
 
-          {isLearner ? (
-              isLastInGroup ? (
-                  <LearnerAvatar learnerName={learnerName} />
-              ) : (
-                  <span className="size-7 shrink-0" aria-hidden="true" />
-              )
-          ) : null}
         </MessageContent>
       </Message>
   )
@@ -494,6 +488,7 @@ export function LessonAiTutor({
   const [shownLength, setShownLength] = useState(0)
   const [finishedReply, setFinishedReply] = useState(null)
   const [attachment, setAttachment] = useState(null)
+  const [dialogueOpen, setDialogueOpen] = useState(false)
   const draftRef = useRef(null)
   const entitlements = useLearnerEntitlements()
   const sessionId = buildTutorSessionId(learnerId, lessonId)
@@ -804,7 +799,14 @@ export function LessonAiTutor({
           </TactileButton>
         </header>
 
-        {loadingHistory ? (
+        {dialogueOpen ? (
+            <TutorDialogue
+                lessonId={lessonId}
+                lessonName={lessonName}
+                learnerId={learnerId}
+                onExit={() => setDialogueOpen(false)}
+            />
+        ) : loadingHistory ? (
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 py-8 text-center">
               <Loader2 className="size-5 animate-spin text-rb-feather-lip" aria-hidden="true" />
               <p className="text-xs font-bold text-rb-hare">Loading your conversation…</p>
@@ -837,7 +839,17 @@ export function LessonAiTutor({
                 I'll stick to what's covered here.
               </p>
 
-              <div className="mt-7 flex w-full flex-wrap justify-center gap-2">
+              <TactileButton
+                  variant="feather"
+                  size="sm"
+                  className="mt-6"
+                  onClick={() => setDialogueOpen(true)}
+              >
+                <MessageCircle className="size-4" aria-hidden="true" />
+                start a guided dialogue
+              </TactileButton>
+
+              <div className="mt-4 flex w-full flex-wrap justify-center gap-2">
                 <TactileButton
                     variant="snow"
                     size="sm"
@@ -967,6 +979,7 @@ export function LessonAiTutor({
             </MessageScrollerProvider>
         )}
 
+        {dialogueOpen ? null : (
         <form
             onSubmit={handleSubmit}
             className="shrink-0 border-t-2 border-rb-swan bg-rb-polar/60 p-3"
@@ -1004,14 +1017,14 @@ export function LessonAiTutor({
                 </button>
               </div>
           ) : null}
-          <div className="flex items-end gap-1.5 rounded-full border-2 border-rb-swan bg-rb-snow py-1.5 pl-1.5 pr-2 shadow-[var(--comic-shadow-sm)] transition-colors focus-within:border-rb-feather/60">
+          <div className="flex items-end gap-1.5 rounded-2xl border-2 border-rb-swan bg-rb-snow p-1.5 shadow-[var(--comic-shadow-sm)] transition-colors focus-within:border-rb-feather/60">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <TactileButton
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="rb-btn-icon shrink-0 self-center"
+                    className="rb-btn-icon shrink-0"
                     disabled={pending || Boolean(generating)}
                     aria-label="Create study aid"
                 >
@@ -1028,10 +1041,16 @@ export function LessonAiTutor({
                     <DropdownMenuItem onSelect={() => onStartSnip()}>
                       <Crop className="mr-2 size-4" />
                       <span className="flex-1">Snip part of the lesson</span>
+                      <span className="text-xs text-rb-wolf">ask about it</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                   </>
                 ) : null}
+                <DropdownMenuItem onSelect={() => setDialogueOpen(true)}>
+                  <MessageCircle className="mr-2 size-4" />
+                  <span className="flex-1">Guided dialogue</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuLabel>
                   <span className="block text-sm font-bold text-rb-eel">Create with AI</span>
                   <span className="mt-0.5 block text-xs font-medium text-rb-wolf">Generated items are saved to Library. {generationLimit > 0 ? `${generationsLeft} of ${generationLimit} generations left today.` : ""}</span>
@@ -1053,38 +1072,21 @@ export function LessonAiTutor({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {onStartSnip ? (
-                <TactileButton
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="rb-btn-icon shrink-0 self-center"
-                    onClick={() => onStartSnip()}
-                    disabled={pending || Boolean(generating)}
-                    aria-label="Snip part of the lesson"
-                    title="Snip part of the lesson"
-                >
-                  <Crop className="size-4" aria-hidden="true" />
-                </TactileButton>
-            ) : null}
-
-            <Textarea
+            <textarea
                 ref={draftRef}
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={attachment ? "Ask about this, or just send" : "Type to ask about this lesson"}
+                placeholder={attachment ? "Ask about this, or just send" : "Ask anything about this lesson…"}
                 disabled={pending || Boolean(generating)}
                 rows={1}
-                className="max-h-24 min-h-0 flex-1 resize-none self-center border-0 bg-transparent px-1 py-1.5 text-sm font-medium text-rb-eel shadow-none outline-none focus-visible:ring-0"
+                className="field-sizing-content max-h-32 min-h-9 flex-1 resize-none self-center appearance-none border-0 bg-transparent px-1 py-2 text-sm font-medium leading-snug text-rb-eel shadow-none outline-none ring-0 placeholder:text-rb-hare focus:outline-none focus:ring-0 disabled:opacity-60"
             />
-
             <TactileButton
                 type="submit"
                 variant="feather"
                 size="sm"
-                className="rb-btn-icon shrink-0 self-center"
+                className="rb-btn-icon shrink-0"
                 disabled={pending || Boolean(generating) || (!draft.trim() && !attachment)}
                 aria-label="Send message"
             >
@@ -1096,10 +1098,11 @@ export function LessonAiTutor({
             </TactileButton>
           </div>
 
-          <p className="mt-2 text-center text-[10px] font-medium text-rb-hare">
-            REBYU AI &middot; responses may be inaccurate, review your lesson materials
+          <p className="mt-1.5 px-2 text-center text-[10px] leading-snug font-medium text-rb-hare">
+            REBYU AI can make mistakes &middot; check your lesson materials · Enter to send, Shift+Enter for a new line
           </p>
         </form>
+        )}
       </section>
   )
 }

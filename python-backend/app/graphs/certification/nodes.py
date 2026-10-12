@@ -9,6 +9,8 @@ from app.schemas.certification.curriculum_schema import Curriculum
 from app.schemas.certification.lesson_audit import LessonAuditResult
 from app.schemas.certification.lesson_schema import GeneratedLesson
 from app.schemas.certification.question_schema import QuestionBatch
+from app.schemas.assessment.reflection_schema import ReflectionGenerationRequest
+from app.services.ai.reflection import generate_reflection
 from app.tools.certification.web_search import format_organic_results, serper_search
 from app.agents.certification.exam_format_agent import get_exam_format_agent
 from .review_mode import auto_approving
@@ -1449,15 +1451,39 @@ async def middle_generate_node(state: CertificationState):
         count=middle_quiz_count(),
         existing_stems=written_stems(state),
     )
+    reflection = await _reflection_for(state, major, middle, context)
     return {
         "middle_quizzes": [
             {
                 "majorCategory": major.get("name"),
                 "middleCategory": middle.get("name"),
                 "questions": questions_as_dicts(batch),
+                "reflection": reflection,
             }
         ]
     }
+
+
+async def _reflection_for(state: CertificationState, major: dict, middle: dict, context: str) -> dict | None:
+    """The topic's self-reflection, written alongside its exam.
+
+    Never fails the run: a topic without one is back-filled by Java the first
+    time a learner opens it.
+    """
+    try:
+        reflection = await generate_reflection(
+            ReflectionGenerationRequest(
+                certificationName=state.get("certification_name") or "",
+                majorCategory=major.get("name") or "",
+                middleCategory=middle.get("name") or "",
+                lessonNames=[lesson.get("name") or "" for lesson in middle.get("lessons") or []],
+                context=context or middle.get("description", "") or "",
+            )
+        )
+        return reflection.model_dump()
+    except Exception as error:  # noqa: BLE001
+        logger.warning("No reflection for middle category '%s': %s", middle.get("name"), error)
+        return None
 
 
 async def _author_lesson(

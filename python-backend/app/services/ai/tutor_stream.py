@@ -79,7 +79,7 @@ SNIP_NOTE = (
 )
 
 BREVITY = (
-    "Reply briefly: about 40-120 words, the direct answer first, at most 3-4 short "
+    "Reply briefly: about 30-80 words (never over 180), the direct answer first, at most 3 short "
     "bullets, no headings or summary section -- unless the learner explicitly "
     "asked for more detail."
 )

@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     ai_tutor_provider: str = "openrouter"
     ai_tutor_model: str = "google/gemini-2.5-flash"
     ai_tutor_fallbacks: str = "openai/gpt-4.1-mini,groq:openai/gpt-oss-120b,groq:openai/gpt-oss-20b,nvidia/nemotron-3-ultra-550b-a55b:free,nvidia/nemotron-3-super-120b-a12b:free,qwen/qwen3.8-27b:free,google/gemma-4-31b-it:free"
-    ai_tutor_max_tokens: int = 2000
+    ai_tutor_max_tokens: int = 1500
     ai_tutor_temperature: float = 0.3
 
     ai_tutor_vision_provider: str = "openrouter"

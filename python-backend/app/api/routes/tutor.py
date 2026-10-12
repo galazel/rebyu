@@ -17,6 +17,10 @@ from app.graphs.tutor.workflow import get_tutor_graph
 from app.services.ai.tutor_service import append_messages, get_conversation
 from app.graphs.tutor.nodes import with_quote
 from app.services.ai.tutor_stream import snippet_of, stream_tutor_answer
+from app.repositories.java_backend import get_lesson
+from app.services.ai.tutor_dialogue import DialogueRequest, DialogueResponse, run_dialogue
+from app.ai.router import AllModelsExhausted, OutOfCredits, RequestTooLarge
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +99,29 @@ def _lesson_grounding(db: Session, payload: ChatRequest) -> tuple[str | None, st
         query = f"{payload.message}\n{payload.quote}" if payload.quote else payload.message
         source_material = load_source_material(db, payload.lessonId, query)
     return lesson_context, source_material
+
+
+def _dialogue_lesson(db: Session, lesson_id: int | None):
+    """The lesson's section structure; the dialogue plans its talking points from it."""
+    if lesson_id is None:
+        return None
+    try:
+        lesson = get_lesson(db, lesson_id)
+        return lesson.get("lesson_component_structure") if lesson else None
+    except Exception:
+        logger.exception("Failed to load lesson %s for a dialogue", lesson_id)
+        return None
+
+
+@router.post("/dialogue", response_model=DialogueResponse)
+async def dialogue(payload: DialogueRequest, db: Session = Depends(get_db)) -> DialogueResponse:
+    """One turn of the guided Dialogue; the caller carries the transcript."""
+    lesson_context = await asyncio.to_thread(_dialogue_lesson, db, payload.lessonId)
+    try:
+        return await run_dialogue(payload, lesson_context)
+    except (AllModelsExhausted, OutOfCredits, RequestTooLarge) as unavailable:
+        logger.error("Dialogue turn unavailable: %s", unavailable)
+        raise HTTPException(status_code=503, detail="The tutor is unavailable right now.") from unavailable
 
 
 @router.post("/chat", response_model=ChatResponse)

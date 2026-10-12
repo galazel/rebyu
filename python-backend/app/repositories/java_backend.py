@@ -30,6 +30,7 @@ from app.db.java_tables import (
     lessons,
     major_categories,
     middle_categories,
+    middle_reflections,
     notifications,
     programming_question_configs,
     programming_test_cases,
@@ -594,6 +595,31 @@ def save_certification_exam_format(
                 notes=section.get("notes") or None,
             )
         )
+
+
+def upsert_middle_reflection(session: Session, middle_category_id: int, reflection: dict[str, Any]) -> None:
+    """Stores a topic's generated reflection; an existing one (possibly edited,
+    possibly already answered) is kept."""
+    exists = session.execute(
+        select(middle_reflections.c.reflection_id)
+        .where(middle_reflections.c.middle_category_id == middle_category_id)
+    ).first()
+    if exists:
+        return
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    session.execute(
+        insert(middle_reflections).values(
+            middle_category_id=middle_category_id,
+            title=(reflection.get("title") or "Reflection")[:255],
+            scenario=reflection.get("scenario") or "",
+            prompt=reflection.get("prompt") or "",
+            parts=reflection.get("parts") or [],
+            rubric=reflection.get("rubric") or [],
+            pass_percent=80,
+            created_at=now,
+            updated_at=now,
+        )
+    )
 
 
 def update_lesson_content(session: Session, lesson_id: int, blocks: Any) -> None:

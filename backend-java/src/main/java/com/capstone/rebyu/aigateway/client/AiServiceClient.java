@@ -116,6 +116,38 @@ public class AiServiceClient {
         }
     }
 
+    private static final Duration DIALOGUE_TIMEOUT = Duration.ofSeconds(90);
+
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> tutorDialogue(Map<String, Object> request) {
+        try {
+            return webClient.post()
+                    .uri("/tutor/dialogue")
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block(DIALOGUE_TIMEOUT);
+        } catch (Exception e) {
+            throw new AiServiceException("The tutor is unavailable right now. Please try again.", e);
+        }
+    }
+
+    private static final Duration REFLECTION_TIMEOUT = Duration.ofSeconds(90);
+
+    public com.capstone.rebyu.reflection.dto.ReflectionDtos.GeneratedReflection generateReflection(
+            com.capstone.rebyu.reflection.dto.ReflectionDtos.GenerationRequest request) {
+        try {
+            return webClient.post()
+                    .uri("/reflections/generate")
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(com.capstone.rebyu.reflection.dto.ReflectionDtos.GeneratedReflection.class)
+                    .block(REFLECTION_TIMEOUT);
+        } catch (Exception e) {
+            throw new AiServiceException("Reflection generation request failed", e);
+        }
+    }
+
     private static final Duration GRADING_TIMEOUT = Duration.ofSeconds(60);
 
     public Optional<AnswerGradingResultDto> gradeAnswer(AnswerGradingRequestDto request) {
