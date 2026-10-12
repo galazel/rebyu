@@ -93,7 +93,8 @@ class AssessmentAttemptServiceTest {
                 adaptiveAttemptService, adaptiveGradingService, adaptivePolicy,
                 mock(com.capstone.rebyu.enrollment.service.CertificationAwardService.class),
                 assessmentEventProducer, rewardService, streakService, achievementAwardService,
-                mock(com.capstone.rebyu.challenge.repository.WorldCupMatchRepository.class));
+                mock(com.capstone.rebyu.challenge.repository.WorldCupMatchRepository.class),
+                mock(com.capstone.rebyu.reflection.service.ReflectionService.class));
 
         Certification certification = new Certification();
         certification.setCertificationId(1L);

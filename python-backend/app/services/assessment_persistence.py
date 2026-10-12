@@ -388,6 +388,8 @@ def persist_generated_assessments(
                 f"satisfy that category's publishing requirement."
             )
         middle_questions = quiz.get("questions") or []
+        if middle_category_id is not None and quiz.get("reflection"):
+            repo.upsert_middle_reflection(session, middle_category_id, quiz["reflection"])
         _store_exam(
             scope="MIDDLE", title=f"{middle_name} Exam",
             questions=middle_questions,

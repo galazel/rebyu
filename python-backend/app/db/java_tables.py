@@ -118,6 +118,21 @@ middle_categories = Table(
     Column("title", String(150), nullable=False),
 )
 
+middle_reflections = Table(
+    "middle_reflections",
+    java_metadata,
+    Column("reflection_id", BigInteger, primary_key=True, autoincrement=True),
+    Column("middle_category_id", BigInteger, nullable=False, unique=True),
+    Column("title", String(255), nullable=False),
+    Column("scenario", Text, nullable=False),
+    Column("prompt", Text, nullable=False),
+    Column("parts", JSONB, nullable=False),
+    Column("rubric", JSONB, nullable=False),
+    Column("pass_percent", Integer, nullable=False),
+    Column("created_at", DateTime, nullable=False),
+    Column("updated_at", DateTime, nullable=False),
+)
+
 lessons = Table(
     "lessons",
     java_metadata,

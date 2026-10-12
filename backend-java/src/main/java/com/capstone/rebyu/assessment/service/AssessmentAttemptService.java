@@ -118,6 +118,7 @@ public class AssessmentAttemptService {
     private final StreakService streakService;
     private final AchievementAwardService achievementAwardService;
     private final WorldCupMatchRepository worldCupMatchRepository;
+    private final com.capstone.rebyu.reflection.service.ReflectionService reflectionService;
 
     private static int assessmentAttemptedXp()    { return RewardAmounts.getAssessmentAttemptedXp(); }
     private static int assessmentPassedTopupXp()  { return RewardAmounts.getAssessmentPassedTopupXp(); }
@@ -1044,10 +1045,14 @@ public class AssessmentAttemptService {
                 if (exam.getMiddleCategory() == null) {
                     return null;
                 }
+                Long middleCategoryId = exam.getMiddleCategory().getMiddleCategoryId();
                 long blocking = examRepository.countUnpassedLessonQuizzesInMiddle(
-                        exam.getMiddleCategory().getMiddleCategoryId(), learnerId, PROFICIENT_RATING);
-                return blocking == 0 ? null
-                        : "Clear every lesson quiz in this topic before taking its exam.";
+                        middleCategoryId, learnerId, PROFICIENT_RATING);
+                if (blocking > 0) {
+                    return "Clear every lesson quiz in this topic before taking its exam.";
+                }
+                return reflectionService.clearedOrAbsent(middleCategoryId, learnerId) ? null
+                        : "Pass this topic's reflection before taking its exam.";
             }
             case "MAJOR_EXAM" -> {
                 if (exam.getMajorCategory() == null) {

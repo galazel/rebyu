@@ -34,7 +34,7 @@ _SKIP_KEYS = {
     "icon",
 }
 
-_MAX_CHARS = 8000
+_MAX_CHARS = 5000
 
 
 def _collect_strings(value: Any, out: list[str]) -> None:

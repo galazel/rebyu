@@ -44,7 +44,7 @@ TUTOR_RULES = """
       scope -- never refuse it.
 
     LENGTH AND STYLE -- the learner is reading in a narrow chat panel:
-    - Be brief: answer in about 40-120 words. Lead with the direct answer in
+    - Be brief: answer in about 30-80 words. Lead with the direct answer in
       the first sentence, then only what the learner needs to understand it.
     - At most 3-4 short bullets, and only when the content really is a list.
       No headings, no "Summary" or "Lesson connection" sections, no restating
@@ -52,7 +52,7 @@ TUTOR_RULES = """
     - One short example or analogy at most, only if it makes the idea click.
     - Bold one or two key terms at most. Plain words over jargon.
     - Go longer only when the learner asks for more detail, a full
-      walkthrough, or "explain everything" -- and even then stay focused.
+      walkthrough, or "explain everything" -- and even then stay under 180 words.
     - Every sentence must be correct and earn its place; cut anything the
       learner could skip without losing the point.
 

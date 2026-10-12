@@ -13,6 +13,7 @@ from app.api.routes import assessments as assessment_routes
 from app.api.routes import certification as certification_routes
 from app.api.routes import past_papers as past_paper_routes
 from app.api.routes import question_bank as question_bank_routes
+from app.api.routes import reflections as reflection_routes
 from app.api.routes import study_aids as study_aid_routes
 from app.api.routes import tutor as tutor_routes
 from app.api.routes import workflow_stream as workflow_stream_routes
@@ -100,6 +101,7 @@ def create_app() -> FastAPI:
     app.include_router(certification_routes.router, prefix="/api/v1/ai")
     app.include_router(past_paper_routes.router, prefix="/api/v1/ai")
     app.include_router(question_bank_routes.router, prefix="/api/v1/ai")
+    app.include_router(reflection_routes.router, prefix="/api/v1/ai")
     app.include_router(study_aid_routes.router, prefix="/api/v1/ai")
     app.include_router(tutor_routes.router, prefix="/api/v1/ai")
     app.include_router(workflow_routes.router, prefix="/api/v1/ai")
