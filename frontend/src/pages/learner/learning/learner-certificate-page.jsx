@@ -26,6 +26,7 @@ import { certificationBadgeUrl } from "@/services/certificationService.js"
 import { getMyAwards, getCurrentLearnerIdentity } from "@/services/learnerService.js"
 import { getProgressAnalytics, progressAnalyticsQueryKey } from "@/services/learnerAnalyticsService.js"
 import { masteryColor, useChartTheme } from "@/components/charts/rebyu-charts.jsx"
+import { MockExamAnalytics } from "@/components/learner/mock-exam-analytics.jsx"
 
 
 function scoreLabel(n) {
@@ -413,6 +414,8 @@ export default function LearnerCertificatePage() {
           </div>
         </div>
       ) : (
+        <div className="space-y-5">
+        <MockExamAnalytics scoreTrend={d.scoreTrend} />
         <div className="grid gap-5 lg:grid-cols-[3fr_2fr]">
 
           <div className="space-y-5">
@@ -533,6 +536,7 @@ export default function LearnerCertificatePage() {
             </div>
 
           </div>
+        </div>
         </div>
       )}
         </div>

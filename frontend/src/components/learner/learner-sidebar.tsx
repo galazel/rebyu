@@ -4,7 +4,6 @@ import {
   BookOpenCheckIcon,
   CircleAlertIcon,
   CrownIcon,
-  SwordsIcon,
 } from "@/components/icons"
 
 import { NavProjects } from "@/components/nav-projects"
@@ -37,15 +36,6 @@ const learnerNav = {
           "/learner/lessons",
         ],
         icon: BookOpenCheckIcon,
-      },
-      {
-        name: "Challenges",
-        url: "/learner/challenges",
-        activeUrls: [
-          "/learner/challenges",
-          "/challenges",
-        ],
-        icon: SwordsIcon,
       },
     ],
   },
