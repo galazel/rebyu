@@ -60,7 +60,10 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import com.capstone.rebyu.assessment.repository.QuestionSelectionView;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -274,6 +277,14 @@ public class AssessmentAttemptService {
                 .filter(Objects::nonNull)
                 .toList();
         PhaseTimer.mark(timer, "load questions");
+
+        if (nextAttemptNumber > 1
+                && TYPE_MOCK.equals(exam.getExamType().getExamTypeText())
+                && exam.getOwnerDepartment() == null
+                && exam.getCertification() != null) {
+            questionsToUse = freshMockPaper(exam, learnerId, questionsToUse);
+            PhaseTimer.mark(timer, "fresh mock paper");
+        }
 
         if (TYPE_CHALLENGE.equals(exam.getExamType().getExamTypeText())
                 && exam.getTargetScope() != null
@@ -951,6 +962,75 @@ public class AssessmentAttemptService {
         return summaries;
     }
 
+
+    /**
+     * A mock exam retake gets a different paper of the same shape: every question is
+     * swapped for one from the same lesson and of the same type that this learner has
+     * not been served on this exam yet. When a lesson runs out of unseen questions it
+     * repeats the one seen longest ago, so repeats only happen when unavoidable.
+     */
+    List<Question> freshMockPaper(Exam exam, Long learnerId, List<Question> paper) {
+        Long certificationId = exam.getCertification().getCertificationId();
+        Set<Long> served = new HashSet<>(
+                attemptQuestionRepository.findSourceQuestionIdsServedOnExam(learnerId, exam.getExamId()));
+
+        Map<String, List<Long>> poolBySlot = new HashMap<>();
+        for (QuestionSelectionView view : questionRepository.findSelectionViewsByCertification(certificationId)) {
+            if (view.getOwnerDepartmentId() != null || view.getLessonId() == null) {
+                continue;
+            }
+            poolBySlot.computeIfAbsent(slotKey(view.getLessonId(), view.getQuestionType()), k -> new ArrayList<>())
+                    .add(view.getQuestionId());
+        }
+
+        Map<Long, LocalDateTime> lastSeen = new HashMap<>();
+        Set<Long> poolIds = poolBySlot.values().stream().flatMap(List::stream).collect(Collectors.toSet());
+        if (!poolIds.isEmpty()) {
+            for (var exposure : attemptQuestionRepository.findExposure(learnerId, poolIds)) {
+                lastSeen.put(exposure.getSourceQuestionId(), exposure.getLastSeenAt());
+            }
+        }
+
+        java.util.Random random = new java.util.Random();
+        Set<Long> chosen = new HashSet<>();
+        List<Long> picks = new ArrayList<>(paper.size());
+        int fresh = 0;
+        for (Question original : paper) {
+            Long lessonId = original.getLesson() == null ? null : original.getLesson().getLessonId();
+            List<Long> candidates = new ArrayList<>(
+                    poolBySlot.getOrDefault(slotKey(lessonId, original.getQuestionType()), List.of()));
+            candidates.removeIf(chosen::contains);
+
+            List<Long> unseen = candidates.stream().filter(id -> !served.contains(id)).toList();
+            Long pick;
+            if (!unseen.isEmpty()) {
+                pick = unseen.get(random.nextInt(unseen.size()));
+                fresh++;
+            } else if (!candidates.isEmpty()) {
+                pick = candidates.stream()
+                        .min(Comparator.comparing((Long id) -> lastSeen.getOrDefault(id, LocalDateTime.MIN)))
+                        .orElse(original.getQuestionId());
+            } else {
+                pick = original.getQuestionId();
+            }
+            chosen.add(pick);
+            picks.add(pick);
+        }
+
+        Map<Long, Question> byId = questionRepository.findForAttemptByIdIn(picks).stream()
+                .collect(Collectors.toMap(Question::getQuestionId, q -> q, (x, y) -> x));
+        List<Question> result = new ArrayList<>(paper.size());
+        for (int i = 0; i < paper.size(); i++) {
+            result.add(byId.getOrDefault(picks.get(i), paper.get(i)));
+        }
+        log.info("Mock exam {} retake for learner {}: {} of {} questions not seen before on this exam",
+                exam.getExamId(), learnerId, fresh, paper.size());
+        return result;
+    }
+
+    private static String slotKey(Long lessonId, String questionType) {
+        return lessonId + "|" + (questionType == null ? "" : questionType.trim().toUpperCase());
+    }
 
     static ProficiencyDto proficiencyOf(AssessmentAttempt attempt) {
         if (attempt == null || !attempt.isAdaptive() || attempt.getThetaCurrent() == null) {

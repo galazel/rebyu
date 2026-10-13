@@ -45,7 +45,6 @@ import { BUBBLE_TONES, BubbleCard } from "@/components/commons/bubble-card.jsx"
 const mainItems = [
   { label: "Progress", href: "/learner/progress", icon: BarChart3 },
   { label: "Learning", href: "/learner/learning", icon: LibraryBig },
-  { label: "Challenges", href: "/learner/challenges", icon: Trophy },
 ]
 
 const pageItems = [
