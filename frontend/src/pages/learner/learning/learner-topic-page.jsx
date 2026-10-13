@@ -69,6 +69,7 @@ import {
 } from "@/services/learnerService.js"
 import { getExams, getExamTypes } from "@/services/assessmentService.js"
 import { getTopicReflection } from "@/services/reflectionService.js"
+import { LessonAudioPlayer } from "@/components/learner/lesson-audio-player.jsx"
 import { ReflectionIcon, TopicReflectionView } from "@/components/learner/topic-reflection.jsx"
 import { getProgressAnalytics } from "@/services/learnerAnalyticsService.js"
 import { cn } from "@/lib/utils"
@@ -555,6 +556,7 @@ const SECTION_TONE = {
 
 function LessonView({
   onOpenOutline,
+  outlineHidden,
   backTo,
   lessonItem,
   sections,
@@ -660,6 +662,9 @@ function LessonView({
   return (
     <article
       ref={articleRef}
+      // No right-click menu on lesson content (a deterrent against casual copying;
+      // selecting text still works, the tutor's "ask about this" relies on it).
+      onContextMenu={(event) => event.preventDefault()}
       style={{ "--lesson-header-h": "116px" }}
       className="w-full px-4 pb-10 sm:px-6 lg:px-8"
     >
@@ -671,7 +676,7 @@ function LessonView({
               onClick={onOpenOutline}
               aria-label="Open topic outline"
               title="Topic outline"
-              className="grid size-10 shrink-0 place-items-center rounded-xl border-2 border-rb-swan bg-white text-rb-eel transition-transform active:scale-95 xl:hidden"
+              className={`grid size-10 shrink-0 place-items-center rounded-xl border-2 border-rb-swan bg-white text-rb-eel transition-transform active:scale-95 ${outlineHidden ? "" : "xl:hidden"}`}
             >
               <PanelLeft className="size-5" aria-hidden="true" />
             </button>
@@ -835,6 +840,16 @@ function LessonView({
         </TactileButton>
       </div>
       </div>
+
+      {/* Stays pinned to the bottom of the screen while the lesson scrolls; the right
+          padding keeps it clear of the floating snip and tutor buttons. */}
+      {!loading && sections.length > 0 ? (
+        <div data-snip-chrome className="pointer-events-none sticky bottom-4 z-20 mt-6 pr-20 sm:pr-24">
+          <div className="pointer-events-auto mx-auto w-full max-w-3xl shadow-[0_8px_24px_rgba(0,0,0,0.12)] rounded-full">
+            <LessonAudioPlayer sections={sections} lessonKey={lessonItem.id} />
+          </div>
+        </div>
+      ) : null}
     </article>
   )
 }
@@ -997,6 +1012,7 @@ function AssessmentView({
   latest,
   best,
   onOpenOutline,
+  outlineHidden,
 }) {
   const location = useLocation()
 
@@ -1010,7 +1026,7 @@ function AssessmentView({
               onClick={onOpenOutline}
               aria-label="Open topic outline"
               title="Topic outline"
-              className="grid size-10 shrink-0 place-items-center rounded-xl border-2 border-rb-swan bg-white text-rb-eel transition-transform active:scale-95 xl:hidden"
+              className={`grid size-10 shrink-0 place-items-center rounded-xl border-2 border-rb-swan bg-white text-rb-eel transition-transform active:scale-95 ${outlineHidden ? "" : "xl:hidden"}`}
             >
               <PanelLeft className="size-5" aria-hidden="true" />
             </button>
@@ -1551,14 +1567,16 @@ export default function LearnerTopicPage() {
 
   const tutorVisible = tutorOpen && active?.kind === "lesson"
 
-  const outlineWidth = outlineCollapsed ? 88 : 340
+  // A closed outline takes no room at all; the icon in each view's top bar reopens it.
+  const outlineColumn = outlineCollapsed ? "" : "340px "
   const gridStyle = isXl
     ? {
         gridTemplateColumns: tutorVisible
-          ? `${outlineWidth}px minmax(0,1fr) ${tutorWidth}px`
-          : `${outlineWidth}px minmax(0,1fr)`,
+          ? `${outlineColumn}minmax(0,1fr) ${tutorWidth}px`
+          : `${outlineColumn}minmax(0,1fr)`,
       }
     : undefined
+  const openOutline = () => (isXl ? setOutlineCollapsed(false) : setRailOpen(true))
 
   const outline = (
     <Outline
@@ -1567,8 +1585,8 @@ export default function LearnerTopicPage() {
       track={track}
       masteryByLessonId={lessonMasteryById}
       activeId={active?.id}
-      collapsed={outlineCollapsed}
-      onCollapse={() => setOutlineCollapsed((value) => !value)}
+      collapsed={false}
+      onCollapse={() => (isXl ? setOutlineCollapsed(true) : setRailOpen(false))}
       onSelect={(item, options) => {
         if (explainLock(item)) return
         setActiveId(item.id)
@@ -1596,9 +1614,11 @@ export default function LearnerTopicPage() {
   return (
     <div className="rebyu-ds min-h-dvh w-full bg-rb-polar" style={{ "--rb-topbar-h": "72px" }}>
       <div className={`grid min-h-dvh ${tutorResizing ? "select-none" : ""}`} style={gridStyle}>
-        <aside className="hidden min-h-0 border-r-2 border-rb-swan xl:block">
-          <div className="sticky top-0 h-dvh">{outline}</div>
-        </aside>
+        {outlineCollapsed ? null : (
+          <aside className="hidden min-h-0 border-r-2 border-rb-swan xl:block">
+            <div className="sticky top-0 h-dvh">{outline}</div>
+          </aside>
+        )}
 
         <main ref={readingRef} className="min-w-0 bg-rb-snow">
           <AnimatePresence mode="wait" initial={false}>
@@ -1647,7 +1667,8 @@ export default function LearnerTopicPage() {
                     }
                   : undefined
               }
-              onOpenOutline={() => setRailOpen(true)}
+              onOpenOutline={openOutline}
+              outlineHidden={outlineCollapsed}
             />
           ) : active?.kind === "reflection" ? (
             <TopicReflectionView
@@ -1656,16 +1677,9 @@ export default function LearnerTopicPage() {
               position={activeIndex + 1}
               total={track.length}
               backTo={backTo}
-              onOpenOutline={() => setRailOpen(true)}
+              onOpenOutline={openOutline}
+              outlineHidden={outlineCollapsed}
               examLabel={next?.kind === "assessment" ? next.name : "the topic exam"}
-              onContinue={
-                next
-                  ? () => {
-                      setActiveId(next.id)
-                      window.scrollTo({ top: 0 })
-                    }
-                  : undefined
-              }
             />
           ) : (
             <AssessmentView
@@ -1673,7 +1687,8 @@ export default function LearnerTopicPage() {
               position={activeIndex + 1}
               total={track.length}
               backTo={backTo}
-              onOpenOutline={() => setRailOpen(true)}
+              onOpenOutline={openOutline}
+              outlineHidden={outlineCollapsed}
               taken={Boolean(takenExamIds.has(String(active.exam.examId)))}
               standing={examStanding(data?.examResults, active.exam.examId)}
               latest={latestSitting(data?.examResults, active.exam.examId)}
@@ -1758,7 +1773,7 @@ export default function LearnerTopicPage() {
       </Sheet>
 
       <Sheet open={tutorVisible && !isXl} onOpenChange={(open) => !open && setTutorOpen(false)}>
-        <SheetContent side="right" className="rebyu-ds gap-0 p-0">
+        <SheetContent side="right" className="rebyu-ds gap-0 p-0 data-[side=right]:!w-full data-[side=right]:sm:!w-[28rem]">
           <SheetTitle className="sr-only">AI tutor</SheetTitle>
           <LessonAiTutor
             lessonId={activeLessonId}

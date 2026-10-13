@@ -11,6 +11,7 @@ rather than content (image/video keys, source URLs, raw type/id tags).
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -125,14 +126,71 @@ def load_source_material(session: Session, lesson_id: int, question: str):
         return None
 
 
+_LESSON_BUDGET = 7000
+
+
+def _section_list(structure: Any) -> list[tuple[str, str]]:
+    if isinstance(structure, str):
+        try:
+            structure = json.loads(structure)
+        except ValueError:
+            return []
+    sections = []
+    for item in structure or []:
+        if isinstance(item, dict) and "sectionName" in item:
+            strings: list[str] = []
+            _collect_strings(item.get("content") or [], strings)
+            sections.append((str(item.get("sectionName") or "").strip(), "\n".join(strings)))
+    return sections
+
+
+def _fair_shares(lengths: list[int], budget: int) -> list[int]:
+    """Splits `budget` so short sections are kept whole and the rest share what
+    is left equally -- every section is represented, none crowds out the others."""
+    shares = [0] * len(lengths)
+    remaining, open_ = budget, sorted(range(len(lengths)), key=lambda i: lengths[i])
+    while open_:
+        even = remaining // len(open_)
+        index = open_[0]
+        if lengths[index] <= even:
+            shares[index] = lengths[index]
+            remaining -= lengths[index]
+            open_.pop(0)
+        else:
+            for i in open_:
+                shares[i] = even
+            break
+    return shares
+
+
+def lesson_digest(structure: Any, budget: int = _LESSON_BUDGET) -> str:
+    """The whole lesson within `budget` characters: every section's heading and
+    a fair share of its text, so the tutor can speak to ANY part of the lesson.
+
+    The previous version kept the first N characters and dropped the rest,
+    which silently hid every later section -- asked to explain the lesson, the
+    tutor only ever covered its first third.
+    """
+    sections = _section_list(structure)
+    if not sections:
+        return flatten_lesson_blocks(structure)
+    headings = sum(len(name) + 6 for name, _ in sections)
+    shares = _fair_shares([len(text) for _, text in sections], max(0, budget - headings))
+    parts = []
+    for (name, text), share in zip(sections, shares):
+        body = text if len(text) <= share else text[:share].rsplit(" ", 1)[0] + " …"
+        parts.append(f"## {name}\n{body}".rstrip())
+    return "\n\n".join(parts)
+
+
 def load_lesson_context(session: Session, lesson_id: int) -> str | None:
-    """The lesson's title and flattened body text, or `None` if it has no
+    """The lesson's title and a digest of every section, or `None` if it has no
     content yet (a lesson still being generated, or an unrecognised id)."""
     lesson = get_lesson(session, lesson_id)
     if not lesson:
         return None
 
-    body = flatten_lesson_blocks(lesson.get("lesson_component_structure"))
+    body = lesson_digest(lesson.get("lesson_component_structure"))
     if not body:
         return None
 

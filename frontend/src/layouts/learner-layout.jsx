@@ -247,9 +247,16 @@ export default function LearnerLayout() {
           ) : (
             <>
               {query.isFetching ? (
-                <div className="mb-4 flex items-center gap-2 rounded-rb-card border border-border bg-card/80 px-4 py-2 text-xs text-muted-foreground">
-                  <span className="size-2 animate-pulse rounded-full bg-rb-macaw-lip" />
-                  Updating your learner data...
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="pointer-events-none fixed bottom-20 left-4 z-[70] flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-2.5 text-xs font-semibold text-foreground shadow-lg animate-in fade-in-0 slide-in-from-left-8 duration-300 sm:bottom-5 sm:left-5"
+                >
+                  <span
+                    className="size-3.5 animate-spin rounded-full border-2 border-rb-feather/25 border-t-rb-feather"
+                    aria-hidden="true"
+                  />
+                  Updating your learner data…
                 </div>
               ) : null}
               <Suspense fallback={<RouteSkeleton />}>

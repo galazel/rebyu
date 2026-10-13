@@ -72,21 +72,21 @@ langchain>=1.0,<2.0
 # a dozen lines -- see `QdrantIndex` in app/rag/store.py.
 qdrant-client>=1.12,<2.0
 
-# --- Output guardrails ----------------------------------------------------
-# `app.ai.guardrails` screens every structured agent answer for secrets,
-# injected instructions, and off-topic content. The deterministic scanners
-# need nothing installed; guardrails-ai adds model-backed PII and toxicity
-# detection on top and is consulted only when present, so leaving it out
-# degrades the screen rather than breaking generation.
+# --- Guardrails ------------------------------------------------------------
+# `app.ai.guardrails` screens generated content; `app.ai.tutor_guard` screens
+# every AI tutor turn (chat, streamed chat, guided dialogue) in both directions.
+# The deterministic scanners need nothing installed; these Guardrails AI
+# validators add model-backed profanity and toxicity detection on
+# top and are consulted only when present, so a missing or broken validator
+# degrades the screen rather than breaking the tutor.
 #
-#   pip install "guardrails-ai>=0.6,<1.0"
-#   guardrails hub install hub://guardrails/toxic_language
-#   guardrails hub install hub://guardrails/detect_pii
-#
-# Left commented deliberately: it pulls its own transformer models, and an
-# unpinned install here already cost us once -- langchain-qdrant silently
-# downgraded langchain-core and broke langgraph.
-# guardrails-ai>=0.6,<1.0
+# Validators are plain PyPI packages now -- no hub token, no `guardrails configure`.
+# Pinned exactly: an unpinned install here once silently downgraded
+# langchain-core and broke langgraph. torch/transformers are already required
+# by the retrieval stack above, so these add little.
+guardrails-ai==0.11.0
+guardrails-ai-profanity-free==0.1.0
+guardrails-ai-toxic-language==0.0.2
 # Still used elsewhere in the stack (document loaders); no longer the vector
 # store. Being sunset upstream, so treat new usage as a migration debt.
 langchain-community>=0.4,<1.0

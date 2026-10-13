@@ -24,6 +24,7 @@ import {
   faArrowUp,
   faArrowsRotate,
   faAward,
+  faBackwardStep,
   faBan,
   faBars,
   faBell,
@@ -124,6 +125,8 @@ import {
   faMagnifyingGlass,
   faMedal,
   faMicrochip,
+  faMicrophone,
+  faMicrophoneSlash,
   faMinus,
   faMoon,
   faNetworkWired,
@@ -167,6 +170,8 @@ import {
   faUserPlus,
   faUsers,
   faVideo,
+  faVolumeHigh,
+  faVolumeXmark,
   faWandMagicSparkles,
   faWrench,
   faXmark,
@@ -374,6 +379,8 @@ export const Medal = icon(faMedal, "Medal")
 export const MegaphoneIcon = icon(faBullhorn, "MegaphoneIcon")
 export const Menu = icon(faBars, "Menu")
 export const MessageCircle = icon(faComment, "MessageCircle")
+export const Mic = icon(faMicrophone, "Mic")
+export const MicOff = icon(faMicrophoneSlash, "MicOff")
 export const Minimize2Icon = icon(faCompress, "Minimize2Icon")
 export const Minus = icon(faMinus, "Minus")
 export const MinusCircleIcon = icon(faCircleMinus, "MinusCircleIcon")
@@ -420,16 +427,17 @@ export const ShieldAlert = icon(faTriangleExclamation, "ShieldAlert")
 export const ShieldCheck = icon(faShieldHalved, "ShieldCheck")
 export const ShieldCheckIcon = icon(faShieldHalved, "ShieldCheckIcon")
 export const ShieldXIcon = icon(faBan, "ShieldXIcon")
+export const SkipBack = icon(faBackwardStep, "SkipBack")
 export const SkipForward = icon(faForwardStep, "SkipForward")
 export const SkipForwardIcon = icon(faForwardStep, "SkipForwardIcon")
 export const Sparkles = icon(faWandMagicSparkles, "Sparkles")
 export const SparklesIcon = icon(faWandMagicSparkles, "SparklesIcon")
+export const SquarePen = icon(faPenToSquare, "SquarePen")
 export const Star = icon(faStar, "Star")
 export const StarIcon = icon(faStar, "StarIcon")
 export const StickyNote = icon(faNoteSticky, "StickyNote")
 export const SunIcon = icon(faSun, "SunIcon")
 export const Swords = icon(faKhanda, "Swords")
-export const SwordsIcon = icon(faKhanda, "SwordsIcon")
 export const Table = icon(faTableCells, "Table")
 export const Target = icon(faBullseye, "Target")
 export const TargetIcon = icon(faBullseye, "TargetIcon")
@@ -465,6 +473,8 @@ export const UsersRound = icon(faUsers, "UsersRound")
 export const UsersRoundIcon = icon(faUsers, "UsersRoundIcon")
 export const Video = icon(faVideo, "Video")
 export const VideoIcon = icon(faVideo, "VideoIcon")
+export const Volume2 = icon(faVolumeHigh, "Volume2")
+export const VolumeX = icon(faVolumeXmark, "VolumeX")
 export const WifiOff = icon(faPlugCircleXmark, "WifiOff")
 export const Workflow = icon(faDiagramProject, "Workflow")
 export const WrenchIcon = icon(faWrench, "WrenchIcon")

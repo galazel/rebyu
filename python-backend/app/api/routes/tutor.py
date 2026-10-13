@@ -14,10 +14,11 @@ from app.core.security import require_service_key
 from app.db.session import get_db
 from app.graphs.tutor.lesson_context import load_lesson_context, load_source_material
 from app.graphs.tutor.workflow import get_tutor_graph
-from app.services.ai.tutor_service import append_messages, get_conversation
+from app.services.ai.tutor_service import append_messages, get_conversation, list_conversations
 from app.graphs.tutor.nodes import with_quote
 from app.services.ai.tutor_stream import snippet_of, stream_tutor_answer
 from app.repositories.java_backend import get_lesson
+from app.ai import tutor_guard
 from app.services.ai.tutor_dialogue import DialogueRequest, DialogueResponse, run_dialogue
 from app.ai.router import AllModelsExhausted, OutOfCredits, RequestTooLarge
 from fastapi import HTTPException
@@ -65,6 +66,12 @@ class ConversationResponse(BaseModel):
 class AppendMessagesRequest(BaseModel):
     sessionId: str
     messages: list[ConversationMessage]
+
+
+@router.get("/conversations")
+async def conversations(baseSessionId: str) -> dict:
+    """The learner's chats for one lesson; Java has already checked ownership."""
+    return {"chats": await list_conversations(baseSessionId)}
 
 
 @router.get("/conversation", response_model=ConversationResponse)
@@ -124,8 +131,30 @@ async def dialogue(payload: DialogueRequest, db: Session = Depends(get_db)) -> D
         raise HTTPException(status_code=503, detail="The tutor is unavailable right now.") from unavailable
 
 
+async def _guard_input(payload: ChatRequest) -> str | None:
+    """Screens the learner's message; returns the redirect to send when it is blocked.
+
+    A blocked turn is still recorded in the thread (question + redirect), so the
+    conversation reloads exactly as the learner saw it -- but no model is called.
+    On a pass, personal details are redacted from the message before it goes on.
+    """
+    check = await asyncio.to_thread(tutor_guard.check_learner_message, payload.message)
+    if not check.blocked:
+        payload.message = check.text or payload.message
+        return None
+    logger.info("Tutor guard blocked a message on %s (%s)", payload.sessionId, check.reason)
+    await append_messages(payload.sessionId, [
+        {"role": "user", "content": check.text},
+        {"role": "assistant", "content": check.redirect},
+    ])
+    return check.redirect
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatResponse:
+    redirect = await _guard_input(payload)
+    if redirect:
+        return ChatResponse(reply=redirect, sessionId=payload.sessionId)
     lesson_context, source_material = await asyncio.to_thread(_lesson_grounding, db, payload)
 
     graph = await get_tutor_graph()
@@ -147,7 +176,9 @@ async def chat(payload: ChatRequest, db: Session = Depends(get_db)) -> ChatRespo
     )
     last = result["messages"][-1]
     resources = (last.additional_kwargs or {}).get("resources") or []
-    return ChatResponse(reply=last.content, sessionId=payload.sessionId, resources=resources)
+    reply = await asyncio.to_thread(tutor_guard.check_tutor_reply, last.content)
+    return ChatResponse(reply=reply, sessionId=payload.sessionId,
+                        resources=resources if reply == last.content else [])
 
 
 def _sse(event: dict) -> str:
@@ -160,10 +191,21 @@ async def chat_stream(payload: ChatRequest, db: Session = Depends(get_db)) -> St
     """The answer as Server-Sent Events while it is written: `delta` {text}
     pieces, then `resources` when there are some, then `done` -- or `error`
     {message} if no model could answer. See app.services.ai.tutor_stream."""
+    redirect = await _guard_input(payload)
+    if redirect:
+        async def blocked():
+            yield ": stream open\n\n"
+            yield _sse({"type": "delta", "text": redirect})
+            yield _sse({"type": "done"})
+
+        return StreamingResponse(blocked(), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
     lesson_context, source_material = await asyncio.to_thread(_lesson_grounding, db, payload)
 
     async def events():
         yield ": stream open\n\n"
+        written = []
         try:
             async for event in stream_tutor_answer(
                 session_id=payload.sessionId,
@@ -175,6 +217,13 @@ async def chat_stream(payload: ChatRequest, db: Session = Depends(get_db)) -> St
                 image=payload.image,
                 image_key=payload.imageKey,
             ):
+                if event.get("type") == "delta":
+                    written.append(event.get("text") or "")
+                elif event.get("type") == "done":
+                    full = "".join(written)
+                    safe = await asyncio.to_thread(tutor_guard.check_tutor_reply, full)
+                    if safe != full:
+                        yield _sse({"type": "replace", "text": safe})
                 yield _sse(event)
         except Exception:  # noqa: BLE001 -- the learner gets a message, the log the detail
             logger.exception("Streaming tutor answer failed for %s", payload.sessionId)

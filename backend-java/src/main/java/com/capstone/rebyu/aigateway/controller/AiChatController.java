@@ -94,6 +94,14 @@ public class AiChatController {
         return aiChatService.streamChat(request);
     }
 
+    /** The signed-in learner's past chats for one lesson; the prefix is built here, never taken from the client. */
+    @GetMapping("/tutor/conversations")
+    public java.util.Map<String, Object> listConversations(@AuthenticationPrincipal Jwt jwt, @RequestParam Long lessonId) {
+        CurrentUserDto user = requireTutor(jwt);
+        String owner = user.learnerId() != null ? user.learnerId().toString() : "guest";
+        return aiChatService.listConversations(owner + "-" + lessonId);
+    }
+
     @GetMapping("/tutor/conversation")
     public ConversationResponseDto getConversation(@AuthenticationPrincipal Jwt jwt, @RequestParam String sessionId) {
         requireTutorSession(jwt, sessionId);

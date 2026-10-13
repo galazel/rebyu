@@ -41,6 +41,48 @@ async def get_conversation(session_id: str):
     return conversation
 
 
+async def list_conversations(base_session_id: str, limit: int = 20) -> list[dict]:
+    """A lesson's past tutor chats, newest first.
+
+    "New chat" in `lesson-ai-tutor.jsx` threads a lesson as `base` (the original)
+    or `base-<suffix>`, so a prefix match on the checkpoint table finds them all.
+    Each entry carries its first question as a title and when it was last used.
+    """
+    from app.utils import helpers
+
+    await helpers.get_checkpointer()
+    pool = helpers._checkpointer_pool
+    if pool is None:
+        return []
+    async with pool.connection() as conn:
+        rows = await (await conn.execute(
+            """
+            SELECT thread_id, MAX(checkpoint->>'ts') AS updated_at
+              FROM checkpoints
+             WHERE checkpoint_ns = '' AND (thread_id = %s OR thread_id LIKE %s)
+             GROUP BY thread_id
+             ORDER BY updated_at DESC
+             LIMIT %s
+            """,
+            (base_session_id, base_session_id + "-%", limit),
+        )).fetchall()
+
+    chats = []
+    for row in rows:
+        messages = await get_conversation(row["thread_id"])
+        questions = [m["content"] for m in messages if m["role"] == "user" and (m["content"] or "").strip()]
+        if not messages:
+            continue
+        title = (questions[0] if questions else "Chat").strip().replace("\n", " ")
+        chats.append({
+            "sessionId": row["thread_id"],
+            "title": title[:80] + ("…" if len(title) > 80 else ""),
+            "messageCount": len(messages),
+            "updatedAt": row["updated_at"],
+        })
+    return chats
+
+
 async def append_messages(session_id: str, messages: list[dict]):
     """Writes turns into the thread WITHOUT invoking the model.
 

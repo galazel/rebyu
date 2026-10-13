@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   CheckCircle2,
   Clock,
@@ -116,6 +116,19 @@ export function MockExamAnalytics({ scoreTrend }) {
     staleTime: 5 * 60_000,
   })
 
+  const queryClient = useQueryClient()
+  useEffect(() => {
+    if (learnerId == null || !resultQuery.data) return
+    for (const point of sittings.slice(0, 5)) {
+      if (point.assessmentAttemptId === selectedId) continue
+      queryClient.prefetchQuery({
+        queryKey: ["attempt-result", String(point.assessmentAttemptId), learnerId],
+        queryFn: () => getAttemptResult(point.assessmentAttemptId, learnerId),
+        staleTime: 5 * 60_000,
+      })
+    }
+  }, [learnerId, resultQuery.data, sittings, selectedId, queryClient])
+
   if (!sittings.length) {
     return (
       <div className="rounded-xl border border-border bg-card p-5">
@@ -125,13 +138,21 @@ export function MockExamAnalytics({ scoreTrend }) {
     )
   }
 
+  // The score trend already carries each sitting's headline numbers, so they show at
+  // once; only the per-lesson breakdown and the timing wait for the full result.
+  const sitting = sittings.find((point) => point.assessmentAttemptId === selectedId) ?? sittings[0]
   const result = resultQuery.data
-  const correct = result?.correctCount ?? 0
-  const incorrect = result?.incorrectCount ?? 0
+  const detailsLoading = !result && !resultQuery.isError
+  const sittingItems = Number(sitting.itemCount ?? 0)
+  const sittingCorrect = Number(sitting.correctCount ?? 0)
+  const correct = result?.correctCount ?? sittingCorrect
   const unanswered = result?.unansweredCount ?? 0
   const pending = result?.pendingCount ?? 0
-  const total = correct + incorrect + unanswered + pending
-  const percent = result?.percentage != null ? Math.round(Number(result.percentage)) : null
+  const incorrect = result?.incorrectCount ?? Math.max(0, sittingItems - sittingCorrect)
+  const total = result ? correct + incorrect + unanswered + pending : sittingItems
+  const percentSource = result?.percentage ?? sitting.percentage
+  const percent = percentSource != null ? Math.round(Number(percentSource)) : null
+  const passed = result?.passed ?? sitting.passed
   const rating = result?.proficiency?.rating != null ? Math.round(Number(result.proficiency.rating)) : null
   const lessons = [...(result?.lessonBreakdown ?? [])].sort(
     (a, b) => Number(a.percentage ?? 0) - Number(b.percentage ?? 0),
@@ -178,25 +199,20 @@ export function MockExamAnalytics({ scoreTrend }) {
         })}
       </div>
 
-      {resultQuery.isLoading || learnerId == null ? (
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-            {[0, 1, 2, 3].map((key) => (
-              <div key={key} className="h-[74px] animate-pulse rounded-lg bg-muted/40" />
-            ))}
-          </div>
-          <div className="h-40 animate-pulse rounded-lg bg-muted/40" />
-        </div>
-      ) : resultQuery.isError || !result ? (
-        <p className="text-sm text-muted-foreground">This sitting's details could not be loaded.</p>
-      ) : (
+      {(
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
             <Stat
               icon={Target}
               label="Score"
               value={percent != null ? `${percent}%` : "—"}
-              note={result.passed ? "Passed" : result.passingScore != null ? `Pass mark ${Math.round(Number(result.passingScore))}%` : null}
+              note={
+                passed
+                  ? "Passed"
+                  : result?.passingScore != null
+                    ? `Pass mark ${Math.round(Number(result.passingScore))}%`
+                    : "Not passed"
+              }
               color={bandColor(percent)}
             />
             {rating != null ? (
@@ -204,14 +220,19 @@ export function MockExamAnalytics({ scoreTrend }) {
                 icon={TrendingUp}
                 label="Proficiency"
                 value={`${rating} / 100`}
-                note={result.proficiency?.label ?? null}
+                note={result?.proficiency?.label ?? null}
                 color={bandColor(rating)}
               />
             ) : (
               <Stat icon={XCircle} label="Wrong" value={incorrect} note={`of ${total} items`} color="#c8553d" />
             )}
             <Stat icon={CheckCircle2} label="Correct" value={correct} note={`of ${total} items`} color="#2f6b4f" />
-            <Stat icon={Clock} label="Time taken" value={fmtDuration(result.durationSeconds)} note={fmtDate(result.submittedAt)} />
+            <Stat
+              icon={Clock}
+              label="Time taken"
+              value={detailsLoading ? <span className="inline-block h-4 w-14 animate-pulse rounded bg-muted/60" /> : fmtDuration(result?.durationSeconds)}
+              note={fmtDate(sitting.submittedAt)}
+            />
           </div>
 
           {total > 0 ? (
@@ -234,7 +255,20 @@ export function MockExamAnalytics({ scoreTrend }) {
             </div>
           ) : null}
 
-          {lessons.length ? (
+          {detailsLoading ? (
+            <div className="grid gap-4 md:grid-cols-2" aria-busy="true">
+              {[0, 1].map((column) => (
+                <div key={column} className="space-y-2.5">
+                  <div className="h-3 w-28 animate-pulse rounded bg-muted/50" />
+                  {[0, 1, 2].map((row) => (
+                    <div key={row} className="h-7 animate-pulse rounded bg-muted/40" />
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : resultQuery.isError ? (
+            <p className="text-xs text-muted-foreground">The lesson breakdown for this sitting could not be loaded.</p>
+          ) : lessons.length ? (
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2.5">
                 <p className="flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">

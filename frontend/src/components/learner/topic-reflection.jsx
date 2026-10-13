@@ -56,7 +56,7 @@ function formatDate(value) {
     : ""
 }
 
-function Header({ position, total, title, backTo, onOpenOutline }) {
+function Header({ position, total, title, backTo, onOpenOutline, outlineHidden }) {
   return (
     <div className="sticky top-0 z-10 border-b-2 border-rb-swan bg-rb-snow/95 px-5 backdrop-blur supports-[backdrop-filter]:bg-rb-snow/80 sm:px-10 lg:px-14">
       <div className="flex h-[var(--rb-topbar-h)] items-center justify-between gap-2 sm:gap-4">
@@ -66,7 +66,7 @@ function Header({ position, total, title, backTo, onOpenOutline }) {
             onClick={onOpenOutline}
             aria-label="Open topic outline"
             title="Topic outline"
-            className="grid size-10 shrink-0 place-items-center rounded-xl border-2 border-rb-swan bg-white text-rb-eel transition-transform active:scale-95 xl:hidden"
+            className={`grid size-10 shrink-0 place-items-center rounded-xl border-2 border-rb-swan bg-white text-rb-eel transition-transform active:scale-95 ${outlineHidden ? "" : "xl:hidden"}`}
           >
             <PanelLeft className="size-5" aria-hidden="true" />
           </button>
@@ -304,57 +304,95 @@ function Write({ reflection, middleId, onBack, onSubmitted }) {
   )
 }
 
+// The grader sometimes returns a mark with no comment (free fallback models do).
+// Then the rubric itself explains the mark, so a learner never sees an empty note.
+const NO_FEEDBACK = /no written feedback was produced/i
+
+function feedbackFor(criterion, grade, earned) {
+  const text = String(grade?.feedback ?? "").trim()
+  if (text && !NO_FEEDBACK.test(text)) return { text, generated: false }
+  const goal = String(criterion.onePoint ?? "").trim().replace(/\.$/, "")
+  if (!goal) return null
+  return {
+    text: earned >= 1 ? `You met this: ${goal}.` : `Not met yet. To earn this point: ${goal}.`,
+    generated: true,
+  }
+}
+
 function RubricCard({ index, criterion, grade }) {
   const [open, setOpen] = useState(true)
   const earned = Number(grade?.earnedPoints ?? 0)
   const max = Number(grade?.maxPoints ?? 1)
+  const met = earned >= max
+  const note = feedbackFor(criterion, grade, earned)
 
   return (
-    <div className="rounded-rb-card border-2 border-rb-swan bg-white">
+    <div className={`overflow-hidden rounded-rb-card border-2 bg-white ${met ? "border-rb-feather/40" : "border-rb-cardinal/30"}`}>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 p-5 text-left"
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left sm:px-5"
       >
+        <span
+          className={`grid size-8 shrink-0 place-items-center rounded-full ${
+            met ? "bg-rb-feather-wash text-rb-feather-ink" : "bg-rb-cardinal-wash text-rb-cardinal-lip"
+          }`}
+        >
+          {met ? <CheckCircle2 className="size-4" aria-hidden="true" /> : <XCircle className="size-4" aria-hidden="true" />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] font-extrabold uppercase tracking-wide text-rb-wolf">Rubric {index}</span>
+          <span className="block font-bold leading-snug text-rb-eel">{criterion.title}</span>
+        </span>
+        <span
+          className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-extrabold ${
+            met ? "bg-rb-feather-wash text-rb-feather-ink" : "bg-rb-cardinal-wash text-rb-cardinal-lip"
+          }`}
+        >
+          {earned}/{max} {max === 1 ? "point" : "points"}
+        </span>
         <motion.span animate={{ rotate: open ? 180 : 0 }} className="grid place-items-center text-rb-wolf">
           <ChevronDown className="size-4" aria-hidden="true" />
         </motion.span>
-        <span className="flex-1 font-bold text-rb-eel">Rubric {index}</span>
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-xs font-extrabold ${
-            earned >= max ? "bg-rb-feather-wash text-rb-feather-ink" : "bg-rb-cardinal-wash text-rb-cardinal-lip"
-          }`}
-        >
-          {earned}/{max} point
-        </span>
       </button>
       <Collapse open={open} duration={0.24}>
-        <div className="space-y-4 px-5 pb-5">
-          <p className="text-rb-eel">
-            <strong>{criterion.title}.</strong> {criterion.description}
-          </p>
-          <div className="divide-y-2 divide-rb-swan">
+        <div className="space-y-3 border-t-2 border-rb-swan px-4 pb-4 pt-3 sm:px-5">
+          <p className="text-sm leading-relaxed text-rb-wolf">{criterion.description}</p>
+          <div className="grid gap-2">
             {[
               [0, criterion.zeroPoint],
               [1, criterion.onePoint],
-            ].map(([points, text]) => (
-              <div key={points} className="flex gap-4 py-3">
-                <span
-                  className={`h-fit shrink-0 rounded-full px-2.5 py-0.5 text-xs font-extrabold ${
-                    earned === points ? "bg-rb-eel text-white" : "bg-rb-polar text-rb-eel"
+            ].map(([points, text]) => {
+              const reached = earned === points
+              return (
+                <div
+                  key={points}
+                  className={`flex items-start gap-3 rounded-[0.8rem] border-2 px-3 py-2.5 ${
+                    reached
+                      ? points === 1
+                        ? "border-rb-feather/50 bg-rb-feather-wash/40"
+                        : "border-rb-cardinal/40 bg-rb-cardinal-wash/40"
+                      : "border-transparent bg-rb-polar/60"
                   }`}
                 >
-                  {points} {points === 1 ? "point" : "points"}
-                </span>
-                <span className="text-sm text-rb-eel">{text}</span>
-              </div>
-            ))}
+                  <span
+                    className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-extrabold ${
+                      reached ? "bg-rb-eel text-white" : "bg-white text-rb-wolf"
+                    }`}
+                  >
+                    {points} {points === 1 ? "pt" : "pts"}
+                  </span>
+                  <span className={`text-sm leading-snug ${reached ? "font-semibold text-rb-eel" : "text-rb-wolf"}`}>{text}</span>
+                  {reached ? <span className="ml-auto shrink-0 text-[10px] font-extrabold uppercase text-rb-eel">your level</span> : null}
+                </div>
+              )
+            })}
           </div>
-          {grade?.feedback ? (
-            <div className="rounded-rb-card bg-rb-macaw-wash p-4">
-              <Sparkles className="size-4 text-rb-macaw-lip" aria-hidden="true" />
-              <p className="mt-2 text-sm leading-relaxed text-rb-eel">{grade.feedback}</p>
+          {note ? (
+            <div className="flex gap-2.5 rounded-[0.8rem] bg-rb-macaw-wash/60 px-3 py-2.5">
+              <Sparkles className="mt-0.5 size-4 shrink-0 text-rb-macaw-lip" aria-hidden="true" />
+              <p className="text-sm leading-relaxed text-rb-eel">{note.text}</p>
             </div>
           ) : null}
         </div>
@@ -373,28 +411,40 @@ function Feedback({ reflection, onRetry, onBack, onContinue, examLabel }) {
 
   return (
     <div className="mx-auto w-full max-w-4xl">
-      <div
-        className={`flex flex-col gap-4 rounded-rb-card p-6 sm:flex-row sm:items-center sm:justify-between ${
-          passed ? "bg-rb-feather-wash" : "bg-rb-cardinal-wash"
-        }`}
-      >
-        <div>
+      <div className={`rounded-rb-card p-5 sm:p-6 ${passed ? "bg-rb-feather-wash" : "bg-rb-cardinal-wash"}`}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {passed ? (
+            <CheckCircle2 className="size-6 text-rb-feather" aria-hidden="true" />
+          ) : (
+            <XCircle className="size-6 text-rb-cardinal" aria-hidden="true" />
+          )}
           <p className="font-rb-display text-2xl font-extrabold text-rb-eel">
             Your grade:{" "}
             <span className={passed ? "text-rb-feather-ink" : "text-rb-cardinal-lip"}>
               {percentText(latest.scorePercent)}
             </span>
           </p>
-          <p className="mt-1 text-sm text-rb-eel">
-            Your latest: <strong>{percentText(latest.scorePercent)}</strong> · Your highest:{" "}
-            <strong>{percentText(best?.scorePercent)}</strong> · To pass you need at least {reflection.passPercent}%.
-            We keep your highest score.
-          </p>
+          <span className="text-sm font-bold text-rb-eel">{passed ? "· Passed" : "· Not passed yet"}</span>
         </div>
-        <div className="flex shrink-0 flex-wrap gap-3">
+
+        <dl className="mt-4 grid grid-cols-3 gap-2">
+          {[
+            ["Latest", percentText(latest.scorePercent)],
+            ["Highest", percentText(best?.scorePercent)],
+            ["Pass mark", `${reflection.passPercent}%`],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-[0.8rem] bg-white/70 px-3 py-2">
+              <dt className="text-[10px] font-extrabold uppercase tracking-wide text-rb-wolf">{label}</dt>
+              <dd className="text-base font-extrabold text-rb-eel">{value}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-2 text-xs text-rb-wolf">We keep your highest score. Retakes are unlimited.</p>
+
+        <div className="mt-4 flex flex-wrap gap-2.5">
           {reflection.passed && onContinue ? (
-            <TactileButton variant="fox" onClick={onContinue}>
-              go to {examLabel} <ArrowRight className="size-4" />
+            <TactileButton variant="fox" onClick={onContinue} className="max-w-full">
+              <span className="truncate">go to {examLabel}</span> <ArrowRight className="size-4 shrink-0" />
             </TactileButton>
           ) : null}
           <TactileButton variant={reflection.passed ? "feather" : "macaw"} onClick={onRetry}>
@@ -459,6 +509,7 @@ export function TopicReflectionView({
   backTo,
   onOpenOutline,
   onContinue,
+  outlineHidden,
   examLabel = "the topic exam",
 }) {
   const [mode, setMode] = useState("overview")
@@ -476,6 +527,7 @@ export function TopicReflectionView({
         title={reflection?.title ?? "Reflection"}
         backTo={backTo}
         onOpenOutline={onOpenOutline}
+        outlineHidden={outlineHidden}
       />
       <div className="px-5 py-12 sm:px-10 lg:px-14">
         {query.isLoading ? (

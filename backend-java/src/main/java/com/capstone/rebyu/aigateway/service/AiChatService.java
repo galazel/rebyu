@@ -61,6 +61,10 @@ public class AiChatService {
         }
     }
 
+    public java.util.Map<String, Object> listConversations(String baseSessionId) {
+        return aiServiceClient.listConversations(baseSessionId);
+    }
+
     public ConversationResponseDto getConversation(String sessionId) {
         return aiServiceClient.getConversation(sessionId);
     }

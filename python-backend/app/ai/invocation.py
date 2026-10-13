@@ -128,7 +128,14 @@ class _StructuredAgent:
             return None
         arguments = _failed_generation_arguments(error)
         if arguments is None:
-            return None
+            # Some models answer in prose instead of calling the tool at all. A
+            # schema that names a PLAIN_TEXT_FIELD accepts that prose as its main
+            # field (the tutor's dialogue reply), rather than retrying a good answer.
+            field = getattr(self._schema, "PLAIN_TEXT_FIELD", None)
+            text = _failed_generation_text(error)
+            if not field or not text:
+                return None
+            arguments = {field: text}
         try:
             structured = self._schema.model_validate(arguments)
         except Exception:  # noqa: BLE001 -- not the answer; keep the original failure
@@ -141,7 +148,18 @@ class _StructuredAgent:
 
 
 def _short(error: BaseException) -> str:
-    return str(error).splitlines()[0][:120]
+    lines = str(error).splitlines()
+    return lines[0][:120] if lines else type(error).__name__
+
+
+def _failed_generation_text(error: BaseException) -> str | None:
+    """The refused output when it is plain prose rather than a tool call."""
+    body = getattr(error, "body", None)
+    detail = body.get("error") if isinstance(body, dict) and isinstance(body.get("error"), dict) else body
+    raw = detail.get("failed_generation") if isinstance(detail, dict) else None
+    if not isinstance(raw, str) or not raw.strip() or raw.lstrip().startswith(("{", "[")):
+        return None
+    return raw.strip()
 
 
 def _failed_generation_arguments(error: BaseException) -> dict | None:
