@@ -37,7 +37,7 @@ certifications = Table(
     Column("certification_id", BigInteger, primary_key=True),
     Column("title", String(150)),
     Column("description", Text),
-    Column("industry", String),
+    Column("department", String),
     Column("status", SmallInteger),
     Column("date_created", DateTime),
     Column("date_updated", DateTime),

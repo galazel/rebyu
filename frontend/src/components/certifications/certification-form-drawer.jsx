@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { CircleAlert, Sparkles, X } from "@/components/icons"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
+import { getAiCredits } from "@/services/aiWorkflowService"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
@@ -17,6 +18,12 @@ import CertificationDetails from "@/components/certifications/certification-deta
 import { DocumentUploadStep } from "@/components/certifications/document-upload-step.jsx"
 import { BadgeUploadStep } from "@/components/certifications/badge-upload-step.jsx"
 import { QuestionTypeChoice } from "@/components/certifications/question-type-choice.jsx"
+import {
+    GenerationEstimate,
+    estimateGenerationTokens,
+    generationEstimateLevel,
+    hasEnoughCredit,
+} from "@/components/certifications/generation-estimate.jsx"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -174,6 +181,18 @@ export default function CertificationFormDrawer({
     const [questionTypes, setQuestionTypes] = useState([])
     const [questionBankSize, setQuestionBankSize] = useState("300")
     const [lessonCount, setLessonCount] = useState("40")
+    // A large run asks once before starting; changing either size asks again.
+    const [confirmedLarge, setConfirmedLarge] = useState(false)
+    const estimatedTokens = estimateGenerationTokens(lessonCount, questionBankSize)
+    const isLargeRun = generationEstimateLevel(estimatedTokens) === "high"
+    const credits = useQuery({
+        queryKey: ["ai-credits"],
+        queryFn: getAiCredits,
+        enabled: Boolean(open),
+        staleTime: 60_000,
+        retry: false,
+    })
+    const notEnoughCredit = hasEnoughCredit(credits.data, estimatedTokens) === false
 
     const {
         mutateAsync: createWithAi,
@@ -289,6 +308,18 @@ export default function CertificationFormDrawer({
         const lessons = Number(lessonCount)
         if (!lessonCount || !Number.isFinite(lessons) || lessons < 1 || lessons > 300) {
             setSubmissionError("Enter how many lessons to create, between 1 and 300.")
+            return
+        }
+
+        if (notEnoughCredit) {
+            setSubmissionError(
+                "Your OpenRouter balance is below this run's estimated cost. Top up, or lower the lessons or bank size."
+            )
+            return
+        }
+
+        if (isLargeRun && !confirmedLarge) {
+            setConfirmedLarge(true)
             return
         }
 
@@ -446,7 +477,10 @@ export default function CertificationFormDrawer({
                                         step={1}
                                         inputMode="numeric"
                                         value={lessonCount}
-                                        onChange={(event) => setLessonCount(event.target.value)}
+                                        onChange={(event) => {
+                                            setLessonCount(event.target.value)
+                                            setConfirmedLarge(false)
+                                        }}
                                         disabled={isBusy}
                                         className="mt-3 max-w-[220px]"
                                     />
@@ -472,12 +506,22 @@ export default function CertificationFormDrawer({
                                         step={10}
                                         inputMode="numeric"
                                         value={questionBankSize}
-                                        onChange={(event) => setQuestionBankSize(event.target.value)}
+                                        onChange={(event) => {
+                                            setQuestionBankSize(event.target.value)
+                                            setConfirmedLarge(false)
+                                        }}
                                         disabled={isBusy}
                                         className="mt-3 max-w-[220px]"
                                     />
                                 </div>
                             </div>
+
+                            <GenerationEstimate
+                                lessons={lessonCount}
+                                bankSize={questionBankSize}
+                                credits={credits.data}
+                                creditsLoading={credits.isLoading}
+                            />
                         </div>
 
                         <div className="border-t border-border pt-8">
@@ -549,11 +593,17 @@ export default function CertificationFormDrawer({
                         </div>
                     )}
 
-                    <div className="flex items-center justify-end">
+                    <div className="flex flex-wrap items-center justify-end gap-3">
+                        {isLargeRun && confirmedLarge && !isBusy && (
+                            <p className="mr-auto text-sm text-destructive">
+                                This is a large run. Click again to start it anyway.
+                            </p>
+                        )}
                         <Button
                             type="button"
                             onClick={handleGenerate}
-                            disabled={isBusy}
+                            disabled={isBusy || notEnoughCredit}
+                            title={notEnoughCredit ? "Not enough OpenRouter credit for this run" : undefined}
                             className="min-w-[185px] gap-2"
                         >
                             {isBusy ? (
@@ -561,7 +611,9 @@ export default function CertificationFormDrawer({
                             ) : (
                                 <>
                                     <Sparkles className="h-4 w-4" />
-                                    Generate Certification
+                                    {isLargeRun && confirmedLarge
+                                        ? "Generate anyway"
+                                        : "Generate Certification"}
                                 </>
                             )}
                         </Button>

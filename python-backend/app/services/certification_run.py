@@ -889,7 +889,7 @@ async def prepare_restart(run) -> tuple[RunContext, dict]:
             "certification_id": run.certification_id,
             "certification_name": certification["title"],
             "certification_description": certification["description"] or "",
-            "industry": certification["industry"] or "",
+            "industry": certification["department"] or "",
             "document_refs": document_refs_from(documents),
             "review_mode": review_mode_from(_params_of(generation_request)),
             "status": "STARTED",

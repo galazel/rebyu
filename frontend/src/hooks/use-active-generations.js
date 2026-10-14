@@ -135,3 +135,49 @@ export function generationErrorOf(run) {
   if (!run || run.status !== "FAILED") return null
   return run.error_message || "Generation failed without a reported reason."
 }
+
+// Raw run errors are provider exceptions ("Error code: 404 - {'error': ...}"),
+// which mean nothing to an admin. Each rule names the cause in plain words and
+// what to do about it; the raw text stays available as the detail.
+const GENERATION_ERROR_RULES = [
+  {
+    test: /\b402\b|payment required|out of credit|insufficient (credit|fund|balance)|unavailable for free|paid version/i,
+    title: "The AI provider is out of credit",
+    hint: "Top up your OpenRouter credits, wait about 10 minutes, then retry. Finished steps are kept.",
+  },
+  {
+    test: /\b429\b|rate.?limit|too many requests|quota/i,
+    title: "The AI provider is rate-limiting requests",
+    hint: "Wait a few minutes, then retry. Finished steps are kept.",
+  },
+  {
+    test: /\b413\b|payload too large|context length|too many tokens|maximum context/i,
+    title: "The request was too large for the AI model",
+    hint: "Try smaller documents or fewer lessons, then retry.",
+  },
+  {
+    test: /timed? ?out|timeout|deadline exceeded/i,
+    title: "The AI provider took too long to respond",
+    hint: "Retry. Finished steps are kept.",
+  },
+  {
+    test: /connection (refused|reset|error)|could not connect|unreachable|\b50[234]\b/i,
+    title: "Could not reach the AI provider",
+    hint: "Check the AI service is running, then retry.",
+  },
+  {
+    test: /\b401\b|\b403\b|unauthori[sz]ed|invalid api key|authentication/i,
+    title: "The AI provider rejected the API key",
+    hint: "Check the provider keys in the AI service's settings, then retry.",
+  },
+]
+
+export function describeGenerationError(message) {
+  if (!message) return null
+  const rule = GENERATION_ERROR_RULES.find(({ test }) => test.test(message))
+  return {
+    title: rule?.title ?? "Generation failed",
+    hint: rule?.hint ?? "Retry it from the step that failed. Finished steps are kept.",
+    detail: message,
+  }
+}

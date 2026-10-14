@@ -113,6 +113,43 @@ def list_awaiting_review(
     return {"runs": [_run_to_dict(r) for r in runs], "count": len(runs)}
 
 
+@router.get("/ai-credits")
+async def ai_credits() -> dict[str, Any]:
+    """The OpenRouter balance, so the admin can see before starting a run
+    whether it can afford it -- a run that runs dry stops part-way.
+
+    Never raises: a missing key or an unreachable OpenRouter comes back as
+    `available: false`, and the form treats an unknown balance as "don't block".
+    """
+    import httpx
+
+    from app.ai.tasks import PROVIDERS
+
+    key = PROVIDERS["openrouter"].api_key()
+    if not key:
+        return {"available": False, "reason": "No OpenRouter key is configured."}
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(
+                "https://openrouter.ai/api/v1/credits",
+                headers={"Authorization": f"Bearer {key}"},
+            )
+        response.raise_for_status()
+        data = response.json().get("data") or {}
+        total = float(data.get("total_credits") or 0)
+        used = float(data.get("total_usage") or 0)
+    except Exception as error:
+        logger.warning("Could not read OpenRouter credits: %s", error)
+        return {"available": False, "reason": "Could not reach OpenRouter."}
+    return {
+        "available": True,
+        "provider": "openrouter",
+        "total_credits": total,
+        "total_usage": used,
+        "remaining": max(0.0, total - used),
+    }
+
+
 @router.get("/{run_id}")
 def get_workflow_run(
     run_id: str,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import aio_pika
@@ -12,9 +13,26 @@ from app.messaging.topology import DEAD_LETTER_EXCHANGE, EXCHANGE, QueueSpec
 logger = logging.getLogger(__name__)
 
 
+CONNECT_INITIAL_DELAY_S = 1.0
+CONNECT_MAX_DELAY_S = 30.0
+
+
 async def connect() -> AbstractRobustConnection:
+    """Connect, retrying with backoff until the broker is reachable.
+
+    connect_robust only reconnects after a first successful connection, so a
+    broker that is still booting would otherwise leave the queue with no
+    consumer for the life of the process.
+    """
     settings = get_settings()
-    return await aio_pika.connect_robust(settings.rabbitmq_url)
+    delay = CONNECT_INITIAL_DELAY_S
+    while True:
+        try:
+            return await aio_pika.connect_robust(settings.rabbitmq_url)
+        except (aio_pika.exceptions.AMQPConnectionError, OSError) as exc:
+            logger.warning("RabbitMQ not reachable (%s); retrying in %.0fs", exc, delay)
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, CONNECT_MAX_DELAY_S)
 
 
 async def declare_queue(channel: AbstractChannel, spec: QueueSpec) -> AbstractQueue:
