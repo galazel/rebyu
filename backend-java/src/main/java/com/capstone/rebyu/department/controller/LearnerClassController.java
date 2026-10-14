@@ -63,11 +63,10 @@ public class LearnerClassController {
         return assignees
                 .findByInstitutionCertLearner_Learner_LearnerIdAndStatus(user.learnerId(), DepartmentLearner.Status.active)
                 .stream()
-                .map(DepartmentLearner::getDepartment)
-                .filter(group -> group != null && group.getStatus() == Department.Status.active)
-                .filter(group -> certificationId == null || certificationId.equals(certificationIdOf(group)))
+                .filter(row -> row.getDepartment() != null && row.getDepartment().getStatus() == Department.Status.active)
+                .filter(row -> certificationId == null || certificationId.equals(certificationIdOf(row)))
+                .map(row -> toClass(row.getDepartment(), certificationIdOf(row)))
                 .distinct()
-                .map(this::toClass)
                 .toList();
     }
 
@@ -134,7 +133,7 @@ public class LearnerClassController {
                 latest == null ? 0 : latest.getAttemptNumber() == null ? 1 : latest.getAttemptNumber());
     }
 
-    private LearnerClass toClass(Department group) {
+    private LearnerClass toClass(Department group, Long certificationId) {
         Long departmentId = group.getDepartmentId();
         List<ClassAnnouncement> posted = announcements
                 .findByDepartment_DepartmentIdAndStatusOrderByPinnedDescCreatedAtDesc(
@@ -145,18 +144,23 @@ public class LearnerClassController {
                 .toList();
         List<ClassAssessment> published = exams.findByOwnerDepartment_DepartmentId(departmentId).stream()
                 .filter(exam -> exam.effectiveStatus() == Exam.Status.PUBLISHED)
+                .filter(exam -> exam.getCertification() == null || certificationId == null
+                        || certificationId.equals(exam.getCertification().getCertificationId()))
                 .map(exam -> new ClassAssessment(exam.getExamId(), exam.getTitle(),
                         exam.getExamType() == null ? null : exam.getExamType().getExamTypeText(),
                         exam.getDurationMinutes(), exam.getTotalQuestions()))
                 .toList();
         return new LearnerClass(departmentId, group.getDepartmentName(), group.getDepartmentDescription(),
                 group.getInstitution() == null ? null : group.getInstitution().getInstitutionName(),
-                certificationIdOf(group), posted, published);
+                certificationId, posted, published);
     }
 
-    private static Long certificationIdOf(Department group) {
-        return group.getInstitutionCert() == null || group.getInstitutionCert().getCertification() == null
+    /** The certification this learner is enrolled in within the department. */
+    private static Long certificationIdOf(DepartmentLearner row) {
+        var enrolment = row.getInstitutionCertLearner();
+        return enrolment == null || enrolment.getInstitutionCert() == null
+                || enrolment.getInstitutionCert().getCertification() == null
                 ? null
-                : group.getInstitutionCert().getCertification().getCertificationId();
+                : enrolment.getInstitutionCert().getCertification().getCertificationId();
     }
 }

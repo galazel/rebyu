@@ -31,7 +31,7 @@ import {
 } from "@/components/questions/question-editors.jsx"
 import ExamFormatPanel from "@/components/assessments/admin/exam-format-panel.jsx"
 import AssessmentQuestionPickerDialog from "@/components/assessments/admin/assessment-question-picker-dialog.jsx"
-import { getAllCertifications } from "@/services/certificationService.js"
+import { getCertificationSummary } from "@/services/certificationService.js"
 import { getDepartmentById } from "@/services/institutionService.js"
 import {
   getQuestions,
@@ -186,17 +186,20 @@ export default function InstitutionAssessmentBuilderPage() {
     enabled: Number.isFinite(id),
   })
 
-  // Structure only -- no lesson content, which is most of the full list's ~7 MB.
+  const coveredCertificationIds = (departmentQuery.data?.certifications ?? []).map((cert) => cert.certificationId)
+  const requestedCertificationId = Number(searchParams.get("certificationId"))
+  const groupCertificationId = coveredCertificationIds.includes(requestedCertificationId)
+    ? requestedCertificationId
+    : coveredCertificationIds[0] ?? departmentQuery.data?.certificationId ?? null
+  // The selected certification's outline only (no lesson content). Loading every
+  // certification here took up to 15 s on a cold cache.
   const certificationsQuery = useQuery({
-    queryKey: ["certifications", "group", id, "summary"],
-    queryFn: () => getAllCertifications(id, { summary: true }),
-    enabled: Number.isFinite(id),
+    queryKey: ["certifications", "group", id, "summary", groupCertificationId],
+    queryFn: () => getCertificationSummary(groupCertificationId, id),
+    enabled: Number.isFinite(id) && groupCertificationId != null,
     staleTime: 5 * 60_000,
+    placeholderData: (previous) => previous,
   })
-  const groupCertificationId =
-    departmentQuery.data?.certificationId ??
-    departmentQuery.data?.institutionCert?.certificationId ??
-    null
 
   const examTypesQuery = useQuery({
     queryKey: ["exam-types"],
@@ -253,8 +256,7 @@ export default function InstitutionAssessmentBuilderPage() {
   const group = departmentQuery.data
   const certification = (certificationsQuery.data ?? []).find(
     (item) =>
-      item.certificationId === group?.certificationId ||
-      item.certificationId === group?.institutionCert?.certificationId
+      item.certificationId === groupCertificationId
   )
 
   const { own: ownMajors, official: officialMajors } = useMemo(

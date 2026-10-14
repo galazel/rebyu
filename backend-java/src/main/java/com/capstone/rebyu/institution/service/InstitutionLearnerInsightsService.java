@@ -52,7 +52,9 @@ public class InstitutionLearnerInsightsService {
             Double bestMockExamScore,
             LocalDateTime mockExamPassedAt,
             Long sectionId,
-            String sectionName
+            String sectionName,
+            Long certificationId,
+            String certificationTitle
     ) {}
 
     private final DepartmentRepository departmentRepository;
@@ -110,41 +112,47 @@ public class InstitutionLearnerInsightsService {
             Long departmentId, Long institutionId, Long callerUserId, boolean callerIsOwner) {
         Department group = requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
 
-        Long certificationId = certificationIdOf(group);
-        int totalLessons = certificationId == null ? 0 : (int) lessonRepository
-                .countByMiddleCategory_MajorCategory_Certification_CertificationId(certificationId);
-
         List<DepartmentLearner> active = departmentLearnerRepository
                 .findByDepartment_DepartmentId(departmentId).stream()
                 .filter(assignee -> assignee.getStatus() == DepartmentLearner.Status.active)
                 .toList();
 
-        List<Long> learnerIds = active.stream()
-                .map(this::learnerOf)
-                .filter(java.util.Objects::nonNull)
-                .map(Learner::getLearnerId)
-                .toList();
-        Map<Long, AssessmentAttemptRepository.LearnerMockExamResult> mockPasses =
-                (learnerIds.isEmpty() || certificationId == null)
-                        ? Map.of()
-                        : assessmentAttemptRepository
-                                .passedMockExamsByLearnerIds(learnerIds, certificationId).stream()
-                                .collect(Collectors.toMap(
-                                        AssessmentAttemptRepository.LearnerMockExamResult::getLearnerId,
-                                        Function.identity(),
-                                        (first, second) -> first));
+        // A department covers several certifications; progress is measured against each
+        // learner's own certification, one grouped query per certification.
+        Map<Long, List<DepartmentLearner>> byCertification = active.stream()
+                .collect(Collectors.groupingBy(
+                        assignee -> java.util.Optional.ofNullable(certificationIdOf(assignee)).orElse(-1L)));
 
-        // One grouped count for the whole roster, instead of one query per learner.
-        Map<Long, Long> completedByLearner = (learnerIds.isEmpty() || certificationId == null)
-                ? Map.of()
-                : learnerCompletedLessonRepository
-                        .lessonsCompletedInCertification(learnerIds, certificationId).stream()
-                        .collect(Collectors.toMap(
-                                LearnerCompletedLessonRepository.LessonsDone::getLearnerId,
-                                LearnerCompletedLessonRepository.LessonsDone::getLessonsCompleted));
+        List<DepartmentLearnerRow> rows = new java.util.ArrayList<>();
+        byCertification.forEach((certificationId, members) -> {
+            boolean known = certificationId > 0;
+            int totalLessons = !known ? 0 : (int) lessonRepository
+                    .countByMiddleCategory_MajorCategory_Certification_CertificationId(certificationId);
+            List<Long> learnerIds = members.stream()
+                    .map(this::learnerOf)
+                    .filter(java.util.Objects::nonNull)
+                    .map(Learner::getLearnerId)
+                    .toList();
+            Map<Long, AssessmentAttemptRepository.LearnerMockExamResult> mockPasses =
+                    (learnerIds.isEmpty() || !known)
+                            ? Map.of()
+                            : assessmentAttemptRepository
+                                    .passedMockExamsByLearnerIds(learnerIds, certificationId).stream()
+                                    .collect(Collectors.toMap(
+                                            AssessmentAttemptRepository.LearnerMockExamResult::getLearnerId,
+                                            Function.identity(),
+                                            (first, second) -> first));
+            Map<Long, Long> completedByLearner = (learnerIds.isEmpty() || !known)
+                    ? Map.of()
+                    : learnerCompletedLessonRepository
+                            .lessonsCompletedInCertification(learnerIds, certificationId).stream()
+                            .collect(Collectors.toMap(
+                                    LearnerCompletedLessonRepository.LessonsDone::getLearnerId,
+                                    LearnerCompletedLessonRepository.LessonsDone::getLessonsCompleted));
+            members.forEach(assignee -> rows.add(toRow(assignee, totalLessons, completedByLearner, mockPasses)));
+        });
 
-        return active.stream()
-                .map(assignee -> toRow(assignee, totalLessons, completedByLearner, mockPasses))
+        return rows.stream()
                 .sorted(Comparator.comparing(
                         DepartmentLearnerRow::name, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
@@ -156,10 +164,12 @@ public class InstitutionLearnerInsightsService {
         Department group = requireDepartmentAccess(departmentId, institutionId, callerUserId, callerIsOwner);
         requireAssignedToGroup(departmentId, learnerId);
 
-        Long certificationId = certificationIdOf(group);
+        Long certificationId = activeAssignee(departmentId, learnerId)
+                .map(this::certificationIdOf)
+                .orElse(null);
         if (certificationId == null) {
             throw new EntityNotFoundException(
-                    "This group has no certification allocation: " + departmentId);
+                    "This learner has no certification in this department: " + departmentId);
         }
         return progressAnalyticsService.getProgressAnalytics(learnerId, certificationId);
     }
@@ -254,7 +264,7 @@ public class InstitutionLearnerInsightsService {
         boolean groupCertification = exam.getOwnerDepartment() == null
                 && exam.getLearner() == null
                 && exam.getCertification() != null
-                && exam.getCertification().getCertificationId().equals(certificationIdOf(group));
+                && group.allocationFor(exam.getCertification().getCertificationId()).isPresent();
         if (!ownPaper && !groupCertification) {
             throw new EntityNotFoundException("Attempt not found: " + attemptId);
         }
@@ -346,7 +356,11 @@ public class InstitutionLearnerInsightsService {
                 mockPass == null ? null : mockPass.getBestScore(),
                 mockPass == null ? null : mockPass.getPassedAt(),
                 assignee.getSection() != null ? assignee.getSection().getSectionId() : null,
-                assignee.getSection() != null ? assignee.getSection().getSectionName() : null
+                assignee.getSection() != null ? assignee.getSection().getSectionName() : null,
+                certificationIdOf(assignee),
+                enrollment != null && enrollment.getInstitutionCert() != null
+                        && enrollment.getInstitutionCert().getCertification() != null
+                        ? enrollment.getInstitutionCert().getCertification().getTitle() : null
         );
     }
 
@@ -369,10 +383,13 @@ public class InstitutionLearnerInsightsService {
         return assignee.getInstitutionCertLearner() != null ? assignee.getInstitutionCertLearner().getLearner() : null;
     }
 
-    private Long certificationIdOf(Department group) {
-        if (group.getInstitutionCert() == null || group.getInstitutionCert().getCertification() == null) {
+    /** The certification the learner is enrolled in within the department. */
+    private Long certificationIdOf(DepartmentLearner assignee) {
+        var enrollment = assignee.getInstitutionCertLearner();
+        if (enrollment == null || enrollment.getInstitutionCert() == null
+                || enrollment.getInstitutionCert().getCertification() == null) {
             return null;
         }
-        return group.getInstitutionCert().getCertification().getCertificationId();
+        return enrollment.getInstitutionCert().getCertification().getCertificationId();
     }
 }

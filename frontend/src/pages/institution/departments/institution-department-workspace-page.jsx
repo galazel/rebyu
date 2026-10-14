@@ -2,11 +2,9 @@ import { useRef, useState } from "react"
 import { Link, useParams, useSearchParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  BookOpen,
   ChevronDown,
   ChevronRight,
   ClipboardCheckIcon,
-  Layers3,
   Loader2,
   MegaphoneIcon,
   Pencil,
@@ -55,9 +53,10 @@ import {
   publishExam,
 } from "@/services/assessmentService.js"
 import { getQuestions } from "@/services/questionService.js"
+import { CertificationViewer } from "@/pages/institution/certifications/institution-certification-viewer-page.jsx"
 import { InstitutionQuestionBankPanel } from "@/pages/institution/certifications/institution-question-bank-page.jsx"
 import AssessmentPreviewDialog from "@/components/assessments/admin/assessment-preview-dialog.jsx"
-import { getAllCertifications } from "@/services/certificationService.js"
+import { getCertificationSummary } from "@/services/certificationService.js"
 import { SectionsTab } from "@/components/institution/sections-tab.jsx"
 import {
   archiveDepartmentAnnouncement,
@@ -78,108 +77,6 @@ function asArray(value) {
 
 function backendMessage(error, fallback) {
   return error?.response?.data?.message ?? fallback
-}
-
-function lessonTitle(lesson) {
-  return lesson?.name ?? lesson?.title ?? "Untitled lesson"
-}
-
-function OfficialMiddleCard({ middleCategory, buildLessonHref }) {
-  const [isOpen, setIsOpen] = useState(false)
-  const lessons = asArray(middleCategory?.lessons)
-
-  return (
-    <article className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
-      <button
-        type="button"
-        onClick={() => setIsOpen((current) => !current)}
-        aria-expanded={isOpen}
-        className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-      >
-        <div className="min-w-0">
-          <h3 className="truncate font-heading text-base font-bold text-foreground">
-            {middleCategory.title}
-          </h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Middle Category · {lessons.length} {lessons.length === 1 ? "lesson" : "lessons"}
-          </p>
-        </div>
-        <span
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all ${
-            isOpen ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-          }`}
-        >
-          {isOpen ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
-        </span>
-      </button>
-
-      {isOpen ? (
-        <div className="border-t border-border bg-muted/20 px-5 py-4">
-          {lessons.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border bg-background px-4 py-5 text-sm text-muted-foreground">
-              No lessons have been added yet.
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {lessons.map((lesson, lessonIndex) => (
-                <Link
-                  key={lesson.lessonId ?? lessonIndex}
-                  to={buildLessonHref(lesson.lessonId)}
-                  className="group flex items-center gap-3 rounded-xl border border-transparent bg-background px-4 py-3 transition hover:border-border hover:bg-muted/40"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-xs font-bold text-muted-foreground">
-                    {lessonIndex + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-foreground">
-                      {lessonTitle(lesson)}
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">Lesson {lessonIndex + 1}</p>
-                  </div>
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : null}
-    </article>
-  )
-}
-
-function OfficialMajorSection({ majorCategory, majorIndex, buildLessonHref }) {
-  const middleCategories = asArray(majorCategory?.middleCategory)
-
-  return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="font-heading text-lg font-bold text-foreground">
-          <span className="text-primary">Major Category {majorIndex + 1}:</span>{" "}
-          {majorCategory.title}
-        </p>
-      </div>
-
-      {middleCategories.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-card p-6 text-sm text-muted-foreground">
-          No middle categories under this major category.
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {middleCategories.map((middleCategory, middleIndex) => (
-            <OfficialMiddleCard
-              key={middleCategory.middleCategoryId ?? middleIndex}
-              middleCategory={middleCategory}
-              buildLessonHref={buildLessonHref}
-            />
-          ))}
-        </div>
-      )}
-    </section>
-  )
 }
 
 function AnnouncementsTab({ departmentId }) {
@@ -532,19 +429,26 @@ export default function InstitutionDepartmentWorkspacePage() {
     queryFn: () => getDepartmentLearners({ departmentId: id }),
     enabled: Number.isFinite(id),
   })
-  // Structure only -- no lesson content, which is most of the full list's ~7 MB.
+  // A department covers every certification its institution holds from the college;
+  // the workspace shows one at a time, chosen with ?certificationId=.
+  const coveredCertifications = asArray(departmentQuery.data?.certifications)
+  const requestedCertificationId = Number(searchParams.get("certificationId"))
+  const groupCertificationId = coveredCertifications.some((cert) => cert.certificationId === requestedCertificationId)
+    ? requestedCertificationId
+    : coveredCertifications[0]?.certificationId ?? departmentQuery.data?.certificationId ?? null
+  // The selected certification's outline only (no lesson content). Loading every
+  // certification here took up to 15 s on a cold cache.
   const certificationsQuery = useQuery({
-    queryKey: ["certifications", "group", id, "summary"],
-    queryFn: () => getAllCertifications(id, { summary: true }),
-    enabled: Number.isFinite(id),
+    queryKey: ["certifications", "group", id, "summary", groupCertificationId],
+    queryFn: () => getCertificationSummary(groupCertificationId, id),
+    enabled: Number.isFinite(id) && groupCertificationId != null,
     staleTime: 5 * 60_000,
+    placeholderData: (previous) => previous,
   })
-  const groupCertificationId =
-    departmentQuery.data?.certificationId ??
-    departmentQuery.data?.institutionCert?.certificationId ??
-    null
   const examsQuery = useQuery({
     queryKey: ["exams", "group", id, groupCertificationId],
+    // Keep showing the page while another certification's exams load.
+    placeholderData: (previous) => previous,
     // This department's certification only -- the page filters to it anyway, and
     // the unscoped list was every exam on the platform with its question ids.
     queryFn: () => getExams(id, groupCertificationId ?? undefined),
@@ -568,6 +472,7 @@ export default function InstitutionDepartmentWorkspacePage() {
   // its choices, took long enough that the request was regularly dropped.
   const questionsQuery = useQuery({
     queryKey: ["questions", "group", id, groupCertificationId],
+    placeholderData: (previous) => previous,
     queryFn: () => getQuestions(id, groupCertificationId ?? undefined),
     enabled: Number.isFinite(id) && departmentQuery.isSuccess && previewExam != null,
     staleTime: 60_000,
@@ -576,7 +481,7 @@ export default function InstitutionDepartmentWorkspacePage() {
   if (
     departmentQuery.isLoading ||
     assigneesQuery.isLoading ||
-    certificationsQuery.isLoading ||
+    (certificationsQuery.isLoading && groupCertificationId != null) ||
     examsQuery.isLoading ||
     examTypesQuery.isLoading
   ) {
@@ -602,23 +507,16 @@ export default function InstitutionDepartmentWorkspacePage() {
   }
 
   const certification = asArray(certificationsQuery.data).find(
+    (item) => item?.certificationId === groupCertificationId
+  )
+  const currentInstitutionCertId = coveredCertifications.find(
+    (cert) => cert.certificationId === groupCertificationId
+  )?.institutionCertId
+  // Only the selected certification's learners when the department covers several.
+  const learners = asArray(assigneesQuery.data).filter(
     (item) =>
-      item?.certificationId === group?.certificationId ||
-      item?.certificationId === group?.institutionCert?.certificationId ||
-      item?.certificationId === group?.institutionCertId
-  )
-  const learners = asArray(assigneesQuery.data).filter((item) => item?.status === "active")
-  const officialMajors = asArray(certification?.majorCategory).filter(
-    (major) => major && major.ownerDepartmentId == null
-  )
-  const officialLessonCount = officialMajors.reduce(
-    (total, major) =>
-      total +
-      asArray(major?.middleCategory).reduce(
-        (moduleTotal, module) => moduleTotal + asArray(module?.lessons).length,
-        0
-      ),
-    0
+      item?.status === "active" &&
+      (coveredCertifications.length <= 1 || item?.institutionCertId === currentInstitutionCertId)
   )
 
   const examTypeById = new Map(
@@ -628,10 +526,9 @@ export default function InstitutionDepartmentWorkspacePage() {
     asArray(questionsQuery.data).map((question) => [question?.questionId, question])
   )
   const examQuestions = asArray(examQuestionsQuery.data)
-  const certificationExams = asArray(examsQuery.data).filter(
-    (exam) => exam && exam.certificationId === certification?.certificationId && exam.status === "PUBLISHED"
+  const ownGroupExams = asArray(examsQuery.data).filter(
+    (exam) => exam && exam.ownerDepartmentId === id && exam.certificationId === groupCertificationId
   )
-  const ownGroupExams = asArray(examsQuery.data).filter((exam) => exam && exam.ownerDepartmentId === id)
 
   return (
     <div className="space-y-6">
@@ -640,6 +537,28 @@ export default function InstitutionDepartmentWorkspacePage() {
         subtitle={group?.departmentDescription || group?.description || "Your assigned group workspace."}
         actions={<Badge>Assigned department</Badge>}
       />
+      {coveredCertifications.length > 1 ? (
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Certification">
+          <span className="text-sm text-muted-foreground">Certification:</span>
+          {coveredCertifications.map((cert) => (
+            <Button
+              key={cert.certificationId}
+              size="sm"
+              variant={cert.certificationId === groupCertificationId ? "default" : "outline"}
+              aria-pressed={cert.certificationId === groupCertificationId}
+              onClick={() =>
+                setSearchParams((prev) => {
+                  const params = new URLSearchParams(prev)
+                  params.set("certificationId", String(cert.certificationId))
+                  return params
+                })
+              }
+            >
+              {cert.title}
+            </Button>
+          ))}
+        </div>
+      ) : null}
       <Tabs
         value={activeTab}
         onValueChange={(next) => setSearchParams((prev) => {
@@ -657,91 +576,15 @@ export default function InstitutionDepartmentWorkspacePage() {
         </TabsList>
 
         <TabsContent value="curriculum" className="mt-5 space-y-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium text-primary">Certification curriculum</p>
-              <h2 className="mt-1 font-heading text-2xl font-bold tracking-tight text-foreground">
-                {certification?.title ?? "Course Modules"}
-              </h2>
-              <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
-                Read-only guide to the major categories, modules, and lessons under this
-                certification — {officialLessonCount} lesson(s) in total.
-              </p>
-            </div>
-            {certification ? (
-              <Button asChild variant="outline">
-                <Link
-                  to={`/institution/certifications/${certification.certificationId}/view?departmentId=${id}`}
-                >
-                  <BookOpen className="size-4" aria-hidden="true" />
-                  Read content
-                </Link>
-              </Button>
-            ) : null}
-          </div>
+          {groupCertificationId != null ? (
+            <CertificationViewer
+              key={groupCertificationId}
+              certificationId={groupCertificationId}
+              departmentId={id}
+              embedded
+            />
+          ) : null}
 
-          {officialMajors.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-border bg-card p-12 text-center shadow-sm">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Layers3 className="h-7 w-7" />
-              </div>
-              <h3 className="mt-5 font-heading text-lg font-bold text-foreground">
-                No curriculum yet
-              </h3>
-              <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-                No curriculum is available for this certification yet.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-10">
-              {officialMajors.map((majorCategory, majorIndex) => (
-                <OfficialMajorSection
-                  key={majorCategory.majorCategoryId ?? majorIndex}
-                  majorCategory={majorCategory}
-                  majorIndex={majorIndex}
-                  buildLessonHref={(lessonId) =>
-                    certification?.certificationId
-                      ? `/institution/certifications/${certification.certificationId}/view?departmentId=${id}&lessonId=${lessonId}`
-                      : "#"
-                  }
-                />
-              ))}
-            </div>
-          )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <ClipboardCheckIcon className="size-4 text-primary" aria-hidden="true" />
-                Certification assessments
-              </CardTitle>
-              <CardDescription>
-                Diagnostics, mock exams, and other assessments the Institution Administrator
-                published for this certification. Read-only.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {certificationExams.length ? (
-                <ul className="divide-y rounded-lg border">
-                  {certificationExams.map((exam) => (
-                    <li
-                      key={exam.examId}
-                      className="flex items-center justify-between gap-2 px-3 py-2.5"
-                    >
-                      <span className="text-sm font-medium">{exam.title}</span>
-                      <Badge variant="outline">
-                        {examTypeById.get(exam.examTypeId) ?? "Assessment"}
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No published assessments for this certification yet.
-                </p>
-              )}
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="assessments" className="mt-5 space-y-4">
@@ -753,7 +596,7 @@ export default function InstitutionDepartmentWorkspacePage() {
               </p>
             </div>
             <Button asChild disabled={!certification}>
-              <Link to={`/institution/departments/${id}/assessments/new`}>
+              <Link to={`/institution/departments/${id}/assessments/new?certificationId=${groupCertificationId ?? ""}`}>
                 <Plus className="size-4" aria-hidden="true" />
                 Create Assessment
               </Link>
@@ -804,12 +647,12 @@ export default function InstitutionDepartmentWorkspacePage() {
                       </Button>
                     )}
                     <Button asChild variant="outline" size="sm">
-                      <Link to={`/institution/departments/${id}/assessments/${exam.examId}/results`}>
+                      <Link to={`/institution/departments/${id}/assessments/${exam.examId}/results?certificationId=${groupCertificationId ?? ""}`}>
                         Results
                       </Link>
                     </Button>
                     <Button asChild variant="ghost" size="sm">
-                      <Link to={`/institution/departments/${id}/assessments/${exam.examId}/edit`}>
+                      <Link to={`/institution/departments/${id}/assessments/${exam.examId}/edit?certificationId=${groupCertificationId ?? ""}`}>
                         Edit
                       </Link>
                     </Button>
@@ -841,7 +684,7 @@ export default function InstitutionDepartmentWorkspacePage() {
         </TabsContent>
 
         <TabsContent value="learners" className="mt-5">
-          <SectionsTab departmentId={id} group={group} />
+          <SectionsTab departmentId={id} group={group} certificationId={groupCertificationId} />
         </TabsContent>
 
         <TabsContent value="question-bank" className="mt-5 space-y-4">

@@ -20,6 +20,13 @@ public interface DepartmentHeadAssignmentRepository extends JpaRepository<Depart
 
     Optional<DepartmentHeadAssignment> findByDepartmentAndUser(Department department, User user);
 
+    /** A head (dean) handles one department: any other active assignment blocks a new one. */
+    boolean existsByUser_UserIdAndStatusAndDepartment_DepartmentIdNot(
+            Long userId, DepartmentHeadAssignment.Status status, Long departmentId);
+
+    boolean existsByUser_EmailIgnoreCaseAndStatusAndDepartment_DepartmentIdNot(
+            String email, DepartmentHeadAssignment.Status status, Long departmentId);
+
     @Query("""
             SELECT COUNT(DISTINCT a.user.userId)
             FROM DepartmentHeadAssignment a

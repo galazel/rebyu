@@ -175,20 +175,46 @@ export function parseLearnerFile(text) {
   return { learners, problems }
 }
 
-const SAMPLE_CSV = "first name,last name,email\nJuan,Dela Cruz,juan@example.com\nMaria,Santos,maria@example.com\n"
+/** The first sheet of an .xlsx workbook as tab-separated text, for parseLearnerFile. */
+export async function xlsxToText(file) {
+  const { default: JSZip } = await import("jszip")
+  const zip = await JSZip.loadAsync(await file.arrayBuffer())
+  const xml = (path) => zip.file(path)?.async("string")
+  const parse = (text) => new DOMParser().parseFromString(text, "application/xml")
 
-function downloadSampleCsv() {
-  const blob = new Blob([SAMPLE_CSV], { type: "text/csv;charset=utf-8" })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.href = url
-  link.download = "rebyu-learners-template.csv"
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
+  const shared = []
+  const sharedXml = await xml("xl/sharedStrings.xml")
+  if (sharedXml) {
+    for (const item of parse(sharedXml).getElementsByTagName("si")) {
+      shared.push(Array.from(item.getElementsByTagName("t")).map((t) => t.textContent ?? "").join(""))
+    }
+  }
+  const sheetPath = Object.keys(zip.files)
+    .filter((path) => /^xl\/worksheets\/sheet\d+\.xml$/.test(path))
+    .sort((a, b) => Number(a.match(/\d+/)[0]) - Number(b.match(/\d+/)[0]))[0]
+  if (!sheetPath) return ""
+
+  const columnIndex = (ref) => {
+    const letters = (ref ?? "").replace(/\d+/g, "")
+    let index = 0
+    for (const ch of letters) index = index * 26 + (ch.charCodeAt(0) - 64)
+    return Math.max(index - 1, 0)
+  }
+  const lines = []
+  for (const row of parse(await xml(sheetPath)).getElementsByTagName("row")) {
+    const cells = []
+    for (const cell of row.getElementsByTagName("c")) {
+      const type = cell.getAttribute("t")
+      const raw =
+        type === "inlineStr"
+          ? cell.getElementsByTagName("t")[0]?.textContent ?? ""
+          : cell.getElementsByTagName("v")[0]?.textContent ?? ""
+      cells[columnIndex(cell.getAttribute("r"))] = type === "s" ? shared[Number(raw)] ?? "" : raw
+    }
+    lines.push(Array.from(cells, (value) => String(value ?? "").replace(/[\t\r\n]+/g, " ")).join("\t"))
+  }
+  return lines.join("\n")
 }
-
 
 function AddLearnersDialog({ open, onOpenChange, departmentId, group, section }) {
   const queryClient = useQueryClient()
@@ -246,7 +272,14 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section })
   const readFile = async (file) => {
     if (!file) return
     setFileName(file.name)
-    const text = await file.text()
+    const isExcel = /\.xlsx$/i.test(file.name)
+    let text
+    try {
+      text = isExcel ? await xlsxToText(file) : await file.text()
+    } catch {
+      setFileProblems([`${file.name} could not be read. Save it as .xlsx or .csv and try again.`])
+      return
+    }
     const { learners, problems } = parseLearnerFile(text)
     const dupes = stage(learners)
     setFileProblems([
@@ -264,6 +297,7 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section })
         departmentId: departmentId,
         learners: staged,
         sectionId: section?.sectionId ?? null,
+        institutionCertId: section?.institutionCertId ?? group.activeCertification?.institutionCertId ?? null,
       }),
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["department-invitations", departmentId] })
@@ -357,7 +391,7 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section })
               <input
                 ref={fileRef}
                 type="file"
-                accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
+                accept=".xlsx,.csv,.tsv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/tab-separated-values,text/plain"
                 className="sr-only"
                 aria-label="Upload a learner list"
                 onChange={(e) => readFile(e.target.files?.[0])}
@@ -365,20 +399,16 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section })
               <div className="mb-3 flex size-12 items-center justify-center rounded-full border bg-background text-muted-foreground">
                 <UploadIcon className="size-5" />
               </div>
-              <p className="text-sm font-medium">Drop a CSV here</p>
+              <p className="text-sm font-medium">Drop an Excel or CSV file here</p>
               <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
-                CSV, TSV or TXT with an <span className="font-mono">email</span> column and optional{" "}
-                <span className="font-mono">first name</span> / <span className="font-mono">last name</span> (or{" "}
-                <span className="font-mono">name</span>). Exporting your class list from Excel or Google Sheets as
-                CSV works as-is.
+                Excel (.xlsx), CSV, TSV or TXT with an <span className="font-mono">email</span> column and
+                optional <span className="font-mono">first name</span> / <span className="font-mono">last name</span>{" "}
+                (or <span className="font-mono">name</span>). Your class list from Excel or Google Sheets works as-is.
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
                   <UploadIcon className="-ms-1 size-4 opacity-60" aria-hidden="true" />
                   Choose file
-                </Button>
-                <Button type="button" variant="ghost" onClick={downloadSampleCsv}>
-                  Download template
                 </Button>
               </div>
               {fileName ? <p className="mt-3 text-xs text-muted-foreground">Read {fileName}</p> : null}
@@ -449,7 +479,7 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section })
 }
 
 
-function SectionDialog({ open, onOpenChange, departmentId, section }) {
+function SectionDialog({ open, onOpenChange, departmentId, section, institutionCertId }) {
   const queryClient = useQueryClient()
   const [name, setName] = useState(section?.sectionName ?? "")
   const [description, setDescription] = useState(section?.description ?? "")
@@ -459,7 +489,7 @@ function SectionDialog({ open, onOpenChange, departmentId, section }) {
     mutationFn: () =>
       section
         ? updateGroupSection(departmentId, section.sectionId, { sectionName: name.trim(), description })
-        : createGroupSection(departmentId, { sectionName: name.trim(), description }),
+        : createGroupSection(departmentId, { sectionName: name.trim(), description, institutionCertId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["department-sections", departmentId] })
       toast.success(section ? "Section updated." : "Section created.")
@@ -823,7 +853,15 @@ function SectionPanel({
 }
 
 
-export function SectionsTab({ departmentId, group }) {
+export function SectionsTab({ departmentId, group: department, certificationId }) {
+  // A department covers several certifications; this tab works on the one the
+  // workspace has selected, and its slots are that certification's.
+  const covered = asArray(department?.certifications)
+  const current = covered.find((cert) => cert.certificationId === certificationId) ?? covered[0] ?? null
+  const scoped = covered.length > 1 && current != null
+  const group = current
+    ? { ...department, totalSlots: current.totalSlots ?? 0, usedSlots: current.usedSlots ?? 0, activeCertification: current }
+    : department
   const queryClient = useQueryClient()
   const [dialog, setDialog] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -844,9 +882,15 @@ export function SectionsTab({ departmentId, group }) {
     enabled: Number.isFinite(departmentId),
   })
 
-  const sections = asArray(sectionsQuery.data)
-  const roster = asArray(rosterQuery.data).filter((row) => row.status === "active")
-  const invitations = asArray(invitationsQuery.data).filter((inv) => inv.departmentId === departmentId)
+  const sections = asArray(sectionsQuery.data).filter(
+    (s) => !scoped || s.certificationId == null || s.certificationId === current.certificationId
+  )
+  const roster = asArray(rosterQuery.data).filter(
+    (row) => row.status === "active" && (!scoped || row.certificationId === current.certificationId)
+  )
+  const invitations = asArray(invitationsQuery.data).filter(
+    (inv) => inv.departmentId === departmentId && (!scoped || inv.certificationId === current.certificationId)
+  )
 
   const bySection = useMemo(() => {
     const map = new Map()
@@ -965,6 +1009,7 @@ export function SectionsTab({ departmentId, group }) {
           onOpenChange={(open) => !open && setDialog(null)}
           departmentId={departmentId}
           section={dialog.section}
+          institutionCertId={current?.institutionCertId ?? null}
         />
       ) : null}
 

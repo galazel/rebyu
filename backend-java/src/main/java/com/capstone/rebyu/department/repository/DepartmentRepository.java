@@ -11,7 +11,6 @@ import java.util.List;
 public interface DepartmentRepository extends JpaRepository<Department, Long> {
     List<Department> findByInstitution_InstitutionId(Long institutionId);
 
-    List<Department> findByInstitutionCert_InstitutionCertId(Long institutionCertId);
 
     long countByInstitution_InstitutionIdAndStatus(Long institutionId, Department.Status status);
 

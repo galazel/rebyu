@@ -54,7 +54,10 @@ class PartnershipRequestTransactionServiceTest {
     @BeforeEach
     void setUp() {
         service = new PartnershipRequestTransactionService(
-                requestRepository, itemRepository, institutionRepository, certificationRepository,
+                requestRepository,
+                org.mockito.Mockito.mock(com.capstone.rebyu.institution.repository.InstitutionCertificateRepository.class),
+                org.mockito.Mockito.mock(com.capstone.rebyu.billing.repository.InstitutionInvoiceRepository.class),
+                itemRepository, institutionRepository, certificationRepository,
                 userRepository, notificationService);
     }
 

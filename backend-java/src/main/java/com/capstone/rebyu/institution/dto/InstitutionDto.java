@@ -23,9 +23,6 @@ public class InstitutionDto {
     @NotNull
     private Institution.InstitutionType institutionType;
 
-    @NotBlank
-    @Size(max = 100)
-    private String industry;
 
     @com.fasterxml.jackson.annotation.JsonProperty("isVerified")
     private boolean isVerified = false;

@@ -38,7 +38,8 @@ public final class InstitutionInvitationDtos {
             Long invitedByUserId,
             @NotNull Long departmentId,
             @NotEmpty List<@Valid InvitedLearner> learners,
-            Long sectionId
+            Long sectionId,
+            Long institutionCertId
     ) {
     }
 

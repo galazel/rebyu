@@ -14,6 +14,6 @@ public interface InstitutionSectionRepository extends JpaRepository<InstitutionS
     Optional<InstitutionSection> findBySectionIdAndDepartment_DepartmentId(
             Long sectionId, Long departmentId);
 
-    boolean existsByDepartment_DepartmentIdAndSectionNameIgnoreCaseAndStatus(
-            Long departmentId, String sectionName, InstitutionSection.Status status);
+    boolean existsByDepartment_DepartmentIdAndInstitutionCert_InstitutionCertIdAndSectionNameIgnoreCaseAndStatus(
+            Long departmentId, Long institutionCertId, String sectionName, InstitutionSection.Status status);
 }

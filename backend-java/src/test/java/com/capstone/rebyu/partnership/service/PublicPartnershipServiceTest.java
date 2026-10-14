@@ -48,7 +48,8 @@ class PublicPartnershipServiceTest {
         notificationService = mock(NotificationService.class);
 
         service = new PublicPartnershipService(
-                requestRepository, itemRepository, certificationRepository, userRepository, notificationService);
+                requestRepository, itemRepository, certificationRepository, userRepository, notificationService,
+                mock(com.capstone.rebyu.institution.repository.DepartmentHeadRepository.class));
 
         Certification certification = new Certification();
         certification.setCertificationId(CERT_ID);

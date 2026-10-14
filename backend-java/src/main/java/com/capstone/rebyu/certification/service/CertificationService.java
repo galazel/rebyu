@@ -44,6 +44,7 @@ import java.util.stream.Collectors;
 public class CertificationService {
 
     private final CertificationRepository certificationRepository;
+    private final com.capstone.rebyu.reference.CertificationProgramFiler programFiler;
     private final com.capstone.rebyu.certification.repository.LessonRepository lessonRepository;
     private final CertificationMapper certificationMapper;
     private final EntityManager entityManager;
@@ -83,6 +84,18 @@ public class CertificationService {
                 .filter(certification -> includeComingSoon
                         || certification.getStatus() != Certification.CertificationStatus.COMING_SOON)
                 .toList();
+        return summarize(certifications, includeDepartmentId);
+    }
+
+    /** One certification's outline without lesson content: what the department workspace reads. */
+    @Transactional(readOnly = true)
+    public CertificationDto getSummaryById(Long id, Long includeDepartmentId) {
+        Certification certification = certificationRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Certification not found with ID: " + id));
+        return summarize(List.of(certification), includeDepartmentId).get(0);
+    }
+
+    private List<CertificationDto> summarize(List<Certification> certifications, Long includeDepartmentId) {
         if (certifications.isEmpty()) return List.of();
 
         Map<Long, List<LessonDto>> lessonsByMiddle = new HashMap<>();
@@ -113,7 +126,7 @@ public class CertificationService {
             dto.setDescription(certification.getDescription());
             dto.setDateCreated(certification.getDateCreated());
             dto.setDateUpdated(certification.getDateUpdated());
-            dto.setIndustry(certification.getIndustry());
+            dto.setDepartment(certification.getDepartment());
             dto.setStatus(certification.getStatus());
             dto.setBadgeImageKey(certification.getBadgeImageKey());
 
@@ -237,8 +250,16 @@ public class CertificationService {
         );
     }
 
+    private List<String> requestedDepartments(CertificationDto dto) {
+        return com.capstone.rebyu.reference.CertificationProgramFiler.requested(dto.getDepartments(), dto.getDepartment());
+    }
+
     public CertificationDto create(CertificationDto dto) {
         Certification certification = certificationMapper.toEntity(dto);
+        List<String> departments = requestedDepartments(dto);
+        if (departments != null && !departments.isEmpty() && hasText(departments.get(0))) {
+            certification.setDepartment(departments.get(0).trim());
+        }
 
         certification.setCertificationId(null);
         certification.setDateCreated(LocalDateTime.now());
@@ -254,6 +275,7 @@ public class CertificationService {
                 "Created certification with ID: {}",
                 savedCertification.getCertificationId()
         );
+        programFiler.file(savedCertification.getCertificationId(), requestedDepartments(dto));
 
         return certificationMapper.toDto(
                 certificationRepository.findByIdWithFullTree(savedCertification.getCertificationId()).orElseThrow()
@@ -277,7 +299,10 @@ public class CertificationService {
 
         if (hasText(dto.getTitle())) certification.setTitle(dto.getTitle().trim());
         if (dto.getDescription() != null) certification.setDescription(dto.getDescription().trim());
-        if (hasText(dto.getIndustry())) certification.setIndustry(dto.getIndustry().trim());
+        List<String> departments = requestedDepartments(dto);
+        if (departments != null && !departments.isEmpty() && hasText(departments.get(0))) {
+            certification.setDepartment(departments.get(0).trim());
+        }
 
         Map<Long, String> majorTitles = new HashMap<>();
         Map<Long, String> middleTitles = new HashMap<>();
@@ -323,6 +348,7 @@ public class CertificationService {
 
         certification.setDateUpdated(LocalDateTime.now());
         certificationRepository.save(certification);
+        programFiler.file(id, requestedDepartments(dto));
 
         log.info("Updated certification {} ({} name(s) changed)", id, renamed);
 

@@ -8,6 +8,13 @@ export function getPartnershipPricing() {
   return base("public/partnership-requests/pricing")
 }
 
+export function getRegistrationRequest(referenceNumber) {
+  return base("public/partnership-requests/registration", {
+    method: "POST",
+    data: { referenceNumber },
+  })
+}
+
 export function getPublicPartnershipStatus({ referenceNumber, institutionEmail }) {
   return base("public/partnership-requests/status", {
     method: "POST",
@@ -42,10 +49,10 @@ export function getInstitutionCertificationAccess(institutionId) {
   return base(`institution/certification-access?institutionId=${institutionId}`)
 }
 
-export function sendInstitutionInvitations({ departmentId, learners, sectionId = null }) {
+export function sendInstitutionInvitations({ departmentId, learners, sectionId = null, institutionCertId = null }) {
   return base("institution/invitations", {
     method: "POST",
-    data: { departmentId, learners, sectionId },
+    data: { departmentId, learners, sectionId, institutionCertId },
   })
 }
 
@@ -56,4 +63,8 @@ export function getInstitutionInvitations(institutionId) {
 
 export function cancelInstitutionInvitation(invitationId) {
   return base(`institution/invitations/${invitationId}/cancel`, { method: "PUT" })
+}
+
+export function lookupDepartmentHeadCode(code) {
+  return base("public/department-head-codes/lookup", { method: "POST", data: { code } })
 }

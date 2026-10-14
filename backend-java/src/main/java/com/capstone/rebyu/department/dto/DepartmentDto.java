@@ -19,10 +19,20 @@ public class DepartmentDto {
 
     private Long institutionId;
 
-    @NotNull
+    /** First covered certification, for screens that show one. */
     private Long institutionCertId;
 
     private Long certificationId;
+
+    private java.util.List<Long> institutionCertIds;
+
+    private java.util.List<Long> certificationIds;
+
+    private java.util.List<CoveredCertification> certifications;
+
+    public record CoveredCertification(Long institutionCertId, Long certificationId, String title,
+                                       Integer totalSlots, Integer usedSlots, String status) {
+    }
 
     @NotBlank
     @Size(max = 150)

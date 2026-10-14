@@ -199,3 +199,11 @@ export function setCertificationBadge(certificationId, file) {
 export function removeCertificationBadge(certificationId) {
     return base(`certifications/${certificationId}/badge`, { method: "DELETE" })
 }
+
+/** One certification's outline without lesson content, as a one-item list like getAllCertifications. */
+export async function getCertificationSummary(certificationId, includeDepartmentId) {
+    const params = new URLSearchParams({ summary: "true" })
+    if (includeDepartmentId != null) params.set("includeDepartmentId", String(includeDepartmentId))
+    const certification = await base(`certifications/${certificationId}?${params}`)
+    return certification ? [certification] : []
+}

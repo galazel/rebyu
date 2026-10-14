@@ -52,9 +52,13 @@ public class CertificationController {
     public CertificationDto getById(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long id,
-            @RequestParam(required = false) Long includeDepartmentId) {
+            @RequestParam(required = false) Long includeDepartmentId,
+            @RequestParam(defaultValue = "false") boolean summary) {
         requireDepartmentAccessIfRequested(jwt, includeDepartmentId);
-        return certificationService.getById(id, includeDepartmentId);
+        // summary=true: the outline without lesson content, as in the list endpoint.
+        return summary
+                ? certificationService.getSummaryById(id, includeDepartmentId)
+                : certificationService.getById(id, includeDepartmentId);
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)

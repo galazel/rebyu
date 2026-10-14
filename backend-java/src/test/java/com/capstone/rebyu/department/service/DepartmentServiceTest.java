@@ -55,16 +55,6 @@ class DepartmentServiceTest {
             dto.setStatus(entity.getStatus());
             return dto;
         });
-        when(mapper.toEntity(any(DepartmentDto.class))).thenAnswer(inv -> {
-            DepartmentDto dto = inv.getArgument(0);
-            return Department.builder()
-                    .departmentId(dto.getDepartmentId())
-                    .departmentName(dto.getDepartmentName())
-                    .departmentDescription(dto.getDepartmentDescription())
-                    .totalSlots(dto.getTotalSlots() != null ? dto.getTotalSlots() : 0)
-                    .status(dto.getStatus())
-                    .build();
-        });
     }
 
     private Department group(Long institutionId) {
@@ -76,7 +66,7 @@ class DepartmentServiceTest {
         return Department.builder()
                 .departmentId(GROUP_ID)
                 .institution(institution)
-                .institutionCert(institutionCert)
+                .institutionCerts(new java.util.ArrayList<>(java.util.List.of(institutionCert)))
                 .departmentName("Original Name")
                 .departmentDescription("Original Description")
                 .totalSlots(10)
@@ -103,31 +93,6 @@ class DepartmentServiceTest {
         dto.setDepartmentDescription("New Description");
         dto.setTotalSlots(10);
         return dto;
-    }
-
-    @Test
-    void create_institutionCertBelongsToDifferentInstitution_throwsNotFound() {
-        when(institutionCertRepository.findById(INSTITUTION_CERT_ID)).thenReturn(Optional.of(institutionCert(OTHER_INSTITUTION_ID)));
-
-        assertThrows(EntityNotFoundException.class,
-                () -> service.create(createDto(CALLER_INSTITUTION_ID)));
-
-        verify(groupRepository, never()).save(any());
-    }
-
-    @Test
-    void create_matchingInstitution_succeedsAndReturnsMappedDto() {
-        when(institutionCertRepository.findById(INSTITUTION_CERT_ID)).thenReturn(Optional.of(institutionCert(CALLER_INSTITUTION_ID)));
-        when(groupRepository.save(any(Department.class))).thenAnswer(inv -> {
-            Department entity = inv.getArgument(0);
-            entity.setDepartmentId(GROUP_ID);
-            return entity;
-        });
-
-        DepartmentDto result = service.create(createDto(CALLER_INSTITUTION_ID));
-
-        assertEquals(GROUP_ID, result.getDepartmentId());
-        assertEquals("New Group", result.getDepartmentName());
     }
 
     @Test

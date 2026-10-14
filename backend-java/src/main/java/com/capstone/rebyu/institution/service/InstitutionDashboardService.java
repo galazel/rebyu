@@ -267,8 +267,11 @@ public class InstitutionDashboardService {
                        (SELECT count(*) FROM institution_certification_learners icl
                          WHERE icl.institution_cert_id = ic.institution_cert_id
                            AND icl.status IN ('active', 'completed')) AS seats_used,
-                       (SELECT coalesce(sum(d.total_slots), 0) FROM departments d
-                         WHERE d.institution_cert_id = ic.institution_cert_id AND d.status = 'active') AS dept_slots
+                       (CASE WHEN EXISTS (SELECT 1 FROM department_certifications dc
+                                            JOIN departments d ON d.department_id = dc.department_id
+                                           WHERE dc.institution_cert_id = ic.institution_cert_id
+                                             AND d.status = 'active')
+                             THEN ic.total_slots ELSE 0 END) AS dept_slots
                   FROM institution_certificates ic
                   JOIN certifications c ON c.certification_id = ic.certification_id
                  WHERE ic.institution_id = ?
@@ -329,11 +332,16 @@ public class InstitutionDashboardService {
 
     private List<Object[]> departments(Long institutionId) {
         return jdbc.query("""
-                SELECT d.department_id, d.department_name, d.institution_cert_id, c.title, d.total_slots
+                SELECT d.department_id, d.department_name,
+                       min(dc.institution_cert_id) AS institution_cert_id,
+                       string_agg(c.title, ' · ' ORDER BY c.title) AS titles,
+                       d.total_slots
                   FROM departments d
-                  JOIN institution_certificates ic ON ic.institution_cert_id = d.institution_cert_id
+                  JOIN department_certifications dc ON dc.department_id = d.department_id
+                  JOIN institution_certificates ic ON ic.institution_cert_id = dc.institution_cert_id
                   JOIN certifications c ON c.certification_id = ic.certification_id
                  WHERE d.institution_id = ? AND d.status = 'active'
+                 GROUP BY d.department_id, d.department_name, d.total_slots
                  ORDER BY d.department_name""",
                 (rs, i) -> new Object[]{
                         rs.getLong(1), rs.getString(2), rs.getLong(3), rs.getString(4), rs.getInt(5)},

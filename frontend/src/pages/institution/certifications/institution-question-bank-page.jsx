@@ -49,7 +49,7 @@ import {
 } from "@/components/institution/institution-ui.jsx"
 import { useAuth } from "@/context/auth-context.jsx"
 import { useInstitutionData } from "@/hooks/use-institution-data.js"
-import { getAllCertifications } from "@/services/certificationService.js"
+import { getAllCertifications, getCertificationSummary } from "@/services/certificationService.js"
 import {
   deleteQuestion,
   getDepartmentQuestions,
@@ -430,9 +430,13 @@ export function InstitutionQuestionBankPanel({
      
   }, [startingCertId, initialLessonId, autoOpenAdd])
 
+  // Locked to one certification (the department workspace), load just that one.
   const certificationsQuery = useQuery({
-    queryKey: ["certifications", "summary"],
-    queryFn: () => getAllCertifications(undefined, { summary: true }),
+    queryKey: ["certifications", "summary", lockedCertId || "all"],
+    queryFn: () =>
+      lockedCertId
+        ? getCertificationSummary(Number(lockedCertId))
+        : getAllCertifications(undefined, { summary: true }),
     staleTime: 5 * 60 * 1000,
   })
 
@@ -662,7 +666,7 @@ export function InstitutionQuestionBankPanel({
             </Button>
             {departmentId != null ? (
               <Button asChild variant="outline">
-                <Link to={`/institution/departments/${departmentId}/question-bank/import`}>
+                <Link to={`/institution/departments/${departmentId}/question-bank/import?certificationId=${lockedCertId || selectedCertId || ""}`}>
                   <Upload className="size-4" aria-hidden="true" />
                   Import from PDF/Word
                 </Link>

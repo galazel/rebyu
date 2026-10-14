@@ -10,15 +10,9 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 
-import { REFERENCE_INDUSTRY, useReferenceOptions } from "@/services/referenceService.js"
+import { REFERENCE_PROGRAM, useReferenceDetails } from "@/services/referenceService.js"
 
 import {
   MAX_DESCRIPTION_LENGTH,
@@ -28,13 +22,22 @@ import {
 } from "@/utils/certification-edit"
 
 function CertificationDetails({ value, onChange, errors = {}, disabled = false }) {
-  const { options: referenceIndustries } = useReferenceOptions(REFERENCE_INDUSTRY)
-  // A certification saved under an industry no longer in the list keeps it as an
-  // option, so the field shows what it is instead of looking unset.
-  const industries =
-      value.industry && !referenceIndustries.includes(value.industry)
-          ? [value.industry, ...referenceIndustries]
-          : referenceIndustries
+  // The departments a certification sits under on the partnership request forms
+  // (Reference lists > Programs). The first one chosen is its main department.
+  const { options: programs } = useReferenceDetails(REFERENCE_PROGRAM)
+  const departments = programs.map((program) => program.label)
+  const selected = Array.isArray(value.departments)
+      ? value.departments
+      : programs
+          .filter((program) => (program.certificationIds ?? []).map(Number).includes(Number(value.certificationId)))
+          .map((program) => program.label)
+  const chosen = selected.length > 0 ? selected : value.department ? [value.department] : []
+
+  function toggleDepartment(name) {
+    const next = chosen.includes(name) ? chosen.filter((entry) => entry !== name) : [...chosen, name]
+    onChange({ ...value, departments: next, department: next[0] ?? "" })
+  }
+
   function updateField(fieldName, fieldValue) {
     onChange({
       ...value,
@@ -83,42 +86,38 @@ function CertificationDetails({ value, onChange, errors = {}, disabled = false }
 
           <FieldGroup className="grid grid-cols-1 gap-5">
             <Field>
-              <FieldLabel htmlFor="certification-industry">
-                Industry
+              <FieldLabel htmlFor="certification-department">
+                Departments
               </FieldLabel>
 
-              <Select
-                  disabled={disabled}
-                  value={value.industry ?? ""}
-                  onValueChange={(selectedIndustry) => {
-                    updateField("industry", selectedIndustry)
-                  }}
+              <div
+                  id="certification-department"
+                  role="group"
+                  aria-invalid={Boolean(errors.department)}
+                  aria-describedby={errors.department ? "certification-department-error" : "certification-department-hint"}
+                  className="grid gap-1.5 rounded-md border border-input p-2 sm:grid-cols-2"
               >
-                <SelectTrigger
-                    id="certification-industry"
-                    className="w-full"
-                    aria-invalid={Boolean(errors.industry)}
-                    aria-describedby={
-                      errors.industry
-                          ? "certification-industry-error"
-                          : undefined
-                    }
-                >
-                  <SelectValue placeholder="Select an industry" />
-                </SelectTrigger>
+                {departments.map((department) => (
+                    <label
+                        key={department}
+                        className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted"
+                    >
+                      <Checkbox
+                          disabled={disabled}
+                          checked={chosen.includes(department)}
+                          onCheckedChange={() => toggleDepartment(department)}
+                      />
+                      <span className="min-w-0">{department}</span>
+                    </label>
+                ))}
+              </div>
+              <FieldDescription id="certification-department-hint">
+                Pick every department this certification is for. The first one you pick is its main department.
+              </FieldDescription>
 
-                <SelectContent>
-                  {industries.map((industry) => (
-                      <SelectItem key={industry} value={industry}>
-                        {industry}
-                      </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {errors.industry && (
-                  <FieldError id="certification-industry-error">
-                    {errors.industry}
+              {errors.department && (
+                  <FieldError id="certification-department-error">
+                    {errors.department}
                   </FieldError>
               )}
             </Field>

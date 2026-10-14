@@ -31,7 +31,10 @@ public class CertificationDto {
 
     private List<MajorCategoryDto> majorCategory;
 
-    private String industry;
+    private String department;
+
+    /** Every department (Programs reference entry) the certification is filed under; the first is {@link #department}. */
+    private List<String> departments;
 
     private LocalDateTime dateUpdated;
 

@@ -334,7 +334,7 @@ export default function LearnerCertificationDetailPage() {
           <header className="relative border-l-[6px] pl-5 sm:pl-7" style={{ borderColor: tone.solid }}>
             <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
               <p className="rb-eyebrow min-w-0 break-words">
-                {certification.industry || "certification program"}
+                {certification.department || "certification program"}
               </p>
 
               <span

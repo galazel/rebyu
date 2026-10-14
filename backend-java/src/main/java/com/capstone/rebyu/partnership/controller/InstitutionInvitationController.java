@@ -41,7 +41,7 @@ public class InstitutionInvitationController {
         CurrentUserDto caller = currentUser(jwt);
         SendInvitationsRequest trusted = new SendInvitationsRequest(
                 requireInstitutionId(caller), caller.userId(), request.departmentId(), request.learners(),
-                request.sectionId());
+                request.sectionId(), request.institutionCertId());
         return invitationService.sendInvitations(trusted);
     }
 

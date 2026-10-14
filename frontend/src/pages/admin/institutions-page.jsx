@@ -51,7 +51,6 @@ const DEMO_INSTITUTIONS = [
     institutionName: "Cebu Institute of Technology",
     contactPerson: "Maria Santos",
     contactEmail: "maria.santos@example.com",
-    industry: "Education",
     learnerCount: 428,
     certificationCount: 4,
     status: "active",
@@ -62,7 +61,6 @@ const DEMO_INSTITUTIONS = [
     institutionName: "TechBridge Training Center",
     contactPerson: "Daniel Reyes",
     contactEmail: "daniel.reyes@example.com",
-    industry: "Training Center",
     learnerCount: 215,
     certificationCount: 3,
     status: "active",
@@ -73,7 +71,6 @@ const DEMO_INSTITUTIONS = [
     institutionName: "Northstar Review Academy",
     contactPerson: "Angela Cruz",
     contactEmail: "angela.cruz@example.com",
-    industry: "Review Center",
     learnerCount: 126,
     certificationCount: 2,
     status: "pending",
@@ -84,7 +81,6 @@ const DEMO_INSTITUTIONS = [
     institutionName: "Innovate Cebu Solutions",
     contactPerson: "Paolo Lim",
     contactEmail: "paolo.lim@example.com",
-    industry: "Information Technology",
     learnerCount: 89,
     certificationCount: 2,
     status: "active",
@@ -95,7 +91,6 @@ const DEMO_INSTITUTIONS = [
     institutionName: "Global Skills Development Hub",
     contactPerson: "Karen Dela Peña",
     contactEmail: "karen.delapena@example.com",
-    industry: "Professional Training",
     learnerCount: 304,
     certificationCount: 5,
     status: "active",
@@ -106,7 +101,6 @@ const DEMO_INSTITUTIONS = [
     institutionName: "Metro Learning Partners",
     contactPerson: "Joshua Tan",
     contactEmail: "joshua.tan@example.com",
-    industry: "Education",
     learnerCount: 72,
     certificationCount: 1,
     status: "suspended",
@@ -117,7 +111,6 @@ const DEMO_INSTITUTIONS = [
     institutionName: "FutureReady Philippines",
     contactPerson: "Nicole Ramos",
     contactEmail: "nicole.ramos@example.com",
-    industry: "Training Center",
     learnerCount: 191,
     certificationCount: 3,
     status: "pending",
@@ -128,7 +121,6 @@ const DEMO_INSTITUTIONS = [
     institutionName: "Digital Career Academy",
     contactPerson: "Mark Villanueva",
     contactEmail: "mark.villanueva@example.com",
-    industry: "Review Center",
     learnerCount: 154,
     certificationCount: 2,
     status: "active",
@@ -139,7 +131,6 @@ const DEMO_INSTITUTIONS = [
     institutionName: "Central Visayas Tech Council",
     contactPerson: "Leah Mendoza",
     contactEmail: "leah.mendoza@example.com",
-    industry: "Government",
     learnerCount: 511,
     certificationCount: 6,
     status: "active",
@@ -196,7 +187,6 @@ export default function Institutions({ onEdit, onDelete }) {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState(ALL_FILTER_VALUE)
-  const [industryFilter, setIndustryFilter] = useState(ALL_FILTER_VALUE)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const { sort, toggle, sortRows } = useTableSort()
@@ -208,14 +198,6 @@ export default function Institutions({ onEdit, onDelete }) {
   })
 
   const list = Array.isArray(fetchedInstitutions) ? fetchedInstitutions : []
-
-  const industries = useMemo(() => {
-    return [...new Set(
-        list
-            .map((institution) => institution.industry)
-            .filter(Boolean)
-    )].sort((a, b) => a.localeCompare(b))
-  }, [list])
 
   const filteredInstitutions = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase()
@@ -234,7 +216,6 @@ export default function Institutions({ onEdit, onDelete }) {
           institution.email ??
           ""
       ).toLowerCase()
-      const industry = String(institution.industry ?? "").toLowerCase()
       const status = String(institution.status ?? "pending").toLowerCase()
 
       const matchesSearch =
@@ -246,13 +227,9 @@ export default function Institutions({ onEdit, onDelete }) {
       const matchesStatus =
           statusFilter === ALL_FILTER_VALUE || status === statusFilter
 
-      const matchesIndustry =
-          industryFilter === ALL_FILTER_VALUE ||
-          industry === industryFilter.toLowerCase()
-
-      return matchesSearch && matchesStatus && matchesIndustry
+      return matchesSearch && matchesStatus
     })
-  }, [industryFilter, list, searchQuery, statusFilter])
+  }, [list, searchQuery, statusFilter])
 
   const sortedInstitutions = useMemo(
       () =>
@@ -263,7 +240,6 @@ export default function Institutions({ onEdit, onDelete }) {
                 institution.contactPerson ??
                 institution.contactName ??
                 null,
-            industry: (institution) => institution.industry ?? null,
             learners: (institution) =>
                 Number(
                     institution.learnerCount ??
@@ -300,7 +276,7 @@ export default function Institutions({ onEdit, onDelete }) {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, statusFilter, industryFilter, pageSize])
+  }, [searchQuery, statusFilter, pageSize])
 
   useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages))
@@ -387,22 +363,6 @@ export default function Institutions({ onEdit, onDelete }) {
                 onSearchChange={setSearchQuery}
                 searchPlaceholder="Search institution, contact, or email"
             >
-              <Select value={industryFilter} onValueChange={setIndustryFilter}>
-                <SelectTrigger className="h-9 w-full sm:w-52">
-                  <SelectValue placeholder="All industries" />
-                </SelectTrigger>
-
-                <SelectContent>
-                  <SelectItem value={ALL_FILTER_VALUE}>All industries</SelectItem>
-
-                  {industries.map((industry) => (
-                      <SelectItem key={industry} value={industry}>
-                        {industry}
-                      </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="h-9 w-full sm:w-36">
                   <SelectValue placeholder="All statuses" />
@@ -434,13 +394,6 @@ export default function Institutions({ onEdit, onDelete }) {
                         sort={sort}
                         onSort={toggle}
                         className="min-w-56"
-                    />
-                    <SortableHead
-                        column="industry"
-                        label="Industry"
-                        sort={sort}
-                        onSort={toggle}
-                        className="min-w-40"
                     />
                     <SortableHead
                         column="learners"
@@ -538,10 +491,6 @@ export default function Institutions({ onEdit, onDelete }) {
                                         "No email provided"}
                                   </p>
                                 </div>
-                              </TableCell>
-
-                              <TableCell className="text-sm text-muted-foreground">
-                                {institution.industry ?? "Not specified"}
                               </TableCell>
 
                               <TableCell className="text-center font-medium tabular-nums">

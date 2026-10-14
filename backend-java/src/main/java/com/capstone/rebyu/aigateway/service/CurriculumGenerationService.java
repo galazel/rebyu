@@ -36,6 +36,7 @@ public class CurriculumGenerationService {
     record LessonCtx(Long lessonId, String lessonTitle, String midTitle, String majorTitle, String certTitle) {}
 
     private final CertificationRepository certificationRepository;
+    private final com.capstone.rebyu.reference.CertificationProgramFiler programFiler;
     private final LessonRepository lessonRepository;
     private final DocumentIngestionService documentIngestionService;
     private final CertificationMapper certificationMapper;
@@ -49,6 +50,7 @@ public class CurriculumGenerationService {
 
     public CurriculumGenerationService(
             CertificationRepository certificationRepository,
+            com.capstone.rebyu.reference.CertificationProgramFiler programFiler,
             LessonRepository lessonRepository,
             DocumentIngestionService documentIngestionService,
             CertificationMapper certificationMapper,
@@ -58,6 +60,7 @@ public class CurriculumGenerationService {
             ObjectMapper objectMapper
     ) {
         this.certificationRepository = certificationRepository;
+        this.programFiler = programFiler;
         this.lessonRepository = lessonRepository;
         this.documentIngestionService = documentIngestionService;
         this.certificationMapper = certificationMapper;
@@ -201,8 +204,12 @@ public class CurriculumGenerationService {
         certification.setDateCreated(LocalDateTime.now());
         certification.setDateUpdated(null);
         certification.setMajorCategory(new ArrayList<>());
+        java.util.List<String> departments = com.capstone.rebyu.reference.CertificationProgramFiler
+                .requested(dto.getDepartments(), dto.getDepartment());
+        if (departments != null && !departments.isEmpty()) certification.setDepartment(departments.get(0));
 
         Certification saved = certificationRepository.save(certification);
+        programFiler.file(saved.getCertificationId(), departments);
         return saved.getCertificationId();
     }
 

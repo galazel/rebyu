@@ -22,7 +22,7 @@ function getCertificationTitle(certification) {
 }
 
 function getCertificationCategory(certification) {
-  return certification?.industry ?? certification?.category ?? "Technology"
+  return certification?.department ?? certification?.category ?? "Technology"
 }
 
 function getCertificationSize(certification) {

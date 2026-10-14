@@ -110,7 +110,6 @@ class AdminPartnershipServiceTest {
                                 .institutionId(EXISTING_INSTITUTION_ID)
                                 .institutionName(name)
                                 .institutionType(Institution.InstitutionType.other)
-                                .industry("General")
                                 .primaryContactName("Old Contact")
                                 .primaryContactEmail(ORG_EMAIL)
                                 .isVerified(true)
@@ -160,7 +159,7 @@ class AdminPartnershipServiceTest {
         }
 
         @Test
-        void provisionInstitutionAccount_usernameExists_existingLocalUser_linksAsOwner() {
+        void approve_existingLocalUser_isNotLinkedAsOwner_theyRegisterWithTheirReference() {
                 PartnershipRequest request = pendingRequest();
                 when(requestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(request));
                 when(institutionRepository.findByPrimaryContactEmailIgnoreCase(ORG_EMAIL)).thenReturn(Optional.empty());
@@ -178,7 +177,8 @@ class AdminPartnershipServiceTest {
 
                 service.approve(REQUEST_ID, "ok", "admin");
 
-                verify(departmentHeadRepository, times(1)).save(any(DepartmentHead.class));
+                verify(departmentHeadRepository, never()).save(any(DepartmentHead.class));
+                verify(cognitoAdminService, never()).createInstitutionAccount(anyString(), anyString(), anyString());
                 verify(userTypeRepository, never()).findByUserTypeText(anyString());
                 verify(userRepository, never()).save(any(User.class));
         }

@@ -56,7 +56,7 @@ public class InstitutionRefundService {
     public BigDecimal quote(Long institutionId, Long certificationId) {
         BigDecimal total = BigDecimal.ZERO;
         for (InstitutionInvoice invoice : invoices.findByInstitution_InstitutionIdOrderByIssuedAtDesc(institutionId)) {
-            if (invoice.getStatus() != InstitutionInvoice.Status.paid || !withinWindow(invoice)) continue;
+            if (invoice.getStatus() != InstitutionInvoice.Status.paid || !withinWindow(invoice, LocalDateTime.now())) continue;
             total = total.add(refundableAmount(invoice, certificationId));
         }
         return total;
@@ -85,13 +85,18 @@ public class InstitutionRefundService {
         }
     }
 
-    private static boolean withinWindow(InstitutionInvoice invoice) {
+    private static boolean withinWindow(InstitutionInvoice invoice, LocalDateTime requestedAt) {
         LocalDateTime paidAt = invoice.getPaidAt();
-        return paidAt != null && paidAt.isAfter(LocalDateTime.now().minusHours(REFUND_WINDOW_HOURS));
+        return paidAt != null && paidAt.isAfter(requestedAt.minusHours(REFUND_WINDOW_HOURS));
     }
 
     @Transactional
     public RefundResult refund(Long institutionId, Long certificationId, String reason) {
+        return refund(institutionId, certificationId, reason, LocalDateTime.now());
+    }
+
+    @Transactional
+    public RefundResult refund(Long institutionId, Long certificationId, String reason, LocalDateTime requestedAt) {
         List<RefundLine> lines = new ArrayList<>();
         BigDecimal refunded = BigDecimal.ZERO;
         BigDecimal pending = BigDecimal.ZERO;
@@ -110,7 +115,7 @@ public class InstitutionRefundService {
             BigDecimal amount = refundableAmount(invoice, certificationId);
             if (amount.signum() <= 0) continue;
 
-            if (!withinWindow(invoice)) {
+            if (!withinWindow(invoice, requestedAt)) {
                 expired = expired.add(amount);
                 lines.add(new RefundLine(invoice.getInvoiceNumber(), amount, null,
                         "outside the " + REFUND_WINDOW_HOURS + "-hour refund window"));

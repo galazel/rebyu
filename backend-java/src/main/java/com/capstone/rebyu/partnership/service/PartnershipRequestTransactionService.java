@@ -33,7 +33,16 @@ public class PartnershipRequestTransactionService {
 
     private static final String ADMIN_USER_TYPE = "ADMIN";
 
+    private static final java.util.Set<PartnershipRequest.Status> OPEN_STATUSES = java.util.EnumSet.of(
+            PartnershipRequest.Status.PENDING,
+            PartnershipRequest.Status.UNDER_REVIEW,
+            PartnershipRequest.Status.MEETING_SCHEDULED);
+
+    private static final int RENEWAL_WINDOW_DAYS = 30;
+
     private final PartnershipRequestRepository requestRepository;
+    private final com.capstone.rebyu.institution.repository.InstitutionCertificateRepository allocationRepository;
+    private final com.capstone.rebyu.billing.repository.InstitutionInvoiceRepository invoiceRepository;
     private final PartnershipRequestItemRepository itemRepository;
     private final InstitutionRepository institutionRepository;
     private final CertificationRepository certificationRepository;
@@ -61,6 +70,53 @@ public class PartnershipRequestTransactionService {
                         "Institution not found: " + request.institutionId()));
 
         PartnershipRequest.RequestType requestType = parseType(request.requestType());
+
+        java.util.List<PartnershipRequest> history =
+                requestRepository.findByInstitution_InstitutionIdOrderBySubmittedAtDesc(institution.getInstitutionId());
+        history.stream()
+                .filter(row -> OPEN_STATUSES.contains(row.getStatus()))
+                .findFirst()
+                .ifPresent(open -> {
+                    throw new BusinessRuleException.InvalidPartnershipRequestException(
+                            "Request " + open.getReferenceNumber() + " is still being reviewed. "
+                                    + "You can send another request once it is approved or rejected.");
+                });
+        boolean partnered = history.stream()
+                .filter(row -> row.getStatus() == PartnershipRequest.Status.APPROVED)
+                .findFirst()
+                .map(latest -> latest.getRequestType() != PartnershipRequest.RequestType.CANCELLATION)
+                .orElse(false);
+        if (requestType == PartnershipRequest.RequestType.NEW && partnered) {
+            throw new BusinessRuleException.InvalidPartnershipRequestException(
+                    "Your institution is already a partner. Request more access or renew instead.");
+        }
+        if ((requestType == PartnershipRequest.RequestType.ADDITIONAL
+                || requestType == PartnershipRequest.RequestType.RENEWAL) && !partnered) {
+            throw new BusinessRuleException.InvalidPartnershipRequestException(
+                    "You can add access or renew once your first partnership request is approved.");
+        }
+        if (requestType == PartnershipRequest.RequestType.RENEWAL) {
+            java.time.LocalDate opensBefore = java.time.LocalDate.now().plusDays(RENEWAL_WINDOW_DAYS);
+            java.time.LocalDate firstEnd = allocationRepository
+                    .findByInstitution_InstitutionId(institution.getInstitutionId()).stream()
+                    .map(com.capstone.rebyu.institution.entity.InstitutionCertificate::getAccessExpiryDate)
+                    .filter(java.util.Objects::nonNull)
+                    .min(java.util.Comparator.naturalOrder())
+                    .orElse(null);
+            if (firstEnd != null && firstEnd.isAfter(opensBefore)) {
+                throw new BusinessRuleException.InvalidPartnershipRequestException(
+                        "Renewal opens " + RENEWAL_WINDOW_DAYS + " days before access ends ("
+                                + firstEnd.minusDays(RENEWAL_WINDOW_DAYS) + ").");
+            }
+        }
+        invoiceRepository.findByInstitution_InstitutionIdOrderByIssuedAtDesc(institution.getInstitutionId()).stream()
+                .filter(invoice -> invoice.getStatus() == com.capstone.rebyu.billing.entity.InstitutionInvoice.Status.issued
+                        || invoice.getStatus() == com.capstone.rebyu.billing.entity.InstitutionInvoice.Status.payment_submitted)
+                .findFirst()
+                .ifPresent(unpaid -> {
+                    throw new BusinessRuleException.InvalidPartnershipRequestException(
+                            "Pay invoice " + unpaid.getInvoiceNumber() + " before requesting more access or a renewal.");
+                });
 
         LocalDateTime now = LocalDateTime.now();
         PartnershipRequest partnershipRequest = PartnershipRequest.builder()
@@ -147,15 +203,27 @@ public class PartnershipRequestTransactionService {
         Institution institution = institutionRepository.findById(institutionId)
                 .orElseThrow(() -> new EntityNotFoundException("Institution not found: " + institutionId));
 
-        boolean alreadyAsked = requestRepository
-                .findByInstitution_InstitutionIdOrderBySubmittedAtDesc(institutionId).stream()
-                .anyMatch(request -> request.getRequestType() == PartnershipRequest.RequestType.CANCELLATION
-                        && (request.getStatus() == PartnershipRequest.Status.PENDING
-                                || request.getStatus() == PartnershipRequest.Status.UNDER_REVIEW));
-        if (alreadyAsked) {
-            throw new BusinessRuleException.InvalidPartnershipRequestException(
-                    "A cancellation request is already waiting for review.");
-        }
+        requestRepository.findByInstitution_InstitutionIdOrderBySubmittedAtDesc(institutionId).stream()
+                .filter(open -> OPEN_STATUSES.contains(open.getStatus()))
+                .findFirst()
+                .ifPresent(open -> {
+                    throw new BusinessRuleException.InvalidPartnershipRequestException(
+                            open.getRequestType() == PartnershipRequest.RequestType.CANCELLATION
+                                    ? "A cancellation request is already waiting for review."
+                                    : "Request " + open.getReferenceNumber() + " is still being reviewed. "
+                                            + "You can end the partnership once it is approved or rejected.");
+                });
+        invoiceRepository.findByInstitution_InstitutionIdOrderByIssuedAtDesc(institutionId).stream()
+                .filter(invoice -> invoice.getStatus() == com.capstone.rebyu.billing.entity.InstitutionInvoice.Status.issued
+                        || invoice.getStatus() == com.capstone.rebyu.billing.entity.InstitutionInvoice.Status.payment_submitted)
+                .filter(invoice -> invoice.getIssuedAt() != null
+                        && invoice.getIssuedAt().isBefore(LocalDateTime.now().minusHours(24)))
+                .findFirst()
+                .ifPresent(unpaid -> {
+                    throw new BusinessRuleException.InvalidPartnershipRequestException(
+                            "Invoice " + unpaid.getInvoiceNumber() + " was issued more than 24 hours ago. "
+                                    + "Pay it before ending the partnership.");
+                });
 
         PartnershipRequest request = requestRepository.save(PartnershipRequest.builder()
                 .institution(institution)
@@ -219,7 +287,12 @@ public class PartnershipRequestTransactionService {
                 request.getStatus().name(),
                 request.getSubmittedAt(),
                 totalSlots,
-                itemDtos
+                itemDtos,
+                request.getRequestType() == null ? null : request.getRequestType().name(),
+                request.getReferenceNumber(),
+                request.getRequestType() == PartnershipRequest.RequestType.CANCELLATION
+                        ? request.getBusinessDescription()
+                        : null
         );
     }
 }

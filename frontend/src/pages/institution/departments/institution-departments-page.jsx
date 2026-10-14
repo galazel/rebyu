@@ -4,16 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Loader2, Mail, Plus, Trash2, UserCog, UserPlus, Users2, UsersRound } from "@/components/icons"
 import { toast } from "sonner"
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -50,15 +40,15 @@ import {
   InstitutionStatusBadge,
 } from "@/components/institution/institution-ui.jsx"
 import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
-import { REFERENCE_DEPARTMENT, useReferenceOptions } from "@/services/referenceService.js"
-import { departmentDescriptions } from "@/constants/departments.js"
 import {
   getLearnerDisplayName,
   useInstitutionData,
 } from "@/hooks/use-institution-data.js"
 import {
+  cancelDepartmentHeadCode,
+  getDepartmentHeadCodeInvitations,
+  sendDepartmentHeadCode,
   addDepartmentLearner,
-  archiveDepartment,
   assignDepartmentHeadAssignment,
   changeDepartmentLearnerRole,
   createDepartment,
@@ -66,10 +56,8 @@ import {
   getDepartmentHeadAssignments,
   getDepartments,
   getMyDepartmentHeads,
-  inviteDepartmentHead,
   removeDepartmentLearner,
   removeDepartmentHeadAssignment,
-  updateDepartment,
 } from "@/services/institutionService.js"
 import {
   cancelInstitutionInvitation,
@@ -80,237 +68,8 @@ function backendMessage(error, fallback) {
   return error?.response?.data?.message ?? fallback
 }
 
-const OTHER_DEPARTMENT = "__other__"
 
-function CreateGroupDialog({ open, onOpenChange, institutionCerts, certificationById, lockedInstitutionCertId, departments = [] }) {
-  const { options: departmentOptions } = useReferenceOptions(REFERENCE_DEPARTMENT)
-  const queryClient = useQueryClient()
-  const [institutionCertId, setInstitutionCertId] = useState("")
-  const [departmentName, setDepartmentName] = useState("")
-  const [departmentChoice, setDepartmentChoice] = useState("")
-  const [departmentDescription, setDepartmentDescription] = useState("")
-  const [totalSlots, setTotalSlots] = useState("")
-  const [error, setError] = useState("")
-
-  const selectedInstitutionCert = institutionCerts.find(
-    (institutionCert) => String(institutionCert.institutionCertId) === institutionCertId
-  )
-
-  useEffect(() => {
-    if (open) {
-      setInstitutionCertId(lockedInstitutionCertId != null ? String(lockedInstitutionCertId) : "")
-    }
-  }, [open, lockedInstitutionCertId])
-
-  const reset = () => {
-    setInstitutionCertId(lockedInstitutionCertId != null ? String(lockedInstitutionCertId) : "")
-    setDepartmentName("")
-    setDepartmentChoice("")
-    setDepartmentDescription("")
-    setTotalSlots("")
-    setError("")
-  }
-
-  const allocatedSlots = departments
-    .filter((group) => String(group.institutionCertId) === String(institutionCertId))
-    .reduce((sum, group) => sum + Number(group.totalSlots ?? 0), 0)
-  const remainingSlots = selectedInstitutionCert
-    ? Math.max(0, Number(selectedInstitutionCert.totalSlots ?? 0) - allocatedSlots)
-    : null
-
-  const createMutation = useMutation({
-    mutationFn: () =>
-      createDepartment({
-        institutionCertId: Number(institutionCertId),
-        departmentName: departmentName.trim(),
-        departmentDescription: departmentDescription.trim() || null,
-        totalSlots: Number(totalSlots),
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["departments"] })
-      queryClient.invalidateQueries({ queryKey: ["institution-group-stats"] })
-      queryClient.invalidateQueries({ queryKey: ["institution-learning-stats"] })
-      queryClient.invalidateQueries({ queryKey: ["institution-portal-overview"] })
-      toast.success("Department created.")
-      reset()
-      onOpenChange(false)
-    },
-    onError: (err) => {
-      const message = backendMessage(err, "Unable to create the department.")
-      setError(message)
-      toast.error(message)
-    },
-  })
-
-  const handleSubmit = (event) => {
-    event.preventDefault()
-    if (!institutionCertId) {
-      setError("Select a certification allocation.")
-      return
-    }
-    if (!departmentName.trim()) {
-      setError("Enter a department name.")
-      return
-    }
-    const slots = Number(totalSlots)
-    if (!totalSlots || !Number.isInteger(slots) || slots < 1) {
-      setError("Enter a number of slots (at least 1).")
-      return
-    }
-    if (remainingSlots != null && slots > remainingSlots) {
-      setError(
-        remainingSlots === 0
-          ? "This allocation has no slots left for a new department."
-          : `Only ${remainingSlots} slot(s) are left on this allocation; the other departments hold the rest.`
-      )
-      return
-    }
-    createMutation.mutate()
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) reset()
-        onOpenChange(next)
-      }}
-    >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Create department</DialogTitle>
-          <DialogDescription>
-            Departments organize learners under one certification allocation. Assign an
-            department head afterwards to let them manage the department's learners.
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="department-cert">Certification allocation</Label>
-            <Select
-              value={institutionCertId}
-              onValueChange={setInstitutionCertId}
-              disabled={lockedInstitutionCertId != null}
-            >
-              <SelectTrigger id="department-cert" className="w-full">
-                <SelectValue placeholder="Select certification allocation" />
-              </SelectTrigger>
-              <SelectContent>
-                {institutionCerts.map((institutionCert) => (
-                  <SelectItem key={institutionCert.institutionCertId} value={String(institutionCert.institutionCertId)}>
-                    {certificationById.get(institutionCert.certificationId)?.title ??
-                      `Certification #${institutionCert.certificationId}`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="group-name">Department</Label>
-            <Select
-              value={departmentChoice}
-              onValueChange={(value) => {
-                setDepartmentChoice(value)
-                setDepartmentName(value === OTHER_DEPARTMENT ? "" : value)
-                if (value !== OTHER_DEPARTMENT && !departmentDescription && departmentDescriptions[value]) {
-                  setDepartmentDescription(departmentDescriptions[value])
-                }
-              }}
-            >
-              <SelectTrigger id="group-name" className="w-full">
-                <SelectValue placeholder="Select a department" />
-              </SelectTrigger>
-              <SelectContent>
-                {departmentOptions.filter((name) => name !== "Other").map((name) => (
-                  <SelectItem key={name} value={name}>
-                    {name}
-                  </SelectItem>
-                ))}
-                <SelectItem value={OTHER_DEPARTMENT}>Other (type a name)</SelectItem>
-              </SelectContent>
-            </Select>
-            {departmentChoice === OTHER_DEPARTMENT ? (
-              <Input
-                id="group-name-other"
-                autoFocus
-                value={departmentName}
-                onChange={(e) => setDepartmentName(e.target.value)}
-                placeholder="Department name"
-                maxLength={150}
-              />
-            ) : null}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="group-description">Description (optional)</Label>
-            <Textarea
-              id="group-description"
-              value={departmentDescription}
-              onChange={(e) => setDepartmentDescription(e.target.value)}
-              placeholder="What is this department for?"
-              maxLength={500}
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="department-slots">Learner slots</Label>
-            <Input
-              id="department-slots"
-              type="number"
-              min={1}
-              max={remainingSlots ?? undefined}
-              value={totalSlots}
-              onChange={(e) => setTotalSlots(e.target.value)}
-              placeholder={remainingSlots != null ? String(remainingSlots) : "e.g. 30"}
-            />
-            {selectedInstitutionCert ? (
-              <p className={`text-xs ${remainingSlots === 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                {remainingSlots === 0
-                  ? `No slots left: all ${selectedInstitutionCert.totalSlots} on this allocation are already given to departments.`
-                  : `${remainingSlots} of ${selectedInstitutionCert.totalSlots} slot(s) still available on this certification allocation.`}
-              </p>
-            ) : null}
-          </div>
-
-          {error ? (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          ) : null}
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                reset()
-                onOpenChange(false)
-              }}
-              disabled={createMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                  Creating...
-                </>
-              ) : (
-                "Create department"
-              )}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function ManageGroupDialog({
+export function ManageGroupDialog({
   group,
   open,
   onOpenChange,
@@ -327,93 +86,11 @@ function ManageGroupDialog({
   const [authorityUserId, setAuthorityUserId] = useState("")
   const [institutionCertLearnerId, setInstitutionCertLearnerId] = useState("")
   const [showInviteForm, setShowInviteForm] = useState(false)
-  const [inviteFirstName, setInviteFirstName] = useState("")
-  const [inviteLastName, setInviteLastName] = useState("")
   const [inviteEmail, setInviteEmail] = useState("")
   const [learnerInviteEmail, setLearnerInviteEmail] = useState("")
+  const [learnerInviteCertId, setLearnerInviteCertId] = useState("")
   const [learnerInviteFirst, setLearnerInviteFirst] = useState("")
   const [learnerInviteLast, setLearnerInviteLast] = useState("")
-  const [editingSlots, setEditingSlots] = useState(false)
-  const [slotsInput, setSlotsInput] = useState("")
-  const [editingDetails, setEditingDetails] = useState(false)
-  const [nameChoice, setNameChoice] = useState("")
-  const [nameInput, setNameInput] = useState("")
-  const [descriptionInput, setDescriptionInput] = useState("")
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const { options: departmentOptions } = useReferenceOptions(REFERENCE_DEPARTMENT)
-
-  useEffect(() => {
-    if (open && group) {
-      setSlotsInput(String(group.totalSlots ?? 0))
-      setEditingSlots(false)
-      setEditingDetails(false)
-      setConfirmDelete(false)
-      setNameInput(group.departmentName ?? "")
-      setDescriptionInput(group.departmentDescription ?? "")
-    }
-  }, [open, group])
-
-  useEffect(() => {
-    if (!open || !group) return
-    const matching = departmentOptions.find(
-      (opt) =>
-        opt === group.departmentName ||
-        opt.replace(/\s*\([^)]*\)$/, "").trim() === group.departmentName?.trim() ||
-        group.departmentName?.replace(/\s*\([^)]*\)$/, "").trim() === opt.trim()
-    )
-    setNameChoice(matching || OTHER_DEPARTMENT)
-  }, [open, group, departmentOptions])
-
-  const updateDetailsMutation = useMutation({
-    mutationFn: () =>
-      updateDepartment(departmentId, {
-        departmentName: nameInput.trim(),
-        departmentDescription: descriptionInput.trim() || null,
-        totalSlots: group.totalSlots,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["departments"] })
-      queryClient.invalidateQueries({ queryKey: ["institution-group-stats"] })
-      queryClient.invalidateQueries({ queryKey: ["institution-learning-stats"] })
-      queryClient.invalidateQueries({ queryKey: ["institution-portal-overview"] })
-      toast.success("Department updated.")
-      setEditingDetails(false)
-    },
-    onError: (err) => toast.error(backendMessage(err, "Unable to update the department.")),
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: () => archiveDepartment(departmentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["departments"] })
-      queryClient.invalidateQueries({ queryKey: ["institution-group-stats"] })
-      queryClient.invalidateQueries({ queryKey: ["institution-learning-stats"] })
-      queryClient.invalidateQueries({ queryKey: ["institution-portal-overview"] })
-      toast.success("Department deleted.")
-      setConfirmDelete(false)
-      onOpenChange(false)
-    },
-    onError: (err) => toast.error(backendMessage(err, "Unable to delete the department.")),
-  })
-
-  const updateSlotsMutation = useMutation({
-    mutationFn: (nextTotalSlots) =>
-      updateDepartment(departmentId, {
-        departmentName: group.departmentName,
-        departmentDescription: group.departmentDescription,
-        totalSlots: nextTotalSlots,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["departments"] })
-      queryClient.invalidateQueries({ queryKey: ["institution-group-stats"] })
-      queryClient.invalidateQueries({ queryKey: ["institution-learning-stats"] })
-      queryClient.invalidateQueries({ queryKey: ["institution-portal-overview"] })
-      toast.success("Slot limit updated.")
-      setEditingSlots(false)
-    },
-    onError: (err) => toast.error(backendMessage(err, "Unable to update the slot limit.")),
-  })
-
   const authoritiesQuery = useQuery({
     queryKey: ["department-head-assignments", departmentId],
     queryFn: () => getDepartmentHeadAssignments({ departmentId }),
@@ -435,6 +112,12 @@ function ManageGroupDialog({
   const activeAssignees = assignees.filter((a) => a.status === "active")
 
   const isLeader = activeAuthorities.some((a) => a.userId === user?.userId)
+  // Only managers who are not already this department's head. The owner already
+  // manages every department, so they are never offered.
+  const assignableMembers = members.filter(
+    (member) =>
+      member.headRole !== "owner" && !activeAuthorities.some((a) => a.userId === member.userId)
+  )
   const isOwner = isInstitutionOwner(user)
 
   const departmentInvitations = (Array.isArray(invitations) ? invitations : []).filter(
@@ -442,7 +125,9 @@ function ManageGroupDialog({
   )
   const pendingGroupInvitations = departmentInvitations.filter((inv) => inv.status === "PENDING")
 
-  const institutionCert = institutionCertById?.get(group?.institutionCertId)
+  // A department covers every certification the institution holds from its college.
+  const groupCertifications = Array.isArray(group?.certifications) ? group.certifications : []
+  const groupCertIds = groupCertifications.map((cert) => cert.institutionCertId)
   const groupTotalSlots = group?.totalSlots ?? 0
   const groupUsedSlots = group?.usedSlots ?? 0
   const remainingSlots = Math.max(0, groupTotalSlots - groupUsedSlots)
@@ -455,10 +140,10 @@ function ManageGroupDialog({
     () =>
       assignments.filter(
         (assignment) =>
-          assignment.institutionCertId === group?.institutionCertId &&
+          groupCertIds.includes(assignment.institutionCertId) &&
           !assignedInstitutionCertLearnerIds.has(assignment.institutionCertLearnerId)
       ),
-    [assignments, group?.institutionCertId, assignedInstitutionCertLearnerIds]
+    [assignments, groupCertIds.join(","), assignedInstitutionCertLearnerIds]
   )
 
   const assignAuthorityMutation = useMutation({
@@ -476,34 +161,41 @@ function ManageGroupDialog({
       toast.error(backendMessage(err, "Unable to assign this department head.")),
   })
 
-  const inviteMemberMutation = useMutation({
-    mutationFn: () =>
-      inviteDepartmentHead({
-        firstName: inviteFirstName.trim(),
-        lastName: inviteLastName.trim(),
-        email: inviteEmail.trim(),
-        headRole: "manager",
-      }),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["department-heads"] })
-      toast.success(
-        result?.emailed
-          ? `Account created — login credentials were emailed to ${inviteEmail.trim()}.`
-          : (result?.note ?? "Account created.")
-      )
-      setInviteFirstName("")
-      setInviteLastName("")
+  const headCodesQuery = useQuery({
+    queryKey: ["department-head-codes", departmentId],
+    queryFn: () => getDepartmentHeadCodeInvitations(departmentId),
+    enabled: open && departmentId != null && isOwner,
+    retry: 1,
+  })
+  const pendingHeadCodes = (Array.isArray(headCodesQuery.data) ? headCodesQuery.data : []).filter(
+    (invite) => invite.status === "PENDING"
+  )
+
+  const sendHeadCodeMutation = useMutation({
+    mutationFn: () => sendDepartmentHeadCode({ departmentId, email: inviteEmail.trim() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["department-head-codes", departmentId] })
+      toast.success(`Department head code emailed to ${inviteEmail.trim()}.`)
       setInviteEmail("")
       setShowInviteForm(false)
     },
-    onError: (err) =>
-      toast.error(backendMessage(err, "Unable to create this account.")),
+    onError: (err) => toast.error(backendMessage(err, "Unable to send the code.")),
+  })
+
+  const cancelHeadCodeMutation = useMutation({
+    mutationFn: (invitationId) => cancelDepartmentHeadCode(invitationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["department-head-codes", departmentId] })
+      toast.success("Code cancelled.")
+    },
+    onError: (err) => toast.error(backendMessage(err, "Unable to cancel this code.")),
   })
 
   const inviteLearnerMutation = useMutation({
     mutationFn: () =>
       sendInstitutionInvitations({
         departmentId: departmentId,
+        institutionCertId: Number(learnerInviteCertId || groupCertIds[0]) || null,
         learners: [
           {
             firstName: learnerInviteFirst.trim(),
@@ -599,66 +291,6 @@ function ManageGroupDialog({
         <div className="space-y-6">
           {isOwner ? (
             <section className="rounded-lg border p-3">
-              {editingDetails ? (
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-department-name">Department</Label>
-                    <Select
-                      value={nameChoice}
-                      onValueChange={(value) => {
-                        setNameChoice(value)
-                        setNameInput(value === OTHER_DEPARTMENT ? "" : value)
-                        if (value !== OTHER_DEPARTMENT && !descriptionInput && departmentDescriptions[value]) {
-                          setDescriptionInput(departmentDescriptions[value])
-                        }
-                      }}
-                    >
-                      <SelectTrigger id="edit-department-name" className="w-full">
-                        <SelectValue placeholder="Select a department" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {departmentOptions.filter((name) => name !== "Other").map((name) => (
-                          <SelectItem key={name} value={name}>
-                            {name}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value={OTHER_DEPARTMENT}>Other (type a name)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {nameChoice === OTHER_DEPARTMENT ? (
-                      <Input
-                        value={nameInput}
-                        onChange={(e) => setNameInput(e.target.value)}
-                        placeholder="Department name"
-                        maxLength={150}
-                      />
-                    ) : null}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-department-description">Description (optional)</Label>
-                    <Textarea
-                      id="edit-department-description"
-                      value={descriptionInput}
-                      onChange={(e) => setDescriptionInput(e.target.value)}
-                      maxLength={500}
-                      rows={2}
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => setEditingDetails(false)}>
-                      Cancel
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => updateDetailsMutation.mutate()}
-                      disabled={!nameInput.trim() || updateDetailsMutation.isPending}
-                    >
-                      {updateDetailsMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" aria-hidden="true" /> : null}
-                      Save
-                    </Button>
-                  </div>
-                </div>
-              ) : (
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-medium">{group.departmentName}</p>
@@ -666,22 +298,7 @@ function ManageGroupDialog({
                       {group.departmentDescription?.trim() || "No description."}
                     </p>
                   </div>
-                  <div className="flex shrink-0 gap-2">
-                    <Button size="sm" variant="outline" onClick={() => setEditingDetails(true)}>
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => setConfirmDelete(true)}
-                    >
-                      <Trash2 className="mr-1.5 size-4" aria-hidden="true" />
-                      Delete
-                    </Button>
-                  </div>
                 </div>
-              )}
             </section>
           ) : null}
 
@@ -691,41 +308,9 @@ function ManageGroupDialog({
                 {groupUsedSlots} / {groupTotalSlots} slot{groupTotalSlots === 1 ? "" : "s"} used
               </p>
               <p className="text-xs text-muted-foreground">
-                Caps how many learners this department's head can invite.
+                Matches the learner slots your institution holds for this certification.
               </p>
             </div>
-            {isOwner ? (
-              editingSlots ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min={groupUsedSlots}
-                    max={institutionCert?.totalSlots}
-                    value={slotsInput}
-                    onChange={(e) => setSlotsInput(e.target.value)}
-                    className="w-20"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={() => updateSlotsMutation.mutate(Number(slotsInput))}
-                    disabled={
-                      !slotsInput ||
-                      Number(slotsInput) < groupUsedSlots ||
-                      updateSlotsMutation.isPending
-                    }
-                  >
-                    Save
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditingSlots(false)}>
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <Button size="sm" variant="outline" onClick={() => setEditingSlots(true)}>
-                  Edit slots
-                </Button>
-              )
-            ) : null}
           </section>
 
           <section className="space-y-3">
@@ -744,14 +329,14 @@ function ManageGroupDialog({
                       <SelectValue placeholder="Select a department head" />
                     </SelectTrigger>
                     <SelectContent>
-                      {members.length === 0 ? (
+                      {assignableMembers.length === 0 ? (
                         <SelectItem value="none" disabled>
-                          No members available
+                          No one else to assign. Email a department head code instead.
                         </SelectItem>
                       ) : (
-                        members.map((member) => (
+                        assignableMembers.map((member) => (
                           <SelectItem key={member.userId} value={String(member.userId)}>
-                            {memberLabel(member.userId)} · {member.headRole}
+                            {memberLabel(member.userId)}
                           </SelectItem>
                         ))
                       )}
@@ -775,66 +360,67 @@ function ManageGroupDialog({
                   className="text-muted-foreground"
                   onClick={() => setShowInviteForm((prev) => !prev)}
                 >
-                  <UserPlus className="size-4" aria-hidden="true" />
-                  {showInviteForm ? "Cancel" : "This person doesn't have an account yet"}
+                  <Mail className="size-4" aria-hidden="true" />
+                  {showInviteForm ? "Cancel" : "Email a department head code"}
                 </Button>
 
                 {showInviteForm ? (
-                  <div className="space-y-3 rounded-lg border p-3">
+                  <form
+                    className="space-y-3 rounded-lg border p-3"
+                    onSubmit={(event) => {
+                      event.preventDefault()
+                      sendHeadCodeMutation.mutate()
+                    }}
+                  >
                     <p className="text-xs text-muted-foreground">
-                      Create a new login account for a department head. They'll receive their
-                      username and a temporary password by email.
+                      We email them a one-time code. They create their own account with that email,
+                      choose Department, then enter the code after signing in.
                     </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label htmlFor="invite-first-name">First name</Label>
-                        <Input
-                          id="invite-first-name"
-                          value={inviteFirstName}
-                          onChange={(e) => setInviteFirstName(e.target.value)}
-                          placeholder="Juan"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="invite-last-name">Last name</Label>
-                        <Input
-                          id="invite-last-name"
-                          value={inviteLastName}
-                          onChange={(e) => setInviteLastName(e.target.value)}
-                          placeholder="Dela Cruz"
-                        />
-                      </div>
-                    </div>
                     <div className="space-y-1">
                       <Label htmlFor="invite-email">Email</Label>
                       <Input
                         id="invite-email"
                         type="email"
+                        required
                         value={inviteEmail}
                         onChange={(e) => setInviteEmail(e.target.value)}
                         placeholder="head@example.com"
                       />
                     </div>
-                    <Button
-                      type="button"
-                      onClick={() => inviteMemberMutation.mutate()}
-                      disabled={
-                        !inviteFirstName.trim() ||
-                        !inviteLastName.trim() ||
-                        !inviteEmail.trim() ||
-                        inviteMemberMutation.isPending
-                      }
-                    >
-                      {inviteMemberMutation.isPending ? (
+                    <Button type="submit" disabled={!inviteEmail.trim() || sendHeadCodeMutation.isPending}>
+                      {sendHeadCodeMutation.isPending ? (
                         <>
                           <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                          Creating account...
+                          Sending code...
                         </>
                       ) : (
-                        "Create account"
+                        "Send code"
                       )}
                     </Button>
-                  </div>
+                  </form>
+                ) : null}
+
+                {pendingHeadCodes.length > 0 ? (
+                  <ul className="divide-y rounded-lg border">
+                    {pendingHeadCodes.map((invite) => (
+                      <li key={invite.invitationId} className="flex items-center justify-between gap-2 px-3 py-2">
+                        <span className="min-w-0 truncate text-sm">
+                          {invite.accountName ? `${invite.accountName} (${invite.email})` : invite.email}
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {invite.accountName ? "account created, code not entered yet" : "code sent, no account yet"}
+                          </span>
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => cancelHeadCodeMutation.mutate(invite.invitationId)}
+                          disabled={cancelHeadCodeMutation.isPending}
+                        >
+                          Cancel
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
                 ) : null}
               </>
             ) : (
@@ -886,6 +472,24 @@ function ManageGroupDialog({
             </div>
 
             {isLeader ? (
+              <div className="space-y-2">
+              {groupCertifications.length > 1 ? (
+                <Select
+                  value={String(learnerInviteCertId || groupCertIds[0] || "")}
+                  onValueChange={setLearnerInviteCertId}
+                >
+                  <SelectTrigger className="w-full" aria-label="Certification to invite to">
+                    <SelectValue placeholder="Choose a certification" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groupCertifications.map((cert) => (
+                      <SelectItem key={cert.institutionCertId} value={String(cert.institutionCertId)}>
+                        {cert.title} · {Math.max(0, (cert.totalSlots ?? 0) - (cert.usedSlots ?? 0))} slot(s) left
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : null}
               <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1.4fr_auto]">
                 <Input
                   value={learnerInviteFirst}
@@ -919,6 +523,7 @@ function ManageGroupDialog({
                   <Plus className="size-4" aria-hidden="true" />
                   Invite
                 </Button>
+              </div>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -1059,33 +664,6 @@ function ManageGroupDialog({
         </div>
       </DialogContent>
 
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete {group.departmentName}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {groupUsedSlots > 0
-                ? `${groupUsedSlots} learner${groupUsedSlots === 1 ? "" : "s"} in this department will lose the grouping; their enrollments and progress are kept. `
-                : ""}
-              The department's {groupTotalSlots} slot{groupTotalSlots === 1 ? "" : "s"} return to the certification allocation. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault()
-                deleteMutation.mutate()
-              }}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? <Loader2 className="mr-1.5 size-4 animate-spin" aria-hidden="true" /> : null}
-              Delete department
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Dialog>
   )
 }
@@ -1099,7 +677,6 @@ export default function DepartmentsPage() {
   const scopedInstitutionCertId = scopedInstitutionCertIdParam ? Number(scopedInstitutionCertIdParam) : null
 
   const data = useInstitutionData(institutionId)
-  const [createOpen, setCreateOpen] = useState(false)
   const [manageGroup, setManageGroup] = useState(null)
   const queryClient = useQueryClient()
 
@@ -1127,7 +704,7 @@ export default function DepartmentsPage() {
   const groups = (Array.isArray(departmentsQuery.data) ? departmentsQuery.data : []).filter(
     (group) =>
       group.status === "active" &&
-      (scopedInstitutionCertId == null || group.institutionCertId === scopedInstitutionCertId)
+      (scopedInstitutionCertId == null || (group.institutionCertIds ?? []).includes(scopedInstitutionCertId))
   )
 
   const scopedCertification = scopedInstitutionCertId != null
@@ -1149,20 +726,15 @@ export default function DepartmentsPage() {
     )
   }
 
-  const hasAllocations = data.institutionCerts.length > 0
+  const hasAllocations = data.institutionCerts.some((cert) => String(cert.status ?? "").toLowerCase() === "active")
+  const awaitingPayment = data.institutionCerts.some((cert) => String(cert.status ?? "").toLowerCase() === "pending")
 
   return (
     <div className="space-y-6">
 
       <InstitutionPageHeader
         title={scopedCertification ? `Departments — ${scopedCertification.title}` : "Departments"}
-        subtitle="Organize learners into departments under a certification allocation and delegate management to a department head."
-        actions={
-          <Button onClick={() => setCreateOpen(true)} disabled={!hasAllocations}>
-            <Plus aria-hidden="true" />
-            Create department
-          </Button>
-        }
+        subtitle="Each certification your institution holds has one department, named after the certification's department. Assign its head and manage its learners here."
       />
 
       {departmentsQuery.isError ? (
@@ -1170,22 +742,30 @@ export default function DepartmentsPage() {
       ) : !hasAllocations ? (
         <InstitutionEmptyState
           icon={UsersRound}
-          title="No certification allocations yet"
-          description="Once your institution has a certification allocation, you can create departments under it."
+          title={awaitingPayment ? "Pay your invoice to create departments" : "No certification allocations yet"}
+          description={
+            awaitingPayment
+              ? "Your certification access activates once the invoice is paid. Departments can be created after that."
+              : "Once your institution has a paid certification allocation, you can create departments under it."
+          }
+          action={
+            <Button asChild size="sm">
+              <Link to={awaitingPayment ? "/institution/invoices" : "/institution/partnership"}>
+                {awaitingPayment ? "Open invoices" : "Request partnership"}
+              </Link>
+            </Button>
+          }
         />
       ) : groups.length === 0 ? (
         <InstitutionEmptyState
           icon={UsersRound}
           title="No departments yet"
-          description="Create a department to start organizing your learners."
+          description="A department appears here automatically once your certification access is paid and active."
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {groups.map((group) => {
-            const institutionCert = data.institutionCertById.get(group.institutionCertId)
-            const certification = institutionCert
-              ? data.certificationById.get(institutionCert.certificationId)
-              : null
+            const coveredTitles = (group.certifications ?? []).map((cert) => cert.title).filter(Boolean)
             return (
               <Card key={group.departmentId} className="flex flex-col">
                 <CardHeader>
@@ -1194,8 +774,7 @@ export default function DepartmentsPage() {
                     <InstitutionStatusBadge status={group.status} />
                   </div>
                   <CardDescription>
-                    {certification?.title ??
-                      `Certification #${institutionCert?.certificationId ?? "?"}`}
+                    {coveredTitles.length > 0 ? coveredTitles.join(" · ") : "No certifications"}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 space-y-1">
@@ -1222,15 +801,6 @@ export default function DepartmentsPage() {
           })}
         </div>
       )}
-
-      <CreateGroupDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        institutionCerts={data.institutionCerts}
-        certificationById={data.certificationById}
-        lockedInstitutionCertId={scopedInstitutionCertId}
-        departments={Array.isArray(departmentsQuery.data) ? departmentsQuery.data : []}
-      />
 
       <ManageGroupDialog
         group={manageGroup}

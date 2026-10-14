@@ -37,12 +37,14 @@ import {
   writeLearnerPortalSnapshot,
 } from "@/services/learnerAnalyticsService.js"
 import { useAuth } from "@/context/auth-context.jsx"
+import { pendingAccountSetup } from "@/services/authService.js"
 import { NotificationBell } from "@/components/notification-bell.jsx"
 import { usePortalTheme } from "@/hooks/use-portal-theme.js"
 import { useNotifications } from "@/hooks/use-notifications.js"
 import { PortalThemeMenuItem } from "@/components/portal-theme-toggle"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
+import { DepartmentCodeCard } from "@/components/learner/department-code-card.jsx"
 import { StudyActivityHost } from "@/components/learner/study-activity-host.jsx"
 import { PomodoroOverlay } from "@/components/learner/pomodoro-overlay.jsx"
 import {
@@ -86,6 +88,22 @@ export default function LearnerLayout() {
       writeLearnerPortalSnapshot(query.data)
     }
   }, [query.data])
+
+  const [awaitingDepartmentCode, setAwaitingDepartmentCode] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    pendingAccountSetup()
+      .then((setup) => {
+        if (cancelled || !setup) return
+        // Department heads enter their code on the dashboard; institutions finish on the setup page.
+        if (setup.type === "department") setAwaitingDepartmentCode(setup.code || true)
+        else navigate(`/account-setup?type=${setup.type}`, { replace: true })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [navigate])
 
 
 
@@ -258,6 +276,11 @@ export default function LearnerLayout() {
                   />
                   Updating your learner data…
                 </div>
+              ) : null}
+              {awaitingDepartmentCode ? (
+                <DepartmentCodeCard
+                  initialCode={typeof awaitingDepartmentCode === "string" ? awaitingDepartmentCode : ""}
+                  onDismiss={() => setAwaitingDepartmentCode(false)} />
               ) : null}
               <Suspense fallback={<RouteSkeleton />}>
                 <Outlet context={outletContext} />

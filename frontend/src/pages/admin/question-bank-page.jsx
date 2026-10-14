@@ -3089,7 +3089,7 @@ Before generating questions, analyze the selected certification and determine th
 SELECTED CERTIFICATION:
 - Name: ${getCertificationTitle(selectedCertification)}
 - Description: ${selectedCertification?.description ?? "No description provided"}
-- Industry: ${selectedCertification?.industry ?? "No industry provided"}
+- Department: ${selectedCertification?.department ?? "No department provided"}
 
 CERTIFICATION-AWARE RULES:
 1. Identify what the certification is about.

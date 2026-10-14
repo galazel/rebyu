@@ -1,34 +1,5 @@
-import { useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Plus, Trash2 } from "@/components/icons"
-import { toast } from "sonner"
-
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
-import {
-  REFERENCE_DEPARTMENT,
-  REFERENCE_INDUSTRY,
-  addReferenceOption,
-  getReferenceOptionsAdmin,
-  retireReferenceOption,
-} from "@/services/referenceService.js"
-
-const LISTS = [
-  {
-    kind: REFERENCE_INDUSTRY,
-    title: "Industries",
-    description: "What a certification belongs to. Offered when a certification is created or edited, and on challenge arenas.",
-    placeholder: "e.g. Veterinary Medicine and Animal Care",
-  },
-  {
-    kind: REFERENCE_DEPARTMENT,
-    title: "Departments",
-    description: "The names an institution can group its learners under. Offered when an institution creates a department.",
-    placeholder: "e.g. College of Architecture",
-  },
-]
+import { DetailedReferenceList } from "./reference-detailed-list.jsx"
+import { REFERENCE_INSTITUTION, REFERENCE_PROGRAM } from "@/services/referenceService.js"
 
 export default function ReferenceLists() {
   return (
@@ -40,114 +11,29 @@ export default function ReferenceLists() {
         </p>
       </div>
       <div className="grid gap-8 lg:grid-cols-2">
-        {LISTS.map((list) => (
-          <ReferenceList key={list.kind} {...list} />
-        ))}
+        <DetailedReferenceList
+          kind={REFERENCE_PROGRAM}
+          title="Programs"
+          description="The colleges and programs an institution picks from when requesting a partnership, and which certifications sit under each."
+          withCertifications
+          fields={[
+            { key: "code", label: "Code", placeholder: "e.g. CCS", max: 40 },
+            { key: "label", label: "Name", placeholder: "e.g. College of Computer Studies", max: 150 },
+            { key: "description", label: "Programs covered", placeholder: "e.g. BSIT, BSCS, and ACT Programs", max: 500, wide: true },
+          ]}
+        />
+        <DetailedReferenceList
+          kind={REFERENCE_INSTITUTION}
+          title="Institutions"
+          description="The schools suggested in the institution name field when requesting a partnership. Institutions can still type a name that is not listed."
+          fields={[
+            { key: "code", label: "Short name", placeholder: "e.g. UC Main", max: 40 },
+            { key: "label", label: "Name", placeholder: "e.g. University of Cebu – Main Campus", max: 150 },
+            { key: "description", label: "Address", placeholder: "e.g. J. Alcantara St., Cebu City", max: 500, wide: true },
+            { key: "category", label: "Category", placeholder: "e.g. State Universities", max: 150, wide: true },
+          ]}
+        />
       </div>
     </div>
-  )
-}
-
-function ReferenceList({ kind, title, description, placeholder }) {
-  const queryClient = useQueryClient()
-  const [label, setLabel] = useState("")
-  const query = useQuery({
-    queryKey: ["reference-options-admin", kind],
-    queryFn: () => getReferenceOptionsAdmin(kind),
-    staleTime: 30_000,
-  })
-  const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["reference-options-admin", kind] })
-    queryClient.invalidateQueries({ queryKey: ["reference-options", kind] })
-  }
-  const add = useMutation({
-    mutationFn: (value) => addReferenceOption(kind, value),
-    onSuccess: () => {
-      setLabel("")
-      invalidate()
-      toast.success(`Added to ${title.toLowerCase()}.`)
-    },
-    onError: (error) => toast.error(error?.response?.data?.message ?? "Could not add that entry."),
-  })
-  const retire = useMutation({
-    mutationFn: (id) => retireReferenceOption(kind, id),
-    onSuccess: invalidate,
-    onError: (error) => toast.error(error?.response?.data?.message ?? "Could not retire that entry."),
-  })
-
-  const rows = Array.isArray(query.data) ? query.data : []
-  const active = rows.filter((row) => row.active)
-  const retired = rows.filter((row) => !row.active)
-
-  return (
-    <section className="rounded-xl border border-border bg-background">
-      <div className="border-b border-border p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold">{title}</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
-          </div>
-          <Badge variant="secondary">{active.length}</Badge>
-        </div>
-        <form
-          className="mt-3 flex gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            const value = label.trim()
-            if (value.length < 2) return
-            add.mutate(value)
-          }}
-        >
-          <Input value={label} onChange={(event) => setLabel(event.target.value)} placeholder={placeholder} maxLength={150} />
-          <Button type="submit" disabled={add.isPending || label.trim().length < 2} className="gap-1.5">
-            {add.isPending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Plus className="size-4" aria-hidden="true" />}
-            Add
-          </Button>
-        </form>
-      </div>
-      <ul className="divide-y divide-border">
-        {query.isLoading ? (
-          <li className="space-y-2 p-4"><Skeleton className="h-5 w-2/3" /><Skeleton className="h-5 w-1/2" /><Skeleton className="h-5 w-3/5" /></li>
-        ) : active.length === 0 ? (
-          <li className="p-4 text-sm text-muted-foreground">Nothing here yet.</li>
-        ) : (
-          active.map((row) => (
-            <li key={row.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
-              <span className="min-w-0 break-words">{row.label}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="shrink-0 text-muted-foreground hover:text-destructive"
-                title="Retire: hide from the selects"
-                disabled={retire.isPending}
-                onClick={() => retire.mutate(row.id)}
-              >
-                <Trash2 className="size-4" aria-hidden="true" />
-              </Button>
-            </li>
-          ))
-        )}
-      </ul>
-      {retired.length > 0 ? (
-        <div className="border-t border-border p-4">
-          <p className="text-xs font-medium text-muted-foreground">Retired ({retired.length})</p>
-          <ul className="mt-2 flex flex-wrap gap-1.5">
-            {retired.map((row) => (
-              <li key={row.id}>
-                <button
-                  type="button"
-                  className="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-foreground hover:border-primary hover:text-foreground"
-                  title="Bring back"
-                  onClick={() => add.mutate(row.label)}
-                >
-                  {row.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-    </section>
   )
 }

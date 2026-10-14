@@ -128,7 +128,6 @@ public class CognitoAuthService {
 
         User existing = userRepository.findByCognitoSub(cognitoSub).orElse(null);
         if (existing != null) {
-            ensureInstitutionLinkage(existing);
             return toDto(existing);
         }
 
@@ -141,7 +140,6 @@ public class CognitoAuthService {
 
         try {
             User user = linkOrProvision(cognitoSub, email, attributes);
-            ensureInstitutionLinkage(user);
             return toDto(user);
         } catch (DataIntegrityViolationException raceLost) {
             return userRepository.findByCognitoSub(cognitoSub)
@@ -268,48 +266,6 @@ public class CognitoAuthService {
             candidate = base + "-" + UUID.randomUUID().toString().substring(0, 6);
         }
         return candidate;
-    }
-
-    private void ensureInstitutionLinkage(User user) {
-        if (user == null || user.getEmail() == null || user.getEmail().isBlank()) {
-            return;
-        }
-        Institution institution = institutionRepository
-                .findByPrimaryContactEmailIgnoreCase(user.getEmail())
-                .orElse(null);
-        if (institution == null) {
-            return;
-        }
-
-        boolean isInstitutionType = user.getUserType() != null
-                && isInstitutionRole(user.getUserType().getUserTypeText());
-        if (!isInstitutionType) {
-            UserType institutionType = userTypeRepository.findByUserTypeText(INSTITUTION_USER_TYPE)
-                    .orElseGet(() -> {
-                        UserType type = new UserType();
-                        type.setUserTypeText(INSTITUTION_USER_TYPE);
-                        return userTypeRepository.save(type);
-                    });
-            user.setUserType(institutionType);
-            userRepository.save(user);
-        }
-
-        boolean alreadyLinked = !departmentHeadRepository
-                .findByInstitution_InstitutionIdAndUser_UserId(
-                        institution.getInstitutionId(), user.getUserId())
-                .isEmpty();
-        if (!alreadyLinked) {
-            DepartmentHead member = DepartmentHead.builder()
-                    .institution(institution)
-                    .user(user)
-                    .headRole(DepartmentHead.HeadRole.owner)
-                    .isPrimaryContact(true)
-                    .joinedAt(LocalDateTime.now())
-                    .build();
-            departmentHeadRepository.save(member);
-            log.info("Linked institution account {} to institution {} (id={}) on sign-in",
-                    user.getEmail(), institution.getInstitutionName(), institution.getInstitutionId());
-        }
     }
 
     private CurrentUserDto toDto(User user) {

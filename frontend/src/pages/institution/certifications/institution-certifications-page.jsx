@@ -1,5 +1,7 @@
+import { useMemo, useState } from "react"
 import { Link, useOutletContext } from "react-router-dom"
-import { GraduationCapIcon } from "@/components/icons"
+import { useQuery } from "@tanstack/react-query"
+import { GraduationCapIcon, UsersRound } from "@/components/icons"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -21,50 +23,68 @@ import {
   formatDate,
 } from "@/components/institution/institution-ui.jsx"
 import { useInstitutionData } from "@/hooks/use-institution-data.js"
+import { useUnpaidInvoicePaths } from "@/hooks/use-unpaid-invoice-paths.js"
+import { getDepartments, getMyDepartmentHeads } from "@/services/institutionService.js"
+import { ManageGroupDialog } from "@/pages/institution/departments/institution-departments-page.jsx"
 
 export default function InstitutionCertificationsPage() {
   const { institution, institutionLoading, institutionError, refetchInstitution } =
     useOutletContext()
   const data = useInstitutionData(institution?.institutionId)
+  const invoicePathFor = useUnpaidInvoicePaths(institution?.institutionId != null)
+  const institutionId = institution?.institutionId
+  const [manageGroup, setManageGroup] = useState(null)
 
-  if (institutionLoading || (institution && data.isLoading)) {
-    return <InstitutionLoadingSkeleton />
-  }
-  if (institutionError) {
-    return <InstitutionErrorState onRetry={refetchInstitution} />
-  }
-  if (!institution) {
-    return (
-      <InstitutionEmptyState
-        title="No institution found"
-        description="Certification allocations appear here once your institution is registered."
-      />
+  // Departments and their certifications live here, in one place: each department
+  // (one per college) is a heading over the certifications it covers.
+  const departmentsQuery = useQuery({
+    queryKey: ["departments", institutionId],
+    queryFn: () => getDepartments({ institutionId }),
+    enabled: institutionId != null,
+    retry: 1,
+  })
+  const membersQuery = useQuery({
+    queryKey: ["department-heads", institutionId],
+    queryFn: () => getMyDepartmentHeads(),
+    enabled: institutionId != null,
+    retry: 1,
+  })
+  const members = Array.isArray(membersQuery.data) ? membersQuery.data : []
+  const userById = useMemo(() => new Map(members.map((m) => [m.userId, m])), [members])
+
+  const sections = useMemo(() => {
+    const departments = (Array.isArray(departmentsQuery.data) ? departmentsQuery.data : []).filter(
+      (department) => department.status === "active"
     )
-  }
+    const placed = new Set()
+    const out = departments.map((department) => {
+      const ids = department.institutionCertIds ?? []
+      const allocations = data.institutionCerts.filter((cert) => ids.includes(cert.institutionCertId))
+      allocations.forEach((cert) => placed.add(cert.institutionCertId))
+      return {
+        key: `department-${department.departmentId}`,
+        title: department.departmentName,
+        subtitle: `${department.usedSlots ?? 0} / ${department.totalSlots ?? 0} slots used across ${
+          allocations.length
+        } certification${allocations.length === 1 ? "" : "s"}`,
+        department,
+        allocations,
+      }
+    })
+    const rest = data.institutionCerts.filter((cert) => !placed.has(cert.institutionCertId))
+    if (rest.length > 0) {
+      out.push({
+        key: "no-department",
+        title: departments.length > 0 ? "Not in a department yet" : "Certifications",
+        subtitle: "A department is set up automatically once the certification access is paid and active.",
+        department: null,
+        allocations: rest,
+      })
+    }
+    return out.filter((section) => section.allocations.length > 0)
+  }, [departmentsQuery.data, data.institutionCerts])
 
-  return (
-    <div className="space-y-6">
-      <InstitutionPageHeader
-        title="Certifications"
-        subtitle="Certification programs allocated to your institution."
-      />
-
-      {data.isError ? (
-        <InstitutionErrorState onRetry={data.refetchAll} />
-      ) : data.institutionCerts.length === 0 ? (
-        <InstitutionEmptyState
-          icon={GraduationCapIcon}
-          title="No certification allocations yet"
-          description="Submit a partnership request to allocate certifications and learner slots for your institution."
-          action={
-            <Button asChild size="sm">
-              <Link to="/institution/partnership">Go to Partnership</Link>
-            </Button>
-          }
-        />
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {data.institutionCerts.map((institutionCert) => {
+  const renderCertification = (institutionCert) => {
             const certification = data.certificationById.get(
               institutionCert.certificationId
             )
@@ -98,8 +118,8 @@ export default function InstitutionCertificationsPage() {
                     {institutionCert.status === "pending" ? (
                       <>
                         {" "}
-                        <Link to="/institution/invoices" className="font-semibold text-primary underline-offset-2 hover:underline">
-                          Open invoices
+                        <Link to={invoicePathFor(institutionCert.certificationId)} className="font-semibold text-primary underline-offset-2 hover:underline">
+                          Open invoice
                         </Link>
                       </>
                     ) : null}
@@ -123,17 +143,94 @@ export default function InstitutionCertificationsPage() {
                   </p>
                 </CardContent>
                 <CardFooter className="gap-2">
-                  <Button asChild size="sm">
-                    <Link to={`/institution/certifications/${institutionCert.institutionCertId}`}>
-                      View certification
-                    </Link>
-                  </Button>
+                  {institutionCert.status === "pending" ? (
+                    <Button asChild size="sm" variant="outline">
+                      <Link to={invoicePathFor(institutionCert.certificationId)}>Pay invoice to unlock</Link>
+                    </Button>
+                  ) : (
+                    <Button asChild size="sm">
+                      <Link to={`/institution/certifications/${institutionCert.institutionCertId}`}>
+                        View certification
+                      </Link>
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
             )
-          })}
+  }
+
+  if (institutionLoading || (institution && data.isLoading)) {
+    return <InstitutionLoadingSkeleton />
+  }
+  if (institutionError) {
+    return <InstitutionErrorState onRetry={refetchInstitution} />
+  }
+  if (!institution) {
+    return (
+      <InstitutionEmptyState
+        title="No institution found"
+        description="Certification allocations appear here once your institution is registered."
+      />
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <InstitutionPageHeader
+        title="Certifications"
+        subtitle="Your departments and the certifications under each. Manage a department's head, learners and groups from here."
+      />
+
+      {data.isError ? (
+        <InstitutionErrorState onRetry={data.refetchAll} />
+      ) : data.institutionCerts.length === 0 ? (
+        <InstitutionEmptyState
+          icon={GraduationCapIcon}
+          title="No certification allocations yet"
+          description="Submit a partnership request to allocate certifications and learner slots for your institution."
+          action={
+            <Button asChild size="sm">
+              <Link to="/institution/partnership">Go to Partnership</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <div className="space-y-8">
+          {sections.map((section) => (
+            <section key={section.key} className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-2">
+                <div className="min-w-0">
+                  <h2 className="font-rb-display text-lg font-bold">{section.title}</h2>
+                  <p className="text-xs text-muted-foreground">{section.subtitle}</p>
+                </div>
+                {section.department ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" onClick={() => setManageGroup(section.department)}>
+                      <UsersRound className="size-4" aria-hidden="true" />
+                      Manage department
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {section.allocations.map(renderCertification)}
+              </div>
+            </section>
+          ))}
         </div>
       )}
+
+      <ManageGroupDialog
+        group={manageGroup}
+        open={manageGroup != null}
+        onOpenChange={(open) => !open && setManageGroup(null)}
+        members={members}
+        userById={userById}
+        assignments={data.assignments}
+        learnerById={data.learnerById}
+        invitations={data.invitations}
+        institutionCertById={data.institutionCertById}
+      />
     </div>
   )
 }

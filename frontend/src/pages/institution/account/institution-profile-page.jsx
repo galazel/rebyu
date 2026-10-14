@@ -107,10 +107,6 @@ export default function InstitutionProfilePage() {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Industry</span>
-              <span className="font-medium">{institution.industry ?? "—"}</span>
-            </div>
-            <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Joined</span>
               <span className="font-medium">
                 {formatDate(institution.joinedAt)}
