@@ -49,6 +49,7 @@ public class LearnerService {
     private final DepartmentLearnerRepository departmentLearnerRepository;
     private final AccountDeletionService accountDeletionService;
     private final DepartmentRepository departmentRepository;
+    private final com.capstone.rebyu.institution.service.SchoolMembershipGuard schoolMembership;
     private final NotificationService notificationService;
     private final com.capstone.rebyu.enrollment.service.OrgEnrollmentProgressService orgEnrollmentProgressService;
 
@@ -219,6 +220,14 @@ public class LearnerService {
             throw new InvitationAcceptanceException(
                     InvitationAcceptanceException.Code.INVALID_TOKEN,
                     "This invitation is no longer valid.");
+        }
+
+        var otherSchool = schoolMembership.otherSchool(authEmail,
+                institutionCert.getInstitution() == null ? null : institutionCert.getInstitution().getInstitutionId());
+        if (otherSchool.isPresent()) {
+            throw new InvitationAcceptanceException(
+                    InvitationAcceptanceException.Code.ALREADY_ENROLLED,
+                    "You already belong to " + otherSchool.get() + ". A learner can only belong to one school.");
         }
 
         if (institutionCertificationLearnerRepository

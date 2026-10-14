@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom"
 import {
   Building2Icon,
+  FileTextIcon,
   HandshakeIcon,
 } from "@/components/icons"
 
@@ -9,6 +10,7 @@ import { useAuth } from "@/context/auth-context.jsx"
 
 import InstitutionProfilePage from "./institution-profile-page.jsx"
 import InstitutionPartnershipPage from "./institution-partnership-page.jsx"
+import InstitutionInvoicesPage from "./institution-invoices-page.jsx"
 
 const TABS = [
   {
@@ -24,6 +26,13 @@ const TABS = [
     label: "Partnership",
     icon: HandshakeIcon,
     Panel: InstitutionPartnershipPage,
+  },
+  {
+    value: "invoices",
+    path: "/institution/invoices",
+    label: "Invoices",
+    icon: FileTextIcon,
+    Panel: InstitutionInvoicesPage,
   },
 ]
 
@@ -46,7 +55,7 @@ export default function InstitutionAccountPage() {
           Institution
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Your institution's details, partnership, plan, and shared files.
+          Your institution's details, partnership, and invoices.
         </p>
       </div>
 

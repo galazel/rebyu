@@ -7,12 +7,12 @@ export const MAX_TITLE_LENGTH = 150
 export const MIN_DESCRIPTION_LENGTH = 20
 export const MAX_DESCRIPTION_LENGTH = 2000
 
-export const INVALID_INDUSTRY_VALUES = new Set([
+export const INVALID_DEPARTMENT_VALUES = new Set([
   "",
   "all",
   "none",
   "select",
-  "select industry",
+  "select department",
   "undefined",
   "null",
 ])
@@ -63,12 +63,12 @@ export function validateCertificationDescription(value) {
   return ""
 }
 
-export function validateCertificationIndustry(value) {
-  const industry = normalizeText(value)
+export function validateCertificationDepartment(value) {
+  const department = normalizeText(value)
 
-  if (INVALID_INDUSTRY_VALUES.has(industry.toLowerCase()))
-    return "Please select an industry."
-  if (industry.length > 100) return "Industry must not exceed 100 characters."
+  if (INVALID_DEPARTMENT_VALUES.has(department.toLowerCase()))
+    return "Please select a department."
+  if (department.length > 100) return "Department must not exceed 100 characters."
 
   return ""
 }
@@ -90,11 +90,11 @@ export function validateCertificationDetails(details) {
 
   const title = validateCertificationTitle(details?.title)
   const description = validateCertificationDescription(details?.description)
-  const industry = validateCertificationIndustry(details?.industry)
+  const department = validateCertificationDepartment(details?.department)
 
   if (title) errors.title = title
   if (description) errors.description = description
-  if (industry) errors.industry = industry
+  if (department) errors.department = department
 
   return errors
 }
@@ -140,7 +140,7 @@ export function toCertificationUpdatePayload(certification) {
     certificationId: certification.certificationId ?? certification.id,
     title: normalizeText(certification.title),
     description: String(certification.description ?? "").trim(),
-    industry: normalizeText(certification.industry),
+    department: normalizeText(certification.department),
     dateCreated: certification.dateCreated ?? formatLocalDateTime(),
     dateUpdated: formatLocalDateTime(),
     majorCategory: toCategoryPayload(certification),

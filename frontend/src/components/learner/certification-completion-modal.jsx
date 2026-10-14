@@ -295,8 +295,8 @@ export function CertificationCompletionModal({ certification, award, onClose }) 
             <h2 className="mt-1 font-rb-display text-2xl font-extrabold leading-tight text-white">
               {certTitle}
             </h2>
-            {certification?.industry && (
-              <p className="mt-1 text-sm opacity-80">{certification.industry}</p>
+            {certification?.department && (
+              <p className="mt-1 text-sm opacity-80">{certification.department}</p>
             )}
             {award?.certificateNumber && (
               <p className="mt-2 font-mono text-xs opacity-70">

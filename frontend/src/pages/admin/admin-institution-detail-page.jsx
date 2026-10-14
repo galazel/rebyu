@@ -304,9 +304,7 @@ export default function AdminInstitutionDetail() {
 
       <InstitutionPageHeader
         title={institution.institutionName}
-        subtitle={`${institution.industry ?? "General"} · ${
-          institution.primaryContactName ?? "No contact assigned"
-        }`}
+        subtitle={institution.primaryContactName ?? "No contact assigned"}
         actions={<InstitutionStatusBadge status={institution.status} />}
       />
 

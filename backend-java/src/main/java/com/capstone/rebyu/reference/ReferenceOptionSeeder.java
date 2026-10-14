@@ -16,96 +16,70 @@ import java.util.Map;
 public class ReferenceOptionSeeder implements ApplicationRunner {
 
     private final ReferenceOptionRepository options;
+    private final com.capstone.rebyu.certification.repository.CertificationRepository certifications;
 
-    static final List<String> INDUSTRIES = List.of(
-            "Information and Communications Technology (ICT)",
-            "Business, Management, and Entrepreneurship",
-            "Finance, Banking, and Accounting",
-            "Human Resources and Institutional Development",
-            "Sales, Marketing, and Customer Service",
-            "Education and Teacher Development",
-            "Healthcare and Allied Health",
-            "Pharmacy and Pharmaceutical Services",
-            "Dental and Oral Healthcare",
-            "Mental Health, Psychology, and Counseling",
-            "Social Work and Community Development",
-            "Engineering",
-            "Architecture, Interior Design, and Environmental Planning",
-            "Construction and Skilled Trades",
-            "Manufacturing and Industrial Technology",
-            "Automotive and Land Transportation",
-            "Aviation and Aerospace",
-            "Maritime, Seafaring, and Ship Operations",
-            "Logistics, Supply Chain, and Customs Administration",
-            "Agriculture, Agribusiness, and Food Production",
-            "Fisheries and Aquaculture",
-            "Forestry, Environment, and Natural Resources",
-            "Science, Laboratory, and Research",
-            "Chemistry and Chemical Technology",
-            "Energy, Electrical Power, and Utilities",
-            "Real Estate, Property Management, and Appraisal",
-            "Law, Legal Studies, and Paralegal Services",
-            "Government, Public Administration, and Civil Service",
-            "Criminology, Law Enforcement, and Public Safety",
-            "Security and Protective Services",
-            "Disaster Risk Reduction and Emergency Services",
-            "Hospitality, Tourism, and Travel Services",
-            "Culinary Arts, Baking, and Food Services",
-            "Beauty, Wellness, and Personal Care",
-            "Creative Arts, Design, and Multimedia",
-            "Media, Broadcasting, and Communication",
-            "Language, Translation, and Communication Skills",
-            "Retail, Merchandising, and E-Commerce",
-            "Business Process Outsourcing (BPO) and Contact Center Services",
-            "Data Analytics, Artificial Intelligence, and Cybersecurity",
-            "Sports, Fitness, and Recreation",
-            "Religious and Ministry Studies",
-            "Other");
-
-    static final List<String> DEPARTMENTS = List.of(
-            "College of Computer Studies",
-            "College of Information Technology",
-            "College of Engineering",
-            "College of Business Administration",
-            "College of Business and Accountancy",
-            "College of Customs Administration",
-            "College of Teacher Education",
-            "College of Education",
-            "College of Arts and Sciences",
-            "College of Nursing",
-            "College of Nursing and Allied Health Sciences",
-            "College of Maritime Studies",
-            "College of Criminology",
-            "College of Hospitality and Tourism Management",
-            "College of Law",
-            "Graduate School",
-            "Senior High School",
-            "Information Technology",
-            "Human Resources",
-            "Finance and Accounting",
-            "Operations",
-            "Sales and Marketing",
-            "Customer Service",
-            "Training and Development",
-            "Research and Development",
-            "Quality Assurance",
-            "Other");
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        for (Map.Entry<String, List<String>> list : Map.of(
-                ReferenceOption.KIND_INDUSTRY, INDUSTRIES,
-                ReferenceOption.KIND_DEPARTMENT, DEPARTMENTS).entrySet()) {
-            int order = (int) options.countByKind(list.getKey());
-            int added = 0;
-            for (String label : list.getValue()) {
-                if (options.findByKindAndLabelIgnoreCase(list.getKey(), label).isPresent()) continue;
-                options.save(ReferenceOption.builder()
-                        .kind(list.getKey()).label(label).sortOrder(++order).active(true).build());
-                added++;
-            }
-            if (added > 0) log.info("Seeded {} new {} option(s)", added, list.getKey());
+        seedDetailedLists();
+    }
+
+    private void seedDetailedLists() {
+        boolean programsEmpty = options.countByKind(ReferenceOption.KIND_PROGRAM) == 0;
+        boolean institutionsEmpty = options.countByKind(ReferenceOption.KIND_INSTITUTION) == 0;
+        if (!programsEmpty && !institutionsEmpty) return;
+
+        com.fasterxml.jackson.databind.JsonNode seed;
+        try (var in = getClass().getResourceAsStream("/reference/reference-seed.json")) {
+            if (in == null) return;
+            seed = new com.fasterxml.jackson.databind.ObjectMapper().readTree(in);
+        } catch (java.io.IOException e) {
+            log.warn("Could not read reference seed: {}", e.getMessage());
+            return;
         }
+
+        if (programsEmpty) {
+            Map<String, Long> idByTitle = new java.util.HashMap<>();
+            certifications.findAll().forEach(c -> idByTitle.put(normalize(c.getTitle()), c.getCertificationId()));
+            int order = 0;
+            for (var program : seed.path("programs")) {
+                java.util.Set<Long> ids = new java.util.LinkedHashSet<>();
+                program.path("certificationTitles").forEach(t -> {
+                    Long id = idByTitle.get(normalize(t.asText()));
+                    if (id != null) ids.add(id);
+                });
+                options.save(ReferenceOption.builder()
+                        .kind(ReferenceOption.KIND_PROGRAM)
+                        .label(program.path("name").asText())
+                        .code(program.path("code").asText(null))
+                        .description(program.path("description").asText(null))
+                        .certificationIds(ids)
+                        .sortOrder(++order)
+                        .active(true)
+                        .build());
+            }
+            log.info("Seeded {} PROGRAM option(s)", order);
+        }
+
+        if (institutionsEmpty) {
+            int order = 0;
+            for (var institution : seed.path("institutions")) {
+                options.save(ReferenceOption.builder()
+                        .kind(ReferenceOption.KIND_INSTITUTION)
+                        .label(institution.path("name").asText())
+                        .code(institution.path("shortName").asText(null))
+                        .description(institution.path("address").asText(null))
+                        .category(institution.path("category").asText(null))
+                        .sortOrder(++order)
+                        .active(true)
+                        .build());
+            }
+            log.info("Seeded {} INSTITUTION option(s)", order);
+        }
+    }
+
+    private static String normalize(String title) {
+        return title == null ? "" : title.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]", "");
     }
 }

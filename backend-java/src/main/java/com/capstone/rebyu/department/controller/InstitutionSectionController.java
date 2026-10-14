@@ -40,7 +40,8 @@ public class InstitutionSectionController {
 
     public record SectionRequest(
             @NotBlank @Size(max = 150) String sectionName,
-            @Size(max = 2000) String description) {
+            @Size(max = 2000) String description,
+            Long institutionCertId) {
     }
 
     public record SectionDto(
@@ -50,7 +51,10 @@ public class InstitutionSectionController {
             String description,
             LocalDateTime createdAt,
             long learnerCount,
-            long pendingInvitationCount) {
+            long pendingInvitationCount,
+            Long institutionCertId,
+            Long certificationId,
+            String certificationTitle) {
     }
 
     public record MoveRequest(Long sectionId) {
@@ -76,9 +80,7 @@ public class InstitutionSectionController {
                 ids, LearnerInvitation.Status.PENDING);
 
         return active.stream()
-                .map(s -> new SectionDto(s.getSectionId(), departmentId, s.getSectionName(),
-                        s.getDescription(), s.getCreatedAt(),
-                        learners.getOrDefault(s.getSectionId(), 0L),
+                .map(s -> withCounts(s, learners.getOrDefault(s.getSectionId(), 0L),
                         pending.getOrDefault(s.getSectionId(), 0L)))
                 .toList();
     }
@@ -103,12 +105,26 @@ public class InstitutionSectionController {
             @Valid @RequestBody SectionRequest request) {
         CurrentUserDto user = requireDepartmentAccess(jwt, departmentId);
         String name = request.sectionName().trim();
-        if (sections.existsByDepartment_DepartmentIdAndSectionNameIgnoreCaseAndStatus(
-                departmentId, name, InstitutionSection.Status.active)) {
-            throw new IllegalArgumentException("A section named \"" + name + "\" already exists in this department.");
+        Department department = entityManager.find(Department.class, departmentId);
+        com.capstone.rebyu.institution.entity.InstitutionCertificate certification;
+        if (request.institutionCertId() != null) {
+            certification = department.getInstitutionCerts().stream()
+                    .filter(cert -> request.institutionCertId().equals(cert.getInstitutionCertId()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("This department does not cover that certification."));
+        } else {
+            certification = department.soleCertification();
+            if (certification == null) {
+                throw new IllegalArgumentException("Choose which certification this group is for.");
+            }
+        }
+        if (sections.existsByDepartment_DepartmentIdAndInstitutionCert_InstitutionCertIdAndSectionNameIgnoreCaseAndStatus(
+                departmentId, certification.getInstitutionCertId(), name, InstitutionSection.Status.active)) {
+            throw new IllegalArgumentException("A group named \"" + name + "\" already exists for this certification.");
         }
         InstitutionSection saved = sections.save(InstitutionSection.builder()
-                .department(entityManager.getReference(Department.class, departmentId))
+                .department(department)
+                .institutionCert(certification)
                 .sectionName(name)
                 .description(blankToNull(request.description()))
                 .createdBy(user.userId() == null ? null : entityManager.getReference(User.class, user.userId()))
@@ -129,9 +145,11 @@ public class InstitutionSectionController {
         InstitutionSection section = find(departmentId, sectionId);
         String name = request.sectionName().trim();
         if (!name.equalsIgnoreCase(section.getSectionName())
-                && sections.existsByDepartment_DepartmentIdAndSectionNameIgnoreCaseAndStatus(
-                        departmentId, name, InstitutionSection.Status.active)) {
-            throw new IllegalArgumentException("A section named \"" + name + "\" already exists in this department.");
+                && sections.existsByDepartment_DepartmentIdAndInstitutionCert_InstitutionCertIdAndSectionNameIgnoreCaseAndStatus(
+                        departmentId,
+                        section.getInstitutionCert() == null ? null : section.getInstitutionCert().getInstitutionCertId(),
+                        name, InstitutionSection.Status.active)) {
+            throw new IllegalArgumentException("A group named \"" + name + "\" already exists for this certification.");
         }
         section.setSectionName(name);
         section.setDescription(blankToNull(request.description()));
@@ -166,6 +184,12 @@ public class InstitutionSectionController {
                 .filter(a -> Objects.equals(a.getDepartment().getDepartmentId(), departmentId))
                 .orElseThrow(() -> new EntityNotFoundException("That learner is not in this department."));
         InstitutionSection target = request.sectionId() == null ? null : find(departmentId, request.sectionId());
+        if (target != null && target.getInstitutionCert() != null && assignee.getInstitutionCertLearner() != null
+                && assignee.getInstitutionCertLearner().getInstitutionCert() != null
+                && !Objects.equals(target.getInstitutionCert().getInstitutionCertId(),
+                        assignee.getInstitutionCertLearner().getInstitutionCert().getInstitutionCertId())) {
+            throw new IllegalArgumentException("That group is for a different certification than this learner's.");
+        }
         assignee.setSection(target);
         assignees.save(assignee);
         Map<String, Object> out = new java.util.HashMap<>();
@@ -192,8 +216,16 @@ public class InstitutionSectionController {
                 .setParameter("id", s.getSectionId())
                 .setParameter("st", LearnerInvitation.Status.PENDING)
                 .getSingleResult();
+        return withCounts(s, learners, pending);
+    }
+
+    private SectionDto withCounts(InstitutionSection s, long learners, long pending) {
+        var cert = s.getInstitutionCert();
         return new SectionDto(s.getSectionId(), s.getDepartment().getDepartmentId(), s.getSectionName(),
-                s.getDescription(), s.getCreatedAt(), learners, pending);
+                s.getDescription(), s.getCreatedAt(), learners, pending,
+                cert == null ? null : cert.getInstitutionCertId(),
+                cert == null || cert.getCertification() == null ? null : cert.getCertification().getCertificationId(),
+                cert == null || cert.getCertification() == null ? null : cert.getCertification().getTitle());
     }
 
     private CurrentUserDto requireDepartmentAccess(Jwt jwt, Long departmentId) {

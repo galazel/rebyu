@@ -46,6 +46,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/learners/me/**").authenticated()
                         .requestMatchers("/api/admin/partnership-requests/**").authenticated()
                         .requestMatchers("/api/departments/**").authenticated()
+                        .requestMatchers("/api/onboarding/**").authenticated()
                         .requestMatchers("/api/department-head-assignments/**").authenticated()
                         .requestMatchers("/api/department-learners/**").authenticated()
                         .requestMatchers("/api/institution/invitations/**").authenticated()

@@ -149,8 +149,8 @@ function CertificationCard({ item, certification, generationRun = null }) {
   const isEmpty =
       !isGenerating && Array.isArray(majorCategories) && majorCategories.length === 0
 
-  const certificationIndustry =
-      currentCertification?.industry ?? item?.industry ?? "Certification"
+  const certificationDepartment =
+      currentCertification?.department ?? item?.department ?? "Certification"
 
   const certificationStatus =
       currentCertification?.status ??
@@ -408,7 +408,7 @@ function CertificationCard({ item, certification, generationRun = null }) {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="inline-flex max-w-full truncate rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
-                    {certificationIndustry}
+                    {certificationDepartment}
                   </span>
 
                   {isGenerating ? null : isPublished ? (

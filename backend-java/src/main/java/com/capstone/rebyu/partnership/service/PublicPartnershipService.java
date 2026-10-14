@@ -1,5 +1,7 @@
 package com.capstone.rebyu.partnership.service;
 
+import com.capstone.rebyu.partnership.dto.PublicPartnershipDtos.RegistrationLookupResponse;
+
 import com.capstone.rebyu.certification.entity.Certification;
 import com.capstone.rebyu.certification.repository.CertificationRepository;
 import com.capstone.rebyu.common.BusinessRuleException;
@@ -40,6 +42,7 @@ public class PublicPartnershipService {
     private final CertificationRepository certificationRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final com.capstone.rebyu.institution.repository.DepartmentHeadRepository departmentHeadRepository;
 
     @Transactional
     public PublicPartnershipRequestResponse submit(SubmitPublicPartnershipRequest request) {
@@ -130,6 +133,29 @@ public class PublicPartnershipService {
                 request.items().size(),
                 totalSlots
         );
+    }
+
+    @Transactional(readOnly = true)
+    public RegistrationLookupResponse lookupForRegistration(String referenceNumber) {
+        PartnershipRequest request = requestRepository
+                .findByReferenceNumber(referenceNumber.trim().toUpperCase(Locale.ROOT))
+                .orElseThrow(() -> new EntityNotFoundException("No partnership request has that reference number."));
+        if (request.getStatus() == PartnershipRequest.Status.CANCELLED) {
+            throw new IllegalArgumentException("This partnership request was cancelled. Submit a new request.");
+        }
+        Long institutionId = request.getInstitution() == null ? null : request.getInstitution().getInstitutionId();
+        if (institutionId != null && departmentHeadRepository.findByInstitution_InstitutionId(institutionId).stream()
+                .anyMatch(member -> member.getHeadRole()
+                        == com.capstone.rebyu.institution.entity.DepartmentHead.HeadRole.owner)) {
+            throw new IllegalArgumentException("This institution already has an account. Sign in instead.");
+        }
+        return new RegistrationLookupResponse(
+                request.getReferenceNumber(),
+                request.getInstitutionName(),
+                request.getInstitutionEmail(),
+                request.getContactPersonName(),
+                request.getContactNumber(),
+                request.getStatus().name());
     }
 
     @Transactional(readOnly = true)

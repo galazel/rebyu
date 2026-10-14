@@ -32,13 +32,6 @@ export function getMyDepartmentHeads() {
   return base("institution/me/members")
 }
 
-export function inviteDepartmentHead({ firstName, lastName, email, headRole }) {
-  return base("institution/me/members", {
-    method: "POST",
-    data: { firstName, lastName, email, headRole },
-  })
-}
-
 export function getInstitutionPortalOverview() {
   return base("institution/me/overview")
 }
@@ -191,10 +184,10 @@ export function getGroupSections(departmentId) {
   return base(`departments/${departmentId}/sections`)
 }
 
-export function createGroupSection(departmentId, { sectionName, description }) {
+export function createGroupSection(departmentId, { sectionName, description, institutionCertId = null }) {
   return base(`departments/${departmentId}/sections`, {
     method: "POST",
-    data: { sectionName, description },
+    data: { sectionName, description, institutionCertId },
   })
 }
 
@@ -238,4 +231,31 @@ export function requestPartnershipCancellation(reason) {
     method: "POST",
     data: { reason },
   })
+}
+
+export function registerInstitution(code) {
+  return base("onboarding/institution", { method: "POST", data: { code } })
+}
+
+export function redeemDepartmentHeadCode(code) {
+  return base("onboarding/department-head/redeem", { method: "POST", data: { code } })
+}
+
+export function getDepartmentHeadCodeInvitations(departmentId) {
+  return base(`onboarding/department-head/invitations?departmentId=${encodeURIComponent(departmentId)}`)
+}
+
+export function sendDepartmentHeadCode({ departmentId, email }) {
+  return base("onboarding/department-head/invitations", {
+    method: "POST",
+    data: { departmentId, email },
+  })
+}
+
+export function cancelDepartmentHeadCode(invitationId) {
+  return base(`onboarding/department-head/invitations/${invitationId}/cancel`, { method: "PUT" })
+}
+
+export function getCertificationAnalytics(certificationId) {
+  return base(`institution/me/certifications/${certificationId}/analytics`)
 }

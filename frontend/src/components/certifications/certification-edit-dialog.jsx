@@ -42,7 +42,8 @@ function curriculumDraftOf(certification) {
 function detailsOf(certification) {
   return {
     title: certification?.title ?? "",
-    industry: certification?.industry ?? "",
+    department: certification?.department ?? "",
+    certificationId: certification?.certificationId,
     description: certification?.description ?? "",
   }
 }
@@ -70,7 +71,8 @@ function applyDraft(certification, details, majors) {
   return {
     ...certification,
     title: details.title.trim(),
-    industry: details.industry,
+    department: details.department,
+    ...(Array.isArray(details.departments) ? { departments: details.departments } : {}),
     description: details.description.trim(),
     majorCategory: (certification.majorCategory ?? []).map((major, m) => ({
       ...major,

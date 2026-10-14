@@ -14,6 +14,7 @@ import {
 } from "@/components/icons"
 import { TactileButton } from "@/components/rebyu/rebyu-ui.jsx"
 import { base } from "@/services/base"
+import { MicButton } from "@/components/learner/mic-button.jsx"
 
 const ENDPOINT = "ai/tutor/dialogue"
 
@@ -526,6 +527,7 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
               rows={1}
               className="field-sizing-content max-h-32 min-h-9 flex-1 resize-none self-center appearance-none border-0 bg-transparent px-2 py-2 text-sm font-medium leading-snug text-rb-eel shadow-none outline-none placeholder:text-rb-hare focus:outline-none focus:ring-0"
             />
+            <MicButton value={draft} onChange={setDraft} disabled={Boolean(busy)} />
             <TactileButton
               type="button"
               variant="ghost"

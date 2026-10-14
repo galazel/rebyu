@@ -66,6 +66,22 @@ public class AiServiceClient {
     private static final ParameterizedTypeReference<ServerSentEvent<String>> SSE =
             new ParameterizedTypeReference<>() {};
 
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> listConversations(String baseSessionId) {
+        try {
+            return webClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/tutor/conversations")
+                            .queryParam("baseSessionId", baseSessionId)
+                            .build())
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block(Duration.ofSeconds(30));
+        } catch (Exception e) {
+            throw new AiServiceException("Tutor chat list request failed", e);
+        }
+    }
+
     public ConversationResponseDto getConversation(String sessionId) {
         try {
             return webClient.get()

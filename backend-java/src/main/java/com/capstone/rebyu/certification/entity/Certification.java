@@ -44,7 +44,8 @@ public class Certification {
     @ToString.Exclude
     private List<MajorCategory> majorCategory = new ArrayList<>();
 
-    private String industry;
+    @Column(name = "department")
+    private String department;
 
     @Column(name = "date_updated")
     private LocalDateTime dateUpdated;

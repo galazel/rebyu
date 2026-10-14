@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
@@ -12,10 +13,12 @@ import {
   Layers3,
   Link,
   Loader2,
+  History,
   MessageCircle,
   PlayCircle,
   Plus,
   SendHorizontal,
+  SquarePen,
   Sparkles,
   Target,
   X,
@@ -49,6 +52,7 @@ import { generateStudyAid } from "@/services/learnerToolsService.js"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { ProLockCard } from "@/components/learner/pro-gate.jsx"
 import { TutorDialogue } from "@/components/learner/tutor-dialogue.jsx"
+import { MicButton } from "@/components/learner/mic-button.jsx"
 
 
 const AI_TUTOR_ENDPOINT = "ai/tutor"
@@ -119,6 +123,10 @@ async function streamTutorAnswer(body, entry) {
     if (type === "delta" && event.text) {
       entry.text += event.text
       entry.onDelta?.(entry.text)
+    } else if (type === "replace" && typeof event.text === "string") {
+      // The server's guardrails withheld what was streamed; show its safe reply instead.
+      entry.text = event.text
+      entry.onDelta?.(entry.text)
     } else if (type === "resources") {
       resources = event.resources
     } else if (type === "error") {
@@ -186,8 +194,119 @@ function WaitingLine({ kind, startedAt }) {
   )
 }
 
+// "New chat" gives a lesson a fresh conversation by appending a suffix to its
+// session id. No suffix is the original thread, so existing chats keep loading.
+function chatSuffixKey(learnerId, lessonId) {
+  return `rebyu:tutor-chat:${learnerId ?? "guest"}:${lessonId}`
+}
+
+function readChatSuffix(learnerId, lessonId) {
+  try {
+    return window.localStorage.getItem(chatSuffixKey(learnerId, lessonId)) ?? ""
+  } catch {
+    return ""
+  }
+}
+
+function startNewChatSuffix(learnerId, lessonId) {
+  const suffix = Date.now().toString(36)
+  try {
+    window.localStorage.setItem(chatSuffixKey(learnerId, lessonId), suffix)
+  } catch {
+    /* falls back to this session only */
+  }
+  return suffix
+}
+
+function rememberChatSuffix(learnerId, lessonId, suffix) {
+  try {
+    if (suffix) window.localStorage.setItem(chatSuffixKey(learnerId, lessonId), suffix)
+    else window.localStorage.removeItem(chatSuffixKey(learnerId, lessonId))
+  } catch {
+    /* falls back to this session only */
+  }
+}
+
+function formatChatWhen(value) {
+  const date = value ? new Date(value) : null
+  if (!date || Number.isNaN(date.getTime())) return ""
+  const diff = (Date.now() - date.getTime()) / 1000
+  if (diff < 60) return "just now"
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)} h ago`
+  if (diff < 7 * 86400) return `${Math.floor(diff / 86400)} d ago`
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+}
+
+function ChatList({ learnerId, lessonId, currentSessionId, onPick, onNew }) {
+  const query = useQuery({
+    queryKey: ["tutor-chats", String(learnerId), String(lessonId)],
+    queryFn: () => base(`ai/tutor/conversations?lessonId=${lessonId}`),
+    enabled: lessonId != null,
+    staleTime: 0,
+  })
+  const chats = query.data?.chats ?? []
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center justify-between border-b-2 border-rb-swan bg-rb-polar/60 px-4 py-2">
+        <p className="text-xs font-extrabold uppercase tracking-wide text-rb-wolf">previous chats</p>
+        <button
+            type="button"
+            onClick={onNew}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-extrabold text-rb-feather-lip hover:bg-rb-feather-wash"
+        >
+          <Plus className="size-3.5" aria-hidden="true" /> new chat
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {query.isLoading ? (
+            <div className="space-y-2">
+              {[0, 1, 2].map((key) => (
+                  <div key={key} className="h-14 animate-pulse rounded-[0.9rem] bg-rb-polar" />
+              ))}
+            </div>
+        ) : query.isError ? (
+            <p className="px-1 text-sm text-rb-wolf">Your chats could not be loaded. Try again in a moment.</p>
+        ) : chats.length === 0 ? (
+            <p className="px-1 text-sm text-rb-wolf">No chats for this lesson yet. Ask the tutor anything to start one.</p>
+        ) : (
+            <ul className="space-y-2">
+              {chats.map((chat) => {
+                const current = chat.sessionId === currentSessionId
+                return (
+                    <li key={chat.sessionId}>
+                      <button
+                          type="button"
+                          onClick={() => onPick(chat.sessionId)}
+                          className={`flex w-full items-start gap-3 rounded-[0.9rem] border-2 px-3 py-2.5 text-left transition-colors ${
+                            current
+                              ? "border-rb-feather bg-rb-feather-wash/50"
+                              : "border-rb-swan bg-white hover:border-rb-feather/50"
+                          }`}
+                      >
+                        <MessageCircle className="mt-0.5 size-4 shrink-0 text-rb-feather-lip" aria-hidden="true" />
+                        <span className="min-w-0 flex-1">
+                          <span className="line-clamp-2 text-sm font-bold text-rb-eel">{chat.title}</span>
+                          <span className="mt-0.5 block text-[11px] text-rb-wolf">
+                            {formatChatWhen(chat.updatedAt)} · {chat.messageCount} message{chat.messageCount === 1 ? "" : "s"}
+                            {current ? " · open now" : ""}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                )
+              })}
+            </ul>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function buildTutorSessionId(learnerId, lessonId) {
-  return `${learnerId ?? "guest"}-${lessonId}`
+  const suffix = readChatSuffix(learnerId, lessonId)
+  return `${learnerId ?? "guest"}-${lessonId}${suffix ? `-${suffix}` : ""}`
 }
 
 function createTutorMessageId(prefix = "message") {
@@ -369,17 +488,76 @@ function TutorResources({ resources }) {
   )
 }
 
-function SnippetPreview({ snippet, onDark = false }) {
-  if (!snippet) return null
-  const picture = typeof snippet.image === "string" ? snippet.image : null
-  return (
-    <div className="mb-2 grid gap-1.5">
+function SnipViewer({ picture, quote, onClose }) {
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [onClose])
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Snipped part of the lesson"
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex cursor-zoom-out flex-col items-center justify-center gap-3 bg-black/80 p-4 backdrop-blur-sm"
+    >
       {picture ? (
         <img
           src={picture}
           alt="The part of the lesson asked about"
-          className="max-h-40 w-auto max-w-full rounded-lg border border-white/40 bg-white object-contain"
+          onClick={(event) => event.stopPropagation()}
+          className="max-h-[80vh] max-w-[92vw] cursor-default rounded-lg bg-white object-contain shadow-2xl"
         />
+      ) : null}
+      {quote ? (
+        <blockquote
+          onClick={(event) => event.stopPropagation()}
+          className="max-h-[30vh] max-w-2xl cursor-default overflow-y-auto rounded-lg bg-white px-4 py-3 text-sm italic leading-6 text-rb-eel shadow-2xl"
+        >
+          {quote}
+        </blockquote>
+      ) : null}
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-sm font-bold text-rb-eel shadow-lg"
+      >
+        close
+      </button>
+    </div>,
+    document.body,
+  )
+}
+
+function SnippetPreview({ snippet, onDark = false }) {
+  const [open, setOpen] = useState(false)
+  if (!snippet) return null
+  const picture = typeof snippet.image === "string" ? snippet.image : null
+  return (
+    <div className="mb-2 grid gap-1.5">
+      {open ? <SnipViewer picture={picture} quote={snippet.quote} onClose={() => setOpen(false)} /> : null}
+      {picture ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          title="Click to enlarge"
+          aria-label="Enlarge the snipped part"
+          className="group relative block cursor-zoom-in rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        >
+          <img
+            src={picture}
+            alt="The part of the lesson asked about"
+            className="max-h-40 w-auto max-w-full rounded-lg border border-white/40 bg-white object-contain"
+          />
+          <span className="pointer-events-none absolute bottom-1.5 right-1.5 rounded-md bg-black/65 px-2 py-0.5 text-[11px] font-bold text-white opacity-0 transition group-hover:opacity-100">
+            click to enlarge
+          </span>
+        </button>
       ) : snippet.imageKey ? (
         <AuthedImage
           imageKey={snippet.imageKey}
@@ -395,11 +573,14 @@ function SnippetPreview({ snippet, onDark = false }) {
         </span>
       ) : null}
       {snippet.quote ? (
-        <blockquote
-          className={`line-clamp-3 border-l-2 pl-2 text-xs italic leading-5 ${onDark ? "border-white/60 text-white/90" : "border-rb-feather text-rb-wolf"}`}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          title="Show the full text"
+          className={`line-clamp-3 cursor-zoom-in border-l-2 pl-2 text-left text-xs italic leading-5 ${onDark ? "border-white/60 text-white/90" : "border-rb-feather text-rb-wolf"}`}
         >
           {snippet.quote}
-        </blockquote>
+        </button>
       ) : null}
     </div>
   )
@@ -489,6 +670,8 @@ export function LessonAiTutor({
   const [finishedReply, setFinishedReply] = useState(null)
   const [attachment, setAttachment] = useState(null)
   const [dialogueOpen, setDialogueOpen] = useState(false)
+  const [chatVersion, setChatVersion] = useState(0)
+  const [chatListOpen, setChatListOpen] = useState(false)
   const draftRef = useRef(null)
   const entitlements = useLearnerEntitlements()
   const sessionId = buildTutorSessionId(learnerId, lessonId)
@@ -556,7 +739,7 @@ export function LessonAiTutor({
       setShownLength(0)
       setFinishedReply(null)
     }
-  }, [lessonId, learnerId, tutorLocked])
+  }, [lessonId, learnerId, tutorLocked, chatVersion])
 
   useEffect(() => {
     if (shownLength >= streamText.length) {
@@ -739,6 +922,23 @@ export function LessonAiTutor({
 
   const hasConversation = messages.length > 0
 
+  // Keep the newest message in view: on send, while a reply streams in, and when it
+  // lands. Only the chat's own scroll area moves -- never the lesson page behind it.
+  const chatEndRef = useRef(null)
+  const lastMessageId = messages[messages.length - 1]?.id
+  useEffect(() => {
+    const end = chatEndRef.current
+    const viewport = end?.closest('[data-slot="message-scroller-viewport"]')
+    if (!viewport) return
+    const lastRole = messages[messages.length - 1]?.role
+    const nearBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 160
+    // Always follow the learner's own message; follow the tutor only if they haven't scrolled up to read.
+    if (lastRole === "user" || nearBottom || !streamText) {
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior: streamText ? "auto" : "smooth" })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastMessageId, pending, streamText, shownLength, finishedReply])
+
   if (tutorLocked) {
     return (
       <section className="flex h-full min-h-0 flex-col bg-rb-snow">
@@ -787,19 +987,71 @@ export function LessonAiTutor({
             </div>
           </div>
 
-          <TactileButton
-              variant="ghost"
-              size="sm"
-              className="rb-btn-icon shrink-0 !border-transparent hover:!bg-white/15"
-              style={{ "--rb-btn-face": "transparent", "--rb-btn-ink": "#ffffff" }}
-              onClick={onClose}
-              aria-label="Close AI Tutor"
-          >
-            <X className="size-4" aria-hidden="true" />
-          </TactileButton>
+          <div className="flex shrink-0 items-center gap-1">
+            {!dialogueOpen ? (
+              <TactileButton
+                  variant="ghost"
+                  size="sm"
+                  className={`rb-btn-icon shrink-0 !border-transparent hover:!bg-white/15 ${chatListOpen ? "!bg-white/20" : ""}`}
+                  style={{ "--rb-btn-face": "transparent", "--rb-btn-ink": "#ffffff" }}
+                  onClick={() => setChatListOpen((value) => !value)}
+                  disabled={pending || Boolean(generating)}
+                  aria-label={chatListOpen ? "Back to the chat" : "Previous chats"}
+                  aria-pressed={chatListOpen}
+                  title="Previous chats"
+              >
+                <History className="size-4" aria-hidden="true" />
+              </TactileButton>
+            ) : null}
+            {!dialogueOpen ? (
+              <TactileButton
+                  variant="ghost"
+                  size="sm"
+                  className="rb-btn-icon shrink-0 !border-transparent hover:!bg-white/15"
+                  style={{ "--rb-btn-face": "transparent", "--rb-btn-ink": "#ffffff" }}
+                  onClick={() => {
+                    if (pending || generating || !hasConversation) return
+                    startNewChatSuffix(learnerId, lessonId)
+                    setChatVersion((value) => value + 1)
+                  }}
+                  disabled={pending || Boolean(generating) || !hasConversation}
+                  aria-label="Start a new chat"
+                  title="Start a new chat"
+              >
+                <SquarePen className="size-4" aria-hidden="true" />
+              </TactileButton>
+            ) : null}
+            <TactileButton
+                variant="ghost"
+                size="sm"
+                className="rb-btn-icon shrink-0 !border-transparent hover:!bg-white/15"
+                style={{ "--rb-btn-face": "transparent", "--rb-btn-ink": "#ffffff" }}
+                onClick={onClose}
+                aria-label="Close AI Tutor"
+            >
+              <X className="size-4" aria-hidden="true" />
+            </TactileButton>
+          </div>
         </header>
 
-        {dialogueOpen ? (
+        {chatListOpen && !dialogueOpen ? (
+            <ChatList
+                learnerId={learnerId}
+                lessonId={lessonId}
+                currentSessionId={sessionId}
+                onPick={(picked) => {
+                  const prefix = `${learnerId ?? "guest"}-${lessonId}`
+                  rememberChatSuffix(learnerId, lessonId, picked === prefix ? "" : picked.slice(prefix.length + 1))
+                  setChatListOpen(false)
+                  setChatVersion((value) => value + 1)
+                }}
+                onNew={() => {
+                  startNewChatSuffix(learnerId, lessonId)
+                  setChatListOpen(false)
+                  setChatVersion((value) => value + 1)
+                }}
+            />
+        ) : dialogueOpen ? (
             <TutorDialogue
                 lessonId={lessonId}
                 lessonName={lessonName}
@@ -824,7 +1076,7 @@ export function LessonAiTutor({
                     transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
                     aria-hidden="true"
                 />
-                <span className="relative grid size-16 shrink-0 place-items-center rounded-3xl bg-rb-feather text-white shadow-[var(--comic-shadow-sm)] ring-2 ring-white">
+                <span className="relative grid size-16 shrink-0 place-items-center rounded-[1.5rem] bg-rb-feather text-white shadow-[var(--comic-shadow-sm)] ring-2 ring-white">
                   <Sparkles className="size-8" aria-hidden="true" />
                 </span>
               </div>
@@ -927,7 +1179,7 @@ export function LessonAiTutor({
                           <MessageScrollerItem
                               key={message.id}
                               messageId={message.id}
-                              scrollAnchor={message.role === "user"}
+                              scrollAnchor={false}
                               className={index === 0 ? "" : isFirstInGroup ? "mt-5" : "mt-1"}
                           >
                             <GeminiTutorMessage
@@ -971,6 +1223,7 @@ export function LessonAiTutor({
                           </Message>
                         </MessageScrollerItem>
                     ) : null}
+                    <div ref={chatEndRef} aria-hidden="true" />
                   </MessageScrollerContent>
                 </MessageScrollerViewport>
 
@@ -979,7 +1232,7 @@ export function LessonAiTutor({
             </MessageScrollerProvider>
         )}
 
-        {dialogueOpen ? null : (
+        {dialogueOpen || chatListOpen ? null : (
         <form
             onSubmit={handleSubmit}
             className="shrink-0 border-t-2 border-rb-swan bg-rb-polar/60 p-3"
@@ -1041,16 +1294,19 @@ export function LessonAiTutor({
                     <DropdownMenuItem onSelect={() => onStartSnip()}>
                       <Crop className="mr-2 size-4" />
                       <span className="flex-1">Snip part of the lesson</span>
-                      <span className="text-xs text-rb-wolf">ask about it</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                   </>
                 ) : null}
-                <DropdownMenuItem onSelect={() => setDialogueOpen(true)}>
-                  <MessageCircle className="mr-2 size-4" />
-                  <span className="flex-1">Guided dialogue</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
+                {hasConversation ? (
+                  <>
+                    <DropdownMenuItem onSelect={() => setDialogueOpen(true)}>
+                      <MessageCircle className="mr-2 size-4" />
+                      <span className="flex-1">Guided dialogue</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                ) : null}
                 <DropdownMenuLabel>
                   <span className="block text-sm font-bold text-rb-eel">Create with AI</span>
                   <span className="mt-0.5 block text-xs font-medium text-rb-wolf">Generated items are saved to Library. {generationLimit > 0 ? `${generationsLeft} of ${generationLimit} generations left today.` : ""}</span>
@@ -1082,6 +1338,7 @@ export function LessonAiTutor({
                 rows={1}
                 className="field-sizing-content max-h-32 min-h-9 flex-1 resize-none self-center appearance-none border-0 bg-transparent px-1 py-2 text-sm font-medium leading-snug text-rb-eel shadow-none outline-none ring-0 placeholder:text-rb-hare focus:outline-none focus:ring-0 disabled:opacity-60"
             />
+            <MicButton value={draft} onChange={setDraft} disabled={pending || Boolean(generating)} />
             <TactileButton
                 type="submit"
                 variant="feather"

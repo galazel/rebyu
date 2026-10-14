@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select"
 
 import { CertificationSkeletonCard } from "../../components/certifications/certification-skeleton-card"
-import { REFERENCE_INDUSTRY, useReferenceOptions } from "@/services/referenceService.js"
+import { REFERENCE_PROGRAM, useReferenceDetails } from "@/services/referenceService.js"
 
 const CONTENT_FILTERS = [
   { value: "content", label: "With content" },
@@ -41,10 +41,11 @@ function lessonCount(certification) {
 
 function Certifications() {
   const queryClient = useQueryClient()
-  const { options: industries } = useReferenceOptions(REFERENCE_INDUSTRY)
+  const { options: programs } = useReferenceDetails(REFERENCE_PROGRAM)
+  const departments = programs.map((program) => program.label)
 
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false)
-  const [chosenIndustry, setChosenIndustry] = useState("all")
+  const [chosenDepartment, setChosenDepartment] = useState("all")
   const [contentFilter, setContentFilter] = useState("content")
 
   const {
@@ -64,8 +65,10 @@ function Certifications() {
 
   const filteredCertifications = useMemo(() => {
     return items.filter((certification) => {
-      if (chosenIndustry !== "all" && certification.industry !== chosenIndustry) {
-        return false
+      if (chosenDepartment !== "all") {
+        const program = programs.find((entry) => entry.label === chosenDepartment)
+        const filed = (program?.certificationIds ?? []).map(Number).includes(certification.certificationId)
+        if (!filed && certification.department !== chosenDepartment) return false
       }
       if (contentFilter === "all") return true
 
@@ -77,7 +80,7 @@ function Certifications() {
       const hasContent = lessonCount(certification) > 0 || generating
       return contentFilter === "content" ? hasContent : !hasContent
     })
-  }, [items, chosenIndustry, contentFilter, activeGenerations])
+  }, [items, chosenDepartment, contentFilter, activeGenerations, programs])
 
   async function handleCertificationSaved(savedCertification) {
     const certificationId =
@@ -131,7 +134,7 @@ function Certifications() {
                   : contentFilter === "empty"
                       ? " empty"
                       : " total"}
-              {chosenIndustry === "all" ? "" : ` in ${chosenIndustry}`}
+              {chosenDepartment === "all" ? "" : ` in ${chosenDepartment}`}
               {isFetching ? " · updating…" : ""}
             </p>
           </div>
@@ -160,9 +163,9 @@ function Certifications() {
             </SelectContent>
           </Select>
 
-          <Select value={chosenIndustry} onValueChange={setChosenIndustry}>
+          <Select value={chosenDepartment} onValueChange={setChosenDepartment}>
             <SelectTrigger className="h-9 w-full min-w-0 px-3 text-sm sm:w-[190px]">
-              <SelectValue placeholder="Filter by industry" />
+              <SelectValue placeholder="Filter by department" />
             </SelectTrigger>
 
             <SelectContent
@@ -176,16 +179,16 @@ function Certifications() {
                     value="all"
                     className="h-auto min-h-9 py-2 text-xs leading-4 whitespace-normal"
                 >
-                  All Industries
+                  All Departments
                 </SelectItem>
 
-                {industries.map((industry) => (
+                {departments.map((department) => (
                     <SelectItem
-                        key={industry}
-                        value={industry}
+                        key={department}
+                        value={department}
                         className="h-auto min-h-9 cursor-pointer py-2 text-xs leading-4 whitespace-normal"
                     >
-                      {industry}
+                      {department}
                     </SelectItem>
                 ))}
               </SelectGroup>

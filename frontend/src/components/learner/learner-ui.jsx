@@ -378,7 +378,7 @@ export function CertificationProgressCard({ certification, lessons, onContinue, 
       cap="flat"
       body="card"
       icon={GraduationCap}
-      eyebrow={certification.industry || "Certification"}
+      eyebrow={certification.department || "Certification"}
       title={certification.title}
       chips={[{ label: `${percent}%`, side: "right" }]}
       footer={

@@ -29,6 +29,11 @@ public class InstitutionSection {
     @JoinColumn(name = "department_id", nullable = false)
     private Department department;
 
+    /** The department certification this group is for; its learners are enrolled in it. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "institution_cert_id")
+    private com.capstone.rebyu.institution.entity.InstitutionCertificate institutionCert;
+
     @Column(name = "section_name", nullable = false, length = 150)
     private String sectionName;
 

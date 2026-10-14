@@ -65,7 +65,7 @@ export function toSafeAuthMessage(error, fallback = "Something went wrong. Pleas
   return ERROR_MESSAGES[name] ?? fallback
 }
 
-export async function registerAccount({ email, password, firstName, lastName }) {
+export async function registerAccount({ email, password, firstName, lastName, accountType, setupCode, extraMetadata }) {
   await supabase.auth.signOut({ scope: "local" }).catch(() => {})
 
   const data = await run(
@@ -76,6 +76,9 @@ export async function registerAccount({ email, password, firstName, lastName }) 
         data: {
           ...(firstName ? { given_name: firstName } : {}),
           ...(lastName ? { family_name: lastName } : {}),
+          ...(accountType ? { account_type: accountType } : {}),
+          ...(setupCode ? { setup_code: setupCode } : {}),
+          ...(extraMetadata ?? {}),
         },
       },
     })
@@ -165,6 +168,26 @@ export async function getAccessToken() {
 export async function currentSessionEmail() {
   const { data } = await supabase.auth.getSession()
   return data?.session?.user?.email ?? null
+}
+
+export const SETUP_ACCOUNT_TYPES = ["institution", "department"]
+
+export async function pendingAccountSetup() {
+  const { data } = await supabase.auth.getSession()
+  const meta = data?.session?.user?.user_metadata ?? {}
+  const type = String(meta.account_type ?? "").toLowerCase()
+  if (!SETUP_ACCOUNT_TYPES.includes(type)) return null
+  return {
+    type,
+    code: meta.setup_code ?? "",
+    institutionName: meta.institution_name ?? "",
+  }
+}
+
+export function finishAccountSetup(accountType = "learner") {
+  return run(
+    supabase.auth.updateUser({ data: { account_type: accountType, setup_code: null } })
+  )
 }
 
 export function syncCurrentUser() {

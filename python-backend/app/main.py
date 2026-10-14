@@ -44,6 +44,12 @@ def _warm_retrieval_models() -> None:
         logger.info("Retrieval models loaded")
     except Exception:
         logger.warning("Could not preload retrieval models; they load on first use", exc_info=True)
+    try:
+        from app.ai import tutor_guard
+
+        tutor_guard.warm_up()
+    except Exception:
+        logger.warning("Could not preload the tutor guardrails; they load on first use", exc_info=True)
 
 
 @asynccontextmanager

@@ -39,12 +39,8 @@ public class DepartmentController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public DepartmentDto create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody DepartmentDto dto) {
-        CurrentUserDto user = institutionUser(jwt);
-        requireOwner(user);
-        Long institutionId = user.institutionId();
-        dto.setInstitutionId(institutionId);
-        dto.setCreatedBy(user.userId());
-        return departmentService.create(dto);
+        throw new com.capstone.rebyu.common.BusinessRuleException.DepartmentRuleException(
+                "Departments are created automatically from each certification's department.");
     }
 
     @PutMapping("/{id}")
@@ -58,9 +54,8 @@ public class DepartmentController {
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) {
-        CurrentUserDto user = institutionUser(jwt);
-        requireOwner(user);
-        departmentService.delete(id, user.institutionId());
+        throw new com.capstone.rebyu.common.BusinessRuleException.DepartmentRuleException(
+                "A certification's department is removed only when the certification access ends.");
     }
 
     private Long myInstitutionId(Jwt jwt) {

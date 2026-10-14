@@ -1,4 +1,5 @@
-﻿import { useEffect, useRef, useState } from "react"
+﻿import { createPortal } from "react-dom"
+import { useEffect, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { fetchFileBlob, getFileViewLink } from "@/services/fileService.js"
 import { parseLessonStructure } from "@/services/learnerService.js"
@@ -13,12 +14,6 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog"
 
 
 const EASE = [0.22, 1, 0.36, 1]
@@ -87,28 +82,44 @@ function ImageAttribution({ sourceUrl, sourceName }) {
   )
 }
 
-const LIGHTBOX_PANEL =
-    "!max-w-none w-[92vw] sm:w-[64vw] lg:w-[52vw] max-h-[82dvh] " +
-    "grid place-items-center gap-0 overflow-hidden rounded-2xl border border-border " +
-    "bg-background p-3 shadow-2xl"
 
-const LIGHTBOX_MEDIA =
-    "max-h-[74dvh] w-full rounded-lg bg-white object-contain"
+// The same full-screen viewer as a tutor snip: dark backdrop, the media large and
+// unframed, closed by clicking outside, Escape, or the "close" pill.
+function MediaViewer({ label, onClose, children }) {
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key === "Escape") onClose()
+    }
+    window.addEventListener("keydown", onKey)
+    const previous = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      window.removeEventListener("keydown", onKey)
+      document.body.style.overflow = previous
+    }
+  }, [onClose])
 
-const LIGHTBOX_SCRIM =
-    "bg-slate-950/45 supports-backdrop-filter:backdrop-blur-sm"
-
-function LightboxClose() {
-  return (
-      <DialogClose asChild>
+  return createPortal(
+      <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={label}
+          onClick={onClose}
+          className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      >
+        <div onClick={(event) => event.stopPropagation()} className="cursor-default">
+          {children}
+        </div>
         <button
             type="button"
+            onClick={onClose}
             aria-label="Close"
-            className="absolute right-2 top-2 z-10 grid size-9 place-items-center rounded-full bg-slate-950/50 text-white backdrop-blur-sm transition-colors hover:bg-slate-950/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-sm font-bold text-rb-eel shadow-lg"
         >
-          <X className="size-5" aria-hidden="true" />
+          close
         </button>
-      </DialogClose>
+      </div>,
+      document.body,
   )
 }
 
@@ -154,17 +165,15 @@ function LessonImage({ imageKey, alt = "", className, sourceUrl, sourceName }) {
 
         <ImageAttribution sourceUrl={sourceUrl} sourceName={sourceName} />
 
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent
-              className={LIGHTBOX_PANEL}
-              overlayClassName={LIGHTBOX_SCRIM}
-              showCloseButton={false}
-          >
-            <DialogTitle className="sr-only">{alt || "Lesson image"}</DialogTitle>
-            <img src={src} alt={alt} className={LIGHTBOX_MEDIA} />
-            <LightboxClose />
-          </DialogContent>
-        </Dialog>
+        {open ? (
+            <MediaViewer label={alt || "Lesson image"} onClose={() => setOpen(false)}>
+              <img
+                  src={src}
+                  alt={alt}
+                  className="max-h-[88vh] max-w-[92vw] rounded-lg bg-white object-contain shadow-2xl"
+              />
+            </MediaViewer>
+        ) : null}
       </div>
   )
 }
@@ -240,17 +249,11 @@ function VideoBlock({ videoKey, className }) {
           <Maximize className="size-4" />
         </button>
 
-        <Dialog open={expanded} onOpenChange={setExpanded}>
-          <DialogContent
-              className={LIGHTBOX_PANEL}
-              overlayClassName={LIGHTBOX_SCRIM}
-              showCloseButton={false}
-          >
-            <DialogTitle className="sr-only">Lesson video</DialogTitle>
-            {player(`${LIGHTBOX_MEDIA} aspect-video h-auto w-full`)}
-            <LightboxClose />
-          </DialogContent>
-        </Dialog>
+        {expanded ? (
+            <MediaViewer label="Lesson video" onClose={() => setExpanded(false)}>
+              {player("aspect-video w-[min(92vw,calc(88vh*16/9))] rounded-lg bg-black shadow-2xl")}
+            </MediaViewer>
+        ) : null}
       </div>
   )
 }

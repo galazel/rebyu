@@ -65,6 +65,43 @@ public class EmailService {
         sendHtml(recipientEmail, subject, text, html);
     }
 
+    public void sendDepartmentHeadCode(
+            String recipientEmail,
+            String institutionName,
+            String departmentName,
+            String code,
+            int daysValid
+    ) {
+        String registerUrl = frontendUrl.replaceAll("/+$", "") + "/register?type=department&code="
+                + java.net.URLEncoder.encode(code, java.nio.charset.StandardCharsets.UTF_8);
+        String subject = institutionName + " made you a department head on REBYU";
+        String text = """
+                Hello,
+
+                %s assigned you as the department head of %s on REBYU.
+
+                Your department head code: %s
+
+                1. Create an account at %s using this email address (skip this if you already have one).
+                2. Enter the code on the sign-up form, then verify your email.
+
+                The code expires in %d days. Please do not share it.
+
+                REBYU Team
+                """.formatted(institutionName, departmentName, code, registerUrl, daysValid);
+        String html = frame("<p>Hello,</p>"
+                + "<p><b>" + escape(institutionName) + "</b> assigned you as the department head of <b>"
+                + escape(departmentName) + "</b> on REBYU.</p>"
+                + "<p style=\"margin-bottom:4px\">Your department head code</p>"
+                + "<p style=\"font-family:Consolas,Menlo,monospace;font-size:22px;font-weight:bold;letter-spacing:2px;margin-top:0\">"
+                + escape(code) + "</p>"
+                + "<ol><li>Create an account using this email address (skip this if you already have one).</li>"
+                + "<li>Enter the code on the sign-up form, then verify your email.</li></ol>"
+                + "<p><a href=\"" + registerUrl + "\" style=\"background:#2f6b4f;color:#ffffff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:bold;display:inline-block\">Create your account</a></p>"
+                + "<p style=\"font-size:12px;color:#6b706c\">The code expires in " + daysValid + " days. Please do not share it.</p>");
+        sendHtml(recipientEmail, subject, text, html);
+    }
+
     public void sendPartnershipWelcome(
             boolean existingPartner,
             String recipientEmail,
@@ -82,16 +119,18 @@ public class EmailService {
                 : "Welcome to REBYU, " + institutionName + " - your partnership is approved";
         String opening = existingPartner
                 ? "Your request (%s) has been approved. The access below is added to what you already have."
-                : "Welcome to REBYU! Your partnership request (%s) has been approved and your institution account is ready.";
+                : "Welcome to REBYU! Your partnership request (%s) has been approved.";
         String openingHtml = existingPartner
                 ? "Your request <b>" + escape(referenceNumber)
                         + "</b> has been approved. The access below is added to what you already have."
                 : "Welcome to REBYU! Your partnership request <b>" + escape(referenceNumber)
-                        + "</b> has been approved and your institution account is ready.";
+                        + "</b> has been approved.";
         String accessHeading = existingPartner ? "Additional access approved" : "Certification access approved";
         String signInNote = existingPartner
                 ? ""
-                : "<p style=\"font-size:12px;color:#6b706c\">Your sign-in details arrive in a separate email.</p>";
+                : "<p style=\"font-size:12px;color:#6b706c\">To sign in, create your account at <a href=\"" + base
+                        + "/register?type=institution\">" + base + "/register</a> as an <b>Institution</b> "
+                        + "using your reference number <b>" + escape(referenceNumber) + "</b>.</p>";
         StringBuilder textLines = new StringBuilder();
         StringBuilder htmlLines = new StringBuilder();
         for (String line : lineSummaries) {
@@ -100,7 +139,7 @@ public class EmailService {
         }
         String closing = existingPartner
                 ? "Once the invoice is paid the extra slots are added to your allocation and are ready to assign."
-                : "Your sign-in details are sent in a separate email. Once the invoice is paid, head to Certifications to create departments and invite your learners.";
+                : "Create your institution account at " + base + "/register?type=institution using your reference number " + referenceNumber + ". Once the invoice is paid, head to Certifications to create departments and invite your learners.";
         String text = """
                 Hello %s,
 
@@ -126,7 +165,7 @@ public class EmailService {
                 + "<p style=\"font-size:12px;color:#6b706c\">Pay by card or GCash through PayMongo from the invoice page; access switches on as soon as payment is confirmed. "
                 + (existingPartner
                         ? "The extra slots join your existing allocation."
-                        : "Your sign-in details arrive in a separate email. Once you are in, open Certifications to create departments and invite learners.")
+                        : "Once you have registered, open Certifications to create departments and invite learners.")
                 + "</p>"
                 + signInNote);
         sendHtml(recipientEmail, subject, text, html);

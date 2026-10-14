@@ -115,7 +115,7 @@ function formatElapsed(totalSeconds) {
 function getEmptyDetails() {
     return {
         title: "",
-        industry: "",
+        department: "",
         description: "",
     }
 }
@@ -136,7 +136,8 @@ function detailsOf(certification) {
     return certification
         ? {
               title: certification.title ?? "",
-              industry: certification.industry ?? "",
+              department: certification.department ?? "",
+              certificationId: certification.certificationId,
               description: certification.description ?? "",
           }
         : getEmptyDetails()
@@ -297,7 +298,10 @@ export default function CertificationFormDrawer({
             const payload = {
                 title: certificationDetails.title.trim(),
                 description: certificationDetails.description.trim(),
-                industry: certificationDetails.industry.trim(),
+                department: certificationDetails.department.trim(),
+                ...(Array.isArray(certificationDetails.departments)
+                    ? { departments: certificationDetails.departments }
+                    : {}),
                 dateCreated: formatLocalDateTime(),
             }
 

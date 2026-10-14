@@ -52,6 +52,19 @@ public final class PublicPartnershipDtos {
     ) {
     }
 
+    public record RegistrationLookupRequest(@NotBlank String referenceNumber) {
+    }
+
+    public record RegistrationLookupResponse(
+            String referenceNumber,
+            String institutionName,
+            String institutionEmail,
+            String contactPersonName,
+            String contactNumber,
+            String status
+    ) {
+    }
+
     public record PublicPartnershipStatusResponse(
             String referenceNumber,
             String institutionName,

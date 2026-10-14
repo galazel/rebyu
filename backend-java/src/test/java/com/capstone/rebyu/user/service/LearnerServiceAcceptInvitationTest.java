@@ -57,6 +57,7 @@ class LearnerServiceAcceptInvitationTest {
                 mock(DepartmentLearnerRepository.class),
                 mock(AccountDeletionService.class),
                 mock(DepartmentRepository.class),
+                mock(com.capstone.rebyu.institution.service.SchoolMembershipGuard.class),
                 mock(NotificationService.class),
                 mock(com.capstone.rebyu.enrollment.service.OrgEnrollmentProgressService.class));
     }

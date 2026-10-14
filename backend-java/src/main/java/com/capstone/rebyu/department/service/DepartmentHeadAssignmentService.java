@@ -67,6 +67,12 @@ public class DepartmentHeadAssignmentService {
             throw new EntityNotFoundException("Department not found: " + dto.getDepartmentId());
         }
 
+        if (departmentHeadAssignmentRepository.existsByUser_UserIdAndStatusAndDepartment_DepartmentIdNot(
+                dto.getUserId(), DepartmentHeadAssignment.Status.active, group.getDepartmentId())) {
+            throw new BusinessRuleException.DepartmentRuleException(
+                    "This person already heads another department. Remove them there first.");
+        }
+
         User user = User.builder().userId(dto.getUserId()).build();
         DepartmentHeadAssignment entity = departmentHeadAssignmentRepository
                 .findByDepartmentAndUser(group, user)

@@ -78,7 +78,7 @@ class DepartmentLearnerServiceTest {
         return Department.builder()
                 .departmentId(GROUP_ID)
                 .institution(institution)
-                .institutionCert(institutionCert)
+                .institutionCerts(new java.util.ArrayList<>(java.util.List.of(institutionCert)))
                 .build();
     }
 

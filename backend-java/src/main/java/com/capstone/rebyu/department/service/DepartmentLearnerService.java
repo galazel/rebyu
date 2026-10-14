@@ -62,11 +62,10 @@ public class DepartmentLearnerService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "InstitutionCertificationLearner not found: " + dto.getInstitutionCertLearnerId()));
 
-        Long groupInstitutionCertId = group.getInstitutionCert() != null ? group.getInstitutionCert().getInstitutionCertId() : null;
         Long learnerInstitutionCertId = learner.getInstitutionCert() != null ? learner.getInstitutionCert().getInstitutionCertId() : null;
-        if (!Objects.equals(groupInstitutionCertId, learnerInstitutionCertId)) {
+        if (!group.covers(learnerInstitutionCertId)) {
             throw new BusinessRuleException.DepartmentRuleException(
-                    "This learner does not have access to the certification this group belongs to.");
+                    "This learner's certification is not one this department covers.");
         }
 
         var existing = departmentLearnerRepository.findByDepartmentAndInstitutionCertLearner(group, learner);

@@ -35,7 +35,7 @@ public class DepartmentService {
         List<Department> groups = departmentRepository.findByInstitution_InstitutionId(institutionId);
         if (institutionCertId != null) {
             groups = groups.stream()
-                    .filter(g -> g.getInstitutionCert() != null && institutionCertId.equals(g.getInstitutionCert().getInstitutionCertId()))
+                    .filter(g -> g.covers(institutionCertId))
                     .toList();
         }
         return groups.stream().map(departmentMapper::toDto).toList();
@@ -52,7 +52,7 @@ public class DepartmentService {
                         Department.Status.active,
                         DepartmentHeadAssignment.Status.active);
         return groups.stream()
-                .filter(group -> institutionCertId == null || Objects.equals(group.getInstitutionCert().getInstitutionCertId(), institutionCertId))
+                .filter(group -> institutionCertId == null || group.covers(institutionCertId))
                 .map(departmentMapper::toDto)
                 .toList();
     }
@@ -78,57 +78,12 @@ public class DepartmentService {
         return departmentMapper.toDto(entity);
     }
 
-    public DepartmentDto create(DepartmentDto dto) {
-        log.info("Creating institution group '{}' for institutionCertId={}", dto.getDepartmentName(), dto.getInstitutionCertId());
-
-        InstitutionCertificate institutionCert = institutionCertificateRepository.findById(dto.getInstitutionCertId())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "InstitutionCertificate not found: " + dto.getInstitutionCertId()));
-
-        Long institutionCertInstitutionId = institutionCert.getInstitution() != null
-                ? institutionCert.getInstitution().getInstitutionId() : null;
-        if (!Objects.equals(dto.getInstitutionId(), institutionCertInstitutionId)) {
-            throw new EntityNotFoundException("InstitutionCertificate not found: " + dto.getInstitutionCertId());
-        }
-
-        if (dto.getTotalSlots() > institutionCert.getTotalSlots()) {
-            throw new BusinessRuleException.DepartmentRuleException(
-                    "This group can have at most " + institutionCert.getTotalSlots()
-                            + " slot(s) -- the certification's own allocation limit.");
-        }
-
-        Department entity = departmentMapper.toEntity(dto);
-        entity.setDepartmentId(null);
-        entity.setInstitutionCert(institutionCert);
-        entity.setInstitution(institutionCert.getInstitution());
-        entity.setCreatedAt(dto.getCreatedAt() != null ? dto.getCreatedAt() : LocalDateTime.now());
-        entity.setStatus(dto.getStatus() != null ? dto.getStatus() : Department.Status.active);
-        entity.setUsedSlots(0);
-        DepartmentDto result = departmentMapper.toDto(departmentRepository.save(entity));
-        log.info("Institution group created with id: {}", result.getDepartmentId());
-        return result;
-    }
-
     public DepartmentDto update(Long id, DepartmentDto dto, Long callerInstitutionId) {
         log.info("Updating institution group id: {}", id);
         Department entity = findEntity(id);
         requireSameInstitution(entity, callerInstitutionId);
         entity.setDepartmentName(dto.getDepartmentName());
         entity.setDepartmentDescription(dto.getDepartmentDescription());
-        if (dto.getTotalSlots() != null) {
-            if (dto.getTotalSlots() < entity.getUsedSlots()) {
-                throw new BusinessRuleException.DepartmentRuleException(
-                        "This group already has " + entity.getUsedSlots()
-                                + " slot(s) in use -- lower the limit no further than that.");
-            }
-            InstitutionCertificate institutionCert = entity.getInstitutionCert();
-            if (institutionCert != null && dto.getTotalSlots() > institutionCert.getTotalSlots()) {
-                throw new BusinessRuleException.DepartmentRuleException(
-                        "This group can have at most " + institutionCert.getTotalSlots()
-                                + " slot(s) -- the certification's own allocation limit.");
-            }
-            entity.setTotalSlots(dto.getTotalSlots());
-        }
         if (dto.getStatus() != null) {
             entity.setStatus(dto.getStatus());
         }

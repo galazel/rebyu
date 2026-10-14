@@ -45,6 +45,7 @@ public class InstitutionInvitationService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final com.capstone.rebyu.department.repository.InstitutionSectionRepository sectionRepository;
+    private final com.capstone.rebyu.institution.service.SchoolMembershipGuard schoolMembership;
 
 
     @Transactional(readOnly = true)
@@ -79,6 +80,34 @@ public class InstitutionInvitationService {
         return invitations.stream().map(this::toInvitationDto).toList();
     }
 
+    /**
+     * Which of the department's certifications the invitation is for: the one asked for, else the
+     * section's certification, else the department's only one.
+     */
+    private InstitutionCertificate resolveCertification(Department group, SendInvitationsRequest request) {
+        Long wanted = request.institutionCertId();
+        if (wanted == null && request.sectionId() != null) {
+            wanted = sectionRepository.findById(request.sectionId())
+                    .map(section -> section.getInstitutionCert() == null ? null
+                            : section.getInstitutionCert().getInstitutionCertId())
+                    .orElse(null);
+        }
+        if (wanted != null) {
+            Long id = wanted;
+            return group.getInstitutionCerts().stream()
+                    .filter(cert -> id.equals(cert.getInstitutionCertId()))
+                    .findFirst()
+                    .orElseThrow(() -> new BusinessRuleException.InvalidPartnershipRequestException(
+                            "This department does not cover that certification."));
+        }
+        InstitutionCertificate only = group.soleCertification();
+        if (only == null) {
+            throw new BusinessRuleException.InvalidPartnershipRequestException(
+                    "Choose which certification to invite the learners to.");
+        }
+        return only;
+    }
+
     @Transactional
     public SendInvitationsResponse sendInvitations(SendInvitationsRequest request) throws Exception {
         Department group = departmentRepository.findById(request.departmentId())
@@ -91,7 +120,7 @@ public class InstitutionInvitationService {
         }
         requireActiveLeader(group, request.invitedByUserId());
 
-        InstitutionCertificate institutionCert = group.getInstitutionCert();
+        InstitutionCertificate institutionCert = resolveCertification(group, request);
         if (institutionCert.getStatus() != InstitutionCertificate.Status.active) {
             throw new BusinessRuleException.InvalidPartnershipRequestException(
                     "This certification access is not active.");
@@ -108,6 +137,11 @@ public class InstitutionInvitationService {
                 continue;
             }
             if (toInvite.containsKey(email)) {
+                continue;
+            }
+            var otherSchool = schoolMembership.otherSchool(email, group.getInstitution().getInstitutionId());
+            if (otherSchool.isPresent()) {
+                skipped.add(email + " (already belongs to " + otherSchool.get() + ")");
                 continue;
             }
             if (invitationRepository.existsByInstitutionCert_InstitutionCertIdAndEmailIgnoreCaseAndStatus(

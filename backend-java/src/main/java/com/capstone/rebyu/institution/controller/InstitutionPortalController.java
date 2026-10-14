@@ -4,13 +4,10 @@ import com.capstone.rebyu.assessment.dto.ExamResultDto;
 import com.capstone.rebyu.enrollment.service.CertificationAwardService;
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
-import com.capstone.rebyu.institution.service.DepartmentHeadProvisioningService;
-import com.capstone.rebyu.institution.service.DepartmentHeadProvisioningService.InviteResult;
 import com.capstone.rebyu.institution.service.InstitutionDashboardService;
 import com.capstone.rebyu.institution.service.InstitutionDashboardService.InstitutionDashboardDto;
 import com.capstone.rebyu.institution.service.InstitutionLearningStatsService;
 import com.capstone.rebyu.institution.service.InstitutionPortalService;
-import com.capstone.rebyu.institution.dto.DepartmentHeadInviteRequestDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.InstitutionLearningStatsDto;
 import com.capstone.rebyu.institution.dto.InstitutionLearningStatsDtos.DepartmentProgressDto;
 import com.capstone.rebyu.institution.dto.InstitutionPortalDtos.OverviewDto;
@@ -51,7 +48,7 @@ public class InstitutionPortalController {
     private final InstitutionService institutionService;
     private final com.capstone.rebyu.department.service.DepartmentService departmentService;
     private final DepartmentHeadService departmentHeadService;
-    private final DepartmentHeadProvisioningService departmentHeadProvisioningService;
+    private final com.capstone.rebyu.institution.service.CertificationAnalyticsService certificationAnalyticsService;
     private final InstitutionRepository institutionRepository;
     private final CognitoAuthService auth;
 
@@ -86,6 +83,12 @@ public class InstitutionPortalController {
         return dashboardService.dashboard(myInstitutionId(jwt), from, to);
     }
 
+    @GetMapping("/certifications/{certificationId}/analytics")
+    public com.capstone.rebyu.institution.service.CertificationAnalyticsService.CertificationAnalytics certificationAnalytics(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable Long certificationId) {
+        return certificationAnalyticsService.analytics(myInstitutionId(jwt), certificationId);
+    }
+
     @GetMapping("/group-stats")
     public List<DepartmentProgressDto> groupStats(
             @AuthenticationPrincipal Jwt jwt,
@@ -100,17 +103,6 @@ public class InstitutionPortalController {
     @GetMapping("/members")
     public List<DepartmentHeadDto> members(@AuthenticationPrincipal Jwt jwt) {
         return departmentHeadService.getByInstitutionId(myInstitutionId(jwt));
-    }
-
-    @PostMapping("/members")
-    @ResponseStatus(HttpStatus.CREATED)
-    public InviteResult inviteMember(
-            @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody DepartmentHeadInviteRequestDto request) {
-        Long institutionId = myInstitutionId(jwt);
-        Institution institution = institutionRepository.findById(institutionId)
-                .orElseThrow(() -> new EntityNotFoundException("Institution not found: " + institutionId));
-        return departmentHeadProvisioningService.inviteMember(institution, request);
     }
 
     @GetMapping("/learners/{learnerId}/exam-results")

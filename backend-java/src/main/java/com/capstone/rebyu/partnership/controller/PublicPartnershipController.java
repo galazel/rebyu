@@ -36,6 +36,12 @@ public class PublicPartnershipController {
         return publicPartnershipService.submit(request);
     }
 
+    @PostMapping("/registration")
+    public com.capstone.rebyu.partnership.dto.PublicPartnershipDtos.RegistrationLookupResponse registration(
+            @Valid @RequestBody com.capstone.rebyu.partnership.dto.PublicPartnershipDtos.RegistrationLookupRequest request) {
+        return publicPartnershipService.lookupForRegistration(request.referenceNumber());
+    }
+
     @PostMapping("/status")
     public PublicPartnershipStatusResponse status(
             @Valid @RequestBody PublicPartnershipStatusRequest request) {

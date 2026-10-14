@@ -143,74 +143,16 @@ public class AdminPartnershipService {
                     "This institution already has an institution account.");
         }
 
-        String[] name = splitName(contactNameOf(request));
-        CognitoAdminService.ProvisionResult result = cognitoAdminService
-                .createInstitutionAccount(emailOf(request), name[0], name[1]);
-
-        if (result.cognitoSub() != null || result.emailed()) {
-            UserType institutionType = userTypeRepository.findByUserTypeText(INSTITUTION_USER_TYPE)
-                    .orElseGet(() -> {
-                        UserType type = new UserType();
-                        type.setUserTypeText(INSTITUTION_USER_TYPE);
-                        return userTypeRepository.save(type);
-                    });
-
-            User user = userRepository.findByEmailIgnoreCase(request.getInstitutionEmail())
-                    .orElseGet(() -> User.builder()
-                            .userType(institutionType)
-                            .email(request.getInstitutionEmail())
-                            .passwordHash("COGNITO")
-                            .accountStatus(User.AccountStatus.active)
-                            .joinedAt(LocalDateTime.now())
-                            .cognitoSub(result.cognitoSub())
-                            .build());
-            user.setUserType(institutionType);
-            if (user.getCognitoSub() == null && result.cognitoSub() != null) {
-                user.setCognitoSub(result.cognitoSub());
-            }
-            user = userRepository.save(user);
-            events.publishEvent(new com.capstone.rebyu.auth.service.IdentityChangedEvent(user.getCognitoSub()));
-
-            DepartmentHead member = DepartmentHead.builder()
-                    .institution(institution)
-                    .user(user)
-                    .headRole(DepartmentHead.HeadRole.owner)
-                    .isPrimaryContact(true)
-                    .joinedAt(LocalDateTime.now())
-                    .build();
-            departmentHeadRepository.save(member);
-        } else {
-            User existingUser = userRepository.findByEmailIgnoreCase(request.getInstitutionEmail())
-                    .orElse(null);
-            if (existingUser != null) {
-                DepartmentHead member = DepartmentHead.builder()
-                        .institution(institution)
-                        .user(existingUser)
-                        .headRole(DepartmentHead.HeadRole.owner)
-                        .isPrimaryContact(true)
-                        .joinedAt(LocalDateTime.now())
-                        .build();
-                departmentHeadRepository.save(member);
-            } else {
-                log.warn("Cognito account already exists for {} but no local User is linked to it; "
-                                + "institution {} was created with no owner and requires manual linking.",
-                        request.getInstitutionEmail(), institution.getInstitutionId());
-            }
-        }
-        return result;
+        log.info("Institution {} awaits its owner registering with reference {}",
+                institution.getInstitutionId(), referenceOf(request));
+        return new CognitoAdminService.ProvisionResult(false, null,
+                "The institution creates its own account by registering with reference "
+                        + referenceOf(request) + ".");
     }
 
     private static String formatMoney(java.math.BigDecimal amount) {
         return "PHP " + java.text.NumberFormat.getNumberInstance(java.util.Locale.US).format(
                 amount == null ? java.math.BigDecimal.ZERO : amount.setScale(2, java.math.RoundingMode.HALF_UP));
-    }
-
-    private String[] splitName(String fullName) {
-        if (fullName == null || fullName.isBlank()) {
-            return new String[]{"", ""};
-        }
-        String[] parts = fullName.trim().split("\\s+", 2);
-        return new String[]{parts[0], parts.length > 1 ? parts[1] : ""};
     }
 
     @Transactional
@@ -262,7 +204,8 @@ public class AdminPartnershipService {
         requestRepository.save(request);
 
         var result = teardownService.cancelPartnership(institution.getInstitutionId(),
-                "Partnership cancelled (" + referenceOf(request) + ")");
+                "Partnership cancelled (" + referenceOf(request) + ")",
+                request.getSubmittedAt() != null ? request.getSubmittedAt() : LocalDateTime.now());
         var refund = result.refund();
 
         String money = refund.refunded().signum() > 0
@@ -321,7 +264,12 @@ public class AdminPartnershipService {
 
     private Institution resolveOrCreateInstitution(PartnershipRequest request) {
         if (request.getInstitution() != null) {
-            return request.getInstitution();
+            Institution linked = request.getInstitution();
+            if (!linked.isVerified()) {
+                linked.setVerified(true);
+                institutionRepository.save(linked);
+            }
+            return linked;
         }
         Institution byEmail = institutionRepository
                 .findByPrimaryContactEmailIgnoreCase(request.getInstitutionEmail())
@@ -342,7 +290,6 @@ public class AdminPartnershipService {
         Institution institution = Institution.builder()
                 .institutionName(name)
                 .institutionType(Institution.InstitutionType.other)
-                .industry("General")
                 .primaryContactName(request.getContactPersonName())
                 .primaryContactEmail(request.getInstitutionEmail())
                 .primaryContactPhone(request.getContactNumber())

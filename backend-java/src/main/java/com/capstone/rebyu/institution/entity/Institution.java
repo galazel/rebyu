@@ -31,9 +31,6 @@ public class Institution {
     @Column(name = "institution_type", nullable = false, length = 50)
     private InstitutionType institutionType;
 
-    @Column(nullable = false, length = 100)
-    private String industry;
-
     @Column(name = "primary_contact_name", nullable = false, length = 100)
     private String primaryContactName;
 

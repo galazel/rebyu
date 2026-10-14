@@ -46,7 +46,10 @@ public final class PartnershipTransactionDtos {
             String status,
             LocalDateTime submittedAt,
             Integer totalSlots,
-            List<PartnershipItemDto> items
+            List<PartnershipItemDto> items,
+            String requestType,
+            String referenceNumber,
+            String note
     ) {
     }
 }

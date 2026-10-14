@@ -24,6 +24,7 @@ public class InstitutionAccessGrantService {
 
     private final InstitutionCertificateRepository institutionCertificateRepository;
     private final CertificationRepository certificationRepository;
+    private final com.capstone.rebyu.department.service.CertificationDepartmentService certificationDepartments;
 
     @Transactional
     public void reserve(Institution institution, List<PartnershipRequestItem> items) {
@@ -90,6 +91,8 @@ public class InstitutionAccessGrantService {
                 institutionCertificateRepository.save(existing);
             }
         }
+        institutionCertificateRepository.findByInstitution_InstitutionId(institution.getInstitutionId())
+                .forEach(certificationDepartments::ensureFor);
         log.info("Access activated for institution {} from invoice {}",
                 institution.getInstitutionId(), invoice.getInvoiceNumber());
     }

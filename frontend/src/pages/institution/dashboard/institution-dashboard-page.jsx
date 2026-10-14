@@ -591,7 +591,13 @@ export default function InstitutionDashboardPage() {
                   <p>No departments yet.</p>
                   <div className="mt-3">
                     <Button asChild size="sm" variant="outline">
-                      <Link to="/institution/departments">Manage departments</Link>
+                      {activeCertifications.length > 0 ? (
+                        <Link to="/institution/certifications">Manage departments</Link>
+                      ) : certifications.length > 0 ? (
+                        <Link to="/institution/invoices">Pay invoice to add departments</Link>
+                      ) : (
+                        <Link to="/institution/partnership">Request partnership</Link>
+                      )}
                     </Button>
                   </div>
                 </div>

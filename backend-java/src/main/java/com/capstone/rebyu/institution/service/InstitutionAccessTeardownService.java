@@ -21,6 +21,8 @@ public class InstitutionAccessTeardownService {
     private final JdbcTemplate jdbc;
     private final InstitutionCertificateRepository allocations;
     private final InstitutionRefundService refundService;
+    private final com.capstone.rebyu.common.JdbcCascadeDeleter cascade;
+    private final com.capstone.rebyu.certification.service.S3StorageService storage;
 
     public record Impact(
             Long institutionCertId,
@@ -52,18 +54,28 @@ public class InstitutionAccessTeardownService {
                 institutionCertId,
                 allocation.getCertification().getTitle(),
                 allocation.getTotalSlots() == null ? 0 : allocation.getTotalSlots(),
-                count("SELECT count(*) FROM departments WHERE institution_cert_id = ?", institutionCertId),
+                count("""
+                        SELECT count(*) FROM departments d
+                         WHERE EXISTS (SELECT 1 FROM department_certifications dc
+                                        WHERE dc.department_id = d.department_id AND dc.institution_cert_id = ?)
+                           AND (SELECT count(*) FROM department_certifications dc
+                                 WHERE dc.department_id = d.department_id) = 1""", institutionCertId),
                 count("SELECT count(*) FROM institution_certification_learners WHERE institution_cert_id = ?", institutionCertId),
                 count("SELECT count(*) FROM learner_invitations WHERE institution_cert_id = ?", institutionCertId),
                 count("""
-                        SELECT count(*) FROM exams e JOIN departments d ON d.department_id = e.owner_department_id
-                         WHERE d.institution_cert_id = ?""", institutionCertId),
+                        SELECT count(*) FROM exams e
+                          JOIN department_certifications dc ON dc.department_id = e.owner_department_id
+                          JOIN institution_certificates ic ON ic.institution_cert_id = dc.institution_cert_id
+                         WHERE dc.institution_cert_id = ? AND e.certification_id = ic.certification_id""", institutionCertId),
                 count("""
-                        SELECT count(*) FROM questions q JOIN departments d ON d.department_id = q.owner_department_id
-                         WHERE d.institution_cert_id = ?""", institutionCertId),
+                        SELECT count(*) FROM questions q
+                          JOIN department_certifications dc ON dc.department_id = q.owner_department_id
+                         WHERE dc.institution_cert_id = ?""", institutionCertId),
                 count("""
-                        SELECT count(*) FROM major_categories m JOIN departments d ON d.department_id = m.owner_department_id
-                         WHERE d.institution_cert_id = ?""", institutionCertId),
+                        SELECT count(*) FROM major_categories m
+                          JOIN department_certifications dc ON dc.department_id = m.owner_department_id
+                          JOIN institution_certificates ic ON ic.institution_cert_id = dc.institution_cert_id
+                         WHERE dc.institution_cert_id = ? AND m.certification_id = ic.certification_id""", institutionCertId),
                 refundService.quote(
                         allocation.getInstitution().getInstitutionId(),
                         allocation.getCertification().getCertificationId()),
@@ -89,9 +101,14 @@ public class InstitutionAccessTeardownService {
 
     @Transactional
     public TeardownResult cancelPartnership(Long institutionId, String reason) {
+        return cancelPartnership(institutionId, reason, java.time.LocalDateTime.now());
+    }
+
+    @Transactional
+    public TeardownResult cancelPartnership(Long institutionId, String reason, java.time.LocalDateTime requestedAt) {
         List<InstitutionCertificate> held = allocations.findByInstitution_InstitutionId(institutionId);
 
-        RefundResult refund = refundService.refund(institutionId, null, reason);
+        RefundResult refund = refundService.refund(institutionId, null, reason, requestedAt);
 
         int departments = 0, enrolments = 0, invitations = 0;
         for (InstitutionCertificate allocation : held) {
@@ -102,6 +119,14 @@ public class InstitutionAccessTeardownService {
             deleteAllocationTree(allocation.getInstitutionCertId());
         }
 
+        List<Long> institution = List.of(institutionId);
+        cascade.deleteWhere("departments", "institution_id", institution);
+        List<String> storedFiles = jdbc.queryForList(
+                "SELECT storage_key FROM institution_files WHERE institution_id = ?", String.class, institutionId);
+        cascade.deleteWhere("institution_files", "institution_id", institution);
+        removeFromStorageAfterCommit(storedFiles);
+        cascade.deleteWhere("institutional_licenses", "institution_id", institution);
+
         log.info("Cancelled partnership for institution {}: {} allocation(s), {} department(s), {} enrolment(s), {} refunded",
                 institutionId, held.size(), departments, enrolments, refund.refunded());
 
@@ -111,36 +136,68 @@ public class InstitutionAccessTeardownService {
                 refund);
     }
 
-    private void deleteAllocationTree(Long institutionCertId) {
-        String departmentsOf = "SELECT department_id FROM departments WHERE institution_cert_id = ?";
-
-        jdbc.update("""
-                DELETE FROM department_learners
-                 WHERE institution_cert_learner_id IN (
-                       SELECT institution_cert_learner_id FROM institution_certification_learners
-                        WHERE institution_cert_id = ?)""", institutionCertId);
-        jdbc.update("DELETE FROM department_learners WHERE department_id IN (" + departmentsOf + ")",
-                institutionCertId);
-        jdbc.update("DELETE FROM institution_certification_learners WHERE institution_cert_id = ?",
-                institutionCertId);
-
-        jdbc.update("DELETE FROM learner_invitations WHERE institution_cert_id = ? OR department_id IN ("
-                + departmentsOf + ")", institutionCertId, institutionCertId);
-
-        jdbc.update("DELETE FROM department_announcements WHERE department_id IN (" + departmentsOf + ")",
-                institutionCertId);
-        jdbc.update("DELETE FROM department_head_assignments WHERE department_id IN (" + departmentsOf + ")",
-                institutionCertId);
-        jdbc.update("DELETE FROM institution_sections WHERE department_id IN (" + departmentsOf + ")",
-                institutionCertId);
-
-        for (String owned : List.of("exams", "questions", "major_categories")) {
-            jdbc.update("UPDATE " + owned + " SET owner_department_id = NULL WHERE owner_department_id IN ("
-                    + departmentsOf + ")", institutionCertId);
+    private void removeFromStorageAfterCommit(List<String> keys) {
+        if (keys.isEmpty()) {
+            return;
         }
+        Runnable removal = () -> keys.forEach(key -> {
+            try {
+                storage.deleteFile(key);
+            } catch (RuntimeException e) {
+                log.warn("Could not delete institution file {} from S3: {}", key, e.getMessage());
+            }
+        });
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            removal.run();
+                        }
+                    });
+        } else {
+            removal.run();
+        }
+    }
 
-        jdbc.update("DELETE FROM departments WHERE institution_cert_id = ?", institutionCertId);
-        jdbc.update("DELETE FROM institution_certificates WHERE institution_cert_id = ?", institutionCertId);
+    private void deleteAllocationTree(Long institutionCertId) {
+        List<Long> touched = jdbc.queryForList(
+                "SELECT department_id FROM department_certifications WHERE institution_cert_id = ?",
+                Long.class, institutionCertId);
+        if (!touched.isEmpty()) {
+            Long certificationId = jdbc.queryForObject(
+                    "SELECT certification_id FROM institution_certificates WHERE institution_cert_id = ?",
+                    Long.class, institutionCertId);
+            // The dropped certification's own department content goes with it; a shared
+            // department keeps the content of its other certifications.
+            String[][] owned = {{"exams", "exam_id"}, {"major_categories", "major_category_id"}};
+            String departmentList = String.join(",", java.util.Collections.nCopies(touched.size(), "?"));
+            for (String[] table : owned) {
+                Object[] args = new Object[touched.size() + 1];
+                args[0] = certificationId;
+                for (int k = 0; k < touched.size(); k++) args[k + 1] = touched.get(k);
+                List<Long> ids = jdbc.queryForList(
+                        "SELECT " + table[1] + " FROM " + table[0]
+                                + " WHERE certification_id = ? AND owner_department_id IN (" + departmentList + ")",
+                        Long.class, args);
+                cascade.deleteWhere(table[0], table[1], ids);
+            }
+        }
+        cascade.deleteWhere("institution_certificates", "institution_cert_id", List.of(institutionCertId));
+        if (touched.isEmpty()) return;
+
+        // A department shared by several certifications only goes when its last one does.
+        String placeholders = String.join(",", java.util.Collections.nCopies(touched.size(), "?"));
+        List<Long> empty = jdbc.queryForList(
+                "SELECT d.department_id FROM departments d WHERE d.department_id IN (" + placeholders + ") "
+                        + "AND NOT EXISTS (SELECT 1 FROM department_certifications dc WHERE dc.department_id = d.department_id)",
+                Long.class, touched.toArray());
+        cascade.deleteWhere("departments", "department_id", empty);
+        jdbc.update("UPDATE departments d SET total_slots = COALESCE((SELECT SUM(ic.total_slots) "
+                        + "FROM department_certifications dc JOIN institution_certificates ic "
+                        + "ON ic.institution_cert_id = dc.institution_cert_id WHERE dc.department_id = d.department_id), 0) "
+                        + "WHERE d.department_id IN (" + placeholders + ")",
+                touched.toArray());
     }
 
     private int count(String sql, Long institutionCertId) {

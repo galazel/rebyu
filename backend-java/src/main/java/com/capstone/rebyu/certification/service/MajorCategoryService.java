@@ -91,11 +91,9 @@ public class MajorCategoryService {
 
         Department group = departmentRepository.findById(ownerDepartmentId)
                 .orElseThrow(() -> new EntityNotFoundException("Group not found: " + ownerDepartmentId));
-        Long groupCertificationId = group.getInstitutionCert() != null && group.getInstitutionCert().getCertification() != null
-                ? group.getInstitutionCert().getCertification().getCertificationId() : null;
-        if (!Objects.equals(groupCertificationId, targetCertificationId)) {
+        if (group.allocationFor(targetCertificationId).isEmpty()) {
             throw new BusinessRuleException.DepartmentRuleException(
-                    "This group's certification does not match the certification you're adding content to.");
+                    "This department does not cover the certification you're adding content to.");
         }
         return group;
     }

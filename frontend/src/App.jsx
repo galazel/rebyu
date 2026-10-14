@@ -11,6 +11,7 @@ const LearnerLayout = lazyRoute(() => import("./layouts/learner-layout.jsx"))
 const InstitutionLayout = lazyRoute(() => import("./layouts/institution-layout.jsx"))
 const LoginPage = lazyRoute(() => import("./pages/auth/login-page.jsx"))
 const RegisterPage = lazyRoute(() => import("./pages/auth/register-page.jsx"))
+const AccountSetupPage = lazyRoute(() => import("./pages/auth/account-setup-page.jsx"))
 const VerifyEmailPage = lazyRoute(() => import("./pages/auth/verify-email-page.jsx"))
 const ForgotPasswordPage = lazyRoute(() => import("./pages/auth/forgot-password-page.jsx"))
 const SetNewPasswordPage = lazyRoute(() => import("@/pages/auth/set-new-password-page.jsx"))
@@ -71,7 +72,6 @@ const InstitutionQuestionImportPage = lazyRoute(() => import("./pages/institutio
 const InstitutionAssessmentResultsPage = lazyRoute(() => import("./pages/institution/departments/institution-assessment-results-page.jsx"))
 const DepartmentsPage = lazyRoute(() => import("./pages/institution/departments/institution-departments-page.jsx"))
 const InstitutionAccountPage = lazyRoute(() => import("./pages/institution/account/institution-account-page.jsx"))
-const InstitutionInvoicesPage = lazyRoute(() => import("./pages/institution/account/institution-invoices-page.jsx"))
 const InstitutionRequestAccessPage = lazyRoute(() => import("./pages/public/institution-request-access-page.jsx"))
 const CompilerArea = lazyRoute(() => import("./pages/challenges/compiler-area-page.jsx"))
 const CodeStrikePage = lazyRoute(() => import("./pages/learner/challenges/codestrike-page.jsx"))
@@ -121,6 +121,13 @@ function GuestOnlyRoute({ children }) {
     return children
 }
 
+function DepartmentsEntry() {
+    const { user } = useAuth()
+    return isInstitutionOwner(user)
+        ? <Navigate to="/institution/certifications" replace />
+        : <DepartmentsPage />
+}
+
 function InstitutionDashboardEntry() {
     const { user } = useAuth()
     return isInstitutionOwner(user)
@@ -163,6 +170,9 @@ export function App() {
             <Route path="/verify-email" element={<GuestOnlyRoute><VerifyEmailPage /></GuestOnlyRoute>} />
             <Route path="/forgot-password" element={<GuestOnlyRoute><ForgotPasswordPage /></GuestOnlyRoute>} />
             <Route path="/set-new-password" element={<SetNewPasswordPage />} />
+            <Route element={<ProtectedRoute allowedRoles={["LEARNER", "INSTITUTION", "DEPARTMENT_HEAD"]} />}>
+                <Route path="/account-setup" element={<AccountSetupPage />} />
+            </Route>
 
             <Route
                 path="/institution/request-access"
@@ -366,7 +376,7 @@ export function App() {
                         path="certifications/:institutionCertId"
                         element={<InstitutionCertificationDetailPage />}
                     />
-                    <Route path="departments" element={<DepartmentsPage />} />
+                    <Route path="departments" element={<DepartmentsEntry />} />
                     <Route path="departments/:departmentId" element={<InstitutionDepartmentWorkspacePage />} />
                     <Route
                         path="departments/:departmentId/learners/:learnerId"
@@ -399,8 +409,8 @@ export function App() {
                     <Route path="analytics" element={<Navigate to="/institution/dashboard" replace />} />
                     <Route path="partnership" element={<InstitutionAccountPage />} />
                     <Route path="billing" element={<Navigate to="/institution/invoices" replace />} />
-                    <Route path="invoices" element={<InstitutionInvoicesPage />} />
-                    <Route path="invoices/:invoiceId" element={<InstitutionInvoicesPage />} />
+                    <Route path="invoices" element={<InstitutionAccountPage />} />
+                    <Route path="invoices/:invoiceId" element={<InstitutionAccountPage />} />
                     <Route path="institution" element={<InstitutionAccountPage />} />
                 </Route>
             </Route>

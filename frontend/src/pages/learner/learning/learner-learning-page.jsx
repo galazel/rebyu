@@ -543,7 +543,7 @@ export default function LearnerLearningPage() {
       .sort((a, b) => new Date(b.earnedAt ?? 0) - new Date(a.earnedAt ?? 0))
 
   const [localSearch, setLocalSearch] = useState("")
-  const [selectedIndustry, setSelectedIndustry] = useState("ALL")
+  const [selectedDepartment, setSelectedDepartment] = useState("ALL")
   const [selectedStatus, setSelectedStatus] = useState("ALL")
   const [viewMode, setViewMode] = useState(readViewMode)
 
@@ -557,11 +557,11 @@ export default function LearnerLearningPage() {
 
   const query = (localSearch || searchValue || "").trim().toLowerCase()
 
-  const industries = useMemo(() => {
+  const departments = useMemo(() => {
     return [
       ...new Set(
           enrolledCertifications
-              .map((certification) => certification.industry)
+              .map((certification) => certification.department)
               .filter(Boolean)
       ),
     ]
@@ -625,18 +625,18 @@ export default function LearnerLearningPage() {
           !query ||
           getCertificationTitle(certification).toLowerCase().includes(query) ||
           getCertificationDescription(certification).toLowerCase().includes(query) ||
-          certification.industry?.toLowerCase().includes(query)
+          certification.department?.toLowerCase().includes(query)
 
-      const matchesIndustry =
-          selectedIndustry === "ALL" ||
-          certification.industry === selectedIndustry
+      const matchesDepartment =
+          selectedDepartment === "ALL" ||
+          certification.department === selectedDepartment
 
       const matchesStatus =
           selectedStatus === "ALL" || course.status === selectedStatus
 
-      return matchesSearch && matchesIndustry && matchesStatus
+      return matchesSearch && matchesDepartment && matchesStatus
     })
-  }, [courses, query, selectedIndustry, selectedStatus])
+  }, [courses, query, selectedDepartment, selectedStatus])
 
   return (
       <div className="space-y-6">
@@ -673,11 +673,11 @@ export default function LearnerLearningPage() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
-                      <SelectTrigger className="min-w-[170px]"><SelectValue placeholder="All industries" /></SelectTrigger>
+                    <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                      <SelectTrigger className="min-w-[170px]"><SelectValue placeholder="All departments" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ALL">All Industries</SelectItem>
-                        {industries.map((industry) => <SelectItem key={industry} value={industry}>{industry}</SelectItem>)}
+                        <SelectItem value="ALL">All Departments</SelectItem>
+                        {departments.map((department) => <SelectItem key={department} value={department}>{department}</SelectItem>)}
                       </SelectContent>
                     </Select>
 
@@ -740,7 +740,7 @@ export default function LearnerLearningPage() {
                           className="mt-4"
                           onClick={() => {
                             setLocalSearch("")
-                            setSelectedIndustry("ALL")
+                            setSelectedDepartment("ALL")
                             setSelectedStatus("ALL")
                           }}
                       >

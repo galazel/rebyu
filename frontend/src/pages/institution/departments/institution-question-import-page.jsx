@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom"
+import { useParams, useSearchParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
 
 import QuestionImportWorkspace from "@/components/question-bank/question-import-workspace.jsx"
@@ -9,14 +9,18 @@ import { getDepartmentById } from "@/services/institutionService.js"
 export default function InstitutionQuestionImportPage() {
     const { departmentId } = useParams()
     const id = Number(departmentId)
+    const [searchParams] = useSearchParams()
 
     const departmentQuery = useQuery({
         queryKey: ["department", id],
         queryFn: () => getDepartmentById(id),
         enabled: Number.isFinite(id),
     })
-    const certificationId =
-        departmentQuery.data?.certificationId ?? departmentQuery.data?.institutionCert?.certificationId ?? null
+    const coveredIds = (departmentQuery.data?.certifications ?? []).map((cert) => cert.certificationId)
+    const requestedId = Number(searchParams.get("certificationId"))
+    const certificationId = coveredIds.includes(requestedId)
+        ? requestedId
+        : coveredIds[0] ?? departmentQuery.data?.certificationId ?? null
 
     if (departmentQuery.isLoading) {
         return (

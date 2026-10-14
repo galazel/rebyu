@@ -371,7 +371,7 @@ export default function ViewCertificationAdmin() {
               <div className="min-w-0 flex-1">
                 <div className="mb-3 flex items-center gap-2">
                   <span className="rounded-full border border-black/10 bg-white/85 px-3 py-1 text-xs font-semibold text-black shadow-sm">
-                    {certification.industry || "General"}
+                    {certification.department || "General"}
                   </span>
 
                   <div className="flex items-center gap-2 text-xs text-white/70">
