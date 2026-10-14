@@ -59,10 +59,7 @@ async def lifespan(_: FastAPI):
     ensure_training_view()
 
     consumer_manager = build_consumer_manager()
-    try:
-        await consumer_manager.start()
-    except Exception:
-        logger.exception("Failed to start RabbitMQ consumers; API will run without them")
+    consumers = asyncio.create_task(_start_consumers(consumer_manager), name="rabbitmq-consumers")
 
     recovery = asyncio.create_task(run_recovery.run_forever(), name="run-recovery")
 
@@ -77,8 +74,20 @@ async def lifespan(_: FastAPI):
     with suppress(asyncio.CancelledError):
         await recovery
 
+    consumers.cancel()
     await consumer_manager.stop()
     await close_checkpointer()
+
+
+async def _start_consumers(consumer_manager) -> None:
+    # connect() waits out a broker that is still booting; run it off the
+    # startup path so the API serves requests meanwhile.
+    try:
+        await consumer_manager.start()
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.exception("Failed to start RabbitMQ consumers; API will run without them")
 
 
 def create_app() -> FastAPI:

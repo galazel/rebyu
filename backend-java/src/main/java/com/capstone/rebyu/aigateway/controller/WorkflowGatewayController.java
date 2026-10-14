@@ -43,6 +43,11 @@ public class WorkflowGatewayController {
         return workflowClient.listRuns(status, certificationId, limit, offset);
     }
 
+    @GetMapping("/ai-credits")
+    public Map<String, Object> aiCredits() {
+        return workflowClient.aiCredits();
+    }
+
     @GetMapping("/awaiting-review")
     public Map<String, Object> awaitingReview(@RequestParam(defaultValue = "50") int limit) {
         return workflowClient.listAwaitingReview(limit);

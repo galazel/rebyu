@@ -221,7 +221,7 @@ function Certifications() {
               trigger={
                 <button
                     type="button"
-                    className="group flex h-[380px] w-full flex-col items-center justify-center gap-1 rounded-[32px] border-2 border-dashed border-primary/50 bg-primary/[0.03] px-6 py-8 text-center transition-all duration-200 hover:border-primary hover:bg-primary/[0.07] focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background focus:outline-none"
+                    className="group flex h-[470px] w-full flex-col items-center justify-center gap-1 rounded-[32px] border-2 border-dashed border-primary/50 bg-primary/[0.03] px-6 py-8 text-center transition-all duration-200 hover:border-primary hover:bg-primary/[0.07] focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background focus:outline-none"
                 >
                   <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-primary/30 bg-primary text-primary-foreground transition-transform duration-200 group-hover:scale-110">
                     <Plus className="h-6 w-6" strokeWidth={1.8} />

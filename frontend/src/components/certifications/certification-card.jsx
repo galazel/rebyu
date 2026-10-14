@@ -23,6 +23,7 @@ import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import {
+  describeGenerationError,
   generationErrorOf,
   generationStatusOf,
   markGenerationQueued,
@@ -103,6 +104,7 @@ function CertificationCard({ item, certification, generationRun = null }) {
   const isGenerating = generationStatus === "GENERATING" || generationStatus === "AWAITING_REVIEW"
   const awaitingReview = generationStatus === "AWAITING_REVIEW"
   const generationError = generationErrorOf(generationRun)
+  const failure = describeGenerationError(generationError)
 
   const generationLabel = awaitingReview
       ? "Needs your review"
@@ -311,7 +313,7 @@ function CertificationCard({ item, certification, generationRun = null }) {
       toast.error("Nothing to publish", {
         description:
             generationError
-              ? `Generation failed: ${generationError}`
+              ? `${failure.title}. ${failure.hint}`
               : `"${certificationTitle}" has no categories or lessons yet. Generate its content first.`,
         duration: isFailed ? 12_000 : undefined,
       })
@@ -352,7 +354,10 @@ function CertificationCard({ item, certification, generationRun = null }) {
               }
             }}
             className={cn(
-                "group flex h-[380px] w-full flex-col overflow-hidden rounded-[32px] border border-border bg-card shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                "group flex w-full flex-col overflow-hidden rounded-[32px] border border-border bg-card shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                // Tall enough for a failure box with its hint and Retry, so every
+                // card in the grid lines up at one size.
+                "h-[470px]",
                 isGenerating
                     ? "cursor-default border-dashed"
                     : "cursor-pointer hover:-translate-y-0.5 hover:border-primary/45 hover:shadow-md",
@@ -498,10 +503,26 @@ function CertificationCard({ item, certification, generationRun = null }) {
               </DropdownMenu>
             </div>
 
-            {isFailed && generationError ? (
-                <p className="mt-2 rounded-md border border-destructive/30 bg-destructive/5 p-2.5 text-sm leading-6 text-destructive">
-                  {generationError}
-                </p>
+            {isFailed && failure ? (
+                <div
+                    role="alert"
+                    className="mt-2 min-h-0 overflow-y-auto rounded-md border border-destructive/30 bg-destructive/5 p-2.5 text-sm"
+                    onClick={(event) => event.stopPropagation()}
+                >
+                  <p className="flex items-start gap-1.5 font-medium text-destructive">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    {failure.title}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{failure.hint}</p>
+                  <details className="mt-1.5 text-xs text-muted-foreground">
+                    <summary className="cursor-pointer select-none hover:text-foreground">
+                      Technical details
+                    </summary>
+                    <p className="mt-1 break-words font-mono text-[11px] leading-4">
+                      {failure.detail}
+                    </p>
+                  </details>
+                </div>
             ) : (
                 <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
                   {isGenerating
@@ -533,7 +554,7 @@ function CertificationCard({ item, certification, generationRun = null }) {
                             ? "Review now"
                             : "View progress"}
                   </Button>
-              ) : isStopped ? (
+              ) : isStopped || (isFailed && generationRun?.run_id) ? (
                   <Button
                       type="button"
                       size="sm"
@@ -546,7 +567,9 @@ function CertificationCard({ item, certification, generationRun = null }) {
                       }}
                   >
                     <ActivityIcon className="mr-2 h-4 w-4" />
-                    {resumeGeneration.isPending ? "Resuming…" : "Resume generation"}
+                    {resumeGeneration.isPending
+                        ? isFailed ? "Retrying…" : "Resuming…"
+                        : isFailed ? "Retry generation" : "Resume generation"}
                   </Button>
               ) : isEmpty ? (
                   <Button

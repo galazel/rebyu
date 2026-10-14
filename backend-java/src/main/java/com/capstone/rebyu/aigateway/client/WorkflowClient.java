@@ -39,6 +39,10 @@ public class WorkflowClient {
         }, "List workflow runs");
     }
 
+    public Map<String, Object> aiCredits() {
+        return get(uri -> uri.path("/workflows/ai-credits").build(), "Read AI credits");
+    }
+
     public Map<String, Object> listAwaitingReview(int limit) {
         return get(uri -> uri.path("/workflows/awaiting-review")
                 .queryParam("limit", limit)

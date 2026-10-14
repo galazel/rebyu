@@ -226,6 +226,12 @@ async def _invoke_curriculum_agent(state: CertificationState, context: str) -> C
             "THE ADMINISTRATOR'S INSTRUCTIONS FOR THIS RUN -- follow them:\n"
             f"{instructions}\n\n{context}"
         )
+    feedback = (state.get("review_instructions") or "").strip()
+    if feedback:
+        context = (
+            "THE REVIEWER REJECTED YOUR PREVIOUS CURRICULUM WITH THIS FEEDBACK -- "
+            f"apply it:\n{feedback}\n\n{context}"
+        )
     existing = (state.get("existing_curriculum") or "").strip()
     if existing:
         context = (
@@ -356,7 +362,7 @@ def _stage_quality_retry(state: CertificationState, stage: str, payload, expecte
 
 
 def _await_review(
-    state: CertificationState, stage: str, payload, *, expected: int | None = None
+    state: CertificationState, stage: str, key: str, payload, *, expected: int | None = None
 ) -> dict:
     """One whole-artifact HITL checkpoint.
 
@@ -378,8 +384,28 @@ def _await_review(
         return {"review_decision": "approve", "status": f"{stage}_AUTO_APPROVED"}
 
     decision = interrupt({"stage": stage, "payload": payload})
-    action = decision if isinstance(decision, str) else (decision or {}).get("action", "approve")
-    return {"review_decision": action, "status": f"{stage}_REVIEWED"}
+    if isinstance(decision, str):
+        decision = {"action": decision}
+    decision = decision or {}
+    action = decision.get("action") or "approve"
+
+    # These stages only branch on approve vs regenerate, so every other action
+    # is reduced to one of the two here. Left as-is, "improve" and "edit" fell
+    # through to approve: the reviewer's guidance and their edited version
+    # were both silently dropped.
+    if action == "improve":
+        return {
+            "review_decision": "regenerate",
+            "review_instructions": (decision.get("instructions") or "").strip() or None,
+            "status": f"{stage}_IMPROVING",
+        }
+    update = {"review_instructions": None, "status": f"{stage}_REVIEWED"}
+    if action == "regenerate":
+        return {**update, "review_decision": "regenerate"}
+    if action == "edit" and decision.get("payload") is not None:
+        update[key] = decision["payload"]
+    # approve, approve_remaining, skip and reject keep the artifact and move on.
+    return {**update, "review_decision": "approve"}
 
 
 def await_curriculum_review_node(state: CertificationState):
@@ -387,7 +413,7 @@ def await_curriculum_review_node(state: CertificationState):
     quizzes/lessons are generated from it, so an admin can review the
     structure. Resume with Command(resume="approve") or
     Command(resume="regenerate")."""
-    return _await_review(state, "CURRICULUM", state["curriculum"])
+    return _await_review(state, "CURRICULUM", "curriculum", state["curriculum"])
 
 
 def route_after_review(state: CertificationState) -> str:
@@ -582,7 +608,7 @@ async def generate_diagnostic_exam_node(state: CertificationState):
 
 def await_diagnostic_exam_review_node(state: CertificationState):
     return _await_review(
-        state, "DIAGNOSTIC_EXAM", state.get("diagnostic_exam", {}),
+        state, "DIAGNOSTIC_EXAM", "diagnostic_exam", state.get("diagnostic_exam", {}),
         expected=diagnostic_exam_count_for(state),
     )
 
@@ -967,7 +993,8 @@ async def generate_mock_exam_node(state: CertificationState):
 
 def await_mock_exam_review_node(state: CertificationState):
     return _await_review(
-        state, "MOCK_EXAM", state.get("mock_exam", {}), expected=mock_exam_count_for(state)
+        state, "MOCK_EXAM", "mock_exam", state.get("mock_exam", {}),
+        expected=mock_exam_count_for(state),
     )
 
 
@@ -1184,7 +1211,7 @@ async def generate_question_bank_node(state: CertificationState):
 
 
 def await_question_bank_review_node(state: CertificationState):
-    return _await_review(state, "QUESTION_BANK", state.get("question_bank", []))
+    return _await_review(state, "QUESTION_BANK", "question_bank", state.get("question_bank", []))
 
 
 

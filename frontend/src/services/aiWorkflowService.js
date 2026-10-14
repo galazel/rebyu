@@ -9,6 +9,8 @@ export const listWorkflowRuns = ({ status, certificationId, limit = 50, offset =
   return base(`ai/workflows?${params}`)
 }
 
+export const getAiCredits = () => base("ai/workflows/ai-credits")
+
 export const listAwaitingReview = (limit = 50) =>
   base(`ai/workflows/awaiting-review?limit=${limit}`)
 

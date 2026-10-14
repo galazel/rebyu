@@ -242,7 +242,7 @@ async def handle_certification_generation_requested(payload: dict) -> None:
         "certification_id": certification_id,
         "certification_name": certification["title"],
         "certification_description": certification["description"] or "",
-        "industry": certification["industry"] or "",
+        "industry": certification["department"] or "",
         "document_refs": document_refs,
         "review_mode": certification_run.review_mode_from(params),
         "requested_question_types": _requested_question_types(params),
