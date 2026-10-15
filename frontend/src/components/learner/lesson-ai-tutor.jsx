@@ -20,7 +20,6 @@ import {
   SendHorizontal,
   SquarePen,
   Sparkles,
-  Target,
   X,
 } from "@/components/icons"
 
@@ -1128,21 +1127,6 @@ export function LessonAiTutor({
                 >
                   <MessageCircle className="size-3.5" aria-hidden="true" />
                   <span className="text-xs font-bold">Give example</span>
-                </TactileButton>
-
-                <TactileButton
-                    variant="snow"
-                    size="sm"
-                    className="!h-auto !gap-1.5 !border-2 !border-rb-feather/30 !bg-white !px-3.5 !py-2 !text-rb-feather-lip hover:!border-rb-feather hover:!bg-rb-feather-wash"
-                    disabled={pending}
-                    onClick={() =>
-                        sendTutorMessage(
-                            "Create one short practice question about this lesson."
-                        )
-                    }
-                >
-                  <Target className="size-3.5" aria-hidden="true" />
-                  <span className="text-xs font-bold">Practice me</span>
                 </TactileButton>
 
                 <TactileButton
