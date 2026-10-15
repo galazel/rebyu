@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useRef } from "react"
 import { RouteErrorBoundary, lazyRoute } from "@/lib/lazy-route.jsx"
-import { Navigate, Routes, Route, useLocation } from "react-router-dom"
+import { Navigate, Routes, Route, useLocation, useParams } from "react-router-dom"
 import ProtectedRoute from "./components/ProtectedRoute"
 import { LoadingScreen } from "./components/loading-screen.jsx"
 import { LoadingSignal } from "./components/loading-overlay.jsx"
@@ -119,6 +119,12 @@ function GuestOnlyRoute({ children }) {
     }
 
     return children
+}
+
+// Old program links now open the program's workspace.
+function ProgramWorkspaceRedirect() {
+    const { departmentId, programId } = useParams()
+    return <Navigate to={`/institution/departments/${departmentId}?programId=${programId}`} replace />
 }
 
 function DepartmentsEntry() {
@@ -378,6 +384,10 @@ export function App() {
                     />
                     <Route path="departments" element={<DepartmentsEntry />} />
                     <Route path="departments/:departmentId" element={<InstitutionDepartmentWorkspacePage />} />
+                    <Route
+                        path="departments/:departmentId/programs/:programId"
+                        element={<ProgramWorkspaceRedirect />}
+                    />
                     <Route
                         path="departments/:departmentId/learners/:learnerId"
                         element={<InstitutionDepartmentLearnerPage />}

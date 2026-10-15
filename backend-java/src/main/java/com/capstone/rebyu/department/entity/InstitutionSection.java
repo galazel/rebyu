@@ -34,6 +34,11 @@ public class InstitutionSection {
     @JoinColumn(name = "institution_cert_id")
     private com.capstone.rebyu.institution.entity.InstitutionCertificate institutionCert;
 
+    /** The program this section belongs to; null for sections made before programs existed. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "program_id")
+    private DepartmentProgram program;
+
     @Column(name = "section_name", nullable = false, length = 150)
     private String sectionName;
 

@@ -23,6 +23,31 @@ public class ReferenceOptionSeeder implements ApplicationRunner {
     @Transactional
     public void run(ApplicationArguments args) {
         seedDetailedLists();
+        seedDegreePrograms();
+    }
+
+    private void seedDegreePrograms() {
+        if (options.countByKind(ReferenceOption.KIND_DEGREE_PROGRAM) > 0) return;
+        String[][] defaults = {
+                {"BSIT", "Bachelor of Science in Information Technology"},
+                {"BSCS", "Bachelor of Science in Computer Science"},
+                {"BSIS", "Bachelor of Science in Information Systems"},
+                {"BSEMC", "Bachelor of Science in Entertainment and Multimedia Computing"},
+                {"BSCpE", "Bachelor of Science in Computer Engineering"},
+                {"ACT", "Associate in Computer Technology"},
+        };
+        int order = 0;
+        for (String[] program : defaults) {
+            options.save(ReferenceOption.builder()
+                    .kind(ReferenceOption.KIND_DEGREE_PROGRAM)
+                    .code(program[0])
+                    .label(program[1])
+                    .category("CCS")
+                    .sortOrder(++order)
+                    .active(true)
+                    .build());
+        }
+        log.info("Seeded {} DEGREE_PROGRAM option(s)", order);
     }
 
     private void seedDetailedLists() {

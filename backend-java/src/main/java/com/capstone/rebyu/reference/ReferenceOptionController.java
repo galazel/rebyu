@@ -28,7 +28,7 @@ import java.util.Set;
 public class ReferenceOptionController {
 
     private static final Set<String> KINDS = Set.of(
-            ReferenceOption.KIND_PROGRAM, ReferenceOption.KIND_INSTITUTION);
+            ReferenceOption.KIND_PROGRAM, ReferenceOption.KIND_INSTITUTION, ReferenceOption.KIND_DEGREE_PROGRAM);
 
     private final ReferenceOptionRepository options;
     private final CognitoAuthService auth;

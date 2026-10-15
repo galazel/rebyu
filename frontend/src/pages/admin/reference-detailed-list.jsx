@@ -16,6 +16,7 @@ import {
   getReferenceOptionsAdmin,
   retireReferenceOption,
   updateReferenceOption,
+  useReferenceDetails,
 } from "@/services/referenceService.js"
 
 const EMPTY = { label: "", code: "", description: "", category: "", certificationIds: [] }
@@ -142,7 +143,13 @@ export function DetailedReferenceList({ kind, title, description, fields, withCe
             {fields.map((field) => (
               <div key={field.key} className={`space-y-1 ${field.wide ? "sm:col-span-2" : ""}`}>
                 <Label htmlFor={`${kind}-${field.key}`}>{field.label}</Label>
-                {field.multiline ? (
+                {field.optionsKind ? (
+                  <CodeChecklist
+                    kind={field.optionsKind}
+                    value={draft[field.key]}
+                    onChange={(next) => setDraft((prev) => ({ ...prev, [field.key]: next }))}
+                  />
+                ) : field.multiline ? (
                   <Textarea
                     id={`${kind}-${field.key}`}
                     value={draft[field.key]}
@@ -287,5 +294,45 @@ export function DetailedReferenceList({ kind, title, description, fields, withCe
         </div>
       ) : null}
     </section>
+  )
+}
+
+// Picks codes from another reference list and stores them as "BSIT, BSCS, ACT".
+function CodeChecklist({ kind, value, onChange }) {
+  const { options, isLoading } = useReferenceDetails(kind)
+  const codes = options.filter((option) => option.code)
+  const chosen = new Set(
+    String(value ?? "")
+      .toUpperCase()
+      .split(/[^A-Z0-9]+/)
+      .filter(Boolean)
+  )
+  const toggle = (code) => {
+    const next = codes
+      .map((option) => option.code)
+      .filter((c) => (c === code ? !chosen.has(c.toUpperCase()) : chosen.has(c.toUpperCase())))
+    onChange(next.join(", "))
+  }
+  if (isLoading) return <Skeleton className="h-16 w-full" />
+  if (codes.length === 0) {
+    return <p className="text-sm text-muted-foreground">Add degree programs to their list first.</p>
+  }
+  return (
+    <div className="grid max-h-48 gap-1.5 overflow-y-auto rounded-md border border-border p-2 sm:grid-cols-2">
+      {codes.map((option) => (
+        <label
+          key={option.id}
+          className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted"
+        >
+          <Checkbox
+            checked={chosen.has(option.code.toUpperCase())}
+            onCheckedChange={() => toggle(option.code)}
+          />
+          <span className="min-w-0 truncate">
+            <span className="font-semibold">{option.code}</span> · {option.label}
+          </span>
+        </label>
+      ))}
+    </div>
   )
 }

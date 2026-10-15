@@ -3,6 +3,7 @@ import { base } from "./base.js"
 
 export const REFERENCE_PROGRAM = "PROGRAM"
 export const REFERENCE_INSTITUTION = "INSTITUTION"
+export const REFERENCE_DEGREE_PROGRAM = "DEGREE_PROGRAM"
 
 export function getReferenceOptions(kind) {
   return base(`public/reference/${encodeURIComponent(kind)}`)
