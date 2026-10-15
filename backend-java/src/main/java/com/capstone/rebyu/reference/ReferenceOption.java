@@ -28,6 +28,8 @@ public class ReferenceOption {
 
     public static final String KIND_PROGRAM = "PROGRAM";
     public static final String KIND_INSTITUTION = "INSTITUTION";
+    /** Degree programs (BSIT, BSCS, ...) a department picks from; category holds the college code. */
+    public static final String KIND_DEGREE_PROGRAM = "DEGREE_PROGRAM";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

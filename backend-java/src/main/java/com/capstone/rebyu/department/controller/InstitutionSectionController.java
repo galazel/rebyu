@@ -33,6 +33,7 @@ import java.util.Objects;
 public class InstitutionSectionController {
 
     private final InstitutionSectionRepository sections;
+    private final com.capstone.rebyu.department.repository.DepartmentProgramRepository programs;
     private final DepartmentLearnerRepository assignees;
     private final DepartmentService departmentService;
     private final CognitoAuthService auth;
@@ -41,7 +42,8 @@ public class InstitutionSectionController {
     public record SectionRequest(
             @NotBlank @Size(max = 150) String sectionName,
             @Size(max = 2000) String description,
-            Long institutionCertId) {
+            Long institutionCertId,
+            Long programId) {
     }
 
     public record SectionDto(
@@ -54,7 +56,9 @@ public class InstitutionSectionController {
             long pendingInvitationCount,
             Long institutionCertId,
             Long certificationId,
-            String certificationTitle) {
+            String certificationTitle,
+            Long programId,
+            String programName) {
     }
 
     public record MoveRequest(Long sectionId) {
@@ -106,8 +110,12 @@ public class InstitutionSectionController {
         CurrentUserDto user = requireDepartmentAccess(jwt, departmentId);
         String name = request.sectionName().trim();
         Department department = entityManager.find(Department.class, departmentId);
+        var program = resolveProgram(departmentId, request.programId());
         com.capstone.rebyu.institution.entity.InstitutionCertificate certification;
-        if (request.institutionCertId() != null) {
+        if (program != null && !program.getInstitutionCerts().isEmpty()) {
+            // A program's section takes all of its program's certifications.
+            certification = null;
+        } else if (request.institutionCertId() != null) {
             certification = department.getInstitutionCerts().stream()
                     .filter(cert -> request.institutionCertId().equals(cert.getInstitutionCertId()))
                     .findFirst()
@@ -119,12 +127,14 @@ public class InstitutionSectionController {
             }
         }
         if (sections.existsByDepartment_DepartmentIdAndInstitutionCert_InstitutionCertIdAndSectionNameIgnoreCaseAndStatus(
-                departmentId, certification.getInstitutionCertId(), name, InstitutionSection.Status.active)) {
+                departmentId, certification == null ? null : certification.getInstitutionCertId(), name,
+                InstitutionSection.Status.active)) {
             throw new IllegalArgumentException("A group named \"" + name + "\" already exists for this certification.");
         }
         InstitutionSection saved = sections.save(InstitutionSection.builder()
                 .department(department)
                 .institutionCert(certification)
+                .program(program)
                 .sectionName(name)
                 .description(blankToNull(request.description()))
                 .createdBy(user.userId() == null ? null : entityManager.getReference(User.class, user.userId()))
@@ -153,6 +163,9 @@ public class InstitutionSectionController {
         }
         section.setSectionName(name);
         section.setDescription(blankToNull(request.description()));
+        if (request.programId() != null) {
+            section.setProgram(resolveProgram(departmentId, request.programId()));
+        }
         return toDto(sections.save(section));
     }
 
@@ -199,6 +212,13 @@ public class InstitutionSectionController {
         return out;
     }
 
+    private com.capstone.rebyu.department.entity.DepartmentProgram resolveProgram(Long departmentId, Long programId) {
+        if (programId == null) return null;
+        return programs.findByProgramIdAndDepartment_DepartmentIdAndStatus(
+                        programId, departmentId, com.capstone.rebyu.department.entity.DepartmentProgram.Status.active)
+                .orElseThrow(() -> new IllegalArgumentException("That program is not in this department."));
+    }
+
     private InstitutionSection find(Long departmentId, Long sectionId) {
         return sections.findBySectionIdAndDepartment_DepartmentId(sectionId, departmentId)
                 .filter(s -> s.getStatus() == InstitutionSection.Status.active)
@@ -225,7 +245,9 @@ public class InstitutionSectionController {
                 s.getDescription(), s.getCreatedAt(), learners, pending,
                 cert == null ? null : cert.getInstitutionCertId(),
                 cert == null || cert.getCertification() == null ? null : cert.getCertification().getCertificationId(),
-                cert == null || cert.getCertification() == null ? null : cert.getCertification().getTitle());
+                cert == null || cert.getCertification() == null ? null : cert.getCertification().getTitle(),
+                s.getProgram() == null ? null : s.getProgram().getProgramId(),
+                s.getProgram() == null ? null : s.getProgram().getProgramName());
     }
 
     private CurrentUserDto requireDepartmentAccess(Jwt jwt, Long departmentId) {

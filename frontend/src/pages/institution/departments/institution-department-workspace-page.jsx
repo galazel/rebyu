@@ -11,6 +11,7 @@ import {
   PinIcon,
   Plus,
   Trash2,
+  ArrowLeftIcon,
 } from "@/components/icons"
 import { toast } from "sonner"
 
@@ -31,11 +32,12 @@ import { TABLE_SURFACE } from "@/components/commons/data-table"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Progress } from "@/components/ui/progress"
 import {
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
 import {
   InstitutionEmptyState,
   InstitutionErrorState,
@@ -64,6 +66,7 @@ import {
   createDepartmentAnnouncement,
   getDepartmentLearners,
   getDepartmentById,
+  getDepartmentProgram,
   getDepartmentAnnouncements,
 } from "@/services/institutionService.js"
 
@@ -429,9 +432,21 @@ export default function InstitutionDepartmentWorkspacePage() {
     queryFn: () => getDepartmentLearners({ departmentId: id }),
     enabled: Number.isFinite(id),
   })
+  // Opened from a program (?programId=), the workspace is that program's: only its
+  // certifications, and only its sections.
+  const programId = Number(searchParams.get("programId")) || null
+  const programQuery = useQuery({
+    queryKey: ["department-program", id, programId],
+    queryFn: () => getDepartmentProgram(id, programId),
+    enabled: Number.isFinite(id) && programId != null,
+  })
+  const program = programId != null ? programQuery.data ?? null : null
+  const programCertIds = new Set(asArray(program?.certifications).map((cert) => cert.institutionCertId))
   // A department covers every certification its institution holds from the college;
   // the workspace shows one at a time, chosen with ?certificationId=.
-  const coveredCertifications = asArray(departmentQuery.data?.certifications)
+  const coveredCertifications = asArray(departmentQuery.data?.certifications).filter(
+    (cert) => programCertIds.size === 0 || programCertIds.has(cert.institutionCertId)
+  )
   const requestedCertificationId = Number(searchParams.get("certificationId"))
   const groupCertificationId = coveredCertifications.some((cert) => cert.certificationId === requestedCertificationId)
     ? requestedCertificationId
@@ -480,6 +495,7 @@ export default function InstitutionDepartmentWorkspacePage() {
 
   if (
     departmentQuery.isLoading ||
+    (programId != null && programQuery.isLoading) ||
     assigneesQuery.isLoading ||
     (certificationsQuery.isLoading && groupCertificationId != null) ||
     examsQuery.isLoading ||
@@ -532,50 +548,46 @@ export default function InstitutionDepartmentWorkspacePage() {
 
   return (
     <div className="space-y-6">
-      <InstitutionPageHeader
-        title={group?.departmentName || group?.name || "Department Workspace"}
-        subtitle={group?.departmentDescription || group?.description || "Your assigned group workspace."}
-        actions={<Badge>Assigned department</Badge>}
-      />
-      {coveredCertifications.length > 1 ? (
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Certification">
-          <span className="text-sm text-muted-foreground">Certification:</span>
-          {coveredCertifications.map((cert) => (
-            <Button
-              key={cert.certificationId}
-              size="sm"
-              variant={cert.certificationId === groupCertificationId ? "default" : "outline"}
-              aria-pressed={cert.certificationId === groupCertificationId}
-              onClick={() =>
-                setSearchParams((prev) => {
-                  const params = new URLSearchParams(prev)
-                  params.set("certificationId", String(cert.certificationId))
-                  return params
-                })
-              }
-            >
-              {cert.title}
-            </Button>
-          ))}
-        </div>
+      {program ? (
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/institution/programs">
+            <ArrowLeftIcon className="size-4" />
+            All programs
+          </Link>
+        </Button>
       ) : null}
-      <Tabs
-        value={activeTab}
-        onValueChange={(next) => setSearchParams((prev) => {
-          const params = new URLSearchParams(prev)
-          params.set("tab", next)
-          return params
-        })}
-      >
-        <TabsList>
-          <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
-          <TabsTrigger value="question-bank">Question Bank</TabsTrigger>
-          <TabsTrigger value="assessments">Assessments</TabsTrigger>
-          <TabsTrigger value="learners">Sections ({learners.length})</TabsTrigger>
-          <TabsTrigger value="announcements">Announcements</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="curriculum" className="mt-5 space-y-6">
+      <InstitutionPageHeader
+        title={
+          program
+            ? program.programCode
+              ? `${program.programCode} · ${program.programName}`
+              : program.programName
+            : group?.departmentName || group?.name || "Department Workspace"
+        }
+        subtitle={
+          program
+            ? program.description || group?.departmentName
+            : group?.departmentDescription || group?.description || "Your assigned group workspace."
+        }
+        actions={<Badge>{program ? "Program" : "Assigned department"}</Badge>}
+      />
+      <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <WorkspaceSidebar
+        heading={program ? program.programCode || program.programName : "Department"}
+        certifications={coveredCertifications}
+        activeTab={activeTab}
+        activeCertificationId={groupCertificationId}
+        onSelect={(tab, certificationId) =>
+          setSearchParams((prev) => {
+            const params = new URLSearchParams(prev)
+            params.set("tab", tab)
+            if (certificationId != null) params.set("certificationId", String(certificationId))
+            return params
+          })
+        }
+      />
+      <Tabs value={activeTab} className="min-w-0">
+        <TabsContent value="curriculum" className="mt-0 space-y-6">
           {groupCertificationId != null ? (
             <CertificationViewer
               key={groupCertificationId}
@@ -587,7 +599,7 @@ export default function InstitutionDepartmentWorkspacePage() {
 
         </TabsContent>
 
-        <TabsContent value="assessments" className="mt-5 space-y-4">
+        <TabsContent value="assessments" className="mt-0 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="font-heading text-lg font-bold text-foreground">Assessments</h2>
@@ -683,11 +695,17 @@ export default function InstitutionDepartmentWorkspacePage() {
           )}
         </TabsContent>
 
-        <TabsContent value="learners" className="mt-5">
-          <SectionsTab departmentId={id} group={group} certificationId={groupCertificationId} />
+        <TabsContent value="learners" className="mt-0">
+          <SectionsTab
+            departmentId={id}
+            group={group}
+            certificationId={program ? null : groupCertificationId}
+            programId={programId}
+            certifications={program ? coveredCertifications : null}
+          />
         </TabsContent>
 
-        <TabsContent value="question-bank" className="mt-5 space-y-4">
+        <TabsContent value="question-bank" className="mt-0 space-y-4">
           <p className="text-sm text-muted-foreground">
             Questions you add here belong to {group?.departmentName || "this department"}:
             only its learners and assessments use them, and only its heads can edit or delete
@@ -701,10 +719,11 @@ export default function InstitutionDepartmentWorkspacePage() {
           ) : null}
         </TabsContent>
 
-        <TabsContent value="announcements" className="mt-5">
+        <TabsContent value="announcements" className="mt-0">
           <AnnouncementsTab departmentId={id} />
         </TabsContent>
       </Tabs>
+      </div>
 
       <AlertDialog
         open={deleteExamTarget != null}
@@ -744,5 +763,61 @@ export default function InstitutionDepartmentWorkspacePage() {
         isLoading={examQuestionsQuery.isLoading || questionsQuery.isLoading}
       />
     </div>
+  )
+}
+
+const WORKSPACE_PAGES = [
+  { tab: "learners", label: "Sections & learners" },
+  { tab: "announcements", label: "Announcements" },
+  { tab: "curriculum", label: "Curriculum" },
+  { tab: "question-bank", label: "Question Bank" },
+  { tab: "assessments", label: "Assessments" },
+]
+
+// One certification picker, then the same pages for whichever is chosen.
+function WorkspaceSidebar({ heading, certifications, activeTab, activeCertificationId, onSelect }) {
+  const item = (active) =>
+    `flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-semibold transition-colors ${
+      active ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted"
+    }`
+  return (
+    <nav aria-label="Workspace" className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+      <p className="px-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">{heading}</p>
+      {certifications.length ? (
+        <div className="space-y-1.5 px-1">
+          <Label htmlFor="workspace-certification" className="px-2 text-xs text-muted-foreground">
+            Certification
+          </Label>
+          <Select
+            value={activeCertificationId != null ? String(activeCertificationId) : undefined}
+            onValueChange={(value) => onSelect(activeTab, Number(value))}
+          >
+            <SelectTrigger id="workspace-certification" className="w-full">
+              <SelectValue placeholder="Choose a certification" />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              {certifications.map((cert) => (
+                <SelectItem key={cert.certificationId} value={String(cert.certificationId)}>
+                  {cert.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
+      <div className="space-y-1">
+        {WORKSPACE_PAGES.map((page) => (
+          <button
+            key={page.tab}
+            type="button"
+            aria-current={activeTab === page.tab ? "page" : undefined}
+            className={item(activeTab === page.tab)}
+            onClick={() => onSelect(page.tab)}
+          >
+            {page.label}
+          </button>
+        ))}
+      </div>
+    </nav>
   )
 }

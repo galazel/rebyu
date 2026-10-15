@@ -1,5 +1,5 @@
 import { DetailedReferenceList } from "./reference-detailed-list.jsx"
-import { REFERENCE_INSTITUTION, REFERENCE_PROGRAM } from "@/services/referenceService.js"
+import { REFERENCE_DEGREE_PROGRAM, REFERENCE_INSTITUTION, REFERENCE_PROGRAM } from "@/services/referenceService.js"
 
 export default function ReferenceLists() {
   return (
@@ -19,7 +19,17 @@ export default function ReferenceLists() {
           fields={[
             { key: "code", label: "Code", placeholder: "e.g. CCS", max: 40 },
             { key: "label", label: "Name", placeholder: "e.g. College of Computer Studies", max: 150 },
-            { key: "description", label: "Programs covered", placeholder: "e.g. BSIT, BSCS, and ACT Programs", max: 500, wide: true },
+            { key: "description", label: "Programs covered", max: 500, wide: true, optionsKind: REFERENCE_DEGREE_PROGRAM },
+          ]}
+        />
+        <DetailedReferenceList
+          kind={REFERENCE_DEGREE_PROGRAM}
+          title="Degree programs"
+          description="The programs a department picks from when it adds a program, such as BSIT or BSCS."
+          fields={[
+            { key: "code", label: "Code", placeholder: "e.g. BSIT", max: 40 },
+            { key: "label", label: "Name", placeholder: "e.g. Bachelor of Science in Information Technology", max: 150 },
+            { key: "category", label: "College", placeholder: "e.g. CCS", max: 150, wide: true },
           ]}
         />
         <DetailedReferenceList

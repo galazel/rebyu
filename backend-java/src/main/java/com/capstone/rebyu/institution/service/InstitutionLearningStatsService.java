@@ -224,6 +224,8 @@ public class InstitutionLearningStatsService {
                 attemptRepository.examOutcomesByLearnerIds(learnerIds, certificationIds, from, to).stream()
                         .filter(row -> row.getAttempts() > 0)
                         .filter(row -> row.getCertificationId() != null)
+                        // Challenges (arena, World Cup) are games, not assessments a department sets.
+                        .filter(row -> !"CHALLENGE".equalsIgnoreCase(row.getExamType()))
                         .map(row -> new Outcome(
                                 row.getCertificationId(),
                                 row.getCertificationTitle(),

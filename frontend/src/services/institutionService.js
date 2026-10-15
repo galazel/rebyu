@@ -184,17 +184,17 @@ export function getGroupSections(departmentId) {
   return base(`departments/${departmentId}/sections`)
 }
 
-export function createGroupSection(departmentId, { sectionName, description, institutionCertId = null }) {
+export function createGroupSection(departmentId, { sectionName, description, institutionCertId = null, programId = null }) {
   return base(`departments/${departmentId}/sections`, {
     method: "POST",
-    data: { sectionName, description, institutionCertId },
+    data: { sectionName, description, institutionCertId, programId },
   })
 }
 
-export function updateGroupSection(departmentId, sectionId, { sectionName, description }) {
+export function updateGroupSection(departmentId, sectionId, { sectionName, description, programId = null }) {
   return base(`departments/${departmentId}/sections/${sectionId}`, {
     method: "PUT",
-    data: { sectionName, description },
+    data: { sectionName, description, programId },
   })
 }
 
@@ -258,4 +258,30 @@ export function cancelDepartmentHeadCode(invitationId) {
 
 export function getCertificationAnalytics(certificationId) {
   return base(`institution/me/certifications/${certificationId}/analytics`)
+}
+
+export function getDepartmentPrograms(departmentId) {
+  return base(`departments/${departmentId}/programs`)
+}
+
+export function getDepartmentProgram(departmentId, programId) {
+  return base(`departments/${departmentId}/programs/${programId}`)
+}
+
+export function createDepartmentProgram(departmentId, { programName, programCode, description, institutionCertIds }) {
+  return base(`departments/${departmentId}/programs`, {
+    method: "POST",
+    data: { programName, programCode, description, institutionCertIds },
+  })
+}
+
+export function updateDepartmentProgram(departmentId, programId, { programName, programCode, description, institutionCertIds }) {
+  return base(`departments/${departmentId}/programs/${programId}`, {
+    method: "PUT",
+    data: { programName, programCode, description, institutionCertIds },
+  })
+}
+
+export function archiveDepartmentProgram(departmentId, programId) {
+  return base(`departments/${departmentId}/programs/${programId}`, { method: "DELETE" })
 }

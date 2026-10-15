@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { useAvatarUrls } from "@/hooks/use-avatar-url.js"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { certificationBadgeUrl } from "@/services/certificationService.js"
 
 import {
   AwardIcon,
@@ -55,6 +56,7 @@ import {
 import {
   deleteGroupSection,
   createGroupSection,
+  getGroupLearnerAwards,
   getGroupLearnerRoster,
   getGroupSections,
   moveLearnerToSection,
@@ -216,7 +218,7 @@ export async function xlsxToText(file) {
   return lines.join("\n")
 }
 
-function AddLearnersDialog({ open, onOpenChange, departmentId, group, section }) {
+function AddLearnersDialog({ open, onOpenChange, departmentId, group, section, programCertifications = null }) {
   const queryClient = useQueryClient()
   const fileRef = useRef(null)
   const [mode, setMode] = useState("manual")
@@ -291,14 +293,29 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section })
     }
   }
 
+  // A program's section takes every certification of its program, so its
+  // learners are invited once per certification.
+  const programCertIds =
+    section && section.institutionCertId == null ? asArray(programCertifications).map((c) => c.institutionCertId) : []
   const send = useMutation({
-    mutationFn: () =>
-      sendInstitutionInvitations({
-        departmentId: departmentId,
-        learners: staged,
-        sectionId: section?.sectionId ?? null,
-        institutionCertId: section?.institutionCertId ?? group.activeCertification?.institutionCertId ?? null,
-      }),
+    mutationFn: async () => {
+      const certIds = programCertIds.length
+        ? programCertIds
+        : [section?.institutionCertId ?? group.activeCertification?.institutionCertId ?? null]
+      let created = 0
+      const skipped = []
+      for (const institutionCertId of certIds) {
+        const response = await sendInstitutionInvitations({
+          departmentId: departmentId,
+          learners: staged,
+          sectionId: section?.sectionId ?? null,
+          institutionCertId,
+        })
+        created += response?.created ?? 0
+        skipped.push(...asArray(response?.skipped))
+      }
+      return { created, skipped }
+    },
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["department-invitations", departmentId] })
       queryClient.invalidateQueries({ queryKey: ["department-sections", departmentId] })
@@ -312,7 +329,7 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section })
     onError: (err) => setError(backendMessage(err, "Unable to add these learners.")),
   })
 
-  const overCap = staged.length > remainingSlots
+  const overCap = staged.length * Math.max(1, programCertIds.length) > remainingSlots
 
   return (
     <Dialog open={open} onOpenChange={close}>
@@ -479,7 +496,14 @@ function AddLearnersDialog({ open, onOpenChange, departmentId, group, section })
 }
 
 
-function SectionDialog({ open, onOpenChange, departmentId, section, institutionCertId }) {
+function SectionDialog({
+  open,
+  onOpenChange,
+  departmentId,
+  section,
+  institutionCertId,
+  programId = null,
+}) {
   const queryClient = useQueryClient()
   const [name, setName] = useState(section?.sectionName ?? "")
   const [description, setDescription] = useState(section?.description ?? "")
@@ -489,7 +513,12 @@ function SectionDialog({ open, onOpenChange, departmentId, section, institutionC
     mutationFn: () =>
       section
         ? updateGroupSection(departmentId, section.sectionId, { sectionName: name.trim(), description })
-        : createGroupSection(departmentId, { sectionName: name.trim(), description, institutionCertId }),
+        : createGroupSection(departmentId, {
+            sectionName: name.trim(),
+            description,
+            institutionCertId: programId != null ? null : institutionCertId,
+            programId,
+          }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["department-sections", departmentId] })
       toast.success(section ? "Section updated." : "Section created.")
@@ -575,18 +604,45 @@ function rosterInitials(name) {
   return parts.slice(0, 2).map((part) => part[0].toUpperCase()).join("")
 }
 
-function MockExamBadge({ passed, score }) {
-  if (!passed) return null
-  const rounded = Number.isFinite(Number(score)) ? Math.round(Number(score)) : null
+// The badges the learner has earned, shown as small medallions with the
+// certification's badge art.
+function EarnedBadges({ learnerId }) {
+  const query = useQuery({
+    queryKey: ["group-learner-awards", learnerId],
+    queryFn: () => getGroupLearnerAwards(learnerId),
+    enabled: learnerId != null,
+    staleTime: 5 * 60_000,
+  })
+  const badges = asArray(query.data).filter((award) => award.badgeAwardedAt != null)
+  if (badges.length === 0) return null
   return (
-    <Badge variant="default" className="gap-1" title="Passed the mock exam for this certification">
-      <AwardIcon className="size-3.5" aria-hidden="true" />
-      Mock exam passed{rounded == null ? "" : ` · ${rounded}%`}
-    </Badge>
+    <span className="flex flex-wrap items-center gap-1">
+      {badges.map((award) => (
+        <Badge
+          key={award.certificationId}
+          variant="default"
+          className="gap-1"
+          title={`Badge earned on ${new Date(award.badgeAwardedAt).toLocaleDateString()}`}
+        >
+          {award.hasBadgeImage ? (
+            <img
+              src={`${certificationBadgeUrl(award.certificationId)}?v=${encodeURIComponent(award.badgeAwardedAt)}`}
+              alt=""
+              className="size-4 rounded-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <AwardIcon className="size-3.5" aria-hidden="true" />
+          )}
+          {award.certificationTitle ?? "Badge"}
+        </Badge>
+      ))}
+    </span>
   )
 }
 
 function SectionPanel({
+  programCertifications = null,
   departmentId,
   group,
   section,
@@ -603,6 +659,7 @@ function SectionPanel({
   const [addOpen, setAddOpen] = useState(false)
   const [removeTarget, setRemoveTarget] = useState(null)
   const rosterAvatars = useAvatarUrls(learners.map((row) => row.avatarKey))
+  const certTitles = new Map(asArray(group?.certifications).map((cert) => [cert.certificationId, cert.title]))
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["department-learner-roster", departmentId] })
@@ -663,6 +720,11 @@ function SectionPanel({
           <div className="min-w-0">
             <p className="truncate text-base font-semibold">{title}</p>
             <p className="text-xs text-muted-foreground">
+              {section?.certificationTitle
+                ? `${section.certificationTitle} · `
+                : section && programCertifications?.length
+                  ? `${programCertifications.map((cert) => cert.title).join(", ")} · `
+                  : ""}
               {learners.length} learner{learners.length === 1 ? "" : "s"}
               {pending.length ? ` · ${pending.length} invitation${pending.length === 1 ? "" : "s"} pending` : ""}
               {section?.description ? ` · ${section.description}` : ""}
@@ -739,6 +801,7 @@ function SectionPanel({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Learner</TableHead>
+                    <TableHead className="w-40">Certification</TableHead>
                     <TableHead className="w-32">Joined</TableHead>
                     <TableHead className="w-44">Lessons completed</TableHead>
                     <TableHead className="w-44">Section</TableHead>
@@ -767,11 +830,14 @@ function SectionPanel({
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-medium text-foreground hover:underline">{row.name}</p>
-                              <MockExamBadge passed={row.mockExamPassed} score={row.bestMockExamScore} />
+                              <EarnedBadges learnerId={row.learnerId} />
                             </div>
                             <p className="text-xs text-muted-foreground">{row.email ?? (row.username ? `@${row.username}` : "")}</p>
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {certTitles.get(row.certificationId) ?? "—"}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatDate(row.assignedAt)}
@@ -828,7 +894,14 @@ function SectionPanel({
       ) : null}
 
       {addOpen ? (
-        <AddLearnersDialog open={addOpen} onOpenChange={setAddOpen} departmentId={departmentId} group={group} section={section} />
+        <AddLearnersDialog
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          departmentId={departmentId}
+          group={group}
+          section={section}
+          programCertifications={programCertifications}
+        />
       ) : null}
 
       <AlertDialog open={removeTarget != null} onOpenChange={(open) => !open && setRemoveTarget(null)}>
@@ -853,12 +926,17 @@ function SectionPanel({
 }
 
 
-export function SectionsTab({ departmentId, group: department, certificationId }) {
+export function SectionsTab({ departmentId, group: department, certificationId, programId = null, certifications = null }) {
   // A department covers several certifications; this tab works on the one the
-  // workspace has selected, and its slots are that certification's.
+  // workspace has selected, and its slots are that certification's. A program
+  // passes its certifications instead and sees all of them at once.
   const covered = asArray(department?.certifications)
-  const current = covered.find((cert) => cert.certificationId === certificationId) ?? covered[0] ?? null
-  const scoped = covered.length > 1 && current != null
+  const programCerts = Array.isArray(certifications) ? certifications : null
+  const current = programCerts
+    ? null
+    : covered.find((cert) => cert.certificationId === certificationId) ?? covered[0] ?? null
+  const scoped = programCerts ? false : covered.length > 1 && current != null
+  const programCertIds = new Set((programCerts ?? []).map((cert) => cert.certificationId))
   const group = current
     ? { ...department, totalSlots: current.totalSlots ?? 0, usedSlots: current.usedSlots ?? 0, activeCertification: current }
     : department
@@ -883,13 +961,44 @@ export function SectionsTab({ departmentId, group: department, certificationId }
   })
 
   const sections = asArray(sectionsQuery.data).filter(
-    (s) => !scoped || s.certificationId == null || s.certificationId === current.certificationId
+    (s) =>
+      (!scoped || s.certificationId == null || s.certificationId === current.certificationId) &&
+      (programId == null || s.programId === programId)
   )
+  // Sections made before programs existed belong to none; a program can adopt them.
+  const unassignedSections =
+    programId == null ? [] : asArray(sectionsQuery.data).filter((s) => s.programId == null)
+  const adopt = useMutation({
+    mutationFn: (section) =>
+      updateGroupSection(departmentId, section.sectionId, {
+        sectionName: section.sectionName,
+        description: section.description,
+        programId,
+      }),
+    onSuccess: (_, section) => {
+      queryClient.invalidateQueries({ queryKey: ["department-sections", departmentId] })
+      queryClient.invalidateQueries({ queryKey: ["department-programs", departmentId] })
+      toast.success(`${section.sectionName} added to this program.`)
+    },
+    onError: (err) => toast.error(backendMessage(err, "Unable to move this section.")),
+  })
+  const inProgram = (certId) => !programCerts || programCertIds.has(certId)
+  // In a program, a learner sitting in another program's section is not ours.
+  const sectionIds = new Set(sections.map((section) => section.sectionId))
+  const inProgramSection = (sectionId) => programId == null || sectionId == null || sectionIds.has(sectionId)
   const roster = asArray(rosterQuery.data).filter(
-    (row) => row.status === "active" && (!scoped || row.certificationId === current.certificationId)
+    (row) =>
+      row.status === "active" &&
+      (!scoped || row.certificationId === current.certificationId) &&
+      inProgram(row.certificationId) &&
+      inProgramSection(row.sectionId)
   )
   const invitations = asArray(invitationsQuery.data).filter(
-    (inv) => inv.departmentId === departmentId && (!scoped || inv.certificationId === current.certificationId)
+    (inv) =>
+      inv.departmentId === departmentId &&
+      (!scoped || inv.certificationId === current.certificationId) &&
+      inProgram(inv.certificationId) &&
+      inProgramSection(inv.sectionId)
   )
 
   const bySection = useMemo(() => {
@@ -938,7 +1047,13 @@ export function SectionsTab({ departmentId, group: department, certificationId }
   const unsectionedInvites = (invitationsBySection.get(NO_SECTION) ?? []).filter(
     (inv) => inv.status === "PENDING"
   )
-  const remainingSlots = Math.max(0, (group.totalSlots ?? 0) - (group.usedSlots ?? 0))
+  const slotTotal = programCerts
+    ? programCerts.reduce((sum, cert) => sum + (cert.totalSlots ?? 0), 0)
+    : group.totalSlots ?? 0
+  const slotUsed = programCerts
+    ? programCerts.reduce((sum, cert) => sum + (cert.usedSlots ?? 0), 0)
+    : group.usedSlots ?? 0
+  const remainingSlots = Math.max(0, slotTotal - slotUsed)
 
   return (
     <div className="space-y-4">
@@ -948,7 +1063,7 @@ export function SectionsTab({ departmentId, group: department, certificationId }
             <CardTitle className="text-base">Sections</CardTitle>
             <CardDescription>
               {sections.length} section{sections.length === 1 ? "" : "s"} · {roster.length} learner
-              {roster.length === 1 ? "" : "s"} · {remainingSlots} of {group.totalSlots ?? 0} slot(s) remaining
+              {roster.length === 1 ? "" : "s"} · {remainingSlots} of {slotTotal} slot(s) remaining
             </CardDescription>
           </div>
           <Button size="sm" onClick={() => setDialog({ section: null })}>
@@ -974,6 +1089,7 @@ export function SectionsTab({ departmentId, group: department, certificationId }
         <div className="space-y-3">
           {sections.map((section, index) => (
             <SectionPanel
+              programCertifications={programCerts}
               key={section.sectionId}
               departmentId={departmentId}
               group={group}
@@ -988,6 +1104,7 @@ export function SectionsTab({ departmentId, group: department, certificationId }
           ))}
           {unsectioned.length > 0 || unsectionedInvites.length > 0 ? (
             <SectionPanel
+              programCertifications={programCerts}
               departmentId={departmentId}
               group={group}
               section={null}
@@ -1002,6 +1119,37 @@ export function SectionsTab({ departmentId, group: department, certificationId }
         </div>
       )}
 
+      {unassignedSections.length ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Sections not in a program</CardTitle>
+            <CardDescription>
+              Made before programs existed. Add one here to bring its learners into this program.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {unassignedSections.map((section) => (
+              <div
+                key={section.sectionId}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{section.sectionName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {section.certificationTitle ? `${section.certificationTitle} · ` : ""}
+                    {section.learnerCount} learner{section.learnerCount === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <Button size="sm" variant="outline" disabled={adopt.isPending} onClick={() => adopt.mutate(section)}>
+                  <Plus className="size-4" aria-hidden="true" />
+                  Add to this program
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
       {dialog ? (
         <SectionDialog
           key={dialog.section?.sectionId ?? "new"}
@@ -1010,6 +1158,7 @@ export function SectionsTab({ departmentId, group: department, certificationId }
           departmentId={departmentId}
           section={dialog.section}
           institutionCertId={current?.institutionCertId ?? null}
+          programId={programId}
         />
       ) : null}
 
