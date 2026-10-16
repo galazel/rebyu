@@ -12,3 +12,4 @@ export async function uploadLibraryFile(file) {
   formData.append("file", file)
   return base("learner-tools/library/upload", { method: "POST", data: formData })
 }
+export const getAiUsage = () => base("learner-tools/ai-usage")

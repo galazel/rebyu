@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { AiUsageBars, AiUsageRing, isBucketExhausted, useAiUsage } from "@/components/learner/ai-usage.jsx"
 import { createPortal } from "react-dom"
 import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"
@@ -93,6 +94,14 @@ async function streamTutorAnswer(body, entry) {
     })
   } catch {
     throw new StreamUnavailable()
+  }
+  if (response.status >= 400 && response.status < 500 && response.status !== 404) {
+    // A refusal (daily limit reached, no Pro access): surface the server's
+    // message instead of retrying without streaming, which would be refused too.
+    const payload = await response.json().catch(() => null)
+    const refusal = new Error(payload?.message ?? "The AI Tutor is not available right now.")
+    refusal.code = payload?.code
+    throw refusal
   }
   if (!response.ok || !response.body) {
     throw new StreamUnavailable()
@@ -673,10 +682,11 @@ export function LessonAiTutor({
   const [chatListOpen, setChatListOpen] = useState(false)
   const draftRef = useRef(null)
   const entitlements = useLearnerEntitlements()
+  const aiUsage = useAiUsage()
+  const tutorExhausted = isBucketExhausted(aiUsage.bucket("tutor"))
+  const studyAidsExhausted = isBucketExhausted(aiUsage.bucket("studyAids"))
   const sessionId = buildTutorSessionId(learnerId, lessonId)
   const tutorLocked = entitlements.isFree
-  const generationLimit = entitlements.aiGenerationDailyLimit
-  const generationsLeft = Math.max(generationLimit - entitlements.aiGenerationsUsedToday, 0)
 
   useEffect(() => {
     let cancelled = false
@@ -847,6 +857,8 @@ export function LessonAiTutor({
           createdAt: Date.now(),
         }))
 
+    // Each reply counts against the tutor limits: refresh usage once it lands.
+    entry.promise.finally(() => aiUsage.refresh())
     watch(trackRequest(sessionId, entry))
   }
 
@@ -871,6 +883,8 @@ export function LessonAiTutor({
       },
     ])
     const promise = generateStudyAid(type, lessonName, Number(lessonId)).then((item) => {
+      // A generation was spent: refresh usage right away.
+      aiUsage.refresh()
       const isQuiz = type === "quiz"
       const reply = isQuiz
         ? "Your practice quiz is ready. It's saved to your Library too, so you can come back to it any time."
@@ -1293,19 +1307,20 @@ export function LessonAiTutor({
                 ) : null}
                 <DropdownMenuLabel>
                   <span className="block text-sm font-bold text-rb-eel">Create with AI</span>
-                  <span className="mt-0.5 block text-xs font-medium text-rb-wolf">Generated items are saved to Library. {generationLimit > 0 ? `${generationsLeft} of ${generationLimit} generations left today.` : ""}</span>
+                  <span className="mt-0.5 block text-xs font-medium text-rb-wolf">Generated items are saved to Library.</span>
+                  <AiUsageBars bucketKey="studyAids" showLabel={false} className="mt-2 font-normal" />
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onSelect={() => createStudyAid("quiz")}
-                  disabled={Boolean(generating) || (generationLimit > 0 && generationsLeft === 0)}
+                  disabled={Boolean(generating) || studyAidsExhausted}
                 >
                   <BookOpenCheck className="mr-2 size-4" />
                   <span className="flex-1">Generate quiz</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onSelect={() => createStudyAid("flashcard")}
-                  disabled={Boolean(generating) || (generationLimit > 0 && generationsLeft === 0)}
+                  disabled={Boolean(generating) || studyAidsExhausted}
                 >
                   <Layers3 className="mr-2 size-4" />
                   <span className="flex-1">Generate flashcards</span>
@@ -1328,7 +1343,7 @@ export function LessonAiTutor({
                 variant="feather"
                 size="sm"
                 className="rb-btn-icon shrink-0"
-                disabled={pending || Boolean(generating) || (!draft.trim() && !attachment)}
+                disabled={pending || Boolean(generating) || (!draft.trim() && !attachment) || tutorExhausted}
                 aria-label="Send message"
             >
               {pending || generating ? (
@@ -1339,9 +1354,12 @@ export function LessonAiTutor({
             </TactileButton>
           </div>
 
-          <p className="mt-1.5 px-2 text-center text-[10px] leading-snug font-medium text-rb-hare">
-            REBYU AI can make mistakes &middot; check your lesson materials · Enter to send, Shift+Enter for a new line
-          </p>
+          <div className="mt-1.5 flex items-center gap-2 px-2">
+            <p className="flex-1 text-center text-[10px] leading-snug font-medium text-rb-hare">
+              REBYU AI can make mistakes &middot; check your lesson materials · Enter to send, Shift+Enter for a new line
+            </p>
+            <AiUsageRing bucketKey="tutor" />
+          </div>
         </form>
         )}
       </section>

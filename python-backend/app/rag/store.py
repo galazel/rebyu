@@ -292,6 +292,14 @@ def replace_source(namespace: str, source_file: str, documents: list[Document]) 
     which are re-saved many times: plain `add_documents` would pile up a new
     copy of the lesson on every save."""
     if _collection_exists(namespace):
+        # Qdrant refuses a filtered delete on an unindexed payload field.
+        # Creating an index that already exists is a no-op.
+        get_client().create_payload_index(
+            collection_name=namespace,
+            field_name=f"{METADATA_KEY}.source_file",
+            field_schema=qdrant_models.PayloadSchemaType.KEYWORD,
+            wait=True,
+        )
         get_client().delete(
             collection_name=namespace,
             points_selector=qdrant_models.FilterSelector(

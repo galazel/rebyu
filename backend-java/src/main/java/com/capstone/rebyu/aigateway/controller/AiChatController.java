@@ -11,6 +11,7 @@ import com.capstone.rebyu.auth.service.CognitoAuthService;
 import com.capstone.rebyu.billing.entitlement.Entitlements;
 import com.capstone.rebyu.billing.service.LearnerEntitlementService;
 import com.capstone.rebyu.certification.service.S3StorageService;
+import com.capstone.rebyu.billing.service.AiGenerationQuotaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,12 @@ public class AiChatController {
     private final CognitoAuthService auth;
     private final LearnerEntitlementService entitlements;
     private final S3StorageService storage;
+    private final AiGenerationQuotaService generationQuota;
+
+    /** Tutor replies count against the learner's message limits; admins are not metered. */
+    private Long meteredLearner(CurrentUserDto user) {
+        return user.learnerId() != null && !"ADMIN".equalsIgnoreCase(user.role()) ? user.learnerId() : null;
+    }
 
     private CurrentUserDto requireTutor(Jwt jwt) {
         if (jwt == null) {
@@ -84,13 +91,26 @@ public class AiChatController {
 
     @PostMapping("/tutor")
     public ChatResponse chat(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChatRequest request) {
-        storeSnip(request, requireTutorSession(jwt, request.getSessionId()));
-        return aiChatService.chat(request);
+        CurrentUserDto user = requireTutorSession(jwt, request.getSessionId());
+        Long learnerId = meteredLearner(user);
+        if (learnerId != null) generationQuota.requireAvailable(learnerId, AiGenerationQuotaService.Bucket.TUTOR);
+        storeSnip(request, user);
+        ChatResponse response = aiChatService.chat(request);
+        // Only a delivered reply counts.
+        if (learnerId != null) generationQuota.record(learnerId, AiGenerationQuotaService.KIND_TUTOR_CHAT);
+        return response;
     }
 
     @PostMapping(value = "/tutor/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChatRequest request) {
-        storeSnip(request, requireTutorSession(jwt, request.getSessionId()));
+        CurrentUserDto user = requireTutorSession(jwt, request.getSessionId());
+        Long learnerId = meteredLearner(user);
+        if (learnerId != null) {
+            generationQuota.requireAvailable(learnerId, AiGenerationQuotaService.Bucket.TUTOR);
+            // Counted when the reply starts: a stream has no single success point.
+            generationQuota.record(learnerId, AiGenerationQuotaService.KIND_TUTOR_CHAT);
+        }
+        storeSnip(request, user);
         return aiChatService.streamChat(request);
     }
 

@@ -8,4 +8,7 @@ import java.time.LocalDate;
 public interface AiGenerationUsageRepository extends JpaRepository<AiGenerationUsage, Long> {
 
     long countByLearnerIdAndUsageDate(Long learnerId, LocalDate usageDate);
+
+    long countByLearnerIdAndKindInAndUsageDateBetween(
+            Long learnerId, java.util.Collection<String> kinds, LocalDate from, LocalDate to);
 }

@@ -38,6 +38,13 @@ public class LearnerToolsController {
 
     public record StudyAidRequest(String type, String lessonName, Long lessonId, String requestId) {}
 
+    /** Daily and weekly usage of each limited AI feature, with reset times. */
+    @GetMapping("/ai-usage")
+    public List<com.capstone.rebyu.billing.service.AiGenerationQuotaService.BucketUsage> aiUsage(
+            @AuthenticationPrincipal Jwt jwt) {
+        return generationQuota.usage(me(jwt));
+    }
+
     @GetMapping("/library")
     public List<LearnerToolsService.LibraryItem> library(@AuthenticationPrincipal Jwt jwt) {
         return service.library(me(jwt));

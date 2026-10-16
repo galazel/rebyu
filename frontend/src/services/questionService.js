@@ -132,6 +132,12 @@ export async function saveTextQuestion(textQuestion) {
     })
 }
 
+export async function getTextQuestionConfigByQuestion(questionId) {
+    return await base(`text-question-configs/by-question/${questionId}`, {
+        method: "GET",
+    })
+}
+
 export async function saveDiagramQuestion(diagramQuestion) {
     return await base("diagram-question-configs", {
         method: "POST",

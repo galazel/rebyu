@@ -79,6 +79,7 @@ import {
     deleteQuestion,
     generateQuestionsFromFiles,
     getQuestions,
+    getTextQuestionConfigByQuestion,
     saveChoices,
     saveDiagramQuestion,
     saveProgrammingQuestion,
@@ -507,6 +508,10 @@ function validateQuestionData(typeId, data) {
 
     if (typeId === "MCQ") {
         const choices = data.choices ?? [];
+
+        if (choices.length < 2) {
+            errors.choices = "Add at least two answer choices.";
+        }
 
         choices.forEach((choice, index) => {
             const letter = String.fromCharCode(65 + index);
@@ -1280,6 +1285,7 @@ function MultipleChoices({
                 </Button>
 
                 <FieldError message={errors.correctChoiceIndex} />
+                <FieldError message={errors.choices} />
             </div>
 
             <QuestionMetaFields
@@ -2546,6 +2552,11 @@ function QuestionBank({
 
 
         return allQuestions.filter((question) => {
+            // Sub-questions are shown inside their parent, not as their own rows.
+            if (question.parentQuestionId != null) {
+                return false;
+            }
+
             const questionLessonId = String(question.lessonId ?? "");
 
             if (!allowedLessonIds.has(questionLessonId)) {
@@ -2584,6 +2595,47 @@ function QuestionBank({
         filterQuestionType,
         selectedFilterCertification,
     ]);
+
+    const subQuestionsByParent = useMemo(() => {
+        const byParent = new Map();
+        for (const question of allQuestions) {
+            if (question.parentQuestionId == null) continue;
+            const siblings = byParent.get(question.parentQuestionId) ?? [];
+            siblings.push(question);
+            byParent.set(question.parentQuestionId, siblings);
+        }
+        for (const siblings of byParent.values()) {
+            siblings.sort((a, b) => a.questionId - b.questionId);
+        }
+        return byParent;
+    }, [allQuestions]);
+
+    const viewedSubQuestions = questionDialog.open
+        ? subQuestionsByParent.get(questionDialog.question?.questionId) ?? []
+        : [];
+    const [subQuestionAnswers, setSubQuestionAnswers] = useState({});
+
+    useEffect(() => {
+        const missing = viewedSubQuestions.filter(
+            (subQuestion) => !(subQuestion.questionId in subQuestionAnswers),
+        );
+        if (missing.length === 0) return;
+        let cancelled = false;
+        Promise.all(
+            missing.map((subQuestion) =>
+                getTextQuestionConfigByQuestion(subQuestion.questionId)
+                    .then((config) => [subQuestion.questionId, config?.correctAnswer ?? ""])
+                    .catch(() => [subQuestion.questionId, null]),
+            ),
+        ).then((entries) => {
+            if (!cancelled) {
+                setSubQuestionAnswers((current) => ({ ...current, ...Object.fromEntries(entries) }));
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [questionDialog.open, questionDialog.question?.questionId]);
 
     const questionPageCount = Math.max(
         1,
@@ -2874,11 +2926,20 @@ function QuestionBank({
         setValidationErrors({});
     }
 
+    function scrollToDraft(questionId) {
+        document
+            .getElementById(`draft-question-${questionId}`)
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
     function addQuestion(questionType) {
+        const newQuestionId = createLocalId();
+        // Wait for the new card to render, then bring it into view.
+        window.setTimeout(() => scrollToDraft(newQuestionId), 50);
         setQuestions((previousQuestions) => [
             ...previousQuestions,
             {
-                id: createLocalId(),
+                id: newQuestionId,
                 typeId: questionType.id,
                 questionTypeName: questionType.title,
                 data: {
@@ -2922,16 +2983,29 @@ function QuestionBank({
 
     const submitQuestions = async () => {
         const certificationId = selectedCertification?.certificationId ?? null;
-        for (const draft of questions) {
+        let savedCount = 0;
+        for (const [draftIndex, draft] of questions.entries()) {
             const question = { ...draft, data: await withUploadedImages(draft.data) };
             const lessonId = question.data.lessonId || selectedLesson?.id;
             if (!lessonId) {
-                throw new Error("Each draft needs a lesson before it can be saved.");
+                throw new Error(`Question ${draftIndex + 1} needs a lesson before it can be saved.`);
             }
 
+            // A question is several requests (question, then choices / answer key /
+            // sub-questions). If any later one fails, delete the root so no
+            // half-saved question is left in the bank.
+            let rootQuestionId = null;
+            const saveRootQuestion = async (payload) => {
+                const saved = await saveQuestion(payload);
+                rootQuestionId = saved?.questionId ?? null;
+                if (!rootQuestionId) throw new Error("The server did not return the new question's id.");
+                return saved;
+            };
+
+            try {
             switch (question.typeId) {
                 case "MCQ": {
-                    const savedMCQ = await saveQuestion({
+                    const savedMCQ = await saveRootQuestion({
                         questionType: question.data.questionType,
                         difficultyLevel: question.data.difficulty,
                         questionText: question.data.question,
@@ -2940,19 +3014,23 @@ function QuestionBank({
                         certificationId,
                     });
 
-                    for (const choice of question.data.choices) {
+                    const correctIndex = question.data.correctChoiceIndex;
+                    for (const [choiceIndex, choice] of question.data.choices.entries()) {
                         await saveChoices({
                             questionId: savedMCQ.questionId,
-                            choiceText: choice.choiceText,
+                            choiceText: choice.choiceText ?? "",
                             imageKey: choice.imageKey ?? null,
-                            correct: choice.isCorrect,
+                            // The radio selection is what validation checked, so it decides.
+                            correct: correctIndex != null
+                                ? choiceIndex === correctIndex
+                                : Boolean(choice.isCorrect),
                             explanation: choice.explanation,
                         });
                     }
                     break;
                 }
                 case "SHORT_ANSWER": {
-                    const savedShortAnswer = await saveQuestion({
+                    const savedShortAnswer = await saveRootQuestion({
                         questionType: question.data.questionType,
                         difficultyLevel: question.data.difficulty,
                         questionText: question.data.question,
@@ -2971,7 +3049,7 @@ function QuestionBank({
                     break;
                 }
                 case "DESCRIPTIVE": {
-                    const savedDescriptive = await saveQuestion({
+                    const savedDescriptive = await saveRootQuestion({
                         questionType: question.data.questionType,
                         difficultyLevel: question.data.difficulty,
                         questionText: question.data.question,
@@ -2987,7 +3065,7 @@ function QuestionBank({
                     break;
                 }
                 case "PROGRAMMING": {
-                    const savedProgramming = await saveQuestion({
+                    const savedProgramming = await saveRootQuestion({
                         questionType: question.data.questionType,
                         difficultyLevel: question.data.difficulty,
                         questionText: question.data.question,
@@ -3011,6 +3089,7 @@ function QuestionBank({
                             difficultyLevel: question.data.difficulty,
                             questionText: subQuestion.question,
                             lessonId: Number(lessonId),
+                            certificationId,
                         });
                         await saveTextQuestion({
                             questionId: savedSub.questionId,
@@ -3021,7 +3100,7 @@ function QuestionBank({
                     break;
                 }
                 case "DIAGRAM": {
-                    const savedDiagram = await saveQuestion({
+                    const savedDiagram = await saveRootQuestion({
                         questionType: question.data.questionType,
                         difficultyLevel: question.data.difficulty,
                         questionText: question.data.question,
@@ -3047,6 +3126,7 @@ function QuestionBank({
                             difficultyLevel: question.data.difficulty,
                             questionText: subQuestion.question,
                             lessonId: Number(lessonId),
+                            certificationId,
                         });
                         await saveTextQuestion({
                             questionId: savedSub.questionId,
@@ -3057,7 +3137,23 @@ function QuestionBank({
                     break;
                 }
             }
+            } catch (error) {
+                if (rootQuestionId) {
+                    await deleteQuestion(rootQuestionId).catch(() => {});
+                }
+                const failure = new Error(
+                    `Question ${draftIndex + 1} (${question.typeId.replace("_", " ").toLowerCase()}) was not saved: ${getBackendErrorMessage(error, "unknown error")}`,
+                );
+                failure.savedCount = savedCount;
+                throw failure;
+            }
+
+            // Saved in full: drop it from the builder so a retry after a later
+            // failure cannot save it a second time.
+            savedCount += 1;
+            removeQuestion(draft.id);
         }
+        return savedCount;
     };
 
     async function handleGenerateQuestionsFromFiles(selectedDocuments, generationOptions) {
@@ -3206,8 +3302,7 @@ OUTPUT RULES:
 
         try {
             setIsSavingQuestions(true);
-            await submitQuestions();
-            const savedCount = questions.length;
+            const savedCount = await submitQuestions();
             await refetchQuestions();
             setQuestions([]);
             setValidationErrors({});
@@ -3219,11 +3314,18 @@ OUTPUT RULES:
                 } saved successfully.`,
             });
         } catch (error) {
+            const savedBefore = error?.savedCount ?? 0;
+            if (savedBefore > 0) {
+                await refetchQuestions();
+            }
             showFeedbackDialog({
                 type: "warning",
                 title: "Save Failed",
-                description:
-                    "An error occurred while saving the questions. Please try again.",
+                description: `${
+                    savedBefore > 0
+                        ? `${savedBefore} question${savedBefore === 1 ? " was" : "s were"} saved and removed from the builder. `
+                        : ""
+                }${error?.message || "An error occurred while saving the questions."} Fix it and press Save again.`,
             });
         } finally {
             setIsSavingQuestions(false);
@@ -3576,6 +3678,8 @@ OUTPUT RULES:
                                                         <TableCell>
                                                             <Badge variant="secondary">
                                                                 {getQuestionTypeLabel(question.questionType)}
+                                                                {subQuestionsByParent.get(question.questionId)?.length > 0 &&
+                                                                    ` · +${subQuestionsByParent.get(question.questionId).length} sub`}
                                                             </Badge>
                                                         </TableCell>
 
@@ -3910,7 +4014,7 @@ OUTPUT RULES:
                                     </div>
                                 </div>
                             ) : (
-                            <div className="grid min-h-0 w-full flex-1 overflow-y-auto rounded-2xl border border-border/80 bg-background shadow-sm md:grid-cols-[260px_minmax(0,1fr)] md:overflow-hidden">
+                            <div className="grid min-h-0 w-full flex-1 overflow-y-auto rounded-2xl border border-border/80 bg-background shadow-sm md:grid-cols-[260px_minmax(0,1fr)] md:overflow-hidden xl:grid-cols-[260px_minmax(0,1fr)_280px]">
                         <aside className="min-h-0 border-b border-border bg-background/95 md:overflow-y-auto md:border-b-0 md:border-r">
                             <div className="space-y-4 p-4">
                                 <div>
@@ -4131,7 +4235,7 @@ OUTPUT RULES:
                                             </p>
                                         </div>
 
-                                        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background/80 px-3 py-2">
+                                        <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-lg border border-border/60 bg-background px-3 py-2 shadow-sm xl:hidden">
                                             <span className="mr-1 text-xs font-medium text-muted-foreground">Add:</span>
                                             {questionTypes.map((questionType) => {
                                                 const Icon = questionType.icon;
@@ -4172,7 +4276,7 @@ OUTPUT RULES:
                                             <EmptyState
                                                 icon={FileQuestion}
                                                 title="No questions added yet"
-                                                description="Choose a question type above to add your first question."
+                                                description="Pick a question type from the Add question panel to start."
                                             />
                                         ) : (
                                             questions.map((question, index) => {
@@ -4183,14 +4287,19 @@ OUTPUT RULES:
                                                     updateQuestionData(question.id, updater);
                                                 }
                                                 return (
-                                                    <QuestionCardWrapper
+                                                    <div
                                                         key={question.id}
-                                                        question={question}
-                                                        index={index}
-                                                        validationErrors={validationErrors}
-                                                        onRemove={handleRemove}
-                                                        onDataChange={handleDataChange}
-                                                    />
+                                                        id={`draft-question-${question.id}`}
+                                                        className="scroll-mt-16 xl:scroll-mt-4"
+                                                    >
+                                                        <QuestionCardWrapper
+                                                            question={question}
+                                                            index={index}
+                                                            validationErrors={validationErrors}
+                                                            onRemove={handleRemove}
+                                                            onDataChange={handleDataChange}
+                                                        />
+                                                    </div>
                                                 );
                                             })
                                         )}
@@ -4198,6 +4307,72 @@ OUTPUT RULES:
                                 )}
                             </div>
                         </main>
+
+                        <aside className="hidden min-h-0 flex-col border-l border-border bg-background xl:flex">
+                            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+                                <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                    Add question
+                                </p>
+                                <p className="mb-3 truncate text-xs text-muted-foreground">
+                                    {selectedLesson
+                                        ? `Adding to: ${selectedLesson.name}`
+                                        : "Select a lesson first."}
+                                </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {questionTypes.map((questionType) => {
+                                        const Icon = questionType.icon;
+                                        return (
+                                            <button
+                                                key={questionType.id}
+                                                type="button"
+                                                title={questionType.description}
+                                                disabled={!selectedLesson}
+                                                onClick={() => addQuestion(questionType)}
+                                                className="group flex flex-col items-center gap-2 rounded-lg border bg-muted/30 px-2 py-3 text-center transition hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5 hover:shadow-sm disabled:pointer-events-none disabled:opacity-40"
+                                            >
+                                                <span className="flex h-9 w-9 items-center justify-center rounded-md bg-background text-muted-foreground shadow-sm group-hover:text-primary">
+                                                    <Icon className="h-4 w-4" />
+                                                </span>
+                                                <span className="text-xs font-medium leading-tight">
+                                                    {questionType.title}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {questions.length > 0 && (
+                                    <>
+                                        <p className="mb-2 mt-5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                            Drafts ({questions.length})
+                                        </p>
+                                        <div className="space-y-1">
+                                            {questions.map((question, index) => {
+                                                const hasErrors = Boolean(validationErrors[question.id]);
+                                                return (
+                                                    <button
+                                                        key={question.id}
+                                                        type="button"
+                                                        onClick={() => scrollToDraft(question.id)}
+                                                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition hover:bg-muted ${
+                                                            hasErrors ? "text-destructive" : ""
+                                                        }`}
+                                                    >
+                                                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-background text-xs font-semibold ring-1 ring-border">
+                                                            {index + 1}
+                                                        </span>
+                                                        <span className="min-w-0 flex-1 truncate">
+                                                            {question.data.question?.trim() || question.questionTypeName}
+                                                        </span>
+                                                        {hasErrors && <AlertCircle className="h-3.5 w-3.5 shrink-0" />}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </aside>
                             </div>
                             )}
                         </div>
@@ -4364,6 +4539,43 @@ OUTPUT RULES:
                                                 <p className="min-w-0 flex-1">{choice.choiceText}</p>
                                             </div>
                                         ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {viewedSubQuestions.length > 0 && (
+                                <div className="space-y-2">
+                                    <Label>Sub-questions ({viewedSubQuestions.length})</Label>
+
+                                    <div className="space-y-2">
+                                        {viewedSubQuestions.map((subQuestion, index) => {
+                                            const answer = subQuestionAnswers[subQuestion.questionId];
+                                            return (
+                                                <div
+                                                    key={subQuestion.questionId}
+                                                    className="rounded-lg border border-border p-3 text-sm"
+                                                >
+                                                    <div className="flex gap-2">
+                                                        <Badge variant="outline">{index + 1}</Badge>
+                                                        <p className="min-w-0 flex-1 whitespace-pre-wrap">
+                                                            {subQuestion.questionText}
+                                                        </p>
+                                                    </div>
+                                                    <div className="mt-2 rounded-md bg-muted/40 px-3 py-2">
+                                                        <p className="text-xs font-medium text-muted-foreground">
+                                                            Expected answer
+                                                        </p>
+                                                        <p className="mt-0.5 whitespace-pre-wrap">
+                                                            {answer === undefined
+                                                                ? "Loading..."
+                                                                : answer === null
+                                                                    ? "Could not load the answer."
+                                                                    : answer || "No answer saved."}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}

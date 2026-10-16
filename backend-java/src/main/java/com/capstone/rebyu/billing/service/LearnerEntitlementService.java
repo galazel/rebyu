@@ -128,14 +128,37 @@ public class LearnerEntitlementService {
                 subscription == null ? null : subscription.getCurrentPeriodEnd(),
                 subscription != null && subscription.isCancelAtPeriodEnd(),
                 subscription != null && subscription.isAwaitingApproval(),
-                (int) aiGenerationUsageRepository.countByLearnerIdAndUsageDate(
-                        learnerId, AiGenerationQuotaService.today()),
+                (int) aiGenerationUsageRepository.countByLearnerIdAndKindInAndUsageDateBetween(
+                        learnerId, AiGenerationQuotaService.Bucket.STUDY_AIDS.kinds(),
+                        AiGenerationQuotaService.today(), AiGenerationQuotaService.today()),
                 features.contains(Entitlements.AI_TUTOR) ? dailyGenerationLimit(learnerId, subscription) : 0);
     }
 
     @Transactional(readOnly = true)
     public int dailyGenerationLimit(Long learnerId) {
         return dailyGenerationLimit(learnerId, getCurrentLearnerSubscription(learnerId).orElse(null));
+    }
+
+    /**
+     * A numeric limit from the learner's personal plan (editable on the admin
+     * pricing page), or {@code fallback} when the plan does not set one, which
+     * is also the case for institution-licensed learners.
+     */
+    @Transactional(readOnly = true)
+    public int planLimit(Long learnerId, String entitlementCode, int fallback) {
+        LearnerSubscription subscription = getCurrentLearnerSubscription(learnerId).orElse(null);
+        if (subscription != null && subscription.isCurrentlyActive()) {
+            Integer limit = planEntitlementRepository
+                    .findBySubscriptionPlan_SubscriptionPlanIdAndEntitlementCode(
+                            subscription.getSubscriptionPlan().getSubscriptionPlanId(), entitlementCode)
+                    .filter(PlanEntitlement::isEnabled)
+                    .map(PlanEntitlement::getLimitValue)
+                    .orElse(null);
+            if (limit != null && limit > 0) {
+                return limit;
+            }
+        }
+        return fallback;
     }
 
     private int dailyGenerationLimit(Long learnerId, LearnerSubscription subscription) {
