@@ -6,6 +6,7 @@ import com.capstone.rebyu.aigateway.repository.LessonDialogueSessionRepository;
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
 import com.capstone.rebyu.billing.entitlement.Entitlements;
+import com.capstone.rebyu.billing.service.AiGenerationQuotaService;
 import com.capstone.rebyu.billing.service.LearnerEntitlementService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -34,6 +35,7 @@ public class TutorDialogueController {
     private final CognitoAuthService auth;
     private final LearnerEntitlementService entitlements;
     private final LessonDialogueSessionRepository sessions;
+    private final AiGenerationQuotaService generationQuota;
 
     public record TurnRequest(String action, Long lessonId, String lessonName,
                               List<String> topics, List<Map<String, Object>> history, List<String> avoid) {}
@@ -57,7 +59,16 @@ public class TutorDialogueController {
         body.put("history", history);
         body.put("avoid", request.avoid() == null ? List.of() : request.avoid().stream().limit(30).toList());
 
+        Long meteredLearnerId = user.learnerId() != null && !"ADMIN".equalsIgnoreCase(user.role())
+                ? user.learnerId() : null;
+        if (meteredLearnerId != null) {
+            generationQuota.requireAvailable(meteredLearnerId, AiGenerationQuotaService.Bucket.TUTOR);
+        }
+
         Map<String, Object> result = aiServiceClient.tutorDialogue(body);
+        if (meteredLearnerId != null) {
+            generationQuota.record(meteredLearnerId, AiGenerationQuotaService.KIND_TUTOR_DIALOGUE);
+        }
 
         if ("summary".equals(request.action()) && result != null && result.get("summary") instanceof Map<?, ?> summary
                 && user.learnerId() != null && request.lessonId() != null) {

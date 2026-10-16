@@ -1,7 +1,18 @@
 import { useMemo, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
-import { AwardIcon, Building2Icon, UsersIcon } from "@/components/icons"
+import {
+  AlertTriangle,
+  AwardIcon,
+  Building2Icon,
+  CalendarDays,
+  CheckCircle2,
+  Layers,
+  Mail,
+  Send,
+  TrendingUp,
+  UsersIcon,
+} from "@/components/icons"
 
 import {
   Card,
@@ -50,7 +61,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { getAllLearners } from "@/services/adminLearnerService.js"
+import { getInstitutionOrganisation } from "@/services/adminInstitutionService.js"
 import {
   getAllInstitutionCertificates,
   getAllInstitutionCertificationLearners,
@@ -59,12 +70,6 @@ import {
 
 function asArray(value) {
   return Array.isArray(value) ? value : []
-}
-
-function getLearnerDisplayName(learner) {
-  if (!learner) return "Unknown learner"
-  const full = [learner.firstName, learner.lastName].filter(Boolean).join(" ")
-  return full || learner.username || `Learner #${learner.learnerId}`
 }
 
 function DropCertificationDialog({ allocation, title, onClose }) {
@@ -202,6 +207,68 @@ function DropCertificationDialog({ allocation, title, onClose }) {
   )
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000
+const EXPIRY_WARNING_DAYS = 30
+const FULL_WARNING_RATIO = 0.9
+
+function daysUntil(dateValue) {
+  if (!dateValue) return null
+  const end = new Date(dateValue)
+  if (Number.isNaN(end.getTime())) return null
+  return Math.ceil((end.getTime() - Date.now()) / DAY_MS)
+}
+
+function percent(part, whole) {
+  return whole > 0 ? Math.round((part / whole) * 100) : 0
+}
+
+function average(values) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0
+}
+
+function isCompleted(row) {
+  return Boolean(row.completedAt) || String(row.status).toLowerCase() === "completed"
+}
+
+const PROGRESS_BUCKETS = [
+  { label: "Not started", test: (p) => p <= 0 },
+  { label: "1–25%", test: (p) => p > 0 && p <= 25 },
+  { label: "26–50%", test: (p) => p > 25 && p <= 50 },
+  { label: "51–75%", test: (p) => p > 50 && p <= 75 },
+  { label: "76–99%", test: (p) => p > 75 && p < 100 },
+  { label: "Finished", test: (p) => p >= 100 },
+]
+
+function DetailRow({ icon: Icon, label, children }) {
+  return (
+    <div className="flex items-start gap-3 py-2">
+      {Icon ? <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" /> : null}
+      <div className="min-w-0">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="break-words text-sm font-medium text-foreground">{children || "—"}</p>
+      </div>
+    </div>
+  )
+}
+
+function BarRow({ label, value, max, suffix = "" }) {
+  return (
+    <div className="grid grid-cols-[96px_minmax(0,1fr)_48px] items-center gap-3 text-sm">
+      <span className="truncate text-muted-foreground">{label}</span>
+      <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full bg-primary transition-all"
+          style={{ width: `${max > 0 ? (value / max) * 100 : 0}%` }}
+        />
+      </div>
+      <span className="text-right tabular-nums text-foreground">
+        {value}
+        {suffix}
+      </span>
+    </div>
+  )
+}
+
 export default function AdminInstitutionDetail() {
   const { id } = useParams()
   const institutionId = Number(id)
@@ -233,29 +300,26 @@ export default function AdminInstitutionDetail() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const learnersQuery = useQuery({
-    queryKey: ["admin-learners"],
-    queryFn: getAllLearners,
+  // Secondary panels: a failure here hides the panel, never the page.
+  const organisationQuery = useQuery({
+    queryKey: ["admin-institution-organisation", institutionId],
+    queryFn: () => getInstitutionOrganisation(institutionId),
+    enabled: Number.isFinite(institutionId),
     staleTime: 60_000,
+    retry: false,
   })
 
   const isLoading =
     institutionQuery.isLoading ||
     institutionCertsQuery.isLoading ||
     institutionCertLearnersQuery.isLoading ||
-    certificationsQuery.isLoading ||
-    learnersQuery.isLoading
+    certificationsQuery.isLoading
 
   const institution = institutionQuery.data
 
   const certificationById = useMemo(
     () => new Map(asArray(certificationsQuery.data).map((c) => [c.certificationId, c])),
     [certificationsQuery.data]
-  )
-
-  const learnerById = useMemo(
-    () => new Map(asArray(learnersQuery.data).map((l) => [l.learnerId, l])),
-    [learnersQuery.data]
   )
 
   const institutionCerts = useMemo(
@@ -271,7 +335,7 @@ export default function AdminInstitutionDetail() {
     [institutionCerts]
   )
 
-  const institutionCertLearners = useMemo(
+  const enrolments = useMemo(
     () =>
       asArray(institutionCertLearnersQuery.data).filter((row) =>
         institutionCertIds.has(row.institutionCertId)
@@ -279,15 +343,99 @@ export default function AdminInstitutionDetail() {
     [institutionCertLearnersQuery.data, institutionCertIds]
   )
 
-  const institutionCertById = useMemo(
-    () => new Map(institutionCerts.map((c) => [c.institutionCertId, c])),
-    [institutionCerts]
+  const stats = useMemo(() => {
+    const progress = enrolments.map((row) => Number(row.progressPercentage ?? 0))
+    const totalSeats = institutionCerts.reduce((sum, c) => sum + Number(c.totalSlots ?? 0), 0)
+    const usedSeats = institutionCerts.reduce((sum, c) => sum + Number(c.usedSlots ?? 0), 0)
+    const completed = enrolments.filter(isCompleted).length
+    const inactive = enrolments.filter(
+      (row) => !isCompleted(row) && String(row.status).toLowerCase() !== "active"
+    ).length
+    const notStarted = progress.filter((p) => p <= 0).length
+
+    const buckets = PROGRESS_BUCKETS.map((bucket) => ({
+      label: bucket.label,
+      count: progress.filter(bucket.test).length,
+    }))
+
+    // Enrolments per month for the last six months.
+    const now = new Date()
+    const months = Array.from({ length: 6 }, (_, index) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1)
+      return {
+        key: `${date.getFullYear()}-${date.getMonth()}`,
+        label: date.toLocaleDateString("en-US", { month: "short" }),
+        count: 0,
+      }
+    })
+    const monthByKey = new Map(months.map((month) => [month.key, month]))
+    for (const row of enrolments) {
+      if (!row.assignedAt) continue
+      const date = new Date(row.assignedAt)
+      const month = monthByKey.get(`${date.getFullYear()}-${date.getMonth()}`)
+      if (month) month.count += 1
+    }
+
+    return {
+      learners: new Set(enrolments.map((row) => row.learnerId)).size,
+      totalSeats,
+      usedSeats,
+      averageProgress: Math.round(average(progress)),
+      completed,
+      inactive,
+      notStarted,
+      buckets,
+      months,
+    }
+  }, [enrolments, institutionCerts])
+
+  const allocationRows = useMemo(
+    () =>
+      institutionCerts.map((institutionCert) => {
+        const rows = enrolments.filter(
+          (row) => row.institutionCertId === institutionCert.institutionCertId
+        )
+        const used = Number(institutionCert.usedSlots ?? 0)
+        const total = Number(institutionCert.totalSlots ?? 0)
+        return {
+          institutionCert,
+          title:
+            certificationById.get(institutionCert.certificationId)?.title ??
+            `Certification #${institutionCert.certificationId}`,
+          used,
+          total,
+          enrolled: rows.length,
+          averageProgress: Math.round(
+            average(rows.map((row) => Number(row.progressPercentage ?? 0)))
+          ),
+          completed: rows.filter(isCompleted).length,
+          daysLeft: daysUntil(institutionCert.accessExpiryDate),
+        }
+      }),
+    [institutionCerts, enrolments, certificationById]
   )
 
-  const distinctLearnerCount = useMemo(
-    () => new Set(institutionCertLearners.map((row) => row.learnerId)).size,
-    [institutionCertLearners]
-  )
+  const alerts = useMemo(() => {
+    const list = []
+    for (const row of allocationRows) {
+      if (row.daysLeft != null && row.daysLeft >= 0 && row.daysLeft <= EXPIRY_WARNING_DAYS) {
+        list.push(`${row.title} access ends in ${row.daysLeft} day${row.daysLeft === 1 ? "" : "s"}.`)
+      }
+      if (row.daysLeft != null && row.daysLeft < 0) {
+        list.push(`${row.title} access expired ${Math.abs(row.daysLeft)} days ago.`)
+      }
+      if (row.total > 0 && row.used / row.total >= FULL_WARNING_RATIO) {
+        list.push(`${row.title} is ${percent(row.used, row.total)}% full (${row.used}/${row.total} seats).`)
+      }
+      if (row.total > 0 && row.used === 0 && (row.daysLeft ?? 0) > 0) {
+        list.push(`${row.title} has no seats used yet.`)
+      }
+    }
+    return list
+  }, [allocationRows])
+
+  const departments = asArray(organisationQuery.data?.departments)
+  const pendingInvitations = Number(organisationQuery.data?.pendingInvitations ?? 0)
 
   if (isLoading) return <InstitutionLoadingSkeleton />
 
@@ -299,44 +447,81 @@ export default function AdminInstitutionDetail() {
     )
   }
 
+  const maxBucket = Math.max(...stats.buckets.map((bucket) => bucket.count), 0)
+  const maxMonth = Math.max(...stats.months.map((month) => month.count), 0)
+
   return (
     <div className="space-y-6">
-
       <InstitutionPageHeader
         title={institution.institutionName}
-        subtitle={institution.primaryContactName ?? "No contact assigned"}
+        subtitle={[
+          institution.institutionType
+            ? String(institution.institutionType).replaceAll("_", " ").toLowerCase()
+            : null,
+          institution.isVerified ? "Verified" : "Not verified",
+          `Partner since ${formatDate(institution.joinedAt)}`,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
         actions={<InstitutionStatusBadge status={institution.status} />}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <InstitutionStatCard
           icon={UsersIcon}
-          label="Enrolled learners"
-          value={distinctLearnerCount}
+          label="Learners enrolled"
+          value={stats.learners}
+          hint={
+            pendingInvitations > 0
+              ? `${pendingInvitations} invitation${pendingInvitations === 1 ? "" : "s"} still pending`
+              : `${enrolments.length} enrolment${enrolments.length === 1 ? "" : "s"} across certifications`
+          }
         />
         <InstitutionStatCard
           icon={AwardIcon}
-          label="Certification allocations"
-          value={institutionCerts.length}
+          label="Seat utilisation"
+          value={`${percent(stats.usedSeats, stats.totalSeats)}%`}
+          hint={`${stats.usedSeats} of ${stats.totalSeats} purchased seats in use · ${institutionCerts.length} certification${institutionCerts.length === 1 ? "" : "s"}`}
         />
         <InstitutionStatCard
-          icon={Building2Icon}
-          label="Primary contact"
-          value={institution.primaryContactName ?? "—"}
-          hint={institution.primaryContactEmail}
+          icon={TrendingUp}
+          label="Average progress"
+          value={`${stats.averageProgress}%`}
+          hint={`${stats.notStarted} enrolment${stats.notStarted === 1 ? " has" : "s have"} not started`}
         />
-        <InstitutionStatCard label="Joined" value={formatDate(institution.joinedAt)} />
+        <InstitutionStatCard
+          icon={CheckCircle2}
+          label="Completed"
+          value={stats.completed}
+          hint={`${percent(stats.completed, enrolments.length)}% completion rate${
+            stats.inactive > 0 ? ` · ${stats.inactive} inactive` : ""
+          }`}
+        />
       </div>
+
+      {alerts.length > 0 ? (
+        <div className="rounded-rb-card border-2 border-amber-300/70 bg-amber-50 p-4 dark:border-amber-500/40 dark:bg-amber-500/10">
+          <div className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
+            <AlertTriangle className="size-4" />
+            Needs attention
+          </div>
+          <ul className="mt-2 list-disc space-y-1 pl-6 text-sm text-amber-900/90 dark:text-amber-100/90">
+            {alerts.map((alert) => (
+              <li key={alert}>{alert}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <Card className={TABLE_SURFACE}>
         <CardHeader>
           <CardTitle>Certifications</CardTitle>
           <CardDescription>
-            Slot allocations this institution has purchased access to.
+            Seats, engagement and access window for each purchased allocation.
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          {institutionCerts.length === 0 ? (
+          {allocationRows.length === 0 ? (
             <InstitutionEmptyState
               icon={AwardIcon}
               title="No certification allocations"
@@ -347,57 +532,75 @@ export default function AdminInstitutionDetail() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Certification</TableHead>
-                  <TableHead>Slot usage</TableHead>
-                  <TableHead>Access period</TableHead>
+                  <TableHead>Seats</TableHead>
+                  <TableHead>Avg. progress</TableHead>
+                  <TableHead>Completed</TableHead>
+                  <TableHead>Access</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {institutionCerts.map((institutionCert) => {
-                  const certification = certificationById.get(institutionCert.certificationId)
-                  const used = institutionCert.usedSlots ?? 0
-                  const total = institutionCert.totalSlots ?? 0
-                  return (
-                    <TableRow key={institutionCert.institutionCertId}>
-                      <TableCell className="font-medium">
-                        {certification?.title ?? `Certification #${institutionCert.certificationId}`}
-                      </TableCell>
-                      <TableCell className="w-56">
-                        <div className="space-y-1">
-                          <Progress value={total > 0 ? (used / total) * 100 : 0} />
-                          <p className="text-xs text-muted-foreground">
-                            {used} / {total} slots used
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(institutionCert.accessStartDate)} –{" "}
-                        {formatDate(institutionCert.accessExpiryDate)}
-                      </TableCell>
-                      <TableCell>
-                        <AccessWindowBadge allocation={institutionCert} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() =>
-                            setDropping({
-                              allocation: institutionCert,
-                              title:
-                                certification?.title ??
-                                `Certification #${institutionCert.certificationId}`,
-                            })
-                          }
+                {allocationRows.map((row) => (
+                  <TableRow key={row.institutionCert.institutionCertId}>
+                    <TableCell className="font-medium">{row.title}</TableCell>
+                    <TableCell className="w-48">
+                      <div className="space-y-1">
+                        <Progress value={percent(row.used, row.total)} />
+                        <p className="text-xs text-muted-foreground">
+                          {row.used} / {row.total} used · {Math.max(row.total - row.used, 0)} free
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="w-36">
+                      <div className="space-y-1">
+                        <Progress value={row.averageProgress} />
+                        <p className="text-xs text-muted-foreground">
+                          {row.averageProgress}% · {row.enrolled} enrolled
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="tabular-nums">
+                      {row.completed}
+                      <span className="text-xs text-muted-foreground">
+                        {" "}
+                        ({percent(row.completed, row.enrolled)}%)
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      <p className="text-muted-foreground">
+                        {formatDate(row.institutionCert.accessStartDate)} –{" "}
+                        {formatDate(row.institutionCert.accessExpiryDate)}
+                      </p>
+                      {row.daysLeft != null ? (
+                        <p
+                          className={`text-xs ${
+                            row.daysLeft <= EXPIRY_WARNING_DAYS
+                              ? "font-semibold text-amber-700 dark:text-amber-300"
+                              : "text-muted-foreground"
+                          }`}
                         >
-                          Drop
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
+                          {row.daysLeft >= 0 ? `${row.daysLeft} days left` : "Expired"}
+                        </p>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      <AccessWindowBadge allocation={row.institutionCert} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() =>
+                          setDropping({ allocation: row.institutionCert, title: row.title })
+                        }
+                      >
+                        Drop
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           )}
@@ -412,63 +615,115 @@ export default function AdminInstitutionDetail() {
         />
       ) : null}
 
-      <Card className={TABLE_SURFACE}>
-        <CardHeader>
-          <CardTitle>Learners ({institutionCertLearners.length})</CardTitle>
-          <CardDescription>
-            Every learner enrolled in one of this institution's certifications.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          {institutionCertLearners.length === 0 ? (
-            <InstitutionEmptyState
-              icon={UsersIcon}
-              title="No learners yet"
-              description="Learners appear here once they accept an invitation to this institution."
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Learner</TableHead>
-                  <TableHead>Certification</TableHead>
-                  <TableHead>Progress</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {institutionCertLearners.map((row) => {
-                  const institutionCert = institutionCertById.get(row.institutionCertId)
-                  const certification = institutionCert
-                    ? certificationById.get(institutionCert.certificationId)
-                    : null
-                  return (
-                    <TableRow key={row.institutionCertLearnerId}>
-                      <TableCell className="font-medium">
-                        {getLearnerDisplayName(learnerById.get(row.learnerId))}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {certification?.title ?? "—"}
-                      </TableCell>
-                      <TableCell className="w-40">
-                        <div className="space-y-1">
-                          <Progress value={Number(row.progressPercentage ?? 0)} />
-                          <p className="text-xs text-muted-foreground">
-                            {Number(row.progressPercentage ?? 0).toFixed(0)}%
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <InstitutionStatusBadge status={row.status} />
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className={TABLE_SURFACE}>
+          <CardHeader>
+            <CardTitle>Progress distribution</CardTitle>
+            <CardDescription>
+              How far enrolments have got, across all certifications.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {enrolments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No enrolments yet.</p>
+            ) : (
+              stats.buckets.map((bucket) => (
+                <BarRow key={bucket.label} label={bucket.label} value={bucket.count} max={maxBucket} />
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className={TABLE_SURFACE}>
+          <CardHeader>
+            <CardTitle>New enrolments</CardTitle>
+            <CardDescription>Learners added per month, last six months.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {stats.months.map((month) => (
+              <BarRow key={month.key} label={month.label} value={month.count} max={maxMonth} />
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Card className={TABLE_SURFACE}>
+          <CardHeader>
+            <CardTitle>Departments ({departments.length})</CardTitle>
+            <CardDescription>How the institution has divided its seats.</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            {organisationQuery.isError ? (
+              <p className="px-6 pb-6 text-sm text-muted-foreground">
+                Departments could not be loaded.
+              </p>
+            ) : departments.length === 0 ? (
+              <InstitutionEmptyState
+                icon={Layers}
+                title="No departments"
+                description="The institution has not set up departments yet."
+              />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Certifications</TableHead>
+                    <TableHead>Seats</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {departments.map((department) => {
+                    const covered = asArray(department.certifications)
+                      .map((c) => c.title ?? c.certificationTitle)
+                      .filter(Boolean)
+                    const total = Number(department.totalSlots ?? 0)
+                    const used = Number(department.usedSlots ?? 0)
+                    return (
+                      <TableRow key={department.departmentId}>
+                        <TableCell className="font-medium">{department.departmentName}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {covered.length > 0 ? covered.join(", ") : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm tabular-nums">
+                          {total > 0 ? `${used} / ${total}` : used || "—"}
+                        </TableCell>
+                        <TableCell>
+                          <InstitutionStatusBadge status={department.status} />
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className={TABLE_SURFACE}>
+          <CardHeader>
+            <CardTitle>Partnership details</CardTitle>
+          </CardHeader>
+          <CardContent className="divide-y divide-border pt-0">
+            <DetailRow icon={Building2Icon} label="Primary contact">
+              {institution.primaryContactName}
+            </DetailRow>
+            <DetailRow icon={Mail} label="Email">
+              {institution.primaryContactEmail}
+            </DetailRow>
+            <DetailRow label="Phone">{institution.primaryContactPhone}</DetailRow>
+            <DetailRow label="Address">{institution.address}</DetailRow>
+            <DetailRow icon={CalendarDays} label="Joined">
+              {formatDate(institution.joinedAt)}
+            </DetailRow>
+            <DetailRow icon={Send} label="Pending invitations">
+              {organisationQuery.isError ? "Unavailable" : String(pendingInvitations)}
+            </DetailRow>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

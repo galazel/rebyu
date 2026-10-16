@@ -66,7 +66,7 @@ function Section({
             className="group relative mx-auto w-full max-w-5xl min-w-0"
             onClick={onClick}
         >
-            <div className="mb-3 flex min-w-0 items-center justify-between gap-3 px-1">
+            <div className="mb-6 flex min-w-0 items-center justify-between gap-3">
                 <input
                     id={`section-name-${section.id}`}
                     type="text"
@@ -75,32 +75,32 @@ function Section({
                         onChange(section.id, "sectionName", event.target.value)
                     }
                     placeholder="Untitled Section"
-                    className="w-full max-w-sm min-w-0 bg-transparent text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground outline-none placeholder:text-muted-foreground/60 focus:text-foreground"
+                    className="w-full min-w-0 border-b border-transparent bg-transparent pb-1 text-2xl font-semibold tracking-tight text-foreground outline-none transition placeholder:text-muted-foreground/50 hover:border-border focus:border-primary/50"
                 />
 
                 <button
                     type="button"
                     onClick={(event) => {
                         event.stopPropagation()
-                        onDelete(section.id)
+                        const name = section.sectionName?.trim() || "this section"
+                        if (window.confirm(`Remove "${name}" and all its blocks?`)) {
+                            onDelete(section.id)
+                        }
                     }}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground opacity-100 transition hover:bg-destructive/10 hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
-                    title="Delete section"
-                    aria-label="Delete section"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-1.5 text-sm font-medium text-destructive transition hover:border-destructive hover:bg-destructive hover:text-white"
+                    title="Remove section"
+                    aria-label="Remove section"
                 >
                     <Trash2 className="h-4 w-4" />
+                    Remove section
                 </button>
             </div>
 
             <article
-                className={`w-full overflow-hidden rounded-xl bg-card ring-1 ring-border/60 ${
-                    tools.length === 0 ? "" : "min-h-[720px]"
-                }`}
+                className="w-full"
             >
                 <div
-                    className={`flex w-full flex-col gap-3 p-8 ${
-                        tools.length === 0 ? "" : "min-h-[720px]"
-                    }`}
+                    className="flex w-full flex-col gap-4"
                 >
                     {tools.length === 0 ? (
                         <div className="flex flex-1 flex-col items-center justify-center rounded-lg border border-dashed border-border/70 py-12 text-center">
@@ -108,7 +108,7 @@ function Section({
                                 This section is empty
                             </p>
                             <p className="mt-1 max-w-xs text-xs leading-5 text-muted-foreground/80">
-                                Use the Add block button below to insert content.
+                                Pick a block from the Elements panel to add content.
                             </p>
                         </div>
                     ) : null}

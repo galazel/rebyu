@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
+import { AiUsageSummary } from "@/components/learner/ai-usage.jsx"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useOutletContext } from "react-router-dom"
 import { toast } from "sonner"
@@ -532,6 +533,15 @@ export default function LearnerAccountPage() {
                   {ledgerQuery.isLoading ? "..." : spent.toLocaleString()}
                 </p>
               </div>
+            </div>
+            <div className="px-5 pb-5 sm:px-6 sm:pb-6">
+              {entitlements.aiGenerationDailyLimit > 0 ? (
+                <AiUsageSummary />
+              ) : (
+                <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                  The AI tutor is not included in the Free plan. Upgrade to Pro for daily and weekly AI limits.
+                </p>
+              )}
             </div>
           </section>
 

@@ -239,7 +239,7 @@ def persist_lesson_content(
     authored lesson bodies when the curriculum is missing matching rows.
     """
     if not lessons_generated:
-        return 0, []
+        return 0, [], []
 
     existing_lessons = repo.list_certification_lessons(session, certification_id)
     lesson_index = build_lesson_index(existing_lessons)
@@ -250,6 +250,7 @@ def persist_lesson_content(
 
     written = 0
     warnings: list[str] = []
+    written_ids: list[int] = []
 
     for lesson in lessons_generated:
         name = lesson.get("name") or lesson.get("title") or ""
@@ -266,15 +267,30 @@ def persist_lesson_content(
 
             lesson_id = repo.insert_lesson(session, default_middle_category_id, name, blocks)
             lesson_index[key] = lesson_id
+            written_ids.append(lesson_id)
             logger.info("Inserted new lesson '%s' (id %s) into middle_category %s", name, lesson_id, default_middle_category_id)
             written += 1
             continue
 
         repo.update_lesson_content(session, lesson_id, blocks)
+        written_ids.append(lesson_id)
         written += 1
 
     logger.info("Wrote content for %d/%d generated lessons", written, len(lessons_generated))
-    return written, warnings
+    return written, warnings, written_ids
+
+
+def _index_lessons(session: Session, lesson_ids: list[int]) -> None:
+    """Embeds freshly generated lessons so the tutor and later generations can
+    retrieve them. Runs after the commit and is best effort: a vector-store
+    outage must not undo or fail a finished generation run."""
+    from app.rag.lesson_index import index_lesson
+
+    for lesson_id in lesson_ids:
+        try:
+            index_lesson(session, lesson_id)
+        except Exception as error:
+            logger.warning("Could not index generated lesson %s: %s", lesson_id, error)
 
 
 def persist_generated_assessments(
@@ -320,7 +336,7 @@ def persist_generated_assessments(
         key = _title_key(title)
         return (scope, key) in existing_exams or (None, key) in existing_exams
 
-    lessons_written, lesson_warnings = persist_lesson_content(
+    lessons_written, lesson_warnings, written_lesson_ids = persist_lesson_content(
         session, certification_id, result.get("lessons") or []
     )
     warnings.extend(lesson_warnings)
@@ -475,6 +491,7 @@ def persist_generated_assessments(
             )
 
     session.commit()
+    _index_lessons(session, written_lesson_ids)
 
     expected = {
         "exams": max(

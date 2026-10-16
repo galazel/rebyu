@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { AiUsageRing, isBucketExhausted, useAiUsage } from "@/components/learner/ai-usage.jsx"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import ReactMarkdown from "react-markdown"
 import { toast } from "sonner"
@@ -184,6 +185,8 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
   const [session, setSession] = useState(() => loadSession(key))
   const [draft, setDraft] = useState("")
   const [busy, setBusy] = useState(null)
+  const aiUsage = useAiUsage()
+  const tutorExhausted = isBucketExhausted(aiUsage.bucket("tutor"))
   const endRef = useRef(null)
 
   const statusQuery = useQuery({
@@ -209,6 +212,7 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
   }, [session.history.length, session.summary, busy])
 
   async function call(action, next) {
+    // Each turn counts against the tutor limits; refresh usage when it lands.
     return base(ENDPOINT, {
       method: "POST",
       data: {
@@ -219,7 +223,7 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
         history: next.history,
         avoid: action === "start" ? usedBefore() : [],
       },
-    })
+    }).finally(() => aiUsage.refresh())
   }
 
   function usedBefore() {
@@ -543,15 +547,18 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
               variant="feather"
               size="sm"
               className="rb-btn-icon shrink-0"
-              disabled={Boolean(busy) || !draft.trim()}
+              disabled={Boolean(busy) || !draft.trim() || tutorExhausted}
               aria-label="Send answer"
             >
               {busy === "reply" ? <Loader2 className="size-4 animate-spin" /> : <SendHorizontal className="size-4" />}
             </TactileButton>
           </div>
-          <p className="mt-1.5 text-center text-[10px] font-medium text-rb-hare">
-            The dialogue is powered by AI — check for mistakes and don't share personal information.
-          </p>
+          <div className="mt-1.5 flex items-center gap-2">
+            <p className="flex-1 text-center text-[10px] font-medium text-rb-hare">
+              The dialogue is powered by AI — check for mistakes and don't share personal information.
+            </p>
+            <AiUsageRing bucketKey="tutor" />
+          </div>
         </form>
       ) : null}
     </div>

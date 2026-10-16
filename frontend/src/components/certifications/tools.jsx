@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { ImagePlus, Plus, Trash2, Video as VideoIcon } from "@/components/icons"
 import { useDropzone } from "react-dropzone"
 
@@ -184,13 +184,24 @@ function InlineField({ value, onChange, placeholder, className = "" }) {
 }
 
 function TextAreaField({ value, onChange, placeholder, rows = 4, className = "" }) {
+    const textAreaRef = useRef(null)
+
+    // Grow with the text like a document instead of scrolling inside a box.
+    useLayoutEffect(() => {
+        const element = textAreaRef.current
+        if (!element) return
+        element.style.height = "auto"
+        element.style.height = `${element.scrollHeight}px`
+    }, [value])
+
     return (
         <textarea
+            ref={textAreaRef}
             value={value ?? ""}
             onChange={(event) => onChange(event.target.value)}
             placeholder={placeholder}
-            rows={rows}
-            className={`w-full resize-none rounded-lg bg-muted/40 p-4 text-sm leading-6 text-foreground outline-none transition placeholder:text-muted-foreground/50 focus:bg-muted/60 focus:ring-2 focus:ring-ring/25 ${className}`}
+            rows={Math.min(rows, 2)}
+            className={`w-full resize-none overflow-hidden rounded-lg bg-transparent px-3 py-2 text-[15px] leading-7 text-foreground outline-none transition placeholder:text-muted-foreground/50 hover:bg-muted/30 focus:bg-muted/40 focus:ring-2 focus:ring-ring/25 ${className}`}
         />
     )
 }
@@ -312,7 +323,7 @@ function VideoUploadArea({ data, onDataChange, title = "Upload a video" }) {
 
 export function HeadingTool({ data, onDataChange, onDelete }) {
     return (
-        <div className="relative rounded-lg px-1 py-2 transition hover:bg-muted/40">
+        <div className="group/tool relative rounded-lg px-1 py-2 transition hover:bg-muted/40">
             <FloatingDeleteButton onClick={onDelete} />
 
             <InlineField
@@ -327,7 +338,7 @@ export function HeadingTool({ data, onDataChange, onDelete }) {
 
 export function SubheadingTool({ data, onDataChange, onDelete }) {
     return (
-        <div className="relative rounded-lg px-1 py-2 transition hover:bg-muted/40">
+        <div className="group/tool relative rounded-lg px-1 py-2 transition hover:bg-muted/40">
             <FloatingDeleteButton onClick={onDelete} />
 
             <InlineField
@@ -342,7 +353,7 @@ export function SubheadingTool({ data, onDataChange, onDelete }) {
 
 export function DescriptionTool({ data, onDataChange, onDelete }) {
     return (
-        <div className="relative">
+        <div className="group/tool relative">
             <FloatingDeleteButton onClick={onDelete} />
 
             <TextAreaField

@@ -1,5 +1,6 @@
 package com.capstone.rebyu.certification.controller;
 
+import com.capstone.rebyu.aigateway.client.AiServiceClient;
 import com.capstone.rebyu.auth.dto.CurrentUserDto;
 import com.capstone.rebyu.auth.service.CognitoAuthService;
 import com.capstone.rebyu.certification.dto.LessonComponentResponseDto;
@@ -21,6 +22,7 @@ public class LessonController {
 
     private final LessonService lessonService;
     private final CognitoAuthService auth;
+    private final AiServiceClient aiServiceClient;
 
     @GetMapping
     public List<LessonDto> getAll() {
@@ -76,6 +78,8 @@ public class LessonController {
         CurrentUserDto user = requireAdminOrInstitution(jwt);
         boolean isAdmin = isAdmin(user);
         lessonService.saveLessonComponent(id, lessonDto, isAdmin, user.institutionId(), user.userId(), isOwner(user));
+        // After the save's transaction has committed, so Python reads the new content.
+        aiServiceClient.indexLessonAsync(id);
     }
 
     @GetMapping("/lesson/{id}")

@@ -26,10 +26,18 @@ public final class Entitlements {
     public static final String COMMUNITY_FULL_ACCESS = "COMMUNITY_FULL_ACCESS";
     public static final String MISTAKE_BANK = "MISTAKE_BANK";
     public static final String WORLD_CUP_ACCESS = "WORLD_CUP_ACCESS";
+    /** Flashcard and quiz generations (study aids). */
     public static final String AI_TUTOR_DAILY_GENERATIONS = "AI_TUTOR_DAILY_GENERATIONS";
+    public static final String AI_TUTOR_WEEKLY_GENERATIONS = "AI_TUTOR_WEEKLY_GENERATIONS";
+    /** Tutor chat and guided-dialogue messages. */
+    public static final String AI_TUTOR_DAILY_MESSAGES = "AI_TUTOR_DAILY_MESSAGES";
+    public static final String AI_TUTOR_WEEKLY_MESSAGES = "AI_TUTOR_WEEKLY_MESSAGES";
 
     public static final int FREE_ARENA_PROBLEM_LIMIT = 5;
     public static final int DEFAULT_DAILY_AI_GENERATIONS = 10;
+    public static final int DEFAULT_WEEKLY_AI_GENERATIONS = 40;
+    public static final int DEFAULT_DAILY_TUTOR_MESSAGES = 50;
+    public static final int DEFAULT_WEEKLY_TUTOR_MESSAGES = 250;
 
     public static final String GROUP_MANAGEMENT = "GROUP_MANAGEMENT";
     public static final String AUTHORITY_MANAGEMENT = "AUTHORITY_MANAGEMENT";

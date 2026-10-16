@@ -54,6 +54,9 @@ public class IndividualPlanSeeder {
             PRO_FEATURES.put(code, null);
         }
         PRO_FEATURES.put(Entitlements.AI_TUTOR_DAILY_GENERATIONS, Entitlements.DEFAULT_DAILY_AI_GENERATIONS);
+        PRO_FEATURES.put(Entitlements.AI_TUTOR_WEEKLY_GENERATIONS, Entitlements.DEFAULT_WEEKLY_AI_GENERATIONS);
+        PRO_FEATURES.put(Entitlements.AI_TUTOR_DAILY_MESSAGES, Entitlements.DEFAULT_DAILY_TUTOR_MESSAGES);
+        PRO_FEATURES.put(Entitlements.AI_TUTOR_WEEKLY_MESSAGES, Entitlements.DEFAULT_WEEKLY_TUTOR_MESSAGES);
     }
 
     private final SubscriptionPlanRepository plans;
