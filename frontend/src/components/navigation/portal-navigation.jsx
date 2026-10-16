@@ -23,7 +23,6 @@ import {
   UsersRound,
   X,
   ListChecks,
-  Play,
   Trophy,
 } from "@/components/icons"
 
@@ -97,7 +96,6 @@ const adminGroups = [
       { label: "Reference lists", href: "/admin/reference-lists", icon: ListChecks },
       { label: "Pricing & plans", href: "/admin/pricing", icon: CreditCard },
       { label: "Rewards & XP", href: "/admin/rewards", icon: Trophy },
-      { label: "Seed challenges", href: "/admin/seed-challenges", icon: Play },
       { label: "AI settings", href: "/admin/ai-settings", icon: Bot },
     ],
   },

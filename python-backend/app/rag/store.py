@@ -287,6 +287,26 @@ def add_documents(
     return len(documents)
 
 
+def replace_source(namespace: str, source_file: str, documents: list[Document]) -> int:
+    """Swaps every chunk of one source for `documents`. Used for lessons,
+    which are re-saved many times: plain `add_documents` would pile up a new
+    copy of the lesson on every save."""
+    if _collection_exists(namespace):
+        get_client().delete(
+            collection_name=namespace,
+            points_selector=qdrant_models.FilterSelector(
+                filter=qdrant_models.Filter(must=[
+                    qdrant_models.FieldCondition(
+                        key=f"{METADATA_KEY}.source_file",
+                        match=qdrant_models.MatchValue(value=source_file),
+                    )
+                ])
+            ),
+            wait=True,
+        )
+    return add_documents(namespace, documents)
+
+
 def delete_index(namespace: str) -> bool:
     """Removes a certification's collection. Used when regenerating from
     scratch, so stale chunks cannot leak into the new run."""

@@ -37,6 +37,23 @@ public class AiServiceClient {
         this.webClient = aiWebClient;
     }
 
+    /**
+     * Re-embeds a saved lesson into its certification's vector collection.
+     * Fire-and-forget: indexing is best effort and must never fail or slow
+     * down the save that triggered it.
+     */
+    public void indexLessonAsync(Long lessonId) {
+        webClient.post()
+                .uri("/lessons/{id}/index", lessonId)
+                .retrieve()
+                .toBodilessEntity()
+                .timeout(Duration.ofMinutes(2))
+                .subscribe(
+                        ok -> log.debug("Indexed lesson {} for retrieval", lessonId),
+                        error -> log.warn("Could not index lesson {} for retrieval: {}", lessonId, error.getMessage())
+                );
+    }
+
     public ChatResponse chat(ChatRequest request) {
         try {
             return webClient.post()
