@@ -95,17 +95,20 @@ export function AiUsageBars({ bucketKey, showLabel = true, className = "" }) {
   )
 }
 
-/** Every limited AI feature's bars; for the account and subscription pages. */
+/** The learner's AI usage, everywhere it is shown (account, subscription,
+ *  tutor menu): one meter, because every AI task -- tutor chat, guided
+ *  dialogue, and the quizzes, flashcards and mind maps the tutor makes -- is a
+ *  tutor message. */
 export function AiUsageSummary({ className = "" }) {
-  const { buckets } = useAiUsage()
-  if (buckets.length === 0) return null
+  const { bucket } = useAiUsage()
+  if (!bucket("tutor")) return null
   return (
-    <div className={`grid gap-4 sm:grid-cols-2 ${className}`}>
-      {buckets.map((bucket) => (
-        <div key={bucket.key} className="rounded-md border bg-muted/20 p-4">
-          <AiUsageBars bucketKey={bucket.key} />
-        </div>
-      ))}
+    <div className={`rounded-md border bg-muted/20 p-4 ${className}`}>
+      <p className="text-sm font-semibold text-foreground">AI usage</p>
+      <p className="mb-3 text-xs text-muted-foreground">
+        Tutor chat, guided dialogue, and the quizzes, flashcards and mind maps the tutor makes.
+      </p>
+      <AiUsageBars bucketKey="tutor" showLabel={false} />
     </div>
   )
 }

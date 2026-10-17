@@ -51,8 +51,17 @@ public class RedisResponseCacheFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
-        if (!enabled || shouldSkip(request)) {
+        if (!enabled) {
             filterChain.doFilter(request, response);
+            return;
+        }
+        if (shouldSkip(request)) {
+            // A streamed write still changes data -- the tutor stream records usage and
+            // saves Library items -- so cached reads must not outlive it.
+            boolean write = isWrite(request);
+            if (write) invalidate();
+            filterChain.doFilter(request, response);
+            if (write) invalidate();
             return;
         }
 
