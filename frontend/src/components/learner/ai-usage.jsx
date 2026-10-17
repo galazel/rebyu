@@ -134,8 +134,8 @@ export function AiUsageRing({ bucketKey, size = 22, className = "" }) {
         <button
           type="button"
           className={`inline-grid shrink-0 place-items-center rounded-full transition hover:bg-muted ${className}`}
-          aria-label={`${current.label}: ${Math.round(value * 100)}% of limit used`}
-          title={`${current.label}: ${Math.round(value * 100)}% used`}
+          aria-label={`AI usage: ${Math.round(value * 100)}% of limit used`}
+          title={`AI usage: ${Math.round(value * 100)}% used`}
         >
           <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
             <circle
@@ -163,9 +163,54 @@ export function AiUsageRing({ bucketKey, size = 22, className = "" }) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" side="top" className="w-72 p-4">
-        <p className="mb-3 text-sm font-semibold">Usage · {current.label}</p>
+        <p className="mb-3 text-sm font-semibold">AI usage</p>
         <AiUsageBars bucketKey={bucketKey} showLabel={false} />
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+/** The window that blocks or warns first: the one that is fullest, daily before weekly on a tie. */
+function tightestWindow(bucket) {
+  if (!bucket) return null
+  const daily = { ...bucket.daily, weekly: false, period: "today" }
+  const weekly = { ...bucket.weekly, weekly: true, period: "this week" }
+  return ratio(weekly) > ratio(daily) ? weekly : daily
+}
+
+/**
+ * Says so in the conversation when the learner's AI limit is reached (and warns
+ * when it is nearly reached), with when it resets -- instead of a send button
+ * that just stops working. Used by the tutor chat, the guided dialogue and any
+ * other AI surface; renders nothing below 80% use.
+ */
+export function AiLimitNotice({ bucketKey = "tutor", className = "" }) {
+  const { bucket } = useAiUsage()
+  const window = tightestWindow(bucket(bucketKey))
+  if (!window || !window.limit) return null
+  const value = ratio(window)
+  if (value < 0.8) return null
+  const left = Math.max(0, window.limit - window.used)
+  const reset = resetLabel(window.resetsAt, window.weekly).replace(/^Resets/, "It resets")
+  const reached = value >= 1
+  return (
+    <div
+      role={reached ? "alert" : "status"}
+      className={`rounded-xl border-2 px-3 py-2 text-sm leading-snug ${
+        reached ? "border-rb-cardinal/40 bg-rb-cardinal-wash text-rb-cardinal-lip" : "border-amber-300 bg-amber-50 text-amber-900"
+      } ${className}`}
+    >
+      <p className="font-extrabold">
+        {reached
+          ? `You've reached your AI limit for ${window.period}.`
+          : `${left} AI ${left === 1 ? "message" : "messages"} left ${window.period}.`}
+      </p>
+      <p className="mt-0.5 text-xs font-semibold opacity-90">
+        {reached
+          ? `${reset}. The tutor chat, guided dialogue and the quizzes, flashcards and mind maps it makes all count toward it.`
+          : `${reset}.`}{" "}
+        <a href="/learner/account" className="underline underline-offset-2">See usage</a>
+      </p>
+    </div>
   )
 }

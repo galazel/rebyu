@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { AiUsageRing, isBucketExhausted, useAiUsage } from "@/components/learner/ai-usage.jsx"
+import { AiLimitNotice, AiUsageRing, isBucketExhausted, useAiUsage } from "@/components/learner/ai-usage.jsx"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import ReactMarkdown from "react-markdown"
 import { toast } from "sonner"
@@ -468,7 +468,8 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
               It takes about 10 minutes. Stuck? Just type <strong>hint</strong>.
             </p>
             <RubricGuide />
-            <TactileButton variant="feather" onClick={start} disabled={busy === "start"}>
+            <AiLimitNotice />
+            <TactileButton variant="feather" onClick={start} disabled={busy === "start" || tutorExhausted}>
               {busy === "start" ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
               {pastSessions.length ? "start a new dialogue" : "start dialogue"}
             </TactileButton>
@@ -534,7 +535,7 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
                             <button
                               key={optionIndex}
                               type="button"
-                              disabled={!isLatest || Boolean(busy) || Boolean(viewing) || live.complete}
+                              disabled={!isLatest || Boolean(busy) || Boolean(viewing) || live.complete || tutorExhausted}
                               onClick={() => send(`${letter}) ${option}`)}
                               className={`flex items-start gap-2 rounded-[0.8rem] border-2 px-3 py-2 text-left text-sm transition-colors ${
                                 chosen
@@ -617,6 +618,7 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
           }}
           className="shrink-0 border-t-2 border-rb-swan bg-rb-polar/60 p-3"
         >
+          <AiLimitNotice className="mb-2" />
           <div className="flex items-end gap-1.5 rounded-2xl border-2 border-rb-swan bg-rb-snow p-1.5 shadow-[var(--comic-shadow-sm)] focus-within:border-rb-feather/60">
             <textarea
               value={draft}
@@ -627,18 +629,18 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
                   send(draft)
                 }
               }}
-              placeholder={FORMAT_PLACEHOLDER[lastFormat] ?? "Type your answer…"}
-              disabled={Boolean(busy)}
+              placeholder={tutorExhausted ? "AI limit reached -- see when it resets above" : FORMAT_PLACEHOLDER[lastFormat] ?? "Type your answer…"}
+              disabled={Boolean(busy) || tutorExhausted}
               rows={1}
               className="field-sizing-content max-h-32 min-h-9 flex-1 resize-none self-center appearance-none border-0 bg-transparent px-2 py-2 text-sm font-medium leading-snug text-rb-eel shadow-none outline-none placeholder:text-rb-hare focus:outline-none focus:ring-0"
             />
-            <MicButton value={draft} onChange={setDraft} disabled={Boolean(busy)} />
+            <MicButton value={draft} onChange={setDraft} disabled={Boolean(busy) || tutorExhausted} />
             <TactileButton
               type="button"
               variant="ghost"
               size="sm"
               className="shrink-0 !h-8 !rounded-full !px-3 text-xs"
-              disabled={Boolean(busy)}
+              disabled={Boolean(busy) || tutorExhausted}
               onClick={() => send("I'm stuck — can I have a hint?")}
             >
               hint

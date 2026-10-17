@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { AiUsageBars, AiUsageRing, isBucketExhausted, useAiUsage } from "@/components/learner/ai-usage.jsx"
+import { AiLimitNotice, AiUsageBars, AiUsageRing, isBucketExhausted, useAiUsage } from "@/components/learner/ai-usage.jsx"
 import { createPortal } from "react-dom"
 import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"
@@ -1187,6 +1187,7 @@ export function LessonAiTutor({
             onSubmit={handleSubmit}
             className="shrink-0 border-t-2 border-rb-swan bg-rb-polar/60 p-3"
         >
+          <AiLimitNotice className="mb-2" />
           {attachment ? (
               <div className="mb-2 flex items-start gap-2 rounded-xl border-2 border-rb-swan bg-rb-snow p-2">
                 {attachment.image ? (
@@ -1270,8 +1271,9 @@ export function LessonAiTutor({
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={attachment ? "Ask about this, or just send" : "Ask anything about this lesson…"}
-                disabled={pending || Boolean(generating)}
+                placeholder={tutorExhausted ? "AI limit reached -- see when it resets above"
+                    : attachment ? "Ask about this, or just send" : "Ask anything about this lesson…"}
+                disabled={pending || Boolean(generating) || tutorExhausted}
                 rows={1}
                 className="field-sizing-content max-h-32 min-h-9 flex-1 resize-none self-center appearance-none border-0 bg-transparent px-1 py-2 text-sm font-medium leading-snug text-rb-eel shadow-none outline-none ring-0 placeholder:text-rb-hare focus:outline-none focus:ring-0 disabled:opacity-60"
             />
