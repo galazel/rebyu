@@ -35,10 +35,6 @@ import { apiMessage } from "@/services/base"
 import { certificationBadgeUrl } from "@/services/certificationService.js"
 import { achievementBadge } from "@/lib/achievements.js"
 import {
-  getMyRewardBalance,
-  getMyRewardLedger,
-} from "@/services/gamificationService.js"
-import {
   NOTIFICATION_PREFERENCE_KEY,
   getMyNotificationPreferences,
   updateMyNotificationPreferences,
@@ -61,19 +57,6 @@ const DEFAULT_PREFERENCES = {
   streakReminder: true,
   socialNotifications: true,
   achievementNotifications: true,
-}
-
-function ledgerLabel(reason) {
-  switch (reason) {
-    case "PRO_MONTHLY_GRANT":
-      return "Monthly Pro credits"
-    case "COIN_TO_AI_CONVERSION":
-      return "Converted from coins"
-    case "AI_GENERATION":
-      return "AI generation"
-    default:
-      return String(reason ?? "Activity").replaceAll("_", " ").toLowerCase()
-  }
 }
 
 function useOnline() {
@@ -248,18 +231,6 @@ export default function LearnerAccountPage() {
     username: learner?.username ?? "",
     email: user?.email ?? "",
     phoneNumber: user?.phoneNumber ?? "",
-  })
-
-  const balanceQuery = useQuery({
-    queryKey: ["learner-reward-balance"],
-    queryFn: getMyRewardBalance,
-    staleTime: 30_000,
-  })
-
-  const ledgerQuery = useQuery({
-    queryKey: ["learner-reward-ledger"],
-    queryFn: getMyRewardLedger,
-    staleTime: 30_000,
   })
 
   const preferencesQuery = useQuery({
@@ -502,39 +473,16 @@ export default function LearnerAccountPage() {
     }
 
     if (activeTab === "ai") {
-      const balance = balanceQuery.data
-      const ledger = Array.isArray(ledgerQuery.data) ? ledgerQuery.data : []
-      const creditEntries = ledger.filter((entry) => entry.currency === "AI_CREDITS")
-      const spent = creditEntries
-          .filter((entry) => entry.amount < 0)
-          .reduce((total, entry) => total + Math.abs(entry.amount), 0)
-
       return (
         <div className="space-y-4">
           <section className="overflow-hidden rounded-md border bg-card shadow-sm">
-            <SectionHeader title="AI access" description="What your account can do, and what it has left to do it with." />
-            <div className="grid gap-4 p-5 sm:grid-cols-3 sm:p-6">
+            <SectionHeader title="AI access" description="What your plan includes and how much AI you have used." />
+            <div className="grid gap-4 p-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:p-6">
               <div className="rounded-md border bg-muted/20 p-4">
                 <Sparkles className="size-5 text-primary" />
                 <p className="mt-3 text-xs text-muted-foreground">Access source</p>
                 <p className="mt-1 font-semibold">{entitlements.accessSource.replaceAll("_", " ")}</p>
               </div>
-              <div className="rounded-md border bg-muted/20 p-4">
-                <Bot className="size-5 text-primary" />
-                <p className="mt-3 text-xs text-muted-foreground">AI credits remaining</p>
-                <p className="mt-1 font-semibold tabular-nums">
-                  {balanceQuery.isLoading ? "..." : Number(balance?.aiCredits ?? 0).toLocaleString()}
-                </p>
-              </div>
-              <div className="rounded-md border bg-muted/20 p-4">
-                <CheckCircle2 className="size-5 text-primary" />
-                <p className="mt-3 text-xs text-muted-foreground">Credits spent recently</p>
-                <p className="mt-1 font-semibold tabular-nums">
-                  {ledgerQuery.isLoading ? "..." : spent.toLocaleString()}
-                </p>
-              </div>
-            </div>
-            <div className="px-5 pb-5 sm:px-6 sm:pb-6">
               {entitlements.aiGenerationDailyLimit > 0 ? (
                 <AiUsageSummary />
               ) : (
@@ -543,41 +491,6 @@ export default function LearnerAccountPage() {
                 </p>
               )}
             </div>
-          </section>
-
-          <section className="overflow-hidden rounded-md border bg-card shadow-sm">
-            <SectionHeader title="Recent credit activity" description="Credits granted to this account and spent on AI generations." />
-            {creditEntries.length ? (
-              <ul className="divide-y">
-                {creditEntries.map((entry, index) => (
-                  <li
-                      key={`${entry.createdAt}-${index}`}
-                      className="flex items-center justify-between gap-4 px-5 py-3 sm:px-6"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">{ledgerLabel(entry.reason)}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : ""}
-                      </p>
-                    </div>
-                    <span
-                        className={`text-sm font-semibold tabular-nums ${
-                            entry.amount < 0 ? "text-muted-foreground" : "text-primary"
-                        }`}
-                    >
-                      {entry.amount > 0 ? "+" : ""}
-                      {entry.amount}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="p-5 text-sm text-muted-foreground sm:p-6">
-                {ledgerQuery.isLoading
-                    ? "Loading your credit activity..."
-                    : "No AI credit activity yet."}
-              </p>
-            )}
           </section>
 
           <section className="overflow-hidden rounded-md border bg-card shadow-sm">
