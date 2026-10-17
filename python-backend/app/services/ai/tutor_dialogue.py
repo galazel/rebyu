@@ -486,14 +486,25 @@ async def run_dialogue(request: DialogueRequest, lesson_structure: Any) -> Dialo
     topics = plan.topics
 
     if request.action == "start":
+        # A warm-up, not a test: welcome the learner, then one easy question from their
+        # own experience that leads INTO the lesson. It is not scored by the rubric;
+        # the formal questions start with the next turn.
         angle = random.choice([
-            "a real situation they have seen", "a mistake they or someone made", "a future job they imagine",
-            "a tool or app they use daily", "a group project at school", "something they would explain to a friend",
+            "an everyday moment where this lesson's idea quietly shows up",
+            "a time they had to guess, estimate or choose something this lesson helps with",
+            "what they already know or have heard about this topic",
+            "what they hope to be able to do after this lesson",
+            "where they think an engineer would use this",
         ])
         return await _ask(plan, 0, (
-            f"Open the Dialogue for the lesson '{request.lessonName}'. In `reply`, welcome the learner in one "
-            f"sentence and say you will walk through the whole lesson in {len(topics) - 1} parts. Then ask a "
-            f"personal opening question using this angle: {angle}.{_avoid_list(request, 30)}"
+            f"Open the Dialogue for the lesson '{request.lessonName}' with a WARM-UP. In `reply`: greet the "
+            f"learner warmly in one or two sentences, say you will walk through the lesson together in "
+            f"{len(topics) - 1} parts and that there is no wrong answer to this first question. Then ask "
+            f"EXACTLY ONE relaxed, conversational warm-up question from this angle: {angle}. It should be "
+            "easy to answer from everyday life and lead naturally into the lesson's topic -- not a quiz "
+            "question, and not about something the lesson has nothing to do with (their apps, hobbies or "
+            "school in general). Never ask two questions."
+            f"{_avoid_list(request, 30)}"
         ))
 
     answered = _learner_turns(request.history)
@@ -520,6 +531,17 @@ async def run_dialogue(request: DialogueRequest, lesson_structure: Any) -> Dialo
                 reply=_spaced(turn.reply), topics=topics,
                 topicIndex=len(topics) - 1, sessionComplete=True,
             )
+        if answered == 1:
+            # The warm-up answer is never graded or refused: thank them, link what they
+            # said to the lesson in one sentence, then start the formal questions.
+            asked = await _ask(plan, answered, (
+                f"Recent transcript:\n{recent}\n\nThe learner just answered the WARM-UP question. Reply "
+                "warmly in 1-2 sentences: thank them and connect what they said to the lesson (do not "
+                "grade it -- there was no wrong answer). Then say you are moving into the lesson, and in a "
+                f"new paragraph ask the first lesson question.{_avoid_list(request, 20)}"
+            ), request.history)
+            asked.counted = True
+            return asked
         asked = await _ask(plan, answered, (
             f"{_block('LESSON MATERIAL FOR THE PREVIOUS QUESTION', plan.material(answered - 1))}\n\n"
             f"Recent transcript:\n{recent}\n\n{_FEEDBACK_RULE} Then, in a new paragraph, ask the next "
@@ -533,7 +555,8 @@ async def run_dialogue(request: DialogueRequest, lesson_structure: Any) -> Dialo
         f"The Dialogue covered these parts of the lesson '{request.lessonName}': {'; '.join(topics[1:])}.\n\n"
         f"Transcript:\n{_transcript(request.history)}\n\n"
         f"RUBRIC:\n{rubric_text()}\n\n"
-        "Write the learner's session summary. Judge only what the learner actually said. Score EVERY "
+        "The learner's FIRST answer was a warm-up with no wrong answer: do not score, quote or criticise "
+        "it. Write the learner's session summary. Judge only what the learner actually said. Score EVERY "
         "rubric criterion by its descriptors -- 'I don't know', blank or off-topic replies are evidence "
         "of level 1, never of a higher level. Strengths must be specific to their answers and match the "
         "criteria they scored highest on; improvements must name lesson concepts they got wrong, missed "
