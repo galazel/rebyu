@@ -50,6 +50,7 @@ import { LessonKnowledgeCheck } from "@/components/learner/lesson-knowledge-chec
 import { useSkimChallenge } from "@/hooks/useSkimChallenge.js"
 import { useReadingPaceGuard } from "@/hooks/useReadingPaceGuard.js"
 import { Button } from "@/components/ui/button"
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { PriorityBookmark } from "@/components/learner/priority-tag.jsx"
 import { ASSESSMENT_MAX_XP, LESSON_COMPLETION_XP } from "@/lib/xp.js"
 import { announceRewards, prefetchRewards, snapshotRewards } from "@/components/learner/xp-award-modal.jsx"
@@ -103,25 +104,15 @@ function useIsXl() {
   return isXl
 }
 
-const TUTOR_WIDTH_KEY = "rebyu:tutor-width"
-const TUTOR_DEFAULT_WIDTH = 400
-const TUTOR_MIN_WIDTH = 340
-
-function tutorMaxWidth() {
-  return typeof window === "undefined" ? 900 : Math.max(TUTOR_MIN_WIDTH, Math.round(window.innerWidth * 0.6))
-}
-
-function clampTutorWidth(width) {
-  return Math.min(tutorMaxWidth(), Math.max(TUTOR_MIN_WIDTH, Math.round(width)))
-}
-
-function readTutorWidth() {
-  try {
-    const saved = Number(window.localStorage.getItem(TUTOR_WIDTH_KEY))
-    return Number.isFinite(saved) && saved > 0 ? clampTutorWidth(saved) : TUTOR_DEFAULT_WIDTH
-  } catch {
-    return TUTOR_DEFAULT_WIDTH
-  }
+// The tutor panel starts at this width on every visit; dragging the handle is not remembered.
+const TUTOR_DEFAULT_WIDTH = "400px"
+const TUTOR_MIN_WIDTH = "340px"
+const TUTOR_MAX_WIDTH = "60%"
+// The old drag handle saved the width here; nothing reads it any more.
+try {
+  window.localStorage.removeItem("rebyu:tutor-width")
+} catch {
+  /* storage unavailable */
 }
 
 function buildTrack(middle) {
@@ -1134,29 +1125,6 @@ export default function LearnerTopicPage() {
   const [activeId, setActiveId] = useState(null)
   const [outlineCollapsed, setOutlineCollapsed] = useState(false)
   const [tutorOpen, setTutorOpen] = useState(false)
-  const [tutorWidth, setTutorWidth] = useState(readTutorWidth)
-  const [tutorResizing, setTutorResizing] = useState(false)
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(TUTOR_WIDTH_KEY, String(tutorWidth))
-    } catch {
-      /* not remembered */
-    }
-  }, [tutorWidth])
-
-  const startTutorResize = useCallback((event) => {
-    event.preventDefault()
-    setTutorResizing(true)
-    const move = (moveEvent) => setTutorWidth(clampTutorWidth(window.innerWidth - moveEvent.clientX))
-    const stop = () => {
-      setTutorResizing(false)
-      window.removeEventListener("pointermove", move)
-      window.removeEventListener("pointerup", stop)
-    }
-    window.addEventListener("pointermove", move)
-    window.addEventListener("pointerup", stop)
-  }, [])
   const readingRef = useRef(null)
   const [snipping, setSnipping] = useState(false)
   const [tutorSnippet, setTutorSnippet] = useState(null)
@@ -1573,9 +1541,7 @@ export default function LearnerTopicPage() {
   const outlineColumn = outlineCollapsed ? "" : "340px "
   const gridStyle = isXl
     ? {
-        gridTemplateColumns: tutorVisible
-          ? `${outlineColumn}minmax(0,1fr) ${tutorWidth}px`
-          : `${outlineColumn}minmax(0,1fr)`,
+        gridTemplateColumns: `${outlineColumn}minmax(0,1fr)`,
       }
     : undefined
   const openOutline = () => (isXl ? setOutlineCollapsed(false) : setRailOpen(true))
@@ -1615,13 +1581,19 @@ export default function LearnerTopicPage() {
 
   return (
     <div className="rebyu-ds min-h-dvh w-full bg-rb-polar" style={{ "--rb-topbar-h": "72px" }}>
-      <div className={`grid min-h-dvh ${tutorResizing ? "select-none" : ""}`} style={gridStyle}>
+      <div className="grid min-h-dvh" style={gridStyle}>
         {outlineCollapsed ? null : (
           <aside className="hidden min-h-0 border-r-2 border-rb-swan xl:block">
             <div className="sticky top-0 h-dvh">{outline}</div>
           </aside>
         )}
 
+        <ResizablePanelGroup
+          orientation="horizontal"
+          className="min-w-0 !items-stretch"
+          style={{ height: "auto", overflow: "visible" }}
+        >
+        <ResizablePanel id="lesson" minSize="30%" style={{ overflow: "visible", maxHeight: "none" }}>
         <main ref={readingRef} className="min-w-0 bg-rb-snow">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -1701,33 +1673,26 @@ export default function LearnerTopicPage() {
           </AnimatePresence>
         </main>
 
+        </ResizablePanel>
         {tutorVisible && isXl ? (
-          <aside className="relative hidden min-h-0 border-l-2 border-rb-swan xl:block">
-            <div
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Resize AI tutor"
-              aria-valuenow={tutorWidth}
-              aria-valuemin={TUTOR_MIN_WIDTH}
-              aria-valuemax={tutorMaxWidth()}
-              tabIndex={0}
-              title="Drag to resize · double-click to reset"
-              onPointerDown={startTutorResize}
-              onDoubleClick={() => setTutorWidth(TUTOR_DEFAULT_WIDTH)}
-              onKeyDown={(event) => {
-                if (event.key === "ArrowLeft") setTutorWidth((w) => clampTutorWidth(w + 32))
-                if (event.key === "ArrowRight") setTutorWidth((w) => clampTutorWidth(w - 32))
-              }}
-              className="group absolute inset-y-0 -left-2 z-20 w-4 cursor-col-resize"
-            >
-              <span
-                className={`absolute inset-y-0 left-1/2 w-1 -translate-x-1/2 transition-colors ${
-                  tutorResizing ? "bg-rb-feather" : "bg-transparent group-hover:bg-rb-feather/50 group-focus-visible:bg-rb-feather/50"
-                }`}
-              />
-              <span className="absolute left-1/2 top-1/2 h-10 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rb-hare/70 group-hover:bg-rb-feather" />
-            </div>
+          <>
+          {/* The line is as tall as the lesson, so its own grip would sit far off-screen;
+              the visible grip is pinned beside the tutor instead (see below). */}
+          <ResizableHandle
+            aria-label="Resize AI tutor"
+            className="w-0.5 bg-rb-swan after:!w-3 hover:bg-rb-feather/60 data-[separator=active]:bg-rb-feather"
+          />
+          <ResizablePanel
+            id="tutor"
+            defaultSize={TUTOR_DEFAULT_WIDTH}
+            minSize={TUTOR_MIN_WIDTH}
+            maxSize={TUTOR_MAX_WIDTH}
+            style={{ overflow: "visible", maxHeight: "none" }}
+          >
+          <aside className="relative h-full min-h-0 w-full">
             <div className="sticky top-0 h-dvh overflow-hidden">
+              <span aria-hidden="true"
+                    className="pointer-events-none absolute left-0 top-1/2 z-20 h-10 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rb-hare/70" />
               <LessonAiTutor
                 lessonId={activeLessonId}
                 lessonName={active?.name}
@@ -1740,7 +1705,10 @@ export default function LearnerTopicPage() {
               />
             </div>
           </aside>
+          </ResizablePanel>
+          </>
         ) : null}
+        </ResizablePanelGroup>
       </div>
 
 
