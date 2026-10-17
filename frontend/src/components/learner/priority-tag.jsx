@@ -118,7 +118,7 @@ export function PriorityBookmark({ tag, masteryProbability, size = 16 }) {
       ? ` — ${Math.round(masteryProbability * 100)}% mastered`
       : ""
 
-  const label = ["mastered", "on track", "no data"].includes(config.short)
+  const label = ["mastered", "on track", "no data", "new"].includes(config.short)
     ? config.short
     : `${config.short} priority`
 

@@ -2,6 +2,7 @@ import { base } from "./base"
 
 export const getLibraryItems = () => base("learner-tools/library")
 export const addLibraryItem = (payload) => base("learner-tools/library", { method: "POST", data: payload })
+export const getTutorMindMap = (id) => base(`learner-tools/library/mind-maps/${id}`)
 export const deleteLibraryItem = (id) => base(`learner-tools/library/${id}`, { method: "DELETE" })
 export const getMistakes = () => base("learner-tools/mistakes")
 export const setMistakeReviewed = (questionId, reviewed = true) => base(`learner-tools/mistakes/${questionId}/reviewed`, { method: "PUT", data: { reviewed } })

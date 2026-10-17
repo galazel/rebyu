@@ -16,6 +16,7 @@ from app.graphs.tutor.lesson_context import load_lesson_context, load_source_mat
 from app.graphs.tutor.workflow import get_tutor_graph
 from app.services.ai.tutor_service import append_messages, get_conversation, list_conversations
 from app.graphs.tutor.nodes import with_quote
+from app.domain.tutor_learner_profile import learner_profile
 from app.services.ai.tutor_stream import snippet_of, stream_tutor_answer
 from app.repositories.java_backend import get_lesson
 from app.ai import tutor_guard
@@ -57,6 +58,7 @@ class ConversationMessage(BaseModel):
     action: dict | None = None
     resources: list[dict] | None = None
     snippet: dict | None = None
+    widgets: list[dict] | None = None
 
 
 class ConversationResponse(BaseModel):
@@ -202,6 +204,7 @@ async def chat_stream(payload: ChatRequest, db: Session = Depends(get_db)) -> St
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     lesson_context, source_material = await asyncio.to_thread(_lesson_grounding, db, payload)
+    profile = await asyncio.to_thread(learner_profile, db, payload.sessionId, payload.lessonId)
 
     async def events():
         yield ": stream open\n\n"
@@ -213,6 +216,7 @@ async def chat_stream(payload: ChatRequest, db: Session = Depends(get_db)) -> St
                 lesson_name=payload.lessonName,
                 lesson_context=lesson_context,
                 source_material=source_material,
+                learner_profile=profile,
                 quote=payload.quote,
                 image=payload.image,
                 image_key=payload.imageKey,

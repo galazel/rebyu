@@ -9,6 +9,7 @@ import {
   Trash2,
   Link,
   StickyNote,
+  Network,
 } from "@/components/icons"
 import { useNavigate } from "react-router-dom"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -41,7 +42,7 @@ const ALL_VALUE = "all"
 
 const LIBRARY_ITEMS_KEY = ["library-items"]
 
-const LIBRARY_KINDS = new Set(["quiz", "flashcard"])
+const LIBRARY_KINDS = new Set(["quiz", "flashcard", "mindmap"])
 
 const libraryTypeMeta = {
   quiz: {
@@ -55,6 +56,12 @@ const libraryTypeMeta = {
     icon: Layers3,
     badge:
         "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300",
+  },
+  mindmap: {
+    label: "Mind map",
+    icon: Network,
+    badge:
+        "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300",
   },
   link: {
     label: "Link",
@@ -159,7 +166,7 @@ export default function LearnerFilesPage() {
   }
 
   const counts = useMemo(() => {
-    const result = { quiz: 0, flashcard: 0 }
+    const result = { quiz: 0, flashcard: 0, mindmap: 0 }
     for (const item of items) {
       if (result[item.kind] != null) result[item.kind] += 1
     }
@@ -211,7 +218,7 @@ export default function LearnerFilesPage() {
 
   return (
       <div className="space-y-6">
-        <LearnerPageHeader title="Library" subtitle="Every quiz and flashcard deck the tutor has generated for you.">
+        <LearnerPageHeader title="Library" subtitle="Every quiz, flashcard deck and mind map the AI tutor has made for you.">
         </LearnerPageHeader>
 
         <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 pb-4">
@@ -219,6 +226,7 @@ export default function LearnerFilesPage() {
             { value: ALL_VALUE, label: `All (${items.length})` },
             { value: "quiz", label: `Quizzes (${counts.quiz})` },
             { value: "flashcard", label: `Flashcards (${counts.flashcard})` },
+            { value: "mindmap", label: `Mind maps (${counts.mindmap})` },
           ].map((tab) => (
               <Button
                   key={tab.value}
@@ -239,7 +247,7 @@ export default function LearnerFilesPage() {
             <Input
                 value={localSearch}
                 onChange={(event) => setLocalSearch(event.target.value)}
-                placeholder="Search your quizzes and flashcards"
+                placeholder="Search your quizzes, flashcards and mind maps"
                 className="pl-10"
             />
           </label>
@@ -354,7 +362,7 @@ export default function LearnerFilesPage() {
                               ) : (
                                   <BookOpenCheck className="mr-2 h-4 w-4" />
                               )}
-                              {item.kind === "quiz" ? "Open" : "Study"}
+                              {item.kind === "flashcard" ? "Study" : "Open"}
                             </Button>
 
                             {item.lessonId ? (

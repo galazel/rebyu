@@ -56,6 +56,7 @@ const LearnerAssessmentHistoryPage = lazyRoute(() => import("./pages/learner/ass
 const CommunityReviewerPage = lazyRoute(() => import("./pages/learner/community/community-reviewer-page.jsx"))
 const LearnerPracticeAttemptPage = lazyRoute(() => import("./pages/learner/practice/learner-practice-attempt-page.jsx"))
 const LearnerFlashcardAttemptPage = lazyRoute(() => import("./pages/learner/practice/learner-flashcard-attempt-page.jsx"))
+const LearnerMindMapPage = lazyRoute(() => import("./pages/learner/learner-mind-map-page.jsx"))
 const LearnerPracticeHistoryPage = lazyRoute(() => import("./pages/learner/practice/learner-practice-history-page.jsx"))
 const LearnerPracticeReviewPage = lazyRoute(() => import("./pages/learner/practice/learner-practice-review-page.jsx"))
 const InstitutionDashboardPage = lazyRoute(() => import("./pages/institution/dashboard/institution-dashboard-page.jsx"))
@@ -349,6 +350,7 @@ export function App() {
                 <Route path="/learner/community/reviewer/:postId" element={<CommunityReviewerPage />} />
                 <Route path="/learner/practice/:studySetId" element={<LearnerPracticeAttemptPage />} />
                 <Route path="/learner/flashcards/:studySetId" element={<LearnerFlashcardAttemptPage />} />
+                <Route path="/learner/mind-maps/:libraryItemId" element={<LearnerMindMapPage />} />
                 <Route path="/learner/practice-history" element={<LearnerPracticeHistoryPage />} />
                 <Route path="/learner/practice-review/:attemptId" element={<LearnerPracticeReviewPage />} />
                 <Route path="/learner/challenges/codestrike" element={<CodeStrikePage />} />
