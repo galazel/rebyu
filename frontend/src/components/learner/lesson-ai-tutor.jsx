@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { AiLimitNotice, AiUsageBars, AiUsageRing, isBucketExhausted, useAiUsage } from "@/components/learner/ai-usage.jsx"
+import { AiLimitNotice, AiUsageRing, isBucketExhausted, useAiUsage } from "@/components/learner/ai-usage.jsx"
 import { createPortal } from "react-dom"
 import { toast } from "sonner"
 import { useNavigate } from "react-router-dom"
@@ -39,7 +39,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -1246,24 +1245,16 @@ export function LessonAiTutor({
                       <Crop className="mr-2 size-4" />
                       <span className="flex-1">Snip part of the lesson</span>
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
+                    {hasConversation ? <DropdownMenuSeparator /> : null}
                   </>
                 ) : null}
                 {hasConversation ? (
-                  <>
-                    <DropdownMenuItem onSelect={() => setDialogueOpen(true)}>
-                      <MessageCircle className="mr-2 size-4" />
-                      <span className="flex-1">Guided dialogue</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
+                  <DropdownMenuItem onSelect={() => setDialogueOpen(true)}>
+                    <MessageCircle className="mr-2 size-4" />
+                    <span className="flex-1">Guided dialogue</span>
+                  </DropdownMenuItem>
                 ) : null}
-                <DropdownMenuLabel className="font-normal">
-                  {/* Every AI task here -- chat, guided dialogue, and the quizzes,
-                      flashcards and mind maps the tutor makes -- is a tutor message. */}
-                  <span className="mb-2 block text-sm font-bold text-rb-eel">AI usage</span>
-                  <AiUsageBars bucketKey="tutor" showLabel={false} />
-                </DropdownMenuLabel>
+                {/* AI usage lives on the ring beside the send button, not here too. */}
               </DropdownMenuContent>
             </DropdownMenu>
             <textarea

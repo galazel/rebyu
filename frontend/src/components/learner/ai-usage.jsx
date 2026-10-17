@@ -121,6 +121,8 @@ export function AiUsageSummary({ className = "" }) {
  */
 export function AiUsageRing({ bucketKey, size = 22, className = "" }) {
   const { bucket } = useAiUsage()
+  const [details, setDetails] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const current = bucket(bucketKey)
   if (!current) return null
 
@@ -131,7 +133,8 @@ export function AiUsageRing({ bucketKey, size = 22, className = "" }) {
   const color = value >= 1 ? "text-destructive" : value >= 0.8 ? "text-amber-500" : "text-primary"
 
   return (
-    <DropdownMenu>
+    <>
+    <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
@@ -167,8 +170,14 @@ export function AiUsageRing({ bucketKey, size = 22, className = "" }) {
       <DropdownMenuContent align="end" side="top" className="w-72 p-4">
         <p className="mb-3 text-sm font-semibold">AI usage</p>
         <AiUsageBars bucketKey={bucketKey} showLabel={false} />
+        <button type="button" onClick={() => { setMenuOpen(false); setDetails(true) }}
+                className="mt-3 w-full rounded-md border px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted">
+          See usage breakdown
+        </button>
       </DropdownMenuContent>
     </DropdownMenu>
+    <UsageDialog open={details} onOpenChange={setDetails} />
+    </>
   )
 }
 
@@ -318,7 +327,15 @@ function UsageDialogLink() {
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className="underline underline-offset-2">See usage</button>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <UsageDialog open={open} onOpenChange={setOpen} />
+    </>
+  )
+}
+
+function UsageDialog({ open, onOpenChange }) {
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>AI usage</DialogTitle>
