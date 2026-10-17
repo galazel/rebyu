@@ -261,6 +261,42 @@ TOOL_RULES = """
     """
 
 
+# A message that plainly asks for one format gets that tool FORCED (tool_choice):
+# the fallback models often ignore the rules above and answer in prose. Order
+# matters -- the first match wins, most specific first. A message matching none
+# leaves the choice to the model.
+_REQUESTS = [
+    (r"\bmind ?maps?\b", "show_mindmap"),
+    (r"\bmatch(ing)?\b|\bpair (them|each|up)\b", "show_matching"),
+    (r"\b(in|into) (the right |correct )?order\b|\border (the|these)\b|\bsequence (the|these)\b", "show_ordering"),
+    (r"\bfill[- ]?in[- ]?(the[- ])?blanks?\b|\bblanks?\b", "show_fill_blank"),
+    (r"\b(true or false|true/false|myth or fact|myths?)\b", "show_true_false"),
+    (r"\bflash ?cards?\b|\bmemori[sz]e\b|\bhelp me (remember|recall)\b|\bdrill me\b", "show_flashcards"),
+    (r"\bwhat happens (to|if|when|as)\b|\bhow does .{2,60}\b(affect|change|grow|scale)\b|"
+     r"\bas (the|i|n|it) .{0,40}\b(increase|grow|get|change|double)", "show_explorer"),
+    (r"\b(diagram|draw|flowchart|visuali[sz]e)\b", "show_diagram"),
+    (r"\b(compare|comparison|difference between|differences|vs\.?|versus)\b", "show_table"),
+    (r"\b(real[- ]world|real[- ]life|everyday) examples?\b|\bexamples? of (where|when|how)\b|"
+     r"\bwhere (are|is) .{2,60} used\b", "show_cards"),
+    (r"\b(write|show) (me )?(the |some )?code\b|\bpseudo ?code\b|\b(python|java|sql|javascript) (code|function|program)\b",
+     "show_code"),
+    (r"\bformulas?\b|\bequations?\b|\bderive\b|\bderivation\b", "show_math"),
+    (r"\bhow (do|can|would) (i|you|we) (calculate|compute|solve|find|work out|convert)\b|"
+     r"\bstep[- ]by[- ]step\b|\bworked example\b|\bwalk me through\b", "show_steps"),
+    (r"\b(quiz|practice|practise|test) me\b|\bpractice (problems|questions)\b|\b(give|make|generate|create) (me )?(a )?quiz\b|"
+     r"\bquiz\b", "show_quiz"),
+]
+_COMPILED_REQUESTS = [(re.compile(pattern, re.IGNORECASE), tool) for pattern, tool in _REQUESTS]
+
+
+def requested_tool(message: str) -> str | None:
+    """The tool a learner's message plainly asks for, or None to let the model decide."""
+    for pattern, tool in _COMPILED_REQUESTS:
+        if pattern.search(message or ""):
+            return tool
+    return None
+
+
 def _text(value: Any, limit: int) -> str:
     return str(value or "").strip()[:limit]
 

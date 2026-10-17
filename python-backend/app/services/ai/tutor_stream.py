@@ -31,7 +31,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.agents.tutor.tutor_agent import STREAMING_SYSTEM_PROMPT
 from app.ai import tasks
 from app.ai.streaming import astream_with_fallback
-from app.ai.tutor_widgets import MAX_WIDGETS, TOOL_RULES, TOOLS, normalize
+from app.ai.tutor_widgets import MAX_WIDGETS, TOOL_RULES, TOOLS, normalize, requested_tool
 from app.domain.tutor_resources import asks_for_resources, find_resources
 from app.graphs.tutor.nodes import _earlier_turns, build_tutor_messages, with_quote
 from app.graphs.tutor.workflow import get_tutor_graph
@@ -240,8 +240,11 @@ async def stream_tutor_answer(
 
     try:
         try:
+            # A message that plainly asks for one format (examples, matching, a mind
+            # map...) gets that tool forced; the fallback models often skip it otherwise.
+            forced = None if image else requested_tool(request)
             async for piece in astream_with_fallback(
-                messages, task=tasks.TUTOR_VISION if image else tasks.TUTOR, tools=TOOLS
+                messages, task=tasks.TUTOR_VISION if image else tasks.TUTOR, tools=TOOLS, tool_choice=forced
             ):
                 if event := take(piece):
                     yield event
