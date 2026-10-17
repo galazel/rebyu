@@ -616,6 +616,7 @@ export default function LearnerLessonPage() {
     enabled: Boolean(data?.learnerId) && sections.length > 0,
   })
   useReadingPaceGuard({
+    resetKey: lessonId,
     enabled: Boolean(data?.learnerId) && sections.length > 0 && !knowledgeCheck.offer,
     onRush: () => knowledgeCheck.trigger(),
   })

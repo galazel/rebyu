@@ -11,9 +11,13 @@ const PASSIVE_SCREENS = 2
 
 const GESTURE_MS = 500
 
+// Opening a lesson moves the page by itself (back to the top, content and
+// images loading in); none of that is the learner skimming.
+const SETTLE_MS = 2500
+
 const SCROLL_KEYS = new Set(["PageDown", "ArrowDown", " ", "Spacebar", "End"])
 
-export function useReadingPaceGuard({ enabled, onRush }) {
+export function useReadingPaceGuard({ enabled, onRush, resetKey }) {
   const samples = useRef([])
   const lastGesture = useRef(0)
   const pausedUntil = useRef(0)
@@ -60,6 +64,16 @@ export function useReadingPaceGuard({ enabled, onRush }) {
   }, [enabled, measure])
 
   useEffect(() => {
+    // A new lesson (or the guard switching back on) starts clean: no gesture or
+    // scrollbar drag carried over from before, and a moment for the page to settle.
+    samples.current = []
+    lastY.current = null
+    lastGesture.current = 0
+    draggingBar.current = false
+    pausedUntil.current = performance.now() + SETTLE_MS
+  }, [enabled, resetKey])
+
+  useEffect(() => {
     if (!enabled) {
       samples.current = []
       return undefined
@@ -73,7 +87,8 @@ export function useReadingPaceGuard({ enabled, onRush }) {
     }
 
     const onMouseDown = (event) => {
-      if (event.clientX >= document.documentElement.clientWidth) {
+      const hasScrollbar = window.innerWidth > document.documentElement.clientWidth
+      if (hasScrollbar && event.clientX >= document.documentElement.clientWidth) {
         draggingBar.current = true
         gesture()
       }

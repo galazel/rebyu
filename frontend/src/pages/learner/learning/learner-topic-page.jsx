@@ -1373,6 +1373,7 @@ export default function LearnerTopicPage() {
 
   const lessonFinished = activeLessonId ? isDone(activeLessonId) : false
   const paceGuard = useReadingPaceGuard({
+    resetKey: activeLessonId,
     enabled:
       Boolean(activeLessonId) &&
       sections.length > 0 &&

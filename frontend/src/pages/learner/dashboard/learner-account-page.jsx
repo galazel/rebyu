@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
-import { AiUsageSummary } from "@/components/learner/ai-usage.jsx"
+import { AiUsageBreakdown, AiUsageSummary } from "@/components/learner/ai-usage.jsx"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useOutletContext } from "react-router-dom"
 import { toast } from "sonner"
@@ -492,6 +492,13 @@ export default function LearnerAccountPage() {
               )}
             </div>
           </section>
+
+          {entitlements.aiGenerationDailyLimit > 0 ? (
+            <section className="overflow-hidden rounded-md border bg-card shadow-sm">
+              <SectionHeader title="Usage breakdown" description="What your AI use went on: messages by type and the tools the tutor used." />
+              <AiUsageBreakdown className="p-5 sm:p-6" />
+            </section>
+          ) : null}
 
           <section className="overflow-hidden rounded-md border bg-card shadow-sm">
             <SectionHeader title="Included AI capabilities" description="Features reported by the current entitlement service." />

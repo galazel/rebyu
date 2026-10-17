@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -124,6 +125,42 @@ public class AiGenerationQuotaService {
         if (current.weekly().used() >= current.weekly().limit()) {
             throw new UsageLimitException(bucket, "this week", current.weekly().limit(), "on Monday");
         }
+    }
+
+    /** Prefix of the rows that note which tutor tool was used. They are not in any
+     *  bucket's kinds, so they show in the breakdown without counting toward a limit. */
+    public static final String TOOL_PREFIX = "tool:";
+
+    public void recordTool(Long learnerId, String widgetType) {
+        if (learnerId == null || widgetType == null || widgetType.isBlank()) return;
+        String kind = TOOL_PREFIX + widgetType;
+        record(learnerId, kind.length() > 20 ? kind.substring(0, 20) : kind);
+    }
+
+    public record Breakdown(Map<String, Long> today, Map<String, Long> week,
+                            List<Map<String, Object>> days) {}
+
+    /** What the learner's AI use was spent on, today and this week, plus the last 7 days. */
+    public Breakdown breakdown(Long learnerId) {
+        LocalDate today = today();
+        LocalDate from = weekStart().isBefore(today.minusDays(6)) ? weekStart() : today.minusDays(6);
+        List<AiGenerationUsage> rows = usage.findByLearnerIdAndUsageDateBetween(learnerId, from, today);
+        Map<String, Long> day = new java.util.TreeMap<>();
+        Map<String, Long> week = new java.util.TreeMap<>();
+        Map<LocalDate, Long> perDay = new java.util.TreeMap<>();
+        for (AiGenerationUsage row : rows) {
+            if (row.getUsageDate().equals(today)) day.merge(row.getKind(), 1L, Long::sum);
+            if (!row.getUsageDate().isBefore(weekStart())) week.merge(row.getKind(), 1L, Long::sum);
+            if (Bucket.TUTOR.kinds.contains(row.getKind()) && !row.getUsageDate().isBefore(today.minusDays(6))) {
+                perDay.merge(row.getUsageDate(), 1L, Long::sum);
+            }
+        }
+        List<Map<String, Object>> days = new java.util.ArrayList<>();
+        for (int i = 6; i >= 0; i--) {
+            LocalDate date = today.minusDays(i);
+            days.add(Map.of("date", date.toString(), "messages", perDay.getOrDefault(date, 0L)));
+        }
+        return new Breakdown(day, week, days);
     }
 
     @Transactional

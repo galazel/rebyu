@@ -14,3 +14,4 @@ export async function uploadLibraryFile(file) {
   return base("learner-tools/library/upload", { method: "POST", data: formData })
 }
 export const getAiUsage = () => base("learner-tools/ai-usage")
+export const getAiUsageBreakdown = () => base("learner-tools/ai-usage/breakdown")

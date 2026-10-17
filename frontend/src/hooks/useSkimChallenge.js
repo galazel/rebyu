@@ -3,7 +3,9 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { createKnowledgeCheck, getKnowledgeCheckKey } from "@/services/knowledgeCheckService.js"
 import { startAssessmentAttempt } from "@/services/assessmentService.js"
 
-const STRIKES_BEFORE_CHALLENGE = 1
+// Skims are counted silently; the challenge comes on the third lesson skimmed,
+// then the count starts over.
+const STRIKES_BEFORE_CHALLENGE = 2
 
 const strikesKey = (learnerId) => `rebyu:skim-strikes:${learnerId}`
 

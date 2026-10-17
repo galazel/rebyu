@@ -25,6 +25,7 @@ public class AiChatService {
 
     private final AiServiceClient aiServiceClient;
     private final TutorLibraryService tutorLibrary;
+    private final com.capstone.rebyu.billing.service.AiGenerationQuotaService generationQuota;
     private final ObjectMapper objectMapper;
 
     public ChatResponse chat(ChatRequest request) {
@@ -62,10 +63,10 @@ public class AiChatService {
         if (learnerId == null || !"widget".equals(event.event()) || event.data() == null) return event;
         try {
             ObjectNode payload = (ObjectNode) objectMapper.readTree(event.data());
-            if (!(payload.get("widget") instanceof ObjectNode widget)
-                    || !TutorLibraryService.isSaveable(widget.path("type").asText())) {
-                return event;
-            }
+            if (!(payload.get("widget") instanceof ObjectNode widget)) return event;
+            // Noted for the usage breakdown; not counted toward the limit.
+            generationQuota.recordTool(learnerId, widget.path("type").asText());
+            if (!TutorLibraryService.isSaveable(widget.path("type").asText())) return event;
             TutorLibraryService.Saved saved = tutorLibrary.save(learnerId, request.getLessonId(), request.getLessonName(), widget);
             if (saved == null) return event;
             widget.set("library", objectMapper.valueToTree(saved));

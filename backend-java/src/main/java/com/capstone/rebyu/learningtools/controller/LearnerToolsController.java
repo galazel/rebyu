@@ -39,13 +39,20 @@ public class LearnerToolsController {
 
     public record StudyAidRequest(String type, String lessonName, Long lessonId, String requestId) {}
 
-    /** Daily and weekly usage of each limited AI feature, with reset times. */
     /** A mind map the AI tutor drew and saved to the learner's Library. */
     @GetMapping("/library/mind-maps/{id}")
     public Map<String, Object> mindMap(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) throws Exception {
         return tutorLibrary.mindMap(me(jwt), id);
     }
 
+    /** What the learner's AI use went on: messages by type and tutor tools, today and this week. */
+    @GetMapping("/ai-usage/breakdown")
+    public com.capstone.rebyu.billing.service.AiGenerationQuotaService.Breakdown aiUsageBreakdown(
+            @AuthenticationPrincipal Jwt jwt) {
+        return generationQuota.breakdown(me(jwt));
+    }
+
+    /** Daily and weekly usage of each limited AI feature, with reset times. */
     @GetMapping("/ai-usage")
     public List<com.capstone.rebyu.billing.service.AiGenerationQuotaService.BucketUsage> aiUsage(
             @AuthenticationPrincipal Jwt jwt) {

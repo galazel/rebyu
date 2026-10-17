@@ -9,6 +9,8 @@ public interface AiGenerationUsageRepository extends JpaRepository<AiGenerationU
 
     long countByLearnerIdAndUsageDate(Long learnerId, LocalDate usageDate);
 
+    java.util.List<AiGenerationUsage> findByLearnerIdAndUsageDateBetween(Long learnerId, LocalDate from, LocalDate to);
+
     long countByLearnerIdAndKindInAndUsageDateBetween(
             Long learnerId, java.util.Collection<String> kinds, LocalDate from, LocalDate to);
 }

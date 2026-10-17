@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 
 import {
@@ -5,7 +6,8 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { getAiUsage } from "@/services/learnerToolsService.js"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { getAiUsage, getAiUsageBreakdown } from "@/services/learnerToolsService.js"
 
 export const AI_USAGE_QUERY_KEY = ["learner-ai-usage"]
 
@@ -209,8 +211,123 @@ export function AiLimitNotice({ bucketKey = "tutor", className = "" }) {
         {reached
           ? `${reset}. The tutor chat, guided dialogue and the quizzes, flashcards and mind maps it makes all count toward it.`
           : `${reset}.`}{" "}
-        <a href="/learner/account" className="underline underline-offset-2">See usage</a>
+        <UsageDialogLink />
       </p>
     </div>
+  )
+}
+
+const MESSAGE_KINDS = { "tutor-chat": "Tutor chat", "tutor-dialogue": "Guided dialogue" }
+const TOOL_LABELS = {
+  quiz: "Practice quiz", flashcards: "Flashcards", mindmap: "Mind map", table: "Comparison table",
+  cards: "Example cards", steps: "Worked example", matching: "Matching", ordering: "Put in order",
+  fill_blank: "Fill in the blank", true_false: "Myth or fact", code: "Code", math: "Math",
+  diagram: "Diagram", explorer: "Explorer",
+}
+
+function Rows({ title, rows, total, empty }) {
+  return (
+    <div>
+      <p className="mb-1.5 flex items-baseline justify-between text-xs font-extrabold uppercase tracking-wide text-muted-foreground">
+        {title} {total != null ? <span className="tabular-nums">{total}</span> : null}
+      </p>
+      {rows.length ? (
+        <ul className="space-y-1.5">
+          {rows.map(([label, count, max]) => (
+            <li key={label} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 text-sm">
+              <span className="truncate text-foreground">{label}</span>
+              <span className="tabular-nums text-muted-foreground">{count}</span>
+              <span className="col-span-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                <span className="block h-full rounded-full bg-primary" style={{ width: `${max ? (count / max) * 100 : 0}%` }} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted-foreground">{empty}</p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * What the learner's AI use went on, like a usage breakdown: messages by type,
+ * the tutor tools those messages produced, and messages per day for a week.
+ * Tools are noted for information only -- only messages count toward the limit.
+ */
+export function AiUsageBreakdown({ className = "" }) {
+  const [range, setRange] = useState("today")
+  const query = useQuery({ queryKey: [...AI_USAGE_QUERY_KEY, "breakdown"], queryFn: getAiUsageBreakdown, staleTime: 15_000 })
+  const data = query.data?.data ?? query.data
+  if (query.isLoading) return <div className={`h-40 animate-pulse rounded-md bg-muted ${className}`} />
+  if (!data) return null
+
+  const counts = data[range] ?? {}
+  const messages = Object.entries(MESSAGE_KINDS).map(([kind, label]) => [label, counts[kind] ?? 0])
+  const messageTotal = messages.reduce((sum, [, count]) => sum + count, 0)
+  const tools = Object.entries(counts)
+    .filter(([kind]) => kind.startsWith("tool:"))
+    .map(([kind, count]) => [TOOL_LABELS[kind.slice(5)] ?? kind.slice(5), count])
+    .sort((a, b) => b[1] - a[1])
+  const toolMax = Math.max(0, ...tools.map(([, c]) => c))
+  const days = data.days ?? []
+  const dayMax = Math.max(1, ...days.map((d) => d.messages))
+
+  return (
+    <div className={`space-y-5 ${className}`}>
+      <div className="inline-flex rounded-lg bg-muted p-0.5 text-xs font-semibold">
+        {[["today", "Today"], ["week", "This week"]].map(([value, label]) => (
+          <button key={value} type="button" onClick={() => setRange(value)}
+                  className={`rounded-md px-3 py-1 ${range === value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <Rows title="Messages" total={messageTotal}
+            rows={messages.map(([label, count]) => [label, count, Math.max(1, messageTotal)])}
+            empty="No AI messages yet." />
+
+      <Rows title="Tools the tutor used" rows={tools.map(([label, count]) => [label, count, toolMax])}
+            empty="The tutor has not drawn any quizzes, mind maps or other tools yet." />
+
+      {days.length ? (
+        <div>
+          <p className="mb-1.5 text-xs font-extrabold uppercase tracking-wide text-muted-foreground">Last 7 days</p>
+          <div className="flex h-24 items-end gap-1.5" role="img"
+               aria-label={days.map((d) => `${d.date}: ${d.messages} messages`).join(", ")}>
+            {days.map((d) => (
+              <div key={d.date} className="flex flex-1 flex-col items-center gap-1">
+                <span className="text-[10px] tabular-nums text-muted-foreground">{d.messages || ""}</span>
+                <span className="w-full rounded-t bg-primary/80" style={{ height: `${(d.messages / dayMax) * 64}px`, minHeight: d.messages ? 3 : 1 }} />
+                <span className="text-[10px] text-muted-foreground">
+                  {new Date(`${d.date}T00:00:00`).toLocaleDateString("en-US", { weekday: "narrow" })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <p className="text-xs text-muted-foreground">Only messages count toward your limit; tools are shown for reference.</p>
+    </div>
+  )
+}
+
+function UsageDialogLink() {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="underline underline-offset-2">See usage</button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>AI usage</DialogTitle>
+            <DialogDescription>Your limits and what your AI use went on.</DialogDescription>
+          </DialogHeader>
+          <AiUsageBars bucketKey="tutor" showLabel={false} />
+          <AiUsageBreakdown className="mt-2 border-t pt-4" />
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
