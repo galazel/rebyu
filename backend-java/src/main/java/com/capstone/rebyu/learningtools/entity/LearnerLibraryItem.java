@@ -50,6 +50,10 @@ public class LearnerLibraryItem {
     @Column(name = "resource_url", length = 1000)
     private String resourceUrl;
 
+    /** The saved content itself, for items that have no page of their own (a tutor mind map's JSON). */
+    @Column(columnDefinition = "text")
+    private String content;
+
     @Column(name = "created_at", nullable = false)
     @Builder.Default
     private OffsetDateTime createdAt = OffsetDateTime.now();

@@ -35,7 +35,7 @@ def test_an_earlier_question_keeps_its_quote():
 async def _run(monkeypatch, **kwargs):
     seen = {}
 
-    async def fake_stream(messages, *, task):
+    async def fake_stream(messages, *, task, tools=None):
         seen["task"], seen["messages"] = task, messages
         yield "It shows"
 
@@ -94,7 +94,7 @@ def test_the_current_quoted_question_is_not_repeated_as_an_earlier_turn():
 async def test_an_unreadable_picture_still_gets_an_answer(monkeypatch):
     calls = []
 
-    async def flaky_stream(messages, *, task):
+    async def flaky_stream(messages, *, task, tools=None):
         calls.append(task)
         if task == tasks.TUTOR_VISION:
             raise RuntimeError("413 Request too large")

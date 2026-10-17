@@ -5,6 +5,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from app.agents.tutor.tutor_agent import get_query_agent
 
 from app.ai import tasks
+from app.ai.tutor_widgets import describe
 from app.domain.tutor_resources import asks_for_resources, find_resources
 from app.ai.invocation import structured
 from app.ai.router import ainvoke_with_fallback
@@ -151,10 +152,11 @@ def _earlier_turns(state: TutorState) -> list:
     def human(m):
         return HumanMessage(content=asked(m))
 
-    return [
-        human(m) if m.type == "human" else AIMessage(content=m.content)
-        for m in history[-RECENT_TURNS:]
-    ]
+    def ai(m):
+        widgets = (m.additional_kwargs or {}).get("widgets")
+        return AIMessage(content=f"{m.content}\n\n{describe(widgets)}".strip() if widgets else m.content)
+
+    return [human(m) if m.type == "human" else ai(m) for m in history[-RECENT_TURNS:]]
 
 
 def should_summarize(state: TutorState):

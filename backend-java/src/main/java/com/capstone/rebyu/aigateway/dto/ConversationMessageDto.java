@@ -18,4 +18,7 @@ public class ConversationMessageDto {
 
     private List<Map<String, Object>> resources;
     private Map<String, Object> snippet;
+
+    /** Interactive pieces the tutor drew with its tools (quiz, table, mind map...). */
+    private List<Map<String, Object>> widgets;
 }

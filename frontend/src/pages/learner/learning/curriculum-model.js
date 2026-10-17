@@ -131,7 +131,9 @@ export function buildCurriculum({
           completed,
           quiz,
           cleared: completed && (!quiz || examStanding(examResults, quiz.examId).cleared),
-          priorityTag: lessonPriorityById?.get(id) ?? null,
+          // Every lesson gets a tag once mastery has loaded: one with no
+          // priority row has simply not been assessed yet.
+          priorityTag: lessonPriorityById ? lessonPriorityById.get(id) ?? "UNASSESSED" : null,
         }
       })
 

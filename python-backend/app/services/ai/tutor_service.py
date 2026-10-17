@@ -37,6 +37,8 @@ async def get_conversation(session_id: str):
             entry["resources"] = extra["resources"]
         if extra.get("snippet"):
             entry["snippet"] = extra["snippet"]
+        if extra.get("widgets"):
+            entry["widgets"] = extra["widgets"]
         conversation.append(entry)
     return conversation
 
@@ -112,6 +114,8 @@ async def append_messages(session_id: str, messages: list[dict]):
                 extra["action"] = message["action"]
             if message.get("resources"):
                 extra["resources"] = message["resources"]
+            if message.get("widgets"):
+                extra["widgets"] = message["widgets"]
             to_append.append(AIMessage(content=content, additional_kwargs=extra))
 
     await graph.aupdate_state(

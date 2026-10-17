@@ -60,7 +60,11 @@ TASK_INFO: dict[str, dict] = {
     },
     "tutor": {
         "label": "AI tutor",
-        "usedFor": ["The learner's AI tutor chat inside lessons"],
+        "usedFor": [
+            "The learner's AI tutor chat inside lessons",
+            "Interactive answers drawn with tools: quizzes, flashcards, mind maps, diagrams, math, code, explorers",
+            "Pick a model that supports tool calling; one that does not still answers, in plain text only",
+        ],
         "vision": False,
         "recommended": [
             ("google/gemini-3.5-flash", "Fast, clear explanations"),
@@ -72,7 +76,10 @@ TASK_INFO: dict[str, dict] = {
     },
     "tutor_vision": {
         "label": "AI tutor: pictures",
-        "usedFor": ["The AI tutor explaining a part of the lesson the learner snipped (diagrams, tables)"],
+        "usedFor": [
+            "The AI tutor explaining a part of the lesson the learner snipped (diagrams, tables)",
+            "Can also draw interactive answers with tools when the model supports tool calling",
+        ],
         "vision": True,
         "recommended": [
             ("google/gemini-2.5-flash", "Proven here, cheap vision"),

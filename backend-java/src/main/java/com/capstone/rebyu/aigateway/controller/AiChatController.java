@@ -111,7 +111,7 @@ public class AiChatController {
             generationQuota.record(learnerId, AiGenerationQuotaService.KIND_TUTOR_CHAT);
         }
         storeSnip(request, user);
-        return aiChatService.streamChat(request);
+        return aiChatService.streamChat(request, user.learnerId());
     }
 
     /** The signed-in learner's past chats for one lesson; the prefix is built here, never taken from the client. */

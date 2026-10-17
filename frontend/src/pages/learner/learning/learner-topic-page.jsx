@@ -1220,6 +1220,7 @@ export default function LearnerTopicPage() {
   })
 
   const lessonPriorityById = useMemo(() => {
+    if (!masteryQuery.data) return null
     const map = new Map()
     for (const topic of masteryQuery.data?.lessonPriorities ?? []) {
       if (topic.lessonId != null) map.set(String(topic.lessonId), topic.priorityTag)

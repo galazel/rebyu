@@ -48,10 +48,10 @@ import { Reveal, motion, popIn } from "@/components/motion/rebyu-motion.jsx"
 import { API, base, currentAccessToken } from "@/services/base"
 
 import { AuthedImage } from "@/lib/authed-media.jsx"
-import { generateStudyAid } from "@/services/learnerToolsService.js"
 import { useLearnerEntitlements } from "@/hooks/use-learner-entitlements.js"
 import { ProLockCard } from "@/components/learner/pro-gate.jsx"
 import { TutorDialogue } from "@/components/learner/tutor-dialogue.jsx"
+import { TutorWidgets } from "@/components/learner/tutor-widgets.jsx"
 import { MicButton } from "@/components/learner/mic-button.jsx"
 
 
@@ -111,6 +111,7 @@ async function streamTutorAnswer(body, entry) {
   const decoder = new TextDecoder()
   let buffered = ""
   let resources
+  const widgets = []
   let finished = false
 
   const handle = (block) => {
@@ -135,6 +136,9 @@ async function streamTutorAnswer(body, entry) {
       // The server's guardrails withheld what was streamed; show its safe reply instead.
       entry.text = event.text
       entry.onDelta?.(entry.text)
+    } else if (type === "widget" && event.widget) {
+      widgets.push(event.widget)
+      entry.onWidgets?.([...widgets])
     } else if (type === "resources") {
       resources = event.resources
     } else if (type === "error") {
@@ -157,11 +161,11 @@ async function streamTutorAnswer(body, entry) {
   }
   if (buffered.trim()) handle(buffered)
 
-  if (!entry.text.trim()) {
+  if (!entry.text.trim() && !widgets.length) {
     if (!finished) throw new StreamUnavailable()
     throw new Error("The AI Tutor did not return a response.")
   }
-  return { text: entry.text.trim(), resources }
+  return { text: entry.text.trim(), resources, widgets }
 }
 
 const WAITING_LINES = {
@@ -620,22 +624,23 @@ function GeminiTutorMessage({ message, learnerName, isFirstInGroup, isLastInGrou
             <Bubble
                 variant="secondary"
                 align={isLearner ? "end" : "start"}
-                className={message.action || message.resources?.length ? "!max-w-full" : isLearner ? "!max-w-[85%]" : "!max-w-full"}
+                className={isLearner ? "!max-w-[85%]" : "!w-full !max-w-full"}
             >
               <BubbleContent
                   className={
                     isLearner
                       ? `!rounded-2xl ${tailCorner} !border-0 !bg-rb-feather !px-3.5 !py-2.5 !text-white !shadow-none`
-                      : `!rounded-2xl ${tailCorner} ${message.action || message.resources?.length ? "!w-full" : ""} !border-2 !border-rb-swan !bg-white !px-3.5 !py-2.5 !text-rb-eel !shadow-none`
+                      : "!w-full !rounded-none !border-0 !bg-transparent !p-0 !text-rb-eel !shadow-none"
                   }
               >
                 {isLearner ? <SnippetPreview snippet={message.snippet} onDark /> : null}
-                <div className="text-sm font-medium leading-6 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-extrabold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5">
+                {message.text ? <div className="text-[15px] font-medium leading-7 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_strong]:font-extrabold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {message.text}
                   </ReactMarkdown>
-                </div>
+                </div> : null}
 
+                {!isLearner ? <TutorWidgets widgets={message.widgets} /> : null}
                 {message.action ? <StudyAidActionCard action={message.action} /> : null}
                 {message.resources?.length ? <TutorResources resources={message.resources} /> : null}
               </BubbleContent>
@@ -684,7 +689,6 @@ export function LessonAiTutor({
   const entitlements = useLearnerEntitlements()
   const aiUsage = useAiUsage()
   const tutorExhausted = isBucketExhausted(aiUsage.bucket("tutor"))
-  const studyAidsExhausted = isBucketExhausted(aiUsage.bucket("studyAids"))
   const sessionId = buildTutorSessionId(learnerId, lessonId)
   const tutorLocked = entitlements.isFree
 
@@ -718,6 +722,7 @@ export function LessonAiTutor({
                 text: entry.content,
                 action: entry.action ?? undefined,
                 resources: Array.isArray(entry.resources) ? entry.resources : undefined,
+                widgets: Array.isArray(entry.widgets) && entry.widgets.length ? entry.widgets : undefined,
                 snippet: entry.snippet ?? undefined,
               }))
           )
@@ -841,11 +846,12 @@ export function LessonAiTutor({
           if (error instanceof StreamUnavailable) return askOnce()
           throw error
         })
-        .then(({ text, resources }) => ({
+        .then(({ text, resources, widgets }) => ({
           id: createTutorMessageId("assistant"),
           role: "assistant",
           text,
           resources: Array.isArray(resources) && resources.length ? resources : undefined,
+          widgets: widgets?.length ? widgets : undefined,
           createdAt: Date.now(),
         }))
         .catch((error) => ({
@@ -867,60 +873,6 @@ export function LessonAiTutor({
     sendTutorMessage(draft)
   }
 
-  async function createStudyAid(type) {
-    if (generating || pending) return
-
-    const label = type === "quiz" ? "quiz" : "flashcards"
-    const prompt = `Create a ${label} for this lesson.`
-
-    setMessages((current) => [
-      ...current,
-      {
-        id: createTutorMessageId("learner"),
-        role: "user",
-        text: prompt,
-        createdAt: Date.now(),
-      },
-    ])
-    const promise = generateStudyAid(type, lessonName, Number(lessonId)).then((item) => {
-      // A generation was spent: refresh usage right away.
-      aiUsage.refresh()
-      const isQuiz = type === "quiz"
-      const reply = isQuiz
-        ? "Your practice quiz is ready. It's saved to your Library too, so you can come back to it any time."
-        : "Your flashcard set is ready. It's saved to your Library too, so you can come back to it any time."
-      const action = {
-        kind: type,
-        title: item.title,
-        meta: isQuiz ? "10 questions · practice quiz" : "10 cards · flashcard set",
-        label: isQuiz ? "Take the quiz" : "Study the flashcards",
-        href: item.route,
-      }
-
-      base(AI_TUTOR_APPEND_ENDPOINT, {
-        method: "POST",
-        data: {
-          sessionId: buildTutorSessionId(learnerId, lessonId),
-          messages: [
-            { role: "user", content: prompt },
-            { role: "assistant", content: reply, action },
-          ],
-        },
-      }).catch(() => {
-      })
-
-      return { id: createTutorMessageId("assistant"), role: "assistant", text: reply, action, createdAt: Date.now() }
-    })
-        .catch((error) => ({
-          id: createTutorMessageId("error"),
-          role: "assistant",
-          text: error?.response?.data?.message ?? "The study aid could not be generated.",
-          createdAt: Date.now(),
-        }))
-        .finally(() => entitlements.refetch())
-
-    watch(trackRequest(sessionId, { kind: type, prompt, lessonName, startedAt: Date.now(), promise }))
-  }
 
   function handleKeyDown(event) {
     if (
@@ -1305,26 +1257,12 @@ export function LessonAiTutor({
                     <DropdownMenuSeparator />
                   </>
                 ) : null}
-                <DropdownMenuLabel>
-                  <span className="block text-sm font-bold text-rb-eel">Create with AI</span>
-                  <span className="mt-0.5 block text-xs font-medium text-rb-wolf">Generated items are saved to Library.</span>
-                  <AiUsageBars bucketKey="studyAids" showLabel={false} className="mt-2 font-normal" />
+                <DropdownMenuLabel className="font-normal">
+                  {/* Every AI task here -- chat, guided dialogue, and the quizzes,
+                      flashcards and mind maps the tutor makes -- is a tutor message. */}
+                  <span className="mb-2 block text-sm font-bold text-rb-eel">AI usage</span>
+                  <AiUsageBars bucketKey="tutor" showLabel={false} />
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={() => createStudyAid("quiz")}
-                  disabled={Boolean(generating) || studyAidsExhausted}
-                >
-                  <BookOpenCheck className="mr-2 size-4" />
-                  <span className="flex-1">Generate quiz</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={() => createStudyAid("flashcard")}
-                  disabled={Boolean(generating) || studyAidsExhausted}
-                >
-                  <Layers3 className="mr-2 size-4" />
-                  <span className="flex-1">Generate flashcards</span>
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <textarea

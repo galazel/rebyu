@@ -35,10 +35,17 @@ public class LearnerToolsController {
     private final GeneratedAssessmentService generatedAssessmentService;
     private final StudyPracticeService studyPracticeService;
     private final ObjectMapper objectMapper;
+    private final com.capstone.rebyu.learningtools.service.TutorLibraryService tutorLibrary;
 
     public record StudyAidRequest(String type, String lessonName, Long lessonId, String requestId) {}
 
     /** Daily and weekly usage of each limited AI feature, with reset times. */
+    /** A mind map the AI tutor drew and saved to the learner's Library. */
+    @GetMapping("/library/mind-maps/{id}")
+    public Map<String, Object> mindMap(@AuthenticationPrincipal Jwt jwt, @PathVariable Long id) throws Exception {
+        return tutorLibrary.mindMap(me(jwt), id);
+    }
+
     @GetMapping("/ai-usage")
     public List<com.capstone.rebyu.billing.service.AiGenerationQuotaService.BucketUsage> aiUsage(
             @AuthenticationPrincipal Jwt jwt) {
