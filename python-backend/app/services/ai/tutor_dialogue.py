@@ -90,13 +90,76 @@ class DialogueTurn(BaseModel):
         return [] if value is None else value
 
 
+# The rubric every Dialogue is judged by. The learner sees it before starting and
+# the summary scores each criterion, so feedback and grades follow the same rules.
+RUBRIC = [
+    {
+        "key": "accuracy",
+        "criterion": "Accuracy",
+        "levels": [
+            "Answers are mostly wrong, missing, or 'I don't know'.",
+            "Some answers are right, but key facts or results are wrong.",
+            "Answers are correct, with at most minor slips.",
+            "Every answer is correct and precise.",
+        ],
+    },
+    {
+        "key": "understanding",
+        "criterion": "Understanding",
+        "levels": [
+            "No explanation of why; answers are guesses or recall without meaning.",
+            "Explains some ideas, but the reasoning is vague or partly wrong.",
+            "Explains why in their own words for most questions.",
+            "Explains clearly, connects ideas and could teach them to someone else.",
+        ],
+    },
+    {
+        "key": "terminology",
+        "criterion": "Use of lesson terms",
+        "levels": [
+            "Does not use the lesson's terms, or uses them wrongly.",
+            "Uses a few terms, some loosely or incorrectly.",
+            "Uses the lesson's terms correctly.",
+            "Uses the terms precisely and naturally, including the exact definitions.",
+        ],
+    },
+    {
+        "key": "application",
+        "criterion": "Application",
+        "levels": [
+            "Cannot apply the ideas to a question or example.",
+            "Applies ideas only with help or to the simplest cases.",
+            "Applies the ideas correctly to the questions asked.",
+            "Applies the ideas to new or tricky cases and checks the result.",
+        ],
+    },
+]
+LEVEL_NAMES = ["Beginning", "Developing", "Proficient", "Excellent"]
+
+
+def rubric_text() -> str:
+    lines = []
+    for item in RUBRIC:
+        lines.append(f"{item['criterion']} ({item['key']}):")
+        for number, (name, descriptor) in enumerate(zip(LEVEL_NAMES, item["levels"]), 1):
+            lines.append(f"  {number} {name}: {descriptor}")
+    return "\n".join(lines)
+
+
+class RubricScore(BaseModel):
+    key: str = Field(description="The criterion key: accuracy, understanding, terminology or application.")
+    level: int = Field(description="1 Beginning, 2 Developing, 3 Proficient or 4 Excellent, by the rubric descriptors.")
+    evidence: str = Field(default="", description="One short sentence quoting or citing what the learner actually said.")
+
+
 class DialogueSummary(BaseModel):
     overview: str = Field(description="One sentence describing what the session covered and how the learner did, addressed as 'you'.")
     strengths: list[str] = Field(description="2 short, specific things the learner showed they understand (one sentence each).")
     improvements: list[str] = Field(description="1-2 short, actionable areas to work on, tied to the lesson (one sentence each).")
     closing: str = Field(default="Keep up the good work!", description="One short encouraging sentence.")
+    rubric: list[RubricScore] = Field(default_factory=list, description="One score per rubric criterion, all four.")
 
-    @field_validator("strengths", "improvements", mode="before")
+    @field_validator("strengths", "improvements", "rubric", mode="before")
     @classmethod
     def _listify(cls, value: Any) -> Any:
         return [] if value is None else value
@@ -138,6 +201,9 @@ class DialogueResponse(BaseModel):
     sessionComplete: bool = False
     summary: DialogueSummary | None = None
     counted: bool = True
+    rubric: list[dict] = Field(default_factory=lambda: [
+        {"key": item["key"], "criterion": item["criterion"], "levels": item["levels"]} for item in RUBRIC
+    ])
 
 
 @cache
@@ -184,7 +250,8 @@ def _spaced(reply: str) -> str:
 def _transcript(history: list[DialogueMessage]) -> str:
     lines = []
     for message in history:
-        who = "TUTOR" if message.role == "tutor" else "LEARNER"
+        who = "TUTOR" if message.role == "tutor" else (
+            "LEARNER (not an answer -- question repeated)" if message.ignored else "LEARNER")
         line = f"{who}: {(message.content or '').strip()[:_MAX_TURN_CHARS]}"
         if message.options:
             line += "\n" + "\n".join(f"  {chr(65 + i)}) {option}" for i, option in enumerate(message.options))
@@ -361,9 +428,11 @@ def _first_sentence(text: str) -> str:
 
 
 _FEEDBACK_RULE = (
-    "First respond to the learner's last answer in 1-2 sentences. If the previous question had one "
+    "First respond to the learner's last answer in 1-2 sentences, judged by the session rubric "
+    "(accuracy, understanding, use of lesson terms, application). If the previous question had one "
     "right answer (multiple choice, true/false, fill in the blank, short answer), say plainly whether "
-    "it was correct; if not, give the correct answer and one sentence why."
+    "it was correct; if not, give the correct answer and one sentence why. For an open answer, name "
+    "what was right and the one thing that would raise it (a missing term, a reason, an example)."
 )
 
 
@@ -463,8 +532,24 @@ async def run_dialogue(request: DialogueRequest, lesson_structure: Any) -> Dialo
     summary: DialogueSummary = await _invoke(_summary_agent, (
         f"The Dialogue covered these parts of the lesson '{request.lessonName}': {'; '.join(topics[1:])}.\n\n"
         f"Transcript:\n{_transcript(request.history)}\n\n"
-        "Write the learner's session summary. Judge only what the learner actually said. Strengths must "
-        "be specific to their answers; improvements must name lesson concepts they got wrong, missed or "
-        "explained loosely."
+        f"RUBRIC:\n{rubric_text()}\n\n"
+        "Write the learner's session summary. Judge only what the learner actually said. Score EVERY "
+        "rubric criterion by its descriptors -- 'I don't know', blank or off-topic replies are evidence "
+        "of level 1, never of a higher level. Strengths must be specific to their answers and match the "
+        "criteria they scored highest on; improvements must name lesson concepts they got wrong, missed "
+        "or explained loosely, tied to their lowest criteria."
     ))
+    summary.rubric = _complete_rubric(summary.rubric)
     return DialogueResponse(topics=topics, topicIndex=len(topics) - 1, sessionComplete=True, summary=summary)
+
+
+def _complete_rubric(scores: list[RubricScore]) -> list[RubricScore]:
+    """Exactly one score per criterion, in rubric order, levels clamped to 1-4;
+    a criterion the model skipped is scored 1 with no evidence rather than dropped."""
+    given = {score.key.strip().lower(): score for score in scores}
+    out = []
+    for item in RUBRIC:
+        score = given.get(item["key"])
+        level = min(4, max(1, score.level)) if score else 1
+        out.append(RubricScore(key=item["key"], level=level, evidence=score.evidence if score else ""))
+    return out

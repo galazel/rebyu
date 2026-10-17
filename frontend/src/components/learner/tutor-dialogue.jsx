@@ -147,13 +147,107 @@ function TutorDot() {
   )
 }
 
-function Summary({ summary }) {
+// What every Dialogue is judged by. The server sends its copy with each turn
+// (`rubric`, from python-backend tutor_dialogue.RUBRIC); this one is shown before
+// the first turn and for sessions saved before rubrics existed.
+const RUBRIC = [
+  { key: "accuracy", criterion: "Accuracy", levels: [
+    "Answers are mostly wrong, missing, or 'I don't know'.",
+    "Some answers are right, but key facts or results are wrong.",
+    "Answers are correct, with at most minor slips.",
+    "Every answer is correct and precise.",
+  ] },
+  { key: "understanding", criterion: "Understanding", levels: [
+    "No explanation of why; answers are guesses or recall without meaning.",
+    "Explains some ideas, but the reasoning is vague or partly wrong.",
+    "Explains why in their own words for most questions.",
+    "Explains clearly, connects ideas and could teach them to someone else.",
+  ] },
+  { key: "terminology", criterion: "Use of lesson terms", levels: [
+    "Does not use the lesson's terms, or uses them wrongly.",
+    "Uses a few terms, some loosely or incorrectly.",
+    "Uses the lesson's terms correctly.",
+    "Uses the terms precisely and naturally, including the exact definitions.",
+  ] },
+  { key: "application", criterion: "Application", levels: [
+    "Cannot apply the ideas to a question or example.",
+    "Applies ideas only with help or to the simplest cases.",
+    "Applies the ideas correctly to the questions asked.",
+    "Applies the ideas to new or tricky cases and checks the result.",
+  ] },
+]
+const LEVELS = ["Beginning", "Developing", "Proficient", "Excellent"]
+const LEVEL_COLOURS = ["bg-rb-cardinal", "bg-rb-fox", "bg-rb-macaw", "bg-rb-feather"]
+
+function RubricGuide({ rubric = RUBRIC }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="rounded-[0.9rem] border-2 border-rb-swan">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
+              className="flex w-full items-center justify-between px-3 py-2 text-left text-sm font-extrabold text-rb-eel">
+        How you'll be assessed
+        <span className="text-xs font-bold text-rb-feather-lip">{open ? "hide rubric" : "view rubric"}</span>
+      </button>
+      {open ? (
+        <div className="space-y-3 border-t-2 border-rb-swan px-3 py-3">
+          {rubric.map((item) => (
+            <div key={item.key}>
+              <p className="text-sm font-extrabold text-rb-eel">{item.criterion}</p>
+              <ol className="mt-1 space-y-0.5 text-xs text-rb-wolf">
+                {item.levels.map((text, index) => (
+                  <li key={index}><strong className="text-rb-eel">{index + 1} {LEVELS[index]}:</strong> {text}</li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function RubricScores({ scores, rubric = RUBRIC }) {
+  if (!scores?.length) return null
+  const byKey = Object.fromEntries(rubric.map((item) => [item.key, item]))
+  const total = scores.reduce((sum, score) => sum + (score.level || 0), 0)
+  return (
+    <div className="mt-3 rounded-[0.9rem] bg-white/70 p-3">
+      <p className="flex items-center justify-between font-extrabold">
+        Rubric <span className="text-xs font-bold text-rb-wolf">{total} / {scores.length * 4}</span>
+      </p>
+      <ul className="mt-2 space-y-2.5">
+        {scores.map((score) => {
+          const item = byKey[score.key]
+          const level = Math.min(4, Math.max(1, score.level || 1))
+          return (
+            <li key={score.key}>
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="font-extrabold text-rb-eel">{item?.criterion ?? score.key}</span>
+                <span className="font-bold text-rb-wolf">{level} · {LEVELS[level - 1]}</span>
+              </div>
+              <div className="mt-1 flex gap-1" aria-hidden="true">
+                {LEVELS.map((_, index) => (
+                  <span key={index} className={`h-1.5 flex-1 rounded-full ${index < level ? LEVEL_COLOURS[level - 1] : "bg-rb-swan"}`} />
+                ))}
+              </div>
+              {item ? <p className="mt-1 text-xs text-rb-wolf">{item.levels[level - 1]}</p> : null}
+              {score.evidence ? <p className="mt-0.5 text-xs italic text-rb-eel">“{score.evidence}”</p> : null}
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+function Summary({ summary, rubric }) {
   return (
     <div className="rounded-[1.1rem] border-2 border-rb-feather/40 bg-rb-feather-wash/40 p-4 text-sm leading-relaxed text-rb-eel">
       <p className="mb-2 flex items-center gap-1.5 font-extrabold">
         <Sparkles className="size-4 text-rb-feather-lip" aria-hidden="true" /> Session summary
       </p>
       <p>{summary.overview}</p>
+      <RubricScores scores={summary.rubric} rubric={rubric} />
       {summary.strengths?.length ? (
         <>
           <p className="mt-3 font-extrabold">Strengths</p>
@@ -250,6 +344,7 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
         ...EMPTY,
         topics: result.topics ?? [],
         topicIndex: result.topicIndex ?? 0,
+        rubric: result.rubric,
         history: [{ role: "tutor", content: result.reply, format: result.format, options: result.options ?? [] }],
       })
     } catch (error) {
@@ -268,13 +363,18 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
     setBusy("reply")
     try {
       const result = await call("reply", withAnswer)
+      const history = result.counted === false
+        ? withAnswer.history.map((message, index) =>
+            index === withAnswer.history.length - 1 ? { ...message, ignored: true } : message)
+        : withAnswer.history
       const next = {
         ...withAnswer,
+        rubric: result.rubric ?? withAnswer.rubric,
         topics: result.topics?.length ? result.topics : withAnswer.topics,
         topicIndex: result.topicIndex ?? withAnswer.topicIndex,
         complete: Boolean(result.sessionComplete),
         history: [
-          ...withAnswer.history,
+          ...history,
           { role: "tutor", content: result.reply, format: result.format, options: result.options ?? [] },
         ],
       }
@@ -367,6 +467,7 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
             <p className="text-rb-wolf">
               It takes about 10 minutes. Stuck? Just type <strong>hint</strong>.
             </p>
+            <RubricGuide />
             <TactileButton variant="feather" onClick={start} disabled={busy === "start"}>
               {busy === "start" ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
               {pastSessions.length ? "start a new dialogue" : "start dialogue"}
@@ -416,7 +517,7 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
               message.role === "tutor" ? (
                 <div key={index} className="flex items-start gap-2.5">
                   <TutorDot />
-                  <div className="min-w-0 max-w-[88%] rounded-[1.1rem] rounded-tl-md border-2 border-rb-swan bg-white px-3.5 py-2.5 text-sm leading-relaxed text-rb-eel">
+                  <div className="min-w-0 flex-1 pt-0.5 text-[15px] leading-7 text-rb-eel">
                     {FORMAT_LABEL[message.format] ? (
                       <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-wide text-rb-hare">
                         {FORMAT_LABEL[message.format]}
@@ -471,7 +572,7 @@ export function TutorDialogue({ lessonId, lessonName, learnerId, onExit }) {
             ) : null}
             {ended ? (
               <>
-                <Summary summary={live.summary} />
+                <Summary summary={live.summary} rubric={live.rubric} />
                 <p className="text-sm text-rb-wolf">
                   {viewing
                     ? `Past dialogue from ${formatWhen(viewing.completedAt)}.`
