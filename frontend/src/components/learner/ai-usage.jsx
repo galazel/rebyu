@@ -12,8 +12,8 @@ import { getAiUsage, getAiUsageBreakdown } from "@/services/learnerToolsService.
 export const AI_USAGE_QUERY_KEY = ["learner-ai-usage"]
 
 /**
- * Daily and weekly usage of each limited AI feature ("tutor" for chat and
- * dialogue, "studyAids" for flashcards and quizzes). Empty for learners whose
+ * Daily and weekly usage of the learner's AI ("tutor": chat, guided dialogue
+ * and the tools the tutor uses). Empty for learners whose
  * plan has no AI access.
  */
 export function useAiUsage() {
@@ -102,7 +102,24 @@ export function AiUsageBars({ bucketKey, showLabel = true, className = "" }) {
  *  dialogue, and the quizzes, flashcards and mind maps the tutor makes -- is a
  *  tutor message. */
 export function AiUsageSummary({ className = "" }) {
-  const { bucket } = useAiUsage()
+  const { bucket, isLoading } = useAiUsage()
+  if (isLoading) {
+    // Same footprint as the loaded card, so the page does not jump when it arrives.
+    return (
+      <div className={`rounded-md border bg-muted/20 p-4 ${className}`} aria-busy="true">
+        <p className="text-sm font-semibold text-foreground">AI usage</p>
+        <div className="mt-3 space-y-4">
+          {[0, 1].map((i) => (
+            <div key={i} className="space-y-2">
+              <div className="h-3.5 w-1/3 animate-pulse rounded bg-muted" />
+              <div className="h-2 animate-pulse rounded-full bg-muted" />
+              <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
   if (!bucket("tutor")) return null
   return (
     <div className={`rounded-md border bg-muted/20 p-4 ${className}`}>

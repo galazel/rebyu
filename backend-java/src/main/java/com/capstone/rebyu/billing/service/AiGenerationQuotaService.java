@@ -101,7 +101,9 @@ public class AiGenerationQuotaService {
         if (!entitlements.getEffectiveEntitlements(learnerId, null).features().contains(Entitlements.AI_TUTOR)) {
             return List.of();
         }
-        return List.of(usage(learnerId, Bucket.TUTOR), usage(learnerId, Bucket.STUDY_AIDS));
+        // Only the tutor bucket: every learner AI task is a tutor message now, and each
+        // bucket costs ~8 database round trips. STUDY_AIDS is still enforced on generate.
+        return List.of(usage(learnerId, Bucket.TUTOR));
     }
 
     @Transactional(readOnly = true)
