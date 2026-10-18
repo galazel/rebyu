@@ -119,7 +119,7 @@ export function DashboardBoard({ tiles, layout, editing = false, onLayoutChange 
         if (!tile) return null
 
         return (
-          <div key={item.i} className="min-w-0">
+          <div key={item.i} id={item.i} className="min-w-0">
             {tile.element}
 
             {editing ? (

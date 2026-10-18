@@ -19,3 +19,4 @@ python-backend/scripts/fe_papers/rendered/
 python-backend/scripts/fe_papers/parsed/
 python-backend/scripts/finetune_dataset/out/
 python-backend/scripts/fe_papers/parsed_quarantine/
+frontend/dept_head_checklist_update.md
