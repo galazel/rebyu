@@ -9,6 +9,7 @@ import {
   ClipboardListIcon,
   Download,
   GraduationCap,
+  History,
   Layers,
   MailIcon,
   Plus,
@@ -47,6 +48,11 @@ import {
   DepartmentAlertStrip,
   useDepartmentAlerts,
 } from "@/components/institution/department-alert-strip.jsx"
+import {
+  PeriodComparisonTile,
+  PeriodDeltaBadge,
+  usePeriodComparison,
+} from "@/components/institution/department-period-comparison.jsx"
 import { isInstitutionOwner, useAuth } from "@/context/auth-context.jsx"
 import { DateRangeNavigator } from "@/components/commons/date-range-navigator.jsx"
 import { DashboardRearrangeControls } from "@/components/commons/dashboard-rearrange-controls.jsx"
@@ -187,20 +193,28 @@ function DashboardCardHeader({
   )
 }
 
-function StatBox({ label, value, icon: Icon, iconClass = "", alert = false }) {
+function StatBox({ label, value, icon: Icon, iconClass = "", alert = false, delta = null, subtext = null }) {
   return (
     <div className="rounded-lg border border-border/70 bg-muted/30 p-2.5">
       <div className="flex items-center justify-between gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         <span className="truncate">{label}</span>
         {Icon ? <Icon className={`size-3.5 shrink-0 ${iconClass}`} aria-hidden="true" /> : null}
       </div>
-      <div
-        className={`mt-1.5 font-rb-display text-lg font-bold tabular-nums ${
-          alert ? "text-rb-fox-lip" : "text-foreground"
-        }`}
-      >
-        {value}
+      <div className="mt-1.5 flex items-baseline justify-between gap-1">
+        <div
+          className={`font-rb-display text-lg font-bold tabular-nums ${
+            alert ? "text-rb-fox-lip" : "text-foreground"
+          }`}
+        >
+          {value}
+        </div>
+        {delta}
       </div>
+      {subtext ? (
+        <div className="mt-0.5 text-[10px] text-muted-foreground tabular-nums truncate">
+          {subtext}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -211,6 +225,7 @@ export default function DepartmentHeadDashboardPage() {
   const chartTheme = useChartTheme()
   const layout = useDashboardLayout("department-head")
   const [range, setRange] = useState(null)
+  const [comparisonType, setComparisonType] = useState("previous_period")
   const from = isoDate(range?.from)
   const to = isoDate(range?.to)
 
@@ -225,6 +240,13 @@ export default function DepartmentHeadDashboardPage() {
     queryFn: () => getInstitutionLearningStats({ from, to }),
     placeholderData: (previous) => previous,
     retry: 1,
+  })
+
+  const periodComp = usePeriodComparison({
+    range,
+    enabled: true,
+    comparisonType,
+    currentStats: statsQuery.data,
   })
 
   const hardestTopics = statsQuery.data?.hardestTopics ?? []
@@ -597,6 +619,33 @@ export default function DepartmentHeadDashboardPage() {
         ],
       },
       {
+        title: `Period-over-period comparison (${periodComp.comparisonRange.current.fromStr} to ${periodComp.comparisonRange.current.toStr} vs ${periodComp.comparisonRange.previous.fromStr} to ${periodComp.comparisonRange.previous.toStr})`,
+        columns: ["Metric", "Current Period", "Baseline Period", "Delta", "Direction"],
+        rows: [
+          ["Average progress (%)", periodComp.deltas.averageProgress.current, periodComp.deltas.averageProgress.previous, periodComp.deltas.averageProgress.formattedDelta, periodComp.deltas.averageProgress.delta >= 0 ? "Favorable" : "Unfavorable"],
+          ["Pass rate (%)", periodComp.deltas.passRate.current, periodComp.deltas.passRate.previous, periodComp.deltas.passRate.formattedDelta, periodComp.deltas.passRate.delta >= 0 ? "Favorable" : "Unfavorable"],
+          ["Average score (%)", periodComp.deltas.averageScore.current, periodComp.deltas.averageScore.previous, periodComp.deltas.averageScore.formattedDelta, periodComp.deltas.averageScore.delta >= 0 ? "Favorable" : "Unfavorable"],
+          ["Graded attempts", periodComp.deltas.gradedAttempts.current, periodComp.deltas.gradedAttempts.previous, periodComp.deltas.gradedAttempts.formattedDelta, periodComp.deltas.gradedAttempts.delta >= 0 ? "Increased" : "Decreased"],
+          ["Lessons completed", periodComp.deltas.lessonsCompleted.current, periodComp.deltas.lessonsCompleted.previous, periodComp.deltas.lessonsCompleted.formattedDelta, periodComp.deltas.lessonsCompleted.delta >= 0 ? "Increased" : "Decreased"],
+          ["Active students", periodComp.deltas.activeMembers.current, periodComp.deltas.activeMembers.previous, periodComp.deltas.activeMembers.formattedDelta, periodComp.deltas.activeMembers.delta >= 0 ? "Increased" : "Decreased"],
+        ],
+      },
+      {
+        title: "Programme period comparison",
+        columns: ["Programme", "Current Pass Rate (%)", "Baseline Pass Rate (%)", "Delta Pass Rate", "Current Avg Score (%)", "Baseline Avg Score (%)", "Delta Score", "Current Attempts", "Baseline Attempts"],
+        rows: periodComp.certificationsComparison.map((c) => [
+          c.title,
+          c.currentPassRate,
+          c.prevPassRate,
+          c.deltaPassRate > 0 ? `+${c.deltaPassRate}%` : `${c.deltaPassRate}%`,
+          c.currentAvgScore,
+          c.prevAvgScore,
+          c.deltaAvgScore > 0 ? `+${c.deltaAvgScore}%` : `${c.deltaAvgScore}%`,
+          c.currentAttempts,
+          c.prevAttempts,
+        ]),
+      },
+      {
         title: "Programmes",
         columns: [
           "Programme", "Enrolled", "Passed", "In progress", "Not started",
@@ -728,18 +777,21 @@ export default function DepartmentHeadDashboardPage() {
                     value={count(deptLearners.length)}
                     icon={UsersRoundIcon}
                     iconClass="text-sky-600 dark:text-sky-400"
+                    delta={<PeriodDeltaBadge delta={periodComp.deltas.activeMembers.delta} size="xs" />}
                   />
                   <StatBox
                     label="Pass Rate"
                     value={failed ? "—" : percent(summary.passRate)}
                     icon={CheckCheck}
                     iconClass="text-emerald-600 dark:text-emerald-400"
+                    delta={<PeriodDeltaBadge delta={periodComp.deltas.passRate.delta} unit="%" size="xs" />}
                   />
                   <StatBox
                     label="Avg Score"
                     value={failed ? "—" : percent(summary.averageScore)}
                     icon={TargetIcon}
                     iconClass="text-amber-600 dark:text-amber-400"
+                    delta={<PeriodDeltaBadge delta={periodComp.deltas.averageScore.delta} unit="%" size="xs" />}
                   />
                   <StatBox
                     label="Needs Support"
@@ -763,11 +815,14 @@ export default function DepartmentHeadDashboardPage() {
                     </>
                   ) : null}
                 </span>
-                <span>
+                <span className="flex items-center gap-1.5">
                   <strong className="text-foreground tabular-nums">
                     {failed ? "—" : count(summary.gradedAttempts)}
                   </strong>{" "}
                   graded attempts
+                  {periodComp.deltas.gradedAttempts.delta !== 0 ? (
+                    <PeriodDeltaBadge delta={periodComp.deltas.gradedAttempts.delta} size="xs" />
+                  ) : null}
                 </span>
               </div>
             </div>
@@ -1053,6 +1108,27 @@ export default function DepartmentHeadDashboardPage() {
               )}
             </div>
           </BentoTile>
+        ),
+      },
+      // Period-over-period comparison using /learning-stats?from=&to=
+      {
+        id: "dept-period-comparison",
+        col: 6,
+        row: 3,
+        x: 0,
+        y: 11,
+        element: (
+          <PeriodComparisonTile
+            comparisonRange={periodComp.comparisonRange}
+            deltas={periodComp.deltas}
+            certificationsComparison={periodComp.certificationsComparison}
+            learnerMomentum={periodComp.learnerMomentum}
+            insights={periodComp.insights}
+            comparisonType={comparisonType}
+            onComparisonTypeChange={setComparisonType}
+            isLoading={periodComp.isLoading}
+            isError={periodComp.isError}
+          />
         ),
       },
       // Section management & cohort breakdown
@@ -1530,6 +1606,14 @@ export default function DepartmentHeadDashboardPage() {
     activeHeadAssignments,
     pendingHeadInvitations,
     overviewGroup,
+    periodComp.deltas,
+    periodComp.certificationsComparison,
+    periodComp.learnerMomentum,
+    periodComp.insights,
+    periodComp.comparisonRange,
+    periodComp.isLoading,
+    periodComp.isError,
+    comparisonType,
   ])
 
   if (departmentsQuery.isLoading) return <InstitutionLoadingSkeleton />
@@ -1540,11 +1624,32 @@ export default function DepartmentHeadDashboardPage() {
     <div className="space-y-6">
       {/* Controls & Header Navigation (2A) */}
       <div className="relative z-30 flex flex-wrap items-center justify-between gap-4 mb-2.5">
-        <div className="w-full md:w-[calc(50%-10px)]">
+        <div className="w-full md:w-[calc(50%-10px)] flex flex-wrap items-center gap-2">
           <DateRangeNavigator className="w-full" onRangeChange={setRange} />
         </div>
 
         <div className="ml-auto flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const el = document.getElementById("dept-period-comparison")
+              if (el) el.scrollIntoView({ behavior: "smooth", block: "center" })
+            }}
+            className="gap-1.5 h-9"
+            id="dept-header-period-comparison-btn"
+            title="Jump to period comparison analysis"
+          >
+            <History className="size-3.5 text-primary" aria-hidden="true" />
+            <span className="hidden sm:inline">Compare:</span>
+            <span className="font-bold text-xs">
+              {comparisonType === "prior_year" ? "YoY" : "vs Baseline"}
+            </span>
+            {periodComp.deltas.passRate.hasData ? (
+              <PeriodDeltaBadge delta={periodComp.deltas.passRate.delta} unit="%" size="xs" />
+            ) : null}
+          </Button>
+
           <Button
             variant="outline"
             onClick={() => setCoAuthoritiesOpen(true)}
